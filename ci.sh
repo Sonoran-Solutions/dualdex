@@ -15,6 +15,13 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+init_submodules() {
+  if [ -d ".git" ] && [ ! -f "native/quickjs/quickjs.c" ]; then
+    echo "== initializing git submodules =="
+    git submodule update --init --recursive || true
+  fi
+}
+
 native_test() {
   echo "== native C test runner =="
   if ! command -v gcc >/dev/null 2>&1 && ! command -v clang >/dev/null 2>&1; then
@@ -32,6 +39,7 @@ gradle_test() {
 
 gradle_build() {
   echo "== gradle assembleDebug =="
+  init_submodules
   ./gradlew assembleDebug
 }
 

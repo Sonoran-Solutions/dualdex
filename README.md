@@ -8,7 +8,7 @@ DualDex reads game state directly from the emulator for supported ROM profiles, 
 
 > **Project status:** DualDex is currently being prepared for its first public beta. The main focus right now is save safety, ROM/version detection, battle-state accuracy, calculator correctness, controller behavior, and release infrastructure. Expect rough edges until the beta checklist is complete.
 
-See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the current release plan and the [open issues](https://github.com/devils-17/dualdex/issues) for known bugs and engineering work.
+See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the current release plan and the [open issues](https://github.com/Sonoran-Solutions/dualdex/issues) for known bugs and engineering work.
 
 ## What DualDex does
 
@@ -106,7 +106,7 @@ The companion itself can be controlled through the Thor's bottom touchscreen.
 ### Clone and build
 
 ```bash
-git clone https://github.com/devils-17/dualdex.git
+git clone https://github.com/Sonoran-Solutions/dualdex.git
 cd dualdex
 
 ./gradlew testDebugUnitTest

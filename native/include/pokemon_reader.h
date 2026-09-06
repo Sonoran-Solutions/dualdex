@@ -22,7 +22,8 @@ typedef enum {
     GAME_SAPPHIRE,
     GAME_GHOST_GREY,     // Custom FireRed binary hack
     GAME_RADICAL_RED,    // CFRU FireRed hack
-    GAME_HEART_AND_SOUL  // pokeemerald-expansion Heart & Soul 2.0
+    GAME_HEART_AND_SOUL, // pokeemerald-expansion Heart & Soul 2.0
+    GAME_UNBOUND         // CFRU FireRed hack (Pokemon Unbound)
 } GbaGameId;
 
 /**

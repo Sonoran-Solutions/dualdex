@@ -83,7 +83,7 @@ Create a new file in `app/src/main/assets/profiles/<your_hack_id>.json`:
 | `id` | String | Unique lowercase identifier (e.g. `ghost_grey`, `radical_red`). |
 | `name` | String | User-facing display title. |
 | `baseGame` | String | Base ROM name (`FireRed`, `Emerald`, `Ruby`, `Sapphire`). |
-| `gameId` | Integer | Internal engine ID (`0` = Emerald, `1` = FireRed, `5` = Radical Red, `6` = Ghost Grey). |
+| `gameId` | Integer | Internal engine ID (`1` = Emerald, `2` = FireRed, `6` = Ghost Grey, `7` = Radical Red, `8` = Heart & Soul, `9` = Unbound). |
 | `engine` | String | Engine used (`Vanilla`, `HexManiacAdvance`, `CFRU`, `decomp`). |
 | `hasEvs` | Boolean | Set `false` if the hack removes Effort Values (e.g. Ghost Grey). Hides EV displays. |
 | `hasIvs` | Boolean | Set `false` if Individual Values are removed or normalized. |

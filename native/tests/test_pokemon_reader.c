@@ -70,6 +70,23 @@ static void pack_and_encrypt(
     }
 }
 
+// Helper: pack substructures in fixed GAEM order (Unbound/CFRU), unencrypted,
+// with a zeroed checksum — exactly how Unbound stores party mons in EWRAM.
+static void pack_cfru_fixed(
+    const uint8_t* g_block,
+    const uint8_t* a_block,
+    const uint8_t* e_block,
+    const uint8_t* m_block,
+    uint8_t* out_subs,
+    uint16_t* out_checksum
+) {
+    memcpy(out_subs + 0,  g_block, 12); // Growth
+    memcpy(out_subs + 12, a_block, 12); // Attacks
+    memcpy(out_subs + 24, e_block, 12); // EVs
+    memcpy(out_subs + 36, m_block, 12); // Misc
+    *out_checksum = 0;                  // CFRU zeroes the checksum word
+}
+
 static void test_text_decoding(void) {
     printf("Running test_text_decoding...\n");
 
@@ -663,6 +680,44 @@ static void test_heart_and_soul_party_and_battle_hp_sync(void) {
     printf(ANSI_GREEN "  [PASS] test_heart_and_soul_party_and_battle_hp_sync" ANSI_RESET "\n");
 }
 
+static void test_unbound_cfru_fixed_substructures(void) {
+    printf("Running test_unbound_cfru_fixed_substructures...\n");
+
+    RawGbaPokemon raw;
+    memset(&raw, 0, sizeof(raw));
+    // pid % 24 == 1 would scramble into "GAME" order under vanilla rules; a
+    // correct Unbound read must ignore that and use the fixed GAEM order.
+    raw.pid = 0x00000001;
+    raw.otid = 0x00000002;
+
+    SubstructGrowth g = {.species = 384, .held_item = 15, .experience = 999999, .friendship = 150};
+    SubstructAttacks a = {.moves = {94, 85, 0, 0}, .pp = {20, 15, 0, 0}};
+    SubstructEVs e = {.hp_ev = 1, .attack_ev = 2, .defense_ev = 3, .speed_ev = 4, .sp_attack_ev = 5, .sp_defense_ev = 6};
+    SubstructMisc m = {.iv_egg_ability = (31U << 0) | (20U << 5) | (15U << 10) | (10U << 15) | (5U << 20)};
+
+    pack_cfru_fixed((uint8_t*)&g, (uint8_t*)&a, (uint8_t*)&e, (uint8_t*)&m,
+                    raw.raw_substructures, &raw.checksum);
+
+    raw.level = 50;
+    raw.max_hp = 150;
+    raw.current_hp = 120;
+    raw.attack = 100; raw.defense = 90; raw.speed = 80; raw.sp_attack = 70; raw.sp_defense = 60;
+
+    ParsedPokemon parsed;
+    bool ok = pokemon_parse_single((const uint8_t*)&raw, true, &parsed);
+
+    TEST_ASSERT(ok, "Unbound fixed-order mon should parse successfully");
+    TEST_ASSERT(parsed.is_valid, "Unbound mon should be valid");
+    TEST_ASSERT(parsed.species == 384, "Species must read from fixed Growth substructure (384)");
+    TEST_ASSERT(parsed.moves[0] == 94 && parsed.moves[1] == 85, "Moves must read from fixed Attacks substructure");
+    TEST_ASSERT(parsed.hp_ev == 1 && parsed.sp_defense_ev == 6, "EVs must read from fixed EVs substructure");
+    TEST_ASSERT(parsed.hp_iv == 31 && parsed.defense_iv == 15 && parsed.sp_attack_iv == 5, "IVs must read from fixed Misc substructure");
+    TEST_ASSERT(parsed.level == 50 && parsed.current_hp == 120 && parsed.max_hp == 150, "Battle stats must read");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_unbound_cfru_fixed_substructures" ANSI_RESET "\n");
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
@@ -676,6 +731,7 @@ int main(void) {
     test_ewram_party_parsing();
     test_ewram_scan_ignores_box_pokemon_and_finds_real_party();
     test_heart_and_soul_party_and_battle_hp_sync();
+    test_unbound_cfru_fixed_substructures();
 
     printf("===================================================\n");
     printf("Results: %d Passed, %d Failed\n", g_tests_passed, g_tests_failed);

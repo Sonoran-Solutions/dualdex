@@ -152,7 +152,9 @@ enum class GbaGame(val id: Int, val title: String) {
     RUBY(4, "Pokemon Ruby"),
     SAPPHIRE(5, "Pokemon Sapphire"),
     GHOST_GREY(6, "Pokemon Ghost Grey"),
-    RADICAL_RED(7, "Pokemon Radical Red");
+    RADICAL_RED(7, "Pokemon Radical Red"),
+    HEART_AND_SOUL(8, "Pokemon Heart & Soul"),
+    UNBOUND(9, "Pokemon Unbound");
 
     companion object {
         fun fromId(id: Int): GbaGame = values().firstOrNull { it.id == id } ?: UNKNOWN

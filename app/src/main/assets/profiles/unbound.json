@@ -1,0 +1,18 @@
+{
+  "id": "unbound",
+  "name": "Pokemon Unbound",
+  "baseGame": "FireRed",
+  "gameId": 9,
+  "developer": "Skeli789",
+  "engine": "CFRU",
+  "hasEvs": true,
+  "hasIvs": true,
+  "hasPhysSpecSplit": true,
+  "steelResistsGhostDark": false,
+  "cfruOffsets": true,
+  "playerPartyOffset": 33702532,
+  "enemyPartyOffset": 33701932,
+  "docsUrl": "https://pokemonunboundpokedex.com/borrius/",
+  "headerTitles": ["UNBOUND", "POKEMON UNBOUND"],
+  "sha256Hashes": []
+}

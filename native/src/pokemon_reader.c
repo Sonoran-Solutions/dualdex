@@ -149,6 +149,17 @@ static const GameMemoryConfig CONFIG_RADICAL_RED = {
     .has_ivs = true
 };
 
+static const GameMemoryConfig CONFIG_UNBOUND = {
+    .game_id = GAME_UNBOUND,
+    .game_name = "Pokemon Unbound",
+    .player_party_offset = 0x24284,
+    .player_party_count_offset = 0x24029,
+    .enemy_party_offset = 0x2402C,
+    .enemy_party_count_offset = 0x24028,
+    .has_evs = true,
+    .has_ivs = true
+};
+
 const char* pokemon_get_nature_name(uint8_t nature_index) {
     if (nature_index < 25) {
         return NATURE_NAMES[nature_index];
@@ -173,6 +184,9 @@ GbaGameId pokemon_detect_game(const char* rom_title_16) {
     if (strstr(title_buf, "RADICAL") != NULL) {
         return GAME_RADICAL_RED;
     }
+    if (strstr(title_buf, "UNBOUND") != NULL) {
+        return GAME_UNBOUND;
+    }
 
     // Check title in ROM header (offset 0xA0)
     if (strncmp(title_buf, "POKEMON EMER", 12) == 0) return GAME_EMERALD;
@@ -194,6 +208,7 @@ const GameMemoryConfig* pokemon_get_game_config(GbaGameId game_id) {
         case GAME_SAPPHIRE: return &CONFIG_SAPPHIRE;
         case GAME_GHOST_GREY: return &CONFIG_GHOST_GREY;
         case GAME_RADICAL_RED: return &CONFIG_RADICAL_RED;
+        case GAME_UNBOUND: return &CONFIG_UNBOUND;
         default: return &CONFIG_FIRERED; // Default fallback
     }
 }

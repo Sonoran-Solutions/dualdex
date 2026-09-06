@@ -77,6 +77,7 @@ DualDex currently includes profiles for:
 - Pokémon Ghost Grey
 - Pokémon Radical Red
 - Pokémon Heart & Soul
+- Pokémon Unbound
 
 Profile presence does **not** currently mean every release of that game or hack is fully verified. Exact-version detection, memory-layout validation, and per-hack calculator accuracy are part of the work being completed before the public beta.
 

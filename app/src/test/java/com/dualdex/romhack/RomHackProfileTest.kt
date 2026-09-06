@@ -46,6 +46,27 @@ class RomHackProfileTest {
         }
     """.trimIndent()
 
+    private val unboundJson = """
+        {
+          "id": "unbound",
+          "name": "Pokemon Unbound",
+          "baseGame": "FireRed",
+          "gameId": 9,
+          "developer": "Skeli789",
+          "engine": "CFRU",
+          "hasEvs": true,
+          "hasIvs": true,
+          "hasPhysSpecSplit": true,
+          "steelResistsGhostDark": false,
+          "cfruOffsets": true,
+          "playerPartyOffset": 33702532,
+          "enemyPartyOffset": 33701932,
+          "docsUrl": "https://pokemonunboundpokedex.com/borrius/",
+          "headerTitles": ["UNBOUND", "POKEMON UNBOUND"],
+          "sha256Hashes": []
+        }
+    """.trimIndent()
+
     @Test
     fun testParseGhostGreyProfile() {
         val profile = ProfileLoader.parseProfile(ghostGreyJson)
@@ -76,6 +97,25 @@ class RomHackProfileTest {
         assertTrue(profile.hasIvs)
         assertTrue(profile.cfruOffsets)
         assertEquals("https://dex.radicalred.net", profile.docsUrl)
+    }
+
+    @Test
+    fun testParseUnboundProfile() {
+        val profile = ProfileLoader.parseProfile(unboundJson)
+        assertEquals("unbound", profile.id)
+        assertEquals("Pokemon Unbound", profile.name)
+        assertEquals("FireRed", profile.baseGame)
+        assertEquals(9, profile.gameId)
+        assertEquals("CFRU", profile.engine)
+        assertTrue(profile.hasEvs)
+        assertTrue(profile.hasIvs)
+        assertTrue(profile.hasPhysSpecSplit)
+        assertFalse(profile.steelResistsGhostDark)
+        assertTrue(profile.cfruOffsets)
+        assertEquals(33702532L, profile.playerPartyOffset)
+        assertEquals(33701932L, profile.enemyPartyOffset)
+        assertEquals("https://pokemonunboundpokedex.com/borrius/", profile.docsUrl)
+        assertEquals(listOf("UNBOUND", "POKEMON UNBOUND"), profile.headerTitles)
     }
 
     private val heartAndSoulJson = """
@@ -118,6 +158,7 @@ class RomHackProfileTest {
         val profiles = listOf(
             ProfileLoader.parseProfile(ghostGreyJson),
             ProfileLoader.parseProfile(radicalRedJson),
+            ProfileLoader.parseProfile(unboundJson),
             RomHackProfile.DEFAULT_FIRERED
         )
 
@@ -136,6 +177,14 @@ class RomHackProfileTest {
 
         val detectedRR = RomHackDetector.detectProfileFromBytes(radRedHeader, profiles = profiles)
         assertEquals("radical_red", detectedRR.id)
+
+        // Mock Unbound header (offset 160: "UNBOUND")
+        val unboundHeader = ByteArray(192)
+        val ubBytes = "UNBOUND".toByteArray(Charsets.US_ASCII)
+        System.arraycopy(ubBytes, 0, unboundHeader, 160, ubBytes.size)
+
+        val detectedUnbound = RomHackDetector.detectProfileFromBytes(unboundHeader, profiles = profiles)
+        assertEquals("unbound", detectedUnbound.id)
 
         // Mock Vanilla FireRed header (offset 160: "POKEMON FIRE")
         val fireRedHeader = ByteArray(192)

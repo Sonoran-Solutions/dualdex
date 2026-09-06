@@ -250,36 +250,48 @@ bool pokemon_parse_single(const uint8_t* raw_bytes, bool is_party_mon, ParsedPok
     uint32_t decrypted_words[12];
     const uint8_t* raw_subs = raw->raw_substructures;
 
-    // Attempt A: Standard GBA encryption (XOR with pid ^ otid)
-    for (int i = 0; i < 12; i++) {
-        uint32_t word = read32_le(raw_subs + (i * 4));
-        decrypted_words[i] = word ^ key;
-    }
-
-    // Checksum verification
-    uint16_t calc_checksum = 0;
-    const uint8_t* dec_u8 = (const uint8_t*)decrypted_words;
-    for (int i = 0; i < 24; i++) {
-        calc_checksum += read16_le(dec_u8 + (i * 2));
-    }
-
-    uint32_t order = raw->pid % 24;
-
-    if (calc_checksum != raw->checksum) {
-        // Attempt B: Unencrypted substructures (key = 0, as in some decompilation hacks)
-        uint16_t raw_checksum = 0;
-        for (int i = 0; i < 24; i++) {
-            raw_checksum += read16_le(raw_subs + (i * 2));
+    // CFRU hacks (Pokemon Unbound, Radical Red) store party substructures in a
+    // FIXED GAEM order and leave the checksum word (offset 0x1C) zeroed — the
+    // value is reused by the CFRU battle engine. Vanilla Gen 3 party mons always
+    // carry a non-zero checksum, so a zero checksum is a reliable CFRU signature:
+    // read the raw substructures directly and skip checksum validation.
+    uint32_t order;
+    if (raw->checksum == 0) {
+        for (int i = 0; i < 12; i++) {
+            decrypted_words[i] = read32_le(raw_subs + (i * 4));
+        }
+        order = 0; // fixed GAEM order: Growth, Attacks, EVs, Misc
+    } else {
+        // Attempt A: Standard GBA encryption (XOR with pid ^ otid)
+        for (int i = 0; i < 12; i++) {
+            decrypted_words[i] = read32_le(raw_subs + (i * 4)) ^ key;
         }
 
-        if (raw_checksum == raw->checksum) {
-            for (int i = 0; i < 12; i++) {
-                decrypted_words[i] = read32_le(raw_subs + (i * 4));
+        // Checksum verification
+        uint16_t calc_checksum = 0;
+        const uint8_t* dec_u8 = (const uint8_t*)decrypted_words;
+        for (int i = 0; i < 24; i++) {
+            calc_checksum += read16_le(dec_u8 + (i * 2));
+        }
+
+        order = raw->pid % 24;
+
+        if (calc_checksum != raw->checksum) {
+            // Attempt B: Unencrypted substructures (key = 0, as in some decompilation hacks)
+            uint16_t raw_checksum = 0;
+            for (int i = 0; i < 24; i++) {
+                raw_checksum += read16_le(raw_subs + (i * 2));
             }
-            calc_checksum = raw_checksum;
-        } else {
-            out->is_valid = false;
-            return false;
+
+            if (raw_checksum == raw->checksum) {
+                for (int i = 0; i < 12; i++) {
+                    decrypted_words[i] = read32_le(raw_subs + (i * 4));
+                }
+                calc_checksum = raw_checksum;
+            } else {
+                out->is_valid = false;
+                return false;
+            }
         }
     }
     out->is_valid = true;

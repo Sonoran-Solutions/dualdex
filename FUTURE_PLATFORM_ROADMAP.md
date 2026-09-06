@@ -1056,3 +1056,241 @@ The current priority remains:
 That work is not separate from the Gen 1–9 vision. It is the foundation for it.
 
 If DualDex gets ROM identity, memory transport, versioned profiles, core ownership, generic snapshots and calculator rules right on GBA, the project can grow generation-by-generation without becoming a collection of unrelated emulator hacks.
+
+---
+
+# Parallel Future Track — Pokémon Champions External Companion Mode
+
+Pokémon Champions creates a fundamentally different opportunity from the emulator integrations above: DualDex would **not own or emulate the game process at all**. The official Android client can remain the authoritative game on one physical display while DualDex runs as a separate companion application on the other.
+
+This should be treated as a parallel post-beta research track rather than part of the Generation 8/9 Switch-emulation sequence.
+
+## Core UX
+
+On dual-display Android hardware such as the AYN Thor:
+
+```text
+TOP DISPLAY
+┌──────────────────────────────────────────┐
+│                                          │
+│       Official Pokémon Champions         │
+│                                          │
+└──────────────────────────────────────────┘
+
+BOTTOM DISPLAY
+┌──────────────────────────────────────────┐
+│               DualDex                    │
+│                                          │
+│ Battle / Calc / Scout / Team / Speed     │
+│ Coverage / Pokédex / Opponent            │
+└──────────────────────────────────────────┘
+```
+
+The first Android-specific requirement is to verify that DualDex can keep a real companion `Activity` alive on the secondary display while Pokémon Champions owns the primary display. The existing `Presentation` approach may not be the right lifecycle primitive for this mode because the main foreground activity belongs to another application.
+
+## Reuse Champions Helper as the data pipeline
+
+The existing `Sonoran-Solutions/Champions-Helper` project should remain a separate research/data-generation project rather than being embedded wholesale into the Android application.
+
+Its Showdown-based ingestion pipeline can generate versioned offline data packs for DualDex containing:
+
+- legal species and forms,
+- moves,
+- abilities,
+- items,
+- type data,
+- regulation legality,
+- Mega information,
+- speed-tier inputs,
+- calculator metadata.
+
+Conceptually:
+
+```text
+Champions-Helper ingestion
+          │
+          ▼
+ChampionsDataPack
+- regulation id
+- species/forms
+- moves
+- abilities
+- items
+- mechanics metadata
+          │
+          ▼
+DualDex Android assets / downloadable data
+```
+
+Do **not** make the Android app depend on the Helper's PostgreSQL + Express runtime. Generate compact versioned assets instead.
+
+Regulations must be treated as first-class versions. A change in the active Champions regulation should select a different data pack rather than require application code changes.
+
+## Live state: visual observation, not cross-app RAM access
+
+The normal GBA path works because DualDex owns mGBA and can read the emulator's memory directly. Pokémon Champions is a separate Android application and normal Android sandboxing prevents DualDex from treating its process memory like an emulator core.
+
+The preferred live-state experiment is therefore:
+
+```text
+Pokémon Champions display
+          │
+          ▼
+Android MediaProjection capture
+          │
+          ▼
+ChampionsVisualStateProvider
+- known UI-region crops
+- OCR where appropriate
+- sprite/icon/template recognition
+- HP-bar estimation
+- confidence scoring
+          │
+          ▼
+Normalized BattleSnapshot
+          │
+          ▼
+DualDex battle / calculator UI
+```
+
+This should remain a **read-only visual companion**. Do not make direct process-memory reading, network interception, APK modification, hidden-information extraction, or gameplay automation part of the design target.
+
+Only information visible or reliably inferable from the player's own game screen should enter the live snapshot. Unrevealed opponent moves, items, EVs, or other hidden state must remain unknown rather than guessed and presented as fact.
+
+## Required architecture refactor
+
+The current companion path should eventually stop depending directly on `LibretroHost` calls inside `CompanionViewModel`.
+
+Introduce a generic source abstraction such as:
+
+```text
+GameStateProvider
+- playerState
+- opponentState
+- battleState
+- confidence / validity metadata
+
+MgbaStateProvider
+- reads emulator memory
+
+ChampionsVisualStateProvider
+- reads captured visual state
+
+FutureRpcStateProvider
+- reads emulator RPC/debug state
+```
+
+The companion UI should consume normalized `PlayerSnapshot`, `PokemonSnapshot`, and `BattleSnapshot` objects regardless of whether the underlying source is emulator RAM, RPC, debugger memory, or computer vision.
+
+This refactor is valuable even if Champions integration ultimately fails because it removes the current assumption that all live data must originate from an in-process libretro core.
+
+## Go / no-go proof of concept
+
+Do **not** port the full Champions Helper UI or begin OCR work first.
+
+The first prototype should do only this:
+
+1. [ ] Detect/install-check the official Pokémon Champions Android package without bundling it.
+2. [ ] Launch or place Pokémon Champions on the Thor primary display.
+3. [ ] Keep a minimal DualDex companion `Activity` active on the secondary display.
+4. [ ] Request normal Android `MediaProjection` screen-capture permission.
+5. [ ] Capture Pokémon Champions frames and display a live thumbnail/debug view in DualDex.
+6. [ ] Confirm the game does not return black/secure frames during team preview and battle.
+7. [ ] Measure CPU/GPU/battery impact at approximately 2–5 analyzed frames per second.
+8. [ ] Verify suspend/resume, focus changes, and dual-display lifecycle behavior.
+
+**Go condition:** DualDex can reliably capture useful Champions frames while both applications remain playable and responsive.
+
+**No-go condition:** Champions consistently blocks capture, the Thor cannot keep both activities usable, or the capture cost materially harms gameplay. If this gate fails, stop rather than escalating into invasive process/network reverse engineering.
+
+## Suggested capability sequence after a successful capture POC
+
+### Champions C0 — Static companion
+
+- [ ] Import generated `ChampionsDataPack` assets.
+- [ ] Champions Pokédex/scout view.
+- [ ] Team builder.
+- [ ] Defensive synergy and offensive coverage analysis.
+- [ ] Speed tiers.
+- [ ] Regulation-aware damage calculator.
+- [ ] Item/ability reference.
+
+This is essentially the useful parts of Champions Helper adapted to DualDex's native companion UI.
+
+### Champions C1 — Team-preview recognition
+
+Team preview is the best first computer-vision target because the layout is relatively stable and the information changes infrequently.
+
+- [ ] Detect the player's six Pokémon.
+- [ ] Detect the opponent's six Pokémon.
+- [ ] Match visible species/forms against `ChampionsDataPack`.
+- [ ] Auto-populate Scout / matchup / coverage views.
+- [ ] Attach confidence to every recognition result.
+- [ ] Allow immediate manual correction when recognition is uncertain.
+
+### Champions C2 — Read-only live battle observation
+
+Add only state that can be derived reliably from visible UI/events:
+
+- [ ] active player Pokémon,
+- [ ] active opponent Pokémon,
+- [ ] approximate/current HP where visually reliable,
+- [ ] visible status conditions,
+- [ ] visible weather/terrain/field indicators,
+- [ ] revealed item/ability events,
+- [ ] substitutions/faints,
+- [ ] battle lifecycle and turn transitions where confidence is high.
+
+A 2–5 Hz analysis loop is likely sufficient; Pokémon battle state does not require per-frame computer vision.
+
+### Champions C3 — Auto-filled battle calculator
+
+Feed verified visual state into the same calculator/battle UI used by other DualDex integrations.
+
+- [ ] Auto-fill attacker/defender species/forms.
+- [ ] Apply visible field conditions.
+- [ ] Show speed comparisons where known.
+- [ ] Show damage ranges based on known data.
+- [ ] Clearly distinguish exact/observed values from assumptions or user-entered values.
+- [ ] Never present guessed hidden opponent information as verified.
+
+## Initial feasibility estimate
+
+| Capability | Estimate |
+|---|---|
+| Champions static Pokédex/team/calculator features | **Very High** |
+| Champions on top + DualDex on bottom | **High** |
+| Team-preview species recognition | **High if capture works** |
+| Active Pokémon / visible battle-state recognition | **Medium-High** |
+| HP/status/field tracking | **Medium-High, UI dependent** |
+| Useful near-real-time `BattleSnapshot` | **Medium-High after incremental validation** |
+| Direct Champions process-memory integration | **Not a normal Android design target** |
+| Hidden-information extraction / automated play | **Out of scope** |
+
+## Product value
+
+If successful, this would broaden DualDex from an emulator-specific companion into a more general **dual-screen Pokémon companion platform**:
+
+```text
+GBA / classic games
+DualDex owns emulation
+        ↓
+Memory-backed GameStateProvider
+
+Pokémon Champions
+Official app owns gameplay
+        ↓
+Visual GameStateProvider
+
+Both
+        ↓
+Shared DualDex companion UI + calculator + data packs
+```
+
+That architectural model could eventually support other external games or emulators where DualDex does not own the game process, provided the integration remains reliable, read-only, and transparent about confidence.
+
+### Research references
+
+- Champions Helper: https://github.com/Sonoran-Solutions/Champions-Helper
+- Android MediaProjection API: https://developer.android.com/media/grow/media-projection
+- Android multi-display/activity launch APIs: https://developer.android.com/reference/android/app/ActivityOptions#setLaunchDisplayId(int)

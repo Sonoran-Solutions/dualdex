@@ -18,7 +18,7 @@ Thank you for your interest in contributing to **DualDex**! This document provid
 ### Building the Project
 ```bash
 # Clone the repository
-git clone https://github.com/dualdex/dualdex.git
+git clone https://github.com/Sonoran-Solutions/dualdex.git
 cd dualdex
 
 # Run native C test suites

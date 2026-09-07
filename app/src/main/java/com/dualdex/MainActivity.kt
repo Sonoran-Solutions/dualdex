@@ -62,6 +62,19 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
     private val openRomLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
+            // OpenDocument grants are transient unless persisted explicitly. Take a
+            // persistable READ permission so this ROM can survive a process kill or
+            // reboot as the "Continue Last Game" target. Some providers refuse
+            // non-persistable grants — log and proceed; a failed resume later clears
+            // the stale target in handleSelectedRom.
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: Exception) {
+                Log.w("DualDex", "Could not take persistable URI permission: ${e.message}")
+            }
             handleSelectedRom(uri)
         }
     }
@@ -218,8 +231,12 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
-    private fun handleSelectedRom(uri: Uri, preferredTitle: String? = null) {
+    private fun handleSelectedRom(uri: Uri, preferredTitle: String? = null, fromContinue: Boolean = false) {
         CoroutineScope(Dispatchers.IO).launch {
+            // True once the URI stream was successfully copied to local storage.
+            // Failures before this point mean the source URI was unusable, which is
+            // exactly when a stale "Continue Last Game" target should be cleared.
+            var romReadLocally = false
             try {
                 // Copy URI stream to a local cache file for Libretro dlopen/fopen access
                 val romsDir = File(filesDir, "roms").apply { if (!exists()) mkdirs() }
@@ -234,10 +251,15 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
                 if (!localRomFile.exists() || localRomFile.length() == 0L || bytesCopied == 0L) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "Failed to read ROM file", Toast.LENGTH_SHORT).show()
+                        if (fromContinue) {
+                            handleStaleContinueTarget(null)
+                        } else {
+                            Toast.makeText(this@MainActivity, "Failed to read ROM file", Toast.LENGTH_SHORT).show()
+                        }
                     }
                     return@launch
                 }
+                romReadLocally = true
 
                 // Detect ROM Hack Profile via SHA-256 and header title
                 val profile = RomHackDetector.detectProfile(localRomFile, loadedProfiles, preferredTitle)
@@ -281,10 +303,44 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Error opening ROM: ${e.message}", Toast.LENGTH_SHORT).show()
+                    if (fromContinue && !romReadLocally) {
+                        handleStaleContinueTarget(e.message)
+                    } else {
+                        Toast.makeText(this@MainActivity, "Error opening ROM: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * Companion play entry point. The Resume button passes the stored
+     * lastPlayedRomUri verbatim, so a URI that no longer exists reaches the
+     * recoverable Continue-failure path. It may also match a ROM listed from a
+     * folder, which is still a safe target to clear on failure. Other URIs are
+     * opened exactly as before.
+     */
+    private fun playStoredOrResumedRom(uri: Uri, title: String) {
+        val fromContinue = settingsManager.lastPlayedRomUri != null && uri.toString() == settingsManager.lastPlayedRomUri
+        handleSelectedRom(uri, title, fromContinue)
+    }
+
+    /**
+     * A resume attempt failed because the stored URI was not readable (ROM deleted,
+     * moved, or access revoked). Notify the user, clear the stale target so it is
+     * never presented indefinitely, and refresh the home screens so the resume card
+     * hides via HomeScreenView.shouldShowResumeCard().
+     */
+    private fun handleStaleContinueTarget(detail: String?) {
+        settingsManager.clearLastPlayedRom()
+        val message = if (detail.isNullOrBlank()) {
+            "Could not resume last game. The ROM may have been moved, deleted, or lost access, so it was removed from Continue."
+        } else {
+            "Could not resume last game (${detail}). It was removed from Continue."
+        }
+        Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+        companionPresentation?.refreshHomeScreen()
+        currentCompanionScreenView?.refreshHomeScreen()
     }
 
     private fun setupDisplays() {
@@ -410,7 +466,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 }
             },
             onPlayRomRequested = { uri: Uri, title: String ->
-                handleSelectedRom(uri, title)
+                playStoredOrResumedRom(uri, title)
             },
             onStretchChanged = { stretch: Boolean ->
                 emulatorView?.setStretchToFit(stretch)
@@ -453,7 +509,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                     }
                 },
                 onPlayRomRequested = { uri: Uri, title: String ->
-                    handleSelectedRom(uri, title)
+                    playStoredOrResumedRom(uri, title)
                 },
                 onStretchChanged = { stretch: Boolean ->
                     emulatorView?.setStretchToFit(stretch)

@@ -63,6 +63,17 @@ class SettingsManager(context: Context) {
             prefs.edit().putString(KEY_LAST_PLAYED_ROM_TITLE, value).apply()
         }
 
+    /**
+     * Removes the persisted "Continue Last Game" target. Called when the stored
+     * URI is no longer usable so the app never keeps presenting a lost target.
+     */
+    fun clearLastPlayedRom() {
+        prefs.edit()
+            .remove(KEY_LAST_PLAYED_ROM_URI)
+            .remove(KEY_LAST_PLAYED_ROM_TITLE)
+            .apply()
+    }
+
     var geminiModel: String
         get() = prefs.getString(KEY_GEMINI_MODEL, "gemini-3.8-flash") ?: "gemini-3.8-flash"
         set(value) {

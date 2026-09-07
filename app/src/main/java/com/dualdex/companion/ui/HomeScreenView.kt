@@ -217,7 +217,7 @@ class HomeScreenView(
     fun updateResumeCard() {
         val lastTitle = settingsManager.lastPlayedRomTitle
         val lastUri = settingsManager.lastPlayedRomUri
-        if (!lastUri.isNullOrBlank() && !lastTitle.isNullOrBlank()) {
+        if (HomeScreenView.shouldShowResumeCard(lastUri, lastTitle)) {
             resumeCard.visibility = View.VISIBLE
             resumeGameLabel.text = lastTitle
         } else {
@@ -332,5 +332,16 @@ class HomeScreenView(
                 setMargins(0, 0, 0, 10)
             }
         }
+    }
+
+    companion object {
+        /**
+         * The Continue card is presented only when both the ROM URI and its title
+         * are stored. A target with a blank URI or title is incomplete and must
+         * not be offered as a game to resume — this contract also guarantees that a
+         * cleared/stale target (both removed) never reappears on the home screen.
+         */
+        fun shouldShowResumeCard(uri: String?, title: String?): Boolean =
+            !uri.isNullOrBlank() && !title.isNullOrBlank()
     }
 }

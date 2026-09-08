@@ -9,27 +9,60 @@
 #   ./ci.sh build    # assemble the debug APK
 #   ./ci.sh all      # test then build (default)
 #
-# Gradle is the authoritative pass/fail for the app; the native runner is a
-# host-toolchain check and is best-effort if a C compiler is unavailable.
+# The contract is deterministic, non-interactive, and fail-closed: every
+# authoritative check is required. A missing host C compiler, a missing
+# QuickJS submodule, a failing native test, a failing Gradle test, or a
+# failing build all fail the command with a non-zero exit code.
 
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Resolve a host C compiler: prefer gcc, fall back to clang.
+find_cc() {
+  if command -v gcc >/dev/null 2>&1; then
+    printf 'gcc\n'
+  elif command -v clang >/dev/null 2>&1; then
+    printf 'clang\n'
+  else
+    printf '\n'
+  fi
+}
+
+# QuickJS (native/quickjs) is required only by the native build (assembleDebug).
+# Initialize it fail-closed so a broken submodule checkout cannot silently
+# degrade the build result.
 init_submodules() {
-  if [ -d ".git" ] && [ ! -f "native/quickjs/quickjs.c" ]; then
-    echo "== initializing git submodules =="
-    git submodule update --init --recursive || true
+  if [ -f "native/quickjs/quickjs.c" ]; then
+    return 0
+  fi
+  echo "== initializing git submodules (native/quickjs) =="
+  if ! git submodule update --init --recursive; then
+    echo "error: failed to initialize the native/quickjs submodule (required to build)" >&2
+    return 1
+  fi
+  if [ ! -f "native/quickjs/quickjs.c" ]; then
+    echo "error: native/quickjs/quickjs.c still missing after submodule init" >&2
+    return 1
   fi
 }
 
 native_test() {
   echo "== native C test runner =="
-  if ! command -v gcc >/dev/null 2>&1 && ! command -v clang >/dev/null 2>&1; then
-    echo "  (no host C compiler found; skipping native tests)"
-    return 0
+  local cc
+  cc="$(find_cc)"
+  if [ -z "$cc" ]; then
+    echo "error: no host C compiler (gcc or clang) found; the native test suite is required" >&2
+    return 1
   fi
-  gcc -O2 -I native/include native/src/pokemon_reader.c native/src/pokemon_text.c native/tests/test_pokemon_reader.c -o native/test_runner
-  ./native/test_runner
+
+  mkdir -p native/build
+  "$cc" -O2 \
+    -I native/include \
+    native/src/pokemon_reader.c \
+    native/src/pokemon_text.c \
+    native/tests/test_pokemon_reader.c \
+    -o native/build/test_runner
+  ./native/build/test_runner
 }
 
 gradle_test() {

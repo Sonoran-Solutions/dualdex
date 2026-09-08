@@ -10,8 +10,8 @@
 #   ./ci.sh all      # test then build (default)
 #
 # The contract is deterministic, non-interactive, and fail-closed: every
-# authoritative check is required. A missing host C compiler, a missing
-# QuickJS submodule, a failing native test, a failing Gradle test, or a
+# authoritative check is required. A missing host C compiler, a missing or
+# stale QuickJS submodule, a failing native test, a failing Gradle test, or a
 # failing build all fail the command with a non-zero exit code.
 
 set -euo pipefail
@@ -28,22 +28,24 @@ find_cc() {
   fi
 }
 
-# QuickJS (native/quickjs) is required only by the native build (assembleDebug).
-# Initialize it fail-closed so a broken submodule checkout cannot silently
-# degrade the build result.
+# QuickJS (native/quickjs) is required by the native build (assembleDebug).
+# Check it out at the exact commit recorded by this superproject and fail
+# closed, so a stale or wrong submodule checkout cannot corrupt the build.
 init_submodules() {
-  if [ -f "native/quickjs/quickjs.c" ]; then
-    return 0
-  fi
-  echo "== initializing git submodules (native/quickjs) =="
+  echo "== verifying native/quickjs submodule =="
   if ! git submodule update --init --recursive; then
-    echo "error: failed to initialize the native/quickjs submodule (required to build)" >&2
+    echo "error: failed to initialize/update the native/quickjs submodule (required to build)" >&2
     return 1
   fi
-  if [ ! -f "native/quickjs/quickjs.c" ]; then
-    echo "error: native/quickjs/quickjs.c still missing after submodule init" >&2
+
+  local expected actual
+  expected="$(git rev-parse "HEAD:native/quickjs" 2>/dev/null || true)"
+  actual="$(git -C native/quickjs rev-parse HEAD 2>/dev/null || true)"
+  if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
+    echo "error: native/quickjs is not at the superproject-recorded commit (expected ${expected:-unset}, got ${actual:-unset})" >&2
     return 1
   fi
+  echo "  native/quickjs @ ${actual}"
 }
 
 native_test() {

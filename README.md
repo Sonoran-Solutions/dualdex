@@ -110,9 +110,14 @@ The companion itself can be controlled through the Thor's bottom touchscreen.
 git clone https://github.com/Sonoran-Solutions/dualdex.git
 cd dualdex
 
-./gradlew testDebugUnitTest
-./gradlew assembleDebug
+./ci.sh test     # native C parser tests + Kotlin unit tests
+./ci.sh build    # assemble the debug APK
+./ci.sh all      # test, then build
 ```
+
+`./ci.sh` is the canonical, fail-closed build/test contract and is what GitHub
+Actions runs. The underlying Gradle tasks are `testDebugUnitTest` and
+`assembleDebug`.
 
 The debug APK is written to:
 

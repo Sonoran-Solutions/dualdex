@@ -190,6 +190,9 @@ class CompanionScreenView(
                 layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply {
                     minimumWidth = (48 * context.resources.displayMetrics.density).toInt()
                 }
+                if (tab == CompanionTab.BATTLE && !viewModel.isBattleTabEnabled.value) {
+                    visibility = View.GONE
+                }
                 setOnClickListener {
                     viewModel.selectTab(tab)
                     switchTab(tab)
@@ -207,7 +210,12 @@ class CompanionScreenView(
 
     private var currentTab: CompanionTab = CompanionTab.HOME
     fun switchTab(tab: CompanionTab) {
-        currentTab = tab
+        val targetTab = if (tab == CompanionTab.BATTLE && !viewModel.isBattleTabEnabled.value) {
+            CompanionTab.HOME
+        } else {
+            tab
+        }
+        currentTab = targetTab
         contentContainer.removeAllViews()
 
         val activeView: View = when (tab) {
@@ -369,6 +377,15 @@ class CompanionScreenView(
         scope.launch {
             viewModel.isInBattle.collectLatest {
                 notifyPartyUpdated()
+            }
+        }
+        scope.launch {
+            viewModel.isBattleTabEnabled.collectLatest { enabled ->
+                tabButtons[CompanionTab.BATTLE]?.visibility = if (enabled) View.VISIBLE else View.GONE
+                if (!enabled && currentTab == CompanionTab.BATTLE) {
+                    viewModel.selectTab(CompanionTab.HOME)
+                    switchTab(CompanionTab.HOME)
+                }
             }
         }
         scope.launch {

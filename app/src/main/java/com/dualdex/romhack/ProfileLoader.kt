@@ -98,7 +98,8 @@ object ProfileLoader {
             docsUrl = docsUrl,
             headerTitles = headerTitles,
             sha256Hashes = sha256Hashes,
-            customSpecies = customSpecies
+            customSpecies = customSpecies,
+            isVerified = json.optBoolean("isVerified", true)
         )
     }
 }

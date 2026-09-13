@@ -69,6 +69,12 @@ class SettingsManager(context: Context) {
             prefs.edit().putString(KEY_GEMINI_MODEL, value).apply()
         }
 
+    var isBattleTabEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BATTLE_TAB_ENABLED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_BATTLE_TAB_ENABLED, value).apply()
+        }
+
     companion object {
         private const val KEY_SHADER_FILTER = "key_shader_filter"
         private const val KEY_FAST_FORWARD = "key_fast_forward"
@@ -79,5 +85,6 @@ class SettingsManager(context: Context) {
         private const val KEY_LAST_PLAYED_ROM_URI = "key_last_played_rom_uri"
         private const val KEY_LAST_PLAYED_ROM_TITLE = "key_last_played_rom_title"
         private const val KEY_GEMINI_MODEL = "key_gemini_model"
+        private const val KEY_BATTLE_TAB_ENABLED = "key_battle_tab_enabled"
     }
 }

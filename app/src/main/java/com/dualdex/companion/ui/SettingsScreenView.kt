@@ -338,6 +338,52 @@ class SettingsScreenView(
             addView(openCheatsBtn, lp)
         }
         content.addView(cheatCard)
+
+        // Experimental Features Card
+        val experimentalCard = createCardLayout().apply {
+            val label = TextView(context).apply {
+                text = "🧪 Experimental Features"
+                setTextColor(0xFFFF8844.toInt())
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 0, 0, 6)
+            }
+            addView(label)
+
+            val desc = TextView(context).apply {
+                text = "Toggle early-access development features. Disabled by default."
+                setTextColor(0xFFAAAAAA.toInt())
+                textSize = 12f
+                setPadding(0, 0, 0, 10)
+            }
+            addView(desc)
+
+            var isBattleEnabled = settingsManager.isBattleTabEnabled
+            val toggleBattleBtn = Button(context).apply {
+                fun updateText() {
+                    text = if (isBattleEnabled) "🎮 Battle Console (EBC-1): Enabled" else "🎮 Battle Console (EBC-1): Disabled"
+                    background = GradientDrawable().apply {
+                        cornerRadius = 14f
+                        setColor(if (isBattleEnabled) 0xFF2E6B4A.toInt() else 0xFF3E3E4E.toInt())
+                    }
+                }
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(18, 8, 18, 8)
+                updateText()
+                setOnClickListener {
+                    isBattleEnabled = !isBattleEnabled
+                    settingsManager.isBattleTabEnabled = isBattleEnabled
+                    viewModel.setBattleTabEnabled(isBattleEnabled)
+                    updateText()
+                    Toast.makeText(context, if (isBattleEnabled) "Battle tab enabled" else "Battle tab disabled", Toast.LENGTH_SHORT).show()
+                }
+            }
+            val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+            addView(toggleBattleBtn, lp)
+        }
+        content.addView(experimentalCard)
     }
 
     private fun updateShaderButtons(row: LinearLayout, selected: ShaderFilter) {

@@ -4,6 +4,7 @@ import com.dualdex.calculator.CalcFieldInput
 import com.dualdex.calculator.CalcMoveInput
 import com.dualdex.calculator.CalcPokemonInput
 import com.dualdex.calculator.DamageCalculationRequest
+import com.dualdex.calculator.DamageCalculationResponse
 import com.dualdex.calculator.DamageCalculator
 import com.dualdex.calculator.SideConditions
 import com.dualdex.calculator.StatBlock
@@ -15,19 +16,104 @@ import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.SpeciesDatabase
 import com.dualdex.pokemon.TypeChart
+import com.dualdex.romhack.RomHackProfile
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * Explicit confidence states for game data and presentation attributes.
+ */
+enum class DataConfidence(val displayName: String) {
+    VERIFIED("Verified"),
+    ESTIMATE("Estimate"),
+    UNAVAILABLE("Unavailable")
+}
+
+/**
+ * Explicit confidence/availability model for damage calculations.
+ */
+enum class DamageConfidence(val displayName: String) {
+    VERIFIED("Verified"),
+    ESTIMATE("Estimate"),
+    UNAVAILABLE("Damage unavailable for this ROM/profile")
+}
+
+/**
+ * Injected interface for damage calculations to decouple UI/presentation from JNI and enable
+ * 100% deterministic unit tests on host JVMs.
+ */
+fun interface BattleDamageCalculator {
+    fun calculate(request: DamageCalculationRequest): DamageCalculationResponse
+}
+
+object DefaultBattleDamageCalculator : BattleDamageCalculator {
+    override fun calculate(request: DamageCalculationRequest): DamageCalculationResponse {
+        return runCatching { DamageCalculator.calculate(request) }
+            .getOrElse { DamageCalculationResponse(success = false, error = it.message) }
+    }
+}
+
+class CachingBattleDamageCalculator(
+    private val delegate: BattleDamageCalculator = DefaultBattleDamageCalculator
+) : BattleDamageCalculator {
+    private val cache = ConcurrentHashMap<DamageCalculationRequest, DamageCalculationResponse>()
+
+    override fun calculate(request: DamageCalculationRequest): DamageCalculationResponse {
+        return cache.computeIfAbsent(request) { delegate.calculate(it) }
+    }
+
+    fun clear() {
+        cache.clear()
+    }
+}
 
 enum class EffectivenessLabel(val displayName: String) {
     SUBSTANTIAL("Substantial (2x)"),
     SUPER_EFFECTIVE("Super Effective (4x)"),
     NOT_VERY_EFFECTIVE("Not Very Effective (0.5x)"),
-    EXTREMELY_NOT_EFFECTIVE("Extremely Immune (0.25x)"),
+    EXTREMELY_NOT_EFFECTIVE("Extremely Not Effective (0.25x)"),
     NO_EFFECT("No Effect (0x)"),
     NEUTRAL("Neutral (1x)")
 }
 
 object MoveEffectiveness {
 
-    const val UNAVAILABLE = "Unverified"
+    const val UNAVAILABLE = "Unavailable"
+
+    fun isStatMove(category: MoveCategory?): Boolean = category == MoveCategory.STATUS
+
+    fun categoryForType(type: PokemonType): MoveCategory {
+        return when (type) {
+            PokemonType.NORMAL,
+            PokemonType.FIGHTING,
+            PokemonType.FLYING,
+            PokemonType.POISON,
+            PokemonType.GROUND,
+            PokemonType.ROCK,
+            PokemonType.BUG,
+            PokemonType.GHOST,
+            PokemonType.STEEL -> MoveCategory.PHYSICAL
+
+            PokemonType.FIRE,
+            PokemonType.WATER,
+            PokemonType.GRASS,
+            PokemonType.ELECTRIC,
+            PokemonType.PSYCHIC,
+            PokemonType.ICE,
+            PokemonType.DRAGON,
+            PokemonType.DARK,
+            PokemonType.FAIRY -> MoveCategory.SPECIAL
+        }
+    }
+
+    fun resolveMoveCategory(
+        moveInfo: MoveInfo,
+        profile: RomHackProfile
+    ): MoveCategory? {
+        if (!MoveDatabase.isKnown(moveInfo.id)) return null
+        if (moveInfo.category == MoveCategory.STATUS) return MoveCategory.STATUS
+        if (profile.hasPhysSpecSplit) return moveInfo.category
+        return categoryForType(moveInfo.type)
+    }
 
     fun confidence(
         moveType: PokemonType,
@@ -44,6 +130,37 @@ object MoveEffectiveness {
         return labelFromMultiplier(mult)
     }
 
+    fun evaluate(
+        moveId: Int,
+        category: MoveCategory?,
+        defender: ParsedPokemon?,
+        profile: RomHackProfile
+    ): Pair<EffectivenessLabel?, DataConfidence> {
+        if (moveId <= 0 || !MoveDatabase.isKnown(moveId)) {
+            return null to DataConfidence.UNAVAILABLE
+        }
+        if (isStatMove(category)) {
+            return null to DataConfidence.UNAVAILABLE
+        }
+        if (defender == null || defender.isEmpty || !defender.isValid) {
+            return null to DataConfidence.UNAVAILABLE
+        }
+        val (defT1, defT2) = defenderTypesOf(defender, profile)
+        if (defT1 == null) {
+            return null to DataConfidence.UNAVAILABLE
+        }
+        val moveInfo = MoveDatabase.get(moveId)
+        val label = confidence(moveInfo.type, defT1, defT2, profile.steelResistsGhostDark)
+        val confidence = if (label != null && profile.isVerified) {
+            DataConfidence.VERIFIED
+        } else if (label != null) {
+            DataConfidence.ESTIMATE
+        } else {
+            DataConfidence.UNAVAILABLE
+        }
+        return label to confidence
+    }
+
     fun labelFor(
         moveType: PokemonType,
         defenderType1: PokemonType?,
@@ -51,9 +168,7 @@ object MoveEffectiveness {
         steelResistsGhostDark: Boolean = false
     ): String = confidence(moveType, defenderType1, defenderType2, steelResistsGhostDark)?.displayName ?: UNAVAILABLE
 
-    fun isStatMove(category: MoveCategory): Boolean = category == MoveCategory.STATUS
-
-    private fun labelFromMultiplier(mult: Double): EffectivenessLabel? = when {
+    private fun labelFromMultiplier(mult: Double): EffectivenessLabel = when {
         mult <= 0.0 -> EffectivenessLabel.NO_EFFECT
         mult >= 4.0 -> EffectivenessLabel.SUPER_EFFECTIVE
         mult >= 2.0 -> EffectivenessLabel.SUBSTANTIAL
@@ -62,12 +177,26 @@ object MoveEffectiveness {
         else -> EffectivenessLabel.EXTREMELY_NOT_EFFECTIVE
     }
 
-    fun defenderTypesOf(defender: ParsedPokemon?): Pair<PokemonType?, PokemonType?> {
+    fun defenderTypesOf(defender: ParsedPokemon?, profile: RomHackProfile): Pair<PokemonType?, PokemonType?> {
         if (defender == null || defender.isEmpty || !defender.isValid) return null to null
+        val customOverride = profile.customSpecies[defender.species]
+        if (customOverride != null) {
+            val t1 = PokemonType.fromString(customOverride.type1)
+            val t2 = PokemonType.fromString(customOverride.type2)?.takeIf { it != t1 }
+            return t1 to t2
+        }
+        if (!SpeciesDatabase.isKnown(defender.species)) {
+            return null to null
+        }
         val species = SpeciesDatabase.get(defender.species)
-        val t1 = species?.type1
-        val t2 = species?.type2?.takeIf { it != t1 }
+        val t1 = species.type1
+        val t2 = species.type2?.takeIf { it != t1 }
         return t1 to t2
+    }
+
+    @Deprecated("Use overload with profile")
+    fun defenderTypesOf(defender: ParsedPokemon?): Pair<PokemonType?, PokemonType?> {
+        return defenderTypesOf(defender, RomHackProfile.DEFAULT_FIRERED)
     }
 }
 
@@ -75,41 +204,86 @@ data class MovePresentation(
     val moveId: Int,
     val name: String,
     val typeName: String,
-    val category: MoveCategory,
-    val basePower: Int,
-    val accuracy: Int,
-    val maxPp: Int,
+    val category: MoveCategory?,
+    val basePower: Int?,
+    val accuracy: Int?,
+    val maxPp: Int?,
     val currentPp: Int?,
     val description: String,
     val effectiveness: String,
-    val effectivenessVerified: Boolean,
-    val damageVerified: Boolean,
+    val effectivenessConfidence: DataConfidence,
+    val damageConfidence: DamageConfidence,
     val minDamage: Int,
     val maxDamage: Int,
     val damageRange: List<Int>,
-    val koChanceText: String
+    val koChanceText: String,
+    val isKnown: Boolean = true
 ) {
     val isStatMove: Boolean get() = category == MoveCategory.STATUS
-    val hasDamage: Boolean get() = damageVerified && maxDamage > 0
-    val ppDisplay: String get() = if (currentPp != null) "$currentPp/$maxPp" else "??/$maxPp"
+    val hasDamage: Boolean get() = damageConfidence == DamageConfidence.VERIFIED && maxDamage > 0
+    val effectivenessVerified: Boolean get() = effectivenessConfidence == DataConfidence.VERIFIED
+    val damageVerified: Boolean get() = damageConfidence == DamageConfidence.VERIFIED
+
+    val ppDisplay: String get() = when {
+        maxPp != null && currentPp != null -> "$currentPp/$maxPp"
+        maxPp != null -> "??/$maxPp"
+        currentPp != null -> "$currentPp/—"
+        else -> "??/—"
+    }
+
+    val powerDisplay: String get() = basePower?.takeIf { it > 0 }?.toString() ?: "—"
+    val accuracyDisplay: String get() = accuracy?.takeIf { it > 0 }?.let { "$it%" } ?: "—"
+
+    val categoryDisplay: String get() = when (category) {
+        MoveCategory.PHYSICAL -> "Phys"
+        MoveCategory.SPECIAL -> "Spec"
+        MoveCategory.STATUS -> "Status"
+        null -> "—"
+    }
+
+    val damageDisplayText: String get() = when (damageConfidence) {
+        DamageConfidence.VERIFIED -> {
+            if (maxDamage > 0) {
+                "$minDamage-$maxDamage" + if (koChanceText.isNotBlank()) " · $koChanceText" else ""
+            } else {
+                "0"
+            }
+        }
+        DamageConfidence.ESTIMATE -> {
+            if (maxDamage > 0) {
+                "$minDamage-$maxDamage (Estimate)" + if (koChanceText.isNotBlank()) " · $koChanceText" else ""
+            } else {
+                "Estimate unavailable"
+            }
+        }
+        DamageConfidence.UNAVAILABLE -> "Damage unavailable for this ROM/profile"
+    }
 
     companion object {
         const val UNVERIFIED_LABEL = "Unverified"
+        const val UNAVAILABLE_LABEL = "Damage unavailable for this ROM/profile"
     }
 }
 
 object MovePresentationFactory {
 
     fun descriptionFor(
-        moveInfo: MoveInfo,
+        isKnown: Boolean,
+        moveInfo: MoveInfo?,
+        category: MoveCategory?,
         attackerLevel: Int,
         defenderLevel: Int
     ): String {
+        if (!isKnown || moveInfo == null) {
+            return "Move metadata unavailable for this ROM/profile"
+        }
         val parts = mutableListOf<String>()
-        parts += if (moveInfo.category == MoveCategory.STATUS) {
+        parts += if (category == MoveCategory.STATUS) {
             "Status move (no direct damage)"
+        } else if (category != null) {
+            "Damage via ${category.displayName} stat"
         } else {
-            "Damage via ${moveInfo.category.displayName} stat"
+            "Category unavailable"
         }
         if (moveInfo.power > 0) parts += "BP ${moveInfo.power}"
         if (moveInfo.accuracy > 0) parts += "${moveInfo.accuracy}% acc"
@@ -120,8 +294,8 @@ object MovePresentationFactory {
         return parts.joinToString(" · ")
     }
 
-    fun isAttackerVerified(attacker: ParsedPokemon): Boolean =
-        !attacker.isEmpty && attacker.isValid && attacker.level > 0
+    fun isAttackerVerified(attacker: ParsedPokemon, profile: RomHackProfile): Boolean =
+        ParticipantSummaryBuilder.isParticipantVerified(attacker, profile)
 }
 
 data class BattleParticipantSummary(
@@ -135,7 +309,8 @@ data class BattleParticipantSummary(
     val statNames: List<Pair<String, Int>>,
     val moveNames: List<String>,
     val isVerified: Boolean,
-    val isMissing: Boolean
+    val isMissing: Boolean,
+    val confidence: DataConfidence = if (isVerified) DataConfidence.VERIFIED else DataConfidence.UNAVAILABLE
 ) {
     val hpDisplay: String get() = "$currentHp/$maxHp"
     val isEmpty: Boolean get() = isMissing && !isVerified
@@ -152,21 +327,26 @@ data class BattleParticipantSummary(
             statNames = emptyList(),
             moveNames = emptyList(),
             isVerified = false,
-            isMissing = true
+            isMissing = true,
+            confidence = DataConfidence.UNAVAILABLE
         )
     }
 }
 
 object ParticipantSummaryBuilder {
 
-    fun isAttackerVerified(attacker: ParsedPokemon): Boolean =
-        !attacker.isEmpty && attacker.isValid && attacker.level > 0
+    fun isParticipantVerified(mon: ParsedPokemon, profile: RomHackProfile): Boolean {
+        if (mon.isEmpty || !mon.isValid || mon.level <= 0) return false
+        val isKnown = profile.customSpecies.containsKey(mon.species) || SpeciesDatabase.isKnown(mon.species)
+        if (!isKnown) return false
+        return profile.isVerified
+    }
 
-    fun build(mon: ParsedPokemon?, slot: Int): BattleParticipantSummary {
+    fun build(mon: ParsedPokemon?, slot: Int, profile: RomHackProfile): BattleParticipantSummary {
         if (mon == null || mon.isEmpty || !mon.isValid) {
             return BattleParticipantSummary(
                 slot = slot,
-                displayName = if (mon == null) "?" else (mon.nickname.trim() ?: "?"),
+                displayName = if (mon == null) "?" else mon.nickname.trim().ifEmpty { "?" },
                 speciesName = "?",
                 level = 0,
                 currentHp = 0,
@@ -175,12 +355,34 @@ object ParticipantSummaryBuilder {
                 statNames = emptyList(),
                 moveNames = emptyList(),
                 isVerified = false,
-                isMissing = mon == null
+                isMissing = mon == null,
+                confidence = DataConfidence.UNAVAILABLE
             )
         }
-        val species = SpeciesDatabase.get(mon.species)
-        val displayName = mon.nickname.trim().ifEmpty { species?.name ?: "Mon #$mon.species" }
-        val types = listOfNotNull(species?.type1?.displayName, species?.type2?.takeIf { it != species.type1 }?.displayName)
+        val custom = profile.customSpecies[mon.species]
+        val isKnown = custom != null || SpeciesDatabase.isKnown(mon.species)
+        val verified = isParticipantVerified(mon, profile)
+
+        val speciesName: String
+        val displayName: String
+        val types: List<String>
+
+        if (custom != null) {
+            speciesName = custom.name
+            displayName = mon.nickname.trim().ifEmpty { custom.name }
+            types = listOfNotNull(custom.type1, custom.type2)
+        } else if (SpeciesDatabase.isKnown(mon.species)) {
+            val sp = SpeciesDatabase.get(mon.species)
+            speciesName = sp.name
+            displayName = mon.nickname.trim().ifEmpty { sp.name }
+            types = listOfNotNull(sp.type1.displayName, sp.type2?.takeIf { it != sp.type1 }?.displayName)
+        } else {
+            // Unknown species: do NOT fabricate data or Normal typing!
+            speciesName = "Unknown (#${mon.species})"
+            displayName = mon.nickname.trim().ifEmpty { "Unknown (#${mon.species})" }
+            types = emptyList()
+        }
+
         val stats = listOf(
             "HP" to mon.maxHp,
             "Atk" to mon.attack,
@@ -189,22 +391,37 @@ object ParticipantSummaryBuilder {
             "SpD" to mon.spDefense,
             "Spe" to mon.speed
         )
-        val moves = mon.moves.toList().mapIndexed { i, id ->
-            if (id > 0) MoveDatabase.get(id).name else "—"
+        val moves = mon.moves.toList().map { id ->
+            if (id > 0) {
+                if (MoveDatabase.isKnown(id)) MoveDatabase.get(id).name else "Unknown Move (#$id)"
+            } else {
+                "—"
+            }
+        }
+        val confidence = when {
+            verified -> DataConfidence.VERIFIED
+            isKnown && profile.isVerified -> DataConfidence.ESTIMATE
+            else -> DataConfidence.UNAVAILABLE
         }
         return BattleParticipantSummary(
             slot = slot,
             displayName = displayName,
-            speciesName = species?.name ?: "?",
+            speciesName = speciesName,
             level = mon.level,
             currentHp = mon.currentHp,
             maxHp = mon.maxHp,
             typeNames = types,
             statNames = stats,
             moveNames = moves,
-            isVerified = ParticipantSummaryBuilder.isAttackerVerified(mon),
-            isMissing = false
+            isVerified = verified,
+            isMissing = false,
+            confidence = confidence
         )
+    }
+
+    @Deprecated("Use overload with profile")
+    fun build(mon: ParsedPokemon?, slot: Int): BattleParticipantSummary {
+        return build(mon, slot, RomHackProfile.DEFAULT_FIRERED)
     }
 }
 
@@ -215,46 +432,84 @@ object BattlePresentationBuilder {
         currentPp: Int?,
         attacker: ParsedPokemon,
         defender: ParsedPokemon?,
-        steelResistsGhostDark: Boolean
+        profile: RomHackProfile,
+        calculator: BattleDamageCalculator = DefaultBattleDamageCalculator
     ): MovePresentation {
+        val moveKnown = MoveDatabase.isKnown(moveInfo.id)
         val attackerLevel = attacker.level.coerceAtLeast(1)
         val defenderLevel = defender?.level ?: attackerLevel
-        val (defT1, defT2) = MoveEffectiveness.defenderTypesOf(defender)
-        val label = MoveEffectiveness.confidence(moveInfo.type, defT1, defT2, steelResistsGhostDark)
-        val description = MovePresentationFactory.descriptionFor(moveInfo, attackerLevel, defenderLevel)
-        var verified = false
+
+        val category = if (moveKnown) {
+            MoveEffectiveness.resolveMoveCategory(moveInfo, profile)
+        } else {
+            null
+        }
+
+        val description = MovePresentationFactory.descriptionFor(
+            isKnown = moveKnown,
+            moveInfo = moveInfo.takeIf { moveKnown },
+            category = category,
+            attackerLevel = attackerLevel,
+            defenderLevel = defenderLevel
+        )
+
+        // Evaluate effectiveness
+        val (effLabel, effConfidence) = if (moveKnown) {
+            MoveEffectiveness.evaluate(moveInfo.id, category, defender, profile)
+        } else {
+            null to DataConfidence.UNAVAILABLE
+        }
+
+        // Evaluate damage
+        var damageConfidence = DamageConfidence.UNAVAILABLE
         var minDamage = 0
         var maxDamage = 0
         var range: List<Int> = emptyList()
         var koChance = ""
-        if (label != null && !MoveEffectiveness.isStatMove(moveInfo.category)) {
+
+        val defenderSpeciesKnown = defender != null && !defender.isEmpty && defender.isValid &&
+                (profile.customSpecies.containsKey(defender.species) || SpeciesDatabase.isKnown(defender.species))
+        val attackerSpeciesKnown = !attacker.isEmpty && attacker.isValid &&
+                (profile.customSpecies.containsKey(attacker.species) || SpeciesDatabase.isKnown(attacker.species))
+
+        val canCalculate = moveKnown &&
+                category != MoveCategory.STATUS &&
+                moveInfo.power > 0 &&
+                attackerSpeciesKnown &&
+                defenderSpeciesKnown &&
+                defender != null &&
+                profile.isSupportedVanillaGen3()
+
+        if (canCalculate) {
             val request = buildDamageRequest(attacker, defender, moveInfo.name, attacker.natureName)
-            val response = runCatching { DamageCalculator.calculate(request) }.getOrNull()
-            if (response != null && response.success && response.maxDamage > 0) {
-                verified = true
+            val response = calculator.calculate(request)
+            if (response.success && response.maxDamage > 0) {
+                damageConfidence = DamageConfidence.VERIFIED
                 minDamage = response.minDamage
                 maxDamage = response.maxDamage
                 range = response.range
                 koChance = response.koChanceText
             }
         }
+
         return MovePresentation(
             moveId = moveInfo.id,
-            name = moveInfo.name,
-            typeName = moveInfo.type.displayName,
-            category = moveInfo.category,
-            basePower = moveInfo.power,
-            accuracy = moveInfo.accuracy,
-            maxPp = moveInfo.pp,
+            name = if (moveKnown) moveInfo.name else "Unknown Move (#${moveInfo.id})",
+            typeName = if (moveKnown) moveInfo.type.displayName else MoveEffectiveness.UNAVAILABLE,
+            category = category,
+            basePower = if (moveKnown) moveInfo.power else null,
+            accuracy = if (moveKnown) moveInfo.accuracy else null,
+            maxPp = if (moveKnown) moveInfo.pp else null,
             currentPp = currentPp,
             description = description,
-            effectiveness = label?.displayName ?: MoveEffectiveness.UNAVAILABLE,
-            effectivenessVerified = label != null,
-            damageVerified = verified,
+            effectiveness = effLabel?.displayName ?: MoveEffectiveness.UNAVAILABLE,
+            effectivenessConfidence = effConfidence,
+            damageConfidence = damageConfidence,
             minDamage = minDamage,
             maxDamage = maxDamage,
             damageRange = range,
-            koChanceText = koChance
+            koChanceText = koChance,
+            isKnown = moveKnown
         )
     }
 }
@@ -270,16 +525,21 @@ enum class StatusCondition(val displayName: String) {
 }
 
 object StatusConditionDecoder {
+    private const val SLEEP_MASK = 0x7L
+    private const val POISON_MASK = 1L shl 3
+    private const val BURN_MASK = 1L shl 4
+    private const val FREEZE_MASK = 1L shl 5
+    private const val PARALYSIS_MASK = 1L shl 6
+    private const val BAD_POISON_MASK = 1L shl 7
 
     fun decode(statusCondition: Long): StatusCondition {
-        if (statusCondition and 0x7FL == 0L) return StatusCondition.HEALTHY
         return when {
-            statusCondition and 0x7L != 0L -> StatusCondition.SLEEP
-            statusCondition and (1L shl 3) != 0L -> StatusCondition.POISON
-            statusCondition and (1L shl 4) != 0L -> StatusCondition.BURN
-            statusCondition and (1L shl 5) != 0L -> StatusCondition.FREEZE
-            statusCondition and (1L shl 6) != 0L -> StatusCondition.PARALYSIS
-            statusCondition and (1L shl 7) != 0L -> StatusCondition.BAD_POISON
+            statusCondition and BAD_POISON_MASK != 0L -> StatusCondition.BAD_POISON
+            statusCondition and SLEEP_MASK != 0L -> StatusCondition.SLEEP
+            statusCondition and POISON_MASK != 0L -> StatusCondition.POISON
+            statusCondition and BURN_MASK != 0L -> StatusCondition.BURN
+            statusCondition and FREEZE_MASK != 0L -> StatusCondition.FREEZE
+            statusCondition and PARALYSIS_MASK != 0L -> StatusCondition.PARALYSIS
             else -> StatusCondition.HEALTHY
         }
     }
@@ -300,39 +560,65 @@ data class FieldStatusData(
 object FieldStatusBuilder {
 
     fun build(
+        inBattle: Boolean,
         attacker: ParsedPokemon?,
         defender: ParsedPokemon?,
         attackerSlot: Int,
-        steelResistsGhostDark: Boolean
+        profile: RomHackProfile
     ): FieldStatusData {
-        val participant = ParticipantSummaryBuilder.build(attacker, attackerSlot)
-        val opponent = ParticipantSummaryBuilder.build(defender, -1)
+        val participant = ParticipantSummaryBuilder.build(attacker, attackerSlot, profile)
+        val opponent = ParticipantSummaryBuilder.build(defender, -1, profile)
         val condition = if (attacker != null) StatusConditionDecoder.decode(attacker.statusCondition) else StatusCondition.HEALTHY
-        val conditionVerified = attacker != null && attacker.isValid && !attacker.isEmpty
+        val conditionVerified = attacker != null && attacker.isValid && !attacker.isEmpty && participant.isVerified
+
         val notes = mutableListOf<String>()
         val moves = attacker?.moves
         if (moves != null) {
             for (id in moves) {
                 if (id <= 0) continue
+                if (!MoveDatabase.isKnown(id)) {
+                    notes += "Move #$id: ${MoveEffectiveness.UNAVAILABLE}"
+                    continue
+                }
                 val info = MoveDatabase.get(id)
-                val (defT1, defT2) = MoveEffectiveness.defenderTypesOf(defender)
-                val label = MoveEffectiveness.confidence(info.type, defT1, defT2, steelResistsGhostDark)
-                if (label == null) {
+                val (effLabel, _) = MoveEffectiveness.evaluate(id, info.category, defender, profile)
+                if (effLabel == null && !MoveEffectiveness.isStatMove(info.category)) {
                     notes += "${info.name}: ${MoveEffectiveness.UNAVAILABLE}"
                 }
             }
         }
+
         val damageNotes = mutableListOf<String>()
         if (participant.isEmpty) damageNotes += "Attacker data unavailable"
         if (opponent.isEmpty) damageNotes += "Opponent data unavailable"
+        if (!profile.isSupportedVanillaGen3()) {
+            damageNotes += "Damage calculations unavailable for ${profile.name} (custom/split mechanics)"
+        }
+
         return FieldStatusData(
-            inBattle = attacker != null && !attacker.isEmpty,
+            inBattle = inBattle,
             participant = participant,
             opponent = opponent,
             condition = condition,
             conditionVerified = conditionVerified,
             effectivenessNotes = notes,
             damageNotes = damageNotes
+        )
+    }
+
+    @Deprecated("Use overload with inBattle and profile")
+    fun build(
+        attacker: ParsedPokemon?,
+        defender: ParsedPokemon?,
+        attackerSlot: Int,
+        steelResistsGhostDark: Boolean
+    ): FieldStatusData {
+        return build(
+            inBattle = attacker != null && !attacker.isEmpty,
+            attacker = attacker,
+            defender = defender,
+            attackerSlot = attackerSlot,
+            profile = RomHackProfile.DEFAULT_FIRERED.copy(steelResistsGhostDark = steelResistsGhostDark)
         )
     }
 }
@@ -343,7 +629,7 @@ fun buildDamageRequest(
     moveName: String,
     natureName: String
 ): DamageCalculationRequest {
-    val attackerSpecies = SpeciesDatabase.get(attacker.species)?.name ?: "-"
+    val attackerSpecies = SpeciesDatabase.get(attacker.species).name
     val attackerInput = CalcPokemonInput(
         species = attackerSpecies,
         level = attacker.level.takeIf { it > 0 } ?: 50,
@@ -367,7 +653,7 @@ fun buildDamageRequest(
             spe = attacker.speedEv
         )
     )
-    val defenderSpecies = defender?.let { SpeciesDatabase.get(it.species)?.name ?: "-" }
+    val defenderSpecies = defender?.let { SpeciesDatabase.get(it.species).name }
         ?: attackerSpecies
     val defenderInput = if (defender != null) {
         CalcPokemonInput(

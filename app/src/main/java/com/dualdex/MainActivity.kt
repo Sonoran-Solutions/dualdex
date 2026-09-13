@@ -190,12 +190,13 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             displayManager = getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
             displayManager?.registerDisplayListener(this, null)
 
-            // 5. Apply saved Gemini settings
+            // 5. Apply saved Gemini settings and feature gates
             val apiKey = settingsManager.geminiApiKey
             if (!apiKey.isNullOrBlank()) {
                 RomHackAssistant.setApiKey(apiKey)
             }
             RomHackAssistant.setModel(settingsManager.geminiModel)
+            viewModel.setBattleTabEnabled(settingsManager.isBattleTabEnabled)
 
             // 6. Setup display UI
             setupDisplays()

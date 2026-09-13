@@ -5,28 +5,34 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.dualdex.battle.BattleDamageCalculator
 import com.dualdex.battle.BattleParticipantSummary
 import com.dualdex.battle.BattlePresentationBuilder
+import com.dualdex.battle.CachingBattleDamageCalculator
+import com.dualdex.battle.DamageConfidence
+import com.dualdex.battle.DataConfidence
 import com.dualdex.battle.FieldStatusBuilder
 import com.dualdex.battle.FieldStatusData
+import com.dualdex.battle.MoveEffectiveness
 import com.dualdex.battle.MovePresentation
 import com.dualdex.battle.ParticipantSummaryBuilder
-import com.dualdex.calculator.DamageCalculator
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.MoveDatabase
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PokemonType
+import com.dualdex.romhack.RomHackProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 
 class BattleConsoleScreenView(
     context: Context,
@@ -42,6 +48,13 @@ class BattleConsoleScreenView(
     private val fieldContainer: LinearLayout
 
     private var viewScope: CoroutineScope? = null
+    private var calculationJob: Job? = null
+    private val damageCalculator: BattleDamageCalculator = CachingBattleDamageCalculator()
+
+    private var lastAttacker: ParsedPokemon? = null
+    private var lastDefender: ParsedPokemon? = null
+    private var lastProfile: RomHackProfile? = null
+    private var lastCachedMoves: List<MovePresentation> = emptyList()
 
     init {
         isVerticalScrollBarEnabled = true
@@ -127,11 +140,14 @@ class BattleConsoleScreenView(
         scope.launch { viewModel.enemyParty.collectLatest { refreshUI() } }
         scope.launch { viewModel.isInBattle.collectLatest { refreshUI() } }
         scope.launch { viewModel.selectedMemberIndex.collectLatest { refreshUI() } }
+        scope.launch { viewModel.activeEnemyMemberIndex.collectLatest { refreshUI() } }
         scope.launch { viewModel.activeProfile.collectLatest { refreshUI() } }
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        calculationJob?.cancel()
+        calculationJob = null
         viewScope?.cancel(null)
         viewScope = null
     }
@@ -141,73 +157,134 @@ class BattleConsoleScreenView(
         val enemies = viewModel.enemyParty.value
         val selectedIdx = viewModel.selectedMemberIndex.value
         val inBattle = viewModel.isInBattle.value
-        val steel = viewModel.activeProfile.value.steelResistsGhostDark
+        val activeEnemyIdx = viewModel.activeEnemyMemberIndex.value
+        val profile = viewModel.activeProfile.value
 
         headerBadge.text = if (inBattle) "⚔️ Battle" else "Ready"
         headerBadge.setTextColor(if (inBattle) 0xFFFF6B6B.toInt() else 0xFF50C878.toInt())
 
-        val attacker: ParsedPokemon? = party.getOrNull(selectedIdx)
-        val defender: ParsedPokemon? = enemies.getOrNull(0)
+        val attacker: ParsedPokemon? = party.getOrNull(selectedIdx)?.takeIf { !it.isEmpty && it.isValid }
+        val defender: ParsedPokemon? = if (inBattle && activeEnemyIdx in enemies.indices) {
+            enemies[activeEnemyIdx].takeIf { !it.isEmpty && it.isValid }
+        } else {
+            null
+        }
 
-        renderParticipants(attacker, defender, selectedIdx)
-        renderMoveDetails(attacker, defender, steel)
-        renderField(attacker, defender, selectedIdx, steel)
+        renderParticipants(attacker, defender, selectedIdx, activeEnemyIdx, inBattle, profile)
+        renderMoveDetails(attacker, defender, profile)
+        renderField(attacker, defender, selectedIdx, inBattle, profile)
     }
 
-    private fun renderParticipants(attacker: ParsedPokemon?, defender: ParsedPokemon?, selectedIdx: Int) {
+    private fun renderParticipants(
+        attacker: ParsedPokemon?,
+        defender: ParsedPokemon?,
+        selectedIdx: Int,
+        activeEnemyIdx: Int,
+        inBattle: Boolean,
+        profile: RomHackProfile
+    ) {
         movesContainer.removeAllViews()
 
-        if ((attacker == null || attacker.isEmpty) && defender == null) {
+        if (attacker == null && defender == null) {
             movesContainer.addView(emptyLabel("No battle participant data (Waiting for ROM)"))
             return
         }
 
-        val attackerSummary = ParticipantSummaryBuilder.build(attacker, selectedIdx)
-        movesContainer.addView(participantCard(attackerSummary, "Attacker"))
-
-        if (defender != null && !defender.isEmpty) {
-            val opponentSummary = ParticipantSummaryBuilder.build(defender, -1)
-            movesContainer.addView(participantCard(opponentSummary, "Opponent"))
+        if (attacker != null) {
+            val attackerSummary = ParticipantSummaryBuilder.build(attacker, selectedIdx, profile)
+            movesContainer.addView(participantCard(attackerSummary, "Attacker"))
         } else {
-            movesContainer.addView(emptyLabel("No opponent data available."))
+            movesContainer.addView(emptyLabel("No player participant selected."))
+        }
+
+        if (inBattle) {
+            if (defender != null) {
+                val opponentSummary = ParticipantSummaryBuilder.build(defender, activeEnemyIdx, profile)
+                movesContainer.addView(participantCard(opponentSummary, "Opponent"))
+            } else {
+                movesContainer.addView(emptyLabel("Active opponent identity unavailable."))
+            }
+        } else {
+            movesContainer.addView(emptyLabel("Not currently in battle."))
         }
     }
 
-    private fun renderMoveDetails(attacker: ParsedPokemon?, defender: ParsedPokemon?, steel: Boolean) {
-        detailsContainer.removeAllViews()
-
+    private fun renderMoveDetails(
+        attacker: ParsedPokemon?,
+        defender: ParsedPokemon?,
+        profile: RomHackProfile
+    ) {
         if (attacker == null || attacker.isEmpty) {
+            calculationJob?.cancel()
+            lastCachedMoves = emptyList()
+            lastAttacker = null
+            lastDefender = null
+            lastProfile = null
+            detailsContainer.removeAllViews()
             detailsContainer.addView(emptyLabel("No battle participant data (Waiting for ROM)"))
             return
         }
 
-        if (defender == null) {
-            detailsContainer.addView(emptyLabel("No opponent data. Effectiveness and damage unverified."))
+        // If inputs haven't changed, reuse cached presentation views
+        if (attacker == lastAttacker && defender == lastDefender && profile == lastProfile && lastCachedMoves.isNotEmpty()) {
+            displayMovePresentations(lastCachedMoves, defender)
+            return
         }
 
-        var rendered = 0
-        for (i in attacker.moves.indices) {
-            val moveId = attacker.moves[i]
-            if (moveId <= 0) continue
-            val info = MoveDatabase.get(moveId)
-            val pres = BattlePresentationBuilder.build(
-                moveInfo = info,
-                currentPp = attacker.pp.getOrNull(i)?.takeIf { it >= 0 },
-                attacker = attacker,
-                defender = defender,
-                steelResistsGhostDark = steel
-            )
-            detailsContainer.addView(moveDetailCard(pres))
-            rendered++
-        }
-        if (rendered == 0) {
-            detailsContainer.addView(emptyLabel("No usable moves detected for the selected participant."))
+        // Cancel previous calculation if running
+        calculationJob?.cancel()
+
+        val scope = viewScope ?: CoroutineScope(Dispatchers.Main + SupervisorJob()).also { viewScope = it }
+        calculationJob = scope.launch {
+            val presentations = withContext(Dispatchers.Default) {
+                val list = mutableListOf<MovePresentation>()
+                for (i in attacker.moves.indices) {
+                    val moveId = attacker.moves[i]
+                    if (moveId <= 0) continue
+                    val info = MoveDatabase.get(moveId)
+                    val pres = BattlePresentationBuilder.build(
+                        moveInfo = info,
+                        currentPp = attacker.pp.getOrNull(i)?.takeIf { it >= 0 },
+                        attacker = attacker,
+                        defender = defender,
+                        profile = profile,
+                        calculator = damageCalculator
+                    )
+                    list += pres
+                }
+                list
+            }
+            lastAttacker = attacker
+            lastDefender = defender
+            lastProfile = profile
+            lastCachedMoves = presentations
+            displayMovePresentations(presentations, defender)
         }
     }
 
-    private fun renderField(attacker: ParsedPokemon?, defender: ParsedPokemon?, selectedIdx: Int, steel: Boolean) {
+    private fun displayMovePresentations(presentations: List<MovePresentation>, defender: ParsedPokemon?) {
+        detailsContainer.removeAllViews()
+        if (defender == null) {
+            detailsContainer.addView(emptyLabel("No opponent data. Effectiveness and damage unavailable."))
+        }
+        if (presentations.isEmpty()) {
+            detailsContainer.addView(emptyLabel("No usable moves detected for the selected participant."))
+            return
+        }
+        for (pres in presentations) {
+            detailsContainer.addView(moveDetailCard(pres))
+        }
+    }
+
+    private fun renderField(
+        attacker: ParsedPokemon?,
+        defender: ParsedPokemon?,
+        selectedIdx: Int,
+        inBattle: Boolean,
+        profile: RomHackProfile
+    ) {
         fieldContainer.removeAllViews()
-        val data: FieldStatusData = FieldStatusBuilder.build(attacker, defender, selectedIdx, steel)
+        val data: FieldStatusData = FieldStatusBuilder.build(inBattle, attacker, defender, selectedIdx, profile)
 
         val card = createCardLayout().apply {
             addView(fieldRow("Battle state", if (data.inBattle) "⚔️ In battle" else "Ready"))
@@ -259,10 +336,14 @@ class BattleConsoleScreenView(
                     textSize = 11f
                 })
             }
-            val verified = if (summary.isVerified) "Verified" else "Unverified"
+            val (statusText, statusColor) = when (summary.confidence) {
+                DataConfidence.VERIFIED -> "Data: Verified" to 0xFF50C878.toInt()
+                DataConfidence.ESTIMATE -> "Data: Estimate" to 0xFFFFAA33.toInt()
+                DataConfidence.UNAVAILABLE -> "Data: Unavailable" to 0xFF888899.toInt()
+            }
             addView(TextView(context).apply {
-                text = "Data: $verified"
-                setTextColor(if (summary.isVerified) 0xFF50C878.toInt() else 0xFFFFAA33.toInt())
+                text = statusText
+                setTextColor(statusColor)
                 textSize = 11f
                 typeface = Typeface.DEFAULT_BOLD
             })
@@ -287,6 +368,7 @@ class BattleConsoleScreenView(
                 MoveCategory.PHYSICAL -> "Phys"
                 MoveCategory.SPECIAL -> "Spec"
                 MoveCategory.STATUS -> "Status"
+                null -> "—"
             }
             header.addView(TextView(context).apply {
                 text = catLabel
@@ -295,19 +377,27 @@ class BattleConsoleScreenView(
             })
             addView(header)
 
-            addView(fieldRow("Base Power", pres.basePower.toString()))
-            addView(fieldRow("Accuracy", "${pres.accuracy}%"))
+            addView(fieldRow("Base Power", pres.powerDisplay))
+            addView(fieldRow("Accuracy", pres.accuracyDisplay))
             addView(fieldRow("PP", pres.ppDisplay))
             addView(fieldRow("Description", pres.description))
-            val effColor = if (pres.effectivenessVerified) 0xFF50C878.toInt() else 0xFFFFAA33.toInt()
-            addView(fieldRow("Effectiveness", pres.effectiveness, effColor))
-            val dmgText = if (pres.hasDamage) {
-                "${pres.minDamage}-${pres.maxDamage}" + if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else ""
-            } else {
-                MovePresentation.UNVERIFIED_LABEL
+            val effColor = when (pres.effectivenessConfidence) {
+                DataConfidence.VERIFIED -> 0xFF50C878.toInt()
+                DataConfidence.ESTIMATE -> 0xFFFFAA33.toInt()
+                DataConfidence.UNAVAILABLE -> 0xFF888899.toInt()
             }
-            val dmgColor = if (pres.hasDamage) 0xFF50C878.toInt() else 0xFFFFAA33.toInt()
-            addView(fieldRow("Verified damage range", dmgText, dmgColor))
+            addView(fieldRow("Effectiveness", pres.effectiveness, effColor))
+            val dmgLabel = when (pres.damageConfidence) {
+                DamageConfidence.VERIFIED -> "Verified damage range"
+                DamageConfidence.ESTIMATE -> "Estimated damage range"
+                DamageConfidence.UNAVAILABLE -> "Damage range"
+            }
+            val dmgColor = when (pres.damageConfidence) {
+                DamageConfidence.VERIFIED -> 0xFF50C878.toInt()
+                DamageConfidence.ESTIMATE -> 0xFFFFAA33.toInt()
+                DamageConfidence.UNAVAILABLE -> 0xFF888899.toInt()
+            }
+            addView(fieldRow(dmgLabel, pres.damageDisplayText, dmgColor))
         }
     }
 

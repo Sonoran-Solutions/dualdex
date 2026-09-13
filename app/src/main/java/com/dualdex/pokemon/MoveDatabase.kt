@@ -986,6 +986,11 @@ object MoveDatabase {
         register(937, "Shadow Sky", PokemonType.NORMAL, MoveCategory.STATUS, 0, 100, 20)
     }
 
+    fun isKnown(moveId: Int): Boolean {
+        if (moveId <= 0) return false
+        return moveMap.containsKey(moveId)
+    }
+
     fun get(moveId: Int): MoveInfo {
         if (moveId <= 0) {
             return MoveInfo(0, "-", PokemonType.NORMAL, MoveCategory.STATUS, 0, 0, 0)

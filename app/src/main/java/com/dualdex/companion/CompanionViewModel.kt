@@ -51,11 +51,14 @@ class CompanionViewModel(
     private val _selectedMemberIndex = MutableStateFlow(0)
     val selectedMemberIndex: StateFlow<Int> = _selectedMemberIndex.asStateFlow()
 
-    private val _activeEnemyMemberIndex = MutableStateFlow(0)
+    private val _activeEnemyMemberIndex = MutableStateFlow(-1)
     val activeEnemyMemberIndex: StateFlow<Int> = _activeEnemyMemberIndex.asStateFlow()
 
     private val _isInBattle = MutableStateFlow(false)
     val isInBattle: StateFlow<Boolean> = _isInBattle.asStateFlow()
+
+    private val _isBattleTabEnabled = MutableStateFlow(false)
+    val isBattleTabEnabled: StateFlow<Boolean> = _isBattleTabEnabled.asStateFlow()
 
     private val _activeGameId = MutableStateFlow(0)
     val activeGameId: StateFlow<Int> = _activeGameId.asStateFlow()
@@ -132,12 +135,13 @@ class CompanionViewModel(
                             _selectedMemberIndex.value = activeSlot
                         }
                         val enemyActiveSlot = LibretroHost.nativeGetActiveEnemyBattlerSlot(gameId)
-                        if (enemyActiveSlot in 0..5 && enemyActiveSlot != _activeEnemyMemberIndex.value) {
-                            _activeEnemyMemberIndex.value = enemyActiveSlot
+                        val resolvedSlot = if (enemyActiveSlot in 0 until enemyList.size) enemyActiveSlot else if (enemyList.isNotEmpty()) 0 else -1
+                        if (resolvedSlot != _activeEnemyMemberIndex.value) {
+                            _activeEnemyMemberIndex.value = resolvedSlot
                         }
                     } else {
-                        if (_activeEnemyMemberIndex.value != 0) {
-                            _activeEnemyMemberIndex.value = 0
+                        if (_activeEnemyMemberIndex.value != -1) {
+                            _activeEnemyMemberIndex.value = -1
                         }
                     }
 
@@ -160,7 +164,35 @@ class CompanionViewModel(
         pollingJob = null
     }
 
+    fun setBattleTabEnabled(enabled: Boolean) {
+        _isBattleTabEnabled.value = enabled
+    }
+
+    fun setActiveEnemyMemberIndex(index: Int) {
+        _activeEnemyMemberIndex.value = index
+    }
+
+    fun setIsInBattle(inBattle: Boolean) {
+        _isInBattle.value = inBattle
+        if (!inBattle) {
+            _activeEnemyMemberIndex.value = -1
+        }
+    }
+
     fun updateManualParty(party: List<ParsedPokemon>) {
         _playerParty.value = party
+    }
+
+    fun updateEnemyParty(party: List<ParsedPokemon>) {
+        _enemyParty.value = party
+        val inBattle = party.isNotEmpty()
+        _isInBattle.value = inBattle
+        if (inBattle) {
+            if (_activeEnemyMemberIndex.value !in party.indices) {
+                _activeEnemyMemberIndex.value = 0
+            }
+        } else {
+            _activeEnemyMemberIndex.value = -1
+        }
     }
 }

@@ -954,6 +954,10 @@ object SpeciesDatabase {
         register(502, "Phantomander", PokemonType.FIRE, PokemonType.GHOST, 78, 84, 78, 109, 85, 100)
     }
 
+    fun isKnown(speciesId: Int): Boolean {
+        return speciesMap.containsKey(speciesId)
+    }
+
     fun get(speciesId: Int): SpeciesInfo {
         return speciesMap[speciesId] ?: SpeciesInfo(
             id = speciesId,

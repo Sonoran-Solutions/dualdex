@@ -8,7 +8,9 @@ import com.dualdex.pokemon.MoveDatabase
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.SpeciesDatabase
+import com.dualdex.emulator.InputManager
 import com.dualdex.romhack.RomHackProfile
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -386,5 +388,338 @@ class BattleConsoleTest {
         assertFalse(pres.damageVerified)
         assertEquals(DamageConfidence.UNAVAILABLE, pres.damageConfidence)
         assertEquals("Damage unavailable for this ROM/profile", pres.damageDisplayText)
+    }
+
+    private class RecordingInputDispatcher : BattleInputDispatcher {
+        val recordedButtons = mutableListOf<Int>()
+        override suspend fun sendButton(buttonMask: Int, durationMs: Long, delayMs: Long): Boolean {
+            recordedButtons.add(buttonMask)
+            return true
+        }
+    }
+
+    // 11. Stat stages: clamping, multipliers, accuracy
+    @Test
+    fun testStatStages_multipliersAndClamping() {
+        val defaultStages = StatStages()
+        assertTrue(defaultStages.isNeutral)
+        assertEquals(0, defaultStages.atk)
+
+        // Test clamping via fromRawArray
+        val clamped = StatStages.fromRawArray(intArrayOf(-10, 10, 0, -4, 3, 7, -8))
+        assertEquals(-6, clamped.atk)
+        assertEquals(6, clamped.def)
+        assertEquals(0, clamped.spe)
+        assertEquals(-4, clamped.spa)
+        assertEquals(3, clamped.spd)
+        assertEquals(6, clamped.acc)
+        assertEquals(-6, clamped.eva)
+
+        // Stat multipliers
+        assertEquals(1.0, StatStages.statMultiplier(0), 0.001)
+        assertEquals(1.5, StatStages.statMultiplier(1), 0.001)
+        assertEquals(2.0, StatStages.statMultiplier(2), 0.001)
+        assertEquals(4.0, StatStages.statMultiplier(6), 0.001)
+        assertEquals(2.0 / 3.0, StatStages.statMultiplier(-1), 0.001)
+        assertEquals(0.5, StatStages.statMultiplier(-2), 0.001)
+        assertEquals(0.25, StatStages.statMultiplier(-6), 0.001)
+
+        // Accuracy multipliers
+        assertEquals(1.0, StatStages.accuracyMultiplier(0), 0.001)
+        assertEquals(4.0 / 3.0, StatStages.accuracyMultiplier(1), 0.001)
+        assertEquals(0.75, StatStages.accuracyMultiplier(-1), 0.001)
+    }
+
+    // 12. Speed comparison: stages, paralysis, tailwind, trick room, priority
+    @Test
+    fun testSpeedComparison_calculations() {
+        // Player faster
+        val normal = SpeedComparison.calculate(
+            playerBaseSpeed = 100,
+            enemyBaseSpeed = 80
+        )
+        assertEquals(100, normal.playerEffectiveSpeed)
+        assertEquals(80, normal.enemyEffectiveSpeed)
+        assertEquals(true, normal.playerMovesFirst)
+        assertFalse(normal.isSpeedTie)
+
+        // Enemy faster
+        val enemyFaster = SpeedComparison.calculate(
+            playerBaseSpeed = 80,
+            enemyBaseSpeed = 100
+        )
+        assertEquals(false, enemyFaster.playerMovesFirst)
+
+        // Speed tie
+        val tie = SpeedComparison.calculate(
+            playerBaseSpeed = 100,
+            enemyBaseSpeed = 100
+        )
+        assertTrue(tie.isSpeedTie)
+        assertNull(tie.playerMovesFirst)
+
+        // Gen 3 Paralysis reduces speed by 75% (0.25x)
+        val paralyzed = SpeedComparison.calculate(
+            playerBaseSpeed = 120,
+            playerParalyzed = true,
+            enemyBaseSpeed = 50
+        )
+        assertEquals(30, paralyzed.playerEffectiveSpeed)
+        assertEquals(50, paralyzed.enemyEffectiveSpeed)
+        assertEquals(false, paralyzed.playerMovesFirst)
+
+        // Tailwind doubles speed (2x)
+        val tailwind = SpeedComparison.calculate(
+            playerBaseSpeed = 60,
+            playerTailwind = true,
+            enemyBaseSpeed = 100
+        )
+        assertEquals(120, tailwind.playerEffectiveSpeed)
+        assertEquals(100, tailwind.enemyEffectiveSpeed)
+        assertEquals(true, tailwind.playerMovesFirst)
+
+        // Trick Room inverts speed order (lower speed moves first)
+        val trickRoom = SpeedComparison.calculate(
+            playerBaseSpeed = 100,
+            enemyBaseSpeed = 60,
+            trickRoom = true
+        )
+        assertEquals(false, trickRoom.playerMovesFirst)
+        assertTrue(trickRoom.explanation.contains("Trick Room"))
+
+        // Move Priority overrides speed order
+        val priority = SpeedComparison.calculate(
+            playerBaseSpeed = 50,
+            enemyBaseSpeed = 150,
+            playerMovePriority = 1,
+            enemyMovePriority = 0
+        )
+        assertEquals(true, priority.playerMovesFirst)
+        assertTrue(priority.explanation.contains("priority"))
+    }
+
+    // 13. buildDamageRequest incorporates boosts, weather, status, and side conditions
+    @Test
+    fun testBuildDamageRequest_boostsWeatherAndStatus() {
+        val attacker = createTestPokemon(species = 6, statusCondition = 1L shl 4) // Burned
+        val defender = createTestPokemon(species = 9, statusCondition = 1L shl 6) // Paralyzed
+
+        val playerStages = StatStages(atk = 2, spa = 1)
+        val enemyStages = StatStages(def = -1)
+        val weather = WeatherType.RAIN
+        val defenderSide = SideEffects(reflect = true)
+
+        val req = buildDamageRequest(
+            attacker = attacker,
+            defender = defender,
+            moveName = "Surf",
+            natureName = "Hardy",
+            attackerStages = playerStages,
+            defenderStages = enemyStages,
+            weather = weather,
+            defenderSide = defenderSide
+        )
+
+        assertEquals("brn", req.attacker.status)
+        assertEquals(2, req.attacker.boosts?.atk)
+        assertEquals(1, req.attacker.boosts?.spa)
+
+        assertEquals("par", req.defender.status)
+        assertEquals(-1, req.defender.boosts?.def)
+
+        assertEquals("Rain", req.field.weather)
+        assertEquals(true, req.field.defenderSide?.isReflect)
+        assertEquals(false, req.field.defenderSide?.isLightScreen)
+    }
+
+    // 14. BattleUiSnapshot state and confidence
+    @Test
+    fun testBattleUiSnapshot_stateAndConfidence() {
+        val cmdSnapshot = BattleUiSnapshot(state = BattleUiState.COMMAND_MENU, isInputAccepted = true)
+        assertTrue(cmdSnapshot.isInputAccepted)
+        assertEquals(BattleUiState.COMMAND_MENU, cmdSnapshot.state)
+
+        val moveSnapshot = BattleUiSnapshot(state = BattleUiState.MOVE_MENU, isInputAccepted = true)
+        assertTrue(moveSnapshot.isInputAccepted)
+
+        val partySnapshot = BattleUiSnapshot(state = BattleUiState.PARTY_MENU, isInputAccepted = true)
+        assertTrue(partySnapshot.isInputAccepted)
+
+        val animSnapshot = BattleUiSnapshot(state = BattleUiState.ANIMATION_OR_TEXT, isInputAccepted = false)
+        assertFalse(animSnapshot.isInputAccepted)
+    }
+
+    // 15. BattleInputAdapter.selectMove from COMMAND_MENU emits exact button macros
+    @Test
+    fun testBattleInputAdapter_selectMove_fromCommandMenu() = runBlocking {
+        val dispatcher = RecordingInputDispatcher()
+        val adapter = BattleInputAdapter(dispatcher)
+        val ui = BattleUiSnapshot(state = BattleUiState.COMMAND_MENU, isInputAccepted = true)
+
+        // Slot 0 (top-left): A (Fight) -> A (Move 0)
+        dispatcher.recordedButtons.clear()
+        assertTrue(adapter.selectMove(0, ui))
+        assertEquals(listOf(InputManager.BTN_A, InputManager.BTN_A), dispatcher.recordedButtons)
+
+        // Slot 1 (top-right): A (Fight) -> RIGHT -> A (Move 1)
+        dispatcher.recordedButtons.clear()
+        assertTrue(adapter.selectMove(1, ui))
+        assertEquals(listOf(InputManager.BTN_A, InputManager.BTN_RIGHT, InputManager.BTN_A), dispatcher.recordedButtons)
+
+        // Slot 2 (bottom-left): A (Fight) -> DOWN -> A (Move 2)
+        dispatcher.recordedButtons.clear()
+        assertTrue(adapter.selectMove(2, ui))
+        assertEquals(listOf(InputManager.BTN_A, InputManager.BTN_DOWN, InputManager.BTN_A), dispatcher.recordedButtons)
+
+        // Slot 3 (bottom-right): A (Fight) -> RIGHT -> DOWN -> A (Move 3)
+        dispatcher.recordedButtons.clear()
+        assertTrue(adapter.selectMove(3, ui))
+        assertEquals(listOf(InputManager.BTN_A, InputManager.BTN_RIGHT, InputManager.BTN_DOWN, InputManager.BTN_A), dispatcher.recordedButtons)
+    }
+
+    // 16. BattleInputAdapter.selectMove from MOVE_MENU with cursor navigation
+    @Test
+    fun testBattleInputAdapter_selectMove_fromMoveMenu() = runBlocking {
+        val dispatcher = RecordingInputDispatcher()
+        val adapter = BattleInputAdapter(dispatcher)
+
+        // Cursor at 0, target 3: RIGHT -> DOWN -> A
+        val uiAt0 = BattleUiSnapshot(state = BattleUiState.MOVE_MENU, selectedMoveIndex = 0, isInputAccepted = true)
+        dispatcher.recordedButtons.clear()
+        assertTrue(adapter.selectMove(3, uiAt0))
+        assertEquals(listOf(InputManager.BTN_RIGHT, InputManager.BTN_DOWN, InputManager.BTN_A), dispatcher.recordedButtons)
+
+        // Cursor at 3, target 0: LEFT -> UP -> A
+        val uiAt3 = BattleUiSnapshot(state = BattleUiState.MOVE_MENU, selectedMoveIndex = 3, isInputAccepted = true)
+        dispatcher.recordedButtons.clear()
+        assertTrue(adapter.selectMove(0, uiAt3))
+        assertEquals(listOf(InputManager.BTN_LEFT, InputManager.BTN_UP, InputManager.BTN_A), dispatcher.recordedButtons)
+
+        // Cursor at 1, target 2: LEFT -> DOWN -> A
+        val uiAt1 = BattleUiSnapshot(state = BattleUiState.MOVE_MENU, selectedMoveIndex = 1, isInputAccepted = true)
+        dispatcher.recordedButtons.clear()
+        assertTrue(adapter.selectMove(2, uiAt1))
+        assertEquals(listOf(InputManager.BTN_LEFT, InputManager.BTN_DOWN, InputManager.BTN_A), dispatcher.recordedButtons)
+
+        // Cursor already at target: direct A
+        val uiAt2 = BattleUiSnapshot(state = BattleUiState.MOVE_MENU, selectedMoveIndex = 2, isInputAccepted = true)
+        dispatcher.recordedButtons.clear()
+        assertTrue(adapter.selectMove(2, uiAt2))
+        assertEquals(listOf(InputManager.BTN_A), dispatcher.recordedButtons)
+    }
+
+    // 17. BattleInputAdapter.selectMove fails closed when input is not accepted
+    @Test
+    fun testBattleInputAdapter_selectMove_safetyAbort() = runBlocking {
+        val dispatcher = RecordingInputDispatcher()
+        val adapter = BattleInputAdapter(dispatcher)
+
+        val busyUi = BattleUiSnapshot(state = BattleUiState.ANIMATION_OR_TEXT, isInputAccepted = false)
+        assertFalse(adapter.selectMove(0, busyUi))
+        assertTrue(dispatcher.recordedButtons.isEmpty())
+
+        val unknownUi = BattleUiSnapshot(state = BattleUiState.UNKNOWN, isInputAccepted = false)
+        assertFalse(adapter.selectMove(1, unknownUi))
+        assertTrue(dispatcher.recordedButtons.isEmpty())
+
+        // Invalid slot bounds
+        val readyUi = BattleUiSnapshot(state = BattleUiState.COMMAND_MENU, isInputAccepted = true)
+        assertFalse(adapter.selectMove(4, readyUi))
+        assertFalse(adapter.selectMove(-1, readyUi))
+        assertTrue(dispatcher.recordedButtons.isEmpty())
+    }
+
+    // 18. BattleInputAdapter.switchPokemon validates legality and emits correct macros
+    @Test
+    fun testBattleInputAdapter_switchPokemon_legalityAndMacro() = runBlocking {
+        val dispatcher = RecordingInputDispatcher()
+        val adapter = BattleInputAdapter(dispatcher)
+        val ui = BattleUiSnapshot(state = BattleUiState.COMMAND_MENU, isInputAccepted = true)
+
+        val mon0 = createTestPokemon(nickname = "LeadMon", currentHp = 100)
+        val mon1 = createTestPokemon(nickname = "Candidate1", currentHp = 100)
+        val mon2 = createTestPokemon(nickname = "FaintedMon", currentHp = 0)
+        val mon3 = createTestPokemon(nickname = "Candidate3", currentHp = 50)
+        val party = listOf(mon0, mon1, mon2, mon3)
+
+        // Cannot switch to active Pokémon (slot 0)
+        assertFalse("Cannot switch to active Pokémon", adapter.switchPokemon(0, ui, party, activeSlot = 0))
+        assertTrue(dispatcher.recordedButtons.isEmpty())
+
+        // Cannot switch to fainted Pokémon (slot 2)
+        assertFalse("Cannot switch to fainted Pokémon", adapter.switchPokemon(2, ui, party, activeSlot = 0))
+        assertTrue(dispatcher.recordedButtons.isEmpty())
+
+        // Cannot switch during animation/text
+        val busyUi = BattleUiSnapshot(state = BattleUiState.ANIMATION_OR_TEXT, isInputAccepted = false)
+        assertFalse("Cannot switch when UI is busy", adapter.switchPokemon(1, busyUi, party, activeSlot = 0))
+        assertTrue(dispatcher.recordedButtons.isEmpty())
+
+        // Valid switch to slot 1 from COMMAND_MENU:
+        // Down (to Pokemon) -> A (open party) -> Down (to slot 1) -> A (action menu) -> A (SHIFT)
+        dispatcher.recordedButtons.clear()
+        assertTrue(adapter.switchPokemon(1, ui, party, activeSlot = 0))
+        assertEquals(
+            listOf(InputManager.BTN_DOWN, InputManager.BTN_A, InputManager.BTN_DOWN, InputManager.BTN_A, InputManager.BTN_A),
+            dispatcher.recordedButtons
+        )
+
+        // Valid switch to slot 3 from COMMAND_MENU:
+        // Down (to Pokemon) -> A (open party) -> Down x3 -> A -> A
+        dispatcher.recordedButtons.clear()
+        assertTrue(adapter.switchPokemon(3, ui, party, activeSlot = 0))
+        assertEquals(
+            listOf(
+                InputManager.BTN_DOWN, InputManager.BTN_A,
+                InputManager.BTN_DOWN, InputManager.BTN_DOWN, InputManager.BTN_DOWN,
+                InputManager.BTN_A, InputManager.BTN_A
+            ),
+            dispatcher.recordedButtons
+        )
+
+        // Valid switch from forced faint PARTY_MENU state:
+        // Starts in party screen at slot 0: Down -> A -> A
+        val partyUi = BattleUiSnapshot(state = BattleUiState.PARTY_MENU, selectedPartySlot = 0, isInputAccepted = true)
+        dispatcher.recordedButtons.clear()
+        assertTrue(adapter.switchPokemon(1, partyUi, party, activeSlot = 0))
+        assertEquals(
+            listOf(InputManager.BTN_DOWN, InputManager.BTN_A, InputManager.BTN_A),
+            dispatcher.recordedButtons
+        )
+    }
+
+    // 19. BattleInputAdapter.cancel emits BTN_B
+    @Test
+    fun testBattleInputAdapter_cancel() = runBlocking {
+        val dispatcher = RecordingInputDispatcher()
+        val adapter = BattleInputAdapter(dispatcher)
+        assertTrue(adapter.cancel())
+        assertEquals(listOf(InputManager.BTN_B), dispatcher.recordedButtons)
+    }
+
+    // 20. ParticipantSummaryBuilder computes effectiveSpeed factoring stages & paralysis
+    @Test
+    fun testParticipantSummary_effectiveSpeedAndStages() {
+        val mon = createTestPokemon(species = 6) // Speed = 100
+        val summaryNeutral = ParticipantSummaryBuilder.build(mon, 0, RomHackProfile.DEFAULT_FIRERED)
+        assertEquals(100, summaryNeutral.effectiveSpeed)
+        assertTrue(summaryNeutral.statStages.isNeutral)
+
+        // With +2 speed stage: 100 * 2.0 = 200
+        val summaryBoosted = ParticipantSummaryBuilder.build(
+            mon, 0, RomHackProfile.DEFAULT_FIRERED,
+            statStages = StatStages(spe = 2, spa = 1)
+        )
+        assertEquals(200, summaryBoosted.effectiveSpeed)
+        assertEquals(2, summaryBoosted.statStages.spe)
+        assertEquals(1, summaryBoosted.statStages.spa)
+
+        // Paralyzed with -1 speed stage: 100 * (2/3) * 0.25 = 16
+        val monParalyzed = createTestPokemon(species = 6, statusCondition = 1L shl 6)
+        val summaryParalyzed = ParticipantSummaryBuilder.build(
+            monParalyzed, 0, RomHackProfile.DEFAULT_FIRERED,
+            statStages = StatStages(spe = -1)
+        )
+        assertEquals(16, summaryParalyzed.effectiveSpeed)
     }
 }

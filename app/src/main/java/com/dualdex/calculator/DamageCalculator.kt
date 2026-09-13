@@ -43,6 +43,7 @@ object DamageCalculator {
                 request.attacker.nature?.let { put("nature", it) }
                 request.attacker.ability?.let { put("ability", it) }
                 request.attacker.curHP?.let { put("curHP", it) }
+                request.attacker.status?.let { put("status", it) }
                 request.attacker.ivs?.let { ivs ->
                     put("ivs", JSONObject().apply {
                         put("hp", ivs.hp)
@@ -63,6 +64,15 @@ object DamageCalculator {
                         put("spe", evs.spe)
                     })
                 }
+                request.attacker.boosts?.let { b ->
+                    put("boosts", JSONObject().apply {
+                        put("atk", b.atk)
+                        put("def", b.def)
+                        put("spa", b.spa)
+                        put("spd", b.spd)
+                        put("spe", b.spe)
+                    })
+                }
             }
             put("attacker", atkObj)
 
@@ -74,6 +84,7 @@ object DamageCalculator {
                 request.defender.nature?.let { put("nature", it) }
                 request.defender.ability?.let { put("ability", it) }
                 request.defender.curHP?.let { put("curHP", it) }
+                request.defender.status?.let { put("status", it) }
                 request.defender.ivs?.let { ivs ->
                     put("ivs", JSONObject().apply {
                         put("hp", ivs.hp)
@@ -92,6 +103,15 @@ object DamageCalculator {
                         put("spa", evs.spa)
                         put("spd", evs.spd)
                         put("spe", evs.spe)
+                    })
+                }
+                request.defender.boosts?.let { b ->
+                    put("boosts", JSONObject().apply {
+                        put("atk", b.atk)
+                        put("def", b.def)
+                        put("spa", b.spa)
+                        put("spd", b.spd)
+                        put("spe", b.spe)
                     })
                 }
             }

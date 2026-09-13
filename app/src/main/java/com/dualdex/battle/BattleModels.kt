@@ -38,6 +38,195 @@ enum class DamageConfidence(val displayName: String) {
 }
 
 /**
+ * Stat stages (-6..+6) for Gen 3 battle mechanics.
+ */
+data class StatStages(
+    val atk: Int = 0,
+    val def: Int = 0,
+    val spe: Int = 0,
+    val spa: Int = 0,
+    val spd: Int = 0,
+    val acc: Int = 0,
+    val eva: Int = 0
+) {
+    init {
+        require(atk in -6..6) { "atk stage must be in -6..6, was $atk" }
+        require(def in -6..6) { "def stage must be in -6..6, was $def" }
+        require(spe in -6..6) { "spe stage must be in -6..6, was $spe" }
+        require(spa in -6..6) { "spa stage must be in -6..6, was $spa" }
+        require(spd in -6..6) { "spd stage must be in -6..6, was $spd" }
+        require(acc in -6..6) { "acc stage must be in -6..6, was $acc" }
+        require(eva in -6..6) { "eva stage must be in -6..6, was $eva" }
+    }
+
+    val isNeutral: Boolean
+        get() = atk == 0 && def == 0 && spe == 0 && spa == 0 && spd == 0 && acc == 0 && eva == 0
+
+    fun toBoostStatBlock(): StatBlock = StatBlock(
+        hp = 0,
+        atk = atk,
+        def = def,
+        spe = spe,
+        spa = spa,
+        spd = spd
+    )
+
+    fun activeStageChips(): List<Pair<String, Int>> {
+        val list = mutableListOf<Pair<String, Int>>()
+        if (atk != 0) list += "Atk" to atk
+        if (def != 0) list += "Def" to def
+        if (spa != 0) list += "SpA" to spa
+        if (spd != 0) list += "SpD" to spd
+        if (spe != 0) list += "Spe" to spe
+        if (acc != 0) list += "Acc" to acc
+        if (eva != 0) list += "Eva" to eva
+        return list
+    }
+
+    companion object {
+        fun formatStage(stage: Int): String = when {
+            stage > 0 -> "+$stage"
+            else -> stage.toString()
+        }
+
+        fun statMultiplier(stage: Int): Double = when {
+            stage >= 0 -> (2.0 + stage) / 2.0
+            else -> 2.0 / (2.0 - stage)
+        }
+
+        fun accuracyMultiplier(stage: Int): Double = when {
+            stage >= 0 -> (3.0 + stage) / 3.0
+            else -> 3.0 / (3.0 - stage)
+        }
+
+        fun fromRawArray(raw: IntArray?): StatStages {
+            if (raw == null || raw.size < 7) return StatStages()
+            return StatStages(
+                atk = raw[0].coerceIn(-6, 6),
+                def = raw[1].coerceIn(-6, 6),
+                spe = raw[2].coerceIn(-6, 6),
+                spa = raw[3].coerceIn(-6, 6),
+                spd = raw[4].coerceIn(-6, 6),
+                acc = raw[5].coerceIn(-6, 6),
+                eva = raw[6].coerceIn(-6, 6)
+            )
+        }
+    }
+}
+
+enum class WeatherType(val displayName: String, val calcName: String?) {
+    NONE("Clear", null),
+    SUN("Sun", "Sun"),
+    RAIN("Rain", "Rain"),
+    SANDSTORM("Sandstorm", "Sand"),
+    HAIL("Hail", "Hail")
+}
+
+data class SideEffects(
+    val reflect: Boolean = false,
+    val reflectTurns: Int? = null,
+    val lightScreen: Boolean = false,
+    val lightScreenTurns: Int? = null,
+    val tailwind: Boolean = false,
+    val tailwindTurns: Int? = null,
+    val spikesLayers: Int = 0,
+    val safeguard: Boolean = false,
+    val mist: Boolean = false
+)
+
+data class SpeedComparison(
+    val playerEffectiveSpeed: Int,
+    val enemyEffectiveSpeed: Int,
+    val playerMovesFirst: Boolean?,
+    val isSpeedTie: Boolean,
+    val explanation: String
+) {
+    companion object {
+        fun calculate(
+            playerBaseSpeed: Int,
+            playerStages: StatStages = StatStages(),
+            playerParalyzed: Boolean = false,
+            playerTailwind: Boolean = false,
+            enemyBaseSpeed: Int,
+            enemyStages: StatStages = StatStages(),
+            enemyParalyzed: Boolean = false,
+            enemyTailwind: Boolean = false,
+            trickRoom: Boolean = false,
+            playerMovePriority: Int = 0,
+            enemyMovePriority: Int = 0
+        ): SpeedComparison {
+            var pSpeed = (playerBaseSpeed * StatStages.statMultiplier(playerStages.spe)).toInt()
+            if (playerParalyzed) pSpeed = (pSpeed * 0.25).toInt().coerceAtLeast(1)
+            if (playerTailwind) pSpeed *= 2
+
+            var eSpeed = (enemyBaseSpeed * StatStages.statMultiplier(enemyStages.spe)).toInt()
+            if (enemyParalyzed) eSpeed = (eSpeed * 0.25).toInt().coerceAtLeast(1)
+            if (enemyTailwind) eSpeed *= 2
+
+            if (playerMovePriority != enemyMovePriority) {
+                val playerFirst = playerMovePriority > enemyMovePriority
+                val diff = playerMovePriority - enemyMovePriority
+                val sign = if (diff > 0) "+$diff" else "$diff"
+                return SpeedComparison(
+                    playerEffectiveSpeed = pSpeed,
+                    enemyEffectiveSpeed = eSpeed,
+                    playerMovesFirst = playerFirst,
+                    isSpeedTie = false,
+                    explanation = if (playerFirst) "Move priority ($sign) moves first"
+                    else "Opponent priority ($sign) moves first"
+                )
+            }
+
+            if (pSpeed == eSpeed) {
+                return SpeedComparison(
+                    playerEffectiveSpeed = pSpeed,
+                    enemyEffectiveSpeed = eSpeed,
+                    playerMovesFirst = null,
+                    isSpeedTie = true,
+                    explanation = "Speed tie ($pSpeed vs $eSpeed): 50% chance to move first"
+                )
+            }
+
+            val playerFaster = if (trickRoom) pSpeed < eSpeed else pSpeed > eSpeed
+            val exp = if (trickRoom) {
+                if (playerFaster) "Trick Room active: lower speed moves first ($pSpeed vs $eSpeed)"
+                else "Trick Room active: opponent moves first ($eSpeed vs $pSpeed)"
+            } else {
+                if (playerFaster) "Moves first ($pSpeed vs $eSpeed)"
+                else "Moves second ($pSpeed vs $eSpeed)"
+            }
+
+            return SpeedComparison(
+                playerEffectiveSpeed = pSpeed,
+                enemyEffectiveSpeed = eSpeed,
+                playerMovesFirst = playerFaster,
+                isSpeedTie = false,
+                explanation = exp
+            )
+        }
+    }
+}
+
+enum class BattleUiState(val displayName: String) {
+    COMMAND_MENU("Command Menu"),
+    MOVE_MENU("Move Menu"),
+    PARTY_MENU("Party Menu"),
+    TARGET_SELECT("Target Select"),
+    BAG_MENU("Bag Menu"),
+    ANIMATION_OR_TEXT("Waiting / Anim"),
+    UNKNOWN("Unknown / Inactive")
+}
+
+data class BattleUiSnapshot(
+    val state: BattleUiState = BattleUiState.UNKNOWN,
+    val selectedActionIndex: Int = 0,
+    val selectedMoveIndex: Int = 0,
+    val selectedPartySlot: Int = 0,
+    val isInputAccepted: Boolean = false,
+    val confidence: DataConfidence = DataConfidence.VERIFIED
+)
+
+/**
  * Injected interface for damage calculations to decouple UI/presentation from JNI and enable
  * 100% deterministic unit tests on host JVMs.
  */
@@ -310,7 +499,9 @@ data class BattleParticipantSummary(
     val moveNames: List<String>,
     val isVerified: Boolean,
     val isMissing: Boolean,
-    val confidence: DataConfidence = if (isVerified) DataConfidence.VERIFIED else DataConfidence.UNAVAILABLE
+    val confidence: DataConfidence = if (isVerified) DataConfidence.VERIFIED else DataConfidence.UNAVAILABLE,
+    val statStages: StatStages = StatStages(),
+    val effectiveSpeed: Int = 0
 ) {
     val hpDisplay: String get() = "$currentHp/$maxHp"
     val isEmpty: Boolean get() = isMissing && !isVerified
@@ -328,7 +519,9 @@ data class BattleParticipantSummary(
             moveNames = emptyList(),
             isVerified = false,
             isMissing = true,
-            confidence = DataConfidence.UNAVAILABLE
+            confidence = DataConfidence.UNAVAILABLE,
+            statStages = StatStages(),
+            effectiveSpeed = 0
         )
     }
 }
@@ -342,7 +535,12 @@ object ParticipantSummaryBuilder {
         return profile.isVerified
     }
 
-    fun build(mon: ParsedPokemon?, slot: Int, profile: RomHackProfile): BattleParticipantSummary {
+    fun build(
+        mon: ParsedPokemon?,
+        slot: Int,
+        profile: RomHackProfile,
+        statStages: StatStages = StatStages()
+    ): BattleParticipantSummary {
         if (mon == null || mon.isEmpty || !mon.isValid) {
             return BattleParticipantSummary(
                 slot = slot,
@@ -356,7 +554,9 @@ object ParticipantSummaryBuilder {
                 moveNames = emptyList(),
                 isVerified = false,
                 isMissing = mon == null,
-                confidence = DataConfidence.UNAVAILABLE
+                confidence = DataConfidence.UNAVAILABLE,
+                statStages = statStages,
+                effectiveSpeed = 0
             )
         }
         val custom = profile.customSpecies[mon.species]
@@ -403,6 +603,11 @@ object ParticipantSummaryBuilder {
             isKnown && profile.isVerified -> DataConfidence.ESTIMATE
             else -> DataConfidence.UNAVAILABLE
         }
+
+        val isParalyzed = (mon.statusCondition and (1L shl 6)) != 0L
+        var effSpeed = (mon.speed * StatStages.statMultiplier(statStages.spe)).toInt()
+        if (isParalyzed) effSpeed = (effSpeed * 0.25).toInt().coerceAtLeast(1)
+
         return BattleParticipantSummary(
             slot = slot,
             displayName = displayName,
@@ -415,7 +620,9 @@ object ParticipantSummaryBuilder {
             moveNames = moves,
             isVerified = verified,
             isMissing = false,
-            confidence = confidence
+            confidence = confidence,
+            statStages = statStages,
+            effectiveSpeed = effSpeed
         )
     }
 
@@ -433,7 +640,11 @@ object BattlePresentationBuilder {
         attacker: ParsedPokemon,
         defender: ParsedPokemon?,
         profile: RomHackProfile,
-        calculator: BattleDamageCalculator = DefaultBattleDamageCalculator
+        calculator: BattleDamageCalculator = DefaultBattleDamageCalculator,
+        attackerStages: StatStages = StatStages(),
+        defenderStages: StatStages = StatStages(),
+        weather: WeatherType = WeatherType.NONE,
+        defenderSide: SideEffects = SideEffects()
     ): MovePresentation {
         val moveKnown = MoveDatabase.isKnown(moveInfo.id)
         val attackerLevel = attacker.level.coerceAtLeast(1)
@@ -481,7 +692,16 @@ object BattlePresentationBuilder {
                 profile.isSupportedVanillaGen3()
 
         if (canCalculate) {
-            val request = buildDamageRequest(attacker, defender, moveInfo.name, attacker.natureName)
+            val request = buildDamageRequest(
+                attacker = attacker,
+                defender = defender,
+                moveName = moveInfo.name,
+                natureName = attacker.natureName,
+                attackerStages = attackerStages,
+                defenderStages = defenderStages,
+                weather = weather,
+                defenderSide = defenderSide
+            )
             val response = calculator.calculate(request)
             if (response.success && response.maxDamage > 0) {
                 damageConfidence = DamageConfidence.VERIFIED
@@ -552,7 +772,11 @@ data class FieldStatusData(
     val condition: StatusCondition,
     val conditionVerified: Boolean,
     val effectivenessNotes: List<String>,
-    val damageNotes: List<String>
+    val damageNotes: List<String>,
+    val weather: WeatherType = WeatherType.NONE,
+    val playerSide: SideEffects = SideEffects(),
+    val enemySide: SideEffects = SideEffects(),
+    val speedComparison: SpeedComparison? = null
 ) {
     val isMissingData: Boolean get() = participant.isEmpty || opponent.isEmpty
 }
@@ -564,12 +788,32 @@ object FieldStatusBuilder {
         attacker: ParsedPokemon?,
         defender: ParsedPokemon?,
         attackerSlot: Int,
-        profile: RomHackProfile
+        profile: RomHackProfile,
+        playerStages: StatStages = StatStages(),
+        enemyStages: StatStages = StatStages(),
+        weather: WeatherType = WeatherType.NONE,
+        playerSide: SideEffects = SideEffects(),
+        enemySide: SideEffects = SideEffects()
     ): FieldStatusData {
-        val participant = ParticipantSummaryBuilder.build(attacker, attackerSlot, profile)
-        val opponent = ParticipantSummaryBuilder.build(defender, -1, profile)
+        val participant = ParticipantSummaryBuilder.build(attacker, attackerSlot, profile, playerStages)
+        val opponent = ParticipantSummaryBuilder.build(defender, -1, profile, enemyStages)
         val condition = if (attacker != null) StatusConditionDecoder.decode(attacker.statusCondition) else StatusCondition.HEALTHY
         val conditionVerified = attacker != null && attacker.isValid && !attacker.isEmpty && participant.isVerified
+
+        val speedComp = if (attacker != null && defender != null && !attacker.isEmpty && !defender.isEmpty && attacker.isValid && defender.isValid) {
+            val pParalyzed = (attacker.statusCondition and (1L shl 6)) != 0L
+            val eParalyzed = (defender.statusCondition and (1L shl 6)) != 0L
+            SpeedComparison.calculate(
+                playerBaseSpeed = attacker.speed,
+                playerStages = playerStages,
+                playerParalyzed = pParalyzed,
+                playerTailwind = playerSide.tailwind,
+                enemyBaseSpeed = defender.speed,
+                enemyStages = enemyStages,
+                enemyParalyzed = eParalyzed,
+                enemyTailwind = enemySide.tailwind
+            )
+        } else null
 
         val notes = mutableListOf<String>()
         val moves = attacker?.moves
@@ -602,7 +846,11 @@ object FieldStatusBuilder {
             condition = condition,
             conditionVerified = conditionVerified,
             effectivenessNotes = notes,
-            damageNotes = damageNotes
+            damageNotes = damageNotes,
+            weather = weather,
+            playerSide = playerSide,
+            enemySide = enemySide,
+            speedComparison = speedComp
         )
     }
 
@@ -627,15 +875,30 @@ fun buildDamageRequest(
     attacker: ParsedPokemon,
     defender: ParsedPokemon?,
     moveName: String,
-    natureName: String
+    natureName: String,
+    attackerStages: StatStages = StatStages(),
+    defenderStages: StatStages = StatStages(),
+    weather: WeatherType = WeatherType.NONE,
+    defenderSide: SideEffects = SideEffects()
 ): DamageCalculationRequest {
     val attackerSpecies = SpeciesDatabase.get(attacker.species).name
+    val attackerStatusStr = when {
+        (attacker.statusCondition and (1L shl 7)) != 0L -> "tox"
+        (attacker.statusCondition and (1L shl 3)) != 0L -> "psn"
+        (attacker.statusCondition and (1L shl 4)) != 0L -> "brn"
+        (attacker.statusCondition and (1L shl 5)) != 0L -> "frz"
+        (attacker.statusCondition and (1L shl 6)) != 0L -> "par"
+        (attacker.statusCondition and 0x7L) != 0L -> "slp"
+        else -> null
+    }
     val attackerInput = CalcPokemonInput(
         species = attackerSpecies,
         level = attacker.level.takeIf { it > 0 } ?: 50,
         item = if (attacker.heldItem > 0) ItemDatabase.get(attacker.heldItem).name else null,
         nature = natureName,
         curHP = attacker.currentHp.takeIf { it > 0 } ?: attacker.maxHp.takeIf { it > 0 },
+        status = attackerStatusStr,
+        boosts = attackerStages.toBoostStatBlock(),
         ivs = StatBlock(
             hp = attacker.hpIv,
             atk = attacker.attackIv,
@@ -656,12 +919,23 @@ fun buildDamageRequest(
     val defenderSpecies = defender?.let { SpeciesDatabase.get(it.species).name }
         ?: attackerSpecies
     val defenderInput = if (defender != null) {
+        val defenderStatusStr = when {
+            (defender.statusCondition and (1L shl 7)) != 0L -> "tox"
+            (defender.statusCondition and (1L shl 3)) != 0L -> "psn"
+            (defender.statusCondition and (1L shl 4)) != 0L -> "brn"
+            (defender.statusCondition and (1L shl 5)) != 0L -> "frz"
+            (defender.statusCondition and (1L shl 6)) != 0L -> "par"
+            (defender.statusCondition and 0x7L) != 0L -> "slp"
+            else -> null
+        }
         CalcPokemonInput(
             species = defenderSpecies,
             level = defender.level.takeIf { it > 0 } ?: 50,
             item = if (defender.heldItem > 0) ItemDatabase.get(defender.heldItem).name else null,
             nature = defender.natureName,
             curHP = defender.currentHp.takeIf { it > 0 } ?: defender.maxHp.takeIf { it > 0 },
+            status = defenderStatusStr,
+            boosts = defenderStages.toBoostStatBlock(),
             ivs = StatBlock(
                 hp = defender.hpIv,
                 atk = defender.attackIv,
@@ -683,6 +957,7 @@ fun buildDamageRequest(
         CalcPokemonInput(
             species = defenderSpecies,
             level = 50,
+            boosts = defenderStages.toBoostStatBlock(),
             evs = StatBlock(hp = 252, def = 252, spd = 252)
         )
     }
@@ -693,9 +968,9 @@ fun buildDamageRequest(
         move = CalcMoveInput(name = moveName, isCrit = false),
         field = CalcFieldInput(
             gameType = "singles",
-            weather = null,
+            weather = weather.calcName,
             terrain = null,
-            defenderSide = SideConditions(isReflect = false, isLightScreen = false)
+            defenderSide = SideConditions(isReflect = defenderSide.reflect, isLightScreen = defenderSide.lightScreen)
         )
     )
 }

@@ -69,6 +69,17 @@ class CompanionViewModel(
     private val _activeProfile = MutableStateFlow(RomHackProfile.DEFAULT_FIRERED)
     val activeProfile: StateFlow<RomHackProfile> = _activeProfile.asStateFlow()
 
+    private val _playerStatStages = MutableStateFlow(com.dualdex.battle.StatStages())
+    val playerStatStages: StateFlow<com.dualdex.battle.StatStages> = _playerStatStages.asStateFlow()
+
+    private val _enemyStatStages = MutableStateFlow(com.dualdex.battle.StatStages())
+    val enemyStatStages: StateFlow<com.dualdex.battle.StatStages> = _enemyStatStages.asStateFlow()
+
+    private val _battleUiSnapshot = MutableStateFlow(com.dualdex.battle.BattleUiSnapshot())
+    val battleUiSnapshot: StateFlow<com.dualdex.battle.BattleUiSnapshot> = _battleUiSnapshot.asStateFlow()
+
+    var battleInputAdapter: com.dualdex.battle.BattleInputAdapter = com.dualdex.battle.BattleInputAdapter()
+
     private val _playerLocation = MutableStateFlow<PlayerLocation?>(null)
     val playerLocation: StateFlow<PlayerLocation?> = _playerLocation.asStateFlow()
 
@@ -139,10 +150,35 @@ class CompanionViewModel(
                         if (resolvedSlot != _activeEnemyMemberIndex.value) {
                             _activeEnemyMemberIndex.value = resolvedSlot
                         }
+
+                        val pStages = LibretroHost.nativeReadBattleStatStages(gameId, 0)
+                        _playerStatStages.value = com.dualdex.battle.StatStages.fromRawArray(pStages)
+
+                        val eStages = LibretroHost.nativeReadBattleStatStages(gameId, 1)
+                        _enemyStatStages.value = com.dualdex.battle.StatStages.fromRawArray(eStages)
+
+                        val uiCode = LibretroHost.nativeReadBattleUiState(gameId)
+                        val uiState = when (uiCode) {
+                            1 -> com.dualdex.battle.BattleUiState.COMMAND_MENU
+                            2 -> com.dualdex.battle.BattleUiState.MOVE_MENU
+                            3 -> com.dualdex.battle.BattleUiState.PARTY_MENU
+                            4 -> com.dualdex.battle.BattleUiState.ANIMATION_OR_TEXT
+                            else -> com.dualdex.battle.BattleUiState.UNKNOWN
+                        }
+                        _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot(
+                            state = uiState,
+                            isInputAccepted = uiState == com.dualdex.battle.BattleUiState.COMMAND_MENU ||
+                                    uiState == com.dualdex.battle.BattleUiState.MOVE_MENU ||
+                                    uiState == com.dualdex.battle.BattleUiState.PARTY_MENU,
+                            confidence = if (_activeProfile.value.isVerified) com.dualdex.battle.DataConfidence.VERIFIED else com.dualdex.battle.DataConfidence.ESTIMATE
+                        )
                     } else {
                         if (_activeEnemyMemberIndex.value != -1) {
                             _activeEnemyMemberIndex.value = -1
                         }
+                        _playerStatStages.value = com.dualdex.battle.StatStages()
+                        _enemyStatStages.value = com.dualdex.battle.StatStages()
+                        _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
                     }
 
                     val loc = LibretroHost.nativeReadPlayerLocation(gameId)
@@ -176,6 +212,9 @@ class CompanionViewModel(
         _isInBattle.value = inBattle
         if (!inBattle) {
             _activeEnemyMemberIndex.value = -1
+            _playerStatStages.value = com.dualdex.battle.StatStages()
+            _enemyStatStages.value = com.dualdex.battle.StatStages()
+            _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
         }
     }
 
@@ -193,6 +232,21 @@ class CompanionViewModel(
             }
         } else {
             _activeEnemyMemberIndex.value = -1
+            _playerStatStages.value = com.dualdex.battle.StatStages()
+            _enemyStatStages.value = com.dualdex.battle.StatStages()
+            _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
         }
+    }
+
+    fun updatePlayerStatStages(stages: com.dualdex.battle.StatStages) {
+        _playerStatStages.value = stages
+    }
+
+    fun updateEnemyStatStages(stages: com.dualdex.battle.StatStages) {
+        _enemyStatStages.value = stages
+    }
+
+    fun updateBattleUiSnapshot(snapshot: com.dualdex.battle.BattleUiSnapshot) {
+        _battleUiSnapshot.value = snapshot
     }
 }

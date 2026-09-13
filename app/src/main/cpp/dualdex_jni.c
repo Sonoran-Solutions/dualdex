@@ -543,6 +543,41 @@ Java_com_dualdex_emulator_LibretroHost_nativeGetActiveEnemyBattlerSlot(JNIEnv* e
     return (jint)s_last_active_enemy_battler_slot;
 }
 
+JNIEXPORT jintArray JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeReadBattleStatStages(JNIEnv* env, jobject thiz, jint game_id, jint battler_index) {
+    (void)thiz;
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+    if (!ewram || ewram_sz == 0) return NULL;
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    int8_t stages[7];
+    bool ok = pokemon_read_battle_stat_stages(ewram, ewram_sz, cfg, (uint8_t)battler_index, stages);
+    if (!ok) return NULL;
+
+    jintArray result = (*env)->NewIntArray(env, 7);
+    if (!result) return NULL;
+
+    jint int_stages[7];
+    for (int i = 0; i < 7; i++) {
+        int_stages[i] = (jint)stages[i];
+    }
+    (*env)->SetIntArrayRegion(env, result, 0, 7, int_stages);
+    return result;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeReadBattleUiState(JNIEnv* env, jobject thiz, jint game_id) {
+    (void)env;
+    (void)thiz;
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+    if (!ewram || ewram_sz == 0) return 0;
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    return (jint)pokemon_read_battle_ui_state(ewram, ewram_sz, cfg);
+}
+
 JNIEXPORT jobject JNICALL
 Java_com_dualdex_emulator_LibretroHost_nativeReadPlayerLocation(JNIEnv* env, jobject thiz, jint game_id) {
     (void)thiz;

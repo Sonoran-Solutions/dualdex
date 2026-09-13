@@ -34,7 +34,8 @@ class CompanionScreenView(
     private val onChooseRomsFolderRequested: (() -> Unit)? = null,
     private val onRefreshRomsRequested: (() -> Unit)? = null,
     private val onPlayRomRequested: ((Uri, String) -> Unit)? = null,
-    private val onStretchChanged: ((Boolean) -> Unit)? = null
+    private val onStretchChanged: ((Boolean) -> Unit)? = null,
+    private val onChooseSavesFolderRequested: (() -> Unit)? = null
 ) : LinearLayout(context) {
 
     private val contentContainer: FrameLayout
@@ -51,7 +52,7 @@ class CompanionScreenView(
     private val typesView: TypeChartScreenView by lazy { TypeChartScreenView(context, viewModel) }
     private val docsView: DocsScreenView by lazy { DocsScreenView(context, viewModel) }
     private val cheatsView: CheatsScreenView by lazy { CheatsScreenView(context, viewModel) }
-    private val savesView: SaveStateScreenView by lazy { SaveStateScreenView(context, viewModel, onImportSaveRequested, onExportSaveRequested) }
+    private val savesView: SaveStateScreenView by lazy { SaveStateScreenView(context, viewModel, onImportSaveRequested, onExportSaveRequested, onChooseSavesFolderRequested) }
     private val assistantView: com.dualdex.assistant.AssistantScreenView by lazy { com.dualdex.assistant.AssistantScreenView(context, viewModel) }
     private val settingsView: SettingsScreenView by lazy {
         SettingsScreenView(
@@ -62,7 +63,8 @@ class CompanionScreenView(
             onStretchChanged,
             onTabSelected = { tab ->
                 switchTab(tab)
-            }
+            },
+            onChooseSavesFolderRequested = onChooseSavesFolderRequested
         )
     }
 

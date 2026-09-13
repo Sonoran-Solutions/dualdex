@@ -2,6 +2,7 @@ package com.dualdex.companion
 
 import android.net.Uri
 import com.dualdex.emulator.LibretroHost
+import com.dualdex.emulator.RomIdentity
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionMapDatabase
@@ -62,6 +63,9 @@ class CompanionViewModel(
     private val _activeRomTitle = MutableStateFlow("")
     val activeRomTitle: StateFlow<String> = _activeRomTitle.asStateFlow()
 
+    private val _activeRomIdentity = MutableStateFlow<RomIdentity?>(null)
+    val activeRomIdentity: StateFlow<RomIdentity?> = _activeRomIdentity.asStateFlow()
+
     private val _activeProfile = MutableStateFlow(RomHackProfile.DEFAULT_FIRERED)
     val activeProfile: StateFlow<RomHackProfile> = _activeProfile.asStateFlow()
 
@@ -93,6 +97,11 @@ class CompanionViewModel(
         if (profile != null) {
             _activeProfile.value = profile
         }
+    }
+
+    fun setRomIdentity(identity: RomIdentity) {
+        _activeRomIdentity.value = identity
+        _activeRomTitle.value = identity.displayName
     }
 
     fun setProfile(profile: RomHackProfile) {

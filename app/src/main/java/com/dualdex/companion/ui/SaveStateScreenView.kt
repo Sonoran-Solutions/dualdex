@@ -7,19 +7,23 @@ import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.widget.*
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.emulator.RomIdentity
 import com.dualdex.emulator.SaveStateManager
 
 class SaveStateScreenView(
     context: Context,
     private val viewModel: CompanionViewModel,
     private val onImportSaveRequested: (() -> Unit)? = null,
-    private val onExportSaveRequested: (() -> Unit)? = null
+    private val onExportSaveRequested: (() -> Unit)? = null,
+    private val onChooseSavesFolderRequested: (() -> Unit)? = null
 ) : LinearLayout(context) {
 
     private val saveStateManager = SaveStateManager(context)
     private val slotsContainer: LinearLayout
     private val quickSaveStatusView: TextView
     private val batterySaveStatusView: TextView
+    private val storageStatusView: TextView
+    private val romIdentityView: TextView
 
     init {
         orientation = VERTICAL
@@ -37,9 +41,92 @@ class SaveStateScreenView(
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 20f
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 0, 16)
+            setPadding(0, 0, 0, 8)
         }
         content.addView(titleView)
+
+        // Active ROM Identity Card
+        val identityCard = createCardLayout().apply {
+            val label = TextView(context).apply {
+                text = "🎮 Active ROM Identity"
+                setTextColor(0xFF4A9EFF.toInt())
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 0, 0, 4)
+            }
+            addView(label)
+
+            romIdentityView = TextView(context).apply {
+                setTextColor(0xFFDDDDDD.toInt())
+                textSize = 12.5f
+                setLineSpacing(4f, 1f)
+            }
+            addView(romIdentityView)
+        }
+        content.addView(identityCard)
+
+        // Storage Location Card (SAF / Fallback)
+        val storageCard = createCardLayout().apply {
+            val label = TextView(context).apply {
+                text = "📁 Save Storage Location"
+                setTextColor(0xFFFFD700.toInt())
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 0, 0, 4)
+            }
+            addView(label)
+
+            storageStatusView = TextView(context).apply {
+                setTextColor(0xFFAAAAAA.toInt())
+                textSize = 12f
+                setPadding(0, 0, 0, 10)
+            }
+            addView(storageStatusView)
+
+            val btnRow = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                setPadding(0, 4, 0, 0)
+            }
+
+            val chooseFolderBtn = Button(context).apply {
+                text = "📁 Choose Saves Folder (SAF)"
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                background = GradientDrawable().apply {
+                    cornerRadius = 14f
+                    setColor(0xFF2B4A77.toInt())
+                }
+                setPadding(14, 8, 14, 8)
+                setOnClickListener {
+                    onChooseSavesFolderRequested?.invoke()
+                }
+            }
+            val lp1 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(0, 0, 6, 0) }
+            btnRow.addView(chooseFolderBtn, lp1)
+
+            val migrateBtn = Button(context).apply {
+                text = "🔄 Sync to SAF"
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                background = GradientDrawable().apply {
+                    cornerRadius = 14f
+                    setColor(0xFF2E6B4A.toInt())
+                }
+                setPadding(14, 8, 14, 8)
+                setOnClickListener {
+                    val count = saveStateManager.migrateFallbackToSaf()
+                    Toast.makeText(context, if (count > 0) "Migrated $count saves to SAF folder!" else "Saves are up-to-date", Toast.LENGTH_SHORT).show()
+                    refreshUI()
+                }
+            }
+            val lp2 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(6, 0, 0, 0) }
+            btnRow.addView(migrateBtn, lp2)
+
+            addView(btnRow)
+        }
+        content.addView(storageCard)
 
         // Cartridge Battery Save (.sav) Migration Card (My Boy! & GBA)
         val batteryCard = createCardLayout().apply {
@@ -137,8 +224,8 @@ class SaveStateScreenView(
                 }
                 setPadding(20, 10, 20, 10)
                 setOnClickListener {
-                    val key = getGameKey()
-                    val ok = saveStateManager.quickSave(key)
+                    val identity = getRomIdentity()
+                    val ok = saveStateManager.quickSave(identity)
                     Toast.makeText(context, if (ok) "Quick state saved!" else "Save failed!", Toast.LENGTH_SHORT).show()
                     refreshUI()
                 }
@@ -157,8 +244,8 @@ class SaveStateScreenView(
                 }
                 setPadding(20, 10, 20, 10)
                 setOnClickListener {
-                    val key = getGameKey()
-                    val ok = saveStateManager.quickLoad(key)
+                    val identity = getRomIdentity()
+                    val ok = saveStateManager.quickLoad(identity)
                     Toast.makeText(context, if (ok) "Quick state loaded!" else "No quick save found!", Toast.LENGTH_SHORT).show()
                 }
             }
@@ -197,21 +284,34 @@ class SaveStateScreenView(
         refreshUI()
     }
 
-    private fun getGameKey(): String {
-        return viewModel.activeRomTitle.value.ifEmpty { "default_game" }
+    private fun getRomIdentity(): RomIdentity {
+        return viewModel.activeRomIdentity.value ?: RomIdentity.create("", viewModel.activeRomTitle.value.ifEmpty { "default_game" })
     }
 
     fun refreshUI() {
-        val gameKey = getGameKey()
+        val identity = getRomIdentity()
 
-        val bInfo = saveStateManager.getBatterySaveInfo(gameKey)
+        // Active ROM details
+        val hashDisplay = if (identity.sha256.isNotEmpty()) identity.shortHash else "N/A"
+        romIdentityView.text = "• Title: ${identity.displayName}\n• ROM Hash: $hashDisplay\n• Save Folder: ${identity.storageKey}/"
+
+        // Storage status
+        val isSaf = saveStateManager.isUsingSaf()
+        val dirDesc = saveStateManager.getSaveDirectoryDescription()
+        storageStatusView.text = if (isSaf) {
+            "Status: Active via $dirDesc\nUser-visible shared storage enabled."
+        } else {
+            "Status: App Private Storage ($dirDesc)\nTip: Select a shared folder so your saves are easily accessible to other emulators or sync tools."
+        }
+
+        val bInfo = saveStateManager.getBatterySaveInfo(identity)
         batterySaveStatusView.text = if (bInfo.exists) {
             "Active Battery Save: ${bInfo.sizeBytes / 1024} KB (Saved: ${bInfo.formattedDate})"
         } else {
             "No .sav file found on disk (auto-saves on in-game save / pause)."
         }
 
-        val qFile = saveStateManager.getQuickSaveFilePath(gameKey)
+        val qFile = saveStateManager.getStagingFile(identity, "quicksave.state")
         quickSaveStatusView.text = if (qFile.exists()) {
             "Latest Quick Save: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(qFile.lastModified()))}"
         } else {
@@ -219,7 +319,7 @@ class SaveStateScreenView(
         }
 
         slotsContainer.removeAllViews()
-        val slots = saveStateManager.getAllSlotsInfo(gameKey, 5)
+        val slots = saveStateManager.getAllSlotsInfo(identity, 5)
 
         slots.forEach { slot ->
             val slotRow = LinearLayout(context).apply {
@@ -255,7 +355,7 @@ class SaveStateScreenView(
                 }
                 setPadding(14, 4, 14, 4)
                 setOnClickListener {
-                    val ok = saveStateManager.saveSlot(gameKey, slot.slotIndex)
+                    val ok = saveStateManager.saveSlot(identity, slot.slotIndex)
                     Toast.makeText(context, if (ok) "Slot ${slot.slotIndex} saved!" else "Save failed!", Toast.LENGTH_SHORT).show()
                     refreshUI()
                 }
@@ -276,7 +376,7 @@ class SaveStateScreenView(
                 }
                 setPadding(14, 4, 14, 4)
                 setOnClickListener {
-                    val ok = saveStateManager.loadSlot(gameKey, slot.slotIndex)
+                    val ok = saveStateManager.loadSlot(identity, slot.slotIndex)
                     Toast.makeText(context, if (ok) "Slot ${slot.slotIndex} loaded!" else "Load failed!", Toast.LENGTH_SHORT).show()
                 }
             }

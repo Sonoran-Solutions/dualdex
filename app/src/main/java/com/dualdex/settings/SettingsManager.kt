@@ -51,6 +51,12 @@ class SettingsManager(context: Context) {
             prefs.edit().putString(KEY_ROMS_FOLDER_URI, value).apply()
         }
 
+    var savesFolderUri: String?
+        get() = prefs.getString(KEY_SAVES_FOLDER_URI, null)
+        set(value) {
+            prefs.edit().putString(KEY_SAVES_FOLDER_URI, value).apply()
+        }
+
     var lastPlayedRomUri: String?
         get() = prefs.getString(KEY_LAST_PLAYED_ROM_URI, null)
         set(value) {
@@ -75,6 +81,12 @@ class SettingsManager(context: Context) {
             prefs.edit().putBoolean(KEY_BATTLE_TAB_ENABLED, value).apply()
         }
 
+    var legacySavesCheckedOnFirstOpen: Boolean
+        get() = prefs.getBoolean(KEY_LEGACY_SAVES_CHECKED, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_LEGACY_SAVES_CHECKED, value).apply()
+        }
+
     companion object {
         private const val KEY_SHADER_FILTER = "key_shader_filter"
         private const val KEY_FAST_FORWARD = "key_fast_forward"
@@ -82,9 +94,11 @@ class SettingsManager(context: Context) {
         private const val KEY_GEMINI_API_KEY = "key_gemini_api_key"
         private const val KEY_STRETCH_TO_FIT = "key_stretch_to_fit"
         private const val KEY_ROMS_FOLDER_URI = "key_roms_folder_uri"
+        private const val KEY_SAVES_FOLDER_URI = "key_saves_folder_uri"
         private const val KEY_LAST_PLAYED_ROM_URI = "key_last_played_rom_uri"
         private const val KEY_LAST_PLAYED_ROM_TITLE = "key_last_played_rom_title"
         private const val KEY_GEMINI_MODEL = "key_gemini_model"
         private const val KEY_BATTLE_TAB_ENABLED = "key_battle_tab_enabled"
+        private const val KEY_LEGACY_SAVES_CHECKED = "key_legacy_saves_checked"
     }
 }

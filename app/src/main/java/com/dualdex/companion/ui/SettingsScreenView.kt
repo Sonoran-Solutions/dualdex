@@ -17,7 +17,8 @@ class SettingsScreenView(
     private val onShaderChanged: ((ShaderFilter) -> Unit)? = null,
     private val onSpeedChanged: ((Int) -> Unit)? = null,
     private val onStretchChanged: ((Boolean) -> Unit)? = null,
-    private val onTabSelected: ((com.dualdex.companion.CompanionTab) -> Unit)? = null
+    private val onTabSelected: ((com.dualdex.companion.CompanionTab) -> Unit)? = null,
+    private val onChooseSavesFolderRequested: (() -> Unit)? = null
 ) : LinearLayout(context) {
 
     private val settingsManager = SettingsManager(context)
@@ -299,6 +300,80 @@ class SettingsScreenView(
             addView(saveKeyBtn, lp)
         }
         content.addView(apiCard)
+
+        // 5. ROM Saves Storage Directory Card (SAF & Fallback)
+        val savesStorageCard = createCardLayout().apply {
+            val label = TextView(context).apply {
+                text = "💾 ROM Saves Storage Directory"
+                setTextColor(0xFF4A9EFF.toInt())
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 0, 0, 4)
+            }
+            addView(label)
+
+            val desc = TextView(context).apply {
+                text = "DualDex supports Scoped Storage via Android SAF. Select a user-visible folder (like Documents) so your .sav and .state files can be synced with PC or other emulators."
+                setTextColor(0xFFAAAAAA.toInt())
+                textSize = 12f
+                setPadding(0, 0, 0, 8)
+            }
+            addView(desc)
+
+            val storageDescView = TextView(context).apply {
+                val current = settingsManager.savesFolderUri
+                text = if (!current.isNullOrBlank()) "Active Location: Custom SAF Folder" else "Active Location: Internal App Storage (Private)"
+                setTextColor(Color.WHITE)
+                textSize = 12.5f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 0, 0, 10)
+            }
+            addView(storageDescView)
+
+            val btnRow = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                setPadding(0, 4, 0, 0)
+            }
+
+            val pickFolderBtn = Button(context).apply {
+                text = "📁 Select Saves Folder"
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                background = GradientDrawable().apply {
+                    cornerRadius = 12f
+                    setColor(0xFF2B4A77.toInt())
+                }
+                setPadding(14, 8, 14, 8)
+                setOnClickListener {
+                    onChooseSavesFolderRequested?.invoke()
+                }
+            }
+            val lp1 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(0, 0, 6, 0) }
+            btnRow.addView(pickFolderBtn, lp1)
+
+            val resetBtn = Button(context).apply {
+                text = "🔄 Reset to Internal"
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                background = GradientDrawable().apply {
+                    cornerRadius = 12f
+                    setColor(0xFF44222A.toInt())
+                }
+                setPadding(14, 8, 14, 8)
+                setOnClickListener {
+                    settingsManager.savesFolderUri = null
+                    storageDescView.text = "Active Location: Internal App Storage (Private)"
+                    Toast.makeText(context, "Reset saves storage to internal app storage", Toast.LENGTH_SHORT).show()
+                }
+            }
+            val lp2 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(6, 0, 0, 0) }
+            btnRow.addView(resetBtn, lp2)
+
+            addView(btnRow)
+        }
+        content.addView(savesStorageCard)
 
         // Cheats Quick Access Card
         val cheatCard = createCardLayout().apply {

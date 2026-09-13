@@ -116,4 +116,120 @@ class RomIdentityAndSaveTest {
         assertTrue(candidates.contains("Pokemon_FireRed_v1_1.sav"))
         assertTrue(candidates.contains("current_game.sav"))
     }
+
+    @Test
+    fun testFindMatchingLegacyBaseExactProfileName() {
+        val identity = RomIdentity.create(
+            "1111222233334444555566667777888899990000111122223333444455556666",
+            "1636 - Pokemon Fire Red (U)(Squirrels)"
+        )
+
+        // Case 1: Legacy file uses old profile name (cleanKey) with triple underscores
+        val files1 = listOf("Pokemon_Heart___Soul_2_0.sav")
+        val match1 = SaveStateManager.findMatchingLegacyBase(
+            identity = RomIdentity.create("", "Heart & Soul"),
+            profileName = "Pokemon Heart & Soul 2.0",
+            profileId = "heart_and_soul",
+            availableFiles = files1
+        )
+        assertEquals("Pokemon_Heart___Soul_2_0", match1)
+
+        // Case 2: Legacy file uses sanitized profile name with single underscores
+        val files2 = listOf("Pokemon_Heart_Soul_2_0.sav")
+        val match2 = SaveStateManager.findMatchingLegacyBase(
+            identity = RomIdentity.create("", "Heart & Soul"),
+            profileName = "Pokemon Heart & Soul 2.0",
+            profileId = "heart_and_soul",
+            availableFiles = files2
+        )
+        assertEquals("Pokemon_Heart_Soul_2_0", match2)
+
+        // Case 3: Legacy file named by profile ID
+        val files3 = listOf("firered.sav")
+        val match3 = SaveStateManager.findMatchingLegacyBase(
+            identity = identity,
+            profileName = "Pokemon FireRed",
+            profileId = "firered",
+            availableFiles = files3
+        )
+        assertEquals("firered", match3)
+    }
+
+    @Test
+    fun testFindMatchingLegacyBaseFuzzyAlphanumeric() {
+        // ROM file has long scene release title, but legacy save was saved under profile name
+        val identity = RomIdentity.create(
+            "1111222233334444555566667777888899990000111122223333444455556666",
+            "1636 - Pokemon Fire Red (U)(Squirrels)"
+        )
+
+        val files = listOf("Pokemon_FireRed.sav", "Pokemon_FireRed_slot_1.state")
+        // Even without profileName passed, fuzzy normalized matching recognizes FireRed in title
+        val matchWithoutProfile = SaveStateManager.findMatchingLegacyBase(
+            identity = identity,
+            profileName = null,
+            profileId = null,
+            availableFiles = files
+        )
+        assertEquals("Pokemon_FireRed", matchWithoutProfile)
+
+        // Different game must NOT match
+        val emeraldFiles = listOf("Pokemon_Emerald.sav")
+        val matchEmerald = SaveStateManager.findMatchingLegacyBase(
+            identity = identity,
+            profileName = null,
+            profileId = null,
+            availableFiles = emeraldFiles
+        )
+        assertNull(matchEmerald)
+    }
+
+    @Test
+    fun testFindMatchingLegacyBaseStagedFallback() {
+        val identity = RomIdentity.create(
+            "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+            "Pokemon Unbound"
+        )
+        // Check staging folder created on first open
+        val files = listOf("legacy_Pokemon_Unbound")
+        val match = SaveStateManager.findMatchingLegacyBase(
+            identity = identity,
+            profileName = "Pokemon Unbound",
+            profileId = "unbound",
+            availableFiles = files
+        )
+        assertEquals("Pokemon_Unbound", match)
+    }
+
+    @Test
+    fun testFirstOpenLegacySavesGroupingLogic() {
+        val filenames = listOf(
+            "Pokemon_FireRed.sav",
+            "Pokemon_FireRed_slot_1.state",
+            "Pokemon_FireRed_slot_2.state",
+            "Pokemon_FireRed_quicksave.state",
+            "Pokemon_Emerald.sav",
+            "old_game.sav.migrated.bak",
+            "temp.tmp"
+        )
+
+        val unmigrated = filenames.filter {
+            !it.endsWith(".migrated.bak") && !it.endsWith(".tmp") && (it.endsWith(".sav") || it.endsWith(".state"))
+        }
+        assertEquals(5, unmigrated.size)
+
+        val baseNames = unmigrated.map { f ->
+            when {
+                f.endsWith(".sav") -> f.removeSuffix(".sav")
+                f.contains("_slot_") -> f.substringBefore("_slot_")
+                f.endsWith("_quicksave.state") -> f.removeSuffix("_quicksave.state")
+                f.endsWith(".state") -> f.removeSuffix(".state")
+                else -> f.substringBeforeLast(".")
+            }
+        }.distinct()
+
+        assertEquals(2, baseNames.size)
+        assertTrue(baseNames.contains("Pokemon_FireRed"))
+        assertTrue(baseNames.contains("Pokemon_Emerald"))
+    }
 }

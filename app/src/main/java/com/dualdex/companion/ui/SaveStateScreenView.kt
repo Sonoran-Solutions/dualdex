@@ -290,6 +290,7 @@ class SaveStateScreenView(
 
     fun refreshUI() {
         val identity = getRomIdentity()
+        val profile = viewModel.activeProfile.value
 
         // Active ROM details
         val hashDisplay = if (identity.sha256.isNotEmpty()) identity.shortHash else "N/A"
@@ -304,7 +305,7 @@ class SaveStateScreenView(
             "Status: App Private Storage ($dirDesc)\nTip: Select a shared folder so your saves are easily accessible to other emulators or sync tools."
         }
 
-        val bInfo = saveStateManager.getBatterySaveInfo(identity)
+        val bInfo = saveStateManager.getBatterySaveInfo(identity, profile.name, profile.id)
         batterySaveStatusView.text = if (bInfo.exists) {
             "Active Battery Save: ${bInfo.sizeBytes / 1024} KB (Saved: ${bInfo.formattedDate})"
         } else {
@@ -319,7 +320,7 @@ class SaveStateScreenView(
         }
 
         slotsContainer.removeAllViews()
-        val slots = saveStateManager.getAllSlotsInfo(identity, 5)
+        val slots = saveStateManager.getAllSlotsInfo(identity, 5, profile.name, profile.id)
 
         slots.forEach { slot ->
             val slotRow = LinearLayout(context).apply {
@@ -376,7 +377,7 @@ class SaveStateScreenView(
                 }
                 setPadding(14, 4, 14, 4)
                 setOnClickListener {
-                    val ok = saveStateManager.loadSlot(identity, slot.slotIndex)
+                    val ok = saveStateManager.loadSlot(identity, slot.slotIndex, profile.name, profile.id)
                     Toast.makeText(context, if (ok) "Slot ${slot.slotIndex} loaded!" else "Load failed!", Toast.LENGTH_SHORT).show()
                 }
             }

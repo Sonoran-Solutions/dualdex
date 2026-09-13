@@ -231,6 +231,27 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 }
             }
 
+            // 7.5 Check and migrate legacy saves from previous app version on first open
+            if (!settingsManager.legacySavesCheckedOnFirstOpen) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val migration = saveStateManager.checkAndMigrateLegacySavesOnFirstOpen()
+                        settingsManager.legacySavesCheckedOnFirstOpen = true
+                        if (migration.filesFound > 0) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "DualDex found ${migration.filesFound} legacy save file(s) across ${migration.gameTitles.size} game(s). Ready to play!",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("DualDex", "Error checking legacy saves on startup: ${e.message}", e)
+                    }
+                }
+            }
+
             // 8. Start background memory poller (10Hz)
             viewModel.startPolling(100L)
         } catch (e: Throwable) {
@@ -264,6 +285,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 val profile = RomHackDetector.detectProfile(localRomFile, loadedProfiles, preferredTitle)
                 val gameTitle = preferredTitle ?: profile.name.ifEmpty { "current_game" }
                 val romIdentity = RomIdentity.fromFile(localRomFile, gameTitle)
+                saveStateManager.setActiveGame(romIdentity, profile.name, profile.id)
                 settingsManager.lastPlayedRomUri = uri.toString()
                 settingsManager.lastPlayedRomTitle = gameTitle
 
@@ -279,7 +301,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                     LibretroHost.nativeClearAudio()
                     audioDriver.updateSampleRate()
                     // Auto-load cartridge battery save (.sav) if present
-                    val loadedSave = saveStateManager.loadBatterySave(romIdentity)
+                    val loadedSave = saveStateManager.loadBatterySave(romIdentity, profile.name, profile.id)
                     if (loadedSave) {
                         Log.i("DualDex", "Restored existing battery save for ${romIdentity.storageKey}")
                     }

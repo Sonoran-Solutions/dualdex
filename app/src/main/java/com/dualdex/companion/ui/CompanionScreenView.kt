@@ -48,6 +48,7 @@ class CompanionScreenView(
     private val partyView: PartyScreenView by lazy { PartyScreenView(context, viewModel) }
     private val mapView: MapScreenView by lazy { MapScreenView(context, viewModel) }
     private val calcView: CalcTabScreenView by lazy { CalcTabScreenView(context, viewModel) }
+    private val battleView: BattleConsoleScreenView by lazy { BattleConsoleScreenView(context, viewModel) }
     private val typesView: TypeChartScreenView by lazy { TypeChartScreenView(context, viewModel) }
     private val docsView: DocsScreenView by lazy { DocsScreenView(context, viewModel) }
     private val cheatsView: CheatsScreenView by lazy { CheatsScreenView(context, viewModel) }
@@ -227,6 +228,10 @@ class CompanionScreenView(
                 calcView.refreshUI()
                 calcView
             }
+            CompanionTab.BATTLE -> {
+                battleView.refreshUI()
+                battleView
+            }
             CompanionTab.TYPES -> typesView
             CompanionTab.DOCS -> {
                 docsView.refreshUI()
@@ -272,6 +277,7 @@ class CompanionScreenView(
             if (viewModel.selectedTab.value == CompanionTab.PARTY) partyView.refreshUI()
             if (viewModel.selectedTab.value == CompanionTab.MAP) mapView.refreshUI()
             if (viewModel.selectedTab.value == CompanionTab.CALC) calcView.refreshUI()
+            if (viewModel.selectedTab.value == CompanionTab.BATTLE) battleView.refreshUI()
             if (viewModel.selectedTab.value == CompanionTab.TYPES) typesView.updateMatchupDisplay()
             if (viewModel.selectedTab.value == CompanionTab.CHEATS) cheatsView.refreshUI()
             if (viewModel.selectedTab.value == CompanionTab.SAVES) savesView.refreshUI()
@@ -288,6 +294,8 @@ class CompanionScreenView(
                 partyView.refreshUI()
             } else if (viewModel.selectedTab.value == CompanionTab.CALC) {
                 calcView.refreshUI()
+            } else if (viewModel.selectedTab.value == CompanionTab.BATTLE) {
+                battleView.refreshUI()
             }
         }
     }

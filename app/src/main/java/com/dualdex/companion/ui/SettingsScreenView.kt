@@ -426,7 +426,7 @@ class SettingsScreenView(
             addView(label)
 
             val desc = TextView(context).apply {
-                text = "Toggle early-access development features. Disabled by default."
+                text = "Toggle early-access development features for battle companions and touch controls."
                 setTextColor(0xFFAAAAAA.toInt())
                 textSize = 12f
                 setPadding(0, 0, 0, 10)
@@ -457,6 +457,33 @@ class SettingsScreenView(
             }
             val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
             addView(toggleBattleBtn, lp)
+
+            var isInteractiveControls = settingsManager.isInteractiveBattleControlsEnabled
+            val toggleInteractiveBtn = Button(context).apply {
+                fun updateText() {
+                    text = if (isInteractiveControls) "🎮 Touch Battle Controls (Tap to Input Moves): Enabled" else "🎮 Touch Battle Controls (Tap to Input Moves): Disabled (Read-Only)"
+                    background = GradientDrawable().apply {
+                        cornerRadius = 14f
+                        setColor(if (isInteractiveControls) 0xFF2E6B4A.toInt() else 0xFF3E3E4E.toInt())
+                    }
+                }
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(18, 8, 18, 8)
+                updateText()
+                setOnClickListener {
+                    isInteractiveControls = !isInteractiveControls
+                    settingsManager.isInteractiveBattleControlsEnabled = isInteractiveControls
+                    viewModel.setInteractiveBattleControlsEnabled(isInteractiveControls)
+                    updateText()
+                    Toast.makeText(context, if (isInteractiveControls) "Touch battle controls enabled" else "Touch battle controls disabled (Read-only)", Toast.LENGTH_SHORT).show()
+                }
+            }
+            val lpInteractive = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                setMargins(0, 8, 0, 0)
+            }
+            addView(toggleInteractiveBtn, lpInteractive)
         }
         content.addView(experimentalCard)
     }

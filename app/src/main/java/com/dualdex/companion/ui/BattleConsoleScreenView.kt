@@ -445,6 +445,11 @@ class BattleConsoleScreenView(
             if (canSelect) {
                 isClickable = true
                 isFocusable = true
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(14).toFloat()
+                    setColor(0xFF202534.toInt())
+                    setStroke(dp(1), 0xFF3D527A.toInt())
+                }
 
                 setOnClickListener {
                     val uiSnap = viewModel.battleUiSnapshot.value
@@ -479,6 +484,19 @@ class BattleConsoleScreenView(
                 typeface = Typeface.DEFAULT_BOLD
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
             })
+            if (canSelect) {
+                header.addView(TextView(context).apply {
+                    text = "▶ USE"
+                    setTextColor(0xFF50C878.toInt())
+                    textSize = 11f
+                    typeface = Typeface.DEFAULT_BOLD
+                    setPadding(dp(8), dp(2), dp(8), dp(2))
+                    background = badgeDrawable(0xFF1E2B22.toInt(), 0xFF50C878.toInt())
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                        setMargins(0, 0, dp(6), 0)
+                    }
+                })
+            }
             header.addView(TextView(context).apply {
                 text = pres.categoryDisplay
                 setTextColor(0xFFCCCCCC.toInt())

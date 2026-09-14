@@ -76,9 +76,15 @@ class SettingsManager(context: Context) {
         }
 
     var isBattleTabEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BATTLE_TAB_ENABLED, false)
+        get() = prefs.getBoolean(KEY_BATTLE_TAB_ENABLED, true)
         set(value) {
             prefs.edit().putBoolean(KEY_BATTLE_TAB_ENABLED, value).apply()
+        }
+
+    var isInteractiveBattleControlsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_INTERACTIVE_BATTLE_CONTROLS_ENABLED, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_INTERACTIVE_BATTLE_CONTROLS_ENABLED, value).apply()
         }
 
     var legacySavesCheckedOnFirstOpen: Boolean
@@ -99,6 +105,7 @@ class SettingsManager(context: Context) {
         private const val KEY_LAST_PLAYED_ROM_TITLE = "key_last_played_rom_title"
         private const val KEY_GEMINI_MODEL = "key_gemini_model"
         private const val KEY_BATTLE_TAB_ENABLED = "key_battle_tab_enabled"
+        private const val KEY_INTERACTIVE_BATTLE_CONTROLS_ENABLED = "key_interactive_battle_controls_enabled"
         private const val KEY_LEGACY_SAVES_CHECKED = "key_legacy_saves_checked"
     }
 }

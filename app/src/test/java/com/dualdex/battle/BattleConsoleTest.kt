@@ -773,4 +773,23 @@ class BattleConsoleTest {
         )
         assertEquals(16, summaryParalyzed.effectiveSpeed)
     }
+
+    // 21. CompanionViewModel defaults battle tab and interactive controls to true
+    @Test
+    fun testCompanionViewModel_battleTabAndInteractiveDefaults() {
+        val vm = CompanionViewModel()
+        assertTrue("Battle tab must be enabled by default", vm.isBattleTabEnabled.value)
+        assertTrue("Interactive battle controls must be enabled by default", vm.isInteractiveBattleControlsEnabled.value)
+    }
+
+    // 22. CompanionViewModel allows toggling interactive battle controls
+    @Test
+    fun testCompanionViewModel_interactiveBattleControlsToggle() {
+        val vm = CompanionViewModel()
+        vm.setInteractiveBattleControlsEnabled(false)
+        assertFalse("Interactive controls should be disabled when set to false", vm.isInteractiveBattleControlsEnabled.value)
+
+        vm.setInteractiveBattleControlsEnabled(true)
+        assertTrue("Interactive controls should be enabled when set to true", vm.isInteractiveBattleControlsEnabled.value)
+    }
 }

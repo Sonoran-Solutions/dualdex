@@ -141,6 +141,12 @@ class CompanionScreenView(
                 setColor(0xFF1F2B24.toInt())
                 setStroke(1, 0xFF50C878.toInt())
             }
+            setOnClickListener {
+                if (viewModel.isBattleTabEnabled.value) {
+                    viewModel.selectTab(CompanionTab.BATTLE)
+                    switchTab(CompanionTab.BATTLE)
+                }
+            }
         }
         val lpBadge = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
             setMargins(0, 0, 8, 0)
@@ -376,9 +382,17 @@ class CompanionScreenView(
                 notifyProfileChanged()
             }
         }
+        var wasInBattle = false
         scope.launch {
-            viewModel.isInBattle.collectLatest {
+            viewModel.isInBattle.collectLatest { inBattle ->
                 notifyPartyUpdated()
+                if (inBattle && !wasInBattle && viewModel.isBattleTabEnabled.value) {
+                    if (currentTab != CompanionTab.BATTLE) {
+                        viewModel.selectTab(CompanionTab.BATTLE)
+                        switchTab(CompanionTab.BATTLE)
+                    }
+                }
+                wasInBattle = inBattle
             }
         }
         scope.launch {

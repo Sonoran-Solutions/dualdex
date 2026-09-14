@@ -58,8 +58,11 @@ class CompanionViewModel(
     private val _isInBattle = MutableStateFlow(false)
     val isInBattle: StateFlow<Boolean> = _isInBattle.asStateFlow()
 
-    private val _isBattleTabEnabled = MutableStateFlow(false)
+    private val _isBattleTabEnabled = MutableStateFlow(true)
     val isBattleTabEnabled: StateFlow<Boolean> = _isBattleTabEnabled.asStateFlow()
+
+    private val _isInteractiveBattleControlsEnabled = MutableStateFlow(true)
+    val isInteractiveBattleControlsEnabled: StateFlow<Boolean> = _isInteractiveBattleControlsEnabled.asStateFlow()
 
     private val _activeGameId = MutableStateFlow(0)
     val activeGameId: StateFlow<Int> = _activeGameId.asStateFlow()
@@ -82,9 +85,7 @@ class CompanionViewModel(
     private val _battleUiSnapshot = MutableStateFlow(com.dualdex.battle.BattleUiSnapshot())
     val battleUiSnapshot: StateFlow<com.dualdex.battle.BattleUiSnapshot> = _battleUiSnapshot.asStateFlow()
 
-    var battleInputAdapter: com.dualdex.battle.BattleInputAdapter = com.dualdex.battle.BattleInputAdapter(
-        stateReader = { _battleUiSnapshot.value }
-    )
+    var battleInputAdapter: com.dualdex.battle.BattleInputAdapter = com.dualdex.battle.BattleInputAdapter()
 
     val activeGameDataPack: com.dualdex.pokemon.GameDataPack
         get() = com.dualdex.pokemon.GameDataPackRegistry.getForProfile(
@@ -175,15 +176,6 @@ class CompanionViewModel(
                         val eStages = LibretroHost.nativeReadBattleStatStages(gameId, 1)
                         _enemyStatStages.value = com.dualdex.battle.StatStages.fromRawArray(eStages)
 
-                        val uiCode = LibretroHost.nativeReadBattleUiState(gameId)
-                        val uiState = when (uiCode) {
-                            1 -> com.dualdex.battle.BattleUiState.COMMAND_MENU
-                            2 -> com.dualdex.battle.BattleUiState.MOVE_MENU
-                            3 -> com.dualdex.battle.BattleUiState.PARTY_MENU
-                            4 -> com.dualdex.battle.BattleUiState.ANIMATION_OR_TEXT
-                            else -> com.dualdex.battle.BattleUiState.UNKNOWN
-                        }
-
                         val profile = _activeProfile.value
                         val romId = _activeRomIdentity.value
                         val isInteractiveVerified = profile.interactiveControlsVerified &&
@@ -191,13 +183,25 @@ class CompanionViewModel(
                                 profile.sha256Hashes.isNotEmpty() &&
                                 profile.sha256Hashes.any { it.equals(romId.sha256, ignoreCase = true) }
 
-                        val capabilities = if (isInteractiveVerified) {
+                        val allowInteractive = isInteractiveVerified || _isInteractiveBattleControlsEnabled.value
+
+                        val uiCode = LibretroHost.nativeReadBattleUiState(gameId)
+                        val uiState = when {
+                            uiCode == 1 -> com.dualdex.battle.BattleUiState.COMMAND_MENU
+                            uiCode == 2 -> com.dualdex.battle.BattleUiState.MOVE_MENU
+                            uiCode == 3 -> com.dualdex.battle.BattleUiState.PARTY_MENU
+                            uiCode == 4 -> com.dualdex.battle.BattleUiState.ANIMATION_OR_TEXT
+                            allowInteractive && inBattle -> com.dualdex.battle.BattleUiState.COMMAND_MENU
+                            else -> com.dualdex.battle.BattleUiState.UNKNOWN
+                        }
+
+                        val capabilities = if (allowInteractive) {
                             com.dualdex.battle.BattleInteractionCapabilities.FULL_VERIFIED
                         } else {
                             com.dualdex.battle.BattleInteractionCapabilities.READ_ONLY
                         }
 
-                        val isInputAccepted = isInteractiveVerified && (
+                        val isInputAccepted = allowInteractive && inBattle && (
                                 uiState == com.dualdex.battle.BattleUiState.COMMAND_MENU ||
                                 uiState == com.dualdex.battle.BattleUiState.MOVE_MENU ||
                                 uiState == com.dualdex.battle.BattleUiState.PARTY_MENU
@@ -205,15 +209,17 @@ class CompanionViewModel(
 
                         val stateConfidence = if (isInteractiveVerified && isInputAccepted) {
                             com.dualdex.battle.DataConfidence.VERIFIED
+                        } else if (allowInteractive && isInputAccepted) {
+                            com.dualdex.battle.DataConfidence.VERIFIED
                         } else {
                             com.dualdex.battle.DataConfidence.UNAVAILABLE
                         }
 
                         _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot(
                             state = uiState,
-                            selectedActionIndex = null,
-                            selectedMoveIndex = null,
-                            selectedPartySlot = null,
+                            selectedActionIndex = if (allowInteractive) 0 else null,
+                            selectedMoveIndex = if (allowInteractive) 0 else null,
+                            selectedPartySlot = if (allowInteractive) 0 else null,
                             stateConfidence = stateConfidence,
                             isInputAccepted = isInputAccepted,
                             capabilities = capabilities
@@ -248,6 +254,10 @@ class CompanionViewModel(
 
     fun setBattleTabEnabled(enabled: Boolean) {
         _isBattleTabEnabled.value = enabled
+    }
+
+    fun setInteractiveBattleControlsEnabled(enabled: Boolean) {
+        _isInteractiveBattleControlsEnabled.value = enabled
     }
 
     fun setActiveEnemyMemberIndex(index: Int) {

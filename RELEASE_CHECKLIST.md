@@ -74,6 +74,10 @@ Before promoting a release candidate:
 - [ ] Use the companion tabs and calculator throughout the session.
 - [ ] Watch for memory growth, audio drift, thermal issues, battery drain, frame pacing problems, stale companion data, and crashes that only appear after extended play.
 
+### Battle Tab Readiness
+
+- [ ] **Finish the Battle tab features required for the AYN Thor beta.** Validate the battle, party, field, and profile-aware presentation on-device, and document any remaining limitations before the beta release.
+
 ### Make Compatibility Claims Conservative
 
 - [ ] Publish exact verified ROM versions/hashes instead of claiming generic support based only on a hack name.

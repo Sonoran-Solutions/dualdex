@@ -1537,4 +1537,86 @@ class RomSaveIntegrityTest {
 
         migratedBakCollision.deleteRecursively()
     }
+
+    // ---------------------------------------------------------
+    // Scenarios 35 - 36: Access Failure & Save Preservation
+    // ---------------------------------------------------------
+
+    @Test
+    fun test35_failedRomContinue_doesNotCorruptOrDeleteSaves() = runBlocking {
+        val cacheDir = File(testBaseDir, "rom_cache").apply { mkdirs() }
+        val sessionManager = RomSessionManager(
+            saveStateManager = saveStateManager,
+            customRomCacheDir = cacheDir,
+            coreBridge = testBridge
+        )
+
+        // Seed a game ROM A with an existing battery save
+        val romABytes = ByteArray(1024) { 0x11.toByte() }
+        val hashA = RomIdentity.calculateSha256(romABytes)
+        val fileA = File(testBaseDir, "rom_a.gba").apply { writeBytes(romABytes) }
+        val identityA = RomIdentity.create(hashA, "ROM A")
+
+        val canonicalDirA = saveStateManager.getCanonicalRomDir(identityA)
+        val saveFileA = File(canonicalDirA, "battery.sav").apply {
+            writeBytes(ByteArray(SRAM_SIZE_128K) { 0x77.toByte() })
+        }
+        val origLength = saveFileA.length()
+        val origBytes = saveFileA.readBytes()
+
+        // Load ROM A
+        val resA = sessionManager.switchRomFile(fileA, emptyList(), "ROM A")
+        assertTrue(resA is SwitchResult.Success)
+
+        // Now simulate Continue / switch attempt to a missing or revoked ROM B
+        val missingFile = File(testBaseDir, "non_existent_rom.gba")
+        val resB = sessionManager.switchRomFile(missingFile, emptyList(), "Missing ROM")
+        assertTrue("Switch to missing file must fail", resB is SwitchResult.Failure)
+        assertTrue("Must be identified as access error", (resB as SwitchResult.Failure).isAccessError)
+
+        // Verify that existing battery save file for ROM A was NOT deleted or modified
+        assertTrue("Save file for ROM A must still exist", saveFileA.exists())
+        assertEquals("Save file length must be untouched", origLength, saveFileA.length())
+        assertArrayEquals("Save file content must be untouched", origBytes, saveFileA.readBytes())
+    }
+
+    @Test
+    fun test36_reselectingSameRomAfterAccessFailure_reconnectsToExistingSave() = runBlocking {
+        val cacheDir = File(testBaseDir, "rom_cache").apply { mkdirs() }
+        val sessionManager = RomSessionManager(
+            saveStateManager = saveStateManager,
+            customRomCacheDir = cacheDir,
+            coreBridge = testBridge
+        )
+
+        // 1. Initial play of ROM: creates canonical save
+        val romBytes = ByteArray(1024) { 0x33.toByte() }
+        val hash = RomIdentity.calculateSha256(romBytes)
+        val initialFile = File(testBaseDir, "initial_rom.gba").apply { writeBytes(romBytes) }
+        val identity = RomIdentity.create(hash, "My Game")
+
+        val canonicalDir = saveStateManager.getCanonicalRomDir(identity)
+        val saveFile = File(canonicalDir, "battery.sav").apply {
+            writeBytes(ByteArray(SRAM_SIZE_128K) { 0xAA.toByte() })
+        }
+
+        // 2. Access failure occurs (e.g. file deleted/moved from original location)
+        initialFile.delete()
+        val failRes = sessionManager.switchRomFile(initialFile, emptyList(), "My Game")
+        assertTrue(failRes is SwitchResult.Failure)
+        assertTrue((failRes as SwitchResult.Failure).isAccessError)
+
+        // Save still exists untouched
+        assertTrue(saveFile.exists())
+
+        // 3. User selects the ROM again from another path / picker
+        val reselectedFile = File(testBaseDir, "reselected_rom.gba").apply { writeBytes(romBytes) }
+        val successRes = sessionManager.switchRomFile(reselectedFile, emptyList(), "My Game")
+        assertTrue(successRes is SwitchResult.Success)
+
+        val successIdentity = (successRes as SwitchResult.Success).identity
+        assertEquals("SHA-256 identity must be identical", identity.sha256, successIdentity.sha256)
+        assertEquals("Storage key must match", identity.storageKey, successIdentity.storageKey)
+        assertTrue("Save file must still exist and be preserved", saveFile.exists())
+    }
 }

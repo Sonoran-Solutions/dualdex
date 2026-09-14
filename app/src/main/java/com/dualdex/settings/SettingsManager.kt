@@ -4,9 +4,11 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.dualdex.emulator.ShaderFilter
 
-class SettingsManager(context: Context) {
+open class SettingsManager(private val prefs: SharedPreferences) {
 
-    private val prefs: SharedPreferences = context.getSharedPreferences("dualdex_settings", Context.MODE_PRIVATE)
+    constructor(context: Context) : this(
+        context.getSharedPreferences("dualdex_settings", Context.MODE_PRIVATE)
+    )
 
     var shaderFilter: ShaderFilter
         get() {
@@ -60,14 +62,30 @@ class SettingsManager(context: Context) {
     var lastPlayedRomUri: String?
         get() = prefs.getString(KEY_LAST_PLAYED_ROM_URI, null)
         set(value) {
-            prefs.edit().putString(KEY_LAST_PLAYED_ROM_URI, value).apply()
+            if (value == null) {
+                prefs.edit().remove(KEY_LAST_PLAYED_ROM_URI).apply()
+            } else {
+                prefs.edit().putString(KEY_LAST_PLAYED_ROM_URI, value).apply()
+            }
         }
 
     var lastPlayedRomTitle: String?
         get() = prefs.getString(KEY_LAST_PLAYED_ROM_TITLE, null)
         set(value) {
-            prefs.edit().putString(KEY_LAST_PLAYED_ROM_TITLE, value).apply()
+            if (value == null) {
+                prefs.edit().remove(KEY_LAST_PLAYED_ROM_TITLE).apply()
+            } else {
+                prefs.edit().putString(KEY_LAST_PLAYED_ROM_TITLE, value).apply()
+            }
         }
+
+    /** Clears recorded Continue state atomically. */
+    fun clearLastPlayedRom() {
+        prefs.edit()
+            .remove(KEY_LAST_PLAYED_ROM_URI)
+            .remove(KEY_LAST_PLAYED_ROM_TITLE)
+            .apply()
+    }
 
     var geminiModel: String
         get() = prefs.getString(KEY_GEMINI_MODEL, "gemini-3.8-flash") ?: "gemini-3.8-flash"

@@ -38,6 +38,7 @@ import com.dualdex.emulator.LibretroHost
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.ShaderFilter
+import com.dualdex.emulator.RomUriPermissionManager
 import com.dualdex.romhack.ProfileLoader
 import com.dualdex.romhack.RomHackDetector
 import com.dualdex.romhack.RomHackProfile
@@ -73,7 +74,17 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
     private val openRomLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
-            handleSelectedRom(uri)
+            val oldLastPlayed = settingsManager.lastPlayedRomUri
+            val isDurable = RomUriPermissionManager.takePersistableReadPermission(contentResolver, uri)
+            if (isDurable) {
+                RomUriPermissionManager.releasePersistableReadPermissionIfRedundant(
+                    contentResolver = contentResolver,
+                    oldUriStr = oldLastPlayed,
+                    newUriStr = uri.toString(),
+                    protectedUris = setOfNotNull(settingsManager.romsFolderUri, settingsManager.savesFolderUri)
+                )
+            }
+            handleSelectedRom(uri, isDurable = isDurable)
         }
     }
 
@@ -294,12 +305,17 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
-    private fun handleSelectedRom(uri: Uri, preferredTitle: String? = null) {
+    private fun handleSelectedRom(
+        uri: Uri,
+        preferredTitle: String? = null,
+        isDurable: Boolean = true
+    ) {
         CoroutineScope(Dispatchers.IO).launch {
             val result = romSessionManager.switchRom(
                 uri = uri,
                 loadedProfiles = loadedProfiles,
                 preferredTitle = preferredTitle,
+                isDurable = isDurable,
                 onEmulationPause = {
                     // Only the stepping loop is suspended here. Calling the GLSurfaceView
                     // onPause()/onResume() pair instead would tear down the render thread for the
@@ -329,11 +345,25 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                         ).show()
                     }
                     is com.dualdex.emulator.SwitchResult.Failure -> {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Error opening ROM: ${result.reason}",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        val wasContinueTarget = settingsManager.lastPlayedRomUri == uri.toString()
+                        if (result.isAccessError || wasContinueTarget) {
+                            if (wasContinueTarget) {
+                                settingsManager.clearLastPlayedRom()
+                                companionPresentation?.refreshHomeScreen()
+                                currentCompanionScreenView?.refreshHomeScreen()
+                            }
+                            Toast.makeText(
+                                this@MainActivity,
+                                RomUriPermissionManager.RECOVERY_MESSAGE,
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Error opening ROM: ${result.reason}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 }
             }

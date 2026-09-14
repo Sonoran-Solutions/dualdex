@@ -3,11 +3,15 @@ package com.dualdex.emulator
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import androidx.documentfile.provider.DocumentFile
+import com.dualdex.emulator.storage.AtomicSaveFile
+import com.dualdex.emulator.storage.LegacyCandidate
+import com.dualdex.emulator.storage.LegacySaveCatalog
+import com.dualdex.emulator.storage.MirrorStatus
+import com.dualdex.emulator.storage.RomSaveMetadata
+import com.dualdex.emulator.storage.SafMirrorStore
+import com.dualdex.emulator.storage.SaveWriteResult
 import com.dualdex.settings.SettingsManager
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.text.SimpleDateFormat
@@ -28,343 +32,191 @@ data class LegacyMigrationResult(
     val message: String
 )
 
-class SaveStateManager(private val context: Context) {
+open class SaveStateManager(
+    private val context: Context? = null,
+    private val customBaseDir: File? = null,
+    private val customSafStore: SafMirrorStore? = null,
+    private val customLegacyCatalog: LegacySaveCatalog? = null,
+    var coreBridge: LibretroCoreBridge? = null
+) {
 
-    private val settingsManager by lazy { SettingsManager(context) }
-    private val saveLock = Any()
+    private val settingsManager by lazy { context?.let { SettingsManager(it) } }
+    private val safMirrorStore by lazy { customSafStore ?: SafMirrorStore(context) }
+    private val legacyCatalog by lazy { customLegacyCatalog ?: LegacySaveCatalog(context) }
 
     var activeIdentity: RomIdentity? = null
     var activeProfileName: String? = null
     var activeProfileId: String? = null
 
-    fun setActiveGame(identity: RomIdentity, profileName: String? = null, profileId: String? = null) {
-        activeIdentity = identity
-        activeProfileName = profileName
-        activeProfileId = profileId
+    private fun nativeLoadSaveRam(path: String): Boolean =
+        coreBridge?.loadSaveRam(path) ?: LibretroHost.nativeLoadSaveRam(path)
+
+    private fun nativeFlushSaveRam(path: String): Boolean =
+        coreBridge?.flushSaveRam(path) ?: LibretroHost.nativeFlushSaveRam(path)
+
+    private fun nativeGetSaveRamSize(): Long =
+        coreBridge?.getSaveRamSize() ?: LibretroHost.nativeGetSaveRamSize()
+
+    private fun nativeGetSaveStateSize(): Long =
+        coreBridge?.getSaveStateSize() ?: LibretroHost.nativeGetSaveStateSize()
+
+    private fun nativeSaveState(path: String): Boolean =
+        coreBridge?.saveState(path) ?: LibretroHost.nativeSaveState(path)
+
+    private fun nativeLoadState(path: String): Boolean =
+        coreBridge?.loadState(path) ?: LibretroHost.nativeLoadState(path)
+
+    private fun nativeResetCore() {
+        if (coreBridge != null) coreBridge?.resetCore() else LibretroHost.nativeResetCore()
     }
 
+    fun setActiveGame(identity: RomIdentity, profileName: String? = null, profileId: String? = null) {
+        synchronized(globalSaveLock) {
+            activeIdentity = identity
+            activeProfileName = profileName
+            activeProfileId = profileId
+            if (identity.isValid) {
+                migrateOldBranchDirIfPresent(identity)
+                recordMetadata(identity, profileId)
+            }
+        }
+    }
+
+    private val canonicalBaseDir: File
+        get() = File(customBaseDir ?: context?.filesDir ?: File("build/test_saves"), "saves_v2").apply {
+            if (!exists()) mkdirs()
+        }
+
     private val stagingDir: File
-        get() = File(context.filesDir, "save_staging").apply {
+        get() = File(customBaseDir ?: context?.filesDir ?: File("build/test_saves"), "save_staging").apply {
             if (!exists()) mkdirs()
         }
 
     private val fallbackBaseDir: File
-        get() = File(context.filesDir, "saves_fallback").apply {
+        get() = File(customBaseDir ?: context?.filesDir ?: File("build/test_saves"), "saves_fallback").apply {
             if (!exists()) mkdirs()
         }
 
-    fun isUsingSaf(): Boolean {
-        return getSafFolder() != null
-    }
-
-    fun getSaveDirectoryDescription(): String {
-        val safUri = settingsManager.savesFolderUri
-        if (safUri != null) {
-            val doc = getSafFolder()
-            if (doc != null) {
-                return doc.name?.let { "SAF ($it)" } ?: "SAF Folder"
-            }
-        }
-        return "Internal App Storage (Private)"
-    }
-
-    private fun getSafFolder(): DocumentFile? {
-        val uriStr = settingsManager.savesFolderUri ?: return null
-        return try {
-            val treeUri = Uri.parse(uriStr)
-            val root = DocumentFile.fromTreeUri(context, treeUri)
-            if (root != null && root.canWrite()) root else null
-        } catch (e: Exception) {
-            Log.w("SaveStateManager", "Failed to access SAF saves folder: ${e.message}")
-            null
-        }
-    }
-
-    private fun getOrCreateSafRomDir(safRoot: DocumentFile, storageKey: String): DocumentFile? {
-        return try {
-            val rootName = safRoot.name ?: ""
-            val savesRoot = when {
-                rootName.equals("Saves", ignoreCase = true) -> safRoot
-                rootName.equals("DualDex", ignoreCase = true) -> {
-                    safRoot.findFile("Saves") ?: safRoot.createDirectory("Saves") ?: safRoot
-                }
-                else -> {
-                    val dualDexDir = safRoot.findFile("DualDex") ?: safRoot.createDirectory("DualDex") ?: safRoot
-                    dualDexDir.findFile("Saves") ?: dualDexDir.createDirectory("Saves") ?: dualDexDir
-                }
-            }
-            savesRoot.findFile(storageKey) ?: savesRoot.createDirectory(storageKey)
-        } catch (e: Exception) {
-            Log.e("SaveStateManager", "Error creating SAF directory for $storageKey: ${e.message}", e)
-            null
-        }
-    }
-
-    private fun getFallbackRomDir(storageKey: String): File {
-        return File(fallbackBaseDir, storageKey).apply {
+    fun getCanonicalRomDir(identity: RomIdentity): File {
+        return File(canonicalBaseDir, identity.storageKey).apply {
             if (!exists()) mkdirs()
         }
+    }
+
+    fun getCanonicalFile(identity: RomIdentity, fileName: String): File {
+        return File(getCanonicalRomDir(identity), fileName)
     }
 
     fun getStagingFile(identity: RomIdentity, fileName: String): File {
         return File(stagingDir, "${identity.storageKey}__$fileName")
     }
 
-    private fun canonicalFileExists(identity: RomIdentity, fileName: String): Boolean {
-        val safRoot = getSafFolder()
-        if (safRoot != null) {
-            val romDir = getOrCreateSafRomDir(safRoot, identity.storageKey)
-            if (romDir != null) {
-                val fileDoc = romDir.findFile(fileName)
-                if (fileDoc != null && fileDoc.exists() && fileDoc.length() > 0L) {
-                    return true
-                }
-            }
-        }
-        val fallbackFile = File(getFallbackRomDir(identity.storageKey), fileName)
-        return fallbackFile.exists() && fallbackFile.length() > 0L
+    fun isUsingSaf(): Boolean = safMirrorStore.isSafConfigured() && safMirrorStore.getSafFolder() != null
+
+    fun getSafMirrorStatus(identity: RomIdentity, fileName: String = "battery.sav"): MirrorStatus {
+        val canonicalFile = getCanonicalFile(identity, fileName)
+        return safMirrorStore.checkMirrorStatus(identity, fileName, canonicalFile)
     }
 
-    private fun copyCanonicalToStaging(identity: RomIdentity, fileName: String, stagingFile: File): Boolean {
-        val safRoot = getSafFolder()
-        if (safRoot != null) {
-            try {
-                val romDir = getOrCreateSafRomDir(safRoot, identity.storageKey)
-                val doc = romDir?.findFile(fileName)
-                if (doc != null && doc.exists() && doc.length() > 0L) {
-                    context.contentResolver.openInputStream(doc.uri)?.use { input ->
-                        FileOutputStream(stagingFile).use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    if (stagingFile.exists() && stagingFile.length() > 0L) {
-                        return true
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w("SaveStateManager", "Error copying from SAF to staging: ${e.message}")
-            }
+    fun getSaveDirectoryDescription(): String {
+        val safRoot = safMirrorStore.getSafFolder()
+        return if (safRoot != null) {
+            safRoot.name?.let { "SAF ($it)" } ?: "SAF Folder"
+        } else {
+            "Internal App Storage (Private)"
         }
-
-        // Fallback to internal storage
-        val fallbackFile = File(getFallbackRomDir(identity.storageKey), fileName)
-        if (fallbackFile.exists() && fallbackFile.length() > 0L) {
-            fallbackFile.copyTo(stagingFile, overwrite = true)
-            return stagingFile.exists() && stagingFile.length() > 0L
-        }
-
-        return false
     }
 
-    private fun copyStagingToCanonical(identity: RomIdentity, fileName: String, stagingFile: File): Boolean {
-        if (!stagingFile.exists() || stagingFile.length() == 0L) return false
+    // ---------------------------------------------------------
+    // Metadata Management
+    // ---------------------------------------------------------
 
-        var writtenToSaf = false
-        val safRoot = getSafFolder()
-        if (safRoot != null) {
-            try {
-                val romDir = getOrCreateSafRomDir(safRoot, identity.storageKey)
-                if (romDir != null) {
-                    val doc = romDir.findFile(fileName) ?: romDir.createFile("application/octet-stream", fileName)
-                    if (doc != null) {
-                        context.contentResolver.openOutputStream(doc.uri)?.use { output ->
-                            FileInputStream(stagingFile).use { input ->
-                                input.copyTo(output)
-                            }
-                        }
-                        writtenToSaf = true
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("SaveStateManager", "Failed to write staging to SAF for $fileName: ${e.message}", e)
-            }
-        }
+    private fun recordMetadata(identity: RomIdentity, profileId: String?) {
+        if (!identity.isValid) return
+        val metaFile = getCanonicalFile(identity, "metadata.json")
+        val existing = if (metaFile.exists()) {
+            RomSaveMetadata.fromJson(metaFile.readText())
+        } else null
 
-        // Always update fallback directory as well for redundancy and safe offline backup
-        try {
-            val fallbackDir = getFallbackRomDir(identity.storageKey)
-            val tempFile = File(fallbackDir, "$fileName.tmp")
-            stagingFile.copyTo(tempFile, overwrite = true)
-            val targetFile = File(fallbackDir, fileName)
-            if (targetFile.exists()) targetFile.delete()
-            tempFile.renameTo(targetFile)
-        } catch (e: Exception) {
-            Log.e("SaveStateManager", "Failed to update fallback copy for $fileName: ${e.message}", e)
-        }
-
-        return writtenToSaf || safRoot == null
-    }
-
-    fun checkAndMigrateLegacySavesOnFirstOpen(): LegacyMigrationResult = synchronized(saveLock) {
-        val legacyDir = File(context.filesDir, "saves")
-        if (!legacyDir.exists() || !legacyDir.isDirectory) {
-            return LegacyMigrationResult(0, emptyList(), "No legacy saves directory found")
-        }
-
-        val legacyFiles = legacyDir.listFiles { file ->
-            file.isFile && file.length() > 0L &&
-                !file.name.endsWith(".migrated.bak") &&
-                !file.name.endsWith(".tmp") &&
-                (file.name.endsWith(".sav") || file.name.endsWith(".state"))
-        } ?: emptyArray()
-
-        if (legacyFiles.isEmpty()) {
-            return LegacyMigrationResult(0, emptyList(), "No unmigrated legacy saves found")
-        }
-
-        val gameTitles = mutableSetOf<String>()
-        val safRoot = getSafFolder()
-
-        for (file in legacyFiles) {
-            val baseName = when {
-                file.name.endsWith(".sav") -> file.name.removeSuffix(".sav")
-                file.name.contains("_slot_") -> file.name.substringBefore("_slot_")
-                file.name.endsWith("_quicksave.state") -> file.name.removeSuffix("_quicksave.state")
-                file.name.endsWith(".state") -> file.name.removeSuffix(".state")
-                else -> file.name.substringBeforeLast(".")
-            }
-            gameTitles.add(baseName)
-
-            val destFileName = when {
-                file.name.endsWith(".sav") -> "battery.sav"
-                file.name.contains("_slot_") -> "slot_${file.name.substringAfter("_slot_")}"
-                file.name.endsWith("_quicksave.state") -> "quicksave.state"
-                else -> file.name
-            }
-
-            // Stage in fallback directory so it is preserved and accessible immediately
-            val legacyStorageKey = "legacy_$baseName"
-            val fallbackRomDir = getFallbackRomDir(legacyStorageKey)
-            val fallbackTarget = File(fallbackRomDir, destFileName)
-            if (!fallbackTarget.exists()) {
-                try {
-                    file.copyTo(fallbackTarget, overwrite = true)
-                } catch (e: Exception) {
-                    Log.w("SaveStateManager", "Failed to stage fallback for legacy file ${file.name}: ${e.message}")
-                }
-            }
-
-            // If SAF root is active, copy to SAF legacy directory as well
-            if (safRoot != null) {
-                try {
-                    val safRomDir = getOrCreateSafRomDir(safRoot, legacyStorageKey)
-                    if (safRomDir != null && safRomDir.findFile(destFileName) == null) {
-                        val doc = safRomDir.createFile("application/octet-stream", destFileName)
-                        if (doc != null) {
-                            context.contentResolver.openOutputStream(doc.uri)?.use { out ->
-                                FileInputStream(file).use { it.copyTo(out) }
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.w("SaveStateManager", "Failed to copy legacy file ${file.name} to SAF: ${e.message}")
-                }
-            }
-        }
-
-        Log.i("SaveStateManager", "First-open check found ${legacyFiles.size} legacy save file(s) across ${gameTitles.size} game(s): $gameTitles")
-        return LegacyMigrationResult(
-            filesFound = legacyFiles.size,
-            gameTitles = gameTitles.toList(),
-            message = "Cataloged ${legacyFiles.size} legacy files for ${gameTitles.size} game(s)"
+        val updated = RomSaveMetadata(
+            sha256 = identity.sha256,
+            displayName = identity.displayName,
+            lastKnownProfileId = profileId ?: existing?.lastKnownProfileId,
+            createdAt = existing?.createdAt ?: System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis(),
+            saveGeneration = (existing?.saveGeneration ?: 0L) + 1L,
+            mirrorStatus = safMirrorStore.checkMirrorStatus(identity, "battery.sav", getCanonicalFile(identity, "battery.sav"))
         )
-    }
-
-    fun ensureLegacyMigrated(
-        identity: RomIdentity,
-        profileName: String? = null,
-        profileId: String? = null
-    ) {
-        val profName = profileName ?: activeProfileName
-        val profId = profileId ?: activeProfileId
-        val legacyDir = File(context.filesDir, "saves")
-        val hasLegacyDir = legacyDir.exists() && legacyDir.isDirectory
-
-        val availableFiles = mutableListOf<String>()
-        if (hasLegacyDir) {
-            legacyDir.list()?.let { availableFiles.addAll(it) }
-        }
-        fallbackBaseDir.list()?.let { availableFiles.addAll(it) }
-
-        val matchedBase = findMatchingLegacyBase(identity, profName, profId, availableFiles) ?: return
-        val fallbackLegacyDir = File(fallbackBaseDir, "legacy_$matchedBase")
-
-        // 1. Battery save (.sav)
-        if (!canonicalFileExists(identity, "battery.sav")) {
-            val legacySav = if (hasLegacyDir) File(legacyDir, "$matchedBase.sav") else null
-            val fallbackSav = File(fallbackLegacyDir, "battery.sav")
-            val sourceFile = when {
-                legacySav != null && legacySav.exists() && legacySav.length() > 0L -> legacySav
-                fallbackSav.exists() && fallbackSav.length() > 0L -> fallbackSav
-                else -> null
-            }
-            if (sourceFile != null) {
-                Log.i("SaveStateManager", "Migrating legacy battery save (${sourceFile.name}) to ${identity.storageKey}/battery.sav")
-                val staging = getStagingFile(identity, "battery.sav")
-                sourceFile.copyTo(staging, overwrite = true)
-                copyStagingToCanonical(identity, "battery.sav", staging)
-                if (sourceFile == legacySav && legacySav.exists()) {
-                    legacySav.renameTo(File(legacyDir, "${legacySav.name}.migrated.bak"))
-                }
-            }
-        }
-
-        // 2. Slot states (1..5)
-        for (slot in 1..5) {
-            val stateName = "slot_$slot.state"
-            if (!canonicalFileExists(identity, stateName)) {
-                val legacySlot = if (hasLegacyDir) File(legacyDir, "${matchedBase}_slot_$slot.state") else null
-                val fallbackSlot = File(fallbackLegacyDir, stateName)
-                val sourceFile = when {
-                    legacySlot != null && legacySlot.exists() && legacySlot.length() > 0L -> legacySlot
-                    fallbackSlot.exists() && fallbackSlot.length() > 0L -> fallbackSlot
-                    else -> null
-                }
-                if (sourceFile != null) {
-                    val slotStaging = getStagingFile(identity, stateName)
-                    sourceFile.copyTo(slotStaging, overwrite = true)
-                    copyStagingToCanonical(identity, stateName, slotStaging)
-                    if (sourceFile == legacySlot && legacySlot.exists()) {
-                        legacySlot.renameTo(File(legacyDir, "${legacySlot.name}.migrated.bak"))
-                    }
-                }
-            }
-        }
-
-        // 3. Quick save
-        val quickName = "quicksave.state"
-        if (!canonicalFileExists(identity, quickName)) {
-            val legacyQuick = if (hasLegacyDir) File(legacyDir, "${matchedBase}_quicksave.state") else null
-            val fallbackQuick = File(fallbackLegacyDir, quickName)
-            val sourceFile = when {
-                legacyQuick != null && legacyQuick.exists() && legacyQuick.length() > 0L -> legacyQuick
-                fallbackQuick.exists() && fallbackQuick.length() > 0L -> fallbackQuick
-                else -> null
-            }
-            if (sourceFile != null) {
-                val quickStaging = getStagingFile(identity, quickName)
-                sourceFile.copyTo(quickStaging, overwrite = true)
-                copyStagingToCanonical(identity, quickName, quickStaging)
-                if (sourceFile == legacyQuick && legacyQuick.exists()) {
-                    legacyQuick.renameTo(File(legacyDir, "${legacyQuick.name}.migrated.bak"))
-                }
-            }
+        try {
+            AtomicSaveFile.writeBytes(metaFile, updated.toJson().toByteArray(Charsets.UTF_8))
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write metadata: ${e.message}")
         }
     }
 
     // ---------------------------------------------------------
-    // Slot Save States
+    // Old Branch Title+12Hash Migration
     // ---------------------------------------------------------
 
-    fun saveSlot(identity: RomIdentity, slotIndex: Int): Boolean = synchronized(saveLock) {
+    fun migrateOldBranchDirIfPresent(identity: RomIdentity): Boolean {
+        if (!identity.isValid) return false
+        val canonicalDir = getCanonicalRomDir(identity)
+        val canonicalHasSaves = canonicalDir.listFiles { f ->
+            f.isFile && (f.name.endsWith(".sav") || f.name.endsWith(".state"))
+        }?.isNotEmpty() == true
+
+        if (canonicalHasSaves) return false
+
+        // Check fallbackBaseDir for <sanitizedTitle>__<shortHash>
+        val oldKey = identity.legacyStorageKey
+        val oldDir = File(fallbackBaseDir, oldKey)
+        if (!oldDir.exists() || !oldDir.isDirectory) return false
+
+        val oldFiles = oldDir.listFiles { f ->
+            f.isFile && !f.name.endsWith(".tmp") && !f.name.endsWith(".bak")
+        } ?: return false
+
+        if (oldFiles.isEmpty()) return false
+
+        Log.i(TAG, "Migrating old branch save directory from $oldKey to canonical ${identity.storageKey}")
+        var migratedAny = false
+        for (file in oldFiles) {
+            val target = File(canonicalDir, file.name)
+            if (AtomicSaveFile.copyFromStaging(file, target)) {
+                migratedAny = true
+            }
+        }
+
+        if (migratedAny) {
+            val bakDir = File(fallbackBaseDir, "${oldKey}.migrated.bak")
+            oldDir.renameTo(bakDir)
+        }
+        return migratedAny
+    }
+
+    // ---------------------------------------------------------
+    // Save States (Slots 1..5)
+    // ---------------------------------------------------------
+
+    fun saveSlot(identity: RomIdentity, slotIndex: Int): Boolean = synchronized(globalSaveLock) {
+        if (!identity.isValid) {
+            Log.e(TAG, "Refusing saveSlot on invalid RomIdentity")
+            return false
+        }
         val fileName = "slot_${slotIndex}.state"
         val stagingFile = getStagingFile(identity, fileName)
-        val ok = LibretroHost.nativeSaveState(stagingFile.absolutePath)
-        if (ok && stagingFile.exists()) {
-            copyStagingToCanonical(identity, fileName, stagingFile)
-        } else {
-            false
+        val ok = nativeSaveState(stagingFile.absolutePath)
+        if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) {
+            return false
         }
+
+        val canonicalFile = getCanonicalFile(identity, fileName)
+        val committed = AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+        if (committed) {
+            safMirrorStore.mirrorFile(identity, fileName, canonicalFile)
+            recordMetadata(identity, activeProfileId)
+        }
+        return committed
     }
 
     fun loadSlot(
@@ -372,38 +224,108 @@ class SaveStateManager(private val context: Context) {
         slotIndex: Int,
         profileName: String? = null,
         profileId: String? = null
-    ): Boolean = synchronized(saveLock) {
-        ensureLegacyMigrated(identity, profileName, profileId)
+    ): Boolean = synchronized(globalSaveLock) {
+        if (!identity.isValid) {
+            Log.e(TAG, "Refusing loadSlot on invalid RomIdentity")
+            return false
+        }
         val fileName = "slot_${slotIndex}.state"
+        val canonicalFile = getCanonicalFile(identity, fileName)
+        if (!canonicalFile.exists() || canonicalFile.length() == 0L) {
+            return false
+        }
+
+        // Validate state size before invoking native unserialize
+        val expectedSize = nativeGetSaveStateSize()
+        if (expectedSize > 0 && canonicalFile.length() != expectedSize) {
+            Log.e(TAG, "Slot $slotIndex state size mismatch: expected $expectedSize, got ${canonicalFile.length()}")
+            return false
+        }
+
         val stagingFile = getStagingFile(identity, fileName)
-        val copied = copyCanonicalToStaging(identity, fileName, stagingFile)
-        if (!copied || !stagingFile.exists()) return false
-        LibretroHost.nativeLoadState(stagingFile.absolutePath)
+        canonicalFile.copyTo(stagingFile, overwrite = true)
+        if (!stagingFile.exists() || stagingFile.length() == 0L) return false
+
+        return nativeLoadState(stagingFile.absolutePath)
     }
 
-    fun quickSave(identity: RomIdentity): Boolean = synchronized(saveLock) {
+    // ---------------------------------------------------------
+    // Manual Quick Save vs Auto Resume State
+    // ---------------------------------------------------------
+
+    fun quickSave(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        if (!identity.isValid) {
+            Log.e(TAG, "Refusing quickSave on invalid RomIdentity")
+            return false
+        }
         val fileName = "quicksave.state"
         val stagingFile = getStagingFile(identity, fileName)
-        val ok = LibretroHost.nativeSaveState(stagingFile.absolutePath)
-        if (ok && stagingFile.exists()) {
-            copyStagingToCanonical(identity, fileName, stagingFile)
-        } else {
-            false
+        val ok = nativeSaveState(stagingFile.absolutePath)
+        if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) {
+            return false
         }
+
+        val canonicalFile = getCanonicalFile(identity, fileName)
+        val committed = AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+        if (committed) {
+            safMirrorStore.mirrorFile(identity, fileName, canonicalFile)
+            recordMetadata(identity, activeProfileId)
+        }
+        return committed
     }
 
     fun quickLoad(
         identity: RomIdentity,
         profileName: String? = null,
         profileId: String? = null
-    ): Boolean = synchronized(saveLock) {
-        ensureLegacyMigrated(identity, profileName, profileId)
+    ): Boolean = synchronized(globalSaveLock) {
+        if (!identity.isValid) return false
         val fileName = "quicksave.state"
+        val canonicalFile = getCanonicalFile(identity, fileName)
+        if (!canonicalFile.exists() || canonicalFile.length() == 0L) return false
+
+        val expectedSize = nativeGetSaveStateSize()
+        if (expectedSize > 0 && canonicalFile.length() != expectedSize) {
+            Log.e(TAG, "Quick save state size mismatch: expected $expectedSize, got ${canonicalFile.length()}")
+            return false
+        }
+
         val stagingFile = getStagingFile(identity, fileName)
-        val copied = copyCanonicalToStaging(identity, fileName, stagingFile)
-        if (!copied || !stagingFile.exists()) return false
-        LibretroHost.nativeLoadState(stagingFile.absolutePath)
+        canonicalFile.copyTo(stagingFile, overwrite = true)
+        if (!stagingFile.exists()) return false
+
+        return nativeLoadState(stagingFile.absolutePath)
     }
+
+    fun saveAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        if (!identity.isValid) return false
+        val fileName = "auto_resume.state"
+        val stagingFile = getStagingFile(identity, fileName)
+        val ok = nativeSaveState(stagingFile.absolutePath)
+        if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) {
+            return false
+        }
+
+        val canonicalFile = getCanonicalFile(identity, fileName)
+        return AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+    }
+
+    fun loadAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        if (!identity.isValid) return false
+        val fileName = "auto_resume.state"
+        val canonicalFile = getCanonicalFile(identity, fileName)
+        if (!canonicalFile.exists() || canonicalFile.length() == 0L) return false
+
+        val stagingFile = getStagingFile(identity, fileName)
+        canonicalFile.copyTo(stagingFile, overwrite = true)
+        if (!stagingFile.exists()) return false
+
+        return nativeLoadState(stagingFile.absolutePath)
+    }
+
+    // ---------------------------------------------------------
+    // Slot & File Info
+    // ---------------------------------------------------------
 
     fun getSlotInfo(
         identity: RomIdentity,
@@ -411,7 +333,9 @@ class SaveStateManager(private val context: Context) {
         profileName: String? = null,
         profileId: String? = null
     ): SaveSlotInfo {
-        ensureLegacyMigrated(identity, profileName, profileId)
+        if (!identity.isValid) {
+            return SaveSlotInfo(slotIndex, false, 0L, "No active ROM", 0L)
+        }
         val fileName = "slot_${slotIndex}.state"
         return getFileInfo(identity, fileName, slotIndex)
     }
@@ -422,38 +346,10 @@ class SaveStateManager(private val context: Context) {
         profileName: String? = null,
         profileId: String? = null
     ): List<SaveSlotInfo> {
-        ensureLegacyMigrated(identity, profileName, profileId)
+        if (!identity.isValid) {
+            return (1..maxSlots).map { SaveSlotInfo(it, false, 0L, "No active ROM", 0L) }
+        }
         return (1..maxSlots).map { getSlotInfo(identity, it, profileName, profileId) }
-    }
-
-    // ---------------------------------------------------------
-    // Battery Save (.sav) Management
-    // ---------------------------------------------------------
-
-    fun loadBatterySave(
-        identity: RomIdentity,
-        profileName: String? = null,
-        profileId: String? = null
-    ): Boolean = synchronized(saveLock) {
-        if (profileName != null) activeProfileName = profileName
-        if (profileId != null) activeProfileId = profileId
-        ensureLegacyMigrated(identity, profileName, profileId)
-        val stagingFile = getStagingFile(identity, "battery.sav")
-        val copied = copyCanonicalToStaging(identity, "battery.sav", stagingFile)
-        if (!copied || !stagingFile.exists() || stagingFile.length() == 0L) {
-            return false
-        }
-        LibretroHost.nativeLoadSaveRam(stagingFile.absolutePath)
-    }
-
-    fun flushBatterySave(identity: RomIdentity): Boolean = synchronized(saveLock) {
-        val stagingFile = getStagingFile(identity, "battery.sav")
-        val flushed = LibretroHost.nativeFlushSaveRam(stagingFile.absolutePath)
-        if (flushed && stagingFile.exists() && stagingFile.length() > 0L) {
-            copyStagingToCanonical(identity, "battery.sav", stagingFile)
-        } else {
-            false
-        }
     }
 
     fun getBatterySaveInfo(
@@ -461,42 +357,23 @@ class SaveStateManager(private val context: Context) {
         profileName: String? = null,
         profileId: String? = null
     ): SaveSlotInfo {
-        ensureLegacyMigrated(identity, profileName, profileId)
+        if (!identity.isValid) {
+            return SaveSlotInfo(0, false, 0L, "No active ROM", 0L)
+        }
         return getFileInfo(identity, "battery.sav", slotIndex = 0)
     }
 
     private fun getFileInfo(identity: RomIdentity, fileName: String, slotIndex: Int): SaveSlotInfo {
-        val safRoot = getSafFolder()
-        if (safRoot != null) {
-            try {
-                val romDir = getOrCreateSafRomDir(safRoot, identity.storageKey)
-                val doc = romDir?.findFile(fileName)
-                if (doc != null && doc.exists() && doc.length() > 0L) {
-                    val ts = doc.lastModified()
-                    val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(ts))
-                    return SaveSlotInfo(
-                        slotIndex = slotIndex,
-                        exists = true,
-                        timestampMs = ts,
-                        formattedDate = dateStr,
-                        sizeBytes = doc.length()
-                    )
-                }
-            } catch (e: Exception) {
-                Log.w("SaveStateManager", "Error querying SAF file info: ${e.message}")
-            }
-        }
-
-        val fallbackFile = File(getFallbackRomDir(identity.storageKey), fileName)
-        return if (fallbackFile.exists() && fallbackFile.length() > 0L) {
-            val ts = fallbackFile.lastModified()
+        val canonicalFile = getCanonicalFile(identity, fileName)
+        return if (canonicalFile.exists() && canonicalFile.length() > 0L) {
+            val ts = canonicalFile.lastModified()
             val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(ts))
             SaveSlotInfo(
                 slotIndex = slotIndex,
                 exists = true,
                 timestampMs = ts,
                 formattedDate = dateStr,
-                sizeBytes = fallbackFile.length()
+                sizeBytes = canonicalFile.length()
             )
         } else {
             SaveSlotInfo(
@@ -509,105 +386,238 @@ class SaveStateManager(private val context: Context) {
         }
     }
 
-    fun importBatterySave(identity: RomIdentity, inputStream: InputStream): Boolean = synchronized(saveLock) {
+    // ---------------------------------------------------------
+    // Cartridge Battery Save (.sav) Management
+    // ---------------------------------------------------------
+
+    fun loadBatterySave(
+        identity: RomIdentity,
+        profileName: String? = null,
+        profileId: String? = null
+    ): Boolean = synchronized(globalSaveLock) {
+        if (!identity.isValid) {
+            Log.e(TAG, "Refusing loadBatterySave on invalid RomIdentity")
+            return false
+        }
+        if (profileName != null) activeProfileName = profileName
+        if (profileId != null) activeProfileId = profileId
+
+        val canonicalFile = getCanonicalFile(identity, "battery.sav")
+        if (!canonicalFile.exists() || canonicalFile.length() == 0L) {
+            return false
+        }
+
+        val stagingFile = getStagingFile(identity, "battery.sav")
+        canonicalFile.copyTo(stagingFile, overwrite = true)
+        if (!stagingFile.exists() || stagingFile.length() == 0L) {
+            return false
+        }
+
+        return nativeLoadSaveRam(stagingFile.absolutePath)
+    }
+
+    fun flushBatterySave(identity: RomIdentity): SaveWriteResult = synchronized(globalSaveLock) {
+        if (!identity.isValid) {
+            Log.e(TAG, "Refusing flushBatterySave on invalid RomIdentity")
+            return SaveWriteResult.Failure("Invalid ROM identity")
+        }
+
+        val stagingFile = getStagingFile(identity, "battery.sav")
+        val flushed = nativeFlushSaveRam(stagingFile.absolutePath)
+        if (!flushed || !stagingFile.exists() || stagingFile.length() == 0L) {
+            Log.e(TAG, "nativeFlushSaveRam failed or produced empty file")
+            return SaveWriteResult.Failure("Native SRAM flush failed")
+        }
+
+        val canonicalFile = getCanonicalFile(identity, "battery.sav")
+        val committed = AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+        if (!committed) {
+            Log.e(TAG, "Atomic commit to canonical battery.sav failed")
+            return SaveWriteResult.Failure("Canonical commit failed")
+        }
+
+        val mirrorStatus = safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
+        recordMetadata(identity, activeProfileId)
+
+        return SaveWriteResult.Success(
+            canonicalWritten = true,
+            mirrorStatus = mirrorStatus
+        )
+    }
+
+    fun importBatterySave(identity: RomIdentity, inputStream: InputStream): Boolean = synchronized(globalSaveLock) {
+        if (!identity.isValid) {
+            Log.e(TAG, "Refusing importBatterySave on invalid RomIdentity")
+            return false
+        }
+
         try {
             val rawBytes = inputStream.use { it.readBytes() }
-            if (rawBytes.isEmpty()) return false
+            if (rawBytes.isEmpty()) {
+                Log.e(TAG, "Import rejected: input bytes are empty")
+                return false
+            }
 
-            // Standard GBA Flash 1M is 131,072 bytes (128 KB)
-            // Standalone mGBA on PC adds a 16-byte RTC footer (131,088 bytes)
-            val cleanBytes = if (rawBytes.size == 131088) {
-                rawBytes.copyOfRange(0, 131072)
+            // Determine active core's expected SRAM size
+            val coreRamSize = nativeGetSaveRamSize()
+            val expectedRamSize = if (coreRamSize > 0) coreRamSize.toInt() else 131072 // Default to 128KB GBA Flash
+
+            // Normalize known emulator footer formats ONLY when appropriate
+            // Standalone mGBA on PC adds a 16-byte RTC footer (expectedRamSize + 16)
+            val cleanBytes = if (rawBytes.size == expectedRamSize + 16) {
+                Log.i(TAG, "Stripping 16-byte mGBA RTC footer from import (${rawBytes.size} -> $expectedRamSize)")
+                rawBytes.copyOfRange(0, expectedRamSize)
             } else {
                 rawBytes
             }
 
-            val stagingFile = getStagingFile(identity, "battery.sav")
-            stagingFile.writeBytes(cleanBytes)
-            copyStagingToCanonical(identity, "battery.sav", stagingFile)
-
-            val loaded = LibretroHost.nativeLoadSaveRam(stagingFile.absolutePath)
-            if (loaded) {
-                LibretroHost.nativeResetCore()
+            // Require normalized size to match active game's expected SRAM size
+            if (cleanBytes.size != expectedRamSize) {
+                Log.e(TAG, "Import rejected: file size ${cleanBytes.size} != expected SRAM size $expectedRamSize")
+                return false
             }
-            return loaded
+
+            // Backup current SRAM from active core to staging before mutating
+            val sramBackup = File(stagingDir, "${identity.storageKey}__import_backup.sav")
+            val hadExistingSram = nativeFlushSaveRam(sramBackup.absolutePath)
+
+            // Test load candidate from temp file
+            val tempCandidate = File(stagingDir, "${identity.storageKey}__import_candidate.tmp")
+            tempCandidate.writeBytes(cleanBytes)
+
+            val loaded = nativeLoadSaveRam(tempCandidate.absolutePath)
+            if (!loaded) {
+                Log.e(TAG, "Import rejected: nativeLoadSaveRam failed to load candidate")
+                if (hadExistingSram && sramBackup.exists()) {
+                    nativeLoadSaveRam(sramBackup.absolutePath)
+                }
+                if (tempCandidate.exists()) tempCandidate.delete()
+                return false
+            }
+
+            // Commit candidate atomically to canonical store
+            val canonicalFile = getCanonicalFile(identity, "battery.sav")
+            val committed = AtomicSaveFile.writeBytes(canonicalFile, cleanBytes)
+            if (!committed) {
+                Log.e(TAG, "Import failed: atomic canonical commit failed, restoring prior SRAM")
+                if (hadExistingSram && sramBackup.exists()) {
+                    nativeLoadSaveRam(sramBackup.absolutePath)
+                }
+                if (tempCandidate.exists()) tempCandidate.delete()
+                return false
+            }
+
+            // Mirror to SAF
+            safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
+            recordMetadata(identity, activeProfileId)
+
+            // Reset core only after entire transaction succeeds
+            nativeResetCore()
+            if (tempCandidate.exists()) tempCandidate.delete()
+            if (sramBackup.exists()) sramBackup.delete()
+
+            Log.i(TAG, "Import battery save succeeded for ${identity.storageKey} ($expectedRamSize bytes)")
+            return true
         } catch (e: Exception) {
-            Log.e("SaveStateManager", "Error importing battery save: ${e.message}", e)
-            false
+            Log.e(TAG, "Error importing battery save: ${e.message}", e)
+            return false
         }
     }
 
-    fun exportBatterySave(identity: RomIdentity, outputStream: OutputStream): Boolean = synchronized(saveLock) {
-        try {
-            flushBatterySave(identity)
-            val stagingFile = getStagingFile(identity, "battery.sav")
-            if (!stagingFile.exists() || stagingFile.length() == 0L) {
-                copyCanonicalToStaging(identity, "battery.sav", stagingFile)
-            }
-            if (!stagingFile.exists() || stagingFile.length() == 0L) return false
+    fun exportBatterySave(identity: RomIdentity, outputStream: OutputStream): Boolean = synchronized(globalSaveLock) {
+        if (!identity.isValid) {
+            Log.e(TAG, "Refusing exportBatterySave on invalid RomIdentity")
+            return false
+        }
 
+        try {
+            // 1. Capture current SRAM into staging
+            val stagingFile = getStagingFile(identity, "battery.sav")
+            val flushed = nativeFlushSaveRam(stagingFile.absolutePath)
+            if (!flushed || !stagingFile.exists() || stagingFile.length() == 0L) {
+                Log.e(TAG, "Export aborted: failed to capture current SRAM from emulator")
+                return false
+            }
+
+            // 2. Commit newly captured SRAM to canonical internal store
+            val canonicalFile = getCanonicalFile(identity, "battery.sav")
+            val committed = AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+            if (!committed || !canonicalFile.exists() || canonicalFile.length() == 0L) {
+                Log.e(TAG, "Export aborted: failed to commit fresh SRAM to canonical store")
+                return false
+            }
+
+            // 3. Export newly committed data
             outputStream.use { out ->
-                stagingFile.inputStream().use { input ->
+                canonicalFile.inputStream().use { input ->
                     input.copyTo(out)
                 }
             }
-            true
+            Log.i(TAG, "Export battery save succeeded for ${identity.storageKey}")
+            return true
         } catch (e: Exception) {
-            Log.e("SaveStateManager", "Error exporting battery save: ${e.message}", e)
-            false
+            Log.e(TAG, "Error exporting battery save: ${e.message}", e)
+            return false
         }
     }
 
     fun importBatterySave(identity: RomIdentity, uri: Uri): Boolean {
         return try {
-            context.contentResolver.openInputStream(uri)?.use { stream ->
+            context?.contentResolver?.openInputStream(uri)?.use { stream ->
                 importBatterySave(identity, stream)
             } ?: false
         } catch (e: Exception) {
-            Log.e("SaveStateManager", "Error opening import URI: ${e.message}", e)
+            Log.e(TAG, "Error opening import URI: ${e.message}", e)
             false
         }
     }
 
     fun exportBatterySave(identity: RomIdentity, uri: Uri): Boolean {
         return try {
-            context.contentResolver.openOutputStream(uri)?.use { stream ->
+            context?.contentResolver?.openOutputStream(uri)?.use { stream ->
                 exportBatterySave(identity, stream)
             } ?: false
         } catch (e: Exception) {
-            Log.e("SaveStateManager", "Error opening export URI: ${e.message}", e)
+            Log.e(TAG, "Error opening export URI: ${e.message}", e)
             false
         }
     }
 
-    fun migrateFallbackToSaf(): Int = synchronized(saveLock) {
-        val safRoot = getSafFolder() ?: return 0
-        if (!fallbackBaseDir.exists() || !fallbackBaseDir.isDirectory) return 0
+    // ---------------------------------------------------------
+    // SAF Mirror Sync
+    // ---------------------------------------------------------
 
-        var count = 0
-        val romDirs = fallbackBaseDir.listFiles { f -> f.isDirectory } ?: return 0
-        for (dir in romDirs) {
-            val storageKey = dir.name
-            val safRomDir = getOrCreateSafRomDir(safRoot, storageKey) ?: continue
-            val files = dir.listFiles { f -> f.isFile && !f.name.endsWith(".tmp") && !f.name.endsWith(".bak") } ?: continue
-            for (file in files) {
-                val existing = safRomDir.findFile(file.name)
-                if (existing == null) {
-                    val newDoc = safRomDir.createFile("application/octet-stream", file.name)
-                    if (newDoc != null) {
-                        try {
-                            context.contentResolver.openOutputStream(newDoc.uri)?.use { out ->
-                                file.inputStream().use { inp -> inp.copyTo(out) }
-                            }
-                            count++
-                        } catch (e: Exception) {
-                            Log.w("SaveStateManager", "Failed to migrate ${file.name} to SAF: ${e.message}")
-                        }
-                    }
-                }
-            }
+    fun syncCanonicalToSaf(identity: RomIdentity): Int = synchronized(globalSaveLock) {
+        if (!identity.isValid) return 0
+        val canonicalDir = getCanonicalRomDir(identity)
+        return safMirrorStore.syncCanonicalToSaf(identity, canonicalDir)
+    }
+
+    // ---------------------------------------------------------
+    // Legacy Save Management
+    // ---------------------------------------------------------
+
+    fun discoverLegacyCandidates(): List<LegacyCandidate> {
+        return legacyCatalog.discoverCandidates()
+    }
+
+    fun assignLegacyCandidate(candidate: LegacyCandidate, targetIdentity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        val canonicalDir = getCanonicalRomDir(targetIdentity)
+        return legacyCatalog.assignCandidateToRom(candidate, targetIdentity, canonicalDir)
+    }
+
+    fun checkAndMigrateLegacySavesOnFirstOpen(): LegacyMigrationResult = synchronized(globalSaveLock) {
+        val candidates = legacyCatalog.discoverCandidates()
+        if (candidates.isEmpty()) {
+            return LegacyMigrationResult(0, emptyList(), "No unmigrated legacy saves found")
         }
-        return count
+
+        val titles = candidates.map { it.suggestedTitle }.distinct()
+        return LegacyMigrationResult(
+            filesFound = candidates.size,
+            gameTitles = titles,
+            message = "Cataloged ${candidates.size} legacy files across ${titles.size} games"
+        )
     }
 
     // ---------------------------------------------------------
@@ -655,7 +665,7 @@ class SaveStateManager(private val context: Context) {
         loadBatterySave(identityFromKey(gameKey))
 
     fun flushBatterySave(gameKey: String): Boolean =
-        flushBatterySave(identityFromKey(gameKey))
+        flushBatterySave(identityFromKey(gameKey)) is SaveWriteResult.Success
 
     fun getBatterySaveInfo(gameKey: String): SaveSlotInfo =
         getBatterySaveInfo(identityFromKey(gameKey))
@@ -673,64 +683,16 @@ class SaveStateManager(private val context: Context) {
         exportBatterySave(identityFromKey(gameKey), uri)
 
     companion object {
-        fun findMatchingLegacyBase(
-            identity: RomIdentity,
-            profileName: String? = null,
-            profileId: String? = null,
-            availableFiles: List<String>
-        ): String? {
-            fun norm(s: String) = s.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]"), "")
+        private const val TAG = "SaveStateManager"
+        val globalSaveLock = Any()
 
-            val candidateBases = mutableListOf<String>()
-            if (!profileName.isNullOrBlank()) {
-                candidateBases.add(profileName.replace(Regex("[^a-zA-Z0-9_-]"), "_"))
-                candidateBases.add(RomIdentity.sanitizeTitle(profileName))
+        @Volatile
+        private var instance: SaveStateManager? = null
+
+        fun getInstance(context: Context): SaveStateManager {
+            return instance ?: synchronized(globalSaveLock) {
+                instance ?: SaveStateManager(context.applicationContext).also { instance = it }
             }
-            if (!profileId.isNullOrBlank()) {
-                candidateBases.add(profileId)
-            }
-            candidateBases.add(identity.displayName.replace(Regex("[^a-zA-Z0-9_-]"), "_"))
-            candidateBases.add(identity.sanitizedTitle)
-            candidateBases.add("current_game")
-
-            val distinctBases = candidateBases.distinct()
-
-            // 1. Try exact matches against available files
-            for (base in distinctBases) {
-                val matches = availableFiles.any { f ->
-                    f == "$base.sav" ||
-                        f == "${base}_quicksave.state" ||
-                        (1..5).any { f == "${base}_slot_$it.state" } ||
-                        f == "legacy_$base"
-                }
-                if (matches) return base
-            }
-
-            // 2. Fuzzy match based on alphanumeric normalized names
-            val profileNorm = profileName?.let { norm(it) }.orEmpty()
-            val titleNorm = norm(identity.displayName)
-
-            for (file in availableFiles) {
-                if (file.endsWith(".migrated.bak") || file.endsWith(".tmp")) continue
-                val fBase = when {
-                    file.endsWith(".sav") -> file.removeSuffix(".sav")
-                    file.contains("_slot_") -> file.substringBefore("_slot_")
-                    file.endsWith("_quicksave.state") -> file.removeSuffix("_quicksave.state")
-                    file.endsWith(".state") -> file.removeSuffix(".state")
-                    file.startsWith("legacy_") -> file.removePrefix("legacy_")
-                    else -> null
-                } ?: continue
-
-                val baseNorm = norm(fBase)
-                if (baseNorm.length >= 3 && (
-                    (profileNorm.isNotEmpty() && (profileNorm.contains(baseNorm) || baseNorm.contains(profileNorm))) ||
-                        (titleNorm.isNotEmpty() && (titleNorm.contains(baseNorm) || baseNorm.contains(titleNorm)))
-                )) {
-                    return fBase
-                }
-            }
-
-            return null
         }
     }
 }

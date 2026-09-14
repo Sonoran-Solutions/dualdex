@@ -532,8 +532,6 @@ static void sync_live_player_battle_mon(
     if (b0_species == 0 || b0_species >= 2000) return;
 
     uint16_t b0_hp = read16_le(b0 + config->battle_mons_hp_offset);
-    bool matched = false;
-
     // Check gBattlerPartyIndexes[0] at (battle_mons_offset - 24)
     if (config->battle_mons_offset >= 24) {
         uint16_t b0_idx = read16_le(ewram + config->battle_mons_offset - 24);
@@ -542,21 +540,11 @@ static void sync_live_player_battle_mon(
                 out_snapshot->members[b0_idx].current_hp = b0_hp;
             }
             out_snapshot->active_battler_slot = (int8_t)b0_idx;
-            matched = true;
         }
     }
 
-    if (!matched) {
-        for (uint8_t i = 0; i < out_snapshot->count; i++) {
-            if (out_snapshot->members[i].species == b0_species) {
-                if (b0_hp <= out_snapshot->members[i].max_hp) {
-                    out_snapshot->members[i].current_hp = b0_hp;
-                }
-                out_snapshot->active_battler_slot = (int8_t)i;
-                break;
-            }
-        }
-    }
+    // A species match alone cannot identify an active party slot (duplicates are valid).
+    // Without gBattlerPartyIndexes evidence, retain -1 rather than inventing a slot.
 }
 
 static void sync_live_enemy_battle_mon(
@@ -569,24 +557,16 @@ static void sync_live_enemy_battle_mon(
 
     if (!config || config->battle_mons_offset == 0 ||
         config->battle_mons_offset + (2 * config->battle_mons_size) > ewram_size) {
-        if (out_snapshot->active_battler_slot < 0) {
-            out_snapshot->active_battler_slot = 0;
-        }
         return;
     }
 
     const uint8_t* b1 = ewram + config->battle_mons_offset + config->battle_mons_size;
     uint16_t b1_species = read16_le(b1);
     if (b1_species == 0 || b1_species >= 2000) {
-        if (out_snapshot->active_battler_slot < 0) {
-            out_snapshot->active_battler_slot = 0;
-        }
         return;
     }
 
     uint16_t b1_hp = read16_le(b1 + config->battle_mons_hp_offset);
-    bool matched = false;
-
     // Check gBattlerPartyIndexes[1] at (battle_mons_offset - 22)
     if (config->battle_mons_offset >= 24) {
         uint16_t b1_idx = read16_le(ewram + config->battle_mons_offset - 22);
@@ -595,33 +575,12 @@ static void sync_live_enemy_battle_mon(
                 out_snapshot->members[b1_idx].current_hp = b1_hp;
             }
             out_snapshot->active_battler_slot = (int8_t)b1_idx;
-            matched = true;
         }
     }
 
-    if (!matched) {
-        // If multiple members have same species, prefer member with current_hp > 0 when b1_hp > 0
-        int chosen_slot = -1;
-        for (uint8_t i = 0; i < out_snapshot->count; i++) {
-            if (out_snapshot->members[i].species == b1_species) {
-                if (chosen_slot == -1) chosen_slot = i;
-                if (b1_hp > 0 && out_snapshot->members[i].current_hp > 0) {
-                    chosen_slot = i;
-                    break;
-                }
-            }
-        }
-        if (chosen_slot >= 0) {
-            if (b1_hp <= out_snapshot->members[chosen_slot].max_hp) {
-                out_snapshot->members[chosen_slot].current_hp = b1_hp;
-            }
-            out_snapshot->active_battler_slot = (int8_t)chosen_slot;
-        }
-    }
+    // Do not infer an opponent slot from species/HP heuristics; duplicates and transitions are
+    // ambiguous.  Only the indexed controller-side mapping above may establish an active slot.
 
-    if (out_snapshot->active_battler_slot < 0) {
-        out_snapshot->active_battler_slot = 0;
-    }
 }
 
 uint8_t pokemon_read_player_party(
@@ -951,17 +910,24 @@ uint8_t pokemon_read_battle_ui_state(
         return 0; // NOT IN BATTLE
     }
 
-    uint16_t b0_hp = read16_le(b0 + config->battle_mons_hp_offset);
-    if (b0_hp == 0) {
-        return 3; // PARTY_MENU / FORCED SWITCH
-    }
-
-    // Battler 0 has > 0 HP and is in battle.
-    // However, EWRAM does not authoritatively expose the battle controller state machine
-    // (which resides in IWRAM or execution state). Returning COMMAND_MENU (1) purely from
-    // species > 0 and HP > 0 is unverified during animations, text dialogue, or opponent turns.
-    // Return 5 (UNKNOWN / TRANSITION) to fail closed.
+    // EWRAM battle-mon data proves neither menu nor cursor state.  This includes a fainted
+    // battler: HP == 0 may be animation, text, forced-switch transition, or opponent action.
+    // Menu readers must come from authoritative controller-state evidence in future work.
     return 5;
 }
 
+uint8_t pokemon_read_battle_presence(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config
+) {
+    if (!ewram || !config || config->battle_mons_offset == 0 ||
+        config->battle_mons_offset + config->battle_mons_size > ewram_size) {
+        return 2; // UNKNOWN: reader unavailable or malformed memory range
+    }
 
+    uint16_t species = read16_le(ewram + config->battle_mons_offset);
+    if (species == 0) return 0;
+    if (species >= 2000) return 2;
+    return 1; // A plausible live battle-mon is observed; UI state remains unknown.
+}

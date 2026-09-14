@@ -578,6 +578,18 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattleUiState(JNIEnv* env, jobj
     return (jint)pokemon_read_battle_ui_state(ewram, ewram_sz, cfg);
 }
 
+JNIEXPORT jint JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeReadBattlePresence(JNIEnv* env, jobject thiz, jint game_id) {
+    (void)env;
+    (void)thiz;
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+    if (!ewram || ewram_sz == 0) return 2;
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    return (jint)pokemon_read_battle_presence(ewram, ewram_sz, cfg);
+}
+
 JNIEXPORT jobject JNICALL
 Java_com_dualdex_emulator_LibretroHost_nativeReadPlayerLocation(JNIEnv* env, jobject thiz, jint game_id) {
     (void)thiz;

@@ -31,6 +31,7 @@ object LibretroHost {
     external fun nativeGetActiveEnemyBattlerSlot(gameId: Int): Int
     external fun nativeReadBattleStatStages(gameId: Int, battlerIndex: Int): IntArray?
     external fun nativeReadBattleUiState(gameId: Int): Int
+    external fun nativeReadBattlePresence(gameId: Int): Int
     external fun nativeReadPlayerLocation(gameId: Int): PlayerLocation?
     external fun nativeSaveState(statePath: String): Boolean
     external fun nativeLoadState(statePath: String): Boolean

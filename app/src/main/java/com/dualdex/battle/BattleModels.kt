@@ -39,6 +39,54 @@ enum class DamageConfidence(val displayName: String) {
     UNAVAILABLE("Damage unavailable for this ROM/profile")
 }
 
+/** Presence answers whether a plausible live battle participant is observed; it is not a menu state. */
+enum class BattlePresence {
+    NOT_OBSERVED,
+    OBSERVED,
+    UNKNOWN;
+
+    companion object {
+        fun fromNativeCode(code: Int): BattlePresence = when (code) {
+            0 -> NOT_OBSERVED
+            1 -> OBSERVED
+            else -> UNKNOWN
+        }
+    }
+}
+
+/** Two samples avoid opening/closing the battle UI from a single stale memory poll. */
+class BattlePresenceStabilizer(private val requiredConsecutiveSamples: Int = 2) {
+    private var stable = false
+    private var observedSamples = 0
+    private var absentSamples = 0
+
+    fun update(presence: BattlePresence): Boolean {
+        when (presence) {
+            BattlePresence.OBSERVED -> {
+                observedSamples++
+                absentSamples = 0
+                if (observedSamples >= requiredConsecutiveSamples) stable = true
+            }
+            BattlePresence.NOT_OBSERVED -> {
+                absentSamples++
+                observedSamples = 0
+                if (absentSamples >= requiredConsecutiveSamples) stable = false
+            }
+            BattlePresence.UNKNOWN -> {
+                observedSamples = 0
+                absentSamples = 0
+            }
+        }
+        return stable
+    }
+
+    fun reset() {
+        stable = false
+        observedSamples = 0
+        absentSamples = 0
+    }
+}
+
 /**
  * Stat stages (-6..+6) for Gen 3 battle mechanics.
  */
@@ -398,7 +446,8 @@ object MoveEffectiveness {
         moveId: Int,
         category: MoveCategory?,
         defender: ParsedPokemon?,
-        profile: RomHackProfile
+        profile: RomHackProfile,
+        runtimeTrust: com.dualdex.romhack.RuntimeRomTrust? = null
     ): Pair<EffectivenessLabel?, DataConfidence> {
         if (moveId <= 0 || !MoveDatabase.isKnown(moveId)) {
             return null to DataConfidence.UNAVAILABLE
@@ -418,7 +467,7 @@ object MoveEffectiveness {
         val label = confidence(moveInfo.type, defT1, defT2, profile.steelResistsGhostDark, pack)
         val defenderDataAuthoritative = profile.customSpecies.containsKey(defender.species) ||
                 pack.isSpeciesAuthoritative(defender.species)
-        val confidence = if (label != null && profile.isVerified &&
+        val confidence = if (label != null && runtimeTrust?.exactRuntimeVerified == true &&
             pack.isMoveAuthoritative(moveId) && defenderDataAuthoritative) {
             DataConfidence.VERIFIED
         } else if (label != null) {
@@ -563,8 +612,8 @@ object MovePresentationFactory {
         return parts.joinToString(" · ")
     }
 
-    fun isAttackerVerified(attacker: ParsedPokemon, profile: RomHackProfile): Boolean =
-        ParticipantSummaryBuilder.isParticipantVerified(attacker, profile)
+    fun isAttackerVerified(attacker: ParsedPokemon, profile: RomHackProfile, runtimeTrust: com.dualdex.romhack.RuntimeRomTrust? = null): Boolean =
+        ParticipantSummaryBuilder.isParticipantVerified(attacker, profile, runtimeTrust)
 }
 
 data class BattleParticipantSummary(
@@ -608,18 +657,23 @@ data class BattleParticipantSummary(
 
 object ParticipantSummaryBuilder {
 
-    fun isParticipantVerified(mon: ParsedPokemon, profile: RomHackProfile): Boolean {
+    fun isParticipantVerified(
+        mon: ParsedPokemon,
+        profile: RomHackProfile,
+        runtimeTrust: com.dualdex.romhack.RuntimeRomTrust? = null
+    ): Boolean {
         if (mon.isEmpty || !mon.isValid || mon.level <= 0) return false
         val isKnown = profile.customSpecies.containsKey(mon.species) || SpeciesDatabase.isKnown(mon.species)
         if (!isKnown) return false
-        return profile.isVerified
+        return runtimeTrust?.exactRuntimeVerified == true
     }
 
     fun build(
         mon: ParsedPokemon?,
         slot: Int,
         profile: RomHackProfile,
-        statStages: StatStages = StatStages()
+        statStages: StatStages = StatStages(),
+        runtimeTrust: com.dualdex.romhack.RuntimeRomTrust? = null
     ): BattleParticipantSummary {
         if (mon == null || mon.isEmpty || !mon.isValid) {
             return BattleParticipantSummary(
@@ -641,7 +695,7 @@ object ParticipantSummaryBuilder {
         }
         val custom = profile.customSpecies[mon.species]
         val isKnown = custom != null || SpeciesDatabase.isKnown(mon.species)
-        val verified = isParticipantVerified(mon, profile)
+        val verified = isParticipantVerified(mon, profile, runtimeTrust)
 
         val speciesName: String
         val displayName: String
@@ -720,6 +774,7 @@ object BattlePresentationBuilder {
         attacker: ParsedPokemon,
         defender: ParsedPokemon?,
         profile: RomHackProfile,
+        runtimeTrust: com.dualdex.romhack.RuntimeRomTrust? = null,
         calculator: BattleDamageCalculator = DefaultBattleDamageCalculator,
         attackerStages: StatStages = StatStages(),
         defenderStages: StatStages = StatStages(),
@@ -748,7 +803,7 @@ object BattlePresentationBuilder {
 
         // Evaluate effectiveness
         val (effLabel, effConfidence) = if (moveKnown) {
-            MoveEffectiveness.evaluate(resolvedMoveInfo.id, category, defender, profile)
+            MoveEffectiveness.evaluate(resolvedMoveInfo.id, category, defender, profile, runtimeTrust)
         } else {
             null to DataConfidence.UNAVAILABLE
         }
@@ -764,12 +819,6 @@ object BattlePresentationBuilder {
                 (profile.customSpecies.containsKey(defender.species) || SpeciesDatabase.isKnown(defender.species))
         val attackerSpeciesKnown = !attacker.isEmpty && attacker.isValid &&
                 (profile.customSpecies.containsKey(attacker.species) || SpeciesDatabase.isKnown(attacker.species))
-
-        val moveDataAuthoritative = moveKnown && pack.isMoveAuthoritative(resolvedMoveInfo.id)
-        val attackerDataAuthoritative = profile.customSpecies.containsKey(attacker.species) ||
-                pack.isSpeciesAuthoritative(attacker.species)
-        val defenderDataAuthoritative = defender != null &&
-                (profile.customSpecies.containsKey(defender.species) || pack.isSpeciesAuthoritative(defender.species))
 
         val canCalculate = moveKnown &&
                 category != MoveCategory.STATUS &&
@@ -792,11 +841,9 @@ object BattlePresentationBuilder {
             )
             val response = calculator.calculate(request)
             if (response.success && response.maxDamage > 0) {
-                damageConfidence = if (moveDataAuthoritative && attackerDataAuthoritative && defenderDataAuthoritative) {
-                    DamageConfidence.VERIFIED
-                } else {
-                    DamageConfidence.ESTIMATE
-                }
+                // Live battle context omits abilities, weather and side effects.  A useful range
+                // is still an estimate, never an asserted final battle result.
+                damageConfidence = DamageConfidence.ESTIMATE
                 minDamage = response.minDamage
                 maxDamage = response.maxDamage
                 range = response.range
@@ -827,6 +874,7 @@ object BattlePresentationBuilder {
 }
 
 enum class StatusCondition(val displayName: String) {
+    UNKNOWN("Unknown / Unavailable"),
     HEALTHY("Healthy"),
     SLEEP("Sleep"),
     POISON("Poison"),
@@ -885,11 +933,16 @@ object FieldStatusBuilder {
         enemyStages: StatStages = StatStages(),
         weather: WeatherType = WeatherType.NONE,
         playerSide: SideEffects = SideEffects(),
-        enemySide: SideEffects = SideEffects()
+        enemySide: SideEffects = SideEffects(),
+        runtimeTrust: com.dualdex.romhack.RuntimeRomTrust? = null
     ): FieldStatusData {
-        val participant = ParticipantSummaryBuilder.build(attacker, attackerSlot, profile, playerStages)
-        val opponent = ParticipantSummaryBuilder.build(defender, -1, profile, enemyStages)
-        val condition = if (attacker != null) StatusConditionDecoder.decode(attacker.statusCondition) else StatusCondition.HEALTHY
+        val participant = ParticipantSummaryBuilder.build(attacker, attackerSlot, profile, playerStages, runtimeTrust)
+        val opponent = ParticipantSummaryBuilder.build(defender, -1, profile, enemyStages, runtimeTrust)
+        val condition = if (attacker != null && attacker.isValid && !attacker.isEmpty) {
+            StatusConditionDecoder.decode(attacker.statusCondition)
+        } else {
+            StatusCondition.UNKNOWN
+        }
         val conditionVerified = attacker != null && attacker.isValid && !attacker.isEmpty && participant.isVerified
 
         val speedComp = if (attacker != null && defender != null && !attacker.isEmpty && !defender.isEmpty && attacker.isValid && defender.isValid) {
@@ -917,7 +970,7 @@ object FieldStatusBuilder {
                     continue
                 }
                 val info = MoveDatabase.get(id)
-                val (effLabel, _) = MoveEffectiveness.evaluate(id, info.category, defender, profile)
+                val (effLabel, _) = MoveEffectiveness.evaluate(id, info.category, defender, profile, runtimeTrust)
                 if (effLabel == null && !MoveEffectiveness.isStatMove(info.category)) {
                     notes += "${info.name}: ${MoveEffectiveness.UNAVAILABLE}"
                 }

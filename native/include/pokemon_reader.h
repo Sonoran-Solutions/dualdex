@@ -168,6 +168,16 @@ uint8_t pokemon_read_battle_ui_state(
     const GameMemoryConfig* config
 );
 
+/**
+ * Read battle presence independently from the UI controller state:
+ * 0 = NOT_OBSERVED, 1 = OBSERVED, 2 = UNKNOWN (reader/configuration unavailable).
+ */
+uint8_t pokemon_read_battle_presence(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config
+);
+
 #ifdef __cplusplus
 }
 #endif

@@ -484,6 +484,12 @@ class SettingsScreenView(
                 setMargins(0, 8, 0, 0)
             }
             addView(toggleInteractiveBtn, lpInteractive)
+            addView(TextView(context).apply {
+                text = "Only exact ROM builds with verified battle-menu and cursor readers can use touch controls. No bundled profile currently supports interactive controls."
+                setTextColor(0xFFAAAAAA.toInt())
+                textSize = 11f
+                setPadding(4, 6, 4, 0)
+            })
         }
         content.addView(experimentalCard)
     }

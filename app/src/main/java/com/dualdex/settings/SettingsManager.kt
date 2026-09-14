@@ -82,7 +82,7 @@ class SettingsManager(context: Context) {
         }
 
     var isInteractiveBattleControlsEnabled: Boolean
-        get() = prefs.getBoolean(KEY_INTERACTIVE_BATTLE_CONTROLS_ENABLED, true)
+        get() = prefs.getBoolean(KEY_INTERACTIVE_BATTLE_CONTROLS_ENABLED, false)
         set(value) {
             prefs.edit().putBoolean(KEY_INTERACTIVE_BATTLE_CONTROLS_ENABLED, value).apply()
         }

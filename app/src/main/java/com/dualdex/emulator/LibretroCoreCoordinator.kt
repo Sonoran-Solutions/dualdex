@@ -242,13 +242,13 @@ open class LibretroCoreCoordinator(
     fun getActiveBattlerSlot(gameId: Int): Int = try {
         executeExclusive(50L) { LibretroHost.nativeGetActiveBattlerSlot(gameId) }
     } catch (_: Exception) {
-        0
+        -1
     }
 
     fun getActiveEnemyBattlerSlot(gameId: Int): Int = try {
         executeExclusive(50L) { LibretroHost.nativeGetActiveEnemyBattlerSlot(gameId) }
     } catch (_: Exception) {
-        0
+        -1
     }
 
     fun readBattleStatStages(gameId: Int, battlerIndex: Int): IntArray? = try {
@@ -261,6 +261,12 @@ open class LibretroCoreCoordinator(
         executeExclusive(50L) { LibretroHost.nativeReadBattleUiState(gameId) }
     } catch (_: Exception) {
         0
+    }
+
+    fun readBattlePresence(gameId: Int): Int = try {
+        executeExclusive(50L) { LibretroHost.nativeReadBattlePresence(gameId) }
+    } catch (_: Exception) {
+        2
     }
 
     fun readPlayerLocation(gameId: Int): PlayerLocation? = try {

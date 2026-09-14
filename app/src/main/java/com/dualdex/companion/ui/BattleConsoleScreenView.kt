@@ -161,8 +161,10 @@ class BattleConsoleScreenView(
         scope.launch { viewModel.enemyParty.collectLatest { refreshUI() } }
         scope.launch { viewModel.isInBattle.collectLatest { refreshUI() } }
         scope.launch { viewModel.selectedMemberIndex.collectLatest { refreshUI() } }
+        scope.launch { viewModel.activePlayerBattlerIndex.collectLatest { refreshUI() } }
         scope.launch { viewModel.activeEnemyMemberIndex.collectLatest { refreshUI() } }
         scope.launch { viewModel.activeProfile.collectLatest { refreshUI() } }
+        scope.launch { viewModel.runtimeRomTrust.collectLatest { refreshUI() } }
         scope.launch { viewModel.playerStatStages.collectLatest { refreshUI() } }
         scope.launch { viewModel.enemyStatStages.collectLatest { refreshUI() } }
         scope.launch { viewModel.battleUiSnapshot.collectLatest { refreshUI() } }
@@ -196,8 +198,14 @@ class BattleConsoleScreenView(
 
         val uiSnap = viewModel.battleUiSnapshot.value
         val inBattle = viewModel.isInBattle.value
+        if (viewModel.activeRomIdentity.value == null) {
+            actionStatusBadge.text = "No battle data available"
+            actionStatusBadge.setTextColor(0xFF888899.toInt())
+            actionStatusBadge.background = badgeDrawable(0xFF1E1E26.toInt(), 0xFF888899.toInt())
+            return
+        }
         if (!inBattle) {
-            actionStatusBadge.text = "Idle"
+            actionStatusBadge.text = "Ready / waiting for battle"
             actionStatusBadge.setTextColor(0xFF888899.toInt())
             actionStatusBadge.background = badgeDrawable(0xFF1E1E26.toInt(), 0xFF888899.toInt())
             return
@@ -219,12 +227,19 @@ class BattleConsoleScreenView(
         val enemies = viewModel.enemyParty.value
         val selectedIdx = viewModel.selectedMemberIndex.value
         val inBattle = viewModel.isInBattle.value
+        val activePlayerIdx = viewModel.activePlayerBattlerIndex.value
         val activeEnemyIdx = viewModel.activeEnemyMemberIndex.value
         val profile = viewModel.activeProfile.value
+        val runtimeTrust = viewModel.runtimeRomTrust.value
+        val romLoaded = viewModel.activeRomIdentity.value != null
         val playerStages = viewModel.playerStatStages.value
         val enemyStages = viewModel.enemyStatStages.value
 
-        headerBadge.text = if (inBattle) "⚔️ Battle" else "Ready"
+        headerBadge.text = when {
+            !romLoaded -> "No ROM"
+            inBattle -> "⚔️ Battle"
+            else -> "Ready"
+        }
         headerBadge.setTextColor(if (inBattle) 0xFFFF6B6B.toInt() else 0xFF50C878.toInt())
         headerBadge.background = badgeDrawable(
             if (inBattle) 0xFF2E1A1A.toInt() else 0xFF1E2B22.toInt(),
@@ -233,7 +248,11 @@ class BattleConsoleScreenView(
 
         refreshActionStatusBadge()
 
-        val attacker: ParsedPokemon? = party.getOrNull(selectedIdx)?.takeIf { !it.isEmpty && it.isValid }
+        val attacker: ParsedPokemon? = if (inBattle) {
+            party.getOrNull(activePlayerIdx)?.takeIf { !it.isEmpty && it.isValid }
+        } else {
+            null
+        }
         val defender: ParsedPokemon? = if (inBattle && activeEnemyIdx in enemies.indices) {
             enemies[activeEnemyIdx].takeIf { !it.isEmpty && it.isValid }
         } else {
@@ -241,7 +260,7 @@ class BattleConsoleScreenView(
         }
 
         // Cache-aware move presentation calculation
-        ensureMovePresentations(attacker, defender, profile, playerStages, enemyStages)
+        ensureMovePresentations(attacker, defender, profile, runtimeTrust, playerStages, enemyStages)
 
         contentContainer.removeAllViews()
 
@@ -270,9 +289,9 @@ class BattleConsoleScreenView(
         }
 
         when (activeSubtab) {
-            ConsoleSubtab.BATTLE -> renderBattleSubtab(attacker, defender, selectedIdx, activeEnemyIdx, inBattle, profile, playerStages, enemyStages)
+            ConsoleSubtab.BATTLE -> renderBattleSubtab(attacker, defender, activePlayerIdx, activeEnemyIdx, inBattle, romLoaded, profile, runtimeTrust, playerStages, enemyStages)
             ConsoleSubtab.PARTY -> renderPartySubtab(party, selectedIdx, inBattle)
-            ConsoleSubtab.FIELD -> renderFieldSubtab(attacker, defender, selectedIdx, inBattle, profile, playerStages, enemyStages)
+            ConsoleSubtab.FIELD -> renderFieldSubtab(attacker, defender, activePlayerIdx, inBattle, profile, runtimeTrust, playerStages, enemyStages)
             ConsoleSubtab.DETAILS -> renderDetailsSubtab(attacker, defender)
         }
     }
@@ -281,6 +300,7 @@ class BattleConsoleScreenView(
         attacker: ParsedPokemon?,
         defender: ParsedPokemon?,
         profile: RomHackProfile,
+        runtimeTrust: com.dualdex.romhack.RuntimeRomTrust,
         playerStages: StatStages,
         enemyStages: StatStages
     ) {
@@ -316,6 +336,7 @@ class BattleConsoleScreenView(
                         attacker = attacker,
                         defender = defender,
                         profile = profile,
+                        runtimeTrust = runtimeTrust,
                         calculator = damageCalculator,
                         attackerStages = playerStages,
                         defenderStages = enemyStages
@@ -345,25 +366,31 @@ class BattleConsoleScreenView(
         selectedIdx: Int,
         activeEnemyIdx: Int,
         inBattle: Boolean,
+        romLoaded: Boolean,
         profile: RomHackProfile,
+        runtimeTrust: com.dualdex.romhack.RuntimeRomTrust,
         playerStages: StatStages,
         enemyStages: StatStages
     ) {
         contentContainer.addView(sectionHeader("⚔️ Active Participants"))
 
         if (attacker == null && defender == null) {
-            contentContainer.addView(emptyLabel("No battle participant data (Waiting for ROM)"))
+            contentContainer.addView(emptyLabel(when {
+                !romLoaded -> "No battle data available"
+                inBattle -> "Active Pokémon unavailable"
+                else -> "Ready / waiting for battle"
+            }))
             return
         }
 
         // Active participant summaries
         if (attacker != null) {
-            val attackerSummary = ParticipantSummaryBuilder.build(attacker, selectedIdx, profile, playerStages)
+            val attackerSummary = ParticipantSummaryBuilder.build(attacker, selectedIdx, profile, playerStages, runtimeTrust)
             contentContainer.addView(participantCard(attackerSummary, "Your Pokémon", isPlayer = true))
         }
 
         if (inBattle && defender != null) {
-            val opponentSummary = ParticipantSummaryBuilder.build(defender, activeEnemyIdx, profile, enemyStages)
+            val opponentSummary = ParticipantSummaryBuilder.build(defender, activeEnemyIdx, profile, enemyStages, runtimeTrust)
             contentContainer.addView(participantCard(opponentSummary, "Opponent", isPlayer = false))
         }
 
@@ -517,7 +544,7 @@ class BattleConsoleScreenView(
                 DataConfidence.ESTIMATE -> 0xFFFFAA33.toInt()
                 DataConfidence.UNAVAILABLE -> 0xFF888899.toInt()
             }
-            addView(fieldRow("Effectiveness", pres.effectiveness, effColor))
+            addView(fieldRow("Type matchup", pres.effectiveness, effColor))
 
             if (pres.hasDamage || pres.damageConfidence != DamageConfidence.UNAVAILABLE) {
                 val dmgColor = when (pres.damageConfidence) {
@@ -672,6 +699,7 @@ class BattleConsoleScreenView(
         selectedIdx: Int,
         inBattle: Boolean,
         profile: RomHackProfile,
+        runtimeTrust: com.dualdex.romhack.RuntimeRomTrust,
         playerStages: StatStages,
         enemyStages: StatStages
     ) {
@@ -685,6 +713,7 @@ class BattleConsoleScreenView(
             defender = defender,
             attackerSlot = selectedIdx,
             profile = profile,
+            runtimeTrust = runtimeTrust,
             playerStages = playerStages,
             enemyStages = enemyStages
         )
@@ -696,7 +725,7 @@ class BattleConsoleScreenView(
             addView(fieldRow("Side conditions", "Unavailable from memory"))
             addView(fieldRow("Condition", fieldData.condition.displayName))
             addView(fieldRow("Condition verified", yesNo(fieldData.conditionVerified)))
-            val effNotes = if (fieldData.effectivenessNotes.isEmpty()) "All moves neutral or verified"
+            val effNotes = if (fieldData.effectivenessNotes.isEmpty()) "No additional type-matchup warnings available"
             else fieldData.effectivenessNotes.joinToString(" · ")
             addView(fieldRow("Effectiveness notes", effNotes))
             if (fieldData.damageNotes.isNotEmpty()) {
@@ -922,7 +951,7 @@ class BattleConsoleScreenView(
                 DataConfidence.ESTIMATE -> 0xFFFFAA33.toInt()
                 DataConfidence.UNAVAILABLE -> 0xFF888899.toInt()
             }
-            addView(fieldRow("Effectiveness", pres.effectiveness, effColor))
+            addView(fieldRow("Type matchup", pres.effectiveness, effColor))
             val dmgLabel = when (pres.damageConfidence) {
                 DamageConfidence.VERIFIED -> "Verified damage range"
                 DamageConfidence.ESTIMATE -> "Estimated damage range"

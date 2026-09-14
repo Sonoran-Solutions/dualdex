@@ -3,6 +3,8 @@ package com.dualdex.battle
 import com.dualdex.emulator.ControllerInputRouter
 import com.dualdex.emulator.InputManager
 import com.dualdex.emulator.RomIdentity
+import com.dualdex.romhack.ProfileMatchMethod
+import com.dualdex.romhack.RuntimeRomTrust
 import com.dualdex.pokemon.GameDataPackRegistry
 import com.dualdex.pokemon.Gen3VanillaDataPack
 import com.dualdex.pokemon.ModernDataPack
@@ -133,10 +135,13 @@ class BattleSafetyHardeningTest {
             interactiveControlsVerified = true
         )
 
-        val romWithDifferentHash = RomIdentity(
-            sha256 = "1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
-            displayName = "Pokemon FireRed",
-            storageKey = "Pokemon_FireRed_111122223333"
+        val romWithDifferentHash = RuntimeRomTrust(
+            matchMethod = ProfileMatchMethod.EXACT_SHA256,
+            detectedSha256 = "1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
+            activeRomSha256 = "1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
+            profileVerified = true,
+            memoryLayoutVerified = true,
+            profileSha256Hashes = verifiedProfile.sha256Hashes
         )
 
         val isInteractiveVerified = BattleInteractionPolicy.isInteractiveVerified(

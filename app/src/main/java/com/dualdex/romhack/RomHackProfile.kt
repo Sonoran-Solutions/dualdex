@@ -34,6 +34,12 @@ data class RomHackProfile(
     val interactiveControlsVerified: Boolean = false,
     val memoryLayoutVerified: Boolean = false,
     val battleUiVerified: Boolean = false,
+    val commandCursorVerified: Boolean = false,
+    val moveCursorVerified: Boolean = false,
+    val partyCursorVerified: Boolean = false,
+    val moveSelectionVerified: Boolean = false,
+    val partySwitchVerified: Boolean = false,
+    val partyActionMenuVerified: Boolean = false,
     val gameDataPackId: String? = null
 ) {
     fun isSupportedVanillaGen3(): Boolean =

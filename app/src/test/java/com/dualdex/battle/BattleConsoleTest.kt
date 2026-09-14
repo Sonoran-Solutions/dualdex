@@ -309,10 +309,8 @@ class BattleConsoleTest {
         viewModel.updateEnemyParty(enemies)
         viewModel.setIsInBattle(true)
 
-        // Default initial active enemy
-        assertEquals(0, viewModel.activeEnemyMemberIndex.value)
-        val active0 = enemies.getOrNull(viewModel.activeEnemyMemberIndex.value)
-        assertEquals("Pidgey", active0?.nickname)
+        // No synthetic active opponent is allowed until native observation supplies a slot.
+        assertEquals(-1, viewModel.activeEnemyMemberIndex.value)
 
         // Switch to slot 1
         viewModel.setActiveEnemyMemberIndex(1)
@@ -330,7 +328,7 @@ class BattleConsoleTest {
         viewModel.setIsInBattle(true)
 
         assertTrue(viewModel.isInBattle.value)
-        assertEquals(0, viewModel.activeEnemyMemberIndex.value)
+        assertEquals(-1, viewModel.activeEnemyMemberIndex.value)
 
         // Battle ends: enemies disappear
         viewModel.updateEnemyParty(emptyList())
@@ -777,12 +775,12 @@ class BattleConsoleTest {
         assertEquals(16, summaryParalyzed.effectiveSpeed)
     }
 
-    // 21. Battle tab and the "allow verified controls" preference default to true independently.
+    // 21. Battle tab stays enabled while verified touch controls default safely off.
     @Test
     fun testCompanionViewModel_battleTabAndInteractiveDefaults() {
         val vm = CompanionViewModel()
         assertTrue("Battle tab must be enabled by default", vm.isBattleTabEnabled.value)
-        assertTrue("Verified touch-control permission defaults to enabled", vm.isInteractiveBattleControlsEnabled.value)
+        assertFalse("Verified touch-control permission defaults to disabled", vm.isInteractiveBattleControlsEnabled.value)
     }
 
     // 22. CompanionViewModel allows toggling interactive battle controls

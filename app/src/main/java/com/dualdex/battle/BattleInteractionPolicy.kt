@@ -1,7 +1,7 @@
 package com.dualdex.battle
 
-import com.dualdex.emulator.RomIdentity
 import com.dualdex.romhack.RomHackProfile
+import com.dualdex.romhack.RuntimeRomTrust
 
 /**
  * Single, deterministic authorization point for battle input.
@@ -13,22 +13,19 @@ object BattleInteractionPolicy {
 
     fun isInteractiveVerified(
         profile: RomHackProfile,
-        romIdentity: RomIdentity?
+        runtimeTrust: RuntimeRomTrust?
     ): Boolean {
-        return profile.isVerified &&
-                profile.memoryLayoutVerified &&
+        return runtimeTrust?.exactRuntimeVerified == true &&
+                profile.sha256Hashes.any { it.equals(runtimeTrust.activeRomSha256, ignoreCase = true) } &&
                 profile.battleUiVerified &&
-                profile.interactiveControlsVerified &&
-                romIdentity != null &&
-                profile.sha256Hashes.isNotEmpty() &&
-                profile.sha256Hashes.any { expected ->
-                    expected.isNotBlank() && expected.equals(romIdentity.sha256, ignoreCase = true)
-                }
+                profile.commandCursorVerified &&
+                profile.moveCursorVerified &&
+                profile.moveSelectionVerified
     }
 
     fun evaluate(
         profile: RomHackProfile,
-        romIdentity: RomIdentity?,
+        runtimeTrust: RuntimeRomTrust?,
         userEnabled: Boolean,
         inBattle: Boolean,
         uiState: BattleUiState,
@@ -36,13 +33,25 @@ object BattleInteractionPolicy {
         selectedMoveIndex: Int? = null,
         selectedPartySlot: Int? = null
     ): BattleUiSnapshot {
-        val verified = isInteractiveVerified(profile, romIdentity)
-        val permissionGranted = userEnabled && verified
-        val capabilities = if (permissionGranted) {
-            BattleInteractionCapabilities.FULL_VERIFIED
-        } else {
-            BattleInteractionCapabilities.READ_ONLY
-        }
+        val exactRuntimeVerified = runtimeTrust?.exactRuntimeVerified == true &&
+            profile.sha256Hashes.any { it.equals(runtimeTrust.activeRomSha256, ignoreCase = true) }
+        val baseUiVerified = exactRuntimeVerified && profile.battleUiVerified
+        val selectMoveVerified = baseUiVerified && profile.commandCursorVerified &&
+            profile.moveCursorVerified && profile.moveSelectionVerified
+        // Party switching additionally requires an observed action submenu.  Do not infer that
+        // SHIFT is the first party action until a ROM-specific reader proves it.
+        val switchPokemonVerified = baseUiVerified && profile.commandCursorVerified &&
+            profile.partyCursorVerified && profile.partySwitchVerified && profile.partyActionMenuVerified
+        val permissionGranted = userEnabled && (selectMoveVerified || switchPokemonVerified)
+        val capabilities = BattleInteractionCapabilities(
+            readBattleState = baseUiVerified,
+            readCommandCursor = baseUiVerified && profile.commandCursorVerified,
+            readMoveCursor = baseUiVerified && profile.moveCursorVerified,
+            readPartyCursor = baseUiVerified && profile.partyCursorVerified,
+            selectMove = permissionGranted && selectMoveVerified,
+            switchPokemon = permissionGranted && switchPokemonVerified,
+            confidence = if (baseUiVerified) DataConfidence.VERIFIED else DataConfidence.UNAVAILABLE
+        )
 
         val stateIsInteractive = uiState == BattleUiState.COMMAND_MENU ||
                 uiState == BattleUiState.MOVE_MENU ||
@@ -54,7 +63,7 @@ object BattleInteractionPolicy {
             else -> false
         }
         val isInputAccepted = permissionGranted && inBattle && stateIsInteractive && cursorAvailable
-        val stateConfidence = if (verified && inBattle && stateIsInteractive) {
+        val stateConfidence = if (baseUiVerified && inBattle && stateIsInteractive) {
             DataConfidence.VERIFIED
         } else {
             DataConfidence.UNAVAILABLE
@@ -62,7 +71,8 @@ object BattleInteractionPolicy {
 
         val readOnlyReason = when {
             !userEnabled -> "Read-only: touch battle controls are disabled in Settings."
-            !verified -> "Read-only: exact ROM and battle UI verification is unavailable."
+            !exactRuntimeVerified -> "Read-only: ROM/profile is not exact-verified."
+            !baseUiVerified -> "Read-only: verified battle UI readers are unavailable."
             !inBattle -> "Read-only: no active battle detected."
             !stateIsInteractive -> "Read-only: battle UI state is unknown or transitioning."
             !cursorAvailable -> "Read-only: battle menu cursor state is unavailable."

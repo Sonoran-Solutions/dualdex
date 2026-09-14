@@ -2,8 +2,28 @@ package com.dualdex.romhack
 
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
 
 class RomHackProfileTest {
+
+    @Test
+    fun everyBundledProfileRemainsReadOnlyForBattleControls() {
+        val profilesDir = generateSequence(File(System.getProperty("user.dir") ?: ".")) { it.parentFile }
+            .map { File(it, "app/src/main/assets/profiles") }
+            .firstOrNull { it.isDirectory }
+            ?: throw AssertionError("Unable to locate bundled ROM profiles")
+
+        val profiles = profilesDir.listFiles { file -> file.extension == "json" }
+            ?.map { ProfileLoader.parseProfile(it.readText()) }
+            ?: throw AssertionError("No bundled ROM profiles found")
+        assertTrue(profiles.isNotEmpty())
+        profiles.forEach { profile ->
+            assertFalse("${profile.id} must not claim a verified battle UI reader", profile.battleUiVerified)
+            assertFalse("${profile.id} must not enable generic interaction", profile.interactiveControlsVerified)
+            assertFalse("${profile.id} must not enable move selection", profile.moveSelectionVerified)
+            assertFalse("${profile.id} must not enable party switching", profile.partySwitchVerified)
+        }
+    }
 
     private val ghostGreyJson = """
         {

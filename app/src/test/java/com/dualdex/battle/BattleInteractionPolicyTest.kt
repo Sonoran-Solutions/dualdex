@@ -1,19 +1,33 @@
 package com.dualdex.battle
 
-import com.dualdex.emulator.RomIdentity
+import com.dualdex.romhack.ProfileMatchMethod
 import com.dualdex.romhack.RomHackProfile
+import com.dualdex.romhack.RuntimeRomTrust
 import org.junit.Assert.*
 import org.junit.Test
 
 class BattleInteractionPolicyTest {
 
     private val hash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-    private val identity = RomIdentity.create(hash, "Pokemon FireRed")
+
+    private fun runtimeTrust(
+        method: ProfileMatchMethod = ProfileMatchMethod.EXACT_SHA256,
+        detectedSha: String = hash,
+        activeSha: String = hash
+    ) = RuntimeRomTrust(
+        matchMethod = method,
+        detectedSha256 = detectedSha,
+        activeRomSha256 = activeSha,
+        profileVerified = true,
+        memoryLayoutVerified = true,
+        profileSha256Hashes = listOf(hash)
+    )
 
     private fun profile(
         sha256Hashes: List<String> = listOf(hash),
         interactiveControlsVerified: Boolean = true,
-        battleUiVerified: Boolean = true
+        battleUiVerified: Boolean = true,
+        cursorAndActionReadersVerified: Boolean = true
     ) = RomHackProfile(
         id = "test_firered",
         name = "Test FireRed",
@@ -23,12 +37,18 @@ class BattleInteractionPolicyTest {
         isVerified = true,
         memoryLayoutVerified = true,
         battleUiVerified = battleUiVerified,
-        interactiveControlsVerified = interactiveControlsVerified
+        interactiveControlsVerified = interactiveControlsVerified,
+        commandCursorVerified = cursorAndActionReadersVerified,
+        moveCursorVerified = cursorAndActionReadersVerified,
+        partyCursorVerified = cursorAndActionReadersVerified,
+        moveSelectionVerified = cursorAndActionReadersVerified,
+        partySwitchVerified = cursorAndActionReadersVerified,
+        partyActionMenuVerified = cursorAndActionReadersVerified
     )
 
     private fun evaluate(
         profile: RomHackProfile,
-        romIdentity: RomIdentity? = identity,
+        runtimeTrust: RuntimeRomTrust? = runtimeTrust(),
         userEnabled: Boolean = true,
         state: BattleUiState = BattleUiState.COMMAND_MENU,
         commandCursor: Int? = 1,
@@ -36,7 +56,7 @@ class BattleInteractionPolicyTest {
         partyCursor: Int? = null
     ) = BattleInteractionPolicy.evaluate(
         profile = profile,
-        romIdentity = romIdentity,
+        runtimeTrust = runtimeTrust,
         userEnabled = userEnabled,
         inBattle = true,
         uiState = state,
@@ -63,8 +83,8 @@ class BattleInteractionPolicyTest {
     }
 
     @Test
-    fun interactiveVerificationFlagIsRequired() {
-        val snapshot = evaluate(profile(interactiveControlsVerified = false))
+    fun granularCursorVerificationIsRequired() {
+        val snapshot = evaluate(profile(interactiveControlsVerified = true, cursorAndActionReadersVerified = false))
 
         assertFalse(snapshot.capabilities.isInteractiveSupported)
         assertFalse(snapshot.isInputAccepted)
@@ -116,5 +136,33 @@ class BattleInteractionPolicyTest {
         assertEquals(BattleUiState.UNKNOWN, BattleUiState.fromNativeCode(0))
         assertEquals(BattleUiState.UNKNOWN, BattleUiState.fromNativeCode(5))
         assertEquals(BattleUiState.UNKNOWN, BattleUiState.fromNativeCode(999))
+    }
+
+    @Test
+    fun onlyExactShaMatchCanEstablishRuntimeTrust() {
+        ProfileMatchMethod.entries.filterNot { it == ProfileMatchMethod.EXACT_SHA256 }.forEach { method ->
+            assertFalse("$method must not establish runtime trust", runtimeTrust(method = method).exactRuntimeVerified)
+        }
+        assertTrue(runtimeTrust().exactRuntimeVerified)
+        assertFalse(runtimeTrust(detectedSha = "different").exactRuntimeVerified)
+    }
+
+    @Test
+    fun genericInteractiveFlagCannotEnableCapabilities() {
+        val snapshot = evaluate(profile(cursorAndActionReadersVerified = false), runtimeTrust = runtimeTrust())
+        assertFalse(snapshot.capabilities.selectMove)
+        assertFalse(snapshot.capabilities.switchPokemon)
+        assertFalse(snapshot.inputSafe)
+    }
+
+    @Test
+    fun presenceStabilizerRejectsSingleFrameNoiseAndRetainsUnknownState() {
+        val stabilizer = BattlePresenceStabilizer()
+        assertFalse(stabilizer.update(BattlePresence.OBSERVED))
+        assertTrue(stabilizer.update(BattlePresence.OBSERVED))
+        assertTrue(stabilizer.update(BattlePresence.NOT_OBSERVED))
+        assertTrue(stabilizer.update(BattlePresence.UNKNOWN))
+        assertTrue(stabilizer.update(BattlePresence.NOT_OBSERVED))
+        assertFalse(stabilizer.update(BattlePresence.NOT_OBSERVED))
     }
 }

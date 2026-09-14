@@ -103,6 +103,12 @@ object ProfileLoader {
             interactiveControlsVerified = json.optBoolean("interactiveControlsVerified", false),
             memoryLayoutVerified = json.optBoolean("memoryLayoutVerified", false),
             battleUiVerified = json.optBoolean("battleUiVerified", false),
+            commandCursorVerified = json.optBoolean("commandCursorVerified", false),
+            moveCursorVerified = json.optBoolean("moveCursorVerified", false),
+            partyCursorVerified = json.optBoolean("partyCursorVerified", false),
+            moveSelectionVerified = json.optBoolean("moveSelectionVerified", false),
+            partySwitchVerified = json.optBoolean("partySwitchVerified", false),
+            partyActionMenuVerified = json.optBoolean("partyActionMenuVerified", false),
             gameDataPackId = if (json.has("gameDataPackId") && !json.isNull("gameDataPackId")) json.getString("gameDataPackId") else null
         )
     }

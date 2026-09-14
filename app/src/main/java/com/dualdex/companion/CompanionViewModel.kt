@@ -8,6 +8,8 @@ import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionMapDatabase
 import com.dualdex.pokemon.RegionMapSection
 import com.dualdex.romhack.RomHackProfile
+import com.dualdex.romhack.ProfileDetectionResult
+import com.dualdex.romhack.RuntimeRomTrust
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,13 +58,19 @@ class CompanionViewModel(
     private val _activeEnemyMemberIndex = MutableStateFlow(-1)
     val activeEnemyMemberIndex: StateFlow<Int> = _activeEnemyMemberIndex.asStateFlow()
 
+    private val _activePlayerBattlerIndex = MutableStateFlow(-1)
+    val activePlayerBattlerIndex: StateFlow<Int> = _activePlayerBattlerIndex.asStateFlow()
+
     private val _isInBattle = MutableStateFlow(false)
     val isInBattle: StateFlow<Boolean> = _isInBattle.asStateFlow()
+
+    private val _battlePresence = MutableStateFlow(com.dualdex.battle.BattlePresence.UNKNOWN)
+    val battlePresence: StateFlow<com.dualdex.battle.BattlePresence> = _battlePresence.asStateFlow()
 
     private val _isBattleTabEnabled = MutableStateFlow(true)
     val isBattleTabEnabled: StateFlow<Boolean> = _isBattleTabEnabled.asStateFlow()
 
-    private val _isInteractiveBattleControlsEnabled = MutableStateFlow(true)
+    private val _isInteractiveBattleControlsEnabled = MutableStateFlow(false)
     val isInteractiveBattleControlsEnabled: StateFlow<Boolean> = _isInteractiveBattleControlsEnabled.asStateFlow()
 
     private val _activeGameId = MutableStateFlow(0)
@@ -76,6 +84,9 @@ class CompanionViewModel(
 
     private val _activeProfile = MutableStateFlow(RomHackProfile.DEFAULT_FIRERED)
     val activeProfile: StateFlow<RomHackProfile> = _activeProfile.asStateFlow()
+
+    private val _runtimeRomTrust = MutableStateFlow(RuntimeRomTrust())
+    val runtimeRomTrust: StateFlow<RuntimeRomTrust> = _runtimeRomTrust.asStateFlow()
 
     private val _playerStatStages = MutableStateFlow(com.dualdex.battle.StatStages())
     val playerStatStages: StateFlow<com.dualdex.battle.StatStages> = _playerStatStages.asStateFlow()
@@ -104,6 +115,7 @@ class CompanionViewModel(
     val resolvedLocation: StateFlow<RegionMapSection> = _resolvedLocation.asStateFlow()
 
     private var pollingJob: Job? = null
+    private val battlePresenceStabilizer = com.dualdex.battle.BattlePresenceStabilizer()
 
     fun selectTab(tab: CompanionTab) {
         _selectedTab.value = tab
@@ -130,12 +142,23 @@ class CompanionViewModel(
     fun setRomIdentity(identity: RomIdentity?) {
         _activeRomIdentity.value = identity
         _activeRomTitle.value = identity?.displayName.orEmpty()
+        _runtimeRomTrust.value = RuntimeRomTrust()
+    }
+
+    fun setRomSession(profile: RomHackProfile, identity: RomIdentity, detection: ProfileDetectionResult) {
+        _activeProfile.value = profile
+        _activeGameId.value = profile.gameId
+        _activeRomIdentity.value = identity
+        _activeRomTitle.value = identity.displayName
+        _runtimeRomTrust.value = RuntimeRomTrust.from(detection, identity.sha256)
+        battlePresenceStabilizer.reset()
     }
 
     fun setProfile(profile: RomHackProfile) {
         _activeProfile.value = profile
         _activeGameId.value = profile.gameId
         _activeRomTitle.value = profile.name
+        _runtimeRomTrust.value = RuntimeRomTrust()
     }
 
     fun startPolling(intervalMs: Long = 200L) {
@@ -158,17 +181,23 @@ class CompanionViewModel(
                     if (enemyList != _enemyParty.value) {
                         _enemyParty.value = enemyList
                     }
-                    val inBattle = enemyList.isNotEmpty()
+                    val presence = com.dualdex.battle.BattlePresence.fromNativeCode(
+                        coreCoordinator.readBattlePresence(gameId)
+                    )
+                    _battlePresence.value = presence
+                    val inBattle = battlePresenceStabilizer.update(presence)
                     if (inBattle != _isInBattle.value) {
                         _isInBattle.value = inBattle
                     }
                     if (inBattle) {
                         val activeSlot = coreCoordinator.getActiveBattlerSlot(gameId)
-                        if (activeSlot in 0..5 && activeSlot != _selectedMemberIndex.value) {
-                            _selectedMemberIndex.value = activeSlot
+                        if (activeSlot in _playerParty.value.indices) {
+                            _activePlayerBattlerIndex.value = activeSlot
+                        } else {
+                            _activePlayerBattlerIndex.value = -1
                         }
                         val enemyActiveSlot = coreCoordinator.getActiveEnemyBattlerSlot(gameId)
-                        val resolvedSlot = if (enemyActiveSlot in 0 until enemyList.size) enemyActiveSlot else if (enemyList.isNotEmpty()) 0 else -1
+                        val resolvedSlot = if (enemyActiveSlot in enemyList.indices) enemyActiveSlot else -1
                         if (resolvedSlot != _activeEnemyMemberIndex.value) {
                             _activeEnemyMemberIndex.value = resolvedSlot
                         }
@@ -182,7 +211,7 @@ class CompanionViewModel(
                         val uiCode = coreCoordinator.readBattleUiState(gameId)
                         _battleUiSnapshot.value = com.dualdex.battle.BattleInteractionPolicy.evaluate(
                             profile = _activeProfile.value,
-                            romIdentity = _activeRomIdentity.value,
+                            runtimeTrust = _runtimeRomTrust.value,
                             userEnabled = _isInteractiveBattleControlsEnabled.value,
                             inBattle = inBattle,
                             uiState = com.dualdex.battle.BattleUiState.fromNativeCode(uiCode)
@@ -191,6 +220,7 @@ class CompanionViewModel(
                         if (_activeEnemyMemberIndex.value != -1) {
                             _activeEnemyMemberIndex.value = -1
                         }
+                        _activePlayerBattlerIndex.value = -1
                         _playerStatStages.value = com.dualdex.battle.StatStages()
                         _enemyStatStages.value = com.dualdex.battle.StatStages()
                         _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
@@ -231,6 +261,7 @@ class CompanionViewModel(
         _isInBattle.value = inBattle
         if (!inBattle) {
             _activeEnemyMemberIndex.value = -1
+            _activePlayerBattlerIndex.value = -1
             _playerStatStages.value = com.dualdex.battle.StatStages()
             _enemyStatStages.value = com.dualdex.battle.StatStages()
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
@@ -245,12 +276,9 @@ class CompanionViewModel(
         _enemyParty.value = party
         val inBattle = party.isNotEmpty()
         _isInBattle.value = inBattle
-        if (inBattle) {
-            if (_activeEnemyMemberIndex.value !in party.indices) {
-                _activeEnemyMemberIndex.value = 0
-            }
-        } else {
+        if (!inBattle) {
             _activeEnemyMemberIndex.value = -1
+            _activePlayerBattlerIndex.value = -1
             _playerStatStages.value = com.dualdex.battle.StatStages()
             _enemyStatStages.value = com.dualdex.battle.StatStages()
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()

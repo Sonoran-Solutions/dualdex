@@ -417,7 +417,7 @@ class SettingsScreenView(
             addView(DualDexComponents.sectionTitle(context, "About & Diagnostics"))
 
             val versionTv = TextView(context).apply {
-                text = "DualDex 0.9.0-beta.1 · Handheld Edition"
+                text = "DualDex ${context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "Unknown"} · Handheld Edition"
                 setTextColor(DualDexTheme.Color.textPrimary)
                 textSize = DualDexTheme.Type.body
                 typeface = Typeface.DEFAULT_BOLD
@@ -426,7 +426,7 @@ class SettingsScreenView(
             addView(versionTv)
 
             val diagnosticsTv = TextView(context).apply {
-                text = "Target: 59.7 FPS · EWRAM Poller: 10 Hz (<0.05 ms latency) · Audio: 32,768 Hz stereo PCM"
+                text = "Target: 59.7 FPS · EWRAM Poller: 10 Hz · Audio: 32,768 Hz stereo PCM"
                 setTextColor(DualDexTheme.Color.textSecondary)
                 textSize = DualDexTheme.Type.meta
                 setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))

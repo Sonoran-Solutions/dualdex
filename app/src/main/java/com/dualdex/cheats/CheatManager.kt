@@ -34,14 +34,10 @@ class CheatManager(
         val hashKey = identity.sha256
         val jsonStr = getPrefString("cheats_$hashKey")
         if (jsonStr == null) {
-            // Seed presets with enabled = false to guarantee safety
+            // Defaults are a read-only view until the user explicitly saves or loads them.
             val gameContext = fallbackGameKey ?: identity.displayName
             val defaultPresets = getPresetsForGame(gameContext).map { it.copy(enabled = false) }
-            if (defaultPresets.isNotEmpty()) {
-                saveCheats(identity, defaultPresets)
-                return defaultPresets
-            }
-            return emptyList()
+            return defaultPresets
         }
 
         return try {

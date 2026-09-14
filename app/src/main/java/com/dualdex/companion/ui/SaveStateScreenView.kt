@@ -17,6 +17,7 @@ import com.dualdex.emulator.storage.LegacyCandidate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
@@ -41,7 +42,10 @@ class SaveStateScreenView(
 
     private val saveStateManager = SaveStateManager.getInstance(context)
     private var viewScope: CoroutineScope? = null
-    private var isBusy = false
+    private val busyDependentButtons = mutableListOf<Pair<TextView, Boolean>>()
+    private val activeOperationIds = mutableSetOf<Long>()
+    private var nextOperationId = 0L
+    private var refreshGeneration = 0L
 
     // Active Game Context Views
     private val emptyGameView: LinearLayout
@@ -317,15 +321,31 @@ class SaveStateScreenView(
 
     private fun getRomIdentity(): RomIdentity? = viewModel.activeRomIdentity.value?.takeIf { it.isValid }
 
-    private fun setBusyState(busy: Boolean) {
-        isBusy = busy
+    private val isBusy: Boolean
+        get() = activeOperationIds.isNotEmpty()
+
+    private fun renderBusyState() {
         val hasGame = getRomIdentity() != null
-        qSaveBtn.isEnabled = !busy && hasGame
-        qLoadBtn.isEnabled = !busy && hasGame
-        importBtn.isEnabled = !busy && hasGame
-        exportBtn.isEnabled = !busy && hasGame
-        chooseFolderBtn.isEnabled = !busy
-        syncSafBtn.isEnabled = !busy && hasGame
+        qSaveBtn.isEnabled = !isBusy && hasGame
+        qLoadBtn.isEnabled = !isBusy && hasGame
+        importBtn.isEnabled = !isBusy && hasGame
+        exportBtn.isEnabled = !isBusy && hasGame
+        chooseFolderBtn.isEnabled = !isBusy
+        syncSafBtn.isEnabled = !isBusy && hasGame
+        busyDependentButtons.forEach { (button, enabledWithoutBusy) ->
+            button.isEnabled = !isBusy && enabledWithoutBusy
+        }
+    }
+
+    private fun beginBusyOperation(): Long {
+        val id = ++nextOperationId
+        activeOperationIds += id
+        renderBusyState()
+        return id
+    }
+
+    private fun endBusyOperation(id: Long) {
+        if (activeOperationIds.remove(id)) renderBusyState()
     }
 
     private fun performAsyncOperation(
@@ -333,17 +353,17 @@ class SaveStateScreenView(
         failureMsg: String,
         operation: suspend () -> Boolean
     ) {
-        setBusyState(true)
-        val scope = viewScope ?: CoroutineScope(Dispatchers.Main + SupervisorJob())
+        val scope = viewScope ?: return
+        val operationId = beginBusyOperation()
         scope.launch(Dispatchers.IO) {
             val ok = try {
                 operation()
             } catch (e: Exception) {
                 false
             }
-            withContext(Dispatchers.Main) {
-                if (isActive) {
-                    setBusyState(false)
+            withContext(NonCancellable + Dispatchers.Main) {
+                endBusyOperation(operationId)
+                if (isAttachedToWindow) {
                     Toast.makeText(context, if (ok) successMsg else failureMsg, Toast.LENGTH_SHORT).show()
                     refreshUI()
                 }
@@ -352,13 +372,15 @@ class SaveStateScreenView(
     }
 
     fun refreshUI() {
+        val myGeneration = ++refreshGeneration
         val identity = getRomIdentity()
         val profile = viewModel.activeProfile.value
 
         if (identity == null || !identity.isValid) {
             gameContextCard.visibility = View.GONE
             emptyGameView.visibility = View.VISIBLE
-            setBusyState(false)
+            busyDependentButtons.clear()
+            renderBusyState()
 
             quickSaveStatusView.text = "No active game loaded."
             batterySaveStatusView.text = "No active game loaded."
@@ -385,7 +407,7 @@ class SaveStateScreenView(
         gameMetaView.text = "Build ${identity.shortHash} · ${profile.name.ifBlank { "Standard GBA" }}"
         gameStorageKeyView.text = "Storage Key: ${identity.storageKey}"
 
-        setBusyState(isBusy)
+        renderBusyState()
 
         quickSaveStatusView.text = "Checking quick save status..."
         batterySaveStatusView.text = "Checking battery save status..."
@@ -405,7 +427,8 @@ class SaveStateScreenView(
             val candidates = saveStateManager.discoverLegacyCandidates()
 
             withContext(Dispatchers.Main) {
-                if (!isActive) return@withContext
+                if (!isActive || !isAttachedToWindow || myGeneration != refreshGeneration) return@withContext
+                if (getRomIdentity() != identity || viewModel.activeProfile.value != profile) return@withContext
 
                 // Quick Save status
                 quickSaveStatusView.text = if (qLastModified > 0L) {
@@ -445,6 +468,7 @@ class SaveStateScreenView(
         identity: RomIdentity,
         profile: com.dualdex.romhack.RomHackProfile
     ) {
+        busyDependentButtons.clear()
         slotsContainer.removeAllViews()
         slots.forEachIndexed { index, slot ->
             val slotRow = LinearLayout(context).apply {
@@ -487,10 +511,9 @@ class SaveStateScreenView(
                 performAsyncOperation("Slot ${slot.slotIndex} loaded!", "Load failed!") {
                     saveStateManager.loadSlot(identity, slot.slotIndex, profile.name, profile.id)
                 }
-            }.apply {
-                isEnabled = slot.exists && !isBusy
             }
-            slotRow.addView(loadBtn, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(36)).apply {
+            busyDependentButtons += loadBtn to slot.exists
+            slotRow.addView(loadBtn, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
                 marginEnd = context.dp(DualDexTheme.Spacing.tight)
             })
 
@@ -498,10 +521,9 @@ class SaveStateScreenView(
                 performAsyncOperation("Slot ${slot.slotIndex} saved!", "Save failed!") {
                     saveStateManager.saveSlot(identity, slot.slotIndex)
                 }
-            }.apply {
-                isEnabled = !isBusy
             }
-            slotRow.addView(saveBtn, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(36)))
+            busyDependentButtons += saveBtn to true
+            slotRow.addView(saveBtn, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)))
 
             slotsContainer.addView(slotRow, LayoutParams(
                 LayoutParams.MATCH_PARENT,
@@ -510,6 +532,7 @@ class SaveStateScreenView(
                 bottomMargin = if (index == slots.lastIndex) 0 else context.dp(DualDexTheme.Spacing.compact)
             })
         }
+        renderBusyState()
     }
 
     private fun renderLegacyCandidates(candidates: List<LegacyCandidate>, identity: RomIdentity) {
@@ -561,10 +584,9 @@ class SaveStateScreenView(
                     val res = saveStateManager.assignLegacyCandidate(cand, identity)
                     res.isSuccess
                 }
-            }.apply {
-                isEnabled = !isBusy
             }
-            candRow.addView(migrateBtn, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(36)))
+            busyDependentButtons += migrateBtn to true
+            candRow.addView(migrateBtn, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)))
 
             legacyContainer.addView(candRow, LayoutParams(
                 LayoutParams.MATCH_PARENT,
@@ -573,6 +595,7 @@ class SaveStateScreenView(
                 bottomMargin = if (index == candidates.lastIndex) 0 else context.dp(DualDexTheme.Spacing.compact)
             })
         }
+        renderBusyState()
     }
 
     override fun onAttachedToWindow() {
@@ -593,5 +616,9 @@ class SaveStateScreenView(
         super.onDetachedFromWindow()
         viewScope?.cancel()
         viewScope = null
+        refreshGeneration++
+        activeOperationIds.clear()
+        busyDependentButtons.clear()
+        renderBusyState()
     }
 }

@@ -1809,15 +1809,18 @@ object RegionMapDatabase {
         if (loc == null || !loc.isValid) {
             return if (isHeartAndSoul) JOHTO_DEFAULT else HOENN_SECTIONS.values.first()
         }
+        return resolveLocationOrNull(gameId, isHeartAndSoul, loc) ?: JOHTO_DEFAULT
+    }
 
-        if (isHeartAndSoul) {
-            return resolveHeartAndSoulLocation(loc)
-        }
+    /** Resolve only when the active game's map-number table is known. */
+    fun resolveLocationOrNull(gameId: Int, isHeartAndSoul: Boolean, loc: PlayerLocation?): RegionMapSection? {
+        if (loc == null || !loc.isValid) return null
+        if (isHeartAndSoul) return resolveHeartAndSoulLocation(loc)
 
         return when (gameId) {
             1 -> resolveEmeraldLocation(loc)
             2 -> resolveFireRedLocation(loc)
-            else -> JOHTO_DEFAULT
+            else -> null
         }
     }
 

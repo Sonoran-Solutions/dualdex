@@ -264,7 +264,7 @@ class TypeChartScreenView(
                         typeface = Typeface.DEFAULT_BOLD
                         setTextColor(DualDexTheme.Color.textPrimary)
                         gravity = Gravity.CENTER
-                        minimumHeight = context.dp(32)
+                        minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
                         setPadding(context.dp(4), context.dp(2), context.dp(4), context.dp(2))
                         isFocusable = true
                         isFocusableInTouchMode = false

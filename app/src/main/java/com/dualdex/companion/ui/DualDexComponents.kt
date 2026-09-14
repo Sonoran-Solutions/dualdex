@@ -69,8 +69,8 @@ object DualDexComponents {
     ): TextView = TextView(context).apply {
         this.text = text
         gravity = Gravity.CENTER
-        minimumHeight = context.dp(32)
-        minWidth = context.dp(32)
+        minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
+        minWidth = context.dp(DualDexTheme.Spacing.touchTarget)
         setPadding(context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.compact), 0)
         textSize = DualDexTheme.Type.compact
         typeface = Typeface.DEFAULT_BOLD
@@ -434,7 +434,7 @@ class DualDexSegmentedControl(
                 textSize = DualDexTheme.Type.compact
                 typeface = Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
-                minimumHeight = context.dp(36)
+                minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
                 setPadding(context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.compact), 0)
                 isFocusable = true
                 isFocusableInTouchMode = false

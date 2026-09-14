@@ -34,6 +34,13 @@ class RegionMapView @JvmOverloads constructor(
             invalidate()
         }
 
+    /** Resolved by the active game/profile; never inferred from [currentRegion]. */
+    var resolvedLocation: RegionMapSection? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     var selectedSection: RegionMapSection? = null
         set(value) {
             field = value
@@ -201,9 +208,9 @@ class RegionMapView @JvmOverloads constructor(
     }
 
     fun centerOnPlayer() {
-        val loc = playerLocation ?: return
-        val isHns = (currentRegion == RegionId.JOHTO)
-        val sec = RegionMapDatabase.resolveLocation(if (isHns) 1 else 2, isHns, loc)
+        if (playerLocation?.isValid != true) return
+        val sec = resolvedLocation ?: return
+        if (currentRegion != sec.region) return
 
         val w = width.toFloat()
         val h = height.toFloat()
@@ -471,38 +478,43 @@ class RegionMapView @JvmOverloads constructor(
     }
 
     private fun drawPlayerMarker(canvas: Canvas, startX: Float, startY: Float, tileSize: Float) {
-        val loc = playerLocation ?: return
-        if (!loc.isValid) return
-
-        val isHns = (currentRegion == RegionId.JOHTO)
-        val currentSec = RegionMapDatabase.resolveLocation(if (isHns) 1 else 2, isHns, loc)
+        if (playerLocation?.isValid != true) return
+        val currentSec = resolvedLocation ?: return
 
         val px = startX + (currentSec.gridX + currentSec.width / 2f) * tileSize
         val py = startY + (currentSec.gridY + currentSec.height / 2f) * tileSize
+        val density = context.resources.displayMetrics.density
+        val contentScale = scaleFactor.coerceAtLeast(0.01f)
+        val markerRadius = min(tileSize * 0.35f, 10f * density / contentScale)
 
         // Animated Radar Ping Wave
         val now = System.currentTimeMillis()
         val pulseFraction = ((now % 1600L).toFloat() / 1600f)
-        val pulseRadius = tileSize * (0.6f + pulseFraction * 1.4f)
+        val pulseRadius = markerRadius * (1.5f + pulseFraction * 1.5f)
         val alpha = ((1.0f - pulseFraction) * 230).toInt().coerceIn(0, 255)
 
         playerPulsePaint.color = Color.argb(alpha, 239, 68, 68)
         canvas.drawCircle(px, py, pulseRadius, playerPulsePaint)
 
         // Solid Player Center Dot
-        val dotRadius = tileSize * 0.42f
-        canvas.drawCircle(px, py, dotRadius + 2.5f, nodeStrokePaint)
+        val dotRadius = markerRadius
+        val outline = 2f * density / contentScale
+        canvas.drawCircle(px, py, dotRadius + outline, nodeStrokePaint)
         canvas.drawCircle(px, py, dotRadius, playerDotPaint)
 
-        // Player Tag Badge: "📍 YOU"
-        val badgeW = 74f
-        val badgeH = 26f
+        // Keep the marker readable in screen pixels while the map content zooms underneath it.
+        val badgeW = 52f * density / contentScale
+        val badgeH = 22f * density / contentScale
         val badgeX = px - badgeW / 2f
-        val badgeY = py - dotRadius - badgeH - 6f
+        val badgeY = py - markerRadius - badgeH - 6f * density / contentScale
 
         tempRect.set(badgeX, badgeY, badgeX + badgeW, badgeY + badgeH)
-        canvas.drawRoundRect(tempRect, 6f, 6f, playerBadgePaint)
-        canvas.drawRoundRect(tempRect, 6f, 6f, nodeStrokePaint)
-        canvas.drawText("📍 YOU", px, badgeY + 18f, playerTextPaint)
+        val badgeRadius = 6f * density / contentScale
+        canvas.drawRoundRect(tempRect, badgeRadius, badgeRadius, playerBadgePaint)
+        canvas.drawRoundRect(tempRect, badgeRadius, badgeRadius, nodeStrokePaint)
+        playerTextPaint.textSize = 12f * density / contentScale
+        val metrics = playerTextPaint.fontMetrics
+        val baseline = badgeY + badgeH / 2f - (metrics.ascent + metrics.descent) / 2f
+        canvas.drawText("YOU", px, baseline, playerTextPaint)
     }
 }

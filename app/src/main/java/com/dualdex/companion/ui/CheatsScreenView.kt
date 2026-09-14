@@ -92,9 +92,17 @@ class CheatsScreenView(
             presetBtn = DualDexComponents.secondaryButton(context, "Load Presets") {
                 val identity = getActiveRomIdentity()
                 if (identity != null && identity.isValid) {
-                    cheatManager.resetToDefaultPresets(identity)
-                    refreshUI()
-                    Toast.makeText(context, "Loaded presets for ${identity.displayName}", Toast.LENGTH_SHORT).show()
+                    val dialog = AlertDialog.Builder(context)
+                        .setTitle("Load preset cheats?")
+                        .setMessage("This will replace all cheats for this game, including custom cheats.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Replace Cheats") { _, _ ->
+                            cheatManager.resetToDefaultPresets(identity)
+                            refreshUI()
+                            Toast.makeText(context, "Loaded presets for ${identity.displayName}", Toast.LENGTH_SHORT).show()
+                        }
+                        .show()
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(DualDexTheme.Color.danger)
                 }
             }
             val lpPreset = LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1.0f).apply {
@@ -244,7 +252,7 @@ class CheatsScreenView(
                 refreshUI()
                 Toast.makeText(context, "${cheat.name}: ${if (newState) "Active" else "Off"}", Toast.LENGTH_SHORT).show()
             }
-            val lpToggle = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30)).apply {
+            val lpToggle = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
                 marginEnd = context.dp(DualDexTheme.Spacing.compact)
             }
             titleRow.addView(toggleBtn, lpToggle)
@@ -297,9 +305,17 @@ class CheatsScreenView(
                     text = "Delete",
                     style = DualDexButtonStyle.DESTRUCTIVE
                 ) {
-                    cheatManager.deleteCheat(identity, cheat.id)
-                    expandedCheatIds.remove(cheat.id)
-                    refreshUI()
+                    val dialog = AlertDialog.Builder(context)
+                        .setTitle("Delete cheat?")
+                        .setMessage("Delete \"${cheat.name}\"? This cannot be undone.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Delete") { _, _ ->
+                            cheatManager.deleteCheat(identity, cheat.id)
+                            expandedCheatIds.remove(cheat.id)
+                            refreshUI()
+                        }
+                        .show()
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(DualDexTheme.Color.danger)
                 }
                 actionRow.addView(deleteBtn)
                 detailsLayout.addView(actionRow)

@@ -91,8 +91,8 @@ class CompanionScreenView(
     private val battleView: BattleConsoleScreenView by lazy {
         BattleConsoleScreenView(context, viewModel) { navigateTo(CompanionTab.CALC) }
     }
-    private val typesView: TypeChartScreenView by lazy { TypeChartScreenView(context, viewModel) }
-    private val docsView: DocsScreenView by lazy { DocsScreenView(context, viewModel) }
+    private val docsViewHolder = lazy { DocsScreenView(context, viewModel) }
+    private val docsView: DocsScreenView get() = docsViewHolder.value
     private val cheatsView: CheatsScreenView by lazy { CheatsScreenView(context, viewModel) }
     private val savesView: SaveStateScreenView by lazy {
         SaveStateScreenView(context, viewModel, onImportSaveRequested, onExportSaveRequested, onChooseSavesFolderRequested)
@@ -233,7 +233,10 @@ class CompanionScreenView(
             CompanionTab.PARTY -> partyView.apply { refreshUI() }
             CompanionTab.MAP -> mapView.apply { refreshUI() }
             CompanionTab.CALC -> calcView.apply { refreshUI() }
-            CompanionTab.BATTLE -> battleView.apply { refreshUI() }
+            CompanionTab.BATTLE -> battleView.apply {
+                CompanionNavigation.battleModeForGlobalDestination(tab)?.let(::selectMode)
+                refreshUI()
+            }
             CompanionTab.TYPES -> battleView.apply {
                 selectMode(BattleMode.TYPE_MATCHUPS)
                 refreshUI()
@@ -294,6 +297,10 @@ class CompanionScreenView(
     }
 
     private fun navigateTo(tab: CompanionTab) {
+        if (tab == CompanionTab.BATTLE) {
+            viewModel.selectTab(tab)
+            CompanionNavigation.battleModeForGlobalDestination(tab)?.let(battleView::selectMode)
+        }
         if (currentTab == tab) {
             updateNavigationSelection(tab)
             return
@@ -317,8 +324,7 @@ class CompanionScreenView(
             val profileName = viewModel.activeProfile.value.name.trim()
             profileLabel.text = if (
                 profileName.isNotBlank() &&
-                !displayName.equals(profileName, ignoreCase = true) &&
-                !displayName.contains(profileName, ignoreCase = true)
+                !ContextLabelFormatter.namesDescribeSameGame(displayName, profileName)
             ) {
                 "$displayName · $profileName"
             } else {
@@ -345,6 +351,11 @@ class CompanionScreenView(
 
     internal fun getDisplayedTime(): CharSequence = timeView.text
     internal fun getDisplayedBattery(): CharSequence = batteryView.text
+
+    /** Called only when this shell is permanently discarded, not during tab navigation. */
+    fun release() {
+        if (docsViewHolder.isInitialized()) docsViewHolder.value.release()
+    }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()

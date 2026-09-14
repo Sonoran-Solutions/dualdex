@@ -125,7 +125,7 @@ class MapScreenView(
         val centerBtn = DualDexComponents.smallButton(context, "Center", DualDexButtonStyle.PRIMARY) {
             regionMapView.centerOnPlayer()
         }
-        val centerLp = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30)).apply {
+        val centerLp = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
             marginEnd = context.dp(DualDexTheme.Spacing.tight)
         }
         topRow.addView(centerBtn, centerLp)
@@ -133,7 +133,7 @@ class MapScreenView(
         val resetZoomBtn = DualDexComponents.smallButton(context, "Reset", DualDexButtonStyle.SECONDARY) {
             regionMapView.resetZoom()
         }
-        val resetLp = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30))
+        val resetLp = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget))
         topRow.addView(resetZoomBtn, resetLp)
 
         topPill.addView(topRow)
@@ -305,7 +305,7 @@ class MapScreenView(
                 displaySectionDetails(firstSec)
             }
         }.apply {
-            val lp = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(26)).apply {
+            val lp = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
                 marginStart = context.dp(DualDexTheme.Spacing.tight / 2)
             }
             layoutParams = lp
@@ -344,10 +344,12 @@ class MapScreenView(
             }
             scope.launch {
                 viewModel.resolvedLocation.collectLatest { sec ->
-                    if (regionMapView.selectedSection == null) {
+                    regionMapView.resolvedLocation = sec
+                    if (sec != null && regionMapView.selectedSection == null) {
                         displaySectionDetails(sec)
                         regionMapView.selectedSection = sec
                     }
+                    updatePlayerLocation(viewModel.playerLocation.value)
                 }
             }
         }
@@ -355,13 +357,15 @@ class MapScreenView(
 
     fun refreshUI() {
         val prof = viewModel.activeProfile.value
-        val region = when (prof.gameId) {
+        val defaultRegion = when (prof.gameId) {
             1 -> if (prof.id == "heart_and_soul" || prof.name.contains("Heart", ignoreCase = true)) RegionId.JOHTO else RegionId.HOENN
             2 -> RegionId.KANTO
             else -> RegionId.JOHTO
         }
-        regionMapView.currentRegion = region
-        updateRegionTabStyles(region)
+        val resolved = viewModel.resolvedLocation.value
+        regionMapView.currentRegion = resolved?.region ?: defaultRegion
+        regionMapView.resolvedLocation = resolved
+        updateRegionTabStyles(resolved?.region ?: defaultRegion)
         updatePlayerLocation(viewModel.playerLocation.value)
     }
 
@@ -377,8 +381,15 @@ class MapScreenView(
             return
         }
 
-        val isHns = (regionMapView.currentRegion == RegionId.JOHTO)
-        val sec = RegionMapDatabase.resolveLocation(if (isHns) 1 else 2, isHns, loc)
+        val sec = viewModel.resolvedLocation.value
+        if (sec == null) {
+            locationTitleView.text = "Location unavailable"
+            locationSubtitleView.text = "This profile does not expose a supported map table"
+            envBadgeView.text = "Unknown"
+            envBadgeView.setTextColor(DualDexTheme.Color.textDisabled)
+            technicalCoordsView.text = "Technical details: (${loc.localX}, ${loc.localY}) · Group ${loc.mapGroup} · Map ${loc.mapNum}"
+            return
+        }
 
         // Player-facing location names as primary visible header
         locationTitleView.text = sec.name

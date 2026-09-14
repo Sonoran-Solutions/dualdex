@@ -52,9 +52,9 @@ The information should be visually more important than the containers around it.
 
 ## Implementation Status
 
-The shared View-based foundation and global navigation shell are now in place. `DualDexTheme` and `DualDexComponents` establish semantic color, spacing, radius, typography, surface, button, and interaction-state tokens for new companion chrome. The shell now exposes Library, Party, Battle, Map, and More through vector-backed navigation; legacy Calculator and Type Matchups remain available from More as secondary Battle tools.
+The shared View-based foundation and global navigation shell are now in place. `DualDexTheme` and `DualDexComponents` establish semantic color, spacing, radius, typography, surface, button, and interaction-state tokens for companion chrome. The shell exposes Library, Party, Battle, Map, and More through vector-backed navigation; Calculator, Saves, Docs, Assistant, Cheats, Settings, and Type Matchups remain available from More, with Type Matchups rendered inside the Battle destination.
 
-The existing `BattleConsoleScreenView` is now the primary Battle destination. Its internal visual treatment remains intentionally out of scope for this foundation pass and should receive its own focused redesign later.
+`BattleConsoleScreenView` is the primary Battle destination, including the embedded Type Matchups mode. Remaining work is limited to responsive/controller polish and final device validation; the screen redesign itself is complete.
 
 ---
 
@@ -1059,7 +1059,7 @@ Controller UX should be considered part of the design system, not an afterthough
 
 - [x] Create shared color tokens.
 - [x] Create spacing/radius tokens.
-- [ ] Convert raw pixels to dp.
+- [x] Convert raw pixels to dp.
 - [x] Create shared typography styles.
 - [x] Create standard button/input/surface components.
 - [x] Add pressed/focused/disabled states.
@@ -1069,7 +1069,7 @@ Controller UX should be considered part of the design system, not an afterthough
 
 - [x] Reduce navigation from ten destinations to five primary destinations.
 - [x] Create `Library / Party / Battle / Map / More` structure.
-- [ ] Merge Type Matchups into Battle.
+- [x] Merge Type Matchups into Battle.
 - [x] Move Saves/Docs/Assistant/Cheats/Settings into More.
 - [x] Simplify global header.
 - [x] Move Open ROM action into Library.
@@ -1079,18 +1079,18 @@ Controller UX should be considered part of the design system, not an afterthough
 
 Redesign these first because users will see them constantly:
 
-1. [ ] Library
-2. [ ] Party
-3. [ ] Battle / Calculator
-4. [ ] Saves
-5. [ ] Settings
+1. [x] Library
+2. [x] Party
+3. [x] Battle / Calculator
+4. [x] Saves
+5. [x] Settings
 
 ## Phase 4 — Secondary Screens
 
-- [ ] Map palette/chrome cleanup.
-- [ ] Assistant cleanup.
-- [ ] Cheats list redesign.
-- [ ] Docs chrome cleanup.
+- [x] Map palette/chrome cleanup.
+- [x] Assistant cleanup.
+- [x] Cheats list redesign.
+- [x] Docs chrome cleanup.
 
 ## Phase 5 — Responsive Foundation
 

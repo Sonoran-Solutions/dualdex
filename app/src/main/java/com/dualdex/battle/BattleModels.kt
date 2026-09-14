@@ -847,6 +847,7 @@ object BattlePresentationBuilder {
                 defender = defender,
                 moveName = resolvedMoveInfo.name,
                 natureName = attacker.natureName,
+                profile = profile,
                 attackerStages = attackerStages,
                 defenderStages = defenderStages,
                 weather = weather,
@@ -1034,12 +1035,16 @@ fun buildDamageRequest(
     defender: ParsedPokemon?,
     moveName: String,
     natureName: String,
+    profile: RomHackProfile = RomHackProfile.DEFAULT_FIRERED,
     attackerStages: StatStages = StatStages(),
     defenderStages: StatStages = StatStages(),
     weather: WeatherType = WeatherType.NONE,
     defenderSide: SideEffects = SideEffects()
 ): DamageCalculationRequest {
-    val attackerSpecies = SpeciesDatabase.get(attacker.species).name
+    val pack = GameDataPackRegistry.getForProfile(profile.engine, profile.hasPhysSpecSplit, profile.gameDataPackId)
+    val attackerSpecies = profile.customSpecies[attacker.species]?.name
+        ?: pack.getSpecies(attacker.species)?.name
+        ?: "Pokemon #${attacker.species}"
     val attackerStatusStr = when {
         (attacker.statusCondition and (1L shl 7)) != 0L -> "tox"
         (attacker.statusCondition and (1L shl 3)) != 0L -> "psn"
@@ -1074,7 +1079,11 @@ fun buildDamageRequest(
             spe = attacker.speedEv
         )
     )
-    val defenderSpecies = defender?.let { SpeciesDatabase.get(it.species).name }
+    val defenderSpecies = defender?.let {
+        profile.customSpecies[it.species]?.name
+            ?: pack.getSpecies(it.species)?.name
+            ?: "Pokemon #${it.species}"
+    }
         ?: attackerSpecies
     val defenderInput = if (defender != null) {
         val defenderStatusStr = when {

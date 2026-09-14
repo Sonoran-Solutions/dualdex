@@ -291,49 +291,65 @@ open class LibretroCoreCoordinator(
     // Protected memory reader access
     open fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? = try {
         executeExclusive(50L) { LibretroHost.nativeReadPartyFromCore(gameId) }
-    } catch (_: Throwable) {
+    } catch (_: UnsatisfiedLinkError) {
+        null
+    } catch (_: Exception) {
         null
     }
 
     open fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? = try {
         executeExclusive(50L) { LibretroHost.nativeReadEnemyPartyFromCore(gameId) }
-    } catch (_: Throwable) {
+    } catch (_: UnsatisfiedLinkError) {
+        null
+    } catch (_: Exception) {
         null
     }
 
     open fun getActiveBattlerSlot(gameId: Int): Int = try {
         executeExclusive(50L) { LibretroHost.nativeGetActiveBattlerSlot(gameId) }
-    } catch (_: Throwable) {
+    } catch (_: UnsatisfiedLinkError) {
+        -1
+    } catch (_: Exception) {
         -1
     }
 
     open fun getActiveEnemyBattlerSlot(gameId: Int): Int = try {
         executeExclusive(50L) { LibretroHost.nativeGetActiveEnemyBattlerSlot(gameId) }
-    } catch (_: Throwable) {
+    } catch (_: UnsatisfiedLinkError) {
+        -1
+    } catch (_: Exception) {
         -1
     }
 
     open fun readBattleStatStages(gameId: Int, battlerIndex: Int): IntArray? = try {
         executeExclusive(50L) { LibretroHost.nativeReadBattleStatStages(gameId, battlerIndex) }
-    } catch (_: Throwable) {
+    } catch (_: UnsatisfiedLinkError) {
+        null
+    } catch (_: Exception) {
         null
     }
 
     open fun readBattleUiState(gameId: Int): Int = try {
         executeExclusive(50L) { LibretroHost.nativeReadBattleUiState(gameId) }
-    } catch (_: Throwable) {
+    } catch (_: UnsatisfiedLinkError) {
+        0
+    } catch (_: Exception) {
         0
     }
 
     open fun readBattlePresence(gameId: Int): Int = try {
         executeExclusive(50L) { LibretroHost.nativeReadBattlePresence(gameId) }
-    } catch (_: Throwable) {
+    } catch (_: UnsatisfiedLinkError) {
+        2
+    } catch (_: Exception) {
         2
     }
 
     open fun readPlayerLocation(gameId: Int): PlayerLocation? = try {
         executeExclusive(50L) { LibretroHost.nativeReadPlayerLocation(gameId) }
-    } catch (_: Throwable) {
+    } catch (_: UnsatisfiedLinkError) {
+        null
+    } catch (_: Exception) {
         null
     }
 }

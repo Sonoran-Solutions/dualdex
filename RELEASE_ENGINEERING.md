@@ -24,9 +24,21 @@ new application, not an upgrade.
 
 ## Version
 
+DualDex is **still pre-beta**. The release-engineering infrastructure described
+in this document is ready, but the first public beta has **not been cut yet**.
+`main` therefore carries a development identity, not the beta version.
+
+### Current development build
+
+```text
+versionName = "0.9.0-dev"
+versionCode = 1
+```
+
+### Planned first public beta
+
 ```text
 versionName = "0.9.0-beta.1"
-versionCode = 1
 ```
 
 These live in `app/build.gradle.kts` under `defaultConfig` and are the single
@@ -34,16 +46,21 @@ source of truth. They are consumed by the app through Android-generated
 `BuildConfig` metadata (`VERSION_NAME`, `VERSION_CODE`, `BUILD_TYPE`,
 `APPLICATION_ID`), never through a duplicated hard-coded UI string.
 
+`0.9.0-dev` is the identity on `main` until a release cut intentionally changes
+it. The beta `versionName` is set at the actual release cut, once product and
+compatibility requirements are satisfied.
+
 ### versionCode policy
 
 The policy is deliberately simple:
 
 > Every distributed Android build increments `versionCode` by 1.
 > `versionName` carries the human semantic version.
-> `versionCode` must never decrease and must never be reused.
+> A `versionCode` that has been distributed must never be decreased or reused.
 
-A distributed build is any APK given to another person (beta, RC, or stable).
-The planned sequence is:
+A distributed build is any release APK actually given to another person (beta,
+RC, or stable). The planned sequence, starting from the first distributed beta
+build, is:
 
 | versionName     | versionCode |
 |-----------------|-------------|
@@ -62,8 +79,12 @@ Rules:
 - **Stable** versions follow the same rule: increment by 1, never re-derive from
   the semantic version.
 - **Never decrease or reuse** a `versionCode` that was ever distributed.
-- Internal/CI debug builds reuse the current `versionCode`/`versionName` and are
-  not counted as distributed builds.
+- **Internal development builds** (local builds, canonical CI debug builds) may
+  reuse the current development `versionCode`; they are not distributed release
+  artifacts and do not consume a `versionCode`.
+- Consumption matters only when a build is actually distributed as a release
+  artifact. The first public beta can therefore use `versionCode 1` provided no
+  earlier build with `versionCode 1` has actually been distributed externally.
 
 There is no mathematical encoding of the semantic version into `versionCode`;
 clarity is preferred over cleverness.
@@ -73,9 +94,20 @@ clarity is preferred over cleverness.
 The About & Diagnostics section of Settings sources its values from
 `BuildInfo`, which reads Android-generated `BuildConfig`:
 
-- `BuildConfig.VERSION_NAME` → `DualDex 0.9.0-beta.1`
-- `BuildConfig.VERSION_CODE` → `versionCode 1`
+- `BuildConfig.VERSION_NAME` → `DualDex <versionName>`
+- `BuildConfig.VERSION_CODE` → `versionCode <n>`
 - `BuildConfig.BUILD_TYPE` → `build type debug` or `build type release`
+
+With the current development version this renders as:
+
+```text
+DualDex 0.9.0-dev
+versionCode 1 · build type debug
+```
+
+A future beta release shows `DualDex 0.9.0-beta.1` automatically once Gradle's
+`versionName` is intentionally changed at release time; the UI has no
+hard-coded version or "development" string.
 
 `BuildInfoFormatter` (pure, unit-tested) renders the strings so the UI cannot
 drift from the Gradle configuration. No commit/build ID is surfaced yet; adding
@@ -186,7 +218,8 @@ apksigner verify "$APK"
 Confirm:
 
 - `package: name='com.dualdex'` — package identity is correct.
-- `versionName='0.9.0-beta.1'` and the expected `versionCode`.
+- `versionName` matches the identity that was actually cut (for the planned
+  first public beta, `versionName='0.9.0-beta.1'`) and the expected `versionCode`.
 - The signing certificate subject/DN matches the production key, not
   `CN=Android Debug`.
 - The APK is not `debuggable` (production release is not debuggable unless
@@ -220,9 +253,9 @@ still required.
 
 ## Automated coverage
 
-- `BuildInfoTest` asserts `versionName == "0.9.0-beta.1"`, `versionCode == 1`,
-  `applicationId == "com.dualdex"`, and that `BuildInfo` is sourced from
-  `BuildConfig` (no duplicated hard-coded string).
+- `BuildInfoTest` asserts `versionName == "0.9.0-dev"` (current development
+  identity), `versionCode == 1`, `applicationId == "com.dualdex"`, and that
+  `BuildInfo` is sourced from `BuildConfig` (no duplicated hard-coded string).
 - `BuildInfoFormatterTest` unit-tests the About/diagnostics formatting.
 - Fail-closed signing is exercised by running `./ci.sh release` (or
   `./gradlew assembleRelease`) without credentials and confirming it fails with

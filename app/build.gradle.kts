@@ -59,8 +59,12 @@ android {
         // every distributed Android build increments versionCode by 1 and it
         // must never decrease or be reused. versionName carries the human
         // semantic version.
+        //
+        // DualDex is still pre-beta: 0.9.0-dev is the current development
+        // identity. The planned first public beta is 0.9.0-beta.1, set at the
+        // actual release cut. versionCode stays 1 until a build is distributed.
         versionCode = 1
-        versionName = "0.9.0-beta.1"
+        versionName = "0.9.0-dev"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -156,6 +160,10 @@ val validateReleaseSigning = tasks.register("validateReleaseSigning") {
     doLast {
         if (!releaseSigningConfigured) {
             throw GradleException(RELEASE_SIGNING_ERROR)
+        }
+        val keystorePath = releaseSecret("DUALDEX_KEYSTORE_PATH")!!
+        if (!file(keystorePath).exists()) {
+            throw GradleException("Configured DualDex production keystore does not exist: $keystorePath")
         }
     }
 }

@@ -4,7 +4,9 @@ import android.content.Context
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.util.AttributeSet
+import android.util.Log
 import android.view.KeyEvent
+import android.view.SurfaceHolder
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -15,6 +17,10 @@ class EmulatorSurfaceView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
 ) : GLSurfaceView(context, attrs), GLSurfaceView.Renderer {
+
+    private companion object {
+        const val TAG = "DualDexEmu"
+    }
 
     private val inputManager = InputManager()
     private val pixelBuffer: ByteBuffer = ByteBuffer.allocateDirect(512 * 512 * 4).order(ByteOrder.nativeOrder())
@@ -119,7 +125,14 @@ class EmulatorSurfaceView @JvmOverloads constructor(
                 val speed = speedMultiplier.coerceIn(1, 8)
                 val targetIntervalNs = (baseIntervalNs / speed).coerceAtLeast(1_000_000L)
 
-                LibretroCoreCoordinator.defaultInstance.stepFrame()
+                // A throw here previously killed the loop silently, leaving a permanently black
+                // screen with audio still playing and no diagnostic anywhere.
+                try {
+                    LibretroCoreCoordinator.defaultInstance.stepFrame()
+                } catch (t: Throwable) {
+                    Log.e(TAG, "stepFrame() failed; emulation loop is aborting", t)
+                    break
+                }
 
                 nextDeadlineNs += targetIntervalNs
                 val now = System.nanoTime()
@@ -154,7 +167,27 @@ class EmulatorSurfaceView @JvmOverloads constructor(
         } catch (e: InterruptedException) {
             // ignore
         }
+        if (emuThread?.isAlive == true) {
+            Log.w(TAG, "emulation thread still alive 300ms after stop; it may keep stepping the core")
+        }
         emuThread = null
+    }
+
+    /**
+     * Pauses only the emulation stepping loop, leaving the GL render thread and its EGL context
+     * alive. Used to suspend the core across a ROM switch.
+     *
+     * This must NOT be confused with [onPause]: GLSurfaceView.onPause() tears the render thread
+     * down permanently and only GLSurfaceView.onResume() brings it back. Calling it for a ROM
+     * switch (which does not pause the Activity) left the top screen black forever while audio
+     * and emulation kept running.
+     */
+    fun pauseEmulationLoop() {
+        stopEmulation()
+    }
+
+    fun resumeEmulationLoop() {
+        startEmulation()
     }
 
     override fun onPause() {
@@ -173,6 +206,16 @@ class EmulatorSurfaceView @JvmOverloads constructor(
         renderMode = RENDERMODE_CONTINUOUSLY
         isFocusable = true
         isFocusableInTouchMode = true
+
+        // A destroyed surface with a still-running emulation loop is a silent black screen, and
+        // GLSurfaceView exposes no public hook for it.
+        holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(h: SurfaceHolder) {}
+            override fun surfaceChanged(h: SurfaceHolder, format: Int, w: Int, ht: Int) {}
+            override fun surfaceDestroyed(h: SurfaceHolder) {
+                Log.w(TAG, "GL surface DESTROYED (emulation loop keeps running; no visuals until recreated)")
+            }
+        })
 
         // Initial 3:2 aspect ratio scaling
         val aspectScaleX = 0.84375f
@@ -377,20 +420,34 @@ class EmulatorSurfaceView @JvmOverloads constructor(
     }
 
     private fun loadShader(type: Int, shaderCode: String): Int {
-        return GLES20.glCreateShader(type).also { shader ->
-            GLES20.glShaderSource(shader, shaderCode)
-            GLES20.glCompileShader(shader)
+        val shader = GLES20.glCreateShader(type)
+        GLES20.glShaderSource(shader, shaderCode)
+        GLES20.glCompileShader(shader)
+        val status = IntArray(1)
+        GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, status, 0)
+        if (status[0] == 0) {
+            Log.e(
+                TAG,
+                "SHADER COMPILE FAILED (type=$type): ${GLES20.glGetShaderInfoLog(shader)}"
+            )
         }
+        return shader
     }
 
     private fun createProgram(vertexCode: String, fragmentCode: String): Int {
         val vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertexCode)
         val fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentCode)
 
-        return GLES20.glCreateProgram().also { program ->
-            GLES20.glAttachShader(program, vertexShader)
-            GLES20.glAttachShader(program, fragmentShader)
-            GLES20.glLinkProgram(program)
+        val program = GLES20.glCreateProgram()
+        GLES20.glAttachShader(program, vertexShader)
+        GLES20.glAttachShader(program, fragmentShader)
+        GLES20.glLinkProgram(program)
+
+        val status = IntArray(1)
+        GLES20.glGetProgramiv(program, GLES20.GL_LINK_STATUS, status, 0)
+        if (status[0] == 0) {
+            Log.e(TAG, "PROGRAM LINK FAILED: ${GLES20.glGetProgramInfoLog(program)}")
         }
+        return program
     }
 }

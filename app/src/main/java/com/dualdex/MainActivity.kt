@@ -301,11 +301,15 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 loadedProfiles = loadedProfiles,
                 preferredTitle = preferredTitle,
                 onEmulationPause = {
-                    runOnUiThread { emulatorView?.onPause() }
+                    // Only the stepping loop is suspended here. Calling the GLSurfaceView
+                    // onPause()/onResume() pair instead would tear down the render thread for the
+                    // whole switch; because opening a ROM does not pause the Activity, the
+                    // matching onResume() never arrives and the top screen stays black.
+                    runOnUiThread { emulatorView?.pauseEmulationLoop() }
                 },
                 onEmulationResume = {
                     runOnUiThread {
-                        emulatorView?.startEmulation()
+                        emulatorView?.resumeEmulationLoop()
                         viewModel.selectTab(CompanionTab.PARTY)
                         companionPresentation?.refreshSavesTab()
                         currentCompanionScreenView?.refreshSavesTab()

@@ -11,6 +11,7 @@ test_runner
 calc_test_runner
 *.o
 *.apk
+*.log
 cores/build-*
 cores/mgba-src/
 tools/calc-bundler/node_modules/

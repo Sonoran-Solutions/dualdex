@@ -11,6 +11,7 @@ import com.dualdex.emulator.storage.RomSaveMetadata
 import com.dualdex.emulator.storage.SafMirrorStore
 import com.dualdex.emulator.storage.SaveWriteResult
 import com.dualdex.settings.SettingsManager
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
@@ -37,8 +38,23 @@ open class SaveStateManager(
     private val customBaseDir: File? = null,
     private val customSafStore: SafMirrorStore? = null,
     private val customLegacyCatalog: LegacySaveCatalog? = null,
-    var coreBridge: LibretroCoreBridge? = null
+    coreBridge: LibretroCoreBridge? = null,
+    customCoordinator: LibretroCoreCoordinator? = null
 ) {
+    var coreCoordinator: LibretroCoreCoordinator = customCoordinator
+        ?: (if (coreBridge != null) LibretroCoreCoordinator(coreBridge) else LibretroCoreCoordinator.defaultInstance)
+
+    var coreBridge: LibretroCoreBridge? = coreBridge
+        set(value) {
+            field = value
+            coreCoordinator.bridge = value
+        }
+
+    init {
+        if (coreBridge != null) {
+            coreCoordinator.bridge = coreBridge
+        }
+    }
 
     private val settingsManager by lazy { context?.let { SettingsManager(it) } }
     private val safMirrorStore by lazy { customSafStore ?: SafMirrorStore(context) }
@@ -48,27 +64,13 @@ open class SaveStateManager(
     var activeProfileName: String? = null
     var activeProfileId: String? = null
 
-    private fun nativeLoadSaveRam(path: String): Boolean =
-        coreBridge?.loadSaveRam(path) ?: LibretroHost.nativeLoadSaveRam(path)
-
-    private fun nativeFlushSaveRam(path: String): Boolean =
-        coreBridge?.flushSaveRam(path) ?: LibretroHost.nativeFlushSaveRam(path)
-
-    private fun nativeGetSaveRamSize(): Long =
-        coreBridge?.getSaveRamSize() ?: LibretroHost.nativeGetSaveRamSize()
-
-    private fun nativeGetSaveStateSize(): Long =
-        coreBridge?.getSaveStateSize() ?: LibretroHost.nativeGetSaveStateSize()
-
-    private fun nativeSaveState(path: String): Boolean =
-        coreBridge?.saveState(path) ?: LibretroHost.nativeSaveState(path)
-
-    private fun nativeLoadState(path: String): Boolean =
-        coreBridge?.loadState(path) ?: LibretroHost.nativeLoadState(path)
-
-    private fun nativeResetCore() {
-        if (coreBridge != null) coreBridge?.resetCore() else LibretroHost.nativeResetCore()
-    }
+    private fun nativeLoadSaveRam(path: String): Boolean = coreCoordinator.loadSaveRam(path)
+    private fun nativeFlushSaveRam(path: String): Boolean = coreCoordinator.flushSaveRam(path)
+    private fun nativeGetSaveRamSize(): Long = coreCoordinator.getSaveRamSize()
+    private fun nativeGetSaveStateSize(): Long = coreCoordinator.getSaveStateSize()
+    private fun nativeSaveState(path: String): Boolean = coreCoordinator.saveState(path)
+    private fun nativeLoadState(path: String): Boolean = coreCoordinator.loadState(path)
+    private fun nativeResetCore() { coreCoordinator.resetCore() }
 
     fun setActiveGame(identity: RomIdentity, profileName: String? = null, profileId: String? = null) {
         synchronized(globalSaveLock) {
@@ -231,6 +233,7 @@ open class SaveStateManager(
         }
         val fileName = "slot_${slotIndex}.state"
         val canonicalFile = getCanonicalFile(identity, fileName)
+        AtomicSaveFile.recoverInterrupted(canonicalFile)
         if (!canonicalFile.exists() || canonicalFile.length() == 0L) {
             return false
         }
@@ -282,6 +285,7 @@ open class SaveStateManager(
         if (!identity.isValid) return false
         val fileName = "quicksave.state"
         val canonicalFile = getCanonicalFile(identity, fileName)
+        AtomicSaveFile.recoverInterrupted(canonicalFile)
         if (!canonicalFile.exists() || canonicalFile.length() == 0L) return false
 
         val expectedSize = nativeGetSaveStateSize()
@@ -314,6 +318,7 @@ open class SaveStateManager(
         if (!identity.isValid) return false
         val fileName = "auto_resume.state"
         val canonicalFile = getCanonicalFile(identity, fileName)
+        AtomicSaveFile.recoverInterrupted(canonicalFile)
         if (!canonicalFile.exists() || canonicalFile.length() == 0L) return false
 
         val stagingFile = getStagingFile(identity, fileName)
@@ -365,6 +370,7 @@ open class SaveStateManager(
 
     private fun getFileInfo(identity: RomIdentity, fileName: String, slotIndex: Int): SaveSlotInfo {
         val canonicalFile = getCanonicalFile(identity, fileName)
+        AtomicSaveFile.recoverInterrupted(canonicalFile)
         return if (canonicalFile.exists() && canonicalFile.length() > 0L) {
             val ts = canonicalFile.lastModified()
             val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(ts))
@@ -403,6 +409,7 @@ open class SaveStateManager(
         if (profileId != null) activeProfileId = profileId
 
         val canonicalFile = getCanonicalFile(identity, "battery.sav")
+        AtomicSaveFile.recoverInterrupted(canonicalFile)
         if (!canonicalFile.exists() || canonicalFile.length() == 0L) {
             return false
         }
@@ -416,7 +423,10 @@ open class SaveStateManager(
         return nativeLoadSaveRam(stagingFile.absolutePath)
     }
 
-    fun flushBatterySave(identity: RomIdentity): SaveWriteResult = synchronized(globalSaveLock) {
+    fun flushBatterySave(
+        identity: RomIdentity,
+        mirrorSafAsync: Boolean = false
+    ): SaveWriteResult = synchronized(globalSaveLock) {
         if (!identity.isValid) {
             Log.e(TAG, "Refusing flushBatterySave on invalid RomIdentity")
             return SaveWriteResult.Failure("Invalid ROM identity")
@@ -436,8 +446,21 @@ open class SaveStateManager(
             return SaveWriteResult.Failure("Canonical commit failed")
         }
 
-        val mirrorStatus = safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
         recordMetadata(identity, activeProfileId)
+
+        val mirrorStatus = if (!mirrorSafAsync) {
+            safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
+        } else {
+            // Asynchronous SAF mirror to avoid blocking on slow cloud/SAF document providers
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                try {
+                    safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Background SAF mirror failed: ${e.message}")
+                }
+            }
+            if (safMirrorStore.isSafConfigured()) MirrorStatus.IN_SYNC else MirrorStatus.UNAVAILABLE
+        }
 
         return SaveWriteResult.Success(
             canonicalWritten = true,
@@ -458,11 +481,15 @@ open class SaveStateManager(
                 return false
             }
 
-            // Determine active core's expected SRAM size
+            // 1. Determine active core's expected SRAM size (FAIL CLOSED if not determinable)
             val coreRamSize = nativeGetSaveRamSize()
-            val expectedRamSize = if (coreRamSize > 0) coreRamSize.toInt() else 131072 // Default to 128KB GBA Flash
+            if (coreRamSize <= 0) {
+                Log.e(TAG, "Import rejected: loaded core SRAM size cannot be determined ($coreRamSize)")
+                return false
+            }
+            val expectedRamSize = coreRamSize.toInt()
 
-            // Normalize known emulator footer formats ONLY when appropriate
+            // 2. Normalize known emulator footer formats ONLY when appropriate
             // Standalone mGBA on PC adds a 16-byte RTC footer (expectedRamSize + 16)
             val cleanBytes = if (rawBytes.size == expectedRamSize + 16) {
                 Log.i(TAG, "Stripping 16-byte mGBA RTC footer from import (${rawBytes.size} -> $expectedRamSize)")
@@ -471,47 +498,50 @@ open class SaveStateManager(
                 rawBytes
             }
 
-            // Require normalized size to match active game's expected SRAM size
+            // 3. Require normalized size to match active game's expected SRAM size
             if (cleanBytes.size != expectedRamSize) {
-                Log.e(TAG, "Import rejected: file size ${cleanBytes.size} != expected SRAM size $expectedRamSize")
+                Log.e(TAG, "Import rejected: candidate file size ${cleanBytes.size} != expected SRAM size $expectedRamSize")
                 return false
             }
 
-            // Backup current SRAM from active core to staging before mutating
-            val sramBackup = File(stagingDir, "${identity.storageKey}__import_backup.sav")
-            val hadExistingSram = nativeFlushSaveRam(sramBackup.absolutePath)
+            // 4. Capture current SRAM from active core to rollback file before mutating
+            val sramBackup = File(stagingDir, "${identity.storageKey}__import_rollback.sav")
+            val backupOk = nativeFlushSaveRam(sramBackup.absolutePath)
+            if (!backupOk || !sramBackup.exists() || sramBackup.length() != expectedRamSize.toLong()) {
+                Log.e(TAG, "Import aborted: failed to capture reliable rollback backup of live SRAM")
+                if (sramBackup.exists()) sramBackup.delete()
+                return false
+            }
 
-            // Test load candidate from temp file
+            // 5. Test load candidate into live core from temp file
             val tempCandidate = File(stagingDir, "${identity.storageKey}__import_candidate.tmp")
             tempCandidate.writeBytes(cleanBytes)
 
             val loaded = nativeLoadSaveRam(tempCandidate.absolutePath)
             if (!loaded) {
-                Log.e(TAG, "Import rejected: nativeLoadSaveRam failed to load candidate")
-                if (hadExistingSram && sramBackup.exists()) {
-                    nativeLoadSaveRam(sramBackup.absolutePath)
-                }
+                Log.e(TAG, "Import rejected: core failed to load candidate SRAM payload")
+                nativeLoadSaveRam(sramBackup.absolutePath) // Rollback live SRAM
                 if (tempCandidate.exists()) tempCandidate.delete()
+                if (sramBackup.exists()) sramBackup.delete()
                 return false
             }
 
-            // Commit candidate atomically to canonical store
+            // 6. Commit candidate atomically to canonical store
             val canonicalFile = getCanonicalFile(identity, "battery.sav")
             val committed = AtomicSaveFile.writeBytes(canonicalFile, cleanBytes)
             if (!committed) {
-                Log.e(TAG, "Import failed: atomic canonical commit failed, restoring prior SRAM")
-                if (hadExistingSram && sramBackup.exists()) {
-                    nativeLoadSaveRam(sramBackup.absolutePath)
-                }
+                Log.e(TAG, "Import failed: atomic canonical commit failed, rolling back live SRAM")
+                nativeLoadSaveRam(sramBackup.absolutePath) // Rollback live SRAM
                 if (tempCandidate.exists()) tempCandidate.delete()
+                if (sramBackup.exists()) sramBackup.delete()
                 return false
             }
 
-            // Mirror to SAF
+            // 7. Mirror to SAF and record metadata
             safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
             recordMetadata(identity, activeProfileId)
 
-            // Reset core only after entire transaction succeeds
+            // 8. Reset core only after entire transaction succeeds
             nativeResetCore()
             if (tempCandidate.exists()) tempCandidate.delete()
             if (sramBackup.exists()) sramBackup.delete()

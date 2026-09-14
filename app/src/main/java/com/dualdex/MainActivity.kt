@@ -33,6 +33,7 @@ import com.dualdex.companion.RomItem
 import com.dualdex.companion.ui.CompanionScreenView
 import com.dualdex.emulator.AudioDriver
 import com.dualdex.emulator.EmulatorSurfaceView
+import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.LibretroHost
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.emulator.SaveStateManager
@@ -229,7 +230,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             ).firstOrNull { it.exists() }
 
             if (coreFile != null) {
-                val loaded = LibretroHost.nativeLoadCore(coreFile.absolutePath)
+                val loaded = LibretroCoreCoordinator.defaultInstance.loadCore(coreFile.absolutePath)
                 Log.i("DualDex", "Loaded mGBA Libretro core: $loaded (path=${coreFile.absolutePath})")
                 if (loaded) {
                     audioDriver.start()
@@ -554,16 +555,17 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         emulatorView?.onPause()
         audioDriver.stop()
         // Auto-flush cartridge battery save (.sav) and save auto-resume state on pause
+        // Offload SAF mirroring asynchronously to prevent blocking on slow cloud DocumentProviders
         val identity = viewModel.activeRomIdentity.value
         if (identity != null && identity.isValid) {
-            saveStateManager.flushBatterySave(identity)
+            saveStateManager.flushBatterySave(identity, mirrorSafAsync = true)
             saveStateManager.saveAutoResume(identity)
         }
     }
 
     override fun onResume() {
         super.onResume()
-        LibretroHost.nativeClearAudio()
+        LibretroCoreCoordinator.defaultInstance.clearAudio()
         emulatorView?.onResume()
         audioDriver.start()
 
@@ -583,7 +585,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         super.onDestroy()
         val identity = viewModel.activeRomIdentity.value
         if (identity != null && identity.isValid) {
-            saveStateManager.flushBatterySave(identity)
+            saveStateManager.flushBatterySave(identity, mirrorSafAsync = true)
         }
         audioDriver.stop()
         viewModel.stopPolling()
@@ -592,6 +594,6 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         companionPresentation = null
         currentCompanionScreenView = null
         emulatorView?.onPause()
-        LibretroHost.nativeCleanup()
+        LibretroCoreCoordinator.defaultInstance.cleanup()
     }
 }

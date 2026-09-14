@@ -138,13 +138,20 @@ open class LegacySaveCatalog(
             (profileNorm.isNotEmpty() && (profileNorm.contains(baseNorm) || baseNorm.contains(profileNorm)))
     }
 
+    fun getSourceKey(file: File): String {
+        val normPath = file.canonicalPath.lowercase(Locale.ROOT)
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val hash = digest.digest(normPath.toByteArray(Charsets.UTF_8))
+        return "assigned_" + hash.joinToString("") { "%02x".format(it) }
+    }
+
     open fun isSourceAssigned(file: File): Boolean {
-        val key = "assigned_${file.absolutePath.hashCode()}"
+        val key = getSourceKey(file)
         return memoryAssignments.containsKey(key) || prefs?.contains(key) == true
     }
 
     open fun getAssignedRomHash(file: File): String? {
-        val key = "assigned_${file.absolutePath.hashCode()}"
+        val key = getSourceKey(file)
         return memoryAssignments[key] ?: prefs?.getString(key, null)
     }
 
@@ -178,34 +185,48 @@ open class LegacySaveCatalog(
         val targetFile = File(canonicalDir, candidate.targetFileName)
         val expectedSize = source.length()
 
-        // 1. Create durable copy in canonical store using AtomicSaveFile
+        // 1. Preserve legacy backup before mutating anything (fail-closed if backup cannot be written)
+        val origBak = File(source.parentFile, "${source.name}.orig.bak")
+        if (!origBak.exists() || !origBak.isFile || origBak.length() != expectedSize) {
+            val backupOk = try {
+                source.copyTo(origBak, overwrite = true)
+                origBak.exists() && origBak.isFile && origBak.length() == expectedSize
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to create .orig.bak for ${source.name}: ${e.message}")
+                false
+            }
+            if (!backupOk) {
+                Log.e(TAG, "Legacy migration aborted: failed to create durable .orig.bak for ${source.name}")
+                return false
+            }
+        }
+
+        // 2. Create durable copy in canonical store using AtomicSaveFile
         val committed = AtomicSaveFile.copyFromStaging(source, targetFile)
         if (!committed || !targetFile.exists() || targetFile.length() != expectedSize) {
             Log.e(TAG, "Failed to commit legacy candidate ${source.name} to canonical destination ${targetFile.absolutePath}")
             return false
         }
 
-        // 2. Preserve legacy backup
-        val origBak = File(source.parentFile, "${source.name}.orig.bak")
-        if (!origBak.exists()) {
-            try {
-                source.copyTo(origBak, overwrite = true)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to create .orig.bak: ${e.message}")
-            }
-        }
-
         // 3. Record association
-        val key = "assigned_${source.absolutePath.hashCode()}"
+        val key = getSourceKey(source)
         memoryAssignments[key] = targetRomIdentity.sha256
         prefs?.edit()?.putString(key, targetRomIdentity.sha256)?.apply()
 
         // 4. Mark legacy source as migrated only AFTER successful destination verification
         val migratedFile = File(source.parentFile, "${source.name}.migrated.bak")
-        try {
+        val renamed = try {
             source.renameTo(migratedFile)
         } catch (e: Exception) {
-            Log.w(TAG, "Could not rename source to .migrated.bak: ${e.message}")
+            false
+        }
+        if (!renamed && source.exists()) {
+            try {
+                source.copyTo(migratedFile, overwrite = true)
+                source.delete()
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not rename source to .migrated.bak: ${e.message}")
+            }
         }
 
         Log.i(TAG, "Successfully migrated legacy save ${source.name} to ${targetFile.absolutePath}")

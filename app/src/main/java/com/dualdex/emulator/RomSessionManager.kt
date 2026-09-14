@@ -10,6 +10,8 @@ import com.dualdex.romhack.RomHackProfile
 import com.dualdex.settings.SettingsManager
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -28,8 +30,24 @@ class RomSessionManager(
     private val cheatManager: CheatManager = CheatManager(context),
     private val audioDriver: AudioDriver? = null,
     private val customRomCacheDir: File? = null,
-    var coreBridge: LibretroCoreBridge? = null
+    coreBridge: LibretroCoreBridge? = null,
+    customCoordinator: LibretroCoreCoordinator? = null
 ) {
+    var coreCoordinator: LibretroCoreCoordinator = customCoordinator
+        ?: saveStateManager.coreCoordinator
+
+    var coreBridge: LibretroCoreBridge? = coreBridge
+        set(value) {
+            field = value
+            coreCoordinator.bridge = value
+        }
+
+    init {
+        if (coreBridge != null) {
+            coreCoordinator.bridge = coreBridge
+        }
+    }
+
     private val sessionMutex = kotlinx.coroutines.sync.Mutex()
     private val romCacheDir: File
         get() = (customRomCacheDir ?: File(context?.filesDir ?: File("build/test_rom_cache"), "rom_cache")).apply {
@@ -49,11 +67,11 @@ class RomSessionManager(
     /**
      * Executes a safe, serialized ROM switch transaction.
      * Guarantees:
-     * 1. Old game is flushed to canonical store before unload.
-     * 2. If old flush fails, switch aborts and old game remains active.
-     * 3. Old game is unloaded before new game is loaded.
-     * 4. New identity and profile are ONLY published after new ROM load succeeds.
-     * 5. Content-hash-specific cache prevents overwriting the currently running ROM.
+     * 1. Incoming ROM is fully copied, verified by size and SHA-256 before touching active session.
+     * 2. Old game is flushed to canonical store before unload.
+     * 3. If old flush fails, switch aborts and old game remains active.
+     * 4. Old game is unloaded before new game is loaded under core exclusive lock.
+     * 5. New identity and profile are ONLY published after new ROM load succeeds.
      */
     suspend fun switchRom(
         uri: Uri?,
@@ -108,7 +126,8 @@ class RomSessionManager(
                     }
                 } ?: 0L
 
-                if (bytesCopied == 0L || !tmpIncoming.exists() || tmpIncoming.length() == 0L) {
+                val incomingLength = tmpIncoming.length()
+                if (bytesCopied == 0L || !tmpIncoming.exists() || incomingLength == 0L) {
                     if (tmpIncoming.exists()) tmpIncoming.delete()
                     return@withLock SwitchResult.Failure("Failed to read ROM stream from source")
                 }
@@ -120,10 +139,45 @@ class RomSessionManager(
                 }
 
                 val cachedRomFile = File(romCacheDir, "$hash.gba")
-                if (!cachedRomFile.exists() || cachedRomFile.length() != tmpIncoming.length()) {
-                    tmpIncoming.renameTo(cachedRomFile)
+                if (!cachedRomFile.exists() || cachedRomFile.length() != incomingLength) {
+                    val installed = try {
+                        Files.move(
+                            tmpIncoming.toPath(),
+                            cachedRomFile.toPath(),
+                            StandardCopyOption.ATOMIC_MOVE,
+                            StandardCopyOption.REPLACE_EXISTING
+                        )
+                        true
+                    } catch (e: Exception) {
+                        try {
+                            Files.move(
+                                tmpIncoming.toPath(),
+                                cachedRomFile.toPath(),
+                                StandardCopyOption.REPLACE_EXISTING
+                            )
+                            true
+                        } catch (e2: Exception) {
+                            tmpIncoming.renameTo(cachedRomFile)
+                        }
+                    }
+                    if (!installed) {
+                        if (tmpIncoming.exists()) tmpIncoming.delete()
+                        return@withLock SwitchResult.Failure("Failed to install ROM into cache: ${cachedRomFile.name}")
+                    }
                 } else {
                     tmpIncoming.delete()
+                }
+
+                // Verify cache installation: existence, size, and re-hash
+                if (!cachedRomFile.exists()) {
+                    return@withLock SwitchResult.Failure("Cached ROM file does not exist after install: ${cachedRomFile.name}")
+                }
+                if (cachedRomFile.length() != incomingLength) {
+                    return@withLock SwitchResult.Failure("Cached ROM file size mismatch: expected $incomingLength, got ${cachedRomFile.length()}")
+                }
+                val finalHash = RomIdentity.calculateSha256(cachedRomFile)
+                if (!finalHash.equals(hash, ignoreCase = true)) {
+                    return@withLock SwitchResult.Failure("Cached ROM SHA-256 verification failed: expected $hash, got $finalHash")
                 }
 
                 val profile = RomHackDetector.detectProfile(cachedRomFile, loadedProfiles, preferredTitle)
@@ -154,19 +208,25 @@ class RomSessionManager(
                     saveStateManager.saveAutoResume(oldIdentity)
                 }
 
-                // 4. Clean unload of old game
-                if (coreBridge != null) coreBridge?.unloadRom() else LibretroHost.nativeUnloadRom()
-                if (coreBridge == null) LibretroHost.nativeClearAudio()
+                // 4 & 5. Clean unload of old game and load prepared new ROM under core lock
+                val loadSuccess = coreCoordinator.executeExclusive {
+                    coreCoordinator.unloadRom()
+                    coreCoordinator.clearAudio()
 
-                // 5. Load prepared new ROM into core
-                val ok = coreBridge?.loadRom(cachedRomFile.absolutePath) ?: LibretroHost.nativeLoadRom(cachedRomFile.absolutePath)
-                if (!ok) {
-                    Log.e(TAG, "mGBA core failed to load ROM: ${cachedRomFile.absolutePath}")
-                    if (coreBridge != null) coreBridge?.unloadRom() else LibretroHost.nativeUnloadRom()
+                    val ok = coreCoordinator.loadRom(cachedRomFile.absolutePath)
+                    if (!ok) {
+                        Log.e(TAG, "Core failed to load ROM: ${cachedRomFile.absolutePath}")
+                        coreCoordinator.unloadRom()
+                        return@executeExclusive false
+                    }
+                    true
+                }
+
+                if (!loadSuccess) {
                     saveStateManager.activeIdentity = null
                     viewModel?.setRomIdentity(null)
                     viewModel?.stopPolling()
-                    return@withLock SwitchResult.Failure("mGBA core rejected ROM file")
+                    return@withLock SwitchResult.Failure("Core rejected ROM file")
                 }
 
                 // 6. Post-load initialization: restore save & cheats scoped to new identity

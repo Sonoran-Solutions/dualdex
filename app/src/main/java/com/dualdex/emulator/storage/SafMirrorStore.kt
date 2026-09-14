@@ -8,6 +8,8 @@ import com.dualdex.emulator.RomIdentity
 import com.dualdex.settings.SettingsManager
 import java.io.File
 import java.io.FileInputStream
+import java.io.InputStream
+import java.security.MessageDigest
 
 open class SafMirrorStore(private val context: Context? = null) {
 
@@ -103,8 +105,19 @@ open class SafMirrorStore(private val context: Context? = null) {
         }
     }
 
+    open fun calculateStreamSha256(inputStream: InputStream): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(8192)
+        var read: Int
+        while (inputStream.read(buffer).also { read = it } != -1) {
+            digest.update(buffer, 0, read)
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
     /**
      * Check current sync status between canonical and SAF mirror.
+     * Compares both file length and SHA-256 content digest so equal-sized different saves are OUT_OF_SYNC.
      */
     open fun checkMirrorStatus(identity: RomIdentity, fileName: String, canonicalFile: File): MirrorStatus {
         if (!isSafConfigured()) return MirrorStatus.UNAVAILABLE
@@ -118,7 +131,15 @@ open class SafMirrorStore(private val context: Context? = null) {
             val doc = romDir.findFile(fileName) ?: return MirrorStatus.OUT_OF_SYNC
 
             if (doc.exists() && doc.length() == canonicalFile.length()) {
-                MirrorStatus.IN_SYNC
+                if (canonicalFile.length() == 0L) return MirrorStatus.IN_SYNC
+                val canonicalHash = canonicalFile.inputStream().use { calculateStreamSha256(it) }
+                val docStream = context?.contentResolver?.openInputStream(doc.uri) ?: return MirrorStatus.OUT_OF_SYNC
+                val docHash = docStream.use { calculateStreamSha256(it) }
+                if (canonicalHash.equals(docHash, ignoreCase = true)) {
+                    MirrorStatus.IN_SYNC
+                } else {
+                    MirrorStatus.OUT_OF_SYNC
+                }
             } else {
                 MirrorStatus.OUT_OF_SYNC
             }

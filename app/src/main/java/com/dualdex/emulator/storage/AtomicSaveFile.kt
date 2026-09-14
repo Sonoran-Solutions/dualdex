@@ -67,9 +67,19 @@ object AtomicSaveFile {
                 )
                 true
             } catch (e: Exception) {
-                Log.w(TAG, "Atomic move failed, falling back to rename: ${e.message}")
-                if (targetFile.exists()) targetFile.delete()
-                tmpFile.renameTo(targetFile)
+                Log.w(TAG, "Atomic move failed, falling back to REPLACE_EXISTING move: ${e.message}")
+                try {
+                    Files.move(
+                        tmpFile.toPath(),
+                        targetFile.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                    )
+                    true
+                } catch (e2: Exception) {
+                    Log.w(TAG, "Replace move failed, falling back to rename without delete: ${e2.message}")
+                    // Never delete targetFile beforehand to avoid leaving an empty window!
+                    tmpFile.renameTo(targetFile)
+                }
             }
 
             // 5. Verify final file exists and has expected size
@@ -149,9 +159,18 @@ object AtomicSaveFile {
                 )
                 true
             } catch (e: Exception) {
-                Log.w(TAG, "Atomic move failed, falling back to rename: ${e.message}")
-                if (targetFile.exists()) targetFile.delete()
-                tmpFile.renameTo(targetFile)
+                Log.w(TAG, "Atomic move failed, falling back to REPLACE_EXISTING move: ${e.message}")
+                try {
+                    Files.move(
+                        tmpFile.toPath(),
+                        targetFile.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                    )
+                    true
+                } catch (e2: Exception) {
+                    Log.w(TAG, "Replace move failed, falling back to rename without delete: ${e2.message}")
+                    tmpFile.renameTo(targetFile)
+                }
             }
 
             // 5. Verify final file
@@ -186,5 +205,38 @@ object AtomicSaveFile {
             Log.e(TAG, "Failed to restore backup for ${targetFile.name}: ${e.message}")
             false
         }
+    }
+
+    /**
+     * Detects interrupted .tmp / .bak states and recovers the last known valid canonical file.
+     * Guaranteed to never silently discard a recoverable .bak file.
+     */
+    fun recoverInterrupted(targetFile: File): Boolean {
+        val parent = targetFile.parentFile ?: return false
+        val tmpFile = File(parent, "${targetFile.name}.tmp")
+        val bakFile = File(parent, "${targetFile.name}.bak")
+
+        // Case 1: Target file is missing or empty, but valid .bak exists -> restore from .bak
+        if (!targetFile.exists() || targetFile.length() == 0L) {
+            if (bakFile.exists() && bakFile.length() > 0L) {
+                Log.w(TAG, "Interrupted write detected for ${targetFile.name}. Restoring from .bak (${bakFile.length()} bytes)")
+                val restored = restoreBackup(targetFile)
+                if (tmpFile.exists()) {
+                    tmpFile.delete()
+                }
+                return restored
+            }
+        }
+
+        // Case 2: Target file is valid, clean up any lingering .tmp file
+        if (targetFile.exists() && targetFile.length() > 0L) {
+            if (tmpFile.exists()) {
+                Log.w(TAG, "Cleaning up leftover .tmp file for ${targetFile.name}")
+                tmpFile.delete()
+            }
+            return true
+        }
+
+        return false
     }
 }

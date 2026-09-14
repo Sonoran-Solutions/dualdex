@@ -8,6 +8,7 @@ import android.view.Gravity
 import android.widget.*
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.RomIdentity
+import com.dualdex.emulator.SaveSlotInfo
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.storage.LegacyCandidate
 import com.dualdex.emulator.storage.MirrorStatus
@@ -395,34 +396,50 @@ class SaveStateScreenView(
         val hashDisplay = identity.shortHash
         romIdentityView.text = "• Title: ${identity.displayName}\n• Full SHA-256: ${identity.sha256}\n• Canonical Path: saves_v2/${identity.storageKey}/"
 
-        // Storage status
-        val isSaf = saveStateManager.isUsingSaf()
-        val mirrorStatus = saveStateManager.getSafMirrorStatus(identity)
-        val dirDesc = saveStateManager.getSaveDirectoryDescription()
-        storageStatusView.text = if (isSaf) {
-            "Canonical: App-Private Internal Storage\nShared Mirror: $dirDesc (Status: $mirrorStatus)"
-        } else {
-            "Canonical: App-Private Internal Storage\nShared Mirror: None configured (Select SAF Mirror to enable external access)"
-        }
+        // Storage status and slot info loaded asynchronously off the main UI thread
+        storageStatusView.text = "Checking storage status..."
+        batterySaveStatusView.text = "Loading battery save status..."
+        quickSaveStatusView.text = "Loading quick save status..."
 
-        val bInfo = saveStateManager.getBatterySaveInfo(identity, profile.name, profile.id)
-        batterySaveStatusView.text = if (bInfo.exists) {
-            "Active Battery Save: ${bInfo.sizeBytes / 1024} KB (Saved: ${bInfo.formattedDate})"
-        } else {
-            "No .sav file found on disk (auto-saves on in-game save / pause)."
-        }
+        uiScope.launch(Dispatchers.IO) {
+            val isSaf = saveStateManager.isUsingSaf()
+            val mirrorStatus = saveStateManager.getSafMirrorStatus(identity)
+            val dirDesc = saveStateManager.getSaveDirectoryDescription()
 
-        val qFile = saveStateManager.getCanonicalFile(identity, "quicksave.state")
-        quickSaveStatusView.text = if (qFile.exists()) {
-            "Latest Quick Save: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(qFile.lastModified()))}"
-        } else {
-            "No Quick Save created yet."
-        }
+            val bInfo = saveStateManager.getBatterySaveInfo(identity, profile.name, profile.id)
+            val qFile = saveStateManager.getCanonicalFile(identity, "quicksave.state")
+            val qLastModified = if (qFile.exists()) qFile.lastModified() else 0L
 
-        // Slots
+            val slots = saveStateManager.getAllSlotsInfo(identity, 5, profile.name, profile.id)
+            val candidates = saveStateManager.discoverLegacyCandidates()
+
+            withContext(Dispatchers.Main) {
+                storageStatusView.text = if (isSaf) {
+                    "Canonical: App-Private Internal Storage\nShared Mirror: $dirDesc (Status: $mirrorStatus)"
+                } else {
+                    "Canonical: App-Private Internal Storage\nShared Mirror: None configured (Select SAF Mirror to enable external access)"
+                }
+
+                batterySaveStatusView.text = if (bInfo.exists) {
+                    "Active Battery Save: ${bInfo.sizeBytes / 1024} KB (Saved: ${bInfo.formattedDate})"
+                } else {
+                    "No .sav file found on disk (auto-saves on in-game save / pause)."
+                }
+
+                quickSaveStatusView.text = if (qLastModified > 0L) {
+                    "Latest Quick Save: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(qLastModified))}"
+                } else {
+                    "No Quick Save created yet."
+                }
+
+                renderSlots(slots, identity, profile)
+                renderLegacyCandidates(candidates, identity)
+            }
+        }
+    }
+
+    private fun renderSlots(slots: List<SaveSlotInfo>, identity: RomIdentity, profile: com.dualdex.romhack.RomHackProfile) {
         slotsContainer.removeAllViews()
-        val slots = saveStateManager.getAllSlotsInfo(identity, 5, profile.name, profile.id)
-
         slots.forEach { slot ->
             val slotRow = LinearLayout(context).apply {
                 orientation = HORIZONTAL
@@ -498,13 +515,23 @@ class SaveStateScreenView(
 
             slotsContainer.addView(slotRow)
         }
-
-        populateLegacyCandidates(identity)
     }
 
     private fun populateLegacyCandidates(identity: RomIdentity?) {
+        if (identity == null || !identity.isValid) {
+            renderLegacyCandidates(emptyList(), null)
+            return
+        }
+        uiScope.launch(Dispatchers.IO) {
+            val candidates = saveStateManager.discoverLegacyCandidates()
+            withContext(Dispatchers.Main) {
+                renderLegacyCandidates(candidates, identity)
+            }
+        }
+    }
+
+    private fun renderLegacyCandidates(candidates: List<LegacyCandidate>, identity: RomIdentity?) {
         legacyCandidatesContainer.removeAllViews()
-        val candidates = saveStateManager.discoverLegacyCandidates()
 
         if (candidates.isEmpty()) {
             val emptyText = TextView(context).apply {

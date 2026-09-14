@@ -461,7 +461,7 @@ class SettingsScreenView(
             var isInteractiveControls = settingsManager.isInteractiveBattleControlsEnabled
             val toggleInteractiveBtn = Button(context).apply {
                 fun updateText() {
-                    text = if (isInteractiveControls) "🎮 Touch Battle Controls (Tap to Input Moves): Enabled" else "🎮 Touch Battle Controls (Tap to Input Moves): Disabled (Read-Only)"
+                    text = if (isInteractiveControls) "🎮 Verified Touch Controls: Allowed" else "🎮 Verified Touch Controls: Disabled (Read-Only)"
                     background = GradientDrawable().apply {
                         cornerRadius = 14f
                         setColor(if (isInteractiveControls) 0xFF2E6B4A.toInt() else 0xFF3E3E4E.toInt())
@@ -477,7 +477,7 @@ class SettingsScreenView(
                     settingsManager.isInteractiveBattleControlsEnabled = isInteractiveControls
                     viewModel.setInteractiveBattleControlsEnabled(isInteractiveControls)
                     updateText()
-                    Toast.makeText(context, if (isInteractiveControls) "Touch battle controls enabled" else "Touch battle controls disabled (Read-only)", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, if (isInteractiveControls) "Verified touch controls allowed when supported" else "Touch battle controls disabled (Read-only)", Toast.LENGTH_SHORT).show()
                 }
             }
             val lpInteractive = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {

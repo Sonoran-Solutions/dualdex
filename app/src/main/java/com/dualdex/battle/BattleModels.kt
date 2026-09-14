@@ -150,6 +150,15 @@ data class SpeedComparison(
     val explanation: String,
     val isDefinitive: Boolean = false
 ) {
+    val orderLabel: String
+        get() = when {
+            isDefinitive && playerMovesFirst == true -> "Moves First"
+            isDefinitive && playerMovesFirst == false -> "Moves Second"
+            playerMovesFirst == true -> "Faster (known modifiers)"
+            playerMovesFirst == false -> "Slower (known modifiers)"
+            else -> "Speed Tie (known modifiers)"
+        }
+
     companion object {
         fun calculate(
             playerBaseSpeed: Int,
@@ -252,7 +261,17 @@ enum class BattleUiState(val displayName: String) {
     TARGET_SELECT("Target Select"),
     BAG_MENU("Bag Menu"),
     ANIMATION_OR_TEXT("Waiting / Anim"),
-    UNKNOWN("Unknown / Inactive")
+    UNKNOWN("Unknown / Inactive");
+
+    companion object {
+        fun fromNativeCode(code: Int): BattleUiState = when (code) {
+            1 -> COMMAND_MENU
+            2 -> MOVE_MENU
+            3 -> PARTY_MENU
+            4 -> ANIMATION_OR_TEXT
+            else -> UNKNOWN
+        }
+    }
 }
 
 data class BattleUiSnapshot(
@@ -262,11 +281,13 @@ data class BattleUiSnapshot(
     val selectedPartySlot: Int? = null,
     val stateConfidence: DataConfidence = DataConfidence.UNAVAILABLE,
     val isInputAccepted: Boolean = false,
-    val capabilities: BattleInteractionCapabilities = BattleInteractionCapabilities.READ_ONLY
+    val capabilities: BattleInteractionCapabilities = BattleInteractionCapabilities.READ_ONLY,
+    val readOnlyReason: String? = null
 ) {
     val inputSafe: Boolean
         get() = isInputAccepted &&
                 stateConfidence == DataConfidence.VERIFIED &&
+                capabilities.confidence == DataConfidence.VERIFIED &&
                 capabilities.isInteractiveSupported
 }
 
@@ -395,7 +416,10 @@ object MoveEffectiveness {
         val pack = GameDataPackRegistry.getForProfile(profile.engine, profile.hasPhysSpecSplit, profile.gameDataPackId)
         val moveInfo = MoveDatabase.get(moveId, pack)
         val label = confidence(moveInfo.type, defT1, defT2, profile.steelResistsGhostDark, pack)
-        val confidence = if (label != null && profile.isVerified) {
+        val defenderDataAuthoritative = profile.customSpecies.containsKey(defender.species) ||
+                pack.isSpeciesAuthoritative(defender.species)
+        val confidence = if (label != null && profile.isVerified &&
+            pack.isMoveAuthoritative(moveId) && defenderDataAuthoritative) {
             DataConfidence.VERIFIED
         } else if (label != null) {
             DataConfidence.ESTIMATE
@@ -741,6 +765,12 @@ object BattlePresentationBuilder {
         val attackerSpeciesKnown = !attacker.isEmpty && attacker.isValid &&
                 (profile.customSpecies.containsKey(attacker.species) || SpeciesDatabase.isKnown(attacker.species))
 
+        val moveDataAuthoritative = moveKnown && pack.isMoveAuthoritative(resolvedMoveInfo.id)
+        val attackerDataAuthoritative = profile.customSpecies.containsKey(attacker.species) ||
+                pack.isSpeciesAuthoritative(attacker.species)
+        val defenderDataAuthoritative = defender != null &&
+                (profile.customSpecies.containsKey(defender.species) || pack.isSpeciesAuthoritative(defender.species))
+
         val canCalculate = moveKnown &&
                 category != MoveCategory.STATUS &&
                 resolvedMoveInfo.power > 0 &&
@@ -762,7 +792,11 @@ object BattlePresentationBuilder {
             )
             val response = calculator.calculate(request)
             if (response.success && response.maxDamage > 0) {
-                damageConfidence = DamageConfidence.VERIFIED
+                damageConfidence = if (moveDataAuthoritative && attackerDataAuthoritative && defenderDataAuthoritative) {
+                    DamageConfidence.VERIFIED
+                } else {
+                    DamageConfidence.ESTIMATE
+                }
                 minDamage = response.minDamage
                 maxDamage = response.maxDamage
                 range = response.range

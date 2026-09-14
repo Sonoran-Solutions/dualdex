@@ -188,10 +188,12 @@ class BattleConsoleTest {
         val waterGun = MoveDatabase.get(55) // Water Gun (Water)
         val swordsDance = MoveDatabase.get(14) // Status move
 
-        // Standard verified matchup: Water vs Fire/Flying = 2x
+        // Known type matchup: Water vs Fire/Flying = 2x, with conservative data confidence.
         val (effLabel, confidence) = MoveEffectiveness.evaluate(waterGun.id, waterGun.category, defender, RomHackProfile.DEFAULT_FIRERED)
         assertEquals(EffectivenessLabel.SUBSTANTIAL, effLabel)
-        assertEquals(DataConfidence.VERIFIED, confidence)
+        // Water Gun falls through the shared database; the Gen 3 pack exposes the value for
+        // presentation but does not claim it is an explicitly verified Gen 3 entry.
+        assertEquals(DataConfidence.ESTIMATE, confidence)
 
         // Status move has unavailable effectiveness
         val (statusLabel, statusConfidence) = MoveEffectiveness.evaluate(swordsDance.id, MoveCategory.STATUS, defender, RomHackProfile.DEFAULT_FIRERED)
@@ -221,7 +223,8 @@ class BattleConsoleTest {
         val firePunch = MoveDatabase.get(7)
         val swordsDance = MoveDatabase.get(14)
 
-        // Verified vanilla profile: succeeds with VERIFIED
+        // The calculator can still produce a range, but Fire Punch is not an explicitly
+        // verified Gen 3 pack entry, so the range is conservative.
         val verifiedPres = BattlePresentationBuilder.build(
             moveInfo = firePunch,
             currentPp = 15,
@@ -230,8 +233,8 @@ class BattleConsoleTest {
             profile = RomHackProfile.DEFAULT_FIRERED,
             calculator = stubCalculator
         )
-        assertEquals(DamageConfidence.VERIFIED, verifiedPres.damageConfidence)
-        assertTrue(verifiedPres.hasDamage)
+        assertEquals(DamageConfidence.ESTIMATE, verifiedPres.damageConfidence)
+        assertFalse(verifiedPres.hasDamage)
         assertEquals(40, verifiedPres.minDamage)
         assertEquals(48, verifiedPres.maxDamage)
 
@@ -774,12 +777,12 @@ class BattleConsoleTest {
         assertEquals(16, summaryParalyzed.effectiveSpeed)
     }
 
-    // 21. CompanionViewModel defaults battle tab and interactive controls to true
+    // 21. Battle tab and the "allow verified controls" preference default to true independently.
     @Test
     fun testCompanionViewModel_battleTabAndInteractiveDefaults() {
         val vm = CompanionViewModel()
         assertTrue("Battle tab must be enabled by default", vm.isBattleTabEnabled.value)
-        assertTrue("Interactive battle controls must be enabled by default", vm.isInteractiveBattleControlsEnabled.value)
+        assertTrue("Verified touch-control permission defaults to enabled", vm.isInteractiveBattleControlsEnabled.value)
     }
 
     // 22. CompanionViewModel allows toggling interactive battle controls

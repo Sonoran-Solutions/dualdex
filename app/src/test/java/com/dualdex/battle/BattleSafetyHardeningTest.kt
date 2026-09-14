@@ -128,6 +128,8 @@ class BattleSafetyHardeningTest {
             gameId = 2,
             sha256Hashes = listOf("e26ee0d44e80e5bc3d1f46d68173f60d8d4622b10a26d11f584e09f58cb2908c"),
             isVerified = true,
+            memoryLayoutVerified = true,
+            battleUiVerified = true,
             interactiveControlsVerified = true
         )
 
@@ -137,8 +139,10 @@ class BattleSafetyHardeningTest {
             storageKey = "Pokemon_FireRed_111122223333"
         )
 
-        val isInteractiveVerified = verifiedProfile.interactiveControlsVerified &&
-                verifiedProfile.sha256Hashes.any { it.equals(romWithDifferentHash.sha256, ignoreCase = true) }
+        val isInteractiveVerified = BattleInteractionPolicy.isInteractiveVerified(
+            verifiedProfile,
+            romWithDifferentHash
+        )
 
         assertFalse("Interactive controls must NOT be verified when SHA-256 mismatches", isInteractiveVerified)
     }
@@ -311,7 +315,44 @@ class BattleSafetyHardeningTest {
         assertEquals(listOf("job1_start", "job1_end", "job2_start", "job2_end"), executionOrder)
     }
 
-    // 12. Gen 3 vanilla: Clefairy is Normal type (NOT Fairy)
+    // 12. Full BattleInputAdapter actions are serialized, not just individual button presses
+    @Test
+    fun test12_concurrentBattleActionsCannotInterleave() = runBlocking {
+        val events = mutableListOf<String>()
+        var dispatchActive = false
+        var interleaved = false
+        val dispatcher = BattleInputDispatcher { button, _, _ ->
+            synchronized(events) {
+                if (dispatchActive) interleaved = true
+                dispatchActive = true
+                events += "start:$button"
+            }
+            delay(5L)
+            synchronized(events) {
+                events += "end:$button"
+                dispatchActive = false
+            }
+            true
+        }
+        val adapter = BattleInputAdapter(dispatcher)
+        val ui = BattleUiSnapshot(
+            state = BattleUiState.MOVE_MENU,
+            selectedMoveIndex = 0,
+            stateConfidence = DataConfidence.VERIFIED,
+            isInputAccepted = true,
+            capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+        )
+
+        val first = async(Dispatchers.Default) { adapter.executeSelectMove(3, ui) }
+        val second = async(Dispatchers.Default) { adapter.executeSelectMove(0, ui) }
+
+        assertEquals(BattleInputResult.Success, first.await())
+        assertEquals(BattleInputResult.Success, second.await())
+        assertFalse("A second action must not enter while the first is emitting buttons", interleaved)
+        assertEquals(events.count { it.startsWith("start:") }, events.count { it.startsWith("end:") })
+    }
+
+    // 13. Gen 3 vanilla: Clefairy is Normal type (NOT Fairy)
     @Test
     fun test12_gen3VanillaClefairyIsNormalType() {
         val clefairy = Gen3VanillaDataPack.getSpecies(35)
@@ -403,5 +444,6 @@ class BattleSafetyHardeningTest {
         assertTrue("Speed explanation must state estimate based on known stats and stages",
             comp.explanation.contains("based on known stats and stages"))
         assertEquals(true, comp.playerMovesFirst)
+        assertEquals("Faster (known modifiers)", comp.orderLabel)
     }
 }

@@ -13,14 +13,24 @@ interface GameDataPack {
     fun getSpecies(id: Int): SpeciesInfo?
     fun getMove(id: Int): MoveInfo?
     fun getEffectiveness(attackType: PokemonType, defType: PokemonType): Double
+
+    /** True only when this pack has an explicitly verified value for the entry. */
+    fun isSpeciesAuthoritative(id: Int): Boolean = false
+
+    /** True only when this pack has an explicitly verified value for the entry. */
+    fun isMoveAuthoritative(id: Int): Boolean = false
 }
 
 /**
- * Authoritative Generation 3 (FireRed / Emerald) data pack:
+ * Generation 3 (FireRed / Emerald) compatibility data pack:
  * - Fairy type does NOT exist (Clefairy/Jigglypuff/Togepi/Marill/Snubbull/Ralts/Mawile retain pure Gen 3 typings).
  * - Physical / Special split is determined strictly by move type, not individual move.
  * - Move powers/accuracies match Gen 3 (Hydro Pump: 120, Surf: 95, Flamethrower: 95, Ice Beam: 95, Blizzard: 120).
  * - Steel resists Ghost and Dark.
+ *
+ * The shared databases are still used as a presentation fallback. Only entries with explicit
+ * Gen 3 overrides are authoritative; callers must use the authority methods before reporting
+ * VERIFIED confidence for a fallback value.
  */
 object Gen3VanillaDataPack : GameDataPack {
     override val id: String = "gen3_vanilla"
@@ -61,6 +71,11 @@ object Gen3VanillaDataPack : GameDataPack {
         126 to MoveInfo(126, "Fire Blast", PokemonType.FIRE, MoveCategory.SPECIAL, 120, 85, 5)
     )
 
+    // The backing databases contain later-generation values for entries not listed here. Keep
+    // those useful for presentation, but never describe them as authoritative Gen 3 data.
+    private val authoritativeSpeciesIds = speciesOverrides.keys
+    private val authoritativeMoveIds = moveOverrides.keys
+
     override fun getSpecies(id: Int): SpeciesInfo? {
         val base = SpeciesDatabase.getRaw(id) ?: return null
         val override = speciesOverrides[id] ?: return base
@@ -90,6 +105,10 @@ object Gen3VanillaDataPack : GameDataPack {
         }
         return TypeChart.getEffectiveness(attackType, defType, steelResistsGhostDark = true).toDouble()
     }
+
+    override fun isSpeciesAuthoritative(id: Int): Boolean = id in authoritativeSpeciesIds
+
+    override fun isMoveAuthoritative(id: Int): Boolean = id in authoritativeMoveIds
 }
 
 /**
@@ -109,6 +128,11 @@ object ModernDataPack : GameDataPack {
     override fun getEffectiveness(attackType: PokemonType, defType: PokemonType): Double {
         return TypeChart.getEffectiveness(attackType, defType, steelResistsGhostDark = false).toDouble()
     }
+
+    // ModernDataPack is a mechanics fallback, not a ROM-specific verified data source.
+    override fun isSpeciesAuthoritative(id: Int): Boolean = false
+
+    override fun isMoveAuthoritative(id: Int): Boolean = false
 }
 
 object GameDataPackRegistry {

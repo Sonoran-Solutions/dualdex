@@ -4,6 +4,8 @@ import com.dualdex.emulator.ControllerInputRouter
 import com.dualdex.emulator.InputManager
 import com.dualdex.pokemon.ParsedPokemon
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Interface for dispatching emulated controller button presses.
@@ -55,6 +57,8 @@ class BattleInputAdapter(
     private val dispatcher: BattleInputDispatcher = DefaultBattleInputDispatcher(),
     private val stateReader: (() -> BattleUiSnapshot)? = null
 ) {
+    private val actionMutex = Mutex()
+
     companion object {
         const val BTN_PRESS_DURATION_MS = 50L
         const val BTN_INTER_DELAY_MS = 60L
@@ -64,6 +68,12 @@ class BattleInputAdapter(
     }
 
     suspend fun executeSelectMove(slot: Int, currentUi: BattleUiSnapshot): BattleInputResult {
+        return actionMutex.withLock {
+            executeSelectMoveInternal(slot, currentUi)
+        }
+    }
+
+    private suspend fun executeSelectMoveInternal(slot: Int, currentUi: BattleUiSnapshot): BattleInputResult {
         if (slot !in 0..3) {
             return BattleInputResult.IllegalTarget("Move slot $slot out of bounds (0..3)")
         }
@@ -144,6 +154,17 @@ class BattleInputAdapter(
         currentUi: BattleUiSnapshot,
         party: List<ParsedPokemon>,
         activeSlot: Int = 0
+    ): BattleInputResult {
+        return actionMutex.withLock {
+            executeSwitchPokemonInternal(targetSlot, currentUi, party, activeSlot)
+        }
+    }
+
+    private suspend fun executeSwitchPokemonInternal(
+        targetSlot: Int,
+        currentUi: BattleUiSnapshot,
+        party: List<ParsedPokemon>,
+        activeSlot: Int
     ): BattleInputResult {
         if (targetSlot !in 0..5) {
             return BattleInputResult.IllegalTarget("Party slot $targetSlot out of bounds (0..5)")
@@ -236,7 +257,9 @@ class BattleInputAdapter(
     }
 
     suspend fun cancel(): Boolean {
-        return dispatcher.sendButton(InputManager.BTN_B, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+        return actionMutex.withLock {
+            dispatcher.sendButton(InputManager.BTN_B, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+        }
     }
 
     private suspend fun waitForUiState(expected: BattleUiState, timeoutMs: Long): BattleUiSnapshot? {

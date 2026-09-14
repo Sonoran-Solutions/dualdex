@@ -203,12 +203,12 @@ class BattleConsoleScreenView(
             return
         }
 
-        if (uiSnap.isInputAccepted) {
+        if (uiSnap.inputSafe) {
             actionStatusBadge.text = "Input Ready (${uiSnap.state.displayName})"
             actionStatusBadge.setTextColor(0xFF50C878.toInt())
             actionStatusBadge.background = badgeDrawable(0xFF1E2B22.toInt(), 0xFF50C878.toInt())
         } else {
-            actionStatusBadge.text = "Waiting for Turn (${uiSnap.state.displayName})"
+            actionStatusBadge.text = uiSnap.readOnlyReason ?: "Read-only (${uiSnap.state.displayName})"
             actionStatusBadge.setTextColor(0xFFFFAA33.toInt())
             actionStatusBadge.background = badgeDrawable(0xFF2E2211.toInt(), 0xFFFFAA33.toInt())
         }
@@ -246,7 +246,7 @@ class BattleConsoleScreenView(
         contentContainer.removeAllViews()
 
         val uiSnap = viewModel.battleUiSnapshot.value
-        if (!uiSnap.capabilities.isInteractiveSupported) {
+        if (!uiSnap.inputSafe) {
             val banner = createCardLayout().apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -258,7 +258,7 @@ class BattleConsoleScreenView(
                     setPadding(0, 0, dp(8), 0)
                 }
                 val msg = TextView(context).apply {
-                    text = "Interactive battle controls unavailable for this ROM/profile (Read-Only Mode)"
+                    text = uiSnap.readOnlyReason ?: "Read-only: interactive battle controls are unavailable."
                     setTextColor(0xFFFFAA33.toInt())
                     textSize = 12f
                     typeface = Typeface.DEFAULT_BOLD
@@ -382,7 +382,7 @@ class BattleConsoleScreenView(
 
         // 4-Move Grid
         val uiSnap = viewModel.battleUiSnapshot.value
-        val sectionTitle = if (uiSnap.capabilities.selectMove) {
+        val sectionTitle = if (uiSnap.inputSafe && uiSnap.capabilities.selectMove) {
             "🎮 Move Selection (Tap to Execute)"
         } else {
             "📖 Move Information (Read-Only)"
@@ -393,7 +393,7 @@ class BattleConsoleScreenView(
         } else {
             for (i in lastCachedMoves.indices) {
                 val pres = lastCachedMoves[i]
-                contentContainer.addView(interactiveMoveCard(pres, slot = i, canSelect = uiSnap.capabilities.selectMove))
+                contentContainer.addView(interactiveMoveCard(pres, slot = i, canSelect = uiSnap.inputSafe && uiSnap.capabilities.selectMove))
             }
         }
     }
@@ -418,11 +418,7 @@ class BattleConsoleScreenView(
             val textCol = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 val title = TextView(context).apply {
-                    text = when {
-                        speedComp.playerMovesFirst == true -> "Moves First"
-                        speedComp.playerMovesFirst == false -> "Moves Second"
-                        else -> "Speed Tie"
-                    }
+                    text = speedComp.orderLabel
                     setTextColor(color)
                     textSize = 13f
                     typeface = Typeface.DEFAULT_BOLD
@@ -453,8 +449,8 @@ class BattleConsoleScreenView(
 
                 setOnClickListener {
                     val uiSnap = viewModel.battleUiSnapshot.value
-                    if (!uiSnap.isInputAccepted) {
-                        showFeedback("⚠️ Cannot select move: Waiting for player turn...")
+                    if (!uiSnap.inputSafe) {
+                        showFeedback("⚠️ ${uiSnap.readOnlyReason ?: "Move selection is unavailable."}")
                         return@setOnClickListener
                     }
 
@@ -539,7 +535,7 @@ class BattleConsoleScreenView(
     // =========================================================================
     private fun renderPartySubtab(party: List<ParsedPokemon>, activeSlot: Int, inBattle: Boolean) {
         val uiSnap = viewModel.battleUiSnapshot.value
-        val sectionTitle = if (uiSnap.capabilities.switchPokemon) {
+        val sectionTitle = if (uiSnap.inputSafe && uiSnap.capabilities.switchPokemon) {
             "👥 Party Members (Tap [Switch In] to Switch)"
         } else {
             "👥 Party Members (Read-Only)"
@@ -613,7 +609,7 @@ class BattleConsoleScreenView(
                     }
                     inBattle -> {
                         val uiSnap = viewModel.battleUiSnapshot.value
-                        if (!uiSnap.capabilities.switchPokemon) {
+                        if (!uiSnap.inputSafe || !uiSnap.capabilities.switchPokemon) {
                             text = "IN PARTY"
                             setTextColor(0xFF888899.toInt())
                             background = badgeDrawable(0xFF1E1E26.toInt(), 0xFF888899.toInt())
@@ -625,8 +621,8 @@ class BattleConsoleScreenView(
                             isClickable = true
                             setOnClickListener {
                                 val currentSnap = viewModel.battleUiSnapshot.value
-                                if (!currentSnap.isInputAccepted) {
-                                    showFeedback("⚠️ Cannot switch: Waiting for player turn...")
+                                if (!currentSnap.inputSafe) {
+                                    showFeedback("⚠️ ${currentSnap.readOnlyReason ?: "Party switching is unavailable."}")
                                     return@setOnClickListener
                                 }
                                 showFeedback("🎮 Switching to ${mon.nickname}...")

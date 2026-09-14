@@ -433,13 +433,13 @@ class SettingsScreenView(
             }
             addView(desc)
 
-            var isBattleEnabled = settingsManager.isBattleTabEnabled
+            var autoOpenBattle = settingsManager.isBattleTabEnabled
             val toggleBattleBtn = Button(context).apply {
                 fun updateText() {
-                    text = if (isBattleEnabled) "🎮 Battle Console (EBC-1): Enabled" else "🎮 Battle Console (EBC-1): Disabled"
+                    text = if (autoOpenBattle) "Auto-open Battle Console: On" else "Auto-open Battle Console: Off"
                     background = GradientDrawable().apply {
                         cornerRadius = 14f
-                        setColor(if (isBattleEnabled) 0xFF2E6B4A.toInt() else 0xFF3E3E4E.toInt())
+                        setColor(if (autoOpenBattle) 0xFF2E6B4A.toInt() else 0xFF3E3E4E.toInt())
                     }
                 }
                 setTextColor(Color.WHITE)
@@ -448,11 +448,11 @@ class SettingsScreenView(
                 setPadding(18, 8, 18, 8)
                 updateText()
                 setOnClickListener {
-                    isBattleEnabled = !isBattleEnabled
-                    settingsManager.isBattleTabEnabled = isBattleEnabled
-                    viewModel.setBattleTabEnabled(isBattleEnabled)
+                    autoOpenBattle = !autoOpenBattle
+                    settingsManager.isBattleTabEnabled = autoOpenBattle
+                    viewModel.setBattleTabEnabled(autoOpenBattle)
                     updateText()
-                    Toast.makeText(context, if (isBattleEnabled) "Battle tab enabled" else "Battle tab disabled", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, if (autoOpenBattle) "Battle Console will open when a battle begins" else "Battle Console auto-open disabled", Toast.LENGTH_SHORT).show()
                 }
             }
             val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)

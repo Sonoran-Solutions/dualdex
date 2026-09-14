@@ -22,18 +22,20 @@ data class RomItem(
     val sizeFormatted: String
 )
 
-enum class CompanionTab(val title: String, val iconEmoji: String) {
-    HOME("Home", "🏠"),
-    PARTY("Party", "👥"),
-    MAP("Map", "🗺️"),
-    CALC("Calc", "⚔️"),
-    TYPES("Types", "🛡️"),
-    DOCS("Docs", "📖"),
-    CHEATS("Cheats", "⚡"),
-    SAVES("Saves", "💾"),
-    ASSISTANT("Assistant", "🤖"),
-    BATTLE("Battle", "🎮"),
-    SETTINGS("Settings", "⚙️")
+enum class CompanionTab(val title: String) {
+    // Existing screen identities remain stable for direct navigation callers.
+    HOME("Library"),
+    PARTY("Party"),
+    MAP("Map"),
+    CALC("Calculator"),
+    TYPES("Type Matchups"),
+    DOCS("Docs"),
+    CHEATS("Cheats"),
+    SAVES("Saves"),
+    ASSISTANT("Assistant"),
+    BATTLE("Battle"),
+    SETTINGS("Settings"),
+    MORE("More")
 }
 
 class CompanionViewModel(

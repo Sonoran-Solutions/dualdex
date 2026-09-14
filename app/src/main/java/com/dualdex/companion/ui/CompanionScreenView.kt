@@ -1,28 +1,27 @@
 package com.dualdex.companion.ui
 
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.graphics.Color
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
-import android.os.BatteryManager
+import android.net.Uri
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.net.Uri
 import android.widget.TextView
+import com.dualdex.R
 import com.dualdex.companion.CompanionTab
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.ShaderFilter
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
+/**
+ * Global companion shell. Feature screens retain their own layouts while this view owns the
+ * compact context strip, five primary destinations, and routing for secondary utilities.
+ */
 class CompanionScreenView(
     context: Context,
     private val viewModel: CompanionViewModel,
@@ -38,14 +37,32 @@ class CompanionScreenView(
     private val onChooseSavesFolderRequested: (() -> Unit)? = null
 ) : LinearLayout(context) {
 
-    private val contentContainer: FrameLayout
-    private val tabButtons = mutableMapOf<CompanionTab, TextView>()
-    private val timeView: TextView
-    private val profileLabel: TextView
-    private val battleBadge: TextView
-    private val batteryView: TextView
+    private data class PrimaryDestination(val tab: CompanionTab, val iconRes: Int)
 
-    private val homeView: HomeScreenView by lazy { HomeScreenView(context, viewModel, onChooseRomsFolderRequested, onRefreshRomsRequested, onPlayRomRequested) }
+    private val primaryDestinations = listOf(
+        PrimaryDestination(CompanionTab.HOME, R.drawable.ic_dualdex_library),
+        PrimaryDestination(CompanionTab.PARTY, R.drawable.ic_dualdex_party),
+        PrimaryDestination(CompanionTab.BATTLE, R.drawable.ic_dualdex_battle),
+        PrimaryDestination(CompanionTab.MAP, R.drawable.ic_dualdex_map),
+        PrimaryDestination(CompanionTab.MORE, R.drawable.ic_dualdex_more)
+    )
+
+    private val contentContainer: FrameLayout
+    private val tabButtons = mutableMapOf<CompanionTab, DualDexNavigationItem>()
+    private val contextBar: LinearLayout
+    private val profileLabel: TextView
+    private val battleIndicator: TextView
+
+    private val homeView: HomeScreenView by lazy {
+        HomeScreenView(
+            context,
+            viewModel,
+            onChooseRomsFolderRequested,
+            onRefreshRomsRequested,
+            onPlayRomRequested,
+            onOpenRomRequested
+        )
+    }
     private val partyView: PartyScreenView by lazy { PartyScreenView(context, viewModel) }
     private val mapView: MapScreenView by lazy { MapScreenView(context, viewModel) }
     private val calcView: CalcTabScreenView by lazy { CalcTabScreenView(context, viewModel) }
@@ -53,8 +70,12 @@ class CompanionScreenView(
     private val typesView: TypeChartScreenView by lazy { TypeChartScreenView(context, viewModel) }
     private val docsView: DocsScreenView by lazy { DocsScreenView(context, viewModel) }
     private val cheatsView: CheatsScreenView by lazy { CheatsScreenView(context, viewModel) }
-    private val savesView: SaveStateScreenView by lazy { SaveStateScreenView(context, viewModel, onImportSaveRequested, onExportSaveRequested, onChooseSavesFolderRequested) }
-    private val assistantView: com.dualdex.assistant.AssistantScreenView by lazy { com.dualdex.assistant.AssistantScreenView(context, viewModel) }
+    private val savesView: SaveStateScreenView by lazy {
+        SaveStateScreenView(context, viewModel, onImportSaveRequested, onExportSaveRequested, onChooseSavesFolderRequested)
+    }
+    private val assistantView: com.dualdex.assistant.AssistantScreenView by lazy {
+        com.dualdex.assistant.AssistantScreenView(context, viewModel)
+    }
     private val settingsView: SettingsScreenView by lazy {
         SettingsScreenView(
             context,
@@ -62,220 +83,100 @@ class CompanionScreenView(
             onShaderChanged,
             onSpeedChanged,
             onStretchChanged,
-            onTabSelected = { tab ->
-                switchTab(tab)
-            },
+            onTabSelected = ::switchTab,
             onChooseSavesFolderRequested = onChooseSavesFolderRequested
         )
     }
+    private val moreView: MoreScreenView by lazy { MoreScreenView(context, ::navigateTo) }
 
-    private val statusUpdateRunnable = object : Runnable {
-        override fun run() {
-            updateSystemStatus()
-            postDelayed(this, 15000L)
-        }
-    }
+    private var currentTab: CompanionTab = CompanionTab.HOME
+    private var viewScope: CoroutineScope? = null
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(0xFF101014.toInt())
+        setBackgroundColor(DualDexTheme.Color.background)
 
-        // Top Status Header (Time, ROM Name, Open ROM, Battle Status, Battery)
-        val headerBar = LinearLayout(context).apply {
+        contextBar = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(16, 12, 16, 12)
-            setBackgroundColor(0xFF16161E.toInt())
+            setPadding(
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.compact),
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.compact)
+            )
+            setBackgroundColor(DualDexTheme.Color.surface)
         }
-
-        // Top-left: System Clock
-        timeView = TextView(context).apply {
-            setTextColor(0xFFD0D0E0.toInt())
-            textSize = 12f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 10, 0)
-        }
-        headerBar.addView(timeView)
-
-        // ROM / Profile label
         profileLabel = TextView(context).apply {
-            val prof = viewModel.activeProfile.value
-            text = "⚡ ${prof.name}"
-            setTextColor(0xFF4A9EFF.toInt())
-            textSize = 13.5f
-            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
+            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
         }
-        headerBar.addView(profileLabel)
-
-        val spacer = View(context).apply {
-            layoutParams = LayoutParams(0, 1, 1.0f)
+        battleIndicator = DualDexComponents.ghostControl(context, "Battle") {
+            navigateTo(CompanionTab.BATTLE)
+        }.apply {
+            setTextColor(DualDexTheme.Color.accent)
+            textSize = DualDexTheme.Type.compact
+            visibility = View.GONE
+            contentDescription = "Open Battle Console"
         }
-        headerBar.addView(spacer)
+        contextBar.addView(profileLabel)
+        contextBar.addView(battleIndicator, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)))
+        addView(contextBar)
 
-        if (onOpenRomRequested != null) {
-            val openRomBtn = Button(context).apply {
-                text = "📁 Open ROM"
-                textSize = 11f
-                setTextColor(Color.WHITE)
-                background = GradientDrawable().apply {
-                    cornerRadius = 10f
-                    setColor(0xFF2B3A55.toInt())
-                }
-                setPadding(12, 4, 12, 4)
-                setOnClickListener { onOpenRomRequested.invoke() }
-            }
-            val lpRom = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 0, 8, 0)
-            }
-            headerBar.addView(openRomBtn, lpRom)
-        }
-
-        battleBadge = TextView(context).apply {
-            text = "Ready"
-            setTextColor(0xFF50C878.toInt())
-            textSize = 11f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(10, 4, 10, 4)
-            background = GradientDrawable().apply {
-                cornerRadius = 10f
-                setColor(0xFF1F2B24.toInt())
-                setStroke(1, 0xFF50C878.toInt())
-            }
-            setOnClickListener {
-                if (viewModel.isBattleTabEnabled.value) {
-                    viewModel.selectTab(CompanionTab.BATTLE)
-                    switchTab(CompanionTab.BATTLE)
-                }
-            }
-        }
-        val lpBadge = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-            setMargins(0, 0, 8, 0)
-        }
-        headerBar.addView(battleBadge, lpBadge)
-
-        // Top-right: Battery Charge Indicator
-        batteryView = TextView(context).apply {
-            text = "🔋 --%"
-            setTextColor(0xFF50C878.toInt())
-            textSize = 11.5f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(10, 4, 10, 4)
-            background = GradientDrawable().apply {
-                cornerRadius = 10f
-                setColor(0xFF1E222B.toInt())
-            }
-        }
-        headerBar.addView(batteryView)
-
-        addView(headerBar)
-        updateSystemStatus()
-
-        // Middle Content Container
         contentContainer = FrameLayout(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1.0f)
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f)
         }
         addView(contentContainer)
 
-        // Bottom Tab Navigation Bar (Scrollable to comfortably fit all tabs)
-        val navScroll = android.widget.HorizontalScrollView(context).apply {
-            isHorizontalScrollBarEnabled = false
-            isFillViewport = true
-            setBackgroundColor(0xFF16161E.toInt())
-        }
         val navBar = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(6, 6, 6, 8)
+            setPadding(
+                context.dp(DualDexTheme.Spacing.tight),
+                context.dp(DualDexTheme.Spacing.tight),
+                context.dp(DualDexTheme.Spacing.tight),
+                context.dp(DualDexTheme.Spacing.compact)
+            )
+            setBackgroundColor(DualDexTheme.Color.surface)
         }
-
-        CompanionTab.values().forEach { tab ->
-            val tabBtn = TextView(context).apply {
-                text = "${tab.iconEmoji}\n${tab.title}"
-                gravity = Gravity.CENTER
-                textSize = 10.5f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(6, 6, 6, 6)
-                layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply {
-                    minimumWidth = (48 * context.resources.displayMetrics.density).toInt()
-                }
-                if (tab == CompanionTab.BATTLE && !viewModel.isBattleTabEnabled.value) {
-                    visibility = View.GONE
-                }
-                setOnClickListener {
-                    viewModel.selectTab(tab)
-                    switchTab(tab)
-                }
-            }
-            tabButtons[tab] = tabBtn
-            navBar.addView(tabBtn)
+        primaryDestinations.forEach { destination ->
+            val navItem = DualDexComponents.navigationItem(
+                context,
+                destination.iconRes,
+                destination.tab.title
+            ) { navigateTo(destination.tab) }
+            tabButtons[destination.tab] = navItem
+            navBar.addView(navItem, LayoutParams(0, context.dp(DualDexTheme.Control.primaryNavigationHeight), 1f))
         }
-        navScroll.addView(navBar)
-        addView(navScroll)
+        addView(navBar, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
-        // Initial tab
+        updateContextBar()
         switchTab(viewModel.selectedTab.value)
     }
 
-    private var currentTab: CompanionTab = CompanionTab.HOME
     fun switchTab(tab: CompanionTab) {
-        val targetTab = if (tab == CompanionTab.BATTLE && !viewModel.isBattleTabEnabled.value) {
-            CompanionTab.HOME
-        } else {
-            tab
-        }
-        currentTab = targetTab
+        currentTab = tab
         contentContainer.removeAllViews()
-
         val activeView: View = when (tab) {
-            CompanionTab.HOME -> {
-                homeView.updateResumeCard()
-                homeView.updateFolderStatus()
-                homeView
+            CompanionTab.HOME -> homeView.apply {
+                updateResumeCard()
+                updateFolderStatus()
             }
-            CompanionTab.PARTY -> {
-                partyView.refreshUI()
-                partyView
-            }
-            CompanionTab.MAP -> {
-                mapView.refreshUI()
-                mapView
-            }
-            CompanionTab.CALC -> {
-                calcView.refreshUI()
-                calcView
-            }
-            CompanionTab.BATTLE -> {
-                battleView.refreshUI()
-                battleView
-            }
+            CompanionTab.PARTY -> partyView.apply { refreshUI() }
+            CompanionTab.MAP -> mapView.apply { refreshUI() }
+            CompanionTab.CALC -> calcView.apply { refreshUI() }
+            CompanionTab.BATTLE -> battleView.apply { refreshUI() }
             CompanionTab.TYPES -> typesView
-            CompanionTab.DOCS -> {
-                docsView.refreshUI()
-                docsView
-            }
-            CompanionTab.CHEATS -> {
-                cheatsView.refreshUI()
-                cheatsView
-            }
-            CompanionTab.SAVES -> {
-                savesView.refreshUI()
-                savesView
-            }
+            CompanionTab.DOCS -> docsView.apply { refreshUI() }
+            CompanionTab.CHEATS -> cheatsView.apply { refreshUI() }
+            CompanionTab.SAVES -> savesView.apply { refreshUI() }
             CompanionTab.ASSISTANT -> assistantView
             CompanionTab.SETTINGS -> settingsView
+            CompanionTab.MORE -> moreView
         }
         contentContainer.addView(activeView)
-
-        tabButtons.forEach { (t, btn) ->
-            val isSelected = (t == tab)
-            btn.setTextColor(if (isSelected) 0xFF4A9EFF.toInt() else 0xFF888899.toInt())
-            btn.background = if (isSelected) {
-                GradientDrawable().apply {
-                    cornerRadius = 12f
-                    setColor(0xFF222B3D.toInt())
-                }
-            } else null
-        }
+        updateNavigationSelection(tab)
     }
 
     fun refreshHomeScreen() {
@@ -287,137 +188,96 @@ class CompanionScreenView(
 
     fun notifyProfileChanged() {
         post {
-            val prof = viewModel.activeProfile.value
-            profileLabel.text = "⚡ ${prof.name}"
-            if (viewModel.selectedTab.value == CompanionTab.HOME) homeView.updateResumeCard()
-            if (viewModel.selectedTab.value == CompanionTab.PARTY) partyView.refreshUI()
-            if (viewModel.selectedTab.value == CompanionTab.MAP) mapView.refreshUI()
-            if (viewModel.selectedTab.value == CompanionTab.CALC) calcView.refreshUI()
-            if (viewModel.selectedTab.value == CompanionTab.BATTLE) battleView.refreshUI()
-            if (viewModel.selectedTab.value == CompanionTab.TYPES) typesView.updateMatchupDisplay()
-            if (viewModel.selectedTab.value == CompanionTab.CHEATS) cheatsView.refreshUI()
-            if (viewModel.selectedTab.value == CompanionTab.SAVES) savesView.refreshUI()
+            updateContextBar()
+            when (viewModel.selectedTab.value) {
+                CompanionTab.HOME -> homeView.updateResumeCard()
+                CompanionTab.PARTY -> partyView.refreshUI()
+                CompanionTab.MAP -> mapView.refreshUI()
+                CompanionTab.CALC -> calcView.refreshUI()
+                CompanionTab.BATTLE -> battleView.refreshUI()
+                CompanionTab.TYPES -> typesView.updateMatchupDisplay()
+                CompanionTab.CHEATS -> cheatsView.refreshUI()
+                CompanionTab.SAVES -> savesView.refreshUI()
+                else -> Unit
+            }
         }
     }
 
     fun notifyPartyUpdated() {
         post {
-            val inBattle = viewModel.isInBattle.value
-            battleBadge.text = if (inBattle) "⚔️ Battle" else "Ready"
-            battleBadge.setTextColor(if (inBattle) 0xFFFF6B6B.toInt() else 0xFF50C878.toInt())
-
-            if (viewModel.selectedTab.value == CompanionTab.PARTY) {
-                partyView.refreshUI()
-            } else if (viewModel.selectedTab.value == CompanionTab.CALC) {
-                calcView.refreshUI()
-            } else if (viewModel.selectedTab.value == CompanionTab.BATTLE) {
-                battleView.refreshUI()
+            updateContextBar()
+            when (viewModel.selectedTab.value) {
+                CompanionTab.PARTY -> partyView.refreshUI()
+                CompanionTab.CALC -> calcView.refreshUI()
+                CompanionTab.BATTLE -> battleView.refreshUI()
+                else -> Unit
             }
         }
     }
 
     fun refreshSavesTab() {
         post {
-            if (viewModel.selectedTab.value == CompanionTab.SAVES) {
-                savesView.refreshUI()
-            }
+            if (viewModel.selectedTab.value == CompanionTab.SAVES) savesView.refreshUI()
         }
     }
 
-    fun updateSystemStatus() {
-        post {
-            try {
-                // 1. Time (12-hour format with AM/PM)
-                val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-                timeView.text = "🕒 ${timeFormat.format(Date())}"
+    private fun navigateTo(tab: CompanionTab) {
+        viewModel.selectTab(tab)
+        switchTab(tab)
+    }
 
-                // 2. Battery Percentage and Status via sticky intent
-                val batteryStatus: Intent? = context.registerReceiver(
-                    null,
-                    IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-                )
-                if (batteryStatus != null) {
-                    val level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                    val scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-                    val status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                    val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                            status == BatteryManager.BATTERY_STATUS_FULL
-                    val pct = if (scale > 0 && level >= 0) (level * 100 / scale) else -1
-                    if (pct >= 0) {
-                        val icon = if (isCharging) "⚡" else if (pct <= 20) "🪫" else "🔋"
-                        batteryView.text = "$icon $pct%"
-                        batteryView.setTextColor(
-                            if (isCharging) 0xFF4A9EFF.toInt()
-                            else if (pct <= 20) 0xFFFF6B6B.toInt()
-                            else 0xFF50C878.toInt()
-                        )
-                    } else {
-                        batteryView.text = "🔋 --%"
-                    }
-                }
-            } catch (e: Throwable) {
-                // Ignore background status read errors
-            }
+    private fun updateNavigationSelection(tab: CompanionTab) {
+        val primaryTab = when (tab) {
+            CompanionTab.HOME, CompanionTab.PARTY, CompanionTab.BATTLE, CompanionTab.MAP -> tab
+            else -> CompanionTab.MORE
+        }
+        tabButtons.forEach { (destination, button) ->
+            button.setSelectedState(destination == primaryTab)
         }
     }
 
-    private var viewScope: CoroutineScope? = null
+    private fun updateContextBar() {
+        val identity = viewModel.activeRomIdentity.value
+        val inBattle = viewModel.isInBattle.value
+        if (identity != null) {
+            profileLabel.text = "${identity.displayName} · ${viewModel.activeProfile.value.name}"
+            profileLabel.visibility = View.VISIBLE
+        } else {
+            profileLabel.visibility = View.GONE
+        }
+        battleIndicator.visibility = if (inBattle) View.VISIBLE else View.GONE
+        contextBar.visibility = if (identity != null || inBattle) View.VISIBLE else View.GONE
+    }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        updateSystemStatus()
-        postDelayed(statusUpdateRunnable, 15000L)
-
         viewScope?.cancel()
         val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         viewScope = scope
 
-        scope.launch {
-            viewModel.playerParty.collectLatest {
-                notifyPartyUpdated()
-            }
-        }
-        scope.launch {
-            viewModel.activeProfile.collectLatest {
-                notifyProfileChanged()
-            }
-        }
+        scope.launch { viewModel.playerParty.collectLatest { notifyPartyUpdated() } }
+        scope.launch { viewModel.activeProfile.collectLatest { notifyProfileChanged() } }
+        scope.launch { viewModel.activeRomIdentity.collectLatest { notifyProfileChanged() } }
         var wasInBattle = false
         scope.launch {
             viewModel.isInBattle.collectLatest { inBattle ->
                 notifyPartyUpdated()
-                if (inBattle && !wasInBattle && viewModel.isBattleTabEnabled.value) {
-                    if (currentTab != CompanionTab.BATTLE) {
-                        viewModel.selectTab(CompanionTab.BATTLE)
-                        switchTab(CompanionTab.BATTLE)
-                    }
+                if (inBattle && !wasInBattle && viewModel.isBattleTabEnabled.value && currentTab != CompanionTab.BATTLE) {
+                    navigateTo(CompanionTab.BATTLE)
                 }
                 wasInBattle = inBattle
             }
         }
         scope.launch {
-            viewModel.isBattleTabEnabled.collectLatest { enabled ->
-                tabButtons[CompanionTab.BATTLE]?.visibility = if (enabled) View.VISIBLE else View.GONE
-                if (!enabled && currentTab == CompanionTab.BATTLE) {
-                    viewModel.selectTab(CompanionTab.HOME)
-                    switchTab(CompanionTab.HOME)
-                }
-            }
-        }
-        scope.launch {
             viewModel.selectedTab.collectLatest { tab ->
-                if (currentTab != tab) {
-                    switchTab(tab)
-                }
+                if (currentTab != tab) switchTab(tab)
             }
         }
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        removeCallbacks(statusUpdateRunnable)
         viewScope?.cancel()
         viewScope = null
     }
 }
-

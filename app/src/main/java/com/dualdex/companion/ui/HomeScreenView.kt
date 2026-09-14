@@ -24,7 +24,8 @@ class HomeScreenView(
     private val viewModel: CompanionViewModel,
     private val onChooseRomsFolderRequested: (() -> Unit)? = null,
     private val onRefreshRomsRequested: (() -> Unit)? = null,
-    private val onPlayRomRequested: ((Uri, String) -> Unit)? = null
+    private val onPlayRomRequested: ((Uri, String) -> Unit)? = null,
+    private val onOpenRomRequested: (() -> Unit)? = null
 ) : LinearLayout(context) {
 
     private val settingsManager = SettingsManager(context)
@@ -166,6 +167,15 @@ class HomeScreenView(
             btnRow.addView(refreshBtn, lpRef)
 
             addView(btnRow)
+
+            if (onOpenRomRequested != null) {
+                val openRomBtn = DualDexComponents.secondaryButton(context, "Open ROM File") {
+                    onOpenRomRequested.invoke()
+                }
+                addView(openRomBtn, LayoutParams(LayoutParams.MATCH_PARENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
+                    topMargin = context.dp(DualDexTheme.Spacing.compact)
+                })
+            }
         }
         content.addView(folderCard)
 

@@ -50,6 +50,12 @@ The second screen should feel like an instrument panel for the game running abov
 
 The information should be visually more important than the containers around it.
 
+## Implementation Status
+
+The shared View-based foundation and global navigation shell are now in place. `DualDexTheme` and `DualDexComponents` establish semantic color, spacing, radius, typography, surface, button, and interaction-state tokens for new companion chrome. The shell now exposes Library, Party, Battle, Map, and More through vector-backed navigation; legacy Calculator and Type Matchups remain available from More as secondary Battle tools.
+
+The existing `BattleConsoleScreenView` is now the primary Battle destination. Its internal visual treatment remains intentionally out of scope for this foundation pass and should receive its own focused redesign later.
+
 ---
 
 # What Is Already Working
@@ -1051,23 +1057,23 @@ Controller UX should be considered part of the design system, not an afterthough
 
 ## Phase 1 — Foundation
 
-- [ ] Create shared color tokens.
-- [ ] Create spacing/radius tokens.
+- [x] Create shared color tokens.
+- [x] Create spacing/radius tokens.
 - [ ] Convert raw pixels to dp.
-- [ ] Create shared typography styles.
-- [ ] Create standard button/input/surface components.
-- [ ] Add pressed/focused/disabled states.
-- [ ] Replace emoji navigation icons with vectors.
+- [x] Create shared typography styles.
+- [x] Create standard button/input/surface components.
+- [x] Add pressed/focused/disabled states.
+- [x] Replace emoji navigation icons with vectors.
 
 ## Phase 2 — Navigation and Global Chrome
 
-- [ ] Reduce navigation from ten destinations to five primary destinations.
-- [ ] Create `Library / Party / Battle / Map / More` structure.
+- [x] Reduce navigation from ten destinations to five primary destinations.
+- [x] Create `Library / Party / Battle / Map / More` structure.
 - [ ] Merge Type Matchups into Battle.
-- [ ] Move Saves/Docs/Assistant/Cheats/Settings into More.
-- [ ] Simplify global header.
-- [ ] Move Open ROM action into Library.
-- [ ] Remove permanent Ready/LIVE badges where unnecessary.
+- [x] Move Saves/Docs/Assistant/Cheats/Settings into More.
+- [x] Simplify global header.
+- [x] Move Open ROM action into Library.
+- [x] Remove permanent Ready/LIVE badges where unnecessary.
 
 ## Phase 3 — Highest-Value Screens
 

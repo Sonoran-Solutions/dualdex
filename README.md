@@ -113,6 +113,8 @@ cd dualdex
 ./ci.sh test     # native C parser tests + Kotlin unit tests
 ./ci.sh build    # assemble the debug APK
 ./ci.sh all      # test, then build
+./ci.sh release  # assemble the production-signed release APK (requires
+                 # external signing credentials; fails closed if missing)
 ```
 
 `./ci.sh` is the canonical, fail-closed build/test contract and is what GitHub
@@ -124,6 +126,10 @@ The debug APK is written to:
 ```text
 app/build/outputs/apk/debug/app-debug.apk
 ```
+
+Release builds are covered in [RELEASE_ENGINEERING.md](RELEASE_ENGINEERING.md),
+which documents the permanent application ID, the versioning policy, the
+fail-closed release-signing workflow, and artifact verification.
 
 ### Native parser tests
 

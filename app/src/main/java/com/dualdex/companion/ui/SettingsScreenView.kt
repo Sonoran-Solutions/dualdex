@@ -11,6 +11,8 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import com.dualdex.BuildInfo
+import com.dualdex.BuildInfoFormatter
 import com.dualdex.assistant.RomHackAssistant
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.ShaderFilter
@@ -417,13 +419,21 @@ class SettingsScreenView(
             addView(DualDexComponents.sectionTitle(context, "About & Diagnostics"))
 
             val versionTv = TextView(context).apply {
-                text = "DualDex ${context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "Unknown"} · Handheld Edition"
+                text = BuildInfoFormatter.versionLabel(BuildInfo.versionName)
                 setTextColor(DualDexTheme.Color.textPrimary)
                 textSize = DualDexTheme.Type.body
                 typeface = Typeface.DEFAULT_BOLD
                 setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, 0)
             }
             addView(versionTv)
+
+            val buildMetaTv = TextView(context).apply {
+                text = BuildInfoFormatter.buildMetaLine(BuildInfo.versionCode, BuildInfo.buildType)
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
+            }
+            addView(buildMetaTv)
 
             val diagnosticsTv = TextView(context).apply {
                 text = "Target: 59.7 FPS · EWRAM Poller: 10 Hz · Audio: 32,768 Hz stereo PCM"

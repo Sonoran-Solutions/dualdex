@@ -1,0 +1,16 @@
+# DualDex production release signing — EXAMPLE ONLY. Contains no real secrets.
+#
+# How to use:
+#   1. Generate a long-lived production signing key OUTSIDE the repository
+#      (see RELEASE_ENGINEERING.md for the keytool steps and safety rules).
+#   2. Copy this file to `signing.properties` at the repository root.
+#   3. Fill in the REAL values. `signing.properties` is gitignored and must
+#      never be committed.
+#
+# Environment variables with these same names may be used instead, and take
+# precedence over this file.
+
+DUALDEX_KEYSTORE_PATH=/absolute/path/to/dualdex-release.keystore
+DUALDEX_KEYSTORE_PASSWORD=
+DUALDEX_KEY_ALIAS=dualdex
+DUALDEX_KEY_PASSWORD=

@@ -24,9 +24,10 @@ Before working down the individual tasks, keep the following release-level rules
 
 ### Lock Permanent App Identity Before Distribution
 
-- [ ] Decide whether the current Android application ID/package (`com.dualdex`) is the permanent identity before distributing public builds.
+- [x] Decide whether the current Android application ID/package (`com.dualdex`) is the permanent identity before distributing public builds. **Decision: `com.dualdex` is the permanent public application ID** (see [RELEASE_ENGINEERING.md](RELEASE_ENGINEERING.md)).
 - [ ] Generate and begin testing with the permanent production signing key before public beta.
-- [ ] Establish release versioning (`0.9.0-beta.1`, `beta.2`, etc.) before the first public APK.
+- [x] Establish release versioning infrastructure and policy before the first public APK. **Policy established: monotonic `versionCode` (+1 per distributed build) with `versionName` carrying the semantic version. Current development identity on `main` is `0.9.0-dev`, `versionCode = 1`.** (see [RELEASE_ENGINEERING.md](RELEASE_ENGINEERING.md))
+- [ ] Set/cut the actual first public beta as `0.9.0-beta.1`. **Not yet cut: DualDex remains pre-beta pending compatibility work. The beta `versionName` is set intentionally at release time; `versionCode 1` may be used for it if no `versionCode 1` build has been distributed externally.**
 - [ ] Introduce a persistent storage/settings schema version so future releases can run explicit migrations rather than relying on old files continuing to work by accident.
 - [ ] Create a known-good pre-hardening tag/branch before the deeper save/core/profile refactors so regressions are easy to bisect or revert.
 
@@ -252,17 +253,20 @@ Should define:
 
 ### Versioning
 
-- [ ] Change version from `1.0.0` to a beta version, e.g. `0.9.0-beta.1`.
-- [ ] Establish versioning rules before release.
-- [ ] Include version number in Settings/About.
+- [x] Establish versioning infrastructure and rules before release. **Monotonic `versionCode` policy in [RELEASE_ENGINEERING.md](RELEASE_ENGINEERING.md).**
+- [x] Include version number in Settings/About. **About & Diagnostics shows version, versionCode, and build type from `BuildConfig` metadata.**
+- [ ] Set/cut the actual first public beta as `0.9.0-beta.1`. **Current development identity is `0.9.0-dev`; the beta version is set at the release cut once product/compatibility requirements are satisfied.**
+
+> **Ready to produce a beta later does not mean a beta has been produced.** The
+> release-engineering infrastructure is in place, but DualDex is still pre-beta.
 
 ### Android Signing
 
 - [ ] Generate a permanent production signing key.
 - [ ] Back the signing key up securely in more than one safe location.
-- [ ] Never ship a public release signed using a temporary/debug key.
+- [x] Never ship a public release signed using a temporary/debug key. **Enforced fail-closed in `app/build.gradle.kts`: release has no debug-signing fallback and fails without credentials.**
 - [ ] Use the same signing identity for all future public builds.
-- [ ] Document the release-signing process privately.
+- [x] Document the release-signing process. **Documented in [RELEASE_ENGINEERING.md](RELEASE_ENGINEERING.md) (no secrets committed; key generation/backup remain human steps).**
 
 ### GitHub Releases
 

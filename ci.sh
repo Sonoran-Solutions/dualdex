@@ -8,6 +8,8 @@
 #   ./ci.sh test     # native C runner + Kotlin unit tests
 #   ./ci.sh build    # assemble the debug APK
 #   ./ci.sh all      # test then build (default)
+#   ./ci.sh release  # assemble the production-signed release APK (requires
+#                    # external signing credentials; fails closed if missing)
 #
 # The contract is deterministic, non-interactive, and fail-closed: every
 # authoritative check is required. A missing host C compiler, a missing or
@@ -78,9 +80,16 @@ gradle_build() {
   ./gradlew assembleDebug
 }
 
+gradle_release() {
+  echo "== gradle assembleRelease (production signing required) =="
+  init_submodules
+  ./gradlew assembleRelease
+}
+
 case "${1:-all}" in
-  test)  native_test; gradle_test ;;
-  build) gradle_build ;;
-  all)   native_test; gradle_test; gradle_build ;;
-  *)     echo "usage: $0 [test|build|all]" >&2; exit 2 ;;
+  test)    native_test; gradle_test ;;
+  build)   gradle_build ;;
+  all)     native_test; gradle_test; gradle_build ;;
+  release) gradle_release ;;
+  *)       echo "usage: $0 [test|build|all|release]" >&2; exit 2 ;;
 esac

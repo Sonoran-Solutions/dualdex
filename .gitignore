@@ -15,3 +15,9 @@ calc_test_runner
 cores/build-*
 cores/mgba-src/
 tools/calc-bundler/node_modules/
+
+# Release signing secrets — never commit production keys or credentials.
+*.jks
+*.keystore
+keystore.properties
+signing.properties

@@ -17,6 +17,15 @@ data class PersistableGrantResult(
 )
 
 /**
+ * State of a URI permission in persistedUriPermissions prior to acquisition attempt.
+ */
+enum class PreExistingGrantState {
+    PRESENT,
+    ABSENT,
+    UNKNOWN
+}
+
+/**
  * Manages Storage Access Framework (SAF) persistable read permissions and hygiene
  * for individually opened ROMs, ensuring Continue works across restart/reboot.
  */
@@ -28,46 +37,82 @@ object RomUriPermissionManager {
         "DualDex can no longer access this ROM. Select the ROM again to continue. Your DualDex saves are still preserved."
 
     /**
-     * Checks if the given URI is already held in the ContentResolver's persisted URI permissions.
+     * Inspects the ContentResolver's persisted URI permissions to determine whether the URI
+     * was already held prior to an acquisition attempt.
      */
-    fun isUriPersisted(contentResolver: ContentResolver?, uri: Uri?): Boolean {
-        if (contentResolver == null || uri == null) return false
+    fun checkPreExistingGrantState(contentResolver: ContentResolver?, uri: Uri?): PreExistingGrantState {
+        if (contentResolver == null || uri == null) return PreExistingGrantState.UNKNOWN
         return try {
             val list = contentResolver.persistedUriPermissions
-            list.any { perm ->
+            val exists = list.any { perm ->
                 perm.isReadPermission && (perm.uri == uri || perm.uri.toString() == uri.toString())
             }
+            if (exists) PreExistingGrantState.PRESENT else PreExistingGrantState.ABSENT
         } catch (e: SecurityException) {
             Log.w(TAG, "SecurityException querying persistedUriPermissions for $uri: ${e.message}")
-            false
-        } catch (e: Throwable) {
+            PreExistingGrantState.UNKNOWN
+        } catch (e: Exception) {
             Log.w(TAG, "Error querying persistedUriPermissions for $uri: ${e.message}")
-            false
+            PreExistingGrantState.UNKNOWN
         }
     }
 
     /**
+     * Checks if the given URI is already held in the ContentResolver's persisted URI permissions.
+     */
+    fun isUriPersisted(contentResolver: ContentResolver?, uri: Uri?): Boolean {
+        return checkPreExistingGrantState(contentResolver, uri) == PreExistingGrantState.PRESENT
+    }
+
+    /**
      * Pure helper to determine the durability and newly-acquired status of a ROM grant.
+     * Only local/no-scheme and file:// URIs are inherently durable.
+     * Non-content, non-file schemes (e.g. http://, custom://) are not durable.
      */
     fun determineGrantResult(
         uriStr: String?,
-        isAlreadyPersisted: Boolean,
+        preExistingState: PreExistingGrantState,
         takePermissionSuccess: Boolean
     ): PersistableGrantResult {
         if (uriStr.isNullOrBlank()) {
             return PersistableGrantResult(isDurable = false, isNewlyAcquired = false)
         }
-        if (!isContentUri(uriStr)) {
+        if (isLocalOrFileUri(uriStr)) {
             // Direct file:// or local paths are inherently durable as long as the file exists on disk
             return PersistableGrantResult(isDurable = true, isNewlyAcquired = false)
+        }
+        if (!isContentUri(uriStr)) {
+            // Arbitrary non-content, non-file schemes (e.g. http://, ftp://, custom://) are not durable
+            return PersistableGrantResult(isDurable = false, isNewlyAcquired = false)
         }
         if (!takePermissionSuccess) {
             return PersistableGrantResult(isDurable = false, isNewlyAcquired = false)
         }
         return PersistableGrantResult(
             isDurable = true,
-            isNewlyAcquired = !isAlreadyPersisted
+            isNewlyAcquired = (preExistingState == PreExistingGrantState.ABSENT)
         )
+    }
+
+    /**
+     * Backward-compatible overload accepting a boolean indicating whether the URI was already persisted.
+     */
+    fun determineGrantResult(
+        uriStr: String?,
+        isAlreadyPersisted: Boolean,
+        takePermissionSuccess: Boolean
+    ): PersistableGrantResult {
+        val state = if (isAlreadyPersisted) PreExistingGrantState.PRESENT else PreExistingGrantState.ABSENT
+        return determineGrantResult(uriStr, state, takePermissionSuccess)
+    }
+
+    /**
+     * Checks whether a URI string refers to a local file (file:// scheme or no-scheme path).
+     */
+    fun isLocalOrFileUri(uriStr: String?): Boolean {
+        if (uriStr == null) return false
+        if (!uriStr.contains("://")) return true
+        return uriStr.startsWith("file://", ignoreCase = true)
     }
 
     /**
@@ -78,7 +123,7 @@ object RomUriPermissionManager {
     fun takePersistableReadPermission(
         contentResolver: ContentResolver?,
         uri: Uri?,
-        alreadyPersistedChecker: ((Uri) -> Boolean)? = null
+        preExistingStateChecker: ((Uri) -> PreExistingGrantState)? = null
     ): PersistableGrantResult {
         if (uri == null) return PersistableGrantResult(isDurable = false, isNewlyAcquired = false)
         val scheme = uri.scheme
@@ -88,37 +133,42 @@ object RomUriPermissionManager {
             return PersistableGrantResult(isDurable = true, isNewlyAcquired = false)
         }
 
+        if (scheme != "content") {
+            Log.w(TAG, "Unsupported non-content scheme '$scheme' for ROM URI: $uri; not durable")
+            return PersistableGrantResult(isDurable = false, isNewlyAcquired = false)
+        }
+
         if (contentResolver == null) {
             Log.w(TAG, "ContentResolver is null; cannot take persistable URI permission for $uri")
             return PersistableGrantResult(isDurable = false, isNewlyAcquired = false)
         }
 
-        val wasAlreadyPersisted = alreadyPersistedChecker?.invoke(uri)
-            ?: isUriPersisted(contentResolver, uri)
+        val preExistingState = preExistingStateChecker?.invoke(uri)
+            ?: checkPreExistingGrantState(contentResolver, uri)
 
         return try {
             contentResolver.takePersistableUriPermission(
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
-            Log.i(TAG, "Successfully persisted read URI permission for $uri (wasAlreadyPersisted=$wasAlreadyPersisted)")
+            Log.i(TAG, "Successfully persisted read URI permission for $uri (preExistingState=$preExistingState)")
             determineGrantResult(
                 uriStr = uri.toString(),
-                isAlreadyPersisted = wasAlreadyPersisted,
+                preExistingState = preExistingState,
                 takePermissionSuccess = true
             )
         } catch (e: SecurityException) {
             Log.w(TAG, "Document provider does not support persistable URI permissions for $uri: ${e.message}")
             determineGrantResult(
                 uriStr = uri.toString(),
-                isAlreadyPersisted = wasAlreadyPersisted,
+                preExistingState = preExistingState,
                 takePermissionSuccess = false
             )
         } catch (e: Exception) {
             Log.w(TAG, "Recoverable error taking persistable URI permission for $uri: ${e.message}")
             determineGrantResult(
                 uriStr = uri.toString(),
-                isAlreadyPersisted = wasAlreadyPersisted,
+                preExistingState = preExistingState,
                 takePermissionSuccess = false
             )
         }

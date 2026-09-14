@@ -977,40 +977,71 @@ class RomDurableResumeTest {
         // Null / blank URI
         assertEquals(
             PersistableGrantResult(isDurable = false, isNewlyAcquired = false),
-            RomUriPermissionManager.determineGrantResult(null, isAlreadyPersisted = false, takePermissionSuccess = true)
+            RomUriPermissionManager.determineGrantResult(null, PreExistingGrantState.ABSENT, takePermissionSuccess = true)
         )
         assertEquals(
             PersistableGrantResult(isDurable = false, isNewlyAcquired = false),
-            RomUriPermissionManager.determineGrantResult("", isAlreadyPersisted = false, takePermissionSuccess = true)
+            RomUriPermissionManager.determineGrantResult("", PreExistingGrantState.ABSENT, takePermissionSuccess = true)
         )
 
         // file:// URI: durable = true, newlyAcquired = false regardless of takePermissionSuccess
         assertEquals(
             PersistableGrantResult(isDurable = true, isNewlyAcquired = false),
-            RomUriPermissionManager.determineGrantResult("file:///test.gba", isAlreadyPersisted = false, takePermissionSuccess = true)
+            RomUriPermissionManager.determineGrantResult("file:///test.gba", PreExistingGrantState.ABSENT, takePermissionSuccess = true)
         )
         assertEquals(
             PersistableGrantResult(isDurable = true, isNewlyAcquired = false),
-            RomUriPermissionManager.determineGrantResult("file:///test.gba", isAlreadyPersisted = true, takePermissionSuccess = false)
+            RomUriPermissionManager.determineGrantResult("file:///test.gba", PreExistingGrantState.PRESENT, takePermissionSuccess = false)
         )
 
-        // content:// URI already persisted before call: durable = true, newlyAcquired = false
+        // Local no-scheme path: durable = true, newlyAcquired = false
+        assertEquals(
+            PersistableGrantResult(isDurable = true, isNewlyAcquired = false),
+            RomUriPermissionManager.determineGrantResult("/storage/emulated/0/test.gba", PreExistingGrantState.ABSENT, takePermissionSuccess = true)
+        )
+
+        // Unsupported arbitrary schemes: http://, https://, custom:// must NOT be durable
+        assertEquals(
+            PersistableGrantResult(isDurable = false, isNewlyAcquired = false),
+            RomUriPermissionManager.determineGrantResult("http://example.com/test.gba", PreExistingGrantState.ABSENT, takePermissionSuccess = true)
+        )
+        assertEquals(
+            PersistableGrantResult(isDurable = false, isNewlyAcquired = false),
+            RomUriPermissionManager.determineGrantResult("https://example.com/test.gba", PreExistingGrantState.ABSENT, takePermissionSuccess = true)
+        )
+        assertEquals(
+            PersistableGrantResult(isDurable = false, isNewlyAcquired = false),
+            RomUriPermissionManager.determineGrantResult("custom://myprovider/test.gba", PreExistingGrantState.ABSENT, takePermissionSuccess = true)
+        )
+
         val contentUri = "content://com.android.providers.media.documents/document/1"
+
+        // content:// URI already persisted (PRESENT): durable = true, newlyAcquired = false
         assertEquals(
             PersistableGrantResult(isDurable = true, isNewlyAcquired = false),
-            RomUriPermissionManager.determineGrantResult(contentUri, isAlreadyPersisted = true, takePermissionSuccess = true)
+            RomUriPermissionManager.determineGrantResult(contentUri, PreExistingGrantState.PRESENT, takePermissionSuccess = true)
         )
 
-        // content:// URI newly persisted successfully: durable = true, newlyAcquired = true
+        // content:// URI newly persisted (ABSENT): durable = true, newlyAcquired = true
         assertEquals(
             PersistableGrantResult(isDurable = true, isNewlyAcquired = true),
-            RomUriPermissionManager.determineGrantResult(contentUri, isAlreadyPersisted = false, takePermissionSuccess = true)
+            RomUriPermissionManager.determineGrantResult(contentUri, PreExistingGrantState.ABSENT, takePermissionSuccess = true)
+        )
+
+        // content:// URI with pre-existing state UNKNOWN: durable = true, newlyAcquired = false (fail-safe)
+        assertEquals(
+            PersistableGrantResult(isDurable = true, isNewlyAcquired = false),
+            RomUriPermissionManager.determineGrantResult(contentUri, PreExistingGrantState.UNKNOWN, takePermissionSuccess = true)
         )
 
         // content:// URI provider refuses persistence: durable = false, newlyAcquired = false
         assertEquals(
             PersistableGrantResult(isDurable = false, isNewlyAcquired = false),
-            RomUriPermissionManager.determineGrantResult(contentUri, isAlreadyPersisted = false, takePermissionSuccess = false)
+            RomUriPermissionManager.determineGrantResult(contentUri, PreExistingGrantState.ABSENT, takePermissionSuccess = false)
+        )
+        assertEquals(
+            PersistableGrantResult(isDurable = false, isNewlyAcquired = false),
+            RomUriPermissionManager.determineGrantResult(contentUri, PreExistingGrantState.UNKNOWN, takePermissionSuccess = false)
         )
     }
 
@@ -1027,5 +1058,70 @@ class RomDurableResumeTest {
             protectedUris = emptySet(),
             isNewlyAcquired = true
         )
+    }
+
+    /**
+     * 21. Tri-state UNKNOWN: pre-existing-state lookup UNKNOWN + take succeeds:
+     *     -> durable = true, newlyAcquired = false.
+     *     -> failed switch does NOT release candidate grant (never revoke a grant we cannot prove was created by this attempt).
+     */
+    @Test
+    fun testPreExistingStateUnknown_takeSucceeds_durableTrueNewlyAcquiredFalse_failedSwitchDoesNotRelease() {
+        val uriStrA = "content://com.android.providers.media.documents/document/100"
+        val uriStrB = "content://com.android.providers.media.documents/document/200"
+        val protectedUris = setOf("content://com.android.externalstorage.documents/tree/primary%3ARoms")
+
+        val grant = RomUriPermissionManager.determineGrantResult(
+            uriStr = uriStrB,
+            preExistingState = PreExistingGrantState.UNKNOWN,
+            takePermissionSuccess = true
+        )
+
+        assertTrue("Grant with UNKNOWN pre-existing state must be durable if take succeeded", grant.isDurable)
+        assertFalse("Grant with UNKNOWN pre-existing state must NOT be classified as newly acquired", grant.isNewlyAcquired)
+
+        // On failed switch, cleanup must NOT release candidate grant
+        assertFalse(
+            "Rollback must never revoke a grant we cannot prove was created by this attempt",
+            RomUriPermissionManager.shouldReleaseFailedCandidateUri(
+                candidateUriStr = uriStrB,
+                currentContinueUriStr = uriStrA,
+                protectedUris = protectedUris,
+                isNewlyAcquired = grant.isNewlyAcquired
+            )
+        )
+    }
+
+    /**
+     * 22. Unsupported non-content, non-file schemes:
+     *     -> must not become durable.
+     */
+    @Test
+    fun testUnsupportedScheme_notDurable() {
+        val httpUri = "http://example.com/pokemon.gba"
+        val httpsUri = "https://example.com/pokemon.gba"
+        val customUri = "custom://emulator/rom.gba"
+
+        assertFalse(RomUriPermissionManager.determineGrantResult(httpUri, PreExistingGrantState.ABSENT, true).isDurable)
+        assertFalse(RomUriPermissionManager.determineGrantResult(httpsUri, PreExistingGrantState.ABSENT, true).isDurable)
+        assertFalse(RomUriPermissionManager.determineGrantResult(customUri, PreExistingGrantState.ABSENT, true).isDurable)
+    }
+
+    /**
+     * 23. Existing PRESENT / ABSENT behavior remains unchanged:
+     *     -> PRESENT: durable = true, newlyAcquired = false.
+     *     -> ABSENT: durable = true, newlyAcquired = true.
+     */
+    @Test
+    fun testPreExistingStatePresentAndAbsent_behaviorPreserved() {
+        val contentUri = "content://com.android.providers.media.documents/document/500"
+
+        val presentGrant = RomUriPermissionManager.determineGrantResult(contentUri, PreExistingGrantState.PRESENT, true)
+        assertTrue(presentGrant.isDurable)
+        assertFalse(presentGrant.isNewlyAcquired)
+
+        val absentGrant = RomUriPermissionManager.determineGrantResult(contentUri, PreExistingGrantState.ABSENT, true)
+        assertTrue(absentGrant.isDurable)
+        assertTrue(absentGrant.isNewlyAcquired)
     }
 }

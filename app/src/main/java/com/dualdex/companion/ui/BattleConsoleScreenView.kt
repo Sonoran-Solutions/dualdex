@@ -591,7 +591,7 @@ class BattleConsoleScreenView(
         val root = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = context.dp(44)
+            minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
             setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.tight))
         }
 
@@ -652,7 +652,7 @@ class BattleConsoleScreenView(
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             minWidth = context.dp(72)
-            minimumHeight = context.dp(32)
+            minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
             setPadding(context.dp(DualDexTheme.Spacing.compact), context.dp(4), context.dp(DualDexTheme.Spacing.compact), context.dp(4))
             background = DualDexComponents.controlBackground(context, DualDexButtonStyle.SECONDARY, selected = false)
         }

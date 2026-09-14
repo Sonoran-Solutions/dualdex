@@ -113,8 +113,8 @@ class CompanionViewModel(
     private val _playerLocation = MutableStateFlow<PlayerLocation?>(null)
     val playerLocation: StateFlow<PlayerLocation?> = _playerLocation.asStateFlow()
 
-    private val _resolvedLocation = MutableStateFlow<RegionMapSection>(RegionMapDatabase.JOHTO_DEFAULT)
-    val resolvedLocation: StateFlow<RegionMapSection> = _resolvedLocation.asStateFlow()
+    private val _resolvedLocation = MutableStateFlow<RegionMapSection?>(null)
+    val resolvedLocation: StateFlow<RegionMapSection?> = _resolvedLocation.asStateFlow()
 
     private var pollingJob: Job? = null
     private val battlePresenceStabilizer = com.dualdex.battle.BattlePresenceStabilizer()
@@ -161,7 +161,7 @@ class CompanionViewModel(
         _enemyStatStages.value = com.dualdex.battle.StatStages()
         _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
         _playerLocation.value = null
-        _resolvedLocation.value = RegionMapDatabase.JOHTO_DEFAULT
+        _resolvedLocation.value = null
         battlePresenceStabilizer.reset()
 
         _activeProfile.value = profile
@@ -247,7 +247,7 @@ class CompanionViewModel(
                     if (loc != null && loc.isValid && loc != _playerLocation.value) {
                         _playerLocation.value = loc
                         val isHns = _activeProfile.value.id == "heart_and_soul" || _activeRomTitle.value.contains("HEART", ignoreCase = true)
-                        _resolvedLocation.value = RegionMapDatabase.resolveLocation(gameId, isHns, loc)
+                        _resolvedLocation.value = RegionMapDatabase.resolveLocationOrNull(gameId, isHns, loc)
                     }
                 } catch (e: Throwable) {
                     android.util.Log.e("DualDex_Companion", "Error in memory poller: ${e.message}", e)

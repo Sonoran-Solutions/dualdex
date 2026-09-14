@@ -586,6 +586,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     }
 
     override fun onDestroy() {
+        currentCompanionScreenView?.release()
         super.onDestroy()
         val identity = viewModel.activeRomIdentity.value
         if (identity != null && identity.isValid) {

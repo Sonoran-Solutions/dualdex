@@ -34,6 +34,8 @@ class AssistantScreenView(
 ) : LinearLayout(context) {
 
     private var viewScope: CoroutineScope? = null
+    private var isSending = false
+    private var thinkingCard: View? = null
 
     private val messagesContainer: LinearLayout = LinearLayout(context).apply {
         orientation = VERTICAL
@@ -99,7 +101,7 @@ class AssistantScreenView(
                 queryInput.setText(chipText)
                 submitQuery(chipText)
             }.apply {
-                val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30)).apply {
+                val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
                     if (index > 0) marginStart = context.dp(DualDexTheme.Spacing.compact)
                 }
                 layoutParams = lp
@@ -145,28 +147,33 @@ class AssistantScreenView(
     }
 
     private fun submitQuery(question: String) {
+        if (isSending) return
+        val scope = viewScope ?: return
+        isSending = true
         addUserMessage(question)
         queryInput.setText("")
         askButton.isEnabled = false
         askButton.text = "Thinking..."
 
-        val thinkingCard = addAssistantMessage("Searching game documentation...", emptyList(), emptyList())
+        val card = addAssistantMessage("Searching game documentation...", emptyList(), emptyList())
+        thinkingCard = card
 
-        val scope = viewScope ?: CoroutineScope(Dispatchers.Main + SupervisorJob())
         scope.launch {
             try {
                 val res = RomHackAssistant.askQuestion(context, question, viewModel)
-                if (isActive) {
-                    messagesContainer.removeView(thinkingCard)
+                if (isActive && isAttachedToWindow) {
+                    messagesContainer.removeView(card)
                     addAssistantMessage(res.text, res.citations, res.searchQueries, res.isOfflineFallback)
                 }
             } catch (e: Exception) {
-                if (isActive) {
-                    messagesContainer.removeView(thinkingCard)
+                if (isActive && isAttachedToWindow) {
+                    messagesContainer.removeView(card)
                     addAssistantMessage("Unable to generate answer: ${e.message}", emptyList(), emptyList())
                 }
             } finally {
-                if (isActive) {
+                isSending = false
+                thinkingCard = null
+                if (isAttachedToWindow) {
                     askButton.isEnabled = true
                     askButton.text = "Ask"
                     scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
@@ -290,12 +297,24 @@ class AssistantScreenView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        // A cancelled request may have completed after the previous detach. Always make the
+        // reusable view actionable when it is shown again.
+        isSending = false
+        thinkingCard?.let { messagesContainer.removeView(it) }
+        thinkingCard = null
+        askButton.isEnabled = true
+        askButton.text = "Ask"
         viewScope?.cancel()
         viewScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        thinkingCard?.let { messagesContainer.removeView(it) }
+        thinkingCard = null
+        isSending = false
+        askButton.isEnabled = true
+        askButton.text = "Ask"
         viewScope?.cancel()
         viewScope = null
     }

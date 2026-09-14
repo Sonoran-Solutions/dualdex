@@ -75,6 +75,7 @@ class CompanionPresentation(
     }
 
     override fun onStop() {
+        companionScreenView?.release()
         super.onStop()
         // MainActivity reconstructs this Presentation before any future show().
         presentationScope.cancel()

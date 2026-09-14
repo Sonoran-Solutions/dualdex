@@ -3,6 +3,7 @@ package com.dualdex.companion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.dualdex.companion.ui.BattleMode
 
 class CompanionNavigationTest {
     @Test
@@ -35,5 +36,11 @@ class CompanionNavigationTest {
             assertEquals("Unexpected primary destination for $tab", primaryTab, CompanionNavigation.primaryTabFor(tab))
         }
         assertTrue(CompanionNavigation.primaryTabs.all { it in expected.values })
+    }
+
+    @Test
+    fun globalBattleDestinationRestoresPrimaryBattleMode() {
+        assertEquals(BattleMode.BATTLE, CompanionNavigation.battleModeForGlobalDestination(CompanionTab.BATTLE))
+        assertEquals(null, CompanionNavigation.battleModeForGlobalDestination(CompanionTab.TYPES))
     }
 }

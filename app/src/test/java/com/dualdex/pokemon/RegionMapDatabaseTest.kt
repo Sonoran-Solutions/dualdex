@@ -124,6 +124,19 @@ class RegionMapDatabaseTest {
     }
 
     @Test
+    fun unsupportedProfileDoesNotBorrowAnotherGamesMapTable() {
+        val loc = PlayerLocation(
+            mapGroup = 3, mapNum = 0, warpId = 0,
+            x = 5, y = 5, localX = 5, localY = 5,
+            escapeMapGroup = 0, escapeMapNum = 0,
+            isIndoors = false, isValid = true
+        )
+
+        assertNull(RegionMapDatabase.resolveLocationOrNull(6, false, loc))
+        assertEquals("PALLET_TOWN", RegionMapDatabase.resolveLocationOrNull(2, false, loc)?.id)
+    }
+
+    @Test
     fun testSectionsListNotEmpty() {
         val johto = RegionMapDatabase.getSections(RegionId.JOHTO)
         assertTrue(johto.size >= 100)

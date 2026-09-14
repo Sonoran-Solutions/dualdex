@@ -42,6 +42,7 @@ class DocsScreenView(
     private val forwardBtn: TextView
     private val reloadBtn: TextView
     private val browserBtn: TextView
+    private var isReleased = false
 
     init {
         orientation = VERTICAL
@@ -85,7 +86,7 @@ class DocsScreenView(
         backBtn = DualDexComponents.smallButton(context, "Back", DualDexButtonStyle.SECONDARY) {
             if (webView.canGoBack()) webView.goBack()
         }.apply {
-            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30)).apply {
+            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
                 marginEnd = context.dp(DualDexTheme.Spacing.tight)
             }
             layoutParams = lp
@@ -95,7 +96,7 @@ class DocsScreenView(
         forwardBtn = DualDexComponents.smallButton(context, "Forward", DualDexButtonStyle.SECONDARY) {
             if (webView.canGoForward()) webView.goForward()
         }.apply {
-            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30)).apply {
+            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
                 marginEnd = context.dp(DualDexTheme.Spacing.tight)
             }
             layoutParams = lp
@@ -103,9 +104,9 @@ class DocsScreenView(
         toolbar.addView(forwardBtn)
 
         reloadBtn = DualDexComponents.smallButton(context, "Reload", DualDexButtonStyle.SECONDARY) {
-            refreshUI()
+            if (!webView.url.isNullOrBlank()) webView.reload() else refreshUI()
         }.apply {
-            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30)).apply {
+            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
                 marginEnd = context.dp(DualDexTheme.Spacing.tight)
             }
             layoutParams = lp
@@ -123,7 +124,7 @@ class DocsScreenView(
                 }
             }
         }.apply {
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30))
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget))
         }
         toolbar.addView(browserBtn)
 
@@ -257,6 +258,21 @@ class DocsScreenView(
             webView.onPause()
         } catch (e: Exception) {
             // ignore
+        }
+    }
+
+    /** Permanently release the native WebView when its containing shell is discarded. */
+    fun release() {
+        if (isReleased) return
+        isReleased = true
+        try {
+            webView.stopLoading()
+            webView.webViewClient = WebViewClient()
+            webView.webChromeClient = null
+            webView.removeAllViews()
+            webView.destroy()
+        } catch (e: Exception) {
+            // WebView teardown is best-effort during host destruction.
         }
     }
 }

@@ -289,51 +289,51 @@ open class LibretroCoreCoordinator(
     fun getAudioSampleRate(): Double = LibretroHost.nativeGetAudioSampleRate()
 
     // Protected memory reader access
-    fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? = try {
+    open fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? = try {
         executeExclusive(50L) { LibretroHost.nativeReadPartyFromCore(gameId) }
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         null
     }
 
-    fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? = try {
+    open fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? = try {
         executeExclusive(50L) { LibretroHost.nativeReadEnemyPartyFromCore(gameId) }
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         null
     }
 
-    fun getActiveBattlerSlot(gameId: Int): Int = try {
+    open fun getActiveBattlerSlot(gameId: Int): Int = try {
         executeExclusive(50L) { LibretroHost.nativeGetActiveBattlerSlot(gameId) }
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         -1
     }
 
-    fun getActiveEnemyBattlerSlot(gameId: Int): Int = try {
+    open fun getActiveEnemyBattlerSlot(gameId: Int): Int = try {
         executeExclusive(50L) { LibretroHost.nativeGetActiveEnemyBattlerSlot(gameId) }
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         -1
     }
 
-    fun readBattleStatStages(gameId: Int, battlerIndex: Int): IntArray? = try {
+    open fun readBattleStatStages(gameId: Int, battlerIndex: Int): IntArray? = try {
         executeExclusive(50L) { LibretroHost.nativeReadBattleStatStages(gameId, battlerIndex) }
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         null
     }
 
-    fun readBattleUiState(gameId: Int): Int = try {
+    open fun readBattleUiState(gameId: Int): Int = try {
         executeExclusive(50L) { LibretroHost.nativeReadBattleUiState(gameId) }
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         0
     }
 
-    fun readBattlePresence(gameId: Int): Int = try {
+    open fun readBattlePresence(gameId: Int): Int = try {
         executeExclusive(50L) { LibretroHost.nativeReadBattlePresence(gameId) }
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         2
     }
 
-    fun readPlayerLocation(gameId: Int): PlayerLocation? = try {
+    open fun readPlayerLocation(gameId: Int): PlayerLocation? = try {
         executeExclusive(50L) { LibretroHost.nativeReadPlayerLocation(gameId) }
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         null
     }
 }

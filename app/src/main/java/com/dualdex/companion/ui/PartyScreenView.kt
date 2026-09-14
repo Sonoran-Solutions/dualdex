@@ -19,6 +19,7 @@ import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.pokemon.ItemDatabase
 import com.dualdex.romhack.RomCompatibilityMessages
+import com.dualdex.romhack.RuntimeRomTrust
 import com.dualdex.pokemon.MoveDatabase
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PokemonType
@@ -167,11 +168,7 @@ class PartyScreenView(
     private fun updateSelector(party: List<ParsedPokemon>, selectedIdx: Int) {
         if (party.isEmpty()) {
             val trust = viewModel.runtimeRomTrust.value
-            val label = if (trust.hasActiveRom) {
-                RomCompatibilityMessages.badge(trust.status)
-            } else {
-                "No game loaded"
-            }
+            val label = resolveSelectorEmptyLabel(trust)
             if (lastSelectorEmptyText != label) {
                 lastSelectorEmptyText = label
                 chipHolders.clear()
@@ -305,11 +302,7 @@ class PartyScreenView(
     private fun updateDetail(party: List<ParsedPokemon>, selectedIdx: Int, gameId: Int) {
         if (party.isEmpty()) {
             val trust = viewModel.runtimeRomTrust.value
-            val (emptyTitle, emptyDetail) = if (trust.hasActiveRom) {
-                RomCompatibilityMessages.badge(trust.status) to RomCompatibilityMessages.detail(trust.status)
-            } else {
-                "No game loaded" to "Party data will appear when a supported game is running."
-            }
+            val (emptyTitle, emptyDetail) = resolveDetailEmptyState(trust)
             val key = "$emptyTitle|$emptyDetail"
             if (detailHolder != null || lastDetailEmptyKey != key || detailContainer.childCount == 0) {
                 detailHolder = null
@@ -642,6 +635,23 @@ class PartyScreenView(
             ratio > 0.5f -> DualDexTheme.Color.success
             ratio > 0.2f -> DualDexTheme.Color.warning
             else -> DualDexTheme.Color.danger
+        }
+    }
+
+    companion object {
+        fun resolveSelectorEmptyLabel(trust: RuntimeRomTrust): String = when {
+            trust.hasActiveRom && !trust.mayReadLiveMemory -> RomCompatibilityMessages.badge(trust.status)
+            trust.hasActiveRom -> "Waiting for party data"
+            else -> "No game loaded"
+        }
+
+        fun resolveDetailEmptyState(trust: RuntimeRomTrust): Pair<String, String> = when {
+            trust.hasActiveRom && !trust.mayReadLiveMemory ->
+                RomCompatibilityMessages.badge(trust.status) to RomCompatibilityMessages.detail(trust.status)
+            trust.hasActiveRom ->
+                "Waiting for party data" to "Party data will appear when it can be read from the running game."
+            else ->
+                "No game loaded" to "Party data will appear when a supported game is running."
         }
     }
 }

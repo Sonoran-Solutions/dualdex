@@ -327,4 +327,153 @@ class RomCompatibilityTest {
         assertEquals("Unsupported ROM", RomCompatibilityMessages.badge(RomCompatibilityStatus.UNSUPPORTED))
         assertEquals("Verified", RomCompatibilityMessages.badge(RomCompatibilityStatus.VERIFIED))
     }
+
+    // Follow-up 1: Verified ROM with empty/unavailable party data must show "Waiting for party data", NOT bare "Verified"
+    @Test
+    fun verifiedRom_emptyParty_showsWaitingForPartyData_notBareVerifiedBadge() {
+        val verifiedTrust = RuntimeRomTrust.from(
+            RomCompatibility.verified(fireRedProfile, fireRedSha),
+            fireRedSha
+        )
+
+        val selectorLabel = com.dualdex.companion.ui.PartyScreenView.resolveSelectorEmptyLabel(verifiedTrust)
+        assertEquals("Waiting for party data", selectorLabel)
+
+        val (detailTitle, detailBody) = com.dualdex.companion.ui.PartyScreenView.resolveDetailEmptyState(verifiedTrust)
+        assertEquals("Waiting for party data", detailTitle)
+        assertEquals("Party data will appear when it can be read from the running game.", detailBody)
+    }
+
+    @Test
+    fun unverifiedAndUnsupportedRom_partyEmptyState_showsCompatibilityBadgeAndDetail() {
+        val unverifiedTrust = RuntimeRomTrust.from(
+            RomCompatibility.recognizedUnverified(fireRedProfile, "unverified_sha", ProfileMatchMethod.HEADER_TITLE, "Header matched"),
+            "unverified_sha"
+        )
+        assertEquals("Unverified version", com.dualdex.companion.ui.PartyScreenView.resolveSelectorEmptyLabel(unverifiedTrust))
+        val (unverifiedTitle, unverifiedDetail) = com.dualdex.companion.ui.PartyScreenView.resolveDetailEmptyState(unverifiedTrust)
+        assertEquals("Unverified version", unverifiedTitle)
+        assertEquals(RomCompatibilityMessages.detail(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED), unverifiedDetail)
+
+        val unsupportedTrust = RuntimeRomTrust.from(
+            RomCompatibility.unsupported("unsupported_sha"),
+            "unsupported_sha"
+        )
+        assertEquals("Unsupported ROM", com.dualdex.companion.ui.PartyScreenView.resolveSelectorEmptyLabel(unsupportedTrust))
+        val (unsupportedTitle, unsupportedDetail) = com.dualdex.companion.ui.PartyScreenView.resolveDetailEmptyState(unsupportedTrust)
+        assertEquals("Unsupported ROM", unsupportedTitle)
+        assertEquals(RomCompatibilityMessages.detail(RomCompatibilityStatus.UNSUPPORTED), unsupportedDetail)
+
+        val noRomTrust = RuntimeRomTrust()
+        assertEquals("No game loaded", com.dualdex.companion.ui.PartyScreenView.resolveSelectorEmptyLabel(noRomTrust))
+        val (noRomTitle, noRomDetail) = com.dualdex.companion.ui.PartyScreenView.resolveDetailEmptyState(noRomTrust)
+        assertEquals("No game loaded", noRomTitle)
+        assertEquals("Party data will appear when a supported game is running.", noRomDetail)
+    }
+
+    // Follow-up 2: Assert that pollTick() under RECOGNIZED_UNVERIFIED / UNSUPPORTED never calls core reader path
+    @Test
+    fun pollTick_underUnverifiedOrUnsupported_neverInvokesLiveMemoryReaders() {
+        var readPartyCalls = 0
+        var readEnemyPartyCalls = 0
+        var readLocationCalls = 0
+        var readPresenceCalls = 0
+
+        val trackingCoordinator = object : LibretroCoreCoordinator() {
+            override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? {
+                readPartyCalls++
+                return null
+            }
+            override fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? {
+                readEnemyPartyCalls++
+                return null
+            }
+            override fun readPlayerLocation(gameId: Int): PlayerLocation? {
+                readLocationCalls++
+                return null
+            }
+            override fun readBattlePresence(gameId: Int): Int {
+                readPresenceCalls++
+                return 0
+            }
+        }
+
+        val vm = CompanionViewModel(coreCoordinator = trackingCoordinator)
+
+        // 1. RECOGNIZED_UNVERIFIED
+        val unverifiedCompat = RomCompatibility.recognizedUnverified(fireRedProfile, "unverified_sha", ProfileMatchMethod.HEADER_TITLE, "Header matched")
+        vm.setRomSession(unverifiedCompat, RomIdentity("unverified_sha", "Pokemon FireRed Hack"))
+        assertFalse(vm.runtimeRomTrust.value.mayReadLiveMemory)
+
+        vm.pollTick()
+        assertEquals(0, readPartyCalls)
+        assertEquals(0, readEnemyPartyCalls)
+        assertEquals(0, readLocationCalls)
+        assertEquals(0, readPresenceCalls)
+
+        // 2. UNSUPPORTED
+        val unsupportedCompat = RomCompatibility.unsupported("unsupported_sha")
+        vm.setRomSession(unsupportedCompat, RomIdentity("unsupported_sha", "Unknown Hack"))
+        assertFalse(vm.runtimeRomTrust.value.mayReadLiveMemory)
+
+        vm.pollTick()
+        assertEquals(0, readPartyCalls)
+        assertEquals(0, readEnemyPartyCalls)
+        assertEquals(0, readLocationCalls)
+        assertEquals(0, readPresenceCalls)
+
+        // 3. Switch to VERIFIED -> readers must now be invoked
+        val verifiedCompat = RomCompatibility.verified(fireRedProfile, fireRedSha)
+        vm.setRomSession(verifiedCompat, RomIdentity(fireRedSha, "Pokemon FireRed"))
+        assertTrue(vm.runtimeRomTrust.value.mayReadLiveMemory)
+
+        vm.pollTick()
+        assertTrue("readPartyFromCore must be called when verified", readPartyCalls > 0)
+        assertTrue("readEnemyPartyFromCore must be called when verified", readEnemyPartyCalls > 0)
+        assertTrue("readPlayerLocation must be called when verified", readLocationCalls > 0)
+        assertTrue("readBattlePresence must be called when verified", readPresenceCalls > 0)
+    }
+
+    // Follow-up 3: Enemy read failure (null) debounces via stabilizer, whereas legitimate empty read clears immediately
+    @Test
+    fun enemyReadSemantics_distinguishFailureNullFromLegitimateEmptyArray() {
+        var enemyPartyToReturn: Array<ParsedPokemon>? = null
+
+        val trackingCoordinator = object : LibretroCoreCoordinator() {
+            override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? = arrayOf(createMon(1))
+            override fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? = enemyPartyToReturn
+            override fun readBattlePresence(gameId: Int): Int = 1 // In battle
+        }
+
+        val vm = CompanionViewModel(coreCoordinator = trackingCoordinator)
+        val verifiedCompat = RomCompatibility.verified(fireRedProfile, fireRedSha)
+        vm.setRomSession(verifiedCompat, RomIdentity(fireRedSha, "Pokemon FireRed"))
+
+        // Establish an initial observed enemy
+        enemyPartyToReturn = arrayOf(createMon(150))
+        vm.pollTick()
+        assertEquals(1, vm.enemyParty.value.size)
+        assertEquals(150, vm.enemyParty.value[0].species)
+
+        // Reader failure (returns null): stabilizer retains observed enemy for 1..4 ticks
+        enemyPartyToReturn = null
+        for (i in 1..4) {
+            vm.pollTick()
+            assertEquals("Enemy must be retained during transient read failure tick $i", 1, vm.enemyParty.value.size)
+        }
+
+        // 5th consecutive failure tick clears
+        vm.pollTick()
+        assertTrue("Sustained read failure must clear enemy", vm.enemyParty.value.isEmpty())
+
+        // Re-establish active enemy
+        enemyPartyToReturn = arrayOf(createMon(150))
+        vm.pollTick()
+        assertEquals(1, vm.enemyParty.value.size)
+
+        // Legitimate empty array (reader succeeded, found 0 enemies): clears immediately without debouncing
+        enemyPartyToReturn = emptyArray()
+        vm.pollTick()
+        assertTrue("Legitimate empty read must publish empty immediately", vm.enemyParty.value.isEmpty())
+    }
 }

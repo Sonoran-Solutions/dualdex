@@ -310,7 +310,10 @@ Java_com_dualdex_pokemon_PokemonBridge_readPlayerLocation(
     jbyte* bytes = (*env)->GetByteArrayElements(env, ewram_bytes, NULL);
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
-    if (!cfg) return NULL;
+    if (!cfg) {
+        (*env)->ReleaseByteArrayElements(env, ewram_bytes, bytes, JNI_ABORT);
+        return NULL;
+    }
 
     PlayerLocationRaw loc;
     bool ok = pokemon_read_player_location((const uint8_t*)bytes, (size_t)len, cfg, &loc);
@@ -473,7 +476,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadPartyFromCore(JNIEnv* env, jobj
     size_t ewram_sz = 0;
     uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
     if (!ewram || ewram_sz == 0) {
-        return (*env)->NewObjectArray(env, 0, g_parsed_pokemon_cls, NULL);
+        return NULL;
     }
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
@@ -482,7 +485,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadPartyFromCore(JNIEnv* env, jobj
         // attempted and no previously observed battler slot may survive.
         s_last_active_battler_slot = -1;
         LOGI("nativeReadPartyFromCore: game_id=%d has no supported layout; party unavailable", game_id);
-        return (*env)->NewObjectArray(env, 0, g_parsed_pokemon_cls, NULL);
+        return NULL;
     }
 
     PartySnapshot snapshot;
@@ -526,14 +529,14 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadEnemyPartyFromCore(JNIEnv* env,
     size_t ewram_sz = 0;
     uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
     if (!ewram || ewram_sz == 0) {
-        return (*env)->NewObjectArray(env, 0, g_parsed_pokemon_cls, NULL);
+        return NULL;
     }
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
     if (!cfg) {
         s_last_active_enemy_battler_slot = -1;
         LOGI("nativeReadEnemyPartyFromCore: game_id=%d has no supported layout; enemy party unavailable", game_id);
-        return (*env)->NewObjectArray(env, 0, g_parsed_pokemon_cls, NULL);
+        return NULL;
     }
 
     PartySnapshot snapshot;

@@ -126,9 +126,9 @@ class CompanionViewModel(
         }
     }
 
-    fun setRomIdentity(identity: RomIdentity) {
+    fun setRomIdentity(identity: RomIdentity?) {
         _activeRomIdentity.value = identity
-        _activeRomTitle.value = identity.displayName
+        _activeRomTitle.value = identity?.displayName.orEmpty()
     }
 
     fun setProfile(profile: RomHackProfile) {

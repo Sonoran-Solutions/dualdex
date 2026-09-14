@@ -1,5 +1,6 @@
 package com.dualdex.emulator
 
+import android.os.SystemClock
 import android.util.Log
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PlayerLocation
@@ -16,6 +17,15 @@ import java.util.concurrent.locks.ReentrantLock
  *
  * Employs a fair ReentrantLock to prevent thread starvation and guarantees that composite
  * transactions (e.g. ROM switch, SRAM backup and commit) execute atomically with respect to the core.
+ *
+ * Scope of the lock: it serializes access to *core state*, i.e. anything that runs inside or
+ * reads the emulated machine's memory. That is [stepFrame] plus every core mutation and every
+ * protected memory reader below.
+ *
+ * It deliberately does NOT serialize the high-frequency framebuffer and audio-ring snapshots
+ * ([getVideoFrame], [getAudioSamples]). Those buffers are owned natively and protected by
+ * g_video_mutex / g_audio_mutex, and they hold no core state. Serializing them through the core
+ * lock made the render thread lose frames whenever the core was busy; see [getVideoFrame].
  */
 open class LibretroCoreCoordinator(
     var bridge: LibretroCoreBridge? = null,
@@ -37,19 +47,29 @@ open class LibretroCoreCoordinator(
      * Supports reentrant execution on the same thread without self-deadlock.
      */
     fun <T> executeExclusive(timeoutMs: Long = 5000L, block: () -> T): T {
+        val diag = FastForwardDiagnostics.enabled
+        val waitStart = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
         val acquired = if (timeoutMs > 0) {
             lock.tryLock(timeoutMs, TimeUnit.MILLISECONDS)
         } else {
             lock.tryLock()
         }
         if (!acquired) {
+            if (diag) FastForwardDiagnostics.onCompanionTimeout()
             val msg = "Timed out after ${timeoutMs}ms waiting for Libretro core exclusive lock"
             Log.e(TAG, msg)
             throw IllegalStateException(msg)
         }
+        val acquiredNs = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
         try {
             return block()
         } finally {
+            if (diag) {
+                FastForwardDiagnostics.onCompanionRead(
+                    waitNs = acquiredNs - waitStart,
+                    holdNs = SystemClock.elapsedRealtimeNanos() - acquiredNs
+                )
+            }
             lock.unlock()
         }
     }
@@ -60,11 +80,14 @@ open class LibretroCoreCoordinator(
      * Yields cleanly if an exclusive operation (save/load/switch) holds the core lock.
      */
     fun stepFrame(): Boolean {
+        val diag = FastForwardDiagnostics.enabled
+        val waitStart = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
         try {
             lock.lockInterruptibly()
         } catch (_: InterruptedException) {
             return false
         }
+        val acquiredNs = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
         try {
             if (bridge != null) {
                 return bridge?.stepFrame() ?: true
@@ -72,6 +95,12 @@ open class LibretroCoreCoordinator(
             LibretroHost.nativeStepFrame()
             return true
         } finally {
+            if (diag) {
+                FastForwardDiagnostics.noteStepLock(
+                    waitNs = acquiredNs - waitStart,
+                    holdNs = SystemClock.elapsedRealtimeNanos() - acquiredNs
+                )
+            }
             lock.unlock()
         }
     }
@@ -194,22 +223,55 @@ open class LibretroCoreCoordinator(
         }
     }
 
+    /**
+     * Copies the latest native framebuffer snapshot into [directBuffer].
+     *
+     * Deliberately NOT serialized by the coordinator lock. The framebuffer snapshot is owned
+     * and protected natively by g_video_mutex: the video refresh callback takes it while
+     * writing the buffer, and libretro_host_copy_video_frame() takes it while reading it, so
+     * the copy can never observe a torn frame.
+     *
+     * Routing this through the frame lock was measurably harmful. stepFrame() holds the
+     * coordinator for the whole duration of retro_run (2.5-4.3 ms per frame at 2x on an AYN
+     * Thor), which is 30-50% of wall-clock time at fast-forward. Because this call is untimed
+     * tryLock(), the GL render thread (120 Hz on this device) silently failed 22-33% of its
+     * attempts and skipped the texture upload, so the top screen dropped updates exactly while
+     * the game was moving and the core was working hardest.
+     */
     fun getVideoFrame(directBuffer: ByteBuffer, outMetadata: IntArray): Boolean {
-        if (!lock.tryLock()) return false
-        try {
-            return LibretroHost.nativeGetVideoFrame(directBuffer, outMetadata)
-        } finally {
-            lock.unlock()
+        val diag = FastForwardDiagnostics.enabled
+        val start = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
+        val ok = LibretroHost.nativeGetVideoFrame(directBuffer, outMetadata)
+        if (diag) {
+            FastForwardDiagnostics.onVideoRead(
+                waitNs = 0L,
+                holdNs = SystemClock.elapsedRealtimeNanos() - start,
+                hasFrame = ok
+            )
         }
+        return ok
     }
 
+    /**
+     * Drains resampled PCM from the native audio ring.
+     *
+     * Deliberately NOT serialized by the coordinator lock, for the same reason as
+     * [getVideoFrame]: the ring buffer is owned and protected natively by g_audio_mutex, which
+     * both the core's audio batch callback and this reader take. The reader only ever touches
+     * the ring, never core memory, so overlapping it with retro_run is safe.
+     */
     fun getAudioSamples(outBuffer: ShortArray): Int {
-        if (!lock.tryLock()) return 0
-        try {
-            return LibretroHost.nativeGetAudioSamples(outBuffer)
-        } finally {
-            lock.unlock()
+        val diag = FastForwardDiagnostics.enabled
+        val start = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
+        val n = LibretroHost.nativeGetAudioSamples(outBuffer)
+        if (diag) {
+            FastForwardDiagnostics.onAudioRead(
+                waitNs = 0L,
+                holdNs = SystemClock.elapsedRealtimeNanos() - start,
+                samples = n
+            )
         }
+        return n
     }
 
     fun setInputButtons(buttonMask: Int) {

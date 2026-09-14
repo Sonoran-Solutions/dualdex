@@ -121,9 +121,15 @@ class EmulatorSurfaceView @JvmOverloads constructor(
             val baseIntervalNs = (1_000_000_000.0 / targetFps).toLong() // 16,742,706 ns
             var nextDeadlineNs = System.nanoTime()
 
+            FastForwardDiagnostics.refreshFromSystemProperty()
+            FastForwardDiagnostics.onEmulationLoopStart()
+
             while (isEmulating) {
                 val speed = speedMultiplier.coerceIn(1, 8)
                 val targetIntervalNs = (baseIntervalNs / speed).coerceAtLeast(1_000_000L)
+                FastForwardDiagnostics.onSpeedChanged(speed)
+                FastForwardDiagnostics.setTargetInterval(targetIntervalNs)
+                FastForwardDiagnostics.onLoopIteration()
 
                 // A throw here previously killed the loop silently, leaving a permanently black
                 // screen with audio still playing and no diagnostic anywhere.
@@ -148,10 +154,17 @@ class EmulatorSurfaceView @JvmOverloads constructor(
                             break
                         }
                     }
-                } else if (sleepNs < -targetIntervalNs * 3) {
-                    // Fell behind deadline by more than 3 frames (e.g. hitch or pause) -> reset deadline
-                    nextDeadlineNs = now
+                    FastForwardDiagnostics.noteWakeLateness(System.nanoTime() - nextDeadlineNs)
+                } else {
+                    FastForwardDiagnostics.onLeftOverDeadline(-sleepNs)
+                    if (sleepNs < -targetIntervalNs * 3) {
+                        // Fell behind deadline by more than 3 frames (e.g. hitch or pause) -> reset deadline
+                        FastForwardDiagnostics.onDeadlineReset(-sleepNs / targetIntervalNs)
+                        nextDeadlineNs = now
+                    }
                 }
+
+                FastForwardDiagnostics.tick()
             }
         }, "DualDexEmuLoop").apply {
             priority = Thread.MAX_PRIORITY

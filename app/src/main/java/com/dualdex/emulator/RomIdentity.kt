@@ -7,13 +7,21 @@ import java.security.MessageDigest
 data class RomIdentity(
     val sha256: String,
     val displayName: String,
-    val storageKey: String
+    val storageKey: String = sha256.trim().lowercase()
 ) {
     val shortHash: String
         get() = if (sha256.length >= 12) sha256.take(12) else sha256.padEnd(12, '0')
 
     val sanitizedTitle: String
         get() = sanitizeTitle(displayName)
+
+    val isValid: Boolean
+        get() = sha256.length == 64 &&
+            sha256.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' } &&
+            !sha256.all { it == '0' }
+
+    val legacyStorageKey: String
+        get() = "${sanitizedTitle}__${shortHash}"
 
     companion object {
         private const val MAX_TITLE_LENGTH = 40
@@ -30,13 +38,10 @@ data class RomIdentity(
 
         fun create(sha256: String, displayName: String): RomIdentity {
             val lowerHash = sha256.trim().lowercase()
-            val cleanTitle = sanitizeTitle(displayName)
-            val short = if (lowerHash.length >= 12) lowerHash.take(12) else DEFAULT_SHORT_HASH
-            val key = "${cleanTitle}__${short}"
             return RomIdentity(
                 sha256 = lowerHash,
                 displayName = displayName.ifBlank { "Unknown Game" },
-                storageKey = key
+                storageKey = lowerHash
             )
         }
 

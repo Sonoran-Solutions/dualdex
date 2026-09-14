@@ -497,10 +497,12 @@ bool libretro_host_save_state(const char* save_state_path) {
         FILE* f = fopen(save_state_path, "wb");
         if (f) {
             size_t written = fwrite(buf, 1, sz, f);
-            fflush(f);
-            fsync(fileno(f));
-            fclose(f);
-            if (written != sz) ok = false;
+            int flush_rc = fflush(f);
+            int fsync_rc = fsync(fileno(f));
+            int close_rc = fclose(f);
+            if (written != sz || flush_rc != 0 || fsync_rc != 0 || close_rc != 0) {
+                ok = false;
+            }
         } else {
             ok = false;
         }
@@ -588,10 +590,13 @@ bool libretro_host_flush_save_ram(const char* save_path) {
     if (!f) return false;
 
     size_t written = fwrite(ram, 1, ram_size, f);
-    fflush(f);
-    fsync(fileno(f));
-    fclose(f);
-    return (written == ram_size);
+    int flush_rc = fflush(f);
+    int fsync_rc = fsync(fileno(f));
+    int close_rc = fclose(f);
+    if (written != ram_size || flush_rc != 0 || fsync_rc != 0 || close_rc != 0) {
+        return false;
+    }
+    return true;
 }
 
 void libretro_host_reset(void) {

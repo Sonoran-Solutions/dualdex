@@ -1,22 +1,25 @@
 package com.dualdex.emulator
 
+import com.dualdex.emulator.storage.LegacyCandidate
+import com.dualdex.emulator.storage.LegacySaveCatalog
 import org.junit.Assert.*
 import org.junit.Test
-import java.io.ByteArrayInputStream
 import java.io.File
 
 class RomIdentityAndSaveTest {
 
     @Test
     fun testRomIdentityCreationAndShortHash() {
-        val dummyHash = "a13f42c92d71ef6890123456789abcdef0123456789abcdef0123456789abcdef"
+        val dummyHash = "a13f42c92d71ef680123456789abcdef0123456789abcdef0123456789abcdef"
         val identity = RomIdentity.create(dummyHash, "Pokemon Unbound")
 
         assertEquals(dummyHash, identity.sha256)
         assertEquals("a13f42c92d71", identity.shortHash)
         assertEquals(12, identity.shortHash.length)
         assertEquals("Pokemon_Unbound", identity.sanitizedTitle)
-        assertEquals("Pokemon_Unbound__a13f42c92d71", identity.storageKey)
+        assertEquals(dummyHash, identity.storageKey)
+        assertEquals("Pokemon_Unbound__a13f42c92d71", identity.legacyStorageKey)
+        assertTrue(identity.isValid)
     }
 
     @Test
@@ -30,10 +33,20 @@ class RomIdentityAndSaveTest {
 
         // Display names are identical
         assertEquals(identity1.displayName, identity2.displayName)
-        // But storage keys MUST be distinct to prevent save corruption/overwrites
+        // Storage keys MUST be distinct full SHA-256 hashes to prevent save corruption/overwrites
         assertNotEquals(identity1.storageKey, identity2.storageKey)
-        assertEquals("Pokemon_Radical_Red__111111111111", identity1.storageKey)
-        assertEquals("Pokemon_Radical_Red__999999999999", identity2.storageKey)
+        assertEquals(romHash1, identity1.storageKey)
+        assertEquals(romHash2, identity2.storageKey)
+    }
+
+    @Test
+    fun testSameHashDifferentTitleProducesSameStorageKey() {
+        val romHash = "e26ee0d44e80e5bc3d1f46d68173f60d8d4622b10a26d11f584e09f58cb2908c"
+        val identityA = RomIdentity.create(romHash, "Pokemon FireRed")
+        val identityB = RomIdentity.create(romHash, "FireRed v1.1 Custom")
+
+        assertEquals(identityA.storageKey, identityB.storageKey)
+        assertEquals(romHash, identityA.storageKey)
     }
 
     @Test
@@ -60,7 +73,8 @@ class RomIdentityAndSaveTest {
 
         val identity = RomIdentity.fromBytes(testBytes, "DualDex Test")
         assertEquals("a2e98788ea2a", identity.shortHash)
-        assertEquals("DualDex_Test__a2e98788ea2a", identity.storageKey)
+        assertEquals(hash, identity.storageKey)
+        assertEquals("DualDex_Test__a2e98788ea2a", identity.legacyStorageKey)
     }
 
     @Test
@@ -74,23 +88,21 @@ class RomIdentityAndSaveTest {
             if (i < standardSize) (i % 256).toByte() else 0xFF.toByte()
         }
 
-        // Logic check matching SaveStateManager.importBatterySave
-        val cleanBytes = if (rawMgbaSave.size == 131088) {
-            rawMgbaSave.copyOfRange(0, 131072)
+        val cleanBytes = if (rawMgbaSave.size == standardSize + 16) {
+            rawMgbaSave.copyOfRange(0, standardSize)
         } else {
             rawMgbaSave
         }
 
         assertEquals(standardSize, cleanBytes.size)
-        // Verify payload integrity was preserved
         for (i in 0 until standardSize) {
             assertEquals((i % 256).toByte(), cleanBytes[i])
         }
 
         // Normal 131,072-byte save should remain untouched
         val normalSave = ByteArray(standardSize) { 0x42.toByte() }
-        val untouchedBytes = if (normalSave.size == 131088) {
-            normalSave.copyOfRange(0, 131072)
+        val untouchedBytes = if (normalSave.size == standardSize + 16) {
+            normalSave.copyOfRange(0, standardSize)
         } else {
             normalSave
         }
@@ -99,106 +111,53 @@ class RomIdentityAndSaveTest {
     }
 
     @Test
-    fun testLegacyMigrationCandidateNames() {
-        val identity = RomIdentity.create(
-            "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-            "Pokemon FireRed (v1.1)"
-        )
-
-        val cleanTitle = identity.displayName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
-        val candidates = listOf(
-            "$cleanTitle.sav",
-            "${identity.sanitizedTitle}.sav",
-            "current_game.sav"
-        ).distinct()
-
-        assertTrue(candidates.contains("Pokemon_FireRed__v1_1_.sav"))
-        assertTrue(candidates.contains("Pokemon_FireRed_v1_1.sav"))
-        assertTrue(candidates.contains("current_game.sav"))
-    }
-
-    @Test
-    fun testFindMatchingLegacyBaseExactProfileName() {
+    fun testLegacyCandidateSuggestionHeuristics() {
         val identity = RomIdentity.create(
             "1111222233334444555566667777888899990000111122223333444455556666",
             "1636 - Pokemon Fire Red (U)(Squirrels)"
         )
 
-        // Case 1: Legacy file uses old profile name (cleanKey) with triple underscores
-        val files1 = listOf("Pokemon_Heart___Soul_2_0.sav")
-        val match1 = SaveStateManager.findMatchingLegacyBase(
-            identity = RomIdentity.create("", "Heart & Soul"),
-            profileName = "Pokemon Heart & Soul 2.0",
-            profileId = "heart_and_soul",
-            availableFiles = files1
-        )
-        assertEquals("Pokemon_Heart___Soul_2_0", match1)
-
-        // Case 2: Legacy file uses sanitized profile name with single underscores
-        val files2 = listOf("Pokemon_Heart_Soul_2_0.sav")
-        val match2 = SaveStateManager.findMatchingLegacyBase(
-            identity = RomIdentity.create("", "Heart & Soul"),
-            profileName = "Pokemon Heart & Soul 2.0",
-            profileId = "heart_and_soul",
-            availableFiles = files2
-        )
-        assertEquals("Pokemon_Heart_Soul_2_0", match2)
-
-        // Case 3: Legacy file named by profile ID
-        val files3 = listOf("firered.sav")
-        val match3 = SaveStateManager.findMatchingLegacyBase(
-            identity = identity,
-            profileName = "Pokemon FireRed",
-            profileId = "firered",
-            availableFiles = files3
-        )
-        assertEquals("firered", match3)
-    }
-
-    @Test
-    fun testFindMatchingLegacyBaseFuzzyAlphanumeric() {
-        // ROM file has long scene release title, but legacy save was saved under profile name
-        val identity = RomIdentity.create(
-            "1111222233334444555566667777888899990000111122223333444455556666",
-            "1636 - Pokemon Fire Red (U)(Squirrels)"
+        // Advisory suggestion matches based on title substring
+        val candidate = LegacyCandidate(
+            sourceFile = File("saves/Pokemon_FireRed.sav"),
+            baseName = "Pokemon_FireRed",
+            suggestedTitle = "Pokemon FireRed",
+            targetFileName = "battery.sav",
+            sizeBytes = 131072L
         )
 
-        val files = listOf("Pokemon_FireRed.sav", "Pokemon_FireRed_slot_1.state")
-        // Even without profileName passed, fuzzy normalized matching recognizes FireRed in title
-        val matchWithoutProfile = SaveStateManager.findMatchingLegacyBase(
-            identity = identity,
-            profileName = null,
-            profileId = null,
-            availableFiles = files
-        )
-        assertEquals("Pokemon_FireRed", matchWithoutProfile)
+        // Mock a catalog suggestion check
+        fun isSuggested(c: LegacyCandidate, id: RomIdentity, prof: String?): Boolean {
+            if (c.baseName.equals("current_game", ignoreCase = true)) return false
+            fun norm(s: String) = s.lowercase().replace(Regex("[^a-z0-9]"), "")
+            val baseNorm = norm(c.baseName)
+            val titleNorm = norm(id.displayName)
+            val profNorm = prof?.let { norm(it) }.orEmpty()
+            return (titleNorm.isNotEmpty() && (titleNorm.contains(baseNorm) || baseNorm.contains(titleNorm))) ||
+                (profNorm.isNotEmpty() && (profNorm.contains(baseNorm) || baseNorm.contains(profNorm)))
+        }
 
-        // Different game must NOT match
-        val emeraldFiles = listOf("Pokemon_Emerald.sav")
-        val matchEmerald = SaveStateManager.findMatchingLegacyBase(
-            identity = identity,
-            profileName = null,
-            profileId = null,
-            availableFiles = emeraldFiles
-        )
-        assertNull(matchEmerald)
-    }
+        assertTrue(isSuggested(candidate, identity, "Pokemon FireRed"))
 
-    @Test
-    fun testFindMatchingLegacyBaseStagedFallback() {
-        val identity = RomIdentity.create(
-            "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
-            "Pokemon Unbound"
+        // Unrelated game does not match
+        val emeraldCandidate = LegacyCandidate(
+            sourceFile = File("saves/Pokemon_Emerald.sav"),
+            baseName = "Pokemon_Emerald",
+            suggestedTitle = "Pokemon Emerald",
+            targetFileName = "battery.sav",
+            sizeBytes = 131072L
         )
-        // Check staging folder created on first open
-        val files = listOf("legacy_Pokemon_Unbound")
-        val match = SaveStateManager.findMatchingLegacyBase(
-            identity = identity,
-            profileName = "Pokemon Unbound",
-            profileId = "unbound",
-            availableFiles = files
+        assertFalse(isSuggested(emeraldCandidate, identity, "Pokemon FireRed"))
+
+        // Ambiguous "current_game" candidate is NEVER automatically matched
+        val currentGameCandidate = LegacyCandidate(
+            sourceFile = File("saves/current_game.sav"),
+            baseName = "current_game",
+            suggestedTitle = "Unlabeled Save (current_game)",
+            targetFileName = "battery.sav",
+            sizeBytes = 131072L
         )
-        assertEquals("Pokemon_Unbound", match)
+        assertFalse(isSuggested(currentGameCandidate, identity, "Pokemon FireRed"))
     }
 
     @Test

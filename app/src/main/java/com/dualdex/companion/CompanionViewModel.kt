@@ -146,12 +146,27 @@ class CompanionViewModel(
     }
 
     fun setRomSession(profile: RomHackProfile, identity: RomIdentity, detection: ProfileDetectionResult) {
+        // Clear observations before publishing the new identity so a consumer never sees the
+        // new ROM paired with party/battle data read from the previous ROM.
+        _playerParty.value = emptyList()
+        _enemyParty.value = emptyList()
+        _selectedMemberIndex.value = 0
+        _activePlayerBattlerIndex.value = -1
+        _activeEnemyMemberIndex.value = -1
+        _battlePresence.value = com.dualdex.battle.BattlePresence.UNKNOWN
+        _isInBattle.value = false
+        _playerStatStages.value = com.dualdex.battle.StatStages()
+        _enemyStatStages.value = com.dualdex.battle.StatStages()
+        _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
+        _playerLocation.value = null
+        _resolvedLocation.value = RegionMapDatabase.JOHTO_DEFAULT
+        battlePresenceStabilizer.reset()
+
         _activeProfile.value = profile
         _activeGameId.value = profile.gameId
         _activeRomIdentity.value = identity
         _activeRomTitle.value = identity.displayName
         _runtimeRomTrust.value = RuntimeRomTrust.from(detection, identity.sha256)
-        battlePresenceStabilizer.reset()
     }
 
     fun setProfile(profile: RomHackProfile) {
@@ -257,6 +272,10 @@ class CompanionViewModel(
         _activeEnemyMemberIndex.value = index
     }
 
+    fun setActivePlayerBattlerIndex(index: Int) {
+        _activePlayerBattlerIndex.value = index
+    }
+
     fun setIsInBattle(inBattle: Boolean) {
         _isInBattle.value = inBattle
         if (!inBattle) {
@@ -283,6 +302,10 @@ class CompanionViewModel(
             _enemyStatStages.value = com.dualdex.battle.StatStages()
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
         }
+    }
+
+    fun updatePlayerLocation(location: PlayerLocation?) {
+        _playerLocation.value = location
     }
 
     fun updatePlayerStatStages(stages: com.dualdex.battle.StatStages) {

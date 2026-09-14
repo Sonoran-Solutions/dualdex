@@ -70,12 +70,12 @@ object BattleInteractionPolicy {
         }
 
         val readOnlyReason = when {
-            !userEnabled -> "Read-only: touch battle controls are disabled in Settings."
             !exactRuntimeVerified -> "Read-only: ROM/profile is not exact-verified."
             !baseUiVerified -> "Read-only: verified battle UI readers are unavailable."
             !inBattle -> "Read-only: no active battle detected."
             !stateIsInteractive -> "Read-only: battle UI state is unknown or transitioning."
             !cursorAvailable -> "Read-only: battle menu cursor state is unavailable."
+            !userEnabled -> "Read-only: touch battle controls are disabled in Settings."
             else -> null
         }
 

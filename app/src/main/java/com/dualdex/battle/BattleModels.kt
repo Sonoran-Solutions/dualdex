@@ -657,15 +657,24 @@ data class BattleParticipantSummary(
 
 object ParticipantSummaryBuilder {
 
+    fun isMemoryVerified(
+        mon: ParsedPokemon,
+        runtimeTrust: com.dualdex.romhack.RuntimeRomTrust? = null
+    ): Boolean = !mon.isEmpty && mon.isValid && mon.level > 0 && runtimeTrust?.exactRuntimeVerified == true
+
     fun isParticipantVerified(
         mon: ParsedPokemon,
         profile: RomHackProfile,
         runtimeTrust: com.dualdex.romhack.RuntimeRomTrust? = null
     ): Boolean {
-        if (mon.isEmpty || !mon.isValid || mon.level <= 0) return false
-        val isKnown = profile.customSpecies.containsKey(mon.species) || SpeciesDatabase.isKnown(mon.species)
-        if (!isKnown) return false
-        return runtimeTrust?.exactRuntimeVerified == true
+        if (!isMemoryVerified(mon, runtimeTrust)) return false
+        val pack = GameDataPackRegistry.getForProfile(profile.engine, profile.hasPhysSpecSplit, profile.gameDataPackId)
+        val custom = profile.customSpecies[mon.species]
+        val species = pack.getSpecies(mon.species)
+        if (custom == null && species == null) return false
+        val metadataAuthoritative = profile.customSpecies.containsKey(mon.species) || pack.isSpeciesAuthoritative(mon.species)
+        return metadataAuthoritative &&
+            (custom?.name?.isNotBlank() == true || species?.name?.isNotBlank() == true)
     }
 
     fun build(
@@ -694,8 +703,12 @@ object ParticipantSummaryBuilder {
             )
         }
         val custom = profile.customSpecies[mon.species]
-        val isKnown = custom != null || SpeciesDatabase.isKnown(mon.species)
-        val verified = isParticipantVerified(mon, profile, runtimeTrust)
+        val pack = GameDataPackRegistry.getForProfile(profile.engine, profile.hasPhysSpecSplit, profile.gameDataPackId)
+        val packSpecies = pack.getSpecies(mon.species)
+        val isKnown = custom != null || packSpecies != null
+        val metadataAuthoritative = custom != null || pack.isSpeciesAuthoritative(mon.species)
+        val memoryVerified = isMemoryVerified(mon, runtimeTrust)
+        val verified = memoryVerified && metadataAuthoritative
 
         val speciesName: String
         val displayName: String
@@ -705,8 +718,8 @@ object ParticipantSummaryBuilder {
             speciesName = custom.name
             displayName = mon.nickname.trim().ifEmpty { custom.name }
             types = listOfNotNull(custom.type1, custom.type2)
-        } else if (SpeciesDatabase.isKnown(mon.species)) {
-            val sp = SpeciesDatabase.get(mon.species)
+        } else if (packSpecies != null) {
+            val sp = packSpecies
             speciesName = sp.name
             displayName = mon.nickname.trim().ifEmpty { sp.name }
             types = listOfNotNull(sp.type1.displayName, sp.type2?.takeIf { it != sp.type1 }?.displayName)
@@ -734,7 +747,7 @@ object ParticipantSummaryBuilder {
         }
         val confidence = when {
             verified -> DataConfidence.VERIFIED
-            isKnown && profile.isVerified -> DataConfidence.ESTIMATE
+            isKnown && (profile.isVerified || memoryVerified) -> DataConfidence.ESTIMATE
             else -> DataConfidence.UNAVAILABLE
         }
 
@@ -943,7 +956,7 @@ object FieldStatusBuilder {
         } else {
             StatusCondition.UNKNOWN
         }
-        val conditionVerified = attacker != null && attacker.isValid && !attacker.isEmpty && participant.isVerified
+        val conditionVerified = attacker != null && ParticipantSummaryBuilder.isMemoryVerified(attacker, runtimeTrust)
 
         val speedComp = if (attacker != null && defender != null && !attacker.isEmpty && !defender.isEmpty && attacker.isValid && defender.isValid) {
             val pParalyzed = (attacker.statusCondition and (1L shl 6)) != 0L

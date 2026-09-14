@@ -98,6 +98,31 @@ class BattleInteractionPolicyTest {
         assertFalse(snapshot.isInputAccepted)
         // Trust comes from verified ROM/profile state, never from the preference.
         assertEquals(DataConfidence.VERIFIED, snapshot.stateConfidence)
+        assertEquals("Read-only: touch battle controls are disabled in Settings.", snapshot.readOnlyReason)
+    }
+
+    @Test
+    fun structuralBlockersTakePriorityOverDisabledPreference() {
+        assertEquals(
+            "Read-only: verified battle UI readers are unavailable.",
+            evaluate(profile(battleUiVerified = false), userEnabled = false).readOnlyReason
+        )
+        assertEquals(
+            "Read-only: ROM/profile is not exact-verified.",
+            evaluate(profile(), runtimeTrust = runtimeTrust(method = ProfileMatchMethod.FILENAME_KEYWORD), userEnabled = false).readOnlyReason
+        )
+    }
+
+    @Test
+    fun verifiedInteractiveProfileReportsUnknownUiBeforePreference() {
+        assertEquals(
+            "Read-only: battle UI state is unknown or transitioning.",
+            evaluate(profile(), userEnabled = true, state = BattleUiState.UNKNOWN).readOnlyReason
+        )
+        assertEquals(
+            "Read-only: battle menu cursor state is unavailable.",
+            evaluate(profile(), userEnabled = true, commandCursor = null).readOnlyReason
+        )
     }
 
     @Test

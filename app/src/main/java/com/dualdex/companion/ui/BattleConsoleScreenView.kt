@@ -160,7 +160,6 @@ class BattleConsoleScreenView(
         scope.launch { viewModel.playerParty.collectLatest { refreshUI() } }
         scope.launch { viewModel.enemyParty.collectLatest { refreshUI() } }
         scope.launch { viewModel.isInBattle.collectLatest { refreshUI() } }
-        scope.launch { viewModel.selectedMemberIndex.collectLatest { refreshUI() } }
         scope.launch { viewModel.activePlayerBattlerIndex.collectLatest { refreshUI() } }
         scope.launch { viewModel.activeEnemyMemberIndex.collectLatest { refreshUI() } }
         scope.launch { viewModel.activeProfile.collectLatest { refreshUI() } }
@@ -225,7 +224,6 @@ class BattleConsoleScreenView(
     fun refreshUI() {
         val party = viewModel.playerParty.value
         val enemies = viewModel.enemyParty.value
-        val selectedIdx = viewModel.selectedMemberIndex.value
         val inBattle = viewModel.isInBattle.value
         val activePlayerIdx = viewModel.activePlayerBattlerIndex.value
         val activeEnemyIdx = viewModel.activeEnemyMemberIndex.value
@@ -290,7 +288,7 @@ class BattleConsoleScreenView(
 
         when (activeSubtab) {
             ConsoleSubtab.BATTLE -> renderBattleSubtab(attacker, defender, activePlayerIdx, activeEnemyIdx, inBattle, romLoaded, profile, runtimeTrust, playerStages, enemyStages)
-            ConsoleSubtab.PARTY -> renderPartySubtab(party, selectedIdx, inBattle)
+            ConsoleSubtab.PARTY -> renderPartySubtab(party, activePlayerIdx, inBattle)
             ConsoleSubtab.FIELD -> renderFieldSubtab(attacker, defender, activePlayerIdx, inBattle, profile, runtimeTrust, playerStages, enemyStages)
             ConsoleSubtab.DETAILS -> renderDetailsSubtab(attacker, defender)
         }
@@ -363,7 +361,7 @@ class BattleConsoleScreenView(
     private fun renderBattleSubtab(
         attacker: ParsedPokemon?,
         defender: ParsedPokemon?,
-        selectedIdx: Int,
+        activePlayerIdx: Int,
         activeEnemyIdx: Int,
         inBattle: Boolean,
         romLoaded: Boolean,
@@ -385,7 +383,7 @@ class BattleConsoleScreenView(
 
         // Active participant summaries
         if (attacker != null) {
-            val attackerSummary = ParticipantSummaryBuilder.build(attacker, selectedIdx, profile, playerStages, runtimeTrust)
+            val attackerSummary = ParticipantSummaryBuilder.build(attacker, activePlayerIdx, profile, playerStages, runtimeTrust)
             contentContainer.addView(participantCard(attackerSummary, "Your Pokémon", isPlayer = true))
         }
 
@@ -696,7 +694,7 @@ class BattleConsoleScreenView(
     private fun renderFieldSubtab(
         attacker: ParsedPokemon?,
         defender: ParsedPokemon?,
-        selectedIdx: Int,
+        activePlayerIdx: Int,
         inBattle: Boolean,
         profile: RomHackProfile,
         runtimeTrust: com.dualdex.romhack.RuntimeRomTrust,
@@ -711,7 +709,7 @@ class BattleConsoleScreenView(
             inBattle = inBattle,
             attacker = attacker,
             defender = defender,
-            attackerSlot = selectedIdx,
+            attackerSlot = activePlayerIdx,
             profile = profile,
             runtimeTrust = runtimeTrust,
             playerStages = playerStages,

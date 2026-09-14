@@ -10,6 +10,8 @@ import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.SpeciesDatabase
 import com.dualdex.emulator.InputManager
 import com.dualdex.romhack.RomHackProfile
+import com.dualdex.romhack.ProfileMatchMethod
+import com.dualdex.romhack.RuntimeRomTrust
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -93,6 +95,21 @@ class BattleConsoleTest {
         isVerified = false
     )
 
+    private val exactHash = "c".repeat(64)
+
+    private fun exactProfile(profile: RomHackProfile = RomHackProfile.DEFAULT_FIRERED): RomHackProfile =
+        profile.copy(sha256Hashes = listOf(exactHash))
+
+    private fun exactTrust(profile: RomHackProfile, method: ProfileMatchMethod = ProfileMatchMethod.EXACT_SHA256): RuntimeRomTrust =
+        RuntimeRomTrust(
+            matchMethod = method,
+            detectedSha256 = exactHash,
+            activeRomSha256 = exactHash,
+            profileVerified = profile.isVerified,
+            memoryLayoutVerified = profile.memoryLayoutVerified,
+            profileSha256Hashes = profile.sha256Hashes
+        )
+
     // 1. Move metadata unavailable / fallback behavior
     @Test
     fun testMoveMetadataUnavailable_fallbackBehavior() {
@@ -157,6 +174,81 @@ class BattleConsoleTest {
         assertEquals(DataConfidence.UNAVAILABLE, pres.effectivenessConfidence)
         assertEquals(DamageConfidence.UNAVAILABLE, pres.damageConfidence)
         assertEquals("Damage unavailable for this ROM/profile", pres.damageDisplayText)
+    }
+
+    @Test
+    fun participantSpeciesUsesProfileAwareGen3AndModernMetadata() {
+        val fireRed = exactProfile()
+        val fireRedTrust = exactTrust(fireRed)
+        val clefairy = ParticipantSummaryBuilder.build(
+            createTestPokemon(species = 35, nickname = ""), 0, fireRed, runtimeTrust = fireRedTrust
+        )
+        val jigglypuff = ParticipantSummaryBuilder.build(
+            createTestPokemon(species = 39, nickname = ""), 0, fireRed, runtimeTrust = fireRedTrust
+        )
+
+        assertEquals(listOf("Normal"), clefairy.typeNames)
+        assertEquals(DataConfidence.VERIFIED, clefairy.confidence)
+        assertEquals(listOf("Normal"), jigglypuff.typeNames)
+        assertEquals(DataConfidence.VERIFIED, jigglypuff.confidence)
+
+        val modern = exactProfile(
+            RomHackProfile(
+                id = "modern",
+                name = "Modern Hack",
+                baseGame = "FireRed",
+                gameId = 7,
+                engine = "CFRU",
+                hasPhysSpecSplit = true,
+                isVerified = true,
+                memoryLayoutVerified = true,
+                gameDataPackId = "modern"
+            )
+        )
+        val modernClefairy = ParticipantSummaryBuilder.build(
+            createTestPokemon(species = 35, nickname = ""), 0, modern, runtimeTrust = exactTrust(modern)
+        )
+        assertEquals(listOf("Fairy"), modernClefairy.typeNames)
+    }
+
+    @Test
+    fun participantConfidenceRequiresAuthoritativeMetadataAndExactRuntime() {
+        val fireRed = exactProfile()
+        val fallbackSpecies = ParticipantSummaryBuilder.build(
+            createTestPokemon(species = 6), 0, fireRed, runtimeTrust = exactTrust(fireRed)
+        )
+        assertEquals(DataConfidence.ESTIMATE, fallbackSpecies.confidence)
+        assertFalse(fallbackSpecies.isVerified)
+
+        val filenameDetected = ParticipantSummaryBuilder.build(
+            createTestPokemon(species = 35), 0, fireRed,
+            runtimeTrust = exactTrust(fireRed, ProfileMatchMethod.FILENAME_KEYWORD)
+        )
+        assertEquals(DataConfidence.ESTIMATE, filenameDetected.confidence)
+        assertFalse(filenameDetected.isVerified)
+
+        val unknown = ParticipantSummaryBuilder.build(
+            createTestPokemon(species = 8888), 0, fireRed, runtimeTrust = exactTrust(fireRed)
+        )
+        assertEquals(DataConfidence.UNAVAILABLE, unknown.confidence)
+        assertTrue(unknown.typeNames.isEmpty())
+
+        val customProfile = fireRed.copy(
+            customSpecies = mapOf(35 to com.dualdex.romhack.SpeciesOverride("Clefairy", "Normal"))
+        )
+        val custom = ParticipantSummaryBuilder.build(
+            createTestPokemon(species = 35), 0, customProfile, runtimeTrust = exactTrust(customProfile)
+        )
+        assertEquals(DataConfidence.VERIFIED, custom.confidence)
+
+        val statusData = FieldStatusBuilder.build(
+            inBattle = true,
+            attacker = createTestPokemon(species = 6, statusCondition = 1L shl 4),
+            defender = createTestPokemon(species = 9),
+            profile = fireRed,
+            runtimeTrust = exactTrust(fireRed)
+        )
+        assertTrue("Directly observed status bytes retain memory confidence", statusData.conditionVerified)
     }
 
     // 3. Profile physical/special split behavior

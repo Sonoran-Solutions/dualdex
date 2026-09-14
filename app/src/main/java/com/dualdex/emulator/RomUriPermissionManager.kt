@@ -44,7 +44,7 @@ object RomUriPermissionManager {
         } catch (e: SecurityException) {
             Log.w(TAG, "Document provider does not support persistable URI permissions for $uri: ${e.message}")
             false
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             Log.w(TAG, "Recoverable error taking persistable URI permission for $uri: ${e.message}")
             false
         }
@@ -91,7 +91,7 @@ object RomUriPermissionManager {
             Log.i(TAG, "Released redundant persistable read permission for old ROM: $oldUriStr")
         } catch (e: SecurityException) {
             Log.w(TAG, "SecurityException releasing permission for $oldUriStr: ${e.message}")
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             Log.w(TAG, "Failed releasing permission for $oldUriStr: ${e.message}")
         }
     }

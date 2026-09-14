@@ -76,15 +76,14 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         if (uri != null) {
             val oldLastPlayed = settingsManager.lastPlayedRomUri
             val isDurable = RomUriPermissionManager.takePersistableReadPermission(contentResolver, uri)
-            if (isDurable) {
-                RomUriPermissionManager.releasePersistableReadPermissionIfRedundant(
-                    contentResolver = contentResolver,
-                    oldUriStr = oldLastPlayed,
-                    newUriStr = uri.toString(),
-                    protectedUris = setOfNotNull(settingsManager.romsFolderUri, settingsManager.savesFolderUri)
-                )
-            }
-            handleSelectedRom(uri, isDurable = isDurable)
+            // Capture previous individual URI candidate for release, but ONLY release it
+            // after the new ROM switch transaction completes successfully.
+            val previousDurableUriToRelease = if (isDurable) oldLastPlayed else null
+            handleSelectedRom(
+                uri = uri,
+                isDurable = isDurable,
+                previousDurableUriToRelease = previousDurableUriToRelease
+            )
         }
     }
 
@@ -308,7 +307,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     private fun handleSelectedRom(
         uri: Uri,
         preferredTitle: String? = null,
-        isDurable: Boolean = true
+        isDurable: Boolean = true,
+        previousDurableUriToRelease: String? = null
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             val result = romSessionManager.switchRom(
@@ -338,6 +338,14 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             withContext(Dispatchers.Main) {
                 when (result) {
                     is com.dualdex.emulator.SwitchResult.Success -> {
+                        if (previousDurableUriToRelease != null) {
+                            RomUriPermissionManager.releasePersistableReadPermissionIfRedundant(
+                                contentResolver = contentResolver,
+                                oldUriStr = previousDurableUriToRelease,
+                                newUriStr = uri.toString(),
+                                protectedUris = setOfNotNull(settingsManager.romsFolderUri, settingsManager.savesFolderUri)
+                            )
+                        }
                         Toast.makeText(
                             this@MainActivity,
                             "Loaded: ${result.profile.name} (${result.profile.engine})",
@@ -346,12 +354,16 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                     }
                     is com.dualdex.emulator.SwitchResult.Failure -> {
                         val wasContinueTarget = settingsManager.lastPlayedRomUri == uri.toString()
-                        if (result.isAccessError || wasContinueTarget) {
-                            if (wasContinueTarget) {
-                                settingsManager.clearLastPlayedRom()
-                                companionPresentation?.refreshHomeScreen()
-                                currentCompanionScreenView?.refreshHomeScreen()
-                            }
+                        if (wasContinueTarget && result.isAccessError) {
+                            settingsManager.clearLastPlayedRom()
+                            companionPresentation?.refreshHomeScreen()
+                            currentCompanionScreenView?.refreshHomeScreen()
+                            Toast.makeText(
+                                this@MainActivity,
+                                RomUriPermissionManager.RECOVERY_MESSAGE,
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else if (result.isAccessError) {
                             Toast.makeText(
                                 this@MainActivity,
                                 RomUriPermissionManager.RECOVERY_MESSAGE,

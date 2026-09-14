@@ -312,7 +312,8 @@ class RomDurableResumeTest {
         assertTrue("Cause must be SecurityException", failure.cause is SecurityException)
 
         // Simulate recovery action performed by MainActivity / Recovery handler
-        if (failure.isAccessError || settingsManager.lastPlayedRomUri == testUriStr) {
+        val wasContinueTarget = settingsManager.lastPlayedRomUri == testUriStr
+        if (wasContinueTarget && failure.isAccessError) {
             settingsManager.clearLastPlayedRom()
         }
 
@@ -356,7 +357,8 @@ class RomDurableResumeTest {
         assertTrue("Cause must be FileNotFoundException", failure.cause is FileNotFoundException)
 
         // Clear stale continue target
-        if (failure.isAccessError || settingsManager.lastPlayedRomUri == testUriStr) {
+        val wasContinue = settingsManager.lastPlayedRomUri == testUriStr
+        if (wasContinue && failure.isAccessError) {
             settingsManager.clearLastPlayedRom()
         }
 
@@ -432,5 +434,160 @@ class RomDurableResumeTest {
         assertTrue(res is SwitchResult.Success)
         assertEquals(romFile.absolutePath, settingsManager.lastPlayedRomUri)
         assertEquals("Pokemon LeafGreen", settingsManager.lastPlayedRomTitle)
+    }
+
+    /**
+     * 8. Regression test: If opening new ROM fails (e.g. core rejection), old Continue URI permission
+     *    is NOT released and old Continue target remains intact.
+     */
+    @Test
+    fun testNewRomLoadFails_doesNotReleaseOldContinueGrant() = runBlocking {
+        val cacheDir = File(testBaseDir, "cache").apply { mkdirs() }
+        createRomFile("game_a.gba", 0x11)
+        val romB = createRomFile("game_b.gba", 0x22)
+        val uriStrA = "content://com.android.providers.media.documents/document/100"
+        val uriStrB = "content://com.android.providers.media.documents/document/200"
+
+        // ROM A is the established durable Continue target
+        settingsManager.lastPlayedRomUri = uriStrA
+        settingsManager.lastPlayedRomTitle = "Game A"
+
+        // Simulate core rejection when attempting to load ROM B
+        testBridge.loadRomResult = false
+
+        val sessionManager = RomSessionManager(
+            saveStateManager = saveStateManager,
+            settingsManager = settingsManager,
+            customRomCacheDir = cacheDir,
+            coreBridge = testBridge,
+            customStreamOpener = { ByteArrayInputStream(romB.readBytes()) }
+        )
+
+        // Simulate MainActivity.openRomLauncher flow:
+        // 1. Capture previous durable URI candidate
+        val oldLastPlayed = settingsManager.lastPlayedRomUri
+        val isDurable = true // Assume takePersistableReadPermission succeeded for B
+        val previousDurableUriToRelease = if (isDurable) oldLastPlayed else null
+
+        // 2. Perform switch transaction
+        val result = sessionManager.switchRom(
+            uri = FakeUri(uriStrB),
+            loadedProfiles = emptyList(),
+            preferredTitle = "Game B",
+            isDurable = isDurable
+        )
+
+        assertTrue("ROM B switch should fail due to core rejection", result is SwitchResult.Failure)
+        val failure = result as SwitchResult.Failure
+        assertFalse("Core rejection should not be marked as access error", failure.isAccessError)
+
+        var releasedUri: String? = null
+        // 3. MainActivity deferred release policy: ONLY release on Success!
+        val outcome: SwitchResult = result
+        when (outcome) {
+            is SwitchResult.Success -> {
+                if (previousDurableUriToRelease != null) {
+                    releasedUri = previousDurableUriToRelease
+                }
+            }
+            is SwitchResult.Failure -> {
+                val wasContinueTarget = settingsManager.lastPlayedRomUri == uriStrB
+                if (wasContinueTarget && outcome.isAccessError) {
+                    settingsManager.clearLastPlayedRom()
+                }
+            }
+        }
+
+        // Assert that old URI was never released and old Continue target was preserved
+        assertNull("Old Continue URI must NOT be released when new ROM load fails", releasedUri)
+        assertEquals("Old Continue target URI must remain intact", uriStrA, settingsManager.lastPlayedRomUri)
+        assertEquals("Old Continue target Title must remain intact", "Game A", settingsManager.lastPlayedRomTitle)
+    }
+
+    /**
+     * 9. Regression test: If Continue target fails due to core rejection (non-access failure),
+     *    Continue state is NOT cleared.
+     */
+    @Test
+    fun testContinueTarget_coreRejection_doesNotClearContinueState() = runBlocking {
+        val cacheDir = File(testBaseDir, "cache").apply { mkdirs() }
+        val romA = createRomFile("game_a.gba", 0x33)
+        val uriStrA = "content://com.android.providers.media.documents/document/100"
+
+        settingsManager.lastPlayedRomUri = uriStrA
+        settingsManager.lastPlayedRomTitle = "Game A"
+
+        // Emulate core rejecting the ROM
+        testBridge.loadRomResult = false
+
+        val sessionManager = RomSessionManager(
+            saveStateManager = saveStateManager,
+            settingsManager = settingsManager,
+            customRomCacheDir = cacheDir,
+            coreBridge = testBridge,
+            customStreamOpener = { ByteArrayInputStream(romA.readBytes()) }
+        )
+
+        val result = sessionManager.switchRom(
+            uri = FakeUri(uriStrA),
+            loadedProfiles = emptyList(),
+            preferredTitle = "Game A"
+        )
+
+        assertTrue("Switch must fail when core rejects ROM", result is SwitchResult.Failure)
+        val failure = result as SwitchResult.Failure
+        assertFalse("Core rejection must NOT be flagged as access error", failure.isAccessError)
+
+        // In MainActivity failure handling:
+        val wasContinueTarget = settingsManager.lastPlayedRomUri == uriStrA
+        if (wasContinueTarget && failure.isAccessError) {
+            settingsManager.clearLastPlayedRom()
+        }
+
+        assertEquals("Continue URI must remain intact after non-access failure", uriStrA, settingsManager.lastPlayedRomUri)
+        assertEquals("Continue Title must remain intact after non-access failure", "Game A", settingsManager.lastPlayedRomTitle)
+    }
+
+    /**
+     * 10. Regression test: If Continue target fails due to local cache write failure,
+     *     it is NOT classified as an access error and Continue state is preserved.
+     */
+    @Test
+    fun testContinueTarget_cacheWriteFailure_isNotAccessError_preservesContinue() = runBlocking {
+        // Use a non-directory file for cacheDir to force local cache creation failure
+        val invalidCacheDir = File(testBaseDir, "not_a_dir_cache")
+        invalidCacheDir.createNewFile()
+
+        val romA = createRomFile("game_a.gba", 0x44)
+        val uriStrA = "content://com.android.providers.media.documents/document/100"
+
+        settingsManager.lastPlayedRomUri = uriStrA
+        settingsManager.lastPlayedRomTitle = "Game A"
+
+        val sessionManager = RomSessionManager(
+            saveStateManager = saveStateManager,
+            settingsManager = settingsManager,
+            customRomCacheDir = invalidCacheDir,
+            coreBridge = testBridge,
+            customStreamOpener = { ByteArrayInputStream(romA.readBytes()) }
+        )
+
+        val result = sessionManager.switchRom(
+            uri = FakeUri(uriStrA),
+            loadedProfiles = emptyList(),
+            preferredTitle = "Game A"
+        )
+
+        assertTrue("Switch must fail when local cache write fails", result is SwitchResult.Failure)
+        val failure = result as SwitchResult.Failure
+        assertFalse("Local cache write failure must NOT be classified as isAccessError", failure.isAccessError)
+
+        // In MainActivity failure handling:
+        val wasContinueTarget = settingsManager.lastPlayedRomUri == uriStrA
+        if (wasContinueTarget && failure.isAccessError) {
+            settingsManager.clearLastPlayedRom()
+        }
+
+        assertEquals("Continue URI must remain intact after local cache write failure", uriStrA, settingsManager.lastPlayedRomUri)
     }
 }

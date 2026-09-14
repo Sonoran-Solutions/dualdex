@@ -133,34 +133,98 @@ open class RomSessionManager(
             try {
                 // 1. Prepare new ROM in cache before touching running session
                 val tmpIncoming = File(romCacheDir, "incoming_${System.currentTimeMillis()}.tmp")
-                val bytesCopied = try {
-                    streamProvider()?.use { input ->
-                        FileOutputStream(tmpIncoming).use { output ->
-                            input.copyTo(output)
-                        }
-                    } ?: 0L
+
+                val inputStream = try {
+                    streamProvider()
                 } catch (e: SecurityException) {
-                    if (tmpIncoming.exists()) tmpIncoming.delete()
-                    Log.w(TAG, "SecurityException reading ROM stream: ${e.message}")
+                    Log.w(TAG, "SecurityException opening ROM stream: ${e.message}")
                     return@withLock SwitchResult.Failure(
                         reason = "Permission denied accessing ROM stream: ${e.message}",
                         isAccessError = true,
                         cause = e
                     )
                 } catch (e: java.io.FileNotFoundException) {
-                    if (tmpIncoming.exists()) tmpIncoming.delete()
-                    Log.w(TAG, "FileNotFoundException reading ROM stream: ${e.message}")
+                    Log.w(TAG, "FileNotFoundException opening ROM stream: ${e.message}")
                     return@withLock SwitchResult.Failure(
                         reason = "ROM file not found: ${e.message}",
                         isAccessError = true,
                         cause = e
                     )
                 } catch (e: Exception) {
-                    if (tmpIncoming.exists()) tmpIncoming.delete()
-                    Log.w(TAG, "Exception reading ROM stream: ${e.message}")
+                    Log.w(TAG, "Exception opening ROM stream: ${e.message}")
                     return@withLock SwitchResult.Failure(
-                        reason = "Failed to read ROM stream from source: ${e.message}",
+                        reason = "Failed to open ROM stream from source: ${e.message}",
                         isAccessError = true,
+                        cause = e
+                    )
+                }
+
+                if (inputStream == null) {
+                    return@withLock SwitchResult.Failure(
+                        reason = "ROM stream provider returned null (access denied or file missing)",
+                        isAccessError = true
+                    )
+                }
+
+                val outputStream = try {
+                    FileOutputStream(tmpIncoming)
+                } catch (e: Exception) {
+                    try { inputStream.close() } catch (_: Exception) {}
+                    Log.w(TAG, "Failed to create cache file for ROM: ${e.message}", e)
+                    return@withLock SwitchResult.Failure(
+                        reason = "Failed to create local cache file: ${e.message}",
+                        isAccessError = false,
+                        cause = e
+                    )
+                }
+
+                val bytesCopied = try {
+                    inputStream.use { input ->
+                        outputStream.use { output ->
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            var total = 0L
+                            while (true) {
+                                val read = try {
+                                    input.read(buffer)
+                                } catch (e: Exception) {
+                                    throw RomSourceReadException(e)
+                                }
+                                if (read < 0) break
+                                try {
+                                    output.write(buffer, 0, read)
+                                } catch (e: Exception) {
+                                    throw LocalCacheWriteException(e)
+                                }
+                                total += read
+                            }
+                            output.flush()
+                            total
+                        }
+                    }
+                } catch (e: RomSourceReadException) {
+                    if (tmpIncoming.exists()) tmpIncoming.delete()
+                    val cause = e.cause ?: e
+                    Log.w(TAG, "Exception reading ROM source stream: ${cause.message}")
+                    return@withLock SwitchResult.Failure(
+                        reason = "Failed to read ROM stream from source: ${cause.message}",
+                        isAccessError = true,
+                        cause = cause
+                    )
+                } catch (e: LocalCacheWriteException) {
+                    if (tmpIncoming.exists()) tmpIncoming.delete()
+                    val cause = e.cause ?: e
+                    Log.w(TAG, "Exception writing ROM to cache: ${cause.message}")
+                    return@withLock SwitchResult.Failure(
+                        reason = "Failed to write ROM to local cache: ${cause.message}",
+                        isAccessError = false,
+                        cause = cause
+                    )
+                } catch (e: Exception) {
+                    if (tmpIncoming.exists()) tmpIncoming.delete()
+                    Log.w(TAG, "Unexpected error copying ROM: ${e.message}")
+                    return@withLock SwitchResult.Failure(
+                        reason = "Unexpected error copying ROM: ${e.message}",
+                        isAccessError = false,
                         cause = e
                     )
                 }
@@ -169,7 +233,7 @@ open class RomSessionManager(
                 if (bytesCopied == 0L || !tmpIncoming.exists() || incomingLength == 0L) {
                     if (tmpIncoming.exists()) tmpIncoming.delete()
                     return@withLock SwitchResult.Failure(
-                        reason = "Failed to read ROM stream from source",
+                        reason = "ROM stream was empty or zero bytes read",
                         isAccessError = true
                     )
                 }
@@ -308,15 +372,17 @@ open class RomSessionManager(
                 return@withLock SwitchResult.Success(newIdentity, profile)
             } catch (e: Exception) {
                 Log.e(TAG, "Unexpected exception during ROM switch: ${e.message}", e)
-                val isAccess = e is SecurityException || e is java.io.FileNotFoundException
                 return@withLock SwitchResult.Failure(
                     reason = "Exception during ROM switch: ${e.message}",
-                    isAccessError = isAccess,
+                    isAccessError = false,
                     cause = e
                 )
             }
         }
     }
+
+    private class RomSourceReadException(cause: Throwable) : Exception(cause)
+    private class LocalCacheWriteException(cause: Throwable) : Exception(cause)
 
     companion object {
         private const val TAG = "RomSessionManager"

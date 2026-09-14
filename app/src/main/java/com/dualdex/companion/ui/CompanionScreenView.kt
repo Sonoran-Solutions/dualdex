@@ -1,13 +1,19 @@
 package com.dualdex.companion.ui
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.Typeface
 import android.net.Uri
 import android.text.TextUtils
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import com.dualdex.R
 import com.dualdex.companion.CompanionNavigation
 import com.dualdex.companion.CompanionTab
@@ -54,6 +60,20 @@ class CompanionScreenView(
     private val contextBar: LinearLayout
     private val profileLabel: TextView
     private val battleIndicator: TextView
+    private val timeView: TextView
+    private val batteryView: TextView
+    private var isReceiverRegistered = false
+
+    private val statusReceiver = object : BroadcastReceiver() {
+        override fun onReceive(receiverContext: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_TIME_TICK,
+                Intent.ACTION_TIME_CHANGED,
+                Intent.ACTION_TIMEZONE_CHANGED -> updateTime()
+                Intent.ACTION_BATTERY_CHANGED -> updateBattery(intent)
+            }
+        }
+    }
 
     private val homeView: HomeScreenView by lazy {
         HomeScreenView(
@@ -125,9 +145,45 @@ class CompanionScreenView(
             visibility = View.GONE
             contentDescription = "Open Battle Console"
         }
+        val statusArea = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        timeView = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
+            typeface = Typeface.DEFAULT_BOLD
+            isSingleLine = true
+            maxLines = 1
+        }
+        batteryView = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
+            typeface = Typeface.DEFAULT_BOLD
+            isSingleLine = true
+            maxLines = 1
+        }
+        statusArea.addView(timeView)
+        statusArea.addView(
+            batteryView,
+            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                marginStart = context.dp(DualDexTheme.Spacing.standard)
+            }
+        )
+
         contextBar.addView(profileLabel)
-        contextBar.addView(battleIndicator, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)))
+        contextBar.addView(
+            battleIndicator,
+            LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
+                marginStart = context.dp(DualDexTheme.Spacing.compact)
+                marginEnd = context.dp(DualDexTheme.Spacing.standard)
+            }
+        )
+        contextBar.addView(statusArea, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
         addView(contextBar)
+
+        updateTime()
+        updateBattery(null)
 
         contentContainer = FrameLayout(context).apply {
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f)
@@ -263,17 +319,59 @@ class CompanionScreenView(
             }
             profileLabel.visibility = View.VISIBLE
         } else {
-            profileLabel.visibility = View.GONE
+            profileLabel.text = ""
+            profileLabel.visibility = View.VISIBLE
         }
         battleIndicator.visibility = if (inBattle) View.VISIBLE else View.GONE
-        contextBar.visibility = if (identity != null || inBattle) View.VISIBLE else View.GONE
+        contextBar.visibility = View.VISIBLE
     }
+
+    private fun updateTime() {
+        timeView.text = CompanionStatusFormatter.formatTime(context)
+    }
+
+    private fun updateBattery(intent: Intent?) {
+        val display = CompanionStatusFormatter.formatBattery(intent)
+        batteryView.text = display.text
+        batteryView.setTextColor(display.color)
+    }
+
+    internal fun getDisplayedTime(): CharSequence = timeView.text
+    internal fun getDisplayedBattery(): CharSequence = batteryView.text
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         viewScope?.cancel()
         val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         viewScope = scope
+
+        updateTime()
+        val stickyBattery = try {
+            context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        } catch (_: Throwable) {
+            null
+        }
+        updateBattery(stickyBattery)
+
+        if (!isReceiverRegistered) {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_TIME_TICK)
+                addAction(Intent.ACTION_TIME_CHANGED)
+                addAction(Intent.ACTION_TIMEZONE_CHANGED)
+                addAction(Intent.ACTION_BATTERY_CHANGED)
+            }
+            try {
+                ContextCompat.registerReceiver(
+                    context,
+                    statusReceiver,
+                    filter,
+                    ContextCompat.RECEIVER_NOT_EXPORTED
+                )
+                isReceiverRegistered = true
+            } catch (e: Throwable) {
+                Log.w("DualDex", "Could not register status receiver: ${e.message}")
+            }
+        }
 
         scope.launch { viewModel.playerParty.collectLatest { notifyPartyUpdated() } }
         scope.launch { viewModel.activeProfile.collectLatest { notifyProfileChanged() } }
@@ -297,6 +395,13 @@ class CompanionScreenView(
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        if (isReceiverRegistered) {
+            try {
+                context.unregisterReceiver(statusReceiver)
+            } catch (_: Throwable) {
+            }
+            isReceiverRegistered = false
+        }
         viewScope?.cancel()
         viewScope = null
     }

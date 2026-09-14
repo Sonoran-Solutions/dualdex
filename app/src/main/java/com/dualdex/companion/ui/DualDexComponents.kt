@@ -78,7 +78,7 @@ object DualDexComponents {
         )
         background = controlBackground(context, DualDexButtonStyle.GHOST, selected = false)
         isFocusable = true
-        isFocusableInTouchMode = true
+        isFocusableInTouchMode = false
         isClickable = onClick != null
         contentDescription = title
         onClick?.let { setOnClickListener { it() } }
@@ -138,7 +138,7 @@ object DualDexComponents {
         ))
         background = controlBackground(context, style, selected = false)
         isFocusable = true
-        isFocusableInTouchMode = true
+        isFocusableInTouchMode = false
         isClickable = onClick != null
         onClick?.let { setOnClickListener { it() } }
     }
@@ -206,7 +206,7 @@ class DualDexNavigationItem(
         minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
         setPadding(context.dp(DualDexTheme.Spacing.tight), context.dp(DualDexTheme.Spacing.tight), context.dp(DualDexTheme.Spacing.tight), context.dp(DualDexTheme.Spacing.tight))
         isFocusable = true
-        isFocusableInTouchMode = true
+        isFocusableInTouchMode = false
         isClickable = true
         contentDescription = label
         setOnClickListener { onClick() }

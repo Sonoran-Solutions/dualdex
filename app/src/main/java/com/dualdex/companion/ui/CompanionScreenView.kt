@@ -88,7 +88,9 @@ class CompanionScreenView(
     private val partyView: PartyScreenView by lazy { PartyScreenView(context, viewModel) }
     private val mapView: MapScreenView by lazy { MapScreenView(context, viewModel) }
     private val calcView: CalcTabScreenView by lazy { CalcTabScreenView(context, viewModel) }
-    private val battleView: BattleConsoleScreenView by lazy { BattleConsoleScreenView(context, viewModel) }
+    private val battleView: BattleConsoleScreenView by lazy {
+        BattleConsoleScreenView(context, viewModel) { navigateTo(CompanionTab.CALC) }
+    }
     private val typesView: TypeChartScreenView by lazy { TypeChartScreenView(context, viewModel) }
     private val docsView: DocsScreenView by lazy { DocsScreenView(context, viewModel) }
     private val cheatsView: CheatsScreenView by lazy { CheatsScreenView(context, viewModel) }
@@ -232,7 +234,10 @@ class CompanionScreenView(
             CompanionTab.MAP -> mapView.apply { refreshUI() }
             CompanionTab.CALC -> calcView.apply { refreshUI() }
             CompanionTab.BATTLE -> battleView.apply { refreshUI() }
-            CompanionTab.TYPES -> typesView
+            CompanionTab.TYPES -> battleView.apply {
+                selectMode(BattleMode.TYPE_MATCHUPS)
+                refreshUI()
+            }
             CompanionTab.DOCS -> docsView.apply { refreshUI() }
             CompanionTab.CHEATS -> cheatsView.apply { refreshUI() }
             CompanionTab.SAVES -> savesView.apply { refreshUI() }
@@ -261,8 +266,8 @@ class CompanionScreenView(
                 CompanionTab.PARTY -> partyView.refreshUI()
                 CompanionTab.MAP -> mapView.refreshUI()
                 CompanionTab.CALC -> calcView.refreshUI()
-                CompanionTab.BATTLE -> battleView.refreshUI()
-                CompanionTab.TYPES -> typesView.updateMatchupDisplay()
+                CompanionTab.BATTLE,
+                CompanionTab.TYPES -> battleView.refreshUI()
                 CompanionTab.CHEATS -> cheatsView.refreshUI()
                 CompanionTab.SAVES -> savesView.refreshUI()
                 else -> Unit

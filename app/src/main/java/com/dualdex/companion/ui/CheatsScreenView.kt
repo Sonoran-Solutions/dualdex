@@ -4,14 +4,23 @@ import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
-import android.widget.*
+import android.view.View
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
 import com.dualdex.cheats.CheatItem
 import com.dualdex.cheats.CheatManager
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.RomIdentity
 
+/**
+ * Redesigned Cheats screen adhering to the Quiet Handheld Companion design system.
+ * Organizes cheats as flat, scannable list rows with inline enable/disable toggles,
+ * tap-to-expand monospaced code details, compact toolbar actions, and clean empty states.
+ */
 class CheatsScreenView(
     context: Context,
     private val viewModel: CompanionViewModel
@@ -20,17 +29,22 @@ class CheatsScreenView(
     private val cheatManager = CheatManager(context)
     private val cheatsListContainer: LinearLayout
     private val activeRomLabel: TextView
-    private val addBtn: Button
-    private val presetBtn: Button
-    private val disableAllBtn: Button
+    private val addBtn: TextView
+    private val presetBtn: TextView
+    private val disableAllBtn: TextView
 
-    private val density = context.resources.displayMetrics.density
-    private fun dp(v: Int): Int = (v * density).toInt()
+    // Track which cheat rows are currently expanded
+    private val expandedCheatIds = mutableSetOf<String>()
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(0xFF121216.toInt())
-        setPadding(dp(16), dp(16), dp(16), dp(20))
+        setBackgroundColor(DualDexTheme.Color.background)
+        setPadding(
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            0
+        )
 
         val scroll = ScrollView(context).apply {
             isVerticalScrollBarEnabled = true
@@ -38,118 +52,77 @@ class CheatsScreenView(
         }
         val mainContent = LinearLayout(context).apply {
             orientation = VERTICAL
+            setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.major))
         }
         scroll.addView(mainContent)
         addView(scroll)
 
-        // Header Card
-        val headerCard = createCardLayout().apply {
-            val titleRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-            }
-            val titleView = TextView(context).apply {
-                text = "⚡ Action Replay & Cheats"
-                setTextColor(Color.WHITE)
-                textSize = 20f
-                typeface = Typeface.DEFAULT_BOLD
-            }
-            titleRow.addView(titleView)
-            addView(titleRow)
+        // 1. Header
+        val headerCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.screenTitle(context, "Cheats"))
 
             activeRomLabel = TextView(context).apply {
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 13.5f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, dp(4), 0, dp(8))
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight / 2), 0, context.dp(DualDexTheme.Spacing.compact))
             }
             addView(activeRomLabel)
 
             val descView = TextView(context).apply {
-                text = "DualDex supports Action Replay v3, GameShark, and CodeBreaker codes. " +
-                    "Codes are injected directly into the mGBA core in real-time and scoped strictly to this ROM's SHA-256."
-                setTextColor(0xFFAAAAAA.toInt())
-                textSize = 12f
-                setPadding(0, 0, 0, dp(12))
+                text = "Supports Action Replay v3, GameShark, and CodeBreaker codes. Injected directly into the core and scoped strictly to this game."
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.standard))
             }
             addView(descView)
 
-            // Button Row: Add Custom Cheat, Load Presets, Disable All
+            // Toolbar: Add Cheat, Load Presets, Disable All
             val btnRow = LinearLayout(context).apply {
                 orientation = HORIZONTAL
             }
 
-            addBtn = Button(context).apply {
-                text = "➕ Add Cheat"
-                setTextColor(Color.WHITE)
-                textSize = 11.5f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = dp(10).toFloat()
-                    setColor(0xFF2E5B88.toInt())
-                }
-                setPadding(dp(12), dp(8), dp(12), dp(8))
-                setOnClickListener { showAddCheatDialog() }
+            addBtn = DualDexComponents.secondaryButton(context, "Add Cheat") {
+                showAddCheatDialog()
             }
-            val lpAdd = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply {
-                setMargins(0, 0, dp(6), 0)
+            val lpAdd = LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1.0f).apply {
+                marginEnd = context.dp(DualDexTheme.Spacing.compact)
             }
             btnRow.addView(addBtn, lpAdd)
 
-            presetBtn = Button(context).apply {
-                text = "⚡ Load Presets"
-                setTextColor(Color.WHITE)
-                textSize = 11.5f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = dp(10).toFloat()
-                    setColor(0xFF2E6B4A.toInt())
-                }
-                setPadding(dp(12), dp(8), dp(12), dp(8))
-                setOnClickListener {
-                    val identity = getActiveRomIdentity()
-                    if (identity != null && identity.isValid) {
-                        cheatManager.resetToDefaultPresets(identity)
-                        refreshUI()
-                        Toast.makeText(context, "Loaded presets for ${identity.displayName}", Toast.LENGTH_SHORT).show()
-                    }
+            presetBtn = DualDexComponents.secondaryButton(context, "Load Presets") {
+                val identity = getActiveRomIdentity()
+                if (identity != null && identity.isValid) {
+                    cheatManager.resetToDefaultPresets(identity)
+                    refreshUI()
+                    Toast.makeText(context, "Loaded presets for ${identity.displayName}", Toast.LENGTH_SHORT).show()
                 }
             }
-            val lpPreset = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply {
-                setMargins(0, 0, dp(6), 0)
+            val lpPreset = LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1.0f).apply {
+                marginEnd = context.dp(DualDexTheme.Spacing.compact)
             }
             btnRow.addView(presetBtn, lpPreset)
 
-            disableAllBtn = Button(context).apply {
-                text = "🚫 Disable All"
-                setTextColor(Color.WHITE)
-                textSize = 11.5f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = dp(10).toFloat()
-                    setColor(0xFF383844.toInt())
-                }
-                setPadding(dp(12), dp(8), dp(12), dp(8))
-                setOnClickListener {
-                    val identity = getActiveRomIdentity()
-                    if (identity != null && identity.isValid) {
-                        val cheats = cheatManager.getCheats(identity)
-                        val updated = cheats.map { it.copy(enabled = false) }
-                        cheatManager.saveCheats(identity, updated)
-                        cheatManager.applyCheats(identity)
-                        refreshUI()
-                        Toast.makeText(context, "All cheats disabled", Toast.LENGTH_SHORT).show()
-                    }
+            disableAllBtn = DualDexComponents.ghostControl(context, "Disable All") {
+                val identity = getActiveRomIdentity()
+                if (identity != null && identity.isValid) {
+                    val cheats = cheatManager.getCheats(identity)
+                    val updated = cheats.map { it.copy(enabled = false) }
+                    cheatManager.saveCheats(identity, updated)
+                    cheatManager.applyCheats(identity)
+                    refreshUI()
+                    Toast.makeText(context, "All cheats disabled", Toast.LENGTH_SHORT).show()
                 }
             }
-            val lpDisable = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f)
+            val lpDisable = LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1.0f)
             btnRow.addView(disableAllBtn, lpDisable)
 
             addView(btnRow)
         }
-        mainContent.addView(headerCard)
+        mainContent.addView(headerCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
 
-        // Cheats List Container
+        // 2. Cheats List Container
         cheatsListContainer = LinearLayout(context).apply {
             orientation = VERTICAL
         }
@@ -158,31 +131,25 @@ class CheatsScreenView(
         refreshUI()
     }
 
-    private fun getActiveRomIdentity(): RomIdentity? {
-        return viewModel.activeRomIdentity.value?.takeIf { it.isValid }
-    }
+    private fun getActiveRomIdentity(): RomIdentity? = viewModel.activeRomIdentity.value?.takeIf { it.isValid }
 
     fun refreshUI() {
         val identity = getActiveRomIdentity()
         cheatsListContainer.removeAllViews()
 
         if (identity == null || !identity.isValid) {
-            activeRomLabel.text = "Game: No active ROM loaded"
+            activeRomLabel.text = "No active game loaded"
             addBtn.isEnabled = false
             presetBtn.isEnabled = false
             disableAllBtn.isEnabled = false
 
-            val emptyCard = createCardLayout().apply {
-                val emptyText = TextView(context).apply {
-                    text = "No active ROM loaded.\n\nOpen a ROM first to configure or enable cheats."
-                    setTextColor(0xFFAAAAAA.toInt())
-                    textSize = 14f
-                    gravity = Gravity.CENTER
-                    setPadding(dp(16), dp(24), dp(16), dp(24))
-                }
-                addView(emptyText)
-            }
-            cheatsListContainer.addView(emptyCard)
+            cheatsListContainer.addView(
+                DualDexComponents.emptyState(
+                    context,
+                    "No game loaded",
+                    "Open a game from your Library to view and configure cheats."
+                )
+            )
             return
         }
 
@@ -193,160 +160,216 @@ class CheatsScreenView(
 
         val cheats = cheatManager.getCheats(identity)
         if (cheats.isEmpty()) {
-            val emptyCard = createCardLayout().apply {
-                val emptyText = TextView(context).apply {
-                    text = "No cheats configured for ${identity.displayName}.\n\nTap '⚡ Load Presets' to get standard codes for this game, or tap '➕ Add Cheat' to paste Action Replay codes."
-                    setTextColor(0xFFAAAAAA.toInt())
-                    textSize = 14f
-                    gravity = Gravity.CENTER
-                    setPadding(dp(16), dp(24), dp(16), dp(24))
-                }
-                addView(emptyText)
-            }
-            cheatsListContainer.addView(emptyCard)
+            cheatsListContainer.addView(
+                DualDexComponents.emptyState(
+                    context,
+                    "No cheats configured",
+                    "Tap 'Load Presets' to get standard codes for this game, or 'Add Cheat' to enter custom codes."
+                )
+            )
             return
         }
 
         cheats.forEach { cheat ->
-            val cheatCard = createCardLayout().apply {
-                val titleRow = LinearLayout(context).apply {
-                    orientation = HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                }
+            val isExpanded = expandedCheatIds.contains(cheat.id)
 
-                val nameView = TextView(context).apply {
-                    text = cheat.name
-                    setTextColor(Color.WHITE)
-                    textSize = 14.5f
+            val cheatCard = LinearLayout(context).apply {
+                orientation = VERTICAL
+                background = DualDexComponents.surface(context, elevated = false)
+                setPadding(
+                    context.dp(DualDexTheme.Spacing.standard),
+                    context.dp(DualDexTheme.Spacing.compact),
+                    context.dp(DualDexTheme.Spacing.standard),
+                    context.dp(DualDexTheme.Spacing.compact)
+                )
+            }
+
+            // Clickable Header Row
+            val titleRow = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    if (isExpanded) expandedCheatIds.remove(cheat.id) else expandedCheatIds.add(cheat.id)
+                    refreshUI()
+                }
+            }
+
+            val nameView = TextView(context).apply {
+                text = cheat.name
+                setTextColor(DualDexTheme.Color.textPrimary)
+                textSize = DualDexTheme.Type.body
+                typeface = Typeface.DEFAULT_BOLD
+                isSingleLine = true
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f)
+            }
+            titleRow.addView(nameView)
+
+            if (cheat.isPreset) {
+                val presetBadge = TextView(context).apply {
+                    text = "PRESET"
+                    textSize = DualDexTheme.Type.compact
                     typeface = Typeface.DEFAULT_BOLD
-                    layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f)
+                    setTextColor(DualDexTheme.Color.success)
+                    setPadding(
+                        context.dp(DualDexTheme.Spacing.compact),
+                        context.dp(DualDexTheme.Spacing.tight / 2),
+                        context.dp(DualDexTheme.Spacing.compact),
+                        context.dp(DualDexTheme.Spacing.tight / 2)
+                    )
+                    background = DualDexComponents.roundedDrawable(
+                        context = context,
+                        color = DualDexTheme.Color.surfaceDisabled,
+                        radiusDp = DualDexTheme.Radius.pill,
+                        strokeColor = DualDexTheme.Color.border
+                    )
                 }
-                titleRow.addView(nameView)
+                val lpBadge = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                    marginEnd = context.dp(DualDexTheme.Spacing.compact)
+                }
+                titleRow.addView(presetBadge, lpBadge)
+            }
 
-                if (cheat.isPreset) {
-                    val presetBadge = TextView(context).apply {
-                        text = "PRESET"
-                        textSize = 9.5f
-                        typeface = Typeface.DEFAULT_BOLD
-                        setTextColor(0xFF50C878.toInt())
-                        setPadding(dp(6), dp(2), dp(6), dp(2))
-                        background = GradientDrawable().apply {
-                            cornerRadius = dp(6).toFloat()
-                            setColor(0xFF1E2B20.toInt())
-                        }
-                    }
-                    val lpBadge = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                        setMargins(0, 0, dp(8), 0)
-                    }
-                    titleRow.addView(presetBadge, lpBadge)
+            // Quick Toggle Button
+            val toggleBtn = DualDexComponents.smallButton(
+                context = context,
+                text = if (cheat.enabled) "Active" else "Off",
+                style = if (cheat.enabled) DualDexButtonStyle.PRIMARY else DualDexButtonStyle.GHOST
+            ) {
+                val newState = !cheat.enabled
+                cheatManager.toggleCheat(identity, cheat.id, newState)
+                refreshUI()
+                Toast.makeText(context, "${cheat.name}: ${if (newState) "Active" else "Off"}", Toast.LENGTH_SHORT).show()
+            }
+            val lpToggle = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30)).apply {
+                marginEnd = context.dp(DualDexTheme.Spacing.compact)
+            }
+            titleRow.addView(toggleBtn, lpToggle)
+
+            val chevron = TextView(context).apply {
+                text = if (isExpanded) "▼" else "›"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = if (isExpanded) DualDexTheme.Type.compact else DualDexTheme.Type.chevron
+                gravity = Gravity.CENTER
+            }
+            titleRow.addView(chevron)
+            cheatCard.addView(titleRow)
+
+            // Expandable Content (Code and Delete)
+            if (isExpanded) {
+                val detailsLayout = LinearLayout(context).apply {
+                    orientation = VERTICAL
+                    setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.tight))
                 }
 
-                val toggleBtn = Button(context).apply {
-                    text = if (cheat.enabled) "ACTIVE" else "OFF"
-                    textSize = 11f
-                    typeface = Typeface.DEFAULT_BOLD
-                    setTextColor(Color.WHITE)
-                    background = GradientDrawable().apply {
-                        cornerRadius = dp(8).toFloat()
-                        setColor(if (cheat.enabled) 0xFF2E6B4A.toInt() else 0xFF2C2C36.toInt())
-                    }
-                    setPadding(dp(10), dp(4), dp(10), dp(4))
-                    setOnClickListener {
-                        val newState = !cheat.enabled
-                        cheatManager.toggleCheat(identity, cheat.id, newState)
-                        refreshUI()
-                        Toast.makeText(context, "${cheat.name}: ${if (newState) "Enabled" else "Disabled"}", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                val lpToggle = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
-                titleRow.addView(toggleBtn, lpToggle)
-                addView(titleRow)
-
-                // Code snippet view (monospaced)
+                // Monospaced code snippet view
                 val codeView = TextView(context).apply {
                     text = cheat.code
-                    setTextColor(0xFFB0B0C0.toInt())
-                    textSize = 12f
+                    setTextColor(DualDexTheme.Color.textSecondary)
+                    textSize = DualDexTheme.Type.compact
                     typeface = Typeface.MONOSPACE
-                    setPadding(dp(10), dp(8), dp(10), dp(8))
-                    background = GradientDrawable().apply {
-                        cornerRadius = dp(8).toFloat()
-                        setColor(0xFF14141A.toInt())
-                    }
+                    setPadding(
+                        context.dp(DualDexTheme.Spacing.standard),
+                        context.dp(DualDexTheme.Spacing.compact),
+                        context.dp(DualDexTheme.Spacing.standard),
+                        context.dp(DualDexTheme.Spacing.compact)
+                    )
+                    background = DualDexComponents.roundedDrawable(
+                        context = context,
+                        color = DualDexTheme.Color.surfaceDisabled,
+                        radiusDp = DualDexTheme.Radius.control
+                    )
                 }
-                val lpCode = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                    setMargins(0, dp(8), 0, dp(8))
-                }
-                addView(codeView, lpCode)
+                detailsLayout.addView(codeView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                    bottomMargin = context.dp(DualDexTheme.Spacing.compact)
+                })
 
                 // Action Row (Delete button)
                 val actionRow = LinearLayout(context).apply {
                     orientation = HORIZONTAL
                     gravity = Gravity.END
                 }
-                val deleteBtn = TextView(context).apply {
-                    text = "🗑️ Delete"
-                    textSize = 11.5f
-                    setTextColor(0xFFFF6B6B.toInt())
-                    setPadding(dp(8), dp(4), dp(8), dp(4))
-                    setOnClickListener {
-                        cheatManager.deleteCheat(identity, cheat.id)
-                        refreshUI()
-                    }
+                val deleteBtn = DualDexComponents.smallButton(
+                    context = context,
+                    text = "Delete",
+                    style = DualDexButtonStyle.DESTRUCTIVE
+                ) {
+                    cheatManager.deleteCheat(identity, cheat.id)
+                    expandedCheatIds.remove(cheat.id)
+                    refreshUI()
                 }
                 actionRow.addView(deleteBtn)
-                addView(actionRow)
+                detailsLayout.addView(actionRow)
+
+                cheatCard.addView(detailsLayout)
             }
-            cheatsListContainer.addView(cheatCard)
+
+            cheatsListContainer.addView(cheatCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = context.dp(DualDexTheme.Spacing.compact)
+            })
         }
     }
 
     private fun showAddCheatDialog() {
         val identity = getActiveRomIdentity() ?: return
         val builder = AlertDialog.Builder(context)
-        builder.setTitle("➕ Add Cheat Code")
+        builder.setTitle("Add Cheat Code")
 
         val dialogContent = LinearLayout(context).apply {
             orientation = VERTICAL
-            setPadding(dp(20), dp(10), dp(20), dp(10))
+            setPadding(
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.compact),
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.compact)
+            )
         }
 
         val nameLabel = TextView(context).apply {
-            text = "Cheat Name / Description:"
-            setTextColor(0xFFCCCCCC.toInt())
-            textSize = 13f
+            text = "Cheat Name:"
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
         }
         dialogContent.addView(nameLabel)
 
-        val nameInput = EditText(context).apply {
-            hint = "e.g. 999 Rare Candies, Max Cash"
-            textSize = 14f
-            setTextColor(Color.WHITE)
-            setHintTextColor(0xFF777777.toInt())
-        }
-        dialogContent.addView(nameInput)
+        val nameInput = DualDexComponents.styledInput(context, "e.g. 999 Rare Candies")
+        dialogContent.addView(nameInput, LayoutParams(LayoutParams.MATCH_PARENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.compact)
+        })
 
         val codeLabel = TextView(context).apply {
-            text = "\nCheat Code (Action Replay / GameShark / CodeBreaker):"
-            setTextColor(0xFFCCCCCC.toInt())
-            textSize = 13f
+            text = "Cheat Code:"
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
         }
         dialogContent.addView(codeLabel)
 
         val codeInput = EditText(context).apply {
             hint = "XXXXXXXX XXXXXXXX\nYYYYYYYY YYYYYYYY"
-            textSize = 13f
+            textSize = DualDexTheme.Type.compact
             typeface = Typeface.MONOSPACE
             minLines = 4
-            setTextColor(Color.WHITE)
-            setHintTextColor(0xFF777777.toInt())
+            setTextColor(DualDexTheme.Color.textPrimary)
+            setHintTextColor(DualDexTheme.Color.textDisabled)
+            background = DualDexComponents.controlBackground(context, DualDexButtonStyle.SECONDARY, selected = false)
+            setPadding(
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.compact),
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.compact)
+            )
         }
-        dialogContent.addView(codeInput)
+        dialogContent.addView(codeInput, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.compact)
+        })
 
         val helperText = TextView(context).apply {
-            text = "\nEnter standard Action Replay v3 (16 hex chars per line) or CodeBreaker (8+4 hex chars). Multiple lines are supported."
-            setTextColor(0xFF888888.toInt())
-            textSize = 11f
+            text = "Enter standard Action Replay v3 (16 hex chars per line) or CodeBreaker (8+4 hex chars). Multiple lines supported."
+            setTextColor(DualDexTheme.Color.textDisabled)
+            textSize = DualDexTheme.Type.compact
         }
         dialogContent.addView(helperText)
 
@@ -369,19 +392,5 @@ class CheatsScreenView(
         }
         builder.setNegativeButton("Cancel", null)
         builder.show()
-    }
-
-    private fun createCardLayout(): LinearLayout {
-        return LinearLayout(context).apply {
-            orientation = VERTICAL
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat()
-                setColor(0xFF1E1E26.toInt())
-            }
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 0, 0, dp(14))
-            }
-        }
     }
 }

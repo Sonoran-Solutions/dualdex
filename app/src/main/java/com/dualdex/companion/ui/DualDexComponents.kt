@@ -13,6 +13,9 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.EditText
+import android.graphics.drawable.ClipDrawable
+import android.graphics.drawable.LayerDrawable
+import android.widget.ProgressBar
 import com.dualdex.pokemon.PokemonType
 import androidx.annotation.DrawableRes
 
@@ -35,6 +38,17 @@ object DualDexComponents {
         strokeColor = DualDexTheme.Color.border
     )
 
+    fun surfaceCard(context: Context, elevated: Boolean = false): LinearLayout = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        background = surface(context, elevated)
+        setPadding(
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section)
+        )
+    }
+
     fun primaryButton(context: Context, text: CharSequence, onClick: (() -> Unit)? = null): TextView =
         button(context, text, DualDexButtonStyle.PRIMARY, onClick)
 
@@ -46,6 +60,35 @@ object DualDexComponents {
 
     fun destructiveButton(context: Context, text: CharSequence, onClick: (() -> Unit)? = null): TextView =
         button(context, text, DualDexButtonStyle.DESTRUCTIVE, onClick)
+
+    fun smallButton(
+        context: Context,
+        text: CharSequence,
+        style: DualDexButtonStyle = DualDexButtonStyle.SECONDARY,
+        onClick: (() -> Unit)? = null
+    ): TextView = TextView(context).apply {
+        this.text = text
+        gravity = Gravity.CENTER
+        minimumHeight = context.dp(32)
+        minWidth = context.dp(32)
+        setPadding(context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.compact), 0)
+        textSize = DualDexTheme.Type.compact
+        typeface = Typeface.DEFAULT_BOLD
+        val foreground = when (style) {
+            DualDexButtonStyle.PRIMARY -> DualDexTheme.Color.onAccent
+            DualDexButtonStyle.DESTRUCTIVE -> DualDexTheme.Color.onDanger
+            DualDexButtonStyle.SECONDARY, DualDexButtonStyle.GHOST -> DualDexTheme.Color.textPrimary
+        }
+        setTextColor(ColorStateList(
+            arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
+            intArrayOf(DualDexTheme.Color.textDisabled, foreground)
+        ))
+        background = controlBackground(context, style, selected = false)
+        isFocusable = true
+        isFocusableInTouchMode = false
+        isClickable = onClick != null
+        onClick?.let { setOnClickListener { it() } }
+    }
 
     fun styledInput(context: Context, hint: CharSequence): EditText = EditText(context).apply {
         this.hint = hint
@@ -178,6 +221,55 @@ object DualDexComponents {
         label: String,
         onClick: () -> Unit
     ): DualDexNavigationItem = DualDexNavigationItem(context, iconRes, label, onClick)
+
+    fun segmentedControl(
+        context: Context,
+        items: List<String>,
+        initialIndex: Int = 0,
+        onItemSelected: (Int) -> Unit
+    ): DualDexSegmentedControl = DualDexSegmentedControl(context, items, initialIndex, onItemSelected)
+
+    fun createHpBar(context: Context): ProgressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
+        max = 1000
+        progressDrawable = hpProgressDrawable(context, DualDexTheme.Color.success)
+        tag = DualDexTheme.Color.success
+    }
+
+    fun updateHpBar(bar: ProgressBar, current: Int, maximum: Int) {
+        val ratio = if (maximum > 0) current.toFloat() / maximum else 0f
+        val color = hpColor(current, maximum)
+        bar.progress = (ratio.coerceIn(0f, 1f) * 1000).toInt()
+        if (bar.tag != color) {
+            bar.progressTintList = ColorStateList.valueOf(color)
+            bar.tag = color
+        }
+    }
+
+    fun hpColor(current: Int, maximum: Int): Int {
+        val ratio = if (maximum > 0) current.toFloat() / maximum else 0f
+        return when {
+            ratio > 0.5f -> DualDexTheme.Color.success
+            ratio > 0.2f -> DualDexTheme.Color.warning
+            else -> DualDexTheme.Color.danger
+        }
+    }
+
+    private fun hpProgressDrawable(context: Context, color: Int): LayerDrawable {
+        val track = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = context.dp(DualDexTheme.Radius.pill).toFloat()
+            setColor(DualDexTheme.Color.surfaceDisabled)
+        }
+        val fill = ClipDrawable(GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = context.dp(DualDexTheme.Radius.pill).toFloat()
+            setColor(color)
+        }, Gravity.START, ClipDrawable.HORIZONTAL)
+        return LayerDrawable(arrayOf(track, fill)).apply {
+            setId(0, android.R.id.background)
+            setId(1, android.R.id.progress)
+        }
+    }
 
     private fun button(
         context: Context,
@@ -313,5 +405,70 @@ class DualDexNavigationItem(
         }
         icon.setColorFilter(color, PorterDuff.Mode.SRC_IN)
         labelView.setTextColor(color)
+    }
+}
+
+class DualDexSegmentedControl(
+    context: Context,
+    items: List<String>,
+    initialIndex: Int = 0,
+    private val onItemSelected: (Int) -> Unit
+) : LinearLayout(context) {
+    private val itemViews = ArrayList<TextView>()
+    private var selectedIndex = initialIndex
+
+    init {
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        background = DualDexComponents.roundedDrawable(
+            context,
+            DualDexTheme.Color.surface,
+            DualDexTheme.Radius.control,
+            DualDexTheme.Color.border
+        )
+        setPadding(context.dp(2), context.dp(2), context.dp(2), context.dp(2))
+
+        items.forEachIndexed { index, title ->
+            val tv = TextView(context).apply {
+                text = title
+                textSize = DualDexTheme.Type.compact
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                minimumHeight = context.dp(36)
+                setPadding(context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.compact), 0)
+                isFocusable = true
+                isFocusableInTouchMode = false
+                isClickable = true
+                setOnClickListener {
+                    setSelectedIndex(index)
+                    onItemSelected(index)
+                }
+            }
+            itemViews += tv
+            addView(tv, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        }
+        applySelectionStyles()
+    }
+
+    fun setSelectedIndex(index: Int) {
+        if (index in itemViews.indices && index != selectedIndex) {
+            selectedIndex = index
+            applySelectionStyles()
+        }
+    }
+
+    fun getSelectedIndex(): Int = selectedIndex
+
+    private fun applySelectionStyles() {
+        itemViews.forEachIndexed { index, tv ->
+            val isSelected = index == selectedIndex
+            tv.isSelected = isSelected
+            tv.setTextColor(if (isSelected) DualDexTheme.Color.textPrimary else DualDexTheme.Color.textSecondary)
+            tv.background = if (isSelected) {
+                DualDexComponents.controlBackground(context, DualDexButtonStyle.SECONDARY, selected = true)
+            } else {
+                DualDexComponents.controlBackground(context, DualDexButtonStyle.GHOST, selected = false)
+            }
+        }
     }
 }

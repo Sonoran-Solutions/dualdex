@@ -2,78 +2,155 @@ package com.dualdex.companion.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Color
+import android.content.Intent
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.view.Gravity
 import android.view.View
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
 
+/**
+ * Redesigned Docs companion screen adhering to the Quiet Handheld Companion design system.
+ * Delivers maximum viewing area for web documentation, a compact navigation toolbar (Back,
+ * Forward, Reload, Browser), profile-accurate offline fallback notes, and a safe cached WebView
+ * lifecycle that survives tab switches without destruction.
+ */
 @SuppressLint("SetJavaScriptEnabled")
 class DocsScreenView(
     context: Context,
     private val viewModel: CompanionViewModel
 ) : LinearLayout(context) {
 
-    private val webView: WebView
+    private val webView: WebView = WebView(context).apply {
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.loadWithOverviewMode = true
+        settings.useWideViewPort = true
+        webChromeClient = WebChromeClient()
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1.0f)
+    }
     private val offlineGuideContainer: ScrollView
-    private val urlHeader: TextView
+    private val titleView: TextView
+    private val subtitleView: TextView
+    private val backBtn: TextView
+    private val forwardBtn: TextView
+    private val reloadBtn: TextView
+    private val browserBtn: TextView
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(0xFF101014.toInt())
+        setBackgroundColor(DualDexTheme.Color.background)
 
-        // Top URL Bar
+        // 1. Top Bar: Screen Title, Subtitle & Navigation Toolbar
         val topBar = LinearLayout(context).apply {
             orientation = HORIZONTAL
-            setPadding(16, 10, 16, 10)
-            setBackgroundColor(0xFF16161E.toInt())
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.compact),
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.compact)
+            )
+            setBackgroundColor(DualDexTheme.Color.surface)
         }
 
-        urlHeader = TextView(context).apply {
-            setTextColor(0xFF4A9EFF.toInt())
-            textSize = 13f
-            typeface = Typeface.DEFAULT_BOLD
-            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f)
-        }
-        topBar.addView(urlHeader)
-
-        val refreshBtn = Button(context).apply {
-            text = "🔄 Reload"
-            textSize = 11f
-            setTextColor(Color.WHITE)
-            background = GradientDrawable().apply {
-                cornerRadius = 10f
-                setColor(0xFF2E2E3C.toInt())
+        val headerTextLayout = LinearLayout(context).apply {
+            orientation = VERTICAL
+            titleView = DualDexComponents.screenTitle(context, "Docs").apply {
+                textSize = DualDexTheme.Type.sectionTitle
             }
-            setPadding(12, 4, 12, 4)
-            setOnClickListener { refreshUI() }
+            subtitleView = TextView(context).apply {
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.compact
+                isSingleLine = true
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+            addView(titleView)
+            addView(subtitleView)
         }
-        topBar.addView(refreshBtn)
+        topBar.addView(headerTextLayout, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f))
+
+        // Toolbar Buttons
+        val toolbar = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        backBtn = DualDexComponents.smallButton(context, "Back", DualDexButtonStyle.SECONDARY) {
+            if (webView.canGoBack()) webView.goBack()
+        }.apply {
+            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30)).apply {
+                marginEnd = context.dp(DualDexTheme.Spacing.tight)
+            }
+            layoutParams = lp
+        }
+        toolbar.addView(backBtn)
+
+        forwardBtn = DualDexComponents.smallButton(context, "Forward", DualDexButtonStyle.SECONDARY) {
+            if (webView.canGoForward()) webView.goForward()
+        }.apply {
+            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30)).apply {
+                marginEnd = context.dp(DualDexTheme.Spacing.tight)
+            }
+            layoutParams = lp
+        }
+        toolbar.addView(forwardBtn)
+
+        reloadBtn = DualDexComponents.smallButton(context, "Reload", DualDexButtonStyle.SECONDARY) {
+            refreshUI()
+        }.apply {
+            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30)).apply {
+                marginEnd = context.dp(DualDexTheme.Spacing.tight)
+            }
+            layoutParams = lp
+        }
+        toolbar.addView(reloadBtn)
+
+        browserBtn = DualDexComponents.smallButton(context, "Browser", DualDexButtonStyle.GHOST) {
+            val docsUrl = viewModel.activeProfile.value.docsUrl
+            if (!docsUrl.isNullOrBlank()) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(docsUrl))
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
+        }.apply {
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30))
+        }
+        toolbar.addView(browserBtn)
+
+        topBar.addView(toolbar)
         addView(topBar)
 
-        // WebView
-        webView = WebView(context).apply {
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.loadWithOverviewMode = true
-            settings.useWideViewPort = true
-            webViewClient = WebViewClient()
-            webChromeClient = WebChromeClient()
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+        // Divider
+        addView(DualDexComponents.divider(context), LayoutParams(LayoutParams.MATCH_PARENT, context.dp(1)))
+
+        // 2. Full-height WebView
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                updateNavButtons()
+            }
         }
         addView(webView)
 
-        // Offline Guide Fallback (used for hacks like Ghost Grey with no web dex)
+        // 3. Offline Guide Fallback
         offlineGuideContainer = ScrollView(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-            setPadding(24, 24, 24, 24)
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1.0f)
+            setPadding(
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.major)
+            )
             visibility = View.GONE
         }
         addView(offlineGuideContainer)
@@ -81,17 +158,32 @@ class DocsScreenView(
         refreshUI()
     }
 
+    private fun updateNavButtons() {
+        backBtn.isEnabled = webView.canGoBack()
+        forwardBtn.isEnabled = webView.canGoForward()
+    }
+
     fun refreshUI() {
         val profile = viewModel.activeProfile.value
         val docsUrl = profile.docsUrl
 
         if (!docsUrl.isNullOrBlank()) {
-            urlHeader.text = "🌐 ${profile.name} Web Dex ($docsUrl)"
+            subtitleView.text = "${profile.name} · Web Documentation"
+            browserBtn.visibility = View.VISIBLE
+            backBtn.visibility = View.VISIBLE
+            forwardBtn.visibility = View.VISIBLE
             webView.visibility = View.VISIBLE
             offlineGuideContainer.visibility = View.GONE
-            webView.loadUrl(docsUrl)
+
+            if (webView.url != docsUrl) {
+                webView.loadUrl(docsUrl)
+            }
+            updateNavButtons()
         } else {
-            urlHeader.text = "📖 ${profile.name} In-Game Documentation"
+            subtitleView.text = if (profile.name.isNotBlank()) "${profile.name} · Offline Guide" else "Game Documentation"
+            browserBtn.visibility = View.GONE
+            backBtn.visibility = View.GONE
+            forwardBtn.visibility = View.GONE
             webView.visibility = View.GONE
             offlineGuideContainer.visibility = View.VISIBLE
             buildOfflineGuide()
@@ -102,56 +194,67 @@ class DocsScreenView(
         val profile = viewModel.activeProfile.value
         offlineGuideContainer.removeAllViews()
 
-        val content = LinearLayout(context).apply {
-            orientation = VERTICAL
-        }
-
-        val card = LinearLayout(context).apply {
-            orientation = VERTICAL
-            setPadding(24, 20, 24, 20)
-            background = GradientDrawable().apply {
-                cornerRadius = 20f
-                setColor(0xFF1A1A24.toInt())
+        val card = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            val title = TextView(context).apply {
+                text = "${profile.name.ifBlank { "Active ROM" }} — Reference"
+                setTextColor(DualDexTheme.Color.textPrimary)
+                textSize = DualDexTheme.Type.sectionTitle
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.compact))
             }
+            addView(title)
+
+            val baseGameText = if (profile.baseGame.isNotBlank()) profile.baseGame else "GBA"
+            val devText = if (profile.developer.isNotBlank()) profile.developer else "Community"
+            val engineText = if (profile.engine.isNotBlank()) profile.engine else "Standard"
+
+            val sb = StringBuilder()
+            sb.appendLine("• Base Game: $baseGameText")
+            sb.appendLine("• Engine: $engineText")
+            sb.appendLine("• Developer: $devText")
+            sb.appendLine()
+            sb.appendLine("Key Mechanics:")
+            sb.appendLine("• Effort Values (EVs): ${if (profile.hasEvs) "Enabled" else "REMOVED (Flat stat system)"}")
+            sb.appendLine("• Individual Values (IVs): ${if (profile.hasIvs) "Enabled" else "REMOVED (All Pokemon equal IVs)"}")
+            sb.appendLine("• Physical / Special Split: ${if (profile.hasPhysSpecSplit) "Enabled (Move-specific categories)" else "Type-based (Vanilla Gen 3)"}")
+            sb.appendLine("• Type Chart: ${if (profile.steelResistsGhostDark) "Pre-Gen 6 (Steel resists Ghost and Dark)" else "Modern Gen 6+"}")
+
+            if (profile.id == "ghost_grey" || profile.name.contains("Ghost Grey", ignoreCase = true)) {
+                sb.appendLine()
+                sb.appendLine("Notable Regional Variants:")
+                sb.appendLine("• Lichtoise (#500): Water / Ghost (Base: 79/63/100/85/105/78)")
+                sb.appendLine("• Spectrasaur (#501): Grass / Ghost (Base: 80/82/83/100/100/80)")
+                sb.appendLine("• Phantomander (#502): Fire / Ghost (Base: 78/84/78/109/85/100)")
+            }
+
+            sb.appendLine()
+            sb.appendLine("Tip: Open the Assistant tab in More for specific item locations and moveset details.")
+
+            val body = TextView(context).apply {
+                text = sb.toString().trimEnd()
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.body
+                setLineSpacing(4f, 1f)
+            }
+            addView(body)
         }
 
-        val title = TextView(context).apply {
-            text = "${profile.name} — ROM Hack Reference"
-            setTextColor(Color.WHITE)
-            textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 0, 12)
-        }
-        card.addView(title)
+        offlineGuideContainer.addView(card)
+    }
 
-        val body = TextView(context).apply {
-            text = "• Base Game: ${profile.baseGame}\n" +
-                   "• Engine: ${profile.engine}\n" +
-                   "• Developer: ${profile.developer.ifEmpty { "Community" }}\n\n" +
-                   "--- Key Mechanics ---\n" +
-                   "• Effort Values (EVs): ${if (profile.hasEvs) "Enabled" else "REMOVED (Flat stat system)"}\n" +
-                   "• Individual Values (IVs): ${if (profile.hasIvs) "Enabled" else "REMOVED (All Pokemon equal IVs)"}\n" +
-                   "• Physical / Special Split: ${if (profile.hasPhysSpecSplit) "Enabled (Move-specific categories)" else "Type-based (Vanilla Gen 3)"}\n" +
-                   "• Type Chart: ${if (profile.steelResistsGhostDark) "Pre-Gen 6 (Steel resists Ghost and Dark)" else "Modern Gen 6+"}\n\n" +
-                   "--- Notable Regional Variants ---\n" +
-                   "• Lichtoise (#500): Water / Ghost (Base: 79/63/100/85/105/78)\n" +
-                   "• Spectrasaur (#501): Grass / Ghost (Base: 80/82/83/100/100/80)\n" +
-                   "• Phantomander (#502): Fire / Ghost (Base: 78/84/78/109/85/100)\n\n" +
-                   "Tip: Use the DualDex Assistant tab to ask specific item or encounter questions!"
-            setTextColor(0xFFCCCCCC.toInt())
-            textSize = 14f
-            setLineSpacing(6f, 1f)
-        }
-        card.addView(body)
-        content.addView(card)
-        offlineGuideContainer.addView(content)
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        webView.onResume()
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        // Do NOT call webView.destroy() here! Calling destroy on a cached view that stays
+        // in memory permanently invalidates the native WebView instance, causing crashes
+        // on subsequent tab switches. Only pause and stop loading.
         try {
             webView.stopLoading()
-            webView.destroy()
+            webView.onPause()
         } catch (e: Exception) {
             // ignore
         }

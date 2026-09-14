@@ -1,22 +1,36 @@
 package com.dualdex.companion.ui
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
+import android.text.TextUtils
 import android.view.Gravity
-import android.widget.*
+import android.view.View
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.emulator.SaveSlotInfo
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.storage.LegacyCandidate
-import com.dualdex.emulator.storage.MirrorStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
+/**
+ * Redesigned Saves screen adhering to the Quiet Handheld Companion design system.
+ * Provides fast quick-save/load, compact manual slot management, cartridge battery save
+ * import/export, and plain-language storage mirror status.
+ */
 class SaveStateScreenView(
     context: Context,
     private val viewModel: CompanionViewModel,
@@ -26,339 +40,315 @@ class SaveStateScreenView(
 ) : LinearLayout(context) {
 
     private val saveStateManager = SaveStateManager.getInstance(context)
-    private val uiScope = CoroutineScope(Dispatchers.Main)
-
-    private val slotsContainer: LinearLayout
-    private val legacyCandidatesContainer: LinearLayout
-    private val quickSaveStatusView: TextView
-    private val batterySaveStatusView: TextView
-    private val storageStatusView: TextView
-    private val romIdentityView: TextView
-
-    private val importBtn: Button
-    private val exportBtn: Button
-    private val qSaveBtn: Button
-    private val qLoadBtn: Button
-    private val migrateBtn: Button
-
+    private var viewScope: CoroutineScope? = null
     private var isBusy = false
+
+    // Active Game Context Views
+    private val emptyGameView: LinearLayout
+    private val gameContextCard: LinearLayout
+    private val gameTitleView: TextView
+    private val gameMetaView: TextView
+    private val gameStorageKeyView: TextView
+
+    // Quick Save Views
+    private val quickSaveCard: LinearLayout
+    private val quickSaveStatusView: TextView
+    private val qSaveBtn: TextView
+    private val qLoadBtn: TextView
+
+    // Save Slots Views
+    private val slotsSection: LinearLayout
+    private val slotsContainer: LinearLayout
+
+    // Battery Save Views
+    private val batterySaveCard: LinearLayout
+    private val batterySaveStatusView: TextView
+    private val importBtn: TextView
+    private val exportBtn: TextView
+
+    // Storage Views
+    private val storageCard: LinearLayout
+    private val storageLocationView: TextView
+    private val storageMirrorStatusView: TextView
+    private val chooseFolderBtn: TextView
+    private val syncSafBtn: TextView
+
+    // Legacy Migration Views
+    private val legacySection: LinearLayout
+    private val legacyContainer: LinearLayout
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(0xFF121216.toInt())
-        setPadding(24, 24, 24, 24)
+        setBackgroundColor(DualDexTheme.Color.background)
+        setPadding(
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            0
+        )
 
-        val scroll = ScrollView(context).apply { isVerticalScrollBarEnabled = true }
-        val content = LinearLayout(context).apply { orientation = VERTICAL }
+        val scroll = ScrollView(context).apply {
+            isVerticalScrollBarEnabled = true
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+        }
+        val content = LinearLayout(context).apply {
+            orientation = VERTICAL
+            setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.major))
+        }
         scroll.addView(content)
         addView(scroll)
 
-        // Title
-        val titleView = TextView(context).apply {
-            text = "💾 Save & Storage Manager"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 20f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 0, 8)
+        // 1. Screen Title
+        content.addView(
+            DualDexComponents.screenTitle(context, "Saves"),
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = context.dp(DualDexTheme.Spacing.section)
+            }
+        )
+
+        // 2. Active Game Context Card
+        gameContextCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            gameTitleView = TextView(context).apply {
+                setTextColor(DualDexTheme.Color.textPrimary)
+                textSize = DualDexTheme.Type.sectionTitle
+                typeface = Typeface.DEFAULT_BOLD
+                isSingleLine = true
+                ellipsize = TextUtils.TruncateAt.END
+            }
+            addView(gameTitleView)
+
+            gameMetaView = TextView(context).apply {
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+            }
+            addView(gameMetaView)
+
+            gameStorageKeyView = TextView(context).apply {
+                setTextColor(DualDexTheme.Color.textDisabled)
+                textSize = DualDexTheme.Type.compact
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+            }
+            addView(gameStorageKeyView)
         }
-        content.addView(titleView)
+        content.addView(gameContextCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
 
-        // Active ROM Identity Card
-        val identityCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "🎮 Active ROM Identity"
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 4)
-            }
-            addView(label)
-
-            romIdentityView = TextView(context).apply {
-                setTextColor(0xFFDDDDDD.toInt())
-                textSize = 12.5f
-                setLineSpacing(4f, 1f)
-            }
-            addView(romIdentityView)
+        // Empty state when no game is active
+        emptyGameView = DualDexComponents.emptyState(
+            context,
+            "No game loaded",
+            "Open a game from your Library to manage save states and cartridge saves."
+        ).apply {
+            background = DualDexComponents.surface(context, elevated = false)
+            visibility = View.GONE
         }
-        content.addView(identityCard)
+        content.addView(emptyGameView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
 
-        // Storage Architecture Card (Canonical Internal + SAF Mirror)
-        val storageCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "📁 Storage Architecture"
-                setTextColor(0xFFFFD700.toInt())
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 4)
-            }
-            addView(label)
-
-            storageStatusView = TextView(context).apply {
-                setTextColor(0xFFAAAAAA.toInt())
-                textSize = 12f
-                setPadding(0, 0, 0, 10)
-            }
-            addView(storageStatusView)
-
-            val btnRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                setPadding(0, 4, 0, 0)
-            }
-
-            val chooseFolderBtn = Button(context).apply {
-                text = "📁 Select SAF Mirror"
-                setTextColor(Color.WHITE)
-                textSize = 12f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = 14f
-                    setColor(0xFF2B4A77.toInt())
-                }
-                setPadding(14, 8, 14, 8)
-                setOnClickListener {
-                    onChooseSavesFolderRequested?.invoke()
-                }
-            }
-            val lp1 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(0, 0, 6, 0) }
-            btnRow.addView(chooseFolderBtn, lp1)
-
-            migrateBtn = Button(context).apply {
-                text = "🔄 Sync to SAF"
-                setTextColor(Color.WHITE)
-                textSize = 12f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = 14f
-                    setColor(0xFF2E6B4A.toInt())
-                }
-                setPadding(14, 8, 14, 8)
-                setOnClickListener {
-                    val identity = getRomIdentity()
-                    if (identity == null || !identity.isValid) return@setOnClickListener
-                    setBusyState(true)
-                    uiScope.launch(Dispatchers.IO) {
-                        val count = saveStateManager.syncCanonicalToSaf(identity)
-                        withContext(Dispatchers.Main) {
-                            setBusyState(false)
-                            Toast.makeText(context, if (count > 0) "Synced $count save file(s) to SAF mirror!" else "SAF mirror up-to-date", Toast.LENGTH_SHORT).show()
-                            refreshUI()
-                        }
-                    }
-                }
-            }
-            val lp2 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(6, 0, 0, 0) }
-            btnRow.addView(migrateBtn, lp2)
-
-            addView(btnRow)
-        }
-        content.addView(storageCard)
-
-        // Cartridge Battery Save (.sav) Card
-        val batteryCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "Cartridge Battery Save (.sav)"
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 16f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 4)
-            }
-            addView(label)
-
-            val desc = TextView(context).apply {
-                text = "Internal canonical store is primary. Import validates size and SRAM before committing."
-                setTextColor(0xFF9999AA.toInt())
-                textSize = 12f
-                setPadding(0, 0, 0, 10)
-            }
-            addView(desc)
-
-            val btnRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                setPadding(0, 4, 0, 8)
-            }
-
-            importBtn = Button(context).apply {
-                text = "📥 Import .sav"
-                setTextColor(Color.WHITE)
-                textSize = 12.5f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = 16f
-                    setColor(0xFF2E6B4A.toInt())
-                }
-                setPadding(16, 10, 16, 10)
-                setOnClickListener {
-                    onImportSaveRequested?.invoke()
-                }
-            }
-            val lpImport = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(0, 0, 8, 0) }
-            btnRow.addView(importBtn, lpImport)
-
-            exportBtn = Button(context).apply {
-                text = "📤 Export .sav"
-                setTextColor(Color.WHITE)
-                textSize = 12.5f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = 16f
-                    setColor(0xFF2B4A77.toInt())
-                }
-                setPadding(16, 10, 16, 10)
-                setOnClickListener {
-                    onExportSaveRequested?.invoke()
-                }
-            }
-            val lpExport = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(8, 0, 0, 0) }
-            btnRow.addView(exportBtn, lpExport)
-
-            addView(btnRow)
-
-            batterySaveStatusView = TextView(context).apply {
-                setTextColor(0xFFAAAAAA.toInt())
-                textSize = 12f
-                setPadding(0, 4, 0, 0)
-            }
-            addView(batterySaveStatusView)
-        }
-        content.addView(batteryCard)
-
-        // Quick Save / Load Card
-        val quickCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "Quick Save & Quick Load"
-                setTextColor(0xFFFFD700.toInt())
-                textSize = 16f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 8)
-            }
-            addView(label)
-
-            val btnRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                setPadding(0, 8, 0, 8)
-            }
-
-            qSaveBtn = Button(context).apply {
-                text = "⚡ Quick Save"
-                setTextColor(Color.WHITE)
-                textSize = 13f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = 16f
-                    setColor(0xFF2E6B4A.toInt())
-                }
-                setPadding(20, 10, 20, 10)
-                setOnClickListener {
-                    val identity = getRomIdentity() ?: return@setOnClickListener
-                    setBusyState(true)
-                    uiScope.launch(Dispatchers.IO) {
-                        val ok = saveStateManager.quickSave(identity)
-                        withContext(Dispatchers.Main) {
-                            setBusyState(false)
-                            Toast.makeText(context, if (ok) "Quick state saved!" else "Save failed!", Toast.LENGTH_SHORT).show()
-                            refreshUI()
-                        }
-                    }
-                }
-            }
-            val lp1 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(0, 0, 8, 0) }
-            btnRow.addView(qSaveBtn, lp1)
-
-            qLoadBtn = Button(context).apply {
-                text = "📂 Quick Load"
-                setTextColor(Color.WHITE)
-                textSize = 13f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = 16f
-                    setColor(0xFF2B4A77.toInt())
-                }
-                setPadding(20, 10, 20, 10)
-                setOnClickListener {
-                    val identity = getRomIdentity() ?: return@setOnClickListener
-                    setBusyState(true)
-                    uiScope.launch(Dispatchers.IO) {
-                        val ok = saveStateManager.quickLoad(identity)
-                        withContext(Dispatchers.Main) {
-                            setBusyState(false)
-                            Toast.makeText(context, if (ok) "Quick state loaded!" else "No quick save found!", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            }
-            val lp2 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(8, 0, 0, 0) }
-            btnRow.addView(qLoadBtn, lp2)
-
-            addView(btnRow)
+        // 3. Quick Save Section
+        quickSaveCard = DualDexComponents.surfaceCard(context, elevated = true).apply {
+            addView(DualDexComponents.sectionTitle(context, "Quick Save"))
 
             quickSaveStatusView = TextView(context).apply {
-                setTextColor(0xFFAAAAAA.toInt())
-                textSize = 12f
-                setPadding(0, 4, 0, 0)
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.standard))
             }
             addView(quickSaveStatusView)
-        }
-        content.addView(quickCard)
 
-        // Save Slots (1 - 5) Card
-        val slotsCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "Save Slots (1 - 5)"
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 16f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 12)
+            val btnRow = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                qSaveBtn = DualDexComponents.primaryButton(context, "Quick Save") {
+                    val identity = getRomIdentity() ?: return@primaryButton
+                    performAsyncOperation("Quick state saved!", "Save failed!") {
+                        saveStateManager.quickSave(identity)
+                    }
+                }
+                addView(qSaveBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f).apply {
+                    marginEnd = context.dp(DualDexTheme.Spacing.compact)
+                })
+
+                qLoadBtn = DualDexComponents.secondaryButton(context, "Quick Load") {
+                    val identity = getRomIdentity() ?: return@secondaryButton
+                    performAsyncOperation("Quick state loaded!", "No quick save found!") {
+                        saveStateManager.quickLoad(identity)
+                    }
+                }
+                addView(qLoadBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
             }
-            addView(label)
+            addView(btnRow)
+        }
+        content.addView(quickSaveCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
+
+        // 4. Save Slots Section (1 - 5)
+        slotsSection = LinearLayout(context).apply {
+            orientation = VERTICAL
+            addView(DualDexComponents.sectionTitle(context, "Save Slots"), LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = context.dp(DualDexTheme.Spacing.compact) })
 
             slotsContainer = LinearLayout(context).apply {
                 orientation = VERTICAL
             }
             addView(slotsContainer)
         }
-        content.addView(slotsCard)
+        content.addView(slotsSection, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
 
-        // Legacy Discovery & Migration Card
-        val legacyCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "📦 Discovered Legacy Saves"
-                setTextColor(0xFF50C878.toInt())
-                textSize = 16f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 4)
-            }
-            addView(label)
+        // 5. Battery Save (.sav) Section
+        batterySaveCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "Battery Save (.sav)"))
 
             val desc = TextView(context).apply {
-                text = "Legacy saves from older DualDex releases. Migration requires explicit selection."
-                setTextColor(0xFFAAAAAA.toInt())
-                textSize = 12f
-                setPadding(0, 0, 0, 10)
+                text = "In-game cartridge saves are automatically preserved in protected app storage."
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
             }
             addView(desc)
 
-            legacyCandidatesContainer = LinearLayout(context).apply {
-                orientation = VERTICAL
+            batterySaveStatusView = TextView(context).apply {
+                setTextColor(DualDexTheme.Color.textPrimary)
+                textSize = DualDexTheme.Type.body
+                setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.standard))
             }
-            addView(legacyCandidatesContainer)
+            addView(batterySaveStatusView)
+
+            val btnRow = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                importBtn = DualDexComponents.secondaryButton(context, "Import .sav") {
+                    onImportSaveRequested?.invoke()
+                }
+                addView(importBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f).apply {
+                    marginEnd = context.dp(DualDexTheme.Spacing.compact)
+                })
+
+                exportBtn = DualDexComponents.secondaryButton(context, "Export .sav") {
+                    onExportSaveRequested?.invoke()
+                }
+                addView(exportBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
+            }
+            addView(btnRow)
         }
-        content.addView(legacyCard)
+        content.addView(batterySaveCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
+
+        // 6. Save Storage & Mirror Section
+        storageCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "Save Storage"))
+
+            val desc = TextView(context).apply {
+                text = "DualDex saves directly to private internal storage. You can optionally mirror saves to a shared folder for PC transfer or external backup."
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
+            }
+            addView(desc)
+
+            storageLocationView = TextView(context).apply {
+                setTextColor(DualDexTheme.Color.textPrimary)
+                textSize = DualDexTheme.Type.body
+            }
+            addView(storageLocationView)
+
+            storageMirrorStatusView = TextView(context).apply {
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.standard))
+            }
+            addView(storageMirrorStatusView)
+
+            val btnRow = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                chooseFolderBtn = DualDexComponents.secondaryButton(context, "Choose Folder") {
+                    onChooseSavesFolderRequested?.invoke()
+                }
+                addView(chooseFolderBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f).apply {
+                    marginEnd = context.dp(DualDexTheme.Spacing.compact)
+                })
+
+                syncSafBtn = DualDexComponents.secondaryButton(context, "Sync to Folder") {
+                    val identity = getRomIdentity() ?: return@secondaryButton
+                    performAsyncOperation("Saves synced to mirror folder", "Mirror folder up to date") {
+                        val count = saveStateManager.syncCanonicalToSaf(identity)
+                        count > 0
+                    }
+                }
+                addView(syncSafBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
+            }
+            addView(btnRow)
+        }
+        content.addView(storageCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
+
+        // 7. Legacy Saves Section (Hidden by default, shown only if unmigrated saves exist)
+        legacySection = LinearLayout(context).apply {
+            orientation = VERTICAL
+            visibility = View.GONE
+            addView(DualDexComponents.sectionTitle(context, "Discovered Legacy Saves"), LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = context.dp(DualDexTheme.Spacing.tight) })
+
+            val desc = TextView(context).apply {
+                text = "Unmigrated saves found from earlier DualDex versions. Selecting migrate will associate them with the active game."
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.compact))
+            }
+            addView(desc)
+
+            legacyContainer = LinearLayout(context).apply { orientation = VERTICAL }
+            addView(legacyContainer)
+        }
+        content.addView(legacySection, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
         refreshUI()
     }
 
-    private fun getRomIdentity(): RomIdentity? {
-        return viewModel.activeRomIdentity.value?.takeIf { it.isValid }
-    }
+    private fun getRomIdentity(): RomIdentity? = viewModel.activeRomIdentity.value?.takeIf { it.isValid }
 
     private fun setBusyState(busy: Boolean) {
         isBusy = busy
-        importBtn.isEnabled = !busy && getRomIdentity() != null
-        exportBtn.isEnabled = !busy && getRomIdentity() != null
-        qSaveBtn.isEnabled = !busy && getRomIdentity() != null
-        qLoadBtn.isEnabled = !busy && getRomIdentity() != null
-        migrateBtn.isEnabled = !busy && getRomIdentity() != null
+        val hasGame = getRomIdentity() != null
+        qSaveBtn.isEnabled = !busy && hasGame
+        qLoadBtn.isEnabled = !busy && hasGame
+        importBtn.isEnabled = !busy && hasGame
+        exportBtn.isEnabled = !busy && hasGame
+        chooseFolderBtn.isEnabled = !busy
+        syncSafBtn.isEnabled = !busy && hasGame
+    }
+
+    private fun performAsyncOperation(
+        successMsg: String,
+        failureMsg: String,
+        operation: suspend () -> Boolean
+    ) {
+        setBusyState(true)
+        val scope = viewScope ?: CoroutineScope(Dispatchers.Main + SupervisorJob())
+        scope.launch(Dispatchers.IO) {
+            val ok = try {
+                operation()
+            } catch (e: Exception) {
+                false
+            }
+            withContext(Dispatchers.Main) {
+                if (isActive) {
+                    setBusyState(false)
+                    Toast.makeText(context, if (ok) successMsg else failureMsg, Toast.LENGTH_SHORT).show()
+                    refreshUI()
+                }
+            }
+        }
     }
 
     fun refreshUI() {
@@ -366,42 +356,43 @@ class SaveStateScreenView(
         val profile = viewModel.activeProfile.value
 
         if (identity == null || !identity.isValid) {
-            romIdentityView.text = "• Status: No active ROM loaded.\n• Actions disabled until a game is opened."
-            storageStatusView.text = "Canonical Store: App-Private (${saveStateManager.getSaveDirectoryDescription()})\nShared Mirror: Inactive"
-            batterySaveStatusView.text = "No active ROM loaded."
-            quickSaveStatusView.text = "No active ROM loaded."
+            gameContextCard.visibility = View.GONE
+            emptyGameView.visibility = View.VISIBLE
+            setBusyState(false)
 
-            importBtn.isEnabled = false
-            exportBtn.isEnabled = false
-            qSaveBtn.isEnabled = false
-            qLoadBtn.isEnabled = false
-            migrateBtn.isEnabled = false
+            quickSaveStatusView.text = "No active game loaded."
+            batterySaveStatusView.text = "No active game loaded."
+            storageLocationView.text = "Internal Storage: Active (Private)"
+            storageMirrorStatusView.text = "Shared Mirror: Inactive"
 
             slotsContainer.removeAllViews()
-            val noRomSlot = TextView(context).apply {
-                text = "No active ROM loaded."
-                setTextColor(0xFF777788.toInt())
-                textSize = 13f
-                setPadding(0, 8, 0, 8)
+            val emptySlotText = TextView(context).apply {
+                text = "No save slots available without an active game."
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.compact))
             }
-            slotsContainer.addView(noRomSlot)
+            slotsContainer.addView(emptySlotText)
 
-            populateLegacyCandidates(null)
+            legacySection.visibility = View.GONE
+            legacyContainer.removeAllViews()
             return
         }
 
+        emptyGameView.visibility = View.GONE
+        gameContextCard.visibility = View.VISIBLE
+        gameTitleView.text = identity.displayName
+        gameMetaView.text = "Build ${identity.shortHash} · ${profile.name.ifBlank { "Standard GBA" }}"
+        gameStorageKeyView.text = "Storage Key: ${identity.storageKey}"
+
         setBusyState(isBusy)
 
-        // Active ROM details
-        val hashDisplay = identity.shortHash
-        romIdentityView.text = "• Title: ${identity.displayName}\n• Full SHA-256: ${identity.sha256}\n• Canonical Path: saves_v2/${identity.storageKey}/"
+        quickSaveStatusView.text = "Checking quick save status..."
+        batterySaveStatusView.text = "Checking battery save status..."
+        storageMirrorStatusView.text = "Checking mirror status..."
 
-        // Storage status and slot info loaded asynchronously off the main UI thread
-        storageStatusView.text = "Checking storage status..."
-        batterySaveStatusView.text = "Loading battery save status..."
-        quickSaveStatusView.text = "Loading quick save status..."
-
-        uiScope.launch(Dispatchers.IO) {
+        val scope = viewScope ?: CoroutineScope(Dispatchers.Main + SupervisorJob())
+        scope.launch(Dispatchers.IO) {
             val isSaf = saveStateManager.isUsingSaf()
             val mirrorStatus = saveStateManager.getSafMirrorStatus(identity)
             val dirDesc = saveStateManager.getSaveDirectoryDescription()
@@ -414,203 +405,193 @@ class SaveStateScreenView(
             val candidates = saveStateManager.discoverLegacyCandidates()
 
             withContext(Dispatchers.Main) {
-                storageStatusView.text = if (isSaf) {
-                    "Canonical: App-Private Internal Storage\nShared Mirror: $dirDesc (Status: $mirrorStatus)"
+                if (!isActive) return@withContext
+
+                // Quick Save status
+                quickSaveStatusView.text = if (qLastModified > 0L) {
+                    val sdf = SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.getDefault())
+                    "Saved: ${sdf.format(Date(qLastModified))}"
                 } else {
-                    "Canonical: App-Private Internal Storage\nShared Mirror: None configured (Select SAF Mirror to enable external access)"
+                    "No quick save created yet."
                 }
 
+                // Battery Save status
                 batterySaveStatusView.text = if (bInfo.exists) {
-                    "Active Battery Save: ${bInfo.sizeBytes / 1024} KB (Saved: ${bInfo.formattedDate})"
+                    val sizeKb = bInfo.sizeBytes / 1024
+                    "Active Save: ${sizeKb} KB · ${bInfo.formattedDate}"
                 } else {
                     "No .sav file found on disk (auto-saves on in-game save / pause)."
                 }
 
-                quickSaveStatusView.text = if (qLastModified > 0L) {
-                    "Latest Quick Save: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(qLastModified))}"
+                // Storage status
+                storageLocationView.text = "Internal Storage: Active (Private)"
+                storageMirrorStatusView.text = if (isSaf) {
+                    "Shared Mirror: $dirDesc (${mirrorStatus})"
                 } else {
-                    "No Quick Save created yet."
+                    "Shared Mirror: None configured (select a folder to enable PC sync)"
                 }
 
+                // Slots
                 renderSlots(slots, identity, profile)
+
+                // Legacy Candidates
                 renderLegacyCandidates(candidates, identity)
             }
         }
     }
 
-    private fun renderSlots(slots: List<SaveSlotInfo>, identity: RomIdentity, profile: com.dualdex.romhack.RomHackProfile) {
+    private fun renderSlots(
+        slots: List<SaveSlotInfo>,
+        identity: RomIdentity,
+        profile: com.dualdex.romhack.RomHackProfile
+    ) {
         slotsContainer.removeAllViews()
-        slots.forEach { slot ->
+        slots.forEachIndexed { index, slot ->
             val slotRow = LinearLayout(context).apply {
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(12, 12, 12, 12)
-                background = GradientDrawable().apply {
-                    cornerRadius = 14f
-                    setColor(0xFF16161E.toInt())
-                }
-                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                    setMargins(0, 0, 0, 10)
-                }
+                minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
+                background = DualDexComponents.surface(context, elevated = false)
+                setPadding(
+                    context.dp(DualDexTheme.Spacing.standard),
+                    context.dp(DualDexTheme.Spacing.compact),
+                    context.dp(DualDexTheme.Spacing.compact),
+                    context.dp(DualDexTheme.Spacing.compact)
+                )
             }
 
-            val slotText = TextView(context).apply {
-                val sizeStr = if (slot.exists) " (${slot.sizeBytes / 1024} KB)" else ""
-                text = "Slot ${slot.slotIndex}: ${slot.formattedDate}$sizeStr"
-                setTextColor(if (slot.exists) Color.WHITE else 0xFF777788.toInt())
-                textSize = 13f
-                typeface = Typeface.DEFAULT_BOLD
-                layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f)
-            }
-            slotRow.addView(slotText)
-
-            val saveBtn = Button(context).apply {
-                text = "Save"
-                textSize = 11f
-                setTextColor(Color.WHITE)
-                background = GradientDrawable().apply {
-                    cornerRadius = 10f
-                    setColor(0xFF2E6B4A.toInt())
+            val labelLayout = LinearLayout(context).apply {
+                orientation = VERTICAL
+                val title = TextView(context).apply {
+                    text = "Slot ${slot.slotIndex}"
+                    setTextColor(DualDexTheme.Color.textPrimary)
+                    textSize = DualDexTheme.Type.body
+                    typeface = Typeface.DEFAULT_BOLD
                 }
-                setPadding(14, 4, 14, 4)
-                setOnClickListener {
-                    setBusyState(true)
-                    uiScope.launch(Dispatchers.IO) {
-                        val ok = saveStateManager.saveSlot(identity, slot.slotIndex)
-                        withContext(Dispatchers.Main) {
-                            setBusyState(false)
-                            Toast.makeText(context, if (ok) "Slot ${slot.slotIndex} saved!" else "Save failed!", Toast.LENGTH_SHORT).show()
-                            refreshUI()
-                        }
+                val subtitle = TextView(context).apply {
+                    text = if (slot.exists) {
+                        "${slot.formattedDate} · ${slot.sizeBytes / 1024} KB"
+                    } else {
+                        "Empty slot"
                     }
+                    setTextColor(if (slot.exists) DualDexTheme.Color.textSecondary else DualDexTheme.Color.textDisabled)
+                    textSize = DualDexTheme.Type.meta
+                    setPadding(0, context.dp(DualDexTheme.Spacing.tight / 2), 0, 0)
                 }
+                addView(title)
+                addView(subtitle)
             }
-            val lpSave = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 0, 8, 0)
-            }
-            slotRow.addView(saveBtn, lpSave)
+            slotRow.addView(labelLayout, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
 
-            val loadBtn = Button(context).apply {
-                text = "Load"
-                textSize = 11f
-                setTextColor(Color.WHITE)
+            val loadBtn = DualDexComponents.secondaryButton(context, "Load") {
+                performAsyncOperation("Slot ${slot.slotIndex} loaded!", "Load failed!") {
+                    saveStateManager.loadSlot(identity, slot.slotIndex, profile.name, profile.id)
+                }
+            }.apply {
                 isEnabled = slot.exists && !isBusy
-                background = GradientDrawable().apply {
-                    cornerRadius = 10f
-                    setColor(if (slot.exists) 0xFF2B4A77.toInt() else 0xFF222228.toInt())
-                }
-                setPadding(14, 4, 14, 4)
-                setOnClickListener {
-                    setBusyState(true)
-                    uiScope.launch(Dispatchers.IO) {
-                        val ok = saveStateManager.loadSlot(identity, slot.slotIndex, profile.name, profile.id)
-                        withContext(Dispatchers.Main) {
-                            setBusyState(false)
-                            Toast.makeText(context, if (ok) "Slot ${slot.slotIndex} loaded!" else "Load failed!", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
             }
-            slotRow.addView(loadBtn)
+            slotRow.addView(loadBtn, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(36)).apply {
+                marginEnd = context.dp(DualDexTheme.Spacing.tight)
+            })
 
-            slotsContainer.addView(slotRow)
+            val saveBtn = DualDexComponents.secondaryButton(context, "Save") {
+                performAsyncOperation("Slot ${slot.slotIndex} saved!", "Save failed!") {
+                    saveStateManager.saveSlot(identity, slot.slotIndex)
+                }
+            }.apply {
+                isEnabled = !isBusy
+            }
+            slotRow.addView(saveBtn, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(36)))
+
+            slotsContainer.addView(slotRow, LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = if (index == slots.lastIndex) 0 else context.dp(DualDexTheme.Spacing.compact)
+            })
         }
     }
 
-    private fun populateLegacyCandidates(identity: RomIdentity?) {
-        if (identity == null || !identity.isValid) {
-            renderLegacyCandidates(emptyList(), null)
-            return
-        }
-        uiScope.launch(Dispatchers.IO) {
-            val candidates = saveStateManager.discoverLegacyCandidates()
-            withContext(Dispatchers.Main) {
-                renderLegacyCandidates(candidates, identity)
-            }
-        }
-    }
-
-    private fun renderLegacyCandidates(candidates: List<LegacyCandidate>, identity: RomIdentity?) {
-        legacyCandidatesContainer.removeAllViews()
-
+    private fun renderLegacyCandidates(candidates: List<LegacyCandidate>, identity: RomIdentity) {
+        legacyContainer.removeAllViews()
         if (candidates.isEmpty()) {
-            val emptyText = TextView(context).apply {
-                text = "No unmigrated legacy saves found."
-                setTextColor(0xFF888899.toInt())
-                textSize = 12f
-                setPadding(0, 4, 0, 4)
-            }
-            legacyCandidatesContainer.addView(emptyText)
+            legacySection.visibility = View.GONE
             return
         }
 
-        candidates.forEach { cand ->
+        legacySection.visibility = View.VISIBLE
+        candidates.forEachIndexed { index, cand ->
             val candRow = LinearLayout(context).apply {
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(12, 10, 12, 10)
-                background = GradientDrawable().apply {
-                    cornerRadius = 12f
-                    setColor(0xFF181822.toInt())
-                }
-                layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                    setMargins(0, 0, 0, 8)
-                }
+                minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
+                background = DualDexComponents.surface(context, elevated = false)
+                setPadding(
+                    context.dp(DualDexTheme.Spacing.standard),
+                    context.dp(DualDexTheme.Spacing.compact),
+                    context.dp(DualDexTheme.Spacing.compact),
+                    context.dp(DualDexTheme.Spacing.compact)
+                )
             }
 
-            val infoText = TextView(context).apply {
-                val sizeKb = cand.sizeBytes / 1024
-                text = "${cand.sourceFile.name}\n${cand.suggestedTitle} (${sizeKb} KB)"
-                setTextColor(Color.WHITE)
-                textSize = 12f
-                layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f)
-            }
-            candRow.addView(infoText)
-
-            if (identity != null && identity.isValid) {
-                val migrateBtn = Button(context).apply {
-                    text = "Migrate"
-                    textSize = 11f
-                    setTextColor(Color.WHITE)
-                    background = GradientDrawable().apply {
-                        cornerRadius = 8f
-                        setColor(0xFF2E6B4A.toInt())
-                    }
-                    setPadding(12, 4, 12, 4)
-                    setOnClickListener {
-                        setBusyState(true)
-                        uiScope.launch(Dispatchers.IO) {
-                            val res = saveStateManager.assignLegacyCandidate(cand, identity)
-                            withContext(Dispatchers.Main) {
-                                setBusyState(false)
-                                if (res.isSuccess) {
-                                    Toast.makeText(context, "Migrated ${cand.sourceFile.name} to ${identity.displayName}!", Toast.LENGTH_SHORT).show()
-                                    refreshUI()
-                                } else {
-                                    Toast.makeText(context, "Migration failed", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                    }
+            val textLayout = LinearLayout(context).apply {
+                orientation = VERTICAL
+                val title = TextView(context).apply {
+                    text = cand.sourceFile.name
+                    setTextColor(DualDexTheme.Color.textPrimary)
+                    textSize = DualDexTheme.Type.body
+                    typeface = Typeface.DEFAULT_BOLD
+                    isSingleLine = true
+                    ellipsize = TextUtils.TruncateAt.END
                 }
-                candRow.addView(migrateBtn)
+                val meta = TextView(context).apply {
+                    val sizeKb = cand.sizeBytes / 1024
+                    text = "${cand.suggestedTitle} · ${sizeKb} KB"
+                    setTextColor(DualDexTheme.Color.textSecondary)
+                    textSize = DualDexTheme.Type.meta
+                    setPadding(0, context.dp(DualDexTheme.Spacing.tight / 2), 0, 0)
+                }
+                addView(title)
+                addView(meta)
             }
+            candRow.addView(textLayout, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
 
-            legacyCandidatesContainer.addView(candRow)
+            val migrateBtn = DualDexComponents.secondaryButton(context, "Migrate") {
+                performAsyncOperation("Migrated ${cand.sourceFile.name}!", "Migration failed") {
+                    val res = saveStateManager.assignLegacyCandidate(cand, identity)
+                    res.isSuccess
+                }
+            }.apply {
+                isEnabled = !isBusy
+            }
+            candRow.addView(migrateBtn, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(36)))
+
+            legacyContainer.addView(candRow, LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = if (index == candidates.lastIndex) 0 else context.dp(DualDexTheme.Spacing.compact)
+            })
         }
     }
 
-    private fun createCardLayout(): LinearLayout {
-        return LinearLayout(context).apply {
-            orientation = VERTICAL
-            setPadding(20, 18, 20, 18)
-            background = GradientDrawable().apply {
-                cornerRadius = 20f
-                setColor(0xFF1E1E26.toInt())
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        viewScope?.cancel()
+        viewScope = CoroutineScope(Dispatchers.Main + SupervisorJob()).also { scope ->
+            scope.launch {
+                viewModel.activeRomIdentity.collectLatest { refreshUI() }
             }
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 0, 0, 16)
+            scope.launch {
+                viewModel.activeProfile.collectLatest { refreshUI() }
             }
         }
+        refreshUI()
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        viewScope?.cancel()
+        viewScope = null
     }
 }

@@ -1,11 +1,13 @@
 package com.dualdex.companion.ui
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
-import android.widget.*
+import android.view.View
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.TypeChart
@@ -20,91 +22,50 @@ class TypeChartScreenView(
     private var steelResistsGhostDark = false
 
     private val resultContainer: LinearLayout
+    private val targetSummaryView: TextView
+    private val type1Buttons = mutableMapOf<PokemonType, View>()
+    private val type2Buttons = mutableMapOf<PokemonType, View>()
+    private val noneType2Button: TextView
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(0xFF121216.toInt())
-        setPadding(24, 24, 24, 24)
+        setBackgroundColor(DualDexTheme.Color.background)
+        setPadding(
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.standard),
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.major)
+        )
 
-        val scroll = ScrollView(context).apply { isVerticalScrollBarEnabled = true }
-        val content = LinearLayout(context).apply { orientation = VERTICAL }
+        val scroll = ScrollView(context).apply {
+            isVerticalScrollBarEnabled = true
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+        }
+        val content = LinearLayout(context).apply {
+            orientation = VERTICAL
+        }
         scroll.addView(content)
         addView(scroll)
 
         // Title
-        val titleView = TextView(context).apply {
-            text = "🛡️ Type Matchup & Weakness Calculator"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 20f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 0, 16)
-        }
-        content.addView(titleView)
+        content.addView(DualDexComponents.screenTitle(context, "Type Matchups"), LayoutParams(
+            LayoutParams.MATCH_PARENT,
+            LayoutParams.WRAP_CONTENT
+        ).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.standard)
+        })
 
-        // Primary Type Selector Card
-        val type1Card = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "Primary Defending Type"
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 15f
+        // Defensive Profile Results Card
+        val resCard = createSurfaceLayout().apply {
+            addView(DualDexComponents.sectionTitle(context, "Defensive Profile"))
+
+            targetSummaryView = TextView(context).apply {
+                setTextColor(DualDexTheme.Color.textPrimary)
+                textSize = DualDexTheme.Type.body
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 8)
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
             }
-            addView(label)
-
-            val grid = createTypePickerGrid { chosen ->
-                selectedType1 = chosen
-                updateMatchupDisplay()
-            }
-            addView(grid)
-        }
-        content.addView(type1Card)
-
-        // Secondary Type Selector Card
-        val type2Card = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "Secondary Type (Optional)"
-                setTextColor(0xFF50C878.toInt())
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 8)
-            }
-            addView(label)
-
-            val noneBtn = Button(context).apply {
-                text = "None (Mono Type)"
-                textSize = 12f
-                setTextColor(Color.WHITE)
-                background = GradientDrawable().apply {
-                    cornerRadius = 14f
-                    setColor(0xFF333340.toInt())
-                }
-                setPadding(16, 6, 16, 6)
-                setOnClickListener {
-                    selectedType2 = null
-                    updateMatchupDisplay()
-                }
-            }
-            addView(noneBtn)
-
-            val grid = createTypePickerGrid { chosen ->
-                selectedType2 = chosen
-                updateMatchupDisplay()
-            }
-            addView(grid)
-        }
-        content.addView(type2Card)
-
-        // Results Card
-        val resCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "Defensive Matchup Breakdown"
-                setTextColor(0xFFFFD700.toInt())
-                textSize = 16f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 12)
-            }
-            addView(label)
+            addView(targetSummaryView)
 
             resultContainer = LinearLayout(context).apply {
                 orientation = VERTICAL
@@ -113,7 +74,95 @@ class TypeChartScreenView(
         }
         content.addView(resCard)
 
+        // Primary Type Selector Card
+        val type1Card = createSurfaceLayout().apply {
+            addView(DualDexComponents.sectionTitle(context, "Primary Type").apply {
+                setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.compact))
+            })
+
+            val grid = createTypePickerGrid(isSecondary = false) { chosen ->
+                selectedType1 = chosen
+                updateButtonStates()
+                updateMatchupDisplay()
+            }
+            addView(grid)
+        }
+        content.addView(type1Card)
+
+        // Secondary Type Selector Card
+        val type2Card = createSurfaceLayout().apply {
+            val topRow = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.compact))
+            }
+            topRow.addView(DualDexComponents.sectionTitle(context, "Secondary Type"), LayoutParams(
+                0, LayoutParams.WRAP_CONTENT, 1f
+            ))
+
+            noneType2Button = TextView(context).apply {
+                text = "None (Mono)"
+                textSize = DualDexTheme.Type.compact
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setPadding(
+                    context.dp(DualDexTheme.Spacing.standard),
+                    context.dp(DualDexTheme.Spacing.tight),
+                    context.dp(DualDexTheme.Spacing.standard),
+                    context.dp(DualDexTheme.Spacing.tight)
+                )
+                isFocusable = true
+                isFocusableInTouchMode = false
+                isClickable = true
+                setOnClickListener {
+                    selectedType2 = null
+                    updateButtonStates()
+                    updateMatchupDisplay()
+                }
+            }
+            topRow.addView(noneType2Button)
+            addView(topRow)
+
+            val grid = createTypePickerGrid(isSecondary = true) { chosen ->
+                selectedType2 = chosen
+                updateButtonStates()
+                updateMatchupDisplay()
+            }
+            addView(grid)
+        }
+        content.addView(type2Card)
+
+        updateButtonStates()
         updateMatchupDisplay()
+    }
+
+    fun setTypes(type1: PokemonType, type2: PokemonType?) {
+        selectedType1 = type1
+        selectedType2 = if (type2 != type1) type2 else null
+        updateButtonStates()
+        updateMatchupDisplay()
+    }
+
+    private fun updateButtonStates() {
+        for ((type, view) in type1Buttons) {
+            val isSel = type == selectedType1
+            view.isSelected = isSel
+            view.background = typeBadgeBackground(type, isSel)
+        }
+        val isMono = selectedType2 == null
+        noneType2Button.isSelected = isMono
+        noneType2Button.setTextColor(if (isMono) DualDexTheme.Color.textPrimary else DualDexTheme.Color.textSecondary)
+        noneType2Button.background = if (isMono) {
+            DualDexComponents.controlBackground(context, DualDexButtonStyle.SECONDARY, selected = true)
+        } else {
+            DualDexComponents.controlBackground(context, DualDexButtonStyle.GHOST, selected = false)
+        }
+
+        for ((type, view) in type2Buttons) {
+            val isSel = type == selectedType2
+            view.isSelected = isSel
+            view.background = typeBadgeBackground(type, isSel)
+        }
     }
 
     fun updateMatchupDisplay() {
@@ -122,111 +171,110 @@ class TypeChartScreenView(
         val steelResists = viewModel?.activeProfile?.value?.steelResistsGhostDark ?: steelResistsGhostDark
         val profile = TypeChart.getDefenseProfile(selectedType1, selectedType2, steelResists)
 
-        val headerText = TextView(context).apply {
-            val t2Str = selectedType2?.let { " / ${it.displayName}" } ?: ""
-            text = "Target: ${selectedType1.displayName}$t2Str\n"
-            setTextColor(Color.WHITE)
-            textSize = 16f
-            typeface = Typeface.DEFAULT_BOLD
-        }
-        resultContainer.addView(headerText)
+        val t2Str = selectedType2?.let { " · ${it.displayName}" } ?: " · Mono"
+        targetSummaryView.text = "${selectedType1.displayName}$t2Str"
 
         // 4x Weaknesses
         if (profile.weaknesses4x.isNotEmpty()) {
-            addMatchupRow("🚨 4x Double Weak:", profile.weaknesses4x, 0xFFFF3333.toInt())
+            addMatchupRow("4× Weak", profile.weaknesses4x)
         }
 
         // 2x Weaknesses
         if (profile.weaknesses2x.isNotEmpty()) {
-            addMatchupRow("⚠️ 2x Weak:", profile.weaknesses2x, 0xFFFF7744.toInt())
+            addMatchupRow("2× Weak", profile.weaknesses2x)
         }
 
         // 0.5x Resistances
         if (profile.resistancesHalf.isNotEmpty()) {
-            addMatchupRow("🛡️ 0.5x Resist:", profile.resistancesHalf, 0xFF44CC66.toInt())
+            addMatchupRow("½× Resist", profile.resistancesHalf)
         }
 
         // 0.25x Resistances
         if (profile.resistancesQuarter.isNotEmpty()) {
-            addMatchupRow("✨ 0.25x Double Resist:", profile.resistancesQuarter, 0xFF22AA88.toInt())
+            addMatchupRow("¼× Resist", profile.resistancesQuarter)
         }
 
         // Immunities
         if (profile.immunities.isNotEmpty()) {
-            addMatchupRow("🚫 0x Immune:", profile.immunities, 0xFFAAAAAA.toInt())
+            addMatchupRow("Immune", profile.immunities)
+        }
+
+        if (resultContainer.childCount == 0) {
+            resultContainer.addView(TextView(context).apply {
+                text = "Neutral to all attack types."
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+            })
         }
     }
 
-    private fun addMatchupRow(title: String, types: List<PokemonType>, titleColor: Int) {
+    private fun addMatchupRow(label: String, types: List<PokemonType>) {
         val row = LinearLayout(context).apply {
-            orientation = VERTICAL
-            setPadding(0, 8, 0, 8)
-        }
-        val label = TextView(context).apply {
-            text = title
-            setTextColor(titleColor)
-            textSize = 14f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 0, 4)
-        }
-        row.addView(label)
-
-        val badgesRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.tight))
+        }
+        val labelView = TextView(context).apply {
+            text = label
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
+            typeface = Typeface.DEFAULT_BOLD
+            includeFontPadding = false
+        }
+        row.addView(labelView, LayoutParams(context.dp(68), LayoutParams.WRAP_CONTENT))
+
+        val badgesContainer = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
         types.forEach { type ->
-            val badge = TextView(context).apply {
-                text = type.displayName
-                setTextColor(Color.WHITE)
-                textSize = 11f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(14, 4, 14, 4)
-                background = GradientDrawable().apply {
-                    cornerRadius = 12f
-                    setColor(type.colorHex.toInt())
-                }
-            }
-            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 0, 8, 0)
-            }
-            badgesRow.addView(badge, lp)
+            badgesContainer.addView(DualDexComponents.typeBadge(context, type), LayoutParams(
+                LayoutParams.WRAP_CONTENT,
+                LayoutParams.WRAP_CONTENT
+            ).apply {
+                marginEnd = context.dp(DualDexTheme.Spacing.compact)
+            })
         }
-        row.addView(badgesRow)
+        row.addView(badgesContainer, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
         resultContainer.addView(row)
     }
 
-    private fun createTypePickerGrid(onSelected: (PokemonType) -> Unit): LinearLayout {
+    private fun createTypePickerGrid(isSecondary: Boolean, onSelected: (PokemonType) -> Unit): LinearLayout {
         val container = LinearLayout(context).apply {
             orientation = VERTICAL
-            setPadding(0, 8, 0, 8)
         }
 
         val allTypes = PokemonType.values().toList()
+        val targetMap = if (isSecondary) type2Buttons else type1Buttons
+
         // 3 rows of 6 types
         for (row in 0 until 3) {
             val rowLayout = LinearLayout(context).apply {
                 orientation = HORIZONTAL
-                setPadding(0, 4, 0, 4)
+                setPadding(0, context.dp(2), 0, context.dp(2))
             }
             for (col in 0 until 6) {
                 val idx = row * 6 + col
                 if (idx < allTypes.size) {
                     val t = allTypes[idx]
-                    val btn = Button(context).apply {
+                    val btn = TextView(context).apply {
                         text = t.displayName
-                        textSize = 10f
-                        setTextColor(Color.WHITE)
-                        background = GradientDrawable().apply {
-                            cornerRadius = 12f
-                            setColor(t.colorHex.toInt())
-                        }
-                        setPadding(8, 2, 8, 2)
+                        textSize = DualDexTheme.Type.compact
+                        typeface = Typeface.DEFAULT_BOLD
+                        setTextColor(DualDexTheme.Color.textPrimary)
+                        gravity = Gravity.CENTER
+                        minimumHeight = context.dp(32)
+                        setPadding(context.dp(4), context.dp(2), context.dp(4), context.dp(2))
+                        isFocusable = true
+                        isFocusableInTouchMode = false
+                        isClickable = true
                         setOnClickListener { onSelected(t) }
                     }
-                    val lp = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply {
-                        setMargins(2, 0, 2, 0)
-                    }
-                    rowLayout.addView(btn, lp)
+                    targetMap[t] = btn
+                    rowLayout.addView(btn, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply {
+                        setMargins(context.dp(2), 0, context.dp(2), 0)
+                    })
                 }
             }
             container.addView(rowLayout)
@@ -235,16 +283,31 @@ class TypeChartScreenView(
         return container
     }
 
-    private fun createCardLayout(): LinearLayout {
+    private fun typeBadgeBackground(type: PokemonType, selected: Boolean): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = context.dp(DualDexTheme.Radius.control).toFloat()
+            setColor(type.colorHex.toInt())
+            if (selected) {
+                setStroke(context.dp(2), DualDexTheme.Color.textPrimary)
+            } else {
+                setStroke(context.dp(1), DualDexTheme.Color.transparent)
+            }
+        }
+    }
+
+    private fun createSurfaceLayout(): LinearLayout {
         return LinearLayout(context).apply {
             orientation = VERTICAL
-            setPadding(20, 16, 20, 16)
-            background = GradientDrawable().apply {
-                cornerRadius = 20f
-                setColor(0xFF1E1E26.toInt())
-            }
+            setPadding(
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.standard)
+            )
+            background = DualDexComponents.surface(context)
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 0, 0, 16)
+                bottomMargin = context.dp(DualDexTheme.Spacing.section)
             }
         }
     }

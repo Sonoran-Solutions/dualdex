@@ -38,6 +38,7 @@ import com.dualdex.emulator.LibretroHost
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.ShaderFilter
+import com.dualdex.emulator.RomUriPermissionManager
 import com.dualdex.romhack.ProfileLoader
 import com.dualdex.romhack.RomHackDetector
 import com.dualdex.romhack.RomHackProfile
@@ -73,7 +74,16 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
     private val openRomLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
-            handleSelectedRom(uri)
+            val oldLastPlayed = settingsManager.lastPlayedRomUri
+            val isDurable = RomUriPermissionManager.takePersistableReadPermission(contentResolver, uri)
+            // Capture previous individual URI candidate for release, but ONLY release it
+            // after the new ROM switch transaction completes successfully.
+            val previousDurableUriToRelease = if (isDurable) oldLastPlayed else null
+            handleSelectedRom(
+                uri = uri,
+                isDurable = isDurable,
+                previousDurableUriToRelease = previousDurableUriToRelease
+            )
         }
     }
 
@@ -294,12 +304,18 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
-    private fun handleSelectedRom(uri: Uri, preferredTitle: String? = null) {
+    private fun handleSelectedRom(
+        uri: Uri,
+        preferredTitle: String? = null,
+        isDurable: Boolean = true,
+        previousDurableUriToRelease: String? = null
+    ) {
         CoroutineScope(Dispatchers.IO).launch {
             val result = romSessionManager.switchRom(
                 uri = uri,
                 loadedProfiles = loadedProfiles,
                 preferredTitle = preferredTitle,
+                isDurable = isDurable,
                 onEmulationPause = {
                     // Only the stepping loop is suspended here. Calling the GLSurfaceView
                     // onPause()/onResume() pair instead would tear down the render thread for the
@@ -322,6 +338,14 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             withContext(Dispatchers.Main) {
                 when (result) {
                     is com.dualdex.emulator.SwitchResult.Success -> {
+                        if (previousDurableUriToRelease != null) {
+                            RomUriPermissionManager.releasePersistableReadPermissionIfRedundant(
+                                contentResolver = contentResolver,
+                                oldUriStr = previousDurableUriToRelease,
+                                newUriStr = uri.toString(),
+                                protectedUris = setOfNotNull(settingsManager.romsFolderUri, settingsManager.savesFolderUri)
+                            )
+                        }
                         Toast.makeText(
                             this@MainActivity,
                             "Loaded: ${result.profile.name} (${result.profile.engine})",
@@ -329,11 +353,29 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                         ).show()
                     }
                     is com.dualdex.emulator.SwitchResult.Failure -> {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Error opening ROM: ${result.reason}",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        val wasContinueTarget = settingsManager.lastPlayedRomUri == uri.toString()
+                        if (wasContinueTarget && result.isAccessError) {
+                            settingsManager.clearLastPlayedRom()
+                            companionPresentation?.refreshHomeScreen()
+                            currentCompanionScreenView?.refreshHomeScreen()
+                            Toast.makeText(
+                                this@MainActivity,
+                                RomUriPermissionManager.RECOVERY_MESSAGE,
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else if (result.isAccessError) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                RomUriPermissionManager.RECOVERY_MESSAGE,
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Error opening ROM: ${result.reason}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 }
             }

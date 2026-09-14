@@ -1,99 +1,130 @@
 package com.dualdex.companion.ui
 
 import android.content.Context
-import android.graphics.Color
+import android.content.res.ColorStateList
 import android.graphics.Typeface
+import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.StateListDrawable
+import android.graphics.drawable.LayerDrawable
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
-import android.widget.*
+import android.widget.HorizontalScrollView
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.ScrollView
+import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
-import com.dualdex.pokemon.*
-import kotlinx.coroutines.*
+import com.dualdex.pokemon.ItemDatabase
+import com.dualdex.pokemon.MoveDatabase
+import com.dualdex.pokemon.ParsedPokemon
+import com.dualdex.pokemon.PokemonType
+import com.dualdex.pokemon.SpeciesDatabase
+import com.dualdex.pokemon.TypeChart
+import com.dualdex.pokemon.NatureTable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
+/**
+ * Live party presentation. The selector and selected-Pokémon hierarchy are retained between
+ * polling updates so a 10 Hz data stream does not interrupt touch, scroll, or controller focus.
+ */
 class PartyScreenView(
     context: Context,
     private val viewModel: CompanionViewModel
 ) : LinearLayout(context) {
 
-    private class ChipHolder(
-        val chip: LinearLayout,
-        val nameView: TextView,
-        val hpView: TextView
+    private data class MemberHolder(
+        val root: LinearLayout,
+        val name: TextView,
+        val level: TextView,
+        val hpBar: ProgressBar,
+        val hpText: TextView
+    )
+
+    private data class StatHolder(val value: TextView, val detail: TextView)
+
+    private data class MoveHolder(
+        val row: LinearLayout,
+        val name: TextView,
+        val typeContainer: LinearLayout,
+        val meta: TextView
+    )
+
+    private data class DetailHolder(
+        val pid: Long,
+        var species: Int,
+        val title: TextView,
+        val level: TextView,
+        val speciesLabel: TextView,
+        val typeRow: LinearLayout,
+        val hpLabel: TextView,
+        val hpBar: ProgressBar,
+        val nature: TextView,
+        val heldItem: TextView,
+        val stats: List<StatHolder>,
+        val evTotal: TextView,
+        val moves: List<MoveHolder>,
+        val defenseContent: LinearLayout
     )
 
     private val memberSelectorLayout: LinearLayout
     private val detailContainer: LinearLayout
-    private val chipHolders = ArrayList<ChipHolder>()
+    private val chipHolders = ArrayList<MemberHolder>()
+    private var detailHolder: DetailHolder? = null
+    private var selectorShowsEmpty = false
     private var lastSelectedIdx = -1
-    private var lastRenderedPid: Long = -1L
-    private var detailHpLabel: TextView? = null
-    private var detailLevelLabel: TextView? = null
-
     private var viewScope: CoroutineScope? = null
-
-    private val density = context.resources.displayMetrics.density
-    private fun dp(v: Int): Int = (v * density).toInt()
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(0xFF121216.toInt()) // Deep modern dark theme
+        setBackgroundColor(DualDexTheme.Color.background)
 
-        // Live status header
-        val topStatusBar = LinearLayout(context).apply {
-            orientation = HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(10), dp(16), dp(2))
-        }
-        val screenTitle = TextView(context).apply {
-            text = "👥 Active Party"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 15f
-            typeface = Typeface.DEFAULT_BOLD
-            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f)
-        }
-        val liveSyncBadge = TextView(context).apply {
-            text = "● LIVE SYNC"
-            setTextColor(0xFF50C878.toInt())
-            textSize = 10.5f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(8), dp(3), dp(8), dp(3))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(8).toFloat()
-                setColor(0xFF1E2B22.toInt())
-                setStroke(1, 0xFF50C878.toInt())
-            }
-        }
-        topStatusBar.addView(screenTitle)
-        topStatusBar.addView(liveSyncBadge)
-        addView(topStatusBar)
+        addView(DualDexComponents.screenTitle(context, "Party"), LayoutParams(
+            LayoutParams.MATCH_PARENT,
+            LayoutParams.WRAP_CONTENT
+        ).apply {
+            marginStart = context.dp(DualDexTheme.Spacing.section)
+            marginEnd = context.dp(DualDexTheme.Spacing.section)
+            topMargin = context.dp(DualDexTheme.Spacing.section)
+            bottomMargin = context.dp(DualDexTheme.Spacing.compact)
+        })
 
-        // Top horizontal party member selector
         val horizontalScroll = HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = false
             clipToPadding = false
-            clipChildren = false
-            setPadding(dp(12), dp(6), dp(12), dp(8))
+            setPadding(
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.tight),
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.standard)
+            )
         }
         memberSelectorLayout = LinearLayout(context).apply {
             orientation = HORIZONTAL
-            clipChildren = false
+            gravity = Gravity.CENTER_VERTICAL
         }
         horizontalScroll.addView(memberSelectorLayout)
-        addView(horizontalScroll)
+        addView(horizontalScroll, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
-        // Main detail card container inside vertical scroll
         val verticalScroll = ScrollView(context).apply {
             isVerticalScrollBarEnabled = true
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f)
         }
         detailContainer = LinearLayout(context).apply {
             orientation = VERTICAL
-            setPadding(dp(16), dp(6), dp(16), dp(24))
+            setPadding(
+                context.dp(DualDexTheme.Spacing.section),
+                0,
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.major)
+            )
         }
         verticalScroll.addView(detailContainer)
         addView(verticalScroll)
@@ -104,22 +135,15 @@ class PartyScreenView(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         viewScope?.cancel()
-        val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-        viewScope = scope
-
-        scope.launch {
-            viewModel.playerParty.collectLatest {
-                refreshUI()
-            }
-        }
-        scope.launch {
-            viewModel.selectedMemberIndex.collectLatest {
-                refreshUI()
-            }
-        }
-        scope.launch {
-            viewModel.isInBattle.collectLatest {
-                refreshUI()
+        viewScope = CoroutineScope(Dispatchers.Main + SupervisorJob()).also { scope ->
+            scope.launch { viewModel.playerParty.collectLatest { refreshUI() } }
+            scope.launch { viewModel.selectedMemberIndex.collectLatest { refreshUI() } }
+            scope.launch {
+                viewModel.activePlayerBattlerIndex.collectLatest { activeIndex ->
+                    if (viewModel.isInBattle.value && activeIndex in viewModel.playerParty.value.indices) {
+                        viewModel.selectMember(activeIndex)
+                    }
+                }
             }
         }
     }
@@ -132,443 +156,474 @@ class PartyScreenView(
 
     fun refreshUI() {
         val party = viewModel.playerParty.value
-        val selectedIdx = viewModel.selectedMemberIndex.value
-        val gameId = viewModel.activeGameId.value
-
-        updateSelectorChips(party, selectedIdx)
-        updateDetailCard(party, selectedIdx, gameId)
+        val selected = viewModel.selectedMemberIndex.value.coerceIn(0, (party.size - 1).coerceAtLeast(0))
+        updateSelector(party, selected)
+        updateDetail(party, selected, viewModel.activeGameId.value)
     }
 
-    private fun updateSelectorChips(party: List<ParsedPokemon>, selectedIdx: Int) {
+    private fun updateSelector(party: List<ParsedPokemon>, selectedIdx: Int) {
         if (party.isEmpty()) {
-            chipHolders.clear()
-            memberSelectorLayout.removeAllViews()
-            val emptyChip = TextView(context).apply {
-                text = "No party data (Waiting for ROM)"
-                setTextColor(0xFF888888.toInt())
-                textSize = 14f
-                setPadding(dp(20), dp(12), dp(20), dp(12))
+            if (!selectorShowsEmpty) {
+                selectorShowsEmpty = true
+                chipHolders.clear()
+                memberSelectorLayout.removeAllViews()
+                memberSelectorLayout.addView(TextView(context).apply {
+                    text = "No game loaded"
+                    setTextColor(DualDexTheme.Color.textSecondary)
+                    textSize = DualDexTheme.Type.meta
+                    setPadding(0, context.dp(DualDexTheme.Spacing.standard), 0, context.dp(DualDexTheme.Spacing.standard))
+                })
             }
-            memberSelectorLayout.addView(emptyChip)
             return
         }
 
-        // Check if we need to rebuild or if we can update chips in-place
-        if (chipHolders.size != party.size) {
+        if (selectorShowsEmpty || chipHolders.size != party.size) {
+            selectorShowsEmpty = false
             chipHolders.clear()
             memberSelectorLayout.removeAllViews()
-
             party.forEachIndexed { index, mon ->
-                val isSelected = (index == selectedIdx)
-                val chip = LinearLayout(context).apply {
-                    orientation = VERTICAL
-                    isClickable = true
-                    isFocusable = true
-                    minimumWidth = dp(104)
-                    minimumHeight = dp(60)
-                    setPadding(dp(16), dp(10), dp(16), dp(10))
-                    gravity = Gravity.CENTER
-                    background = createChipDrawable(isSelected)
-                }
+                val holder = createMemberSlot(index, index == selectedIdx)
+                chipHolders += holder
+                memberSelectorLayout.addView(holder.root, LayoutParams(
+                    context.dp(88),
+                    context.dp(72)
+                ).apply {
+                    marginEnd = if (index == party.lastIndex) 0 else context.dp(DualDexTheme.Spacing.compact)
+                })
+                bindMember(holder, mon, index == selectedIdx)
+            }
+            return
+        }
 
-                val displayName = if (mon.nickname.isNotBlank()) mon.nickname else "Mon #${mon.species}"
-                val nameView = TextView(context).apply {
-                    isClickable = false
-                    isFocusable = false
-                    text = "$displayName (Lv.${mon.level})"
-                    setTextColor(if (isSelected) 0xFFFFFFFF.toInt() else 0xFFAAAAAA.toInt())
-                    textSize = 13.5f
-                    typeface = Typeface.DEFAULT_BOLD
-                }
-                val hpView = TextView(context).apply {
-                    isClickable = false
-                    isFocusable = false
-                    text = "${mon.currentHp}/${mon.maxHp} HP"
-                    setTextColor(getHpColor(mon.currentHp, mon.maxHp))
-                    textSize = 12f
-                }
-                chip.addView(nameView)
-                chip.addView(hpView)
+        party.forEachIndexed { index, mon -> bindMember(chipHolders[index], mon, index == selectedIdx) }
+    }
 
-                var downX = 0f
-                var downY = 0f
-                val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private fun createMemberSlot(index: Int, selected: Boolean): MemberHolder {
+        val root = LinearLayout(context).apply {
+            orientation = VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
+            setPadding(
+                context.dp(DualDexTheme.Spacing.compact),
+                context.dp(DualDexTheme.Spacing.tight),
+                context.dp(DualDexTheme.Spacing.compact),
+                context.dp(DualDexTheme.Spacing.tight)
+            )
+            background = DualDexComponents.controlBackground(context, DualDexButtonStyle.SECONDARY, selected = false)
+            isSelected = selected
+            isClickable = true
+            isFocusable = true
+            isFocusableInTouchMode = false
+            contentDescription = "Party member ${index + 1}"
+            installTapWithoutSwipeSelection(this)
+            setOnClickListener { onMemberSelected(index) }
+        }
+        val name = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.compact
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+        }
+        val level = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.compact
+            gravity = Gravity.CENTER
+        }
+        val hpBar = createHpBar()
+        val hpText = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.compact
+            gravity = Gravity.CENTER
+        }
+        root.addView(name, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        root.addView(level, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        root.addView(hpBar, LayoutParams(LayoutParams.MATCH_PARENT, context.dp(4)).apply {
+            topMargin = context.dp(DualDexTheme.Spacing.tight)
+        })
+        root.addView(hpText, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            topMargin = context.dp(2)
+        })
+        return MemberHolder(root, name, level, hpBar, hpText)
+    }
 
-                chip.setOnTouchListener { v, event ->
-                    when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> {
-                            v.parent?.requestDisallowInterceptTouchEvent(true)
-                            downX = event.rawX
-                            downY = event.rawY
-                        }
-                        MotionEvent.ACTION_MOVE -> {
-                            val dx = Math.abs(event.rawX - downX)
-                            val dy = Math.abs(event.rawY - downY)
-                            if (dx > touchSlop * 1.5f || dy > touchSlop * 1.5f) {
-                                v.parent?.requestDisallowInterceptTouchEvent(false)
-                            }
-                        }
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                            v.parent?.requestDisallowInterceptTouchEvent(false)
-                        }
+    private fun installTapWithoutSwipeSelection(view: View) {
+        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+        var downX = 0f
+        var downY = 0f
+        var moved = false
+        view.setOnTouchListener { touched, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.rawX
+                    downY = event.rawY
+                    moved = false
+                    touched.parent?.requestDisallowInterceptTouchEvent(true)
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (!moved && (kotlin.math.abs(event.rawX - downX) > touchSlop || kotlin.math.abs(event.rawY - downY) > touchSlop)) {
+                        moved = true
+                        touched.parent?.requestDisallowInterceptTouchEvent(false)
                     }
-                    false // Allow standard click & ripple processing
                 }
-
-                chip.setOnClickListener {
-                    onMemberSelected(index)
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    touched.parent?.requestDisallowInterceptTouchEvent(false)
+                    if (moved) return@setOnTouchListener true
                 }
-
-                val lp = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                    setMargins(0, 0, dp(10), 0)
-                }
-                memberSelectorLayout.addView(chip, lp)
-                chipHolders.add(ChipHolder(chip, nameView, hpView))
             }
-        } else {
-            // Update in-place to avoid interrupting ongoing touch interactions!
-            for (i in party.indices) {
-                val holder = chipHolders[i]
-                val mon = party[i]
-                val isSelected = (i == selectedIdx)
-
-                holder.chip.background = createChipDrawable(isSelected)
-                val displayName = if (mon.nickname.isNotBlank()) mon.nickname else "Mon #${mon.species}"
-                holder.nameView.text = "$displayName (Lv.${mon.level})"
-                holder.nameView.setTextColor(if (isSelected) 0xFFFFFFFF.toInt() else 0xFFAAAAAA.toInt())
-                holder.hpView.text = "${mon.currentHp}/${mon.maxHp} HP"
-                holder.hpView.setTextColor(getHpColor(mon.currentHp, mon.maxHp))
-            }
+            false
         }
     }
 
-    private fun onMemberSelected(newIdx: Int) {
-        if (newIdx == lastSelectedIdx && detailContainer.childCount > 0) return
-        lastSelectedIdx = newIdx
-        viewModel.selectMember(newIdx)
-
-        // Instantly update chip selection visuals without recreating views
-        for (i in chipHolders.indices) {
-            val isSel = (i == newIdx)
-            chipHolders[i].chip.background = createChipDrawable(isSel)
-            chipHolders[i].nameView.setTextColor(if (isSel) 0xFFFFFFFF.toInt() else 0xFFAAAAAA.toInt())
-        }
-
-        // Update detail section below
-        updateDetailCard(viewModel.playerParty.value, newIdx, viewModel.activeGameId.value)
+    private fun bindMember(holder: MemberHolder, mon: ParsedPokemon, selected: Boolean) {
+        val species = SpeciesDatabase.get(mon.species)
+        holder.root.isSelected = selected
+        holder.name.text = mon.nickname.ifBlank { species.name }
+        holder.name.setTextColor(if (selected) DualDexTheme.Color.accent else DualDexTheme.Color.textPrimary)
+        holder.level.text = "Lv. ${mon.level}"
+        holder.hpText.text = "${mon.currentHp}/${mon.maxHp}"
+        updateHpBar(holder.hpBar, mon.currentHp, mon.maxHp)
     }
 
-    private fun createChipDrawable(isSelected: Boolean): StateListDrawable {
-        val normal = GradientDrawable().apply {
-            cornerRadius = dp(14).toFloat()
-            setColor(if (isSelected) 0xFF2E3A59.toInt() else 0xFF1E1E24.toInt())
-            if (isSelected) {
-                setStroke(dp(3), 0xFF4A9EFF.toInt())
-            } else {
-                setStroke(dp(1), 0xFF363644.toInt())
-            }
-        }
-
-        val pressed = GradientDrawable().apply {
-            cornerRadius = dp(14).toFloat()
-            setColor(if (isSelected) 0xFF3E4F78.toInt() else 0xFF2C2C36.toInt())
-            setStroke(dp(3), 0xFF6BB5FF.toInt())
-        }
-
-        return StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_pressed), pressed)
-            addState(intArrayOf(), normal)
-        }
+    private fun onMemberSelected(index: Int) {
+        if (index == lastSelectedIdx && detailHolder != null) return
+        lastSelectedIdx = index
+        viewModel.selectMember(index)
+        refreshUI()
     }
 
-    private fun updateDetailCard(party: List<ParsedPokemon>, selectedIdx: Int, gameId: Int) {
+    private fun updateDetail(party: List<ParsedPokemon>, selectedIdx: Int, gameId: Int) {
         if (party.isEmpty()) {
-            lastRenderedPid = -1L
-            detailHpLabel = null
-            detailLevelLabel = null
-            detailContainer.removeAllViews()
-            val emptyMsg = TextView(context).apply {
-                text = "=== DualDex Party Monitor ===\n\nWaiting for game to load.\nOnce loaded, live Pokémon stats, IVs, EVs, and matchups will appear here in real-time."
-                setTextColor(0xFFAAAAAA.toInt())
-                textSize = 16f
-                gravity = Gravity.CENTER
-                setPadding(dp(16), dp(32), dp(16), dp(16))
+            if (detailHolder != null || detailContainer.childCount == 0) {
+                detailHolder = null
+                detailContainer.removeAllViews()
+                detailContainer.addView(DualDexComponents.emptyState(
+                    context,
+                    "No game loaded",
+                    "Party data will appear when a supported game is running."
+                ))
             }
-            detailContainer.addView(emptyMsg)
             return
         }
 
-        val safeIdx = if (selectedIdx in party.indices) selectedIdx else 0
-        val mon = party[safeIdx]
-
-        // Smooth in-place update if the exact same Pokémon is already displayed
-        if (mon.pid == lastRenderedPid && detailContainer.childCount > 0 && detailHpLabel != null && detailLevelLabel != null) {
-            detailHpLabel?.text = "HP: ${mon.currentHp} / ${mon.maxHp}"
-            detailHpLabel?.setTextColor(getHpColor(mon.currentHp, mon.maxHp))
-            detailLevelLabel?.text = "  Lv. ${mon.level}"
-            return
+        val mon = party[selectedIdx]
+        val holder = detailHolder
+        if (holder == null || holder.pid != mon.pid) {
+            detailHolder = createDetail(mon, gameId)
+        } else {
+            bindDetail(holder, mon, gameId)
         }
+    }
 
-        lastRenderedPid = mon.pid
+    private fun createDetail(mon: ParsedPokemon, gameId: Int): DetailHolder {
         detailContainer.removeAllViews()
 
-        val speciesInfo = SpeciesDatabase.get(mon.species)
-        val natureInfo = NatureTable.get(mon.nature)
-        val isGhostGrey = (gameId == 6) // GAME_GHOST_GREY
-
-        // Header Card (Nickname, Species, Level, Types)
-        val headerCard = createCardLayout().apply {
-            val titleRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-            }
-            val titleText = TextView(context).apply {
-                val shinyBadge = if (mon.isShiny) " ⭐" else ""
-                val displayName = if (mon.nickname.isNotBlank()) mon.nickname else speciesInfo.name
-                text = "$displayName$shinyBadge"
-                setTextColor(0xFFFFFFFF.toInt())
-                textSize = 24f
-                typeface = Typeface.DEFAULT_BOLD
-            }
-            val levelText = TextView(context).apply {
-                text = "  Lv. ${mon.level}"
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 20f
-                typeface = Typeface.DEFAULT_BOLD
-            }
-            detailLevelLabel = levelText
-            titleRow.addView(titleText)
-            titleRow.addView(levelText)
-            addView(titleRow)
-
-            // Types badge row
-            val typeRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                setPadding(0, dp(6), 0, dp(6))
-            }
-            typeRow.addView(createTypeBadge(speciesInfo.type1))
-            speciesInfo.type2?.let { typeRow.addView(createTypeBadge(it)) }
-            addView(typeRow)
-
-            // HP Bar
-            val hpRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dp(4), 0, dp(4))
-            }
-            val hpLabel = TextView(context).apply {
-                text = "HP: ${mon.currentHp} / ${mon.maxHp}"
-                setTextColor(getHpColor(mon.currentHp, mon.maxHp))
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-            }
-            detailHpLabel = hpLabel
-            hpRow.addView(hpLabel)
-            addView(hpRow)
-
-            // Nature & Held Item
-            val isExpansion = (gameId == 1 || (!isGhostGrey && gameId != 2))
-            val itemInfo = ItemDatabase.get(mon.heldItem, isExpansion = isExpansion)
-            val itemDisplay = if (mon.heldItem > 0) "${itemInfo.iconEmoji} ${itemInfo.name}" else "None"
-            val metaText = TextView(context).apply {
-                text = "Nature: ${natureInfo.formattedDescription}\nHeld Item: $itemDisplay"
-                setTextColor(0xFFCCCCCC.toInt())
-                textSize = 14f
-                setPadding(0, dp(2), 0, dp(2))
-            }
-            addView(metaText)
-        }
-        detailContainer.addView(headerCard)
-
-        // Stat Card (Adaptive: Base stats for Ghost Grey vs IVs/EVs for Radical Red/Vanilla)
-        val statCard = createCardLayout().apply {
-            val statTitle = TextView(context).apply {
-                text = if (isGhostGrey) "Base Stats (Ghost Grey: No EVs/IVs)" else "Stats & Effort Values (EVs / IVs)"
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 16f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, dp(6))
-            }
-            addView(statTitle)
-
-            if (isGhostGrey) {
-                val baseText = TextView(context).apply {
-                    text = "HP: ${speciesInfo.baseHP}   |   Atk: ${speciesInfo.baseAtk}   |   Def: ${speciesInfo.baseDef}\n" +
-                           "SpA: ${speciesInfo.baseSpA}   |   SpD: ${speciesInfo.baseSpD}   |   Spe: ${speciesInfo.baseSpe}\n\n" +
-                           "Actual Stats: ${mon.maxHp} HP / ${mon.attack} Atk / ${mon.defense} Def / ${mon.spAttack} SpA / ${mon.spDefense} SpD / ${mon.speed} Spe"
-                    setTextColor(0xFFE0E0E0.toInt())
-                    textSize = 14f
-                    setLineSpacing(6f, 1f)
-                }
-                addView(baseText)
-            } else {
-                val totalEv = mon.hpEv + mon.attackEv + mon.defenseEv + mon.spAttackEv + mon.spDefenseEv + mon.speedEv
-                val evIvText = TextView(context).apply {
-                    text = "IVs:  HP ${mon.hpIv}  |  Atk ${mon.attackIv}  |  Def ${mon.defenseIv}  |  SpA ${mon.spAttackIv}  |  SpD ${mon.spDefenseIv}  |  Spe ${mon.speedIv}\n" +
-                           "EVs:  HP ${mon.hpEv}  |  Atk ${mon.attackEv}  |  Def ${mon.defenseEv}  |  SpA ${mon.spAttackEv}  |  SpD ${mon.spDefenseEv}  |  Spe ${mon.speedEv} (Total: $totalEv/510)\n" +
-                           "Stats: ${mon.maxHp} HP / ${mon.attack} Atk / ${mon.defense} Def / ${mon.spAttack} SpA / ${mon.spDefense} SpD / ${mon.speed} Spe"
-                    setTextColor(0xFFE0E0E0.toInt())
-                    textSize = 13f
-                    setLineSpacing(6f, 1f)
-                }
-                addView(evIvText)
-            }
-        }
-        detailContainer.addView(statCard)
-
-        // Moves Grid Card (4 Moves)
-        val moveCard = createCardLayout().apply {
-            val moveTitle = TextView(context).apply {
-                text = "Known Moves"
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 16f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, dp(6))
-            }
-            addView(moveTitle)
-
-            for (i in 0 until 4) {
-                val moveId = mon.moves.getOrNull(i) ?: 0
-                val movePP = mon.pp.getOrNull(i) ?: 0
-                val moveInfo = MoveDatabase.get(moveId)
-
-                if (moveId > 0) {
-                    val moveRow = LinearLayout(context).apply {
-                        orientation = HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding(0, dp(3), 0, dp(3))
-                    }
-                    val moveBadge = createTypeBadge(moveInfo.type)
-                    val moveDetails = TextView(context).apply {
-                        val catLabel = when (moveInfo.category) {
-                            MoveCategory.PHYSICAL -> "⚔️ Phys"
-                            MoveCategory.SPECIAL -> "✨ Spec"
-                            MoveCategory.STATUS -> "🛡️ Status"
-                        }
-                        val powStr = if (moveInfo.power > 0) "${moveInfo.power} Pwr" else "--"
-                        text = "  ${moveInfo.name}  ($catLabel, $powStr)  -  $movePP PP"
-                        setTextColor(0xFFFFFFFF.toInt())
-                        textSize = 14f
-                    }
-                    moveRow.addView(moveBadge)
-                    moveRow.addView(moveDetails)
-                    addView(moveRow)
-                }
-            }
-        }
-        detailContainer.addView(moveCard)
-
-        // Type Defense Summary Card
-        val defenseProfile = TypeChart.getDefenseProfile(
-            speciesInfo.type1,
-            speciesInfo.type2,
-            steelResistsGhostDark = isGhostGrey
-        )
-
-        val defenseCard = createCardLayout().apply {
-            val defTitle = TextView(context).apply {
-                text = "Type Defenses & Weaknesses"
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 16f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, dp(4))
-            }
-            addView(defTitle)
-
-            // Weaknesses
-            val weakTypes = defenseProfile.weaknesses4x + defenseProfile.weaknesses2x
-            if (weakTypes.isNotEmpty()) {
-                val weakRow = LinearLayout(context).apply {
-                    orientation = HORIZONTAL
-                    setPadding(0, dp(3), 0, dp(3))
-                }
-                val weakLabel = TextView(context).apply {
-                    text = "⚠️ Weak (2x-4x): "
-                    setTextColor(0xFFFF6B6B.toInt())
-                    textSize = 13f
-                    typeface = Typeface.DEFAULT_BOLD
-                }
-                weakRow.addView(weakLabel)
-                weakTypes.forEach { weakRow.addView(createTypeBadge(it, 10f)) }
-                addView(weakRow)
-            }
-
-            // Resistances
-            val resTypes = defenseProfile.resistancesHalf + defenseProfile.resistancesQuarter
-            if (resTypes.isNotEmpty()) {
-                val resRow = LinearLayout(context).apply {
-                    orientation = HORIZONTAL
-                    setPadding(0, dp(3), 0, dp(3))
-                }
-                val resLabel = TextView(context).apply {
-                    text = "🛡️ Resist (0.5x): "
-                    setTextColor(0xFF50C878.toInt())
-                    textSize = 13f
-                    typeface = Typeface.DEFAULT_BOLD
-                }
-                resRow.addView(resLabel)
-                resTypes.forEach { resRow.addView(createTypeBadge(it, 10f)) }
-                addView(resRow)
-            }
-
-            // Immunities
-            if (defenseProfile.immunities.isNotEmpty()) {
-                val immRow = LinearLayout(context).apply {
-                    orientation = HORIZONTAL
-                    setPadding(0, dp(3), 0, dp(3))
-                }
-                val immLabel = TextView(context).apply {
-                    text = "🚫 Immune (0x): "
-                    setTextColor(0xFFAAAAAA.toInt())
-                    textSize = 13f
-                    typeface = Typeface.DEFAULT_BOLD
-                }
-                immRow.addView(immLabel)
-                defenseProfile.immunities.forEach { immRow.addView(createTypeBadge(it, 10f)) }
-                addView(immRow)
-            }
-        }
-        detailContainer.addView(defenseCard)
-    }
-
-    private fun createCardLayout(): LinearLayout {
-        return LinearLayout(context).apply {
+        val summary = LinearLayout(context).apply {
             orientation = VERTICAL
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(16).toFloat()
-                setColor(0xFF1E1E26.toInt())
-            }
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 0, 0, dp(14))
-            }
+            background = DualDexComponents.surface(context, elevated = true)
+            setPadding(
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.section),
+                context.dp(DualDexTheme.Spacing.section)
+            )
         }
-    }
-
-    private fun createTypeBadge(type: PokemonType, textSizeSp: Float = 12f): TextView {
-        return TextView(context).apply {
-            text = type.displayName
-            setTextColor(Color.WHITE)
-            textSize = textSizeSp
+        val titleRow = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
+        val title = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.screenTitle
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(10), dp(4), dp(10), dp(4))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(10).toFloat()
-                setColor(type.colorHex.toInt())
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+        }
+        val level = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.accent)
+            textSize = DualDexTheme.Type.sectionTitle
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.END
+        }
+        titleRow.addView(title, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        titleRow.addView(level)
+        summary.addView(titleRow)
+
+        val speciesLabel = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
+            setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+        }
+        summary.addView(speciesLabel)
+
+        val typeRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            setPadding(0, context.dp(DualDexTheme.Spacing.standard), 0, 0)
+        }
+        summary.addView(typeRow)
+
+        val hpLabel = TextView(context).apply {
+            textSize = DualDexTheme.Type.body
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, context.dp(DualDexTheme.Spacing.section), 0, context.dp(DualDexTheme.Spacing.tight))
+        }
+        summary.addView(hpLabel)
+        val hpBar = createHpBar()
+        summary.addView(hpBar, LayoutParams(LayoutParams.MATCH_PARENT, context.dp(8)))
+
+        val nature = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
+            setPadding(0, context.dp(DualDexTheme.Spacing.section), 0, context.dp(DualDexTheme.Spacing.tight))
+        }
+        val heldItem = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
+        }
+        summary.addView(nature)
+        summary.addView(heldItem)
+        detailContainer.addView(summary, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
+
+        detailContainer.addView(DualDexComponents.sectionTitle(context, "Stats"), LayoutParams(
+            LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT
+        ).apply { bottomMargin = context.dp(DualDexTheme.Spacing.compact) })
+        val statsGrid = LinearLayout(context).apply { orientation = VERTICAL }
+        val statHolders = ArrayList<StatHolder>(6)
+        val statLabels = listOf("HP", "Atk", "Def", "SpA", "SpD", "Spe")
+        repeat(2) { rowIndex ->
+            val row = LinearLayout(context).apply { orientation = HORIZONTAL }
+            repeat(3) { columnIndex ->
+                val cell = LinearLayout(context).apply {
+                    orientation = VERTICAL
+                    setPadding(
+                        context.dp(DualDexTheme.Spacing.compact),
+                        context.dp(DualDexTheme.Spacing.compact),
+                        context.dp(DualDexTheme.Spacing.compact),
+                        context.dp(DualDexTheme.Spacing.compact)
+                    )
+                }
+                val label = TextView(context).apply {
+                    text = statLabels[rowIndex * 3 + columnIndex]
+                    setTextColor(DualDexTheme.Color.textSecondary)
+                    textSize = DualDexTheme.Type.compact
+                    typeface = Typeface.DEFAULT_BOLD
+                }
+                val value = TextView(context).apply {
+                    setTextColor(DualDexTheme.Color.textPrimary)
+                    textSize = DualDexTheme.Type.sectionTitle
+                    typeface = Typeface.DEFAULT_BOLD
+                }
+                val detail = TextView(context).apply {
+                    setTextColor(DualDexTheme.Color.textSecondary)
+                    textSize = DualDexTheme.Type.compact
+                }
+                cell.addView(label)
+                cell.addView(value)
+                cell.addView(detail)
+                row.addView(cell, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+                statHolders += StatHolder(value, detail)
             }
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 0, dp(6), 0)
+            statsGrid.addView(row)
+        }
+        detailContainer.addView(statsGrid)
+        val evTotal = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.compact
+            setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.section))
+        }
+        detailContainer.addView(evTotal)
+        detailContainer.addView(DualDexComponents.divider(context), LayoutParams(LayoutParams.MATCH_PARENT, context.dp(1)).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
+
+        detailContainer.addView(DualDexComponents.sectionTitle(context, "Moves"), LayoutParams(
+            LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT
+        ).apply { bottomMargin = context.dp(DualDexTheme.Spacing.compact) })
+        val moveHolders = ArrayList<MoveHolder>(4)
+        repeat(4) {
+            val row = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
             }
+            val name = TextView(context).apply {
+                setTextColor(DualDexTheme.Color.textPrimary)
+                textSize = DualDexTheme.Type.body
+                typeface = Typeface.DEFAULT_BOLD
+                isSingleLine = true
+                ellipsize = TextUtils.TruncateAt.END
+            }
+            val typeContainer = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                setPadding(context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.compact), 0)
+            }
+            val meta = TextView(context).apply {
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.compact
+                gravity = Gravity.END
+                isSingleLine = true
+            }
+            row.addView(name, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(typeContainer)
+            row.addView(meta)
+            detailContainer.addView(row)
+            moveHolders += MoveHolder(row, name, typeContainer, meta)
+        }
+        detailContainer.addView(DualDexComponents.divider(context), LayoutParams(LayoutParams.MATCH_PARENT, context.dp(1)).apply {
+            topMargin = context.dp(DualDexTheme.Spacing.compact)
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
+
+        detailContainer.addView(DualDexComponents.sectionTitle(context, "Type defenses"), LayoutParams(
+            LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT
+        ).apply { bottomMargin = context.dp(DualDexTheme.Spacing.compact) })
+        val defenseContent = LinearLayout(context).apply {
+            orientation = VERTICAL
+            setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.section))
+        }
+        detailContainer.addView(defenseContent)
+
+        return DetailHolder(
+            mon.pid, mon.species, title, level, speciesLabel, typeRow, hpLabel, hpBar, nature, heldItem,
+            statHolders, evTotal, moveHolders, defenseContent
+        ).also { bindDetail(it, mon, gameId) }
+    }
+
+    private fun bindDetail(holder: DetailHolder, mon: ParsedPokemon, gameId: Int) {
+        val species = SpeciesDatabase.get(mon.species)
+        holder.title.text = buildString {
+            append(mon.nickname.ifBlank { species.name })
+            if (mon.isShiny) append(" ★")
+        }
+        holder.level.text = "Lv. ${mon.level}"
+        holder.speciesLabel.text = species.name
+        holder.hpLabel.text = "HP  ${mon.currentHp} / ${mon.maxHp}"
+        holder.hpLabel.setTextColor(hpColor(mon.currentHp, mon.maxHp))
+        updateHpBar(holder.hpBar, mon.currentHp, mon.maxHp)
+
+        val nature = NatureTable.get(mon.nature)
+        val isExpansion = gameId != 2 && gameId != 6
+        val item = ItemDatabase.get(mon.heldItem, isExpansion = isExpansion)
+        holder.nature.text = "Nature  ${nature.formattedDescription}"
+        holder.heldItem.text = "Held item  ${if (mon.heldItem > 0) item.name else "None"}"
+
+        val values = listOf(mon.maxHp, mon.attack, mon.defense, mon.spAttack, mon.spDefense, mon.speed)
+        val ivs = listOf(mon.hpIv, mon.attackIv, mon.defenseIv, mon.spAttackIv, mon.spDefenseIv, mon.speedIv)
+        val evs = listOf(mon.hpEv, mon.attackEv, mon.defenseEv, mon.spAttackEv, mon.spDefenseEv, mon.speedEv)
+        holder.stats.forEachIndexed { index, stat ->
+            stat.value.text = values[index].toString()
+            stat.detail.text = "IV ${ivs[index]} · EV ${evs[index]}"
+        }
+        holder.evTotal.text = "EV total  ${mon.totalEvs} / 510"
+
+        holder.moves.forEachIndexed { index, moveHolder ->
+            val moveId = mon.moves.getOrNull(index) ?: 0
+            if (moveId <= 0) {
+                moveHolder.row.visibility = View.GONE
+                return@forEachIndexed
+            }
+            val move = MoveDatabase.get(moveId)
+            moveHolder.row.visibility = View.VISIBLE
+            moveHolder.name.text = move.name
+            moveHolder.meta.text = "PP ${mon.pp.getOrNull(index) ?: 0}/${move.pp} · Pwr ${move.power.takeIf { it > 0 } ?: "—"} · Acc ${move.accuracy}%"
+            moveHolder.typeContainer.removeAllViews()
+            moveHolder.typeContainer.addView(DualDexComponents.typeBadge(context, move.type))
+        }
+
+        if (holder.species != mon.species) {
+            holder.species = mon.species
+            renderTypeRow(holder.typeRow, species.type1, species.type2)
+            renderDefenseSummary(holder.defenseContent, species.type1, species.type2, gameId)
+        } else if (holder.typeRow.childCount == 0) {
+            renderTypeRow(holder.typeRow, species.type1, species.type2)
+            renderDefenseSummary(holder.defenseContent, species.type1, species.type2, gameId)
         }
     }
 
-    private fun getHpColor(cur: Int, max: Int): Int {
-        if (max <= 0) return 0xFF50C878.toInt()
-        val pct = cur.toFloat() / max.toFloat()
+    private fun renderTypeRow(row: LinearLayout, type1: PokemonType, type2: PokemonType?) {
+        row.removeAllViews()
+        row.addView(DualDexComponents.typeBadge(context, type1))
+        type2?.let {
+            row.addView(DualDexComponents.typeBadge(context, it), LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = context.dp(DualDexTheme.Spacing.tight) })
+        }
+    }
+
+    private fun renderDefenseSummary(container: LinearLayout, type1: PokemonType, type2: PokemonType?, gameId: Int) {
+        container.removeAllViews()
+        val profile = TypeChart.getDefenseProfile(type1, type2, steelResistsGhostDark = gameId == 6)
+        addDefenseRow(container, "Weak", profile.weaknesses4x + profile.weaknesses2x)
+        addDefenseRow(container, "Resists", profile.resistancesHalf + profile.resistancesQuarter)
+        addDefenseRow(container, "Immune", profile.immunities)
+        if (container.childCount == 0) {
+            container.addView(TextView(context).apply {
+                text = "No special type modifiers"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+            })
+        }
+    }
+
+    private fun addDefenseRow(container: LinearLayout, label: String, types: List<PokemonType>) {
+        if (types.isEmpty()) return
+        val row = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+        }
+        row.addView(TextView(context).apply {
+            text = label
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
+        }, LinearLayout.LayoutParams(context.dp(56), LinearLayout.LayoutParams.WRAP_CONTENT))
+        types.forEach { type ->
+            row.addView(DualDexComponents.typeBadge(context, type), LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { marginEnd = context.dp(DualDexTheme.Spacing.tight) })
+        }
+        container.addView(row)
+    }
+
+    private fun createHpBar(): ProgressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
+        max = 1000
+        progressDrawable = hpProgressDrawable(DualDexTheme.Color.success)
+        tag = DualDexTheme.Color.success
+    }
+
+    private fun updateHpBar(bar: ProgressBar, current: Int, maximum: Int) {
+        val ratio = if (maximum > 0) current.toFloat() / maximum else 0f
+        val color = hpColor(current, maximum)
+        bar.progress = (ratio.coerceIn(0f, 1f) * 1000).toInt()
+        if (bar.tag != color) {
+            bar.progressTintList = ColorStateList.valueOf(color)
+            bar.tag = color
+        }
+    }
+
+    private fun hpProgressDrawable(color: Int): LayerDrawable {
+        val track = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = context.dp(DualDexTheme.Radius.pill).toFloat()
+            setColor(DualDexTheme.Color.surfaceDisabled)
+        }
+        val fill = ClipDrawable(GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = context.dp(DualDexTheme.Radius.pill).toFloat()
+            setColor(color)
+        }, Gravity.START, ClipDrawable.HORIZONTAL)
+        return LayerDrawable(arrayOf(track, fill)).apply {
+            setId(0, android.R.id.background)
+            setId(1, android.R.id.progress)
+        }
+    }
+
+    private fun hpColor(current: Int, maximum: Int): Int {
+        val ratio = if (maximum > 0) current.toFloat() / maximum else 0f
         return when {
-            pct > 0.5f -> 0xFF50C878.toInt() // Green
-            pct > 0.2f -> 0xFFFFD700.toInt() // Yellow
-            else -> 0xFFFF4A4A.toInt()       // Red
+            ratio > 0.5f -> DualDexTheme.Color.success
+            ratio > 0.2f -> DualDexTheme.Color.warning
+            else -> DualDexTheme.Color.danger
         }
     }
 }

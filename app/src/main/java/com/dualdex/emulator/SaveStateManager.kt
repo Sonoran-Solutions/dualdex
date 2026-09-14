@@ -6,6 +6,7 @@ import android.util.Log
 import com.dualdex.emulator.storage.AtomicSaveFile
 import com.dualdex.emulator.storage.LegacyCandidate
 import com.dualdex.emulator.storage.LegacySaveCatalog
+import com.dualdex.emulator.storage.MigrationResult
 import com.dualdex.emulator.storage.MirrorStatus
 import com.dualdex.emulator.storage.RomSaveMetadata
 import com.dualdex.emulator.storage.SafMirrorStore
@@ -133,12 +134,22 @@ open class SaveStateManager(
     // Metadata Management
     // ---------------------------------------------------------
 
-    private fun recordMetadata(identity: RomIdentity, profileId: String?) {
+    private fun recordMetadata(
+        identity: RomIdentity,
+        profileId: String?,
+        explicitStatus: MirrorStatus? = null
+    ) {
         if (!identity.isValid) return
         val metaFile = getCanonicalFile(identity, "metadata.json")
         val existing = if (metaFile.exists()) {
             RomSaveMetadata.fromJson(metaFile.readText())
         } else null
+
+        val finalStatus = explicitStatus ?: if (safMirrorStore.isSafConfigured()) {
+            safMirrorStore.checkMirrorStatus(identity, "battery.sav", getCanonicalFile(identity, "battery.sav"))
+        } else {
+            MirrorStatus.UNAVAILABLE
+        }
 
         val updated = RomSaveMetadata(
             sha256 = identity.sha256,
@@ -147,7 +158,7 @@ open class SaveStateManager(
             createdAt = existing?.createdAt ?: System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis(),
             saveGeneration = (existing?.saveGeneration ?: 0L) + 1L,
-            mirrorStatus = safMirrorStore.checkMirrorStatus(identity, "battery.sav", getCanonicalFile(identity, "battery.sav"))
+            mirrorStatus = finalStatus
         )
         try {
             AtomicSaveFile.writeBytes(metaFile, updated.toJson().toByteArray(Charsets.UTF_8))
@@ -233,13 +244,13 @@ open class SaveStateManager(
         }
         val fileName = "slot_${slotIndex}.state"
         val canonicalFile = getCanonicalFile(identity, fileName)
-        AtomicSaveFile.recoverInterrupted(canonicalFile)
+        val expectedSize = nativeGetSaveStateSize()
+        AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)
         if (!canonicalFile.exists() || canonicalFile.length() == 0L) {
             return false
         }
 
         // Validate state size before invoking native unserialize
-        val expectedSize = nativeGetSaveStateSize()
         if (expectedSize > 0 && canonicalFile.length() != expectedSize) {
             Log.e(TAG, "Slot $slotIndex state size mismatch: expected $expectedSize, got ${canonicalFile.length()}")
             return false
@@ -285,10 +296,10 @@ open class SaveStateManager(
         if (!identity.isValid) return false
         val fileName = "quicksave.state"
         val canonicalFile = getCanonicalFile(identity, fileName)
-        AtomicSaveFile.recoverInterrupted(canonicalFile)
+        val expectedSize = nativeGetSaveStateSize()
+        AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)
         if (!canonicalFile.exists() || canonicalFile.length() == 0L) return false
 
-        val expectedSize = nativeGetSaveStateSize()
         if (expectedSize > 0 && canonicalFile.length() != expectedSize) {
             Log.e(TAG, "Quick save state size mismatch: expected $expectedSize, got ${canonicalFile.length()}")
             return false
@@ -318,7 +329,8 @@ open class SaveStateManager(
         if (!identity.isValid) return false
         val fileName = "auto_resume.state"
         val canonicalFile = getCanonicalFile(identity, fileName)
-        AtomicSaveFile.recoverInterrupted(canonicalFile)
+        val expectedSize = nativeGetSaveStateSize()
+        AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)
         if (!canonicalFile.exists() || canonicalFile.length() == 0L) return false
 
         val stagingFile = getStagingFile(identity, fileName)
@@ -370,7 +382,12 @@ open class SaveStateManager(
 
     private fun getFileInfo(identity: RomIdentity, fileName: String, slotIndex: Int): SaveSlotInfo {
         val canonicalFile = getCanonicalFile(identity, fileName)
-        AtomicSaveFile.recoverInterrupted(canonicalFile)
+        val expectedSize = if (fileName == "battery.sav") {
+            nativeGetSaveRamSize().takeIf { it > 0 }
+        } else if (fileName.endsWith(".state")) {
+            nativeGetSaveStateSize().takeIf { it > 0 }
+        } else null
+        AtomicSaveFile.recoverInterrupted(canonicalFile, expectedSize)
         return if (canonicalFile.exists() && canonicalFile.length() > 0L) {
             val ts = canonicalFile.lastModified()
             val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(ts))
@@ -409,7 +426,8 @@ open class SaveStateManager(
         if (profileId != null) activeProfileId = profileId
 
         val canonicalFile = getCanonicalFile(identity, "battery.sav")
-        AtomicSaveFile.recoverInterrupted(canonicalFile)
+        val expectedRamSize = nativeGetSaveRamSize()
+        AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedRamSize > 0) expectedRamSize else null)
         if (!canonicalFile.exists() || canonicalFile.length() == 0L) {
             return false
         }
@@ -446,25 +464,31 @@ open class SaveStateManager(
             return SaveWriteResult.Failure("Canonical commit failed")
         }
 
-        recordMetadata(identity, activeProfileId)
-
-        val mirrorStatus = if (!mirrorSafAsync) {
-            safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
+        val initialStatus = if (!mirrorSafAsync) {
+            val status = safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
+            recordMetadata(identity, activeProfileId, explicitStatus = status)
+            status
         } else {
+            val pendingStatus = if (safMirrorStore.isSafConfigured()) MirrorStatus.PENDING else MirrorStatus.UNAVAILABLE
+            // Record metadata with PENDING status immediately without blocking on SAF hashing
+            recordMetadata(identity, activeProfileId, explicitStatus = pendingStatus)
+
             // Asynchronous SAF mirror to avoid blocking on slow cloud/SAF document providers
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                 try {
-                    safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
+                    val finalStatus = safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
+                    recordMetadata(identity, activeProfileId, explicitStatus = finalStatus)
                 } catch (e: Exception) {
                     Log.w(TAG, "Background SAF mirror failed: ${e.message}")
+                    recordMetadata(identity, activeProfileId, explicitStatus = MirrorStatus.FAILED)
                 }
             }
-            if (safMirrorStore.isSafConfigured()) MirrorStatus.IN_SYNC else MirrorStatus.UNAVAILABLE
+            pendingStatus
         }
 
         return SaveWriteResult.Success(
             canonicalWritten = true,
-            mirrorStatus = mirrorStatus
+            mirrorStatus = initialStatus
         )
     }
 
@@ -504,47 +528,53 @@ open class SaveStateManager(
                 return false
             }
 
-            // 4. Capture current SRAM from active core to rollback file before mutating
             val sramBackup = File(stagingDir, "${identity.storageKey}__import_rollback.sav")
-            val backupOk = nativeFlushSaveRam(sramBackup.absolutePath)
-            if (!backupOk || !sramBackup.exists() || sramBackup.length() != expectedRamSize.toLong()) {
-                Log.e(TAG, "Import aborted: failed to capture reliable rollback backup of live SRAM")
-                if (sramBackup.exists()) sramBackup.delete()
-                return false
-            }
-
-            // 5. Test load candidate into live core from temp file
             val tempCandidate = File(stagingDir, "${identity.storageKey}__import_candidate.tmp")
-            tempCandidate.writeBytes(cleanBytes)
+            val canonicalFile = getCanonicalFile(identity, "battery.sav")
 
-            val loaded = nativeLoadSaveRam(tempCandidate.absolutePath)
-            if (!loaded) {
-                Log.e(TAG, "Import rejected: core failed to load candidate SRAM payload")
-                nativeLoadSaveRam(sramBackup.absolutePath) // Rollback live SRAM
+            val transactionSuccess = try {
+                coreCoordinator.executeExclusive {
+                    // 4. Capture current SRAM from active core to rollback file before mutating
+                    val backupOk = nativeFlushSaveRam(sramBackup.absolutePath)
+                    if (!backupOk || !sramBackup.exists() || sramBackup.length() != expectedRamSize.toLong()) {
+                        Log.e(TAG, "Import aborted: failed to capture reliable rollback backup of live SRAM")
+                        return@executeExclusive false
+                    }
+
+                    // 5. Test load candidate into live core from temp file
+                    tempCandidate.writeBytes(cleanBytes)
+
+                    val loaded = nativeLoadSaveRam(tempCandidate.absolutePath)
+                    if (!loaded) {
+                        Log.e(TAG, "Import rejected: core failed to load candidate SRAM payload")
+                        nativeLoadSaveRam(sramBackup.absolutePath) // Rollback live SRAM
+                        return@executeExclusive false
+                    }
+
+                    // 6. Commit candidate atomically to canonical store
+                    val committed = AtomicSaveFile.writeBytes(canonicalFile, cleanBytes)
+                    if (!committed) {
+                        Log.e(TAG, "Import failed: atomic canonical commit failed, rolling back live SRAM")
+                        nativeLoadSaveRam(sramBackup.absolutePath) // Rollback live SRAM
+                        return@executeExclusive false
+                    }
+
+                    // 8. Reset core only after entire transaction succeeds
+                    nativeResetCore()
+                    true
+                }
+            } finally {
                 if (tempCandidate.exists()) tempCandidate.delete()
                 if (sramBackup.exists()) sramBackup.delete()
-                return false
             }
 
-            // 6. Commit candidate atomically to canonical store
-            val canonicalFile = getCanonicalFile(identity, "battery.sav")
-            val committed = AtomicSaveFile.writeBytes(canonicalFile, cleanBytes)
-            if (!committed) {
-                Log.e(TAG, "Import failed: atomic canonical commit failed, rolling back live SRAM")
-                nativeLoadSaveRam(sramBackup.absolutePath) // Rollback live SRAM
-                if (tempCandidate.exists()) tempCandidate.delete()
-                if (sramBackup.exists()) sramBackup.delete()
+            if (!transactionSuccess) {
                 return false
             }
 
             // 7. Mirror to SAF and record metadata
             safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
             recordMetadata(identity, activeProfileId)
-
-            // 8. Reset core only after entire transaction succeeds
-            nativeResetCore()
-            if (tempCandidate.exists()) tempCandidate.delete()
-            if (sramBackup.exists()) sramBackup.delete()
 
             Log.i(TAG, "Import battery save succeeded for ${identity.storageKey} ($expectedRamSize bytes)")
             return true
@@ -631,7 +661,7 @@ open class SaveStateManager(
         return legacyCatalog.discoverCandidates()
     }
 
-    fun assignLegacyCandidate(candidate: LegacyCandidate, targetIdentity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+    fun assignLegacyCandidate(candidate: LegacyCandidate, targetIdentity: RomIdentity): MigrationResult = synchronized(globalSaveLock) {
         val canonicalDir = getCanonicalRomDir(targetIdentity)
         return legacyCatalog.assignCandidateToRom(candidate, targetIdentity, canonicalDir)
     }

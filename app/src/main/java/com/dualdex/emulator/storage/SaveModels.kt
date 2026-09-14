@@ -5,6 +5,7 @@ import org.json.JSONObject
 enum class MirrorStatus {
     IN_SYNC,
     OUT_OF_SYNC,
+    PENDING,
     UNAVAILABLE,
     PERMISSION_REVOKED,
     FAILED

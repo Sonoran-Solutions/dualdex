@@ -10,6 +10,12 @@ object AtomicSaveFile {
 
     private const val TAG = "AtomicSaveFile"
 
+    @Volatile
+    var syncHook: ((FileOutputStream) -> Unit)? = null
+
+    @Volatile
+    var backupHook: ((File, File) -> Boolean)? = null
+
     /**
      * Atomically write a byte array to targetFile with durability and previous-good backup (.bak).
      */
@@ -34,10 +40,11 @@ object AtomicSaveFile {
             FileOutputStream(tmpFile).use { fos ->
                 fos.write(bytes)
                 fos.flush()
-                try {
+                val hook = syncHook
+                if (hook != null) {
+                    hook(fos)
+                } else {
                     fos.fd.sync()
-                } catch (e: Exception) {
-                    Log.w(TAG, "fsync warning on tmp file: ${e.message}")
                 }
             }
 
@@ -48,12 +55,25 @@ object AtomicSaveFile {
                 return false
             }
 
-            // 3. Retain/rotate previous canonical file as .bak
+            // 3. Retain/rotate previous canonical file as .bak (FAIL CLOSED if backup cannot be created)
             if (targetFile.exists() && targetFile.length() > 0L) {
-                try {
-                    targetFile.copyTo(bakFile, overwrite = true)
+                val origSize = targetFile.length()
+                val backupOk = try {
+                    val hook = backupHook
+                    if (hook != null) {
+                        hook(targetFile, bakFile)
+                    } else {
+                        targetFile.copyTo(bakFile, overwrite = true)
+                        bakFile.exists() && bakFile.isFile && bakFile.length() == origSize
+                    }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to create backup copy: ${e.message}")
+                    Log.e(TAG, "Failed to create backup copy: ${e.message}")
+                    false
+                }
+                if (!backupOk) {
+                    Log.e(TAG, "Aborting atomic write: failed to create verified previous-good backup")
+                    if (tmpFile.exists()) tmpFile.delete()
+                    return false
                 }
             }
 
@@ -125,10 +145,11 @@ object AtomicSaveFile {
                 FileOutputStream(tmpFile).use { output ->
                     input.copyTo(output)
                     output.flush()
-                    try {
+                    val hook = syncHook
+                    if (hook != null) {
+                        hook(output)
+                    } else {
                         output.fd.sync()
-                    } catch (e: Exception) {
-                        Log.w(TAG, "fsync warning on tmp file: ${e.message}")
                     }
                 }
             }
@@ -140,12 +161,25 @@ object AtomicSaveFile {
                 return false
             }
 
-            // 3. Retain/rotate previous canonical file as .bak
+            // 3. Retain/rotate previous canonical file as .bak (FAIL CLOSED if backup cannot be created)
             if (targetFile.exists() && targetFile.length() > 0L) {
-                try {
-                    targetFile.copyTo(bakFile, overwrite = true)
+                val origSize = targetFile.length()
+                val backupOk = try {
+                    val hook = backupHook
+                    if (hook != null) {
+                        hook(targetFile, bakFile)
+                    } else {
+                        targetFile.copyTo(bakFile, overwrite = true)
+                        bakFile.exists() && bakFile.isFile && bakFile.length() == origSize
+                    }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to create backup copy: ${e.message}")
+                    Log.e(TAG, "Failed to create backup copy: ${e.message}")
+                    false
+                }
+                if (!backupOk) {
+                    Log.e(TAG, "Aborting atomic staging copy: failed to create verified previous-good backup")
+                    if (tmpFile.exists()) tmpFile.delete()
+                    return false
                 }
             }
 
@@ -209,16 +243,39 @@ object AtomicSaveFile {
 
     /**
      * Detects interrupted .tmp / .bak states and recovers the last known valid canonical file.
+     * When expectedSize is provided, treats truncated or mismatched canonical files as invalid
+     * and recovers from a matching .bak file.
      * Guaranteed to never silently discard a recoverable .bak file.
      */
-    fun recoverInterrupted(targetFile: File): Boolean {
+    fun recoverInterrupted(targetFile: File, expectedSize: Long? = null): Boolean {
         val parent = targetFile.parentFile ?: return false
         val tmpFile = File(parent, "${targetFile.name}.tmp")
         val bakFile = File(parent, "${targetFile.name}.bak")
 
+        if (expectedSize != null && expectedSize > 0L) {
+            val isTargetInvalid = !targetFile.exists() || targetFile.length() == 0L || targetFile.length() != expectedSize
+            if (isTargetInvalid) {
+                if (bakFile.exists() && bakFile.isFile && bakFile.length() == expectedSize) {
+                    Log.w(TAG, "Interrupted write detected for ${targetFile.name} (expected $expectedSize bytes, target has ${if (targetFile.exists()) targetFile.length() else -1}). Restoring from .bak")
+                    val restored = restoreBackup(targetFile)
+                    if (tmpFile.exists()) tmpFile.delete()
+                    return restored
+                }
+                return false
+            }
+
+            // Target exists and matches expectedSize
+            if (tmpFile.exists()) {
+                Log.w(TAG, "Cleaning up leftover .tmp file for ${targetFile.name}")
+                tmpFile.delete()
+            }
+            return true
+        }
+
+        // Expected size not known: conservative fallback
         // Case 1: Target file is missing or empty, but valid .bak exists -> restore from .bak
         if (!targetFile.exists() || targetFile.length() == 0L) {
-            if (bakFile.exists() && bakFile.length() > 0L) {
+            if (bakFile.exists() && bakFile.isFile && bakFile.length() > 0L) {
                 Log.w(TAG, "Interrupted write detected for ${targetFile.name}. Restoring from .bak (${bakFile.length()} bytes)")
                 val restored = restoreBackup(targetFile)
                 if (tmpFile.exists()) {

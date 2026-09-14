@@ -6,6 +6,15 @@ import com.dualdex.emulator.RomIdentity
 import java.io.File
 import java.util.Locale
 
+enum class MigrationResult {
+    SUCCESS,
+    SUCCESS_SOURCE_CLEANUP_FAILED,
+    FAILURE;
+
+    val isSuccess: Boolean
+        get() = this == SUCCESS || this == SUCCESS_SOURCE_CLEANUP_FAILED
+}
+
 open class LegacySaveCatalog(
     private val context: Context? = null,
     private val customLegacyDir: File? = null,
@@ -118,21 +127,49 @@ open class LegacySaveCatalog(
     }
 
     /**
-     * Check if a candidate file matches the given ROM identity suggestions.
-     * Note: This is an advisory suggestion only, NEVER an automatic ownership claim.
+     * Score a legacy candidate against a given ROM identity and active profile title.
+     * Produces heuristic match suggestions (0 to 100) ONLY. Never automatically moves or claims files.
      */
+    fun scoreCandidate(
+        candidate: LegacyCandidate,
+        identity: RomIdentity,
+        profileTitle: String?
+    ): Int {
+        val baseNorm = normalizeName(candidate.baseName)
+        val idNorm = normalizeName(identity.displayName)
+        val profileNorm = normalizeName(profileTitle ?: "")
+
+        // Exact match against ROM display title
+        if (baseNorm.isNotEmpty() && baseNorm == idNorm) return 100
+
+        // Substring / partial title match
+        if (baseNorm.isNotEmpty() && (idNorm.contains(baseNorm) || baseNorm.contains(idNorm))) return 85
+
+        // Match against detected profile title
+        if (profileNorm.isNotEmpty() && (profileNorm == baseNorm || profileNorm.contains(baseNorm))) return 80
+
+        // Never auto-match "current_game" to any specific ROM
+        if (candidate.baseName.equals("current_game", ignoreCase = true)) return 10
+
+        return 0
+    }
+
     fun isSuggestedMatch(candidate: LegacyCandidate, identity: RomIdentity, profileName: String? = null): Boolean {
-        // current_game is ambiguous and must never be auto-suggested as a high-confidence match
-        if (candidate.baseName.equals("current_game", ignoreCase = true)) {
-            return false
-        }
+        return scoreCandidate(candidate, identity, profileName) >= 50
+    }
 
-        fun norm(s: String) = s.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]"), "")
-        val baseNorm = norm(candidate.baseName)
-        if (baseNorm.length < 3) return false
+    private fun normalizeName(name: String): String {
+        return name.lowercase(Locale.ROOT)
+            .replace(Regex("[^a-z0-9]"), "")
+            .trim()
+    }
 
-        val titleNorm = norm(identity.displayName)
-        val profileNorm = profileName?.let { norm(it) }.orEmpty()
+    fun isFuzzyMatch(fileName: String, gameTitle: String, profileName: String?): Boolean {
+        val baseNorm = normalizeName(File(fileName).nameWithoutExtension)
+        if (baseNorm.equals("currentgame", ignoreCase = true)) return false
+
+        val titleNorm = normalizeName(gameTitle)
+        val profileNorm = normalizeName(profileName ?: "")
 
         return (titleNorm.isNotEmpty() && (titleNorm.contains(baseNorm) || baseNorm.contains(titleNorm))) ||
             (profileNorm.isNotEmpty() && (profileNorm.contains(baseNorm) || baseNorm.contains(profileNorm)))
@@ -158,28 +195,29 @@ open class LegacySaveCatalog(
     /**
      * Explicitly migrate a legacy candidate to a target canonical directory.
      * Fails closed: only marks source migrated after destination commit succeeds and is verified.
+     * Reports SUCCESS_SOURCE_CLEANUP_FAILED if destination commit succeeds but source marking fails.
      */
     open fun assignCandidateToRom(
         candidate: LegacyCandidate,
         targetRomIdentity: RomIdentity,
         canonicalDir: File
-    ): Boolean {
+    ): MigrationResult {
         if (!targetRomIdentity.isValid) {
             Log.e(TAG, "Cannot migrate to invalid target ROM identity")
-            return false
+            return MigrationResult.FAILURE
         }
 
         val source = candidate.sourceFile
         if (!source.exists() || source.length() == 0L) {
             Log.e(TAG, "Source legacy file does not exist: ${source.absolutePath}")
-            return false
+            return MigrationResult.FAILURE
         }
 
         // Check if already claimed by a different ROM hash
         val currentAssignedHash = getAssignedRomHash(source)
         if (currentAssignedHash != null && !currentAssignedHash.equals(targetRomIdentity.sha256, ignoreCase = true)) {
             Log.e(TAG, "Source ${source.name} is already assigned to ROM $currentAssignedHash, rejecting silent overwrite to ${targetRomIdentity.sha256}")
-            return false
+            return MigrationResult.FAILURE
         }
 
         val targetFile = File(canonicalDir, candidate.targetFileName)
@@ -197,7 +235,7 @@ open class LegacySaveCatalog(
             }
             if (!backupOk) {
                 Log.e(TAG, "Legacy migration aborted: failed to create durable .orig.bak for ${source.name}")
-                return false
+                return MigrationResult.FAILURE
             }
         }
 
@@ -205,7 +243,7 @@ open class LegacySaveCatalog(
         val committed = AtomicSaveFile.copyFromStaging(source, targetFile)
         if (!committed || !targetFile.exists() || targetFile.length() != expectedSize) {
             Log.e(TAG, "Failed to commit legacy candidate ${source.name} to canonical destination ${targetFile.absolutePath}")
-            return false
+            return MigrationResult.FAILURE
         }
 
         // 3. Record association
@@ -215,22 +253,28 @@ open class LegacySaveCatalog(
 
         // 4. Mark legacy source as migrated only AFTER successful destination verification
         val migratedFile = File(source.parentFile, "${source.name}.migrated.bak")
-        val renamed = try {
+        var cleanupSuccess = try {
             source.renameTo(migratedFile)
         } catch (e: Exception) {
             false
         }
-        if (!renamed && source.exists()) {
+        if (!cleanupSuccess && source.exists()) {
             try {
                 source.copyTo(migratedFile, overwrite = true)
-                source.delete()
+                cleanupSuccess = source.delete()
             } catch (e: Exception) {
-                Log.w(TAG, "Could not rename source to .migrated.bak: ${e.message}")
+                Log.w(TAG, "Could not copy/delete source to .migrated.bak: ${e.message}")
+                cleanupSuccess = false
             }
         }
 
+        if (!cleanupSuccess) {
+            Log.w(TAG, "Migration destination committed, but source cleanup to .migrated.bak failed for ${source.name}")
+            return MigrationResult.SUCCESS_SOURCE_CLEANUP_FAILED
+        }
+
         Log.i(TAG, "Successfully migrated legacy save ${source.name} to ${targetFile.absolutePath}")
-        return true
+        return MigrationResult.SUCCESS
     }
 
     companion object {

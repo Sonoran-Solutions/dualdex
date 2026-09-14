@@ -123,7 +123,19 @@ open class SafMirrorStore(private val context: Context? = null) {
         if (!isSafConfigured()) return MirrorStatus.UNAVAILABLE
 
         val safRoot = getSafFolder() ?: return MirrorStatus.UNAVAILABLE
-        if (!canonicalFile.exists()) return MirrorStatus.IN_SYNC
+        if (!canonicalFile.exists()) {
+            return try {
+                val romDir = getOrCreateSafRomDir(safRoot, identity.storageKey)
+                val doc = romDir?.findFile(fileName)
+                if (doc != null && doc.exists()) {
+                    MirrorStatus.OUT_OF_SYNC
+                } else {
+                    MirrorStatus.IN_SYNC
+                }
+            } catch (e: Exception) {
+                MirrorStatus.IN_SYNC
+            }
+        }
 
         return try {
             val romDir = getOrCreateSafRomDir(safRoot, identity.storageKey)

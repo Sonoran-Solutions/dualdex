@@ -580,10 +580,10 @@ class SaveStateScreenView(
                     setOnClickListener {
                         setBusyState(true)
                         uiScope.launch(Dispatchers.IO) {
-                            val ok = saveStateManager.assignLegacyCandidate(cand, identity)
+                            val res = saveStateManager.assignLegacyCandidate(cand, identity)
                             withContext(Dispatchers.Main) {
                                 setBusyState(false)
-                                if (ok) {
+                                if (res.isSuccess) {
                                     Toast.makeText(context, "Migrated ${cand.sourceFile.name} to ${identity.displayName}!", Toast.LENGTH_SHORT).show()
                                     refreshUI()
                                 } else {

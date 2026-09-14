@@ -193,55 +193,62 @@ class RomSessionManager(
                 audioDriver?.stop()
                 viewModel?.stopPolling()
 
-                // 3. Flush and unload previous ROM if present
+                // 3. Execute the entire core-sensitive switch sequence in ONE continuous exclusive transaction
                 val oldIdentity = viewModel?.activeRomIdentity?.value ?: saveStateManager.activeIdentity
-                if (oldIdentity != null && oldIdentity.isValid) {
-                    val flushResult = saveStateManager.flushBatterySave(oldIdentity)
-                    if (flushResult !is com.dualdex.emulator.storage.SaveWriteResult.Success) {
-                        Log.e(TAG, "Failed to flush SRAM for previous game ${oldIdentity.displayName}. Aborting ROM switch!")
-                        // Resume old session safely
-                        audioDriver?.start()
-                        viewModel?.startPolling(100L)
-                        onEmulationResume?.invoke()
-                        return@withLock SwitchResult.Failure("Could not safely flush previous game save. ROM switch aborted.")
-                    }
-                    saveStateManager.saveAutoResume(oldIdentity)
-                }
+                var switchAbortedDueToFlush = false
 
-                // 4 & 5. Clean unload of old game and load prepared new ROM under core lock
-                val loadSuccess = coreCoordinator.executeExclusive {
-                    coreCoordinator.unloadRom()
-                    coreCoordinator.clearAudio()
+                val switchSuccess = synchronized(SaveStateManager.globalSaveLock) {
+                    coreCoordinator.executeExclusive {
+                        if (oldIdentity != null && oldIdentity.isValid) {
+                            val flushResult = saveStateManager.flushBatterySave(oldIdentity)
+                            if (flushResult !is com.dualdex.emulator.storage.SaveWriteResult.Success) {
+                                Log.e(TAG, "Failed to flush SRAM for previous game ${oldIdentity.displayName}. Aborting ROM switch!")
+                                switchAbortedDueToFlush = true
+                                return@executeExclusive false
+                            }
+                            saveStateManager.saveAutoResume(oldIdentity)
+                        }
 
-                    val ok = coreCoordinator.loadRom(cachedRomFile.absolutePath)
-                    if (!ok) {
-                        Log.e(TAG, "Core failed to load ROM: ${cachedRomFile.absolutePath}")
                         coreCoordinator.unloadRom()
-                        return@executeExclusive false
+                        coreCoordinator.clearAudio()
+
+                        val ok = coreCoordinator.loadRom(cachedRomFile.absolutePath)
+                        if (!ok) {
+                            Log.e(TAG, "Core failed to load ROM: ${cachedRomFile.absolutePath}")
+                            coreCoordinator.unloadRom()
+                            return@executeExclusive false
+                        }
+
+                        saveStateManager.setActiveGame(newIdentity, profile.name, profile.id)
+                        val restoredSave = saveStateManager.loadBatterySave(newIdentity, profile.name, profile.id)
+                        if (restoredSave) {
+                            Log.i(TAG, "Restored existing battery save for ${newIdentity.storageKey}")
+                        }
+
+                        cheatManager.applyCheats(newIdentity)
+                        true
                     }
-                    true
                 }
 
-                if (!loadSuccess) {
+                if (switchAbortedDueToFlush) {
+                    audioDriver?.start()
+                    viewModel?.startPolling(100L)
+                    onEmulationResume?.invoke()
+                    return@withLock SwitchResult.Failure("Could not safely flush previous game save. ROM switch aborted.")
+                }
+
+                if (!switchSuccess) {
                     saveStateManager.activeIdentity = null
                     viewModel?.setRomIdentity(null)
                     viewModel?.stopPolling()
                     return@withLock SwitchResult.Failure("Core rejected ROM file")
                 }
 
-                // 6. Post-load initialization: restore save & cheats scoped to new identity
+                // 4. Post-switch initialization: audio and settings
                 audioDriver?.updateSampleRate()
                 audioDriver?.start()
 
-                saveStateManager.setActiveGame(newIdentity, profile.name, profile.id)
-                val restoredSave = saveStateManager.loadBatterySave(newIdentity, profile.name, profile.id)
-                if (restoredSave) {
-                    Log.i(TAG, "Restored existing battery save for ${newIdentity.storageKey}")
-                }
-
-                cheatManager.applyCheats(newIdentity)
-
-                // 7. Publish new identity and resume
+                // 5. Publish new identity and resume emulation outside the core transaction
                 settingsManager?.lastPlayedRomUri = identifierStr
                 settingsManager?.lastPlayedRomTitle = gameTitle
 

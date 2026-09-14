@@ -10,4 +10,7 @@ interface LibretroCoreBridge {
     fun loadSaveRam(savePath: String): Boolean = true
     fun flushSaveRam(savePath: String): Boolean = true
     fun resetCore() {}
+    fun stepFrame(): Boolean = true
+    fun cheatReset() {}
+    fun cheatSet(index: Int, enabled: Boolean, code: String) {}
 }

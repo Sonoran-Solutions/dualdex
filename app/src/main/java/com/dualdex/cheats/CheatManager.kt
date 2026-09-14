@@ -2,14 +2,15 @@ package com.dualdex.cheats
 
 import android.content.Context
 import android.util.Log
-import com.dualdex.emulator.LibretroHost
+import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.RomIdentity
 import org.json.JSONArray
 import org.json.JSONObject
 
 class CheatManager(
     private val context: Context? = null,
-    private val memoryStorage: MutableMap<String, String>? = null
+    private val memoryStorage: MutableMap<String, String>? = null,
+    var coreCoordinator: LibretroCoreCoordinator = LibretroCoreCoordinator.defaultInstance
 ) {
     private val prefs by lazy {
         context?.getSharedPreferences("dualdex_cheats", Context.MODE_PRIVATE)
@@ -134,7 +135,7 @@ class CheatManager(
 
     fun applyCheats(identity: RomIdentity) {
         try {
-            LibretroHost.nativeCheatReset()
+            coreCoordinator.cheatReset()
             if (!identity.isValid) return
 
             val cheats = getCheats(identity)
@@ -147,7 +148,7 @@ class CheatManager(
                 if (cleanLines.isNotEmpty()) {
                     val codePayload = cleanLines.joinToString("\n")
                     Log.i(TAG, "Applying cheat #${activeIdx}: '${c.name}' (${cleanLines.size} lines)")
-                    LibretroHost.nativeCheatSet(activeIdx, true, codePayload)
+                    coreCoordinator.cheatSet(activeIdx, true, codePayload)
                     activeIdx++
                 }
             }

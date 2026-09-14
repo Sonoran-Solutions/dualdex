@@ -25,7 +25,7 @@ class AudioDriver(private val defaultSampleRate: Int = 48000) {
             }
 
             // Instruct native host to resample mGBA's 65536 Hz stream to this exact rate in C
-            LibretroHost.nativeSetTargetAudioSampleRate(effectiveRate)
+            LibretroCoreCoordinator.defaultInstance.setTargetAudioSampleRate(effectiveRate)
 
             val minBufferSize = AudioTrack.getMinBufferSize(
                 effectiveRate,
@@ -63,7 +63,7 @@ class AudioDriver(private val defaultSampleRate: Int = 48000) {
                 val sampleBuf = ShortArray(1024)
 
                 while (isRunning) {
-                    val count = LibretroHost.nativeGetAudioSamples(sampleBuf)
+                    val count = LibretroCoreCoordinator.defaultInstance.getAudioSamples(sampleBuf)
                     if (count > 0) {
                         try {
                             audioTrack?.write(sampleBuf, 0, count)

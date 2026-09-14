@@ -1,7 +1,7 @@
 package com.dualdex.companion
 
 import android.net.Uri
-import com.dualdex.emulator.LibretroHost
+import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PlayerLocation
@@ -35,7 +35,8 @@ enum class CompanionTab(val title: String, val iconEmoji: String) {
 }
 
 class CompanionViewModel(
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
+    var coreCoordinator: LibretroCoreCoordinator = LibretroCoreCoordinator.defaultInstance
 ) {
     private val _selectedTab = MutableStateFlow(CompanionTab.HOME)
     val selectedTab: StateFlow<CompanionTab> = _selectedTab.asStateFlow()
@@ -144,7 +145,7 @@ class CompanionViewModel(
             while (isActive) {
                 try {
                     val gameId = _activeGameId.value
-                    val playerPartyRaw = LibretroHost.nativeReadPartyFromCore(gameId)
+                    val playerPartyRaw = coreCoordinator.readPartyFromCore(gameId)
                     if (playerPartyRaw != null) {
                         val playerList = playerPartyRaw.filterNotNull().filter { !it.isEmpty && it.isValid }
                         if (playerList.isNotEmpty() && playerList != _playerParty.value) {
@@ -152,7 +153,7 @@ class CompanionViewModel(
                         }
                     }
 
-                    val enemyPartyRaw = LibretroHost.nativeReadEnemyPartyFromCore(gameId)
+                    val enemyPartyRaw = coreCoordinator.readEnemyPartyFromCore(gameId)
                     val enemyList = enemyPartyRaw?.filterNotNull()?.filter { !it.isEmpty && it.isValid } ?: emptyList()
                     if (enemyList != _enemyParty.value) {
                         _enemyParty.value = enemyList
@@ -162,23 +163,23 @@ class CompanionViewModel(
                         _isInBattle.value = inBattle
                     }
                     if (inBattle) {
-                        val activeSlot = LibretroHost.nativeGetActiveBattlerSlot(gameId)
+                        val activeSlot = coreCoordinator.getActiveBattlerSlot(gameId)
                         if (activeSlot in 0..5 && activeSlot != _selectedMemberIndex.value) {
                             _selectedMemberIndex.value = activeSlot
                         }
-                        val enemyActiveSlot = LibretroHost.nativeGetActiveEnemyBattlerSlot(gameId)
+                        val enemyActiveSlot = coreCoordinator.getActiveEnemyBattlerSlot(gameId)
                         val resolvedSlot = if (enemyActiveSlot in 0 until enemyList.size) enemyActiveSlot else if (enemyList.isNotEmpty()) 0 else -1
                         if (resolvedSlot != _activeEnemyMemberIndex.value) {
                             _activeEnemyMemberIndex.value = resolvedSlot
                         }
 
-                        val pStages = LibretroHost.nativeReadBattleStatStages(gameId, 0)
+                        val pStages = coreCoordinator.readBattleStatStages(gameId, 0)
                         _playerStatStages.value = com.dualdex.battle.StatStages.fromRawArray(pStages)
 
-                        val eStages = LibretroHost.nativeReadBattleStatStages(gameId, 1)
+                        val eStages = coreCoordinator.readBattleStatStages(gameId, 1)
                         _enemyStatStages.value = com.dualdex.battle.StatStages.fromRawArray(eStages)
 
-                        val uiCode = LibretroHost.nativeReadBattleUiState(gameId)
+                        val uiCode = coreCoordinator.readBattleUiState(gameId)
                         _battleUiSnapshot.value = com.dualdex.battle.BattleInteractionPolicy.evaluate(
                             profile = _activeProfile.value,
                             romIdentity = _activeRomIdentity.value,
@@ -195,7 +196,7 @@ class CompanionViewModel(
                         _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
                     }
 
-                    val loc = LibretroHost.nativeReadPlayerLocation(gameId)
+                    val loc = coreCoordinator.readPlayerLocation(gameId)
                     if (loc != null && loc.isValid && loc != _playerLocation.value) {
                         _playerLocation.value = loc
                         val isHns = _activeProfile.value.id == "heart_and_soul" || _activeRomTitle.value.contains("HEART", ignoreCase = true)

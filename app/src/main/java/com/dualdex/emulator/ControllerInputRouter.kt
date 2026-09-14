@@ -53,7 +53,7 @@ object ControllerInputRouter {
      */
     private fun dispatchEffectiveMask(mask: Int) {
         try {
-            LibretroHost.nativeSetInputButtons(mask)
+            LibretroCoreCoordinator.defaultInstance.setInputButtons(mask)
         } catch (_: Throwable) {
             // Expected in host JVM unit tests where libretro native library is not loaded
         }

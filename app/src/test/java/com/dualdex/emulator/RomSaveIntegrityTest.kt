@@ -46,10 +46,24 @@ class RomSaveIntegrityTest {
         var loadStateResult: Boolean = true
         var loadSaveRamResult: Boolean = true
         var flushSaveRamResult: Boolean = true
+        var rejectCandidateSram: Boolean = false
+        @Volatile var isSteppingFrame: Boolean = false
+        @Volatile var isRunningExclusive: Boolean = false
+        @Volatile var overlapDetected: Boolean = false
 
         val events = mutableListOf<String>()
         var currentSramBytes: ByteArray? = null
         var lastLoadedRomPath: String? = null
+
+        override fun stepFrame(): Boolean {
+            isSteppingFrame = true
+            if (isRunningExclusive) {
+                overlapDetected = true
+            }
+            Thread.sleep(1)
+            isSteppingFrame = false
+            return true
+        }
 
         override fun loadRom(romPath: String): Boolean {
             events.add("loadRom:$romPath")
@@ -86,6 +100,7 @@ class RomSaveIntegrityTest {
             events.add("loadSaveRam:$savePath")
             val f = File(savePath)
             if (!f.exists() || f.length() == 0L) return false
+            if (rejectCandidateSram && savePath.contains("__import_candidate")) return false
             if (loadSaveRamResult) {
                 currentSramBytes = f.readBytes()
             }
@@ -132,7 +147,10 @@ class RomSaveIntegrityTest {
             val root = safDir ?: return MirrorStatus.OUT_OF_SYNC
             val destFile = File(File(root, identity.storageKey), fileName)
             if (!destFile.exists() || destFile.length() != canonicalFile.length()) return MirrorStatus.OUT_OF_SYNC
-            return MirrorStatus.IN_SYNC
+            if (canonicalFile.length() == 0L) return MirrorStatus.IN_SYNC
+            val canHash = canonicalFile.inputStream().use { calculateStreamSha256(it) }
+            val destHash = destFile.inputStream().use { calculateStreamSha256(it) }
+            return if (canHash.equals(destHash, ignoreCase = true)) MirrorStatus.IN_SYNC else MirrorStatus.OUT_OF_SYNC
         }
 
         override fun syncCanonicalToSaf(identity: RomIdentity, canonicalDir: File): Int {
@@ -945,5 +963,231 @@ class RomSaveIntegrityTest {
 
         val loaded = saveStateManager.loadSlot(identity, 1)
         assertFalse("Truncated state file must be rejected before native unserialize", loaded)
+    }
+
+    // ---------------------------------------------------------
+    // Scenarios 37 - 45: Hardened Invariants & Regression Suite
+    // ---------------------------------------------------------
+
+    @Test
+    fun test37_frameExecution_cannotOverlapExclusiveOperation() = runBlocking {
+        val coordinator = LibretroCoreCoordinator(bridge = testBridge)
+
+        // Run stepFrame and executeExclusive concurrently across multiple threads
+        val stepJob = async(Dispatchers.Default) {
+            repeat(50) {
+                coordinator.stepFrame()
+            }
+        }
+
+        val exclusiveJob = async(Dispatchers.Default) {
+            repeat(10) {
+                coordinator.executeExclusive {
+                    testBridge.isRunningExclusive = true
+                    if (testBridge.isSteppingFrame) {
+                        testBridge.overlapDetected = true
+                    }
+                    Thread.sleep(2)
+                    if (testBridge.isSteppingFrame) {
+                        testBridge.overlapDetected = true
+                    }
+                    testBridge.isRunningExclusive = false
+                }
+            }
+        }
+
+        stepJob.await()
+        exclusiveJob.await()
+
+        assertFalse("stepFrame and executeExclusive must never overlap", testBridge.overlapDetected)
+    }
+
+    @Test
+    fun test38_failedUnknownSramSize_rejectsImportWithoutFallback() {
+        val identity = RomIdentity.create(HASH_A, "Pokemon Emerald")
+        testBridge.configuredSaveRamSize = 0L // Indeterminable SRAM size
+
+        val candidateData = ByteArray(SRAM_SIZE_128K) { 0x44.toByte() }
+        val candidateStream = ByteArrayInputStream(candidateData)
+
+        val imported = saveStateManager.importBatterySave(identity, candidateStream)
+        assertFalse("Import must fail closed when core SRAM size cannot be determined", imported)
+
+        val canonical = saveStateManager.getCanonicalFile(identity, "battery.sav")
+        assertFalse("Canonical save must not be written when import is rejected", canonical.exists())
+    }
+
+    @Test
+    fun test39_failedLiveSramBackup_abortsImportBeforeLiveMutation() {
+        val identity = RomIdentity.create(HASH_A, "Pokemon Emerald")
+        val initialSram = ByteArray(SRAM_SIZE_128K) { 0xAA.toByte() }
+        testBridge.currentSramBytes = initialSram
+        testBridge.flushSaveRamResult = false // Simulates live SRAM backup failure
+
+        val candidateData = ByteArray(SRAM_SIZE_128K) { 0xBB.toByte() }
+        val imported = saveStateManager.importBatterySave(identity, ByteArrayInputStream(candidateData))
+
+        assertFalse("Import must abort if live SRAM backup cannot be captured", imported)
+        assertArrayEquals("Live core SRAM must be unmodified", initialSram, testBridge.currentSramBytes)
+        val canonical = saveStateManager.getCanonicalFile(identity, "battery.sav")
+        assertFalse("Canonical save must not be written", canonical.exists())
+    }
+
+    @Test
+    fun test40_importFailure_restoresLiveSramFromRollback() {
+        val identity = RomIdentity.create(HASH_A, "Pokemon Emerald")
+        val initialSram = ByteArray(SRAM_SIZE_128K) { 0xAA.toByte() }
+        testBridge.currentSramBytes = initialSram
+
+        // Reject candidate SRAM when core tries to load it
+        testBridge.rejectCandidateSram = true
+
+        val candidateData = ByteArray(SRAM_SIZE_128K) { 0xBB.toByte() }
+        val imported = saveStateManager.importBatterySave(identity, ByteArrayInputStream(candidateData))
+
+        assertFalse("Import must fail when candidate payload fails to load", imported)
+        assertArrayEquals("Live core SRAM must be restored to prior state from backup", initialSram, testBridge.currentSramBytes)
+    }
+
+    @Test
+    fun test41_interruptedAtomicWrite_recoversPreviousCanonicalData() {
+        val target = File(testBaseDir, "game.sav")
+        val goodData = ByteArray(1024) { 0x55.toByte() }
+
+        // Initial good write
+        assertTrue(AtomicSaveFile.writeBytes(target, goodData))
+        assertEquals(1024L, target.length())
+
+        // Subsequent write creates .bak
+        val dataV2 = ByteArray(1024) { 0x66.toByte() }
+        assertTrue(AtomicSaveFile.writeBytes(target, dataV2))
+        val bakFile = File(testBaseDir, "game.sav.bak")
+        assertTrue(bakFile.exists())
+        assertArrayEquals(goodData, bakFile.readBytes())
+
+        // Simulate crash during subsequent write: target is truncated/deleted and .tmp left behind
+        val tmpFile = File(testBaseDir, "game.sav.tmp")
+        tmpFile.writeBytes(ByteArray(200) { 0x00.toByte() })
+        target.delete() // Canonical was wiped out or missing after crash
+
+        // Calling recoverInterrupted must restore from .bak and delete .tmp
+        assertTrue(AtomicSaveFile.recoverInterrupted(target))
+        assertTrue("Canonical file must be restored", target.exists())
+        assertArrayEquals("Canonical content must match .bak data", goodData, target.readBytes())
+        assertFalse("Lingering .tmp must be cleaned up", tmpFile.exists())
+    }
+
+    @Test
+    fun test42_failedRomCacheInstallation_leavesActiveRomUntouched() = runBlocking {
+        val cacheDir = File(testBaseDir, "rom_cache").apply { mkdirs() }
+        val sessionManager = RomSessionManager(
+            saveStateManager = saveStateManager,
+            customRomCacheDir = cacheDir,
+            coreBridge = testBridge
+        )
+
+        val romABytes = ByteArray(1024) { 0x11.toByte() }
+        val hashA = RomIdentity.calculateSha256(romABytes)
+        val fileA = File(testBaseDir, "rom_a.gba").apply { writeBytes(romABytes) }
+        val identityA = RomIdentity.create(hashA, "ROM A")
+
+        // Start with ROM A active
+        sessionManager.switchRomFile(fileA, emptyList(), "ROM A")
+        assertEquals(identityA, saveStateManager.activeIdentity)
+        val eventsBefore = testBridge.events.size
+
+        // Incoming invalid empty ROM
+        val emptyRom = File(testBaseDir, "empty.gba").apply { writeBytes(ByteArray(0)) }
+        val res = sessionManager.switchRomFile(emptyRom, emptyList(), "Empty ROM")
+
+        assertTrue(res is SwitchResult.Failure)
+        assertEquals("Active identity must remain untouched", identityA, saveStateManager.activeIdentity)
+        assertEquals("Core events must not have executed unload or load", eventsBefore, testBridge.events.size)
+    }
+
+    @Test
+    fun test43_equalSizedDifferentSafFile_reportsOutOfSync() {
+        val safDir = File(testBaseDir, "saf_root").apply { mkdirs() }
+        val safMirror = TestSafMirror(isConfiguredValue = true, safDir = safDir)
+        val customManager = SaveStateManager(
+            customBaseDir = testBaseDir,
+            customSafStore = safMirror,
+            coreBridge = testBridge
+        )
+
+        val identity = RomIdentity.create(HASH_A, "Pokemon Ruby")
+        val canonicalFile = customManager.getCanonicalFile(identity, "battery.sav")
+        canonicalFile.writeBytes(ByteArray(SRAM_SIZE_128K) { 0x11.toByte() })
+
+        // Write equal sized but different content to SAF mirror
+        val safRomDir = File(safDir, identity.storageKey).apply { mkdirs() }
+        val safFile = File(safRomDir, "battery.sav")
+        safFile.writeBytes(ByteArray(SRAM_SIZE_128K) { 0x22.toByte() })
+
+        val statusBefore = safMirror.checkMirrorStatus(identity, "battery.sav", canonicalFile)
+        assertEquals("Equal sized file with different content must be reported as OUT_OF_SYNC", MirrorStatus.OUT_OF_SYNC, statusBefore)
+
+        // After syncing, status should be IN_SYNC
+        safMirror.mirrorFile(identity, "battery.sav", canonicalFile)
+        val statusAfter = safMirror.checkMirrorStatus(identity, "battery.sav", canonicalFile)
+        assertEquals(MirrorStatus.IN_SYNC, statusAfter)
+    }
+
+    @Test
+    fun test44_legacyMigration_cannotOverwriteAnotherRomAssignment() {
+        val legacyDir = File(testBaseDir, "legacy_saves").apply { mkdirs() }
+        val legacyFile = File(legacyDir, "firered.sav").apply { writeBytes(ByteArray(1024) { 0x33.toByte() }) }
+        val catalog = LegacySaveCatalog(customLegacyDir = legacyDir)
+
+        val identityA = RomIdentity.create(HASH_A, "Pokemon FireRed")
+        val identityB = RomIdentity.create(HASH_B, "Pokemon LeafGreen")
+
+        val candidate = catalog.discoverCandidates()[0]
+
+        // First assignment to identityA succeeds
+        val canonicalDirA = saveStateManager.getCanonicalRomDir(identityA)
+        val assignedA = catalog.assignCandidateToRom(candidate, identityA, canonicalDirA)
+        assertTrue(assignedA)
+        assertEquals(identityA.sha256, catalog.getAssignedRomHash(legacyFile))
+
+        // Attempt second assignment of the same source file to identityB must fail
+        val canonicalDirB = saveStateManager.getCanonicalRomDir(identityB)
+        val assignedB = catalog.assignCandidateToRom(candidate, identityB, canonicalDirB)
+        assertFalse("Legacy source already assigned to ROM A cannot be assigned to ROM B", assignedB)
+        assertEquals(identityA.sha256, catalog.getAssignedRomHash(legacyFile))
+        val canonicalFileB = File(canonicalDirB, "battery.sav")
+        assertFalse("ROM B canonical destination must remain untouched", canonicalFileB.exists())
+    }
+
+    @Test
+    fun test45_legacyMigration_origBakFailure_failsClosed() {
+        val legacyDir = File(testBaseDir, "readonly_legacy").apply { mkdirs() }
+        val legacyFile = File(legacyDir, "save.sav").apply { writeBytes(ByteArray(1024) { 0x77.toByte() }) }
+
+        // Create a non-empty directory collision where .orig.bak should be so copyTo cannot overwrite it
+        val origBakCollision = File(legacyDir, "save.sav.orig.bak").apply {
+            mkdirs()
+            File(this, "blocker.txt").writeBytes(ByteArray(10))
+        }
+
+        val catalog = LegacySaveCatalog(customLegacyDir = legacyDir)
+        val identity = RomIdentity.create(HASH_A, "Pokemon FireRed")
+        val candidate = LegacyCandidate(
+            sourceFile = legacyFile,
+            baseName = legacyFile.nameWithoutExtension,
+            suggestedTitle = "Pokemon FireRed",
+            targetFileName = "battery.sav",
+            sizeBytes = legacyFile.length()
+        )
+
+        val canonicalDir = saveStateManager.getCanonicalRomDir(identity)
+        val assigned = catalog.assignCandidateToRom(candidate, identity, canonicalDir)
+
+        assertFalse("Migration must fail closed if .orig.bak backup cannot be created", assigned)
+        val destFile = File(canonicalDir, "battery.sav")
+        assertFalse("Canonical destination must not be created on backup failure", destFile.exists())
+        assertFalse("Legacy source must not be recorded as assigned", catalog.isSourceAssigned(legacyFile))
+
+        origBakCollision.deleteRecursively()
     }
 }

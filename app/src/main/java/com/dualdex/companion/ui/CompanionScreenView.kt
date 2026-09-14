@@ -34,7 +34,8 @@ class CompanionScreenView(
     private val onChooseRomsFolderRequested: (() -> Unit)? = null,
     private val onRefreshRomsRequested: (() -> Unit)? = null,
     private val onPlayRomRequested: ((Uri, String) -> Unit)? = null,
-    private val onStretchChanged: ((Boolean) -> Unit)? = null
+    private val onStretchChanged: ((Boolean) -> Unit)? = null,
+    private val onChooseSavesFolderRequested: (() -> Unit)? = null
 ) : LinearLayout(context) {
 
     private val contentContainer: FrameLayout
@@ -48,10 +49,11 @@ class CompanionScreenView(
     private val partyView: PartyScreenView by lazy { PartyScreenView(context, viewModel) }
     private val mapView: MapScreenView by lazy { MapScreenView(context, viewModel) }
     private val calcView: CalcTabScreenView by lazy { CalcTabScreenView(context, viewModel) }
+    private val battleView: BattleConsoleScreenView by lazy { BattleConsoleScreenView(context, viewModel) }
     private val typesView: TypeChartScreenView by lazy { TypeChartScreenView(context, viewModel) }
     private val docsView: DocsScreenView by lazy { DocsScreenView(context, viewModel) }
     private val cheatsView: CheatsScreenView by lazy { CheatsScreenView(context, viewModel) }
-    private val savesView: SaveStateScreenView by lazy { SaveStateScreenView(context, viewModel, onImportSaveRequested, onExportSaveRequested) }
+    private val savesView: SaveStateScreenView by lazy { SaveStateScreenView(context, viewModel, onImportSaveRequested, onExportSaveRequested, onChooseSavesFolderRequested) }
     private val assistantView: com.dualdex.assistant.AssistantScreenView by lazy { com.dualdex.assistant.AssistantScreenView(context, viewModel) }
     private val settingsView: SettingsScreenView by lazy {
         SettingsScreenView(
@@ -62,7 +64,8 @@ class CompanionScreenView(
             onStretchChanged,
             onTabSelected = { tab ->
                 switchTab(tab)
-            }
+            },
+            onChooseSavesFolderRequested = onChooseSavesFolderRequested
         )
     }
 
@@ -138,6 +141,12 @@ class CompanionScreenView(
                 setColor(0xFF1F2B24.toInt())
                 setStroke(1, 0xFF50C878.toInt())
             }
+            setOnClickListener {
+                if (viewModel.isBattleTabEnabled.value) {
+                    viewModel.selectTab(CompanionTab.BATTLE)
+                    switchTab(CompanionTab.BATTLE)
+                }
+            }
         }
         val lpBadge = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
             setMargins(0, 0, 8, 0)
@@ -189,6 +198,9 @@ class CompanionScreenView(
                 layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply {
                     minimumWidth = (48 * context.resources.displayMetrics.density).toInt()
                 }
+                if (tab == CompanionTab.BATTLE && !viewModel.isBattleTabEnabled.value) {
+                    visibility = View.GONE
+                }
                 setOnClickListener {
                     viewModel.selectTab(tab)
                     switchTab(tab)
@@ -206,7 +218,12 @@ class CompanionScreenView(
 
     private var currentTab: CompanionTab = CompanionTab.HOME
     fun switchTab(tab: CompanionTab) {
-        currentTab = tab
+        val targetTab = if (tab == CompanionTab.BATTLE && !viewModel.isBattleTabEnabled.value) {
+            CompanionTab.HOME
+        } else {
+            tab
+        }
+        currentTab = targetTab
         contentContainer.removeAllViews()
 
         val activeView: View = when (tab) {
@@ -226,6 +243,10 @@ class CompanionScreenView(
             CompanionTab.CALC -> {
                 calcView.refreshUI()
                 calcView
+            }
+            CompanionTab.BATTLE -> {
+                battleView.refreshUI()
+                battleView
             }
             CompanionTab.TYPES -> typesView
             CompanionTab.DOCS -> {
@@ -272,6 +293,7 @@ class CompanionScreenView(
             if (viewModel.selectedTab.value == CompanionTab.PARTY) partyView.refreshUI()
             if (viewModel.selectedTab.value == CompanionTab.MAP) mapView.refreshUI()
             if (viewModel.selectedTab.value == CompanionTab.CALC) calcView.refreshUI()
+            if (viewModel.selectedTab.value == CompanionTab.BATTLE) battleView.refreshUI()
             if (viewModel.selectedTab.value == CompanionTab.TYPES) typesView.updateMatchupDisplay()
             if (viewModel.selectedTab.value == CompanionTab.CHEATS) cheatsView.refreshUI()
             if (viewModel.selectedTab.value == CompanionTab.SAVES) savesView.refreshUI()
@@ -288,6 +310,8 @@ class CompanionScreenView(
                 partyView.refreshUI()
             } else if (viewModel.selectedTab.value == CompanionTab.CALC) {
                 calcView.refreshUI()
+            } else if (viewModel.selectedTab.value == CompanionTab.BATTLE) {
+                battleView.refreshUI()
             }
         }
     }
@@ -358,9 +382,26 @@ class CompanionScreenView(
                 notifyProfileChanged()
             }
         }
+        var wasInBattle = false
         scope.launch {
-            viewModel.isInBattle.collectLatest {
+            viewModel.isInBattle.collectLatest { inBattle ->
                 notifyPartyUpdated()
+                if (inBattle && !wasInBattle && viewModel.isBattleTabEnabled.value) {
+                    if (currentTab != CompanionTab.BATTLE) {
+                        viewModel.selectTab(CompanionTab.BATTLE)
+                        switchTab(CompanionTab.BATTLE)
+                    }
+                }
+                wasInBattle = inBattle
+            }
+        }
+        scope.launch {
+            viewModel.isBattleTabEnabled.collectLatest { enabled ->
+                tabButtons[CompanionTab.BATTLE]?.visibility = if (enabled) View.VISIBLE else View.GONE
+                if (!enabled && currentTab == CompanionTab.BATTLE) {
+                    viewModel.selectTab(CompanionTab.HOME)
+                    switchTab(CompanionTab.HOME)
+                }
             }
         }
         scope.launch {

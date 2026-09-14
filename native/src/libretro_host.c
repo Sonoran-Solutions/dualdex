@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
 
 // Core function pointers
 static void (*p_retro_init)(void);
@@ -333,8 +334,24 @@ bool libretro_host_init(const char* core_lib_path) {
     return true;
 }
 
+bool libretro_host_unload_rom(void) {
+    if (!g_core_handle) return false;
+    libretro_host_clear_audio();
+    if (g_is_game_loaded && p_retro_unload_game) {
+        p_retro_unload_game();
+        g_is_game_loaded = false;
+    }
+    pokemon_reader_reset();
+    return true;
+}
+
 bool libretro_host_load_rom(const char* rom_file_path) {
     if (!g_core_handle || !rom_file_path) return false;
+
+    // Unload any previously loaded ROM before loading a new one
+    if (g_is_game_loaded) {
+        libretro_host_unload_rom();
+    }
 
     FILE* f = fopen(rom_file_path, "rb");
     if (!f) {
@@ -450,6 +467,20 @@ uint8_t* libretro_host_get_ewram(size_t* out_size) {
     return (uint8_t*)ptr;
 }
 
+size_t libretro_host_get_save_ram_size(void) {
+    if (!g_core_handle || !g_is_game_loaded || !p_retro_get_memory_size) {
+        return 0;
+    }
+    return p_retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
+}
+
+size_t libretro_host_get_save_state_size(void) {
+    if (!g_core_handle || !g_is_game_loaded || !p_retro_serialize_size) {
+        return 0;
+    }
+    return p_retro_serialize_size();
+}
+
 bool libretro_host_save_state(const char* save_state_path) {
     if (!g_core_handle || !g_is_game_loaded || !save_state_path || !p_retro_serialize_size || !p_retro_serialize) {
         return false;
@@ -466,8 +497,12 @@ bool libretro_host_save_state(const char* save_state_path) {
         FILE* f = fopen(save_state_path, "wb");
         if (f) {
             size_t written = fwrite(buf, 1, sz, f);
-            fclose(f);
-            if (written != sz) ok = false;
+            int flush_rc = fflush(f);
+            int fsync_rc = fsync(fileno(f));
+            int close_rc = fclose(f);
+            if (written != sz || flush_rc != 0 || fsync_rc != 0 || close_rc != 0) {
+                ok = false;
+            }
         } else {
             ok = false;
         }
@@ -485,8 +520,20 @@ bool libretro_host_load_state(const char* save_state_path) {
     if (!f) return false;
 
     fseek(f, 0, SEEK_END);
-    size_t sz = ftell(f);
+    long file_size = ftell(f);
     fseek(f, 0, SEEK_SET);
+    if (file_size <= 0) {
+        fclose(f);
+        return false;
+    }
+
+    size_t sz = (size_t)file_size;
+    size_t expected_sz = p_retro_serialize_size ? p_retro_serialize_size() : 0;
+    if (expected_sz > 0 && sz != expected_sz) {
+        fprintf(stderr, "Save state size mismatch: file has %zu bytes, core expects %zu bytes\n", sz, expected_sz);
+        fclose(f);
+        return false;
+    }
 
     void* buf = malloc(sz);
     if (!buf) {
@@ -518,17 +565,17 @@ bool libretro_host_load_save_ram(const char* save_path) {
     fseek(f, 0, SEEK_END);
     long file_size = ftell(f);
     fseek(f, 0, SEEK_SET);
-    if (file_size <= 0) {
+    if (file_size <= 0 || (size_t)file_size != ram_size) {
+        fprintf(stderr, "Save RAM size mismatch: file has %ld bytes, core expects %zu bytes\n", file_size, ram_size);
         fclose(f);
         return false;
     }
 
-    size_t to_read = ((size_t)file_size > ram_size) ? ram_size : (size_t)file_size;
     memset(ram, 0xFF, ram_size);
-    size_t bytes_read = fread(ram, 1, to_read, f);
+    size_t bytes_read = fread(ram, 1, ram_size, f);
     fclose(f);
 
-    return (bytes_read > 0);
+    return (bytes_read == ram_size);
 }
 
 bool libretro_host_flush_save_ram(const char* save_path) {
@@ -543,8 +590,13 @@ bool libretro_host_flush_save_ram(const char* save_path) {
     if (!f) return false;
 
     size_t written = fwrite(ram, 1, ram_size, f);
-    fclose(f);
-    return (written == ram_size);
+    int flush_rc = fflush(f);
+    int fsync_rc = fsync(fileno(f));
+    int close_rc = fclose(f);
+    if (written != ram_size || flush_rc != 0 || fsync_rc != 0 || close_rc != 0) {
+        return false;
+    }
+    return true;
 }
 
 void libretro_host_reset(void) {
@@ -564,11 +616,7 @@ double libretro_host_get_sample_rate(void) {
 }
 
 void libretro_host_cleanup(void) {
-    libretro_host_clear_audio();
-    if (g_is_game_loaded && p_retro_unload_game) {
-        p_retro_unload_game();
-        g_is_game_loaded = false;
-    }
+    libretro_host_unload_rom();
     if (g_core_handle && p_retro_deinit) {
         p_retro_deinit();
     }

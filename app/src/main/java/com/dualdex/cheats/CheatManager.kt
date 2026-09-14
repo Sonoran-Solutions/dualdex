@@ -2,25 +2,48 @@ package com.dualdex.cheats
 
 import android.content.Context
 import android.util.Log
-import com.dualdex.emulator.LibretroHost
+import com.dualdex.emulator.LibretroCoreCoordinator
+import com.dualdex.emulator.RomIdentity
 import org.json.JSONArray
 import org.json.JSONObject
 
-class CheatManager(context: Context) {
-    private val prefs = context.getSharedPreferences("dualdex_cheats", Context.MODE_PRIVATE)
+class CheatManager(
+    private val context: Context? = null,
+    private val memoryStorage: MutableMap<String, String>? = null,
+    var coreCoordinator: LibretroCoreCoordinator = LibretroCoreCoordinator.defaultInstance
+) {
+    private val prefs by lazy {
+        context?.getSharedPreferences("dualdex_cheats", Context.MODE_PRIVATE)
+    }
 
-    fun getCheats(gameKey: String): List<CheatItem> {
-        val safeKey = cleanGameKey(gameKey)
-        val jsonStr = prefs.getString("cheats_$safeKey", null)
+    private fun getPrefString(key: String): String? {
+        return memoryStorage?.get(key) ?: prefs?.getString(key, null)
+    }
+
+    private fun setPrefString(key: String, value: String) {
+        if (memoryStorage != null) {
+            memoryStorage[key] = value
+        } else {
+            prefs?.edit()?.putString(key, value)?.apply()
+        }
+    }
+
+    fun getCheats(identity: RomIdentity, fallbackGameKey: String? = null): List<CheatItem> {
+        if (!identity.isValid) return emptyList()
+
+        val hashKey = identity.sha256
+        val jsonStr = getPrefString("cheats_$hashKey")
         if (jsonStr == null) {
-            // Seed with useful presets for this game
-            val defaultPresets = getPresetsForGame(gameKey)
+            // Seed presets with enabled = false to guarantee safety
+            val gameContext = fallbackGameKey ?: identity.displayName
+            val defaultPresets = getPresetsForGame(gameContext).map { it.copy(enabled = false) }
             if (defaultPresets.isNotEmpty()) {
-                saveCheats(gameKey, defaultPresets)
+                saveCheats(identity, defaultPresets)
                 return defaultPresets
             }
             return emptyList()
         }
+
         return try {
             val list = ArrayList<CheatItem>()
             val arr = JSONArray(jsonStr)
@@ -38,13 +61,14 @@ class CheatManager(context: Context) {
             }
             list
         } catch (e: Exception) {
-            Log.e("DualDex_CheatManager", "Error parsing cheats for $safeKey", e)
+            Log.e(TAG, "Error parsing cheats for $hashKey", e)
             emptyList()
         }
     }
 
-    fun saveCheats(gameKey: String, cheats: List<CheatItem>) {
-        val safeKey = cleanGameKey(gameKey)
+    fun saveCheats(identity: RomIdentity, cheats: List<CheatItem>) {
+        if (!identity.isValid) return
+        val hashKey = identity.sha256
         try {
             val arr = JSONArray()
             for (c in cheats) {
@@ -57,56 +81,64 @@ class CheatManager(context: Context) {
                 }
                 arr.put(obj)
             }
-            prefs.edit().putString("cheats_$safeKey", arr.toString()).apply()
+            setPrefString("cheats_$hashKey", arr.toString())
         } catch (e: Exception) {
-            Log.e("DualDex_CheatManager", "Error saving cheats for $safeKey", e)
+            Log.e(TAG, "Error saving cheats for $hashKey", e)
         }
     }
 
-    fun addCheat(gameKey: String, cheat: CheatItem) {
-        val current = getCheats(gameKey).toMutableList()
+    fun addCheat(identity: RomIdentity, cheat: CheatItem) {
+        if (!identity.isValid) return
+        val current = getCheats(identity).toMutableList()
         current.add(cheat)
-        saveCheats(gameKey, current)
-        applyCheats(gameKey)
+        saveCheats(identity, current)
+        applyCheats(identity)
     }
 
-    fun updateCheat(gameKey: String, updated: CheatItem) {
-        val current = getCheats(gameKey).toMutableList()
+    fun updateCheat(identity: RomIdentity, updated: CheatItem) {
+        if (!identity.isValid) return
+        val current = getCheats(identity).toMutableList()
         val idx = current.indexOfFirst { it.id == updated.id }
         if (idx != -1) {
             current[idx] = updated
-            saveCheats(gameKey, current)
-            applyCheats(gameKey)
+            saveCheats(identity, current)
+            applyCheats(identity)
         }
     }
 
-    fun deleteCheat(gameKey: String, cheatId: String) {
-        val current = getCheats(gameKey).filter { it.id != cheatId }
-        saveCheats(gameKey, current)
-        applyCheats(gameKey)
+    fun deleteCheat(identity: RomIdentity, cheatId: String) {
+        if (!identity.isValid) return
+        val current = getCheats(identity).filter { it.id != cheatId }
+        saveCheats(identity, current)
+        applyCheats(identity)
     }
 
-    fun toggleCheat(gameKey: String, cheatId: String, enabled: Boolean) {
-        val current = getCheats(gameKey).toMutableList()
+    fun toggleCheat(identity: RomIdentity, cheatId: String, enabled: Boolean) {
+        if (!identity.isValid) return
+        val current = getCheats(identity).toMutableList()
         val idx = current.indexOfFirst { it.id == cheatId }
         if (idx != -1) {
             current[idx] = current[idx].copy(enabled = enabled)
-            saveCheats(gameKey, current)
-            applyCheats(gameKey)
+            saveCheats(identity, current)
+            applyCheats(identity)
         }
     }
 
-    fun resetToDefaultPresets(gameKey: String): List<CheatItem> {
-        val presets = getPresetsForGame(gameKey)
-        saveCheats(gameKey, presets)
-        applyCheats(gameKey)
+    fun resetToDefaultPresets(identity: RomIdentity, fallbackGameKey: String? = null): List<CheatItem> {
+        if (!identity.isValid) return emptyList()
+        val gameContext = fallbackGameKey ?: identity.displayName
+        val presets = getPresetsForGame(gameContext).map { it.copy(enabled = false) }
+        saveCheats(identity, presets)
+        applyCheats(identity)
         return presets
     }
 
-    fun applyCheats(gameKey: String) {
+    fun applyCheats(identity: RomIdentity) {
         try {
-            LibretroHost.nativeCheatReset()
-            val cheats = getCheats(gameKey)
+            coreCoordinator.cheatReset()
+            if (!identity.isValid) return
+
+            val cheats = getCheats(identity)
             var activeIdx = 0
             for (c in cheats) {
                 if (!c.enabled) continue
@@ -115,19 +147,40 @@ class CheatManager(context: Context) {
                     .filter { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("//") }
                 if (cleanLines.isNotEmpty()) {
                     val codePayload = cleanLines.joinToString("\n")
-                    Log.i("DualDex_CheatManager", "Applying cheat #${activeIdx}: '${c.name}' (${cleanLines.size} lines)")
-                    LibretroHost.nativeCheatSet(activeIdx, true, codePayload)
+                    Log.i(TAG, "Applying cheat #${activeIdx}: '${c.name}' (${cleanLines.size} lines)")
+                    coreCoordinator.cheatSet(activeIdx, true, codePayload)
                     activeIdx++
                 }
             }
-            Log.i("DualDex_CheatManager", "Total active cheats applied: $activeIdx")
+            Log.i(TAG, "Total active cheats applied for ${identity.shortHash}: $activeIdx")
         } catch (e: Throwable) {
-            Log.e("DualDex_CheatManager", "Error applying cheats: ${e.message}", e)
+            Log.e(TAG, "Error applying cheats: ${e.message}", e)
         }
     }
 
-    private fun cleanGameKey(key: String): String {
-        return key.trim().lowercase().replace("[^a-z0-9_]+".toRegex(), "_")
+    // ---------------------------------------------------------
+    // Backward Compatibility Overloads
+    // ---------------------------------------------------------
+
+    fun getCheats(gameKey: String): List<CheatItem> {
+        return getCheats(RomIdentity.create("", gameKey), gameKey)
+    }
+
+    fun saveCheats(gameKey: String, cheats: List<CheatItem>) {
+        // Read-only or safe fallback: no mutation under fake empty hash
+    }
+
+    fun addCheat(gameKey: String, cheat: CheatItem) {}
+    fun updateCheat(gameKey: String, updated: CheatItem) {}
+    fun deleteCheat(gameKey: String, cheatId: String) {}
+    fun toggleCheat(gameKey: String, cheatId: String, enabled: Boolean) {}
+
+    fun resetToDefaultPresets(gameKey: String): List<CheatItem> {
+        return getPresetsForGame(gameKey)
+    }
+
+    fun applyCheats(gameKey: String) {
+        // Safe no-op if no RomIdentity available
     }
 
     fun getPresetsForGame(gameKey: String): List<CheatItem> {
@@ -247,5 +300,9 @@ class CheatManager(context: Context) {
             )
         }
         return presets
+    }
+
+    companion object {
+        private const val TAG = "CheatManager"
     }
 }

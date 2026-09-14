@@ -119,7 +119,7 @@ class EmulatorSurfaceView @JvmOverloads constructor(
                 val speed = speedMultiplier.coerceIn(1, 8)
                 val targetIntervalNs = (baseIntervalNs / speed).coerceAtLeast(1_000_000L)
 
-                LibretroHost.nativeStepFrame()
+                LibretroCoreCoordinator.defaultInstance.stepFrame()
 
                 nextDeadlineNs += targetIntervalNs
                 val now = System.nanoTime()
@@ -300,7 +300,7 @@ class EmulatorSurfaceView @JvmOverloads constructor(
 
         // Fetch latest frame pixels from native buffer (stepped at 59.7275 FPS on DualDexEmuLoop)
         pixelBuffer.position(0)
-        val hasFrame = LibretroHost.nativeGetVideoFrame(pixelBuffer, frameMetadata)
+        val hasFrame = LibretroCoreCoordinator.defaultInstance.getVideoFrame(pixelBuffer, frameMetadata)
 
         if (hasFrame && frameMetadata[0] > 0 && frameMetadata[1] > 0) {
             val width = frameMetadata[0]

@@ -29,8 +29,22 @@ data class RomHackProfile(
     val docsUrl: String? = null,
     val headerTitles: List<String> = emptyList(),
     val sha256Hashes: List<String> = emptyList(),
-    val customSpecies: Map<Int, SpeciesOverride> = emptyMap()
+    val customSpecies: Map<Int, SpeciesOverride> = emptyMap(),
+    val isVerified: Boolean = false,
+    val interactiveControlsVerified: Boolean = false,
+    val memoryLayoutVerified: Boolean = false,
+    val battleUiVerified: Boolean = false,
+    val commandCursorVerified: Boolean = false,
+    val moveCursorVerified: Boolean = false,
+    val partyCursorVerified: Boolean = false,
+    val moveSelectionVerified: Boolean = false,
+    val partySwitchVerified: Boolean = false,
+    val partyActionMenuVerified: Boolean = false,
+    val gameDataPackId: String? = null
 ) {
+    fun isSupportedVanillaGen3(): Boolean =
+        isVerified && memoryLayoutVerified && engine.equals("Vanilla", ignoreCase = true) && !hasPhysSpecSplit && customSpecies.isEmpty() && gameId in 1..5
+
     companion object {
         val DEFAULT_FIRERED = RomHackProfile(
             id = "vanilla_firered",
@@ -40,7 +54,12 @@ data class RomHackProfile(
             hasEvs = true,
             hasIvs = true,
             hasPhysSpecSplit = false,
-            steelResistsGhostDark = true
+            steelResistsGhostDark = true,
+            isVerified = true,
+            memoryLayoutVerified = true,
+            battleUiVerified = false,
+            interactiveControlsVerified = false,
+            gameDataPackId = "gen3_vanilla"
         )
     }
 }

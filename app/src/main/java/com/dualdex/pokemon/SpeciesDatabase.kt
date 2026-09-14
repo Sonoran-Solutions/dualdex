@@ -954,16 +954,29 @@ object SpeciesDatabase {
         register(502, "Phantomander", PokemonType.FIRE, PokemonType.GHOST, 78, 84, 78, 109, 85, 100)
     }
 
-    fun get(speciesId: Int): SpeciesInfo {
+    fun isKnown(speciesId: Int): Boolean {
+        return speciesMap.containsKey(speciesId)
+    }
+
+    fun getRaw(speciesId: Int): SpeciesInfo? {
+        return speciesMap[speciesId]
+    }
+
+    fun get(speciesId: Int, pack: GameDataPack? = null): SpeciesInfo {
+        if (pack != null) {
+            val fromPack = pack.getSpecies(speciesId)
+            if (fromPack != null) return fromPack
+        }
         return speciesMap[speciesId] ?: SpeciesInfo(
             id = speciesId,
-            name = "Pokemon #",
+            name = "Pokemon #$speciesId",
             type1 = PokemonType.NORMAL,
             type2 = null
         )
     }
 
-    fun getByName(name: String): SpeciesInfo? {
-        return nameMap[name.lowercase()]
+    fun getByName(name: String, pack: GameDataPack? = null): SpeciesInfo? {
+        val base = nameMap[name.lowercase()] ?: return null
+        return if (pack != null) get(base.id, pack) else base
     }
 }

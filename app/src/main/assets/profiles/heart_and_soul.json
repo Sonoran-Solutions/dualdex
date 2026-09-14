@@ -14,5 +14,10 @@
   "enemyPartyOffset": 214436,
   "docsUrl": "https://pokemonhns-development.github.io/pokehns-expansion-documentation/",
   "headerTitles": ["HEARTSOUL", "HNS", "POKEHNS", "HEART", "SOUL"],
-  "sha256Hashes": []
+  "sha256Hashes": [],
+  "isVerified": true,
+  "memoryLayoutVerified": true,
+  "battleUiVerified": false,
+  "interactiveControlsVerified": false,
+  "gameDataPackId": "modern"
 }

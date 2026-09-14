@@ -22,7 +22,8 @@ class CompanionPresentation(
     private val onChooseRomsFolderRequested: (() -> Unit)? = null,
     private val onRefreshRomsRequested: (() -> Unit)? = null,
     private val onPlayRomRequested: ((Uri, String) -> Unit)? = null,
-    private val onStretchChanged: ((Boolean) -> Unit)? = null
+    private val onStretchChanged: ((Boolean) -> Unit)? = null,
+    private val onChooseSavesFolderRequested: (() -> Unit)? = null
 ) : Presentation(context, display) {
 
     private var companionScreenView: CompanionScreenView? = null
@@ -42,7 +43,8 @@ class CompanionPresentation(
             onChooseRomsFolderRequested = onChooseRomsFolderRequested,
             onRefreshRomsRequested = onRefreshRomsRequested,
             onPlayRomRequested = onPlayRomRequested,
-            onStretchChanged = onStretchChanged
+            onStretchChanged = onStretchChanged,
+            onChooseSavesFolderRequested = onChooseSavesFolderRequested
         ).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,

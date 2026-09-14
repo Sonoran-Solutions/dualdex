@@ -140,6 +140,44 @@ bool pokemon_read_player_location(
     PlayerLocationRaw* out_location
 );
 
+/**
+ * Read battle stat stages for a battler (0 = player, 1 = opponent).
+ * Returns true if in battle and stat stages read successfully into out_stages (7 signed ints: atk, def, spe, spa, spd, acc, eva).
+ * Values are stages in range -6..+6.
+ */
+bool pokemon_read_battle_stat_stages(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    uint8_t battler_index,
+    int8_t out_stages[7]
+);
+
+/**
+ * Read battle UI state:
+ * 0 = UNKNOWN / NOT_IN_BATTLE
+ * 1 = COMMAND_MENU (Fight, Bag, Pokemon, Run)
+ * 2 = MOVE_MENU (4 move selection)
+ * 3 = PARTY_MENU (Party screen)
+ * 4 = ANIMATION_OR_TEXT (Battle script running / dialogue)
+ * 5 = UNKNOWN / TRANSITION (Active battle, but menu state not authoritatively verified)
+ */
+uint8_t pokemon_read_battle_ui_state(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config
+);
+
+/**
+ * Read battle presence independently from the UI controller state:
+ * 0 = NOT_OBSERVED, 1 = OBSERVED, 2 = UNKNOWN (reader/configuration unavailable).
+ */
+uint8_t pokemon_read_battle_presence(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config
+);
+
 #ifdef __cplusplus
 }
 #endif

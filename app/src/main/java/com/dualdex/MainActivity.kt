@@ -33,7 +33,9 @@ import com.dualdex.companion.RomItem
 import com.dualdex.companion.ui.CompanionScreenView
 import com.dualdex.emulator.AudioDriver
 import com.dualdex.emulator.EmulatorSurfaceView
+import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.LibretroHost
+import com.dualdex.emulator.RomIdentity
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.ShaderFilter
 import com.dualdex.romhack.ProfileLoader
@@ -47,8 +49,17 @@ import java.util.Locale
 class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
     private val viewModel = CompanionViewModel()
-    private val saveStateManager by lazy { SaveStateManager(this) }
+    private val saveStateManager by lazy { SaveStateManager.getInstance(this) }
     private val settingsManager by lazy { SettingsManager(this) }
+    private val romSessionManager by lazy {
+        com.dualdex.emulator.RomSessionManager(
+            context = this,
+            viewModel = viewModel,
+            saveStateManager = saveStateManager,
+            settingsManager = settingsManager,
+            audioDriver = audioDriver
+        )
+    }
     private var emulatorView: EmulatorSurfaceView? = null
     private var companionPresentation: CompanionPresentation? = null
     private var currentCompanionScreenView: CompanionScreenView? = null
@@ -81,29 +92,71 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    private val chooseSavesFolderLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            } catch (e: Exception) {
+                Log.w("DualDex", "Could not take persistable URI permission for saves: ${e.message}")
+            }
+            settingsManager.savesFolderUri = uri.toString()
+            CoroutineScope(Dispatchers.IO).launch {
+                val identity = viewModel.activeRomIdentity.value
+                val count = if (identity != null && identity.isValid) {
+                    saveStateManager.syncCanonicalToSaf(identity)
+                } else 0
+                withContext(Dispatchers.Main) {
+                    if (count > 0) {
+                        Toast.makeText(this@MainActivity, "Synced $count save file(s) to selected folder!", Toast.LENGTH_SHORT).show()
+                    }
+                    companionPresentation?.refreshSavesTab()
+                    currentCompanionScreenView?.refreshSavesTab()
+                }
+            }
+        }
+    }
+
     private val importSaveLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
-            val gameKey = viewModel.activeRomTitle.value.ifEmpty { "current_game" }
-            val success = saveStateManager.importBatterySave(gameKey, uri)
-            if (success) {
-                Toast.makeText(this@MainActivity, "Imported battery save! Game reset to load save.", Toast.LENGTH_LONG).show()
-                companionPresentation?.refreshSavesTab()
-                currentCompanionScreenView?.refreshSavesTab()
-            } else {
-                Toast.makeText(this@MainActivity, "Failed to import battery save (.sav)", Toast.LENGTH_LONG).show()
+            val identity = viewModel.activeRomIdentity.value
+            if (identity == null || !identity.isValid) {
+                Toast.makeText(this@MainActivity, "No active ROM loaded", Toast.LENGTH_SHORT).show()
+                return@registerForActivityResult
+            }
+            CoroutineScope(Dispatchers.IO).launch {
+                val success = saveStateManager.importBatterySave(identity, uri)
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        Toast.makeText(this@MainActivity, "Imported battery save! Core reset to load save.", Toast.LENGTH_LONG).show()
+                        companionPresentation?.refreshSavesTab()
+                        currentCompanionScreenView?.refreshSavesTab()
+                    } else {
+                        Toast.makeText(this@MainActivity, "Failed to import battery save (.sav): invalid format or size", Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         }
     }
 
     private val exportSaveLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri: Uri? ->
         if (uri != null) {
-            val gameKey = viewModel.activeRomTitle.value.ifEmpty { "current_game" }
-            saveStateManager.flushBatterySave(gameKey)
-            val success = saveStateManager.exportBatterySave(gameKey, uri)
-            if (success) {
-                Toast.makeText(this@MainActivity, "Exported battery save successfully!", Toast.LENGTH_LONG).show()
-            } else {
-                Toast.makeText(this@MainActivity, "Failed to export battery save", Toast.LENGTH_LONG).show()
+            val identity = viewModel.activeRomIdentity.value
+            if (identity == null || !identity.isValid) {
+                Toast.makeText(this@MainActivity, "No active ROM loaded", Toast.LENGTH_SHORT).show()
+                return@registerForActivityResult
+            }
+            CoroutineScope(Dispatchers.IO).launch {
+                val success = saveStateManager.exportBatterySave(identity, uri)
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        Toast.makeText(this@MainActivity, "Exported battery save successfully!", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(this@MainActivity, "Failed to export battery save: SRAM capture failed", Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         }
     }
@@ -177,7 +230,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             ).firstOrNull { it.exists() }
 
             if (coreFile != null) {
-                val loaded = LibretroHost.nativeLoadCore(coreFile.absolutePath)
+                val loaded = LibretroCoreCoordinator.defaultInstance.loadCore(coreFile.absolutePath)
                 Log.i("DualDex", "Loaded mGBA Libretro core: $loaded (path=${coreFile.absolutePath})")
                 if (loaded) {
                     audioDriver.start()
@@ -190,12 +243,14 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             displayManager = getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
             displayManager?.registerDisplayListener(this, null)
 
-            // 5. Apply saved Gemini settings
+            // 5. Apply saved Gemini settings and feature gates
             val apiKey = settingsManager.geminiApiKey
             if (!apiKey.isNullOrBlank()) {
                 RomHackAssistant.setApiKey(apiKey)
             }
             RomHackAssistant.setModel(settingsManager.geminiModel)
+            viewModel.setBattleTabEnabled(settingsManager.isBattleTabEnabled)
+            viewModel.setInteractiveBattleControlsEnabled(settingsManager.isInteractiveBattleControlsEnabled)
 
             // 6. Setup display UI
             setupDisplays()
@@ -210,6 +265,27 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 }
             }
 
+            // 7.5 Check and migrate legacy saves from previous app version on first open
+            if (!settingsManager.legacySavesCheckedOnFirstOpen) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val migration = saveStateManager.checkAndMigrateLegacySavesOnFirstOpen()
+                        settingsManager.legacySavesCheckedOnFirstOpen = true
+                        if (migration.filesFound > 0) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "DualDex found ${migration.filesFound} legacy save file(s) across ${migration.gameTitles.size} game(s). Ready to play!",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("DualDex", "Error checking legacy saves on startup: ${e.message}", e)
+                    }
+                }
+            }
+
             // 8. Start background memory poller (10Hz)
             viewModel.startPolling(100L)
         } catch (e: Throwable) {
@@ -220,68 +296,41 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
     private fun handleSelectedRom(uri: Uri, preferredTitle: String? = null) {
         CoroutineScope(Dispatchers.IO).launch {
-            try {
-                // Copy URI stream to a local cache file for Libretro dlopen/fopen access
-                val romsDir = File(filesDir, "roms").apply { if (!exists()) mkdirs() }
-                val localRomFile = File(romsDir, "current_game.gba")
-                if (localRomFile.exists()) localRomFile.delete()
-
-                val bytesCopied = contentResolver.openInputStream(uri)?.use { input ->
-                    FileOutputStream(localRomFile).use { output ->
-                        input.copyTo(output)
-                    }
-                } ?: 0L
-
-                if (!localRomFile.exists() || localRomFile.length() == 0L || bytesCopied == 0L) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "Failed to read ROM file", Toast.LENGTH_SHORT).show()
-                    }
-                    return@launch
-                }
-
-                // Detect ROM Hack Profile via SHA-256 and header title
-                val profile = RomHackDetector.detectProfile(localRomFile, loadedProfiles, preferredTitle)
-                val gameTitle = preferredTitle ?: profile.name.ifEmpty { "current_game" }
-                settingsManager.lastPlayedRomUri = uri.toString()
-                settingsManager.lastPlayedRomTitle = gameTitle
-
-                withContext(Dispatchers.Main) {
-                    viewModel.setProfile(profile)
-                }
-                Log.i("DualDex", "Detected ROM Hack Profile: ${profile.name} (Engine: ${profile.engine}, GameId: ${profile.gameId})")
-
-                // Load ROM into mGBA core
-                val ok = LibretroHost.nativeLoadRom(localRomFile.absolutePath)
-                if (ok) {
-                    LibretroHost.nativeClearAudio()
-                    audioDriver.updateSampleRate()
-                    // Auto-load cartridge battery save (.sav) if present
-                    val gameKey = profile.name.ifEmpty { "current_game" }
-                    val loadedSave = saveStateManager.loadBatterySave(gameKey)
-                    if (loadedSave) {
-                        Log.i("DualDex", "Restored existing battery save for $gameKey")
-                    }
-                    // Auto-apply active cheats for this game
-                    val cheatManager = com.dualdex.cheats.CheatManager(this@MainActivity)
-                    cheatManager.applyCheats(gameKey)
-                }
-                withContext(Dispatchers.Main) {
-                    if (ok) {
+            val result = romSessionManager.switchRom(
+                uri = uri,
+                loadedProfiles = loadedProfiles,
+                preferredTitle = preferredTitle,
+                onEmulationPause = {
+                    runOnUiThread { emulatorView?.onPause() }
+                },
+                onEmulationResume = {
+                    runOnUiThread {
                         emulatorView?.startEmulation()
-                        Toast.makeText(this@MainActivity, "Loaded: ${profile.name} (${profile.engine})", Toast.LENGTH_LONG).show()
                         viewModel.selectTab(CompanionTab.PARTY)
                         companionPresentation?.refreshSavesTab()
                         currentCompanionScreenView?.refreshSavesTab()
                         companionPresentation?.refreshHomeScreen()
                         currentCompanionScreenView?.refreshHomeScreen()
-                    } else {
-                        Toast.makeText(this@MainActivity, "Failed to load ROM in mGBA core", Toast.LENGTH_SHORT).show()
                     }
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Error opening ROM: ${e.message}", Toast.LENGTH_SHORT).show()
+            )
+
+            withContext(Dispatchers.Main) {
+                when (result) {
+                    is com.dualdex.emulator.SwitchResult.Success -> {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Loaded: ${result.profile.name} (${result.profile.engine})",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    is com.dualdex.emulator.SwitchResult.Failure -> {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Error opening ROM: ${result.reason}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             }
         }
@@ -414,7 +463,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             },
             onStretchChanged = { stretch: Boolean ->
                 emulatorView?.setStretchToFit(stretch)
-            }
+            },
+            onChooseSavesFolderRequested = { chooseSavesFolderLauncher.launch(null) }
         ).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -457,7 +507,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 },
                 onStretchChanged = { stretch: Boolean ->
                     emulatorView?.setStretchToFit(stretch)
-                }
+                },
+                onChooseSavesFolderRequested = { chooseSavesFolderLauncher.launch(null) }
             ).apply {
                 setOnDismissListener {
                     runOnUiThread {
@@ -503,17 +554,18 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         super.onPause()
         emulatorView?.onPause()
         audioDriver.stop()
-        // Auto-flush cartridge battery save (.sav) and save quick state on pause
-        val gameKey = viewModel.activeRomTitle.value.ifEmpty { "current_game" }
-        if (gameKey.isNotBlank()) {
-            saveStateManager.flushBatterySave(gameKey)
-            saveStateManager.quickSave(gameKey)
+        // Auto-flush cartridge battery save (.sav) and save auto-resume state on pause
+        // Offload SAF mirroring asynchronously to prevent blocking on slow cloud DocumentProviders
+        val identity = viewModel.activeRomIdentity.value
+        if (identity != null && identity.isValid) {
+            saveStateManager.flushBatterySave(identity, mirrorSafAsync = true)
+            saveStateManager.saveAutoResume(identity)
         }
     }
 
     override fun onResume() {
         super.onResume()
-        LibretroHost.nativeClearAudio()
+        LibretroCoreCoordinator.defaultInstance.clearAudio()
         emulatorView?.onResume()
         audioDriver.start()
 
@@ -531,9 +583,9 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
     override fun onDestroy() {
         super.onDestroy()
-        val gameKey = viewModel.activeRomTitle.value.ifEmpty { "current_game" }
-        if (gameKey.isNotBlank()) {
-            saveStateManager.flushBatterySave(gameKey)
+        val identity = viewModel.activeRomIdentity.value
+        if (identity != null && identity.isValid) {
+            saveStateManager.flushBatterySave(identity, mirrorSafAsync = true)
         }
         audioDriver.stop()
         viewModel.stopPolling()
@@ -542,6 +594,6 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         companionPresentation = null
         currentCompanionScreenView = null
         emulatorView?.onPause()
-        LibretroHost.nativeCleanup()
+        LibretroCoreCoordinator.defaultInstance.cleanup()
     }
 }

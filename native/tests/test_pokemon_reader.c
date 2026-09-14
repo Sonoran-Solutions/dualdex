@@ -656,6 +656,9 @@ static void test_heart_and_soul_party_and_battle_hp_sync(void) {
     b1[1] = (19 >> 8) & 0xFF;
     b1[40] = 35;
     b1[41] = 0;
+    // gBattlerPartyIndexes[1] supplies the authoritative party mapping for battler 1.
+    ewram[hns_cfg->battle_mons_offset - 22] = 1;
+    ewram[hns_cfg->battle_mons_offset - 21] = 0;
 
     PartySnapshot sendout_snap;
     pokemon_read_enemy_party(ewram, EWRAM_SIZE, hns_cfg, &sendout_snap);
@@ -669,6 +672,8 @@ static void test_heart_and_soul_party_and_battle_hp_sync(void) {
     b0[1] = (158 >> 8) & 0xFF;
     b0[40] = 48;
     b0[41] = 0;
+    ewram[hns_cfg->battle_mons_offset - 24] = 1;
+    ewram[hns_cfg->battle_mons_offset - 23] = 0;
 
     PartySnapshot switch_snap;
     pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &switch_snap);
@@ -718,6 +723,40 @@ static void test_unbound_cfru_fixed_substructures(void) {
     printf(ANSI_GREEN "  [PASS] test_unbound_cfru_fixed_substructures" ANSI_RESET "\n");
 }
 
+static void test_battle_presence_and_unknown_ui_state(void) {
+    printf("Running test_battle_presence_and_unknown_ui_state...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_FIRERED);
+    const size_t ewram_size = 0x40000;
+    uint8_t* ewram = calloc(1, ewram_size);
+    TEST_ASSERT(cfg != NULL && ewram != NULL, "FireRed config and EWRAM allocation required");
+
+    TEST_ASSERT(pokemon_read_battle_presence(ewram, ewram_size, cfg) == 0,
+                "No valid battle mon must be NOT_OBSERVED");
+    TEST_ASSERT(pokemon_read_battle_ui_state(ewram, ewram_size, cfg) == 0,
+                "No valid battle mon must have unavailable UI state");
+
+    uint8_t* battle_mon = ewram + cfg->battle_mons_offset;
+    battle_mon[0] = 25; // plausible Pikachu species
+    battle_mon[1] = 0;
+    battle_mon[cfg->battle_mons_hp_offset] = 20;
+    TEST_ASSERT(pokemon_read_battle_presence(ewram, ewram_size, cfg) == 1,
+                "Live battle mon must be OBSERVED");
+    TEST_ASSERT(pokemon_read_battle_ui_state(ewram, ewram_size, cfg) == 5,
+                "Live battle mon must not infer a menu state");
+
+    battle_mon[cfg->battle_mons_hp_offset] = 0;
+    TEST_ASSERT(pokemon_read_battle_presence(ewram, ewram_size, cfg) == 1,
+                "Fainted battle mon remains observed during transitions");
+    TEST_ASSERT(pokemon_read_battle_ui_state(ewram, ewram_size, cfg) == 5,
+                "Fainted battle mon must not infer PARTY_MENU");
+
+    TEST_ASSERT(pokemon_read_battle_presence(ewram, 1, cfg) == 2,
+                "Malformed memory range must be unavailable/unknown");
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_battle_presence_and_unknown_ui_state" ANSI_RESET "\n");
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
@@ -732,6 +771,7 @@ int main(void) {
     test_ewram_scan_ignores_box_pokemon_and_finds_real_party();
     test_heart_and_soul_party_and_battle_hp_sync();
     test_unbound_cfru_fixed_substructures();
+    test_battle_presence_and_unknown_ui_state();
 
     printf("===================================================\n");
     printf("Results: %d Passed, %d Failed\n", g_tests_passed, g_tests_failed);

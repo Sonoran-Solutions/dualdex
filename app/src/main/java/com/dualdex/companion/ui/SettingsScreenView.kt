@@ -17,7 +17,8 @@ class SettingsScreenView(
     private val onShaderChanged: ((ShaderFilter) -> Unit)? = null,
     private val onSpeedChanged: ((Int) -> Unit)? = null,
     private val onStretchChanged: ((Boolean) -> Unit)? = null,
-    private val onTabSelected: ((com.dualdex.companion.CompanionTab) -> Unit)? = null
+    private val onTabSelected: ((com.dualdex.companion.CompanionTab) -> Unit)? = null,
+    private val onChooseSavesFolderRequested: (() -> Unit)? = null
 ) : LinearLayout(context) {
 
     private val settingsManager = SettingsManager(context)
@@ -300,6 +301,80 @@ class SettingsScreenView(
         }
         content.addView(apiCard)
 
+        // 5. ROM Saves Storage Directory Card (SAF & Fallback)
+        val savesStorageCard = createCardLayout().apply {
+            val label = TextView(context).apply {
+                text = "💾 ROM Saves Storage Directory"
+                setTextColor(0xFF4A9EFF.toInt())
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 0, 0, 4)
+            }
+            addView(label)
+
+            val desc = TextView(context).apply {
+                text = "DualDex supports Scoped Storage via Android SAF. Select a user-visible folder (like Documents) so your .sav and .state files can be synced with PC or other emulators."
+                setTextColor(0xFFAAAAAA.toInt())
+                textSize = 12f
+                setPadding(0, 0, 0, 8)
+            }
+            addView(desc)
+
+            val storageDescView = TextView(context).apply {
+                val current = settingsManager.savesFolderUri
+                text = if (!current.isNullOrBlank()) "Active Location: Custom SAF Folder" else "Active Location: Internal App Storage (Private)"
+                setTextColor(Color.WHITE)
+                textSize = 12.5f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 0, 0, 10)
+            }
+            addView(storageDescView)
+
+            val btnRow = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                setPadding(0, 4, 0, 0)
+            }
+
+            val pickFolderBtn = Button(context).apply {
+                text = "📁 Select Saves Folder"
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                background = GradientDrawable().apply {
+                    cornerRadius = 12f
+                    setColor(0xFF2B4A77.toInt())
+                }
+                setPadding(14, 8, 14, 8)
+                setOnClickListener {
+                    onChooseSavesFolderRequested?.invoke()
+                }
+            }
+            val lp1 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(0, 0, 6, 0) }
+            btnRow.addView(pickFolderBtn, lp1)
+
+            val resetBtn = Button(context).apply {
+                text = "🔄 Reset to Internal"
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                background = GradientDrawable().apply {
+                    cornerRadius = 12f
+                    setColor(0xFF44222A.toInt())
+                }
+                setPadding(14, 8, 14, 8)
+                setOnClickListener {
+                    settingsManager.savesFolderUri = null
+                    storageDescView.text = "Active Location: Internal App Storage (Private)"
+                    Toast.makeText(context, "Reset saves storage to internal app storage", Toast.LENGTH_SHORT).show()
+                }
+            }
+            val lp2 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(6, 0, 0, 0) }
+            btnRow.addView(resetBtn, lp2)
+
+            addView(btnRow)
+        }
+        content.addView(savesStorageCard)
+
         // Cheats Quick Access Card
         val cheatCard = createCardLayout().apply {
             val label = TextView(context).apply {
@@ -338,6 +413,85 @@ class SettingsScreenView(
             addView(openCheatsBtn, lp)
         }
         content.addView(cheatCard)
+
+        // Experimental Features Card
+        val experimentalCard = createCardLayout().apply {
+            val label = TextView(context).apply {
+                text = "🧪 Experimental Features"
+                setTextColor(0xFFFF8844.toInt())
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, 0, 0, 6)
+            }
+            addView(label)
+
+            val desc = TextView(context).apply {
+                text = "Toggle early-access development features for battle companions and touch controls."
+                setTextColor(0xFFAAAAAA.toInt())
+                textSize = 12f
+                setPadding(0, 0, 0, 10)
+            }
+            addView(desc)
+
+            var isBattleEnabled = settingsManager.isBattleTabEnabled
+            val toggleBattleBtn = Button(context).apply {
+                fun updateText() {
+                    text = if (isBattleEnabled) "🎮 Battle Console (EBC-1): Enabled" else "🎮 Battle Console (EBC-1): Disabled"
+                    background = GradientDrawable().apply {
+                        cornerRadius = 14f
+                        setColor(if (isBattleEnabled) 0xFF2E6B4A.toInt() else 0xFF3E3E4E.toInt())
+                    }
+                }
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(18, 8, 18, 8)
+                updateText()
+                setOnClickListener {
+                    isBattleEnabled = !isBattleEnabled
+                    settingsManager.isBattleTabEnabled = isBattleEnabled
+                    viewModel.setBattleTabEnabled(isBattleEnabled)
+                    updateText()
+                    Toast.makeText(context, if (isBattleEnabled) "Battle tab enabled" else "Battle tab disabled", Toast.LENGTH_SHORT).show()
+                }
+            }
+            val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+            addView(toggleBattleBtn, lp)
+
+            var isInteractiveControls = settingsManager.isInteractiveBattleControlsEnabled
+            val toggleInteractiveBtn = Button(context).apply {
+                fun updateText() {
+                    text = if (isInteractiveControls) "🎮 Verified Touch Controls: Allowed" else "🎮 Verified Touch Controls: Disabled (Read-Only)"
+                    background = GradientDrawable().apply {
+                        cornerRadius = 14f
+                        setColor(if (isInteractiveControls) 0xFF2E6B4A.toInt() else 0xFF3E3E4E.toInt())
+                    }
+                }
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(18, 8, 18, 8)
+                updateText()
+                setOnClickListener {
+                    isInteractiveControls = !isInteractiveControls
+                    settingsManager.isInteractiveBattleControlsEnabled = isInteractiveControls
+                    viewModel.setInteractiveBattleControlsEnabled(isInteractiveControls)
+                    updateText()
+                    Toast.makeText(context, if (isInteractiveControls) "Verified touch controls allowed when supported" else "Touch battle controls disabled (Read-only)", Toast.LENGTH_SHORT).show()
+                }
+            }
+            val lpInteractive = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                setMargins(0, 8, 0, 0)
+            }
+            addView(toggleInteractiveBtn, lpInteractive)
+            addView(TextView(context).apply {
+                text = "Only exact ROM builds with verified battle-menu and cursor readers can use touch controls. No bundled profile currently supports interactive controls."
+                setTextColor(0xFFAAAAAA.toInt())
+                textSize = 11f
+                setPadding(4, 6, 4, 0)
+            })
+        }
+        content.addView(experimentalCard)
     }
 
     private fun updateShaderButtons(row: LinearLayout, selected: ShaderFilter) {

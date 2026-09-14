@@ -6,11 +6,18 @@ import java.nio.ByteBuffer
 
 object LibretroHost {
     init {
-        System.loadLibrary("dualdex_native")
+        try {
+            System.loadLibrary("dualdex_native")
+        } catch (_: UnsatisfiedLinkError) {
+            // Expected in host JVM unit tests where dualdex_native is built for Android targets
+        }
     }
 
     external fun nativeLoadCore(coreLibPath: String): Boolean
     external fun nativeLoadRom(romPath: String): Boolean
+    external fun nativeUnloadRom(): Boolean
+    external fun nativeGetSaveRamSize(): Long
+    external fun nativeGetSaveStateSize(): Long
     external fun nativeStepFrame()
     external fun nativeSetInputButtons(buttonMask: Int)
     external fun nativeGetVideoFrame(directBuffer: ByteBuffer, outMetadata: IntArray): Boolean
@@ -22,6 +29,9 @@ object LibretroHost {
     external fun nativeReadEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>?
     external fun nativeGetActiveBattlerSlot(gameId: Int): Int
     external fun nativeGetActiveEnemyBattlerSlot(gameId: Int): Int
+    external fun nativeReadBattleStatStages(gameId: Int, battlerIndex: Int): IntArray?
+    external fun nativeReadBattleUiState(gameId: Int): Int
+    external fun nativeReadBattlePresence(gameId: Int): Int
     external fun nativeReadPlayerLocation(gameId: Int): PlayerLocation?
     external fun nativeSaveState(statePath: String): Boolean
     external fun nativeLoadState(statePath: String): Boolean

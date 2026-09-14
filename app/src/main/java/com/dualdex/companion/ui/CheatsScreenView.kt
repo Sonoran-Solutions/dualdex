@@ -6,11 +6,11 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
-import android.view.View
 import android.widget.*
 import com.dualdex.cheats.CheatItem
 import com.dualdex.cheats.CheatManager
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.emulator.RomIdentity
 
 class CheatsScreenView(
     context: Context,
@@ -20,6 +20,9 @@ class CheatsScreenView(
     private val cheatManager = CheatManager(context)
     private val cheatsListContainer: LinearLayout
     private val activeRomLabel: TextView
+    private val addBtn: Button
+    private val presetBtn: Button
+    private val disableAllBtn: Button
 
     private val density = context.resources.displayMetrics.density
     private fun dp(v: Int): Int = (v * density).toInt()
@@ -55,8 +58,6 @@ class CheatsScreenView(
             addView(titleRow)
 
             activeRomLabel = TextView(context).apply {
-                val gameTitle = getActiveGameTitle()
-                text = "Game: $gameTitle"
                 setTextColor(0xFF4A9EFF.toInt())
                 textSize = 13.5f
                 typeface = Typeface.DEFAULT_BOLD
@@ -66,7 +67,7 @@ class CheatsScreenView(
 
             val descView = TextView(context).apply {
                 text = "DualDex supports Action Replay v3, GameShark, and CodeBreaker codes. " +
-                       "Codes are injected directly into the mGBA core in real-time."
+                    "Codes are injected directly into the mGBA core in real-time and scoped strictly to this ROM's SHA-256."
                 setTextColor(0xFFAAAAAA.toInt())
                 textSize = 12f
                 setPadding(0, 0, 0, dp(12))
@@ -78,7 +79,7 @@ class CheatsScreenView(
                 orientation = HORIZONTAL
             }
 
-            val addBtn = Button(context).apply {
+            addBtn = Button(context).apply {
                 text = "➕ Add Cheat"
                 setTextColor(Color.WHITE)
                 textSize = 11.5f
@@ -95,7 +96,7 @@ class CheatsScreenView(
             }
             btnRow.addView(addBtn, lpAdd)
 
-            val presetBtn = Button(context).apply {
+            presetBtn = Button(context).apply {
                 text = "⚡ Load Presets"
                 setTextColor(Color.WHITE)
                 textSize = 11.5f
@@ -106,10 +107,12 @@ class CheatsScreenView(
                 }
                 setPadding(dp(12), dp(8), dp(12), dp(8))
                 setOnClickListener {
-                    val gameTitle = getActiveGameTitle()
-                    cheatManager.resetToDefaultPresets(gameTitle)
-                    refreshUI()
-                    Toast.makeText(context, "Loaded presets for $gameTitle", Toast.LENGTH_SHORT).show()
+                    val identity = getActiveRomIdentity()
+                    if (identity != null && identity.isValid) {
+                        cheatManager.resetToDefaultPresets(identity)
+                        refreshUI()
+                        Toast.makeText(context, "Loaded presets for ${identity.displayName}", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             val lpPreset = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply {
@@ -117,7 +120,7 @@ class CheatsScreenView(
             }
             btnRow.addView(presetBtn, lpPreset)
 
-            val disableAllBtn = Button(context).apply {
+            disableAllBtn = Button(context).apply {
                 text = "🚫 Disable All"
                 setTextColor(Color.WHITE)
                 textSize = 11.5f
@@ -128,13 +131,15 @@ class CheatsScreenView(
                 }
                 setPadding(dp(12), dp(8), dp(12), dp(8))
                 setOnClickListener {
-                    val gameTitle = getActiveGameTitle()
-                    val cheats = cheatManager.getCheats(gameTitle)
-                    val updated = cheats.map { it.copy(enabled = false) }
-                    cheatManager.saveCheats(gameTitle, updated)
-                    cheatManager.applyCheats(gameTitle)
-                    refreshUI()
-                    Toast.makeText(context, "All cheats disabled", Toast.LENGTH_SHORT).show()
+                    val identity = getActiveRomIdentity()
+                    if (identity != null && identity.isValid) {
+                        val cheats = cheatManager.getCheats(identity)
+                        val updated = cheats.map { it.copy(enabled = false) }
+                        cheatManager.saveCheats(identity, updated)
+                        cheatManager.applyCheats(identity)
+                        refreshUI()
+                        Toast.makeText(context, "All cheats disabled", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             val lpDisable = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f)
@@ -153,16 +158,44 @@ class CheatsScreenView(
         refreshUI()
     }
 
+    private fun getActiveRomIdentity(): RomIdentity? {
+        return viewModel.activeRomIdentity.value?.takeIf { it.isValid }
+    }
+
     fun refreshUI() {
-        val gameTitle = getActiveGameTitle()
-        activeRomLabel.text = "Game: $gameTitle"
+        val identity = getActiveRomIdentity()
         cheatsListContainer.removeAllViews()
 
-        val cheats = cheatManager.getCheats(gameTitle)
+        if (identity == null || !identity.isValid) {
+            activeRomLabel.text = "Game: No active ROM loaded"
+            addBtn.isEnabled = false
+            presetBtn.isEnabled = false
+            disableAllBtn.isEnabled = false
+
+            val emptyCard = createCardLayout().apply {
+                val emptyText = TextView(context).apply {
+                    text = "No active ROM loaded.\n\nOpen a ROM first to configure or enable cheats."
+                    setTextColor(0xFFAAAAAA.toInt())
+                    textSize = 14f
+                    gravity = Gravity.CENTER
+                    setPadding(dp(16), dp(24), dp(16), dp(24))
+                }
+                addView(emptyText)
+            }
+            cheatsListContainer.addView(emptyCard)
+            return
+        }
+
+        activeRomLabel.text = "Game: ${identity.displayName} (${identity.shortHash})"
+        addBtn.isEnabled = true
+        presetBtn.isEnabled = true
+        disableAllBtn.isEnabled = true
+
+        val cheats = cheatManager.getCheats(identity)
         if (cheats.isEmpty()) {
             val emptyCard = createCardLayout().apply {
                 val emptyText = TextView(context).apply {
-                    text = "No cheats configured for $gameTitle.\n\nTap '⚡ Load Presets' to get standard codes for this game, or tap '➕ Add Cheat' to paste Action Replay codes."
+                    text = "No cheats configured for ${identity.displayName}.\n\nTap '⚡ Load Presets' to get standard codes for this game, or tap '➕ Add Cheat' to paste Action Replay codes."
                     setTextColor(0xFFAAAAAA.toInt())
                     textSize = 14f
                     gravity = Gravity.CENTER
@@ -176,27 +209,26 @@ class CheatsScreenView(
 
         cheats.forEach { cheat ->
             val cheatCard = createCardLayout().apply {
-                // Top Row: Title + [PRESET] + Toggle Button
                 val titleRow = LinearLayout(context).apply {
                     orientation = HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                 }
 
-                val titleView = TextView(context).apply {
+                val nameView = TextView(context).apply {
                     text = cheat.name
-                    setTextColor(if (cheat.enabled) 0xFF4A9EFF.toInt() else Color.WHITE)
+                    setTextColor(Color.WHITE)
                     textSize = 14.5f
                     typeface = Typeface.DEFAULT_BOLD
+                    layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f)
                 }
-                val lpTitle = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f)
-                titleRow.addView(titleView, lpTitle)
+                titleRow.addView(nameView)
 
                 if (cheat.isPreset) {
                     val presetBadge = TextView(context).apply {
                         text = "PRESET"
                         textSize = 9.5f
-                        setTextColor(0xFF88CC88.toInt())
                         typeface = Typeface.DEFAULT_BOLD
+                        setTextColor(0xFF50C878.toInt())
                         setPadding(dp(6), dp(2), dp(6), dp(2))
                         background = GradientDrawable().apply {
                             cornerRadius = dp(6).toFloat()
@@ -221,7 +253,7 @@ class CheatsScreenView(
                     setPadding(dp(10), dp(4), dp(10), dp(4))
                     setOnClickListener {
                         val newState = !cheat.enabled
-                        cheatManager.toggleCheat(gameTitle, cheat.id, newState)
+                        cheatManager.toggleCheat(identity, cheat.id, newState)
                         refreshUI()
                         Toast.makeText(context, "${cheat.name}: ${if (newState) "Enabled" else "Disabled"}", Toast.LENGTH_SHORT).show()
                     }
@@ -258,7 +290,7 @@ class CheatsScreenView(
                     setTextColor(0xFFFF6B6B.toInt())
                     setPadding(dp(8), dp(4), dp(8), dp(4))
                     setOnClickListener {
-                        cheatManager.deleteCheat(gameTitle, cheat.id)
+                        cheatManager.deleteCheat(identity, cheat.id)
                         refreshUI()
                     }
                 }
@@ -270,7 +302,7 @@ class CheatsScreenView(
     }
 
     private fun showAddCheatDialog() {
-        val gameTitle = getActiveGameTitle()
+        val identity = getActiveRomIdentity() ?: return
         val builder = AlertDialog.Builder(context)
         builder.setTitle("➕ Add Cheat Code")
 
@@ -330,21 +362,13 @@ class CheatsScreenView(
                     enabled = true,
                     isPreset = false
                 )
-                cheatManager.addCheat(gameTitle, cheat)
+                cheatManager.addCheat(identity, cheat)
                 refreshUI()
                 Toast.makeText(context, "Added cheat: ${cheat.name}", Toast.LENGTH_SHORT).show()
             }
         }
         builder.setNegativeButton("Cancel", null)
         builder.show()
-    }
-
-    private fun getActiveGameTitle(): String {
-        val title = viewModel.activeRomTitle.value
-        if (title.isNotBlank()) return title
-        val prof = viewModel.activeProfile.value
-        if (prof.name.isNotBlank()) return prof.name
-        return "Pokemon Heart & Soul"
     }
 
     private fun createCardLayout(): LinearLayout {

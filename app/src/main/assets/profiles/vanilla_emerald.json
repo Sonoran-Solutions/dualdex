@@ -16,5 +16,10 @@
   "headerTitles": ["BPEE", "POKEMON EMER"],
   "sha256Hashes": [
     "f3ae088681bfbfed0314f85243d1a2d376236f18e938ec9f270a834fb22c5409"
-  ]
+  ],
+  "isVerified": true,
+  "memoryLayoutVerified": true,
+  "battleUiVerified": false,
+  "interactiveControlsVerified": false,
+  "gameDataPackId": "gen3_vanilla"
 }

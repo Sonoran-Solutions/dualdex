@@ -241,6 +241,8 @@ class CompanionScreenView(
             CompanionTab.MORE -> moreView
         }
         contentContainer.addView(activeView)
+        // Feature views must never leave the shared clock/battery context strip hidden.
+        updateContextBar()
         updateNavigationSelection(tab)
     }
 

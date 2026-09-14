@@ -13,6 +13,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.EditText
+import com.dualdex.pokemon.PokemonType
 import androidx.annotation.DrawableRes
 
 enum class DualDexButtonStyle { PRIMARY, SECONDARY, GHOST, DESTRUCTIVE }
@@ -61,6 +62,66 @@ object DualDexComponents {
         background = controlBackground(context, DualDexButtonStyle.SECONDARY, selected = false)
     }
 
+    fun screenTitle(context: Context, text: CharSequence): TextView = TextView(context).apply {
+        this.text = text
+        setTextColor(DualDexTheme.Color.textPrimary)
+        textSize = DualDexTheme.Type.screenTitle
+        typeface = Typeface.DEFAULT_BOLD
+        includeFontPadding = false
+    }
+
+    fun sectionTitle(context: Context, text: CharSequence): TextView = TextView(context).apply {
+        this.text = text
+        setTextColor(DualDexTheme.Color.textPrimary)
+        textSize = DualDexTheme.Type.sectionTitle
+        typeface = Typeface.DEFAULT_BOLD
+        includeFontPadding = false
+    }
+
+    fun divider(context: Context): View = View(context).apply {
+        setBackgroundColor(DualDexTheme.Color.border)
+    }
+
+    fun emptyState(context: Context, title: CharSequence, detail: CharSequence): LinearLayout = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER
+        setPadding(
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.major),
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.major)
+        )
+        addView(TextView(context).apply {
+            text = title
+            setTextColor(DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.body
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+        })
+        addView(TextView(context).apply {
+            text = detail
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
+            gravity = Gravity.CENTER
+            setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, 0)
+        })
+    }
+
+    fun typeBadge(context: Context, type: PokemonType, textSizeSp: Float = DualDexTheme.Type.compact): TextView = TextView(context).apply {
+        text = type.displayName
+        setTextColor(DualDexTheme.Color.textPrimary)
+        textSize = textSizeSp
+        typeface = Typeface.DEFAULT_BOLD
+        gravity = Gravity.CENTER
+        setPadding(
+            context.dp(DualDexTheme.Spacing.compact),
+            context.dp(DualDexTheme.Spacing.tight),
+            context.dp(DualDexTheme.Spacing.compact),
+            context.dp(DualDexTheme.Spacing.tight)
+        )
+        background = roundedDrawable(context, type.colorHex.toInt(), DualDexTheme.Radius.pill)
+    }
+
     fun menuRow(
         context: Context,
         title: CharSequence,
@@ -90,12 +151,16 @@ object DualDexComponents {
                 setTextColor(DualDexTheme.Color.textPrimary)
                 textSize = DualDexTheme.Type.body
                 typeface = Typeface.DEFAULT_BOLD
+                isSingleLine = true
+                ellipsize = TextUtils.TruncateAt.END
             })
             addView(TextView(context).apply {
                 text = subtitle
                 setTextColor(DualDexTheme.Color.textSecondary)
                 textSize = DualDexTheme.Type.meta
                 setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+                isSingleLine = true
+                ellipsize = TextUtils.TruncateAt.END
             })
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         addView(TextView(context).apply {

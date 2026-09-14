@@ -18,6 +18,7 @@ import com.dualdex.pokemon.MoveDatabase
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PokemonType
 import com.dualdex.romhack.RomHackProfile
+import com.dualdex.romhack.RomCompatibilityMessages
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 
@@ -94,6 +95,9 @@ class BattleConsoleScreenView(
     private val typeMatchupsView: TypeChartScreenView
     private val detailsScrollView: ScrollView
     private val detailsModeContainer: LinearLayout
+
+    private val emptyStateTitleView: TextView
+    private val emptyStateDetailView: TextView
 
     // Live Battle elements
     private lateinit var playerCombatantHolder: CombatantHolder
@@ -191,14 +195,17 @@ class BattleConsoleScreenView(
         battleScrollView.addView(battleModeContainer)
 
         // Empty state inside battleModeContainer
+        val emptyStateView = DualDexComponents.emptyState(
+            context,
+            "No battle in progress",
+            "Matchup, moves, and damage predictions will appear when a battle starts."
+        )
+        emptyStateTitleView = emptyStateView.getChildAt(0) as TextView
+        emptyStateDetailView = emptyStateView.getChildAt(1) as TextView
         emptyStateContainer = LinearLayout(context).apply {
             orientation = VERTICAL
             gravity = Gravity.CENTER
-            addView(DualDexComponents.emptyState(
-                context,
-                "No battle in progress",
-                "Matchup, moves, and damage predictions will appear when a battle starts."
-            ))
+            addView(emptyStateView)
             addView(DualDexComponents.secondaryButton(context, "Open Calculator") {
                 onOpenCalculatorRequested?.invoke()
             }, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
@@ -822,6 +829,13 @@ class BattleConsoleScreenView(
         ensureMovePresentations(attacker, defender, profile, runtimeTrust, playerStages, enemyStages)
 
         if (!inBattle || attacker == null) {
+            val (title, detail) = if (runtimeTrust.hasActiveRom && !runtimeTrust.mayReadLiveMemory) {
+                RomCompatibilityMessages.badge(runtimeTrust.status) to RomCompatibilityMessages.detail(runtimeTrust.status)
+            } else {
+                "No battle in progress" to "Matchup, moves, and damage predictions will appear when a battle starts."
+            }
+            emptyStateTitleView.text = title
+            emptyStateDetailView.text = detail
             emptyStateContainer.visibility = View.VISIBLE
             liveBattleContainer.visibility = View.GONE
         } else {

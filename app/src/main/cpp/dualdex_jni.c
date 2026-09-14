@@ -231,6 +231,11 @@ Java_com_dualdex_pokemon_PokemonBridge_readPlayerParty(
     jbyte* bytes = (*env)->GetByteArrayElements(env, ewram_bytes, NULL);
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    if (!cfg) {
+        (*env)->ReleaseByteArrayElements(env, ewram_bytes, bytes, JNI_ABORT);
+        return (*env)->NewObjectArray(env, 0, g_parsed_pokemon_cls, NULL);
+    }
+
     PartySnapshot snapshot;
     uint8_t count = pokemon_read_player_party((const uint8_t*)bytes, (size_t)len, cfg, &snapshot);
     (*env)->ReleaseByteArrayElements(env, ewram_bytes, bytes, JNI_ABORT);
@@ -267,6 +272,11 @@ Java_com_dualdex_pokemon_PokemonBridge_readEnemyParty(
     jbyte* bytes = (*env)->GetByteArrayElements(env, ewram_bytes, NULL);
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    if (!cfg) {
+        (*env)->ReleaseByteArrayElements(env, ewram_bytes, bytes, JNI_ABORT);
+        return (*env)->NewObjectArray(env, 0, g_parsed_pokemon_cls, NULL);
+    }
+
     PartySnapshot snapshot;
     uint8_t count = pokemon_read_enemy_party((const uint8_t*)bytes, (size_t)len, cfg, &snapshot);
     (*env)->ReleaseByteArrayElements(env, ewram_bytes, bytes, JNI_ABORT);
@@ -300,6 +310,8 @@ Java_com_dualdex_pokemon_PokemonBridge_readPlayerLocation(
     jbyte* bytes = (*env)->GetByteArrayElements(env, ewram_bytes, NULL);
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    if (!cfg) return NULL;
+
     PlayerLocationRaw loc;
     bool ok = pokemon_read_player_location((const uint8_t*)bytes, (size_t)len, cfg, &loc);
     (*env)->ReleaseByteArrayElements(env, ewram_bytes, bytes, JNI_ABORT);
@@ -465,6 +477,14 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadPartyFromCore(JNIEnv* env, jobj
     }
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    if (!cfg) {
+        // Fail closed: an unknown/unsupported game has no verified memory layout, so no parsing is
+        // attempted and no previously observed battler slot may survive.
+        s_last_active_battler_slot = -1;
+        LOGI("nativeReadPartyFromCore: game_id=%d has no supported layout; party unavailable", game_id);
+        return (*env)->NewObjectArray(env, 0, g_parsed_pokemon_cls, NULL);
+    }
+
     PartySnapshot snapshot;
     uint8_t count = pokemon_read_player_party(ewram, ewram_sz, cfg, &snapshot);
     s_last_active_battler_slot = snapshot.active_battler_slot;
@@ -510,6 +530,12 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadEnemyPartyFromCore(JNIEnv* env,
     }
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    if (!cfg) {
+        s_last_active_enemy_battler_slot = -1;
+        LOGI("nativeReadEnemyPartyFromCore: game_id=%d has no supported layout; enemy party unavailable", game_id);
+        return (*env)->NewObjectArray(env, 0, g_parsed_pokemon_cls, NULL);
+    }
+
     PartySnapshot snapshot;
     uint8_t count = pokemon_read_enemy_party(ewram, ewram_sz, cfg, &snapshot);
     s_last_active_enemy_battler_slot = snapshot.active_battler_slot;
@@ -551,6 +577,8 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattleStatStages(JNIEnv* env, j
     if (!ewram || ewram_sz == 0) return NULL;
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    if (!cfg) return NULL;
+
     int8_t stages[7];
     bool ok = pokemon_read_battle_stat_stages(ewram, ewram_sz, cfg, (uint8_t)battler_index, stages);
     if (!ok) return NULL;
@@ -575,6 +603,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattleUiState(JNIEnv* env, jobj
     if (!ewram || ewram_sz == 0) return 0;
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    if (!cfg) return 0;
     return (jint)pokemon_read_battle_ui_state(ewram, ewram_sz, cfg);
 }
 
@@ -587,6 +616,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlePresence(JNIEnv* env, job
     if (!ewram || ewram_sz == 0) return 2;
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    if (!cfg) return 2;
     return (jint)pokemon_read_battle_presence(ewram, ewram_sz, cfg);
 }
 
@@ -606,6 +636,8 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadPlayerLocation(JNIEnv* env, job
     }
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    if (!cfg) return NULL; // Fail closed: unknown game has no verified SaveBlock1 layout.
+
     PlayerLocationRaw loc;
     bool ok = pokemon_read_player_location(ewram, ewram_sz, cfg, &loc);
     if (!ok || !loc.is_valid) {

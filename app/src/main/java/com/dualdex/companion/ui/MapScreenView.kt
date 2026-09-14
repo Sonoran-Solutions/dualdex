@@ -13,6 +13,7 @@ import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionId
 import com.dualdex.pokemon.RegionMapDatabase
 import com.dualdex.pokemon.RegionMapSection
+import com.dualdex.romhack.RomCompatibilityMessages
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -343,6 +344,11 @@ class MapScreenView(
                 }
             }
             scope.launch {
+                viewModel.runtimeRomTrust.collectLatest {
+                    updatePlayerLocation(viewModel.playerLocation.value)
+                }
+            }
+            scope.launch {
                 viewModel.resolvedLocation.collectLatest { sec ->
                     regionMapView.resolvedLocation = sec
                     if (sec != null && regionMapView.selectedSection == null) {
@@ -373,8 +379,14 @@ class MapScreenView(
         regionMapView.playerLocation = loc
 
         if (loc == null || !loc.isValid) {
-            locationTitleView.text = "Waiting for player..."
-            locationSubtitleView.text = "Location will appear when a supported game runs"
+            val trust = viewModel.runtimeRomTrust.value
+            if (trust.hasActiveRom && !trust.mayReadLiveMemory) {
+                locationTitleView.text = RomCompatibilityMessages.badge(trust.status)
+                locationSubtitleView.text = RomCompatibilityMessages.detail(trust.status)
+            } else {
+                locationTitleView.text = "Waiting for player..."
+                locationSubtitleView.text = "Location will appear when a supported game runs"
+            }
             envBadgeView.text = "Unknown"
             envBadgeView.setTextColor(DualDexTheme.Color.textDisabled)
             technicalCoordsView.text = "Technical details: None"

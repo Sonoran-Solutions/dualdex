@@ -4,7 +4,7 @@ import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PlayerLocation
-import com.dualdex.romhack.ProfileDetectionResult
+import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.ProfileMatchMethod
 import com.dualdex.romhack.RomHackProfile
 import org.junit.Assert.assertEquals
@@ -103,9 +103,8 @@ class BattleSessionStateTest {
 
         val profileB = profile(hashB)
         vm.setRomSession(
-            profile = profileB,
-            identity = RomIdentity(hashB, "ROM B"),
-            detection = ProfileDetectionResult(profileB, ProfileMatchMethod.EXACT_SHA256, hashB)
+            compatibility = RomCompatibility.verified(profileB, hashB),
+            identity = RomIdentity(hashB, "ROM B")
         )
 
         assertTrue(vm.playerParty.value.isEmpty())

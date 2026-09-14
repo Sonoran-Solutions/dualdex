@@ -70,17 +70,27 @@ void pokemon_reader_reset(void);
 
 /**
  * Get memory configuration for a detected game.
+ *
+ * @return The configuration for a supported game, or NULL when the game is unknown/unsupported.
+ *
+ * Fail-closed contract: there is no FireRed (or any other) fallback. A caller that receives NULL
+ * must not parse memory; every reader in this header also rejects an unusable configuration on its
+ * own, so an unknown ROM can never be interpreted through an arbitrary supported layout.
  */
 const GameMemoryConfig* pokemon_get_game_config(GbaGameId game_id);
 
 /**
  * Parse the active player party from a 256 KB EWRAM buffer.
  *
+ * Fails closed: returns 0 with a zeroed snapshot when @p config is NULL or describes
+ * GAME_UNKNOWN. The configured-offset path, the cached-offset path, and the blind EWRAM scan are
+ * only reachable for an explicitly supported layout.
+ *
  * @param ewram Pointer to the 256 KB EWRAM memory block (base 0x02000000)
  * @param ewram_size Size of EWRAM buffer (typically 262144 bytes)
  * @param config Game configuration defining memory offsets
  * @param out_snapshot Pointer to PartySnapshot destination struct
- * @return Number of valid Pokémon parsed into the snapshot
+ * @return Number of valid Pokémon parsed into the snapshot (0 when the layout is unusable)
  */
 uint8_t pokemon_read_player_party(
     const uint8_t* ewram,
@@ -92,11 +102,13 @@ uint8_t pokemon_read_player_party(
 /**
  * Parse enemy/opponent party from EWRAM during a battle.
  *
+ * Fails closed: returns 0 with a zeroed snapshot when @p config is NULL or describes GAME_UNKNOWN.
+ *
  * @param ewram Pointer to EWRAM
  * @param ewram_size Size of EWRAM
  * @param config Game configuration
  * @param out_snapshot Destination struct
- * @return Number of valid enemy Pokémon parsed
+ * @return Number of valid enemy Pokémon parsed (0 when the layout is unusable)
  */
 uint8_t pokemon_read_enemy_party(
     const uint8_t* ewram,
@@ -109,6 +121,9 @@ uint8_t pokemon_read_enemy_party(
  * Dynamically scan the entire 256 KB EWRAM for the active party.
  * Essential for pokeemerald-expansion (Heart & Soul) and ROM hacks
  * where gPlayerParty is placed at non-standard memory addresses.
+ *
+ * Layout-independent, but NOT a trust decision: only call this for a game whose layout was
+ * verified (i.e. from pokemon_read_player_party, which rejects unknown games first).
  */
 uint8_t pokemon_scan_ewram_for_party(
     const uint8_t* ewram,
@@ -132,6 +147,9 @@ typedef struct {
 
 /**
  * Read the active player position and map coordinates from SaveBlock1 in EWRAM.
+ *
+ * Fails closed: returns false when @p config is NULL or describes GAME_UNKNOWN, and never falls
+ * back to a cached party offset or a FireRed-style SaveBlock1 base for an unknown game.
  */
 bool pokemon_read_player_location(
     const uint8_t* ewram,
@@ -144,6 +162,7 @@ bool pokemon_read_player_location(
  * Read battle stat stages for a battler (0 = player, 1 = opponent).
  * Returns true if in battle and stat stages read successfully into out_stages (7 signed ints: atk, def, spe, spa, spd, acc, eva).
  * Values are stages in range -6..+6.
+ * Returns false for a NULL or GAME_UNKNOWN configuration.
  */
 bool pokemon_read_battle_stat_stages(
     const uint8_t* ewram,
@@ -161,6 +180,8 @@ bool pokemon_read_battle_stat_stages(
  * 3 = PARTY_MENU (Party screen)
  * 4 = ANIMATION_OR_TEXT (Battle script running / dialogue)
  * 5 = UNKNOWN / TRANSITION (Active battle, but menu state not authoritatively verified)
+ *
+ * Returns 0 for a NULL or GAME_UNKNOWN configuration.
  */
 uint8_t pokemon_read_battle_ui_state(
     const uint8_t* ewram,
@@ -171,6 +192,8 @@ uint8_t pokemon_read_battle_ui_state(
 /**
  * Read battle presence independently from the UI controller state:
  * 0 = NOT_OBSERVED, 1 = OBSERVED, 2 = UNKNOWN (reader/configuration unavailable).
+ *
+ * A NULL or GAME_UNKNOWN configuration always reports 2 (UNKNOWN), never NOT_OBSERVED.
  */
 uint8_t pokemon_read_battle_presence(
     const uint8_t* ewram,

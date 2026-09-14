@@ -554,7 +554,14 @@ class BattleConsoleTest {
     fun testBattleInputAdapter_selectMove_fromCommandMenu() = runBlocking {
         val dispatcher = RecordingInputDispatcher()
         val adapter = BattleInputAdapter(dispatcher)
-        val ui = BattleUiSnapshot(state = BattleUiState.COMMAND_MENU, isInputAccepted = true)
+        val ui = BattleUiSnapshot(
+            state = BattleUiState.COMMAND_MENU,
+            selectedActionIndex = 0,
+            selectedMoveIndex = 0,
+            stateConfidence = DataConfidence.VERIFIED,
+            isInputAccepted = true,
+            capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+        )
 
         // Slot 0 (top-left): A (Fight) -> A (Move 0)
         dispatcher.recordedButtons.clear()
@@ -584,25 +591,49 @@ class BattleConsoleTest {
         val adapter = BattleInputAdapter(dispatcher)
 
         // Cursor at 0, target 3: RIGHT -> DOWN -> A
-        val uiAt0 = BattleUiSnapshot(state = BattleUiState.MOVE_MENU, selectedMoveIndex = 0, isInputAccepted = true)
+        val uiAt0 = BattleUiSnapshot(
+            state = BattleUiState.MOVE_MENU,
+            selectedMoveIndex = 0,
+            stateConfidence = DataConfidence.VERIFIED,
+            isInputAccepted = true,
+            capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+        )
         dispatcher.recordedButtons.clear()
         assertTrue(adapter.selectMove(3, uiAt0))
         assertEquals(listOf(InputManager.BTN_RIGHT, InputManager.BTN_DOWN, InputManager.BTN_A), dispatcher.recordedButtons)
 
         // Cursor at 3, target 0: LEFT -> UP -> A
-        val uiAt3 = BattleUiSnapshot(state = BattleUiState.MOVE_MENU, selectedMoveIndex = 3, isInputAccepted = true)
+        val uiAt3 = BattleUiSnapshot(
+            state = BattleUiState.MOVE_MENU,
+            selectedMoveIndex = 3,
+            stateConfidence = DataConfidence.VERIFIED,
+            isInputAccepted = true,
+            capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+        )
         dispatcher.recordedButtons.clear()
         assertTrue(adapter.selectMove(0, uiAt3))
         assertEquals(listOf(InputManager.BTN_LEFT, InputManager.BTN_UP, InputManager.BTN_A), dispatcher.recordedButtons)
 
         // Cursor at 1, target 2: LEFT -> DOWN -> A
-        val uiAt1 = BattleUiSnapshot(state = BattleUiState.MOVE_MENU, selectedMoveIndex = 1, isInputAccepted = true)
+        val uiAt1 = BattleUiSnapshot(
+            state = BattleUiState.MOVE_MENU,
+            selectedMoveIndex = 1,
+            stateConfidence = DataConfidence.VERIFIED,
+            isInputAccepted = true,
+            capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+        )
         dispatcher.recordedButtons.clear()
         assertTrue(adapter.selectMove(2, uiAt1))
         assertEquals(listOf(InputManager.BTN_LEFT, InputManager.BTN_DOWN, InputManager.BTN_A), dispatcher.recordedButtons)
 
         // Cursor already at target: direct A
-        val uiAt2 = BattleUiSnapshot(state = BattleUiState.MOVE_MENU, selectedMoveIndex = 2, isInputAccepted = true)
+        val uiAt2 = BattleUiSnapshot(
+            state = BattleUiState.MOVE_MENU,
+            selectedMoveIndex = 2,
+            stateConfidence = DataConfidence.VERIFIED,
+            isInputAccepted = true,
+            capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+        )
         dispatcher.recordedButtons.clear()
         assertTrue(adapter.selectMove(2, uiAt2))
         assertEquals(listOf(InputManager.BTN_A), dispatcher.recordedButtons)
@@ -623,7 +654,14 @@ class BattleConsoleTest {
         assertTrue(dispatcher.recordedButtons.isEmpty())
 
         // Invalid slot bounds
-        val readyUi = BattleUiSnapshot(state = BattleUiState.COMMAND_MENU, isInputAccepted = true)
+        val readyUi = BattleUiSnapshot(
+            state = BattleUiState.COMMAND_MENU,
+            selectedActionIndex = 0,
+            selectedMoveIndex = 0,
+            stateConfidence = DataConfidence.VERIFIED,
+            isInputAccepted = true,
+            capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+        )
         assertFalse(adapter.selectMove(4, readyUi))
         assertFalse(adapter.selectMove(-1, readyUi))
         assertTrue(dispatcher.recordedButtons.isEmpty())
@@ -634,7 +672,14 @@ class BattleConsoleTest {
     fun testBattleInputAdapter_switchPokemon_legalityAndMacro() = runBlocking {
         val dispatcher = RecordingInputDispatcher()
         val adapter = BattleInputAdapter(dispatcher)
-        val ui = BattleUiSnapshot(state = BattleUiState.COMMAND_MENU, isInputAccepted = true)
+        val ui = BattleUiSnapshot(
+            state = BattleUiState.COMMAND_MENU,
+            selectedActionIndex = 0,
+            selectedPartySlot = 0,
+            stateConfidence = DataConfidence.VERIFIED,
+            isInputAccepted = true,
+            capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+        )
 
         val mon0 = createTestPokemon(nickname = "LeadMon", currentHp = 100)
         val mon1 = createTestPokemon(nickname = "Candidate1", currentHp = 100)
@@ -679,7 +724,13 @@ class BattleConsoleTest {
 
         // Valid switch from forced faint PARTY_MENU state:
         // Starts in party screen at slot 0: Down -> A -> A
-        val partyUi = BattleUiSnapshot(state = BattleUiState.PARTY_MENU, selectedPartySlot = 0, isInputAccepted = true)
+        val partyUi = BattleUiSnapshot(
+            state = BattleUiState.PARTY_MENU,
+            selectedPartySlot = 0,
+            stateConfidence = DataConfidence.VERIFIED,
+            isInputAccepted = true,
+            capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+        )
         dispatcher.recordedButtons.clear()
         assertTrue(adapter.switchPokemon(1, partyUi, party, activeSlot = 0))
         assertEquals(

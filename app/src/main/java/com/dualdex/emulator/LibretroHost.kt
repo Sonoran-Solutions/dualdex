@@ -6,7 +6,11 @@ import java.nio.ByteBuffer
 
 object LibretroHost {
     init {
-        System.loadLibrary("dualdex_native")
+        try {
+            System.loadLibrary("dualdex_native")
+        } catch (_: UnsatisfiedLinkError) {
+            // Expected in host JVM unit tests where dualdex_native is built for Android targets
+        }
     }
 
     external fun nativeLoadCore(coreLibPath: String): Boolean

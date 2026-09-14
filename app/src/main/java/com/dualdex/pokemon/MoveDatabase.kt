@@ -991,13 +991,22 @@ object MoveDatabase {
         return moveMap.containsKey(moveId)
     }
 
-    fun get(moveId: Int): MoveInfo {
+    fun getRaw(moveId: Int): MoveInfo? {
+        if (moveId <= 0) return null
+        return moveMap[moveId]
+    }
+
+    fun get(moveId: Int, pack: GameDataPack? = null): MoveInfo {
         if (moveId <= 0) {
             return MoveInfo(0, "-", PokemonType.NORMAL, MoveCategory.STATUS, 0, 0, 0)
         }
+        if (pack != null) {
+            val fromPack = pack.getMove(moveId)
+            if (fromPack != null) return fromPack
+        }
         return moveMap[moveId] ?: MoveInfo(
             id = moveId,
-            name = "Move #",
+            name = "Move #$moveId",
             type = PokemonType.NORMAL,
             category = MoveCategory.PHYSICAL,
             power = 50,
@@ -1006,7 +1015,8 @@ object MoveDatabase {
         )
     }
 
-    fun getByName(name: String): MoveInfo? {
-        return nameMap[name.lowercase()]
+    fun getByName(name: String, pack: GameDataPack? = null): MoveInfo? {
+        val base = nameMap[name.lowercase()] ?: return null
+        return if (pack != null) get(base.id, pack) else base
     }
 }

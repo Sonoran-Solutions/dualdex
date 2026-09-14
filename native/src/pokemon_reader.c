@@ -956,7 +956,12 @@ uint8_t pokemon_read_battle_ui_state(
         return 3; // PARTY_MENU / FORCED SWITCH
     }
 
-    return 1; // COMMAND_MENU / ACTIVE BATTLE
+    // Battler 0 has > 0 HP and is in battle.
+    // However, EWRAM does not authoritatively expose the battle controller state machine
+    // (which resides in IWRAM or execution state). Returning COMMAND_MENU (1) purely from
+    // species > 0 and HP > 0 is unverified during animations, text dialogue, or opponent turns.
+    // Return 5 (UNKNOWN / TRANSITION) to fail closed.
+    return 5;
 }
 
 

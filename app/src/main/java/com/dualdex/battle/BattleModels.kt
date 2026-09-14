@@ -8,6 +8,8 @@ import com.dualdex.calculator.DamageCalculationResponse
 import com.dualdex.calculator.DamageCalculator
 import com.dualdex.calculator.SideConditions
 import com.dualdex.calculator.StatBlock
+import com.dualdex.pokemon.GameDataPack
+import com.dualdex.pokemon.GameDataPackRegistry
 import com.dualdex.pokemon.ItemDatabase
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.MoveDatabase
@@ -115,11 +117,16 @@ data class StatStages(
 }
 
 enum class WeatherType(val displayName: String, val calcName: String?) {
-    NONE("Clear", null),
+    UNKNOWN("Unknown / Not Observed", null),
+    CLEAR("Clear", null),
     SUN("Sun", "Sun"),
     RAIN("Rain", "Rain"),
     SANDSTORM("Sandstorm", "Sand"),
-    HAIL("Hail", "Hail")
+    HAIL("Hail", "Hail");
+
+    companion object {
+        val NONE = UNKNOWN
+    }
 }
 
 data class SideEffects(
@@ -131,7 +138,8 @@ data class SideEffects(
     val tailwindTurns: Int? = null,
     val spikesLayers: Int = 0,
     val safeguard: Boolean = false,
-    val mist: Boolean = false
+    val mist: Boolean = false,
+    val isObserved: Boolean = false
 )
 
 data class SpeedComparison(
@@ -139,7 +147,8 @@ data class SpeedComparison(
     val enemyEffectiveSpeed: Int,
     val playerMovesFirst: Boolean?,
     val isSpeedTie: Boolean,
-    val explanation: String
+    val explanation: String,
+    val isDefinitive: Boolean = false
 ) {
     companion object {
         fun calculate(
@@ -173,7 +182,8 @@ data class SpeedComparison(
                     playerMovesFirst = playerFirst,
                     isSpeedTie = false,
                     explanation = if (playerFirst) "Move priority ($sign) moves first"
-                    else "Opponent priority ($sign) moves first"
+                    else "Opponent priority ($sign) moves first",
+                    isDefinitive = true
                 )
             }
 
@@ -183,7 +193,8 @@ data class SpeedComparison(
                     enemyEffectiveSpeed = eSpeed,
                     playerMovesFirst = null,
                     isSpeedTie = true,
-                    explanation = "Speed tie ($pSpeed vs $eSpeed): 50% chance to move first"
+                    explanation = "Speed tie ($pSpeed vs $eSpeed): 50% chance based on known stats",
+                    isDefinitive = false
                 )
             }
 
@@ -192,8 +203,8 @@ data class SpeedComparison(
                 if (playerFaster) "Trick Room active: lower speed moves first ($pSpeed vs $eSpeed)"
                 else "Trick Room active: opponent moves first ($eSpeed vs $pSpeed)"
             } else {
-                if (playerFaster) "Moves first ($pSpeed vs $eSpeed)"
-                else "Moves second ($pSpeed vs $eSpeed)"
+                if (playerFaster) "Faster based on known stats and stages ($pSpeed vs $eSpeed)"
+                else "Slower based on known stats and stages ($pSpeed vs $eSpeed)"
             }
 
             return SpeedComparison(
@@ -201,9 +212,36 @@ data class SpeedComparison(
                 enemyEffectiveSpeed = eSpeed,
                 playerMovesFirst = playerFaster,
                 isSpeedTie = false,
-                explanation = exp
+                explanation = exp,
+                isDefinitive = false
             )
         }
+    }
+}
+
+data class BattleInteractionCapabilities(
+    val readBattleState: Boolean = true,
+    val readCommandCursor: Boolean = false,
+    val readMoveCursor: Boolean = false,
+    val readPartyCursor: Boolean = false,
+    val selectMove: Boolean = false,
+    val switchPokemon: Boolean = false,
+    val confidence: DataConfidence = DataConfidence.UNAVAILABLE
+) {
+    val isInteractiveSupported: Boolean
+        get() = selectMove || switchPokemon
+
+    companion object {
+        val READ_ONLY = BattleInteractionCapabilities()
+        val FULL_VERIFIED = BattleInteractionCapabilities(
+            readBattleState = true,
+            readCommandCursor = true,
+            readMoveCursor = true,
+            readPartyCursor = true,
+            selectMove = true,
+            switchPokemon = true,
+            confidence = DataConfidence.VERIFIED
+        )
     }
 }
 
@@ -219,12 +257,18 @@ enum class BattleUiState(val displayName: String) {
 
 data class BattleUiSnapshot(
     val state: BattleUiState = BattleUiState.UNKNOWN,
-    val selectedActionIndex: Int = 0,
-    val selectedMoveIndex: Int = 0,
-    val selectedPartySlot: Int = 0,
+    val selectedActionIndex: Int? = null,
+    val selectedMoveIndex: Int? = null,
+    val selectedPartySlot: Int? = null,
+    val stateConfidence: DataConfidence = DataConfidence.UNAVAILABLE,
     val isInputAccepted: Boolean = false,
-    val confidence: DataConfidence = DataConfidence.VERIFIED
-)
+    val capabilities: BattleInteractionCapabilities = BattleInteractionCapabilities.READ_ONLY
+) {
+    val inputSafe: Boolean
+        get() = isInputAccepted &&
+                stateConfidence == DataConfidence.VERIFIED &&
+                capabilities.isInteractiveSupported
+}
 
 /**
  * Injected interface for damage calculations to decouple UI/presentation from JNI and enable
@@ -308,13 +352,23 @@ object MoveEffectiveness {
         moveType: PokemonType,
         defenderType1: PokemonType?,
         defenderType2: PokemonType? = null,
-        steelResistsGhostDark: Boolean = false
+        steelResistsGhostDark: Boolean = false,
+        dataPack: GameDataPack? = null
     ): EffectivenessLabel? {
         if (defenderType1 == null) return null
-        val mult1 = TypeChart.getEffectiveness(moveType, defenderType1, steelResistsGhostDark).toDouble()
+        val mult1 = if (dataPack != null) {
+            dataPack.getEffectiveness(moveType, defenderType1)
+        } else {
+            TypeChart.getEffectiveness(moveType, defenderType1, steelResistsGhostDark).toDouble()
+        }
         var mult = mult1
         if (defenderType2 != null) {
-            mult *= TypeChart.getEffectiveness(moveType, defenderType2, steelResistsGhostDark).toDouble()
+            val mult2 = if (dataPack != null) {
+                dataPack.getEffectiveness(moveType, defenderType2)
+            } else {
+                TypeChart.getEffectiveness(moveType, defenderType2, steelResistsGhostDark).toDouble()
+            }
+            mult *= mult2
         }
         return labelFromMultiplier(mult)
     }
@@ -338,8 +392,9 @@ object MoveEffectiveness {
         if (defT1 == null) {
             return null to DataConfidence.UNAVAILABLE
         }
-        val moveInfo = MoveDatabase.get(moveId)
-        val label = confidence(moveInfo.type, defT1, defT2, profile.steelResistsGhostDark)
+        val pack = GameDataPackRegistry.getForProfile(profile.engine, profile.hasPhysSpecSplit, profile.gameDataPackId)
+        val moveInfo = MoveDatabase.get(moveId, pack)
+        val label = confidence(moveInfo.type, defT1, defT2, profile.steelResistsGhostDark, pack)
         val confidence = if (label != null && profile.isVerified) {
             DataConfidence.VERIFIED
         } else if (label != null) {
@@ -377,7 +432,8 @@ object MoveEffectiveness {
         if (!SpeciesDatabase.isKnown(defender.species)) {
             return null to null
         }
-        val species = SpeciesDatabase.get(defender.species)
+        val pack = GameDataPackRegistry.getForProfile(profile.engine, profile.hasPhysSpecSplit, profile.gameDataPackId)
+        val species = SpeciesDatabase.get(defender.species, pack)
         val t1 = species.type1
         val t2 = species.type2?.takeIf { it != t1 }
         return t1 to t2
@@ -646,19 +702,21 @@ object BattlePresentationBuilder {
         weather: WeatherType = WeatherType.NONE,
         defenderSide: SideEffects = SideEffects()
     ): MovePresentation {
+        val pack = GameDataPackRegistry.getForProfile(profile.engine, profile.hasPhysSpecSplit, profile.gameDataPackId)
         val moveKnown = MoveDatabase.isKnown(moveInfo.id)
+        val resolvedMoveInfo = if (moveKnown) MoveDatabase.get(moveInfo.id, pack) else moveInfo
         val attackerLevel = attacker.level.coerceAtLeast(1)
         val defenderLevel = defender?.level ?: attackerLevel
 
         val category = if (moveKnown) {
-            MoveEffectiveness.resolveMoveCategory(moveInfo, profile)
+            MoveEffectiveness.resolveMoveCategory(resolvedMoveInfo, profile)
         } else {
             null
         }
 
         val description = MovePresentationFactory.descriptionFor(
             isKnown = moveKnown,
-            moveInfo = moveInfo.takeIf { moveKnown },
+            moveInfo = resolvedMoveInfo.takeIf { moveKnown },
             category = category,
             attackerLevel = attackerLevel,
             defenderLevel = defenderLevel
@@ -666,7 +724,7 @@ object BattlePresentationBuilder {
 
         // Evaluate effectiveness
         val (effLabel, effConfidence) = if (moveKnown) {
-            MoveEffectiveness.evaluate(moveInfo.id, category, defender, profile)
+            MoveEffectiveness.evaluate(resolvedMoveInfo.id, category, defender, profile)
         } else {
             null to DataConfidence.UNAVAILABLE
         }
@@ -685,7 +743,7 @@ object BattlePresentationBuilder {
 
         val canCalculate = moveKnown &&
                 category != MoveCategory.STATUS &&
-                moveInfo.power > 0 &&
+                resolvedMoveInfo.power > 0 &&
                 attackerSpeciesKnown &&
                 defenderSpeciesKnown &&
                 defender != null &&
@@ -695,7 +753,7 @@ object BattlePresentationBuilder {
             val request = buildDamageRequest(
                 attacker = attacker,
                 defender = defender,
-                moveName = moveInfo.name,
+                moveName = resolvedMoveInfo.name,
                 natureName = attacker.natureName,
                 attackerStages = attackerStages,
                 defenderStages = defenderStages,
@@ -713,13 +771,13 @@ object BattlePresentationBuilder {
         }
 
         return MovePresentation(
-            moveId = moveInfo.id,
-            name = if (moveKnown) moveInfo.name else "Unknown Move (#${moveInfo.id})",
-            typeName = if (moveKnown) moveInfo.type.displayName else MoveEffectiveness.UNAVAILABLE,
+            moveId = resolvedMoveInfo.id,
+            name = if (moveKnown) resolvedMoveInfo.name else "Unknown Move (#${resolvedMoveInfo.id})",
+            typeName = if (moveKnown) resolvedMoveInfo.type.displayName else MoveEffectiveness.UNAVAILABLE,
             category = category,
-            basePower = if (moveKnown) moveInfo.power else null,
-            accuracy = if (moveKnown) moveInfo.accuracy else null,
-            maxPp = if (moveKnown) moveInfo.pp else null,
+            basePower = if (moveKnown) resolvedMoveInfo.power else null,
+            accuracy = if (moveKnown) resolvedMoveInfo.accuracy else null,
+            maxPp = if (moveKnown) resolvedMoveInfo.pp else null,
             currentPp = currentPp,
             description = description,
             effectiveness = effLabel?.displayName ?: MoveEffectiveness.UNAVAILABLE,
@@ -787,8 +845,8 @@ object FieldStatusBuilder {
         inBattle: Boolean,
         attacker: ParsedPokemon?,
         defender: ParsedPokemon?,
-        attackerSlot: Int,
-        profile: RomHackProfile,
+        attackerSlot: Int = 0,
+        profile: RomHackProfile = RomHackProfile.DEFAULT_FIRERED,
         playerStages: StatStages = StatStages(),
         enemyStages: StatStages = StatStages(),
         weather: WeatherType = WeatherType.NONE,

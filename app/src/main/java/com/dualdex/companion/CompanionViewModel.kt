@@ -82,7 +82,16 @@ class CompanionViewModel(
     private val _battleUiSnapshot = MutableStateFlow(com.dualdex.battle.BattleUiSnapshot())
     val battleUiSnapshot: StateFlow<com.dualdex.battle.BattleUiSnapshot> = _battleUiSnapshot.asStateFlow()
 
-    var battleInputAdapter: com.dualdex.battle.BattleInputAdapter = com.dualdex.battle.BattleInputAdapter()
+    var battleInputAdapter: com.dualdex.battle.BattleInputAdapter = com.dualdex.battle.BattleInputAdapter(
+        stateReader = { _battleUiSnapshot.value }
+    )
+
+    val activeGameDataPack: com.dualdex.pokemon.GameDataPack
+        get() = com.dualdex.pokemon.GameDataPackRegistry.getForProfile(
+            engine = _activeProfile.value.engine,
+            hasPhysSpecSplit = _activeProfile.value.hasPhysSpecSplit,
+            customPackId = _activeProfile.value.gameDataPackId
+        )
 
     private val _playerLocation = MutableStateFlow<PlayerLocation?>(null)
     val playerLocation: StateFlow<PlayerLocation?> = _playerLocation.asStateFlow()
@@ -174,12 +183,40 @@ class CompanionViewModel(
                             4 -> com.dualdex.battle.BattleUiState.ANIMATION_OR_TEXT
                             else -> com.dualdex.battle.BattleUiState.UNKNOWN
                         }
+
+                        val profile = _activeProfile.value
+                        val romId = _activeRomIdentity.value
+                        val isInteractiveVerified = profile.interactiveControlsVerified &&
+                                romId != null &&
+                                profile.sha256Hashes.isNotEmpty() &&
+                                profile.sha256Hashes.any { it.equals(romId.sha256, ignoreCase = true) }
+
+                        val capabilities = if (isInteractiveVerified) {
+                            com.dualdex.battle.BattleInteractionCapabilities.FULL_VERIFIED
+                        } else {
+                            com.dualdex.battle.BattleInteractionCapabilities.READ_ONLY
+                        }
+
+                        val isInputAccepted = isInteractiveVerified && (
+                                uiState == com.dualdex.battle.BattleUiState.COMMAND_MENU ||
+                                uiState == com.dualdex.battle.BattleUiState.MOVE_MENU ||
+                                uiState == com.dualdex.battle.BattleUiState.PARTY_MENU
+                        )
+
+                        val stateConfidence = if (isInteractiveVerified && isInputAccepted) {
+                            com.dualdex.battle.DataConfidence.VERIFIED
+                        } else {
+                            com.dualdex.battle.DataConfidence.UNAVAILABLE
+                        }
+
                         _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot(
                             state = uiState,
-                            isInputAccepted = uiState == com.dualdex.battle.BattleUiState.COMMAND_MENU ||
-                                    uiState == com.dualdex.battle.BattleUiState.MOVE_MENU ||
-                                    uiState == com.dualdex.battle.BattleUiState.PARTY_MENU,
-                            confidence = if (_activeProfile.value.isVerified) com.dualdex.battle.DataConfidence.VERIFIED else com.dualdex.battle.DataConfidence.ESTIMATE
+                            selectedActionIndex = null,
+                            selectedMoveIndex = null,
+                            selectedPartySlot = null,
+                            stateConfidence = stateConfidence,
+                            isInputAccepted = isInputAccepted,
+                            capabilities = capabilities
                         )
                     } else {
                         if (_activeEnemyMemberIndex.value != -1) {

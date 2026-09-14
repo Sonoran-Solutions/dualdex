@@ -160,6 +160,7 @@ bool pokemon_read_battle_stat_stages(
  * 2 = MOVE_MENU (4 move selection)
  * 3 = PARTY_MENU (Party screen)
  * 4 = ANIMATION_OR_TEXT (Battle script running / dialogue)
+ * 5 = UNKNOWN / TRANSITION (Active battle, but menu state not authoritatively verified)
  */
 uint8_t pokemon_read_battle_ui_state(
     const uint8_t* ewram,

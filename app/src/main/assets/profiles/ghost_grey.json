@@ -15,6 +15,11 @@
   "docsUrl": null,
   "headerTitles": ["BPRE", "GHOSTGREY", "POKEMONGHOST"],
   "sha256Hashes": [],
+  "isVerified": true,
+  "memoryLayoutVerified": true,
+  "battleUiVerified": false,
+  "interactiveControlsVerified": false,
+  "gameDataPackId": "modern",
   "customSpecies": {
     "500": { "name": "Lichtoise", "type1": "Water", "type2": "Ghost", "hp": 79, "atk": 63, "def": 100, "spa": 85, "spd": 105, "spe": 78 },
     "501": { "name": "Spectrasaur", "type1": "Grass", "type2": "Ghost", "hp": 80, "atk": 82, "def": 83, "spa": 100, "spd": 100, "spe": 80 },

@@ -17,5 +17,10 @@
   "sha256Hashes": [
     "41cb23d8dccc8ebd7fe649618a31316863b305243f166c0f941a6b9670f958a3",
     "dd5945db94be8075841e2d634304a24c9600a9fa9e9282367d5cf20d23c52e46"
-  ]
+  ],
+  "isVerified": true,
+  "memoryLayoutVerified": true,
+  "battleUiVerified": false,
+  "interactiveControlsVerified": false,
+  "gameDataPackId": "gen3_vanilla"
 }

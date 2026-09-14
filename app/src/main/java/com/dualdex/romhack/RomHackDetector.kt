@@ -4,10 +4,37 @@ import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
 
+enum class ProfileMatchMethod {
+    EXACT_SHA256,
+    FILENAME_KEYWORD,
+    HEADER_TITLE,
+    BASE_GAME_FALLBACK,
+    DEFAULT_FALLBACK
+}
+
+data class ProfileDetectionResult(
+    val profile: RomHackProfile,
+    val matchMethod: ProfileMatchMethod,
+    val sha256: String
+) {
+    val isExactSha256: Boolean
+        get() = matchMethod == ProfileMatchMethod.EXACT_SHA256
+}
+
 object RomHackDetector {
 
     fun detectProfile(romFile: File, profiles: List<RomHackProfile>, preferredTitle: String? = null): RomHackProfile {
-        if (!romFile.exists()) return RomHackProfile.DEFAULT_FIRERED
+        return detectProfileWithConfidence(romFile, profiles, preferredTitle).profile
+    }
+
+    fun detectProfileWithConfidence(
+        romFile: File,
+        profiles: List<RomHackProfile>,
+        preferredTitle: String? = null
+    ): ProfileDetectionResult {
+        if (!romFile.exists()) {
+            return ProfileDetectionResult(RomHackProfile.DEFAULT_FIRERED, ProfileMatchMethod.DEFAULT_FALLBACK, "")
+        }
 
         val headerBytes = ByteArray(192)
         var sha256 = ""
@@ -25,7 +52,12 @@ object RomHackDetector {
             e.printStackTrace()
         }
 
-        return detectProfileFromBytes(headerBytes, sha256, profiles, preferredTitle ?: romFile.name)
+        return detectProfileFromBytesWithConfidence(
+            headerBytes,
+            sha256,
+            profiles,
+            preferredTitle ?: romFile.name
+        )
     }
 
     fun detectProfileFromBytes(
@@ -34,6 +66,15 @@ object RomHackDetector {
         profiles: List<RomHackProfile>,
         fileName: String = ""
     ): RomHackProfile {
+        return detectProfileFromBytesWithConfidence(headerBytes, sha256, profiles, fileName).profile
+    }
+
+    fun detectProfileFromBytesWithConfidence(
+        headerBytes: ByteArray,
+        sha256: String = "",
+        profiles: List<RomHackProfile>,
+        fileName: String = ""
+    ): ProfileDetectionResult {
         // Extract 12-byte ROM title at offset 0xA0 (160)
         val titleStr = if (headerBytes.size >= 172) {
             val titleBytes = headerBytes.sliceArray(160 until 172)
@@ -51,7 +92,7 @@ object RomHackDetector {
             val lowerHash = sha256.lowercase()
             for (p in profiles) {
                 if (p.sha256Hashes.contains(lowerHash)) {
-                    return p
+                    return ProfileDetectionResult(p, ProfileMatchMethod.EXACT_SHA256, sha256)
                 }
             }
         }
@@ -61,7 +102,7 @@ object RomHackDetector {
             for (p in profiles) {
                 for (ht in p.headerTitles) {
                     if (fileName.contains(ht, ignoreCase = true)) {
-                        return p
+                        return ProfileDetectionResult(p, ProfileMatchMethod.FILENAME_KEYWORD, sha256)
                     }
                 }
             }
@@ -71,20 +112,23 @@ object RomHackDetector {
         for (p in profiles) {
             for (ht in p.headerTitles) {
                 if (titleStr.contains(ht, ignoreCase = true) || codeStr.contains(ht, ignoreCase = true)) {
-                    return p
+                    return ProfileDetectionResult(p, ProfileMatchMethod.HEADER_TITLE, sha256)
                 }
             }
         }
 
         // 3. Fallback matching base game codes
         if (codeStr.startsWith("BPR") || titleStr.contains("FIRE", ignoreCase = true)) {
-            return profiles.firstOrNull { it.id == "vanilla_firered" } ?: RomHackProfile.DEFAULT_FIRERED
+            val p = profiles.firstOrNull { it.id == "vanilla_firered" } ?: RomHackProfile.DEFAULT_FIRERED
+            return ProfileDetectionResult(p, ProfileMatchMethod.BASE_GAME_FALLBACK, sha256)
         }
         if (codeStr.startsWith("BPE") || titleStr.contains("EMER", ignoreCase = true)) {
-            return profiles.firstOrNull { it.id == "vanilla_emerald" } ?: RomHackProfile.DEFAULT_FIRERED
+            val p = profiles.firstOrNull { it.id == "vanilla_emerald" } ?: RomHackProfile.DEFAULT_FIRERED
+            return ProfileDetectionResult(p, ProfileMatchMethod.BASE_GAME_FALLBACK, sha256)
         }
 
-        return profiles.firstOrNull() ?: RomHackProfile.DEFAULT_FIRERED
+        val p = profiles.firstOrNull() ?: RomHackProfile.DEFAULT_FIRERED
+        return ProfileDetectionResult(p, ProfileMatchMethod.DEFAULT_FALLBACK, sha256)
     }
 
     fun calculateSha256(file: File): String {

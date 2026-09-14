@@ -14,5 +14,10 @@
   "enemyPartyOffset": 33701932,
   "docsUrl": "https://pokemonunboundpokedex.com/borrius/",
   "headerTitles": ["UNBOUND", "POKEMON UNBOUND"],
-  "sha256Hashes": []
+  "sha256Hashes": [],
+  "isVerified": true,
+  "memoryLayoutVerified": true,
+  "battleUiVerified": false,
+  "interactiveControlsVerified": false,
+  "gameDataPackId": "modern"
 }

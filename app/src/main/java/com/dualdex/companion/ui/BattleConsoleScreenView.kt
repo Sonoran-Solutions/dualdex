@@ -245,6 +245,30 @@ class BattleConsoleScreenView(
 
         contentContainer.removeAllViews()
 
+        val uiSnap = viewModel.battleUiSnapshot.value
+        if (!uiSnap.capabilities.isInteractiveSupported) {
+            val banner = createCardLayout().apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                background = badgeDrawable(0xFF2B2616.toInt(), 0xFFFFAA33.toInt())
+                val icon = TextView(context).apply {
+                    text = "ℹ️"
+                    textSize = 16f
+                    setPadding(0, 0, dp(8), 0)
+                }
+                val msg = TextView(context).apply {
+                    text = "Interactive battle controls unavailable for this ROM/profile (Read-Only Mode)"
+                    setTextColor(0xFFFFAA33.toInt())
+                    textSize = 12f
+                    typeface = Typeface.DEFAULT_BOLD
+                }
+                addView(icon)
+                addView(msg)
+            }
+            contentContainer.addView(banner)
+        }
+
         when (activeSubtab) {
             ConsoleSubtab.BATTLE -> renderBattleSubtab(attacker, defender, selectedIdx, activeEnemyIdx, inBattle, profile, playerStages, enemyStages)
             ConsoleSubtab.PARTY -> renderPartySubtab(party, selectedIdx, inBattle)
@@ -281,10 +305,11 @@ class BattleConsoleScreenView(
         calculationJob = scope.launch {
             val presentations = withContext(Dispatchers.Default) {
                 val list = mutableListOf<MovePresentation>()
+                val dataPack = viewModel.activeGameDataPack
                 for (i in attacker.moves.indices) {
                     val moveId = attacker.moves[i]
                     if (moveId <= 0) continue
-                    val info = MoveDatabase.get(moveId)
+                    val info = MoveDatabase.get(moveId, dataPack)
                     val pres = BattlePresentationBuilder.build(
                         moveInfo = info,
                         currentPp = attacker.pp.getOrNull(i)?.takeIf { it >= 0 },
@@ -355,14 +380,20 @@ class BattleConsoleScreenView(
             contentContainer.addView(speedComparisonBanner(speedComp))
         }
 
-        // 4-Move Interactive Grid
-        contentContainer.addView(sectionHeader("🎮 Move Selection (Tap to Execute)"))
+        // 4-Move Grid
+        val uiSnap = viewModel.battleUiSnapshot.value
+        val sectionTitle = if (uiSnap.capabilities.selectMove) {
+            "🎮 Move Selection (Tap to Execute)"
+        } else {
+            "📖 Move Information (Read-Only)"
+        }
+        contentContainer.addView(sectionHeader(sectionTitle))
         if (lastCachedMoves.isEmpty()) {
             contentContainer.addView(emptyLabel("No moves available for current Pokémon."))
         } else {
             for (i in lastCachedMoves.indices) {
                 val pres = lastCachedMoves[i]
-                contentContainer.addView(interactiveMoveCard(pres, slot = i))
+                contentContainer.addView(interactiveMoveCard(pres, slot = i, canSelect = uiSnap.capabilities.selectMove))
             }
         }
     }
@@ -409,26 +440,31 @@ class BattleConsoleScreenView(
         }
     }
 
-    private fun interactiveMoveCard(pres: MovePresentation, slot: Int): LinearLayout {
+    private fun interactiveMoveCard(pres: MovePresentation, slot: Int, canSelect: Boolean): LinearLayout {
         return createCardLayout().apply {
-            isClickable = true
-            isFocusable = true
+            if (canSelect) {
+                isClickable = true
+                isFocusable = true
 
-            setOnClickListener {
-                val uiSnap = viewModel.battleUiSnapshot.value
-                if (!uiSnap.isInputAccepted) {
-                    showFeedback("⚠️ Cannot select move: Waiting for player turn...")
-                    return@setOnClickListener
-                }
+                setOnClickListener {
+                    val uiSnap = viewModel.battleUiSnapshot.value
+                    if (!uiSnap.isInputAccepted) {
+                        showFeedback("⚠️ Cannot select move: Waiting for player turn...")
+                        return@setOnClickListener
+                    }
 
-                showFeedback("🎮 Selecting ${pres.name}...")
-                val scope = viewScope ?: CoroutineScope(Dispatchers.Main)
-                scope.launch {
-                    val ok = viewModel.battleInputAdapter.selectMove(slot, uiSnap)
-                    if (!ok) {
-                        showFeedback("❌ Move selection aborted")
+                    showFeedback("🎮 Selecting ${pres.name}...")
+                    val scope = viewScope ?: CoroutineScope(Dispatchers.Main)
+                    scope.launch {
+                        val ok = viewModel.battleInputAdapter.selectMove(slot, uiSnap)
+                        if (!ok) {
+                            showFeedback("❌ Move selection aborted")
+                        }
                     }
                 }
+            } else {
+                isClickable = false
+                isFocusable = false
             }
 
             val header = LinearLayout(context).apply {
@@ -484,7 +520,13 @@ class BattleConsoleScreenView(
     // SUBTAB 2: PARTY
     // =========================================================================
     private fun renderPartySubtab(party: List<ParsedPokemon>, activeSlot: Int, inBattle: Boolean) {
-        contentContainer.addView(sectionHeader("👥 Party Members (Tap [Switch In] to Switch)"))
+        val uiSnap = viewModel.battleUiSnapshot.value
+        val sectionTitle = if (uiSnap.capabilities.switchPokemon) {
+            "👥 Party Members (Tap [Switch In] to Switch)"
+        } else {
+            "👥 Party Members (Read-Only)"
+        }
+        contentContainer.addView(sectionHeader(sectionTitle))
 
         if (party.isEmpty()) {
             contentContainer.addView(emptyLabel("No party data detected."))
@@ -552,27 +594,35 @@ class BattleConsoleScreenView(
                         background = badgeDrawable(0xFF331616.toInt(), 0xFFFF4444.toInt())
                     }
                     inBattle -> {
-                        text = "SWITCH IN"
-                        setTextColor(0xFF50C878.toInt())
-                        background = badgeDrawable(0xFF1E3824.toInt(), 0xFF50C878.toInt())
-                        isClickable = true
-                        setOnClickListener {
-                            val uiSnap = viewModel.battleUiSnapshot.value
-                            if (!uiSnap.isInputAccepted) {
-                                showFeedback("⚠️ Cannot switch: Waiting for player turn...")
-                                return@setOnClickListener
-                            }
-                            showFeedback("🎮 Switching to ${mon.nickname}...")
-                            val scope = viewScope ?: CoroutineScope(Dispatchers.Main)
-                            scope.launch {
-                                val ok = viewModel.battleInputAdapter.switchPokemon(
-                                    targetSlot = slot,
-                                    currentUi = uiSnap,
-                                    party = viewModel.playerParty.value,
-                                    activeSlot = activeSlot
-                                )
-                                if (!ok) {
-                                    showFeedback("❌ Switch aborted (illegal or blocked)")
+                        val uiSnap = viewModel.battleUiSnapshot.value
+                        if (!uiSnap.capabilities.switchPokemon) {
+                            text = "IN PARTY"
+                            setTextColor(0xFF888899.toInt())
+                            background = badgeDrawable(0xFF1E1E26.toInt(), 0xFF888899.toInt())
+                            isClickable = false
+                        } else {
+                            text = "SWITCH IN"
+                            setTextColor(0xFF50C878.toInt())
+                            background = badgeDrawable(0xFF1E3824.toInt(), 0xFF50C878.toInt())
+                            isClickable = true
+                            setOnClickListener {
+                                val currentSnap = viewModel.battleUiSnapshot.value
+                                if (!currentSnap.isInputAccepted) {
+                                    showFeedback("⚠️ Cannot switch: Waiting for player turn...")
+                                    return@setOnClickListener
+                                }
+                                showFeedback("🎮 Switching to ${mon.nickname}...")
+                                val scope = viewScope ?: CoroutineScope(Dispatchers.Main)
+                                scope.launch {
+                                    val ok = viewModel.battleInputAdapter.switchPokemon(
+                                        targetSlot = slot,
+                                        currentUi = currentSnap,
+                                        party = viewModel.playerParty.value,
+                                        activeSlot = activeSlot
+                                    )
+                                    if (!ok) {
+                                        showFeedback("❌ Switch aborted (illegal or blocked)")
+                                    }
                                 }
                             }
                         }
@@ -627,7 +677,9 @@ class BattleConsoleScreenView(
 
         val card = createCardLayout().apply {
             addView(fieldRow("Battle state", if (fieldData.inBattle) "⚔️ In battle" else "Ready"))
-            addView(fieldRow("Weather", fieldData.weather.displayName))
+            val weatherDisplay = if (fieldData.weather == WeatherType.UNKNOWN) "Unknown / Unavailable" else fieldData.weather.displayName
+            addView(fieldRow("Weather", weatherDisplay))
+            addView(fieldRow("Side conditions", "Unavailable from memory"))
             addView(fieldRow("Condition", fieldData.condition.displayName))
             addView(fieldRow("Condition verified", yesNo(fieldData.conditionVerified)))
             val effNotes = if (fieldData.effectivenessNotes.isEmpty()) "All moves neutral or verified"

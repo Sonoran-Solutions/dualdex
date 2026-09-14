@@ -99,7 +99,11 @@ object ProfileLoader {
             headerTitles = headerTitles,
             sha256Hashes = sha256Hashes,
             customSpecies = customSpecies,
-            isVerified = json.optBoolean("isVerified", true)
+            isVerified = json.optBoolean("isVerified", false),
+            interactiveControlsVerified = json.optBoolean("interactiveControlsVerified", false),
+            memoryLayoutVerified = json.optBoolean("memoryLayoutVerified", false),
+            battleUiVerified = json.optBoolean("battleUiVerified", false),
+            gameDataPackId = if (json.has("gameDataPackId") && !json.isNull("gameDataPackId")) json.getString("gameDataPackId") else null
         )
     }
 }

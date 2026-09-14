@@ -27,11 +27,13 @@ class InputManager {
     @Volatile
     private var currentMask: Int = 0
 
+    fun getCurrentMask(): Int = currentMask
+
     fun onKeyDown(keyCode: Int): Boolean {
         val mask = mapKeyCodeToMask(keyCode)
         if (mask != 0) {
             currentMask = currentMask or mask
-            LibretroHost.nativeSetInputButtons(currentMask)
+            ControllerInputRouter.setPhysicalMask(currentMask)
             return true
         }
         return false
@@ -41,7 +43,7 @@ class InputManager {
         val mask = mapKeyCodeToMask(keyCode)
         if (mask != 0) {
             currentMask = currentMask and mask.inv()
-            LibretroHost.nativeSetInputButtons(currentMask)
+            ControllerInputRouter.setPhysicalMask(currentMask)
             return true
         }
         return false
@@ -67,7 +69,7 @@ class InputManager {
             if (dy > 0.4f) mask = mask or BTN_DOWN
 
             currentMask = mask
-            LibretroHost.nativeSetInputButtons(currentMask)
+            ControllerInputRouter.setPhysicalMask(currentMask)
             return true
         }
         return false

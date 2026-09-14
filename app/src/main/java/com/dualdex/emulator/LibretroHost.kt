@@ -15,6 +15,9 @@ object LibretroHost {
 
     external fun nativeLoadCore(coreLibPath: String): Boolean
     external fun nativeLoadRom(romPath: String): Boolean
+    external fun nativeUnloadRom(): Boolean
+    external fun nativeGetSaveRamSize(): Long
+    external fun nativeGetSaveStateSize(): Long
     external fun nativeStepFrame()
     external fun nativeSetInputButtons(buttonMask: Int)
     external fun nativeGetVideoFrame(directBuffer: ByteBuffer, outMetadata: IntArray): Boolean

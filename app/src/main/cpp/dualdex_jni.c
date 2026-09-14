@@ -658,6 +658,27 @@ Java_com_dualdex_emulator_LibretroHost_nativeFlushSaveRam(JNIEnv* env, jobject t
     return ok ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeUnloadRom(JNIEnv* env, jobject thiz) {
+    (void)env;
+    (void)thiz;
+    return libretro_host_unload_rom() ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeGetSaveRamSize(JNIEnv* env, jobject thiz) {
+    (void)env;
+    (void)thiz;
+    return (jlong)libretro_host_get_save_ram_size();
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeGetSaveStateSize(JNIEnv* env, jobject thiz) {
+    (void)env;
+    (void)thiz;
+    return (jlong)libretro_host_get_save_state_size();
+}
+
 JNIEXPORT void JNICALL
 Java_com_dualdex_emulator_LibretroHost_nativeResetCore(JNIEnv* env, jobject thiz) {
     (void)env;

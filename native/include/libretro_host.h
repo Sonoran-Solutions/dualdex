@@ -51,6 +51,11 @@ bool libretro_host_init(const char* core_lib_path);
 bool libretro_host_load_rom(const char* rom_file_path);
 
 /**
+ * Unload currently loaded ROM from core.
+ */
+bool libretro_host_unload_rom(void);
+
+/**
  * Run a single frame of emulation (calls retro_run).
  */
 void libretro_host_step_frame(void);
@@ -95,6 +100,16 @@ bool libretro_host_load_save_ram(const char* save_path);
  * Flush cartridge battery save RAM to a .sav file on disk.
  */
 bool libretro_host_flush_save_ram(const char* save_path);
+
+/**
+ * Get active core cartridge battery save RAM size in bytes.
+ */
+size_t libretro_host_get_save_ram_size(void);
+
+/**
+ * Get active core serialize state size in bytes.
+ */
+size_t libretro_host_get_save_state_size(void);
 
 /**
  * Reset emulation core (soft reset).

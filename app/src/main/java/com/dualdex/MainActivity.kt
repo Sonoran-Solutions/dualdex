@@ -75,14 +75,16 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     private val openRomLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             val oldLastPlayed = settingsManager.lastPlayedRomUri
-            val isDurable = RomUriPermissionManager.takePersistableReadPermission(contentResolver, uri)
+            val grantResult = RomUriPermissionManager.takePersistableReadPermission(contentResolver, uri)
+            val isDurable = grantResult.isDurable
             // Capture previous individual URI candidate for release, but ONLY release it
             // after the new ROM switch transaction completes successfully.
             val previousDurableUriToRelease = if (isDurable) oldLastPlayed else null
             handleSelectedRom(
                 uri = uri,
                 isDurable = isDurable,
-                previousDurableUriToRelease = previousDurableUriToRelease
+                previousDurableUriToRelease = previousDurableUriToRelease,
+                newlyAcquiredPersistableGrant = grantResult.isNewlyAcquired
             )
         }
     }
@@ -308,7 +310,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         uri: Uri,
         preferredTitle: String? = null,
         isDurable: Boolean = true,
-        previousDurableUriToRelease: String? = null
+        previousDurableUriToRelease: String? = null,
+        newlyAcquiredPersistableGrant: Boolean = false
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             val result = romSessionManager.switchRom(
@@ -353,6 +356,15 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                         ).show()
                     }
                     is com.dualdex.emulator.SwitchResult.Failure -> {
+                        if (newlyAcquiredPersistableGrant) {
+                            RomUriPermissionManager.releasePersistableReadPermissionOnFailure(
+                                contentResolver = contentResolver,
+                                candidateUriStr = uri.toString(),
+                                currentContinueUriStr = settingsManager.lastPlayedRomUri,
+                                protectedUris = setOfNotNull(settingsManager.romsFolderUri, settingsManager.savesFolderUri),
+                                isNewlyAcquired = true
+                            )
+                        }
                         val wasContinueTarget = settingsManager.lastPlayedRomUri == uri.toString()
                         if (wasContinueTarget && result.isAccessError) {
                             settingsManager.clearLastPlayedRom()

@@ -38,6 +38,17 @@ object DualDexComponents {
         strokeColor = DualDexTheme.Color.border
     )
 
+    fun surfaceCard(context: Context, elevated: Boolean = false): LinearLayout = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        background = surface(context, elevated)
+        setPadding(
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section)
+        )
+    }
+
     fun primaryButton(context: Context, text: CharSequence, onClick: (() -> Unit)? = null): TextView =
         button(context, text, DualDexButtonStyle.PRIMARY, onClick)
 

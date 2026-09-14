@@ -1,16 +1,27 @@
 package com.dualdex.companion.ui
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
+import android.text.InputType
+import android.text.TextUtils
 import android.view.Gravity
-import android.widget.*
+import android.view.View
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
 import com.dualdex.assistant.RomHackAssistant
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.ShaderFilter
 import com.dualdex.settings.SettingsManager
 
+/**
+ * Redesigned Settings screen adhering to the Quiet Handheld Companion design system.
+ * Groups settings logically (Display, Emulation, Save Storage, Assistant, Preferences,
+ * Controls, and About/Diagnostics) using neutral surfaces, segmented controls, and
+ * density-independent spacing.
+ */
 class SettingsScreenView(
     context: Context,
     private val viewModel: CompanionViewModel,
@@ -22,512 +33,414 @@ class SettingsScreenView(
 ) : LinearLayout(context) {
 
     private val settingsManager = SettingsManager(context)
-    private val shaderDescView = TextView(context).apply {
-        setTextColor(0xFFAAAAAA.toInt())
-        textSize = 12f
-        setPadding(0, 2, 0, 0)
-    }
     private val apiKeyInput: EditText
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(0xFF121216.toInt())
-        setPadding(20, 20, 20, 20)
+        setBackgroundColor(DualDexTheme.Color.background)
+        setPadding(
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            0
+        )
 
-        val scroll = ScrollView(context).apply { isVerticalScrollBarEnabled = true }
-        val content = LinearLayout(context).apply { orientation = VERTICAL }
+        val scroll = ScrollView(context).apply {
+            isVerticalScrollBarEnabled = true
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+        }
+        val content = LinearLayout(context).apply {
+            orientation = VERTICAL
+            setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.major))
+        }
         scroll.addView(content)
         addView(scroll)
 
-        // Title
-        val titleView = TextView(context).apply {
-            text = "⚙️ DualDex Settings & Configuration"
-            setTextColor(Color.WHITE)
-            textSize = 20f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, 0, 0, 16)
-        }
-        content.addView(titleView)
-
-        // 1. Display & Retro Shaders Card
-        val shaderCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "Retro Display Shaders & Scaling"
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 8)
+        // 1. Screen Title
+        content.addView(
+            DualDexComponents.screenTitle(context, "Settings"),
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = context.dp(DualDexTheme.Spacing.section)
             }
-            addView(label)
+        )
 
-            val shaderRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                setPadding(0, 4, 0, 8)
+        // 2. Display Section
+        val displayCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "Display"))
+
+            // Shader Filter
+            val filterLabel = TextView(context).apply {
+                text = "Shader Filter"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
             }
+            addView(filterLabel)
 
+            val filters = ShaderFilter.values()
+            val filterNames = filters.map { filter ->
+                when (filter) {
+                    ShaderFilter.NEAREST -> "Nearest"
+                    ShaderFilter.SHARP_BILINEAR -> "Bilinear"
+                    ShaderFilter.LCD_GRID -> "LCD Grid"
+                    ShaderFilter.CRT_SCANLINE -> "Scanlines"
+                }
+            }
             val curFilter = settingsManager.shaderFilter
-            ShaderFilter.values().forEach { filter ->
-                val btn = Button(context).apply {
-                    text = filter.displayName.split(" ")[0] // short name
-                    textSize = 11f
-                    setTextColor(Color.WHITE)
-                    background = GradientDrawable().apply {
-                        cornerRadius = 12f
-                        setColor(if (filter == curFilter) 0xFF4A9EFF.toInt() else 0xFF282834.toInt())
-                    }
-                    setPadding(12, 6, 12, 6)
-                    setOnClickListener {
-                        settingsManager.shaderFilter = filter
-                        onShaderChanged?.invoke(filter)
-                        updateShaderButtons(shaderRow, filter)
-                        shaderDescView.text = "${filter.displayName}: ${filter.description}"
-                    }
-                }
-                val lp = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply {
-                    setMargins(0, 0, 6, 0)
-                }
-                shaderRow.addView(btn, lp)
-            }
-            addView(shaderRow)
+            val initialFilterIdx = filters.indexOf(curFilter).coerceAtLeast(0)
 
-            shaderDescView.text = "${curFilter.displayName}: ${curFilter.description}"
+            val shaderDescView = TextView(context).apply {
+                text = "${curFilter.displayName} · ${curFilter.description}"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.compact
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.standard))
+            }
+
+            val shaderSegment = DualDexComponents.segmentedControl(
+                context = context,
+                items = filterNames,
+                initialIndex = initialFilterIdx,
+                onItemSelected = { idx ->
+                    val chosen = filters[idx]
+                    settingsManager.shaderFilter = chosen
+                    onShaderChanged?.invoke(chosen)
+                    shaderDescView.text = "${chosen.displayName} · ${chosen.description}"
+                }
+            )
+            addView(shaderSegment)
             addView(shaderDescView)
 
-            // Stretch to fill screen toggle (My Boy! mode)
+            // Aspect Ratio / Scaling
+            val aspectLabel = TextView(context).apply {
+                text = "Aspect Ratio"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.tight))
+            }
+            addView(aspectLabel)
+
             val isStretch = settingsManager.isStretchToFitEnabled
-            val stretchBtn = Button(context).apply {
-                text = if (isStretch) "📱 Aspect Ratio: Stretch to Fill Screen" else "📺 Aspect Ratio: 3:2 Standard (Letterbox)"
-                setTextColor(Color.WHITE)
-                textSize = 12f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = 12f
-                    setColor(if (isStretch) 0xFF2E6B4A.toInt() else 0xFF2B3A55.toInt())
+            val aspectSegment = DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("3:2 Standard (Letterbox)", "Stretch to Fill"),
+                initialIndex = if (isStretch) 1 else 0,
+                onItemSelected = { idx ->
+                    val stretch = (idx == 1)
+                    settingsManager.isStretchToFitEnabled = stretch
+                    onStretchChanged?.invoke(stretch)
                 }
-                setPadding(14, 10, 14, 10)
-                setOnClickListener {
-                    val newState = !settingsManager.isStretchToFitEnabled
-                    settingsManager.isStretchToFitEnabled = newState
-                    onStretchChanged?.invoke(newState)
-                    text = if (newState) "📱 Aspect Ratio: Stretch to Fill Screen" else "📺 Aspect Ratio: 3:2 Standard (Letterbox)"
-                    (background as? GradientDrawable)?.setColor(if (newState) 0xFF2E6B4A.toInt() else 0xFF2B3A55.toInt())
-                }
-            }
-            val lpStretch = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 10, 0, 0)
-            }
-            addView(stretchBtn, lpStretch)
+            )
+            addView(aspectSegment)
         }
-        content.addView(shaderCard)
+        content.addView(displayCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
 
-        // 2. Emulation Speed & Fast-Forward Card
-        val speedCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "Emulation Speed & Fast-Forward"
-                setTextColor(0xFFFFD700.toInt())
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 8)
+        // 3. Emulation Section
+        val emulationCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "Emulation"))
+
+            val speedLabel = TextView(context).apply {
+                text = "Fast-Forward Speed"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
             }
-            addView(label)
+            addView(speedLabel)
 
-            val speedRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                setPadding(0, 4, 0, 8)
-            }
+            val speeds = listOf(1, 2, 3, 4)
+            val speedLabels = listOf("1x Normal", "2x Fast", "3x Turbo", "4x Max")
+            val currentSpeed = settingsManager.fastForwardMultiplier
+            val initialSpeedIdx = speeds.indexOf(currentSpeed).coerceIn(0, speeds.size - 1)
 
-            listOf(1 to "1x Normal", 2 to "2x Fast", 3 to "3x Turbo", 4 to "4x Max").forEach { (speed, speedTitle) ->
-                val btn = Button(context).apply {
-                    text = speedTitle
-                    textSize = 11f
-                    setTextColor(Color.WHITE)
-                    background = GradientDrawable().apply {
-                        cornerRadius = 12f
-                        setColor(if (speed == settingsManager.fastForwardMultiplier) 0xFF4A9EFF.toInt() else 0xFF282834.toInt())
-                    }
-                    setPadding(10, 6, 10, 6)
-                    setOnClickListener {
-                        settingsManager.fastForwardMultiplier = speed
-                        onSpeedChanged?.invoke(speed)
-                        updateSpeedButtons(speedRow, speed)
-                    }
+            val speedSegment = DualDexComponents.segmentedControl(
+                context = context,
+                items = speedLabels,
+                initialIndex = initialSpeedIdx,
+                onItemSelected = { idx ->
+                    val chosen = speeds[idx]
+                    settingsManager.fastForwardMultiplier = chosen
+                    onSpeedChanged?.invoke(chosen)
                 }
-                val lp = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply {
-                    setMargins(0, 0, 6, 0)
-                }
-                speedRow.addView(btn, lp)
-            }
-            addView(speedRow)
-
-            val perfInfo = TextView(context).apply {
-                text = "Performance: 59.7 FPS target | EWRAM Poller: 10Hz (latency <0.05ms) | Audio: 32768Hz"
-                setTextColor(0xFF50C878.toInt())
-                textSize = 11.5f
-                setPadding(0, 4, 0, 0)
-            }
-            addView(perfInfo)
+            )
+            addView(speedSegment)
         }
-        content.addView(speedCard)
+        content.addView(emulationCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
 
-        // 3. AYN Thor Physical Controls Mapping Card
-        val controlsCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "AYN Thor Controller Mapping"
-                setTextColor(0xFF50C878.toInt())
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 8)
-            }
-            addView(label)
-
-            val mapText = TextView(context).apply {
-                text = "• D-Pad / Left Stick: GBA Directional Movement\n" +
-                       "• Button A: GBA Button A (Confirm / Talk)\n" +
-                       "• Button B: GBA Button B (Cancel / Run)\n" +
-                       "• Button X / Y: Quick Turbo / Menu Shortcut\n" +
-                       "• L1 / R1: GBA Left / Right Shoulder Triggers\n" +
-                       "• L2 / R2: Quick Save State (L2) / Quick Load State (R2)\n" +
-                       "• Start / Select: GBA Start / Select Buttons"
-                setTextColor(0xFFDDDDDD.toInt())
-                textSize = 13f
-                setLineSpacing(5f, 1f)
-            }
-            addView(mapText)
-        }
-        content.addView(controlsCard)
-
-        // 4. Gemini API Key Configuration
-        val apiCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "Google Gemini API Key (Assistant Grounding)"
-                setTextColor(0xFFE2BF65.toInt())
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 8)
-            }
-            addView(label)
+        // 4. Save Storage Section
+        val storageCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "Save Storage"))
 
             val desc = TextView(context).apply {
-                text = "Your Google AI Pro subscription provides Cloud credits. Enter your Google AI Studio API key here to activate live Google Search grounding."
-                setTextColor(0xFFAAAAAA.toInt())
-                textSize = 12f
-                setPadding(0, 0, 0, 8)
-            }
-            addView(desc)
-
-            apiKeyInput = EditText(context).apply {
-                hint = "Enter Gemini API Key (AIzaSy...)"
-                setHintTextColor(0xFF777788.toInt())
-                setTextColor(Color.WHITE)
-                textSize = 13f
-                setText(settingsManager.geminiApiKey ?: "")
-                background = GradientDrawable().apply {
-                    cornerRadius = 12f
-                    setColor(0xFF16161E.toInt())
-                    setStroke(2, 0xFF333348.toInt())
-                }
-                setPadding(16, 10, 16, 10)
-            }
-            addView(apiKeyInput)
-
-            val modelLabel = TextView(context).apply {
-                text = "Active AI Model"
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 13f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 10, 0, 4)
-            }
-            addView(modelLabel)
-
-            val modelRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                setPadding(0, 0, 0, 10)
-            }
-
-            val models = listOf("gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash")
-            val modelLabels = listOf("Flash 3.8", "Flash 2.5", "Flash 2.0")
-
-            fun updateModelRow() {
-                modelRow.removeAllViews()
-                val currentModel = settingsManager.geminiModel
-                models.forEachIndexed { i, m ->
-                    val isSel = (m == currentModel)
-                    val mBtn = Button(context).apply {
-                        text = modelLabels[i]
-                        textSize = 11f
-                        setTextColor(Color.WHITE)
-                        background = GradientDrawable().apply {
-                            cornerRadius = 10f
-                            setColor(if (isSel) 0xFF4A9EFF.toInt() else 0xFF282834.toInt())
-                        }
-                        setPadding(10, 6, 10, 6)
-                        setOnClickListener {
-                            settingsManager.geminiModel = m
-                            RomHackAssistant.setModel(m)
-                            updateModelRow()
-                            Toast.makeText(context, "Set model to $m", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    val lpM = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply {
-                        setMargins(0, 0, if (i < models.size - 1) 6 else 0, 0)
-                    }
-                    modelRow.addView(mBtn, lpM)
-                }
-            }
-            updateModelRow()
-            addView(modelRow)
-
-            val saveKeyBtn = Button(context).apply {
-                text = "Save API Key"
-                setTextColor(Color.WHITE)
-                textSize = 12.5f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = 14f
-                    setColor(0xFF4A9EFF.toInt())
-                }
-                setPadding(18, 8, 18, 8)
-                setOnClickListener {
-                    val key = apiKeyInput.text.toString().trim()
-                    settingsManager.geminiApiKey = if (key.isNotEmpty()) key else null
-                    RomHackAssistant.setApiKey(settingsManager.geminiApiKey)
-                    Toast.makeText(context, if (key.isNotEmpty()) "Gemini API key saved!" else "API key cleared", Toast.LENGTH_SHORT).show()
-                }
-            }
-            val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 10, 0, 0)
-            }
-            addView(saveKeyBtn, lp)
-        }
-        content.addView(apiCard)
-
-        // 5. ROM Saves Storage Directory Card (SAF & Fallback)
-        val savesStorageCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "💾 ROM Saves Storage Directory"
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 4)
-            }
-            addView(label)
-
-            val desc = TextView(context).apply {
-                text = "DualDex supports Scoped Storage via Android SAF. Select a user-visible folder (like Documents) so your .sav and .state files can be synced with PC or other emulators."
-                setTextColor(0xFFAAAAAA.toInt())
-                textSize = 12f
-                setPadding(0, 0, 0, 8)
+                text = "DualDex saves directly to private internal storage. You can optionally mirror saves to a shared folder (such as Documents) to sync saves with PC or other devices."
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
             }
             addView(desc)
 
             val storageDescView = TextView(context).apply {
                 val current = settingsManager.savesFolderUri
-                text = if (!current.isNullOrBlank()) "Active Location: Custom SAF Folder" else "Active Location: Internal App Storage (Private)"
-                setTextColor(Color.WHITE)
-                textSize = 12.5f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 10)
+                text = if (!current.isNullOrBlank()) "Active Location: Custom Shared Folder" else "Active Location: Internal App Storage (Private)"
+                setTextColor(DualDexTheme.Color.textPrimary)
+                textSize = DualDexTheme.Type.body
+                setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.standard))
             }
             addView(storageDescView)
 
             val btnRow = LinearLayout(context).apply {
                 orientation = HORIZONTAL
-                setPadding(0, 4, 0, 0)
-            }
-
-            val pickFolderBtn = Button(context).apply {
-                text = "📁 Select Saves Folder"
-                setTextColor(Color.WHITE)
-                textSize = 12f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = 12f
-                    setColor(0xFF2B4A77.toInt())
-                }
-                setPadding(14, 8, 14, 8)
-                setOnClickListener {
+                val pickFolderBtn = DualDexComponents.secondaryButton(context, "Choose Folder") {
                     onChooseSavesFolderRequested?.invoke()
                 }
-            }
-            val lp1 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(0, 0, 6, 0) }
-            btnRow.addView(pickFolderBtn, lp1)
+                addView(pickFolderBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f).apply {
+                    marginEnd = context.dp(DualDexTheme.Spacing.compact)
+                })
 
-            val resetBtn = Button(context).apply {
-                text = "🔄 Reset to Internal"
-                setTextColor(Color.WHITE)
-                textSize = 12f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = 12f
-                    setColor(0xFF44222A.toInt())
-                }
-                setPadding(14, 8, 14, 8)
-                setOnClickListener {
+                val resetBtn = DualDexComponents.ghostControl(context, "Reset to Internal") {
                     settingsManager.savesFolderUri = null
                     storageDescView.text = "Active Location: Internal App Storage (Private)"
                     Toast.makeText(context, "Reset saves storage to internal app storage", Toast.LENGTH_SHORT).show()
                 }
+                addView(resetBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
             }
-            val lp2 = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f).apply { setMargins(6, 0, 0, 0) }
-            btnRow.addView(resetBtn, lp2)
-
             addView(btnRow)
         }
-        content.addView(savesStorageCard)
+        content.addView(storageCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
 
-        // Cheats Quick Access Card
-        val cheatCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "⚡ Action Replay & Cheats"
-                setTextColor(0xFFFFD700.toInt())
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 6)
-            }
-            addView(label)
+        // 5. Assistant Section (AI)
+        val assistantCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "Assistant"))
 
             val desc = TextView(context).apply {
-                text = "Input, toggle, and manage Action Replay, GameShark, and CodeBreaker cheats for the active game."
-                setTextColor(0xFFAAAAAA.toInt())
-                textSize = 12f
-                setPadding(0, 0, 0, 10)
+                text = "Optional Google Gemini integration for walkthrough questions and ROM hack grounding."
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
             }
             addView(desc)
 
-            val openCheatsBtn = Button(context).apply {
-                text = "⚡ Open Cheats Manager"
-                setTextColor(Color.WHITE)
-                textSize = 12.5f
-                typeface = Typeface.DEFAULT_BOLD
-                background = GradientDrawable().apply {
-                    cornerRadius = 14f
-                    setColor(0xFF2E6B4A.toInt())
-                }
-                setPadding(18, 8, 18, 8)
-                setOnClickListener {
-                    viewModel.selectTab(com.dualdex.companion.CompanionTab.CHEATS)
-                    onTabSelected?.invoke(com.dualdex.companion.CompanionTab.CHEATS)
-                }
+            apiKeyInput = DualDexComponents.styledInput(context, "Gemini API Key (AIzaSy...)").apply {
+                setText(settingsManager.geminiApiKey.orEmpty())
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             }
-            val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
-            addView(openCheatsBtn, lp)
+            addView(apiKeyInput, LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                context.dp(DualDexTheme.Spacing.touchTarget)
+            ).apply { bottomMargin = context.dp(DualDexTheme.Spacing.compact) })
+
+            val keyBtnRow = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                val saveKeyBtn = DualDexComponents.primaryButton(context, "Save Key") {
+                    val key = apiKeyInput.text.toString().trim()
+                    settingsManager.geminiApiKey = if (key.isNotEmpty()) key else null
+                    RomHackAssistant.setApiKey(settingsManager.geminiApiKey)
+                    Toast.makeText(context, if (key.isNotEmpty()) "Gemini API key saved" else "API key cleared", Toast.LENGTH_SHORT).show()
+                }
+                addView(saveKeyBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f).apply {
+                    marginEnd = context.dp(DualDexTheme.Spacing.compact)
+                })
+
+                val clearKeyBtn = DualDexComponents.ghostControl(context, "Clear Key") {
+                    apiKeyInput.setText("")
+                    settingsManager.geminiApiKey = null
+                    RomHackAssistant.setApiKey(null)
+                    Toast.makeText(context, "API key cleared", Toast.LENGTH_SHORT).show()
+                }
+                addView(clearKeyBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
+            }
+            addView(keyBtnRow)
+
+            val modelLabel = TextView(context).apply {
+                text = "Active AI Model"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.standard), 0, context.dp(DualDexTheme.Spacing.tight))
+            }
+            addView(modelLabel)
+
+            val models = listOf("gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash")
+            val modelLabels = listOf("Flash 3.8", "Flash 2.5", "Flash 2.0")
+            val currentModel = settingsManager.geminiModel
+            val initialModelIdx = models.indexOf(currentModel).coerceAtLeast(0)
+
+            val modelSegment = DualDexComponents.segmentedControl(
+                context = context,
+                items = modelLabels,
+                initialIndex = initialModelIdx,
+                onItemSelected = { idx ->
+                    val chosen = models[idx]
+                    settingsManager.geminiModel = chosen
+                    RomHackAssistant.setModel(chosen)
+                    Toast.makeText(context, "Set model to ${modelLabels[idx]}", Toast.LENGTH_SHORT).show()
+                }
+            )
+            addView(modelSegment)
         }
-        content.addView(cheatCard)
+        content.addView(assistantCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
 
-        // Experimental Features Card
-        val experimentalCard = createCardLayout().apply {
-            val label = TextView(context).apply {
-                text = "🧪 Experimental Features"
-                setTextColor(0xFFFF8844.toInt())
-                textSize = 15f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 6)
+        // 6. Preferences & Experimental Section
+        val preferencesCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "Preferences"))
+
+            // Battle Console Auto-Open
+            val autoOpenLabel = TextView(context).apply {
+                text = "Auto-Open Battle Console on Battle Start"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
             }
-            addView(label)
+            addView(autoOpenLabel)
 
-            val desc = TextView(context).apply {
-                text = "Toggle early-access development features for battle companions and touch controls."
-                setTextColor(0xFFAAAAAA.toInt())
-                textSize = 12f
-                setPadding(0, 0, 0, 10)
+            val isAutoOpen = settingsManager.isBattleAutoOpenEnabled
+            val autoOpenSegment = DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Off", "On"),
+                initialIndex = if (isAutoOpen) 1 else 0,
+                onItemSelected = { idx ->
+                    val enabled = (idx == 1)
+                    settingsManager.isBattleAutoOpenEnabled = enabled
+                    viewModel.setBattleAutoOpenEnabled(enabled)
+                    Toast.makeText(
+                        context,
+                        if (enabled) "Battle Console will open when battle starts" else "Auto-open disabled",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            )
+            addView(autoOpenSegment)
+
+            // Interactive Touch Controls
+            val touchControlsLabel = TextView(context).apply {
+                text = "Interactive Touch Controls (Experimental)"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.standard), 0, context.dp(DualDexTheme.Spacing.tight))
             }
-            addView(desc)
+            addView(touchControlsLabel)
 
-            var autoOpenBattle = settingsManager.isBattleAutoOpenEnabled
-            val toggleBattleBtn = Button(context).apply {
-                fun updateText() {
-                    text = if (autoOpenBattle) "Auto-open Battle Console: On" else "Auto-open Battle Console: Off"
-                    background = GradientDrawable().apply {
-                        cornerRadius = 14f
-                        setColor(if (autoOpenBattle) 0xFF2E6B4A.toInt() else 0xFF3E3E4E.toInt())
+            val isInteractive = settingsManager.isInteractiveBattleControlsEnabled
+            val touchSegment = DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Read-Only (Default)", "Allowed"),
+                initialIndex = if (isInteractive) 1 else 0,
+                onItemSelected = { idx ->
+                    val enabled = (idx == 1)
+                    settingsManager.isInteractiveBattleControlsEnabled = enabled
+                    viewModel.setInteractiveBattleControlsEnabled(enabled)
+                    Toast.makeText(
+                        context,
+                        if (enabled) "Verified touch controls allowed when supported" else "Touch controls set to read-only",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            )
+            addView(touchSegment)
+
+            val touchDisclaimer = TextView(context).apply {
+                text = "Touch controls require exact ROM profiles with verified cursor and party menu readers. Safe read-only mode is active for all standard profiles."
+                setTextColor(DualDexTheme.Color.textDisabled)
+                textSize = DualDexTheme.Type.compact
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+            }
+            addView(touchDisclaimer)
+        }
+        content.addView(preferencesCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
+
+        // 7. Controls Reference Section (AYN Thor Hardware Mapping)
+        val controlsCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "Controls"))
+
+            val subtitle = TextView(context).apply {
+                text = "AYN Thor physical hardware controller mapping."
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
+            }
+            addView(subtitle)
+
+            val mappingRows = listOf(
+                "D-Pad / Left Stick" to "GBA Directional Movement",
+                "Button A / B" to "A: Confirm / B: Cancel or Run",
+                "Button X / Y" to "Turbo / Menu Shortcut",
+                "L1 / R1" to "GBA Left / Right Triggers",
+                "L2 / R2" to "Quick Save (L2) / Quick Load (R2)",
+                "Start / Select" to "GBA Start / Select Buttons"
+            )
+
+            mappingRows.forEachIndexed { index, (key, value) ->
+                val row = LinearLayout(context).apply {
+                    orientation = HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    minimumHeight = context.dp(28)
+                    val keyTv = TextView(context).apply {
+                        text = key
+                        setTextColor(DualDexTheme.Color.textPrimary)
+                        textSize = DualDexTheme.Type.body
+                        typeface = Typeface.DEFAULT_BOLD
                     }
-                }
-                setTextColor(Color.WHITE)
-                textSize = 12f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(18, 8, 18, 8)
-                updateText()
-                setOnClickListener {
-                    autoOpenBattle = !autoOpenBattle
-                    settingsManager.isBattleAutoOpenEnabled = autoOpenBattle
-                    viewModel.setBattleAutoOpenEnabled(autoOpenBattle)
-                    updateText()
-                    Toast.makeText(context, if (autoOpenBattle) "Battle Console will open when a battle begins" else "Battle Console auto-open disabled", Toast.LENGTH_SHORT).show()
-                }
-            }
-            val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
-            addView(toggleBattleBtn, lp)
-
-            var isInteractiveControls = settingsManager.isInteractiveBattleControlsEnabled
-            val toggleInteractiveBtn = Button(context).apply {
-                fun updateText() {
-                    text = if (isInteractiveControls) "🎮 Verified Touch Controls: Allowed" else "🎮 Verified Touch Controls: Disabled (Read-Only)"
-                    background = GradientDrawable().apply {
-                        cornerRadius = 14f
-                        setColor(if (isInteractiveControls) 0xFF2E6B4A.toInt() else 0xFF3E3E4E.toInt())
+                    val valTv = TextView(context).apply {
+                        text = value
+                        setTextColor(DualDexTheme.Color.textSecondary)
+                        textSize = DualDexTheme.Type.body
+                        gravity = Gravity.END
                     }
+                    addView(keyTv, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.1f))
+                    addView(valTv, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.4f))
                 }
-                setTextColor(Color.WHITE)
-                textSize = 12f
+                addView(row)
+                if (index < mappingRows.lastIndex) {
+                    addView(DualDexComponents.divider(context), LayoutParams(
+                        LayoutParams.MATCH_PARENT,
+                        context.dp(1)
+                    ).apply {
+                        topMargin = context.dp(DualDexTheme.Spacing.tight)
+                        bottomMargin = context.dp(DualDexTheme.Spacing.tight)
+                    })
+                }
+            }
+        }
+        content.addView(controlsCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
+
+        // 8. About & Diagnostics Section
+        val aboutCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "About & Diagnostics"))
+
+            val versionTv = TextView(context).apply {
+                text = "DualDex 0.9.0-beta.1 · Handheld Edition"
+                setTextColor(DualDexTheme.Color.textPrimary)
+                textSize = DualDexTheme.Type.body
                 typeface = Typeface.DEFAULT_BOLD
-                setPadding(18, 8, 18, 8)
-                updateText()
-                setOnClickListener {
-                    isInteractiveControls = !isInteractiveControls
-                    settingsManager.isInteractiveBattleControlsEnabled = isInteractiveControls
-                    viewModel.setInteractiveBattleControlsEnabled(isInteractiveControls)
-                    updateText()
-                    Toast.makeText(context, if (isInteractiveControls) "Verified touch controls allowed when supported" else "Touch battle controls disabled (Read-only)", Toast.LENGTH_SHORT).show()
-                }
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, 0)
             }
-            val lpInteractive = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 8, 0, 0)
-            }
-            addView(toggleInteractiveBtn, lpInteractive)
-            addView(TextView(context).apply {
-                text = "Only exact ROM builds with verified battle-menu and cursor readers can use touch controls. No bundled profile currently supports interactive controls."
-                setTextColor(0xFFAAAAAA.toInt())
-                textSize = 11f
-                setPadding(4, 6, 4, 0)
-            })
-        }
-        content.addView(experimentalCard)
-    }
+            addView(versionTv)
 
-    private fun updateShaderButtons(row: LinearLayout, selected: ShaderFilter) {
-        for (i in 0 until row.childCount) {
-            val btn = row.getChildAt(i) as? Button ?: continue
-            val filter = ShaderFilter.values()[i]
-            btn.background = GradientDrawable().apply {
-                cornerRadius = 12f
-                setColor(if (filter == selected) 0xFF4A9EFF.toInt() else 0xFF282834.toInt())
+            val diagnosticsTv = TextView(context).apply {
+                text = "Target: 59.7 FPS · EWRAM Poller: 10 Hz (<0.05 ms latency) · Audio: 32,768 Hz stereo PCM"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
             }
-        }
-    }
+            addView(diagnosticsTv)
 
-    private fun updateSpeedButtons(row: LinearLayout, selectedSpeed: Int) {
-        val speeds = listOf(1, 2, 3, 4)
-        for (i in 0 until row.childCount) {
-            val btn = row.getChildAt(i) as? Button ?: continue
-            val spd = speeds[i]
-            btn.background = GradientDrawable().apply {
-                cornerRadius = 12f
-                setColor(if (spd == selectedSpeed) 0xFF4A9EFF.toInt() else 0xFF282834.toInt())
+            val noticesTv = TextView(context).apply {
+                text = "Core: mGBA (MPL-2.0) · Calculator: @smogon/calc via QuickJS-NG\nNot affiliated with Nintendo, The Pokémon Company, or Game Freak."
+                setTextColor(DualDexTheme.Color.textDisabled)
+                textSize = DualDexTheme.Type.compact
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
             }
+            addView(noticesTv)
         }
-    }
-
-    private fun createCardLayout(): LinearLayout {
-        return LinearLayout(context).apply {
-            orientation = VERTICAL
-            setPadding(18, 16, 18, 16)
-            background = GradientDrawable().apply {
-                cornerRadius = 18f
-                setColor(0xFF1E1E26.toInt())
-            }
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 0, 0, 16)
-            }
-        }
+        content.addView(aboutCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     }
 }

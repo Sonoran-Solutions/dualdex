@@ -10,6 +10,11 @@ import com.dualdex.companion.ui.CompanionScreenView
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 
+/**
+ * A Presentation instance is single-use in the current display architecture. MainActivity
+ * dismisses an existing instance before creating and showing a replacement, so a stopped
+ * presentation is never re-shown with a cancelled scope.
+ */
 class CompanionPresentation(
     context: Context,
     display: Display,
@@ -71,6 +76,7 @@ class CompanionPresentation(
 
     override fun onStop() {
         super.onStop()
+        // MainActivity reconstructs this Presentation before any future show().
         presentationScope.cancel()
         companionScreenView = null
     }

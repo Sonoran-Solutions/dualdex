@@ -15,6 +15,7 @@ import com.dualdex.companion.RomItem
 import com.dualdex.settings.SettingsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -29,7 +30,7 @@ class HomeScreenView(
 ) : LinearLayout(context) {
 
     private val settingsManager = SettingsManager(context)
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private var viewScope: CoroutineScope? = null
     private val romsContainer: LinearLayout
     private val folderStatusText: TextView
     private val resumeCard: LinearLayout
@@ -211,15 +212,6 @@ class HomeScreenView(
         }
         content.addView(romsContainer)
 
-        // Observe scanned ROMs from ViewModel
-        scope.launch {
-            viewModel.scannedRoms.collectLatest { roms ->
-                allRoms = roms
-                filterRoms(searchInput.text.toString())
-                updateFolderStatus()
-            }
-        }
-
         updateResumeCard()
         updateFolderStatus()
     }
@@ -342,5 +334,25 @@ class HomeScreenView(
                 setMargins(0, 0, 0, 10)
             }
         }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        viewScope?.cancel()
+        val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+        viewScope = scope
+        scope.launch {
+            viewModel.scannedRoms.collectLatest { roms ->
+                allRoms = roms
+                filterRoms(searchInput.text.toString())
+                updateFolderStatus()
+            }
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        viewScope?.cancel()
+        viewScope = null
     }
 }

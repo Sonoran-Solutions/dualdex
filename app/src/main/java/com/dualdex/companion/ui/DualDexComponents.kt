@@ -6,6 +6,7 @@ import android.graphics.PorterDuff
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.widget.ImageView
@@ -17,6 +18,15 @@ import androidx.annotation.DrawableRes
 enum class DualDexButtonStyle { PRIMARY, SECONDARY, GHOST, DESTRUCTIVE }
 
 object DualDexComponents {
+    private data class ControlStateColors(
+        val normal: Int,
+        val pressed: Int,
+        val selected: Int,
+        val focused: Int,
+        val disabled: Int,
+        val stroke: Int
+    )
+
     fun surface(context: Context, elevated: Boolean = false): GradientDrawable = roundedDrawable(
         context = context,
         color = if (elevated) DualDexTheme.Color.elevatedSurface else DualDexTheme.Color.surface,
@@ -117,9 +127,14 @@ object DualDexComponents {
         setPadding(context.dp(DualDexTheme.Spacing.standard), 0, context.dp(DualDexTheme.Spacing.standard), 0)
         textSize = DualDexTheme.Type.meta
         typeface = Typeface.DEFAULT_BOLD
+        val foreground = when (style) {
+            DualDexButtonStyle.PRIMARY -> DualDexTheme.Color.onAccent
+            DualDexButtonStyle.DESTRUCTIVE -> DualDexTheme.Color.onDanger
+            DualDexButtonStyle.SECONDARY, DualDexButtonStyle.GHOST -> DualDexTheme.Color.textPrimary
+        }
         setTextColor(ColorStateList(
             arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
-            intArrayOf(DualDexTheme.Color.textDisabled, DualDexTheme.Color.textPrimary)
+            intArrayOf(DualDexTheme.Color.textDisabled, foreground)
         ))
         background = controlBackground(context, style, selected = false)
         isFocusable = true
@@ -133,30 +148,30 @@ object DualDexComponents {
         style: DualDexButtonStyle,
         selected: Boolean
     ): StateListDrawable {
-        val (normal, pressed, selectedColor, disabled, stroke) = when (style) {
-            DualDexButtonStyle.PRIMARY -> listOf(
+        val colors = when (style) {
+            DualDexButtonStyle.PRIMARY -> ControlStateColors(
                 DualDexTheme.Color.accent, DualDexTheme.Color.accentPressed, DualDexTheme.Color.accent,
-                DualDexTheme.Color.textDisabled, DualDexTheme.Color.accent
+                DualDexTheme.Color.accentFocused, DualDexTheme.Color.surfaceDisabled, DualDexTheme.Color.accent
             )
-            DualDexButtonStyle.SECONDARY -> listOf(
+            DualDexButtonStyle.SECONDARY -> ControlStateColors(
                 DualDexTheme.Color.elevatedSurface, DualDexTheme.Color.surfacePressed, DualDexTheme.Color.surfaceSelected,
-                DualDexTheme.Color.surface, DualDexTheme.Color.border
+                DualDexTheme.Color.surfaceFocused, DualDexTheme.Color.surfaceDisabled, DualDexTheme.Color.border
             )
-            DualDexButtonStyle.GHOST -> listOf(
+            DualDexButtonStyle.GHOST -> ControlStateColors(
                 DualDexTheme.Color.transparent, DualDexTheme.Color.surfacePressed, DualDexTheme.Color.surfaceSelected,
-                DualDexTheme.Color.transparent, DualDexTheme.Color.transparent
+                DualDexTheme.Color.surfaceFocused, DualDexTheme.Color.transparent, DualDexTheme.Color.transparent
             )
-            DualDexButtonStyle.DESTRUCTIVE -> listOf(
+            DualDexButtonStyle.DESTRUCTIVE -> ControlStateColors(
                 DualDexTheme.Color.danger, DualDexTheme.Color.dangerPressed, DualDexTheme.Color.danger,
-                DualDexTheme.Color.textDisabled, DualDexTheme.Color.danger
+                DualDexTheme.Color.dangerFocused, DualDexTheme.Color.surfaceDisabled, DualDexTheme.Color.danger
             )
         }
         return StateListDrawable().apply {
-            addState(intArrayOf(-android.R.attr.state_enabled), roundedDrawable(context, disabled, DualDexTheme.Radius.control, DualDexTheme.Color.border))
-            addState(intArrayOf(android.R.attr.state_pressed), roundedDrawable(context, pressed, DualDexTheme.Radius.control, stroke))
-            addState(intArrayOf(android.R.attr.state_focused), roundedDrawable(context, selectedColor, DualDexTheme.Radius.control, DualDexTheme.Color.accent, DualDexTheme.Control.focusStroke))
-            addState(intArrayOf(android.R.attr.state_selected), roundedDrawable(context, selectedColor, DualDexTheme.Radius.control, DualDexTheme.Color.accent, DualDexTheme.Control.defaultStroke))
-            addState(intArrayOf(), roundedDrawable(context, if (selected) selectedColor else normal, DualDexTheme.Radius.control, stroke))
+            addState(intArrayOf(-android.R.attr.state_enabled), roundedDrawable(context, colors.disabled, DualDexTheme.Radius.control, DualDexTheme.Color.border))
+            addState(intArrayOf(android.R.attr.state_pressed), roundedDrawable(context, colors.pressed, DualDexTheme.Radius.control, colors.stroke))
+            addState(intArrayOf(android.R.attr.state_focused), roundedDrawable(context, colors.focused, DualDexTheme.Radius.control, DualDexTheme.Color.focusRing, DualDexTheme.Control.focusStroke))
+            addState(intArrayOf(android.R.attr.state_selected), roundedDrawable(context, colors.selected, DualDexTheme.Radius.control, DualDexTheme.Color.accent, DualDexTheme.Control.defaultStroke))
+            addState(intArrayOf(), roundedDrawable(context, if (selected) colors.selected else colors.normal, DualDexTheme.Radius.control, colors.stroke))
         }
     }
 
@@ -203,9 +218,13 @@ class DualDexNavigationItem(
             textSize = DualDexTheme.Type.compact
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
+            isSingleLine = true
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            includeFontPadding = false
             setPadding(0, context.dp(DualDexTheme.Spacing.tight / 2), 0, 0)
         }
-        addView(labelView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        addView(labelView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         setSelectedState(false)
     }
 

@@ -867,12 +867,21 @@ class BattleConsoleTest {
         assertEquals(16, summaryParalyzed.effectiveSpeed)
     }
 
-    // 21. Battle tab stays enabled while verified touch controls default safely off.
+    // 21. Battle auto-open defaults on while verified touch controls default safely off.
     @Test
-    fun testCompanionViewModel_battleTabAndInteractiveDefaults() {
+    fun testCompanionViewModel_battleAutoOpenAndInteractiveDefaults() {
         val vm = CompanionViewModel()
-        assertTrue("Battle tab must be enabled by default", vm.isBattleTabEnabled.value)
+        assertTrue("Battle Console should auto-open by default", vm.isBattleAutoOpenEnabled.value)
         assertFalse("Verified touch-control permission defaults to disabled", vm.isInteractiveBattleControlsEnabled.value)
+    }
+
+    @Test
+    fun testCompanionViewModel_battleAutoOpenCanBeDisabledWithoutRemovingBattle() {
+        val vm = CompanionViewModel()
+        vm.setBattleAutoOpenEnabled(false)
+        assertFalse(vm.isBattleAutoOpenEnabled.value)
+        vm.setBattleAutoOpenEnabled(true)
+        assertTrue(vm.isBattleAutoOpenEnabled.value)
     }
 
     // 22. CompanionViewModel allows toggling interactive battle controls

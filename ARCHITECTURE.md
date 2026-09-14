@@ -19,7 +19,7 @@
 │               BOTTOM SCREEN: 3.92" AMOLED (1240x1080)        │
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │ DualDex Companion: Presentation API                   │  │
-│  │ 👥 Party | ⚔️ Calc | 🛡️ Types | 📖 Docs | 💾 Saves | 🤖 LLM│  │
+│  │ Library | Party | Battle | Map | More                 │  │
 │  └───────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -56,7 +56,8 @@ graph TB
         CP["CompanionPresentation"]
         CVM["CompanionViewModel (10Hz Coroutine Poller)"]
         PARTY["PartyScreenView (Adaptive IV/EV)"]
-        CALC_UI["CalcTabScreenView"]
+        BATTLE_UI["BattleConsoleScreenView"]
+        CALC_UI["CalcTabScreenView (secondary)"]
         DOCS["DocsScreenView (WebView/Offline)"]
         SAVES["SaveStateScreenView"]
         LLM["AssistantScreenView (Gemini 2.5 Flash)"]
@@ -74,6 +75,7 @@ graph TB
     PR -->|"Zero-Copy Read"| EWRAM
     CVM --> CP
     CP --> PARTY
+    CP --> BATTLE_UI
     CP --> CALC_UI
     CP --> DOCS
     CP --> SAVES
@@ -82,6 +84,10 @@ graph TB
     QJS --> CALC_JS
     CP --> HW_BOT
 ```
+
+### Companion Navigation
+
+The companion shell has five primary destinations: **Library**, **Party**, **Battle**, **Map**, and **More**. Battle opens `BattleConsoleScreenView`, the canonical live battle destination. More is the secondary utility hub for Calculator, Type Matchups, Saves, Docs, Assistant, Cheats, and Settings; those screen identities remain available for direct internal navigation without appearing as primary tabs.
 
 ---
 

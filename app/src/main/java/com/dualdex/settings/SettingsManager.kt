@@ -75,10 +75,33 @@ class SettingsManager(context: Context) {
             prefs.edit().putString(KEY_GEMINI_MODEL, value).apply()
         }
 
-    var isBattleTabEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BATTLE_TAB_ENABLED, true)
+    /** Whether the Battle Console opens automatically when a battle starts. */
+    var isBattleAutoOpenEnabled: Boolean
+        get() {
+            val hasCurrentValue = prefs.contains(KEY_BATTLE_AUTO_OPEN)
+            val currentValue = prefs.getBoolean(KEY_BATTLE_AUTO_OPEN, true)
+            val hasLegacyValue = prefs.contains(LEGACY_KEY_BATTLE_AUTO_OPEN)
+            val legacyValue = prefs.getBoolean(LEGACY_KEY_BATTLE_AUTO_OPEN, true)
+            val resolvedValue = BattleAutoOpenPreference.resolve(
+                hasCurrentValue = hasCurrentValue,
+                currentValue = currentValue,
+                hasLegacyValue = hasLegacyValue,
+                legacyValue = legacyValue
+            )
+            // Preserve the former preference while migrating its now-correct meaning.
+            if (!hasCurrentValue && hasLegacyValue) {
+                prefs.edit()
+                    .putBoolean(KEY_BATTLE_AUTO_OPEN, resolvedValue)
+                    .remove(LEGACY_KEY_BATTLE_AUTO_OPEN)
+                    .apply()
+            }
+            return resolvedValue
+        }
         set(value) {
-            prefs.edit().putBoolean(KEY_BATTLE_TAB_ENABLED, value).apply()
+            prefs.edit()
+                .putBoolean(KEY_BATTLE_AUTO_OPEN, value)
+                .remove(LEGACY_KEY_BATTLE_AUTO_OPEN)
+                .apply()
         }
 
     var isInteractiveBattleControlsEnabled: Boolean
@@ -104,7 +127,8 @@ class SettingsManager(context: Context) {
         private const val KEY_LAST_PLAYED_ROM_URI = "key_last_played_rom_uri"
         private const val KEY_LAST_PLAYED_ROM_TITLE = "key_last_played_rom_title"
         private const val KEY_GEMINI_MODEL = "key_gemini_model"
-        private const val KEY_BATTLE_TAB_ENABLED = "key_battle_tab_enabled"
+        private const val KEY_BATTLE_AUTO_OPEN = "key_battle_auto_open"
+        private const val LEGACY_KEY_BATTLE_AUTO_OPEN = "key_battle_tab_enabled"
         private const val KEY_INTERACTIVE_BATTLE_CONTROLS_ENABLED = "key_interactive_battle_controls_enabled"
         private const val KEY_LEGACY_SAVES_CHECKED = "key_legacy_saves_checked"
     }

@@ -69,8 +69,8 @@ class CompanionViewModel(
     private val _battlePresence = MutableStateFlow(com.dualdex.battle.BattlePresence.UNKNOWN)
     val battlePresence: StateFlow<com.dualdex.battle.BattlePresence> = _battlePresence.asStateFlow()
 
-    private val _isBattleTabEnabled = MutableStateFlow(true)
-    val isBattleTabEnabled: StateFlow<Boolean> = _isBattleTabEnabled.asStateFlow()
+    private val _isBattleAutoOpenEnabled = MutableStateFlow(true)
+    val isBattleAutoOpenEnabled: StateFlow<Boolean> = _isBattleAutoOpenEnabled.asStateFlow()
 
     private val _isInteractiveBattleControlsEnabled = MutableStateFlow(false)
     val isInteractiveBattleControlsEnabled: StateFlow<Boolean> = _isInteractiveBattleControlsEnabled.asStateFlow()
@@ -262,8 +262,8 @@ class CompanionViewModel(
         pollingJob = null
     }
 
-    fun setBattleTabEnabled(enabled: Boolean) {
-        _isBattleTabEnabled.value = enabled
+    fun setBattleAutoOpenEnabled(enabled: Boolean) {
+        _isBattleAutoOpenEnabled.value = enabled
     }
 
     fun setInteractiveBattleControlsEnabled(enabled: Boolean) {

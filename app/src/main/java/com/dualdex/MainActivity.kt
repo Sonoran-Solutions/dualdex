@@ -249,7 +249,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 RomHackAssistant.setApiKey(apiKey)
             }
             RomHackAssistant.setModel(settingsManager.geminiModel)
-            viewModel.setBattleTabEnabled(settingsManager.isBattleTabEnabled)
+            viewModel.setBattleAutoOpenEnabled(settingsManager.isBattleAutoOpenEnabled)
             viewModel.setInteractiveBattleControlsEnabled(settingsManager.isInteractiveBattleControlsEnabled)
 
             // 6. Setup display UI

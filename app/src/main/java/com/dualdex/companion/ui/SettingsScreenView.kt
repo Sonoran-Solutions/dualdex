@@ -433,7 +433,7 @@ class SettingsScreenView(
             }
             addView(desc)
 
-            var autoOpenBattle = settingsManager.isBattleTabEnabled
+            var autoOpenBattle = settingsManager.isBattleAutoOpenEnabled
             val toggleBattleBtn = Button(context).apply {
                 fun updateText() {
                     text = if (autoOpenBattle) "Auto-open Battle Console: On" else "Auto-open Battle Console: Off"
@@ -449,8 +449,8 @@ class SettingsScreenView(
                 updateText()
                 setOnClickListener {
                     autoOpenBattle = !autoOpenBattle
-                    settingsManager.isBattleTabEnabled = autoOpenBattle
-                    viewModel.setBattleTabEnabled(autoOpenBattle)
+                    settingsManager.isBattleAutoOpenEnabled = autoOpenBattle
+                    viewModel.setBattleAutoOpenEnabled(autoOpenBattle)
                     updateText()
                     Toast.makeText(context, if (autoOpenBattle) "Battle Console will open when a battle begins" else "Battle Console auto-open disabled", Toast.LENGTH_SHORT).show()
                 }

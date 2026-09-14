@@ -2,12 +2,14 @@ package com.dualdex.companion.ui
 
 import android.content.Context
 import android.net.Uri
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.dualdex.R
+import com.dualdex.companion.CompanionNavigation
 import com.dualdex.companion.CompanionTab
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.ShaderFilter
@@ -110,6 +112,9 @@ class CompanionScreenView(
         profileLabel = TextView(context).apply {
             setTextColor(DualDexTheme.Color.textSecondary)
             textSize = DualDexTheme.Type.meta
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+            maxLines = 1
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
         }
         battleIndicator = DualDexComponents.ghostControl(context, "Battle") {
@@ -156,6 +161,10 @@ class CompanionScreenView(
     }
 
     fun switchTab(tab: CompanionTab) {
+        if (currentTab == tab && contentContainer.childCount > 0) {
+            updateNavigationSelection(tab)
+            return
+        }
         currentTab = tab
         contentContainer.removeAllViews()
         val activeView: View = when (tab) {
@@ -222,15 +231,16 @@ class CompanionScreenView(
     }
 
     private fun navigateTo(tab: CompanionTab) {
+        if (currentTab == tab) {
+            updateNavigationSelection(tab)
+            return
+        }
         viewModel.selectTab(tab)
         switchTab(tab)
     }
 
     private fun updateNavigationSelection(tab: CompanionTab) {
-        val primaryTab = when (tab) {
-            CompanionTab.HOME, CompanionTab.PARTY, CompanionTab.BATTLE, CompanionTab.MAP -> tab
-            else -> CompanionTab.MORE
-        }
+        val primaryTab = CompanionNavigation.primaryTabFor(tab)
         tabButtons.forEach { (destination, button) ->
             button.setSelectedState(destination == primaryTab)
         }
@@ -240,7 +250,17 @@ class CompanionScreenView(
         val identity = viewModel.activeRomIdentity.value
         val inBattle = viewModel.isInBattle.value
         if (identity != null) {
-            profileLabel.text = "${identity.displayName} · ${viewModel.activeProfile.value.name}"
+            val displayName = identity.displayName.trim().ifBlank { "Game" }
+            val profileName = viewModel.activeProfile.value.name.trim()
+            profileLabel.text = if (
+                profileName.isNotBlank() &&
+                !displayName.equals(profileName, ignoreCase = true) &&
+                !displayName.contains(profileName, ignoreCase = true)
+            ) {
+                "$displayName · $profileName"
+            } else {
+                displayName
+            }
             profileLabel.visibility = View.VISIBLE
         } else {
             profileLabel.visibility = View.GONE
@@ -262,7 +282,7 @@ class CompanionScreenView(
         scope.launch {
             viewModel.isInBattle.collectLatest { inBattle ->
                 notifyPartyUpdated()
-                if (inBattle && !wasInBattle && viewModel.isBattleTabEnabled.value && currentTab != CompanionTab.BATTLE) {
+                if (inBattle && !wasInBattle && viewModel.isBattleAutoOpenEnabled.value && currentTab != CompanionTab.BATTLE) {
                     navigateTo(CompanionTab.BATTLE)
                 }
                 wasInBattle = inBattle

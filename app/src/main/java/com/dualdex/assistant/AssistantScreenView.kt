@@ -2,135 +2,124 @@ package com.dualdex.assistant
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.view.Gravity
 import android.view.View
-import android.widget.*
+import android.widget.EditText
+import android.widget.HorizontalScrollView
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.companion.ui.DualDexButtonStyle
+import com.dualdex.companion.ui.DualDexComponents
+import com.dualdex.companion.ui.DualDexTheme
+import com.dualdex.companion.ui.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+/**
+ * Redesigned Assistant companion screen adhering to the Quiet Handheld Companion design system.
+ * Delivers focused walkthrough grounding and game Q&A with clean message bubbles, density-independent
+ * spacing, resilient CoroutineScope lifecycle, and zero promotional chrome.
+ */
 class AssistantScreenView(
     context: Context,
     private val viewModel: CompanionViewModel
 ) : LinearLayout(context) {
 
-    private val scope = CoroutineScope(Dispatchers.Main)
-    private val messagesContainer = LinearLayout(context).apply {
+    private var viewScope: CoroutineScope? = null
+
+    private val messagesContainer: LinearLayout = LinearLayout(context).apply {
         orientation = VERTICAL
-        setPadding(0, 4, 0, 16)
+        setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.standard))
     }
-    private val scroll = ScrollView(context).apply {
+    private val scroll: ScrollView = ScrollView(context).apply {
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1.0f)
         isVerticalScrollBarEnabled = true
     }
-    private val queryInput = EditText(context).apply {
-        hint = "Ask item, evolution, or gym question..."
-        setHintTextColor(0xFF777788.toInt())
-        setTextColor(Color.WHITE)
-        textSize = 13.5f
-        background = GradientDrawable().apply {
-            cornerRadius = 14f
-            setColor(0xFF1A1A24.toInt())
-            setStroke(2, 0xFF333348.toInt())
-        }
-        setPadding(16, 10, 16, 10)
-        layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1.0f)
+    private val queryInput: EditText = DualDexComponents.styledInput(context, "Ask a question about this game...").apply {
+        layoutParams = LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1.0f)
     }
-    private val askButton = Button(context).apply {
-        text = "Ask 🌐"
-        setTextColor(Color.WHITE)
-        textSize = 13f
-        typeface = Typeface.DEFAULT_BOLD
-        background = GradientDrawable().apply {
-            cornerRadius = 14f
-            setColor(0xFF4A9EFF.toInt())
-        }
-        setPadding(18, 10, 18, 10)
-        layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-            setMargins(10, 0, 0, 0)
+    private val askButton: TextView = DualDexComponents.primaryButton(context, "Ask").apply {
+        layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
+            marginStart = context.dp(DualDexTheme.Spacing.compact)
         }
     }
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(0xFF121216.toInt())
-        setPadding(20, 20, 20, 20)
+        setBackgroundColor(DualDexTheme.Color.background)
+        setPadding(
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.section),
+            context.dp(DualDexTheme.Spacing.compact)
+        )
 
-        // Header
+        // 1. Header
         val headerBar = LinearLayout(context).apply {
             orientation = VERTICAL
-            setPadding(0, 0, 0, 12)
+            setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.compact))
         }
 
-        val titleView = TextView(context).apply {
-            text = "🤖 DualDex ROM Hack Assistant"
-            setTextColor(Color.WHITE)
-            textSize = 20f
-            typeface = Typeface.DEFAULT_BOLD
-        }
+        val titleView = DualDexComponents.screenTitle(context, "Assistant")
         headerBar.addView(titleView)
 
+        val activeGame = viewModel.activeProfile.value.name
         val subTitle = TextView(context).apply {
-            text = "Powered by Google Gemini Flash 3.8 + Google Search Grounding"
-            setTextColor(0xFF4A9EFF.toInt())
-            textSize = 12.5f
-            setPadding(0, 2, 0, 0)
+            text = if (activeGame.isNotBlank()) "Guidance and grounding for $activeGame" else "Game walkthrough and ROM hack guidance."
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.meta
+            setPadding(0, context.dp(DualDexTheme.Spacing.tight / 2), 0, 0)
         }
         headerBar.addView(subTitle)
         addView(headerBar)
 
-        // Quick Suggestion Chips
+        // 2. Quick Suggestion Chips
         val chipsScroll = HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = false
-            setPadding(0, 0, 0, 12)
+            setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.compact))
         }
         val chipsRow = LinearLayout(context).apply { orientation = HORIZONTAL }
 
         listOf(
-            "Where do I get Fly?",
-            "Ghost Grey Evolutions",
-            "Steel Type Changes",
-            "Exp Share Location",
-            "Lichtoise Stats"
-        ).forEach { chipText ->
-            val chip = Button(context).apply {
-                text = chipText
-                textSize = 11f
-                setTextColor(Color.WHITE)
-                background = GradientDrawable().apply {
-                    cornerRadius = 14f
-                    setColor(0xFF262634.toInt())
+            "Evolution changes",
+            "Gym leader teams",
+            "Type effectiveness",
+            "Item locations",
+            "Where is Fly?"
+        ).forEachIndexed { index, chipText ->
+            val chip = DualDexComponents.smallButton(context, chipText, DualDexButtonStyle.SECONDARY) {
+                queryInput.setText(chipText)
+                submitQuery(chipText)
+            }.apply {
+                val lp = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(30)).apply {
+                    if (index > 0) marginStart = context.dp(DualDexTheme.Spacing.compact)
                 }
-                setPadding(16, 6, 16, 6)
-                setOnClickListener {
-                    queryInput.setText(chipText)
-                    submitQuery(chipText)
-                }
+                layoutParams = lp
             }
-            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 0, 8, 0)
-            }
-            chipsRow.addView(chip, lp)
+            chipsRow.addView(chip)
         }
         chipsScroll.addView(chipsRow)
         addView(chipsScroll)
 
-        // Messages Scroll Area
+        // 3. Messages Scroll Area
         scroll.addView(messagesContainer)
         addView(scroll)
 
-        // Bottom Input Area
+        // 4. Bottom Input Area
         val inputRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 8, 0, 4)
+            setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, 0)
         }
+
         inputRow.addView(queryInput)
 
         askButton.setOnClickListener {
@@ -143,8 +132,13 @@ class AssistantScreenView(
         addView(inputRow)
 
         // Initial welcome message
+        val welcomeText = if (activeGame.isNotBlank()) {
+            "Ready for questions about $activeGame.\n\nAsk about item locations, gym movesets, evolution methods, or custom hack mechanics."
+        } else {
+            "Welcome to DualDex Assistant.\n\nOpen a game to receive walkthrough grounding, evolution details, and item locations."
+        }
         addAssistantMessage(
-            text = "Welcome to DualDex Assistant!\n\nI can answer questions about item locations, gym leader movesets, evolution changes, and custom mechanics for ${viewModel.activeProfile.value.name}.\n\nTry asking a question above!",
+            text = welcomeText,
             citations = emptyList(),
             queries = emptyList()
         )
@@ -156,20 +150,27 @@ class AssistantScreenView(
         askButton.isEnabled = false
         askButton.text = "Thinking..."
 
-        val thinkingCard = addAssistantMessage("Searching game documentation and web grounding...", emptyList(), emptyList())
+        val thinkingCard = addAssistantMessage("Searching game documentation...", emptyList(), emptyList())
 
+        val scope = viewScope ?: CoroutineScope(Dispatchers.Main + SupervisorJob())
         scope.launch {
             try {
                 val res = RomHackAssistant.askQuestion(context, question, viewModel)
-                messagesContainer.removeView(thinkingCard)
-                addAssistantMessage(res.text, res.citations, res.searchQueries, res.isOfflineFallback)
+                if (isActive) {
+                    messagesContainer.removeView(thinkingCard)
+                    addAssistantMessage(res.text, res.citations, res.searchQueries, res.isOfflineFallback)
+                }
             } catch (e: Exception) {
-                messagesContainer.removeView(thinkingCard)
-                addAssistantMessage("Error generating answer: ${e.message}", emptyList(), emptyList())
+                if (isActive) {
+                    messagesContainer.removeView(thinkingCard)
+                    addAssistantMessage("Unable to generate answer: ${e.message}", emptyList(), emptyList())
+                }
             } finally {
-                askButton.isEnabled = true
-                askButton.text = "Ask 🌐"
-                scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+                if (isActive) {
+                    askButton.isEnabled = true
+                    askButton.text = "Ask"
+                    scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+                }
             }
         }
     }
@@ -177,23 +178,25 @@ class AssistantScreenView(
     private fun addUserMessage(text: String) {
         val userCard = LinearLayout(context).apply {
             orientation = VERTICAL
-            setPadding(18, 12, 18, 12)
+            setPadding(
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.compact),
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.compact)
+            )
             gravity = Gravity.END
-            background = GradientDrawable().apply {
-                cornerRadius = 18f
-                setColor(0xFF2B4A77.toInt())
-            }
+            background = DualDexComponents.controlBackground(context, DualDexButtonStyle.SECONDARY, selected = true)
             val lp = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
                 this.gravity = Gravity.END
-                setMargins(48, 8, 0, 8)
+                setMargins(context.dp(48), context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.tight))
             }
             layoutParams = lp
         }
 
         val msgView = TextView(context).apply {
             this.text = text
-            setTextColor(Color.WHITE)
-            textSize = 14f
+            setTextColor(DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.body
         }
         userCard.addView(msgView)
         messagesContainer.addView(userCard)
@@ -208,13 +211,15 @@ class AssistantScreenView(
     ): View {
         val card = LinearLayout(context).apply {
             orientation = VERTICAL
-            setPadding(20, 16, 20, 16)
-            background = GradientDrawable().apply {
-                cornerRadius = 18f
-                setColor(0xFF1E1E26.toInt())
-            }
+            setPadding(
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.standard)
+            )
+            background = DualDexComponents.surface(context, elevated = false)
             val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 8, 32, 8)
+                setMargins(0, context.dp(DualDexTheme.Spacing.tight), context.dp(DualDexTheme.Spacing.section), context.dp(DualDexTheme.Spacing.tight))
             }
             layoutParams = lp
         }
@@ -222,11 +227,10 @@ class AssistantScreenView(
         // Queries executed banner
         if (queries.isNotEmpty()) {
             val qText = TextView(context).apply {
-                this.text = "🔍 Google Search: " + queries.joinToString(", ")
-                setTextColor(0xFF4A9EFF.toInt())
-                textSize = 11.5f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, 0, 0, 8)
+                this.text = "Searched: " + queries.joinToString(", ")
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.compact
+                setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.tight))
             }
             card.addView(qText)
         }
@@ -234,28 +238,29 @@ class AssistantScreenView(
         // Body
         val msgView = TextView(context).apply {
             this.text = text
-            setTextColor(0xFFE8E8E8.toInt())
-            textSize = 13.5f
-            setLineSpacing(5f, 1f)
+            setTextColor(DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.body
+            setLineSpacing(4f, 1f)
         }
         card.addView(msgView)
 
-        // Web Grounding Citations (Google API TOS Compliance)
+        // Web Grounding Citations
         if (citations.isNotEmpty()) {
             val citeHeader = TextView(context).apply {
-                this.text = "\nWeb Sources & Citations:"
-                setTextColor(0xFFFFD700.toInt())
-                textSize = 12f
+                this.text = "Sources:"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.compact
                 typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight / 2))
             }
             card.addView(citeHeader)
 
             citations.forEach { citation ->
                 val citeBtn = TextView(context).apply {
-                    this.text = "🔗 ${citation.title}"
-                    setTextColor(0xFF50C878.toInt())
-                    textSize = 12f
-                    setPadding(0, 4, 0, 4)
+                    this.text = "[Source] ${citation.title}"
+                    setTextColor(DualDexTheme.Color.accent)
+                    textSize = DualDexTheme.Type.compact
+                    setPadding(0, context.dp(DualDexTheme.Spacing.tight / 2), 0, context.dp(DualDexTheme.Spacing.tight / 2))
                     setOnClickListener {
                         try {
                             val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(citation.url))
@@ -271,10 +276,10 @@ class AssistantScreenView(
 
         if (isOffline) {
             val badge = TextView(context).apply {
-                this.text = "ℹ️ Offline Knowledge Base"
-                setTextColor(0xFF888899.toInt())
-                textSize = 10.5f
-                setPadding(0, 6, 0, 0)
+                this.text = "Offline knowledge base"
+                setTextColor(DualDexTheme.Color.textDisabled)
+                textSize = DualDexTheme.Type.compact
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
             }
             card.addView(badge)
         }
@@ -283,8 +288,15 @@ class AssistantScreenView(
         return card
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        viewScope?.cancel()
+        viewScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        scope.cancel()
+        viewScope?.cancel()
+        viewScope = null
     }
 }

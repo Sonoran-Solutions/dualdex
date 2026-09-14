@@ -61,6 +61,35 @@ object DualDexComponents {
     fun destructiveButton(context: Context, text: CharSequence, onClick: (() -> Unit)? = null): TextView =
         button(context, text, DualDexButtonStyle.DESTRUCTIVE, onClick)
 
+    fun smallButton(
+        context: Context,
+        text: CharSequence,
+        style: DualDexButtonStyle = DualDexButtonStyle.SECONDARY,
+        onClick: (() -> Unit)? = null
+    ): TextView = TextView(context).apply {
+        this.text = text
+        gravity = Gravity.CENTER
+        minimumHeight = context.dp(32)
+        minWidth = context.dp(32)
+        setPadding(context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.compact), 0)
+        textSize = DualDexTheme.Type.compact
+        typeface = Typeface.DEFAULT_BOLD
+        val foreground = when (style) {
+            DualDexButtonStyle.PRIMARY -> DualDexTheme.Color.onAccent
+            DualDexButtonStyle.DESTRUCTIVE -> DualDexTheme.Color.onDanger
+            DualDexButtonStyle.SECONDARY, DualDexButtonStyle.GHOST -> DualDexTheme.Color.textPrimary
+        }
+        setTextColor(ColorStateList(
+            arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
+            intArrayOf(DualDexTheme.Color.textDisabled, foreground)
+        ))
+        background = controlBackground(context, style, selected = false)
+        isFocusable = true
+        isFocusableInTouchMode = false
+        isClickable = onClick != null
+        onClick?.let { setOnClickListener { it() } }
+    }
+
     fun styledInput(context: Context, hint: CharSequence): EditText = EditText(context).apply {
         this.hint = hint
         minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)

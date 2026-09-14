@@ -757,6 +757,70 @@ static void test_battle_presence_and_unknown_ui_state(void) {
     printf(ANSI_GREEN "  [PASS] test_battle_presence_and_unknown_ui_state" ANSI_RESET "\n");
 }
 
+static void test_unknown_game_fails_closed(void) {
+    printf("Running test_unknown_game_fails_closed...\n");
+
+    // 1. GAME_UNKNOWN must return NULL and never fall back to FireRed
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_UNKNOWN);
+    TEST_ASSERT(cfg == NULL, "GAME_UNKNOWN must return NULL GameMemoryConfig");
+
+    const GameMemoryConfig* invalid_cfg = pokemon_get_game_config((GbaGameId)9999);
+    TEST_ASSERT(invalid_cfg == NULL, "Out-of-range game ID must return NULL GameMemoryConfig");
+
+    const size_t ewram_size = 0x40000;
+    uint8_t* ewram = calloc(1, ewram_size);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation required");
+
+    PartySnapshot snapshot;
+    memset(&snapshot, 0xFF, sizeof(snapshot));
+    uint8_t party_count = pokemon_read_player_party(ewram, ewram_size, NULL, &snapshot);
+    TEST_ASSERT(party_count == 0, "NULL config player party must return 0");
+    TEST_ASSERT(snapshot.active_battler_slot == -1, "NULL config active battler slot must be -1");
+
+    memset(&snapshot, 0xFF, sizeof(snapshot));
+    uint8_t enemy_count = pokemon_read_enemy_party(ewram, ewram_size, NULL, &snapshot);
+    TEST_ASSERT(enemy_count == 0, "NULL config enemy party must return 0");
+    TEST_ASSERT(snapshot.active_battler_slot == -1, "NULL config enemy battler slot must be -1");
+
+    PlayerLocationRaw loc;
+    memset(&loc, 0xFF, sizeof(loc));
+    bool loc_ok = pokemon_read_player_location(ewram, ewram_size, NULL, &loc);
+    TEST_ASSERT(!loc_ok, "NULL config player location must return false");
+    TEST_ASSERT(!loc.is_valid, "NULL config location must not be valid");
+
+    int8_t stages[7] = {0};
+    bool stages_ok = pokemon_read_battle_stat_stages(ewram, ewram_size, NULL, 0, stages);
+    TEST_ASSERT(!stages_ok, "NULL config battle stat stages must return false");
+
+    uint8_t ui_state = pokemon_read_battle_ui_state(ewram, ewram_size, NULL);
+    TEST_ASSERT(ui_state == 0, "NULL config battle UI state must return 0 (UNKNOWN)");
+
+    uint8_t presence = pokemon_read_battle_presence(ewram, ewram_size, NULL);
+    TEST_ASSERT(presence == 2, "NULL config battle presence must return 2 (UNKNOWN)");
+
+    // 2. Explicit GAME_UNKNOWN config must also fail closed
+    GameMemoryConfig sentinel_cfg = {0};
+    sentinel_cfg.game_id = GAME_UNKNOWN;
+    sentinel_cfg.player_party_offset = 0x02000000;
+
+    TEST_ASSERT(pokemon_read_player_party(ewram, ewram_size, &sentinel_cfg, &snapshot) == 0,
+                "GAME_UNKNOWN sentinel must fail player party");
+    TEST_ASSERT(pokemon_read_enemy_party(ewram, ewram_size, &sentinel_cfg, &snapshot) == 0,
+                "GAME_UNKNOWN sentinel must fail enemy party");
+    TEST_ASSERT(!pokemon_read_player_location(ewram, ewram_size, &sentinel_cfg, &loc),
+                "GAME_UNKNOWN sentinel must fail location");
+    TEST_ASSERT(!pokemon_read_battle_stat_stages(ewram, ewram_size, &sentinel_cfg, 0, stages),
+                "GAME_UNKNOWN sentinel must fail stat stages");
+    TEST_ASSERT(pokemon_read_battle_ui_state(ewram, ewram_size, &sentinel_cfg) == 0,
+                "GAME_UNKNOWN sentinel must fail battle UI state");
+    TEST_ASSERT(pokemon_read_battle_presence(ewram, ewram_size, &sentinel_cfg) == 2,
+                "GAME_UNKNOWN sentinel must return 2 for battle presence");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_unknown_game_fails_closed" ANSI_RESET "\n");
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
@@ -772,6 +836,7 @@ int main(void) {
     test_heart_and_soul_party_and_battle_hp_sync();
     test_unbound_cfru_fixed_substructures();
     test_battle_presence_and_unknown_ui_state();
+    test_unknown_game_fails_closed();
 
     printf("===================================================\n");
     printf("Results: %d Passed, %d Failed\n", g_tests_passed, g_tests_failed);

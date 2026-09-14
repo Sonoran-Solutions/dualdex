@@ -209,8 +209,20 @@ const GameMemoryConfig* pokemon_get_game_config(GbaGameId game_id) {
         case GAME_GHOST_GREY: return &CONFIG_GHOST_GREY;
         case GAME_RADICAL_RED: return &CONFIG_RADICAL_RED;
         case GAME_UNBOUND: return &CONFIG_UNBOUND;
-        default: return &CONFIG_FIRERED; // Default fallback
+        // Fail closed: an unknown game has no memory layout. Returning a FireRed configuration
+        // here would silently reinterpret arbitrary ROM memory as FireRed and is exactly the
+        // fail-open behaviour this boundary exists to prevent.
+        case GAME_UNKNOWN:
+        default: return NULL;
     }
+}
+
+/**
+ * A configuration is only usable when it names a real layout that is not the unknown sentinel.
+ * Every memory reader below rejects an unusable configuration instead of guessing addresses.
+ */
+static bool config_is_usable(const GameMemoryConfig* config) {
+    return config != NULL && config->game_id != GAME_UNKNOWN;
 }
 
 static inline uint16_t read16_le(const uint8_t* ptr) {
@@ -593,8 +605,13 @@ uint8_t pokemon_read_player_party(
     memset(out_snapshot, 0, sizeof(PartySnapshot));
     out_snapshot->active_battler_slot = -1;
 
+    // Fail closed: without an explicitly supported layout there is no party to read. Neither the
+    // static offsets, the cached scan offset, nor the blind EWRAM scan may run for an unknown
+    // game, or arbitrary memory would be presented as a party.
+    if (!config_is_usable(config)) return 0;
+
     // 1. Try configured static offset (fast, reliable path for vanilla & supported hacks)
-    if (config && config->player_party_offset + sizeof(RawGbaPokemon) <= ewram_size) {
+    if (config->player_party_offset + sizeof(RawGbaPokemon) <= ewram_size) {
         ParsedPokemon first_mon;
         const uint8_t* mon_ptr = ewram + config->player_party_offset;
         if (pokemon_parse_single(mon_ptr, true, &first_mon) && first_mon.species > 0 && first_mon.species < 2000) {
@@ -666,6 +683,10 @@ uint8_t pokemon_read_enemy_party(
     if (!ewram || !out_snapshot) return 0;
     memset(out_snapshot, 0, sizeof(PartySnapshot));
     out_snapshot->active_battler_slot = -1;
+
+    // Fail closed: enemy-party candidates are derived from layout offsets, so an unknown game
+    // must not be scanned at all.
+    if (!config_is_usable(config)) return 0;
 
     // Player party must be located to know the player's OTID
     if (s_cached_player_party_offset == 0 || s_cached_player_party_offset + sizeof(RawGbaPokemon) > ewram_size) {
@@ -797,14 +818,18 @@ bool pokemon_read_player_location(
     if (!ewram || ewram_size == 0 || !out_location) return false;
     memset(out_location, 0, sizeof(PlayerLocationRaw));
 
+    // Fail closed: SaveBlock1 is located relative to the verified party offset, so an unknown
+    // game must never be interpreted through a cached or FireRed-style offset.
+    if (!config_is_usable(config)) return false;
+
     const uint8_t* sb1 = NULL;
-    if (config && config->game_id == GAME_HEART_AND_SOUL) {
+    if (config->game_id == GAME_HEART_AND_SOUL) {
         // In Heart & Soul, SaveBlock1 is located at EWRAM base (0x02000000)
         sb1 = ewram;
     } else {
         uint32_t party_off = s_cached_player_party_offset;
         if (party_off == 0) {
-            if (config && config->player_party_offset > 0 && config->player_party_offset + 100 <= ewram_size) {
+            if (config->player_party_offset > 0 && config->player_party_offset + 100 <= ewram_size) {
                 party_off = (uint32_t)config->player_party_offset;
             }
         }
@@ -814,7 +839,7 @@ bool pokemon_read_player_location(
         // Determine SaveBlock1 offset relative to player party
         // In Emerald / Ruby / Sapphire: SaveBlock1.playerParty is at offset 0x238
         // In FireRed / LeafGreen: SaveBlock1.playerParty is at offset 0x38
-        bool is_firered = (config && config->game_id == GAME_FIRERED);
+        bool is_firered = (config->game_id == GAME_FIRERED);
         size_t sb1_party_offset = is_firered ? 0x38 : 0x238;
 
         if (party_off >= sb1_party_offset && party_off - sb1_party_offset + sizeof(PlayerLocationRaw) <= ewram_size) {
@@ -866,7 +891,7 @@ bool pokemon_read_battle_stat_stages(
     uint8_t battler_index,
     int8_t out_stages[7]
 ) {
-    if (!ewram || !config || config->battle_mons_offset == 0 ||
+    if (!ewram || !config_is_usable(config) || config->battle_mons_offset == 0 ||
         config->battle_mons_offset + ((size_t)(battler_index + 1) * config->battle_mons_size) > ewram_size) {
         return false;
     }
@@ -899,7 +924,7 @@ uint8_t pokemon_read_battle_ui_state(
     size_t ewram_size,
     const GameMemoryConfig* config
 ) {
-    if (!ewram || !config || config->battle_mons_offset == 0 ||
+    if (!ewram || !config_is_usable(config) || config->battle_mons_offset == 0 ||
         config->battle_mons_offset + config->battle_mons_size > ewram_size) {
         return 0; // UNKNOWN
     }
@@ -921,7 +946,7 @@ uint8_t pokemon_read_battle_presence(
     size_t ewram_size,
     const GameMemoryConfig* config
 ) {
-    if (!ewram || !config || config->battle_mons_offset == 0 ||
+    if (!ewram || !config_is_usable(config) || config->battle_mons_offset == 0 ||
         config->battle_mons_offset + config->battle_mons_size > ewram_size) {
         return 2; // UNKNOWN: reader unavailable or malformed memory range
     }

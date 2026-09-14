@@ -61,5 +61,40 @@ data class RomHackProfile(
             interactiveControlsVerified = false,
             gameDataPackId = "gen3_vanilla"
         )
+
+        /**
+         * Explicit placeholder for a ROM DualDex cannot identify.
+         *
+         * This is NOT a supported profile: it claims no game ([gameId] 0 == native GAME_UNKNOWN),
+         * asserts no layout or hash, and carries no hack-specific species. It exists only so
+         * presentation code keeps a non-null identity instead of silently defaulting an unknown
+         * ROM to FireRed. The manual calculator falls back to the conservative Gen 3 data pack.
+         */
+        val UNSUPPORTED = RomHackProfile(
+            id = "unsupported_rom",
+            name = "Unsupported ROM",
+            baseGame = "Unknown",
+            gameId = 0,
+            developer = "",
+            engine = "Unknown",
+            hasEvs = true,
+            hasIvs = true,
+            hasPhysSpecSplit = false,
+            steelResistsGhostDark = true,
+            cfruOffsets = false,
+            playerPartyOffset = 0L,
+            enemyPartyOffset = 0L,
+            headerTitles = emptyList(),
+            sha256Hashes = emptyList(),
+            customSpecies = emptyMap(),
+            isVerified = false,
+            memoryLayoutVerified = false,
+            battleUiVerified = false,
+            interactiveControlsVerified = false,
+            gameDataPackId = "gen3_vanilla"
+        )
+
+        /** True when this profile is the explicit "not identified" placeholder. */
+        fun isUnsupportedPlaceholder(profile: RomHackProfile): Boolean = profile.id == UNSUPPORTED.id
     }
 }

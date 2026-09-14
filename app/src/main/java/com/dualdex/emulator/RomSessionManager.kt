@@ -180,7 +180,7 @@ class RomSessionManager(
                     return@withLock SwitchResult.Failure("Cached ROM SHA-256 verification failed: expected $hash, got $finalHash")
                 }
 
-                val detection = RomHackDetector.detectProfileWithConfidence(cachedRomFile, loadedProfiles, preferredTitle)
+                val detection = RomHackDetector.detectCompatibility(cachedRomFile, loadedProfiles, preferredTitle)
                 val profile = detection.profile
                 val gameTitle = preferredTitle ?: profile.name.ifEmpty { "current_game" }
                 val newIdentity = RomIdentity.fromFile(cachedRomFile, gameTitle)
@@ -240,7 +240,7 @@ class RomSessionManager(
 
                 if (!switchSuccess) {
                     saveStateManager.activeIdentity = null
-                    viewModel?.setRomIdentity(null)
+                    viewModel?.clearRomSession()
                     viewModel?.stopPolling()
                     return@withLock SwitchResult.Failure("Core rejected ROM file")
                 }
@@ -253,7 +253,7 @@ class RomSessionManager(
                 settingsManager?.lastPlayedRomUri = identifierStr
                 settingsManager?.lastPlayedRomTitle = gameTitle
 
-                viewModel?.setRomSession(profile, newIdentity, detection)
+                viewModel?.setRomSession(detection, newIdentity)
 
                 viewModel?.startPolling(100L)
                 onEmulationResume?.invoke()

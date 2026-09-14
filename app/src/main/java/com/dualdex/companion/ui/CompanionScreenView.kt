@@ -19,6 +19,7 @@ import com.dualdex.companion.CompanionNavigation
 import com.dualdex.companion.CompanionTab
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.ShaderFilter
+import com.dualdex.romhack.RomCompatibilityMessages
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -319,16 +320,22 @@ class CompanionScreenView(
     private fun updateContextBar() {
         val identity = viewModel.activeRomIdentity.value
         val inBattle = viewModel.isInBattle.value
+        val trust = viewModel.runtimeRomTrust.value
         if (identity != null) {
             val displayName = identity.displayName.trim().ifBlank { "Game" }
             val profileName = viewModel.activeProfile.value.name.trim()
-            profileLabel.text = if (
+            val baseLabel = if (
                 profileName.isNotBlank() &&
                 !ContextLabelFormatter.namesDescribeSameGame(displayName, profileName)
             ) {
                 "$displayName · $profileName"
             } else {
                 displayName
+            }
+            profileLabel.text = if (trust.hasActiveRom && !trust.isVerified) {
+                "$baseLabel [${RomCompatibilityMessages.badge(trust.status)}]"
+            } else {
+                baseLabel
             }
             profileLabel.visibility = View.VISIBLE
         } else {
@@ -394,6 +401,7 @@ class CompanionScreenView(
         scope.launch { viewModel.playerParty.collectLatest { notifyPartyUpdated() } }
         scope.launch { viewModel.activeProfile.collectLatest { notifyProfileChanged() } }
         scope.launch { viewModel.activeRomIdentity.collectLatest { notifyProfileChanged() } }
+        scope.launch { viewModel.runtimeRomTrust.collectLatest { notifyProfileChanged() } }
         var wasInBattle = false
         scope.launch {
             viewModel.isInBattle.collectLatest { inBattle ->

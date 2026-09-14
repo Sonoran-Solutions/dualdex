@@ -18,6 +18,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.pokemon.ItemDatabase
+import com.dualdex.romhack.RomCompatibilityMessages
+import com.dualdex.romhack.RuntimeRomTrust
 import com.dualdex.pokemon.MoveDatabase
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PokemonType
@@ -78,7 +80,8 @@ class PartyScreenView(
     private val detailContainer: LinearLayout
     private val chipHolders = ArrayList<MemberHolder>()
     private var detailHolder: DetailHolder? = null
-    private var selectorShowsEmpty = false
+    private var lastSelectorEmptyText: String? = null
+    private var lastDetailEmptyKey: String? = null
     private var lastSelectedIdx = -1
     private var viewScope: CoroutineScope? = null
 
@@ -138,6 +141,7 @@ class PartyScreenView(
         viewScope = CoroutineScope(Dispatchers.Main + SupervisorJob()).also { scope ->
             scope.launch { viewModel.playerParty.collectLatest { refreshUI() } }
             scope.launch { viewModel.selectedMemberIndex.collectLatest { refreshUI() } }
+            scope.launch { viewModel.runtimeRomTrust.collectLatest { refreshUI() } }
             scope.launch {
                 viewModel.activePlayerBattlerIndex.collectLatest { activeIndex ->
                     if (viewModel.isInBattle.value && activeIndex in viewModel.playerParty.value.indices) {
@@ -163,12 +167,14 @@ class PartyScreenView(
 
     private fun updateSelector(party: List<ParsedPokemon>, selectedIdx: Int) {
         if (party.isEmpty()) {
-            if (!selectorShowsEmpty) {
-                selectorShowsEmpty = true
+            val trust = viewModel.runtimeRomTrust.value
+            val label = resolveSelectorEmptyLabel(trust)
+            if (lastSelectorEmptyText != label) {
+                lastSelectorEmptyText = label
                 chipHolders.clear()
                 memberSelectorLayout.removeAllViews()
                 memberSelectorLayout.addView(TextView(context).apply {
-                    text = "No game loaded"
+                    text = label
                     setTextColor(DualDexTheme.Color.textSecondary)
                     textSize = DualDexTheme.Type.meta
                     setPadding(0, context.dp(DualDexTheme.Spacing.standard), 0, context.dp(DualDexTheme.Spacing.standard))
@@ -177,8 +183,8 @@ class PartyScreenView(
             return
         }
 
-        if (selectorShowsEmpty || chipHolders.size != party.size) {
-            selectorShowsEmpty = false
+        if (lastSelectorEmptyText != null || chipHolders.size != party.size) {
+            lastSelectorEmptyText = null
             chipHolders.clear()
             memberSelectorLayout.removeAllViews()
             party.forEachIndexed { index, mon ->
@@ -295,17 +301,22 @@ class PartyScreenView(
 
     private fun updateDetail(party: List<ParsedPokemon>, selectedIdx: Int, gameId: Int) {
         if (party.isEmpty()) {
-            if (detailHolder != null || detailContainer.childCount == 0) {
+            val trust = viewModel.runtimeRomTrust.value
+            val (emptyTitle, emptyDetail) = resolveDetailEmptyState(trust)
+            val key = "$emptyTitle|$emptyDetail"
+            if (detailHolder != null || lastDetailEmptyKey != key || detailContainer.childCount == 0) {
                 detailHolder = null
+                lastDetailEmptyKey = key
                 detailContainer.removeAllViews()
                 detailContainer.addView(DualDexComponents.emptyState(
                     context,
-                    "No game loaded",
-                    "Party data will appear when a supported game is running."
+                    emptyTitle,
+                    emptyDetail
                 ))
             }
             return
         }
+        lastDetailEmptyKey = null
 
         val mon = party[selectedIdx]
         val holder = detailHolder
@@ -624,6 +635,23 @@ class PartyScreenView(
             ratio > 0.5f -> DualDexTheme.Color.success
             ratio > 0.2f -> DualDexTheme.Color.warning
             else -> DualDexTheme.Color.danger
+        }
+    }
+
+    companion object {
+        fun resolveSelectorEmptyLabel(trust: RuntimeRomTrust): String = when {
+            trust.hasActiveRom && !trust.mayReadLiveMemory -> RomCompatibilityMessages.badge(trust.status)
+            trust.hasActiveRom -> "Waiting for party data"
+            else -> "No game loaded"
+        }
+
+        fun resolveDetailEmptyState(trust: RuntimeRomTrust): Pair<String, String> = when {
+            trust.hasActiveRom && !trust.mayReadLiveMemory ->
+                RomCompatibilityMessages.badge(trust.status) to RomCompatibilityMessages.detail(trust.status)
+            trust.hasActiveRom ->
+                "Waiting for party data" to "Party data will appear when it can be read from the running game."
+            else ->
+                "No game loaded" to "Party data will appear when a supported game is running."
         }
     }
 }

@@ -1,0 +1,21 @@
+# Wild-battle entry, starting from the battery save produced by
+# 00-fresh-rom-to-starter-save.txt (New Bark Town (10,10), level 5 Chikorita in slot 0).
+wait 120
+matrix save-booted
+mash 800
+wait 200
+matrix overworld-baseline
+assert-battle inactive
+assert-in-battle-flag false
+assert-party-count player 1
+walk DOWN 2
+walk LEFT 14
+matrix route29-arrival
+walk DOWN 3
+walk LEFT 1
+matrix tall-grass
+hunt 200
+wait 240
+matrix wild-entry
+assert-battle active
+assert-in-battle-flag true

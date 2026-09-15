@@ -1,0 +1,138 @@
+# Produce a legal Heart & Soul 2.0.5 battery save from a FRESH ROM by normal game progression.
+#
+# No cheats, no RAM writes, no ROM patching: every step below is an ordinary button press that a
+# player could make. The script ends by saving in-game (START -> SAVE -> YES) and the caller then
+# flushes the core's battery RAM to a .sav (see make-save.sh).
+#
+# Path driven: copyright -> title -> main menu -> H&S challenge menu -> Oak/H&S speech ->
+# naming screen -> bedroom (clock setup) -> downstairs -> New Bark Town -> Elm's lab ->
+# starter selection -> nickname -> Elm again -> back outside -> save.
+#
+# The H&S challenge menu must be exited with R, not A: A cycles the highlighted option's value,
+# while R walks the tabs and R on the last tab jumps straight to the save-and-continue path.
+
+# --- boot screens and the challenge menu -------------------------------------
+mash 3700
+press R 4
+wait 30
+press R 4
+wait 30
+press R 4
+wait 30
+press R 4
+wait 30
+press R 4
+wait 30
+press R 4
+wait 30
+press A 6
+wait 60
+press A 6
+wait 150
+mash 700
+matrix stage1-after-challenge-menu
+
+# --- bedroom: reach the wall clock, set the time, dismiss the info window ----
+walk RIGHT 5
+walk UP 2
+walk RIGHT 3
+walk UP 1
+wait 200
+# The wall clock installs its own main callback. `await` walks into it and `untilout` answers the
+# "Is this the correct time?" prompt with UP+A (so it cannot pick NO) and stops the instant the
+# callback changes - pressing A after that would just re-open the clock, because the player is
+# standing directly under the wall clock at (10,2).
+await 0x0824972D 12
+untilout 0x0824972D 12
+wait 150
+# Turn to face away from the clock so the later B press cannot re-open the clock view.
+press DOWN 4
+wait 40
+press B 6
+wait 60
+matrix stage2-bedroom-clock-done
+
+# --- downstairs and out of the house ----------------------------------------
+# The mom dialogue at (10,4) is a multi-page message; `walk` presses A when a step is blocked.
+walk LEFT 2
+wait 150
+walk DOWN 6
+walk LEFT 1
+walk DOWN 1
+wait 200
+matrix stage3-outside-house
+
+# --- New Bark Town -> Elm's lab ---------------------------------------------
+walk DOWN 2
+walk LEFT 9
+walk UP 4
+walk LEFT 1
+walk UP 1
+wait 200
+matrix stage4-in-lab
+
+# --- Elm's intro: the scene only releases the player if the Yes/No prompts are answered YES --
+walk UP 5
+wait 200
+escape DOWN 40
+matrix stage5-elm-scene-done
+
+# --- choose the left Poké Ball (Chikorita), answer YES, finish the nickname screen ------------
+# Step-by-step this mirrors the verified interaction sequence. `spama` (bounded A presses with
+# long gaps) is used rather than `mash`: a short-gap A mash does not advance the message printer
+# quickly enough and leaves the player locked, and an unbounded mash on a re-triggerable NPC
+# dialogue never returns at all.
+walk RIGHT 2
+press UP 8
+wait 40
+press A 8
+wait 300
+press UP 4
+wait 20
+press A 8
+wait 300
+spama 10
+press START 6
+wait 150
+press A 8
+wait 250
+spama 6
+escape DOWN 20
+walk LEFT 2
+walk UP 2
+press UP 4
+wait 20
+press A 8
+wait 250
+spama 16
+matrix stage7-elm-second-talk
+walk DOWN 9
+wait 250
+matrix stage8-outside-lab
+# The save is only meaningful if the run really got out of the lab with a starter.
+assert-battle inactive
+assert-party-count player 1
+assert-map 0 0
+
+# --- save in-game ------------------------------------------------------------
+press START 6
+wait 200
+matrix stage9-start-menu-open
+press DOWN 4
+wait 25
+press DOWN 4
+wait 25
+press DOWN 4
+wait 25
+press DOWN 4
+wait 25
+press A 8
+wait 300
+matrix stage10-save-selected
+press UP 4
+wait 20
+press A 8
+wait 400
+matrix stage11-saved
+assert-battle inactive
+assert-party-count player 1

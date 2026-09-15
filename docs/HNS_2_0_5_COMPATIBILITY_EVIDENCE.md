@@ -93,6 +93,22 @@ the runtime measurements settle every address that matters.
 Addresses are labelled with their **unit**; absolute GBA addresses and EWRAM-relative offsets are
 never mixed implicitly.
 
+> **Read this section as SOURCE-BUILD evidence, not as release-ROM truth.**
+>
+> Every address in §2.1–§2.3 comes from a local `make hns` build of the tagged commit. That is
+> sufficient for **struct layout** and for the ordering of EWRAM arrays, and it is what DualDex
+> used while the layout foundation was being established. It is **not** sufficient for a symbol
+> *address* in the official binary: §5.3 showed the IWRAM block is offset by `0x18`, and §11.5/§11.6
+> showed the same class of shift moved `gMain` and the whole party group in EWRAM as well.
+>
+> The distinction the rest of this document relies on:
+>
+> ```text
+> COMPILED SYMBOL VERIFIED  !=  OFFICIAL-RELEASE RUNTIME ADDRESS
+> ```
+>
+> Where the two differ, §11 carries the runtime-verified value and is authoritative.
+
 ### 2.1 EWRAM symbols (`0x02000000`-based)
 
 | Symbol | Absolute GBA address | Size | EWRAM-relative |
@@ -126,6 +142,32 @@ Cross-checks that make these self-consistent rather than merely asserted:
   matches the probe (3892).
 * `gSaveblock3` is `0x34 == 52 == sizeof(struct SaveBlock3)` — matches the probe.
 
+**Which of these are also the official-release addresses.** The battle globals above
+(`gBattleTypeFlags`, `gBattlersCount`, `gBattleOutcome`, `gBattlerPartyIndexes`,
+`gBattlerPositions`, `gAbsentBattlerFlags`, `gBattleMons`) and the SaveBlock arrays were confirmed
+unchanged on the release ROM at runtime in §11.5. **The party group was not.** Both sets are true —
+for different binaries — and the document keeps both:
+
+```text
+SOURCE-BUILD / COMPILED (this section):
+
+    gPlayerPartyCount            0x020342A8
+    gEnemyPartyCount             0x020342A9
+    gEnemyParty                  0x020342B8
+    gPlayerParty                 0x02034768
+
+OFFICIAL RELEASE / RUNTIME (§11.5, §11.6 — what DualDex ships):
+
+    gPlayerPartyCount            0x020342A4
+    gEnemyPartyCount             0x020342A5
+    gEnemyParty                  0x020342B4
+    gPlayerParty                 0x02034764
+```
+
+The whole group sits **4 bytes lower** in the official binary. The source-build values are not
+rewritten above because they were never false for the source build; they are simply not the
+addresses the release ROM uses.
+
 ### 2.2 IWRAM symbols (`0x03000000`-based)
 
 | Symbol | Absolute GBA address | Source build | Release ROM (runtime) |
@@ -134,18 +176,33 @@ Cross-checks that make these self-consistent rather than merely asserted:
 | `gSaveBlock2Ptr` | `0x030041BC` | `0x030041BC` | `0x030041D4` |
 | `gSaveBlock1Ptr` | `0x030041C0` | `0x030041C0` | **`0x030041D8`** |
 | `gPokemonStoragePtr` | `0x030041C4` | `0x030041C4` | `0x030041DC` |
-| `gMain` (`struct Main`, `sizeof == 0x43C`) | `0x03005BC0` | `0x03005BC0` | `0x03005BC0` (same on both) |
+| `gMain` (`struct Main`, `sizeof == 0x43C`) | `0x03005BC0` | `0x03005BC0` | **`0x03005BD8`** |
 
-The from-source build and the official release binary disagree on the IWRAM placement of the
-SaveBlock pointer triple by 24 bytes. See §5 for the runtime measurement that settles it; DualDex
-ships the **runtime-verified** `0x030041D8`.
+The from-source build and the official release binary disagree on IWRAM placement by 24 bytes
+(`+0x18`) for **both** the SaveBlock pointer triple and `gMain`. DualDex ships the
+**runtime-verified** `0x030041D8` for the pointer and `0x03005BD8` for `gMain`.
 
-`gMain` is placed identically in the from-source build and the release binary, and the release ROM
-was read at that address at runtime (see §6.2 and §6.5): over 20,000 frames the byte holding the
-`inBattle` bit was readable on every frame, held only the value `0x00`, and never had bit 1 set.
-That is consistent with "the engine has not entered a battle yet" and is direct runtime evidence
-that `0x03005FF9` is the right byte for this release binary rather than a copy of the source
-build's layout.
+> **SUPERSEDED BY §11 RUNTIME VALIDATION**
+>
+> An earlier revision of this table recorded `gMain` as `0x03005BC0` "same on both", on the strength
+> of a boot-only probe: over 20,000 frames the byte at `0x03005FF9` was readable on every frame and
+> held only `0x00`, which was read as confirmation that the address was the release ROM's
+> `inBattle` byte.
+>
+> That conclusion is **withdrawn**. Readability plus a constant-zero value was not sufficient
+> semantic evidence that the address belonged to `gMain` — an unrelated zero-filled IWRAM byte
+> satisfies it equally well. Later runtime validation with real input and real battle transitions
+> (§11.5, §11.6) established that the official release places `gMain` at **`0x03005BD8`**, `+0x18`
+> from the source-build symbol, so the release `inBattle` byte is **`0x03006011`**, not
+> `0x03005FF9`. The decisive test was semantic: the `heldKeys` words tracked live input only at the
+> release address, and `callback1` was `NULL` only there.
+>
+> The methodological lesson, which applies to every address in this document:
+>
+> > **Readable memory and a plausible constant value are not enough to establish symbol identity;
+> > release-ROM addresses require semantic correlation with game behaviour.**
+>
+> The boot-only observation is retained above as superseded evidence, not as current truth.
 
 ### 2.3 Symbols DualDex deliberately does **not** derive
 
@@ -154,10 +211,17 @@ build's layout.
 happened to be used for H&S, is wrong by hundreds of bytes and has been replaced with an explicit
 configuration field.
 
-`gEnemyPartyCount` is **not** `gEnemyParty - 4` (`0x342B4`); it is `0x342A9`, 15 bytes before
-`gEnemyParty`. It is likewise an explicit field.
+`gEnemyPartyCount` is **not** `gEnemyParty - 4`. In the source build the count is `0x342A9`, 15
+bytes before `gEnemyParty` at `0x342B8`; in the official release it is `0x342A5`, 15 bytes before
+`gEnemyParty` at `0x342B4`. In neither layout is it 4 bytes before the array. It is likewise an
+explicit field.
 
-> **Runtime consumption note**: While `enemy_party_count_offset = 0x342A9` is compiled and verified from symbols, the current reader (`pokemon_read_enemy_party()`) does not consume `gEnemyPartyCount` as authoritative runtime input to bound party parsing or prune stale slots. Consumption of `gEnemyPartyCount` and verification of stale-slot behavior remain pending live battle/runtime validation (tracked in #1) before H&S can become VERIFIED.
+> **Runtime consumption note (updated by §11)**: this note originally recorded that
+> `pokemon_read_enemy_party()` did not yet consume `gEnemyPartyCount` as authoritative input. That
+> gap was closed in PR #43/#45 and the behaviour is now **runtime verified** in §11.3: during a live
+> wild battle the enemy party is bounded by `gEnemyPartyCount` (observed value `1`), and after
+> `gMain.inBattle` clears the production surface is empty on every frame even while the raw count
+> byte still reads a stale value. The addresses used are the official-release ones below.
 
 ---
 
@@ -294,12 +358,12 @@ lives in a different word at bits 29-30 — the two structs must not share one e
 
 ### 4.2 Changed
 
-| # | Assumption before | Evidence-backed value | Evidence |
-|---|---|---|---|
-| 1 | H&S `playerPartyOffset = 0x340F4` | `0x34768` (`gPlayerParty`) | COMPILED SYMBOL VERIFIED + runtime EWRAM confirmation (§5) |
-| 2 | H&S `playerPartyCountOffset = 0x340F0` | `0x342A8` (`gPlayerPartyCount`) | COMPILED SYMBOL VERIFIED |
-| 3 | H&S `enemyPartyOffset = 0x345A4` | `0x342B8` (`gEnemyParty`) | COMPILED SYMBOL VERIFIED |
-| 4 | H&S `enemyPartyCountOffset = 0x345A0` | `0x342A9` (`gEnemyPartyCount`) | COMPILED SYMBOL VERIFIED (symbol configured; runtime reader consumption & stale-slot truncation pending #1) |
+| # | Assumption before | Source-build symbol | Official-release runtime address | Evidence |
+|---|---|---|---|---|
+| 1 | H&S `playerPartyOffset = 0x340F4` | `0x34768` (`gPlayerParty`) | **`0x34764`** | COMPILED SYMBOL VERIFIED; release address RUNTIME VERIFIED (§11.5, §11.6) |
+| 2 | H&S `playerPartyCountOffset = 0x340F0` | `0x342A8` (`gPlayerPartyCount`) | **`0x342A4`** | COMPILED SYMBOL VERIFIED; release address RUNTIME VERIFIED (§11.5, §11.6) |
+| 3 | H&S `enemyPartyOffset = 0x345A4` | `0x342B8` (`gEnemyParty`) | **`0x342B4`** | COMPILED SYMBOL VERIFIED; release address RUNTIME VERIFIED (§11.5, §11.6) |
+| 4 | H&S `enemyPartyCountOffset = 0x345A0` | `0x342A9` (`gEnemyPartyCount`) | **`0x342A5`** | COMPILED SYMBOL VERIFIED; release address RUNTIME VERIFIED (§11.5, §11.6) |
 | 5 | H&S `battleMonsOffset = 0x3A5A4` | `0x420` (`gBattleMons`) | COMPILED SYMBOL VERIFIED |
 | 6 | `battle_mons_size = 88` | `136` | ABI VERIFIED + `gBattleMons` size cross-check |
 | 7 | `battle_mons_hp_offset = 40` | `0x2A` (42) | ABI VERIFIED |
@@ -455,7 +519,10 @@ Added to the compiled-symbol tables in §2.1 (EWRAM) and §2.2 (IWRAM):
 | `gEnemyPartyCount` | `0x020342A9` | 1 | EWRAM | `src/pokemon.c:114` |
 | `gPlayerParty` | `0x02034768` | `0x258` | EWRAM | `src/pokemon.c` |
 | `gEnemyParty` | `0x020342B8` | `0x258` | EWRAM | `src/pokemon.c` |
-| `gMain` | `0x03005BC0` | `0x43c` | IWRAM | `src/main.c:67` (`COMMON_DATA struct Main gMain = {0}`) |
+| `gMain` | `0x03005BC0` (source build) / **`0x03005BD8`** (official release, §11.5) | `0x43c` | IWRAM | `src/main.c:67` (`COMMON_DATA struct Main gMain = {0}`) |
+
+The rows in this table are `make hns` symbol values. The party rows and `gMain` are **not** the
+official-release addresses — see §2.1 and §11.5.
 
 ### 6.2 `gMain.inBattle`: the authoritative "a battle is running" flag
 
@@ -484,11 +551,32 @@ struct offset `0x439`**. Preceding members, all ABI VERIFIED from the same probe
 
 `0x438` is the offset of the last ordinary member (`state`), **not** the size of the struct. The
 struct is `0x43c` because the 3-bit flag unit at `0x439` is padded to the struct's 4-byte
-alignment. The probe object and the linked `pokehns.elf` agree on `0x43c` exactly, and the same
-`0x03005BC0` base was confirmed against the release ROM at runtime, so the source build and the
-official release do **not** differ for `gMain` — unlike the SaveBlock pointer triple (§2.2).
+alignment. The probe object and the linked `pokehns.elf` agree on `0x43c` exactly. The **struct
+layout** (`state` at `0x438`, the flag unit at `0x439`, `inBattle` at bit 1 of it) is therefore
+identical in both binaries; only the struct's *base address* differs.
 
-Absolute IWRAM address of the flag byte: **`0x03005BC0 + 0x439 = 0x03005FF9`**.
+Absolute IWRAM address of the flag byte:
+
+```text
+source-build symbol:        0x03005BC0 + 0x439 = 0x03005FF9
+official 2.0.5 release:     0x03005BD8 + 0x439 = 0x03006011   <- what DualDex ships
+```
+
+> **SUPERSEDED BY §11 RUNTIME VALIDATION** — an earlier revision of this section stated that the
+> `0x03005BC0` base "was confirmed against the release ROM at runtime" and concluded that the source
+> build and the official release "do **not** differ for `gMain`". **That is withdrawn.**
+>
+> The earlier confirmation rested on the boot-only probe described in §6.5: the byte at
+> `0x03005FF9` was readable on all 20,000 sampled frames and held `0x00`. Readability and a
+> constant-zero value do not identify a symbol — any zero-filled IWRAM byte satisfies both. §11.5
+> later established, with real input and real battle transitions, that the official release places
+> `gMain` at `0x03005BD8`, `+0x18` from the source-build symbol, exactly like the SaveBlock pointer
+> triple in §2.2. The release `inBattle` byte is `0x03006011`.
+>
+> General principle, applied consistently throughout this document:
+>
+> > **Readable memory and a plausible constant value are not enough to establish symbol identity;
+> > release-ROM addresses require semantic correlation with game behaviour.**
 
 Why this flag is the authority, from the tagged source:
 
@@ -636,22 +724,30 @@ Runtime runs were performed with the developer tool `tools/hns-runtime-probe/` a
 present official 2.0.5 ROM (`sha256 edf76ecf…7679b`, never committed) in the bundled mGBA libretro
 core, feeding live emulated memory into the **production** readers.
 
-No legal save file with a party was available on this machine, and DualDex's trust boundary is
-deliberately closed for H&S, so **no scenario that requires reaching an actual battle could be
-driven at runtime**. Those rows are `NOT RUNTIME VERIFIED` — the absence of evidence is recorded as
-absence, not as verification.
+No legal save file with a party was available at the time of this section, and DualDex's trust
+boundary is deliberately closed for H&S, so **no scenario that requires reaching an actual battle
+could be driven at runtime**. Those rows are `NOT RUNTIME VERIFIED` — the absence of evidence is
+recorded as absence, not as verification.
+
+> **PARTIALLY SUPERSEDED BY §11.** The `Runtime evidence` cells below that read
+> "RUNTIME VERIFIED for the inactive case: 20,000 frames, the byte at `0x03005FF9` was readable and
+> stayed zero" are **withdrawn as evidence of that address being `gMain.inBattle`**. §11.5 shows the
+> release `inBattle` byte is `0x03006011`, so those runs were reading an unrelated zero-filled byte.
+> The observation itself (the official ROM stays out of battle during boot and the production
+> readers report `INACTIVE`/`ABSENT`) still stands; the address attribution does not. The
+> corresponding rows in §11.3 are the current, semantically validated account.
 
 | Scenario | Source evidence | Compiled symbol evidence | Runtime evidence | DualDex behaviour | Confidence |
 |---|---|---|---|---|---|
-| battle enter | `CB2_InitBattleInternal` sets `gMain.inBattle` (`battle_main.c:681`) after `CalculateEnemyPartyCount()`; `InitBtlControllersInternal` sets `gBattlersCount` (`battle_controllers.c:205-207`) | `gMain` `0x03005BC0`+`0x439` bit 1; `gBattlersCount` `0x020000B0` | `NOT RUNTIME VERIFIED` (no save file; no battle reachable) | `INITIALIZING` until the battler set is complete and self-consistent, then `ACTIVE` | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
+| battle enter | `CB2_InitBattleInternal` sets `gMain.inBattle` (`battle_main.c:681`) after `CalculateEnemyPartyCount()`; `InitBtlControllersInternal` sets `gBattlersCount` (`battle_controllers.c:205-207`) | `gMain` **`0x03005BD8`**+`0x439` bit 1 (release address; `0x03005BC0` is the source-build symbol, not the release address); `gBattlersCount` `0x020000B0` | `NOT RUNTIME VERIFIED` (no save file; no battle reachable) | `INITIALIZING` until the battler set is complete and self-consistent, then `ACTIVE` | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
 | wild single | `AssignBattlersToParty` + `gBattlersCount = 2`; wild encounters leave `BATTLE_TYPE_TRAINER` clear | `gBattleTypeFlags` `0x020000AC`, `gBattlersCount` `0x020000B0`, `gBattlerPartyIndexes` `0x02000144` | `NOT RUNTIME VERIFIED` | `BATTLE_KIND_WILD_SINGLE`; opponent resolved as `gBattlerPartyIndexes[1]` | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
 | trainer single | `CB2_InitBattleInternal` builds `gEnemyParty` then `CalculateEnemyPartyCount()` (`battle_main.c:661-665`) | `gEnemyPartyCount` `0x020342A9`, `gEnemyParty` `0x020342B8` | `NOT RUNTIME VERIFIED` | `BATTLE_KIND_TRAINER_SINGLE`; enemy party bounded by `gEnemyPartyCount` | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
 | opponent switch | `gBattlerPartyIndexes[battler]` is rewritten when the send-out completes | `0x02000144 + 2*b` | `NOT RUNTIME VERIFIED` | slot follows the rewritten index; species/HP are never re-matched | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
 | opponent faint | `FaintClearSetData` resets stages/volatiles; `gBattleMons[b].hp == 0` while the forced switch resolves | `hp` at `BattlePokemon+0x2A` | `NOT RUNTIME VERIFIED` | fainted opponent reported with `fainted = true`; the UI withholds the slot (`UNKNOWN`) until the engine's mapping moves | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
 | player switch | same `gBattlerPartyIndexes[battler]` mechanism for the player side | `0x02000144 + 2*b` | `NOT RUNTIME VERIFIED` | the active player battler is whichever battler `gBattlerPositions` puts on the player side; its slot follows `gBattlerPartyIndexes[battler]` | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
 | player faint | `hp == 0` on the active player battler while the party menu replacement resolves | `hp` at `BattlePokemon+0x2A` | `NOT RUNTIME VERIFIED` | active player slot withheld (`-1`, `known = false`) rather than retained | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
-| **stale battle state + `gMain.inBattle == false`** | `gMain.inBattle = FALSE` on exit; `gBattleMons` is EWRAM `.bss` and is not always cleared | `gMain` `0x03005BC0`+`0x439` bit 1 | **RUNTIME VERIFIED for the inactive case**: with the real ROM the production presence path returned `ABSENT` on every one of 20,000 frames | production presence reports `NOT_OBSERVED`; the stale species word is ignored | RUNTIME VERIFIED (inactive); the post-battle edge itself NOT RUNTIME VERIFIED |
-| battle exit | `gMain.inBattle = FALSE` in `ReturnFromBattleToOverworld` / `FreeRestoreBattleData`; `ZeroEnemyPartyMons()`; `CalculatePlayerPartyCount()` | `gMain` `0x03005BC0`+`0x439` bit 1 | **RUNTIME VERIFIED for the pre-battle/overworld case**: over 20,000 emulated frames of the official ROM the `gMain.inBattle` bit was readable on every frame and **never** observed set; `gBattlersCount == 0`, `gBattleTypeFlags == 0`, `gBattleOutcome == 0`, `gBattlerPartyIndexes[0..3] == 0`, `gBattleMons[0..3].species == 0`, `gPlayerPartyCount == 0`, `gEnemyPartyCount == 0`; the production readers returned `INACTIVE`, `NONE_ACTIVE`, `enemyParty = 0`, `activeEnemySlot = -1`, `known = false`, and the production **battle-presence** path returned `ABSENT` on every sample, with **0 invariant failures** | enemy party, active slot and production presence are all cleared; no stale opponent can be presented | runtime VERIFIED for the inactive state; the exit *edge* itself NOT RUNTIME VERIFIED |
+| **stale battle state + `gMain.inBattle == false`** | `gMain.inBattle = FALSE` on exit; `gBattleMons` is EWRAM `.bss` and is not always cleared | `gMain` **`0x03005BD8`**+`0x439` bit 1 (release address; `0x03005BC0` is the source-build symbol, not the release address) | ~~**RUNTIME VERIFIED for the inactive case**~~ (**address attribution SUPERSEDED — see §11.5/§11.6**): with the real ROM the production presence path returned `ABSENT` on every one of 20,000 frames while reading the then-configured byte | production presence reports `NOT_OBSERVED`; the stale species word is ignored | RUNTIME VERIFIED (inactive); the post-battle edge itself NOT RUNTIME VERIFIED |
+| battle exit | `gMain.inBattle = FALSE` in `ReturnFromBattleToOverworld` / `FreeRestoreBattleData`; `ZeroEnemyPartyMons()`; `CalculatePlayerPartyCount()` | `gMain` **`0x03005BD8`**+`0x439` bit 1 (release address; `0x03005BC0` is the source-build symbol, not the release address) | ~~**RUNTIME VERIFIED for the pre-battle/overworld case**~~ (**address attribution SUPERSEDED — see §11.5/§11.6**: this run read `0x03005FF9`, which is not the release `inBattle` byte): over 20,000 emulated frames of the official ROM the then-configured byte was readable on every frame and **never** observed set; `gBattlersCount == 0`, `gBattleTypeFlags == 0`, `gBattleOutcome == 0`, `gBattlerPartyIndexes[0..3] == 0`, `gBattleMons[0..3].species == 0`, `gPlayerPartyCount == 0`, `gEnemyPartyCount == 0`; the production readers returned `INACTIVE`, `NONE_ACTIVE`, `enemyParty = 0`, `activeEnemySlot = -1`, `known = false`, and the production **battle-presence** path returned `ABSENT` on every sample, with **0 invariant failures** | enemy party, active slot and production presence are all cleared; no stale opponent can be presented | runtime VERIFIED for the inactive state; the exit *edge* itself NOT RUNTIME VERIFIED |
 | doubles | `IsDoubleBattle()` is `gBattleTypeFlags & BATTLE_TYPE_MORE_THAN_TWO_BATTLERS`; `gBattlersCount = 4` | `gBattlersCount` `0x020000B0`, `gBattlerPositions` `0x02000238` | `NOT RUNTIME VERIFIED` | `BATTLE_KIND_DOUBLES` => active enemy `AMBIGUOUS`, no slot, no enemy shown | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
 | partner / multi | `BATTLE_TYPE_MULTI` (bit 6), `BATTLE_TYPE_INGAME_PARTNER` (bit 22), `BATTLE_TYPE_TWO_OPPONENTS` (bit 15), `BATTLE_TYPE_LINK` (bit 1) | `gBattleTypeFlags` `0x020000AC` | `NOT RUNTIME VERIFIED` — no practical scenario was reachable in this PR | `BATTLE_KIND_MULTI_OR_PARTNER` => active enemy `AMBIGUOUS`, no slot | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
 | transition windows (init / faint / teardown) | `gBattlersCount` is set after `gMain.inBattle`; `BattleStartClearSetData` clears `gBattleOutcome`/`gAbsentBattlerFlags` at intro start | the whole global set above | runtime VERIFIED only for the boot/intro window, which is consistently `INACTIVE` | `INITIALIZING` / `ENDING` / `UNKNOWN` never expose a slot | SOURCE + COMPILED SYMBOL VERIFIED; partial runtime |
@@ -680,17 +776,23 @@ now a `bool seen[256]` table and the run was repeated. The corrected values abov
 earlier ones: on this ROM and build the byte at `0x03005FF9` was readable on all 20,000 sampled
 frames and held `0x00` throughout, with the `inBattle` bit clear on every observed frame.
 
-Reading `0x00` on every frame is the expected result and is not a dead address: the flag byte is
-the same byte that also carries `oamLoadDisabled` and `anyLinkBattlerHasFrontierPass`, the read
-path is the same region-checked IWRAM reader that independently resolved `gSaveBlock1Ptr` in §5.2,
-and a bogus address would have to be readable *and* consistently zero for 20,000 frames. The
-positive evidence for the address is the §5.2 IWRAM pointer triple plus the release-ROM observation
-that the flag never asserts during a non-battle period, which is exactly what the tagged source
-predicts (`gMain.inBattle` is only set in `CB2_InitBattleInternal`).
+Reading `0x00` on every frame was taken at the time as the expected result and as evidence that the
+address was not dead: the flag byte is the same byte that also carries `oamLoadDisabled` and
+`anyLinkBattlerHasFrontierPass`, the read path is the same region-checked IWRAM reader that
+independently resolved `gSaveBlock1Ptr` in §5.2, and a bogus address would have to be readable
+*and* consistently zero for 20,000 frames.
 
-Bounded conclusion: runtime confirms the *inactive* case and that the flag byte is readable at the
-declared release address. It does **not** confirm that the bit asserts on battle entry — that
-requires reaching a battle (see the NOT RUNTIME VERIFIED rows in §6.5).
+> **That reasoning is superseded.** "Readable and consistently zero" is satisfied by any unused
+> zero-filled IWRAM byte, so it cannot establish which symbol the byte belongs to. §11.5 identified
+> the release `gMain` at `0x03005BD8` by a **semantic** test instead — the `heldKeys` words there
+> track live button input, which a dead byte cannot do. `0x03005FF9` is not the release `inBattle`
+> byte.
+
+Bounded conclusion (superseded on the address, retained on the observation): the run confirms the
+*inactive* case for the official ROM — it stays out of battle during boot and the production readers
+report `INACTIVE`/`ABSENT` throughout. It does **not** confirm that the `inBattle` bit asserts on
+battle entry, and it does **not** establish that `0x03005FF9` was the release `inBattle` byte. §11.3
+now supplies the battle-entry evidence against the corrected address.
 
 ### 6.6 Doubles / partner decision
 
@@ -772,19 +874,19 @@ No broad architecture rewrite was performed (issue #8 is untouched).
 | Bounds-checked absolute-address reads | RUNTIME VERIFIED (incl. rejection after unload) + unit tested |
 | SaveBlock1 ASLR resolution | RUNTIME VERIFIED |
 | SaveBlock1 field offsets | ABI VERIFIED; reader path RUNTIME VERIFIED |
-| Party symbol addresses (`gPlayerParty`, `gPlayerPartyCount`) | COMPILED SYMBOL VERIFIED; EWRAM ordering RUNTIME VERIFIED; party content NOT YET VERIFIED |
-| Enemy party symbols (`gEnemyParty`, `gEnemyPartyCount`) | COMPILED SYMBOL VERIFIED; consumed as authoritative bounds (unit tested); live in-battle content NOT RUNTIME VERIFIED |
-| `BattlePokemon` size / HP / stat-stage offsets | ABI VERIFIED; boot-time species/HP observed on the release ROM; live in-battle values NOT RUNTIME VERIFIED |
-| `gBattlerPartyIndexes` explicit address | COMPILED SYMBOL VERIFIED; used as the only active-battler -> party-slot source; live switch/faint traces NOT RUNTIME VERIFIED |
+| Party symbol addresses (`gPlayerParty`, `gPlayerPartyCount`) | source build COMPILED SYMBOL VERIFIED (`0x02034768`/`0x020342A8`); **official release RUNTIME VERIFIED at `0x02034764`/`0x020342A4`** (§11.5, §11.6); party content RUNTIME VERIFIED (level 5 Chikorita decoded live) |
+| Enemy party symbols (`gEnemyParty`, `gEnemyPartyCount`) | source build COMPILED SYMBOL VERIFIED (`0x020342B8`/`0x020342A9`); **official release RUNTIME VERIFIED at `0x020342B4`/`0x020342A5`** (§11.5, §11.6); live in-battle content RUNTIME VERIFIED (wild opponent decoded during a battle) |
+| `BattlePokemon` size / HP / stat-stage offsets | ABI VERIFIED; live in-battle values RUNTIME VERIFIED — species/HP for both sides and a real `6 -> 5` stat-stage transition at offset `0x18` (§11.3) |
+| `gBattlerPartyIndexes` explicit address | COMPILED SYMBOL VERIFIED + release address RUNTIME VERIFIED; used as the only active-battler -> party-slot source; live singles faint/teardown RUNTIME VERIFIED, switch traces NOT RUNTIME VERIFIED |
 | Expansion `abilityNum` / `gigantamaxFactor` decoding | ABI VERIFIED + SOURCE VERIFIED; unit tested |
 | Expansion nature / shiny semantics | SOURCE VERIFIED; unit tested; UI policy NOT YET VERIFIED |
 | H&S 2.0.5 Species / Move Data Pack (`HeartAndSoul205DataPack`) | SOURCE VERIFIED (extracted via `arm-none-eabi-cpp` preprocessor directly from pinned upstream checkout `1f42b74dff0e9fe942419845d040663dd829a973` with zero commercial ROM dependency); unit tested |
 | Profile Custom Species Isolation (Ghost Grey vs H&S 500-502) | SOURCE VERIFIED; unit tested |
 | H&S 2.0.5 Held Items | NON-AUTHORITATIVE (held items marked unverified in live party presentation pending dedicated item audit) |
-| Battle lifecycle (`gMain.inBattle`, `gBattlersCount`, `gBattleOutcome`, `gBattlerPositions`, `gAbsentBattlerFlags`) | COMPILED SYMBOL + ABI VERIFIED; RUNTIME VERIFIED in the inactive/overworld state (20,000 frames, 0 invariant failures); battle enter/switch/faint/exit-edge NOT RUNTIME VERIFIED (no legal save file) |
-| Production battle presence for H&S | `gMain.inBattle` lifecycle only (no `gBattleMons[0].species`); lifecycle-null semantics unit tested, inactive case runtime verified; active/ending cases NOT RUNTIME VERIFIED |
-| Active battler index contract (`ActiveEnemyInfo.battler_index`) | SOURCE + unit tested as the real resolved battler index; not observed in a live battle |
-| Active-enemy / active-battler mapping | SOURCE + COMPILED SYMBOL VERIFIED; fail-closed contract unit tested (native + Kotlin); not exercised in a live battle |
+| Battle lifecycle (`gMain.inBattle`, `gBattlersCount`, `gBattleOutcome`, `gBattlerPositions`, `gAbsentBattlerFlags`) | COMPILED SYMBOL + ABI VERIFIED; `gMain` release base **corrected to `0x03005BD8`** by runtime evidence (§11.6); battle enter, HP, faint, teardown and exit-edge RUNTIME VERIFIED with 0 invariant violations (§11.3). Switch/doubles NOT RUNTIME VERIFIED |
+| Production battle presence for H&S | `gMain.inBattle` lifecycle only (no `gBattleMons[0].species`); lifecycle-null semantics unit tested; inactive, active, ending and post-exit (stale-state) cases all RUNTIME VERIFIED (§11.3) |
+| Active battler index contract (`ActiveEnemyInfo.battler_index`) | SOURCE + unit tested; **RUNTIME VERIFIED** — resolved battler `1` for the opponent and `0` for the player in a live wild battle (§11.3) |
+| Active-enemy / active-battler mapping | SOURCE + COMPILED SYMBOL VERIFIED; fail-closed contract unit tested (native + Kotlin); **RUNTIME VERIFIED** in a live wild battle (`SLOT`, slot `0`, battler `1`) and proven to stay `NONE_ACTIVE`/`-1` while stale `gBattleMons` words remain (§11.3) |
 | Battle UI / interactive controls | NOT YET VERIFIED — `battleUiVerified` and `interactiveControlsVerified` remain `false` (unchanged by this PR) |
 | H&S maps / regions | NOT YET VERIFIED (explicitly out of scope; #11) |
 | H&S calculator correctness | NOT YET VERIFIED (explicitly out of scope; #9) |
@@ -838,12 +940,13 @@ These were found during this phase and are **not** fixed here.
    these or explicitly degrade. (#9)
 5. **Toolchain/layout reconciliation.** A local build does not reproduce the release binary's IWRAM
    ordering (§5.3). Any future symbol-dependent work must confirm addresses against the release ROM.
-6. **No save file was available**, so every party-, battle- and map-dependent capability remains
-   unverified; obtaining a legal save with a party and a battle is the next concrete step for #40.
-   The battle lifecycle work landed in `compat/hns-2.0.5-battle-lifecycle` is consequently
-   **runtime-verified only for the inactive/overworld state** (§6.5). The exact remaining gap for
-   #1 is a legal save with a party plus reachable wild and trainer battles, which would let
-   `tools/hns-runtime-probe` capture real enter/switch/faint/exit transitions.
+6. **[RESOLVED in PR #46] No save file was available**, so every party-, battle- and map-dependent
+   capability was unverified. §11 records the resolution: a legal save with a party was produced by
+   driving a fresh ROM through normal game progression, and wild-battle enter / HP / faint /
+   teardown / exit-edge were captured at runtime against the exact official ROM. What this blocker
+   left behind, and what remains for #1, is the *reach* of that save: trainer battles, opponent and
+   player switches, player faint replacement, doubles and partner/multi still need a save progressed
+   further than Route 29 (§11.7).
 7. **Vanilla behaviour note (not a change in this PR's scope).** The legacy
    `gBattlerPartyIndexes = gBattleMons - 24` derivation is retained only for layouts that do not
    declare `battler_party_indexes_offset` (FireRed, Emerald, LeafGreen, Ruby, Sapphire, Ghost Grey,
@@ -881,14 +984,242 @@ arm-none-eabi-readelf --debug-dump=info /tmp/probe.o       # bitfield placement 
 
 # 5. Runtime battle-state observation against the official 2.0.5 ROM (developer tool, not CI).
 #    Requires a locally built mGBA libretro core and a legally obtained ROM. No ROM is shipped.
+#    See §11.8 for the save-generation and scenario commands; a scripted run exits non-zero if a
+#    required script action fails or any runtime invariant is violated.
 cd tools/hns-runtime-probe && ./build.sh
-./runtime_battle_probe <mgba_libretro.so> "<legal hns 2.0.5 rom>.gba" 20000
+./runtime_battle_probe <mgba_libretro.so> "<legal hns 2.0.5 rom>.gba" --frames 20000
 
 # 6. DualDex regression coverage (no ROM required)
 ./ci.sh test
 ```
 
-All committed regression tests use synthetic memory buffers and source-derived fixtures. No ROM,
-no ROM-derived data, and no copyrighted content is committed. The runtime probe is a developer
-tool: it is not built by `ci.sh`, not shipped in the APK, and does not add the H&S SHA-256 to any
-profile.
+Most committed regression fixtures are synthetic or source-derived. PR #46 additionally commits two
+100-byte **runtime-captured** Pokémon structures read out of EWRAM while the official ROM was
+running (`kHnsReleasePlayerParty0`, `kHnsReleaseEnemyParty0`). These are decoded runtime state — not
+ROM bytes, not save files, not save states, and not copyrighted game assets — and they are the only
+runtime-captured bytes in the repository. No ROM, no ROM-derived data, and no copyrighted content is
+committed. The runtime probe is a developer tool: it is not built by `ci.sh`, not shipped in the APK,
+and does not add the H&S SHA-256 to any profile.
+
+---
+
+## 11. Runtime battle validation against the official release ROM (issue #1)
+
+**Validation date: 2026-09-15.** This section is additive; nothing above is rewritten. It replaces
+the `NOT RUNTIME VERIFIED` rows of §6.5 only where a live run actually produced the transition.
+
+Phase 1 of issue #1 — "no save with a party and reachable battles" — is resolved in this section.
+
+### 11.1 Exact environment
+
+| Item | Value |
+|---|---|
+| ROM | Pokémon Heart & Soul 2.0.5 (UPS patch applied to Emerald (U)) |
+| ROM SHA-256 | `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b` |
+| mGBA core | libretro host build of the bundled `cores/mgba-src` checkout (`e31759b24e7a4e3899285ff720d7b573ac328ae7`), x86-64, BuildID `150660aa40aa7f42f9cde07d0589197f07acb414` |
+| Tool | `tools/hns-runtime-probe` (production readers compiled unchanged into the host harness) |
+| Save format | plain 128 KiB (`0x20000`) GBA battery save via `RETRO_MEMORY_SAVE_RAM` |
+
+`sha256Hashes` in `heart_and_soul.json` is **still empty**; the hash above is used only as a local
+precondition for this evidence.
+
+### 11.2 Save provenance (issue #1 phase 1)
+
+The blocker recorded in §4.4 and §9.6 was that no save with a party existed. It was removed by
+driving the official ROM through **normal game progression** with scripted button input:
+
+```text
+copyright -> title -> main menu -> H&S challenge menu -> H&S/Oak speech -> naming screen
+-> bedroom (mandatory wall-clock setup) -> downstairs (mom dialogue) -> New Bark Town
+-> Elm's laboratory -> starter selection (Chikorita) -> nickname -> Elm again -> save
+```
+
+* No RAM writes, no cheats, no ROM patching, no save editing. Every step is an ordinary key press.
+* The save is written by the game's own save routine (`START` → `SAVE` → `YES`) and then flushed
+  from the core's battery RAM to a `.sav`. The resulting file is 131,072 bytes
+  (`sha256 c434b491d03473d7fa2a2ff6a9e97275eac105b6bf624255bf1c3d41d24222a3` for the run recorded
+  here; the bytes depend on the generated trainer ID, so that digest identifies one local run
+  rather than a required value).
+* The `.sav`, the ROM and any save state stay outside the repository and are never committed.
+* Driver: `tools/hns-runtime-probe/scenarios/00-fresh-rom-to-starter-save.txt`, wrapped by
+  `tools/hns-runtime-probe/make-save.sh`. Verified end to end: the freshly generated save was
+  loaded back into the same ROM and drove scenarios 10 and 20 to a live wild battle (§11.3).
+
+Two H&S-specific input facts were required and are worth recording:
+
+1. **The challenge menu is exited with `R`, not `A`.** `A` cycles the highlighted option's value
+   (the menu never advances), while `R` walks the tabs; `R` on the last tab jumps straight to the
+   save-and-continue path (`SwitchTab` in `src/challenge_menu.c`). A pure `A` mash stalls on this
+   screen forever, which is why the earlier boot-only runs never left it.
+2. **Yes/No prompts default to `NO`.** `CreateYesNoMenu(..., initialCursorPos = 1)` selects `NO`
+   for the clock confirmation, and the same `NO` default makes Elm's dialogue loop. Pressing
+   `UP` before `A` is therefore required; a blind `A` mash can answer `YES` to the starter prompt
+   and still fall back into the refusal loop.
+
+### 11.3 Runtime scenario matrix (replaces the `NOT RUNTIME VERIFIED` rows of §6.5)
+
+Result vocabulary: `PASS`, `IMPLEMENTATION BUG`, `SOURCE/RELEASE LAYOUT MISMATCH`,
+`NOT RUNTIME VERIFIED`.
+
+| Scenario | Expected (PR #45 architecture) | Runtime observed | DualDex output | Result |
+|---|---|---|---|---|
+| A. Overworld baseline | `gMain.inBattle == false`, lifecycle `INACTIVE`, presence `ABSENT`, active enemy `NONE_ACTIVE`, empty enemy surface | `inBattle=false`; `gBattlersCount=0`; `gBattleTypeFlags=0`; `gBattleOutcome=0`; `gBattlerPositions=0,0,0,0`; `gBattleMons` species `0,0,0,0`; `playerPartyCount=1` | `INACTIVE` / `NONE_ACTIVE` / `enemyParty=0` / `slot=-1` / presence `ABSENT` | **PASS** |
+| B. Wild battle entry | `ACTIVE` only when `gMain.inBattle` is set; `gBattlersCount == 2`; presence `PRESENT`; one player + one opponent battler; resolved opponent slot from `gBattlerPartyIndexes` | observed `INACTIVE` → `INITIALIZING` (frame 1606, `battlers=0`, positions `255,255,255,255`) → `ACTIVE` (frame 1609, `battlers=2`, `typeFlags=0x4`, positions `0,1`, `partyIndexes[0..1] = 0,0`, species `152,19`) | `ACTIVE` / `WILD_SINGLE` / `PRESENT` / `activeEnemy=SLOT` / `resolvedBattler=1` / `resolvedEnemySlot=0` / `opponentBattlers=1` / `activePlayerSlot=0` | **PASS** |
+| C. Wild battle HP update | live HP in `gBattleMons[b].hp` updates and DualDex applies it to the authoritative party slot | opponent HP `13/15` → `8` → `2` → `0` and player HP `20` → `17` across turns, all read from `gBattleMons[b]` (stride 136, `hp` at `0x2A`, player at battler 0 and opponent at battler 1) | player and enemy snapshots follow `gBattleMons[resolvedBattler].hp` for their resolved party slots | **PASS** |
+| D. Wild battle exit | `ACTIVE` → `ENDING` → `INACTIVE`; stale `gBattleMons`/`gBattlerPartyIndexes`/`gEnemyPartyCount` cannot keep presence or an active enemy alive | at frame 2878 `gMain.inBattle` clears while `gBattlersCount` **still reads 2**, `gBattlerPositions` **still reads 0,1** and `gBattleMons[0].hp` **still reads 19** | production presence `ABSENT`, lifecycle `INACTIVE`, active-enemy `NONE_ACTIVE` with `slot=-1` on every frame after the clear — the stale words are ignored | **PASS** |
+| E. Trainer battle | `BATTLE_TYPE_TRAINER`, `gEnemyPartyCount` bounds, initial active enemy slot | not driven — the first accessible trainer with two Pokémon is well beyond Route 29 | — | **NOT RUNTIME VERIFIED** |
+| F. Opponent faint + replacement | fainted opponent never displays a stale previous opponent; replacement resolves to the new exact enemy party index | opponent faint observed: `gBattleMons[1].hp == 0`, `fainted=1`, lifecycle `ENDING`, enemy surface cleared (`enemyParty=0`, `slot=-1`) — the **replacement** half needs a trainer with a second Pokémon | faint + fail-closed clearing: **PASS**; replacement: **NOT RUNTIME VERIFIED** |
+| G. Opponent switch without faint | slot follows the rewritten `gBattlerPartyIndexes` | not reachable on a wild-only save | — | **NOT RUNTIME VERIFIED** |
+| H. Player switch | player side from `gBattlerPositions`, slot from `gBattlerPartyIndexes` | only one party member exists on this save, so no switch was possible | active player slot resolved to `0` with `known=true` throughout | **NOT RUNTIME VERIFIED** (slot resolution itself: PASS) |
+| I. Player faint + forced replacement | `hp == 0`, active player slot withheld during replacement, no stale slot survives | not driven (the starter did not faint in the observed battles) | — | **NOT RUNTIME VERIFIED** |
+| J. Stat-stage runtime evidence | `BattlePokemon.statStages` at offset `0x18` produces expected stage transitions | observed a live transition `6 → 5` at `statStages[2]` of `gBattleMons[0]` while the message "…" ran, i.e. a real stage drop read at the declared offset (neutral `6`) | stages are read from the declared offset; the reader does not interpret them further | **PASS** (representative, not exhaustive) |
+| K. Doubles | `gBattlersCount == 4`, two opponent-side battlers, `AMBIGUOUS`, no slot | not reachable on this save | — | **NOT RUNTIME VERIFIED** |
+| L. Partner / multi | `MULTI_OR_PARTNER`, `AMBIGUOUS`, no slot | not reachable on this save | — | **NOT RUNTIME VERIFIED** |
+
+Runtime counts for the two full runs (save regenerated from the fresh ROM, then loaded back):
+
+```text
+scenarios/00-fresh-rom-to-starter-save.txt :  frames run 20699   invariant violations 0
+scenarios/10-wild-battle-entry.txt         :  frames run 1845    invariant violations 0
+scenarios/20-wild-battle-full.txt          :  frames run 3871    invariant violations 0
+```
+
+The distinct state rows observed by scenario 20 give the whole lifecycle in one trace
+(`eParty` is `gEnemyPartyCount` raw / production, `ae` is the active-enemy state):
+
+```text
+    1  INACTIVE      NONE        ABSENT   inB=false  bat=0  eParty=0/0  pParty=0
+  209  INACTIVE      NONE        ABSENT   inB=false  bat=0  eParty=1/0  pParty=1   <- stale raw count, production still empty
+ 1558  INITIALIZING  UNKNOWN     UNKNOWN  inB=true   bat=0  pos=255,255,255,255
+ 1561  ACTIVE        WILD_SINGLE PRESENT  inB=true   bat=2  pos=0,1  eParty=1/1
+ 1586  ACTIVE        WILD_SINGLE PRESENT  species=152,19  hp=20,13  ae=SLOT slot=0 bat=1 opp=1
+ 2156  ACTIVE        WILD_SINGLE PRESENT  hp=20,8
+ 2299  ACTIVE        WILD_SINGLE PRESENT  hp=20,8   statStages[0][2] 6 -> 5
+ 2580  ACTIVE        WILD_SINGLE PRESENT  hp=20,2
+ 2730  ACTIVE        WILD_SINGLE PRESENT  hp=17,2                         <- player side damaged
+ 2895  ACTIVE        WILD_SINGLE PRESENT  hp=17,0   fainted=1
+ 3070  ENDING        UNKNOWN     UNKNOWN  eParty=1/0  ae=NONE_ACTIVE slot=-1
+ 3120  INACTIVE      NONE        ABSENT   inB=false  bat=2  pos=0,1  hp=17,0  <- all stale, all ignored
+```
+
+### 11.4 Runtime invariant results
+
+The probe asserts these on **every** frame and exits non-zero on the first violation. Across all
+runs of the official ROM (including the ~328,000-frame fresh-ROM save-generation run) the count was
+**0 violations**:
+
+| Invariant | Result |
+|---|---|
+| lifecycle `ACTIVE` only while `gMain.inBattle` is authoritatively true | held on every frame |
+| production presence agrees with the lifecycle | held on every frame (incl. the `ENDING` window) |
+| no unresolved opponent becomes slot 0 (or any slot) | held — outside a battle the slot stayed `-1` even while `gBattleMons` still held the fainted opponent |
+| no stale opponent survives battle exit | held — see scenario D |
+| party slot always comes from `gBattlerPartyIndexes[battler]` | held — `resolvedEnemySlot == gBattlerPartyIndexes[resolvedBattler]` on every sampled frame |
+| resolved battler index is the actual battler | held — `1` for the opponent, `0` for the player |
+| enemy slots stay inside `gEnemyPartyCount` | held |
+| doubles never silently select one opponent | not exercised (no doubles battle reached) |
+| unreadable authority degrades to `UNKNOWN` | held |
+
+### 11.5 Official-release address revalidation (issue #1 phase 5)
+
+§5.3 warned that a from-source build is not sufficient evidence for a symbol address. This section
+acts on that warning for the battle globals. Method: read the address live and require **semantic
+correlation**, never proximity.
+
+| Symbol | Config address | Runtime behaviour on the release ROM | Verdict |
+|---|---|---|---|
+| `gMain.inBattle` | `0x03005BD8 + 0x439` bit 1 | clear while overworld; set (`0x02`) for the whole wild battle; clear again after teardown | **CONFIRMED** |
+| `gBattleTypeFlags` | `0x020000AC` | `0x00000000` overworld; `0x00000004` (no `BATTLE_TYPE_TRAINER` bit) during the wild battle | **CONFIRMED** |
+| `gBattlersCount` | `0x020000B0` | `0` overworld; `2` during singles | **CONFIRMED** |
+| `gBattleOutcome` | `0x0200012C` | `0` while fighting; `1` once the battle resolved | **CONFIRMED** |
+| `gBattlerPartyIndexes` | `0x02000144` | `0,0` during singles, matching the player slot 0 and enemy slot 0 actually in use | **CONFIRMED** |
+| `gBattlerPositions` | `0x02000238` | `0,1` during singles (battler 0 player side, battler 1 opponent side) | **CONFIRMED** |
+| `gAbsentBattlerFlags` | `0x0200030A` | `0x00` for singles | **CONFIRMED** |
+| `gBattleMons` | `0x02000420`, stride 136 | species `152,19` / HP `19,13` matching the party Pokémon and the encountered wild Pokémon | **CONFIRMED** |
+| `gPlayerPartyCount` | `0x020342A4` | `0` before the starter, `1` afterwards | **CONFIRMED — config was wrong (see §11.6)** |
+| `gEnemyPartyCount` | `0x020342A5` | `1` during the wild battle | **CONFIRMED — config was wrong (see §11.6)** |
+| `gPlayerParty` | `0x02034764` | the level 5 Chikorita handed out by Elm decodes here (BoxPokemon checksum validates, nickname decodes to `CHIKORITA`, species word `152`) | **CONFIRMED — config was wrong (see §11.6)** |
+| `gEnemyParty` | `0x020342B4` | the wild Pokémon decodes here during the battle (checksum validates, species `19`) | **CONFIRMED — config was wrong (see §11.6)** |
+
+No address was moved merely because a nearby alternative also changed; each row above required the
+value to correlate semantically with live game state.
+
+### 11.6 Production bugs found and fixed
+
+Two discrepancies were found by runtime evidence. Both are layer 2 in the issue #1 taxonomy —
+**source-build symbol vs official-release address** — the same class of error §5.3 already caught
+once for `gSaveBlock1Ptr`.
+
+**Discrepancy 1 — `gMain` (`SOURCE/RELEASE LAYOUT MISMATCH`).** The config read
+`gMain.inBattle` at `0x03005BC0 + 0x439 = 0x03005FF9`, the address a from-source `make hns` build
+reports. On the release ROM that is the wrong word:
+
+* the release `struct Main` begins at **`0x03005BD8`**, the same `+0x18` shift that moves
+  `gSaveBlock1Ptr` from `0x030041C0` (local) to `0x030041D8` (release);
+* decisive semantic test — `struct Main` begins with `callback1`, which `src/main.c` sets to `NULL`
+  and never reassigns, and it carries `heldKeysRaw`/`newKeysRaw` at `0x028`. Holding `RIGHT` set
+  `0x03005BD8 + 0x02C` to `0x0010`, `LEFT` to `0x0020`, `START` to `0x0008`, each cleared on
+  release. The word at `0x03005BC0` never tracked input and its first word was a ROM pointer, so
+  it cannot be `gMain`;
+* impact: with the old address the production lifecycle could never report `ACTIVE` on the release
+  ROM, so H&S battle presence was permanently `ABSENT`/`UNKNOWN`;
+* fix: `main_struct_gba_address = 0x03005BD8` (in-battle byte `0x03006011`).
+
+**Discrepancy 2 — the party group (`SOURCE/RELEASE LAYOUT MISMATCH`).** The config read
+`gPlayerPartyCount` at `0x020342A8`, `gPlayerParty` at `0x02034768`, `gEnemyPartyCount` at
+`0x020342A9` and `gEnemyParty` at `0x020342B8`. On the release ROM the whole group sits **4 bytes
+lower**:
+
+* an EWRAM diff taken before and after `givemon` showed the player party count byte appearing at
+  `0x020342A4` (and `0x020342A5` for the enemy count) and the party structure at `0x02034764`;
+* three independent checks on the captured bytes confirm the base: the `BoxPokemon` checksum
+  validates (`stored 0xC2BA == computed 0xC2BA`), the nickname decodes to `CHIKORITA`, and the
+  decrypted substruct word is species `152` (`SPECIES_CHIKORITA`). The compiled base fails the same
+  checksum test (`stored 0x50B9 != computed 0x6DB4`);
+* during a live wild battle `0x020342B4` decoded the opponent (checksum valid, species `19`) while
+  `0x020342B8` did not;
+* impact: DualDex read a 4-byte-shifted party for the release ROM and saw an empty enemy party
+  during a live battle — the active enemy degraded to `NONE_ACTIVE` even while the battle was
+  `ACTIVE`;
+* fix: `player_party_offset = 0x34764`, `player_party_count_offset = 0x342A4`,
+  `enemy_party_offset = 0x342B4`, `enemy_party_count_offset = 0x342A5`, and `playerPartyOffset` /
+  `enemyPartyOffset` in `app/src/main/assets/profiles/heart_and_soul.json`.
+
+Both fixes are guarded by `test_hns_release_rom_party_fixture`, which embeds the party bytes
+captured from the running release ROM and asserts (a) they decode at the release addresses and
+(b) they do **not** decode at the from-source addresses — so the fixture reproduces the exact
+discrepancy before the fix and fails if the addresses drift back.
+
+Both fixes are **fail-closed**: a wrong address produced `UNKNOWN`/empty state, never a wrong
+Pokémon. No UI surface displayed a fabricated opponent at any point.
+
+### 11.7 What is still not runtime verified
+
+The following rows in §11.3 remain `NOT RUNTIME VERIFIED` and must not be read as passing. They all
+need a save that has progressed further than the first wild-battle area:
+
+* trainer battle (`BATTLE_TYPE_TRAINER`, multi-member enemy party),
+* opponent switch without a faint,
+* player switch and player faint + forced replacement (needs at least two party members),
+* doubles and partner/multi battles.
+
+`battleUiVerified` and `interactiveControlsVerified` remain `false`, and `sha256Hashes` remains
+empty, because the trust promotion is a separate #40 step.
+
+### 11.8 Reproducing this section
+
+```bash
+cd tools/hns-runtime-probe && ./build.sh
+
+# Phase 1: produce a legal save from a fresh ROM (normal progression, ~5 minutes).
+./make-save.sh <mgba_libretro.so> "<legal hns 2.0.5 rom>.gba" "$HOME/hns205.sav"
+
+# Scenarios. Each run fails (non-zero exit) on any invariant violation.
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/hns205.sav" --script scenarios/10-wild-battle-entry.txt
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/hns205.sav" --script scenarios/20-wild-battle-full.txt
+
+# Deterministic regression coverage (no ROM, no save).
+cd ../.. && ./ci.sh test
+```

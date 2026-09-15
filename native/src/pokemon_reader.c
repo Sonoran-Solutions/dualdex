@@ -129,10 +129,18 @@ static const GameMemoryConfig CONFIG_EMERALD = {
 //   BattlePokemon: statStages 0x18, ability 0x20, types 0x22, pp 0x25, hp 0x2A, level 0x2C,
 //                  maxHP 0x2E, item 0x30, status1 0x50.
 //
-// Battle lifecycle symbols (the same `make hns` symbol table), all EWRAM-relative except gMain:
+// Battle lifecycle symbols, all EWRAM-relative except gMain. The addresses below are the ones the
+// OFFICIAL 2.0.5 release ROM uses; a from-source `make hns` build reports the party group 4 bytes
+// higher and gMain 0x18 lower, and reading the release ROM at those compiled addresses yields a
+// shifted party, an empty enemy party and a permanently-clear in-battle flag. See
+// docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md §11.5/§11.6.
 //   gBattlerPositions        0x02000238             4
 //   gAbsentBattlerFlags      0x0200030A             1
-//   gMain                    0x03005BC0             0x43C (IWRAM; this is sizeof(struct Main) and
+//   gPlayerParty             0x02034764             0x258
+//   gPlayerPartyCount        0x020342A4             1
+//   gEnemyParty              0x020342B4             0x258
+//   gEnemyPartyCount         0x020342A5             1
+//   gMain                    0x03005BD8             0x43C (IWRAM; this is sizeof(struct Main) and
 //                                                    the `nm -S` symbol size). `state` is at
 //                                                    offset 0x438 and the 3-bit flag unit that
 //                                                    carries `inBattle` occupies the byte at
@@ -146,10 +154,10 @@ static const GameMemoryConfig CONFIG_EMERALD = {
 static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .game_id = GAME_HEART_AND_SOUL,
     .game_name = "Pokemon Heart & Soul",
-    .player_party_offset = 0x34768,
-    .player_party_count_offset = 0x342A8,
-    .enemy_party_offset = 0x342B8,
-    .enemy_party_count_offset = 0x342A9,
+    .player_party_offset = 0x34764,
+    .player_party_count_offset = 0x342A4,
+    .enemy_party_offset = 0x342B4,
+    .enemy_party_count_offset = 0x342A5,
     .battle_mons_offset = 0x420,
     .battle_mons_size = 136,
     .battle_mons_hp_offset = 0x2A,
@@ -160,7 +168,7 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_outcome_offset = 0x12C,
     .battler_positions_offset = 0x238,
     .absent_battler_flags_offset = 0x30A,
-    .main_struct_gba_address = 0x03005BC0,
+    .main_struct_gba_address = 0x03005BD8,
     .main_in_battle_byte_offset = 0x439,
     .main_in_battle_bit = 1,
     .save_block1_ptr_gba_address = 0x030041D8,

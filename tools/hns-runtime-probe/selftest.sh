@@ -80,6 +80,11 @@ expect_nonzero savload-missing --script "$WORK/savload_failure.txt"
 printf 'savsave %s/no-such-directory/out.sav\n' "$WORK" > "$WORK/savsave_failure.txt"
 expect_nonzero savsave-failure --script "$WORK/savsave_failure.txt"
 
+# A --script that cannot be opened means the scenario never ran at all. The runner reports this as
+# a script error and its return value is folded into the exit status, so the run cannot pass with
+# zero frames executed and zero in-script errors.
+expect_nonzero missing-script --script "$WORK/definitely-missing-script.txt"
+
 # A --sav that cannot be loaded must abort before the scenario runs.
 if [ -n "$SAV" ]; then
   expect_nonzero cli-sav-missing --sav "$WORK/definitely-missing.sav"

@@ -264,7 +264,13 @@ static int g_script_line = 0;
 static void script_error(const char* fmt, ...) {
     va_list ap;
     g_script_errors++;
-    fprintf(stderr, "script error line %d: ", g_script_line);
+    /* Line 0 means the error is not attributable to a script line (e.g. the script file itself
+     * could not be opened), so the prefix is omitted rather than printing a misleading "line 0". */
+    if (g_script_line > 0) {
+        fprintf(stderr, "script error line %d: ", g_script_line);
+    } else {
+        fprintf(stderr, "script error: ");
+    }
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
@@ -525,7 +531,11 @@ static void print_matrix(const Sample* s, const char* label) {
 static int run_script(Driver* d, const char* script_path) {
     FILE* f = script_path ? fopen(script_path, "r") : stdin;
     if (!f) {
-        fprintf(stderr, "FAIL: cannot open script %s\n", script_path);
+        /* A script that cannot be opened means the scenario never ran at all. That must be as fatal
+         * as any in-script failure, so it is recorded as a script error here AND returned to the
+         * caller: main() also folds the return value into its exit status. */
+        g_script_line = 0;
+        script_error("cannot open script '%s'", script_path ? script_path : "(null)");
         return 1;
     }
 
@@ -878,8 +888,9 @@ int main(int argc, char** argv) {
 
     printf("\n-- runtime table (a row appears on every observed state change) --\n");
     Driver driver = { cfg, 0, 0 };
+    int script_rc = 0;
     if (script_path) {
-        run_script(&driver, script_path);
+        script_rc = run_script(&driver, script_path);
     } else {
         /* Legacy behaviour: mash START/A so the probe walks past the boot screens. */
         Sample previous;
@@ -898,8 +909,9 @@ int main(int argc, char** argv) {
     printf("frames checked                : %d\n", g_frames_checked);
     printf("runtime invariant violations  : %d\n", g_violations);
     printf("script errors                 : %d\n", g_script_errors);
+    printf("script runner status          : %s\n", script_rc == 0 ? "ok" : "failed");
     printf("result                        : %s\n",
-           (g_violations == 0 && g_script_errors == 0) ? "PASS" : "FAIL");
+           (script_rc == 0 && g_violations == 0 && g_script_errors == 0) ? "PASS" : "FAIL");
 
     libretro_host_unload_rom();
     printf("-- regions after unload: %zu (must be 0) --\n", libretro_host_get_gba_region_count());
@@ -909,6 +921,8 @@ int main(int argc, char** argv) {
                ? "RETURNED TRUE (BAD)" : "rejected (correct)");
     libretro_host_cleanup();
 
-    /* A run only succeeds when the scenario actually happened AND every invariant held. */
-    return (g_violations == 0 && g_script_errors == 0) ? 0 : 1;
+    /* A run only succeeds when the scenario actually happened AND every invariant held. The
+     * runner's own return value is folded in as well, so a failure that never reached a script
+     * line (e.g. the script file could not be opened) cannot slip through as a pass. */
+    return (script_rc == 0 && g_violations == 0 && g_script_errors == 0) ? 0 : 1;
 }

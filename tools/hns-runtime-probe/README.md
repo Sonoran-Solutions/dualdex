@@ -126,10 +126,10 @@ scenarios and requires a **non-zero** exit from each, plus one control that must
 ./selftest.sh <mgba_libretro.so> <hns_2.0.5.gba> --sav $HOME/hns205.sav
 ```
 
-It covers: unknown command, missing `savload` file, failing `savsave`, unloadable `--sav`,
-false `assert-battle`, `await` timeout, `untilout` timeout, blocked `walk`, the `walk ... optional`
-control, `escape` timeout, and `hunt` timeout. The malformed scripts are generated into a temporary
-directory and are not committed.
+It covers: unknown command, missing `savload` file, failing `savsave`, an unopenable `--script`,
+unloadable `--sav`, false `assert-battle`, `await` timeout, `untilout` timeout, blocked `walk`, the
+`walk ... optional` control, `escape` timeout, and `hunt` timeout. The malformed scripts are
+generated into a temporary directory and are not committed.
 
 ## Script commands
 

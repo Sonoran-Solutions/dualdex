@@ -1,5 +1,9 @@
 package com.dualdex.pokemon
 
+import com.dualdex.pokemon.hns.HeartAndSoul205DataPack
+import com.dualdex.romhack.RomHackProfile
+import com.dualdex.romhack.SpeciesOverride
+
 /**
  * Encapsulates generation- and profile-specific game data (typings, move power, physical/special split).
  * Guarantees that vanilla Gen 3 games never consume later-generation mechanics or typings (e.g. Fairy).
@@ -135,18 +139,84 @@ object ModernDataPack : GameDataPack {
     override fun isMoveAuthoritative(id: Int): Boolean = false
 }
 
+/**
+ * Decorates a [basePack] with profile-specific custom species definitions (e.g. Ghost Grey variants).
+ * Custom species definitions strictly override base entries for this profile without polluting
+ * or mutating global or other profile data packs.
+ */
+class ProfileOverlayDataPack(
+    val basePack: GameDataPack,
+    val customSpecies: Map<Int, SpeciesOverride>
+) : GameDataPack {
+    override val id: String = "${basePack.id}_overlay"
+    override val generation: Int get() = basePack.generation
+    override val hasFairyType: Boolean get() = basePack.hasFairyType
+    override val hasPhysicalSpecialSplit: Boolean get() = basePack.hasPhysicalSpecialSplit
+
+    private val convertedSpecies: Map<Int, SpeciesInfo> = customSpecies.mapValues { (id, override) ->
+        SpeciesInfo(
+            id = id,
+            name = override.name,
+            type1 = PokemonType.fromString(override.type1) ?: PokemonType.NORMAL,
+            type2 = override.type2?.let { PokemonType.fromString(it) },
+            baseHP = override.hp,
+            baseAtk = override.atk,
+            baseDef = override.def,
+            baseSpA = override.spa,
+            baseSpD = override.spd,
+            baseSpe = override.spe
+        )
+    }
+
+    override fun getSpecies(id: Int): SpeciesInfo? {
+        return convertedSpecies[id] ?: basePack.getSpecies(id)
+    }
+
+    override fun getMove(id: Int): MoveInfo? = basePack.getMove(id)
+
+    override fun getEffectiveness(attackType: PokemonType, defType: PokemonType): Double =
+        basePack.getEffectiveness(attackType, defType)
+
+    override fun isSpeciesAuthoritative(id: Int): Boolean =
+        id in convertedSpecies || basePack.isSpeciesAuthoritative(id)
+
+    override fun isMoveAuthoritative(id: Int): Boolean =
+        basePack.isMoveAuthoritative(id)
+}
+
 object GameDataPackRegistry {
-    fun getForProfile(engine: String, hasPhysSpecSplit: Boolean, customPackId: String? = null): GameDataPack {
-        if (!customPackId.isNullOrBlank()) {
-            return when (customPackId.lowercase()) {
+    fun getForProfile(profile: RomHackProfile): GameDataPack {
+        return getForProfile(
+            engine = profile.engine,
+            hasPhysSpecSplit = profile.hasPhysSpecSplit,
+            customPackId = profile.gameDataPackId,
+            customSpecies = profile.customSpecies
+        )
+    }
+
+    fun getForProfile(
+        engine: String,
+        hasPhysSpecSplit: Boolean,
+        customPackId: String? = null,
+        customSpecies: Map<Int, SpeciesOverride> = emptyMap()
+    ): GameDataPack {
+        val basePack: GameDataPack = if (!customPackId.isNullOrBlank()) {
+            when (customPackId.lowercase()) {
+                "hns_2_0_5", "heart_and_soul", "hns" -> HeartAndSoul205DataPack
                 "modern", "modern_cfru", "cfru" -> ModernDataPack
+                "gen3_vanilla", "vanilla" -> Gen3VanillaDataPack
                 else -> Gen3VanillaDataPack
             }
-        }
-        return if (engine.equals("Vanilla", ignoreCase = true) && !hasPhysSpecSplit) {
+        } else if (engine.equals("Vanilla", ignoreCase = true) && !hasPhysSpecSplit) {
             Gen3VanillaDataPack
         } else {
             ModernDataPack
+        }
+
+        return if (customSpecies.isNotEmpty()) {
+            ProfileOverlayDataPack(basePack, customSpecies)
+        } else {
+            basePack
         }
     }
 }

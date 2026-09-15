@@ -185,7 +185,8 @@ object TypeChart {
     fun getDefenseProfile(
         type1: PokemonType,
         type2: PokemonType? = null,
-        steelResistsGhostDark: Boolean = false
+        steelResistsGhostDark: Boolean = false,
+        pack: GameDataPack? = null
     ): TypeDefenseProfile {
         val w4 = mutableListOf<PokemonType>()
         val w2 = mutableListOf<PokemonType>()
@@ -194,9 +195,19 @@ object TypeChart {
         val rQuarter = mutableListOf<PokemonType>()
         val im = mutableListOf<PokemonType>()
 
-        for (atk in PokemonType.values()) {
-            val mult1 = getEffectiveness(atk, type1, steelResistsGhostDark)
-            val mult2 = if (type2 != null && type2 != type1) getEffectiveness(atk, type2, steelResistsGhostDark) else 1.0f
+        val attackingTypes = if (pack != null && !pack.hasFairyType) {
+            PokemonType.values().filter { it != PokemonType.FAIRY }
+        } else {
+            PokemonType.values().toList()
+        }
+
+        for (atk in attackingTypes) {
+            val mult1 = pack?.getEffectiveness(atk, type1)?.toFloat()
+                ?: getEffectiveness(atk, type1, steelResistsGhostDark)
+            val mult2 = if (type2 != null && type2 != type1) {
+                pack?.getEffectiveness(atk, type2)?.toFloat()
+                    ?: getEffectiveness(atk, type2, steelResistsGhostDark)
+            } else 1.0f
             val total = mult1 * mult2
 
             when {

@@ -283,7 +283,8 @@ class PartyScreenView(
     }
 
     private fun bindMember(holder: MemberHolder, mon: ParsedPokemon, selected: Boolean) {
-        val species = SpeciesDatabase.get(mon.species)
+        val pack = viewModel.activeGameDataPack
+        val species = pack.getSpecies(mon.species) ?: SpeciesDatabase.get(mon.species, pack)
         holder.root.isSelected = selected
         holder.name.text = mon.nickname.ifBlank { species.name }
         holder.name.setTextColor(if (selected) DualDexTheme.Color.accent else DualDexTheme.Color.textPrimary)
@@ -501,13 +502,15 @@ class PartyScreenView(
     }
 
     private fun bindDetail(holder: DetailHolder, mon: ParsedPokemon, gameId: Int) {
-        val species = SpeciesDatabase.get(mon.species)
+        val pack = viewModel.activeGameDataPack
+        val species = pack.getSpecies(mon.species) ?: SpeciesDatabase.get(mon.species, pack)
+        val speciesDisplayName = if (species.name.isNotBlank()) species.name else "Unknown Species #${mon.species}"
         holder.title.text = buildString {
-            append(mon.nickname.ifBlank { species.name })
+            append(mon.nickname.ifBlank { speciesDisplayName })
             if (mon.isShiny) append(" ★")
         }
         holder.level.text = "Lv. ${mon.level}"
-        holder.speciesLabel.text = species.name
+        holder.speciesLabel.text = speciesDisplayName
         holder.hpLabel.text = "HP  ${mon.currentHp} / ${mon.maxHp}"
         holder.hpLabel.setTextColor(hpColor(mon.currentHp, mon.maxHp))
         updateHpBar(holder.hpBar, mon.currentHp, mon.maxHp)
@@ -533,7 +536,7 @@ class PartyScreenView(
                 moveHolder.row.visibility = View.GONE
                 return@forEachIndexed
             }
-            val move = MoveDatabase.get(moveId)
+            val move = pack.getMove(moveId) ?: MoveDatabase.get(moveId, pack)
             moveHolder.row.visibility = View.VISIBLE
             moveHolder.name.text = move.name
             moveHolder.meta.text = "PP ${mon.pp.getOrNull(index) ?: 0}/${move.pp} · Pwr ${move.power.takeIf { it > 0 } ?: "—"} · Acc ${move.accuracy}%"
@@ -563,7 +566,12 @@ class PartyScreenView(
 
     private fun renderDefenseSummary(container: LinearLayout, type1: PokemonType, type2: PokemonType?, gameId: Int) {
         container.removeAllViews()
-        val profile = TypeChart.getDefenseProfile(type1, type2, steelResistsGhostDark = gameId == 6)
+        val profile = TypeChart.getDefenseProfile(
+            type1,
+            type2,
+            steelResistsGhostDark = gameId == 6,
+            pack = viewModel.activeGameDataPack
+        )
         addDefenseRow(container, "Weak", profile.weaknesses4x + profile.weaknesses2x)
         addDefenseRow(container, "Resists", profile.resistancesHalf + profile.resistancesQuarter)
         addDefenseRow(container, "Immune", profile.immunities)

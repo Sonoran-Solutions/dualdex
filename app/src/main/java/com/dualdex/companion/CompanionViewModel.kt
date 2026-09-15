@@ -104,11 +104,7 @@ class CompanionViewModel(
     )
 
     val activeGameDataPack: com.dualdex.pokemon.GameDataPack
-        get() = com.dualdex.pokemon.GameDataPackRegistry.getForProfile(
-            engine = _activeProfile.value.engine,
-            hasPhysSpecSplit = _activeProfile.value.hasPhysSpecSplit,
-            customPackId = _activeProfile.value.gameDataPackId
-        )
+        get() = com.dualdex.pokemon.GameDataPackRegistry.getForProfile(_activeProfile.value)
 
     private val _playerLocation = MutableStateFlow<PlayerLocation?>(null)
     val playerLocation: StateFlow<PlayerLocation?> = _playerLocation.asStateFlow()

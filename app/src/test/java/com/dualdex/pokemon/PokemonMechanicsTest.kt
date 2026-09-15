@@ -80,10 +80,10 @@ class PokemonMechanicsTest {
         assertEquals(PokemonType.FIRE, blaziken.type1)
         assertEquals(PokemonType.FIGHTING, blaziken.type2)
 
-        val lichtoise = SpeciesDatabase.get(500)
-        assertEquals("Lichtoise", lichtoise.name)
-        assertEquals(PokemonType.WATER, lichtoise.type1)
-        assertEquals(PokemonType.GHOST, lichtoise.type2)
+        val emboar = SpeciesDatabase.get(500)
+        assertEquals("Emboar", emboar.name)
+        assertEquals(PokemonType.FIRE, emboar.type1)
+        assertEquals(PokemonType.FIGHTING, emboar.type2)
 
         val hydroPump = MoveDatabase.get(56)
         assertEquals("Hydro Pump", hydroPump.name)

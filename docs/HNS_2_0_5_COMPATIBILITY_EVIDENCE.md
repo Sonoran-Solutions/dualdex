@@ -431,6 +431,8 @@ recorded as a durable constraint for follow-up work, not just as a one-off value
 | `gBattlerPartyIndexes` explicit address | COMPILED SYMBOL VERIFIED; NOT YET VERIFIED at runtime |
 | Expansion `abilityNum` / `gigantamaxFactor` decoding | ABI VERIFIED + SOURCE VERIFIED; unit tested |
 | Expansion nature / shiny semantics | SOURCE VERIFIED; unit tested; UI policy NOT YET VERIFIED |
+| H&S 2.0.5 Species / Move Data Pack (`HeartAndSoul205DataPack`) | SOURCE VERIFIED + COMPILED SYMBOL VERIFIED; unit tested |
+| Profile Custom Species Isolation (Ghost Grey vs H&S 500-502) | SOURCE VERIFIED; unit tested |
 | Battle lifecycle / UI / interactive controls | NOT YET VERIFIED (explicitly out of scope; #1) |
 | H&S maps / regions | NOT YET VERIFIED (explicitly out of scope; #11) |
 | H&S calculator correctness | NOT YET VERIFIED (explicitly out of scope; #9) |
@@ -461,15 +463,15 @@ with the observed party/location/battle values compared against known game state
 
 These were found during this phase and are **not** fixed here.
 
-1. **Blind-EWRAM-scan false positive when the party is empty.** On the release ROM at boot,
-   `gPlayerPartyCount == 0`, yet `pokemon_read_player_party()` returns one fabricated member
-   (observed: `species=2 lvl=3 hp=3/4`) from the layout-independent scan fallback. The count symbol is
-   available and authoritative for every supported layout, so a zero count should mean an empty party
-   rather than a scan. Changing this touches shared FireRed/Emerald behaviour and needs its own PR.
-2. **Species database collision.** `SpeciesDatabase.registerCustom()` globally assigns Ghost Grey
-   species to IDs 500-502; H&S 2.0.5 uses those IDs for Emboar / Oshawott / Dewott. H&S cannot safely
-   use the globally mutated database. Follow-up: an isolated, authoritative H&S 2.0.5 data pack.
-   Ghost Grey IDs must not be renumbered as a workaround.
+1. **[RESOLVED in #42 / #43] Blind-EWRAM-scan false positive when the party is empty.** Authoritative
+   party count policies were established for H&S 2.0.5, Emerald, and FireRed, preventing blind pattern
+   scans when `gPlayerPartyCount == 0` or bounding party interpretation to `[0..count-1]`.
+2. **[RESOLVED in compat/hns-2.0.5-data-pack] Species database collision.** Global `SpeciesDatabase.registerCustom()`
+   pollution was eliminated: Ghost Grey custom entries (IDs 500-502) no longer globally overwrite canonical
+   entries. Profile custom species are now isolated as an overlay (`ProfileOverlayDataPack`) on top of the
+   active profile's game data pack. An exact, version-pinned H&S 2.0.5 data pack (`HeartAndSoul205DataPack`,
+   pack ID `hns_2_0_5`) was generated directly from tag `Release-v2.0.5` (`1f42b74dff0e9fe942419845d040663dd829a973`),
+   accurately providing 1,427 species and 934 moves with Gen 8 mechanics.
 3. **Stale map groups.** `map_groups_hns.json` does not match 2.0.5, which adds/reorders groups
    including `OutdoorAlola`, `IndoorAlola`, `IndoorDynamic`, `Sinjoh`, `IndoorSinjoh`, `SpecialArea`.
    Groups 25+ must not be treated as authoritative, and unknown H&S map IDs should fail to an unmapped

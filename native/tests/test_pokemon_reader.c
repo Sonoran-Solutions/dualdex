@@ -622,6 +622,100 @@ static void fake_gba_init(FakeGba* gba, bool map_iwram, bool map_ewram) {
     }
 }
 
+/**
+ * A synthetic Heart & Soul 2.0.5 battle.
+ *
+ * The fixture writes the exact compiled globals DualDex reads, so a test can move the game
+ * through a lifecycle (overworld -> wild/trainer battle -> switch/faint -> exit) by changing the
+ * same words the real engine changes, instead of by planting plausible-looking Pokémon.
+ */
+typedef struct {
+    FakeGba*  gba;
+    const GameMemoryConfig* cfg;
+    uint32_t  in_battle_byte_off;   // IWRAM offset of the byte holding the `inBattle` bit
+} HnsBattleFixture;
+
+static void hns_battle_fixture_init(HnsBattleFixture* fx, FakeGba* gba, const GameMemoryConfig* cfg) {
+    fake_gba_init(gba, true, true);
+    fx->gba = gba;
+    fx->cfg = cfg;
+    fx->in_battle_byte_off = (cfg->main_struct_gba_address - 0x03000000u) +
+                             cfg->main_in_battle_byte_offset;
+    memset(gba->ewram, 0, sizeof(gba->ewram));
+    memset(gba->iwram, 0, sizeof(gba->iwram));
+    // gSaveBlock1Ptr, so the location reader is not what these tests are measuring.
+    write32_le_t(gba->iwram + (cfg->save_block1_ptr_gba_address - 0x03000000u),
+                 cfg->save_block1_base_gba_address + 88u);
+}
+
+/** Set the engine's own lifecycle flag: `gMain.inBattle`. */
+static void hns_battle_set_in_battle(HnsBattleFixture* fx, bool in_battle) {
+    uint8_t* byte = fx->gba->iwram + fx->in_battle_byte_off;
+    if (in_battle) *byte |= (uint8_t)(1u << fx->cfg->main_in_battle_bit);
+    else           *byte &= (uint8_t)~(1u << fx->cfg->main_in_battle_bit);
+}
+
+/** Write gBattlersCount / gBattleTypeFlags / gBattleOutcome in one call. */
+static void hns_battle_set_counters(HnsBattleFixture* fx, uint8_t battlers, uint32_t type_flags, uint8_t outcome) {
+    fx->gba->ewram[fx->cfg->battlers_count_offset] = battlers;
+    write32_le_t(fx->gba->ewram + fx->cfg->battle_type_flags_offset, type_flags);
+    fx->gba->ewram[fx->cfg->battle_outcome_offset] = outcome;
+}
+
+/** Write a battler's side/position and its authoritative party slot. */
+static void hns_battle_set_battler(HnsBattleFixture* fx, uint8_t battler, uint8_t position, uint16_t party_index) {
+    fx->gba->ewram[fx->cfg->battler_positions_offset + battler] = position;
+    write16_le_t(fx->gba->ewram + fx->cfg->battler_party_indexes_offset + (battler * 2), party_index);
+}
+
+/** Write a live `struct BattlePokemon` species/HP pair for one battler (136-byte stride). */
+static void hns_battle_set_mon(HnsBattleFixture* fx, uint8_t battler, uint16_t species, uint16_t hp) {
+    uint8_t* mon = fx->gba->ewram + fx->cfg->battle_mons_offset +
+                   ((size_t)battler * fx->cfg->battle_mons_size);
+    write16_le_t(mon, species);
+    write16_le_t(mon + fx->cfg->battle_mons_hp_offset, hp);
+}
+
+/**
+ * A single wild battle with one opponent.
+ *
+ * positions: player left = 0, opponent left = 1 (B_POSITION_PLAYER_LEFT / B_POSITION_OPPONENT_LEFT).
+ */
+static void hns_battle_begin_single_wild(HnsBattleFixture* fx, uint16_t enemy_slot, uint16_t enemy_species) {
+    hns_battle_set_in_battle(fx, true);
+    hns_battle_set_counters(fx, 2, 0u /* no TRAINER, no DOUBLE */, 0);
+    fx->gba->ewram[fx->cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(fx, 0, 0, 0);                 // player left -> player party slot 0
+    hns_battle_set_battler(fx, 1, 1, enemy_slot);        // opponent left -> enemy party slot
+    hns_battle_set_mon(fx, 0, 155, 50);
+    hns_battle_set_mon(fx, 1, enemy_species, 40);
+}
+
+/** Populate the authoritative enemy party with `count` valid Pokémon at gEnemyParty. */
+static void hns_battle_fill_enemy_party(HnsBattleFixture* fx, uint8_t count) {
+    static const uint16_t SPECIES[6] = {16, 19, 21, 23, 25, 27};
+    fx->gba->ewram[fx->cfg->enemy_party_count_offset] = count;
+    for (uint8_t i = 0; i < count && i < 6; i++) {
+        RawGbaPokemon mon;
+        build_hns_mon(&mon, 0xAABB0000u + i, 0x99990000, SPECIES[i], (uint8_t)(12 + i), 40, 25, 0, 0, false);
+        memcpy(fx->gba->ewram + fx->cfg->enemy_party_offset + (i * sizeof(RawGbaPokemon)),
+               &mon, sizeof(RawGbaPokemon));
+    }
+}
+
+/** Populate the authoritative player party with `count` valid Pokémon at gPlayerParty. */
+static void hns_battle_fill_player_party(HnsBattleFixture* fx, uint8_t count) {
+    static const uint16_t SPECIES[6] = {155, 158, 152, 252, 255, 258};
+    static const uint32_t OTID = 0x11112222u;
+    fx->gba->ewram[fx->cfg->player_party_count_offset] = count;
+    for (uint8_t i = 0; i < count && i < 6; i++) {
+        RawGbaPokemon mon;
+        build_hns_mon(&mon, 0x11220000u + i, OTID, SPECIES[i], (uint8_t)(14 + i), 50, 31, 0, 0, false);
+        memcpy(fx->gba->ewram + fx->cfg->player_party_offset + (i * sizeof(RawGbaPokemon)),
+               &mon, sizeof(RawGbaPokemon));
+    }
+}
+
 static void test_hns_config_matches_compiled_evidence(void) {
     printf("Running test_hns_config_matches_compiled_evidence...\n");
 
@@ -730,58 +824,78 @@ static void test_hns_party_counts_are_independent_symbols(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_party_counts_are_independent_symbols" ANSI_RESET "\n");
 }
 
-static void test_hns_enemy_party_count_boundary_documented(void) {
-    printf("Running test_hns_enemy_party_count_boundary_documented...\n");
+/**
+ * Authoritative gEnemyPartyCount contract for H&S 2.0.5.
+ *
+ * The compiled symbol 0x020342A9 is the ONLY authority for how many enemy slots exist. A count
+ * of zero means "no enemy party", so contiguous valid-looking Pokémon sitting at gEnemyParty are
+ * stale leftovers and must not be presented.
+ */
+static void test_hns_enemy_party_count_is_authoritative(void) {
+    printf("Running test_hns_enemy_party_count_is_authoritative...\n");
 
     const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
     TEST_ASSERT(cfg != NULL, "H&S config required");
     TEST_ASSERT(cfg->enemy_party_count_offset == 0x342A9, "gEnemyPartyCount symbol must be 0x342A9");
 
-    // Boundary documentation test:
-    // enemy_party_count_offset = 0x342A9 is correctly recorded from compiled 2.0.5 symbols,
-    // but the current pokemon_read_enemy_party() implementation does not consume that count
-    // as authoritative runtime input to bound party parsing or prune stale slots.
-    // Consumption of gEnemyPartyCount and stale-slot behavior remain pending battle/runtime
-    // lifecycle validation (#1) before H&S can become VERIFIED.
-    const size_t EWRAM_SIZE = 256 * 1024;
-    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
-    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
-
+    static FakeGba gba;
+    HnsBattleFixture fx;
     pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 1);
+    hns_battle_fill_enemy_party(&fx, 6);
+    hns_battle_begin_single_wild(&fx, 0, 16);
 
-    // Set up player party so reader has the player's OTID
-    const uint32_t player_otid = 0x11112222;
-    RawGbaPokemon player_mon;
-    build_hns_mon(&player_mon, 0x0000ABCD, player_otid, 155, 14, 50, 31, 0, 0, false);
-    memcpy(ewram + cfg->player_party_offset, &player_mon, sizeof(RawGbaPokemon));
-    ewram[cfg->player_party_count_offset] = 1;
+    PartySnapshot snap;
+    uint8_t* enemy_bytes = gba.ewram + cfg->enemy_party_offset;
+    const size_t STRIDE = sizeof(RawGbaPokemon);
 
-    PartySnapshot player_snap;
-    TEST_ASSERT(pokemon_read_player_party(ewram, EWRAM_SIZE, cfg, &player_snap) == 1,
-                "player party must be established");
+    // count == 0 -> empty, and the contiguous decoy data must NOT be returned.
+    gba.ewram[cfg->enemy_party_count_offset] = 0;
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 0,
+                "an authoritative enemy count of 0 must defeat contiguous decoy slots");
+    TEST_ASSERT(snap.count == 0, "a zero enemy count must leave an empty snapshot");
 
-    // Populate 2 contiguous valid enemy party slots at gEnemyParty (0x342B8)
-    const uint32_t enemy_otid = 0x99990000;
-    RawGbaPokemon enemy0, enemy1;
-    build_hns_mon(&enemy0, 0xAABBCCDD, enemy_otid, 16, 13, 40, 25, 0, 0, false); // Pidgey
-    build_hns_mon(&enemy1, 0xCCDDEEFF, enemy_otid, 19, 12, 35, 20, 0, 0, false); // Rattata
-    memcpy(ewram + cfg->enemy_party_offset, &enemy0, sizeof(RawGbaPokemon));
-    memcpy(ewram + cfg->enemy_party_offset + sizeof(RawGbaPokemon), &enemy1, sizeof(RawGbaPokemon));
+    // count == 1 -> exactly slot 0.
+    gba.ewram[cfg->enemy_party_count_offset] = 1;
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 1,
+                "an authoritative enemy count of 1 must yield exactly one member");
+    TEST_ASSERT(snap.members[0].species == 16, "the single enemy must be slot 0");
 
-    // Even if gEnemyPartyCount in memory is set to 0, current pokemon_read_enemy_party()
-    // parses candidate slots and does not gate on gEnemyPartyCount.
-    ewram[cfg->enemy_party_count_offset] = 0;
+    // count == 6 -> exactly six.
+    gba.ewram[cfg->enemy_party_count_offset] = 6;
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 6,
+                "an authoritative enemy count of 6 must yield exactly six members");
 
-    PartySnapshot enemy_snap;
-    uint8_t enemy_count = pokemon_read_enemy_party(ewram, EWRAM_SIZE, cfg, &enemy_snap);
-    // Boundary assertion: documents that current implementation reads contiguous valid slots (2),
-    // and does NOT bound or reject based on gEnemyPartyCount == 0.
-    TEST_ASSERT(enemy_count == 2,
-                "current enemy party reader parses contiguous valid slots without gating on gEnemyPartyCount");
+    // count == 7 and 255 -> fail closed: never truncated to six, never scanned past.
+    gba.ewram[cfg->enemy_party_count_offset] = 7;
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 0,
+                "an enemy count of 7 must fail closed");
+    TEST_ASSERT(snap.count == 0, "a rejected enemy count must not leave a populated snapshot");
+    gba.ewram[cfg->enemy_party_count_offset] = 255;
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 0,
+                "an enemy count of 255 must fail closed");
 
-    free(ewram);
+    // A corrupt claimed slot fails closed (all-or-nothing): it is never skipped over.
+    gba.ewram[cfg->enemy_party_count_offset] = 2;
+    memset(enemy_bytes + STRIDE, 0, STRIDE);
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 0,
+                "a corrupt claimed enemy slot must fail closed rather than be skipped");
+
+    // A count that the authoritative symbol does not authorise must not be clamped either.
+    gba.ewram[cfg->enemy_party_count_offset] = 3;
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 0,
+                "a corrupt slot inside a legal count must fail the whole enemy read closed");
+
     g_tests_passed++;
-    printf(ANSI_GREEN "  [PASS] test_hns_enemy_party_count_boundary_documented" ANSI_RESET "\n");
+    printf(ANSI_GREEN "  [PASS] test_hns_enemy_party_count_is_authoritative" ANSI_RESET "\n");
 }
 
 static void test_expansion_ability_num_is_not_the_gigantamax_bit(void) {
@@ -2161,12 +2275,6 @@ static void test_hns_saveblock1_aslr_window_is_not_fixed(void) {
 static void test_heart_and_soul_party_and_battle_hp_sync(void) {
     printf("Running test_heart_and_soul_party_and_battle_hp_sync...\n");
 
-    const size_t EWRAM_SIZE = 256 * 1024;
-    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
-    TEST_ASSERT(ewram != NULL, "Memory allocation for EWRAM failed");
-
-    pokemon_reader_reset();
-
     // 1. Verify game detection
     GbaGameId detected = pokemon_detect_game("POKEMON HNS");
     TEST_ASSERT(detected == GAME_HEART_AND_SOUL, "'POKEMON HNS' (the upstream hns TITLE) must detect as H&S");
@@ -2174,36 +2282,19 @@ static void test_heart_and_soul_party_and_battle_hp_sync(void) {
     const GameMemoryConfig* hns_cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
     TEST_ASSERT(hns_cfg != NULL, "Heart and Soul config must exist");
 
-    // 2. Player party: Cyndaquil + Totodile at the compiled gPlayerParty address.
-    ewram[hns_cfg->player_party_count_offset] = 2;
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, hns_cfg);
+    hns_battle_fill_player_party(&fx, 2);   // Cyndaquil, Totodile
+    hns_battle_fill_enemy_party(&fx, 2);    // Pidgey, Rattata
+    hns_battle_begin_single_wild(&fx, 0, 16);
 
-    const uint32_t player_otid = 0x88776655;
-    RawGbaPokemon cyndaquil;
-    RawGbaPokemon totodile;
-    build_hns_mon(&cyndaquil, 0x11223344, player_otid, 155, 14, 50, 31, 0, 0, false);
-    build_hns_mon(&totodile, 0x55667788, player_otid, 158, 15, 60, 31, (uint32_t)1 << 29, 0, false);
-    memcpy(ewram + hns_cfg->player_party_offset, &cyndaquil, sizeof(RawGbaPokemon));
-    memcpy(ewram + hns_cfg->player_party_offset + sizeof(RawGbaPokemon), &totodile, sizeof(RawGbaPokemon));
-
-    // 3. Enemy party at the compiled gEnemyParty address.
-    ewram[hns_cfg->enemy_party_count_offset] = 2;
-    RawGbaPokemon pidgey;
-    RawGbaPokemon rattata;
-    build_hns_mon(&pidgey, 0xAABBCCDD, 0x99990000, 16, 13, 40, 25, 0, 0, false);
-    build_hns_mon(&rattata, 0xCCDDEEFF, 0x99990000, 19, 12, 35, 20, 0, 0, false);
-    memcpy(ewram + hns_cfg->enemy_party_offset, &pidgey, sizeof(RawGbaPokemon));
-    memcpy(ewram + hns_cfg->enemy_party_offset + sizeof(RawGbaPokemon), &rattata, sizeof(RawGbaPokemon));
-
-    // 4. Live gBattleMons: HP at the compiled 0x2A (not the old 40), 136-byte stride.
+    // Live gBattleMons values for the two battlers, at the compiled 0x2A HP offset.
     TEST_ASSERT(hns_cfg->battle_mons_size == 136, "BattlePokemon stride must be 136");
     TEST_ASSERT(hns_cfg->battle_mons_hp_offset == 0x2A, "BattlePokemon.hp must be 0x2A");
-
-    uint8_t* b0 = ewram + hns_cfg->battle_mons_offset;
-    uint8_t* b1 = ewram + hns_cfg->battle_mons_offset + hns_cfg->battle_mons_size;
-    write16_le_t(b0, 155);      // species
-    write16_le_t(b0 + 0x2A, 28); // damaged HP
-    write16_le_t(b1, 16);
-    write16_le_t(b1 + 0x2A, 12);
+    hns_battle_set_mon(&fx, 0, 155, 28);
+    hns_battle_set_mon(&fx, 1, 16, 12);
 
     // gBattlerPartyIndexes is an independent symbol at 0x144. Plant a decoy exactly where the
     // old code looked (gBattleMons - 24) so that any reintroduced derivation is caught.
@@ -2211,61 +2302,424 @@ static void test_heart_and_soul_party_and_battle_hp_sync(void) {
                 "gBattlerPartyIndexes must be declared as its own symbol");
     TEST_ASSERT(hns_cfg->battler_party_indexes_offset != hns_cfg->battle_mons_offset - 24,
                 "the compiled offset must differ from the legacy gBattleMons - 24 arithmetic");
-    write16_le_t(ewram + hns_cfg->battle_mons_offset - 24, 1); // decoy slot 1
-    write16_le_t(ewram + hns_cfg->battler_party_indexes_offset, 0); // real slot 0
+    write16_le_t(gba.ewram + hns_cfg->battle_mons_offset - 24, 1); // decoy slot 1
 
     PartySnapshot player_snap;
-    uint8_t player_count = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &player_snap);
+    uint8_t player_count = pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram,
+                                                         sizeof(gba.ewram), hns_cfg, &player_snap);
     TEST_ASSERT(player_count == 2, "Player party count should be 2");
     TEST_ASSERT(player_snap.members[0].species == 155, "Slot 0 should be Cyndaquil");
     TEST_ASSERT(player_snap.members[0].current_hp == 28, "Cyndaquil HP must sync from gBattleMons[0].hp");
-    TEST_ASSERT(player_snap.members[1].current_hp == 60, "Totodile HP must stay at its party value");
+    TEST_ASSERT(player_snap.members[1].current_hp == 50, "Totodile HP must stay at its party value");
+    TEST_ASSERT(player_snap.active_battler_known, "the active player slot must be known");
     TEST_ASSERT(player_snap.active_battler_slot == 0,
                 "the active slot must come from the real gBattlerPartyIndexes symbol, not the decoy");
 
-    // 5. Expansion parsing flows through the party reader.
-    TEST_ASSERT(player_snap.members[1].ability_num == 1,
+    // Expansion parsing flows through the party reader.
+    TEST_ASSERT(player_snap.members[1].ability_num == 0 &&
+                player_snap.members[1].ability_slot_known,
                 "Totodile's abilityNum must come from the party reader's expansion layout");
 
-    // 6. Enemy party + live HP sync.
+    // 2. Enemy party + live HP sync.
     PartySnapshot enemy_snap;
-    uint8_t enemy_count = pokemon_read_enemy_party(ewram, EWRAM_SIZE, hns_cfg, &enemy_snap);
+    uint8_t enemy_count = pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram,
+                                                       sizeof(gba.ewram), hns_cfg, &enemy_snap);
     TEST_ASSERT(enemy_count == 2, "Enemy party count should be 2");
     TEST_ASSERT(enemy_snap.members[0].species == 16, "Enemy slot 0 should be Pidgey");
     TEST_ASSERT(enemy_snap.members[0].current_hp == 12, "Pidgey HP must sync from gBattleMons[1].hp");
+    TEST_ASSERT(enemy_snap.active_battler_known && enemy_snap.active_battler_slot == 0,
+                "the active enemy slot must come from gBattlerPositions + gBattlerPartyIndexes");
 
-    // 7. Faint: count must survive, slot must stay.
-    write16_le_t(b1 + 0x2A, 0);
-    ((RawGbaPokemon*)(ewram + hns_cfg->enemy_party_offset))->current_hp = 0;
+    // 3. Faint: count must survive, slot must stay.
+    hns_battle_set_mon(&fx, 1, 16, 0);
+    ((RawGbaPokemon*)(gba.ewram + hns_cfg->enemy_party_offset))->current_hp = 0;
     PartySnapshot fainted;
-    pokemon_read_enemy_party(ewram, EWRAM_SIZE, hns_cfg, &fainted);
+    pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), hns_cfg, &fainted);
     TEST_ASSERT(fainted.count == 2, "the enemy party count must survive a faint");
     TEST_ASSERT(fainted.members[0].species == 16, "slot 0 must remain Pidgey after fainting");
     TEST_ASSERT(fainted.members[0].current_hp == 0, "the fainted HP must be reported");
 
-    // 8. Opponent sends out Rattata; gBattlerPartyIndexes[1] is at symbol + 2.
-    write16_le_t(b1, 19);
-    write16_le_t(b1 + 0x2A, 35);
-    write16_le_t(ewram + hns_cfg->battler_party_indexes_offset - 24 + 2, 0); // decoy
-    write16_le_t(ewram + hns_cfg->battler_party_indexes_offset + 2, 1);      // real
+    // 4. Opponent sends out Rattata: gBattlerPartyIndexes[1] is at symbol + 2.
+    hns_battle_set_mon(&fx, 1, 19, 35);
+    hns_battle_set_battler(&fx, 1, 1, 1);
+    write16_le_t(gba.ewram + hns_cfg->battler_party_indexes_offset - 24 + 2, 0); // decoy
     PartySnapshot sendout;
-    pokemon_read_enemy_party(ewram, EWRAM_SIZE, hns_cfg, &sendout);
-    TEST_ASSERT(sendout.active_battler_slot == 1,
+    pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), hns_cfg, &sendout);
+    TEST_ASSERT(sendout.active_battler_known && sendout.active_battler_slot == 1,
                 "the enemy active slot must come from gBattlerPartyIndexes[1]");
     TEST_ASSERT(sendout.members[1].species == 19, "slot 1 must be Rattata");
+    TEST_ASSERT(sendout.members[1].current_hp == 35, "Rattata HP must sync after the send-out");
 
-    // 9. Player switches to Totodile.
-    write16_le_t(b0, 158);
-    write16_le_t(b0 + 0x2A, 48);
-    write16_le_t(ewram + hns_cfg->battler_party_indexes_offset, 1);
+    // 5. Player switches to Totodile.
+    hns_battle_set_mon(&fx, 0, 158, 48);
+    hns_battle_set_battler(&fx, 0, 0, 1);
     PartySnapshot switched;
-    pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &switched);
-    TEST_ASSERT(switched.active_battler_slot == 1, "the player active slot must follow the symbol");
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), hns_cfg, &switched);
+    TEST_ASSERT(switched.active_battler_known && switched.active_battler_slot == 1,
+                "the player active slot must follow the symbol");
     TEST_ASSERT(switched.members[1].current_hp == 48, "Totodile HP must sync after the switch");
 
-    free(ewram);
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_heart_and_soul_party_and_battle_hp_sync" ANSI_RESET "\n");
+}
+
+/**
+ * The lifecycle gate: DualDex must not present an opponent unless the engine says a battle is
+ * running, and it must clear battle-derived state at the exit edge.
+ */
+static void test_hns_battle_lifecycle_gates_enemy_state(void) {
+    printf("Running test_hns_battle_lifecycle_gates_enemy_state...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 4);
+
+    PartySnapshot snap;
+    BattleStateRaw state;
+
+    // --- Overworld before any battle -------------------------------------------------------
+    hns_battle_set_in_battle(&fx, false);
+    hns_battle_set_counters(&fx, 0, 0, 0);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_INACTIVE,
+                "the overworld must report INACTIVE from the engine's own flag");
+    TEST_ASSERT(state.in_battle_flag_readable, "gMain.inBattle must be readable through IWRAM");
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 0,
+                "no enemy party may be reported outside a battle");
+    TEST_ASSERT(snap.active_battler_slot == -1 && !snap.active_battler_known,
+                "an inactive battle must not report an active enemy slot");
+
+    ActiveEnemyInfo info;
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_NONE_ACTIVE,
+                "the overworld must resolve to NONE_ACTIVE");
+
+    // --- Battle enter ----------------------------------------------------------------------
+    hns_battle_begin_single_wild(&fx, 0, 16);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_ACTIVE,
+                "a fully described single battle must report ACTIVE");
+    TEST_ASSERT(state.kind == BATTLE_KIND_WILD_SINGLE, "a wild single battle must classify as such");
+    TEST_ASSERT(state.battlers_count == 2, "gBattlersCount must be read as 2");
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 4,
+                "an active battle must report the authoritative enemy party");
+    TEST_ASSERT(snap.active_battler_known && snap.active_battler_slot == 0,
+                "the active enemy slot must be slot 0 here");
+    TEST_ASSERT(pokemon_battle_is_single_opponent(fake_gba_read, &gba.table, gba.ewram,
+                                                  sizeof(gba.ewram), cfg),
+                "a single-opponent battle must be reported as presentable");
+
+    // --- Opponent switch 0 -> 2 -------------------------------------------------------------
+    hns_battle_set_battler(&fx, 1, 1, 2);
+    hns_battle_set_mon(&fx, 1, 21, 33);
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 4,
+                "the enemy party is still authoritative after a switch");
+    TEST_ASSERT(snap.active_battler_known && snap.active_battler_slot == 2,
+                "the opponent switch must move the active slot to the new party slot");
+    TEST_ASSERT(snap.members[2].current_hp == 33, "the new opponent's HP must sync");
+
+    // --- Party index outside the authoritative count is not clamped --------------------------
+    hns_battle_set_battler(&fx, 1, 1, 5);
+    hns_battle_set_mon(&fx, 1, 25, 30);
+    pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg, &snap);
+    TEST_ASSERT(snap.active_battler_slot == -1 && !snap.active_battler_known,
+                "a party index outside the authoritative enemy count must fail closed");
+
+    // --- Faint transition: the engine's slot is unchanged but the opponent is at 0 HP --------
+    hns_battle_set_battler(&fx, 1, 1, 1);
+    hns_battle_set_mon(&fx, 1, 19, 0);
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_SLOT,
+                "a fainted opponent still has an authoritative slot");
+    TEST_ASSERT(info.party_slot == 1, "the fainted opponent's slot must be the engine's slot");
+    TEST_ASSERT(info.fainted, "the faint must be reported so the caller can degrade");
+
+    // --- Player faint transition ---------------------------------------------------------------
+    hns_battle_set_battler(&fx, 1, 1, 1);
+    hns_battle_set_mon(&fx, 1, 19, 40);
+    hns_battle_set_mon(&fx, 0, 155, 0);           // player's active battler faints
+    PartySnapshot player_fainted;
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                  cfg, &player_fainted);
+    TEST_ASSERT(player_fainted.active_battler_slot == -1 && !player_fainted.active_battler_known,
+                "a fainted player battler must leave the active player slot unknown until it moves");
+
+    // --- Battle exit --------------------------------------------------------------------------
+    hns_battle_set_in_battle(&fx, false);
+    hns_battle_set_counters(&fx, 0, 0, 0);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_INACTIVE,
+                "battle exit must report INACTIVE");
+    // The engine did not clear gEnemyPartyCount on this exit path; the gate must still hold.
+    TEST_ASSERT(gba.ewram[cfg->enemy_party_count_offset] == 4,
+                "fixture precondition: a stale enemy count is still in memory");
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 0,
+                "a stale enemy count must not survive into the overworld");
+    TEST_ASSERT(snap.active_battler_slot == -1, "no active enemy may survive a battle exit");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battle_lifecycle_gates_enemy_state" ANSI_RESET "\n");
+}
+
+/**
+ * A stale gBattleMons species word is not battle evidence.
+ *
+ * This is the regression for the original bug: after a battle ends, EWRAM .bss still holds the
+ * opponent's BattlePokemon. Nothing about that word may produce an opponent.
+ */
+static void test_hns_stale_battle_mon_cannot_invent_opponent(void) {
+    printf("Running test_hns_stale_battle_mon_cannot_invent_opponent...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 6);
+
+    // Previous battle: opponent at party slot 3.
+    hns_battle_begin_single_wild(&fx, 3, 23);
+    PartySnapshot snap;
+    ActiveEnemyInfo info;
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_SLOT,
+                "the previous battle must resolve to a slot");
+    TEST_ASSERT(info.party_slot == 3, "the previous battle's slot must be 3");
+
+    // Battle ends. gBattleMons, gBattlerPartyIndexes and gEnemyPartyCount are all left dirty,
+    // exactly as an abrupt engine teardown can leave them.
+    hns_battle_set_in_battle(&fx, false);
+    hns_battle_set_counters(&fx, 0, 0, 0);
+
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_NONE_ACTIVE,
+                "a stale previous battle must resolve to NONE_ACTIVE");
+    TEST_ASSERT(info.party_slot == -1, "a stale previous slot must never be returned");
+    TEST_ASSERT(snap.active_battler_slot == -1 && !snap.active_battler_known,
+                "a stale previous slot must not survive in the snapshot");
+
+    // A new battle initializing (the engine is in, but the battler set is not usable yet) must
+    // not fall back to the previous slot either.
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 0, 0, 0);
+    BattleStateRaw state;
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_INITIALIZING,
+                "an engine-held battle with no battler count must report INITIALIZING");
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_NONE_ACTIVE,
+                "an initializing battle must not name an opponent");
+    TEST_ASSERT(info.party_slot == -1, "an initializing battle must not reuse the previous slot");
+
+    // A recorded outcome means teardown is under way: also not presentable.
+    hns_battle_begin_single_wild(&fx, 3, 23);
+    hns_battle_set_counters(&fx, 2, 0, 1 /* B_OUTCOME_WON */);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_ENDING,
+                "a recorded battle outcome must report ENDING");
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 0,
+                "a battle that is ending must not report an enemy party");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_stale_battle_mon_cannot_invent_opponent" ANSI_RESET "\n");
+}
+
+/**
+ * Doubles: two active opponent battlers must degrade, not silently pick one.
+ */
+static void test_hns_doubles_degrades_instead_of_guessing(void) {
+    printf("Running test_hns_doubles_degrades_instead_of_guessing...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 2);
+
+    hns_battle_set_in_battle(&fx, true);
+    const uint32_t BATTLE_TYPE_DOUBLE = 1u << 0;
+    hns_battle_set_counters(&fx, 4, BATTLE_TYPE_DOUBLE, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    // positions: 0 = player left, 1 = opponent left, 2 = player right, 3 = opponent right
+    hns_battle_set_battler(&fx, 0, 0, 0);
+    hns_battle_set_battler(&fx, 1, 1, 0);
+    hns_battle_set_battler(&fx, 2, 2, 1);
+    hns_battle_set_battler(&fx, 3, 3, 1);
+    hns_battle_set_mon(&fx, 0, 155, 50);
+    hns_battle_set_mon(&fx, 1, 16, 40);
+    hns_battle_set_mon(&fx, 2, 158, 60);
+    hns_battle_set_mon(&fx, 3, 19, 35);
+
+    BattleStateRaw state;
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_ACTIVE,
+                "a doubles battle must report ACTIVE");
+    TEST_ASSERT(state.kind == BATTLE_KIND_DOUBLES, "a doubles battle must classify as DOUBLES");
+    TEST_ASSERT(state.battlers_count == 4, "a doubles battle must report gBattlersCount == 4");
+
+    PartySnapshot snap;
+    ActiveEnemyInfo info;
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_AMBIGUOUS,
+                "two active opponent battlers must be reported as ambiguous");
+    TEST_ASSERT(info.party_slot == -1, "doubles must not select an opponent");
+    TEST_ASSERT(info.opponent_battlers == 2, "both opponent battlers must be counted");
+    TEST_ASSERT(snap.active_battler_slot == -1 && !snap.active_battler_known,
+                "doubles must leave the active enemy slot unknown");
+    TEST_ASSERT(snap.active_enemy_ambiguous, "the ambiguity must be explicit in the snapshot");
+    TEST_ASSERT(!pokemon_battle_is_single_opponent(fake_gba_read, &gba.table, gba.ewram,
+                                                   sizeof(gba.ewram), cfg),
+                "a doubles battle is not a single-opponent battle");
+
+    // The player's own active slot is equally ambiguous with a partner on the field.
+    PartySnapshot player_snap;
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                  cfg, &player_snap);
+    TEST_ASSERT(player_snap.active_battler_slot == -1 && !player_snap.active_battler_known,
+                "two player-side battlers must leave the active player slot unknown");
+
+    // Multi / partner battles are never presented as singles either.
+    const uint32_t BATTLE_TYPE_INGAME_PARTNER = 1u << 22;
+    hns_battle_set_counters(&fx, 4, BATTLE_TYPE_DOUBLE | BATTLE_TYPE_INGAME_PARTNER, 0);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_ACTIVE,
+                "a partner battle still reports ACTIVE");
+    TEST_ASSERT(state.kind == BATTLE_KIND_MULTI_OR_PARTNER,
+                "a partner battle must classify as MULTI_OR_PARTNER, never as doubles or single");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_doubles_degrades_instead_of_guessing" ANSI_RESET "\n");
+}
+
+/**
+ * Invalid battler state must fail closed, not invent a slot.
+ */
+static void test_hns_invalid_battler_indexes_fail_closed(void) {
+    printf("Running test_hns_invalid_battler_indexes_fail_closed...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    PartySnapshot snap;
+    ActiveEnemyInfo info;
+    BattleStateRaw state;
+
+    // --- party index 6 (one past the last legal slot) -----------------------------------------
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 6);
+    hns_battle_begin_single_wild(&fx, 6, 16);
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) != ACTIVE_ENEMY_SLOT,
+                "party index 6 must never resolve to a presentable opponent");
+    TEST_ASSERT(info.party_slot == -1, "party index 6 must not yield a slot");
+
+    // --- party index 255 ----------------------------------------------------------------------
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 6);
+    hns_battle_begin_single_wild(&fx, 255, 16);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) != BATTLE_LIFECYCLE_ACTIVE,
+                "party index 255 must not produce an ACTIVE battle snapshot");
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) != ACTIVE_ENEMY_SLOT,
+                "party index 255 must never resolve to a presentable opponent");
+
+    // --- absent battler ------------------------------------------------------------------------
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 2);
+    hns_battle_begin_single_wild(&fx, 0, 16);
+    gba.ewram[cfg->absent_battler_flags_offset] = (uint8_t)(1u << 1); // opponent battler absent
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_NONE_ACTIVE,
+                "an absent opponent battler must report NONE_ACTIVE, not a slot");
+    TEST_ASSERT(info.party_slot == -1, "an absent battler must not yield a slot");
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap) == 2,
+                "the enemy party itself stays readable while its battler is absent");
+    TEST_ASSERT(!snap.active_battler_known, "an absent opponent battler must not mark a slot known");
+
+    // --- unreadable IWRAM ------------------------------------------------------------------------
+    // gMain lives in IWRAM. When it cannot be read, the engine's own flag is unavailable and the
+    // remaining counters cannot be interpreted: an engine-held battle with no usable battler
+    // count must degrade to a transitional state, never to ACTIVE and never to INACTIVE.
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    FakeGba no_iwram;
+    fake_gba_init(&no_iwram, false, true);
+    no_iwram.ewram[cfg->battlers_count_offset] = 0;
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                              sizeof(no_iwram.ewram), cfg, &state) == BATTLE_LIFECYCLE_INITIALIZING,
+                "an unreadable gMain with no usable battler count must be a transition, not ACTIVE");
+    TEST_ASSERT(!state.in_battle_flag_readable, "the unreadable flag must not be reported as read");
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                             sizeof(no_iwram.ewram), cfg, &snap, &info) == ACTIVE_ENEMY_NONE_ACTIVE,
+                "an unreadable lifecycle flag must not produce an opponent");
+    TEST_ASSERT(info.party_slot == -1, "an unreadable lifecycle flag must not produce a slot");
+
+    // --- NULL reader / NULL config ---------------------------------------------------------------
+    TEST_ASSERT(pokemon_read_battle_lifecycle(NULL, NULL, gba.ewram, sizeof(gba.ewram), cfg, &state) ==
+                    BATTLE_LIFECYCLE_UNKNOWN,
+                "a NULL reader must report UNKNOWN lifecycle");
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              NULL, &state) == BATTLE_LIFECYCLE_UNKNOWN,
+                "a NULL config must report UNKNOWN lifecycle");
+    GameMemoryConfig unknown_cfg = {0};
+    unknown_cfg.game_id = GAME_UNKNOWN;
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              &unknown_cfg, &state) == BATTLE_LIFECYCLE_UNKNOWN,
+                "a GAME_UNKNOWN config must report UNKNOWN lifecycle");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_invalid_battler_indexes_fail_closed" ANSI_RESET "\n");
+}
+
+/**
+ * A layout with an authoritative enemy count but no absolute-address reader cannot gate on a
+ * battle, so it must report nothing rather than fall back to the blind scan.
+ */
+static void test_hns_authoritative_enemy_count_requires_reader_gate(void) {
+    printf("Running test_hns_authoritative_enemy_count_requires_reader_gate...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 2);
+    hns_battle_begin_single_wild(&fx, 0, 16);
+
+    PartySnapshot with_reader;
+    TEST_ASSERT(pokemon_read_enemy_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &with_reader) == 2,
+                "an active battle with a reader must read the enemy party");
+
+    PartySnapshot without_reader;
+    TEST_ASSERT(pokemon_read_enemy_party(gba.ewram, sizeof(gba.ewram), cfg, &without_reader) == 0,
+                "without a battle-capable reader no enemy party may be reported");
+    TEST_ASSERT(without_reader.active_battler_slot == -1,
+                "a reader-less enemy read must not claim an active slot");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_authoritative_enemy_count_requires_reader_gate" ANSI_RESET "\n");
 }
 
 static void test_hns_battle_pokemon_layout_fields(void) {
@@ -2527,7 +2981,7 @@ int main(void) {
     // Heart & Soul 2.0.5 evidence-backed foundation (issue #40, first implementation phase).
     test_hns_config_matches_compiled_evidence();
     test_hns_party_counts_are_independent_symbols();
-    test_hns_enemy_party_count_boundary_documented();
+    test_hns_enemy_party_count_is_authoritative();
     test_expansion_ability_num_is_not_the_gigantamax_bit();
     test_expansion_nature_and_shiny_are_reported_honestly();
     test_hns_fallback_scan_uses_expansion_layout();
@@ -2540,6 +2994,13 @@ int main(void) {
     test_hns_battle_pokemon_layout_fields();
     test_unknown_game_still_fails_closed();
     test_heart_and_soul_party_and_battle_hp_sync();
+
+    // H&S 2.0.5 battle lifecycle and active-battler authority (issue #1).
+    test_hns_battle_lifecycle_gates_enemy_state();
+    test_hns_stale_battle_mon_cannot_invent_opponent();
+    test_hns_doubles_degrades_instead_of_guessing();
+    test_hns_invalid_battler_indexes_fail_closed();
+    test_hns_authoritative_enemy_count_requires_reader_gate();
 
     test_unbound_cfru_fixed_substructures();
     test_battle_presence_and_unknown_ui_state();

@@ -399,8 +399,10 @@ class CalcTabScreenView(
             }
         }
 
-        // 2. Auto-populate defender from opponent memory read if in battle!
-        val observedEnemy = if (inBattle) {
+        // 2. Auto-populate defender from opponent memory read if in battle.
+        // The slot is only honoured when the native resolution names one, so a doubles battle, an
+        // unresolved transition or an unreadable battle never auto-fills a guessed defender.
+        val observedEnemy = if (inBattle && viewModel.activeEnemyResolution.value.hasResolvedSlot) {
             enemyParty.getOrNull(viewModel.activeEnemyMemberIndex.value)
         } else null
         if (observedEnemy != null) {
@@ -515,7 +517,9 @@ class CalcTabScreenView(
         val enemyParty = viewModel.enemyParty.value
         val inBattle = viewModel.isInBattle.value
         val enemySlot = viewModel.activeEnemyMemberIndex.value
-        val enemyMon = if (inBattle) enemyParty.getOrNull(enemySlot) else null
+        val enemyMon = if (inBattle && viewModel.activeEnemyResolution.value.hasResolvedSlot) {
+            enemyParty.getOrNull(enemySlot)
+        } else null
 
         val defInput = if (enemyMon != null) {
             CalcPokemonInput(

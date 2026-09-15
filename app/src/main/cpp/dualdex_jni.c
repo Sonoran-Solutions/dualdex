@@ -481,8 +481,34 @@ Java_com_dualdex_emulator_LibretroHost_nativeGetOutputAudioSampleRate(
     return (jint)libretro_host_get_output_sample_rate();
 }
 
-static int8_t s_last_active_battler_slot = -1;
-static int8_t s_last_active_enemy_battler_slot = -1;
+/**
+ * Last observed active-battler results.
+ *
+ * `known` is tracked next to each slot on purpose: a slot of 0 is a real party slot, so it can
+ * never double as "unknown". Callers receive -1 unless the native reader resolved the slot from
+ * authoritative battler state in the same read that produced the party.
+ */
+static int8_t  s_last_active_battler_slot = -1;
+static bool    s_last_active_battler_known = false;
+static int8_t  s_last_active_enemy_battler_slot = -1;
+static bool    s_last_active_enemy_battler_known = false;
+static int8_t  s_last_active_enemy_state = ACTIVE_ENEMY_UNKNOWN;
+static int8_t  s_last_active_enemy_battler_index = -1;
+static uint8_t s_last_opponent_battler_count = 0;
+static bool    s_last_active_enemy_fainted = false;
+
+/**
+ * Bounds-checked absolute-address reader handed to the production native readers.
+ *
+ * Heart & Soul 2.0.5 keeps the authoritative battle-lifecycle flag (`gMain.inBattle`) in IWRAM
+ * while the battle globals live in EWRAM, so the readers need a region-checked reader rather
+ * than only the EWRAM pointer. libretro_host_read_gba_address performs that check against the
+ * region table the core published and returns false for anything unmapped.
+ */
+static bool dualdex_jni_gba_read(void* user, uint32_t gba_address, uint8_t* out, size_t length) {
+    (void)user;
+    return libretro_host_read_gba_address(gba_address, out, length);
+}
 
 JNIEXPORT jobjectArray JNICALL
 Java_com_dualdex_emulator_LibretroHost_nativeReadPartyFromCore(JNIEnv* env, jobject thiz, jint game_id) {
@@ -504,13 +530,16 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadPartyFromCore(JNIEnv* env, jobj
         // Fail closed: an unknown/unsupported game has no verified memory layout, so no parsing is
         // attempted and no previously observed battler slot may survive.
         s_last_active_battler_slot = -1;
+        s_last_active_battler_known = false;
         LOGI("nativeReadPartyFromCore: game_id=%d has no supported layout; party unavailable", game_id);
         return NULL;
     }
 
     PartySnapshot snapshot;
-    uint8_t count = pokemon_read_player_party(ewram, ewram_sz, cfg, &snapshot);
-    s_last_active_battler_slot = snapshot.active_battler_slot;
+    uint8_t count = pokemon_read_player_party_gba(
+        dualdex_jni_gba_read, NULL, ewram, ewram_sz, cfg, &snapshot);
+    s_last_active_battler_known = snapshot.active_battler_known;
+    s_last_active_battler_slot = snapshot.active_battler_known ? snapshot.active_battler_slot : -1;
 
     static int s_party_log_counter = 0;
     if ((++s_party_log_counter % 30) == 1) {
@@ -555,13 +584,28 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadEnemyPartyFromCore(JNIEnv* env,
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
     if (!cfg) {
         s_last_active_enemy_battler_slot = -1;
+        s_last_active_enemy_battler_known = false;
+        s_last_active_enemy_state = ACTIVE_ENEMY_UNKNOWN;
+        s_last_active_enemy_battler_index = -1;
+        s_last_opponent_battler_count = 0;
+        s_last_active_enemy_fainted = false;
         LOGI("nativeReadEnemyPartyFromCore: game_id=%d has no supported layout; enemy party unavailable", game_id);
         return NULL;
     }
 
     PartySnapshot snapshot;
-    uint8_t count = pokemon_read_enemy_party(ewram, ewram_sz, cfg, &snapshot);
-    s_last_active_enemy_battler_slot = snapshot.active_battler_slot;
+    ActiveEnemyInfo enemy_info;
+    uint8_t count = pokemon_read_enemy_party_gba(
+        dualdex_jni_gba_read, NULL, ewram, ewram_sz, cfg, &snapshot);
+    pokemon_resolve_active_enemy(dualdex_jni_gba_read, NULL, ewram, ewram_sz, cfg, &snapshot, &enemy_info);
+
+    s_last_active_enemy_state = (int8_t)enemy_info.state;
+    s_last_active_enemy_battler_index = enemy_info.battler_index;
+    s_last_opponent_battler_count = enemy_info.opponent_battlers;
+    s_last_active_enemy_fainted = enemy_info.fainted;
+    s_last_active_enemy_battler_known = (enemy_info.state == ACTIVE_ENEMY_SLOT);
+    s_last_active_enemy_battler_slot =
+        (enemy_info.state == ACTIVE_ENEMY_SLOT) ? enemy_info.party_slot : -1;
 
     jobjectArray array = (*env)->NewObjectArray(env, count, g_parsed_pokemon_cls, NULL);
     if (!array) return NULL;
@@ -581,7 +625,8 @@ Java_com_dualdex_emulator_LibretroHost_nativeGetActiveBattlerSlot(JNIEnv* env, j
     (void)env;
     (void)thiz;
     (void)game_id;
-    return (jint)s_last_active_battler_slot;
+    // -1 is the only "unknown" answer. Slot 0 is never used as a stand-in for it.
+    return s_last_active_battler_known ? (jint)s_last_active_battler_slot : -1;
 }
 
 JNIEXPORT jint JNICALL
@@ -589,7 +634,53 @@ Java_com_dualdex_emulator_LibretroHost_nativeGetActiveEnemyBattlerSlot(JNIEnv* e
     (void)env;
     (void)thiz;
     (void)game_id;
-    return (jint)s_last_active_enemy_battler_slot;
+    return s_last_active_enemy_battler_known ? (jint)s_last_active_enemy_battler_slot : -1;
+}
+
+/**
+ * Active-opponent resolution as an explicit tuple rather than an ambiguous integer.
+ *
+ * Layout: [0] ActiveEnemyState, [1] opponent battler index (-1 unknown),
+ *         [2] enemy party slot (-1 unknown/ambiguous/none), [3] active opponent battler count,
+ *         [4] fainted flag (1 when the resolved opponent is at 0 HP).
+ *
+ * Returning the state alongside the slot is what removes the old "is 0 a slot or 'unknown'?"
+ * ambiguity: a caller that needs a slot must check element [0] == ACTIVE_ENEMY_SLOT.
+ */
+JNIEXPORT jintArray JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeResolveActiveEnemy(JNIEnv* env, jobject thiz, jint game_id) {
+    (void)thiz;
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+
+    jint values[5] = {
+        (jint)ACTIVE_ENEMY_UNKNOWN, -1, -1, 0, 0
+    };
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    if (ewram && ewram_sz > 0 && cfg) {
+        PartySnapshot snapshot;
+        ActiveEnemyInfo info;
+        pokemon_resolve_active_enemy(dualdex_jni_gba_read, NULL, ewram, ewram_sz, cfg, &snapshot, &info);
+
+        values[0] = (jint)info.state;
+        values[1] = (jint)info.battler_index;
+        values[2] = (jint)info.party_slot;
+        values[3] = (jint)info.opponent_battlers;
+        values[4] = info.fainted ? 1 : 0;
+
+        s_last_active_enemy_state = (int8_t)info.state;
+        s_last_active_enemy_battler_index = info.battler_index;
+        s_last_opponent_battler_count = info.opponent_battlers;
+        s_last_active_enemy_fainted = info.fainted;
+        s_last_active_enemy_battler_known = (info.state == ACTIVE_ENEMY_SLOT);
+        s_last_active_enemy_battler_slot = (info.state == ACTIVE_ENEMY_SLOT) ? info.party_slot : -1;
+    }
+
+    jintArray result = (*env)->NewIntArray(env, 5);
+    if (!result) return NULL;
+    (*env)->SetIntArrayRegion(env, result, 0, 5, values);
+    return result;
 }
 
 JNIEXPORT jintArray JNICALL

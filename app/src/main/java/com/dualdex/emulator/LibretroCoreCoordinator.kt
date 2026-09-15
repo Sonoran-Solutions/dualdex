@@ -2,6 +2,7 @@ package com.dualdex.emulator
 
 import android.os.SystemClock
 import android.util.Log
+import com.dualdex.battle.ActiveEnemyResolution
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PlayerLocation
 import java.nio.ByteBuffer
@@ -319,6 +320,24 @@ open class LibretroCoreCoordinator(
         -1
     } catch (_: Exception) {
         -1
+    }
+
+    /**
+     * Authoritative active-opponent resolution.
+     *
+     * One native call returns the state, battler index, party slot, opponent battler count and
+     * faint flag together, so the state and the slot can never disagree. A failure, an
+     * unsupported layout or a missing native library degrades to [ActiveEnemyResolution]'s
+     * default, which is UNKNOWN with no slot -- never "slot 0".
+     */
+    open fun resolveActiveEnemy(gameId: Int): ActiveEnemyResolution = try {
+        ActiveEnemyResolution.fromNativeArray(
+            executeExclusive(50L) { LibretroHost.nativeResolveActiveEnemy(gameId) }
+        )
+    } catch (_: UnsatisfiedLinkError) {
+        ActiveEnemyResolution()
+    } catch (_: Exception) {
+        ActiveEnemyResolution()
     }
 
     open fun readBattleStatStages(gameId: Int, battlerIndex: Int): IntArray? = try {

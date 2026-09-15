@@ -808,6 +808,7 @@ class BattleConsoleScreenView(
         val inBattle = viewModel.isInBattle.value
         val activePlayerIdx = viewModel.activePlayerBattlerIndex.value
         val activeEnemyIdx = viewModel.activeEnemyMemberIndex.value
+        val enemyResolution = viewModel.activeEnemyResolution.value
         val profile = viewModel.activeProfile.value
         val runtimeTrust = viewModel.runtimeRomTrust.value
         val playerStages = viewModel.playerStatStages.value
@@ -819,7 +820,10 @@ class BattleConsoleScreenView(
         } else {
             null
         }
-        val defender: ParsedPokemon? = if (inBattle && activeEnemyIdx in enemies.indices) {
+        val defender: ParsedPokemon? = if (inBattle &&
+            enemyResolution.hasResolvedSlot &&
+            activeEnemyIdx in enemies.indices
+        ) {
             enemies[activeEnemyIdx].takeIf { !it.isEmpty && it.isValid }
         } else {
             null
@@ -876,12 +880,26 @@ class BattleConsoleScreenView(
                 speedBannerView.visibility = View.GONE
             }
 
-            // Read-only warning
-            if (!uiSnap.inputSafe) {
-                readOnlyNoticeText.text = uiSnap.readOnlyReason ?: "Read-only: interactive battle controls are unavailable."
-                readOnlyNoticeView.visibility = View.VISIBLE
-            } else {
-                readOnlyNoticeView.visibility = View.GONE
+            // Read-only warning, plus the honest degradation notice when no single opponent can
+            // be named. The opponent slot is only honoured when the native resolution says SLOT,
+            // so a doubles battle or an unresolved transition can never show the wrong enemy.
+            val opponentNotice = when {
+                enemyResolution.state == com.dualdex.battle.ActiveEnemyState.AMBIGUOUS ->
+                    "${enemyResolution.state.displayName}: ${enemyResolution.state.detail}"
+                defender == null -> "Opponent not identified: ${enemyResolution.state.detail}"
+                else -> null
+            }
+            when {
+                !uiSnap.inputSafe -> {
+                    readOnlyNoticeText.text = uiSnap.readOnlyReason
+                        ?: "Read-only: interactive battle controls are unavailable."
+                    readOnlyNoticeView.visibility = View.VISIBLE
+                }
+                opponentNotice != null -> {
+                    readOnlyNoticeText.text = opponentNotice
+                    readOnlyNoticeView.visibility = View.VISIBLE
+                }
+                else -> readOnlyNoticeView.visibility = View.GONE
             }
 
             // Update Move Cards

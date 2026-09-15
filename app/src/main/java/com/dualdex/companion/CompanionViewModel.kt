@@ -60,6 +60,15 @@ class CompanionViewModel(
     private val _activeEnemyMemberIndex = MutableStateFlow(-1)
     val activeEnemyMemberIndex: StateFlow<Int> = _activeEnemyMemberIndex.asStateFlow()
 
+    /**
+     * Authoritative active-opponent resolution, including the cases where no opponent may be
+     * named (transition, unknown, doubles). A -1 index is always accompanied by a state that
+     * explains why, so the UI can be honest instead of showing a guessed enemy.
+     */
+    private val _activeEnemyResolution = MutableStateFlow(com.dualdex.battle.ActiveEnemyResolution())
+    val activeEnemyResolution: StateFlow<com.dualdex.battle.ActiveEnemyResolution> =
+        _activeEnemyResolution.asStateFlow()
+
     private val _activePlayerBattlerIndex = MutableStateFlow(-1)
     val activePlayerBattlerIndex: StateFlow<Int> = _activePlayerBattlerIndex.asStateFlow()
 
@@ -283,10 +292,27 @@ class CompanionViewModel(
             } else {
                 _activePlayerBattlerIndex.value = -1
             }
-            val enemyActiveSlot = coreCoordinator.getActiveEnemyBattlerSlot(gameId)
-            val resolvedSlot = if (enemyActiveSlot in _enemyParty.value.indices) enemyActiveSlot else -1
+            // The opponent comes from authoritative battler state only. A fainted-but-not-yet-
+            // replaced opponent is a transition: the slot is withheld until the announcement
+            // resolves, which is a temporary UNKNOWN rather than the previous enemy.
+            val enemyResolution = coreCoordinator.resolveActiveEnemy(gameId)
+            val resolvedSlot = enemyResolution.partySlot
+                ?.takeIf { !enemyResolution.isFainted && it in _enemyParty.value.indices }
+                ?: -1
             if (resolvedSlot != _activeEnemyMemberIndex.value) {
                 _activeEnemyMemberIndex.value = resolvedSlot
+            }
+            val publicResolution =
+                if (resolvedSlot < 0 && enemyResolution.state == com.dualdex.battle.ActiveEnemyState.SLOT) {
+                    enemyResolution.copy(
+                        state = com.dualdex.battle.ActiveEnemyState.UNKNOWN,
+                        partySlot = null
+                    )
+                } else {
+                    enemyResolution
+                }
+            if (publicResolution != _activeEnemyResolution.value) {
+                _activeEnemyResolution.value = publicResolution
             }
 
             val pStages = coreCoordinator.readBattleStatStages(gameId, 0)
@@ -306,6 +332,9 @@ class CompanionViewModel(
         } else {
             if (_activeEnemyMemberIndex.value != -1) {
                 _activeEnemyMemberIndex.value = -1
+            }
+            if (_activeEnemyResolution.value != com.dualdex.battle.ActiveEnemyResolution()) {
+                _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
             }
             _activePlayerBattlerIndex.value = -1
             _playerStatStages.value = com.dualdex.battle.StatStages()
@@ -343,6 +372,9 @@ class CompanionViewModel(
         if (_selectedMemberIndex.value != 0) _selectedMemberIndex.value = 0
         if (_activePlayerBattlerIndex.value != -1) _activePlayerBattlerIndex.value = -1
         if (_activeEnemyMemberIndex.value != -1) _activeEnemyMemberIndex.value = -1
+        if (_activeEnemyResolution.value != com.dualdex.battle.ActiveEnemyResolution()) {
+            _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
+        }
         if (_isInBattle.value) _isInBattle.value = false
         if (_battlePresence.value != com.dualdex.battle.BattlePresence.UNKNOWN) {
             _battlePresence.value = com.dualdex.battle.BattlePresence.UNKNOWN
@@ -374,7 +406,17 @@ class CompanionViewModel(
     }
 
     fun setActiveEnemyMemberIndex(index: Int) {
+        // Manual selection (parity with the manual party editor). The authoritative resolution is
+        // marked SLOT so the UI treats an explicitly chosen enemy as chosen, not as tracked.
         _activeEnemyMemberIndex.value = index
+        _activeEnemyResolution.value = if (index in 0..5) {
+            com.dualdex.battle.ActiveEnemyResolution(
+                state = com.dualdex.battle.ActiveEnemyState.SLOT,
+                partySlot = index
+            )
+        } else {
+            com.dualdex.battle.ActiveEnemyResolution()
+        }
     }
 
     fun setActivePlayerBattlerIndex(index: Int) {
@@ -385,6 +427,7 @@ class CompanionViewModel(
         _isInBattle.value = inBattle
         if (!inBattle) {
             _activeEnemyMemberIndex.value = -1
+            _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
             _activePlayerBattlerIndex.value = -1
             _playerStatStages.value = com.dualdex.battle.StatStages()
             _enemyStatStages.value = com.dualdex.battle.StatStages()
@@ -402,6 +445,7 @@ class CompanionViewModel(
         _isInBattle.value = inBattle
         if (!inBattle) {
             _activeEnemyMemberIndex.value = -1
+            _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
             _activePlayerBattlerIndex.value = -1
             _playerStatStages.value = com.dualdex.battle.StatStages()
             _enemyStatStages.value = com.dualdex.battle.StatStages()

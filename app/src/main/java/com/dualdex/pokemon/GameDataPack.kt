@@ -14,6 +14,14 @@ interface GameDataPack {
     val hasFairyType: Boolean
     val hasPhysicalSpecialSplit: Boolean
 
+    /**
+     * True if callers and resolvers may fall back to global/generic databases (SpeciesDatabase,
+     * MoveDatabase) on a lookup miss. Exact, version-pinned ROM hack data packs (such as Heart & Soul 2.0.5)
+     * set this to false to guarantee that ROM-specific IDs are never polluted or substituted with
+     * generic entries.
+     */
+    val allowGlobalFallback: Boolean get() = true
+
     fun getSpecies(id: Int): SpeciesInfo?
     fun getMove(id: Int): MoveInfo?
     fun getEffectiveness(attackType: PokemonType, defType: PokemonType): Double
@@ -152,6 +160,7 @@ class ProfileOverlayDataPack(
     override val generation: Int get() = basePack.generation
     override val hasFairyType: Boolean get() = basePack.hasFairyType
     override val hasPhysicalSpecialSplit: Boolean get() = basePack.hasPhysicalSpecialSplit
+    override val allowGlobalFallback: Boolean get() = basePack.allowGlobalFallback
 
     private val convertedSpecies: Map<Int, SpeciesInfo> = customSpecies.mapValues { (id, override) ->
         SpeciesInfo(
@@ -219,4 +228,55 @@ object GameDataPackRegistry {
             basePack
         }
     }
+}
+
+/**
+ * Safely resolves a [SpeciesInfo] from this data pack.
+ * If the species is absent:
+ * - Falls back to [SpeciesDatabase.get] only if [GameDataPack.allowGlobalFallback] is true.
+ * - Otherwise returns a safe placeholder "Unknown Species #<id>" without substituting
+ *   a same-numbered generic modern species.
+ */
+fun GameDataPack.resolveSpecies(id: Int): SpeciesInfo {
+    val found = getSpecies(id)
+    if (found != null) return found
+    if (allowGlobalFallback) {
+        return SpeciesDatabase.get(id, this)
+    }
+    return SpeciesInfo(
+        id = id,
+        name = "Unknown Species #$id",
+        type1 = PokemonType.NORMAL,
+        type2 = null,
+        baseHP = 0,
+        baseAtk = 0,
+        baseDef = 0,
+        baseSpA = 0,
+        baseSpD = 0,
+        baseSpe = 0
+    )
+}
+
+/**
+ * Safely resolves a [MoveInfo] from this data pack.
+ * If the move is absent:
+ * - Falls back to [MoveDatabase.get] only if [GameDataPack.allowGlobalFallback] is true.
+ * - Otherwise returns a safe placeholder "Unknown Move #<id>" without substituting
+ *   a same-numbered generic modern move.
+ */
+fun GameDataPack.resolveMove(id: Int): MoveInfo {
+    val found = getMove(id)
+    if (found != null) return found
+    if (allowGlobalFallback) {
+        return MoveDatabase.get(id, this)
+    }
+    return MoveInfo(
+        id = id,
+        name = "Unknown Move #$id",
+        type = PokemonType.NORMAL,
+        category = MoveCategory.PHYSICAL,
+        power = 0,
+        accuracy = 0,
+        pp = 0
+    )
 }

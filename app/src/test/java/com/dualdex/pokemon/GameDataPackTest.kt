@@ -209,4 +209,167 @@ class GameDataPackTest {
         assertTrue(gen3Defense.resistancesHalf.contains(PokemonType.GHOST))
         assertTrue(gen3Defense.resistancesHalf.contains(PokemonType.DARK))
     }
+
+    @Test
+    fun testTeraStarstormAndStellarType() {
+        val starstorm = HeartAndSoul205DataPack.getMove(834)
+        assertNotNull(starstorm)
+        assertEquals("Tera Starstorm", starstorm!!.name)
+        assertEquals(PokemonType.STELLAR, starstorm.type)
+        assertEquals(MoveCategory.SPECIAL, starstorm.category)
+        assertEquals(120, starstorm.power)
+        assertEquals(100, starstorm.accuracy)
+        assertEquals(5, starstorm.pp)
+
+        // Static effectiveness baseline for Stellar: neutral 1.0 against all types,
+        // and 1.0 when attacked by all types. (Dynamic Terastallization mechanics belong to #9).
+        for (defType in PokemonType.values()) {
+            assertEquals(
+                "Stellar attacking $defType must have 1.0 static effectiveness",
+                1.0f,
+                TypeChart.getEffectiveness(PokemonType.STELLAR, defType),
+                0.001f
+            )
+            assertEquals(
+                "$defType attacking Stellar must have 1.0 static effectiveness",
+                1.0f,
+                TypeChart.getEffectiveness(defType, PokemonType.STELLAR),
+                0.001f
+            )
+        }
+    }
+
+    @Test
+    fun testSourceDerivedMoveFixtures() {
+        // 1. Old move: Pound (ID 1)
+        val pound = HeartAndSoul205DataPack.getMove(1)
+        assertNotNull(pound)
+        assertEquals("Pound", pound!!.name)
+        assertEquals(PokemonType.NORMAL, pound.type)
+        assertEquals(MoveCategory.PHYSICAL, pound.category)
+        assertEquals(40, pound.power)
+        assertEquals(100, pound.accuracy)
+        assertEquals(35, pound.pp)
+
+        // 2. Later-gen move: Malignant Chain (ID 847)
+        val malignantChain = HeartAndSoul205DataPack.getMove(847)
+        assertNotNull(malignantChain)
+        assertEquals("Malignant Chain", malignantChain!!.name)
+        assertEquals(PokemonType.POISON, malignantChain.type)
+        assertEquals(MoveCategory.SPECIAL, malignantChain.category)
+        assertEquals(100, malignantChain.power)
+        assertEquals(100, malignantChain.accuracy)
+        assertEquals(5, malignantChain.pp)
+
+        // 3. Fairy move: Moonblast (ID 585) & Play Rough (ID 583)
+        val moonblast = HeartAndSoul205DataPack.getMove(585)
+        assertNotNull(moonblast)
+        assertEquals("Moonblast", moonblast!!.name)
+        assertEquals(PokemonType.FAIRY, moonblast.type)
+        assertEquals(MoveCategory.SPECIAL, moonblast.category)
+        assertEquals(95, moonblast.power)
+
+        val playRough = HeartAndSoul205DataPack.getMove(583)
+        assertNotNull(playRough)
+        assertEquals("Play Rough", playRough!!.name)
+        assertEquals(PokemonType.FAIRY, playRough.type)
+        assertEquals(MoveCategory.PHYSICAL, playRough.category)
+        assertEquals(90, playRough.power)
+
+        // 4. Status move: Swords Dance (ID 14), Toxic (ID 92), Curse (ID 174)
+        val swordsDance = HeartAndSoul205DataPack.getMove(14)
+        assertNotNull(swordsDance)
+        assertEquals("Swords Dance", swordsDance!!.name)
+        assertEquals(PokemonType.NORMAL, swordsDance.type)
+        assertEquals(MoveCategory.STATUS, swordsDance.category)
+        assertEquals(0, swordsDance.power)
+
+        val toxic = HeartAndSoul205DataPack.getMove(92)
+        assertNotNull(toxic)
+        assertEquals("Toxic", toxic!!.name)
+        assertEquals(PokemonType.POISON, toxic.type)
+        assertEquals(MoveCategory.STATUS, toxic.category)
+        assertEquals(0, toxic.power)
+        assertEquals(90, toxic.accuracy)
+
+        val curse = HeartAndSoul205DataPack.getMove(174)
+        assertNotNull(curse)
+        assertEquals("Curse", curse!!.name)
+        assertEquals(PokemonType.GHOST, curse.type)
+        assertEquals(MoveCategory.STATUS, curse.category)
+        assertEquals(0, curse.power)
+
+        // 5. Stellar move: Tera Starstorm (ID 834)
+        val starstorm = HeartAndSoul205DataPack.getMove(834)
+        assertNotNull(starstorm)
+        assertEquals(PokemonType.STELLAR, starstorm!!.type)
+
+        // 6. High internal move ID: G-Max Rapid Flow (ID 934)
+        val gmaxRapidFlow = HeartAndSoul205DataPack.getMove(934)
+        assertNotNull(gmaxRapidFlow)
+        assertEquals("G-Max Rapid Flow", gmaxRapidFlow!!.name)
+        assertEquals(PokemonType.WATER, gmaxRapidFlow.type)
+        assertEquals(MoveCategory.PHYSICAL, gmaxRapidFlow.category)
+        assertEquals(10, gmaxRapidFlow.power)
+    }
+
+    @Test
+    fun testExactPackBlocksGlobalFallback() {
+        // Heart & Soul 2.0.5 has allowGlobalFallback = false
+        assertFalse(HeartAndSoul205DataPack.allowGlobalFallback)
+
+        // Resolving an unknown species ID on H&S returns safe unknown placeholder, never generic modern species
+        val unknownSpecies = HeartAndSoul205DataPack.resolveSpecies(9999)
+        assertEquals("Unknown Species #9999", unknownSpecies.name)
+        assertEquals(PokemonType.NORMAL, unknownSpecies.type1)
+        assertNull(unknownSpecies.type2)
+
+        // Resolving an unknown move ID on H&S returns safe unknown placeholder, never generic modern move
+        val unknownMove = HeartAndSoul205DataPack.resolveMove(9999)
+        assertEquals("Unknown Move #9999", unknownMove.name)
+        assertEquals(PokemonType.NORMAL, unknownMove.type)
+        assertEquals(MoveCategory.PHYSICAL, unknownMove.category)
+
+        // Verify with a custom exact pack that an ID present in global SpeciesDatabase is NOT resolved
+        val syntheticExactPack = object : GameDataPack {
+            override val id: String = "synthetic_exact"
+            override val generation: Int = 8
+            override val hasFairyType: Boolean = true
+            override val hasPhysicalSpecialSplit: Boolean = true
+            override val allowGlobalFallback: Boolean = false
+            override fun getSpecies(id: Int): SpeciesInfo? = null
+            override fun getMove(id: Int): MoveInfo? = null
+            override fun getEffectiveness(attackType: PokemonType, defType: PokemonType): Double = 1.0
+        }
+
+        // Bulbasaur (ID 1) exists in global SpeciesDatabase, but syntheticExactPack blocks global fallback
+        val blockedSpecies = syntheticExactPack.resolveSpecies(1)
+        assertEquals("Unknown Species #1", blockedSpecies.name)
+
+        // Pound (ID 1) exists in global MoveDatabase, but syntheticExactPack blocks global fallback
+        val blockedMove = syntheticExactPack.resolveMove(1)
+        assertEquals("Unknown Move #1", blockedMove.name)
+
+        // Vanilla / Modern packs have allowGlobalFallback = true and resolve successfully
+        assertTrue(Gen3VanillaDataPack.allowGlobalFallback)
+        assertTrue(ModernDataPack.allowGlobalFallback)
+
+        val fallbackSpecies = Gen3VanillaDataPack.resolveSpecies(1)
+        assertEquals("Bulbasaur", fallbackSpecies.name)
+
+        val fallbackMove = Gen3VanillaDataPack.resolveMove(1)
+        assertEquals("Pound", fallbackMove.name)
+    }
+
+    @Test
+    fun testProfileOverlayPreservesFallbackCapability() {
+        val hnsOverlay = ProfileOverlayDataPack(HeartAndSoul205DataPack, emptyMap())
+        assertFalse(hnsOverlay.allowGlobalFallback)
+
+        val modernOverlay = ProfileOverlayDataPack(ModernDataPack, emptyMap())
+        assertTrue(modernOverlay.allowGlobalFallback)
+
+        val vanillaOverlay = ProfileOverlayDataPack(Gen3VanillaDataPack, emptyMap())
+        assertTrue(vanillaOverlay.allowGlobalFallback)
+    }
 }

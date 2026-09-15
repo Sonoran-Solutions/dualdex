@@ -26,6 +26,8 @@ import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.SpeciesDatabase
 import com.dualdex.pokemon.TypeChart
 import com.dualdex.pokemon.NatureTable
+import com.dualdex.pokemon.resolveMove
+import com.dualdex.pokemon.resolveSpecies
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -284,7 +286,7 @@ class PartyScreenView(
 
     private fun bindMember(holder: MemberHolder, mon: ParsedPokemon, selected: Boolean) {
         val pack = viewModel.activeGameDataPack
-        val species = pack.getSpecies(mon.species) ?: SpeciesDatabase.get(mon.species, pack)
+        val species = pack.resolveSpecies(mon.species)
         holder.root.isSelected = selected
         holder.name.text = mon.nickname.ifBlank { species.name }
         holder.name.setTextColor(if (selected) DualDexTheme.Color.accent else DualDexTheme.Color.textPrimary)
@@ -503,7 +505,7 @@ class PartyScreenView(
 
     private fun bindDetail(holder: DetailHolder, mon: ParsedPokemon, gameId: Int) {
         val pack = viewModel.activeGameDataPack
-        val species = pack.getSpecies(mon.species) ?: SpeciesDatabase.get(mon.species, pack)
+        val species = pack.resolveSpecies(mon.species)
         val speciesDisplayName = if (species.name.isNotBlank()) species.name else "Unknown Species #${mon.species}"
         holder.title.text = buildString {
             append(mon.nickname.ifBlank { speciesDisplayName })
@@ -518,8 +520,15 @@ class PartyScreenView(
         val nature = NatureTable.get(mon.nature)
         val isExpansion = gameId != 2 && gameId != 6
         val item = ItemDatabase.get(mon.heldItem, isExpansion = isExpansion)
+        val isHns = !pack.allowGlobalFallback || pack.id.startsWith("hns")
         holder.nature.text = "Nature  ${nature.formattedDescription}"
-        holder.heldItem.text = "Held item  ${if (mon.heldItem > 0) item.name else "None"}"
+        holder.heldItem.text = if (mon.heldItem <= 0) {
+            "Held item  None"
+        } else if (isHns) {
+            "Held item  ${item.name} (unverified)"
+        } else {
+            "Held item  ${item.name}"
+        }
 
         val values = listOf(mon.maxHp, mon.attack, mon.defense, mon.spAttack, mon.spDefense, mon.speed)
         val ivs = listOf(mon.hpIv, mon.attackIv, mon.defenseIv, mon.spAttackIv, mon.spDefenseIv, mon.speedIv)
@@ -536,10 +545,13 @@ class PartyScreenView(
                 moveHolder.row.visibility = View.GONE
                 return@forEachIndexed
             }
-            val move = pack.getMove(moveId) ?: MoveDatabase.get(moveId, pack)
+            val move = pack.resolveMove(moveId)
+            val pwrText = if (move.power > 0) move.power.toString() else "—"
+            val accText = if (move.accuracy > 0) "${move.accuracy}%" else "—"
+            val ppMax = if (move.pp > 0) move.pp.toString() else "—"
             moveHolder.row.visibility = View.VISIBLE
             moveHolder.name.text = move.name
-            moveHolder.meta.text = "PP ${mon.pp.getOrNull(index) ?: 0}/${move.pp} · Pwr ${move.power.takeIf { it > 0 } ?: "—"} · Acc ${move.accuracy}%"
+            moveHolder.meta.text = "PP ${mon.pp.getOrNull(index) ?: 0}/$ppMax · Pwr $pwrText · Acc $accText"
             moveHolder.typeContainer.removeAllViews()
             moveHolder.typeContainer.addView(DualDexComponents.typeBadge(context, move.type))
         }

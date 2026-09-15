@@ -204,10 +204,12 @@ object TypeChart {
         val rQuarter = mutableListOf<PokemonType>()
         val im = mutableListOf<PokemonType>()
 
-        val attackingTypes = if (pack != null && !pack.hasFairyType) {
-            PokemonType.values().filter { it != PokemonType.FAIRY }
-        } else {
-            PokemonType.values().toList()
+        val attackingTypes = PokemonType.values().filter { attackingType ->
+            pack == null || when (attackingType) {
+                PokemonType.FAIRY -> pack.hasFairyType
+                PokemonType.STELLAR -> pack.hasStellarType
+                else -> true
+            }
         }
 
         for (atk in attackingTypes) {

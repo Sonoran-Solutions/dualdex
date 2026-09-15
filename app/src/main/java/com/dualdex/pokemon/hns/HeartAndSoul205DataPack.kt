@@ -27,6 +27,7 @@ object HeartAndSoul205DataPack : GameDataPack {
     override val id: String = "hns_2_0_5"
     override val generation: Int = 8
     override val hasFairyType: Boolean = true
+    override val hasStellarType: Boolean = true
     override val hasPhysicalSpecialSplit: Boolean = true
     override val allowGlobalFallback: Boolean = false
 
@@ -2364,7 +2365,7 @@ object HeartAndSoul205DataPack : GameDataPack {
         registerMove(831, "Syrup Bomb", PokemonType.GRASS, MoveCategory.SPECIAL, 60, 85, 10)
         registerMove(832, "Ivy Cudgel", PokemonType.GRASS, MoveCategory.PHYSICAL, 100, 100, 10)
         registerMove(833, "Electro Shot", PokemonType.ELECTRIC, MoveCategory.SPECIAL, 130, 100, 10)
-        registerMove(834, "Tera Starstorm", PokemonType.STELLAR, MoveCategory.SPECIAL, 120, 100, 5)
+        registerMove(834, "Tera Starstorm", PokemonType.NORMAL, MoveCategory.SPECIAL, 120, 100, 5)
         registerMove(835, "Fickle Beam", PokemonType.DRAGON, MoveCategory.SPECIAL, 80, 100, 5)
         registerMove(836, "Burning Bulwark", PokemonType.FIRE, MoveCategory.STATUS, 0, 0, 10)
         registerMove(837, "Thunderclap", PokemonType.ELECTRIC, MoveCategory.SPECIAL, 70, 100, 5)

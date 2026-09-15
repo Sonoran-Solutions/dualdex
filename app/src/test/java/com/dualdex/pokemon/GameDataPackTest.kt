@@ -190,6 +190,7 @@ class GameDataPackTest {
     fun testHeartAndSoulMechanicsAndDefenseProfile() {
         assertEquals(8, HeartAndSoul205DataPack.generation)
         assertTrue(HeartAndSoul205DataPack.hasFairyType)
+        assertTrue(HeartAndSoul205DataPack.hasStellarType)
         assertTrue(HeartAndSoul205DataPack.hasPhysicalSpecialSplit)
 
         // In H&S (Gen 8 mechanics), Steel does not resist Ghost or Dark
@@ -208,6 +209,11 @@ class GameDataPackTest {
         val gen3Defense = TypeChart.getDefenseProfile(PokemonType.STEEL, null, pack = Gen3VanillaDataPack)
         assertTrue(gen3Defense.resistancesHalf.contains(PokemonType.GHOST))
         assertTrue(gen3Defense.resistancesHalf.contains(PokemonType.DARK))
+        val gen3ProfileTypes = (gen3Defense.weaknesses4x + gen3Defense.weaknesses2x +
+            gen3Defense.neutral + gen3Defense.resistancesHalf + gen3Defense.resistancesQuarter +
+            gen3Defense.immunities).toSet()
+        assertFalse(gen3ProfileTypes.contains(PokemonType.FAIRY))
+        assertFalse(gen3ProfileTypes.contains(PokemonType.STELLAR))
     }
 
     @Test
@@ -215,7 +221,8 @@ class GameDataPackTest {
         val starstorm = HeartAndSoul205DataPack.getMove(834)
         assertNotNull(starstorm)
         assertEquals("Tera Starstorm", starstorm!!.name)
-        assertEquals(PokemonType.STELLAR, starstorm.type)
+        // Static gMovesInfo type is NORMAL. Runtime Tera Starstorm semantics are dynamic and intentionally out of scope.
+        assertEquals(PokemonType.NORMAL, starstorm.type)
         assertEquals(MoveCategory.SPECIAL, starstorm.category)
         assertEquals(120, starstorm.power)
         assertEquals(100, starstorm.accuracy)
@@ -299,10 +306,10 @@ class GameDataPackTest {
         assertEquals(MoveCategory.STATUS, curse.category)
         assertEquals(0, curse.power)
 
-        // 5. Stellar move: Tera Starstorm (ID 834)
+        // 5. Static source type for Tera Starstorm (ID 834); runtime Stellar behavior is dynamic.
         val starstorm = HeartAndSoul205DataPack.getMove(834)
         assertNotNull(starstorm)
-        assertEquals(PokemonType.STELLAR, starstorm!!.type)
+        assertEquals(PokemonType.NORMAL, starstorm!!.type)
 
         // 6. High internal move ID: G-Max Rapid Flow (ID 934)
         val gmaxRapidFlow = HeartAndSoul205DataPack.getMove(934)

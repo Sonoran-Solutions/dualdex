@@ -12,6 +12,8 @@ interface GameDataPack {
     val id: String
     val generation: Int
     val hasFairyType: Boolean
+    /** True only when this pack's static data and mechanics support Stellar as a type. */
+    val hasStellarType: Boolean get() = false
     val hasPhysicalSpecialSplit: Boolean
 
     /**
@@ -48,6 +50,7 @@ object Gen3VanillaDataPack : GameDataPack {
     override val id: String = "gen3_vanilla"
     override val generation: Int = 3
     override val hasFairyType: Boolean = false
+    override val hasStellarType: Boolean = false
     override val hasPhysicalSpecialSplit: Boolean = false
 
     private val speciesOverrides = mapOf(
@@ -133,6 +136,8 @@ object ModernDataPack : GameDataPack {
     override val id: String = "modern"
     override val generation: Int = 8
     override val hasFairyType: Boolean = true
+    // This generic Gen-8 fallback is not a Gen-9/Tera-aware data pack.
+    override val hasStellarType: Boolean = false
     override val hasPhysicalSpecialSplit: Boolean = true
 
     override fun getSpecies(id: Int): SpeciesInfo? = SpeciesDatabase.getRaw(id)
@@ -159,6 +164,7 @@ class ProfileOverlayDataPack(
     override val id: String = "${basePack.id}_overlay"
     override val generation: Int get() = basePack.generation
     override val hasFairyType: Boolean get() = basePack.hasFairyType
+    override val hasStellarType: Boolean get() = basePack.hasStellarType
     override val hasPhysicalSpecialSplit: Boolean get() = basePack.hasPhysicalSpecialSplit
     override val allowGlobalFallback: Boolean get() = basePack.allowGlobalFallback
 

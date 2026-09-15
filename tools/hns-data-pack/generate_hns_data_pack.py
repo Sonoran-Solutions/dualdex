@@ -32,13 +32,11 @@ DEFAULT_TARGET_FILE = os.path.join(
 DEFAULT_UPSTREAM_SEARCH_PATHS = [
     os.environ.get("HNS_UPSTREAM_DIR"),
     os.path.join(os.path.dirname(DEFAULT_REPO_ROOT), "upstream-hns/pokehns-expansion"),
-    "/home/dq/Projects/upstream-hns/pokehns-expansion",
 ]
 
 # Search paths for arm-none-eabi-cpp or toolchain
 DEFAULT_CPP_SEARCH_PATHS = [
     os.environ.get("ARM_CPP"),
-    "/home/dq/opt/arm-gnu-toolchain-13.2.Rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-cpp",
     "arm-none-eabi-cpp",
 ]
 
@@ -138,6 +136,19 @@ def verify_git_commit(upstream_dir):
         raise ValueError(
             f"FATAL: Upstream Git checkout commit '{head_commit}' does not match "
             f"required pinned commit '{PINNED_COMMIT_SHA}'. Refusing to generate."
+        )
+
+    status = subprocess.run(
+        ["git", "-C", upstream_dir, "status", "--porcelain", "--untracked-files=no"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+        text=True,
+    )
+    if status.stdout.strip():
+        raise ValueError(
+            "FATAL: Upstream Git checkout has tracked working-tree changes. "
+            "Refusing to generate from a dirty source checkout."
         )
 
 
@@ -431,10 +442,6 @@ def extract_moves(cpp_bin, upstream_dir):
         type_raw = get_field("type") or "TYPE_NORMAL"
         cat_raw = get_field("category") or "DAMAGE_CATEGORY_PHYSICAL"
 
-        # Explicit Stellar requirement for Tera Starstorm
-        if mconst == "MOVE_TERA_STARSTORM" or raw_name.upper() == "TERA STARSTORM":
-            type_raw = "TYPE_STELLAR"
-
         if type_raw == "TYPE_MYSTERY":
             raise ValueError(f"Move {mid} ({raw_name}) uses audited TYPE_MYSTERY; refusing to coerce to Normal")
 
@@ -470,7 +477,8 @@ def validate_extracted_data(species_dict, moves_dict):
     if 502 not in species_dict or species_dict[502]["name"] != "Dewott":
         raise AssertionError(f"ID 502 expected Dewott, got {species_dict.get(502)}")
 
-    # Tera Starstorm validation
+    # Tera Starstorm must match the static source table. Runtime Tera Starstorm
+    # semantics are dynamic and intentionally out of scope for this data pack.
     tera_starstorm = None
     for m in moves_dict.values():
         if m["name"] == "Tera Starstorm":
@@ -478,8 +486,8 @@ def validate_extracted_data(species_dict, moves_dict):
             break
     if not tera_starstorm:
         raise AssertionError("Tera Starstorm not found in moves")
-    if tera_starstorm["type"] != "PokemonType.STELLAR":
-        raise AssertionError(f"Tera Starstorm type must be PokemonType.STELLAR, got {tera_starstorm['type']}")
+    if tera_starstorm["type"] != "PokemonType.NORMAL":
+        raise AssertionError(f"Tera Starstorm type must be PokemonType.NORMAL, got {tera_starstorm['type']}")
     if tera_starstorm["category"] != "MoveCategory.SPECIAL":
         raise AssertionError(f"Tera Starstorm category must be MoveCategory.SPECIAL, got {tera_starstorm['category']}")
     if tera_starstorm["power"] != 120:
@@ -533,6 +541,7 @@ def generate_kotlin_source(species_dict, moves_dict):
     lines.append('    override val id: String = "hns_2_0_5"')
     lines.append("    override val generation: Int = 8")
     lines.append("    override val hasFairyType: Boolean = true")
+    lines.append("    override val hasStellarType: Boolean = true")
     lines.append("    override val hasPhysicalSpecialSplit: Boolean = true")
     lines.append("    override val allowGlobalFallback: Boolean = false")
     lines.append("")

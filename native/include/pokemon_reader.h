@@ -513,8 +513,39 @@ uint8_t pokemon_read_battle_ui_state(
  * 0 = NOT_OBSERVED, 1 = OBSERVED, 2 = UNKNOWN (reader/configuration unavailable).
  *
  * A NULL or GAME_UNKNOWN configuration always reports 2 (UNKNOWN), never NOT_OBSERVED.
+ *
+ * This entry point has no absolute-address reader. For a layout that declares the authoritative
+ * lifecycle gate (Heart & Soul 2.0.5 `gMain.inBattle`) the gate is unreachable, so it always
+ * reports 2 (UNKNOWN). Use pokemon_read_battle_presence_gba() for those layouts.
  */
 uint8_t pokemon_read_battle_presence(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config
+);
+
+/**
+ * Authoritative battle presence via the bounds-checked absolute-address reader.
+ *
+ * For a layout that declares the lifecycle gate, presence is derived from
+ * pokemon_read_battle_lifecycle() and from nothing else:
+ *
+ *   ACTIVE              -> 1 (OBSERVED)
+ *   INACTIVE            -> 0 (NOT_OBSERVED)
+ *   INITIALIZING        -> 2 (UNKNOWN)
+ *   ENDING              -> 2 (UNKNOWN)
+ *   UNKNOWN             -> 2 (UNKNOWN)
+ *
+ * In particular, a stale but plausible `gBattleMons[0].species` together with
+ * `gMain.inBattle == false` reports NOT_OBSERVED, never OBSERVED, and a battle that is starting or
+ * tearing down is never reported as running.
+ *
+ * Layouts that declare no lifecycle gate (FireRed, Emerald and the other vanilla titles) keep the
+ * historical EWRAM-only reading unchanged.
+ */
+uint8_t pokemon_read_battle_presence_gba(
+    DualDexGbaReadFn read,
+    void* user,
     const uint8_t* ewram,
     size_t ewram_size,
     const GameMemoryConfig* config

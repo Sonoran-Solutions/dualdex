@@ -716,6 +716,17 @@ static void hns_battle_fill_player_party(HnsBattleFixture* fx, uint8_t count) {
     }
 }
 
+/**
+ * Read `gBattleMons[b].species` straight out of the fixture, for "the stale word is really there"
+ * preconditions. Reading the fixture directly keeps those assertions independent of the reader
+ * under test.
+ */
+static uint16_t pokemon_test_species_word(const FakeGba* gba, const GameMemoryConfig* cfg, uint8_t battler) {
+    const uint8_t* mon = gba->ewram + cfg->battle_mons_offset +
+                         ((size_t)battler * cfg->battle_mons_size);
+    return (uint16_t)(mon[0] | (mon[1] << 8));
+}
+
 static void test_hns_config_matches_compiled_evidence(void) {
     printf("Running test_hns_config_matches_compiled_evidence...\n");
 
@@ -2535,6 +2546,290 @@ static void test_hns_stale_battle_mon_cannot_invent_opponent(void) {
 }
 
 /**
+ * Production battle presence for H&S must come from the authoritative lifecycle and from nothing
+ * else.
+ *
+ * This exercises `pokemon_read_battle_presence_gba()`, which is the function the JNI
+ * `nativeReadBattlePresence` entry point calls, i.e. the actual signal the app's `isInBattle`
+ * is built from. The old reading tested `gBattleMons[0].species` and would report a stale
+ * opponent as a running battle.
+ */
+static void test_hns_production_battle_presence_uses_lifecycle(void) {
+    printf("Running test_hns_production_battle_presence_uses_lifecycle...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 4);
+    hns_battle_begin_single_wild(&fx, 1, 19);
+
+    uint8_t presence;
+
+    // --- 1. Stale battle state with gMain.inBattle clear -> ABSENT ---------------------------
+    // gBattleMons[0..3] and gEnemyPartyCount are left populated on purpose: an abrupt engine
+    // teardown can leave exactly this behind, and the old species-based reader reported it as a
+    // battle.
+    hns_battle_set_in_battle(&fx, false);
+    hns_battle_set_counters(&fx, 0, 0, 0);
+    TEST_ASSERT(pokemon_test_species_word(&gba, cfg, 0) != 0,
+                "fixture precondition: a plausible stale gBattleMons species must remain in EWRAM");
+    TEST_ASSERT(gba.ewram[cfg->enemy_party_count_offset] != 0,
+                "fixture precondition: a stale gEnemyPartyCount must remain in EWRAM");
+    presence = pokemon_read_battle_presence_gba(fake_gba_read, &gba.table, gba.ewram,
+                                                sizeof(gba.ewram), cfg);
+    TEST_ASSERT(presence == 0,
+                "stale gBattleMons + gMain.inBattle == false must report ABSENT, never PRESENT");
+
+    // --- 2. Fully described single battle -> PRESENT ------------------------------------------
+    hns_battle_begin_single_wild(&fx, 1, 19);
+    presence = pokemon_read_battle_presence_gba(fake_gba_read, &gba.table, gba.ewram,
+                                                sizeof(gba.ewram), cfg);
+    TEST_ASSERT(presence == 1, "a fully described single battle must report PRESENT");
+
+    // --- 3. Engine holding a battle but the battler set is not usable -> UNKNOWN ---------------
+    hns_battle_set_counters(&fx, 0, 0, 0);
+    presence = pokemon_read_battle_presence_gba(fake_gba_read, &gba.table, gba.ewram,
+                                                sizeof(gba.ewram), cfg);
+    TEST_ASSERT(presence == 2,
+                "gMain.inBattle == true with gBattlersCount == 0 must report UNKNOWN, not PRESENT");
+
+    // --- 4. Teardown (outcome recorded) -> UNKNOWN ----------------------------------------------
+    hns_battle_begin_single_wild(&fx, 1, 19);
+    hns_battle_set_counters(&fx, 2, 0, 1 /* B_OUTCOME_WON */);
+    presence = pokemon_read_battle_presence_gba(fake_gba_read, &gba.table, gba.ewram,
+                                                sizeof(gba.ewram), cfg);
+    TEST_ASSERT(presence == 2,
+                "a battle that is ending must report UNKNOWN, never PRESENT");
+
+    // --- 5. Unreadable gate -> UNKNOWN ------------------------------------------------------------
+    {
+        static FakeGba no_iwram;
+        fake_gba_init(&no_iwram, false, true);
+        hns_battle_begin_single_wild(&fx, 1, 19);
+        memcpy(no_iwram.ewram, gba.ewram, sizeof(no_iwram.ewram));
+        presence = pokemon_read_battle_presence_gba(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                                    sizeof(no_iwram.ewram), cfg);
+        TEST_ASSERT(presence == 2,
+                    "an unreadable gMain.inBattle must report UNKNOWN, never PRESENT or ABSENT");
+    }
+
+    // --- 6. The reader-less entry point cannot answer for H&S ------------------------------------
+    TEST_ASSERT(pokemon_read_battle_presence(gba.ewram, sizeof(gba.ewram), cfg) == 2,
+                "the reader-less presence entry point must report UNKNOWN for H&S");
+
+    // --- 7. NULL / unknown configurations fail closed ---------------------------------------------
+    TEST_ASSERT(pokemon_read_battle_presence_gba(fake_gba_read, &gba.table, gba.ewram,
+                                                 sizeof(gba.ewram), NULL) == 2,
+                "a NULL config must report UNKNOWN presence");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_production_battle_presence_uses_lifecycle" ANSI_RESET "\n");
+}
+
+/**
+ * A perfectly battle-shaped EWRAM snapshot must not become ACTIVE when the authoritative IWRAM
+ * gate is unavailable.
+ *
+ * The gate is the only evidence that distinguishes "a battle is running" from "EWRAM still holds
+ * the last battle", so an unreadable gate cannot be reconstructed from EWRAM.
+ */
+static void test_hns_unreadable_lifecycle_gate_never_active(void) {
+    printf("Running test_hns_unreadable_lifecycle_gate_never_active...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    static FakeGba no_iwram;
+    HnsBattleFixture fx;
+    BattleStateRaw state;
+    PartySnapshot snap;
+    ActiveEnemyInfo info;
+
+    // --- doubles-shaped, four battlers, everything internally consistent ----------------------
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 4);
+
+    const uint32_t BATTLE_TYPE_DOUBLE = 1u << 0;
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 4, BATTLE_TYPE_DOUBLE, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 0);
+    hns_battle_set_battler(&fx, 1, 1, 0);
+    hns_battle_set_battler(&fx, 2, 2, 1);
+    hns_battle_set_battler(&fx, 3, 3, 1);
+    hns_battle_set_mon(&fx, 0, 155, 50);
+    hns_battle_set_mon(&fx, 1, 16, 40);
+    hns_battle_set_mon(&fx, 2, 158, 60);
+    hns_battle_set_mon(&fx, 3, 19, 35);
+
+    // With IWRAM present this is a genuine, ACTIVE doubles battle.
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram,
+                                              sizeof(gba.ewram), cfg, &state) == BATTLE_LIFECYCLE_ACTIVE,
+                "fixture precondition: the doubles snapshot must be ACTIVE while IWRAM is readable");
+
+    // Remove IWRAM only. The EWRAM snapshot is byte-for-byte identical and still perfectly
+    // battle-shaped, which is exactly the trap.
+    fake_gba_init(&no_iwram, false, true);
+    memcpy(no_iwram.ewram, gba.ewram, sizeof(no_iwram.ewram));
+
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                              sizeof(no_iwram.ewram), cfg, &state) != BATTLE_LIFECYCLE_ACTIVE,
+                "an unreadable gate must never produce ACTIVE, even with four valid battlers");
+    TEST_ASSERT(state.lifecycle == BATTLE_LIFECYCLE_UNKNOWN,
+                "an unreadable gate must report UNKNOWN");
+    TEST_ASSERT(!state.in_battle_flag_readable, "the unreadable flag must not be reported as read");
+
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                             sizeof(no_iwram.ewram), cfg, &snap, &info) != ACTIVE_ENEMY_SLOT,
+                "an unreadable gate must never resolve a presentable opponent");
+    TEST_ASSERT(info.party_slot == -1, "an unreadable gate must not yield a party slot");
+    TEST_ASSERT(info.battler_index == -1, "an unreadable gate must not yield a battler index");
+
+    // --- singles-shaped, two battlers -----------------------------------------------------------
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 4);
+    hns_battle_begin_single_wild(&fx, 2, 21);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram,
+                                              sizeof(gba.ewram), cfg, &state) == BATTLE_LIFECYCLE_ACTIVE,
+                "fixture precondition: the singles snapshot must be ACTIVE while IWRAM is readable");
+
+    fake_gba_init(&no_iwram, false, true);
+    memcpy(no_iwram.ewram, gba.ewram, sizeof(no_iwram.ewram));
+
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                              sizeof(no_iwram.ewram), cfg, &state) == BATTLE_LIFECYCLE_UNKNOWN,
+                "an unreadable gate with two valid battlers must report UNKNOWN");
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                             sizeof(no_iwram.ewram), cfg, &snap, &info) != ACTIVE_ENEMY_SLOT,
+                "an unreadable gate with two valid battlers must not name an opponent");
+    TEST_ASSERT(info.party_slot == -1, "no party slot may be produced without the gate");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_unreadable_lifecycle_gate_never_active" ANSI_RESET "\n");
+}
+
+/**
+ * `ActiveEnemyInfo.battler_index` must be the actual resolved battler index, never the number of
+ * active opponent battlers.
+ */
+static void test_hns_active_battler_index_is_the_real_battler(void) {
+    printf("Running test_hns_active_battler_index_is_the_real_battler...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    PartySnapshot snap;
+    ActiveEnemyInfo info;
+
+    // --- ordinary single battle: opponent is battler 1 ----------------------------------------
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 4);
+    hns_battle_begin_single_wild(&fx, 2, 21);
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_SLOT,
+                "the single battle must resolve a slot");
+    TEST_ASSERT(info.party_slot == 2, "the resolved slot must be the engine's slot (2)");
+    TEST_ASSERT(info.battler_index == 1,
+                "the resolved battler index must be 1 for a standard single battle");
+    TEST_ASSERT(info.opponent_battlers == 1,
+                "the opponent battler count must be reported separately");
+
+    // --- single battle whose only opponent battler is NOT trivially battler 1 -------------------
+    // gBattlerPositions encodes the side in bit 1, so an opponent-side battler must have an odd
+    // position. Placing it on battler 0 proves the index comes from the resolution, not from a
+    // hard-coded 1 and not from opponent_battlers.
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 4);
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 2, 0, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 1, 3);   // opponent left, enemy party slot 3
+    hns_battle_set_battler(&fx, 1, 0, 0);   // player left, player party slot 0
+    hns_battle_set_mon(&fx, 0, 25, 44);
+    hns_battle_set_mon(&fx, 1, 155, 50);
+
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_SLOT,
+                "the non-trivial topology must still resolve a slot");
+    TEST_ASSERT(info.party_slot == 3, "the resolved slot must be 3");
+    TEST_ASSERT(info.battler_index == 0,
+                "the battler index must be the real resolved battler (0), not opponent_battlers (1)");
+    TEST_ASSERT(info.opponent_battlers == 1, "exactly one opponent battler must be counted");
+    TEST_ASSERT(info.battler_index != (int8_t)info.opponent_battlers ||
+                info.battler_index == 0,
+                "battler_index must not be inferred from opponent_battlers");
+
+    // The player side records its own battler index from the snapshot.
+    PartySnapshot player_snap;
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                  cfg, &player_snap);
+    TEST_ASSERT(player_snap.active_battler_known, "the player's active battler must be known");
+    TEST_ASSERT(player_snap.active_battler_index == 1,
+                "the player's active battler index must be the real resolved battler (1)");
+    TEST_ASSERT(player_snap.active_battler_slot == 0, "the player's active slot must be 0");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_active_battler_index_is_the_real_battler" ANSI_RESET "\n");
+}
+
+/**
+ * Battle exit must clear production presence as well as the opponent, even while stale battle
+ * state remains in EWRAM.
+ */
+static void test_hns_battle_exit_clears_production_presence(void) {
+    printf("Running test_hns_battle_exit_clears_production_presence...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 6);
+
+    // Previous battle with the opponent at party slot 3.
+    hns_battle_begin_single_wild(&fx, 3, 23);
+    PartySnapshot snap;
+    ActiveEnemyInfo info;
+    TEST_ASSERT(pokemon_read_battle_presence_gba(fake_gba_read, &gba.table, gba.ewram,
+                                                 sizeof(gba.ewram), cfg) == 1,
+                "the previous battle must report PRESENT");
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_SLOT,
+                "the previous battle must resolve a slot");
+
+    // Battle ends; gBattleMons, gBattlerPartyIndexes and gEnemyPartyCount all stay dirty.
+    hns_battle_set_in_battle(&fx, false);
+    hns_battle_set_counters(&fx, 0, 0, 0);
+
+    TEST_ASSERT(pokemon_test_species_word(&gba, cfg, 0) != 0,
+                "fixture precondition: the stale battle mon must remain readable");
+    TEST_ASSERT(pokemon_read_battle_presence_gba(fake_gba_read, &gba.table, gba.ewram,
+                                                 sizeof(gba.ewram), cfg) == 0,
+                "battle exit must report ABSENT production presence");
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_NONE_ACTIVE,
+                "battle exit must resolve to NONE_ACTIVE");
+    TEST_ASSERT(info.party_slot == -1, "battle exit must not leave a slot");
+    TEST_ASSERT(info.battler_index == -1, "battle exit must not leave a battler index");
+    TEST_ASSERT(snap.active_battler_slot == -1 && !snap.active_battler_known,
+                "battle exit must leave the snapshot slot unknown");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battle_exit_clears_production_presence" ANSI_RESET "\n");
+}
+
+/**
  * Doubles: two active opponent battlers must degrade, not silently pick one.
  */
 static void test_hns_doubles_degrades_instead_of_guessing(void) {
@@ -2666,8 +2961,8 @@ static void test_hns_invalid_battler_indexes_fail_closed(void) {
     fake_gba_init(&no_iwram, false, true);
     no_iwram.ewram[cfg->battlers_count_offset] = 0;
     TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &no_iwram.table, no_iwram.ewram,
-                                              sizeof(no_iwram.ewram), cfg, &state) == BATTLE_LIFECYCLE_INITIALIZING,
-                "an unreadable gMain with no usable battler count must be a transition, not ACTIVE");
+                                              sizeof(no_iwram.ewram), cfg, &state) == BATTLE_LIFECYCLE_UNKNOWN,
+                "an unreadable authoritative gate must be UNKNOWN, never ACTIVE or INACTIVE");
     TEST_ASSERT(!state.in_battle_flag_readable, "the unreadable flag must not be reported as read");
     TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &no_iwram.table, no_iwram.ewram,
                                              sizeof(no_iwram.ewram), cfg, &snap, &info) == ACTIVE_ENEMY_NONE_ACTIVE,
@@ -2773,17 +3068,16 @@ static void test_hns_battle_pokemon_layout_fields(void) {
     TEST_ASSERT(!pokemon_read_battle_stat_stages(ewram, cfg->battle_mons_offset + 136, cfg, 1, out1),
                 "a battler outside the buffer must be rejected");
 
-    // Battle presence still derives from the H&S gBattleMons species word.
+    // Battle presence for H&S no longer derives from the gBattleMons species word at all: the
+    // layout declares an authoritative lifecycle gate, so the reader without that gate reports
+    // UNKNOWN and never infers a battle from EWRAM.
     write16_le_t(b0, 155);
-    TEST_ASSERT(pokemon_read_battle_presence(ewram, EWRAM_SIZE, cfg) == 1,
-                "a live battler species must report presence");
-    write16_le_t(b0, 0);
-    TEST_ASSERT(pokemon_read_battle_presence(ewram, EWRAM_SIZE, cfg) == 0,
-                "an empty battler slot must report no battle");
-    TEST_ASSERT(pokemon_read_battle_ui_state(ewram, EWRAM_SIZE, cfg) == 0,
-                "battle UI state must stay UNKNOWN without controller evidence");
+    TEST_ASSERT(pokemon_read_battle_presence(ewram, EWRAM_SIZE, cfg) == 2,
+                "a plausible species alone must NOT report presence for H&S");
+    TEST_ASSERT(pokemon_read_battle_ui_state(ewram, EWRAM_SIZE, cfg) == 5,
+                "battle UI state must stay non-authoritative without controller evidence");
 
-    // Out-of-range species still reports UNKNOWN, never a confident verdict.
+    // Out-of-range species is not even a candidate: still UNKNOWN, never a confident verdict.
     write16_le_t(b0, 2500);
     TEST_ASSERT(pokemon_read_battle_presence(ewram, EWRAM_SIZE, cfg) == 2,
                 "an implausible species must degrade to UNKNOWN");
@@ -3001,6 +3295,10 @@ int main(void) {
     test_hns_doubles_degrades_instead_of_guessing();
     test_hns_invalid_battler_indexes_fail_closed();
     test_hns_authoritative_enemy_count_requires_reader_gate();
+    test_hns_production_battle_presence_uses_lifecycle();
+    test_hns_unreadable_lifecycle_gate_never_active();
+    test_hns_active_battler_index_is_the_real_battler();
+    test_hns_battle_exit_clears_production_presence();
 
     test_unbound_cfru_fixed_substructures();
     test_battle_presence_and_unknown_ui_state();

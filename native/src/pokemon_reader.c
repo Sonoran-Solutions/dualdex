@@ -738,12 +738,29 @@ static bool read_main_in_battle(
 }
 
 /**
+ * True when the layout declares `gMain.inBattle`, i.e. an authoritative lifecycle gate exists.
+ *
+ * Only such a layout is allowed to report ACTIVE/INACTIVE. A layout without the gate falls back to
+ * the historical EWRAM-only reading, which is exactly the behaviour FireRed/Emerald shipped with.
+ */
+static bool layout_declares_lifecycle_gate(const GameMemoryConfig* config) {
+    return config != NULL &&
+           config->main_struct_gba_address != 0 &&
+           config->main_in_battle_byte_offset != 0;
+}
+
+/**
  * Read the compiled battle globals needed for a lifecycle decision.
  *
  * Ordering matters: `gMain.inBattle` is read first because when the engine says it is not in a
  * battle, nothing else in the snapshot may be interpreted. `gBattlersCount` is only trusted when
  * it is a value the engine itself can produce (2 for singles, MAX_BATTLERS_COUNT for doubles),
  * which also means a partially initialised battle is never mistaken for a live one.
+ *
+ * When the layout declares the authoritative IWRAM flag and it cannot be read, the snapshot is
+ * UNKNOWN and nothing else in it may be interpreted: unreadable `gMain.inBattle` is
+ * indistinguishable from any of "not in battle", "initializing", "active" or "tearing down", so
+ * a battle-like EWRAM snapshot must not be promoted to ACTIVE on its own.
  */
 static bool read_battle_globals(
     DualDexGbaReadFn read,
@@ -777,6 +794,15 @@ static bool read_battle_globals(
     out->battle_type_flags = read32_le(ewram + type_off);
     out->battle_outcome = ewram[outcome_off];
     out->counters_readable = true;
+
+    // When this layout declares the authoritative gate and it is unavailable, the answer is
+    // UNKNOWN. The EWRAM globals below look perfectly battle-shaped during a real battle, so
+    // interpreting them here is precisely how a stale opponent would be resurrected.
+    if (layout_declares_lifecycle_gate(config) && !out->in_battle_flag_readable) {
+        out->lifecycle = BATTLE_LIFECYCLE_UNKNOWN;
+        out->kind = BATTLE_KIND_UNKNOWN;
+        return true;
+    }
 
     // The engine's own flag is the lifecycle authority.
     if (out->in_battle_flag_readable && !out->in_battle_flag) {
@@ -887,11 +913,16 @@ BattleLifecycleState pokemon_read_battle_lifecycle(
         read_battle_globals(read, user, ewram, ewram_size, config, out);
     }
 
-    // A layout that declares no battle globals at all cannot answer the question. It reports
-    // UNKNOWN rather than NOT_IN_BATTLE, because "the layout cannot tell" and "the game is not in
-    // a battle" are different answers and only one of them is evidence.
-    if (config->battlers_count_offset == 0 || config->battle_type_flags_offset == 0) {
+    // A layout that declares no authoritative lifecycle gate, or no battle globals at all,
+    // cannot answer this question. It reports UNKNOWN rather than NOT_IN_BATTLE, because "the
+    // layout cannot tell" and "the game is not in a battle" are different answers and only one of
+    // them is evidence. Legacy layouts (FireRed/Emerald and the other vanilla titles) keep their
+    // historical EWRAM-only presence path instead of inheriting an H&S-only symbol.
+    if (!layout_declares_lifecycle_gate(config) ||
+        config->battlers_count_offset == 0 || config->battle_type_flags_offset == 0 ||
+        config->battle_outcome_offset == 0) {
         out->lifecycle = BATTLE_LIFECYCLE_UNKNOWN;
+        out->kind = BATTLE_KIND_UNKNOWN;
     }
 
     if (s_last_battle_lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
@@ -1183,27 +1214,36 @@ static void sync_live_player_battle_mon(
     if (!state->positions_readable || !state->party_indexes_readable) return;
     if (state->battlers_count < 2) return;
 
-    BattlerTacticalState b0;
-    read_battler_tactical_state(ewram, ewram_size, config, state, 0, &b0);
-    if (!b0.index_valid || position_is_opponent_side(b0.position)) return;
-    if (!b0.present) return;
-    // A fainted player battler whose replacement is still being announced is a transition: the
-    // slot is withheld until the engine's mapping actually moves, exactly as on the enemy side.
-    if (!b0.alive) return;
+    // The active player battler is whichever battler `gBattlerPositions` puts on the player side.
+    // It is battler 0 in every non-link battle H&S 2.0.5 can start, but the index is taken from
+    // the resolution rather than assumed, so a topology where it is not 0 still resolves correctly
+    // and a topology with a partner degrades instead of guessing.
+    int8_t  player_battler = -1;
+    uint8_t player_battlers = 0;
 
-    // Two player-side battlers means this is not a single-participant battle surface.
-    for (uint8_t b = 1; b < state->battlers_count; b++) {
-        BattlerTacticalState other;
-        read_battler_tactical_state(ewram, ewram_size, config, state, b, &other);
-        if (other.index_valid && !position_is_opponent_side(other.position) && other.present) {
-            return; // partner present: the single active-player slot is ambiguous
-        }
+    for (uint8_t b = 0; b < state->battlers_count && b < DUALDEX_MAX_BATTLERS; b++) {
+        BattlerTacticalState tactical;
+        read_battler_tactical_state(ewram, ewram_size, config, state, b, &tactical);
+        if (!tactical.index_valid || position_is_opponent_side(tactical.position)) continue;
+        if (!tactical.present) continue;
+        player_battlers++;
+        if (player_battler < 0) player_battler = (int8_t)b;
     }
 
-    if (b0.party_index < 0 || b0.party_index >= out_snapshot->count) return;
+    // Two player-side battlers means this is not a single-participant battle surface.
+    if (player_battlers != 1 || player_battler < 0) return;
 
-    apply_battle_mon_hp(ewram, ewram_size, config, 0, &b0, out_snapshot);
-    out_snapshot->active_battler_slot = (int8_t)b0.party_index;
+    BattlerTacticalState active;
+    read_battler_tactical_state(ewram, ewram_size, config, state, (uint8_t)player_battler, &active);
+
+    // A fainted player battler whose replacement is still being announced is a transition: the
+    // slot is withheld until the engine's mapping actually moves, exactly as on the enemy side.
+    if (!active.alive) return;
+    if (active.party_index < 0 || active.party_index >= out_snapshot->count) return;
+
+    apply_battle_mon_hp(ewram, ewram_size, config, (uint8_t)player_battler, &active, out_snapshot);
+    out_snapshot->active_battler_slot = (int8_t)active.party_index;
+    out_snapshot->active_battler_index = player_battler;
     out_snapshot->active_battler_known = true;
 }
 
@@ -1280,6 +1320,10 @@ static void sync_live_enemy_battle_mon(
 
         apply_battle_mon_hp(ewram, ewram_size, config, b, &tactical, out_snapshot);
         out_snapshot->active_battler_slot = (int8_t)tactical.party_index;
+        // The battler index is the loop's own resolved index, taken from the same iteration that
+        // produced the slot. It is deliberately not derived from opponent_battlers (which happens
+        // to equal 1 in an ordinary single battle and would therefore hide the error).
+        out_snapshot->active_battler_index = (int8_t)b;
         out_snapshot->active_battler_known = true;
         return;
     }
@@ -1340,6 +1384,7 @@ static uint8_t read_authoritative_player_party(
             s_cached_player_party_offset = 0;
             memset(out_snapshot, 0, sizeof(PartySnapshot));
             out_snapshot->active_battler_slot = -1;
+            out_snapshot->active_battler_index = -1;
             return 0;
         }
     }
@@ -1449,6 +1494,7 @@ uint8_t pokemon_read_player_party_gba(
     if (!ewram || !out_snapshot) return 0;
     memset(out_snapshot, 0, sizeof(PartySnapshot));
     out_snapshot->active_battler_slot = -1;
+    out_snapshot->active_battler_index = -1;
 
     // Fail closed: without an explicitly supported layout there is no party to read. Neither the
     // static offsets, the cached scan offset, nor the blind EWRAM scan may run for an unknown
@@ -1532,6 +1578,7 @@ static uint8_t read_authoritative_enemy_party(
             clear_battle_derived_cache();
             memset(out_snapshot, 0, sizeof(PartySnapshot));
             out_snapshot->active_battler_slot = -1;
+            out_snapshot->active_battler_index = -1;
             return 0;
         }
     }
@@ -1695,6 +1742,7 @@ uint8_t pokemon_read_enemy_party_gba(
     if (!ewram || !out_snapshot) return 0;
     memset(out_snapshot, 0, sizeof(PartySnapshot));
     out_snapshot->active_battler_slot = -1;
+    out_snapshot->active_battler_index = -1;
 
     // Fail closed: enemy-party candidates are derived from layout offsets, so an unknown game
     // must not be scanned at all.
@@ -1736,6 +1784,7 @@ ActiveEnemyState pokemon_resolve_active_enemy(
 
     PartySnapshot local_snapshot;
     PartySnapshot* snapshot = out_enemy_snapshot ? out_enemy_snapshot : &local_snapshot;
+    if (out_enemy_snapshot) snapshot->active_battler_index = -1;
 
     if (!config_is_usable(config) || !read || !ewram || ewram_size == 0) {
         return ACTIVE_ENEMY_UNKNOWN;
@@ -1774,7 +1823,7 @@ ActiveEnemyState pokemon_resolve_active_enemy(
     if (snapshot->active_battler_known) {
         info->state = ACTIVE_ENEMY_SLOT;
         info->party_slot = snapshot->active_battler_slot;
-        info->battler_index = (int8_t)snapshot->opponent_battlers; // informational only
+        info->battler_index = snapshot->active_battler_index;
         info->fainted = snapshot->members[snapshot->active_battler_slot].current_hp == 0;
         return info->state;
     }
@@ -2052,7 +2101,15 @@ uint8_t pokemon_read_battle_ui_state(
     return 5;
 }
 
-uint8_t pokemon_read_battle_presence(
+/**
+ * Legacy EWRAM-only battle presence.
+ *
+ * `gBattleMons[0].species` is EWRAM `.bss`: the engine does not clear it when a battle ends, so a
+ * plausible species word is not evidence that a battle is running. This reading is retained ONLY
+ * for layouts that declare no authoritative lifecycle gate (FireRed, Emerald and the other vanilla
+ * titles), whose behaviour is deliberately unchanged by this work.
+ */
+static uint8_t read_legacy_battle_presence(
     const uint8_t* ewram,
     size_t ewram_size,
     const GameMemoryConfig* config
@@ -2066,4 +2123,54 @@ uint8_t pokemon_read_battle_presence(
     if (species == 0) return 0;
     if (species >= 2000) return 2;
     return 1; // A plausible live battle-mon is observed; UI state remains unknown.
+}
+
+uint8_t pokemon_read_battle_presence(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config
+) {
+    return pokemon_read_battle_presence_gba(NULL, NULL, ewram, ewram_size, config);
+}
+
+uint8_t pokemon_read_battle_presence_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config
+) {
+    // Fail closed before anything else: an unknown game has no layout, so "the layout cannot
+    // tell" must never be reported as NOT_OBSERVED.
+    if (!ewram || !config_is_usable(config)) return 2; // UNKNOWN
+
+    // A layout that declares the authoritative lifecycle gate answers presence from that gate and
+    // from nothing else. Without an absolute-address reader the gate is unreachable, so the answer
+    // is UNKNOWN rather than a reconstruction from stale EWRAM.
+    if (layout_declares_lifecycle_gate(config)) {
+        if (config->battlers_count_offset == 0 || config->battle_type_flags_offset == 0 ||
+            config->battle_outcome_offset == 0) {
+            return 2; // UNKNOWN: the layout cannot supply a complete lifecycle snapshot
+        }
+        if (!read || ewram_size == 0) return 2; // UNKNOWN: the lifecycle gate is unreachable
+
+        BattleStateRaw state;
+        switch (pokemon_read_battle_lifecycle(read, user, ewram, ewram_size, config, &state)) {
+            case BATTLE_LIFECYCLE_ACTIVE:
+                return 1; // OBSERVED
+            case BATTLE_LIFECYCLE_INACTIVE:
+                // The engine itself says no battle is running. This is the case that a stale
+                // gBattleMons species word used to be mistaken for.
+                return 0; // NOT_OBSERVED
+            case BATTLE_LIFECYCLE_INITIALIZING:
+            case BATTLE_LIFECYCLE_ENDING:
+            case BATTLE_LIFECYCLE_UNKNOWN:
+            default:
+                // Starting up, tearing down, or the authority is unreadable. None of those is
+                // evidence that a battle is running, and none is evidence that it is not.
+                return 2; // UNKNOWN
+        }
+    }
+
+    return read_legacy_battle_presence(ewram, ewram_size, config);
 }

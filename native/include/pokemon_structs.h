@@ -225,6 +225,10 @@ typedef struct {
     bool          active_enemy_ambiguous;
     // Number of active opponent battlers observed while resolving active_battler_slot.
     uint8_t       opponent_battlers;
+    // The actual battler index whose gBattlerPartyIndexes entry produced active_battler_slot, or
+    // -1 when none did. This is an index into gBattlerPositions[] / gBattlerPartyIndexes[] /
+    // gBattleMons[] and is never derived from opponent_battlers.
+    int8_t        active_battler_index;
 } PartySnapshot;
 
 #ifdef __cplusplus

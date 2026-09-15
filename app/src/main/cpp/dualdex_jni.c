@@ -731,7 +731,11 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlePresence(JNIEnv* env, job
 
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
     if (!cfg) return 2;
-    return (jint)pokemon_read_battle_presence(ewram, ewram_sz, cfg);
+    // Authoritative presence: for a layout that declares the lifecycle gate (Heart & Soul 2.0.5
+    // gMain.inBattle) this is the ONLY source of truth, so a stale gBattleMons species word can no
+    // longer present itself as a running battle. Legacy layouts keep their historical reading.
+    return (jint)pokemon_read_battle_presence_gba(
+        dualdex_jni_gba_read, NULL, ewram, ewram_sz, cfg);
 }
 
 JNIEXPORT jobject JNICALL

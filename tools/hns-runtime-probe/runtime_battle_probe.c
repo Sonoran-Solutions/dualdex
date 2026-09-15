@@ -125,8 +125,12 @@ static bool sample_changed(const Sample* a, const Sample* b) {
 
 static int g_observed_rows = 0;
 static bool g_saw_in_battle_true = false;
-static uint32_t g_gmin_byte_values = 0;   // bitmask over the 256 possible byte values seen
+// One flag per possible byte value. A 32-bit bitmask cannot represent 0..255 and would invoke
+// undefined behaviour for any value >= 32, so the tracker is a plain table.
+static bool g_gmin_byte_seen[256];
 static bool g_gmin_always_readable = true;
+static int  g_gmin_frames_sampled = 0;
+static int  g_gmin_frames_unreadable = 0;
 
 static void print_table_header(void) {
     printf("frame  inB  battlers  flags       outcome  idx[0..3]        pos[0..3]        "
@@ -206,6 +210,9 @@ static int run_production_reader_checks(const GameMemoryConfig* cfg, int frame) 
            frame, lifecycle_name(lifecycle), kind_name(state.kind),
            state.in_battle_flag_readable ? (state.in_battle_flag ? "true" : "false") : "unreadable",
            state.battlers_count, state.positions_readable, state.party_indexes_readable);
+    uint8_t presence = pokemon_read_battle_presence_gba(probe_read, NULL, ewram, ewram_sz, cfg);
+    printf("  [reader@%d] productionBattlePresence=%s (%u)\n",
+           frame, presence == 1 ? "PRESENT" : (presence == 0 ? "ABSENT" : "UNKNOWN"), presence);
     printf("  [reader@%d] activeEnemy=%s slot=%d battler=%d opponents=%u fainted=%d "
            "enemyParty=%u activeEnemySlot=%d known=%d ambiguous=%d playerParty=%u "
            "activePlayerSlot=%d known=%d\n",
@@ -241,7 +248,25 @@ static int run_production_reader_checks(const GameMemoryConfig* cfg, int frame) 
         }
     }
 
-    // Invariant 3: a named slot must be inside the authoritative enemy party bounds.
+    // Invariant 3: production battle presence must agree with the authoritative lifecycle.
+    // A stale gBattleMons species word must never be reported as a running battle.
+    if (lifecycle != BATTLE_LIFECYCLE_ACTIVE && presence == 1) {
+        printf("  [reader] FAIL: production battle presence reported PRESENT while lifecycle=%s\n",
+               lifecycle_name(lifecycle));
+        failures++;
+    }
+    if (lifecycle == BATTLE_LIFECYCLE_INACTIVE && presence != 0) {
+        printf("  [reader] FAIL: production battle presence reported %u while lifecycle INACTIVE "
+               "(expected ABSENT)\n", presence);
+        failures++;
+    }
+    if (lifecycle == BATTLE_LIFECYCLE_ACTIVE && presence != 1) {
+        printf("  [reader] FAIL: production battle presence reported %u while lifecycle ACTIVE "
+               "(expected PRESENT)\n", presence);
+        failures++;
+    }
+
+    // Invariant 4: a named slot must be inside the authoritative enemy party bounds.
     if (enemy_state == ACTIVE_ENEMY_SLOT &&
         (info.party_slot < 0 || info.party_slot >= (int)enemy_snapshot.count)) {
         printf("  [reader] FAIL: named opponent slot %d is outside the authoritative enemy "
@@ -316,16 +341,23 @@ int main(int argc, char** argv) {
 
         libretro_host_step_frame();
 
+        // Sample the raw gate byte on EVERY frame, not only on state changes: the claim under
+        // test is "this address is a live flag byte whose inBattle bit stays clear across the
+        // observed non-battle period", and that is a per-frame property.
+        {
+            uint8_t byte = 0;
+            g_gmin_frames_sampled++;
+            if (read_u8(cfg->main_struct_gba_address + cfg->main_in_battle_byte_offset, &byte)) {
+                g_gmin_byte_seen[byte] = true;
+                if ((byte & (uint8_t)(1u << cfg->main_in_battle_bit)) != 0) g_saw_in_battle_true = true;
+            } else {
+                g_gmin_always_readable = false;
+                g_gmin_frames_unreadable++;
+            }
+        }
+
         Sample current;
         sample_state(cfg, f, &current);
-        if (current.in_battle_readable) {
-            uint8_t byte = 0;
-            read_u8(cfg->main_struct_gba_address + cfg->main_in_battle_byte_offset, &byte);
-            g_gmin_byte_values |= (1u << byte);
-            if (current.in_battle) g_saw_in_battle_true = true;
-        } else {
-            g_gmin_always_readable = false;
-        }
         if (!have_previous || sample_changed(&previous, &current)) {
             print_row(&current);
             g_observed_rows++;
@@ -349,13 +381,27 @@ int main(int argc, char** argv) {
 
     printf("\n-- summary --\n");
     printf("observed distinct states      : %d\n", g_observed_rows);
-    printf("gMain.inBattle readable always: %s\n", g_gmin_always_readable ? "yes" : "no");
+    printf("gMain byte frames sampled      : %d\n", g_gmin_frames_sampled);
+    printf("gMain byte frames unreadable   : %d\n", g_gmin_frames_unreadable);
+    printf("gMain.inBattle readable always : %s\n", g_gmin_always_readable ? "yes" : "no");
     printf("gMain.inBattle observed true  : %s\n", g_saw_in_battle_true ? "yes" : "no");
+    int distinct_bytes = 0;
     printf("gMain raw byte values seen    :");
     for (int v = 0; v < 256; v++) {
-        if (g_gmin_byte_values & (1u << v)) printf(" 0x%02X", v);
+        if (g_gmin_byte_seen[v]) {
+            printf(" 0x%02X", v);
+            distinct_bytes++;
+        }
     }
     printf("\n");
+    printf("distinct raw byte values      : %d\n", distinct_bytes);
+    {
+        int with_bit_clear = 0;
+        for (int v = 0; v < 256; v++) {
+            if (g_gmin_byte_seen[v] && (v & (1u << cfg->main_in_battle_bit)) == 0) with_bit_clear++;
+        }
+        printf("observed bytes with inBattle bit clear: %d of %d\n", with_bit_clear, distinct_bytes);
+    }
     printf("reader invariant failures     : %d\n", reader_failures);
 
     libretro_host_unload_rom();

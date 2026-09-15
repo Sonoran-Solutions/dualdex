@@ -50,6 +50,19 @@ static const uint8_t SUBSTRUCT_BLOCK_INDEX[24][4] = {
 };
 
 // Standard game configurations
+//
+// Policy audit:
+// Emerald and FireRed use PARTY_DISCOVERY_AUTHORITATIVE_STATIC based on upstream pret
+// decompilation evidence (pokeemerald and pokefirered src/pokemon.c + sym_ewram.txt):
+// - In vanilla Emerald, gPlayerPartyCount is at 0x020244E9 (EWRAM offset 0x244E9) and
+//   gPlayerParty is at 0x020244EC (EWRAM offset 0x244EC). While SaveBlock1 is allocated on
+//   the heap, live player party memory is a fixed EWRAM global and never shifts at runtime.
+// - In vanilla FireRed, gPlayerPartyCount is at 0x02024029 (EWRAM offset 0x24029) and
+//   gPlayerParty is at 0x02024284 (EWRAM offset 0x24284). Offset 0x24029 is the true
+//   gPlayerPartyCount global (upstream orders gEnemyParty at 0x2402C before gPlayerParty
+//   at 0x24284), not padding.
+// Both games therefore have authoritative player party symbol addresses.
+// Other vanilla titles and unverified hacks retain PARTY_DISCOVERY_HEURISTIC.
 static const GameMemoryConfig CONFIG_EMERALD = {
     .game_id = GAME_EMERALD,
     .game_name = "Pokemon Emerald",
@@ -61,6 +74,7 @@ static const GameMemoryConfig CONFIG_EMERALD = {
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 40,
     .battle_mons_stat_stages_offset = 0x18,
+    .player_party_policy = PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
     .has_evs = true,
     .has_ivs = true
 };
@@ -83,7 +97,7 @@ static const GameMemoryConfig CONFIG_EMERALD = {
 //   gBattleControllerExec... 0x020002F4             4
 //   gBattleMons              0x02000420             0x220 (4 battlers x 136 bytes)
 //   gSaveblock3              0x0200921C             0x34
-//   gSaveblock1              0x020124A8             0x3E10 (7528-byte block + 128-byte window)
+//   gSaveblock1              0x020124A8             0x3E10 (15760-byte block + 128-byte window)
 //   gPlayerPartyCount        0x020342A8             1
 //   gEnemyPartyCount         0x020342A9             1
 //   gEnemyParty              0x020342B8             0x258 (6 x 100)
@@ -138,6 +152,7 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .save_block1_location_offset = 0x08,
     .save_block1_escape_warp_offset = 0x28,
     .storage_layout = PKMN_STORAGE_EXPANSION,
+    .player_party_policy = PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
     .has_evs = true,
     .has_ivs = true
 };
@@ -153,6 +168,7 @@ static const GameMemoryConfig CONFIG_FIRERED = {
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 40,
     .battle_mons_stat_stages_offset = 0x18,
+    .player_party_policy = PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
     .has_evs = true,
     .has_ivs = true
 };
@@ -168,6 +184,7 @@ static const GameMemoryConfig CONFIG_LEAFGREEN = {
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 40,
     .battle_mons_stat_stages_offset = 0x18,
+    .player_party_policy = PARTY_DISCOVERY_HEURISTIC,
     .has_evs = true,
     .has_ivs = true
 };
@@ -179,6 +196,7 @@ static const GameMemoryConfig CONFIG_RUBY = {
     .player_party_count_offset = 0x2448C,
     .enemy_party_offset = 0x246E8,
     .enemy_party_count_offset = 0x246E4,
+    .player_party_policy = PARTY_DISCOVERY_HEURISTIC,
     .has_evs = true,
     .has_ivs = true
 };
@@ -190,6 +208,7 @@ static const GameMemoryConfig CONFIG_SAPPHIRE = {
     .player_party_count_offset = 0x2448C,
     .enemy_party_offset = 0x246E8,
     .enemy_party_count_offset = 0x246E4,
+    .player_party_policy = PARTY_DISCOVERY_HEURISTIC,
     .has_evs = true,
     .has_ivs = true
 };
@@ -201,6 +220,7 @@ static const GameMemoryConfig CONFIG_GHOST_GREY = {
     .player_party_count_offset = 0x24029,
     .enemy_party_offset = 0x2402C,
     .enemy_party_count_offset = 0x24028,
+    .player_party_policy = PARTY_DISCOVERY_HEURISTIC,
     .has_evs = false, // Ghost Grey removes EVs
     .has_ivs = false  // Ghost Grey removes IVs
 };
@@ -212,6 +232,7 @@ static const GameMemoryConfig CONFIG_RADICAL_RED = {
     .player_party_count_offset = 0x24029,
     .enemy_party_offset = 0x2402C,
     .enemy_party_count_offset = 0x24028,
+    .player_party_policy = PARTY_DISCOVERY_HEURISTIC,
     .has_evs = true,
     .has_ivs = true
 };
@@ -223,6 +244,7 @@ static const GameMemoryConfig CONFIG_UNBOUND = {
     .player_party_count_offset = 0x24029,
     .enemy_party_offset = 0x2402C,
     .enemy_party_count_offset = 0x24028,
+    .player_party_policy = PARTY_DISCOVERY_HEURISTIC,
     .has_evs = true,
     .has_ivs = true
 };
@@ -799,21 +821,82 @@ static void sync_live_enemy_battle_mon(
 
 }
 
-uint8_t pokemon_read_player_party(
+static uint8_t read_authoritative_player_party(
     const uint8_t* ewram,
     size_t ewram_size,
     const GameMemoryConfig* config,
     PartySnapshot* out_snapshot
 ) {
-    if (!ewram || !out_snapshot) return 0;
-    memset(out_snapshot, 0, sizeof(PartySnapshot));
-    out_snapshot->active_battler_slot = -1;
+    // 1. Config validation: must declare player_party_offset and player_party_count_offset
+    if (config->player_party_offset == 0 || config->player_party_count_offset == 0) {
+        s_cached_player_party_offset = 0;
+        return 0;
+    }
 
-    // Fail closed: without an explicitly supported layout there is no party to read. Neither the
-    // static offsets, the cached scan offset, nor the blind EWRAM scan may run for an unknown
-    // game, or arbitrary memory would be presented as a party.
-    if (!config_is_usable(config)) return 0;
+    // 2. Count offset bounds check
+    if (config->player_party_count_offset >= ewram_size) {
+        s_cached_player_party_offset = 0;
+        return 0;
+    }
 
+    // 3. Read authoritative count
+    uint8_t count = ewram[config->player_party_count_offset];
+
+    // 4. Validate count range:
+    // A count of 0 is a legitimate empty party at boot.
+    // Return empty snapshot immediately, clear any cached offset, and DO NOT scan EWRAM.
+    if (count == 0) {
+        s_cached_player_party_offset = 0;
+        return 0;
+    }
+
+    // Counts outside 0..6 are invalid. Fail closed, clear cache, and DO NOT scan.
+    if (count > 6) {
+        s_cached_player_party_offset = 0;
+        return 0;
+    }
+
+    // 5. Bounds check the entire count * sizeof(RawGbaPokemon) range
+    size_t party_bytes = (size_t)count * sizeof(RawGbaPokemon);
+    if (config->player_party_offset + party_bytes > ewram_size) {
+        s_cached_player_party_offset = 0;
+        return 0;
+    }
+
+    // 6. Parse exactly count slots using config->storage_layout.
+    // Every claimed occupied slot must parse successfully. If any slot is corrupt or
+    // fails validation, fail closed (all-or-nothing), clear cache, and do not scan.
+    for (uint8_t i = 0; i < count; i++) {
+        const uint8_t* mon_ptr = ewram + config->player_party_offset + (i * sizeof(RawGbaPokemon));
+        if (!parse_party_mon(mon_ptr, config->storage_layout, &out_snapshot->members[i]) ||
+            out_snapshot->members[i].species == 0 ||
+            out_snapshot->members[i].species >= 2000) {
+            // Corrupt or invalid authoritative slot: fail closed all-or-nothing
+            s_cached_player_party_offset = 0;
+            memset(out_snapshot, 0, sizeof(PartySnapshot));
+            out_snapshot->active_battler_slot = -1;
+            return 0;
+        }
+    }
+
+    // 7. Authoritative snapshot valid:
+    // Snapshot count is bounded to exactly the authoritative count.
+    // Slots count..5 remain zeroed from the initial memset in pokemon_read_player_party.
+    out_snapshot->count = count;
+    s_cached_player_party_offset = (uint32_t)config->player_party_offset;
+
+    // 8. Synchronize live battle HP if in battle
+    sync_live_player_battle_mon(ewram, ewram_size, config, out_snapshot);
+
+    return count;
+}
+
+static uint8_t read_heuristic_player_party(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    PartySnapshot* out_snapshot
+) {
     // 1. Try configured static offset (fast, reliable path for vanilla & supported hacks)
     if (config->player_party_offset + sizeof(RawGbaPokemon) <= ewram_size) {
         ParsedPokemon first_mon;
@@ -878,6 +961,27 @@ uint8_t pokemon_read_player_party(
     return count;
 }
 
+uint8_t pokemon_read_player_party(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    PartySnapshot* out_snapshot
+) {
+    if (!ewram || !out_snapshot) return 0;
+    memset(out_snapshot, 0, sizeof(PartySnapshot));
+    out_snapshot->active_battler_slot = -1;
+
+    // Fail closed: without an explicitly supported layout there is no party to read. Neither the
+    // static offsets, the cached scan offset, nor the blind EWRAM scan may run for an unknown
+    // game, or arbitrary memory would be presented as a party.
+    if (!config_is_usable(config)) return 0;
+
+    if (config->player_party_policy == PARTY_DISCOVERY_AUTHORITATIVE_STATIC) {
+        return read_authoritative_player_party(ewram, ewram_size, config, out_snapshot);
+    }
+    return read_heuristic_player_party(ewram, ewram_size, config, out_snapshot);
+}
+
 uint8_t pokemon_read_enemy_party(
     const uint8_t* ewram,
     size_t ewram_size,
@@ -891,6 +995,12 @@ uint8_t pokemon_read_enemy_party(
     // Fail closed: enemy-party candidates are derived from layout offsets, so an unknown game
     // must not be scanned at all.
     if (!config_is_usable(config)) return 0;
+
+    // Runtime boundary: As documented in docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md and PR #41,
+    // enemy_party_count_offset is compiled and configured from symbols, but runtime consumption
+    // of gEnemyPartyCount to authoritatively bound enemy party parsing or prune stale slots remains
+    // pending live battle/runtime validation (tracked in #1) before H&S can become VERIFIED.
+    // This PR strictly addresses the player party blind-scan false positive problem (#42).
 
     // Player party must be located to know the player's OTID
     if (s_cached_player_party_offset == 0 || s_cached_player_party_offset + sizeof(RawGbaPokemon) > ewram_size) {

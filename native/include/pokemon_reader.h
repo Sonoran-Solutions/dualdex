@@ -27,6 +27,14 @@ typedef enum {
 } GbaGameId;
 
 /**
+ * Policy for discovering the active player party in EWRAM.
+ */
+typedef enum {
+    PARTY_DISCOVERY_HEURISTIC = 0,            // Legacy/hack discovery: static candidate -> cached candidate -> pattern scan
+    PARTY_DISCOVERY_AUTHORITATIVE_STATIC = 1  // Exact symbol evidence: authoritative count bounds and validates static party; fail-closed, no scan
+} PartyDiscoveryPolicy;
+
+/**
  * Game memory offset configuration.
  *
  * Unit discipline, stated once and never mixed implicitly:
@@ -70,6 +78,7 @@ typedef struct {
     uint32_t save_block1_escape_warp_offset; // struct-relative offset of SaveBlock1.escapeWarp
 
     PokemonStorageLayout storage_layout;     // which BoxPokemon bit layout to parse
+    PartyDiscoveryPolicy player_party_policy;// Discovery policy: authoritative static vs heuristic
 
     bool     has_evs;                  // False for Ghost Grey
     bool     has_ivs;                  // False for Ghost Grey
@@ -138,14 +147,23 @@ const GameMemoryConfig* pokemon_get_game_config(GbaGameId game_id);
  * Parse the active player party from a 256 KB EWRAM buffer.
  *
  * Fails closed: returns 0 with a zeroed snapshot when @p config is NULL or describes
- * GAME_UNKNOWN. The configured-offset path, the cached-offset path, and the blind EWRAM scan are
- * only reachable for an explicitly supported layout.
+ * GAME_UNKNOWN.
+ *
+ * When @p config->player_party_policy is PARTY_DISCOVERY_AUTHORITATIVE_STATIC, the reader
+ * treats player_party_count_offset as an authoritative bounds check. If the count is 0,
+ * it returns 0 immediately and clears any cached offset without scanning EWRAM. If the
+ * count is 1..6, exactly those slots are parsed at player_party_offset; any invalid slot
+ * fails closed (all-or-nothing, no scan). A count > 6 fails closed.
+ *
+ * When @p config->player_party_policy is PARTY_DISCOVERY_HEURISTIC, the configured-offset path,
+ * the cached-offset path, and the blind EWRAM scan are used as fallbacks for layouts lacking
+ * exact symbol authority.
  *
  * @param ewram Pointer to the 256 KB EWRAM memory block (base 0x02000000)
  * @param ewram_size Size of EWRAM buffer (typically 262144 bytes)
  * @param config Game configuration defining memory offsets
  * @param out_snapshot Pointer to PartySnapshot destination struct
- * @return Number of valid Pokémon parsed into the snapshot (0 when the layout is unusable)
+ * @return Number of valid Pokémon parsed into the snapshot (0 when empty or the layout is unusable)
  */
 uint8_t pokemon_read_player_party(
     const uint8_t* ewram,

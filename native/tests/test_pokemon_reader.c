@@ -892,10 +892,13 @@ static void test_hns_fallback_scan_uses_expansion_layout(void) {
     // Provide count hint in preceding bytes to boost scan score
     ewram[party_off - 1] = 1;
 
-    // 3. Read player party. Because static offset 0x34768 is empty, reader must fall back to EWRAM scanning.
-    // Fallback scanning MUST use config->storage_layout (PKMN_STORAGE_EXPANSION), not PKMN_STORAGE_VANILLA_GEN3.
+    // 3. Read player party using an expansion-layout configuration with heuristic discovery.
+    // (Under authoritative policy, H&S count=0 suppresses scanning; here we test that when
+    // scanning IS allowed, it uses config->storage_layout PKMN_STORAGE_EXPANSION, not vanilla).
+    GameMemoryConfig scan_cfg = *hns_cfg;
+    scan_cfg.player_party_policy = PARTY_DISCOVERY_HEURISTIC;
     PartySnapshot snap;
-    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &snap);
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, &scan_cfg, &snap);
 
     TEST_ASSERT(count == 1, "fallback scan must locate the synthetic expansion party");
     TEST_ASSERT(snap.count == 1, "snapshot count must be 1");
@@ -936,6 +939,314 @@ static void test_hns_fallback_scan_uses_expansion_layout(void) {
     free(ewram);
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_hns_fallback_scan_uses_expansion_layout" ANSI_RESET "\n");
+}
+
+// ===========================================================================
+// Authoritative player party discovery regression tests (Issue #42).
+//
+// For layouts explicitly designated as having an authoritative static player party:
+// - Count 0 returns 0 immediately, clears cache, and suppresses blind scan.
+// - Count N bounds result to exactly slots 0..N-1; slots N..5 are never exposed.
+// - Corrupt occupied slot fails closed (all-or-nothing, no scan recovery).
+// - Count > 6 fails closed (no scan recovery).
+// - Stale discovery cache cannot override authoritative zero count.
+// ===========================================================================
+
+static void test_hns_authoritative_zero_count_defeats_decoy_scan(void) {
+    printf("Running test_hns_authoritative_zero_count_defeats_decoy_scan...\n");
+
+    const GameMemoryConfig* hns_cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(hns_cfg != NULL, "H&S config required");
+    TEST_ASSERT(hns_cfg->player_party_policy == PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
+                "H&S must use PARTY_DISCOVERY_AUTHORITATIVE_STATIC");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Authoritative count is 0, party array at gPlayerParty is empty (zeroed).
+    ewram[hns_cfg->player_party_count_offset] = 0;
+
+    // 2. Plant a completely valid expansion-layout Pokémon at 0x28000 (typical scan location).
+    // Provide count hint in preceding byte so the pattern scanner would score/accept it if invoked.
+    RawGbaPokemon decoy;
+    build_hns_mon(&decoy, 0x12345678, 0x99887766, 155, 15, 45, 31, 0, 0, false);
+    memcpy(ewram + 0x28000, &decoy, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // 3. Read player party. Authoritative count 0 MUST return 0 immediately and NOT scan EWRAM.
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &snap);
+
+    TEST_ASSERT(count == 0, "authoritative count == 0 must return 0 immediately");
+    TEST_ASSERT(snap.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap.members[0].species == 0, "decoy pokemon must never appear in snapshot");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_authoritative_zero_count_defeats_decoy_scan" ANSI_RESET "\n");
+}
+
+static void test_hns_stale_cache_cannot_override_zero(void) {
+    printf("Running test_hns_stale_cache_cannot_override_zero...\n");
+
+    const GameMemoryConfig* hns_cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(hns_cfg != NULL, "H&S config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Plant a valid expansion-layout Pokémon at 0x28000.
+    RawGbaPokemon mon;
+    build_hns_mon(&mon, 0x12345678, 0x99887766, 155, 15, 45, 31, 0, 0, false);
+    memcpy(ewram + 0x28000, &mon, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // 2. Perform a read with a heuristic configuration to populate s_cached_player_party_offset.
+    GameMemoryConfig heuristic_cfg = *hns_cfg;
+    heuristic_cfg.player_party_policy = PARTY_DISCOVERY_HEURISTIC;
+    PartySnapshot heuristic_snap;
+    uint8_t h_count = pokemon_read_player_party(ewram, EWRAM_SIZE, &heuristic_cfg, &heuristic_snap);
+    TEST_ASSERT(h_count == 1, "heuristic read should find party at 0x28000 and populate cache");
+
+    // 3. Now read through H&S authoritative config where authoritative count is 0.
+    ewram[hns_cfg->player_party_count_offset] = 0;
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &snap);
+
+    TEST_ASSERT(count == 0, "authoritative count 0 must return 0 despite existing cached offset");
+    TEST_ASSERT(snap.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap.members[0].species == 0, "cached party must not be returned");
+
+    // 4. Behavioral proof: the cached player party offset was cleared.
+    // pokemon_read_enemy_party requires s_cached_player_party_offset to read player OTID.
+    // With cache cleared, enemy party reader fails closed immediately (returns 0).
+    PartySnapshot enemy_snap;
+    uint8_t enemy_count = pokemon_read_enemy_party(ewram, EWRAM_SIZE, hns_cfg, &enemy_snap);
+    TEST_ASSERT(enemy_count == 0, "enemy party reader must return 0 because cached player offset was cleared");
+
+    // A second authoritative read also remains 0.
+    PartySnapshot snap2;
+    TEST_ASSERT(pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &snap2) == 0,
+                "subsequent authoritative read must remain 0");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_stale_cache_cannot_override_zero" ANSI_RESET "\n");
+}
+
+static void test_hns_authoritative_count_bounds_stale_slots(void) {
+    printf("Running test_hns_authoritative_count_bounds_stale_slots...\n");
+
+    const GameMemoryConfig* hns_cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(hns_cfg != NULL, "H&S config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Authoritative count = 1.
+    ewram[hns_cfg->player_party_count_offset] = 1;
+
+    // 2. Slot 0: valid Cyndaquil (species 155).
+    // Slots 1..5: valid-looking stale expansion Pokémon (Quilava, Typhlosion, Totodile, Croconaw, Feraligatr).
+    const uint16_t species_list[6] = {155, 156, 157, 158, 159, 160};
+    for (int i = 0; i < 6; i++) {
+        RawGbaPokemon mon;
+        build_hns_mon(&mon, 0x1000 + i, 0x2000, species_list[i], 10 + i, 30 + i * 5, 31, 0, 0, false);
+        memcpy(ewram + hns_cfg->player_party_offset + (i * sizeof(RawGbaPokemon)), &mon, sizeof(RawGbaPokemon));
+    }
+
+    // 3. Read player party. Exactly 1 member must be returned. Slots 1..5 must NOT be exposed.
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &snap);
+
+    TEST_ASSERT(count == 1, "authoritative count=1 must bound snapshot to 1 member");
+    TEST_ASSERT(snap.count == 1, "snapshot count must be 1");
+    TEST_ASSERT(snap.members[0].species == 155, "slot 0 must be Cyndaquil");
+
+    for (int i = 1; i < 6; i++) {
+        TEST_ASSERT(snap.members[i].species == 0, "stale slot must not be exposed in snapshot");
+    }
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_authoritative_count_bounds_stale_slots" ANSI_RESET "\n");
+}
+
+static void test_hns_authoritative_six_members(void) {
+    printf("Running test_hns_authoritative_six_members...\n");
+
+    const GameMemoryConfig* hns_cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(hns_cfg != NULL, "H&S config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Authoritative count = 6.
+    ewram[hns_cfg->player_party_count_offset] = 6;
+
+    // 2. Slots 0..5: 6 valid expansion Pokémon.
+    const uint16_t species_list[6] = {152, 155, 158, 25, 133, 149};
+    for (int i = 0; i < 6; i++) {
+        RawGbaPokemon mon;
+        build_hns_mon(&mon, 0x3000 + i * 16, 0x5000, species_list[i], 20 + i, 50 + i * 5, 31, 0, 0, false);
+        memcpy(ewram + hns_cfg->player_party_offset + (i * sizeof(RawGbaPokemon)), &mon, sizeof(RawGbaPokemon));
+    }
+
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &snap);
+
+    TEST_ASSERT(count == 6, "authoritative count=6 must return exactly 6 members");
+    TEST_ASSERT(snap.count == 6, "snapshot count must be 6");
+    for (int i = 0; i < 6; i++) {
+        TEST_ASSERT(snap.members[i].species == species_list[i], "all 6 members must match expected species");
+    }
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_authoritative_six_members" ANSI_RESET "\n");
+}
+
+static void test_hns_invalid_authoritative_count_fails_closed(void) {
+    printf("Running test_hns_invalid_authoritative_count_fails_closed...\n");
+
+    const GameMemoryConfig* hns_cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(hns_cfg != NULL, "H&S config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // Plant valid Pokémon at static party address and at decoy location 0x28000.
+    RawGbaPokemon mon;
+    build_hns_mon(&mon, 0x1111, 0x2222, 155, 15, 45, 31, 0, 0, false);
+    memcpy(ewram + hns_cfg->player_party_offset, &mon, sizeof(RawGbaPokemon));
+    memcpy(ewram + 0x28000, &mon, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // Test count = 7: invalid count outside 0..6 must fail closed, all-or-nothing, no scan.
+    ewram[hns_cfg->player_party_count_offset] = 7;
+    PartySnapshot snap7;
+    uint8_t count7 = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &snap7);
+    TEST_ASSERT(count7 == 0, "count=7 must fail closed and return 0");
+    TEST_ASSERT(snap7.count == 0, "count=7 snapshot count must be 0");
+    TEST_ASSERT(snap7.members[0].species == 0, "decoy must not rescue count=7");
+
+    // Test count = 255: invalid count outside 0..6 must fail closed, no scan.
+    ewram[hns_cfg->player_party_count_offset] = 255;
+    PartySnapshot snap255;
+    uint8_t count255 = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &snap255);
+    TEST_ASSERT(count255 == 0, "count=255 must fail closed and return 0");
+    TEST_ASSERT(snap255.count == 0, "count=255 snapshot count must be 0");
+    TEST_ASSERT(snap255.members[0].species == 0, "decoy must not rescue count=255");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_invalid_authoritative_count_fails_closed" ANSI_RESET "\n");
+}
+
+static void test_hns_corrupt_authoritative_slot_fails_closed(void) {
+    printf("Running test_hns_corrupt_authoritative_slot_fails_closed...\n");
+
+    const GameMemoryConfig* hns_cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(hns_cfg != NULL, "H&S config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // Plant a decoy valid expansion Pokémon at 0x28000.
+    RawGbaPokemon decoy;
+    build_hns_mon(&decoy, 0x4321, 0x8765, 152, 12, 40, 31, 0, 0, false);
+    memcpy(ewram + 0x28000, &decoy, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // Case 1: count = 1, slot 0 is corrupt garbage.
+    ewram[hns_cfg->player_party_count_offset] = 1;
+    memset(ewram + hns_cfg->player_party_offset, 0xAA, sizeof(RawGbaPokemon)); // bad checksum/garbage
+
+    PartySnapshot snap1;
+    uint8_t count1 = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &snap1);
+    TEST_ASSERT(count1 == 0, "corrupt slot 0 with count=1 must fail closed");
+    TEST_ASSERT(snap1.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap1.members[0].species == 0, "decoy must not rescue corrupt slot 0");
+
+    // Case 2: count = 2, slot 0 is valid, slot 1 is corrupt.
+    // Reader must fail closed all-or-nothing: do not return partial party or decoy.
+    ewram[hns_cfg->player_party_count_offset] = 2;
+    RawGbaPokemon slot0;
+    build_hns_mon(&slot0, 0x1111, 0x2222, 155, 15, 45, 31, 0, 0, false);
+    memcpy(ewram + hns_cfg->player_party_offset, &slot0, sizeof(RawGbaPokemon));
+    memset(ewram + hns_cfg->player_party_offset + sizeof(RawGbaPokemon), 0xBB, sizeof(RawGbaPokemon)); // corrupt slot 1
+
+    PartySnapshot snap2;
+    uint8_t count2 = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &snap2);
+    TEST_ASSERT(count2 == 0, "corrupt slot 1 with count=2 must fail closed all-or-nothing");
+    TEST_ASSERT(snap2.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap2.members[0].species == 0, "partial party must not be returned");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_corrupt_authoritative_slot_fails_closed" ANSI_RESET "\n");
+}
+
+static void test_party_discovery_policy_assignments(void) {
+    printf("Running test_party_discovery_policy_assignments...\n");
+
+    // Heart & Soul 2.0.5 has exact compiled and runtime symbol evidence for both gPlayerPartyCount
+    // and gPlayerParty, so it alone uses PARTY_DISCOVERY_AUTHORITATIVE_STATIC.
+    const GameMemoryConfig* hns = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(hns != NULL, "H&S config required");
+    TEST_ASSERT(hns->player_party_policy == PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
+                "H&S must use PARTY_DISCOVERY_AUTHORITATIVE_STATIC");
+
+    // Vanilla games and approximate hacks keep PARTY_DISCOVERY_HEURISTIC:
+    // - Emerald allocates SaveBlock1 on the heap, party memory can shift, and fallback scan is tested.
+    // - FireRed player_party_count_offset (0x24029) is an unverified / heuristic offset.
+    // - Unverified hacks (Ghost Grey, Radical Red, Unbound) do not have proven symbol authority.
+    const GameMemoryConfig* emerald = pokemon_get_game_config(GAME_EMERALD);
+    TEST_ASSERT(emerald != NULL && emerald->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
+                "Emerald must use PARTY_DISCOVERY_HEURISTIC");
+
+    const GameMemoryConfig* firered = pokemon_get_game_config(GAME_FIRERED);
+    TEST_ASSERT(firered != NULL && firered->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
+                "FireRed must use PARTY_DISCOVERY_HEURISTIC");
+
+    const GameMemoryConfig* leafgreen = pokemon_get_game_config(GAME_LEAFGREEN);
+    TEST_ASSERT(leafgreen != NULL && leafgreen->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
+                "LeafGreen must use PARTY_DISCOVERY_HEURISTIC");
+
+    const GameMemoryConfig* ruby = pokemon_get_game_config(GAME_RUBY);
+    TEST_ASSERT(ruby != NULL && ruby->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
+                "Ruby must use PARTY_DISCOVERY_HEURISTIC");
+
+    const GameMemoryConfig* sapphire = pokemon_get_game_config(GAME_SAPPHIRE);
+    TEST_ASSERT(sapphire != NULL && sapphire->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
+                "Sapphire must use PARTY_DISCOVERY_HEURISTIC");
+
+    const GameMemoryConfig* ghost_grey = pokemon_get_game_config(GAME_GHOST_GREY);
+    TEST_ASSERT(ghost_grey != NULL && ghost_grey->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
+                "Ghost Grey must use PARTY_DISCOVERY_HEURISTIC");
+
+    const GameMemoryConfig* radical_red = pokemon_get_game_config(GAME_RADICAL_RED);
+    TEST_ASSERT(radical_red != NULL && radical_red->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
+                "Radical Red must use PARTY_DISCOVERY_HEURISTIC");
+
+    const GameMemoryConfig* unbound = pokemon_get_game_config(GAME_UNBOUND);
+    TEST_ASSERT(unbound != NULL && unbound->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
+                "Unbound must use PARTY_DISCOVERY_HEURISTIC");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_party_discovery_policy_assignments" ANSI_RESET "\n");
 }
 
 static void test_vanilla_ability_slot_parsing_unchanged(void) {
@@ -1691,6 +2002,15 @@ int main(void) {
     test_unbound_cfru_fixed_substructures();
     test_battle_presence_and_unknown_ui_state();
     test_unknown_game_fails_closed();
+
+    // Authoritative player party discovery regression suite (issue #42).
+    test_hns_authoritative_zero_count_defeats_decoy_scan();
+    test_hns_stale_cache_cannot_override_zero();
+    test_hns_authoritative_count_bounds_stale_slots();
+    test_hns_authoritative_six_members();
+    test_hns_invalid_authoritative_count_fails_closed();
+    test_hns_corrupt_authoritative_slot_fails_closed();
+    test_party_discovery_policy_assignments();
 
     printf("===================================================\n");
     printf("Results: %d Passed, %d Failed\n", g_tests_passed, g_tests_failed);

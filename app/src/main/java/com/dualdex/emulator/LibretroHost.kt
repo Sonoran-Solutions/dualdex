@@ -29,6 +29,16 @@ object LibretroHost {
     external fun nativeReadEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>?
     external fun nativeGetActiveBattlerSlot(gameId: Int): Int
     external fun nativeGetActiveEnemyBattlerSlot(gameId: Int): Int
+
+    /**
+     * Active-opponent resolution as an explicit tuple:
+     * `[ActiveEnemyState code, opponent battler index, enemy party slot, opponent battler count, fainted]`.
+     *
+     * The state travels with the slot so `0` can never be mistaken for "unknown": only
+     * `state == ACTIVE_ENEMY_SLOT` authorises a party slot.
+     */
+    external fun nativeResolveActiveEnemy(gameId: Int): IntArray?
+
     external fun nativeReadBattleStatStages(gameId: Int, battlerIndex: Int): IntArray?
     external fun nativeReadBattleUiState(gameId: Int): Int
     external fun nativeReadBattlePresence(gameId: Int): Int

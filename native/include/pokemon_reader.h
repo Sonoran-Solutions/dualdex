@@ -35,6 +35,101 @@ typedef enum {
 } PartyDiscoveryPolicy;
 
 /**
+ * Battle lifecycle as reported by the game's own battle state, deliberately finer-grained than
+ * "in battle / not in battle" because the transition windows are exactly where a reader that
+ * guesses will show a stale opponent.
+ *
+ *   INACTIVE      the engine does not own a battle; no battle-derived value may be presented.
+ *   INITIALIZING  the engine has taken over but the battler set is not yet authoritative.
+ *   ACTIVE        gBattlersCount is a supported value (2 or 4) and battle state may be read.
+ *   ENDING        an outcome has been recorded; the battle is finishing. Treated as not-active
+ *                 for presentation so teardown can never surface the previous opponent.
+ *   UNKNOWN       the layout cannot answer (no symbol declaration, unreadable memory, or a
+ *                 self-inconsistent snapshot). Never treated as either in or out of battle.
+ */
+typedef enum {
+    BATTLE_LIFECYCLE_UNKNOWN = 0,
+    BATTLE_LIFECYCLE_INACTIVE = 1,
+    BATTLE_LIFECYCLE_INITIALIZING = 2,
+    BATTLE_LIFECYCLE_ACTIVE = 3,
+    BATTLE_LIFECYCLE_ENDING = 4
+} BattleLifecycleState;
+
+/**
+ * Battle shape, derived only from exact compiled battle globals. MULTI_OR_PARTNER covers every
+ * battle the single-opponent history cannot describe (multi battles, in-game partners, two
+ * opponents); it is reported as unsupported rather than reduced to one enemy.
+ */
+typedef enum {
+    BATTLE_KIND_NONE = 0,
+    BATTLE_KIND_WILD_SINGLE = 1,
+    BATTLE_KIND_TRAINER_SINGLE = 2,
+    BATTLE_KIND_DOUBLES = 3,
+    BATTLE_KIND_MULTI_OR_PARTNER = 4,
+    BATTLE_KIND_UNKNOWN = 5
+} BattleKind;
+
+/**
+ * Whether an opponent can be named for the battle currently being fought.
+ *
+ *   NONE_ACTIVE     no battle is active (or it is initializing/ending); the enemy side is empty.
+ *   SLOT            exactly one opponent battler is present and its party slot is authoritative.
+ *   AMBIGUOUS       more than one opponent battler is present. A single-opponent surface must
+ *                   not pick one, so no slot is reported.
+ *   UNKNOWN         the battle is active but the authoritative state cannot be read.
+ */
+typedef enum {
+    ACTIVE_ENEMY_UNKNOWN = 0,      // the authoritative state could not be read
+    ACTIVE_ENEMY_NONE_ACTIVE = 1,  // the authoritative state says there is no active opponent
+    ACTIVE_ENEMY_SLOT = 2,         // exactly one opponent, with an authoritative party slot
+    ACTIVE_ENEMY_AMBIGUOUS = 3     // more than one opponent; no single enemy may be named
+} ActiveEnemyState;
+
+/** Maximum number of battlers the upstream battle engine can have (MAX_BATTLERS_COUNT). */
+#define DUALDEX_MAX_BATTLERS 4
+
+/**
+ * A point-in-time, self-consistent snapshot of the exact compiled battle globals.
+ *
+ * Every field is reported as read, including the ones a caller does not need, because the
+ * lifecycle decision is a consistency judgement over the whole set rather than over one word.
+ */
+typedef struct {
+    BattleLifecycleState lifecycle;
+    BattleKind           kind;
+    bool     in_battle_flag_readable;  // gMain.inBattle was readable through a verified region
+    bool     in_battle_flag;           // its decoded value
+    bool     counters_readable;        // gBattlersCount / gBattleTypeFlags / gBattleOutcome read
+    uint8_t  battlers_count;           // gBattlersCount
+    uint32_t battle_type_flags;        // gBattleTypeFlags
+    uint8_t  battle_outcome;           // gBattleOutcome
+    bool     party_indexes_readable;   // gBattlerPartyIndexes read for 0..battlers_count-1
+    bool     positions_readable;       // gBattlerPositions read for 0..battlers_count-1
+    bool     absent_flags_readable;    // gAbsentBattlerFlags read
+    uint8_t  absent_battler_flags;     // gAbsentBattlerFlags
+    int16_t  party_index[DUALDEX_MAX_BATTLERS];   // gBattlerPartyIndexes[], -1 when unavailable
+    uint8_t  position[DUALDEX_MAX_BATTLERS];      // gBattlerPositions[], 0xFF when unavailable
+} BattleStateRaw;
+
+/**
+ * Authoritative resolution of the opponent for the frame.
+ *
+ * The only way this can produce a slot is:
+ *     opponent battler -> gBattlerPositions[battler] side bit -> gBattlerPartyIndexes[battler]
+ *     -> a slot inside the authoritative enemy count
+ * with the battler itself known present, alive and carrying a plausible live species word.
+ * There is no species comparison, no HP comparison, no "first living enemy" and no slot-0
+ * default anywhere on that path.
+ */
+typedef struct {
+    ActiveEnemyState state;
+    int8_t  battler_index;    // opponent battler the slot came from, -1 when unknown
+    int8_t  party_slot;       // enemy party slot, -1 when unknown/ambiguous/none
+    uint8_t opponent_battlers; // number of active opponent battlers observed
+    bool    fainted;          // the resolved opponent is at 0 HP (a forced-switch window)
+} ActiveEnemyInfo;
+
+/**
  * Game memory offset configuration.
  *
  * Unit discipline, stated once and never mixed implicitly:
@@ -65,6 +160,19 @@ typedef struct {
     uint32_t battlers_count_offset;          // EWRAM-relative gBattlersCount, 0 = unavailable
     uint32_t battle_type_flags_offset;       // EWRAM-relative gBattleTypeFlags, 0 = unavailable
     uint32_t battle_outcome_offset;          // EWRAM-relative gBattleOutcome, 0 = unavailable
+    uint32_t battler_positions_offset;       // EWRAM-relative gBattlerPositions, 0 = unavailable
+    uint32_t absent_battler_flags_offset;    // EWRAM-relative gAbsentBattlerFlags, 0 = unavailable
+
+    // Battle lifecycle gate. `gMain.inBattle` is the upstream flag the battle engine itself sets
+    // on entering a battle and clears when returning to the overworld, so it distinguishes
+    // "the engine owns the frame" from "an old gBattleMons species word is still lying around".
+    // Both fields are ABSOLUTE GBA addresses because `struct Main gMain` lives in IWRAM
+    // (0x03000000...) while the battle globals live in EWRAM; 0 means "this layout does not
+    // declare the symbol" and every lifecycle decision then degrades to UNKNOWN rather than
+    // guessing.
+    uint32_t main_struct_gba_address;        // absolute GBA address of `gMain`, 0 = unavailable
+    uint32_t main_in_battle_byte_offset;     // byte containing the `inBattle` bit
+    uint8_t  main_in_battle_bit;             // bit index of `inBattle` inside that byte (zero-based)
 
     // SaveBlock1 resolution. When `save_block1_ptr_gba_address` is non-zero the active base is
     // read from that absolute GBA address (IWRAM) on every call; a zero value selects the legacy
@@ -159,6 +267,10 @@ const GameMemoryConfig* pokemon_get_game_config(GbaGameId game_id);
  * the cached-offset path, and the blind EWRAM scan are used as fallbacks for layouts lacking
  * exact symbol authority.
  *
+ * This entry point has no absolute-address reader, so a layout that gates its battle state
+ * through an IWRAM symbol (Heart & Soul 2.0.5 `gMain.inBattle`) reports no active battler from
+ * it. Use pokemon_read_player_party_gba() for those layouts.
+ *
  * @param ewram Pointer to the 256 KB EWRAM memory block (base 0x02000000)
  * @param ewram_size Size of EWRAM buffer (typically 262144 bytes)
  * @param config Game configuration defining memory offsets
@@ -173,9 +285,37 @@ uint8_t pokemon_read_player_party(
 );
 
 /**
+ * Player party plus authoritative battle state, using a bounds-checked absolute-address reader.
+ *
+ * Identical to pokemon_read_player_party() except that the battle lifecycle and the active
+ * battler -> party slot mapping are resolved from the exact compiled battle globals. When
+ * @p read is NULL, or the configuration does not declare the battle symbols, the party is still
+ * parsed but no active battler is reported: the snapshot's `active_battler_slot` stays -1 and
+ * `active_battler_known` stays false rather than defaulting to slot 0.
+ *
+ * @param read Bounds-checked absolute GBA address reader, or NULL when unavailable.
+ * @param user Opaque pointer forwarded to @p read.
+ */
+uint8_t pokemon_read_player_party_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    PartySnapshot* out_snapshot
+);
+
+/**
  * Parse enemy/opponent party from EWRAM during a battle.
  *
  * Fails closed: returns 0 with a zeroed snapshot when @p config is NULL or describes GAME_UNKNOWN.
+ *
+ * When @p config declares `enemy_party_count_offset`, that symbol is authoritative:
+ *   count == 0    -> empty snapshot, nothing scanned;
+ *   count 1..6    -> exactly those slots at enemy_party_offset;
+ *   count > 6     -> fail closed (no scan, no truncation);
+ *   any corrupt claimed slot -> fail closed.
+ * The player-party blind-scan fallback is never used for a layout with an authoritative count.
  *
  * @param ewram Pointer to EWRAM
  * @param ewram_size Size of EWRAM
@@ -188,6 +328,97 @@ uint8_t pokemon_read_enemy_party(
     size_t ewram_size,
     const GameMemoryConfig* config,
     PartySnapshot* out_snapshot
+);
+
+/**
+ * Enemy party plus authoritative active-opponent resolution, using an absolute-address reader.
+ *
+ * This is the battle-lifecycle-aware form of pokemon_read_enemy_party():
+ *   - the enemy party is only populated while a battle is ACTIVE, bounded by the authoritative
+ *     gEnemyPartyCount;
+ *   - `out_snapshot->active_battler_slot` is set only from
+ *     gBattlerPositions -> side, then gBattlerPartyIndexes, then the authoritative enemy count;
+ *   - in a battle with two active opponent battlers nothing is chosen and
+ *     `out_snapshot->active_enemy_ambiguous` is set instead;
+ *   - during encounter transitions (opponent fainted, replacement not yet resolvable) the slot
+ *     stays unknown rather than retaining the previous opponent.
+ *
+ * @param read Bounds-checked absolute GBA address reader, or NULL when unavailable.
+ * @param user Opaque pointer forwarded to @p read.
+ */
+uint8_t pokemon_read_enemy_party_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    PartySnapshot* out_snapshot
+);
+
+/**
+ * Classify the battle lifecycle from exact compiled battle state.
+ *
+ * Uses, in order of authority: `gMain.inBattle` (the engine's own flag), `gBattlersCount`,
+ * `gBattlerPositions`, `gBattlerPartyIndexes`, `gAbsentBattlerFlags`, `gBattleTypeFlags` and
+ * `gBattleOutcome`. A snapshot that is not self-consistent (an unreadable region, a battler
+ * count outside {2,4}, a party index outside the authoritative party bounds, or a side bit that
+ * contradicts the declared battler count) degrades to UNKNOWN instead of being interpreted.
+ *
+ * Returns BATTLE_LIFECYCLE_UNKNOWN when @p read or @p state is NULL or the configuration does
+ * not declare the symbols.
+ */
+BattleLifecycleState pokemon_read_battle_lifecycle(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    BattleStateRaw* out_state
+);
+
+/**
+ * Resolve the active opponent through authoritative battler state.
+ *
+ * `out_info->party_slot` is only ever set from `gBattlerPartyIndexes[opponent battler]` where the
+ * opponent battler is identified by `gBattlerPositions`' side bit and the resulting slot is
+ * inside the authoritative enemy party count. Species/HP coincidence, first-living-enemy and
+ * slot-0 fallbacks are deliberately absent.
+ *
+ * The returned state preserves the difference between "the authoritative state says there is no
+ * opponent" and "the authoritative state could not be read":
+ *
+ *   BATTLE_LIFECYCLE_INACTIVE      -> ACTIVE_ENEMY_NONE_ACTIVE
+ *   BATTLE_LIFECYCLE_INITIALIZING  -> ACTIVE_ENEMY_NONE_ACTIVE
+ *   BATTLE_LIFECYCLE_ENDING        -> ACTIVE_ENEMY_NONE_ACTIVE
+ *   BATTLE_LIFECYCLE_UNKNOWN       -> ACTIVE_ENEMY_UNKNOWN
+ *   BATTLE_LIFECYCLE_ACTIVE        -> ACTIVE_ENEMY_SLOT, or ACTIVE_ENEMY_AMBIGUOUS when two
+ *                                     opponent battlers are present, or ACTIVE_ENEMY_UNKNOWN
+ *                                     when the battle is real but the enemy party is unreadable
+ *
+ * ACTIVE_ENEMY_UNKNOWN is what an unreadable `gMain.inBattle` gate produces: the reader cannot
+ * tell "no battle" from "a battle it cannot see", so it must not claim either. UNKNOWN carries no
+ * slot, so it stays fail-closed.
+ */
+ActiveEnemyState pokemon_resolve_active_enemy(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    PartySnapshot* out_enemy_snapshot,
+    ActiveEnemyInfo* out_info
+);
+
+/**
+ * True when a battle is active and exactly one opponent battler is present, so the caller may
+ * present an opponent. Never true for doubles, partner or multi battles.
+ */
+bool pokemon_battle_is_single_opponent(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config
 );
 
 /**
@@ -296,8 +527,39 @@ uint8_t pokemon_read_battle_ui_state(
  * 0 = NOT_OBSERVED, 1 = OBSERVED, 2 = UNKNOWN (reader/configuration unavailable).
  *
  * A NULL or GAME_UNKNOWN configuration always reports 2 (UNKNOWN), never NOT_OBSERVED.
+ *
+ * This entry point has no absolute-address reader. For a layout that declares the authoritative
+ * lifecycle gate (Heart & Soul 2.0.5 `gMain.inBattle`) the gate is unreachable, so it always
+ * reports 2 (UNKNOWN). Use pokemon_read_battle_presence_gba() for those layouts.
  */
 uint8_t pokemon_read_battle_presence(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config
+);
+
+/**
+ * Authoritative battle presence via the bounds-checked absolute-address reader.
+ *
+ * For a layout that declares the lifecycle gate, presence is derived from
+ * pokemon_read_battle_lifecycle() and from nothing else:
+ *
+ *   ACTIVE              -> 1 (OBSERVED)
+ *   INACTIVE            -> 0 (NOT_OBSERVED)
+ *   INITIALIZING        -> 2 (UNKNOWN)
+ *   ENDING              -> 2 (UNKNOWN)
+ *   UNKNOWN             -> 2 (UNKNOWN)
+ *
+ * In particular, a stale but plausible `gBattleMons[0].species` together with
+ * `gMain.inBattle == false` reports NOT_OBSERVED, never OBSERVED, and a battle that is starting or
+ * tearing down is never reported as running.
+ *
+ * Layouts that declare no lifecycle gate (FireRed, Emerald and the other vanilla titles) keep the
+ * historical EWRAM-only reading unchanged.
+ */
+uint8_t pokemon_read_battle_presence_gba(
+    DualDexGbaReadFn read,
+    void* user,
     const uint8_t* ewram,
     size_t ewram_size,
     const GameMemoryConfig* config

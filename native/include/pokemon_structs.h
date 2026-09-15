@@ -212,7 +212,23 @@ typedef struct {
 typedef struct {
     uint8_t       count;
     ParsedPokemon members[6];
-    int8_t        active_battler_slot; // -1 if not in battle/unknown, 0..5 for active battler
+    // Active battler -> party slot, or -1 when unknown. -1 is the only "unknown" encoding:
+    // there is deliberately no "0 means unknown" reading, because slot 0 is a real and
+    // frequently active slot and conflating it with "not in battle" is the exact bug this
+    // field exists to prevent.
+    int8_t        active_battler_slot;
+    // True only when active_battler_slot came from authoritative battler/controller state.
+    // A caller must check this before presenting the slot; !known means "unknown", never slot 0.
+    bool          active_battler_known;
+    // True when a battle is active and more than one opponent battler is present, so no single
+    // opponent may be named. The UI must degrade instead of picking the first one.
+    bool          active_enemy_ambiguous;
+    // Number of active opponent battlers observed while resolving active_battler_slot.
+    uint8_t       opponent_battlers;
+    // The actual battler index whose gBattlerPartyIndexes entry produced active_battler_slot, or
+    // -1 when none did. This is an index into gBattlerPositions[] / gBattlerPartyIndexes[] /
+    // gBattleMons[] and is never derived from opponent_battlers.
+    int8_t        active_battler_index;
 } PartySnapshot;
 
 #ifdef __cplusplus

@@ -54,6 +54,78 @@ enum class BattlePresence {
     }
 }
 
+/**
+ * Whether an opponent can be named for the battle currently being fought.
+ *
+ * [AMBIGUOUS] and [UNKNOWN] are deliberately distinct: in a doubles battle the enemy side really
+ * does have two active Pokémon and a single-opponent surface must say so, while [UNKNOWN] means
+ * the authoritative state could not be read for this frame. Neither may be rendered as a specific
+ * enemy, and neither is ever "slot 0".
+ */
+enum class ActiveEnemyState(val displayName: String, val detail: String) {
+    UNKNOWN(
+        "Opponent unknown",
+        "The opponent could not be read authoritatively for this frame, so no enemy is shown."
+    ),
+    NONE_ACTIVE(
+        "No active opponent",
+        "No opponent battler is active (no battle, or the battle is starting or ending)."
+    ),
+    SLOT(
+        "Active opponent",
+        "The opponent is the party member the battle engine maps to the active opponent battler."
+    ),
+    AMBIGUOUS(
+        "Multiple active enemies",
+        "More than one opponent is on the field. DualDex does not guess which one to show."
+    );
+
+    /** True only when a party slot may be presented. */
+    val isPresentable: Boolean get() = this == SLOT
+
+    companion object {
+        fun fromNativeCode(code: Int): ActiveEnemyState = when (code) {
+            1 -> NONE_ACTIVE
+            2 -> SLOT
+            3 -> AMBIGUOUS
+            else -> UNKNOWN
+        }
+    }
+}
+
+/**
+ * Authoritative answer to "which enemy is active?".
+ *
+ * [partySlot] is non-null only for [ActiveEnemyState.SLOT], which makes the old
+ * "0 could mean slot 0 or unknown" ambiguity unrepresentable.
+ */
+data class ActiveEnemyResolution(
+    val state: ActiveEnemyState = ActiveEnemyState.UNKNOWN,
+    val partySlot: Int? = null,
+    val battlerIndex: Int? = null,
+    val opponentBattlers: Int = 0,
+    val isFainted: Boolean = false
+) {
+    /** True when the caller may present [partySlot] as the active opponent. */
+    val hasResolvedSlot: Boolean get() = state == ActiveEnemyState.SLOT && partySlot != null
+
+    companion object {
+        /** Decode the native tuple. A malformed or missing tuple is UNKNOWN, never slot 0. */
+        fun fromNativeArray(raw: IntArray?): ActiveEnemyResolution {
+            if (raw == null || raw.size < 5) return ActiveEnemyResolution()
+            val decoded = ActiveEnemyState.fromNativeCode(raw[0])
+            val slot = if (decoded == ActiveEnemyState.SLOT && raw[2] in 0..5) raw[2] else null
+            return ActiveEnemyResolution(
+                state = if (decoded == ActiveEnemyState.SLOT && slot == null) ActiveEnemyState.UNKNOWN else decoded,
+                partySlot = slot,
+                battlerIndex = raw[1].takeIf { it >= 0 },
+                opponentBattlers = raw[3].coerceAtLeast(0),
+                isFainted = raw[4] != 0
+            )
+        }
+    }
+}
+
 /** Two samples avoid opening/closing the battle UI from a single stale memory poll. */
 class BattlePresenceStabilizer(private val requiredConsecutiveSamples: Int = 2) {
     private var stable = false

@@ -21,3 +21,6 @@ tools/calc-bundler/node_modules/
 *.keystore
 keystore.properties
 signing.properties
+
+# Developer-only runtime probe binaries (source is committed, the artifact is not).
+tools/hns-runtime-probe/runtime_battle_probe

@@ -403,7 +403,8 @@ object MoveEffectiveness {
             PokemonType.ICE,
             PokemonType.DRAGON,
             PokemonType.DARK,
-            PokemonType.FAIRY -> MoveCategory.SPECIAL
+            PokemonType.FAIRY,
+            PokemonType.STELLAR -> MoveCategory.SPECIAL
         }
     }
 

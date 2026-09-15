@@ -31,7 +31,6 @@ object SpeciesDatabase {
         registerChunk3()
         registerChunk4()
         registerChunk5()
-        registerCustom()
     }
 
     private fun registerChunk1() {
@@ -945,13 +944,6 @@ object SpeciesDatabase {
         register(896, "Glastrier", PokemonType.ICE, null, 100, 145, 130, 65, 110, 30)
         register(897, "Spectrier", PokemonType.GHOST, null, 100, 65, 60, 145, 80, 130)
         register(898, "Calyrex", PokemonType.PSYCHIC, PokemonType.GRASS, 100, 80, 80, 80, 80, 80)
-    }
-
-    private fun registerCustom() {
-        // Ghost Grey Custom / Regional Variants
-        register(500, "Lichtoise", PokemonType.WATER, PokemonType.GHOST, 79, 63, 100, 85, 105, 78)
-        register(501, "Spectrasaur", PokemonType.GRASS, PokemonType.GHOST, 80, 82, 83, 100, 100, 80)
-        register(502, "Phantomander", PokemonType.FIRE, PokemonType.GHOST, 78, 84, 78, 109, 85, 100)
     }
 
     fun isKnown(speciesId: Int): Boolean {

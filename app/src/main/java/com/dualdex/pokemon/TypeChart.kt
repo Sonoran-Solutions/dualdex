@@ -18,7 +18,8 @@ enum class PokemonType(val displayName: String, val colorHex: Long) {
     DRAGON("Dragon", 0xFF6F35FC),
     STEEL("Steel", 0xFFB7B7CE),
     DARK("Dark", 0xFF705746),
-    FAIRY("Fairy", 0xFFD685AD);
+    FAIRY("Fairy", 0xFFD685AD),
+    STELLAR("Stellar", 0xFF5A9CA4);
 
     companion object {
         fun fromString(name: String?): PokemonType? {
@@ -46,7 +47,8 @@ enum class PokemonType(val displayName: String, val colorHex: Long) {
                 0x0F -> ICE
                 0x10 -> DRAGON
                 0x11 -> DARK
-                0x17 -> FAIRY
+                0x14 -> STELLAR   // pokeemerald-expansion TYPE_STELLAR = 20 (0x14)
+                0x17 -> FAIRY     // vanilla-hack Fairy offset
                 else -> NORMAL
             }
         }
@@ -76,6 +78,12 @@ object TypeChart {
             if (atk == PokemonType.GHOST || atk == PokemonType.DARK) {
                 return 0.5f
             }
+        }
+
+        // Stellar type has neutral 1.0 effectiveness baseline for static matchups.
+        // Dynamic in-battle Terastallization mechanics (STAB boost once per type, Tera Starstorm multi-target) belong to #9.
+        if (atk == PokemonType.STELLAR || def == PokemonType.STELLAR) {
+            return 1.0f
         }
 
         return when (atk) {
@@ -176,6 +184,7 @@ object TypeChart {
                 PokemonType.FIGHTING, PokemonType.DRAGON, PokemonType.DARK -> 2.0f
                 else -> 1.0f
             }
+            PokemonType.STELLAR -> 1.0f
         }
     }
 
@@ -185,7 +194,8 @@ object TypeChart {
     fun getDefenseProfile(
         type1: PokemonType,
         type2: PokemonType? = null,
-        steelResistsGhostDark: Boolean = false
+        steelResistsGhostDark: Boolean = false,
+        pack: GameDataPack? = null
     ): TypeDefenseProfile {
         val w4 = mutableListOf<PokemonType>()
         val w2 = mutableListOf<PokemonType>()
@@ -194,9 +204,21 @@ object TypeChart {
         val rQuarter = mutableListOf<PokemonType>()
         val im = mutableListOf<PokemonType>()
 
-        for (atk in PokemonType.values()) {
-            val mult1 = getEffectiveness(atk, type1, steelResistsGhostDark)
-            val mult2 = if (type2 != null && type2 != type1) getEffectiveness(atk, type2, steelResistsGhostDark) else 1.0f
+        val attackingTypes = PokemonType.values().filter { attackingType ->
+            pack == null || when (attackingType) {
+                PokemonType.FAIRY -> pack.hasFairyType
+                PokemonType.STELLAR -> pack.hasStellarType
+                else -> true
+            }
+        }
+
+        for (atk in attackingTypes) {
+            val mult1 = pack?.getEffectiveness(atk, type1)?.toFloat()
+                ?: getEffectiveness(atk, type1, steelResistsGhostDark)
+            val mult2 = if (type2 != null && type2 != type1) {
+                pack?.getEffectiveness(atk, type2)?.toFloat()
+                    ?: getEffectiveness(atk, type2, steelResistsGhostDark)
+            } else 1.0f
             val total = mult1 * mult2
 
             when {

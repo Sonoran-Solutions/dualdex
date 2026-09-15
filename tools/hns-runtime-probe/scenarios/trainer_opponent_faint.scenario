@@ -1,0 +1,48 @@
+# H&S 2.0.5 trainer opponent faint -> replacement scenario
+#
+# Verifies that when the active trainer opponent faints, the stale slot is not retained,
+# and that gBattlerPartyIndexes resolves the correct replacement party slot.
+#
+# Required: trainer battle active, enemy party count >= 2, first opponent faintable.
+#
+# State transitions captured:
+#   1. Active enemy (slot 0) with HP > 0
+#   2. hp -> 0, gBattlerPartyIndexes[battler] == 0, fainted=true
+#   3. gAbsentBattlerFlags marks battler absent (forced-switch window)
+#      -> NONE_ACTIVE, no slot
+#   4. Replacement: gBattlerPartyIndexes[battler] == 1, hp restored
+#      -> SLOT == 1
+
+scenario: trainer_opponent_faint
+save_state: auto
+
+phase: verify_initial_enemy
+  assert-lifecycle ACTIVE
+  assert-battle-kind trainer
+  assert-active-enemy-slot 0
+  record pre_faint_hp
+  record pre_faint_species
+
+phase: opponent_faints
+  # HP reaches 0 while gBattlerPartyIndexes unchanged
+  assert-lifecycle ACTIVE
+  assert-fainted true
+  assert-active-enemy-slot 0
+  record faint_hp_value  # must be 0
+
+phase: forced_switch_window
+  # Engine marks battler absent while choosing replacement
+  assert-lifecycle ACTIVE
+  assert-active-enemy NONE_ACTIVE
+  assert-active-enemy-slot -1
+  assert-no-stale-enemy-slot
+
+phase: replacement_complete
+  assert-lifecycle ACTIVE
+  assert-active-enemy SLOT
+  assert-active-enemy-slot 1
+  assert-active-enemy-slot != 0
+  record new_enemy_slot
+  record new_enemy_species
+  record new_enemy_hp
+  record gBattlerPartyIndexes_transition

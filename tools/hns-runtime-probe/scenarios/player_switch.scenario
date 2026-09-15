@@ -1,0 +1,39 @@
+# H&S 2.0.5 player voluntary switch scenario
+#
+# Verifies that when the player opens the party menu and switches Pokémon, the active
+# player slot follows gBattlerPartyIndexes and the old slot is not retained during
+# the switch window.
+#
+# Required: player party count >= 2, active trainer battle.
+#
+# State transitions captured:
+#   1. Active player slot 0, HP > 0
+#   2. Party menu open: gAbsentBattlerFlags marks player battler absent
+#      -> active player slot UNKNOWN
+#   3. Switch complete: gBattlerPartyIndexes[player battler] -> 1
+#      -> active player slot == 1
+
+scenario: player_switch
+save_state: auto
+
+phase: before_switch
+  assert-lifecycle ACTIVE
+  assert-active-player-slot 0
+  record pre_switch_player_slot
+  record pre_switch_player_species
+  record pre_switch_player_hp
+
+phase: switch_window
+  # Player battler marked absent while party menu is open
+  assert-lifecycle ACTIVE
+  assert-active-player-slot UNKNOWN
+  assert-no-stale-player-slot
+
+phase: switch_complete
+  assert-lifecycle ACTIVE
+  assert-active-player-slot 1
+  assert-active-player-slot != 0
+  record post_switch_player_slot
+  record post_switch_player_species
+  record post_switch_player_hp
+  record gBattlerPartyIndexes_player_transition

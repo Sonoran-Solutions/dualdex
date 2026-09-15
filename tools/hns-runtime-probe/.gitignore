@@ -1,0 +1,4 @@
+# Compiled probe binaries — built by ./build.sh, not committed.
+runtime_battle_probe
+save_generator
+scenario_runner

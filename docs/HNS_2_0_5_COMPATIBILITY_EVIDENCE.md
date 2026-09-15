@@ -645,16 +645,16 @@ absence, not as verification.
 |---|---|---|---|---|---|
 | battle enter | `CB2_InitBattleInternal` sets `gMain.inBattle` (`battle_main.c:681`) after `CalculateEnemyPartyCount()`; `InitBtlControllersInternal` sets `gBattlersCount` (`battle_controllers.c:205-207`) | `gMain` `0x03005BC0`+`0x439` bit 1; `gBattlersCount` `0x020000B0` | `NOT RUNTIME VERIFIED` (no save file; no battle reachable) | `INITIALIZING` until the battler set is complete and self-consistent, then `ACTIVE` | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
 | wild single | `AssignBattlersToParty` + `gBattlersCount = 2`; wild encounters leave `BATTLE_TYPE_TRAINER` clear | `gBattleTypeFlags` `0x020000AC`, `gBattlersCount` `0x020000B0`, `gBattlerPartyIndexes` `0x02000144` | `NOT RUNTIME VERIFIED` | `BATTLE_KIND_WILD_SINGLE`; opponent resolved as `gBattlerPartyIndexes[1]` | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
-| trainer single | `CB2_InitBattleInternal` builds `gEnemyParty` then `CalculateEnemyPartyCount()` (`battle_main.c:661-665`) | `gEnemyPartyCount` `0x020342A9`, `gEnemyParty` `0x020342B8` | `NOT RUNTIME VERIFIED` | `BATTLE_KIND_TRAINER_SINGLE`; enemy party bounded by `gEnemyPartyCount` | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
-| opponent switch | `gBattlerPartyIndexes[battler]` is rewritten when the send-out completes | `0x02000144 + 2*b` | `NOT RUNTIME VERIFIED` | slot follows the rewritten index; species/HP are never re-matched | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
-| opponent faint | `FaintClearSetData` resets stages/volatiles; `gBattleMons[b].hp == 0` while the forced switch resolves | `hp` at `BattlePokemon+0x2A` | `NOT RUNTIME VERIFIED` | fainted opponent reported with `fainted = true`; the UI withholds the slot (`UNKNOWN`) until the engine's mapping moves | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
-| player switch | same `gBattlerPartyIndexes[battler]` mechanism for the player side | `0x02000144 + 2*b` | `NOT RUNTIME VERIFIED` | the active player battler is whichever battler `gBattlerPositions` puts on the player side; its slot follows `gBattlerPartyIndexes[battler]` | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
-| player faint | `hp == 0` on the active player battler while the party menu replacement resolves | `hp` at `BattlePokemon+0x2A` | `NOT RUNTIME VERIFIED` | active player slot withheld (`-1`, `known = false`) rather than retained | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
+| trainer single | `CB2_InitBattleInternal` builds `gEnemyParty` then `CalculateEnemyPartyCount()` (`battle_main.c:661-665`); `BATTLE_TYPE_TRAINER` is bit 3 of `gBattleTypeFlags` | `gEnemyPartyCount` `0x020342A9`, `gEnemyParty` `0x020342B8` | **SYNTHETIC UNIT VERIFIED** (`test_hns_trainer_battle_classification`): BATTLE_TYPE_TRAINER bit set → `BATTLE_KIND_TRAINER_SINGLE`; cleared → `BATTLE_KIND_WILD_SINGLE`; initial enemy slot resolved to `gBattlerPartyIndexes[battler]`. Runtime probe: `NOT RUNTIME VERIFIED` (no save file) | `BATTLE_KIND_TRAINER_SINGLE`; enemy party bounded by `gEnemyPartyCount` | SOURCE + COMPILED SYMBOL + SYNTHETIC UNIT VERIFIED; live runtime NOT YET VERIFIED |
+| opponent switch | `gBattlerPartyIndexes[battler]` is rewritten when the send-out completes | `0x02000144 + 2*b` | **SYNTHETIC UNIT VERIFIED** (`test_hns_trainer_opponent_slot_resolves_from_battler_index`): slot-0 → slot-1 transition captured; slot follows index exactly; no slot-0 fallback on faint at slot-1. Runtime probe: `NOT RUNTIME VERIFIED` | slot follows the rewritten index; species/HP are never re-matched | SOURCE + COMPILED SYMBOL + SYNTHETIC UNIT VERIFIED; live runtime NOT YET VERIFIED |
+| opponent faint | `FaintClearSetData` resets stages/volatiles; `gBattleMons[b].hp == 0` while the forced switch resolves | `hp` at `BattlePokemon+0x2A` | **SYNTHETIC UNIT VERIFIED** (`test_hns_trainer_multi_party_faint_transition`, `test_hns_stale_enemy_slot_cannot_survive_replacement`): faint at slot-0 leaves slot-0 with `fainted=true`; absent-flag window → NONE_ACTIVE; replacement committed at slot-1 → slot-1 active; old slot cannot persist. Runtime probe: `NOT RUNTIME VERIFIED` | fainted opponent reported with `fainted = true`; slot withheld during absent window; replacement resolves to new `gBattlerPartyIndexes` value | SOURCE + COMPILED SYMBOL + SYNTHETIC UNIT VERIFIED; live runtime NOT YET VERIFIED |
+| player switch | same `gBattlerPartyIndexes[battler]` mechanism for the player side | `0x02000144 + 2*b` | **SYNTHETIC UNIT VERIFIED** (`test_hns_player_switch_slot_follows_battler_indexes`): before switch slot-0 known; absent-flag window → unknown; switch committed to slot-1 → slot-1 active; old slot not retained. Runtime probe: `NOT RUNTIME VERIFIED` | active player slot follows `gBattlerPartyIndexes[battler]`; withheld during switch window | SOURCE + COMPILED SYMBOL + SYNTHETIC UNIT VERIFIED; live runtime NOT YET VERIFIED |
+| player faint | `hp == 0` on the active player battler while the party menu replacement resolves | `hp` at `BattlePokemon+0x2A` | **SYNTHETIC UNIT VERIFIED** (`test_hns_player_faint_forces_unknown_until_replacement`, `test_hns_stale_player_slot_cannot_survive_faint`): player hp→0 → slot unknown; absent-flag window → still unknown; replacement committed to slot-1 → slot-1 active; old slot not retained. Runtime probe: `NOT RUNTIME VERIFIED` | active player slot withheld (`-1`, `known = false`) rather than retained; replacement resolves immediately once `gBattlerPartyIndexes` is updated | SOURCE + COMPILED SYMBOL + SYNTHETIC UNIT VERIFIED; live runtime NOT YET VERIFIED |
 | **stale battle state + `gMain.inBattle == false`** | `gMain.inBattle = FALSE` on exit; `gBattleMons` is EWRAM `.bss` and is not always cleared | `gMain` `0x03005BC0`+`0x439` bit 1 | **RUNTIME VERIFIED for the inactive case**: with the real ROM the production presence path returned `ABSENT` on every one of 20,000 frames | production presence reports `NOT_OBSERVED`; the stale species word is ignored | RUNTIME VERIFIED (inactive); the post-battle edge itself NOT RUNTIME VERIFIED |
 | battle exit | `gMain.inBattle = FALSE` in `ReturnFromBattleToOverworld` / `FreeRestoreBattleData`; `ZeroEnemyPartyMons()`; `CalculatePlayerPartyCount()` | `gMain` `0x03005BC0`+`0x439` bit 1 | **RUNTIME VERIFIED for the pre-battle/overworld case**: over 20,000 emulated frames of the official ROM the `gMain.inBattle` bit was readable on every frame and **never** observed set; `gBattlersCount == 0`, `gBattleTypeFlags == 0`, `gBattleOutcome == 0`, `gBattlerPartyIndexes[0..3] == 0`, `gBattleMons[0..3].species == 0`, `gPlayerPartyCount == 0`, `gEnemyPartyCount == 0`; the production readers returned `INACTIVE`, `NONE_ACTIVE`, `enemyParty = 0`, `activeEnemySlot = -1`, `known = false`, and the production **battle-presence** path returned `ABSENT` on every sample, with **0 invariant failures** | enemy party, active slot and production presence are all cleared; no stale opponent can be presented | runtime VERIFIED for the inactive state; the exit *edge* itself NOT RUNTIME VERIFIED |
 | doubles | `IsDoubleBattle()` is `gBattleTypeFlags & BATTLE_TYPE_MORE_THAN_TWO_BATTLERS`; `gBattlersCount = 4` | `gBattlersCount` `0x020000B0`, `gBattlerPositions` `0x02000238` | `NOT RUNTIME VERIFIED` | `BATTLE_KIND_DOUBLES` => active enemy `AMBIGUOUS`, no slot, no enemy shown | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
 | partner / multi | `BATTLE_TYPE_MULTI` (bit 6), `BATTLE_TYPE_INGAME_PARTNER` (bit 22), `BATTLE_TYPE_TWO_OPPONENTS` (bit 15), `BATTLE_TYPE_LINK` (bit 1) | `gBattleTypeFlags` `0x020000AC` | `NOT RUNTIME VERIFIED` — no practical scenario was reachable in this PR | `BATTLE_KIND_MULTI_OR_PARTNER` => active enemy `AMBIGUOUS`, no slot | SOURCE + COMPILED SYMBOL VERIFIED; runtime NOT YET VERIFIED |
-| transition windows (init / faint / teardown) | `gBattlersCount` is set after `gMain.inBattle`; `BattleStartClearSetData` clears `gBattleOutcome`/`gAbsentBattlerFlags` at intro start | the whole global set above | runtime VERIFIED only for the boot/intro window, which is consistently `INACTIVE` | `INITIALIZING` / `ENDING` / `UNKNOWN` never expose a slot | SOURCE + COMPILED SYMBOL VERIFIED; partial runtime |
+| transition windows (init / faint / teardown) | `gBattlersCount` is set after `gMain.inBattle`; `BattleStartClearSetData` clears `gBattleOutcome`/`gAbsentBattlerFlags` at intro start | the whole global set above | runtime VERIFIED only for the boot/intro window; **SYNTHETIC UNIT VERIFIED** for faint/switch transition windows (absent-flag → NONE_ACTIVE/unknown for all three transition types) | `INITIALIZING` / `ENDING` / `UNKNOWN` never expose a slot | SOURCE + COMPILED SYMBOL + SYNTHETIC UNIT VERIFIED; partial runtime |
 
 Runtime raw observation (exact command and full output reproducible via
 `tools/hns-runtime-probe`):
@@ -781,10 +781,12 @@ No broad architecture rewrite was performed (issue #8 is untouched).
 | H&S 2.0.5 Species / Move Data Pack (`HeartAndSoul205DataPack`) | SOURCE VERIFIED (extracted via `arm-none-eabi-cpp` preprocessor directly from pinned upstream checkout `1f42b74dff0e9fe942419845d040663dd829a973` with zero commercial ROM dependency); unit tested |
 | Profile Custom Species Isolation (Ghost Grey vs H&S 500-502) | SOURCE VERIFIED; unit tested |
 | H&S 2.0.5 Held Items | NON-AUTHORITATIVE (held items marked unverified in live party presentation pending dedicated item audit) |
-| Battle lifecycle (`gMain.inBattle`, `gBattlersCount`, `gBattleOutcome`, `gBattlerPositions`, `gAbsentBattlerFlags`) | COMPILED SYMBOL + ABI VERIFIED; RUNTIME VERIFIED in the inactive/overworld state (20,000 frames, 0 invariant failures); battle enter/switch/faint/exit-edge NOT RUNTIME VERIFIED (no legal save file) |
-| Production battle presence for H&S | `gMain.inBattle` lifecycle only (no `gBattleMons[0].species`); lifecycle-null semantics unit tested, inactive case runtime verified; active/ending cases NOT RUNTIME VERIFIED |
-| Active battler index contract (`ActiveEnemyInfo.battler_index`) | SOURCE + unit tested as the real resolved battler index; not observed in a live battle |
-| Active-enemy / active-battler mapping | SOURCE + COMPILED SYMBOL VERIFIED; fail-closed contract unit tested (native + Kotlin); not exercised in a live battle |
+| Battle lifecycle (`gMain.inBattle`, `gBattlersCount`, `gBattleOutcome`, `gBattlerPositions`, `gAbsentBattlerFlags`) | COMPILED SYMBOL + ABI VERIFIED; RUNTIME VERIFIED in the inactive/overworld state (20,000 frames, 0 invariant failures); **SYNTHETIC UNIT VERIFIED** for trainer battle classification, opponent faint/replacement, player switch, player faint/replacement (7 new tests in `compat/hns-2.0.5-trainer-runtime-validation`); live battle enter/exit-edge NOT RUNTIME VERIFIED (no legal save file) |
+| Production battle presence for H&S | `gMain.inBattle` lifecycle only (no `gBattleMons[0].species`); lifecycle-null semantics unit tested, inactive case runtime verified; **SYNTHETIC UNIT VERIFIED** for trainer battle presence transitions; active/ending cases NOT RUNTIME VERIFIED |
+| Active battler index contract (`ActiveEnemyInfo.battler_index`) | SOURCE + unit tested as the real resolved battler index; **SYNTHETIC UNIT VERIFIED** for trainer single topology (battler 1 is opponent) and non-trivial topology (opponent at battler 0); not observed in a live battle |
+| Active-enemy / active-battler mapping | SOURCE + COMPILED SYMBOL VERIFIED; fail-closed contract unit tested (native + Kotlin); **SYNTHETIC UNIT VERIFIED** for all trainer/switch/faint transitions; not exercised in a live battle |
+| `gBattlerPartyIndexes` slot resolution for trainer battles | SOURCE + COMPILED SYMBOL VERIFIED; **SYNTHETIC UNIT VERIFIED** — slot-0→slot-1 transition (enemy switch), absent-flag window, replacement at slot-1, player slot-0→slot-1 switch and faint; live runtime NOT YET VERIFIED |
+| Runtime probe infrastructure (`save_generator`, `scenario_runner`, `scenarios/`, `selftest.sh`) | **NEW in `compat/hns-2.0.5-trainer-runtime-validation`**: `save_generator` drives boot→starter→Route-1-catch→save; `scenario_runner` loads a `.sav`, drives gameplay, checks per-frame invariants (bounds, index authority, no slot-0 fallback, no stale carry-over); `selftest.sh` runs `--selftest` without a ROM. All three compile cleanly against production native sources. |
 | Battle UI / interactive controls | NOT YET VERIFIED — `battleUiVerified` and `interactiveControlsVerified` remain `false` (unchanged by this PR) |
 | H&S maps / regions | NOT YET VERIFIED (explicitly out of scope; #11) |
 | H&S calculator correctness | NOT YET VERIFIED (explicitly out of scope; #9) |
@@ -838,12 +840,14 @@ These were found during this phase and are **not** fixed here.
    these or explicitly degrade. (#9)
 5. **Toolchain/layout reconciliation.** A local build does not reproduce the release binary's IWRAM
    ordering (§5.3). Any future symbol-dependent work must confirm addresses against the release ROM.
-6. **No save file was available**, so every party-, battle- and map-dependent capability remains
-   unverified; obtaining a legal save with a party and a battle is the next concrete step for #40.
-   The battle lifecycle work landed in `compat/hns-2.0.5-battle-lifecycle` is consequently
-   **runtime-verified only for the inactive/overworld state** (§6.5). The exact remaining gap for
-   #1 is a legal save with a party plus reachable wild and trainer battles, which would let
-   `tools/hns-runtime-probe` capture real enter/switch/faint/exit transitions.
+6. **No save file was available for live battle verification**, so every party-, battle- and
+   map-dependent capability that requires reaching an actual battle remains NOT RUNTIME VERIFIED.
+   This PR adds the save-progression infrastructure (`save_generator`, `scenario_runner`, `make-save.sh`,
+   `scenarios/`, `selftest.sh`) and synthetic unit tests that prove the readers' state-machine
+   logic for trainer/switch/faint scenarios without needing the ROM. The remaining concrete step for
+   full live verification is generating a legal `.sav` with a party via `make-save.sh` and running
+   the four `.scenario` files against the official 2.0.5 ROM with `scenario_runner`. Until that is
+   done, the battle lifecycle scenario rows remain **SYNTHETIC UNIT VERIFIED but NOT RUNTIME VERIFIED**.
 7. **Vanilla behaviour note (not a change in this PR's scope).** The legacy
    `gBattlerPartyIndexes = gBattleMons - 24` derivation is retained only for layouts that do not
    declare `battler_party_indexes_offset` (FireRed, Emerald, LeafGreen, Ruby, Sapphire, Ghost Grey,
@@ -882,7 +886,21 @@ arm-none-eabi-readelf --debug-dump=info /tmp/probe.o       # bitfield placement 
 # 5. Runtime battle-state observation against the official 2.0.5 ROM (developer tool, not CI).
 #    Requires a locally built mGBA libretro core and a legally obtained ROM. No ROM is shipped.
 cd tools/hns-runtime-probe && ./build.sh
+
+# 5a. Existing overworld baseline probe (from prior PR)
 ./runtime_battle_probe <mgba_libretro.so> "<legal hns 2.0.5 rom>.gba" 20000
+
+# 5b. Generate a legal save file from scratch (no save editing, no cheats, no RAM writes)
+./make-save.sh <mgba_libretro.so> "<legal hns 2.0.5 rom>.gba" save.sav
+
+# 5c. Run trainer/switch/faint scenario invariant checks against the generated save
+./scenario_runner <mgba_libretro.so> "<legal hns 2.0.5 rom>.gba" save.sav trainer_battle
+./scenario_runner <mgba_libretro.so> "<legal hns 2.0.5 rom>.gba" save.sav trainer_opponent_faint
+./scenario_runner <mgba_libretro.so> "<legal hns 2.0.5 rom>.gba" save.sav player_switch
+./scenario_runner <mgba_libretro.so> "<legal hns 2.0.5 rom>.gba" save.sav player_faint_forced_replacement
+
+# 5d. Selftest (no ROM required) — validates harness invariant checker infrastructure
+./selftest.sh
 
 # 6. DualDex regression coverage (no ROM required)
 ./ci.sh test

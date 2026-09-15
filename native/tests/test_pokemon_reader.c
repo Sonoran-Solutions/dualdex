@@ -3380,6 +3380,466 @@ static void test_unknown_game_fails_closed(void) {
     printf(ANSI_GREEN "  [PASS] test_unknown_game_fails_closed" ANSI_RESET "\n");
 }
 
+/*
+ * H&S 2.0.5 trainer-battle lifecycle and multi-party switch/faint invariants (issue #1).
+ *
+ * Every test here corresponds to a scenario the runtime probe will exercise on the real ROM
+ * (tools/hns-runtime-probe/scenarios/). The synthetic tests prove the readers' state-machine
+ * logic before the ROM is available; the runtime probe records the raw addresses DualDex
+ * actually follows.
+ *
+ * BATTLE_TYPE_TRAINER is bit 3 of gBattleTypeFlags (battle.h, sourced from the `make hns`
+ * symbol table, identical to vanilla pokeemerald). No other flag-bit matters for the
+ * single-trainer classification path.
+ */
+
+#define HNS_BATTLE_TYPE_TRAINER  (1u << 3)
+
+/**
+ * A trainer battle must classify as BATTLE_KIND_TRAINER_SINGLE, not WILD_SINGLE.
+ *
+ * Phase 2 assertion: BATTLE_TYPE_TRAINER bit determines BattleKind.
+ */
+static void test_hns_trainer_battle_classification(void) {
+    printf("Running test_hns_trainer_battle_classification...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    BattleStateRaw state;
+    ActiveEnemyInfo info;
+    PartySnapshot snap;
+
+    /* --- trainer single: BATTLE_TYPE_TRAINER bit set ------------------------------------ */
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 2);
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 2, HNS_BATTLE_TYPE_TRAINER, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 0);  /* player left -> player slot 0 */
+    hns_battle_set_battler(&fx, 1, 1, 0);  /* opponent left -> enemy slot 0 */
+    hns_battle_set_mon(&fx, 0, 155, 50);
+    hns_battle_set_mon(&fx, 1, 16, 35);
+
+    BattleLifecycleState lc = pokemon_read_battle_lifecycle(
+        fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg, &state);
+    TEST_ASSERT(lc == BATTLE_LIFECYCLE_ACTIVE,
+                "a fully described trainer battle must be ACTIVE");
+    TEST_ASSERT(state.kind == BATTLE_KIND_TRAINER_SINGLE,
+                "BATTLE_TYPE_TRAINER bit must classify as TRAINER_SINGLE");
+    TEST_ASSERT((state.battle_type_flags & HNS_BATTLE_TYPE_TRAINER) != 0,
+                "gBattleTypeFlags must have the TRAINER bit set");
+    TEST_ASSERT(state.battlers_count == 2,
+                "gBattlersCount must be 2 for a single trainer battle");
+
+    ActiveEnemyState es = pokemon_resolve_active_enemy(
+        fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg, &snap, &info);
+    TEST_ASSERT(es == ACTIVE_ENEMY_SLOT,
+                "a trainer battle must resolve an active enemy slot");
+    TEST_ASSERT(info.party_slot == 0,
+                "the initial trainer opponent must be at enemy slot 0");
+    TEST_ASSERT(info.battler_index == 1,
+                "the opponent battler index must be 1 in a standard single battle");
+    TEST_ASSERT(snap.count == 2,
+                "gEnemyPartyCount == 2 must bound the snapshot");
+
+    /* --- wild single with same fixture but TRAINER bit cleared: must revert ------------ */
+    hns_battle_set_counters(&fx, 2, 0u /* no TRAINER */, 0);
+    lc = pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                       cfg, &state);
+    TEST_ASSERT(lc == BATTLE_LIFECYCLE_ACTIVE,
+                "clearing TRAINER bit keeps the battle ACTIVE");
+    TEST_ASSERT(state.kind == BATTLE_KIND_WILD_SINGLE,
+                "clearing TRAINER bit must reclassify to WILD_SINGLE");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_trainer_battle_classification" ANSI_RESET "\n");
+}
+
+/**
+ * Opponent slot resolves exclusively from gBattlerPositions -> gBattlerPartyIndexes.
+ *
+ * Phase 2 assertion: the resolved chain must hold for a trainer battle with 2 enemy party
+ * members. No species match, no HP match, no slot-0 fallback.
+ */
+static void test_hns_trainer_opponent_slot_resolves_from_battler_index(void) {
+    printf("Running test_hns_trainer_opponent_slot_resolves_from_battler_index...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    PartySnapshot snap;
+    ActiveEnemyInfo info;
+
+    /* trainer with 2-member enemy party; first active is slot 0 */
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 2);
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 2, HNS_BATTLE_TYPE_TRAINER, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 0);  /* player left -> player slot 0 */
+    hns_battle_set_battler(&fx, 1, 1, 0);  /* opponent left -> enemy slot 0 */
+    hns_battle_set_mon(&fx, 0, 155, 50);
+    hns_battle_set_mon(&fx, 1, 16, 35);
+
+    ActiveEnemyState es = pokemon_resolve_active_enemy(
+        fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg, &snap, &info);
+    TEST_ASSERT(es == ACTIVE_ENEMY_SLOT, "trainer battle must resolve a slot");
+    TEST_ASSERT(info.party_slot == 0, "initial trainer opponent is enemy slot 0");
+    TEST_ASSERT(info.battler_index == 1, "battler 1 is the opponent in a standard single");
+    TEST_ASSERT(!info.fainted, "the opponent has HP and must not be reported fainted");
+    TEST_ASSERT(snap.count == 2, "enemy party must have exactly 2 members");
+
+    /* gBattlerPartyIndexes[1] is the only source; verify by pointing it at slot 1 */
+    hns_battle_set_battler(&fx, 1, 1, 1);  /* move to enemy slot 1 without species change */
+    hns_battle_set_mon(&fx, 1, 19, 28);    /* new species + HP for slot 1 */
+
+    es = pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                      cfg, &snap, &info);
+    TEST_ASSERT(es == ACTIVE_ENEMY_SLOT, "slot-1 trainer opponent must still resolve");
+    TEST_ASSERT(info.party_slot == 1, "slot must follow gBattlerPartyIndexes, now slot 1");
+    TEST_ASSERT(snap.members[1].current_hp == 28,
+                "HP must sync from gBattleMons[battler].hp, not from party parsing");
+
+    /* Confirm no slot-0 fallback: if we point the battler at slot 1 but it has hp==0,
+       the slot must still be reported as 1 with fainted=true, not reverted to slot 0. */
+    hns_battle_set_mon(&fx, 1, 19, 0);  /* hp=0, fainted */
+    es = pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                      cfg, &snap, &info);
+    TEST_ASSERT(es == ACTIVE_ENEMY_SLOT, "fainted trainer opponent still has a slot");
+    TEST_ASSERT(info.party_slot == 1,
+                "no slot-0 fallback when the opponent faints at slot 1");
+    TEST_ASSERT(info.fainted, "the faint must be reported");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_trainer_opponent_slot_resolves_from_battler_index" ANSI_RESET "\n");
+}
+
+/**
+ * Opponent faint -> replacement: slot must follow the new gBattlerPartyIndexes, not retain old.
+ *
+ * Phase 3 assertion: the transition slot-0 -> slot-1 is captured correctly.
+ *
+ * During the forced-switch window (opponent absent) the reader must not retain slot 0. When
+ * the engine commits the new battler the slot must resolve to gBattlerPartyIndexes[battler]==1.
+ */
+static void test_hns_trainer_multi_party_faint_transition(void) {
+    printf("Running test_hns_trainer_multi_party_faint_transition...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    PartySnapshot snap;
+    ActiveEnemyInfo info;
+
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 2);
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 2, HNS_BATTLE_TYPE_TRAINER, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 0);
+    hns_battle_set_battler(&fx, 1, 1, 0);  /* enemy slot 0 active */
+    hns_battle_set_mon(&fx, 0, 155, 50);
+    hns_battle_set_mon(&fx, 1, 16, 35);
+
+    /* === Before faint: slot 0 active, HP > 0 === */
+    ActiveEnemyState es = pokemon_resolve_active_enemy(
+        fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg, &snap, &info);
+    TEST_ASSERT(es == ACTIVE_ENEMY_SLOT && info.party_slot == 0,
+                "before faint: must resolve enemy slot 0");
+    TEST_ASSERT(!info.fainted, "before faint: opponent must not be reported fainted");
+
+    /* === Faint: hp -> 0, index unchanged (engine hasn't sent out replacement yet) === */
+    hns_battle_set_mon(&fx, 1, 16, 0);  /* same species, hp=0 */
+    es = pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                      cfg, &snap, &info);
+    TEST_ASSERT(es == ACTIVE_ENEMY_SLOT,
+                "fainted opponent still has an authoritative slot");
+    TEST_ASSERT(info.party_slot == 0,
+                "fainted slot 0 must not silently become slot 1");
+    TEST_ASSERT(info.fainted,
+                "hp==0 on the active opponent must set fainted=true");
+
+    /* === Forced-switch window: engine marks battler absent while choosing replacement === */
+    gba.ewram[cfg->absent_battler_flags_offset] = (uint8_t)(1u << 1); /* battler 1 absent */
+    es = pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                      cfg, &snap, &info);
+    TEST_ASSERT(es == ACTIVE_ENEMY_NONE_ACTIVE,
+                "absent opponent during forced switch must be NONE_ACTIVE");
+    TEST_ASSERT(info.party_slot == -1,
+                "no slot may survive while the replacement is being chosen");
+    TEST_ASSERT(info.battler_index == -1,
+                "no battler index may survive the replacement window");
+
+    /* === Replacement complete: engine clears absent, updates gBattlerPartyIndexes === */
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 1, 1, 1);  /* new: enemy slot 1 */
+    hns_battle_set_mon(&fx, 1, 19, 42);    /* Rattata hp=42 */
+    es = pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                      cfg, &snap, &info);
+    TEST_ASSERT(es == ACTIVE_ENEMY_SLOT,
+                "replacement complete must resolve a new slot");
+    TEST_ASSERT(info.party_slot == 1,
+                "replacement must resolve to enemy slot 1, not retained slot 0");
+    TEST_ASSERT(info.battler_index == 1,
+                "battler index must still be 1 (the opponent battler)");
+    TEST_ASSERT(!info.fainted,
+                "the replacement has HP > 0 and must not be reported fainted");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_trainer_multi_party_faint_transition" ANSI_RESET "\n");
+}
+
+/**
+ * Player voluntary switch: active player slot follows gBattlerPartyIndexes.
+ *
+ * Phase 4 assertion: before the switch the player slot is authoritative; after the engine
+ * updates gBattlerPartyIndexes the new slot must be resolved immediately.
+ */
+static void test_hns_player_switch_slot_follows_battler_indexes(void) {
+    printf("Running test_hns_player_switch_slot_follows_battler_indexes...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    PartySnapshot snap;
+
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);   /* 2 player party members */
+    hns_battle_fill_enemy_party(&fx, 2);
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 2, HNS_BATTLE_TYPE_TRAINER, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 0);  /* player left -> player slot 0 */
+    hns_battle_set_battler(&fx, 1, 1, 0);  /* opponent left -> enemy slot 0 */
+    hns_battle_set_mon(&fx, 0, 155, 50);
+    hns_battle_set_mon(&fx, 1, 16, 35);
+
+    /* === Before switch: player active slot == 0 === */
+    uint8_t pcount = pokemon_read_player_party_gba(fake_gba_read, &gba.table,
+                                                   gba.ewram, sizeof(gba.ewram),
+                                                   cfg, &snap);
+    TEST_ASSERT(pcount == 2, "player party must have 2 members");
+    TEST_ASSERT(snap.active_battler_known, "player active battler must be known before switch");
+    TEST_ASSERT(snap.active_battler_slot == 0,
+                "before switch: active player slot must be 0");
+    TEST_ASSERT(snap.active_battler_index == 0,
+                "before switch: active player battler index must be 0");
+
+    /* === Switch window: engine marks player battler absent while party menu is open === */
+    gba.ewram[cfg->absent_battler_flags_offset] = (uint8_t)(1u << 0); /* battler 0 absent */
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                  cfg, &snap);
+    TEST_ASSERT(!snap.active_battler_known,
+                "during switch window player active slot must be unknown");
+    TEST_ASSERT(snap.active_battler_slot == -1,
+                "switch window must not retain old slot 0");
+
+    /* === Switch complete: engine updates gBattlerPartyIndexes[0] -> 1 === */
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 1);  /* player battler 0 now -> party slot 1 */
+    hns_battle_set_mon(&fx, 0, 158, 44);   /* Croconaw hp=44 */
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                  cfg, &snap);
+    TEST_ASSERT(snap.active_battler_known,
+                "after switch player active slot must be known again");
+    TEST_ASSERT(snap.active_battler_slot == 1,
+                "after switch active player slot must be 1, not retained 0");
+    TEST_ASSERT(snap.active_battler_index == 0,
+                "after switch battler index is still 0 (same battler position)");
+    TEST_ASSERT(snap.members[1].current_hp == 44,
+                "HP from gBattleMons must sync to the new party slot");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_player_switch_slot_follows_battler_indexes" ANSI_RESET "\n");
+}
+
+/**
+ * Player faint -> forced replacement: slot must be withheld until the new battler is committed.
+ *
+ * Phase 5 assertion: hp==0 on the active player makes the slot unknown; after the engine
+ * commits the replacement the new slot is authoritative.
+ */
+static void test_hns_player_faint_forces_unknown_until_replacement(void) {
+    printf("Running test_hns_player_faint_forces_unknown_until_replacement...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    PartySnapshot snap;
+
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 2);
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 2, HNS_BATTLE_TYPE_TRAINER, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 0);
+    hns_battle_set_battler(&fx, 1, 1, 0);
+    hns_battle_set_mon(&fx, 0, 155, 50);
+    hns_battle_set_mon(&fx, 1, 16, 35);
+
+    /* === Before faint: player slot 0 known === */
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                  cfg, &snap);
+    TEST_ASSERT(snap.active_battler_known && snap.active_battler_slot == 0,
+                "before faint: player active slot must be 0");
+
+    /* === Player faints: hp -> 0. Engine has not yet committed a replacement. === */
+    hns_battle_set_mon(&fx, 0, 155, 0);  /* player hp -> 0 */
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                  cfg, &snap);
+    TEST_ASSERT(!snap.active_battler_known,
+                "a fainted player battler must leave the active slot unknown");
+    TEST_ASSERT(snap.active_battler_slot == -1,
+                "fainted player slot must not be retained");
+
+    /* === Forced-replacement window: engine marks battler absent === */
+    gba.ewram[cfg->absent_battler_flags_offset] = (uint8_t)(1u << 0); /* battler 0 absent */
+    hns_battle_set_mon(&fx, 0, 155, 0);  /* hp still 0 */
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                  cfg, &snap);
+    TEST_ASSERT(!snap.active_battler_known,
+                "during forced-replacement window player slot must remain unknown");
+    TEST_ASSERT(snap.active_battler_slot == -1,
+                "no cached previous slot may survive");
+
+    /* === Replacement committed: battler 0 now at party slot 1, hp restored === */
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 1);  /* player battler 0 -> party slot 1 */
+    hns_battle_set_mon(&fx, 0, 158, 38);   /* Croconaw hp=38 */
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                  cfg, &snap);
+    TEST_ASSERT(snap.active_battler_known,
+                "after forced replacement player slot must be known");
+    TEST_ASSERT(snap.active_battler_slot == 1,
+                "forced replacement must set active slot to 1, not retained 0");
+    TEST_ASSERT(snap.members[1].current_hp == 38,
+                "HP must sync to the replacement battler's live HP");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_player_faint_forces_unknown_until_replacement" ANSI_RESET "\n");
+}
+
+/**
+ * Stale enemy slot cannot survive a completed replacement.
+ *
+ * Phase 8 invariant: once the engine commits a new gBattlerPartyIndexes value the old slot
+ * must not appear anywhere in the reader's output, even if gBattleMons still holds the old
+ * opponent's species word.
+ */
+static void test_hns_stale_enemy_slot_cannot_survive_replacement(void) {
+    printf("Running test_hns_stale_enemy_slot_cannot_survive_replacement...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    PartySnapshot snap;
+    ActiveEnemyInfo info;
+
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 2);
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 2, HNS_BATTLE_TYPE_TRAINER, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 0);
+    hns_battle_set_battler(&fx, 1, 1, 0);  /* enemy slot 0 */
+    hns_battle_set_mon(&fx, 0, 155, 50);
+    hns_battle_set_mon(&fx, 1, 16, 35);    /* Pidgey hp=35 */
+
+    /* Confirm initial: slot 0 */
+    ActiveEnemyState es = pokemon_resolve_active_enemy(
+        fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg, &snap, &info);
+    TEST_ASSERT(es == ACTIVE_ENEMY_SLOT && info.party_slot == 0,
+                "precondition: initial enemy must be slot 0");
+
+    /* Faint slot 0 */
+    hns_battle_set_mon(&fx, 1, 16, 0);
+
+    /* Replacement committed to slot 1; gBattleMons[1] species updated to Rattata. */
+    hns_battle_set_battler(&fx, 1, 1, 1);  /* gBattlerPartyIndexes[1] -> 1 */
+    hns_battle_set_mon(&fx, 1, 19, 42);    /* Rattata hp=42 at gBattleMons[1] */
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+
+    es = pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                      cfg, &snap, &info);
+    TEST_ASSERT(es == ACTIVE_ENEMY_SLOT,
+                "replacement complete: must resolve a slot");
+    TEST_ASSERT(info.party_slot == 1,
+                "replacement: slot must be 1 (new gBattlerPartyIndexes), not stale 0");
+    TEST_ASSERT(!info.fainted,
+                "replacement: new battler has hp > 0 and must not be fainted");
+    TEST_ASSERT(snap.active_battler_slot == 1,
+                "snapshot active_battler_slot must be 1, not stale 0");
+    TEST_ASSERT(snap.active_battler_known,
+                "snapshot active_battler_known must be true after replacement");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_stale_enemy_slot_cannot_survive_replacement" ANSI_RESET "\n");
+}
+
+/**
+ * Stale player slot cannot survive a completed forced replacement.
+ *
+ * Phase 8 invariant: after the player's active Pokémon faints and the engine commits the
+ * replacement battler, the old slot must not appear anywhere in the reader's output.
+ */
+static void test_hns_stale_player_slot_cannot_survive_faint(void) {
+    printf("Running test_hns_stale_player_slot_cannot_survive_faint...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    PartySnapshot snap;
+
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 2);
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 2, HNS_BATTLE_TYPE_TRAINER, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 0);  /* player battler 0 -> party slot 0 */
+    hns_battle_set_battler(&fx, 1, 1, 0);
+    hns_battle_set_mon(&fx, 0, 155, 50);
+    hns_battle_set_mon(&fx, 1, 16, 35);
+
+    /* Verify initial player slot */
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                  cfg, &snap);
+    TEST_ASSERT(snap.active_battler_known && snap.active_battler_slot == 0,
+                "precondition: initial player must be slot 0");
+
+    /* Player faints; gBattleMons[0].species remains 155 in EWRAM */
+    hns_battle_set_mon(&fx, 0, 155, 0);  /* hp -> 0, species still 155 */
+
+    /* Forced replacement committed: gBattlerPartyIndexes[0] -> 1, hp restored */
+    hns_battle_set_battler(&fx, 0, 0, 1);  /* party slot -> 1 */
+    hns_battle_set_mon(&fx, 0, 158, 38);   /* Croconaw hp=38 */
+
+    pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                  cfg, &snap);
+    TEST_ASSERT(snap.active_battler_known,
+                "after forced replacement player slot must be known");
+    TEST_ASSERT(snap.active_battler_slot == 1,
+                "stale slot 0 must not survive; active slot must be 1");
+    TEST_ASSERT(snap.members[1].current_hp == 38,
+                "HP must come from the new battler's gBattleMons hp field");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_stale_player_slot_cannot_survive_faint" ANSI_RESET "\n");
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
@@ -3421,6 +3881,15 @@ int main(void) {
     test_hns_lifecycle_maps_to_distinct_active_enemy_states();
     test_hns_active_battler_index_is_the_real_battler();
     test_hns_battle_exit_clears_production_presence();
+
+    // H&S 2.0.5 trainer-battle, switch/faint invariants (issue #1, trainer-runtime-validation).
+    test_hns_trainer_battle_classification();
+    test_hns_trainer_opponent_slot_resolves_from_battler_index();
+    test_hns_trainer_multi_party_faint_transition();
+    test_hns_player_switch_slot_follows_battler_indexes();
+    test_hns_player_faint_forces_unknown_until_replacement();
+    test_hns_stale_enemy_slot_cannot_survive_replacement();
+    test_hns_stale_player_slot_cannot_survive_faint();
 
     test_unbound_cfru_fixed_substructures();
     test_battle_presence_and_unknown_ui_state();

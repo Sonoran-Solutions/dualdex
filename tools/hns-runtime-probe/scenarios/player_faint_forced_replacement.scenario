@@ -1,0 +1,44 @@
+# H&S 2.0.5 player faint -> forced replacement scenario
+#
+# Verifies that when the active player Pokémon faints, the active player slot is withheld
+# until the engine commits the replacement, and the old slot is never retained.
+#
+# Required: player party count >= 2, player's active Pokémon faints in battle.
+#
+# State transitions captured:
+#   1. Active player slot 0, HP > 0
+#   2. Player HP -> 0: active player slot withheld (fainted battler is not authoritative)
+#   3. Forced-replacement window: player battler absent
+#      -> active player slot UNKNOWN
+#   4. Replacement committed: gBattlerPartyIndexes[player battler] -> 1, HP restored
+#      -> active player slot == 1
+
+scenario: player_faint_forced_replacement
+save_state: auto
+
+phase: before_faint
+  assert-lifecycle ACTIVE
+  assert-active-player-slot 0
+  record pre_faint_player_slot
+  record pre_faint_player_species
+  record pre_faint_player_hp
+
+phase: player_faints
+  # Active player HP reaches 0
+  assert-lifecycle ACTIVE
+  assert-active-player-slot UNKNOWN  # fainted battler must not remain authoritative
+
+phase: forced_replacement_window
+  # Engine marks player battler absent while party menu forces a choice
+  assert-lifecycle ACTIVE
+  assert-active-player-slot UNKNOWN
+  assert-no-stale-player-slot
+
+phase: replacement_complete
+  assert-lifecycle ACTIVE
+  assert-active-player-slot 1
+  assert-active-player-slot != 0
+  record post_replacement_player_slot
+  record post_replacement_player_species
+  record post_replacement_player_hp
+  record gBattlerPartyIndexes_forced_transition

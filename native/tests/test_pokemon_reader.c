@@ -727,27 +727,61 @@ static uint16_t pokemon_test_species_word(const FakeGba* gba, const GameMemoryCo
     return (uint16_t)(mon[0] | (mon[1] << 8));
 }
 
-static void test_hns_config_matches_compiled_evidence(void) {
-    printf("Running test_hns_config_matches_compiled_evidence...\n");
+/**
+ * H&S 2.0.5 addresses: source-build symbol vs official-release runtime address.
+ *
+ * The two are NOT the same, and this test pins down which is which:
+ *
+ *   COMPILED SYMBOL VERIFIED   - from a local `make hns` build of the tagged commit
+ *   RUNTIME VERIFIED           - observed live on the official 2.0.5 release ROM
+ *
+ * The official binary shifts the whole IWRAM block by +0x18 and the EWRAM party group by -4
+ * relative to the source build. The values asserted here are the release ones, because those are
+ * the ones DualDex must read at runtime. The source-build values are recorded in the comments and
+ * in docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md so the distinction stays visible.
+ *
+ * Reading the release ROM at the source-build addresses yields a 4-byte-shifted party, an empty
+ * enemy party and a permanently-clear in-battle flag - reproduced by
+ * `test_hns_release_rom_party_fixture` below.
+ */
+static void test_hns_config_matches_release_runtime_evidence(void) {
+    printf("Running test_hns_config_matches_release_runtime_evidence...\n");
 
     const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
     TEST_ASSERT(cfg != NULL, "Heart and Soul config must exist");
 
-    // Addresses verified against the OFFICIAL 2.0.5 release ROM at runtime, not against a local
-    // build. A from-source `make hns` build places this whole EWRAM group 4 bytes higher
-    // (gPlayerParty 0x02034768, gPlayerPartyCount 0x020342A8, gEnemyParty 0x020342B8,
-    // gEnemyPartyCount 0x020342A9); reading the release ROM at the compiled addresses yields a
-    // 4-byte-shifted party and an empty enemy party, which is exactly the discrepancy the runtime
-    // evidence fixture below reproduces.
+    // Party group. Source build: gPlayerParty 0x02034768, gPlayerPartyCount 0x020342A8,
+    // gEnemyParty 0x020342B8, gEnemyPartyCount 0x020342A9.
     TEST_ASSERT(cfg->player_party_offset == 0x34764, "gPlayerParty must be 0x02034764 in the release ROM");
     TEST_ASSERT(cfg->player_party_count_offset == 0x342A4, "gPlayerPartyCount must be 0x020342A4");
     TEST_ASSERT(cfg->enemy_party_offset == 0x342B4, "gEnemyParty must be 0x020342B4");
     TEST_ASSERT(cfg->enemy_party_count_offset == 0x342A5, "gEnemyPartyCount must be 0x020342A5");
+
+    // `gMain`. Source-build symbol is 0x03005BC0; the official 2.0.5 release places it at
+    // 0x03005BD8 (+0x18), so the release inBattle byte is 0x03006011 - NOT the 0x03005FF9 the
+    // source-build symbol resolves to. The release address was established by a semantic test
+    // (gMain.heldKeys tracks live button input there; gMain.callback1 is NULL there), not by
+    // readability: an earlier boot-only probe read 0x03005FF9 as a constant zero and wrongly
+    // treated that as confirmation.
+    TEST_ASSERT(cfg->main_struct_gba_address == 0x03005BD8,
+                "official H&S 2.0.5 release gMain must be 0x03005BD8");
+    TEST_ASSERT(cfg->main_in_battle_byte_offset == 0x439,
+                "gMain.inBattle storage byte offset must be 0x439");
+    TEST_ASSERT(cfg->main_in_battle_bit == 1,
+                "gMain.inBattle must be bit 1 of the flag byte");
+    TEST_ASSERT(cfg->main_struct_gba_address + cfg->main_in_battle_byte_offset == 0x03006011,
+                "official release inBattle byte must resolve to 0x03006011");
+    // Guard against a regression back to the source-build address.
+    TEST_ASSERT(cfg->main_struct_gba_address != 0x03005BC0,
+                "the source-build gMain address must not be used for the release ROM");
+
     TEST_ASSERT(cfg->battle_mons_offset == 0x420, "gBattleMons must be 0x02000420");
     TEST_ASSERT(cfg->battler_party_indexes_offset == 0x144, "gBattlerPartyIndexes must be 0x02000144");
     TEST_ASSERT(cfg->battle_type_flags_offset == 0xAC, "gBattleTypeFlags must be 0x020000AC");
     TEST_ASSERT(cfg->battlers_count_offset == 0xB0, "gBattlersCount must be 0x020000B0");
     TEST_ASSERT(cfg->battle_outcome_offset == 0x12C, "gBattleOutcome must be 0x0200012C");
+    TEST_ASSERT(cfg->battler_positions_offset == 0x238, "gBattlerPositions must be 0x02000238");
+    TEST_ASSERT(cfg->absent_battler_flags_offset == 0x30A, "gAbsentBattlerFlags must be 0x0200030A");
 
     // sizeof(struct BattlePokemon) is 136: gBattleMons spans 0x220 bytes over 4 battlers.
     TEST_ASSERT(cfg->battle_mons_size == 136, "sizeof(struct BattlePokemon) must be 136, not 88");
@@ -779,7 +813,7 @@ static void test_hns_config_matches_compiled_evidence(void) {
     TEST_ASSERT(emerald->save_block1_ptr_gba_address == 0, "Emerald must not declare an IWRAM SaveBlock1 pointer");
 
     g_tests_passed++;
-    printf(ANSI_GREEN "  [PASS] test_hns_config_matches_compiled_evidence" ANSI_RESET "\n");
+    printf(ANSI_GREEN "  [PASS] test_hns_config_matches_release_runtime_evidence" ANSI_RESET "\n");
 }
 
 static void test_hns_party_counts_are_independent_symbols(void) {
@@ -1017,7 +1051,10 @@ static void test_hns_release_rom_party_fixture(void) {
                     "release-ROM enemy slot 0 must decode as the captured wild species");
     }
 
-    // --- Negative control: the same bytes at the from-source compiled addresses must not decode. --
+    // --- Negative control: the same bytes at the from-source compiled addresses must be REJECTED. --
+    // The 4-byte shift puts the BoxPokemon at the wrong phase, so the stored checksum no longer
+    // matches the substructs it claims to describe. The parser must therefore reject the slot
+    // outright rather than decode a shifted, plausible-looking Pokemon out of it.
     {
         uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
         TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
@@ -1028,9 +1065,12 @@ static void test_hns_release_rom_party_fixture(void) {
 
         PartySnapshot snapshot;
         uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, cfg, &snapshot);
-        TEST_ASSERT(count == 0 || snapshot.members[0].species != HNS_TEST_SPECIES_CHIKORITA,
-                    "the from-source compiled party address must not decode the release-ROM party; "
-                    "a passing read here would mean the fixture no longer reproduces the discrepancy");
+        TEST_ASSERT(count == 0,
+                    "the source-build party address must reject the release-ROM bytes outright "
+                    "(checksum mismatch); decoding anything here would mean the fixture no longer "
+                    "reproduces the discrepancy");
+        TEST_ASSERT(snapshot.members[0].species != HNS_TEST_SPECIES_CHIKORITA,
+                    "the source-build party address must never yield the release-ROM Chikorita");
 
         free(ewram);
     }
@@ -3525,7 +3565,7 @@ int main(void) {
     test_ewram_scan_ignores_box_pokemon_and_finds_real_party();
 
     // Heart & Soul 2.0.5 evidence-backed foundation (issue #40, first implementation phase).
-    test_hns_config_matches_compiled_evidence();
+    test_hns_config_matches_release_runtime_evidence();
     test_hns_release_rom_party_fixture();
     test_hns_party_counts_are_independent_symbols();
     test_hns_enemy_party_count_is_authoritative();

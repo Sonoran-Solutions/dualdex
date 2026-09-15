@@ -2,6 +2,8 @@
 wait 120
 mash 800
 wait 200
+assert-battle inactive
+assert-party-count player 1
 walk DOWN 2
 walk LEFT 14
 walk DOWN 3
@@ -9,6 +11,8 @@ walk LEFT 1
 hunt 200
 wait 240
 matrix wild-entry
+assert-battle active
+assert-in-battle-flag true
 mash 120
 matrix turn-1
 mash 120
@@ -18,3 +22,5 @@ matrix turn-3
 mash 1200
 wait 500
 matrix after-battle
+assert-battle inactive
+assert-in-battle-flag false

@@ -41,6 +41,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>
+#include <sys/stat.h>
 
 /* Runtime-proven IWRAM address of gMain on the official release ROM. `gMain` is the authority for
  * `inBattle`; the compiled symbol address from a local build is 0x18 lower and must not be used. */
@@ -249,6 +251,26 @@ static const char* presence_name(uint8_t presence) {
 static int g_violations = 0;
 static int g_frames_checked = 0;
 
+/*
+ * Script errors: a scenario that did not actually do what it claims must fail the run too.
+ *
+ * Without this, a script could time out on its encounter hunt, fail to load its save, or contain a
+ * typo'd command and still exit 0 - a false green that looks like reproduction but reproduced
+ * nothing. Every deterministic script-command failure is recorded here and forces a non-zero exit.
+ */
+static int g_script_errors = 0;
+static int g_script_line = 0;
+
+static void script_error(const char* fmt, ...) {
+    va_list ap;
+    g_script_errors++;
+    fprintf(stderr, "script error line %d: ", g_script_line);
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+}
+
 static void violate(const Sample* s, const char* what) {
     g_violations++;
     printf("  [INVARIANT VIOLATION] frame %d: %s\n", s->frame, what);
@@ -446,16 +468,32 @@ static void write_ppm(const char* path) {
  *   wait <frames>                  hold nothing
  *   mash <frames>                  hold A on a 4-on/6-off cycle
  *   spama <count>                  press A a bounded number of times (long gaps)
- *   walk <DIR> <tiles>             walk tile by tile, pressing A if a script lock blocks progress
- *   hunt <iterations>              wander until gMain.inBattle asserts (wild encounter)
- *   escape <DIR> <iterations>      interleave A with movement attempts (re-triggerable dialogue)
+ *   walk <DIR> <tiles> [optional]  walk tile by tile, pressing A if a script lock blocks progress.
+ *                                  A blocked step is a script ERROR unless the trailing `optional`
+ *                                  token is present.
+ *   hunt <iterations>              wander until gMain.inBattle asserts (wild encounter).
+ *                                  A timeout is a script ERROR.
+ *   escape <DIR> <iterations>      interleave A with movement attempts (re-triggerable dialogue).
+ *                                  A timeout is a script ERROR.
+ *   await <cb2> <n>                press A until gMain.callback2 becomes <cb2>. Timeout is an ERROR.
+ *   untilout <cb2> <n>             press UP+A while gMain.callback2 is <cb2>, stop when it changes.
+ *                                  Timeout is an ERROR.
  *   matrix <label>                 print the full runtime tuple for the current frame
  *   shot <path.ppm>                dump the current video frame
- *   savsave <path>                 flush the core's battery save RAM to a .sav file
- *   savload <path>                 load a .sav file into the core's battery save RAM
-*   await <cb2> <n>                press A until gMain.callback2 becomes <cb2>
- *   untilout <cb2> <n>             press UP+A while gMain.callback2 is <cb2>, stop when it changes
+ *   savsave <path>                 flush the core's battery save RAM to a .sav file. Failure is an
+ *                                  ERROR.
+ *   savload <path>                 load a .sav file into the core's battery save RAM. A missing
+ *                                  file, a size mismatch or a load failure is an ERROR.
  *   reject-encounter               unexpected encounter: fail the run
+ *
+ * Assertions (each records a script ERROR when the condition does not hold):
+ *   assert-battle inactive|active  the authoritative lifecycle state
+ *   assert-party-count player <n>  gPlayerPartyCount equals <n>
+ *   assert-map <group> <number>    the player is standing on that map
+ *   assert-in-battle-flag true|false
+ *
+ * An unknown command is a script ERROR. The process exits non-zero when any script error or any
+ * runtime invariant violation occurred.
  */
 static void print_matrix(const Sample* s, const char* label) {
     uint16_t mx = 0, my = 0; uint8_t mg = 0, mn = 0;
@@ -496,9 +534,12 @@ static int run_script(Driver* d, const char* script_path) {
     char line[512];
 
     while (fgets(line, sizeof(line), f)) {
-        char cmd[64] = {0}, a1[256] = {0}, a2[256] = {0};
-        int n = sscanf(line, "%63s %255s %255s", cmd, a1, a2);
+        char cmd[64] = {0}, a1[256] = {0}, a2[256] = {0}, a3[256] = {0};
+        g_script_line++;
+        int n = sscanf(line, "%63s %255s %255s %255s", cmd, a1, a2, a3);
         if (n <= 0 || cmd[0] == '#') continue;
+        /* Ignore a UTF-8 BOM / leading whitespace-only lines. */
+        if (cmd[0] == '\n' || cmd[0] == '\r') continue;
         d->step++;
 
         if (!strcmp(cmd, "press")) {
@@ -522,14 +563,14 @@ static int run_script(Driver* d, const char* script_path) {
         } else if (!strcmp(cmd, "walk")) {
             uint32_t btn = parse_buttons(a1);
             int tiles = a2[0] ? atoi(a2) : 1;
+            bool allow_blocked = !strcmp(a3, "optional");
             for (int t = 0; t < tiles; t++) {
                 uint16_t x0 = 0, y0 = 0; uint8_t g0 = 0, m0 = 0;
                 read_map_position(&x0, &y0, &g0, &m0);
                 bool moved = false;
                 for (int attempt = 0; attempt < 30 && !moved; attempt++) {
                     for (int i = 0; i < 44 && !moved; i++) {
-                        Sample s = step_one(d, btn, &previous, &have_previous);
-                        if (s.gmain_readable) { /* keep the sample live */ }
+                        step_one(d, btn, &previous, &have_previous);
                         uint16_t x1 = 0, y1 = 0; uint8_t g1 = 0, m1 = 0;
                         read_map_position(&x1, &y1, &g1, &m1);
                         if (x1 != x0 || y1 != y0 || g1 != g0 || m1 != m0) moved = true;
@@ -547,7 +588,14 @@ static int run_script(Driver* d, const char* script_path) {
                 uint16_t x2 = 0, y2 = 0; uint8_t g2 = 0, m2 = 0;
                 read_map_position(&x2, &y2, &g2, &m2);
                 if (!moved) {
-                    printf("  [walk] %s blocked at (%u,%u)@%u/%u\n", a1, x2, y2, g2, m2);
+                    if (allow_blocked) {
+                        printf("  [walk] %s blocked at (%u,%u)@%u/%u (allowed)\n",
+                               a1, x2, y2, g2, m2);
+                    } else {
+                        script_error("walk %s blocked at (%u,%u)@%u/%u after %d attempts "
+                                     "(use 'walk %s <tiles> optional' to allow this)",
+                                     a1, x2, y2, g2, m2, 30, a1);
+                    }
                     break;
                 }
             }
@@ -568,6 +616,10 @@ static int run_script(Driver* d, const char* script_path) {
                 if (x1 == x0 && y1 == y0 && g1 == g0 && m1 == m0) di = (di + 1) % 4;
             }
             printf("  [hunt] %s after %d iterations\n", found ? "ENCOUNTER" : "TIMEOUT", i);
+            if (!found) {
+                script_error("hunt timed out after %d iterations without reaching a wild encounter",
+                             maxit);
+            }
         } else if (!strcmp(cmd, "await")) {
             /* Press A until gMain.callback2 becomes <hex>. Modal UIs (the wall clock, the naming
              * screen) install their own callback, which is the cleanest "the dialog is really up"
@@ -584,6 +636,10 @@ static int run_script(Driver* d, const char* script_path) {
             read_u32(HNS_RELEASE_GMAIN_BASE + 0x04, &cb2);
             printf("  [await] 0x%08X -> %s after %d iterations\n", target,
                    cb2 == target ? "REACHED" : "TIMEOUT", it);
+            if (cb2 != target) {
+                script_error("await 0x%08X timed out after %d iterations (callback2 is 0x%08X)",
+                             target, maxit, cb2);
+            }
         } else if (!strcmp(cmd, "untilout")) {
             /* Press UP then A while gMain.callback2 is still <hex>, stopping the moment it changes.
              * UP moves a Yes/No cursor to YES, so this confirms modal dialogs instead of answering
@@ -603,6 +659,10 @@ static int run_script(Driver* d, const char* script_path) {
             read_u32(HNS_RELEASE_GMAIN_BASE + 0x04, &cb2);
             printf("  [untilout] 0x%08X -> %s after %d iterations\n", target,
                    cb2 != target ? "LEFT" : "TIMEOUT", it);
+            if (cb2 == target) {
+                script_error("untilout 0x%08X timed out after %d iterations; the modal UI never "
+                             "released", target, maxit);
+            }
         } else if (!strcmp(cmd, "escape")) {
             /* Advance one dialogue step, then IMMEDIATELY try to move. A message that is
              * re-triggerable by A (talking to the NPC you stand in front of) reopens as soon as the
@@ -631,6 +691,10 @@ static int run_script(Driver* d, const char* script_path) {
                 hold(d, 0, 10, &previous, &have_previous);
             }
             printf("  [escape] %s after %d iterations\n", moved ? "MOVED" : "TIMEOUT", it);
+            if (!moved) {
+                script_error("escape %s timed out after %d iterations without freeing the player "
+                             "(the script lock never released)", a1, maxit);
+            }
         } else if (!strcmp(cmd, "matrix")) {
             Sample s;
             sample_state(d->cfg, d->frame, 0, &s);
@@ -638,11 +702,80 @@ static int run_script(Driver* d, const char* script_path) {
         } else if (!strcmp(cmd, "shot")) {
             write_ppm(a1);
         } else if (!strcmp(cmd, "savsave")) {
-            printf("  [savsave] %s -> %s\n", a1,
-                   libretro_host_flush_save_ram(a1) ? "OK" : "FAILED");
+            bool ok = libretro_host_flush_save_ram(a1);
+            printf("  [savsave] %s -> %s\n", a1, ok ? "OK" : "FAILED");
+            if (!ok) {
+                script_error("savsave '%s' failed: the battery save could not be flushed", a1);
+            }
         } else if (!strcmp(cmd, "savload")) {
-            printf("  [savload] %s -> %s\n", a1,
-                   libretro_host_load_save_ram(a1) ? "OK" : "FAILED");
+            struct stat st;
+            if (stat(a1, &st) != 0) {
+                script_error("savload '%s' failed: file does not exist or is unreadable", a1);
+            } else {
+                size_t expected = libretro_host_get_save_ram_size();
+                if ((size_t)st.st_size != expected) {
+                    script_error("savload '%s' failed: file is %ld bytes but the core expects %zu",
+                                 a1, (long)st.st_size, expected);
+                } else {
+                    bool ok = libretro_host_load_save_ram(a1);
+                    printf("  [savload] %s -> %s\n", a1, ok ? "OK" : "FAILED");
+                    if (!ok) {
+                        script_error("savload '%s' failed: the core rejected the battery save", a1);
+                    }
+                }
+            }
+        } else if (!strcmp(cmd, "assert-battle")) {
+            Sample s;
+            sample_state(d->cfg, d->frame, 0, &s);
+            const char* want = a1;
+            bool ok;
+            if (!strcmp(want, "inactive")) ok = (s.lifecycle == BATTLE_LIFECYCLE_INACTIVE);
+            else if (!strcmp(want, "active")) ok = (s.lifecycle == BATTLE_LIFECYCLE_ACTIVE);
+            else {
+                script_error("assert-battle expects 'inactive' or 'active', got '%s'", want);
+                ok = true;
+            }
+            if (!ok) {
+                script_error("assert-battle %s failed: lifecycle is %s at frame %d",
+                             want, lifecycle_name(s.lifecycle), s.frame);
+            } else {
+                printf("  [assert] battle=%s OK (frame %d)\n", want, s.frame);
+            }
+        } else if (!strcmp(cmd, "assert-in-battle-flag")) {
+            Sample s;
+            sample_state(d->cfg, d->frame, 0, &s);
+            bool want = !strcmp(a1, "true");
+            if (!s.in_battle_readable) {
+                script_error("assert-in-battle-flag %s failed: gMain.inBattle is unreadable", a1);
+            } else if (s.in_battle != want) {
+                script_error("assert-in-battle-flag %s failed: gMain.inBattle reads %s at frame %d",
+                             a1, s.in_battle ? "true" : "false", s.frame);
+            } else {
+                printf("  [assert] inBattle=%s OK (frame %d)\n", a1, s.frame);
+            }
+        } else if (!strcmp(cmd, "assert-party-count")) {
+            Sample s;
+            sample_state(d->cfg, d->frame, 0, &s);
+            int want = a2[0] ? atoi(a2) : 0;
+            if (strcmp(a1, "player") != 0) {
+                script_error("assert-party-count expects 'player <n>', got '%s'", a1);
+            } else if (s.player_party_count_prod != (uint8_t)want) {
+                script_error("assert-party-count player %d failed: party count is %u at frame %d",
+                             want, s.player_party_count_prod, s.frame);
+            } else {
+                printf("  [assert] playerPartyCount=%d OK (frame %d)\n", want, s.frame);
+            }
+        } else if (!strcmp(cmd, "assert-map")) {
+            uint16_t mx = 0, my = 0; uint8_t mg = 0, mn = 0;
+            read_map_position(&mx, &my, &mg, &mn);
+            int wg = a1[0] ? atoi(a1) : -1;
+            int wn = a2[0] ? atoi(a2) : -1;
+            if ((int)mg != wg || (int)mn != wn) {
+                script_error("assert-map %d %d failed: player is at %u/%u (pos %u,%u) frame %d",
+                             wg, wn, mg, mn, mx, my, d->frame);
+            } else {
+                printf("  [assert] map=%d/%d OK (frame %d)\n", wg, wn, d->frame);
+            }
         } else if (!strcmp(cmd, "reject-encounter")) {
             Sample s;
             sample_state(d->cfg, d->frame, 0, &s);
@@ -652,7 +785,7 @@ static int run_script(Driver* d, const char* script_path) {
                 g_violations++;
             }
         } else {
-            fprintf(stderr, "unknown script command: %s\n", cmd);
+            script_error("unknown command '%s'", cmd);
         }
     }
     if (script_path) fclose(f);
@@ -723,7 +856,24 @@ int main(int argc, char** argv) {
     libretro_host_step_frame();
     printf("save RAM size: %zu bytes\n", libretro_host_get_save_ram_size());
     if (sav_path) {
-        printf("battery save load: %s\n", libretro_host_load_save_ram(sav_path) ? "OK" : "FAILED");
+        /* A requested battery save that cannot be loaded is fatal: the scenario was written against
+         * a save that has a party and reachable battles, and running it without one would silently
+         * "pass" while testing nothing. */
+        struct stat st;
+        size_t expected = libretro_host_get_save_ram_size();
+        if (stat(sav_path, &st) != 0) {
+            fprintf(stderr, "error: --sav '%s' does not exist or is unreadable\n", sav_path);
+            g_script_errors++;
+        } else if ((size_t)st.st_size != expected) {
+            fprintf(stderr, "error: --sav '%s' is %ld bytes but the core expects %zu\n",
+                    sav_path, (long)st.st_size, expected);
+            g_script_errors++;
+        } else if (!libretro_host_load_save_ram(sav_path)) {
+            fprintf(stderr, "error: --sav '%s' was rejected by the core\n", sav_path);
+            g_script_errors++;
+        } else {
+            printf("battery save load: OK\n");
+        }
     }
 
     printf("\n-- runtime table (a row appears on every observed state change) --\n");
@@ -747,6 +897,9 @@ int main(int argc, char** argv) {
     printf("frames run                    : %d\n", driver.frame);
     printf("frames checked                : %d\n", g_frames_checked);
     printf("runtime invariant violations  : %d\n", g_violations);
+    printf("script errors                 : %d\n", g_script_errors);
+    printf("result                        : %s\n",
+           (g_violations == 0 && g_script_errors == 0) ? "PASS" : "FAIL");
 
     libretro_host_unload_rom();
     printf("-- regions after unload: %zu (must be 0) --\n", libretro_host_get_gba_region_count());
@@ -756,5 +909,6 @@ int main(int argc, char** argv) {
                ? "RETURNED TRUE (BAD)" : "rejected (correct)");
     libretro_host_cleanup();
 
-    return g_violations == 0 ? 0 : 1;
+    /* A run only succeeds when the scenario actually happened AND every invariant held. */
+    return (g_violations == 0 && g_script_errors == 0) ? 0 : 1;
 }

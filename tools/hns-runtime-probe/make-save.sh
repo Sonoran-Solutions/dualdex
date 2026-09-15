@@ -40,15 +40,36 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 # Append the flush so the in-game save lands on disk as a .sav.
+#
+# The probe is strict: it exits non-zero if any scripted step times out, an assertion fails, a save
+# operation fails, or a runtime invariant is violated. `set -e` therefore aborts this script as soon
+# as the progression stops matching the scenario, instead of falling through to a "successful" run
+# that never reached the save.
 SCRIPT="$WORK/fresh-rom.txt"
 cat scenarios/00-fresh-rom-to-starter-save.txt > "$SCRIPT"
 echo "savsave $OUT" >> "$SCRIPT"
 
+rm -f "$OUT"
 "$BIN" "$CORE" "$ROM" --script "$SCRIPT" --quiet
 
-if [ ! -s "$OUT" ]; then
+if [ ! -f "$OUT" ]; then
   echo "error: the run finished without writing $OUT" >&2
   exit 1
 fi
 
-echo "wrote $OUT ($(wc -c < "$OUT") bytes, sha256 $(sha256sum "$OUT" | cut -d' ' -f1))"
+# A GBA battery save for this ROM is exactly 128 KiB (0x20000). Anything else means the core
+# flushed a different memory region or a truncated image, which must not be handed on as evidence.
+SIZE="$(wc -c < "$OUT" | tr -d '[:space:]')"
+if [ "$SIZE" -ne 131072 ]; then
+  echo "error: expected 131072-byte GBA battery save, got $SIZE" >&2
+  exit 1
+fi
+
+# A blank battery image is all-0xFF; that is what an unwritten save looks like, so reject it rather
+# than shipping a technically-131072-byte file that contains no game state.
+if [ "$(tr -d '\377' < "$OUT" | wc -c | tr -d '[:space:]')" -eq 0 ]; then
+  echo "error: $OUT is a blank all-0xFF battery image; the in-game save did not happen" >&2
+  exit 1
+fi
+
+echo "wrote $OUT ($SIZE bytes, sha256 $(sha256sum "$OUT" | cut -d' ' -f1))"

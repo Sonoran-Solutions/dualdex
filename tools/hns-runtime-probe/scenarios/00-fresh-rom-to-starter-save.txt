@@ -109,6 +109,10 @@ matrix stage7-elm-second-talk
 walk DOWN 9
 wait 250
 matrix stage8-outside-lab
+# The save is only meaningful if the run really got out of the lab with a starter.
+assert-battle inactive
+assert-party-count player 1
+assert-map 0 0
 
 # --- save in-game ------------------------------------------------------------
 press START 6
@@ -130,3 +134,5 @@ wait 20
 press A 8
 wait 400
 matrix stage11-saved
+assert-battle inactive
+assert-party-count player 1

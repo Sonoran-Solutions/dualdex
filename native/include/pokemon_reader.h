@@ -79,10 +79,10 @@ typedef enum {
  *   UNKNOWN         the battle is active but the authoritative state cannot be read.
  */
 typedef enum {
-    ACTIVE_ENEMY_UNKNOWN = 0,
-    ACTIVE_ENEMY_NONE_ACTIVE = 1,
-    ACTIVE_ENEMY_SLOT = 2,
-    ACTIVE_ENEMY_AMBIGUOUS = 3
+    ACTIVE_ENEMY_UNKNOWN = 0,      // the authoritative state could not be read
+    ACTIVE_ENEMY_NONE_ACTIVE = 1,  // the authoritative state says there is no active opponent
+    ACTIVE_ENEMY_SLOT = 2,         // exactly one opponent, with an authoritative party slot
+    ACTIVE_ENEMY_AMBIGUOUS = 3     // more than one opponent; no single enemy may be named
 } ActiveEnemyState;
 
 /** Maximum number of battlers the upstream battle engine can have (MAX_BATTLERS_COUNT). */
@@ -382,8 +382,22 @@ BattleLifecycleState pokemon_read_battle_lifecycle(
  * `out_info->party_slot` is only ever set from `gBattlerPartyIndexes[opponent battler]` where the
  * opponent battler is identified by `gBattlerPositions`' side bit and the resulting slot is
  * inside the authoritative enemy party count. Species/HP coincidence, first-living-enemy and
- * slot-0 fallbacks are deliberately absent. Two active opponent battlers produce
- * ACTIVE_ENEMY_AMBIGUOUS; a battle that is not ACTIVE produces ACTIVE_ENEMY_NONE_ACTIVE.
+ * slot-0 fallbacks are deliberately absent.
+ *
+ * The returned state preserves the difference between "the authoritative state says there is no
+ * opponent" and "the authoritative state could not be read":
+ *
+ *   BATTLE_LIFECYCLE_INACTIVE      -> ACTIVE_ENEMY_NONE_ACTIVE
+ *   BATTLE_LIFECYCLE_INITIALIZING  -> ACTIVE_ENEMY_NONE_ACTIVE
+ *   BATTLE_LIFECYCLE_ENDING        -> ACTIVE_ENEMY_NONE_ACTIVE
+ *   BATTLE_LIFECYCLE_UNKNOWN       -> ACTIVE_ENEMY_UNKNOWN
+ *   BATTLE_LIFECYCLE_ACTIVE        -> ACTIVE_ENEMY_SLOT, or ACTIVE_ENEMY_AMBIGUOUS when two
+ *                                     opponent battlers are present, or ACTIVE_ENEMY_UNKNOWN
+ *                                     when the battle is real but the enemy party is unreadable
+ *
+ * ACTIVE_ENEMY_UNKNOWN is what an unreadable `gMain.inBattle` gate produces: the reader cannot
+ * tell "no battle" from "a battle it cannot see", so it must not claim either. UNKNOWN carries no
+ * slot, so it stays fail-closed.
  */
 ActiveEnemyState pokemon_resolve_active_enemy(
     DualDexGbaReadFn read,

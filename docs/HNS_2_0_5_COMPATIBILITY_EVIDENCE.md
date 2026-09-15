@@ -455,7 +455,7 @@ Added to the compiled-symbol tables in §2.1 (EWRAM) and §2.2 (IWRAM):
 | `gEnemyPartyCount` | `0x020342A9` | 1 | EWRAM | `src/pokemon.c:114` |
 | `gPlayerParty` | `0x02034768` | `0x258` | EWRAM | `src/pokemon.c` |
 | `gEnemyParty` | `0x020342B8` | `0x258` | EWRAM | `src/pokemon.c` |
-| `gMain` | `0x03005BC0` | `0x438` | IWRAM | `src/main.c:67` (`COMMON_DATA struct Main gMain = {0}`) |
+| `gMain` | `0x03005BC0` | `0x43c` | IWRAM | `src/main.c:67` (`COMMON_DATA struct Main gMain = {0}`) |
 
 ### 6.2 `gMain.inBattle`: the authoritative "a battle is running" flag
 
@@ -542,6 +542,22 @@ reported alongside the slot:
     battler_index = the loop index b that produced the slot   # NOT opponent_battlers
     opponent_battlers = number of present opponent-side battlers
 ```
+
+Lifecycle -> `ActiveEnemyState` mapping, which keeps "no opponent" and "cannot tell" apart:
+
+| Lifecycle | `ActiveEnemyState` | Why |
+|---|---|---|
+| `INACTIVE` | `NONE_ACTIVE` | the engine's own flag says no battle is running |
+| `INITIALIZING` | `NONE_ACTIVE` | the engine holds a battle but no opponent is presentable yet |
+| `ENDING` | `NONE_ACTIVE` | an outcome is recorded; teardown is under way |
+| `UNKNOWN` | `UNKNOWN` | the gate was unreadable, so neither claim is justified |
+| `ACTIVE`, one opponent | `SLOT` | authoritative battler -> party slot |
+| `ACTIVE`, two opponents | `AMBIGUOUS` | a single-opponent surface must not pick one |
+| `ACTIVE`, enemy party unreadable | `UNKNOWN` | a real battle whose enemy side cannot be read |
+
+`AMBIGUOUS` and `SLOT` are only ever produced from a **proven** `ACTIVE` battle. An unreadable gate
+over doubles-shaped EWRAM reports `UNKNOWN`, not `AMBIGUOUS`, because the engine has not been shown
+to be in a battle at all.
 
 `ActiveEnemyInfo.battler_index` is the actual index into `gBattlerPositions[]` /
 `gBattlerPartyIndexes[]` / `gBattleMons[]`. It is taken from the same iteration that established the

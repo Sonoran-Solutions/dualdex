@@ -2683,11 +2683,19 @@ static void test_hns_unreadable_lifecycle_gate_never_active(void) {
                 "an unreadable gate must report UNKNOWN");
     TEST_ASSERT(!state.in_battle_flag_readable, "the unreadable flag must not be reported as read");
 
-    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &no_iwram.table, no_iwram.ewram,
-                                             sizeof(no_iwram.ewram), cfg, &snap, &info) != ACTIVE_ENEMY_SLOT,
-                "an unreadable gate must never resolve a presentable opponent");
+    ActiveEnemyState unreadable_doubles =
+        pokemon_resolve_active_enemy(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                     sizeof(no_iwram.ewram), cfg, &snap, &info);
+    TEST_ASSERT(unreadable_doubles == ACTIVE_ENEMY_UNKNOWN,
+                "an unreadable gate over doubles-shaped EWRAM must report UNKNOWN");
+    TEST_ASSERT(unreadable_doubles != ACTIVE_ENEMY_AMBIGUOUS,
+                "ambiguity requires a PROVEN active battle; an unreadable gate proves nothing");
+    TEST_ASSERT(unreadable_doubles != ACTIVE_ENEMY_NONE_ACTIVE,
+                "an unreadable gate must not assert that there is definitely no opponent");
     TEST_ASSERT(info.party_slot == -1, "an unreadable gate must not yield a party slot");
     TEST_ASSERT(info.battler_index == -1, "an unreadable gate must not yield a battler index");
+    TEST_ASSERT(info.opponent_battlers == 0,
+                "no opponent battler may be counted while the battle authority is unreadable");
 
     // --- singles-shaped, two battlers -----------------------------------------------------------
     pokemon_reader_reset();
@@ -2705,13 +2713,125 @@ static void test_hns_unreadable_lifecycle_gate_never_active(void) {
     TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &no_iwram.table, no_iwram.ewram,
                                               sizeof(no_iwram.ewram), cfg, &state) == BATTLE_LIFECYCLE_UNKNOWN,
                 "an unreadable gate with two valid battlers must report UNKNOWN");
-    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &no_iwram.table, no_iwram.ewram,
-                                             sizeof(no_iwram.ewram), cfg, &snap, &info) != ACTIVE_ENEMY_SLOT,
-                "an unreadable gate with two valid battlers must not name an opponent");
+    ActiveEnemyState unreadable_singles =
+        pokemon_resolve_active_enemy(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                     sizeof(no_iwram.ewram), cfg, &snap, &info);
+    TEST_ASSERT(unreadable_singles == ACTIVE_ENEMY_UNKNOWN,
+                "an unreadable gate over singles-shaped EWRAM must report UNKNOWN");
     TEST_ASSERT(info.party_slot == -1, "no party slot may be produced without the gate");
+    TEST_ASSERT(info.battler_index == -1, "no battler index may be produced without the gate");
+    TEST_ASSERT(!pokemon_battle_is_single_opponent(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                                   sizeof(no_iwram.ewram), cfg),
+                "an unreadable gate is not a presentable single-opponent battle");
 
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_hns_unreadable_lifecycle_gate_never_active" ANSI_RESET "\n");
+}
+
+/**
+ * The lifecycle -> ActiveEnemyState mapping must preserve the difference between
+ * "the authoritative state says there is no opponent" (NONE_ACTIVE) and
+ * "the authoritative state could not be read" (UNKNOWN).
+ */
+static void test_hns_lifecycle_maps_to_distinct_active_enemy_states(void) {
+    printf("Running test_hns_lifecycle_maps_to_distinct_active_enemy_states...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    BattleStateRaw state;
+    PartySnapshot snap;
+    ActiveEnemyInfo info;
+
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 4);
+    hns_battle_begin_single_wild(&fx, 1, 19);
+
+    // --- INACTIVE -> NONE_ACTIVE ---------------------------------------------------------------
+    hns_battle_set_in_battle(&fx, false);
+    hns_battle_set_counters(&fx, 0, 0, 0);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_INACTIVE,
+                "the overworld must be INACTIVE");
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_NONE_ACTIVE,
+                "INACTIVE must map to NONE_ACTIVE");
+
+    // --- INITIALIZING -> NONE_ACTIVE -------------------------------------------------------------
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 0, 0, 0);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_INITIALIZING,
+                "an engine-held battle without a battler count must be INITIALIZING");
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_NONE_ACTIVE,
+                "INITIALIZING must map to NONE_ACTIVE");
+
+    // --- ENDING -> NONE_ACTIVE --------------------------------------------------------------------
+    hns_battle_begin_single_wild(&fx, 1, 19);
+    hns_battle_set_counters(&fx, 2, 0, 1 /* B_OUTCOME_WON */);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_ENDING,
+                "a recorded outcome must be ENDING");
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_NONE_ACTIVE,
+                "ENDING must map to NONE_ACTIVE");
+
+    // --- ACTIVE single -> SLOT ---------------------------------------------------------------------
+    hns_battle_begin_single_wild(&fx, 2, 21);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_ACTIVE,
+                "a fully described single battle must be ACTIVE");
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_SLOT,
+                "ACTIVE with one opponent must map to SLOT");
+    TEST_ASSERT(info.party_slot == 2, "the ACTIVE single must resolve the engine's slot (2)");
+
+    // --- ACTIVE doubles with two opponents -> AMBIGUOUS ----------------------------------------------
+    const uint32_t BATTLE_TYPE_DOUBLE = 1u << 0;
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 4, BATTLE_TYPE_DOUBLE, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 0);
+    hns_battle_set_battler(&fx, 1, 1, 0);
+    hns_battle_set_battler(&fx, 2, 2, 1);
+    hns_battle_set_battler(&fx, 3, 3, 1);
+    hns_battle_set_mon(&fx, 0, 155, 50);
+    hns_battle_set_mon(&fx, 1, 16, 40);
+    hns_battle_set_mon(&fx, 2, 158, 60);
+    hns_battle_set_mon(&fx, 3, 19, 35);
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                              cfg, &state) == BATTLE_LIFECYCLE_ACTIVE,
+                "a fully described doubles battle must be ACTIVE");
+    TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                                             cfg, &snap, &info) == ACTIVE_ENEMY_AMBIGUOUS,
+                "ACTIVE with two opponents must map to AMBIGUOUS");
+    TEST_ASSERT(info.party_slot == -1, "AMBIGUOUS must carry no slot");
+
+    // --- UNKNOWN (unreadable gate) -> UNKNOWN, never NONE_ACTIVE --------------------------------------
+    {
+        static FakeGba no_iwram;
+        fake_gba_init(&no_iwram, false, true);
+        hns_battle_begin_single_wild(&fx, 2, 21);
+        memcpy(no_iwram.ewram, gba.ewram, sizeof(no_iwram.ewram));
+        TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                                  sizeof(no_iwram.ewram), cfg, &state) ==
+                        BATTLE_LIFECYCLE_UNKNOWN,
+                    "an unreadable gate must be UNKNOWN");
+        ActiveEnemyState mapped =
+            pokemon_resolve_active_enemy(fake_gba_read, &no_iwram.table, no_iwram.ewram,
+                                         sizeof(no_iwram.ewram), cfg, &snap, &info);
+        TEST_ASSERT(mapped == ACTIVE_ENEMY_UNKNOWN, "UNKNOWN must map to ACTIVE_ENEMY_UNKNOWN");
+        TEST_ASSERT(mapped != ACTIVE_ENEMY_NONE_ACTIVE,
+                    "UNKNOWN must not be collapsed into NONE_ACTIVE");
+        TEST_ASSERT(info.party_slot == -1, "UNKNOWN must carry no slot");
+        TEST_ASSERT(info.battler_index == -1, "UNKNOWN must carry no battler index");
+    }
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_lifecycle_maps_to_distinct_active_enemy_states" ANSI_RESET "\n");
 }
 
 /**
@@ -2965,9 +3085,10 @@ static void test_hns_invalid_battler_indexes_fail_closed(void) {
                 "an unreadable authoritative gate must be UNKNOWN, never ACTIVE or INACTIVE");
     TEST_ASSERT(!state.in_battle_flag_readable, "the unreadable flag must not be reported as read");
     TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &no_iwram.table, no_iwram.ewram,
-                                             sizeof(no_iwram.ewram), cfg, &snap, &info) == ACTIVE_ENEMY_NONE_ACTIVE,
-                "an unreadable lifecycle flag must not produce an opponent");
+                                             sizeof(no_iwram.ewram), cfg, &snap, &info) == ACTIVE_ENEMY_UNKNOWN,
+                "an unreadable lifecycle flag must report UNKNOWN, not NONE_ACTIVE");
     TEST_ASSERT(info.party_slot == -1, "an unreadable lifecycle flag must not produce a slot");
+    TEST_ASSERT(info.battler_index == -1, "an unreadable lifecycle flag must not produce a battler");
 
     // --- NULL reader / NULL config ---------------------------------------------------------------
     TEST_ASSERT(pokemon_read_battle_lifecycle(NULL, NULL, gba.ewram, sizeof(gba.ewram), cfg, &state) ==
@@ -3297,6 +3418,7 @@ int main(void) {
     test_hns_authoritative_enemy_count_requires_reader_gate();
     test_hns_production_battle_presence_uses_lifecycle();
     test_hns_unreadable_lifecycle_gate_never_active();
+    test_hns_lifecycle_maps_to_distinct_active_enemy_states();
     test_hns_active_battler_index_is_the_real_battler();
     test_hns_battle_exit_clears_production_presence();
 

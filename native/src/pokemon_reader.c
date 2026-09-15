@@ -132,9 +132,12 @@ static const GameMemoryConfig CONFIG_EMERALD = {
 // Battle lifecycle symbols (the same `make hns` symbol table), all EWRAM-relative except gMain:
 //   gBattlerPositions        0x02000238             4
 //   gAbsentBattlerFlags      0x0200030A             1
-//   gMain                    0x03005BC0             0x438 (IWRAM); `inBattle` is bit 1 of the
-//                                                    byte at struct offset 0x439 (DWARF
-//                                                    DW_AT_data_bit_offset 8649)
+//   gMain                    0x03005BC0             0x43C (IWRAM; this is sizeof(struct Main) and
+//                                                    the `nm -S` symbol size). `state` is at
+//                                                    offset 0x438 and the 3-bit flag unit that
+//                                                    carries `inBattle` occupies the byte at
+//                                                    0x439 (DWARF DW_AT_data_bit_offset 8649);
+//                                                    the struct is padded to a 4-byte size.
 // `gMain.inBattle` is the flag the battle engine itself sets in CB2_InitBattleInternal() once
 // battle data has been prepared and clears in ReturnFromBattleToOverworld()/FreeRestoreBattleData()
 // when the battle is torn down, so it is the authoritative "the engine owns a battle" signal that
@@ -1801,9 +1804,25 @@ ActiveEnemyState pokemon_resolve_active_enemy(
 
     info->opponent_battlers = snapshot->opponent_battlers;
 
-    if (battle_state.lifecycle != BATTLE_LIFECYCLE_ACTIVE) {
-        info->state = ACTIVE_ENEMY_NONE_ACTIVE;
-        return info->state;
+    // Preserve the distinction the API makes between "the authoritative state says there is no
+    // opponent" and "the authoritative state could not be read at all".
+    switch (battle_state.lifecycle) {
+        case BATTLE_LIFECYCLE_UNKNOWN:
+            // The gate itself was unreadable. Claiming NONE_ACTIVE here would assert knowledge
+            // DualDex does not have: it cannot tell "no battle" from "battle we cannot see".
+            info->state = ACTIVE_ENEMY_UNKNOWN;
+            return info->state;
+        case BATTLE_LIFECYCLE_INACTIVE:
+        case BATTLE_LIFECYCLE_INITIALIZING:
+        case BATTLE_LIFECYCLE_ENDING:
+            // The engine's own state says there is no presentable opponent right now.
+            info->state = ACTIVE_ENEMY_NONE_ACTIVE;
+            return info->state;
+        case BATTLE_LIFECYCLE_ACTIVE:
+            break;
+        default:
+            info->state = ACTIVE_ENEMY_UNKNOWN;
+            return info->state;
     }
     if (info->opponent_battlers == 0) {
         info->state = ACTIVE_ENEMY_NONE_ACTIVE;

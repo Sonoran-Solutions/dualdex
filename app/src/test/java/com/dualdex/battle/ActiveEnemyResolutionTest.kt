@@ -10,6 +10,7 @@ import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -104,6 +105,65 @@ class ActiveEnemyResolutionTest {
         assertEquals(ActiveEnemyState.UNKNOWN, decoded.state)
         assertNull("an unknown state must not expose slot 0", decoded.partySlot)
         assertFalse(decoded.hasResolvedSlot)
+    }
+
+    /**
+     * The native tuple's UNKNOWN state (`ACTIVE_ENEMY_UNKNOWN`, code 0) with slot -1 must survive
+     * decoding as UNKNOWN. Collapsing it into NONE_ACTIVE would assert knowledge the reader does
+     * not have ("there is definitely no opponent"), and collapsing it into slot 0 would invent one.
+     */
+    @Test
+    fun nativeUnknownTuple_staysUnknownAndIsNotCollapsedIntoNoneActive() {
+        val decoded = ActiveEnemyResolution.fromNativeArray(intArrayOf(0, -1, -1, 0, 0))
+
+        assertEquals(ActiveEnemyState.UNKNOWN, decoded.state)
+        assertNotEquals(
+            "UNKNOWN must not be converted into NONE_ACTIVE",
+            ActiveEnemyState.NONE_ACTIVE,
+            decoded.state
+        )
+        assertNull(decoded.partySlot)
+        assertNull(decoded.battlerIndex)
+        assertEquals(0, decoded.opponentBattlers)
+        assertFalse(decoded.hasResolvedSlot)
+        assertFalse(decoded.state.isPresentable)
+
+        // The three non-presentable states must remain mutually distinct.
+        assertEquals(ActiveEnemyState.NONE_ACTIVE,
+            ActiveEnemyResolution.fromNativeArray(intArrayOf(1, -1, -1, 0, 0)).state)
+        assertEquals(ActiveEnemyState.AMBIGUOUS,
+            ActiveEnemyResolution.fromNativeArray(intArrayOf(3, -1, -1, 2, 0)).state)
+    }
+
+    /**
+     * An unreadable authoritative gate surfaces as an unknown opponent with no slot and, through
+     * the view model, no active enemy index -- never slot 0 and never a fabricated opponent.
+     */
+    @Test
+    fun unreadableGate_keepsUnknownThroughTheViewModel() {
+        val coordinator = EnemyResolutionCoordinator(
+            resolution = ActiveEnemyResolution(
+                state = ActiveEnemyState.UNKNOWN,
+                partySlot = null,
+                battlerIndex = null,
+                opponentBattlers = 0
+            ),
+            enemies = arrayOf(mon(150), mon(151)),
+            inBattle = true
+        )
+        val vm = verifiedViewModel(coordinator)
+        vm.pollTick()
+        vm.pollTick()
+
+        assertEquals(ActiveEnemyState.UNKNOWN, vm.activeEnemyResolution.value.state)
+        assertNotEquals(
+            "the view model must not downgrade UNKNOWN to NONE_ACTIVE",
+            ActiveEnemyState.NONE_ACTIVE,
+            vm.activeEnemyResolution.value.state
+        )
+        assertNull(vm.activeEnemyResolution.value.partySlot)
+        assertFalse(vm.activeEnemyResolution.value.hasResolvedSlot)
+        assertEquals(-1, vm.activeEnemyMemberIndex.value)
     }
 
     @Test

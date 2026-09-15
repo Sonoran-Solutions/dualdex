@@ -218,6 +218,23 @@ def eval_simple_c_expr(expr):
     return expr
 
 
+def require_field(body, field_name, move_id, move_constant, move_name):
+    """Extract a required move initializer field without conflating absence with zero."""
+    match = re.search(r'\.' + re.escape(field_name) + r'\s*=\s*([^,\n]+)', body)
+    if not match:
+        raise ValueError(
+            f"Missing required field '.{field_name}' for move {move_id} "
+            f"({move_constant}, {move_name})"
+        )
+    expression = match.group(1).strip()
+    if not expression:
+        raise ValueError(
+            f"Empty required field '.{field_name}' for move {move_id} "
+            f"({move_constant}, {move_name})"
+        )
+    return eval_simple_c_expr(expression)
+
+
 def format_species_name(raw_name):
     clean = raw_name.strip()
     if clean in SPECIAL_NAMES:
@@ -268,6 +285,46 @@ def format_move_name(raw_name):
     return " ".join(formatted_words)
 
 
+def extract_designated_entries(output, table_start, key_pattern, table_name):
+    """Extract only direct children of a designated C initializer table."""
+    table_open = output.find("{", table_start)
+    if table_open == -1:
+        raise ValueError(f"Could not find opening brace for {table_name}")
+
+    entries = []
+    pos = table_open + 1
+    depth = 1
+    entry_pattern = re.compile(r"\[\s*(" + key_pattern + r")\s*\]\s*=\s*\{")
+
+    while pos < len(output) and depth > 0:
+        if depth == 1:
+            match = entry_pattern.match(output, pos)
+            if match:
+                key = match.group(1)
+                brace_start = match.end() - 1
+                body_depth = 1
+                body_pos = brace_start + 1
+                while body_pos < len(output) and body_depth > 0:
+                    if output[body_pos] == "{":
+                        body_depth += 1
+                    elif output[body_pos] == "}":
+                        body_depth -= 1
+                    body_pos += 1
+                if body_depth != 0:
+                    raise ValueError(f"Unclosed initializer for {table_name} entry {key}")
+                entries.append((key, output[brace_start + 1:body_pos - 1]))
+                pos = body_pos
+                continue
+
+        if output[pos] == "{":
+            depth += 1
+        elif output[pos] == "}":
+            depth -= 1
+        pos += 1
+
+    return entries
+
+
 def extract_species(cpp_bin, upstream_dir):
     output = run_cpp(cpp_bin, upstream_dir, "src/pokemon.c")
     start = output.find("gSpeciesInfo[] =")
@@ -276,30 +333,15 @@ def extract_species(cpp_bin, upstream_dir):
     if start == -1:
         raise ValueError("Could not find gSpeciesInfo in preprocessed src/pokemon.c")
 
-    idx = output.find("{", start)
-    pos = idx + 1
-    length = len(output)
-
     species_dict = {}
+    seen_species_ids = set()
 
-    while pos < length:
-        m = re.search(r"\[\s*(\d+)\s*\]\s*=\s*\{", output[pos:pos+5000])
-        if not m:
-            break
-        species_id = int(m.group(1))
-        brace_start = pos + m.end() - 1
-
-        depth = 1
-        p = brace_start + 1
-        while p < length and depth > 0:
-            ch = output[p]
-            if ch == '{':
-                depth += 1
-            elif ch == '}':
-                depth -= 1
-            p += 1
-        body = output[brace_start+1:p-1]
-        pos = p
+    entries = extract_designated_entries(output, start, r"\d+", "gSpeciesInfo")
+    for species_id_raw, body in entries:
+        species_id = int(species_id_raw)
+        if species_id in seen_species_ids:
+            raise ValueError(f"Duplicate species ID {species_id} in preprocessed gSpeciesInfo")
+        seen_species_ids.add(species_id)
 
         if species_id == 0:  # SPECIES_NONE
             continue
@@ -409,12 +451,15 @@ def extract_moves(cpp_bin, upstream_dir):
     if start == -1:
         raise ValueError("Could not find gMovesInfo in preprocessed src/move.c")
 
-    entries = re.findall(
-        r"\[\s*(MOVE_[A-Za-z0-9_]+|\d+)\s*\]\s*=\s*\{([^}]+)\}",
-        moves_src_out[start:]
+    entries = extract_designated_entries(
+        moves_src_out,
+        start,
+        r"MOVE_[A-Za-z0-9_]+|\d+",
+        "gMovesInfo",
     )
 
     moves_dict = {}
+    seen_move_ids = set()
 
     for mconst, body in entries:
         if mconst.isdigit():
@@ -425,6 +470,13 @@ def extract_moves(cpp_bin, upstream_dir):
         if mid is None or mid == 0:  # MOVE_NONE
             continue
 
+        if mid in seen_move_ids:
+            raise ValueError(
+                f"Duplicate move ID {mid} in preprocessed gMovesInfo "
+                f"({mconst})"
+            )
+        seen_move_ids.add(mid)
+
         name_m = re.search(r'\.name\s*=\s*(?:\(const u8\[\]\)\s*)?_\(\"([^\"]+)\"\)', body)
         if not name_m:
             continue
@@ -432,15 +484,11 @@ def extract_moves(cpp_bin, upstream_dir):
         if raw_name in ["-", "???"] or not raw_name:
             continue
 
-        def get_field(fname):
-            m = re.search(r'\.' + fname + r'\s*=\s*([^,\n]+)', body)
-            return eval_simple_c_expr(m.group(1)) if m else None
-
-        power = int(get_field("power") or 0)
-        acc = int(get_field("accuracy") or 0)
-        pp = int(get_field("pp") or 0)
-        type_raw = get_field("type") or "TYPE_NORMAL"
-        cat_raw = get_field("category") or "DAMAGE_CATEGORY_PHYSICAL"
+        power = int(require_field(body, "power", mid, mconst, raw_name))
+        acc = int(require_field(body, "accuracy", mid, mconst, raw_name))
+        pp = int(require_field(body, "pp", mid, mconst, raw_name))
+        type_raw = require_field(body, "type", mid, mconst, raw_name)
+        cat_raw = require_field(body, "category", mid, mconst, raw_name)
 
         if type_raw == "TYPE_MYSTERY":
             raise ValueError(f"Move {mid} ({raw_name}) uses audited TYPE_MYSTERY; refusing to coerce to Normal")

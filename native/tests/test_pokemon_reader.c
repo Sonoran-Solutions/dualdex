@@ -733,11 +733,16 @@ static void test_hns_config_matches_compiled_evidence(void) {
     const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
     TEST_ASSERT(cfg != NULL, "Heart and Soul config must exist");
 
-    // Compiled symbol addresses (pokehns.sym), expressed as EWRAM-relative offsets.
-    TEST_ASSERT(cfg->player_party_offset == 0x34768, "gPlayerParty must be 0x02034768 in 2.0.5");
-    TEST_ASSERT(cfg->player_party_count_offset == 0x342A8, "gPlayerPartyCount must be 0x020342A8");
-    TEST_ASSERT(cfg->enemy_party_offset == 0x342B8, "gEnemyParty must be 0x020342B8");
-    TEST_ASSERT(cfg->enemy_party_count_offset == 0x342A9, "gEnemyPartyCount must be 0x020342A9");
+    // Addresses verified against the OFFICIAL 2.0.5 release ROM at runtime, not against a local
+    // build. A from-source `make hns` build places this whole EWRAM group 4 bytes higher
+    // (gPlayerParty 0x02034768, gPlayerPartyCount 0x020342A8, gEnemyParty 0x020342B8,
+    // gEnemyPartyCount 0x020342A9); reading the release ROM at the compiled addresses yields a
+    // 4-byte-shifted party and an empty enemy party, which is exactly the discrepancy the runtime
+    // evidence fixture below reproduces.
+    TEST_ASSERT(cfg->player_party_offset == 0x34764, "gPlayerParty must be 0x02034764 in the release ROM");
+    TEST_ASSERT(cfg->player_party_count_offset == 0x342A4, "gPlayerPartyCount must be 0x020342A4");
+    TEST_ASSERT(cfg->enemy_party_offset == 0x342B4, "gEnemyParty must be 0x020342B4");
+    TEST_ASSERT(cfg->enemy_party_count_offset == 0x342A5, "gEnemyPartyCount must be 0x020342A5");
     TEST_ASSERT(cfg->battle_mons_offset == 0x420, "gBattleMons must be 0x02000420");
     TEST_ASSERT(cfg->battler_party_indexes_offset == 0x144, "gBattlerPartyIndexes must be 0x02000144");
     TEST_ASSERT(cfg->battle_type_flags_offset == 0xAC, "gBattleTypeFlags must be 0x020000AC");
@@ -847,7 +852,7 @@ static void test_hns_enemy_party_count_is_authoritative(void) {
 
     const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
     TEST_ASSERT(cfg != NULL, "H&S config required");
-    TEST_ASSERT(cfg->enemy_party_count_offset == 0x342A9, "gEnemyPartyCount symbol must be 0x342A9");
+    TEST_ASSERT(cfg->enemy_party_count_offset == 0x342A5, "gEnemyPartyCount symbol must be 0x342A5");
 
     static FakeGba gba;
     HnsBattleFixture fx;
@@ -908,6 +913,132 @@ static void test_hns_enemy_party_count_is_authoritative(void) {
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_hns_enemy_party_count_is_authoritative" ANSI_RESET "\n");
 }
+
+/**
+ * Runtime-evidence fixture: party bytes captured from the official H&S 2.0.5 release ROM.
+ *
+ * These 100 bytes are verbatim `gPlayerParty[0]` / `gEnemyParty[0]` as read out of EWRAM while the
+ * official release ROM was running (`tools/hns-runtime-probe`). The player slot is the level 5
+ * Chikorita handed out in New Bark Town's lab; its BoxPokemon checksum validates against the
+ * captured substructs, its nickname decodes to "CHIKORITA", and its decrypted species word is 152.
+ *
+ * The fixture exists because the from-source symbol table is 4 bytes away from the release ROM for
+ * this whole EWRAM group. Placing these exact bytes at the compiled offsets yields a checksum
+ * mismatch, so the old addresses cannot decode the same party - which is the discrepancy this test
+ * pins down.
+ */
+static const uint8_t kHnsReleasePlayerParty0[100] = {
+    0xFB, 0x7B, 0xE9, 0x99, 0x42, 0x14, 0x23, 0xCE, 0xBD, 0xC2,
+    0xC3, 0xC5, 0xC9, 0xCC, 0xC3, 0xCE, 0xBB, 0xFF, 0x02, 0x02,
+    0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0x00, 0xBA, 0xC2,
+    0x00, 0x00, 0xB9, 0x50, 0x4F, 0x56, 0xD1, 0xF8, 0xB6, 0x45,
+    0xB9, 0x6F, 0xCA, 0x57, 0x21, 0x07, 0xCA, 0x57, 0x3E, 0x6F,
+    0xCA, 0x57, 0xB9, 0x29, 0x0B, 0x57, 0xB9, 0x6F, 0xCA, 0x57,
+    0xB9, 0x6F, 0xCA, 0x57, 0xB9, 0x6F, 0xCA, 0x57, 0x98, 0x6F,
+    0xE7, 0x57, 0xB9, 0x6F, 0xCA, 0x57, 0x9A, 0x47, 0xCA, 0x57,
+    0x00, 0x00, 0x00, 0x00, 0x05, 0xFF, 0x13, 0x00, 0x13, 0x00,
+    0x0B, 0x00, 0x0B, 0x00, 0x0A, 0x00, 0x0A, 0x00, 0x0B, 0x00,
+};
+
+/** Verbatim `gEnemyParty[0]` captured during the same session, mid wild battle (species 19). */
+static const uint8_t kHnsReleaseEnemyParty0[100] = {
+    0x6D, 0x72, 0x1A, 0x6B, 0x42, 0x14, 0x23, 0xCE, 0xCC, 0xBB,
+    0xCE, 0xCE, 0xBB, 0xCE, 0xBB, 0xFF, 0x96, 0x17, 0x02, 0x02,
+    0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0x00, 0x50, 0xF8,
+    0x00, 0x00, 0x3C, 0x6E, 0x39, 0xA5, 0x34, 0x66, 0x39, 0xA5,
+    0x2F, 0x20, 0xB8, 0xA5, 0x2F, 0x2A, 0xBA, 0xA4, 0xA4, 0x82,
+    0x11, 0x9C, 0x2F, 0x66, 0x39, 0x85, 0x2F, 0x66, 0x39, 0xA5,
+    0x2F, 0x66, 0x39, 0xA5, 0x2F, 0x66, 0x39, 0xA5, 0x0E, 0x66,
+    0x1E, 0xA5, 0x2F, 0x66, 0x39, 0xA5, 0x0C, 0x78, 0x39, 0xA5,
+    0x00, 0x00, 0x00, 0x00, 0x03, 0xFF, 0x0F, 0x00, 0x0F, 0x00,
+    0x08, 0x00, 0x06, 0x00, 0x09, 0x00, 0x07, 0x00, 0x07, 0x00,
+};
+
+#define HNS_TEST_SPECIES_CHIKORITA 152
+
+/**
+ * The release-ROM party bytes must parse at the release-ROM addresses, and must NOT parse at the
+ * from-source compiled addresses.
+ */
+static void test_hns_release_rom_party_fixture(void) {
+    printf("Running test_hns_release_rom_party_fixture...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(cfg != NULL, "H&S config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+
+    // --- Positive: runtime-captured bytes at the runtime-proven addresses. ---------------------
+    {
+        uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+        TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+
+        pokemon_reader_reset();
+        ewram[cfg->player_party_count_offset] = 1;
+        ewram[cfg->enemy_party_count_offset] = 1;
+        memcpy(ewram + cfg->player_party_offset, kHnsReleasePlayerParty0, sizeof(kHnsReleasePlayerParty0));
+        memcpy(ewram + cfg->enemy_party_offset, kHnsReleaseEnemyParty0, sizeof(kHnsReleaseEnemyParty0));
+
+        PartySnapshot snapshot;
+        uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, cfg, &snapshot);
+        TEST_ASSERT(count == 1, "release-ROM fixture must yield exactly one party member");
+        TEST_ASSERT(snapshot.members[0].species == HNS_TEST_SPECIES_CHIKORITA,
+                    "release-ROM party slot 0 must decode as Chikorita (152)");
+        TEST_ASSERT(snapshot.members[0].level == 5, "captured starter must decode as level 5");
+        TEST_ASSERT(snapshot.members[0].current_hp == 19 && snapshot.members[0].max_hp == 19,
+                    "captured starter must decode as 19/19 HP");
+
+        PartySnapshot enemy;
+        uint8_t enemy_count = pokemon_read_enemy_party_gba(NULL, NULL, ewram, EWRAM_SIZE, cfg, &enemy);
+        TEST_ASSERT(enemy_count == 0,
+                    "the enemy party must stay fail-closed without an absolute-address reader");
+
+        free(ewram);
+    }
+
+    // --- The captured enemy slot must decode through the battle-gated enemy reader. --------------
+    {
+        static FakeGba gba;
+        HnsBattleFixture fx;
+        pokemon_reader_reset();
+        hns_battle_fixture_init(&fx, &gba, cfg);
+        hns_battle_fill_player_party(&fx, 1);
+        hns_battle_fill_enemy_party(&fx, 6);
+        hns_battle_begin_single_wild(&fx, 0, 19);
+        memcpy(gba.ewram + cfg->enemy_party_offset, kHnsReleaseEnemyParty0,
+               sizeof(kHnsReleaseEnemyParty0));
+        gba.ewram[cfg->enemy_party_count_offset] = 1;
+
+        PartySnapshot enemy;
+        uint8_t enemy_count = pokemon_read_enemy_party_gba(
+            fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg, &enemy);
+        TEST_ASSERT(enemy_count == 1, "release-ROM enemy fixture must yield exactly one member");
+        TEST_ASSERT(enemy.members[0].species == 19,
+                    "release-ROM enemy slot 0 must decode as the captured wild species");
+    }
+
+    // --- Negative control: the same bytes at the from-source compiled addresses must not decode. --
+    {
+        uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+        TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+
+        pokemon_reader_reset();
+        ewram[0x342A8] = 1;  /* compiled gPlayerPartyCount */
+        memcpy(ewram + 0x34768, kHnsReleasePlayerParty0, sizeof(kHnsReleasePlayerParty0));
+
+        PartySnapshot snapshot;
+        uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, cfg, &snapshot);
+        TEST_ASSERT(count == 0 || snapshot.members[0].species != HNS_TEST_SPECIES_CHIKORITA,
+                    "the from-source compiled party address must not decode the release-ROM party; "
+                    "a passing read here would mean the fixture no longer reproduces the discrepancy");
+
+        free(ewram);
+    }
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_release_rom_party_fixture" ANSI_RESET "\n");
+}
+
 
 static void test_expansion_ability_num_is_not_the_gigantamax_bit(void) {
     printf("Running test_expansion_ability_num_is_not_the_gigantamax_bit...\n");
@@ -3395,6 +3526,7 @@ int main(void) {
 
     // Heart & Soul 2.0.5 evidence-backed foundation (issue #40, first implementation phase).
     test_hns_config_matches_compiled_evidence();
+    test_hns_release_rom_party_fixture();
     test_hns_party_counts_are_independent_symbols();
     test_hns_enemy_party_count_is_authoritative();
     test_expansion_ability_num_is_not_the_gigantamax_bit();

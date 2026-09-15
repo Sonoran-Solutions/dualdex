@@ -892,3 +892,226 @@ All committed regression tests use synthetic memory buffers and source-derived f
 no ROM-derived data, and no copyrighted content is committed. The runtime probe is a developer
 tool: it is not built by `ci.sh`, not shipped in the APK, and does not add the H&S SHA-256 to any
 profile.
+
+---
+
+## 11. Runtime battle validation against the official release ROM (issue #1)
+
+**Validation date: 2026-09-15.** This section is additive; nothing above is rewritten. It replaces
+the `NOT RUNTIME VERIFIED` rows of §6.5 only where a live run actually produced the transition.
+
+Phase 1 of issue #1 — "no save with a party and reachable battles" — is resolved in this section.
+
+### 11.1 Exact environment
+
+| Item | Value |
+|---|---|
+| ROM | Pokémon Heart & Soul 2.0.5 (UPS patch applied to Emerald (U)) |
+| ROM SHA-256 | `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b` |
+| mGBA core | libretro host build of the bundled `cores/mgba-src` checkout (`e31759b24e7a4e3899285ff720d7b573ac328ae7`), x86-64, BuildID `150660aa40aa7f42f9cde07d0589197f07acb414` |
+| Tool | `tools/hns-runtime-probe` (production readers compiled unchanged into the host harness) |
+| Save format | plain 128 KiB (`0x20000`) GBA battery save via `RETRO_MEMORY_SAVE_RAM` |
+
+`sha256Hashes` in `heart_and_soul.json` is **still empty**; the hash above is used only as a local
+precondition for this evidence.
+
+### 11.2 Save provenance (issue #1 phase 1)
+
+The blocker recorded in §4.4 and §9.6 was that no save with a party existed. It was removed by
+driving the official ROM through **normal game progression** with scripted button input:
+
+```text
+copyright -> title -> main menu -> H&S challenge menu -> H&S/Oak speech -> naming screen
+-> bedroom (mandatory wall-clock setup) -> downstairs (mom dialogue) -> New Bark Town
+-> Elm's laboratory -> starter selection (Chikorita) -> nickname -> Elm again -> save
+```
+
+* No RAM writes, no cheats, no ROM patching, no save editing. Every step is an ordinary key press.
+* The save is written by the game's own save routine (`START` → `SAVE` → `YES`) and then flushed
+  from the core's battery RAM to a `.sav`. The resulting file is 131,072 bytes
+  (`sha256 c434b491d03473d7fa2a2ff6a9e97275eac105b6bf624255bf1c3d41d24222a3` for the run recorded
+  here; the bytes depend on the generated trainer ID, so that digest identifies one local run
+  rather than a required value).
+* The `.sav`, the ROM and any save state stay outside the repository and are never committed.
+* Driver: `tools/hns-runtime-probe/scenarios/00-fresh-rom-to-starter-save.txt`, wrapped by
+  `tools/hns-runtime-probe/make-save.sh`. Verified end to end: the freshly generated save was
+  loaded back into the same ROM and drove scenarios 10 and 20 to a live wild battle (§11.3).
+
+Two H&S-specific input facts were required and are worth recording:
+
+1. **The challenge menu is exited with `R`, not `A`.** `A` cycles the highlighted option's value
+   (the menu never advances), while `R` walks the tabs; `R` on the last tab jumps straight to the
+   save-and-continue path (`SwitchTab` in `src/challenge_menu.c`). A pure `A` mash stalls on this
+   screen forever, which is why the earlier boot-only runs never left it.
+2. **Yes/No prompts default to `NO`.** `CreateYesNoMenu(..., initialCursorPos = 1)` selects `NO`
+   for the clock confirmation, and the same `NO` default makes Elm's dialogue loop. Pressing
+   `UP` before `A` is therefore required; a blind `A` mash can answer `YES` to the starter prompt
+   and still fall back into the refusal loop.
+
+### 11.3 Runtime scenario matrix (replaces the `NOT RUNTIME VERIFIED` rows of §6.5)
+
+Result vocabulary: `PASS`, `IMPLEMENTATION BUG`, `SOURCE/RELEASE LAYOUT MISMATCH`,
+`NOT RUNTIME VERIFIED`.
+
+| Scenario | Expected (PR #45 architecture) | Runtime observed | DualDex output | Result |
+|---|---|---|---|---|
+| A. Overworld baseline | `gMain.inBattle == false`, lifecycle `INACTIVE`, presence `ABSENT`, active enemy `NONE_ACTIVE`, empty enemy surface | `inBattle=false`; `gBattlersCount=0`; `gBattleTypeFlags=0`; `gBattleOutcome=0`; `gBattlerPositions=0,0,0,0`; `gBattleMons` species `0,0,0,0`; `playerPartyCount=1` | `INACTIVE` / `NONE_ACTIVE` / `enemyParty=0` / `slot=-1` / presence `ABSENT` | **PASS** |
+| B. Wild battle entry | `ACTIVE` only when `gMain.inBattle` is set; `gBattlersCount == 2`; presence `PRESENT`; one player + one opponent battler; resolved opponent slot from `gBattlerPartyIndexes` | observed `INACTIVE` → `INITIALIZING` (frame 1606, `battlers=0`, positions `255,255,255,255`) → `ACTIVE` (frame 1609, `battlers=2`, `typeFlags=0x4`, positions `0,1`, `partyIndexes[0..1] = 0,0`, species `152,19`) | `ACTIVE` / `WILD_SINGLE` / `PRESENT` / `activeEnemy=SLOT` / `resolvedBattler=1` / `resolvedEnemySlot=0` / `opponentBattlers=1` / `activePlayerSlot=0` | **PASS** |
+| C. Wild battle HP update | live HP in `gBattleMons[b].hp` updates and DualDex applies it to the authoritative party slot | opponent HP `13/15` → `8` → `2` → `0` and player HP `20` → `17` across turns, all read from `gBattleMons[b]` (stride 136, `hp` at `0x2A`, player at battler 0 and opponent at battler 1) | player and enemy snapshots follow `gBattleMons[resolvedBattler].hp` for their resolved party slots | **PASS** |
+| D. Wild battle exit | `ACTIVE` → `ENDING` → `INACTIVE`; stale `gBattleMons`/`gBattlerPartyIndexes`/`gEnemyPartyCount` cannot keep presence or an active enemy alive | at frame 2878 `gMain.inBattle` clears while `gBattlersCount` **still reads 2**, `gBattlerPositions` **still reads 0,1** and `gBattleMons[0].hp` **still reads 19** | production presence `ABSENT`, lifecycle `INACTIVE`, active-enemy `NONE_ACTIVE` with `slot=-1` on every frame after the clear — the stale words are ignored | **PASS** |
+| E. Trainer battle | `BATTLE_TYPE_TRAINER`, `gEnemyPartyCount` bounds, initial active enemy slot | not driven — the first accessible trainer with two Pokémon is well beyond Route 29 | — | **NOT RUNTIME VERIFIED** |
+| F. Opponent faint + replacement | fainted opponent never displays a stale previous opponent; replacement resolves to the new exact enemy party index | opponent faint observed: `gBattleMons[1].hp == 0`, `fainted=1`, lifecycle `ENDING`, enemy surface cleared (`enemyParty=0`, `slot=-1`) — the **replacement** half needs a trainer with a second Pokémon | faint + fail-closed clearing: **PASS**; replacement: **NOT RUNTIME VERIFIED** |
+| G. Opponent switch without faint | slot follows the rewritten `gBattlerPartyIndexes` | not reachable on a wild-only save | — | **NOT RUNTIME VERIFIED** |
+| H. Player switch | player side from `gBattlerPositions`, slot from `gBattlerPartyIndexes` | only one party member exists on this save, so no switch was possible | active player slot resolved to `0` with `known=true` throughout | **NOT RUNTIME VERIFIED** (slot resolution itself: PASS) |
+| I. Player faint + forced replacement | `hp == 0`, active player slot withheld during replacement, no stale slot survives | not driven (the starter did not faint in the observed battles) | — | **NOT RUNTIME VERIFIED** |
+| J. Stat-stage runtime evidence | `BattlePokemon.statStages` at offset `0x18` produces expected stage transitions | observed a live transition `6 → 5` at `statStages[2]` of `gBattleMons[0]` while the message "…" ran, i.e. a real stage drop read at the declared offset (neutral `6`) | stages are read from the declared offset; the reader does not interpret them further | **PASS** (representative, not exhaustive) |
+| K. Doubles | `gBattlersCount == 4`, two opponent-side battlers, `AMBIGUOUS`, no slot | not reachable on this save | — | **NOT RUNTIME VERIFIED** |
+| L. Partner / multi | `MULTI_OR_PARTNER`, `AMBIGUOUS`, no slot | not reachable on this save | — | **NOT RUNTIME VERIFIED** |
+
+Runtime counts for the two full runs (save regenerated from the fresh ROM, then loaded back):
+
+```text
+scenarios/00-fresh-rom-to-starter-save.txt :  frames run 20699   invariant violations 0
+scenarios/10-wild-battle-entry.txt         :  frames run 1845    invariant violations 0
+scenarios/20-wild-battle-full.txt          :  frames run 3871    invariant violations 0
+```
+
+The distinct state rows observed by scenario 20 give the whole lifecycle in one trace
+(`eParty` is `gEnemyPartyCount` raw / production, `ae` is the active-enemy state):
+
+```text
+    1  INACTIVE      NONE        ABSENT   inB=false  bat=0  eParty=0/0  pParty=0
+  209  INACTIVE      NONE        ABSENT   inB=false  bat=0  eParty=1/0  pParty=1   <- stale raw count, production still empty
+ 1558  INITIALIZING  UNKNOWN     UNKNOWN  inB=true   bat=0  pos=255,255,255,255
+ 1561  ACTIVE        WILD_SINGLE PRESENT  inB=true   bat=2  pos=0,1  eParty=1/1
+ 1586  ACTIVE        WILD_SINGLE PRESENT  species=152,19  hp=20,13  ae=SLOT slot=0 bat=1 opp=1
+ 2156  ACTIVE        WILD_SINGLE PRESENT  hp=20,8
+ 2299  ACTIVE        WILD_SINGLE PRESENT  hp=20,8   statStages[0][2] 6 -> 5
+ 2580  ACTIVE        WILD_SINGLE PRESENT  hp=20,2
+ 2730  ACTIVE        WILD_SINGLE PRESENT  hp=17,2                         <- player side damaged
+ 2895  ACTIVE        WILD_SINGLE PRESENT  hp=17,0   fainted=1
+ 3070  ENDING        UNKNOWN     UNKNOWN  eParty=1/0  ae=NONE_ACTIVE slot=-1
+ 3120  INACTIVE      NONE        ABSENT   inB=false  bat=2  pos=0,1  hp=17,0  <- all stale, all ignored
+```
+
+### 11.4 Runtime invariant results
+
+The probe asserts these on **every** frame and exits non-zero on the first violation. Across all
+runs of the official ROM (including the ~328,000-frame fresh-ROM save-generation run) the count was
+**0 violations**:
+
+| Invariant | Result |
+|---|---|
+| lifecycle `ACTIVE` only while `gMain.inBattle` is authoritatively true | held on every frame |
+| production presence agrees with the lifecycle | held on every frame (incl. the `ENDING` window) |
+| no unresolved opponent becomes slot 0 (or any slot) | held — outside a battle the slot stayed `-1` even while `gBattleMons` still held the fainted opponent |
+| no stale opponent survives battle exit | held — see scenario D |
+| party slot always comes from `gBattlerPartyIndexes[battler]` | held — `resolvedEnemySlot == gBattlerPartyIndexes[resolvedBattler]` on every sampled frame |
+| resolved battler index is the actual battler | held — `1` for the opponent, `0` for the player |
+| enemy slots stay inside `gEnemyPartyCount` | held |
+| doubles never silently select one opponent | not exercised (no doubles battle reached) |
+| unreadable authority degrades to `UNKNOWN` | held |
+
+### 11.5 Official-release address revalidation (issue #1 phase 5)
+
+§5.3 warned that a from-source build is not sufficient evidence for a symbol address. This section
+acts on that warning for the battle globals. Method: read the address live and require **semantic
+correlation**, never proximity.
+
+| Symbol | Config address | Runtime behaviour on the release ROM | Verdict |
+|---|---|---|---|
+| `gMain.inBattle` | `0x03005BD8 + 0x439` bit 1 | clear while overworld; set (`0x02`) for the whole wild battle; clear again after teardown | **CONFIRMED** |
+| `gBattleTypeFlags` | `0x020000AC` | `0x00000000` overworld; `0x00000004` (no `BATTLE_TYPE_TRAINER` bit) during the wild battle | **CONFIRMED** |
+| `gBattlersCount` | `0x020000B0` | `0` overworld; `2` during singles | **CONFIRMED** |
+| `gBattleOutcome` | `0x0200012C` | `0` while fighting; `1` once the battle resolved | **CONFIRMED** |
+| `gBattlerPartyIndexes` | `0x02000144` | `0,0` during singles, matching the player slot 0 and enemy slot 0 actually in use | **CONFIRMED** |
+| `gBattlerPositions` | `0x02000238` | `0,1` during singles (battler 0 player side, battler 1 opponent side) | **CONFIRMED** |
+| `gAbsentBattlerFlags` | `0x0200030A` | `0x00` for singles | **CONFIRMED** |
+| `gBattleMons` | `0x02000420`, stride 136 | species `152,19` / HP `19,13` matching the party Pokémon and the encountered wild Pokémon | **CONFIRMED** |
+| `gPlayerPartyCount` | `0x020342A4` | `0` before the starter, `1` afterwards | **CONFIRMED — config was wrong (see §11.6)** |
+| `gEnemyPartyCount` | `0x020342A5` | `1` during the wild battle | **CONFIRMED — config was wrong (see §11.6)** |
+| `gPlayerParty` | `0x02034764` | the level 5 Chikorita handed out by Elm decodes here (BoxPokemon checksum validates, nickname decodes to `CHIKORITA`, species word `152`) | **CONFIRMED — config was wrong (see §11.6)** |
+| `gEnemyParty` | `0x020342B4` | the wild Pokémon decodes here during the battle (checksum validates, species `19`) | **CONFIRMED — config was wrong (see §11.6)** |
+
+No address was moved merely because a nearby alternative also changed; each row above required the
+value to correlate semantically with live game state.
+
+### 11.6 Production bugs found and fixed
+
+Two discrepancies were found by runtime evidence. Both are layer 2 in the issue #1 taxonomy —
+**source-build symbol vs official-release address** — the same class of error §5.3 already caught
+once for `gSaveBlock1Ptr`.
+
+**Discrepancy 1 — `gMain` (`SOURCE/RELEASE LAYOUT MISMATCH`).** The config read
+`gMain.inBattle` at `0x03005BC0 + 0x439 = 0x03005FF9`, the address a from-source `make hns` build
+reports. On the release ROM that is the wrong word:
+
+* the release `struct Main` begins at **`0x03005BD8`**, the same `+0x18` shift that moves
+  `gSaveBlock1Ptr` from `0x030041C0` (local) to `0x030041D8` (release);
+* decisive semantic test — `struct Main` begins with `callback1`, which `src/main.c` sets to `NULL`
+  and never reassigns, and it carries `heldKeysRaw`/`newKeysRaw` at `0x028`. Holding `RIGHT` set
+  `0x03005BD8 + 0x02C` to `0x0010`, `LEFT` to `0x0020`, `START` to `0x0008`, each cleared on
+  release. The word at `0x03005BC0` never tracked input and its first word was a ROM pointer, so
+  it cannot be `gMain`;
+* impact: with the old address the production lifecycle could never report `ACTIVE` on the release
+  ROM, so H&S battle presence was permanently `ABSENT`/`UNKNOWN`;
+* fix: `main_struct_gba_address = 0x03005BD8` (in-battle byte `0x03006011`).
+
+**Discrepancy 2 — the party group (`SOURCE/RELEASE LAYOUT MISMATCH`).** The config read
+`gPlayerPartyCount` at `0x020342A8`, `gPlayerParty` at `0x02034768`, `gEnemyPartyCount` at
+`0x020342A9` and `gEnemyParty` at `0x020342B8`. On the release ROM the whole group sits **4 bytes
+lower**:
+
+* an EWRAM diff taken before and after `givemon` showed the player party count byte appearing at
+  `0x020342A4` (and `0x020342A5` for the enemy count) and the party structure at `0x02034764`;
+* three independent checks on the captured bytes confirm the base: the `BoxPokemon` checksum
+  validates (`stored 0xC2BA == computed 0xC2BA`), the nickname decodes to `CHIKORITA`, and the
+  decrypted substruct word is species `152` (`SPECIES_CHIKORITA`). The compiled base fails the same
+  checksum test (`stored 0x50B9 != computed 0x6DB4`);
+* during a live wild battle `0x020342B4` decoded the opponent (checksum valid, species `19`) while
+  `0x020342B8` did not;
+* impact: DualDex read a 4-byte-shifted party for the release ROM and saw an empty enemy party
+  during a live battle — the active enemy degraded to `NONE_ACTIVE` even while the battle was
+  `ACTIVE`;
+* fix: `player_party_offset = 0x34764`, `player_party_count_offset = 0x342A4`,
+  `enemy_party_offset = 0x342B4`, `enemy_party_count_offset = 0x342A5`, and `playerPartyOffset` /
+  `enemyPartyOffset` in `app/src/main/assets/profiles/heart_and_soul.json`.
+
+Both fixes are guarded by `test_hns_release_rom_party_fixture`, which embeds the party bytes
+captured from the running release ROM and asserts (a) they decode at the release addresses and
+(b) they do **not** decode at the from-source addresses — so the fixture reproduces the exact
+discrepancy before the fix and fails if the addresses drift back.
+
+Both fixes are **fail-closed**: a wrong address produced `UNKNOWN`/empty state, never a wrong
+Pokémon. No UI surface displayed a fabricated opponent at any point.
+
+### 11.7 What is still not runtime verified
+
+The following rows in §11.3 remain `NOT RUNTIME VERIFIED` and must not be read as passing. They all
+need a save that has progressed further than the first wild-battle area:
+
+* trainer battle (`BATTLE_TYPE_TRAINER`, multi-member enemy party),
+* opponent switch without a faint,
+* player switch and player faint + forced replacement (needs at least two party members),
+* doubles and partner/multi battles.
+
+`battleUiVerified` and `interactiveControlsVerified` remain `false`, and `sha256Hashes` remains
+empty, because the trust promotion is a separate #40 step.
+
+### 11.8 Reproducing this section
+
+```bash
+cd tools/hns-runtime-probe && ./build.sh
+
+# Phase 1: produce a legal save from a fresh ROM (normal progression, ~5 minutes).
+./make-save.sh <mgba_libretro.so> "<legal hns 2.0.5 rom>.gba" "$HOME/hns205.sav"
+
+# Scenarios. Each run fails (non-zero exit) on any invariant violation.
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/hns205.sav" --script scenarios/10-wild-battle-entry.txt
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/hns205.sav" --script scenarios/20-wild-battle-full.txt
+
+# Deterministic regression coverage (no ROM, no save).
+cd ../.. && ./ci.sh test
+```

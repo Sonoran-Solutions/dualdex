@@ -130,6 +130,11 @@ data class ParsedPokemon(
         if (spAttack != other.spAttack) return false
         if (spDefense != other.spDefense) return false
         if (statusCondition != other.statusCondition) return false
+        if (hiddenNature != other.hiddenNature) return false
+        if (natureModified != other.natureModified) return false
+        if (gigantamaxFactor != other.gigantamaxFactor) return false
+        if (shinyState != other.shinyState) return false
+        if (shinyModifier != other.shinyModifier) return false
 
         return true
     }

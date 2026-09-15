@@ -686,6 +686,60 @@ static void test_hns_party_counts_are_independent_symbols(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_party_counts_are_independent_symbols" ANSI_RESET "\n");
 }
 
+static void test_hns_enemy_party_count_boundary_documented(void) {
+    printf("Running test_hns_enemy_party_count_boundary_documented...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(cfg != NULL, "H&S config required");
+    TEST_ASSERT(cfg->enemy_party_count_offset == 0x342A9, "gEnemyPartyCount symbol must be 0x342A9");
+
+    // Boundary documentation test:
+    // enemy_party_count_offset = 0x342A9 is correctly recorded from compiled 2.0.5 symbols,
+    // but the current pokemon_read_enemy_party() implementation does not consume that count
+    // as authoritative runtime input to bound party parsing or prune stale slots.
+    // Consumption of gEnemyPartyCount and stale-slot behavior remain pending battle/runtime
+    // lifecycle validation (#1) before H&S can become VERIFIED.
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+
+    pokemon_reader_reset();
+
+    // Set up player party so reader has the player's OTID
+    const uint32_t player_otid = 0x11112222;
+    RawGbaPokemon player_mon;
+    build_hns_mon(&player_mon, 0x0000ABCD, player_otid, 155, 14, 50, 31, 0, 0, false);
+    memcpy(ewram + cfg->player_party_offset, &player_mon, sizeof(RawGbaPokemon));
+    ewram[cfg->player_party_count_offset] = 1;
+
+    PartySnapshot player_snap;
+    TEST_ASSERT(pokemon_read_player_party(ewram, EWRAM_SIZE, cfg, &player_snap) == 1,
+                "player party must be established");
+
+    // Populate 2 contiguous valid enemy party slots at gEnemyParty (0x342B8)
+    const uint32_t enemy_otid = 0x99990000;
+    RawGbaPokemon enemy0, enemy1;
+    build_hns_mon(&enemy0, 0xAABBCCDD, enemy_otid, 16, 13, 40, 25, 0, 0, false); // Pidgey
+    build_hns_mon(&enemy1, 0xCCDDEEFF, enemy_otid, 19, 12, 35, 20, 0, 0, false); // Rattata
+    memcpy(ewram + cfg->enemy_party_offset, &enemy0, sizeof(RawGbaPokemon));
+    memcpy(ewram + cfg->enemy_party_offset + sizeof(RawGbaPokemon), &enemy1, sizeof(RawGbaPokemon));
+
+    // Even if gEnemyPartyCount in memory is set to 0, current pokemon_read_enemy_party()
+    // parses candidate slots and does not gate on gEnemyPartyCount.
+    ewram[cfg->enemy_party_count_offset] = 0;
+
+    PartySnapshot enemy_snap;
+    uint8_t enemy_count = pokemon_read_enemy_party(ewram, EWRAM_SIZE, cfg, &enemy_snap);
+    // Boundary assertion: documents that current implementation reads contiguous valid slots (2),
+    // and does NOT bound or reject based on gEnemyPartyCount == 0.
+    TEST_ASSERT(enemy_count == 2,
+                "current enemy party reader parses contiguous valid slots without gating on gEnemyPartyCount");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_enemy_party_count_boundary_documented" ANSI_RESET "\n");
+}
+
 static void test_expansion_ability_num_is_not_the_gigantamax_bit(void) {
     printf("Running test_expansion_ability_num_is_not_the_gigantamax_bit...\n");
 
@@ -788,6 +842,100 @@ static void test_expansion_nature_and_shiny_are_reported_honestly(void) {
 
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_expansion_nature_and_shiny_are_reported_honestly" ANSI_RESET "\n");
+}
+
+static void test_hns_fallback_scan_uses_expansion_layout(void) {
+    printf("Running test_hns_fallback_scan_uses_expansion_layout...\n");
+
+    const GameMemoryConfig* hns_cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(hns_cfg != NULL, "H&S config required");
+    TEST_ASSERT(hns_cfg->storage_layout == PKMN_STORAGE_EXPANSION, "H&S must configure expansion layout");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+
+    pokemon_reader_reset();
+
+    // 1. Force the configured static offset path to be rejected:
+    // Keep ewram + hns_cfg->player_party_offset all zeroed (no valid pokemon).
+    // Also clear count byte just in case.
+    ewram[hns_cfg->player_party_count_offset] = 0;
+
+    // 2. Build a synthetic H&S expansion mon at a fallback scan location (e.g. 0x28000).
+    // Mon properties designed to distinguish vanilla from expansion parsing:
+    // - pid = 0x00010001 (pid % 25 = 12, Jolly; pid_hi ^ pid_lo = 0)
+    // - otid = 0 -> shinyValue = 0 (deterministic shiny)
+    // - shiny_modifier = true -> expansion inverts to PKMN_SHINY_NO (is_shiny = false).
+    //   Vanilla ignores modifier and treats shinyValue 0 < 8 as is_shiny = true.
+    // - iv_word with bit 31 set -> expansion decodes gigantamaxFactor = true.
+    //   Vanilla decodes bit 31 as ability_slot = 1 and gigantamax_factor = false.
+    // - ribbon_word with bits 29..30 = 2 -> expansion decodes abilityNum = 2 and ability_slot = 2.
+    //   Vanilla ignores ribbon word and gets ability_slot = 1 from IV bit 31.
+    // - hidden_nature_modifier = 4 -> expansion decodes hidden_nature = (12 ^ 4) = 8, nature_modified = true.
+    //   Vanilla ignores byte 0x12 and keeps hidden_nature = nature = 12, nature_modified = false.
+    const size_t party_off = 0x28000;
+    RawGbaPokemon mon;
+    build_hns_mon(
+        &mon,
+        0x00010001u,            // pid
+        0x00010001u,            // otid (tid=1, sid=1 -> tid^sid=0, shiny_value=0)
+        155,                    // species: Cyndaquil
+        20,                     // level
+        60,                     // max_hp
+        0x8000001Fu,            // iv_word: bit 31 set (gigantamaxFactor), hp_iv = 31
+        (uint32_t)2 << 29,      // ribbon_word: bits 29..30 = 2 (abilityNum = 2)
+        4,                      // hidden_nature_modifier: 4 (mint nature)
+        true                    // shiny_modifier: true (inverts shiny)
+    );
+    memcpy(ewram + party_off, &mon, sizeof(RawGbaPokemon));
+    // Provide count hint in preceding bytes to boost scan score
+    ewram[party_off - 1] = 1;
+
+    // 3. Read player party. Because static offset 0x34768 is empty, reader must fall back to EWRAM scanning.
+    // Fallback scanning MUST use config->storage_layout (PKMN_STORAGE_EXPANSION), not PKMN_STORAGE_VANILLA_GEN3.
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &snap);
+
+    TEST_ASSERT(count == 1, "fallback scan must locate the synthetic expansion party");
+    TEST_ASSERT(snap.count == 1, "snapshot count must be 1");
+    const ParsedPokemon* parsed = &snap.members[0];
+    TEST_ASSERT(parsed->species == 155, "parsed species must be Cyndaquil");
+
+    // Distinguish vanilla from expansion:
+    // (a) abilityNum vs Gigantamax bit:
+    TEST_ASSERT(parsed->gigantamax_factor == true,
+                "fallback must decode bit 31 of IV word as gigantamaxFactor");
+    TEST_ASSERT(parsed->ability_num == 2,
+                "fallback must decode abilityNum from ribbon word bits 29..30");
+    TEST_ASSERT(parsed->ability_slot == 2,
+                "fallback must report ability_slot matching abilityNum");
+    TEST_ASSERT(parsed->ability_slot != 1,
+                "fallback must NOT decode ability_slot as 1 from IV word bit 31 (vanilla regression)");
+
+    // (b) gigantamaxFactor:
+    TEST_ASSERT(parsed->gigantamax_factor != false,
+                "gigantamaxFactor must not silently revert to false");
+
+    // (c) hidden/mint nature:
+    TEST_ASSERT(parsed->nature == 12, "displayed nature must remain pid % 25 (12)");
+    TEST_ASSERT(parsed->hidden_nature_modifier == 4, "hiddenNatureModifier must be decoded from byte 0x12");
+    TEST_ASSERT(parsed->hidden_nature == 8, "hiddenNature must be (12 ^ 4) = 8");
+    TEST_ASSERT(parsed->nature_modified == true, "nature_modified must be flagged true");
+    TEST_ASSERT(parsed->hidden_nature != parsed->nature,
+                "hiddenNature must not equal displayed nature when mint is applied (vanilla regression)");
+
+    // (d) shiny state/modifier where deterministic:
+    TEST_ASSERT(parsed->shiny_value == 0, "shinyValue must be 0");
+    TEST_ASSERT(parsed->shiny_modifier == 1, "shinyModifier must be decoded from bit 14 of 0x1E");
+    TEST_ASSERT(parsed->shiny_state == PKMN_SHINY_NO,
+                "shinyModifier must invert shinyValue 0 to PKMN_SHINY_NO");
+    TEST_ASSERT(parsed->is_shiny == false,
+                "is_shiny must be false; vanilla fallback would have erroneously reported true");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_fallback_scan_uses_expansion_layout" ANSI_RESET "\n");
 }
 
 static void test_vanilla_ability_slot_parsing_unchanged(void) {
@@ -1526,8 +1674,10 @@ int main(void) {
     // Heart & Soul 2.0.5 evidence-backed foundation (issue #40, first implementation phase).
     test_hns_config_matches_compiled_evidence();
     test_hns_party_counts_are_independent_symbols();
+    test_hns_enemy_party_count_boundary_documented();
     test_expansion_ability_num_is_not_the_gigantamax_bit();
     test_expansion_nature_and_shiny_are_reported_honestly();
+    test_hns_fallback_scan_uses_expansion_layout();
     test_vanilla_ability_slot_parsing_unchanged();
     test_gba_memory_region_translation();
     test_gba_memory_bounds_rejection();

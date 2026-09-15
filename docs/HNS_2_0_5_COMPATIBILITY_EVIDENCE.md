@@ -148,6 +148,8 @@ configuration field.
 `gEnemyPartyCount` is **not** `gEnemyParty - 4` (`0x342B4`); it is `0x342A9`, 15 bytes before
 `gEnemyParty`. It is likewise an explicit field.
 
+> **Runtime consumption note**: While `enemy_party_count_offset = 0x342A9` is compiled and verified from symbols, the current reader (`pokemon_read_enemy_party()`) does not consume `gEnemyPartyCount` as authoritative runtime input to bound party parsing or prune stale slots. Consumption of `gEnemyPartyCount` and verification of stale-slot behavior remain pending live battle/runtime validation (tracked in #1) before H&S can become VERIFIED.
+
 ---
 
 ## 3. Struct layout evidence (ABI)
@@ -288,7 +290,7 @@ lives in a different word at bits 29-30 — the two structs must not share one e
 | 1 | H&S `playerPartyOffset = 0x340F4` | `0x34768` (`gPlayerParty`) | COMPILED SYMBOL VERIFIED + runtime EWRAM confirmation (§5) |
 | 2 | H&S `playerPartyCountOffset = 0x340F0` | `0x342A8` (`gPlayerPartyCount`) | COMPILED SYMBOL VERIFIED |
 | 3 | H&S `enemyPartyOffset = 0x345A4` | `0x342B8` (`gEnemyParty`) | COMPILED SYMBOL VERIFIED |
-| 4 | H&S `enemyPartyCountOffset = 0x345A0` | `0x342A9` (`gEnemyPartyCount`) | COMPILED SYMBOL VERIFIED |
+| 4 | H&S `enemyPartyCountOffset = 0x345A0` | `0x342A9` (`gEnemyPartyCount`) | COMPILED SYMBOL VERIFIED (symbol configured; runtime reader consumption & stale-slot truncation pending #1) |
 | 5 | H&S `battleMonsOffset = 0x3A5A4` | `0x420` (`gBattleMons`) | COMPILED SYMBOL VERIFIED |
 | 6 | `battle_mons_size = 88` | `136` | ABI VERIFIED + `gBattleMons` size cross-check |
 | 7 | `battle_mons_hp_offset = 40` | `0x2A` (42) | ABI VERIFIED |
@@ -331,7 +333,7 @@ independent of the odds:
 | H&S battle lifecycle, active-battler semantics, HP sync in a live battle | NOT YET VERIFIED (tracked in #1) |
 | Battle UI / interactive controls | NOT YET VERIFIED — `battleUiVerified` and `interactiveControlsVerified` remain `false` |
 | `gSaveblock3` exact EWRAM address | NOT YET VERIFIED (a 4-byte discrepancy was observed between builds; DualDex does not read it) |
-| H&S `gEnemyPartyCount` / battle-symbol addresses under a live battle | NOT YET VERIFIED — cannot be exercised at boot |
+| H&S `gEnemyPartyCount` runtime consumption & stale-slot behavior under a live battle | NOT YET VERIFIED — symbol offset (`0x342A9`) is recorded from compiled symbols, but `pokemon_read_enemy_party()` does not yet consume it to prune stale slots; pending battle lifecycle (#1) before H&S can become VERIFIED |
 | Which nature the party UI should display | NOT YET VERIFIED |
 | H&S map group/map number semantics | NOT YET VERIFIED (tracked in #11) |
 

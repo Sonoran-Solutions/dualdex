@@ -871,7 +871,7 @@ uint8_t pokemon_read_player_party(
     }
 
     // 3. Fallback: Dynamic EWRAM Pattern Scan (ROM hacks, custom builds)
-    uint8_t count = pokemon_scan_ewram_for_party(ewram, ewram_size, out_snapshot);
+    uint8_t count = scan_ewram_for_party_layout(ewram, ewram_size, config->storage_layout, out_snapshot);
     if (count > 0) {
         sync_live_player_battle_mon(ewram, ewram_size, config, out_snapshot);
     }

@@ -21,6 +21,7 @@ add_library(
     dualdex_jni.c
     "${NATIVE_ROOT}/src/pokemon_reader.c"
     "${NATIVE_ROOT}/src/pokemon_text.c"
+    "${NATIVE_ROOT}/src/gba_memory_map.c"
     "${NATIVE_ROOT}/src/libretro_host.c"
     "${NATIVE_ROOT}/src/js_calc_engine.c"
     "${NATIVE_ROOT}/quickjs/quickjs.c"

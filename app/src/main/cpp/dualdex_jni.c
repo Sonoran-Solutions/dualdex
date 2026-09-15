@@ -17,7 +17,9 @@ static jmethodID g_parsed_pokemon_ctor = NULL;
 static jclass g_player_location_cls = NULL;
 static jmethodID g_player_location_ctor = NULL;
 
-#define PARSED_POKEMON_SIG "(ZZJIILjava/lang/String;Ljava/lang/String;IIIILjava/lang/String;ZIZIJIIIIIIIIIIII[I[IIIIIIIIJ)V"
+// Trailing "IZZII" carries hiddenNature, natureModified, gigantamaxFactor, shinyState and
+// shinyModifier, which were appended to com.dualdex.pokemon.ParsedPokemon for H&S 2.0.5.
+#define PARSED_POKEMON_SIG "(ZZJIILjava/lang/String;Ljava/lang/String;IIIILjava/lang/String;ZIZIJIIIIIIIIIIII[I[IIIIIIIIJIZZII)V"
 #define PLAYER_LOCATION_SIG "(IIIIIIIIIZZ)V"
 
 static void init_class_cache(JNIEnv* env) {
@@ -153,7 +155,12 @@ static jobject create_parsed_pokemon_object(JNIEnv* env, const ParsedPokemon* p)
         (jint)p->speed,
         (jint)p->sp_attack,
         (jint)p->sp_defense,
-        (jlong)p->status_condition
+        (jlong)p->status_condition,
+        (jint)p->hidden_nature,
+        (jboolean)p->nature_modified,
+        (jboolean)p->gigantamax_factor,
+        (jint)p->shiny_state,
+        (jint)p->shiny_modifier
     );
 
     if (!obj) {
@@ -176,6 +183,16 @@ static jobject create_parsed_pokemon_object(JNIEnv* env, const ParsedPokemon* p)
 // -------------------------------------------------------------
 // Pokemon Memory Reader JNI
 // -------------------------------------------------------------
+
+/**
+ * Adapter that lets the pure native readers reach an absolute emulated GBA address through the
+ * memory-map regions the core published. Every access stays bounds-checked inside
+ * libretro_host_read_gba_address, so no raw pointer arithmetic escapes to Kotlin or JNI.
+ */
+static bool jni_gba_read_cb(void* user, uint32_t gba_address, uint8_t* out, size_t length) {
+    (void)user;
+    return libretro_host_read_gba_address(gba_address, out, length);
+}
 
 JNIEXPORT jint JNICALL
 Java_com_dualdex_pokemon_PokemonBridge_detectGame(JNIEnv* env, jobject thiz, jstring rom_title) {
@@ -316,6 +333,9 @@ Java_com_dualdex_pokemon_PokemonBridge_readPlayerLocation(
     }
 
     PlayerLocationRaw loc;
+    // This entry point only receives an EWRAM snapshot and has no IWRAM access, so a layout that
+    // resolves SaveBlock1 through the IWRAM gSaveBlock1Ptr symbol (Heart & Soul 2.0.5) fails
+    // closed here. LibretroHost.nativeReadPlayerLocation uses the region-checked reader instead.
     bool ok = pokemon_read_player_location((const uint8_t*)bytes, (size_t)len, cfg, &loc);
     (*env)->ReleaseByteArrayElements(env, ewram_bytes, bytes, JNI_ABORT);
 
@@ -642,7 +662,8 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadPlayerLocation(JNIEnv* env, job
     if (!cfg) return NULL; // Fail closed: unknown game has no verified SaveBlock1 layout.
 
     PlayerLocationRaw loc;
-    bool ok = pokemon_read_player_location(ewram, ewram_sz, cfg, &loc);
+    bool ok = pokemon_read_player_location_gba(
+        jni_gba_read_cb, NULL, ewram, ewram_sz, cfg, &loc);
     if (!ok || !loc.is_valid) {
         return NULL;
     }

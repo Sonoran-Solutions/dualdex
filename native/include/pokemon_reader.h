@@ -28,20 +28,60 @@ typedef enum {
 
 /**
  * Game memory offset configuration.
+ *
+ * Unit discipline, stated once and never mixed implicitly:
+ *   - every `*_offset` field is relative to the start of the EWRAM buffer
+ *     (absolute GBA address 0x02000000) unless its name says otherwise;
+ *   - `save_block1_ptr_gba_address` is an ABSOLUTE GBA address, because the active SaveBlock1
+ *     pointer lives in IWRAM (0x03000000...) while SaveBlock1 itself lives in EWRAM;
+ *   - `save_block1_*_offset` are offsets relative to the resolved SaveBlock1 base;
+ *   - `save_block1_aslr_range` / `save_block1_size` are byte counts.
+ *
+ * A zero value means "this layout does not declare the field", which is how a
+ * GAME_UNKNOWN or an unsupported hack fails closed instead of inheriting another game's
+ * addresses.
  */
 typedef struct {
     GbaGameId game_id;
     const char* game_name;
-    uint32_t player_party_offset;      // Offset relative to EWRAM (0x02000000)
-    uint32_t player_party_count_offset;// Offset relative to EWRAM
-    uint32_t enemy_party_offset;       // Offset relative to EWRAM (for battle reading)
-    uint32_t enemy_party_count_offset; // Offset relative to EWRAM
-    uint32_t battle_mons_offset;       // Offset relative to EWRAM for gBattleMons
-    uint32_t battle_mons_size;         // Size of struct BattlePokemon
-    uint32_t battle_mons_hp_offset;    // Offset of hp within struct BattlePokemon
+    uint32_t player_party_offset;      // EWRAM-relative
+    uint32_t player_party_count_offset;// EWRAM-relative
+    uint32_t enemy_party_offset;       // EWRAM-relative (gEnemyParty)
+    uint32_t enemy_party_count_offset; // EWRAM-relative (gEnemyPartyCount; never derived from
+                                       // enemy_party_offset, which is a separate symbol)
+    uint32_t battle_mons_offset;       // EWRAM-relative for gBattleMons
+    uint32_t battle_mons_size;         // sizeof(struct BattlePokemon)
+    uint32_t battle_mons_hp_offset;    // offset of hp within struct BattlePokemon
+    uint32_t battle_mons_stat_stages_offset; // offset of statStages within struct BattlePokemon
+    uint32_t battler_party_indexes_offset;   // EWRAM-relative gBattlerPartyIndexes, 0 = unavailable
+    uint32_t battlers_count_offset;          // EWRAM-relative gBattlersCount, 0 = unavailable
+    uint32_t battle_type_flags_offset;       // EWRAM-relative gBattleTypeFlags, 0 = unavailable
+    uint32_t battle_outcome_offset;          // EWRAM-relative gBattleOutcome, 0 = unavailable
+
+    // SaveBlock1 resolution. When `save_block1_ptr_gba_address` is non-zero the active base is
+    // read from that absolute GBA address (IWRAM) on every call; a zero value selects the legacy
+    // "derive from the party offset" behaviour used by the vanilla games.
+    uint32_t save_block1_ptr_gba_address;    // absolute GBA address, 0 = legacy derivation
+    uint32_t save_block1_base_gba_address;   // absolute GBA address of the ASLR storage block
+    uint32_t save_block1_aslr_range;         // size of the randomized window, 0 = no window
+    uint32_t save_block1_size;               // sizeof(struct SaveBlock1)
+    uint32_t save_block1_pos_offset;         // struct-relative offset of SaveBlock1.pos
+    uint32_t save_block1_location_offset;    // struct-relative offset of SaveBlock1.location
+    uint32_t save_block1_escape_warp_offset; // struct-relative offset of SaveBlock1.escapeWarp
+
+    PokemonStorageLayout storage_layout;     // which BoxPokemon bit layout to parse
+
     bool     has_evs;                  // False for Ghost Grey
     bool     has_ivs;                  // False for Ghost Grey
 } GameMemoryConfig;
+
+/**
+ * Bounds-checked reader for an absolute emulated GBA address.
+ *
+ * Implementations must return false rather than perform an unchecked access, so a reader built
+ * on top of this can never be handed memory outside a verified region.
+ */
+typedef bool (*DualDexGbaReadFn)(void* user, uint32_t gba_address, uint8_t* out, size_t length);
 
 /**
  * Get nature name string from index (0 - 24).
@@ -49,7 +89,7 @@ typedef struct {
 const char* pokemon_get_nature_name(uint8_t nature_index);
 
 /**
- * Decrypt and parse a single 100-byte GBA Pokémon structure.
+ * Decrypt and parse a single 100-byte GBA Pokémon structure using the vanilla Gen 3 layout.
  *
  * @param raw_bytes Pointer to 100 bytes of Pokémon data (or 80 for PC box)
  * @param is_party_mon True if full 100 bytes (party), false if 80 bytes (box)
@@ -57,6 +97,21 @@ const char* pokemon_get_nature_name(uint8_t nature_index);
  * @return True if parsing succeeded and checksum is valid
  */
 bool pokemon_parse_single(const uint8_t* raw_bytes, bool is_party_mon, ParsedPokemon* out_pokemon);
+
+/**
+ * Decrypt and parse a single 100-byte GBA Pokémon structure with an explicit storage layout.
+ *
+ * The vanilla entry point above is exactly this function with PKMN_STORAGE_VANILLA_GEN3, so
+ * FireRed/Emerald parsing is unchanged. The expansion layout changes only how the ability slot,
+ * the mint nature and the shiny verdict are derived; species/move/item/IV extraction is shared
+ * because H&S 2.0.5 uses the same widened fields DualDex already reads.
+ */
+bool pokemon_parse_single_layout(
+    const uint8_t* raw_bytes,
+    bool is_party_mon,
+    PokemonStorageLayout storage_layout,
+    ParsedPokemon* out_pokemon
+);
 
 /**
  * Detect game version from a 16-byte ROM header title string (at ROM offset 0xA0).
@@ -150,8 +205,37 @@ typedef struct {
  *
  * Fails closed: returns false when @p config is NULL or describes GAME_UNKNOWN, and never falls
  * back to a cached party offset or a FireRed-style SaveBlock1 base for an unknown game.
+ *
+ * This entry point has no IWRAM access, so for a layout that resolves SaveBlock1 through an
+ * IWRAM pointer (Heart & Soul 2.0.5) it always fails closed. Use
+ * pokemon_read_player_location_gba() with a region-checked reader for those layouts.
  */
 bool pokemon_read_player_location(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    PlayerLocationRaw* out_location
+);
+
+/**
+ * Read the active player position and map coordinates using a bounds-checked absolute-address
+ * reader.
+ *
+ * When @p config declares `save_block1_ptr_gba_address`, the active SaveBlock1 base is read from
+ * that absolute GBA address on every call (Heart & Soul 2.0.5 randomizes it inside
+ * `gSaveblock1` by an aligned offset in a 128-byte window), validated to fall inside the
+ * expected EWRAM window, and then used for the location fields. Nothing is scanned or guessed:
+ * an out-of-range, misaligned, truncated or unmapped pointer fails closed.
+ *
+ * When @p config declares no pointer address, behaviour is identical to
+ * pokemon_read_player_location() and @p read is unused.
+ *
+ * @param read Bounds-checked absolute GBA address reader, or NULL when unavailable.
+ * @param user Opaque pointer forwarded to @p read.
+ */
+bool pokemon_read_player_location_gba(
+    DualDexGbaReadFn read,
+    void* user,
     const uint8_t* ewram,
     size_t ewram_size,
     const GameMemoryConfig* config,

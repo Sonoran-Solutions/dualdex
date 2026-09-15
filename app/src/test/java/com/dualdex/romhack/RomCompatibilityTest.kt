@@ -476,4 +476,84 @@ class RomCompatibilityTest {
         vm.pollTick()
         assertTrue("Legitimate empty read must publish empty immediately", vm.enemyParty.value.isEmpty())
     }
+
+    // ------------------------------------------------------------------
+    // Heart & Soul 2.0.5 (issue #40, first implementation phase)
+    //
+    // The H&S profile now carries offsets taken from the exact upstream 2.0.5 build, but its
+    // sha256Hashes list is still empty because no H&S ROM has been promoted to VERIFIED. These
+    // tests pin that boundary: better-evidenced addresses must never widen trust on their own.
+    // ------------------------------------------------------------------
+
+    private val heartAndSoulProfile = RomHackProfile(
+        id = "heart_and_soul",
+        name = "Pokemon Heart & Soul",
+        baseGame = "Emerald",
+        gameId = 8,
+        engine = "pokeemerald-expansion",
+        headerTitles = listOf("HEARTSOUL", "HNS", "POKEHNS", "HEART", "SOUL"),
+        sha256Hashes = emptyList(),
+        isVerified = true,
+        memoryLayoutVerified = true,
+        playerPartyOffset = 0x02034768L,
+        enemyPartyOffset = 0x020342B8L,
+        battleUiVerified = false,
+        interactiveControlsVerified = false
+    )
+
+    @Test
+    fun heartAndSoulWithMatchingHeaderButEmptyHashList_staysRecognizedUnverified() {
+        // The real shipped header title from the upstream `make hns` build (gbafix -t"POKEMON HNS").
+        val header = makeHeader("POKEMON HNS", "BPEE")
+        val unknownSha = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+
+        val result = RomHackDetector.detectCompatibilityFromBytes(
+            headerBytes = header,
+            sha256 = unknownSha,
+            profiles = listOf(heartAndSoulProfile)
+        )
+
+        assertEquals("heart_and_soul", result.profile.id)
+        assertEquals(ProfileMatchMethod.HEADER_TITLE, result.matchMethod)
+        assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, result.status)
+        assertFalse("An empty hash list can never verify a ROM", result.isVerified)
+        assertFalse(result.mayReadLiveMemory)
+
+        val trust = RuntimeRomTrust.from(result, unknownSha)
+        assertFalse(trust.exactRuntimeVerified)
+        assertFalse("H&S must not unlock live-memory reads yet", trust.mayReadLiveMemory)
+        assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, trust.status)
+    }
+
+    @Test
+    fun heartAndSoulIsUnreachableForUnknownAndUnsupportedRoms() {
+        // A ROM that merely shares the BPEE game code must not inherit the H&S layout.
+        val genericEmeraldHeader = makeHeader("SOME HACK", "BPEE")
+        val result = RomHackDetector.detectCompatibilityFromBytes(
+            headerBytes = genericEmeraldHeader,
+            sha256 = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            profiles = listOf(heartAndSoulProfile)
+        )
+
+        assertNotEquals("heart_and_soul", result.profile.id)
+        assertFalse(result.mayReadLiveMemory)
+        assertEquals(RomCompatibilityStatus.UNSUPPORTED, result.status)
+
+        val trust = RuntimeRomTrust.from(result, "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+        assertFalse(trust.mayReadLiveMemory)
+        assertEquals(RomCompatibilityStatus.UNSUPPORTED, trust.status)
+    }
+
+    @Test
+    fun heartAndSoulOffsetsAreCompiledEvidenceValues() {
+        // Guards against the stale 0x340F4 / 0x345A4 pair returning: those were scan-derived for an
+        // older H&S build and match neither the tagged source nor the compiled 2.0.5 image.
+        assertEquals(0x02034768L, heartAndSoulProfile.playerPartyOffset) // gPlayerParty
+        assertEquals(0x020342B8L, heartAndSoulProfile.enemyPartyOffset)  // gEnemyParty
+        assertNotEquals(0x020340F4L, heartAndSoulProfile.playerPartyOffset)
+        assertNotEquals(0x020345A4L, heartAndSoulProfile.enemyPartyOffset)
+        assertTrue("sha256Hashes must stay empty until runtime validation", heartAndSoulProfile.sha256Hashes.isEmpty())
+        assertFalse(heartAndSoulProfile.battleUiVerified)
+        assertFalse(heartAndSoulProfile.interactiveControlsVerified)
+    }
 }

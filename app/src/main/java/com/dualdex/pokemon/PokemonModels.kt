@@ -46,8 +46,42 @@ data class ParsedPokemon(
     val speed: Int,
     val spAttack: Int,
     val spDefense: Int,
-    val statusCondition: Long
+    val statusCondition: Long,
+    /**
+     * Stat-effective ("mint") nature for pokeemerald-expansion games. Heart & Soul 2.0.5
+     * computes stats from `GetMonData(mon, MON_DATA_HIDDEN_NATURE)`, which is
+     * `(pid % 25) ^ hiddenNatureModifier`, while [nature] stays the displayed `GetNature()`.
+     * Equal to [nature] for vanilla Gen 3 and for any Pokémon without a mint applied.
+     */
+    val hiddenNature: Int = nature,
+    /** True when a mint changed the stat-effective nature away from [nature]. */
+    val natureModified: Boolean = false,
+    /**
+     * pokeemerald-expansion-only flag. In the vanilla Gen 3 layout this bit position is the
+     * ability slot, so a game must declare the expansion storage layout before it is read.
+     */
+    val gigantamaxFactor: Boolean = false,
+    /**
+     * Tri-state shiny verdict: [SHINY_UNKNOWN], [SHINY_NO] or [SHINY_YES].
+     *
+     * Heart & Soul 2.0.5 computes shininess as `(shinyValue < shinyOdds) ^ shinyModifier`, where
+     * `shinyOdds` comes from `SaveBlock3.challengeSettings`. DualDex does not read those settings
+     * yet, so a value in the ambiguous band is reported as [SHINY_UNKNOWN] instead of guessed.
+     * [isShiny] is only ever true for an exact [SHINY_YES].
+     */
+    val shinyState: Int = if (isShiny) SHINY_YES else SHINY_NO,
+    /** Raw `shinyModifier` bit; pokeemerald-expansion games only, otherwise 0. */
+    val shinyModifier: Int = 0
 ) {
+    /** True when the shiny verdict is exactly known, false when it depends on unread settings. */
+    val shinyIsKnown: Boolean get() = shinyState != SHINY_UNKNOWN
+
+    companion object {
+        const val SHINY_UNKNOWN = 0
+        const val SHINY_NO = 1
+        const val SHINY_YES = 2
+    }
+
     val totalEvs: Int get() = hpEv + attackEv + defenseEv + speedEv + spAttackEv + spDefenseEv
     val totalIvs: Int get() = hpIv + attackIv + defenseIv + speedIv + spAttackIv + spDefenseIv
 
@@ -96,6 +130,11 @@ data class ParsedPokemon(
         if (spAttack != other.spAttack) return false
         if (spDefense != other.spDefense) return false
         if (statusCondition != other.statusCondition) return false
+        if (hiddenNature != other.hiddenNature) return false
+        if (natureModified != other.natureModified) return false
+        if (gigantamaxFactor != other.gigantamaxFactor) return false
+        if (shinyState != other.shinyState) return false
+        if (shinyModifier != other.shinyModifier) return false
 
         return true
     }
@@ -140,6 +179,11 @@ data class ParsedPokemon(
         result = 31 * result + spAttack
         result = 31 * result + spDefense
         result = 31 * result + statusCondition.hashCode()
+        result = 31 * result + hiddenNature
+        result = 31 * result + natureModified.hashCode()
+        result = 31 * result + gigantamaxFactor.hashCode()
+        result = 31 * result + shinyState
+        result = 31 * result + shinyModifier
         return result
     }
 }

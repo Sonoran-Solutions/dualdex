@@ -1,5 +1,6 @@
 #include "libretro_host.h"
 #include "libretro.h"
+#include "gba_memory_map.h"
 #include "pokemon_reader.h"
 #include <dlfcn.h>
 #include <stdio.h>
@@ -47,9 +48,106 @@ static uint8_t g_fb_storage[MAX_FB_WIDTH * MAX_FB_HEIGHT * 4];
 static EmulatorVideoFrame g_current_frame = {0};
 static pthread_mutex_t g_video_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// ---------------------------------------------------------------------------
+// Emulated GBA memory-region map (RETRO_ENVIRONMENT_SET_MEMORY_MAPS)
+//
+// mGBA publishes its GBA address space through this environment command, including
+// IWRAM (0x03000000) and EWRAM (0x02000000). DualDex previously ignored the command
+// and reached EWRAM only through retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM), which
+// cannot express IWRAM at all -- and the active SaveBlock1 pointer lives in IWRAM.
+//
+// The core hands us a *stack-local* descriptor array, so only the descriptor scalars and
+// the region base pointers are copied; the caller-owned array is never retained.
+// ---------------------------------------------------------------------------
+static DualDexGbaRegionTable g_gba_memory_map;
+static pthread_mutex_t g_memory_map_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void libretro_host_clear_memory_regions(void) {
+    pthread_mutex_lock(&g_memory_map_mutex);
+    gba_memory_map_clear(&g_gba_memory_map);
+    pthread_mutex_unlock(&g_memory_map_mutex);
+}
+
+static void capture_memory_map(const struct retro_memory_map* mmap) {
+    DualDexGbaRegionTable staged;
+    gba_memory_map_clear(&staged);
+    if (!mmap) {
+        // A core that publishes nothing clears any previously captured regions: stale base
+        // pointers from an earlier core state must never survive.
+        pthread_mutex_lock(&g_memory_map_mutex);
+        gba_memory_map_clear(&g_gba_memory_map);
+        pthread_mutex_unlock(&g_memory_map_mutex);
+        return;
+    }
+
+    if (mmap->descriptors) {
+        for (unsigned i = 0; i < mmap->num_descriptors; i++) {
+            const struct retro_memory_descriptor* d = &mmap->descriptors[i];
+            // Only the descriptor scalars and the region base pointer are retained; the
+            // descriptor array itself is owned by the caller and is not kept.
+            gba_memory_map_add(
+                &staged,
+                (const uint8_t*)d->ptr,
+                (uint32_t)d->start,
+                (d->len > 0xFFFFFFFFu) ? 0xFFFFFFFFu : (uint32_t)d->len,
+                (uint32_t)d->select,
+                (uint32_t)d->disconnect,
+                (d->offset > 0xFFFFFFFFu) ? 0xFFFFFFFFu : (uint32_t)d->offset,
+                d->flags
+            );
+        }
+    }
+
+    pthread_mutex_lock(&g_memory_map_mutex);
+    g_gba_memory_map = staged;
+    pthread_mutex_unlock(&g_memory_map_mutex);
+}
+
+size_t libretro_host_get_gba_region_count(void) {
+    pthread_mutex_lock(&g_memory_map_mutex);
+    size_t n = gba_memory_map_count(&g_gba_memory_map);
+    pthread_mutex_unlock(&g_memory_map_mutex);
+    return n;
+}
+
+bool libretro_host_get_gba_region(size_t index, DualDexGbaMemoryRegion* out_region) {
+    if (!out_region) return false;
+
+    pthread_mutex_lock(&g_memory_map_mutex);
+    DualDexGbaRegion region;
+    bool ok = gba_memory_map_get(&g_gba_memory_map, index, &region);
+    if (ok) {
+        out_region->start = region.start;
+        out_region->len = region.length;
+        out_region->select = region.select;
+        out_region->disconnect = region.disconnect;
+        out_region->offset = region.offset;
+        out_region->flags = region.flags;
+        out_region->present = region.present;
+    }
+    pthread_mutex_unlock(&g_memory_map_mutex);
+    return ok;
+}
+
+bool libretro_host_read_gba_address(uint32_t address, void* out, size_t length) {
+    if (!out || length == 0) return false;
+
+    pthread_mutex_lock(&g_memory_map_mutex);
+    bool ok = gba_memory_map_read(&g_gba_memory_map, address, out, length);
+    pthread_mutex_unlock(&g_memory_map_mutex);
+
+    return ok;
+}
+
 // Environment callback implementation
 static bool core_environment_cb(unsigned cmd, void *data) {
     switch (cmd) {
+        case RETRO_ENVIRONMENT_SET_MEMORY_MAPS: {
+            // Must return true so the core knows the frontend consumed the map. The
+            // descriptors are only valid for the duration of this call.
+            capture_memory_map((const struct retro_memory_map*)data);
+            return true;
+        }
         case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT: {
             const enum retro_pixel_format *fmt = (const enum retro_pixel_format *)data;
             if (!fmt) return false;
@@ -341,6 +439,9 @@ bool libretro_host_unload_rom(void) {
         p_retro_unload_game();
         g_is_game_loaded = false;
     }
+    // The core frees its RAM when the game is unloaded, so every captured region base pointer
+    // is dangling from here on and must never be dereferenced.
+    libretro_host_clear_memory_regions();
     pokemon_reader_reset();
     return true;
 }
@@ -352,6 +453,9 @@ bool libretro_host_load_rom(const char* rom_file_path) {
     if (g_is_game_loaded) {
         libretro_host_unload_rom();
     }
+    // A fresh load republishes the memory map; start from an empty one so a core that does not
+    // publish a map cannot inherit the previous ROM's regions.
+    libretro_host_clear_memory_regions();
 
     FILE* f = fopen(rom_file_path, "rb");
     if (!f) {
@@ -601,6 +705,9 @@ bool libretro_host_flush_save_ram(const char* save_path) {
 
 void libretro_host_reset(void) {
     if (g_core_handle && g_is_game_loaded && p_retro_reset) {
+        // mGBA re-publishes its memory map from retro_reset, so drop the old regions first:
+        // if the core were to republish nothing, stale pointers must not survive.
+        libretro_host_clear_memory_regions();
         p_retro_reset();
         libretro_host_clear_audio();
         pokemon_reader_reset();
@@ -617,6 +724,7 @@ double libretro_host_get_sample_rate(void) {
 
 void libretro_host_cleanup(void) {
     libretro_host_unload_rom();
+    libretro_host_clear_memory_regions();
     if (g_core_handle && p_retro_deinit) {
         p_retro_deinit();
     }

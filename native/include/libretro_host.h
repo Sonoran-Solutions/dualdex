@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "gba_memory_map.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -80,6 +82,56 @@ void libretro_host_set_input_buttons(uint32_t button_mask);
  * Get a direct pointer to the 256 KB EWRAM memory block for zero-copy Pokemon parsing.
  */
 uint8_t* libretro_host_get_ewram(size_t* out_size);
+
+/**
+ * Maximum number of libretro memory-map regions DualDex retains at once.
+ *
+ * mGBA publishes 11 descriptors for GBA (IWRAM, EWRAM, SRAM/Flash, 3x ROM mirrors,
+ * BIOS, VRAM, palette RAM, OAM, mmapped I/O), so 16 leaves headroom without
+ * allowing an unbounded core-controlled allocation.
+ */
+#define DUALDEX_GBA_MAX_MEMORY_REGIONS DUALDEX_GBA_REGION_CAPACITY
+
+/** Captured metadata for one libretro memory-map region (no caller-owned pointers are kept). */
+typedef struct {
+    uint32_t start;       // first emulated address covered
+    uint32_t len;         // region length in bytes
+    uint32_t select;      // address bits that select this region
+    uint32_t disconnect;  // address bits masked out before translation
+    uint32_t offset;      // descriptor offset added after translation
+    uint64_t flags;       // RETRO_MEMDESC_* flags
+    bool     present;     // false for an unused slot
+} DualDexGbaMemoryRegion;
+
+/**
+ * Read @p length bytes from an emulated GBA address through the region descriptors the core
+ * published with RETRO_ENVIRONMENT_SET_MEMORY_MAPS.
+ *
+ * Understands at least 0x02000000.. (EWRAM) and 0x03000000.. (IWRAM). The read is
+ * bounds-checked against the exact captured region, so a request that starts outside a mapped
+ * region, that runs past the end of one, or that arrives before any map was captured fails
+ * closed with false and leaves @p out untouched.
+ *
+ * @return true only when the whole request was satisfied from a single mapped region.
+ */
+bool libretro_host_read_gba_address(uint32_t address, void* out, size_t length);
+
+/**
+ * Number of memory-map regions currently captured (0 when no ROM is loaded or the core
+ * published no map). Exposed for diagnostics and host tests.
+ */
+size_t libretro_host_get_gba_region_count(void);
+
+/**
+ * Copy captured region metadata at @p index. Returns false when @p index is out of range.
+ */
+bool libretro_host_get_gba_region(size_t index, DualDexGbaMemoryRegion* out_region);
+
+/**
+ * Drop every captured region. Called on ROM unload, core reset and cleanup so that stale
+ * pointers can never outlive the core state they describe.
+ */
+void libretro_host_clear_memory_regions(void);
 
 /**
  * Save state to file.

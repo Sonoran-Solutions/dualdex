@@ -1,5 +1,6 @@
 #include "pokemon_reader.h"
 #include "pokemon_text.h"
+#include "gba_memory_map.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -59,20 +60,84 @@ static const GameMemoryConfig CONFIG_EMERALD = {
     .battle_mons_offset = 0x24064,
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 40,
+    .battle_mons_stat_stages_offset = 0x18,
     .has_evs = true,
     .has_ivs = true
 };
 
+// ---------------------------------------------------------------------------
+// Heart & Soul 2.0.5 (pokeemerald-expansion) — compiled evidence
+//
+// Every address below was read from the symbol table of the exact upstream build:
+//   repository PokemonHnS-Development/pokehns-expansion
+//   tag        Release-v2.0.5  @ 1f42b74dff0e9fe942419845d040663dd829a973
+//   command    make -j hns TOOLCHAIN=<arm-gnu-toolchain-13.2.rel1>  (+ make BUILD=hns syms)
+//   ABI        ARM7TDMI, -mabi=apcs-gnu, -mthumb -mthumb-interop, -O2
+//
+// Symbol                     absolute GBA address   size
+//   gBattleTypeFlags         0x020000AC             4
+//   gBattlersCount           0x020000B0             1
+//   gBattleOutcome           0x0200012C             1
+//   gBattlerPartyIndexes     0x02000144             8
+//   gBattlerPositions        0x02000238             4
+//   gBattleControllerExec... 0x020002F4             4
+//   gBattleMons              0x02000420             0x220 (4 battlers x 136 bytes)
+//   gSaveblock3              0x0200921C             0x34
+//   gSaveblock1              0x020124A8             0x3E10 (7528-byte block + 128-byte window)
+//   gPlayerPartyCount        0x020342A8             1
+//   gEnemyPartyCount         0x020342A9             1
+//   gEnemyParty              0x020342B8             0x258 (6 x 100)
+//   gPlayerPartyBackup       0x02034510             0x258
+//   gPlayerParty             0x02034768             0x258
+//   gSaveBlock1Ptr           0x030041D8             4   (IWRAM; see the runtime note below)
+//   gSaveBlock3Ptr           0x03000178             4   (IWRAM)
+//
+// The current H&S offsets that this replaces were stale (they matched neither the tagged
+// source nor the compiled image), and `gBattlerPartyIndexes` was being read as
+// `gBattleMons - 24`, which is wrong by 732 bytes on 2.0.5.
+//
+// IWRAM note: a from-source `make hns` build of this commit places gSaveBlock1Ptr at
+// 0x030041C0, but the official 2.0.5 release binary uses 0x030041D8. That was established by
+// running the release ROM in the bundled mGBA core: gSaveBlock1Ptr, gSaveBlock2Ptr and
+// gPokemonStoragePtr were found as three adjacent words holding base+88 for the compiled
+// gSaveblock1 / gSaveblock2 / gPokemonStorage EWRAM bases, which pins the IWRAM triple at
+// 0x030041D4/0x030041D8/0x030041DC. The EWRAM layout is identical between the two builds;
+// only the IWRAM offset of the pointer triple differs, so the runtime-verified value is used.
+//
+// Struct layout, compiled with the same headers and flags (DWARF-probed, not host sizeof):
+//   sizeof(struct BoxPokemon)        = 80
+//   sizeof(struct Pokemon)           = 100
+//   sizeof(struct BattlePokemon)     = 136   (not 88)
+//   sizeof(struct ChallengeSettings) = 32
+//   sizeof(struct SaveBlock1)        = 15760
+//   _Alignof(struct Coords16)        = 4 under -mabi=apcs-gnu, so SaveBlock1.pos is at 0x04
+//                                      because H&S 2.0.5 added `u16 saveVersion` at 0x00.
+//   BattlePokemon: statStages 0x18, ability 0x20, types 0x22, pp 0x25, hp 0x2A, level 0x2C,
+//                  maxHP 0x2E, item 0x30, status1 0x50.
+// ---------------------------------------------------------------------------
 static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .game_id = GAME_HEART_AND_SOUL,
     .game_name = "Pokemon Heart & Soul",
-    .player_party_offset = 0x340F4,
-    .player_party_count_offset = 0x340F0,
-    .enemy_party_offset = 0x345A4,
-    .enemy_party_count_offset = 0x345A0,
-    .battle_mons_offset = 0x3A5A4,
-    .battle_mons_size = 88,
-    .battle_mons_hp_offset = 40,
+    .player_party_offset = 0x34768,
+    .player_party_count_offset = 0x342A8,
+    .enemy_party_offset = 0x342B8,
+    .enemy_party_count_offset = 0x342A9,
+    .battle_mons_offset = 0x420,
+    .battle_mons_size = 136,
+    .battle_mons_hp_offset = 0x2A,
+    .battle_mons_stat_stages_offset = 0x18,
+    .battler_party_indexes_offset = 0x144,
+    .battlers_count_offset = 0xB0,
+    .battle_type_flags_offset = 0xAC,
+    .battle_outcome_offset = 0x12C,
+    .save_block1_ptr_gba_address = 0x030041D8,
+    .save_block1_base_gba_address = DUALDEX_GBA_EWRAM_BASE + 0x124A8,
+    .save_block1_aslr_range = 128,
+    .save_block1_size = 15760,
+    .save_block1_pos_offset = 0x04,
+    .save_block1_location_offset = 0x08,
+    .save_block1_escape_warp_offset = 0x28,
+    .storage_layout = PKMN_STORAGE_EXPANSION,
     .has_evs = true,
     .has_ivs = true
 };
@@ -87,6 +152,7 @@ static const GameMemoryConfig CONFIG_FIRERED = {
     .battle_mons_offset = 0x23F90,
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 40,
+    .battle_mons_stat_stages_offset = 0x18,
     .has_evs = true,
     .has_ivs = true
 };
@@ -101,6 +167,7 @@ static const GameMemoryConfig CONFIG_LEAFGREEN = {
     .battle_mons_offset = 0x23F90,
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 40,
+    .battle_mons_stat_stages_offset = 0x18,
     .has_evs = true,
     .has_ivs = true
 };
@@ -237,9 +304,44 @@ static inline uint32_t read32_le(const uint8_t* ptr) {
 }
 
 bool pokemon_parse_single(const uint8_t* raw_bytes, bool is_party_mon, ParsedPokemon* out) {
+    return pokemon_parse_single_layout(raw_bytes, is_party_mon, PKMN_STORAGE_VANILLA_GEN3, out);
+}
+
+/**
+ * Shiny verdict for the expansion layout.
+ *
+ * H&S 2.0.5 computes `(shinyValue < shinyOdds) ^ shinyModifier`, and `shinyOdds` is read from
+ * the player's `SaveBlock3.challengeSettings.tx_Features_ShinyChance`, selecting from
+ * {8, 16, 32, 64, 128}. DualDex does not read SaveBlock3 challenge settings in this phase, so
+ * the verdict is only reported when every possible odds value agrees:
+ *   - shinyValue < 8    -> shiny for all odds;
+ *   - shinyValue >= 128 -> not shiny for all odds;
+ *   - otherwise the odds decide, and DualDex reports UNKNOWN rather than inventing a value.
+ */
+static PokemonShinyState expansion_shiny_state(uint16_t shiny_value, uint8_t shiny_modifier) {
+    bool base;
+    if (shiny_value < 8) {
+        base = true;
+    } else if (shiny_value >= 128) {
+        base = false;
+    } else {
+        return PKMN_SHINY_UNKNOWN;
+    }
+
+    bool shiny = base ^ (shiny_modifier != 0);
+    return shiny ? PKMN_SHINY_YES : PKMN_SHINY_NO;
+}
+
+bool pokemon_parse_single_layout(
+    const uint8_t* raw_bytes,
+    bool is_party_mon,
+    PokemonStorageLayout storage_layout,
+    ParsedPokemon* out
+) {
     if (!raw_bytes || !out) return false;
 
     memset(out, 0, sizeof(ParsedPokemon));
+    out->storage_layout = storage_layout;
 
     const RawGbaPokemon* raw = (const RawGbaPokemon*)raw_bytes;
 
@@ -350,6 +452,10 @@ bool pokemon_parse_single(const uint8_t* raw_bytes, bool is_party_mon, ParsedPok
     out->sp_defense_ev = e_ptr[5];
 
     // 7. Misc (M): IVs, Egg, Ability
+    //
+    // Both layouts agree on the IV packing and on the egg bit; they disagree on what bit 31 of
+    // the IV word means and on where the ability slot lives, so the two are resolved separately
+    // rather than by reusing one game's meaning for the other.
     uint32_t iv_word = read32_le(m_ptr + 4);
     out->hp_iv = (uint8_t)((iv_word >> 0) & 0x1F);
     out->attack_iv = (uint8_t)((iv_word >> 5) & 0x1F);
@@ -358,15 +464,54 @@ bool pokemon_parse_single(const uint8_t* raw_bytes, bool is_party_mon, ParsedPok
     out->sp_attack_iv = (uint8_t)((iv_word >> 20) & 0x1F);
     out->sp_defense_iv = (uint8_t)((iv_word >> 25) & 0x1F);
     out->is_egg = (bool)((iv_word >> 30) & 0x01);
-    out->ability_slot = (uint8_t)((iv_word >> 31) & 0x01);
-
-    // 8. Derived Properties
-    out->nature = (uint8_t)(out->pid % 25);
-    out->nature_name = pokemon_get_nature_name(out->nature);
 
     uint16_t pid_hi = (uint16_t)((out->pid >> 16) & 0xFFFF);
     uint16_t pid_lo = (uint16_t)(out->pid & 0xFFFF);
-    out->is_shiny = (((out->tid ^ out->sid) ^ (pid_hi ^ pid_lo)) < 8);
+    out->shiny_value = (uint16_t)((out->tid ^ out->sid ^ pid_hi ^ pid_lo) & 0xFFFF);
+
+    if (storage_layout == PKMN_STORAGE_EXPANSION) {
+        // pokeemerald-expansion: bit 31 of the IV word is `gigantamaxFactor`.
+        // `abilityNum` is 2 bits at 29..30 of the word at PokemonSubstruct3 offset 8.
+        out->gigantamax_factor = (bool)((iv_word >> 31) & 0x01);
+        uint32_t ribbon_word = read32_le(m_ptr + 8);
+        out->ability_num = (uint8_t)((ribbon_word >> 29) & 0x03);
+        out->ability_slot = out->ability_num;
+        out->ability_slot_known = true;
+
+        // `hiddenNatureModifier` is 5 bits at bits 3..7 of the byte at BoxPokemon 0x12 and XORs
+        // the personality nature into the stat-effective "mint" nature used by
+        // CalculateMonStats(). GetNature() (and the summary screen's displayed nature) stays
+        // pid % 25.
+        uint8_t nature_byte = raw_bytes[0x12];
+        uint8_t hidden_nature_modifier = (uint8_t)((nature_byte >> 3) & 0x1F);
+        // `shinyModifier` is bit 14 of the 16-bit word at BoxPokemon 0x1E.
+        uint16_t shiny_word = read16_le(raw_bytes + 0x1E);
+        out->shiny_modifier = (uint8_t)((shiny_word >> 14) & 0x01);
+        out->shiny_state = expansion_shiny_state(out->shiny_value, out->shiny_modifier);
+        out->is_shiny = (out->shiny_state == PKMN_SHINY_YES);
+        out->hidden_nature_modifier = hidden_nature_modifier;
+        out->hidden_nature = (uint8_t)((out->pid % 25) ^ hidden_nature_modifier);
+        out->nature_modified = (hidden_nature_modifier != 0);
+    } else {
+        // Vanilla Gen 3: bit 31 of the IV word is the ability slot. Unchanged.
+        out->ability_slot = (uint8_t)((iv_word >> 31) & 0x01);
+        out->ability_slot_known = true;
+        out->ability_num = out->ability_slot;
+    }
+
+    // 8. Derived Properties
+    // Displayed nature is pid % 25 in both layouts: H&S's GetNature() is
+    // `personality % NUM_NATURES` and the summary screen stores it in `sum->nature`.
+    out->nature = (uint8_t)(out->pid % 25);
+    out->nature_name = pokemon_get_nature_name(out->nature);
+    if (storage_layout != PKMN_STORAGE_EXPANSION) {
+        out->hidden_nature = out->nature;
+    }
+
+    if (storage_layout != PKMN_STORAGE_EXPANSION) {
+        out->is_shiny = (((out->tid ^ out->sid) ^ (pid_hi ^ pid_lo)) < 8);
+        out->shiny_state = out->is_shiny ? PKMN_SHINY_YES : PKMN_SHINY_NO;
+    }
 
     // 9. Battle stats (if party Pokémon, offsets 0x50 - 0x63)
     if (is_party_mon) {
@@ -403,9 +548,33 @@ void pokemon_reader_reset(void) {
     s_cached_enemy_party_offset = 0;
 }
 
+static uint8_t scan_ewram_for_party_layout(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    PokemonStorageLayout storage_layout,
+    PartySnapshot* out_snapshot
+);
+
+static bool parse_party_mon(
+    const uint8_t* raw,
+    PokemonStorageLayout storage_layout,
+    ParsedPokemon* out
+);
+
 uint8_t pokemon_scan_ewram_for_party(
     const uint8_t* ewram,
     size_t ewram_size,
+    PartySnapshot* out_snapshot
+) {
+    // The layout-blind entry point keeps vanilla semantics; layout-aware callers go through the
+    // implementation below with their own storage layout.
+    return scan_ewram_for_party_layout(ewram, ewram_size, PKMN_STORAGE_VANILLA_GEN3, out_snapshot);
+}
+
+static uint8_t scan_ewram_for_party_layout(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    PokemonStorageLayout storage_layout,
     PartySnapshot* out_snapshot
 ) {
     if (!ewram || ewram_size < sizeof(RawGbaPokemon) || !out_snapshot) return 0;
@@ -430,14 +599,14 @@ uint8_t pokemon_scan_ewram_for_party(
 
         // Substructure decryption & parsing
         ParsedPokemon test_mon;
-        if (!pokemon_parse_single((const uint8_t*)raw, true, &test_mon)) continue;
+        if (!parse_party_mon((const uint8_t*)raw, storage_layout, &test_mon)) continue;
         if (test_mon.species == 0 || test_mon.species >= 2000) continue;
 
         // Ensure this is slot 0 of the party, not slot 1-5.
         // If the preceding 100 bytes is ALREADY a valid party Pokemon, skip 'off'
         if (off >= sizeof(RawGbaPokemon)) {
             ParsedPokemon prev_mon;
-            if (pokemon_parse_single(ewram + off - sizeof(RawGbaPokemon), true, &prev_mon)) {
+            if (parse_party_mon(ewram + off - sizeof(RawGbaPokemon), storage_layout, &prev_mon)) {
                 if (prev_mon.species > 0 && prev_mon.species < 2000) {
                     continue; // Skip: preceding slot is part of the party
                 }
@@ -453,7 +622,7 @@ uint8_t pokemon_scan_ewram_for_party(
             size_t next_off = off + (slot * sizeof(RawGbaPokemon));
             if (next_off + sizeof(RawGbaPokemon) > ewram_size) break;
             ParsedPokemon next_mon;
-            if (pokemon_parse_single(ewram + next_off, true, &next_mon)) {
+            if (parse_party_mon(ewram + next_off, storage_layout, &next_mon)) {
                 if (next_mon.species > 0 && next_mon.species < 2000) {
                     candidate_snap.members[candidate_snap.count++] = next_mon;
                 } else break;
@@ -527,6 +696,39 @@ uint8_t pokemon_scan_ewram_for_party(
     return 0;
 }
 
+/**
+ * EWRAM-relative offset of `gBattlerPartyIndexes`, or 0 when the layout cannot supply it.
+ *
+ * Layouts that carry compiled symbol evidence declare `battler_party_indexes_offset` directly.
+ * The remaining layouts fall back to the historical `gBattleMons - 24` back-off that shipped
+ * before any symbol evidence existed: it is retained ONLY so that FireRed/Emerald behaviour is
+ * unchanged, is never applied to a layout that declares the symbol (Heart & Soul 2.0.5 declares
+ * it, and on 2.0.5 the real distance is 732 bytes, not 24), and is explicitly unverified for
+ * the vanilla games.
+ */
+#define LEGACY_BATTLER_PARTY_INDEXES_BACKOFF 24u
+
+static uint32_t battler_party_indexes_offset(const GameMemoryConfig* config) {
+    if (!config) return 0;
+    if (config->battler_party_indexes_offset != 0) return config->battler_party_indexes_offset;
+    if (config->battle_mons_offset >= LEGACY_BATTLER_PARTY_INDEXES_BACKOFF) {
+        return config->battle_mons_offset - LEGACY_BATTLER_PARTY_INDEXES_BACKOFF;
+    }
+    return 0;
+}
+
+/**
+ * Parse one party-slot candidate using the storage layout the caller's configuration declares.
+ * A NULL configuration keeps the vanilla layout, which is what every FireRed/Emerald path uses.
+ */
+static bool parse_party_mon(
+    const uint8_t* raw,
+    PokemonStorageLayout storage_layout,
+    ParsedPokemon* out
+) {
+    return pokemon_parse_single_layout(raw, true, storage_layout, out);
+}
+
 static void sync_live_player_battle_mon(
     const uint8_t* ewram,
     size_t ewram_size,
@@ -544,9 +746,10 @@ static void sync_live_player_battle_mon(
     if (b0_species == 0 || b0_species >= 2000) return;
 
     uint16_t b0_hp = read16_le(b0 + config->battle_mons_hp_offset);
-    // Check gBattlerPartyIndexes[0] at (battle_mons_offset - 24)
-    if (config->battle_mons_offset >= 24) {
-        uint16_t b0_idx = read16_le(ewram + config->battle_mons_offset - 24);
+    // Battler 0's party slot comes from gBattlerPartyIndexes[0], an independent symbol.
+    uint32_t indexes_offset = battler_party_indexes_offset(config);
+    if (indexes_offset != 0 && indexes_offset + 2 <= ewram_size) {
+        uint16_t b0_idx = read16_le(ewram + indexes_offset);
         if (b0_idx < out_snapshot->count && out_snapshot->members[b0_idx].species == b0_species) {
             if (b0_hp <= out_snapshot->members[b0_idx].max_hp) {
                 out_snapshot->members[b0_idx].current_hp = b0_hp;
@@ -579,9 +782,10 @@ static void sync_live_enemy_battle_mon(
     }
 
     uint16_t b1_hp = read16_le(b1 + config->battle_mons_hp_offset);
-    // Check gBattlerPartyIndexes[1] at (battle_mons_offset - 22)
-    if (config->battle_mons_offset >= 24) {
-        uint16_t b1_idx = read16_le(ewram + config->battle_mons_offset - 22);
+    // Battler 1's party slot is gBattlerPartyIndexes[1]: a u16 array indexed by battler.
+    uint32_t indexes_offset = battler_party_indexes_offset(config);
+    if (indexes_offset != 0 && indexes_offset + 4 <= ewram_size) {
+        uint16_t b1_idx = read16_le(ewram + indexes_offset + 2);
         if (b1_idx < out_snapshot->count && out_snapshot->members[b1_idx].species == b1_species) {
             if (b1_hp <= out_snapshot->members[b1_idx].max_hp) {
                 out_snapshot->members[b1_idx].current_hp = b1_hp;
@@ -614,12 +818,12 @@ uint8_t pokemon_read_player_party(
     if (config->player_party_offset + sizeof(RawGbaPokemon) <= ewram_size) {
         ParsedPokemon first_mon;
         const uint8_t* mon_ptr = ewram + config->player_party_offset;
-        if (pokemon_parse_single(mon_ptr, true, &first_mon) && first_mon.species > 0 && first_mon.species < 2000) {
+        if (parse_party_mon(mon_ptr, config->storage_layout, &first_mon) && first_mon.species > 0 && first_mon.species < 2000) {
             uint8_t valid_count = 0;
             out_snapshot->members[valid_count++] = first_mon;
             for (uint8_t i = 1; i < 6; i++) {
                 const uint8_t* p = ewram + config->player_party_offset + (i * sizeof(RawGbaPokemon));
-                if (pokemon_parse_single(p, true, &out_snapshot->members[valid_count])) {
+                if (parse_party_mon(p, config->storage_layout, &out_snapshot->members[valid_count])) {
                     if (out_snapshot->members[valid_count].species > 0 && out_snapshot->members[valid_count].species < 2000) {
                         valid_count++;
                     } else break;
@@ -647,12 +851,12 @@ uint8_t pokemon_read_player_party(
     if (s_cached_player_party_offset > 0 && s_cached_player_party_offset + sizeof(RawGbaPokemon) <= ewram_size) {
         ParsedPokemon first_mon;
         const uint8_t* mon_ptr = ewram + s_cached_player_party_offset;
-        if (pokemon_parse_single(mon_ptr, true, &first_mon) && first_mon.species > 0 && first_mon.species < 2000) {
+        if (parse_party_mon(mon_ptr, config->storage_layout, &first_mon) && first_mon.species > 0 && first_mon.species < 2000) {
             uint8_t valid_count = 0;
             out_snapshot->members[valid_count++] = first_mon;
             for (uint8_t i = 1; i < 6; i++) {
                 const uint8_t* p = ewram + s_cached_player_party_offset + (i * sizeof(RawGbaPokemon));
-                if (pokemon_parse_single(p, true, &out_snapshot->members[valid_count])) {
+                if (parse_party_mon(p, config->storage_layout, &out_snapshot->members[valid_count])) {
                     if (out_snapshot->members[valid_count].species > 0 && out_snapshot->members[valid_count].species < 2000) {
                         valid_count++;
                     } else break;
@@ -667,7 +871,7 @@ uint8_t pokemon_read_player_party(
     }
 
     // 3. Fallback: Dynamic EWRAM Pattern Scan (ROM hacks, custom builds)
-    uint8_t count = pokemon_scan_ewram_for_party(ewram, ewram_size, out_snapshot);
+    uint8_t count = scan_ewram_for_party_layout(ewram, ewram_size, config->storage_layout, out_snapshot);
     if (count > 0) {
         sync_live_player_battle_mon(ewram, ewram_size, config, out_snapshot);
     }
@@ -732,7 +936,7 @@ uint8_t pokemon_read_enemy_party(
         if (raw->attack == 0 || raw->defense == 0) continue;
 
         ParsedPokemon test_mon;
-        if (!pokemon_parse_single((const uint8_t*)raw, true, &test_mon)) continue;
+        if (!parse_party_mon((const uint8_t*)raw, config->storage_layout, &test_mon)) continue;
         if (test_mon.species == 0 || test_mon.species >= 2000) continue;
         // Do NOT reject test_mon.current_hp == 0!
 
@@ -743,7 +947,7 @@ uint8_t pokemon_read_enemy_party(
             size_t next_off = off + (slot * sizeof(RawGbaPokemon));
             if (next_off + sizeof(RawGbaPokemon) > ewram_size) break;
             ParsedPokemon next_mon;
-            if (pokemon_parse_single(ewram + next_off, true, &next_mon)) {
+            if (parse_party_mon(ewram + next_off, config->storage_layout, &next_mon)) {
                 if (next_mon.species > 0 && next_mon.species < 2000) {
                     out_snapshot->members[count++] = next_mon;
                 } else break;
@@ -773,7 +977,7 @@ uint8_t pokemon_read_enemy_party(
             // Ensure this is slot 0 of enemy party, not slot 1-5
             if (off >= sizeof(RawGbaPokemon)) {
                 ParsedPokemon prev_mon;
-                if (pokemon_parse_single(ewram + off - sizeof(RawGbaPokemon), true, &prev_mon)) {
+                if (parse_party_mon(ewram + off - sizeof(RawGbaPokemon), config->storage_layout, &prev_mon)) {
                     if (prev_mon.species > 0 && prev_mon.species < 2000) {
                         continue; // Preceding slot is already a party mon
                     }
@@ -781,7 +985,7 @@ uint8_t pokemon_read_enemy_party(
             }
 
             ParsedPokemon test_mon;
-            if (!pokemon_parse_single((const uint8_t*)raw, true, &test_mon)) continue;
+            if (!parse_party_mon((const uint8_t*)raw, config->storage_layout, &test_mon)) continue;
             if (test_mon.species == 0 || test_mon.species >= 2000) continue;
 
             // Found enemy party via scan!
@@ -791,7 +995,7 @@ uint8_t pokemon_read_enemy_party(
                 size_t next_off = off + (slot * sizeof(RawGbaPokemon));
                 if (next_off + sizeof(RawGbaPokemon) > ewram_size) break;
                 ParsedPokemon next_mon;
-                if (pokemon_parse_single(ewram + next_off, true, &next_mon)) {
+                if (parse_party_mon(ewram + next_off, config->storage_layout, &next_mon)) {
                     if (next_mon.species > 0 && next_mon.species < 2000) {
                         out_snapshot->members[count++] = next_mon;
                     } else break;
@@ -815,54 +1019,102 @@ bool pokemon_read_player_location(
     const GameMemoryConfig* config,
     PlayerLocationRaw* out_location
 ) {
-    if (!ewram || ewram_size == 0 || !out_location) return false;
-    memset(out_location, 0, sizeof(PlayerLocationRaw));
+    return pokemon_read_player_location_gba(NULL, NULL, ewram, ewram_size, config, out_location);
+}
 
-    // Fail closed: SaveBlock1 is located relative to the verified party offset, so an unknown
-    // game must never be interpreted through a cached or FireRed-style offset.
-    if (!config_is_usable(config)) return false;
+/**
+ * Resolve the active SaveBlock1 base through the compiled `gSaveBlock1Ptr` symbol.
+ *
+ * Heart & Soul 2.0.5 calls `SetSaveBlocksPointers()`, which does
+ *     gSaveBlock1Ptr = (void *)(&gSaveblock1) + ((offset + Random()) & (SAVEBLOCK_MOVE_RANGE - 4));
+ * so the active SaveBlock1 base is NOT the EWRAM base and not even a fixed address: it moves by
+ * a 4-byte-aligned amount inside a 128-byte window on every save-block rebuild.
+ *
+ * The pointer is therefore read from IWRAM on every call, validated against the exact compiled
+ * window, and translated through the region-checked reader. A pointer that is unreadable,
+ * misaligned, outside the window, or whose SaveBlock1 would not fit in EWRAM fails closed; no
+ * EWRAM scan or "plausible-looking" base is ever substituted.
+ *
+ * @param out_base Receives the absolute GBA address of the active SaveBlock1.
+ */
+static bool resolve_save_block1_base(
+    DualDexGbaReadFn read,
+    void* user,
+    const GameMemoryConfig* config,
+    uint32_t* out_base
+) {
+    if (!read || !config || !out_base) return false;
+    if (config->save_block1_ptr_gba_address == 0) return false;
+    if (config->save_block1_base_gba_address == 0 || config->save_block1_aslr_range == 0) return false;
 
-    const uint8_t* sb1 = NULL;
-    if (config->game_id == GAME_HEART_AND_SOUL) {
-        // In Heart & Soul, SaveBlock1 is located at EWRAM base (0x02000000)
-        sb1 = ewram;
-    } else {
-        uint32_t party_off = s_cached_player_party_offset;
-        if (party_off == 0) {
-            if (config->player_party_offset > 0 && config->player_party_offset + 100 <= ewram_size) {
-                party_off = (uint32_t)config->player_party_offset;
-            }
-        }
-
-        if (party_off == 0) return false;
-
-        // Determine SaveBlock1 offset relative to player party
-        // In Emerald / Ruby / Sapphire: SaveBlock1.playerParty is at offset 0x238
-        // In FireRed / LeafGreen: SaveBlock1.playerParty is at offset 0x38
-        bool is_firered = (config->game_id == GAME_FIRERED);
-        size_t sb1_party_offset = is_firered ? 0x38 : 0x238;
-
-        if (party_off >= sb1_party_offset && party_off - sb1_party_offset + sizeof(PlayerLocationRaw) <= ewram_size) {
-            sb1 = ewram + (party_off - sb1_party_offset);
-        } else {
-            sb1 = ewram;
-        }
+    uint8_t raw[4];
+    if (!read(user, config->save_block1_ptr_gba_address, raw, sizeof(raw))) {
+        return false; // gSaveBlock1Ptr is not readable through a verified region.
     }
 
-    // Read Coords16 pos (offset 0x00)
-    int16_t pos_x = (int16_t)(sb1[0] | (sb1[1] << 8));
-    int16_t pos_y = (int16_t)(sb1[2] | (sb1[3] << 8));
+    uint32_t base = read32_le(raw);
 
-    // Read WarpData location (offset 0x04)
-    int16_t map_group = (int16_t)sb1[4];
-    int16_t map_num = (int16_t)sb1[5];
-    int8_t warp_id = (int8_t)sb1[6];
-    int16_t warp_x = (int16_t)(sb1[8] | (sb1[9] << 8));
-    int16_t warp_y = (int16_t)(sb1[10] | (sb1[11] << 8));
+    // The pointer is a 32-bit GBA address; anything outside 32-bit EWRAM is already invalid.
+    if (base < DUALDEX_GBA_EWRAM_BASE ||
+        base >= DUALDEX_GBA_EWRAM_BASE + DUALDEX_GBA_EWRAM_SIZE) {
+        return false;
+    }
 
-    // Read WarpData escapeWarp (offset 0x24)
-    int16_t esc_group = (int16_t)sb1[0x24];
-    int16_t esc_num = (int16_t)sb1[0x25];
+    // `SetSaveBlocksPointers` aligns the offset to 4 bytes, so an unaligned base did not come
+    // from the game's own save-block setup.
+    if ((base & 0x3u) != 0) return false;
+
+    // The randomized window starts at the compiled gSaveblock1 symbol. Requiring the base to
+    // fall inside it rejects both a stale pointer from another ROM and EWRAM base itself.
+    uint32_t window_start = config->save_block1_base_gba_address;
+    uint32_t window_last = window_start + config->save_block1_aslr_range - 4;
+    if (base < window_start || base > window_last) return false;
+
+    // The whole SaveBlock1 must still live inside EWRAM from that base.
+    if (config->save_block1_size == 0) return false;
+    if (base > DUALDEX_GBA_EWRAM_BASE + DUALDEX_GBA_EWRAM_SIZE - config->save_block1_size) {
+        return false;
+    }
+
+    *out_base = base;
+    return true;
+}
+
+static bool decode_location_fields(
+    const uint8_t* sb1,
+    size_t sb1_available,
+    const GameMemoryConfig* config,
+    PlayerLocationRaw* out_location
+) {
+    // The highest field this reader touches is escapeWarp (WarpData, 8 bytes) and the reader
+    // only proceeds when the whole span is present, so a truncated range can never be read past.
+    size_t needed = config->save_block1_escape_warp_offset + 8;
+    if (config->save_block1_location_offset + 8 > needed) {
+        needed = config->save_block1_location_offset + 8;
+    }
+    if (config->save_block1_pos_offset + 4 > needed) {
+        needed = config->save_block1_pos_offset + 4;
+    }
+    if (sb1_available < needed) return false;
+
+    const uint8_t* pos = sb1 + config->save_block1_pos_offset;
+    const uint8_t* location = sb1 + config->save_block1_location_offset;
+    const uint8_t* escape = sb1 + config->save_block1_escape_warp_offset;
+
+    // Coords16 pos
+    int16_t pos_x = (int16_t)read16_le(pos + 0);
+    int16_t pos_y = (int16_t)read16_le(pos + 2);
+
+    // WarpData location: s8 mapGroup, s8 mapNum, s8 warpId, padding, s16 x, s16 y
+    int16_t map_group = (int16_t)(int8_t)location[0];
+    int16_t map_num = (int16_t)(int8_t)location[1];
+    int8_t warp_id = (int8_t)location[2];
+    int16_t warp_x = (int16_t)read16_le(location + 4);
+    int16_t warp_y = (int16_t)read16_le(location + 6);
+
+    // WarpData escapeWarp
+    int16_t esc_group = (int16_t)(int8_t)escape[0];
+    int16_t esc_num = (int16_t)(int8_t)escape[1];
 
     // Basic validity sanity check: valid map groups are typically 0..35 and map nums 0..130
     if (map_group < 0 || map_group > 35 || map_num < 0 || map_num > 130) {
@@ -880,8 +1132,70 @@ bool pokemon_read_player_location(
     out_location->escape_map_num = esc_num;
     out_location->is_indoors = (map_group != 0);
     out_location->is_valid = true;
-
     return true;
+}
+
+bool pokemon_read_player_location_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    PlayerLocationRaw* out_location
+) {
+    if (!out_location) return false;
+    memset(out_location, 0, sizeof(PlayerLocationRaw));
+
+    // Fail closed: an unknown game has no SaveBlock1 layout at all.
+    if (!config_is_usable(config)) return false;
+
+    // Layouts whose active SaveBlock1 base comes from a compiled pointer symbol. The pointer and
+    // the fields are both read through the bounds-checked absolute-address reader, so no raw
+    // pointer arithmetic escapes to a caller.
+    if (config->save_block1_ptr_gba_address != 0) {
+        uint32_t base = 0;
+        if (!resolve_save_block1_base(read, user, config, &base)) return false;
+
+        uint8_t sb1[64];
+        size_t span = config->save_block1_escape_warp_offset + 8;
+        if (config->save_block1_location_offset + 8 > span) span = config->save_block1_location_offset + 8;
+        if (config->save_block1_pos_offset + 4 > span) span = config->save_block1_pos_offset + 4;
+        if (span > sizeof(sb1)) return false;
+
+        if (!read(user, base, sb1, span)) return false;
+        return decode_location_fields(sb1, span, config, out_location);
+    }
+
+    // Legacy layouts: SaveBlock1 is located relative to the live party offset.
+    if (!ewram || ewram_size == 0) return false;
+
+    const uint8_t* sb1 = NULL;
+    uint32_t party_off = s_cached_player_party_offset;
+    if (party_off == 0) {
+        if (config->player_party_offset > 0 && config->player_party_offset + 100 <= ewram_size) {
+            party_off = (uint32_t)config->player_party_offset;
+        }
+    }
+
+    if (party_off == 0) return false;
+
+    // In Emerald / Ruby / Sapphire: SaveBlock1.playerParty is at offset 0x238
+    // In FireRed / LeafGreen: SaveBlock1.playerParty is at offset 0x38
+    bool is_firered = (config->game_id == GAME_FIRERED);
+    size_t sb1_party_offset = is_firered ? 0x38 : 0x238;
+
+    if (party_off >= sb1_party_offset && party_off - sb1_party_offset + sizeof(PlayerLocationRaw) <= ewram_size) {
+        sb1 = ewram + (party_off - sb1_party_offset);
+    } else {
+        sb1 = ewram;
+    }
+
+    GameMemoryConfig legacy = *config;
+    legacy.save_block1_pos_offset = 0x00;
+    legacy.save_block1_location_offset = 0x04;
+    legacy.save_block1_escape_warp_offset = 0x24;
+
+    return decode_location_fields(sb1, ewram_size - (size_t)(sb1 - ewram), &legacy, out_location);
 }
 
 bool pokemon_read_battle_stat_stages(
@@ -900,10 +1214,16 @@ bool pokemon_read_battle_stat_stages(
     uint16_t species = read16_le(b);
     if (species == 0 || species >= 2000) return false;
 
-    // Stat stages in struct BattlePokemon are at offset 0x18 (24)
+    // Stat stages in struct BattlePokemon live at a layout-declared offset (0x18 for both the
+    // vanilla Gen 3 and the H&S 2.0.5 layouts, but declared per game rather than assumed).
     // statStages[8]: 0=HP(unused), 1=ATK, 2=DEF, 3=SPEED, 4=SPATK, 5=SPDEF, 6=ACC, 7=EVASION
     // Default neutral stage in Gen 3 is 6 (range 0..12)
-    const uint8_t* stages = b + 24;
+    uint32_t stages_offset = config->battle_mons_stat_stages_offset;
+    if (stages_offset == 0 || stages_offset + 8 > config->battle_mons_size ||
+        config->battle_mons_offset + (battler_index * config->battle_mons_size) + stages_offset + 8 > ewram_size) {
+        return false;
+    }
+    const uint8_t* stages = b + stages_offset;
     out_stages[0] = (int8_t)((int)stages[1] - 6); // Atk
     out_stages[1] = (int8_t)((int)stages[2] - 6); // Def
     out_stages[2] = (int8_t)((int)stages[3] - 6); // Spe

@@ -52,14 +52,17 @@ static const uint8_t SUBSTRUCT_BLOCK_INDEX[24][4] = {
 // Standard game configurations
 //
 // Policy audit:
-// Emerald and FireRed keep PARTY_DISCOVERY_HEURISTIC (default).
-// In vanilla Emerald, SaveBlock1 is allocated on the heap (gSaveBlock1Ptr), so party memory
-// can shift dynamically, and test_ewram_scan_ignores_box_pokemon_and_finds_real_party explicitly
-// verifies fallback scanning when the static offset mismatches.
-// In vanilla FireRed, player_party_count_offset (0x24029) is an unverified / heuristic offset
-// (adjacent padding before gEnemyParty at 0x2402C) rather than an authoritative standalone symbol.
-// Only layouts with exact compiled symbol and runtime evidence (Heart & Soul 2.0.5) use
-// PARTY_DISCOVERY_AUTHORITATIVE_STATIC.
+// Emerald and FireRed use PARTY_DISCOVERY_AUTHORITATIVE_STATIC based on upstream pret
+// decompilation evidence (pokeemerald and pokefirered src/pokemon.c + sym_ewram.txt):
+// - In vanilla Emerald, gPlayerPartyCount is at 0x020244E9 (EWRAM offset 0x244E9) and
+//   gPlayerParty is at 0x020244EC (EWRAM offset 0x244EC). While SaveBlock1 is allocated on
+//   the heap, live player party memory is a fixed EWRAM global and never shifts at runtime.
+// - In vanilla FireRed, gPlayerPartyCount is at 0x02024029 (EWRAM offset 0x24029) and
+//   gPlayerParty is at 0x02024284 (EWRAM offset 0x24284). Offset 0x24029 is the true
+//   gPlayerPartyCount global (upstream orders gEnemyParty at 0x2402C before gPlayerParty
+//   at 0x24284), not padding.
+// Both games therefore have authoritative player party symbol addresses.
+// Other vanilla titles and unverified hacks retain PARTY_DISCOVERY_HEURISTIC.
 static const GameMemoryConfig CONFIG_EMERALD = {
     .game_id = GAME_EMERALD,
     .game_name = "Pokemon Emerald",
@@ -71,7 +74,7 @@ static const GameMemoryConfig CONFIG_EMERALD = {
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 40,
     .battle_mons_stat_stages_offset = 0x18,
-    .player_party_policy = PARTY_DISCOVERY_HEURISTIC,
+    .player_party_policy = PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
     .has_evs = true,
     .has_ivs = true
 };
@@ -165,7 +168,7 @@ static const GameMemoryConfig CONFIG_FIRERED = {
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 40,
     .battle_mons_stat_stages_offset = 0x18,
-    .player_party_policy = PARTY_DISCOVERY_HEURISTIC,
+    .player_party_policy = PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
     .has_evs = true,
     .has_ivs = true
 };

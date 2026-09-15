@@ -459,13 +459,15 @@ static void test_ewram_scan_ignores_box_pokemon_and_finds_real_party(void) {
     TEST_ASSERT(snapshot.members[2].species == 154, "Third member must be Meganium (154)");
     TEST_ASSERT(snapshot.members[0].level == 25, "First member level must be 25");
 
-    // 4. Test pokemon_read_player_party with mismatched static config offset
-    // It should reject the invalid static offset and fallback to scanning, returning the true party
+    // 4. Test pokemon_read_player_party with heuristic policy and mismatched static config offset.
+    // It should reject the invalid static offset and fallback to scanning, returning the true party.
     const GameMemoryConfig* emerald_cfg = pokemon_get_game_config(GAME_EMERALD);
+    GameMemoryConfig scan_cfg = *emerald_cfg;
+    scan_cfg.player_party_policy = PARTY_DISCOVERY_HEURISTIC;
     pokemon_reader_reset();
     PartySnapshot read_snapshot;
-    uint8_t read_count = pokemon_read_player_party(ewram, EWRAM_SIZE, emerald_cfg, &read_snapshot);
-    TEST_ASSERT(read_count == 3, "pokemon_read_player_party must fallback and find the 3 party members");
+    uint8_t read_count = pokemon_read_player_party(ewram, EWRAM_SIZE, &scan_cfg, &read_snapshot);
+    TEST_ASSERT(read_count == 3, "pokemon_read_player_party with heuristic policy must fallback and find the 3 party members");
     TEST_ASSERT(read_snapshot.members[0].species == 152, "First member must be Chikorita (152)");
 
     free(ewram);
@@ -553,6 +555,48 @@ static void build_hns_mon(
     uint8_t* raw = (uint8_t*)out;
     raw[0x12] = (uint8_t)((hidden_nature_modifier & 0x1F) << 3);
     write16_le_t(raw + 0x1E, shiny_modifier ? 0x4000 : 0x0000);
+}
+
+/**
+ * Build one exact-layout standard vanilla GBA party slot.
+ */
+static void build_vanilla_mon(
+    RawGbaPokemon* out,
+    uint32_t pid,
+    uint32_t otid,
+    uint16_t species,
+    uint8_t level,
+    uint16_t max_hp,
+    uint32_t iv_egg_ability
+) {
+    memset(out, 0, sizeof(*out));
+    out->pid = pid;
+    out->otid = otid;
+    out->level = level;
+    out->max_hp = max_hp;
+    out->current_hp = max_hp;
+    out->attack = 30;
+    out->defense = 30;
+    out->speed = 30;
+    out->sp_attack = 30;
+    out->sp_defense = 30;
+
+    uint8_t g[12];
+    uint8_t a[12];
+    uint8_t e[12];
+    uint8_t m[12];
+    memset(g, 0, sizeof(g));
+    memset(a, 0, sizeof(a));
+    memset(e, 0, sizeof(e));
+    memset(m, 0, sizeof(m));
+
+    write16_le_t(g + 0, species);
+    write16_le_t(a + 0, 33); // Tackle
+    a[8] = 35;              // PP
+    e[0] = 10;              // HP EV
+    write32_le_t(m + 4, iv_egg_ability);
+
+    pack_and_encrypt(pid, otid, g, a, e, m, out->raw_substructures, &out->checksum);
 }
 
 /** A synthetic GBA with a real region table, so SaveBlock1 tests exercise production translation. */
@@ -1199,28 +1243,526 @@ static void test_hns_corrupt_authoritative_slot_fails_closed(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_corrupt_authoritative_slot_fails_closed" ANSI_RESET "\n");
 }
 
+// ===========================================================================
+// Emerald authoritative player party discovery regression suite (issue #42).
+// Upstream pokeemerald evidence (src/pokemon.c + sym_ewram.txt):
+//   gPlayerPartyCount = 0x020244E9 (EWRAM 0x244E9)
+//   gPlayerParty      = 0x020244EC (EWRAM 0x244EC)
+// ===========================================================================
+
+static void test_emerald_authoritative_zero_count_defeats_decoy_scan(void) {
+    printf("Running test_emerald_authoritative_zero_count_defeats_decoy_scan...\n");
+
+    const GameMemoryConfig* emerald_cfg = pokemon_get_game_config(GAME_EMERALD);
+    TEST_ASSERT(emerald_cfg != NULL, "Emerald config required");
+    TEST_ASSERT(emerald_cfg->player_party_policy == PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
+                "Emerald must use PARTY_DISCOVERY_AUTHORITATIVE_STATIC");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Authoritative count is 0, party array at gPlayerParty is empty (zeroed).
+    ewram[emerald_cfg->player_party_count_offset] = 0;
+
+    // 2. Plant a completely valid vanilla Pokémon at 0x28000 (typical scan location).
+    RawGbaPokemon decoy;
+    build_vanilla_mon(&decoy, 0x12345678, 0x99887766, 1, 15, 45, 31);
+    memcpy(ewram + 0x28000, &decoy, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // 3. Read player party. Authoritative count 0 MUST return 0 immediately and NOT scan EWRAM.
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, emerald_cfg, &snap);
+
+    TEST_ASSERT(count == 0, "Emerald authoritative count == 0 must return 0 immediately");
+    TEST_ASSERT(snap.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap.members[0].species == 0, "decoy pokemon must never appear in snapshot");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_emerald_authoritative_zero_count_defeats_decoy_scan" ANSI_RESET "\n");
+}
+
+static void test_emerald_stale_cache_cannot_override_zero(void) {
+    printf("Running test_emerald_stale_cache_cannot_override_zero...\n");
+
+    const GameMemoryConfig* emerald_cfg = pokemon_get_game_config(GAME_EMERALD);
+    TEST_ASSERT(emerald_cfg != NULL, "Emerald config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Plant a valid vanilla Pokémon at 0x28000.
+    RawGbaPokemon mon;
+    build_vanilla_mon(&mon, 0x12345678, 0x99887766, 1, 15, 45, 31);
+    memcpy(ewram + 0x28000, &mon, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // 2. Perform a read with a heuristic configuration to populate s_cached_player_party_offset.
+    GameMemoryConfig heuristic_cfg = *emerald_cfg;
+    heuristic_cfg.player_party_policy = PARTY_DISCOVERY_HEURISTIC;
+    PartySnapshot heuristic_snap;
+    uint8_t h_count = pokemon_read_player_party(ewram, EWRAM_SIZE, &heuristic_cfg, &heuristic_snap);
+    TEST_ASSERT(h_count == 1, "heuristic read should find party at 0x28000 and populate cache");
+
+    // 3. Now read through Emerald authoritative config where authoritative count is 0.
+    ewram[emerald_cfg->player_party_count_offset] = 0;
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, emerald_cfg, &snap);
+
+    TEST_ASSERT(count == 0, "Emerald authoritative count 0 must return 0 despite existing cached offset");
+    TEST_ASSERT(snap.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap.members[0].species == 0, "cached party must not be returned");
+
+    // 4. Behavioral proof: the cached player party offset was cleared.
+    PartySnapshot enemy_snap;
+    uint8_t enemy_count = pokemon_read_enemy_party(ewram, EWRAM_SIZE, emerald_cfg, &enemy_snap);
+    TEST_ASSERT(enemy_count == 0, "enemy party reader must return 0 because cached player offset was cleared");
+
+    // A second authoritative read also remains 0.
+    PartySnapshot snap2;
+    TEST_ASSERT(pokemon_read_player_party(ewram, EWRAM_SIZE, emerald_cfg, &snap2) == 0,
+                "subsequent authoritative read must remain 0");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_emerald_stale_cache_cannot_override_zero" ANSI_RESET "\n");
+}
+
+static void test_emerald_authoritative_count_bounds_stale_slots(void) {
+    printf("Running test_emerald_authoritative_count_bounds_stale_slots...\n");
+
+    const GameMemoryConfig* emerald_cfg = pokemon_get_game_config(GAME_EMERALD);
+    TEST_ASSERT(emerald_cfg != NULL, "Emerald config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Authoritative count = 1.
+    ewram[emerald_cfg->player_party_count_offset] = 1;
+
+    // 2. Slot 0: valid Bulbasaur (species 1).
+    // Slots 1..5: valid-looking stale vanilla Pokémon (Ivysaur, Venusaur, Charmander, Charmeleon, Charizard).
+    const uint16_t species_list[6] = {1, 2, 3, 4, 5, 6};
+    for (int i = 0; i < 6; i++) {
+        RawGbaPokemon mon;
+        build_vanilla_mon(&mon, 0x1000 + (i * 24), 0x2000, species_list[i], 10 + i, 30 + i * 5, 31);
+        memcpy(ewram + emerald_cfg->player_party_offset + (i * sizeof(RawGbaPokemon)), &mon, sizeof(RawGbaPokemon));
+    }
+
+    // 3. Read player party. Exactly 1 member must be returned. Slots 1..5 must NOT be exposed.
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, emerald_cfg, &snap);
+
+    TEST_ASSERT(count == 1, "Emerald authoritative count=1 must bound snapshot to 1 member");
+    TEST_ASSERT(snap.count == 1, "snapshot count must be 1");
+    TEST_ASSERT(snap.members[0].species == 1, "slot 0 must be Bulbasaur");
+
+    for (int i = 1; i < 6; i++) {
+        TEST_ASSERT(snap.members[i].species == 0, "stale slot must not be exposed in snapshot");
+    }
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_emerald_authoritative_count_bounds_stale_slots" ANSI_RESET "\n");
+}
+
+static void test_emerald_authoritative_six_members(void) {
+    printf("Running test_emerald_authoritative_six_members...\n");
+
+    const GameMemoryConfig* emerald_cfg = pokemon_get_game_config(GAME_EMERALD);
+    TEST_ASSERT(emerald_cfg != NULL, "Emerald config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Authoritative count = 6.
+    ewram[emerald_cfg->player_party_count_offset] = 6;
+
+    // 2. Slots 0..5: 6 valid vanilla Pokémon.
+    const uint16_t species_list[6] = {1, 4, 7, 25, 133, 143};
+    for (int i = 0; i < 6; i++) {
+        RawGbaPokemon mon;
+        build_vanilla_mon(&mon, 0x3000 + (i * 24), 0x5000, species_list[i], 20 + i, 50 + i * 5, 31);
+        memcpy(ewram + emerald_cfg->player_party_offset + (i * sizeof(RawGbaPokemon)), &mon, sizeof(RawGbaPokemon));
+    }
+
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, emerald_cfg, &snap);
+
+    TEST_ASSERT(count == 6, "Emerald authoritative count=6 must return exactly 6 members");
+    TEST_ASSERT(snap.count == 6, "snapshot count must be 6");
+    for (int i = 0; i < 6; i++) {
+        TEST_ASSERT(snap.members[i].species == species_list[i], "all 6 members must match expected species");
+    }
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_emerald_authoritative_six_members" ANSI_RESET "\n");
+}
+
+static void test_emerald_invalid_authoritative_count_fails_closed(void) {
+    printf("Running test_emerald_invalid_authoritative_count_fails_closed...\n");
+
+    const GameMemoryConfig* emerald_cfg = pokemon_get_game_config(GAME_EMERALD);
+    TEST_ASSERT(emerald_cfg != NULL, "Emerald config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // Plant valid Pokémon at static party address and at decoy location 0x28000.
+    RawGbaPokemon mon;
+    build_vanilla_mon(&mon, 0x1111, 0x2222, 1, 15, 45, 31);
+    memcpy(ewram + emerald_cfg->player_party_offset, &mon, sizeof(RawGbaPokemon));
+    memcpy(ewram + 0x28000, &mon, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // Test count = 7: invalid count outside 0..6 must fail closed, all-or-nothing, no scan.
+    ewram[emerald_cfg->player_party_count_offset] = 7;
+    PartySnapshot snap7;
+    uint8_t count7 = pokemon_read_player_party(ewram, EWRAM_SIZE, emerald_cfg, &snap7);
+    TEST_ASSERT(count7 == 0, "count=7 must fail closed and return 0");
+    TEST_ASSERT(snap7.count == 0, "count=7 snapshot count must be 0");
+    TEST_ASSERT(snap7.members[0].species == 0, "decoy must not rescue count=7");
+
+    // Test count = 255: invalid count outside 0..6 must fail closed, no scan.
+    ewram[emerald_cfg->player_party_count_offset] = 255;
+    PartySnapshot snap255;
+    uint8_t count255 = pokemon_read_player_party(ewram, EWRAM_SIZE, emerald_cfg, &snap255);
+    TEST_ASSERT(count255 == 0, "count=255 must fail closed and return 0");
+    TEST_ASSERT(snap255.count == 0, "count=255 snapshot count must be 0");
+    TEST_ASSERT(snap255.members[0].species == 0, "decoy must not rescue count=255");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_emerald_invalid_authoritative_count_fails_closed" ANSI_RESET "\n");
+}
+
+static void test_emerald_corrupt_authoritative_slot_fails_closed(void) {
+    printf("Running test_emerald_corrupt_authoritative_slot_fails_closed...\n");
+
+    const GameMemoryConfig* emerald_cfg = pokemon_get_game_config(GAME_EMERALD);
+    TEST_ASSERT(emerald_cfg != NULL, "Emerald config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // Plant a decoy valid vanilla Pokémon at 0x28000.
+    RawGbaPokemon decoy;
+    build_vanilla_mon(&decoy, 0x4321, 0x8765, 1, 12, 40, 31);
+    memcpy(ewram + 0x28000, &decoy, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // Case 1: count = 1, slot 0 is corrupt garbage.
+    ewram[emerald_cfg->player_party_count_offset] = 1;
+    memset(ewram + emerald_cfg->player_party_offset, 0xAA, sizeof(RawGbaPokemon));
+
+    PartySnapshot snap1;
+    uint8_t count1 = pokemon_read_player_party(ewram, EWRAM_SIZE, emerald_cfg, &snap1);
+    TEST_ASSERT(count1 == 0, "corrupt slot 0 with count=1 must fail closed");
+    TEST_ASSERT(snap1.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap1.members[0].species == 0, "decoy must not rescue corrupt slot 0");
+
+    // Case 2: count = 2, slot 0 is valid, slot 1 is corrupt.
+    ewram[emerald_cfg->player_party_count_offset] = 2;
+    RawGbaPokemon slot0;
+    build_vanilla_mon(&slot0, 0x1111, 0x2222, 1, 15, 45, 31);
+    memcpy(ewram + emerald_cfg->player_party_offset, &slot0, sizeof(RawGbaPokemon));
+    memset(ewram + emerald_cfg->player_party_offset + sizeof(RawGbaPokemon), 0xBB, sizeof(RawGbaPokemon));
+
+    PartySnapshot snap2;
+    uint8_t count2 = pokemon_read_player_party(ewram, EWRAM_SIZE, emerald_cfg, &snap2);
+    TEST_ASSERT(count2 == 0, "corrupt slot 1 with count=2 must fail closed all-or-nothing");
+    TEST_ASSERT(snap2.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap2.members[0].species == 0, "partial party must not be returned");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_emerald_corrupt_authoritative_slot_fails_closed" ANSI_RESET "\n");
+}
+
+// ===========================================================================
+// FireRed authoritative player party discovery regression suite (issue #42).
+// Upstream pokefirered evidence (src/pokemon.c + sym_ewram.txt):
+//   gPlayerPartyCount = 0x02024029 (EWRAM 0x24029)
+//   gPlayerParty      = 0x02024284 (EWRAM 0x24284)
+// ===========================================================================
+
+static void test_firered_authoritative_zero_count_defeats_decoy_scan(void) {
+    printf("Running test_firered_authoritative_zero_count_defeats_decoy_scan...\n");
+
+    const GameMemoryConfig* firered_cfg = pokemon_get_game_config(GAME_FIRERED);
+    TEST_ASSERT(firered_cfg != NULL, "FireRed config required");
+    TEST_ASSERT(firered_cfg->player_party_policy == PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
+                "FireRed must use PARTY_DISCOVERY_AUTHORITATIVE_STATIC");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Authoritative count is 0, party array at gPlayerParty is empty (zeroed).
+    ewram[firered_cfg->player_party_count_offset] = 0;
+
+    // 2. Plant a completely valid vanilla Pokémon at 0x28000 (typical scan location).
+    RawGbaPokemon decoy;
+    build_vanilla_mon(&decoy, 0x12345678, 0x99887766, 4, 15, 45, 31);
+    memcpy(ewram + 0x28000, &decoy, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // 3. Read player party. Authoritative count 0 MUST return 0 immediately and NOT scan EWRAM.
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, firered_cfg, &snap);
+
+    TEST_ASSERT(count == 0, "FireRed authoritative count == 0 must return 0 immediately");
+    TEST_ASSERT(snap.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap.members[0].species == 0, "decoy pokemon must never appear in snapshot");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_firered_authoritative_zero_count_defeats_decoy_scan" ANSI_RESET "\n");
+}
+
+static void test_firered_stale_cache_cannot_override_zero(void) {
+    printf("Running test_firered_stale_cache_cannot_override_zero...\n");
+
+    const GameMemoryConfig* firered_cfg = pokemon_get_game_config(GAME_FIRERED);
+    TEST_ASSERT(firered_cfg != NULL, "FireRed config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Plant a valid vanilla Pokémon at 0x28000.
+    RawGbaPokemon mon;
+    build_vanilla_mon(&mon, 0x12345678, 0x99887766, 4, 15, 45, 31);
+    memcpy(ewram + 0x28000, &mon, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // 2. Perform a read with a heuristic configuration to populate s_cached_player_party_offset.
+    GameMemoryConfig heuristic_cfg = *firered_cfg;
+    heuristic_cfg.player_party_policy = PARTY_DISCOVERY_HEURISTIC;
+    PartySnapshot heuristic_snap;
+    uint8_t h_count = pokemon_read_player_party(ewram, EWRAM_SIZE, &heuristic_cfg, &heuristic_snap);
+    TEST_ASSERT(h_count == 1, "heuristic read should find party at 0x28000 and populate cache");
+
+    // 3. Now read through FireRed authoritative config where authoritative count is 0.
+    ewram[firered_cfg->player_party_count_offset] = 0;
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, firered_cfg, &snap);
+
+    TEST_ASSERT(count == 0, "FireRed authoritative count 0 must return 0 despite existing cached offset");
+    TEST_ASSERT(snap.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap.members[0].species == 0, "cached party must not be returned");
+
+    // 4. Behavioral proof: the cached player party offset was cleared.
+    PartySnapshot enemy_snap;
+    uint8_t enemy_count = pokemon_read_enemy_party(ewram, EWRAM_SIZE, firered_cfg, &enemy_snap);
+    TEST_ASSERT(enemy_count == 0, "enemy party reader must return 0 because cached player offset was cleared");
+
+    // A second authoritative read also remains 0.
+    PartySnapshot snap2;
+    TEST_ASSERT(pokemon_read_player_party(ewram, EWRAM_SIZE, firered_cfg, &snap2) == 0,
+                "subsequent authoritative read must remain 0");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_firered_stale_cache_cannot_override_zero" ANSI_RESET "\n");
+}
+
+static void test_firered_authoritative_count_bounds_stale_slots(void) {
+    printf("Running test_firered_authoritative_count_bounds_stale_slots...\n");
+
+    const GameMemoryConfig* firered_cfg = pokemon_get_game_config(GAME_FIRERED);
+    TEST_ASSERT(firered_cfg != NULL, "FireRed config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Authoritative count = 1.
+    ewram[firered_cfg->player_party_count_offset] = 1;
+
+    // 2. Slot 0: valid Charmander (species 4).
+    // Slots 1..5: valid-looking stale vanilla Pokémon (Charmeleon, Charizard, Squirtle, Wartortle, Blastoise).
+    const uint16_t species_list[6] = {4, 5, 6, 7, 8, 9};
+    for (int i = 0; i < 6; i++) {
+        RawGbaPokemon mon;
+        build_vanilla_mon(&mon, 0x1000 + (i * 24), 0x2000, species_list[i], 10 + i, 30 + i * 5, 31);
+        memcpy(ewram + firered_cfg->player_party_offset + (i * sizeof(RawGbaPokemon)), &mon, sizeof(RawGbaPokemon));
+    }
+
+    // 3. Read player party. Exactly 1 member must be returned. Slots 1..5 must NOT be exposed.
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, firered_cfg, &snap);
+
+    TEST_ASSERT(count == 1, "FireRed authoritative count=1 must bound snapshot to 1 member");
+    TEST_ASSERT(snap.count == 1, "snapshot count must be 1");
+    TEST_ASSERT(snap.members[0].species == 4, "slot 0 must be Charmander");
+
+    for (int i = 1; i < 6; i++) {
+        TEST_ASSERT(snap.members[i].species == 0, "stale slot must not be exposed in snapshot");
+    }
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_firered_authoritative_count_bounds_stale_slots" ANSI_RESET "\n");
+}
+
+static void test_firered_authoritative_six_members(void) {
+    printf("Running test_firered_authoritative_six_members...\n");
+
+    const GameMemoryConfig* firered_cfg = pokemon_get_game_config(GAME_FIRERED);
+    TEST_ASSERT(firered_cfg != NULL, "FireRed config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // 1. Authoritative count = 6.
+    ewram[firered_cfg->player_party_count_offset] = 6;
+
+    // 2. Slots 0..5: 6 valid vanilla Pokémon.
+    const uint16_t species_list[6] = {4, 1, 7, 25, 133, 143};
+    for (int i = 0; i < 6; i++) {
+        RawGbaPokemon mon;
+        build_vanilla_mon(&mon, 0x3000 + (i * 24), 0x5000, species_list[i], 20 + i, 50 + i * 5, 31);
+        memcpy(ewram + firered_cfg->player_party_offset + (i * sizeof(RawGbaPokemon)), &mon, sizeof(RawGbaPokemon));
+    }
+
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, firered_cfg, &snap);
+
+    TEST_ASSERT(count == 6, "FireRed authoritative count=6 must return exactly 6 members");
+    TEST_ASSERT(snap.count == 6, "snapshot count must be 6");
+    for (int i = 0; i < 6; i++) {
+        TEST_ASSERT(snap.members[i].species == species_list[i], "all 6 members must match expected species");
+    }
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_firered_authoritative_six_members" ANSI_RESET "\n");
+}
+
+static void test_firered_invalid_authoritative_count_fails_closed(void) {
+    printf("Running test_firered_invalid_authoritative_count_fails_closed...\n");
+
+    const GameMemoryConfig* firered_cfg = pokemon_get_game_config(GAME_FIRERED);
+    TEST_ASSERT(firered_cfg != NULL, "FireRed config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // Plant valid Pokémon at static party address and at decoy location 0x28000.
+    RawGbaPokemon mon;
+    build_vanilla_mon(&mon, 0x1111, 0x2222, 4, 15, 45, 31);
+    memcpy(ewram + firered_cfg->player_party_offset, &mon, sizeof(RawGbaPokemon));
+    memcpy(ewram + 0x28000, &mon, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // Test count = 7: invalid count outside 0..6 must fail closed, all-or-nothing, no scan.
+    ewram[firered_cfg->player_party_count_offset] = 7;
+    PartySnapshot snap7;
+    uint8_t count7 = pokemon_read_player_party(ewram, EWRAM_SIZE, firered_cfg, &snap7);
+    TEST_ASSERT(count7 == 0, "count=7 must fail closed and return 0");
+    TEST_ASSERT(snap7.count == 0, "count=7 snapshot count must be 0");
+    TEST_ASSERT(snap7.members[0].species == 0, "decoy must not rescue count=7");
+
+    // Test count = 255: invalid count outside 0..6 must fail closed, no scan.
+    ewram[firered_cfg->player_party_count_offset] = 255;
+    PartySnapshot snap255;
+    uint8_t count255 = pokemon_read_player_party(ewram, EWRAM_SIZE, firered_cfg, &snap255);
+    TEST_ASSERT(count255 == 0, "count=255 must fail closed and return 0");
+    TEST_ASSERT(snap255.count == 0, "count=255 snapshot count must be 0");
+    TEST_ASSERT(snap255.members[0].species == 0, "decoy must not rescue count=255");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_firered_invalid_authoritative_count_fails_closed" ANSI_RESET "\n");
+}
+
+static void test_firered_corrupt_authoritative_slot_fails_closed(void) {
+    printf("Running test_firered_corrupt_authoritative_slot_fails_closed...\n");
+
+    const GameMemoryConfig* firered_cfg = pokemon_get_game_config(GAME_FIRERED);
+    TEST_ASSERT(firered_cfg != NULL, "FireRed config required");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    // Plant a decoy valid vanilla Pokémon at 0x28000.
+    RawGbaPokemon decoy;
+    build_vanilla_mon(&decoy, 0x4321, 0x8765, 4, 12, 40, 31);
+    memcpy(ewram + 0x28000, &decoy, sizeof(RawGbaPokemon));
+    ewram[0x28000 - 1] = 1;
+
+    // Case 1: count = 1, slot 0 is corrupt garbage.
+    ewram[firered_cfg->player_party_count_offset] = 1;
+    memset(ewram + firered_cfg->player_party_offset, 0xAA, sizeof(RawGbaPokemon));
+
+    PartySnapshot snap1;
+    uint8_t count1 = pokemon_read_player_party(ewram, EWRAM_SIZE, firered_cfg, &snap1);
+    TEST_ASSERT(count1 == 0, "corrupt slot 0 with count=1 must fail closed");
+    TEST_ASSERT(snap1.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap1.members[0].species == 0, "decoy must not rescue corrupt slot 0");
+
+    // Case 2: count = 2, slot 0 is valid, slot 1 is corrupt.
+    ewram[firered_cfg->player_party_count_offset] = 2;
+    RawGbaPokemon slot0;
+    build_vanilla_mon(&slot0, 0x1111, 0x2222, 4, 15, 45, 31);
+    memcpy(ewram + firered_cfg->player_party_offset, &slot0, sizeof(RawGbaPokemon));
+    memset(ewram + firered_cfg->player_party_offset + sizeof(RawGbaPokemon), 0xBB, sizeof(RawGbaPokemon));
+
+    PartySnapshot snap2;
+    uint8_t count2 = pokemon_read_player_party(ewram, EWRAM_SIZE, firered_cfg, &snap2);
+    TEST_ASSERT(count2 == 0, "corrupt slot 1 with count=2 must fail closed all-or-nothing");
+    TEST_ASSERT(snap2.count == 0, "snapshot count must be 0");
+    TEST_ASSERT(snap2.members[0].species == 0, "partial party must not be returned");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_firered_corrupt_authoritative_slot_fails_closed" ANSI_RESET "\n");
+}
+
 static void test_party_discovery_policy_assignments(void) {
     printf("Running test_party_discovery_policy_assignments...\n");
 
-    // Heart & Soul 2.0.5 has exact compiled and runtime symbol evidence for both gPlayerPartyCount
-    // and gPlayerParty, so it alone uses PARTY_DISCOVERY_AUTHORITATIVE_STATIC.
+    // Heart & Soul 2.0.5, vanilla Emerald, and vanilla FireRed have authoritative compiled/decomp
+    // symbol evidence for both player party count and player party buffer:
     const GameMemoryConfig* hns = pokemon_get_game_config(GAME_HEART_AND_SOUL);
     TEST_ASSERT(hns != NULL, "H&S config required");
     TEST_ASSERT(hns->player_party_policy == PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
                 "H&S must use PARTY_DISCOVERY_AUTHORITATIVE_STATIC");
 
-    // Vanilla games and approximate hacks keep PARTY_DISCOVERY_HEURISTIC:
-    // - Emerald allocates SaveBlock1 on the heap, party memory can shift, and fallback scan is tested.
-    // - FireRed player_party_count_offset (0x24029) is an unverified / heuristic offset.
-    // - Unverified hacks (Ghost Grey, Radical Red, Unbound) do not have proven symbol authority.
     const GameMemoryConfig* emerald = pokemon_get_game_config(GAME_EMERALD);
-    TEST_ASSERT(emerald != NULL && emerald->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
-                "Emerald must use PARTY_DISCOVERY_HEURISTIC");
+    TEST_ASSERT(emerald != NULL && emerald->player_party_policy == PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
+                "Emerald must use PARTY_DISCOVERY_AUTHORITATIVE_STATIC");
 
     const GameMemoryConfig* firered = pokemon_get_game_config(GAME_FIRERED);
-    TEST_ASSERT(firered != NULL && firered->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
-                "FireRed must use PARTY_DISCOVERY_HEURISTIC");
+    TEST_ASSERT(firered != NULL && firered->player_party_policy == PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
+                "FireRed must use PARTY_DISCOVERY_AUTHORITATIVE_STATIC");
 
+    // Other vanilla titles and unverified hacks keep PARTY_DISCOVERY_HEURISTIC:
+    // - Unverified hacks (Ghost Grey, Radical Red, Unbound) do not have proven symbol authority.
     const GameMemoryConfig* leafgreen = pokemon_get_game_config(GAME_LEAFGREEN);
     TEST_ASSERT(leafgreen != NULL && leafgreen->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
                 "LeafGreen must use PARTY_DISCOVERY_HEURISTIC");
@@ -2010,6 +2552,21 @@ int main(void) {
     test_hns_authoritative_six_members();
     test_hns_invalid_authoritative_count_fails_closed();
     test_hns_corrupt_authoritative_slot_fails_closed();
+
+    test_emerald_authoritative_zero_count_defeats_decoy_scan();
+    test_emerald_stale_cache_cannot_override_zero();
+    test_emerald_authoritative_count_bounds_stale_slots();
+    test_emerald_authoritative_six_members();
+    test_emerald_invalid_authoritative_count_fails_closed();
+    test_emerald_corrupt_authoritative_slot_fails_closed();
+
+    test_firered_authoritative_zero_count_defeats_decoy_scan();
+    test_firered_stale_cache_cannot_override_zero();
+    test_firered_authoritative_count_bounds_stale_slots();
+    test_firered_authoritative_six_members();
+    test_firered_invalid_authoritative_count_fails_closed();
+    test_firered_corrupt_authoritative_slot_fails_closed();
+
     test_party_discovery_policy_assignments();
 
     printf("===================================================\n");

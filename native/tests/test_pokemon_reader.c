@@ -1,5 +1,6 @@
 #include "pokemon_reader.h"
 #include "pokemon_text.h"
+#include "gba_memory_map.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -472,6 +473,690 @@ static void test_ewram_scan_ignores_box_pokemon_and_finds_real_party(void) {
     printf(ANSI_GREEN "  [PASS] test_ewram_scan_ignores_box_pokemon_and_finds_real_party" ANSI_RESET "\n");
 }
 
+// ===========================================================================
+// Heart & Soul 2.0.5 evidence-backed regression coverage.
+//
+// Every expected address/layout value below is taken from the exact upstream build:
+//   PokemonHnS-Development/pokehns-expansion @ Release-v2.0.5
+//   commit 1f42b74dff0e9fe942419845d040663dd829a973
+//   built with `make hns` (arm-none-eabi-gcc 13.2.rel1, -mabi=apcs-gnu, -mthumb, -O2),
+//   symbols read from pokehns.sym / arm-none-eabi-nm on pokehns.elf, struct layouts from a
+//   DWARF-instrumented probe compiled against the tagged headers with the same flags.
+//
+// Regression intent: if someone "simplifies" these constants back into derived arithmetic, or
+// reintroduces the vanilla ability-slot meaning for the expansion layout, these tests fail.
+// ===========================================================================
+
+static void write16_le_t(uint8_t* p, uint16_t v) {
+    p[0] = (uint8_t)(v & 0xFF);
+    p[1] = (uint8_t)((v >> 8) & 0xFF);
+}
+
+static void write32_le_t(uint8_t* p, uint32_t v) {
+    p[0] = (uint8_t)(v & 0xFF);
+    p[1] = (uint8_t)((v >> 8) & 0xFF);
+    p[2] = (uint8_t)((v >> 16) & 0xFF);
+    p[3] = (uint8_t)((v >> 24) & 0xFF);
+}
+
+/**
+ * Build one exact-layout Heart & Soul party slot.
+ *
+ * @param iv_word      the 32-bit word at PokemonSubstruct3 offset 4 (IVs, isEgg, gmax)
+ * @param ribbon_word  the 32-bit word at PokemonSubstruct3 offset 8 (ribbons, abilityNum)
+ * @param hidden_nature_modifier raw 5-bit BoxPokemon.hiddenNatureModifier
+ * @param shiny_modifier         BoxPokemon.shinyModifier bit
+ */
+static void build_hns_mon(
+    RawGbaPokemon* out,
+    uint32_t pid,
+    uint32_t otid,
+    uint16_t species,
+    uint8_t level,
+    uint16_t max_hp,
+    uint32_t iv_word,
+    uint32_t ribbon_word,
+    uint8_t hidden_nature_modifier,
+    bool shiny_modifier
+) {
+    memset(out, 0, sizeof(*out));
+    out->pid = pid;
+    out->otid = otid;
+    out->level = level;
+    out->max_hp = max_hp;
+    out->current_hp = max_hp;
+    out->attack = 30;
+    out->defense = 30;
+    out->speed = 30;
+    out->sp_attack = 30;
+    out->sp_defense = 30;
+
+    uint8_t g[12];
+    uint8_t a[12];
+    uint8_t e[12];
+    uint8_t m[12];
+    memset(g, 0, sizeof(g));
+    memset(a, 0, sizeof(a));
+    memset(e, 0, sizeof(e));
+    memset(m, 0, sizeof(m));
+
+    write16_le_t(g + 0, species);
+    a[0] = 33;   // Tackle
+    a[8] = 35;   // PP
+    write32_le_t(m + 4, iv_word);
+    write32_le_t(m + 8, ribbon_word);
+
+    pack_and_encrypt(pid, otid, g, a, e, m, out->raw_substructures, &out->checksum);
+
+    // Unencrypted BoxPokemon header bits: byte 0x12 packs language:3 + hiddenNatureModifier:5,
+    // and the 16-bit word at 0x1E packs hpLost:14 + shinyModifier:1 + unused:1.
+    uint8_t* raw = (uint8_t*)out;
+    raw[0x12] = (uint8_t)((hidden_nature_modifier & 0x1F) << 3);
+    write16_le_t(raw + 0x1E, shiny_modifier ? 0x4000 : 0x0000);
+}
+
+/** A synthetic GBA with a real region table, so SaveBlock1 tests exercise production translation. */
+typedef struct {
+    uint8_t ewram[0x40000];
+    uint8_t iwram[0x8000];
+    DualDexGbaRegionTable table;
+} FakeGba;
+
+static bool fake_gba_read(void* user, uint32_t address, uint8_t* out, size_t length) {
+    return gba_memory_map_read((const DualDexGbaRegionTable*)user, address, out, length);
+}
+
+/** Map IWRAM + EWRAM exactly the way mGBA publishes them (select = 0xFF000000). */
+static void fake_gba_init(FakeGba* gba, bool map_iwram, bool map_ewram) {
+    memset(gba, 0, sizeof(*gba));
+    gba_memory_map_clear(&gba->table);
+    if (map_iwram) {
+        gba_memory_map_add(&gba->table, gba->iwram, 0x03000000u, 0x8000u, 0xFF000000u, 0u, 0u, 0u);
+    }
+    if (map_ewram) {
+        gba_memory_map_add(&gba->table, gba->ewram, 0x02000000u, 0x40000u, 0xFF000000u, 0u, 0u, 0u);
+    }
+}
+
+static void test_hns_config_matches_compiled_evidence(void) {
+    printf("Running test_hns_config_matches_compiled_evidence...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(cfg != NULL, "Heart and Soul config must exist");
+
+    // Compiled symbol addresses (pokehns.sym), expressed as EWRAM-relative offsets.
+    TEST_ASSERT(cfg->player_party_offset == 0x34768, "gPlayerParty must be 0x02034768 in 2.0.5");
+    TEST_ASSERT(cfg->player_party_count_offset == 0x342A8, "gPlayerPartyCount must be 0x020342A8");
+    TEST_ASSERT(cfg->enemy_party_offset == 0x342B8, "gEnemyParty must be 0x020342B8");
+    TEST_ASSERT(cfg->enemy_party_count_offset == 0x342A9, "gEnemyPartyCount must be 0x020342A9");
+    TEST_ASSERT(cfg->battle_mons_offset == 0x420, "gBattleMons must be 0x02000420");
+    TEST_ASSERT(cfg->battler_party_indexes_offset == 0x144, "gBattlerPartyIndexes must be 0x02000144");
+    TEST_ASSERT(cfg->battle_type_flags_offset == 0xAC, "gBattleTypeFlags must be 0x020000AC");
+    TEST_ASSERT(cfg->battlers_count_offset == 0xB0, "gBattlersCount must be 0x020000B0");
+    TEST_ASSERT(cfg->battle_outcome_offset == 0x12C, "gBattleOutcome must be 0x0200012C");
+
+    // sizeof(struct BattlePokemon) is 136: gBattleMons spans 0x220 bytes over 4 battlers.
+    TEST_ASSERT(cfg->battle_mons_size == 136, "sizeof(struct BattlePokemon) must be 136, not 88");
+    TEST_ASSERT(cfg->battle_mons_hp_offset == 0x2A, "BattlePokemon.hp must be 0x2A");
+    TEST_ASSERT(cfg->battle_mons_stat_stages_offset == 0x18, "BattlePokemon.statStages must be 0x18");
+
+    // IWRAM pointer symbol and the 128-byte ASLR window around gSaveblock1.
+    // Runtime-verified against the official 2.0.5 release ROM: gSaveBlock1Ptr, gSaveBlock2Ptr and
+    // gPokemonStoragePtr were observed as three adjacent IWRAM words holding base+88 for the
+    // compiled EWRAM bases, pinning the pointer at 0x030041D8 (a from-source `make hns` build
+    // places it at 0x030041C0, which is NOT the address the release binary uses).
+    TEST_ASSERT(cfg->save_block1_ptr_gba_address == 0x030041D8, "gSaveBlock1Ptr must be 0x030041D8");
+    TEST_ASSERT(cfg->save_block1_base_gba_address == 0x020124A8, "gSaveblock1 must be 0x020124A8");
+    TEST_ASSERT(cfg->save_block1_aslr_range == 128, "SaveBlock1 ASLR window must be 128 bytes");
+    TEST_ASSERT(cfg->save_block1_size == 15760, "sizeof(struct SaveBlock1) must be 15760");
+    TEST_ASSERT(cfg->save_block1_pos_offset == 0x04,
+                "SaveBlock1.pos must be 0x04 (u16 saveVersion at 0x00 + 4-byte Coords16 alignment)");
+    TEST_ASSERT(cfg->save_block1_location_offset == 0x08, "SaveBlock1.location must be 0x08");
+    TEST_ASSERT(cfg->save_block1_escape_warp_offset == 0x28, "SaveBlock1.escapeWarp must be 0x28");
+
+    TEST_ASSERT(cfg->storage_layout == PKMN_STORAGE_EXPANSION, "H&S must use the expansion storage layout");
+    TEST_ASSERT(cfg->has_evs && cfg->has_ivs, "H&S keeps EVs and IVs");
+
+    // Vanilla configs must be untouched by the expansion work.
+    const GameMemoryConfig* emerald = pokemon_get_game_config(GAME_EMERALD);
+    TEST_ASSERT(emerald->storage_layout == PKMN_STORAGE_VANILLA_GEN3, "Emerald keeps the vanilla layout");
+    TEST_ASSERT(emerald->player_party_offset == 0x244EC, "Emerald party offset unchanged");
+    TEST_ASSERT(emerald->battle_mons_hp_offset == 40, "Emerald BattlePokemon.hp unchanged");
+    TEST_ASSERT(emerald->save_block1_ptr_gba_address == 0, "Emerald must not declare an IWRAM SaveBlock1 pointer");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_config_matches_compiled_evidence" ANSI_RESET "\n");
+}
+
+static void test_hns_party_counts_are_independent_symbols(void) {
+    printf("Running test_hns_party_counts_are_independent_symbols...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(cfg != NULL, "H&S config required");
+
+    // The compiled image places the two count symbols adjacent to each other but NOT adjacent to
+    // either party array, so "count == party - 4" and "enemy count == player count + 600" are both
+    // wrong on 2.0.5.
+    TEST_ASSERT(cfg->enemy_party_count_offset != cfg->enemy_party_offset - 4,
+                "enemy count must not be derived as gEnemyParty - 4");
+    TEST_ASSERT(cfg->player_party_count_offset != cfg->player_party_offset - 4,
+                "player count must not be derived as gPlayerParty - 4");
+    TEST_ASSERT(cfg->player_party_count_offset + 1 == cfg->enemy_party_count_offset,
+                "gPlayerPartyCount and gEnemyPartyCount are adjacent bytes");
+    TEST_ASSERT(cfg->player_party_count_offset != cfg->enemy_party_count_offset,
+                "player and enemy counts are distinct addresses");
+
+    // End-to-end: the reader must use gEnemyPartyCount, not the player count.
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+
+    pokemon_reader_reset();
+    ewram[cfg->player_party_count_offset] = 1;
+    ewram[cfg->enemy_party_count_offset] = 0; // enemy count differs from player count
+
+    RawGbaPokemon mon;
+    build_hns_mon(&mon, 0x0000ABCD, 0x11112222, 155, 14, 50, 31, 0, 0, false);
+    memcpy(ewram + cfg->player_party_offset, &mon, sizeof(RawGbaPokemon));
+
+    PartySnapshot snap;
+    uint8_t count = pokemon_read_player_party(ewram, EWRAM_SIZE, cfg, &snap);
+    TEST_ASSERT(count == 1, "one party member must be read from the compiled gPlayerParty offset");
+    TEST_ASSERT(snap.members[0].species == 155, "Cyndaquil must parse at the compiled offset");
+
+    // A count symbol that disagrees with the parsed party must never INFLATE the reported party:
+    // the reader may fall through to its cached/scan paths, but it may not present members that
+    // the count symbol did not authorise.
+    ewram[cfg->player_party_count_offset] = 4;
+    PartySnapshot rejected;
+    uint8_t rejected_count = pokemon_read_player_party(ewram, EWRAM_SIZE, cfg, &rejected);
+    TEST_ASSERT(rejected_count <= 1,
+                "a mismatched party count must not inflate the reported party size");
+
+    // The two count symbols are addressed independently, so an enemy count of zero must not
+    // change what the player party read reports.
+    ewram[cfg->player_party_count_offset] = 1;
+    ewram[cfg->enemy_party_count_offset] = 0;
+    PartySnapshot still_player;
+    TEST_ASSERT(pokemon_read_player_party(ewram, EWRAM_SIZE, cfg, &still_player) == 1,
+                "the player party read must follow gPlayerPartyCount, not gEnemyPartyCount");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_party_counts_are_independent_symbols" ANSI_RESET "\n");
+}
+
+static void test_expansion_ability_num_is_not_the_gigantamax_bit(void) {
+    printf("Running test_expansion_ability_num_is_not_the_gigantamax_bit...\n");
+
+    // IV word with every IV maxed and bit 31 (gigantamaxFactor) SET.
+    const uint32_t iv_word = 0xFFFFFFFFu;
+    // abilityNum = 2 lives at bits 29..30 of the word at substruct3 offset 8.
+    const uint32_t ribbon_word = (uint32_t)2 << 29;
+
+    RawGbaPokemon mon;
+    build_hns_mon(&mon, 100, 200, 500, 50, 150, iv_word, ribbon_word, 0, false);
+
+    ParsedPokemon expand;
+    TEST_ASSERT(pokemon_parse_single_layout((const uint8_t*)&mon, true, PKMN_STORAGE_EXPANSION, &expand),
+                "expansion parse must succeed");
+    TEST_ASSERT(expand.gigantamax_factor == true,
+                "bit 31 of the IV word must decode as gigantamaxFactor");
+    TEST_ASSERT(expand.is_egg == true, "bit 30 of the IV word stays the egg flag");
+    TEST_ASSERT(expand.ability_num == 2, "abilityNum must come from bits 29..30 of the ribbon word");
+    TEST_ASSERT(expand.ability_slot == 2, "the reported ability slot is the decoded abilityNum");
+    TEST_ASSERT(expand.ability_slot != 1,
+                "the Gigantamax bit must NOT be reported as ability slot 1");
+
+    // Same bytes under the vanilla layout: bit 31 IS the ability slot there.
+    ParsedPokemon vanilla;
+    TEST_ASSERT(pokemon_parse_single((const uint8_t*)&mon, true, &vanilla), "vanilla parse must succeed");
+    TEST_ASSERT(vanilla.ability_slot == 1, "vanilla layout still reads bit 31 as the ability slot");
+    TEST_ASSERT(vanilla.gigantamax_factor == false, "vanilla layout must not claim a Gigantamax flag");
+
+    // abilityNum 0 and 3 must round-trip through the same field.
+    RawGbaPokemon mon3;
+    build_hns_mon(&mon3, 100, 200, 500, 50, 150, 0x0000001Fu, (uint32_t)3 << 29, 0, false);
+    ParsedPokemon parsed3;
+    TEST_ASSERT(pokemon_parse_single_layout((const uint8_t*)&mon3, true, PKMN_STORAGE_EXPANSION, &parsed3),
+                "expansion parse of abilityNum 3 must succeed");
+    TEST_ASSERT(parsed3.ability_num == 3, "abilityNum 3 must decode as 3");
+    TEST_ASSERT(parsed3.gigantamax_factor == false, "gigantamaxFactor must be clear here");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_expansion_ability_num_is_not_the_gigantamax_bit" ANSI_RESET "\n");
+}
+
+static void test_expansion_nature_and_shiny_are_reported_honestly(void) {
+    printf("Running test_expansion_nature_and_shiny_are_reported_honestly...\n");
+
+    // pid % 25 = 100 % 25 = 0 (Hardy). Mint modifier 4 -> hidden nature 4 (Naughty).
+    RawGbaPokemon mon;
+    build_hns_mon(&mon, 100, 200, 155, 20, 60, 31, 0, 4, false);
+
+    ParsedPokemon parsed;
+    TEST_ASSERT(pokemon_parse_single_layout((const uint8_t*)&mon, true, PKMN_STORAGE_EXPANSION, &parsed),
+                "parse must succeed");
+    TEST_ASSERT(parsed.nature == 0, "displayed nature stays GetNature() == pid % 25");
+    TEST_ASSERT(parsed.hidden_nature_modifier == 4, "hiddenNatureModifier must be read from byte 0x12");
+    TEST_ASSERT(parsed.hidden_nature == 4, "stat-effective nature is (pid % 25) ^ modifier");
+    TEST_ASSERT(parsed.nature_modified, "a non-zero modifier must be flagged as a modified nature");
+
+    // Without a mint the two natures coincide and nothing is flagged.
+    RawGbaPokemon plain;
+    build_hns_mon(&plain, 100, 200, 155, 20, 60, 31, 0, 0, false);
+    ParsedPokemon plain_parsed;
+    TEST_ASSERT(pokemon_parse_single_layout((const uint8_t*)&plain, true, PKMN_STORAGE_EXPANSION, &plain_parsed),
+                "parse must succeed");
+    TEST_ASSERT(plain_parsed.hidden_nature == plain_parsed.nature, "unminted natures must agree");
+    TEST_ASSERT(!plain_parsed.nature_modified, "unminted Pokémon must not be flagged");
+
+    // Shiny: shinyValue = tid ^ sid ^ pid_hi ^ pid_lo.
+    // 1) shinyValue 0 -> shiny for every possible odds value.
+    // pid_hi ^ pid_lo == 0 and otid == 0, so shinyValue == 0. The PID is part of the
+    // substructure encryption key, so it must be the PID the fixture is actually built with.
+    RawGbaPokemon shiny_mon;
+    build_hns_mon(&shiny_mon, 0x00010001, 0x00000000, 155, 20, 60, 31, 0, 0, false);
+    ParsedPokemon shiny_parsed;
+    TEST_ASSERT(pokemon_parse_single_layout((const uint8_t*)&shiny_mon, true, PKMN_STORAGE_EXPANSION, &shiny_parsed),
+                "shiny parse must succeed");
+    TEST_ASSERT(shiny_parsed.shiny_value == 0, "shinyValue must be 0 here");
+    TEST_ASSERT(shiny_parsed.shiny_state == PKMN_SHINY_YES, "shinyValue 0 is shiny at every odds value");
+    TEST_ASSERT(shiny_parsed.is_shiny, "is_shiny must agree with an exact YES");
+
+    // 2) shinyModifier inverts it, so the same bytes are definitely NOT shiny in H&S.
+    RawGbaPokemon modified;
+    build_hns_mon(&modified, 0x00010001, 0x00000000, 155, 20, 60, 31, 0, 0, true);
+    ParsedPokemon modified_parsed;
+    TEST_ASSERT(pokemon_parse_single_layout((const uint8_t*)&modified, true, PKMN_STORAGE_EXPANSION, &modified_parsed),
+                "modified parse must succeed");
+    TEST_ASSERT(modified_parsed.shiny_modifier == 1, "shinyModifier must be read from bit 14 of 0x1E");
+    TEST_ASSERT(modified_parsed.shiny_state == PKMN_SHINY_NO, "shinyModifier must invert the verdict");
+    TEST_ASSERT(!modified_parsed.is_shiny, "is_shiny must follow the corrected verdict");
+
+    // 3) An ambiguous shinyValue must be reported as UNKNOWN, never as a confident answer.
+    // pid_hi ^ pid_lo == 16 with a zero OT id puts shinyValue in the odds-dependent band.
+    RawGbaPokemon ambiguous;
+    build_hns_mon(&ambiguous, 0x00000010, 0x00000000, 155, 20, 60, 31, 0, 0, false);
+    ParsedPokemon ambiguous_parsed;
+    TEST_ASSERT(pokemon_parse_single_layout((const uint8_t*)&ambiguous, true, PKMN_STORAGE_EXPANSION, &ambiguous_parsed),
+                "ambiguous parse must succeed");
+    TEST_ASSERT(ambiguous_parsed.shiny_value == 16, "shinyValue must be 16 here");
+    TEST_ASSERT(ambiguous_parsed.shiny_state == PKMN_SHINY_UNKNOWN,
+                "16 is inside the odds-dependent band and must be reported as UNKNOWN");
+    TEST_ASSERT(!ambiguous_parsed.is_shiny, "an unknown verdict must not be presented as shiny");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_expansion_nature_and_shiny_are_reported_honestly" ANSI_RESET "\n");
+}
+
+static void test_vanilla_ability_slot_parsing_unchanged(void) {
+    printf("Running test_vanilla_ability_slot_parsing_unchanged...\n");
+
+    // Bit 31 set, everything else zero: the classic vanilla ability-slot-1 fixture.
+    RawGbaPokemon raw;
+    memset(&raw, 0, sizeof(raw));
+    raw.pid = 0x00000018; // pid % 24 == 0 -> GAEM order
+    raw.otid = 0x00000042;
+    raw.level = 25;
+    raw.max_hp = 70;
+    raw.current_hp = 70;
+    raw.attack = 40;
+    raw.defense = 40;
+    raw.speed = 40;
+    raw.sp_attack = 40;
+    raw.sp_defense = 40;
+
+    uint8_t g[12], a[12], e[12], m[12];
+    memset(g, 0, sizeof(g));
+    memset(a, 0, sizeof(a));
+    memset(e, 0, sizeof(e));
+    memset(m, 0, sizeof(m));
+    write16_le_t(g, 25);  // Pikachu
+    write32_le_t(m + 4, 0x8000001F); // ability-slot bit 31 + max HP IV
+    pack_and_encrypt(raw.pid, raw.otid, g, a, e, m, raw.raw_substructures, &raw.checksum);
+
+    ParsedPokemon parsed;
+    TEST_ASSERT(pokemon_parse_single((const uint8_t*)&raw, true, &parsed), "vanilla parse must succeed");
+    TEST_ASSERT(parsed.ability_slot == 1, "vanilla bit 31 must still mean ability slot 1");
+    TEST_ASSERT(parsed.storage_layout == PKMN_STORAGE_VANILLA_GEN3, "vanilla entry point keeps the vanilla layout");
+    TEST_ASSERT(!parsed.gigantamax_factor, "vanilla parsing must never expose a Gigantamax flag");
+    TEST_ASSERT(parsed.shiny_state != PKMN_SHINY_UNKNOWN, "vanilla shiny verdict is always exact");
+    TEST_ASSERT(parsed.hidden_nature == parsed.nature, "vanilla parsing has no separate mint nature");
+
+    // The public vanilla entry point and the explicit vanilla layout must agree bit for bit.
+    ParsedPokemon explicit_vanilla;
+    TEST_ASSERT(pokemon_parse_single_layout((const uint8_t*)&raw, true, PKMN_STORAGE_VANILLA_GEN3, &explicit_vanilla),
+                "explicit vanilla parse must succeed");
+    TEST_ASSERT(explicit_vanilla.ability_slot == parsed.ability_slot, "ability slot must match");
+    TEST_ASSERT(explicit_vanilla.is_shiny == parsed.is_shiny, "shiny verdict must match");
+    TEST_ASSERT(explicit_vanilla.nature == parsed.nature, "nature must match");
+    TEST_ASSERT(explicit_vanilla.hp_iv == parsed.hp_iv && explicit_vanilla.sp_defense_iv == parsed.sp_defense_iv,
+                "IV decoding must match");
+
+    // Clearing bit 31 yields ability slot 0 in vanilla, while the expansion layout reads the
+    // ability from a different word entirely.
+    write32_le_t(m + 4, 0x0000001F);
+    uint8_t encrypted2[48];
+    uint16_t checksum2;
+    pack_and_encrypt(raw.pid, raw.otid, g, a, e, m, encrypted2, &checksum2);
+    memcpy(raw.raw_substructures, encrypted2, sizeof(encrypted2));
+    raw.checksum = checksum2;
+
+    ParsedPokemon slot0;
+    TEST_ASSERT(pokemon_parse_single((const uint8_t*)&raw, true, &slot0), "vanilla parse must succeed");
+    TEST_ASSERT(slot0.ability_slot == 0, "vanilla bit 31 clear must mean ability slot 0");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_vanilla_ability_slot_parsing_unchanged" ANSI_RESET "\n");
+}
+
+static void test_gba_memory_region_translation(void) {
+    printf("Running test_gba_memory_region_translation...\n");
+
+    static uint8_t ewram[0x40000];
+    static uint8_t iwram[0x8000];
+    DualDexGbaRegionTable table;
+    gba_memory_map_clear(&table);
+
+    TEST_ASSERT(gba_memory_map_count(&table) == 0, "a cleared table has no regions");
+    TEST_ASSERT(!gba_memory_map_read(&table, 0x02000000u, ewram, 1), "an empty table must reject every read");
+
+    // Exactly what mGBA publishes for GBA: select = 0xFF000000 for both RAM regions.
+    TEST_ASSERT(gba_memory_map_add(&table, iwram, 0x03000000u, 0x8000u, 0xFF000000u, 0u, 0u, 0u),
+                "IWRAM region must be accepted");
+    TEST_ASSERT(gba_memory_map_add(&table, ewram, 0x02000000u, 0x40000u, 0xFF000000u, 0u, 0u, 0u),
+                "EWRAM region must be accepted");
+    TEST_ASSERT(gba_memory_map_count(&table) == 2, "both regions must be stored");
+
+    // EWRAM and IWRAM hold different sentinels at the same relative offset.
+    ewram[0x1234] = 0xAA;
+    iwram[0x1234] = 0xBB;
+    uint8_t value = 0;
+    TEST_ASSERT(gba_memory_map_read(&table, 0x02001234u, &value, 1) && value == 0xAA,
+                "0x02001234 must resolve into EWRAM");
+    TEST_ASSERT(gba_memory_map_read(&table, 0x03001234u, &value, 1) && value == 0xBB,
+                "0x03001234 must resolve into IWRAM");
+
+    // The gSaveBlock1Ptr symbol address itself is in IWRAM and must be reachable.
+    uint32_t ptr_address = 0x030041C0u;
+    TEST_ASSERT(gba_memory_map_resolve(&table, ptr_address, 4, NULL) == iwram + 0x41C0,
+                "the compiled gSaveBlock1Ptr address must translate to IWRAM + 0x41C0");
+
+    // Multi-byte reads must be contiguous little-endian data.
+    iwram[0x41C0] = 0xA8; iwram[0x41C1] = 0x24; iwram[0x41C2] = 0x01; iwram[0x41C3] = 0x02;
+    uint32_t decoded = 0;
+    TEST_ASSERT(gba_memory_map_read(&table, ptr_address, &decoded, 4), "4-byte read must succeed");
+    TEST_ASSERT(decoded == 0x020124A8u, "the pointer value must decode little-endian");
+
+    // A descriptor with no base pointer or zero length maps nothing.
+    DualDexGbaRegionTable empty;
+    gba_memory_map_clear(&empty);
+    TEST_ASSERT(!gba_memory_map_add(&empty, NULL, 0x02000000u, 0x40000u, 0u, 0u, 0u, 0u),
+                "a NULL base pointer must be rejected");
+    TEST_ASSERT(!gba_memory_map_add(&empty, ewram, 0x02000000u, 0u, 0u, 0u, 0u, 0u),
+                "a zero-length region must be rejected");
+    TEST_ASSERT(gba_memory_map_count(&empty) == 0, "rejected regions must not be stored");
+
+    // Capacity is bounded: the table cannot be grown without limit by a core.
+    DualDexGbaRegionTable full;
+    gba_memory_map_clear(&full);
+    for (size_t i = 0; i < DUALDEX_GBA_REGION_CAPACITY; i++) {
+        TEST_ASSERT(gba_memory_map_add(&full, ewram, (uint32_t)i * 0x1000u, 0x1000u, 0u, 0u, 0u, 0u),
+                    "region within capacity must be accepted");
+    }
+    TEST_ASSERT(!gba_memory_map_add(&full, ewram, 0x90000000u, 0x1000u, 0u, 0u, 0u, 0u),
+                "a region beyond capacity must be dropped");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_gba_memory_region_translation" ANSI_RESET "\n");
+}
+
+static void test_gba_memory_bounds_rejection(void) {
+    printf("Running test_gba_memory_bounds_rejection...\n");
+
+    static uint8_t ewram[0x40000];
+    static uint8_t iwram[0x8000];
+    DualDexGbaRegionTable table;
+    gba_memory_map_clear(&table);
+    gba_memory_map_add(&table, iwram, 0x03000000u, 0x8000u, 0xFF000000u, 0u, 0u, 0u);
+    gba_memory_map_add(&table, ewram, 0x02000000u, 0x40000u, 0xFF000000u, 0u, 0u, 0u);
+
+    uint8_t buffer[8];
+    memset(buffer, 0x5A, sizeof(buffer));
+
+    // Unmapped address spaces.
+    TEST_ASSERT(!gba_memory_map_read(&table, 0x08000000u, buffer, 1), "ROM space is not mapped here");
+    TEST_ASSERT(!gba_memory_map_read(&table, 0x00000000u, buffer, 1), "BIOS space is not mapped here");
+    TEST_ASSERT(!gba_memory_map_read(&table, 0x04000000u, buffer, 1), "I/O space is not mapped here");
+
+    // Just past the end of each region.
+    TEST_ASSERT(!gba_memory_map_read(&table, 0x02040000u, buffer, 1), "one byte past EWRAM must be rejected");
+    TEST_ASSERT(!gba_memory_map_read(&table, 0x03008000u, buffer, 1), "one byte past IWRAM must be rejected");
+
+    // A read that starts inside a region but spills out of it must be rejected whole, not
+    // truncated and not stitched into the neighbouring region.
+    TEST_ASSERT(!gba_memory_map_read(&table, 0x0203FFFFu, buffer, 2), "a read spilling past EWRAM must fail");
+    TEST_ASSERT(!gba_memory_map_read(&table, 0x03007FFFu, buffer, 4), "a read spilling past IWRAM must fail");
+    TEST_ASSERT(!gba_memory_map_read(&table, 0x0203FFFFu, buffer, 2), "repeated spill attempts must also fail");
+
+    // The last fully-contained byte of each region still works.
+    TEST_ASSERT(gba_memory_map_read(&table, 0x0203FFFFu, buffer, 1), "the last EWRAM byte must be readable");
+    TEST_ASSERT(gba_memory_map_read(&table, 0x03007FFFu, buffer, 1), "the last IWRAM byte must be readable");
+    TEST_ASSERT(gba_memory_map_read(&table, 0x0203FFFCu, buffer, 4), "a 4-byte read ending at the EWRAM limit must work");
+    TEST_ASSERT(gba_memory_map_read(&table, 0x03007FFCu, buffer, 4), "a 4-byte read ending at the IWRAM limit must work");
+
+    // A request that wraps the 32-bit address space can never be satisfied.
+    TEST_ASSERT(!gba_memory_map_read(&table, 0xFFFFFFFEu, buffer, 4), "an address-space-wrapping read must fail");
+
+    // Degenerate requests.
+    TEST_ASSERT(!gba_memory_map_read(&table, 0x02000000u, NULL, 1), "a NULL destination must be rejected");
+    TEST_ASSERT(!gba_memory_map_read(&table, 0x02000000u, buffer, 0), "a zero-length read must be rejected");
+    TEST_ASSERT(!gba_memory_map_read(NULL, 0x02000000u, buffer, 1), "a NULL table must be rejected");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_gba_memory_bounds_rejection" ANSI_RESET "\n");
+}
+
+// gSaveblock1 (compiled) and the ASLR window SetSaveBlocksPointers() randomizes inside.
+#define HNS_SB1_BASE_ABS 0x020124A8u
+
+static void test_hns_saveblock1_pointer_resolution(void) {
+    printf("Running test_hns_saveblock1_pointer_resolution...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(cfg != NULL, "H&S config required");
+
+    static FakeGba gba;
+    // Every 4-byte-aligned offset SetSaveBlocksPointers() can produce: (x & 124).
+    const uint32_t offsets[] = {0, 4, 8, 64, 124};
+
+    for (size_t i = 0; i < sizeof(offsets) / sizeof(offsets[0]); i++) {
+        fake_gba_init(&gba, true, true);
+        uint32_t base = HNS_SB1_BASE_ABS + offsets[i];
+        write32_le_t(gba.iwram + (cfg->save_block1_ptr_gba_address - 0x03000000u), base);
+
+        // SaveBlock1.pos at 0x04, .location at 0x08, .escapeWarp at 0x28.
+        size_t sb1_index = base - 0x02000000u;
+        write16_le_t(gba.ewram + sb1_index + cfg->save_block1_pos_offset, 12);   // pos.x
+        write16_le_t(gba.ewram + sb1_index + cfg->save_block1_pos_offset + 2, 34); // pos.y
+        gba.ewram[sb1_index + cfg->save_block1_location_offset + 0] = 24;  // mapGroup (Johto)
+        gba.ewram[sb1_index + cfg->save_block1_location_offset + 1] = 7;   // mapNum
+        gba.ewram[sb1_index + cfg->save_block1_location_offset + 2] = 3;   // warpId
+        write16_le_t(gba.ewram + sb1_index + cfg->save_block1_location_offset + 4, 100); // x
+        write16_le_t(gba.ewram + sb1_index + cfg->save_block1_location_offset + 6, 200); // y
+        gba.ewram[sb1_index + cfg->save_block1_escape_warp_offset + 0] = 1; // escape group
+        gba.ewram[sb1_index + cfg->save_block1_escape_warp_offset + 1] = 2; // escape num
+
+        PlayerLocationRaw loc;
+        bool ok = pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc);
+        if (!ok) {
+            printf(ANSI_RED "  [FAIL] ASLR offset %u did not resolve" ANSI_RESET "\n", offsets[i]);
+            g_tests_failed++;
+            return;
+        }
+        TEST_ASSERT(loc.map_group == 24 && loc.map_num == 7, "location must come from the resolved base");
+        TEST_ASSERT(loc.local_x == 12 && loc.local_y == 34, "pos must come from the resolved base");
+        TEST_ASSERT(loc.x == 100 && loc.y == 200, "warp coordinates must come from the resolved base");
+        TEST_ASSERT(loc.warp_id == 3, "warp id must be read");
+        TEST_ASSERT(loc.escape_map_group == 1 && loc.escape_map_num == 2, "escapeWarp must be read");
+        TEST_ASSERT(loc.is_valid, "location must be valid");
+    }
+
+    // The reader must follow the pointer, not a fixed EWRAM base: put a different (also valid
+    // looking) SaveBlock1 at the EWRAM base and confirm it is NOT the one that is read.
+    fake_gba_init(&gba, true, true);
+    uint32_t base = HNS_SB1_BASE_ABS + 64;
+    write32_le_t(gba.iwram + (cfg->save_block1_ptr_gba_address - 0x03000000u), base);
+    gba.ewram[0x0000 + cfg->save_block1_location_offset + 0] = 3; // decoy at EWRAM base
+    gba.ewram[0x0000 + cfg->save_block1_location_offset + 1] = 9;
+    write16_le_t(gba.ewram + (base - 0x02000000u) + cfg->save_block1_location_offset + 4, 55);
+
+    PlayerLocationRaw followed;
+    TEST_ASSERT(pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &followed),
+                "pointer-following read must succeed");
+    TEST_ASSERT(followed.map_group == 0 && followed.map_num == 0,
+                "the EWRAM-base decoy must NOT be used as SaveBlock1");
+    TEST_ASSERT(followed.x == 55, "fields must come from the pointer target");
+
+    // A plain EWRAM snapshot with no IWRAM access cannot resolve an IWRAM SaveBlock1 pointer,
+    // so the legacy entry point must fail closed rather than fall back to EWRAM base.
+    static uint8_t ewram_snapshot[0x40000];
+    PlayerLocationRaw snapshot_loc;
+    TEST_ASSERT(!pokemon_read_player_location(ewram_snapshot, sizeof(ewram_snapshot), cfg, &snapshot_loc),
+                "H&S location must fail closed without a region-checked reader");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_saveblock1_pointer_resolution" ANSI_RESET "\n");
+}
+
+static void test_hns_saveblock1_invalid_pointer_fails_closed(void) {
+    printf("Running test_hns_saveblock1_invalid_pointer_fails_closed...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    const uint32_t ptr_off = cfg->save_block1_ptr_gba_address - 0x03000000u;
+    static FakeGba gba;
+    PlayerLocationRaw loc;
+
+    // 1. Pointer outside EWRAM entirely (ROM space).
+    fake_gba_init(&gba, true, true);
+    write32_le_t(gba.iwram + ptr_off, 0x08000000u);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "a pointer into ROM must fail closed");
+
+    // 2. Pointer just below EWRAM and just past the end of EWRAM.
+    write32_le_t(gba.iwram + ptr_off, 0x01FFFFFFu);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "a pointer below EWRAM must fail closed");
+    write32_le_t(gba.iwram + ptr_off, 0x02040000u);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "a pointer at the EWRAM limit must fail closed");
+
+    // 3. In-range but outside the randomized window (e.g. the EWRAM base assumption).
+    write32_le_t(gba.iwram + ptr_off, 0x02000000u);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "the old 'SaveBlock1 is at EWRAM base' assumption must now fail closed");
+    write32_le_t(gba.iwram + ptr_off, HNS_SB1_BASE_ABS + 128u);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "a pointer past the 128-byte ASLR window must fail closed");
+    write32_le_t(gba.iwram + ptr_off, HNS_SB1_BASE_ABS - 4u);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "a pointer below the ASLR window must fail closed");
+
+    // 4. Misaligned pointer: SetSaveBlocksPointers() always produces a 4-byte-aligned base.
+    write32_le_t(gba.iwram + ptr_off, HNS_SB1_BASE_ABS + 2u);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "a misaligned SaveBlock1 pointer must fail closed");
+
+    // 5. Null pointer.
+    write32_le_t(gba.iwram + ptr_off, 0u);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "a null SaveBlock1 pointer must fail closed");
+
+    // 6. Truncated memory range: IWRAM present but SaveBlock1 is not fully mapped.
+    fake_gba_init(&gba, true, false); // no EWRAM region at all
+    write32_le_t(gba.iwram + ptr_off, HNS_SB1_BASE_ABS);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "a missing EWRAM region must fail closed");
+
+    // 7. EWRAM mapped but too short to reach the location fields.
+    fake_gba_init(&gba, true, true);
+    write32_le_t(gba.iwram + ptr_off, HNS_SB1_BASE_ABS);
+    DualDexGbaRegionTable truncated;
+    gba_memory_map_clear(&truncated);
+    gba_memory_map_add(&truncated, gba.iwram, 0x03000000u, 0x8000u, 0xFF000000u, 0u, 0u, 0u);
+    // EWRAM region ends before the pointer target, so SaveBlock1 is unreachable.
+    gba_memory_map_add(&truncated, gba.ewram, 0x02000000u, 0x1000u, 0xFF000000u, 0u, 0u, 0u);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &truncated, NULL, 0, cfg, &loc),
+                "a truncated EWRAM region must fail closed");
+
+    // 8. Unreadable pointer: no IWRAM region mapped at all.
+    fake_gba_init(&gba, false, true);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "an unmapped IWRAM must fail closed");
+
+    // 9. Structurally valid pointer but invalid map coordinates must be rejected.
+    fake_gba_init(&gba, true, true);
+    write32_le_t(gba.iwram + ptr_off, HNS_SB1_BASE_ABS);
+    size_t sb1_index = HNS_SB1_BASE_ABS - 0x02000000u;
+    gba.ewram[sb1_index + cfg->save_block1_location_offset + 0] = 90;  // impossible map group
+    gba.ewram[sb1_index + cfg->save_block1_location_offset + 1] = 5;
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "an out-of-range map group must be rejected");
+    gba.ewram[sb1_index + cfg->save_block1_location_offset + 0] = 1;
+    gba.ewram[sb1_index + cfg->save_block1_location_offset + 1] = 0xFF; // -1 as s8
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                "a negative map number must be rejected");
+
+    // 10. NULL reader and unknown/absent configs must fail closed.
+    TEST_ASSERT(!pokemon_read_player_location_gba(NULL, NULL, NULL, 0, cfg, &loc),
+                "a NULL reader must fail closed");
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, NULL, &loc),
+                "a NULL config must fail closed");
+    GameMemoryConfig unknown = {0};
+    unknown.game_id = GAME_UNKNOWN;
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, &unknown, &loc),
+                "a GAME_UNKNOWN config must fail closed");
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, NULL),
+                "a NULL output must fail closed");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_saveblock1_invalid_pointer_fails_closed" ANSI_RESET "\n");
+}
+
+static void test_hns_saveblock1_aslr_window_is_not_fixed(void) {
+    printf("Running test_hns_saveblock1_aslr_window_is_not_fixed...\n");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    const uint32_t ptr_off = cfg->save_block1_ptr_gba_address - 0x03000000u;
+    static FakeGba gba;
+
+    // Two different windows must produce two different locations from the same EWRAM contents:
+    // this is what proves the reader is not pinned to one hard-coded base.
+    uint32_t seen_groups[2];
+    const uint32_t offsets[2] = {0, 124};
+
+    for (int i = 0; i < 2; i++) {
+        fake_gba_init(&gba, true, true);
+        uint32_t base = HNS_SB1_BASE_ABS + offsets[i];
+        write32_le_t(gba.iwram + ptr_off, base);
+        size_t sb1_index = base - 0x02000000u;
+        gba.ewram[sb1_index + cfg->save_block1_location_offset + 0] = (uint8_t)(10 + i);
+        gba.ewram[sb1_index + cfg->save_block1_location_offset + 1] = 1;
+
+        PlayerLocationRaw loc;
+        TEST_ASSERT(pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc),
+                    "each ASLR offset must resolve");
+        seen_groups[i] = (uint32_t)loc.map_group;
+    }
+
+    TEST_ASSERT(seen_groups[0] == 10 && seen_groups[1] == 11,
+                "each ASLR window must be read from its own base");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_saveblock1_aslr_window_is_not_fixed" ANSI_RESET "\n");
+}
+
 static void test_heart_and_soul_party_and_battle_hp_sync(void) {
     printf("Running test_heart_and_soul_party_and_battle_hp_sync...\n");
 
@@ -482,207 +1167,211 @@ static void test_heart_and_soul_party_and_battle_hp_sync(void) {
     pokemon_reader_reset();
 
     // 1. Verify game detection
-    GbaGameId detected = pokemon_detect_game("POKEMON HEART SOUL");
-    TEST_ASSERT(detected == GAME_HEART_AND_SOUL, "POKEMON HEART SOUL should detect as GAME_HEART_AND_SOUL");
+    GbaGameId detected = pokemon_detect_game("POKEMON HNS");
+    TEST_ASSERT(detected == GAME_HEART_AND_SOUL, "'POKEMON HNS' (the upstream hns TITLE) must detect as H&S");
 
     const GameMemoryConfig* hns_cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
     TEST_ASSERT(hns_cfg != NULL, "Heart and Soul config must exist");
-    TEST_ASSERT(hns_cfg->player_party_offset == 0x340F4, "HnS player party offset must be 0x340F4");
-    TEST_ASSERT(hns_cfg->enemy_party_offset == 0x345A4, "HnS enemy party offset must be 0x345A4");
-    TEST_ASSERT(hns_cfg->battle_mons_offset == 0x3A5A4, "HnS battle_mons offset must be 0x3A5A4");
 
-    // 2. Setup Player Party (2 Pokemon: Cyndaquil #155 and Totodile #158)
+    // 2. Player party: Cyndaquil + Totodile at the compiled gPlayerParty address.
     ewram[hns_cfg->player_party_count_offset] = 2;
 
-    uint32_t player_otid = 0x88776655;
+    const uint32_t player_otid = 0x88776655;
+    RawGbaPokemon cyndaquil;
+    RawGbaPokemon totodile;
+    build_hns_mon(&cyndaquil, 0x11223344, player_otid, 155, 14, 50, 31, 0, 0, false);
+    build_hns_mon(&totodile, 0x55667788, player_otid, 158, 15, 60, 31, (uint32_t)1 << 29, 0, false);
+    memcpy(ewram + hns_cfg->player_party_offset, &cyndaquil, sizeof(RawGbaPokemon));
+    memcpy(ewram + hns_cfg->player_party_offset + sizeof(RawGbaPokemon), &totodile, sizeof(RawGbaPokemon));
 
-    // Cyndaquil in slot 0
-    {
-        RawGbaPokemon mon;
-        memset(&mon, 0, sizeof(mon));
-        mon.pid = 0x11223344;
-        mon.otid = player_otid;
-        mon.level = 14;
-        mon.max_hp = 50;
-        mon.current_hp = 50; // Full HP in static party
-        mon.attack = 25;
-        mon.defense = 22;
-        mon.speed = 30;
-        mon.sp_attack = 32;
-        mon.sp_defense = 24;
-
-        SubstructGrowth g = {.species = 155}; // Cyndaquil
-        SubstructAttacks a = {.moves = {33, 52, 0, 0}, .pp = {35, 25, 0, 0}}; // Tackle, Ember
-        SubstructEVs e = {0};
-        SubstructMisc m = {.iv_egg_ability = 31};
-
-        pack_and_encrypt(mon.pid, mon.otid,
-                         (uint8_t*)&g, (uint8_t*)&a, (uint8_t*)&e, (uint8_t*)&m,
-                         mon.raw_substructures, &mon.checksum);
-        memcpy(ewram + hns_cfg->player_party_offset, &mon, sizeof(RawGbaPokemon));
-    }
-
-    // Totodile in slot 1
-    {
-        RawGbaPokemon mon;
-        memset(&mon, 0, sizeof(mon));
-        mon.pid = 0x55667788;
-        mon.otid = player_otid;
-        mon.level = 15;
-        mon.max_hp = 60;
-        mon.current_hp = 60; // Full HP in static party
-        mon.attack = 32;
-        mon.defense = 30;
-        mon.speed = 22;
-        mon.sp_attack = 24;
-        mon.sp_defense = 26;
-
-        SubstructGrowth g = {.species = 158}; // Totodile
-        SubstructAttacks a = {.moves = {33, 55, 0, 0}, .pp = {35, 30, 0, 0}}; // Tackle, Water Gun
-        SubstructEVs e = {0};
-        SubstructMisc m = {.iv_egg_ability = 31};
-
-        pack_and_encrypt(mon.pid, mon.otid,
-                         (uint8_t*)&g, (uint8_t*)&a, (uint8_t*)&e, (uint8_t*)&m,
-                         mon.raw_substructures, &mon.checksum);
-        memcpy(ewram + hns_cfg->player_party_offset + sizeof(RawGbaPokemon), &mon, sizeof(RawGbaPokemon));
-    }
-
-    // 3. Setup Enemy Party (2 Pokemon: Pidgey #16 in slot 0, Rattata #19 in slot 1)
+    // 3. Enemy party at the compiled gEnemyParty address.
     ewram[hns_cfg->enemy_party_count_offset] = 2;
-    {
-        RawGbaPokemon enemy;
-        memset(&enemy, 0, sizeof(enemy));
-        enemy.pid = 0xAABBCCDD;
-        enemy.otid = 0x99990000; // Different OTID
-        enemy.level = 13;
-        enemy.max_hp = 40;
-        enemy.current_hp = 40;
-        enemy.attack = 20;
-        enemy.defense = 18;
-        enemy.speed = 28;
-        enemy.sp_attack = 18;
-        enemy.sp_defense = 18;
+    RawGbaPokemon pidgey;
+    RawGbaPokemon rattata;
+    build_hns_mon(&pidgey, 0xAABBCCDD, 0x99990000, 16, 13, 40, 25, 0, 0, false);
+    build_hns_mon(&rattata, 0xCCDDEEFF, 0x99990000, 19, 12, 35, 20, 0, 0, false);
+    memcpy(ewram + hns_cfg->enemy_party_offset, &pidgey, sizeof(RawGbaPokemon));
+    memcpy(ewram + hns_cfg->enemy_party_offset + sizeof(RawGbaPokemon), &rattata, sizeof(RawGbaPokemon));
 
-        SubstructGrowth g = {.species = 16}; // Pidgey
-        SubstructAttacks a = {.moves = {33, 16, 0, 0}, .pp = {35, 35, 0, 0}}; // Tackle, Gust
-        SubstructEVs e = {0};
-        SubstructMisc m = {.iv_egg_ability = 25};
+    // 4. Live gBattleMons: HP at the compiled 0x2A (not the old 40), 136-byte stride.
+    TEST_ASSERT(hns_cfg->battle_mons_size == 136, "BattlePokemon stride must be 136");
+    TEST_ASSERT(hns_cfg->battle_mons_hp_offset == 0x2A, "BattlePokemon.hp must be 0x2A");
 
-        pack_and_encrypt(enemy.pid, enemy.otid,
-                         (uint8_t*)&g, (uint8_t*)&a, (uint8_t*)&e, (uint8_t*)&m,
-                         enemy.raw_substructures, &enemy.checksum);
-        memcpy(ewram + hns_cfg->enemy_party_offset, &enemy, sizeof(RawGbaPokemon));
-    }
-    {
-        RawGbaPokemon enemy2;
-        memset(&enemy2, 0, sizeof(enemy2));
-        enemy2.pid = 0xCCDDEEFF;
-        enemy2.otid = 0x99990000;
-        enemy2.level = 12;
-        enemy2.max_hp = 35;
-        enemy2.current_hp = 35;
-        enemy2.attack = 22;
-        enemy2.defense = 16;
-        enemy2.speed = 30;
-        enemy2.sp_attack = 15;
-        enemy2.sp_defense = 16;
-
-        SubstructGrowth g = {.species = 19}; // Rattata
-        SubstructAttacks a = {.moves = {33, 28, 0, 0}, .pp = {35, 30, 0, 0}}; // Tackle, Sand Attack
-        SubstructEVs e = {0};
-        SubstructMisc m = {.iv_egg_ability = 20};
-
-        pack_and_encrypt(enemy2.pid, enemy2.otid,
-                         (uint8_t*)&g, (uint8_t*)&a, (uint8_t*)&e, (uint8_t*)&m,
-                         enemy2.raw_substructures, &enemy2.checksum);
-        memcpy(ewram + hns_cfg->enemy_party_offset + sizeof(RawGbaPokemon), &enemy2, sizeof(RawGbaPokemon));
-    }
-
-    // 4. Populate live gBattleMons (BattlePokemon struct size = 88, HP at offset 40)
-    TEST_ASSERT(hns_cfg->battle_mons_size == 88, "HnS battle_mons_size must be 88");
-    TEST_ASSERT(hns_cfg->battle_mons_hp_offset == 40, "HnS battle_mons_hp_offset must be 40");
-
-    // Battler 0: Player active mon (Cyndaquil #155), took damage! HP is 28/50
     uint8_t* b0 = ewram + hns_cfg->battle_mons_offset;
-    b0[0] = 155 & 0xFF; // species low
-    b0[1] = (155 >> 8) & 0xFF; // species high
-    b0[40] = 28; // current HP low (offset 40)
-    b0[41] = 0;  // current HP high
-
-    // Battler 1: Enemy active mon (Pidgey #16), took damage! HP is 12/40
     uint8_t* b1 = ewram + hns_cfg->battle_mons_offset + hns_cfg->battle_mons_size;
-    b1[0] = 16 & 0xFF; // species low
-    b1[1] = (16 >> 8) & 0xFF; // species high
-    b1[40] = 12; // current HP low (offset 40)
-    b1[41] = 0;  // current HP high
+    write16_le_t(b0, 155);      // species
+    write16_le_t(b0 + 0x2A, 28); // damaged HP
+    write16_le_t(b1, 16);
+    write16_le_t(b1 + 0x2A, 12);
 
-    // 5. Read player party and verify live HP sync & active battler slot
+    // gBattlerPartyIndexes is an independent symbol at 0x144. Plant a decoy exactly where the
+    // old code looked (gBattleMons - 24) so that any reintroduced derivation is caught.
+    TEST_ASSERT(hns_cfg->battler_party_indexes_offset == 0x144,
+                "gBattlerPartyIndexes must be declared as its own symbol");
+    TEST_ASSERT(hns_cfg->battler_party_indexes_offset != hns_cfg->battle_mons_offset - 24,
+                "the compiled offset must differ from the legacy gBattleMons - 24 arithmetic");
+    write16_le_t(ewram + hns_cfg->battle_mons_offset - 24, 1); // decoy slot 1
+    write16_le_t(ewram + hns_cfg->battler_party_indexes_offset, 0); // real slot 0
+
     PartySnapshot player_snap;
     uint8_t player_count = pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &player_snap);
     TEST_ASSERT(player_count == 2, "Player party count should be 2");
     TEST_ASSERT(player_snap.members[0].species == 155, "Slot 0 should be Cyndaquil");
-    TEST_ASSERT(player_snap.members[0].current_hp == 28, "Cyndaquil HP should be 28 (live from gBattleMons!)");
-    TEST_ASSERT(player_snap.members[1].species == 158, "Slot 1 should be Totodile");
-    TEST_ASSERT(player_snap.members[1].current_hp == 60, "Totodile HP should remain 60");
-    TEST_ASSERT(player_snap.active_battler_slot == 0, "Active battler slot should be 0 (Cyndaquil)");
+    TEST_ASSERT(player_snap.members[0].current_hp == 28, "Cyndaquil HP must sync from gBattleMons[0].hp");
+    TEST_ASSERT(player_snap.members[1].current_hp == 60, "Totodile HP must stay at its party value");
+    TEST_ASSERT(player_snap.active_battler_slot == 0,
+                "the active slot must come from the real gBattlerPartyIndexes symbol, not the decoy");
 
-    // 6. Read enemy party and verify live HP sync & active battler slot
+    // 5. Expansion parsing flows through the party reader.
+    TEST_ASSERT(player_snap.members[1].ability_num == 1,
+                "Totodile's abilityNum must come from the party reader's expansion layout");
+
+    // 6. Enemy party + live HP sync.
     PartySnapshot enemy_snap;
     uint8_t enemy_count = pokemon_read_enemy_party(ewram, EWRAM_SIZE, hns_cfg, &enemy_snap);
     TEST_ASSERT(enemy_count == 2, "Enemy party count should be 2");
     TEST_ASSERT(enemy_snap.members[0].species == 16, "Enemy slot 0 should be Pidgey");
-    TEST_ASSERT(enemy_snap.members[0].current_hp == 12, "Enemy Pidgey HP should be 12 (live from gBattleMons!)");
-    TEST_ASSERT(enemy_snap.members[1].species == 19, "Enemy slot 1 should be Rattata");
-    TEST_ASSERT(enemy_snap.members[1].current_hp == 35, "Enemy Rattata HP should be 35");
-    TEST_ASSERT(enemy_snap.active_battler_slot == 0, "Active enemy battler slot should be 0 (Pidgey)");
+    TEST_ASSERT(enemy_snap.members[0].current_hp == 12, "Pidgey HP must sync from gBattleMons[1].hp");
 
-    // 7. Enemy Pidgey faints (HP drops to 0)
-    b1[40] = 0;
-    b1[41] = 0;
-    // Also simulate EWRAM raw enemy mon HP reaching 0
-    RawGbaPokemon* enemy_raw_0 = (RawGbaPokemon*)(ewram + hns_cfg->enemy_party_offset);
-    enemy_raw_0->current_hp = 0;
+    // 7. Faint: count must survive, slot must stay.
+    write16_le_t(b1 + 0x2A, 0);
+    ((RawGbaPokemon*)(ewram + hns_cfg->enemy_party_offset))->current_hp = 0;
+    PartySnapshot fainted;
+    pokemon_read_enemy_party(ewram, EWRAM_SIZE, hns_cfg, &fainted);
+    TEST_ASSERT(fainted.count == 2, "the enemy party count must survive a faint");
+    TEST_ASSERT(fainted.members[0].species == 16, "slot 0 must remain Pidgey after fainting");
+    TEST_ASSERT(fainted.members[0].current_hp == 0, "the fainted HP must be reported");
 
-    PartySnapshot fainted_enemy_snap;
-    pokemon_read_enemy_party(ewram, EWRAM_SIZE, hns_cfg, &fainted_enemy_snap);
-    TEST_ASSERT(fainted_enemy_snap.count == 2, "Enemy party count must still be 2 even when slot 0 faints!");
-    TEST_ASSERT(fainted_enemy_snap.members[0].species == 16, "Slot 0 must remain Pidgey!");
-    TEST_ASSERT(fainted_enemy_snap.members[0].current_hp == 0, "Pidgey HP must be 0!");
-    TEST_ASSERT(fainted_enemy_snap.active_battler_slot == 0, "Active enemy slot must STAY 0 until opponent sends out next mon!");
+    // 8. Opponent sends out Rattata; gBattlerPartyIndexes[1] is at symbol + 2.
+    write16_le_t(b1, 19);
+    write16_le_t(b1 + 0x2A, 35);
+    write16_le_t(ewram + hns_cfg->battler_party_indexes_offset - 24 + 2, 0); // decoy
+    write16_le_t(ewram + hns_cfg->battler_party_indexes_offset + 2, 1);      // real
+    PartySnapshot sendout;
+    pokemon_read_enemy_party(ewram, EWRAM_SIZE, hns_cfg, &sendout);
+    TEST_ASSERT(sendout.active_battler_slot == 1,
+                "the enemy active slot must come from gBattlerPartyIndexes[1]");
+    TEST_ASSERT(sendout.members[1].species == 19, "slot 1 must be Rattata");
 
-    // 8. Opponent sends out Rattata (species 19, HP = 35)
-    b1[0] = 19 & 0xFF;
-    b1[1] = (19 >> 8) & 0xFF;
-    b1[40] = 35;
-    b1[41] = 0;
-    // gBattlerPartyIndexes[1] supplies the authoritative party mapping for battler 1.
-    ewram[hns_cfg->battle_mons_offset - 22] = 1;
-    ewram[hns_cfg->battle_mons_offset - 21] = 0;
-
-    PartySnapshot sendout_snap;
-    pokemon_read_enemy_party(ewram, EWRAM_SIZE, hns_cfg, &sendout_snap);
-    TEST_ASSERT(sendout_snap.count == 2, "Enemy party count should be 2");
-    TEST_ASSERT(sendout_snap.active_battler_slot == 1, "Active enemy slot must now update to 1 (Rattata)!");
-    TEST_ASSERT(sendout_snap.members[1].species == 19, "Slot 1 must be Rattata");
-    TEST_ASSERT(sendout_snap.members[1].current_hp == 35, "Rattata HP must be 35");
-
-    // 9. Test mid-battle player switch: player sends out Totodile (species 158), HP = 48
-    b0[0] = 158 & 0xFF;
-    b0[1] = (158 >> 8) & 0xFF;
-    b0[40] = 48;
-    b0[41] = 0;
-    ewram[hns_cfg->battle_mons_offset - 24] = 1;
-    ewram[hns_cfg->battle_mons_offset - 23] = 0;
-
-    PartySnapshot switch_snap;
-    pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &switch_snap);
-    TEST_ASSERT(switch_snap.active_battler_slot == 1, "Active battler slot should now be 1 (Totodile) after switch!");
-    TEST_ASSERT(switch_snap.members[1].current_hp == 48, "Totodile HP should now be 48 (live from gBattleMons!)");
+    // 9. Player switches to Totodile.
+    write16_le_t(b0, 158);
+    write16_le_t(b0 + 0x2A, 48);
+    write16_le_t(ewram + hns_cfg->battler_party_indexes_offset, 1);
+    PartySnapshot switched;
+    pokemon_read_player_party(ewram, EWRAM_SIZE, hns_cfg, &switched);
+    TEST_ASSERT(switched.active_battler_slot == 1, "the player active slot must follow the symbol");
+    TEST_ASSERT(switched.members[1].current_hp == 48, "Totodile HP must sync after the switch");
 
     free(ewram);
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_heart_and_soul_party_and_battle_hp_sync" ANSI_RESET "\n");
+}
+
+static void test_hns_battle_pokemon_layout_fields(void) {
+    printf("Running test_hns_battle_pokemon_layout_fields...\n");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+    pokemon_reader_reset();
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    const GameMemoryConfig* emerald = pokemon_get_game_config(GAME_EMERALD);
+
+    // The two layouts disagree on stride and HP offset, so an H&S read through the Emerald
+    // constants (or vice versa) must produce different, distinguishable results.
+    TEST_ASSERT(cfg->battle_mons_size != emerald->battle_mons_size,
+                "H&S and Emerald BattlePokemon strides must differ (136 vs 88)");
+    TEST_ASSERT(cfg->battle_mons_hp_offset != emerald->battle_mons_hp_offset,
+                "H&S HP offset (0x2A) must differ from the vanilla 40");
+    TEST_ASSERT(cfg->battle_mons_stat_stages_offset == 0x18,
+                "statStages is at 0x18 in the H&S layout");
+
+    // statStages: battler 0 is at stage +1 (Atk). Neutral is 6, so 9 must read as +3.
+    uint8_t* b0 = ewram + cfg->battle_mons_offset;
+    write16_le_t(b0, 155);
+    uint8_t* stages = b0 + cfg->battle_mons_stat_stages_offset;
+    memset(stages, 6, 8);
+    stages[1] = 9;  // Atk +3
+    stages[2] = 3;  // Def -3
+    stages[7] = 12; // Eva +6
+
+    int8_t out[7];
+    TEST_ASSERT(pokemon_read_battle_stat_stages(ewram, EWRAM_SIZE, cfg, 0, out),
+                "stat stages must read from the H&S layout");
+    TEST_ASSERT(out[0] == 3, "Atk stage must be +3");
+    TEST_ASSERT(out[1] == -3, "Def stage must be -3");
+    TEST_ASSERT(out[6] == 6, "Eva stage must be +6");
+
+    // Battler 1 must be reached through the 136-byte stride, not 88.
+    uint8_t* b1 = ewram + cfg->battle_mons_offset + cfg->battle_mons_size;
+    write16_le_t(b1, 158);
+    uint8_t* stages1 = b1 + cfg->battle_mons_stat_stages_offset;
+    memset(stages1, 6, 8);
+    stages1[3] = 4; // Speed -2
+    int8_t out1[7];
+    TEST_ASSERT(pokemon_read_battle_stat_stages(ewram, EWRAM_SIZE, cfg, 1, out1),
+                "battler 1 stat stages must read");
+    TEST_ASSERT(out1[2] == -2, "battler 1 Speed must be -2 (proves the 136-byte stride)");
+
+    // A battler index whose slot runs past the buffer must be rejected, not read out of bounds.
+    TEST_ASSERT(!pokemon_read_battle_stat_stages(ewram, cfg->battle_mons_offset + 136, cfg, 1, out1),
+                "a battler outside the buffer must be rejected");
+
+    // Battle presence still derives from the H&S gBattleMons species word.
+    write16_le_t(b0, 155);
+    TEST_ASSERT(pokemon_read_battle_presence(ewram, EWRAM_SIZE, cfg) == 1,
+                "a live battler species must report presence");
+    write16_le_t(b0, 0);
+    TEST_ASSERT(pokemon_read_battle_presence(ewram, EWRAM_SIZE, cfg) == 0,
+                "an empty battler slot must report no battle");
+    TEST_ASSERT(pokemon_read_battle_ui_state(ewram, EWRAM_SIZE, cfg) == 0,
+                "battle UI state must stay UNKNOWN without controller evidence");
+
+    // Out-of-range species still reports UNKNOWN, never a confident verdict.
+    write16_le_t(b0, 2500);
+    TEST_ASSERT(pokemon_read_battle_presence(ewram, EWRAM_SIZE, cfg) == 2,
+                "an implausible species must degrade to UNKNOWN");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battle_pokemon_layout_fields" ANSI_RESET "\n");
+}
+
+static void test_unknown_game_still_fails_closed(void) {
+    printf("Running test_unknown_game_still_fails_closed...\n");
+
+    const size_t EWRAM_SIZE = 256 * 1024;
+    uint8_t* ewram = (uint8_t*)calloc(1, EWRAM_SIZE);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation failed");
+
+    // A config that declares the H&S addresses but NOT the H&S identity must still be rejected:
+    // the trust decision is the game id, never a plausible-looking address set.
+    GameMemoryConfig unknown_hns_shaped = *pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    unknown_hns_shaped.game_id = GAME_UNKNOWN;
+
+    PartySnapshot snapshot;
+    PlayerLocationRaw loc;
+    int8_t stages[7];
+
+    TEST_ASSERT(pokemon_read_player_party(ewram, EWRAM_SIZE, &unknown_hns_shaped, &snapshot) == 0,
+                "an unknown game must not read a party through H&S addresses");
+    TEST_ASSERT(pokemon_read_enemy_party(ewram, EWRAM_SIZE, &unknown_hns_shaped, &snapshot) == 0,
+                "an unknown game must not read an enemy party through H&S addresses");
+    TEST_ASSERT(!pokemon_read_player_location(ewram, EWRAM_SIZE, &unknown_hns_shaped, &loc),
+                "an unknown game must not read a location through H&S addresses");
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, NULL, ewram, EWRAM_SIZE, &unknown_hns_shaped, &loc),
+                "an unknown game must not resolve SaveBlock1 even with a reader present");
+    TEST_ASSERT(!pokemon_read_battle_stat_stages(ewram, EWRAM_SIZE, &unknown_hns_shaped, 0, stages),
+                "an unknown game must not read battle stat stages");
+    TEST_ASSERT(pokemon_read_battle_presence(ewram, EWRAM_SIZE, &unknown_hns_shaped) == 2,
+                "an unknown game must report UNKNOWN battle presence, not NOT_OBSERVED");
+    TEST_ASSERT(pokemon_get_game_config(GAME_UNKNOWN) == NULL,
+                "GAME_UNKNOWN must have no configuration at all");
+
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_unknown_game_still_fails_closed" ANSI_RESET "\n");
 }
 
 static void test_unbound_cfru_fixed_substructures(void) {
@@ -833,7 +1522,22 @@ int main(void) {
     test_shininess_calculation();
     test_ewram_party_parsing();
     test_ewram_scan_ignores_box_pokemon_and_finds_real_party();
+
+    // Heart & Soul 2.0.5 evidence-backed foundation (issue #40, first implementation phase).
+    test_hns_config_matches_compiled_evidence();
+    test_hns_party_counts_are_independent_symbols();
+    test_expansion_ability_num_is_not_the_gigantamax_bit();
+    test_expansion_nature_and_shiny_are_reported_honestly();
+    test_vanilla_ability_slot_parsing_unchanged();
+    test_gba_memory_region_translation();
+    test_gba_memory_bounds_rejection();
+    test_hns_saveblock1_pointer_resolution();
+    test_hns_saveblock1_invalid_pointer_fails_closed();
+    test_hns_saveblock1_aslr_window_is_not_fixed();
+    test_hns_battle_pokemon_layout_fields();
+    test_unknown_game_still_fails_closed();
     test_heart_and_soul_party_and_battle_hp_sync();
+
     test_unbound_cfru_fixed_substructures();
     test_battle_presence_and_unknown_ui_state();
     test_unknown_game_fails_closed();

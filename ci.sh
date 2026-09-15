@@ -64,6 +64,7 @@ native_test() {
     -I native/include \
     native/src/pokemon_reader.c \
     native/src/pokemon_text.c \
+    native/src/gba_memory_map.c \
     native/tests/test_pokemon_reader.c \
     -o native/build/test_runner
   ./native/build/test_runner

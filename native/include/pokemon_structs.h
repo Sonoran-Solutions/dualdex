@@ -94,6 +94,51 @@ typedef enum {
 } PokemonGender;
 
 /**
+ * On-cartridge Pokemon storage layout.
+ *
+ * DualDex originally parsed every game with the vanilla Gen 3 bit layout. Heart & Soul 2.0.5
+ * is built on pokeemerald-expansion, whose `struct BoxPokemon` / `PokemonSubstruct3` moved two
+ * fields that the vanilla layout reads from fixed bit positions:
+ *
+ *   VANILLA_GEN3
+ *     - ability slot = bit 31 of the 32-bit word at PokemonSubstruct3 offset 4.
+ *     - no mint nature, no shiny modifier.
+ *
+ *   EXPANSION (pokeemerald-expansion, verified against H&S 2.0.5)
+ *     - bit 31 of the word at PokemonSubstruct3 offset 4 is `gigantamaxFactor`, NOT the
+ *       ability slot.
+ *     - `abilityNum` is a 2-bit field at bits 29..30 of the word at PokemonSubstruct3
+ *       offset 8.
+ *     - `hiddenNatureModifier` (5 bits) lives in the byte at BoxPokemon offset 0x12 bits 3..7
+ *       and XORs the personality nature to produce the stat-effective "mint" nature.
+ *     - `shinyModifier` is bit 14 of the 16-bit word at BoxPokemon offset 0x1E and XORs the
+ *       shiny verdict.
+ *
+ * The distinction is explicit configuration rather than a guess from species ID or ROM name.
+ */
+typedef enum {
+    PKMN_STORAGE_VANILLA_GEN3 = 0,
+    PKMN_STORAGE_EXPANSION    = 1
+} PokemonStorageLayout;
+
+/**
+ * Tri-state shiny verdict.
+ *
+ * H&S 2.0.5 computes shininess as
+ *     (shinyValue < shinyOdds) ^ shinyModifier
+ * where `shinyOdds` is drawn from the player's `SaveBlock3.challengeSettings`
+ * (`tx_Features_ShinyChance`, values {8, 16, 32, 64, 128}). Because DualDex does not read
+ * SaveBlock3 challenge settings yet, the verdict is only exactly determinable when it is
+ * independent of the odds: shinyValue < 8 is always shiny and shinyValue >= 128 is never
+ * shiny. Everything in between is reported as unknown instead of guessed.
+ */
+typedef enum {
+    PKMN_SHINY_UNKNOWN = 0,
+    PKMN_SHINY_NO      = 1,
+    PKMN_SHINY_YES     = 2
+} PokemonShinyState;
+
+/**
  * Clean, fully decrypted & parsed representation of a Pokémon.
  */
 typedef struct {
@@ -137,6 +182,18 @@ typedef struct {
     uint16_t moves[4];
     uint8_t  pp[4];
     uint8_t  pp_bonuses[4];     // 0 - 3 PP Ups applied
+
+    // Layout-dependent interpretation (see PokemonStorageLayout)
+    PokemonStorageLayout storage_layout;
+    bool     ability_slot_known;  // false when the layout does not expose a usable ability slot
+    uint8_t  ability_num;         // raw abilityNum (0..3) for the expansion layout
+    bool     gigantamax_factor;   // expansion-only: bit that vanilla parsing mistook for ability
+    uint8_t  hidden_nature;       // stat-effective nature: (pid % 25) ^ hiddenNatureModifier
+    uint8_t  hidden_nature_modifier; // raw 5-bit value; 0 means the mint nature equals pid % 25
+    bool     nature_modified;     // true when hiddenNatureModifier != 0
+    uint16_t shiny_value;         // raw GET_SHINY_VALUE(otid, pid)
+    uint8_t  shiny_modifier;      // expansion-only shiny inversion bit
+    PokemonShinyState shiny_state;
 
     // Runtime battle stats
     uint16_t current_hp;

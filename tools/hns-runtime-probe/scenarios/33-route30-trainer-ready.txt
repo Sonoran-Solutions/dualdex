@@ -6,6 +6,7 @@ wait 200
 assert-battle inactive
 assert-party-count player 2
 assert-map 0 11
+assert-pos 62 19
 matrix stage33-boot
 
 # Route 29 west to Cherrygrove City (exact 88 steps verified collision-free)
@@ -101,6 +102,7 @@ wait 60
 # Walk UP 3 to reach (23, 25) directly facing Youngster Mikey at (23, 22)
 walk UP 3
 matrix stage33-mikey-ready
+assert-pos 23 25
 
 # Save in-game via controller input
 menusave

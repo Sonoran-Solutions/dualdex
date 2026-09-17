@@ -6,6 +6,7 @@ wait 200
 assert-battle inactive
 assert-party-count player 2
 assert-map 0 12
+assert-pos 23 25
 matrix 40-boot
 
 # Step into Mikey's sight line at (23, 24)

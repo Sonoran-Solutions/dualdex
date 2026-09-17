@@ -1,0 +1,37 @@
+# Legal progression: New Bark Town -> Route 29 grass -> Catch 2nd party member with Poké Ball
+# Boot from stage31 save
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-party-count player 1
+assert-map 0 0
+matrix stage32-boot
+
+# Walk west through New Bark Town to Route 29
+walk LEFT 20
+walk LEFT 1 optional
+wait 100
+assert-map 0 11
+matrix stage32-route29-entry
+
+# Walk to tall grass patch at (62, 19)
+walk LEFT 7
+walk DOWN 2
+
+# Hunt in grass for wild Pokémon
+hunt 500
+matrix stage32-wild-encounter
+
+# Catch wild Pokémon with Poké Ball
+catchwild 6000
+assert-battle inactive
+assert-party-count player 2
+matrix stage32-caught
+
+# Save game legally via in-game menu controller input
+menusave
+matrix stage32-saved
+assert-battle inactive
+assert-party-count player 2
+savsave /tmp/hns_baseline/stage32_party2.sav

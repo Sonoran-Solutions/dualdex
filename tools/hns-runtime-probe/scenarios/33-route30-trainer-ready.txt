@@ -1,0 +1,112 @@
+# Legal progression: Route 29 -> Cherrygrove City (Heal at PC) -> Route 30 -> Youngster Joey -> Youngster Mikey
+# Boot from stage32 save
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-party-count player 2
+assert-map 0 11
+assert-pos 62 19
+matrix stage33-boot
+
+# Route 29 west to Cherrygrove City (exact 88 steps verified collision-free)
+walk DOWN 4
+walk LEFT 1
+walk DOWN 3
+walk LEFT 15
+walk UP 2
+walk LEFT 2
+walk UP 4
+walk LEFT 4
+walk UP 4
+walk LEFT 3
+walk UP 1
+walk LEFT 1
+walk UP 1
+walk LEFT 11
+walk DOWN 1
+walk LEFT 4
+walk DOWN 2
+walk LEFT 8
+walk DOWN 2
+walk LEFT 5
+walk UP 2
+walk LEFT 8
+walk LEFT 1 optional
+wait 100
+assert-map 0 1
+matrix stage33-cherrygrove-arrival
+
+# Cherrygrove City: visit Pokémon Center to restore party to 100% HP
+walk LEFT 7
+walk UP 2
+walk LEFT 10
+walk UP 2
+wait 100
+assert-map 2 0
+matrix stage33-pokecenter-entry
+
+# Talk to Nurse Joy and heal party
+walk UP 4
+spama 15
+wait 200
+spama 15
+wait 100
+matrix stage33-pokecenter-healed
+
+# Exit Pokémon Center to Cherrygrove City
+walk DOWN 4 optional
+walk DOWN 1 optional
+wait 100
+assert-map 0 1
+matrix stage33-pokecenter-exit
+
+# Walk from Pokémon Center to Route 30
+walk DOWN 1
+walk LEFT 12
+walk UP 10
+walk UP 1 optional
+wait 100
+assert-map 0 12
+matrix stage33-route30-arrival
+
+# Route 30 north to Youngster Joey
+walk UP 5
+walk RIGHT 3
+walk UP 4
+walk LEFT 3
+walk UP 7
+walk RIGHT 4
+walk UP 10
+walk LEFT 3
+walk UP 1
+walk LEFT 4
+matrix stage33-before-joey
+
+# Step into Joey's sight at (23, 28)
+walk UP 1
+matrix stage33-joey-sighted
+
+# Youngster Joey battle (Rattata Lv 4 vs full health Chikorita Lv 6)
+autobattle 4000
+assert-battle inactive
+matrix stage33-joey-defeated
+
+# Clear post-battle dialogue and Pokénav matchcall registration
+wait 60
+spama 10
+spama 10
+spama 10
+wait 60
+
+# Walk UP 3 to reach (23, 25) directly facing Youngster Mikey at (23, 22)
+walk UP 3
+matrix stage33-mikey-ready
+assert-pos 23 25
+
+# Save in-game via controller input
+menusave
+matrix stage33-saved
+assert-battle inactive
+assert-party-count player 2
+savsave /tmp/hns_baseline/stage33_trainer_ready.sav

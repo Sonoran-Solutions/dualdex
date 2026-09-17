@@ -1,0 +1,27 @@
+# Scenario 40: Multi-party trainer battle entry against Youngster Mikey
+# Boot from stage33 save (player at 23, 25 facing Mikey at 23, 22)
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-party-count player 2
+assert-map 0 12
+assert-pos 23 25
+matrix 40-boot
+
+# Step into Mikey's sight line at (23, 24)
+walk UP 1
+matrix 40-mikey-sighted
+
+# Advance dialogue into battle
+mash 300
+wait 150
+
+# Assertions on active trainer battle state
+assert-battle active
+assert-battle-kind TRAINER_SINGLE
+assert-party-count player 2
+assert-party-count enemy 2
+assert-active-enemy-slot 0
+assert-active-player-slot 0
+matrix 40-trainer-entry-active

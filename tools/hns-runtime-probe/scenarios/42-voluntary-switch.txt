@@ -1,0 +1,38 @@
+# Scenario 42: Voluntary switch in multi-party trainer battle
+# Switch Chikorita (slot 0) for Hoothoot (slot 1) using normal controller input.
+
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-party-count player 2
+assert-map 0 12
+assert-pos 23 25
+
+# Step into Mikey's sight line at (23, 24)
+walk UP 1
+
+# Advance dialogue into battle
+mash 300
+wait 150
+
+# Assert initial active trainer battle state (Chikorita in player slot 0)
+assert-battle active
+assert-battle-kind TRAINER_SINGLE
+assert-party-count player 2
+assert-party-count enemy 2
+assert-active-enemy-slot 0
+assert-active-player-slot 0
+matrix 42-initial-chikorita
+
+# Perform voluntary switch to slot 1 (Hoothoot)
+voluntary-switch 1 2500
+wait 60
+
+# Assert post-switch active player state
+assert-battle active
+assert-battle-kind TRAINER_SINGLE
+assert-party-count player 2
+assert-active-player-slot 1
+assert-fainted player false
+matrix 42-hoothoot-switched

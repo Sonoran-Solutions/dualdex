@@ -1,0 +1,155 @@
+# Legal progression: Mr. Pokémon's House -> Route 30 -> Cherrygrove City -> Silver Battle
+# -> Route 29 -> New Bark Town -> Elm's Lab (cop/rival name, 5 Poké Balls) -> Mom's House (Route 30 unblocked)
+
+# Boot from stage30 save
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-party-count player 1
+assert-map 0 12
+
+# Route 30 south back to Cherrygrove City (exact reverse of verified Route 30 traversal)
+walk DOWN 12
+walk LEFT 3
+walk DOWN 10
+walk LEFT 2
+walk DOWN 12
+walk LEFT 4
+walk DOWN 7
+walk RIGHT 3
+walk DOWN 4
+walk LEFT 4
+walk DOWN 6
+walk DOWN 1 optional
+wait 100
+assert-map 0 1
+matrix stage31-cherrygrove-reentry
+
+# Navigate south-east through Cherrygrove to trigger Silver battle at (56, 9)
+walk DOWN 9
+walk RIGHT 22
+matrix stage31-silver-trigger
+
+# Silver rival battle: Cyndaquil Lv 5 vs Chikorita Lv 5
+# autobattle advances dialogue into battle and attacks with Tackle until Cyndaquil is defeated
+autobattle 4000
+assert-battle inactive
+matrix stage31-silver-defeated
+
+# Silver post-battle dialogue and exit
+spama 20
+wait 100
+
+# Exit Cherrygrove east to Route 29
+walk RIGHT 8
+walk RIGHT 1 optional
+wait 100
+assert-map 0 11
+matrix stage31-route29-reentry
+
+# Route 29 west to east traversal (collision-free optimal path avoiding all NPCs & trees)
+walk RIGHT 6
+walk DOWN 2
+walk RIGHT 7
+walk UP 2
+walk RIGHT 7
+walk UP 5
+walk RIGHT 4
+walk DOWN 1
+walk RIGHT 2
+walk DOWN 1
+walk RIGHT 2
+walk DOWN 2
+walk RIGHT 6
+walk DOWN 1
+walk RIGHT 6
+walk DOWN 5
+walk RIGHT 3
+walk DOWN 5
+walk RIGHT 18
+walk UP 4
+walk RIGHT 2
+walk UP 2
+walk RIGHT 4
+walk UP 2
+walk RIGHT 2
+walk UP 2
+# Step across border from Route 29 (69, 17) into New Bark Town (0, 12)
+walk RIGHT 2 optional
+wait 100
+assert-map 0 0
+matrix stage31-newbark-arrival
+
+# Enter Prof. Elm's Lab (warp at 10, 9; player arrived at 1, 12)
+walk RIGHT 9
+walk UP 2
+walk UP 1
+wait 100
+assert-map 1 0
+matrix stage31-inside-elm-lab
+
+# Police scene triggers on frame table
+# Officer questions player (MSGBOX_YESNO)
+wait 150
+press A 8
+wait 80
+
+# Naming screen opens: press START to select OK, press A to confirm default rival name ("SILVER")
+press START 6
+wait 100
+press A 8
+wait 150
+# Officer confirms name (MSGBOX_YESNO: "Was it SILVER?") -> press A on YES
+press A 8
+wait 100
+# Officer leaves, Elm speaks, mystery egg delivered, Elm post-theft dialogue
+spama 30
+wait 100
+matrix stage31-elm-theft-resolved
+
+# Walk toward exit door (warp at 6, 12). Aide intercepts at (6, 12) and gives 5 Poké Balls
+walk DOWN 8 optional
+wait 50
+# Clear aide dialogue
+spama 12
+wait 50
+matrix stage31-pokeballs-received
+
+# Exit Elm's Lab to New Bark Town (player at 6, 12 facing SOUTH)
+walk DOWN 1 optional
+wait 100
+assert-map 0 0
+
+# Walk to Mom's House (player at 10, 10; entrance at 20, 11; row y=12 is open)
+walk DOWN 2
+walk RIGHT 10
+walk UP 1
+wait 100
+assert-map 1 3
+matrix stage31-inside-moms-house
+
+# Walk to Mom at (2, 2) inside house (door at 9, 8)
+walk LEFT 7
+walk UP 5
+press UP 4
+wait 20
+press A 8
+# Mom speaks, sets FLAG_MOM_VISITED, clears FLAG_HIDE_ROUTE_30_NPCS (unblocking Route 30)
+escape DOWN
+wait 60
+matrix stage31-mom-visited
+
+# Exit Mom's House (player at 2, 4 after escape DOWN)
+walk DOWN 4
+walk RIGHT 7
+walk DOWN 1 optional
+wait 100
+assert-map 0 0
+
+# Save game legally via in-game menu controller input
+menusave
+matrix stage31-saved
+assert-battle inactive
+assert-party-count player 1
+savsave /tmp/hns_baseline/stage31_pokeballs.sav

@@ -1,0 +1,111 @@
+# Legal progression: New Bark Town -> Route 29 -> Cherrygrove City -> Route 30 -> Mr. Pokémon's House
+# Obtains Mystery Egg & Pokédex, exits house, and handles Elm's emergency phone call.
+
+# Boot from starter save
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-party-count player 1
+assert-map 0 0
+
+# Step out of New Bark Town onto Route 29
+walk DOWN 2
+walk LEFT 14
+assert-map 0 11
+matrix stage30-route29-arrival
+
+# Navigate Route 29 avoiding all trees, obstacles, and minimizing tall grass
+walk LEFT 6
+walk DOWN 1
+walk LEFT 1
+walk DOWN 6
+walk LEFT 3
+walk DOWN 1
+walk LEFT 3
+walk DOWN 1
+walk LEFT 10
+walk UP 4
+walk LEFT 3
+walk UP 5
+walk LEFT 6
+walk UP 1
+walk LEFT 6
+walk UP 2
+walk LEFT 2
+walk UP 1
+walk LEFT 2
+walk UP 1
+walk LEFT 4
+walk DOWN 3
+walk LEFT 7
+walk DOWN 3
+walk LEFT 2
+walk DOWN 1
+walk LEFT 5
+walk UP 2
+walk LEFT 7
+assert-map 0 1
+matrix stage30-cherrygrove-arrival
+
+# Cherrygrove City: Approach Guide Gent, decline tour to open city immediately
+walk LEFT 7
+# escapeno selects NO on Guide Gent's tour, clears dialogue, and moves LEFT to (56, 11)
+escapeno LEFT 40
+matrix stage30-guide-gent-declined
+
+# Walk north through Cherrygrove to Route 30 (move to open row y=9, then west to x=34, then north)
+walk UP 2
+walk LEFT 22
+walk UP 10
+assert-map 0 12
+matrix stage30-route30-arrival
+
+# Route 30 east branch to Mr. Pokémon's House
+walk UP 6
+walk RIGHT 4
+walk UP 4
+walk LEFT 3
+walk UP 7
+walk RIGHT 4
+walk UP 12
+walk RIGHT 2
+walk UP 10
+walk RIGHT 3
+walk UP 13
+assert-map 0 12
+matrix stage30-mr-pokemon-door
+
+# Enter Mr. Pokémon's House (warp at 35,4)
+walk UP 1
+wait 100
+assert-map 22 26
+matrix stage30-inside-mr-pokemon
+
+# Mr. Pokémon and Oak cutscene runs on frame table
+# Mash A to advance all dialogues, receive Mystery Egg, Pokédex, and party heal
+mash 2500
+matrix stage30-egg-received
+
+# Exit Mr. Pokémon's House: player is at (7,6), exit warp is at (5,8)
+walk LEFT 2
+walk DOWN 3 optional
+wait 100
+assert-map 0 12
+
+# Elm's emergency phone call triggers on frame table when exiting to Route 30
+wait 30
+spama 12
+wait 60
+walk DOWN 1
+matrix stage30-elm-call-done
+assert-map 0 12
+assert-party-count player 1
+assert-battle inactive
+
+# Save in-game via controller input
+menusave
+matrix stage30-saved
+assert-battle inactive
+assert-party-count player 1
+savsave /tmp/hns_baseline/stage30_egg.sav

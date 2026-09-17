@@ -47,6 +47,7 @@
 /* Runtime-proven IWRAM address of gMain on the official release ROM. `gMain` is the authority for
  * `inBattle`; the compiled symbol address from a local build is 0x18 lower and must not be used. */
 #define HNS_RELEASE_GMAIN_BASE 0x03005BD8u
+#define HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS 0x02000300u
 
 static bool g_quiet = false;
 
@@ -70,6 +71,57 @@ static bool read_u32(uint32_t address, uint32_t* out) {
     uint8_t raw[4];
     if (!libretro_host_read_gba_address(address, raw, sizeof(raw))) return false;
     *out = (uint32_t)raw[0] | ((uint32_t)raw[1] << 8) | ((uint32_t)raw[2] << 16) | ((uint32_t)raw[3] << 24);
+    return true;
+}
+
+/* Candidate party-menu diagnostics:
+ * Candidate A at 0x020341F8 corresponds to the EWRAM storage for the
+ * file-static sPartyMenuInternal pointer. Interpreting bytes beginning
+ * there as struct PartyMenu therefore samples pointer/task bytes rather
+ * than the exported gPartyMenu fields.
+ *
+ * Candidate B at 0x020341FC is the exported gPartyMenu object.
+ */
+typedef struct {
+    bool readable;
+    uint8_t menu_type;
+    uint8_t layout;
+    int8_t slot_id;
+    int8_t slot_id2;
+    uint8_t action;
+} PartyMenuProbeState;
+
+static bool read_party_menu_probe_candidate_a(PartyMenuProbeState* out) {
+    if (!out) return false;
+    memset(out, 0, sizeof(*out));
+    uint8_t mt = 0, s1 = 0, s2 = 0, act = 0;
+    if (!read_u8(0x02034200u, &mt)) return false;
+    if (!read_u8(0x02034201u, &s1)) return false;
+    if (!read_u8(0x02034202u, &s2)) return false;
+    if (!read_u8(0x02034203u, &act)) return false;
+    out->readable = true;
+    out->menu_type = mt & 0x0F;
+    out->layout = (mt >> 4) & 0x03;
+    out->slot_id = (int8_t)s1;
+    out->slot_id2 = (int8_t)s2;
+    out->action = act;
+    return true;
+}
+
+static bool read_party_menu_probe_candidate_b(PartyMenuProbeState* out) {
+    if (!out) return false;
+    memset(out, 0, sizeof(*out));
+    uint8_t mt = 0, s1 = 0, s2 = 0, act = 0;
+    if (!read_u8(0x02034204u, &mt)) return false;
+    if (!read_u8(0x02034205u, &s1)) return false;
+    if (!read_u8(0x02034206u, &s2)) return false;
+    if (!read_u8(0x02034207u, &act)) return false;
+    out->readable = true;
+    out->menu_type = mt & 0x0F;
+    out->layout = (mt >> 4) & 0x03;
+    out->slot_id = (int8_t)s1;
+    out->slot_id2 = (int8_t)s2;
+    out->action = act;
     return true;
 }
 
@@ -197,6 +249,357 @@ static void sample_state(const GameMemoryConfig* cfg, int frame, uint32_t input,
         probe_read, NULL, ewram, ewram_sz, cfg, &player_snapshot);
     out->active_player_slot = player_snapshot.active_battler_slot;
     out->active_player_known = player_snapshot.active_battler_known;
+}
+
+/* =========================================================================
+ * State-machine trackers for battle commands (autobattle, replacement)
+ * ========================================================================= */
+
+typedef enum {
+    AUTOBATTLE_PHASE_INIT = 0,
+    AUTOBATTLE_PHASE_IN_BATTLE = 1,
+    AUTOBATTLE_PHASE_EXITED = 2
+} AutobattlePhase;
+
+typedef struct {
+    AutobattlePhase phase;
+    bool entered_battle;
+    bool exited_after_entry;
+} AutobattleTracker;
+
+static void autobattle_tracker_init(AutobattleTracker* t, bool initially_in_battle) {
+    memset(t, 0, sizeof(*t));
+    if (initially_in_battle) {
+        t->phase = AUTOBATTLE_PHASE_IN_BATTLE;
+        t->entered_battle = true;
+    } else {
+        t->phase = AUTOBATTLE_PHASE_INIT;
+        t->entered_battle = false;
+    }
+}
+
+static bool autobattle_tracker_step(AutobattleTracker* t, bool in_battle) {
+    if (t->phase == AUTOBATTLE_PHASE_INIT) {
+        if (in_battle) {
+            t->entered_battle = true;
+            t->phase = AUTOBATTLE_PHASE_IN_BATTLE;
+        }
+    } else if (t->phase == AUTOBATTLE_PHASE_IN_BATTLE) {
+        if (!in_battle) {
+            t->exited_after_entry = true;
+            t->phase = AUTOBATTLE_PHASE_EXITED;
+            return true;
+        }
+    }
+    return false;
+}
+
+typedef enum {
+    REPL_PHASE_A_OLD_ACTIVE = 0,
+    REPL_PHASE_B_FAINT = 1,
+    REPL_PHASE_C_ABSENT = 2,
+    REPL_PHASE_D_REPLACEMENT = 3,
+    REPL_PHASE_COMPLETE = 4
+} ReplacementPhase;
+
+typedef struct {
+    int old_slot;
+    int new_slot;
+    ReplacementPhase phase;
+    bool saw_old_active;
+    bool saw_faint;
+    bool saw_absent_window;
+    bool saw_replacement;
+    int old_battler;
+    uint16_t old_hp;
+    uint16_t old_species;
+    int new_battler;
+    uint16_t new_hp;
+    uint16_t new_species;
+    uint8_t absent_flags;
+} ReplacementTracker;
+
+static void replacement_tracker_init(ReplacementTracker* t, int old_slot, int new_slot) {
+    memset(t, 0, sizeof(*t));
+    t->old_slot = old_slot;
+    t->new_slot = new_slot;
+    t->phase = REPL_PHASE_A_OLD_ACTIVE;
+    t->old_battler = -1;
+    t->new_battler = -1;
+}
+
+static bool replacement_tracker_step(ReplacementTracker* t, const Sample* s, uint8_t absent_flags) {
+    if (t->phase == REPL_PHASE_COMPLETE) {
+        return true;
+    }
+
+    if (t->phase == REPL_PHASE_A_OLD_ACTIVE) {
+        if (s->lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
+            s->active_enemy == ACTIVE_ENEMY_SLOT &&
+            s->enemy_slot == t->old_slot &&
+            s->enemy_battler >= 0 &&
+            s->party_index[s->enemy_battler] == t->old_slot &&
+            !s->enemy_fainted &&
+            s->mon_hp[s->enemy_battler] > 0) {
+            t->saw_old_active = true;
+            t->old_battler = s->enemy_battler;
+            t->old_hp = s->mon_hp[s->enemy_battler];
+            t->old_species = s->mon_species[s->enemy_battler];
+            t->phase = REPL_PHASE_B_FAINT;
+            printf("  [await-enemy-replacement] Phase A observed at frame %d: old slot %d active (battler=%d, species=%u, HP=%u/%u)\n",
+                   s->frame, t->old_slot, t->old_battler, t->old_species, t->old_hp, s->mon_max_hp[t->old_battler]);
+        }
+        return false;
+    }
+
+    if (t->phase == REPL_PHASE_B_FAINT) {
+        if (s->lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
+            s->enemy_slot == t->old_slot &&
+            s->enemy_battler == t->old_battler &&
+            s->mon_hp[t->old_battler] == 0 &&
+            s->enemy_fainted) {
+            t->saw_faint = true;
+            t->phase = REPL_PHASE_C_ABSENT;
+            printf("  [await-enemy-replacement] Phase B observed at frame %d: old slot %d fainted (HP=0, fainted=true)\n",
+                   s->frame, t->old_slot);
+        }
+        return false;
+    }
+
+    if (t->phase == REPL_PHASE_C_ABSENT) {
+        if (s->lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
+            s->active_enemy == ACTIVE_ENEMY_NONE_ACTIVE &&
+            s->enemy_slot == -1 &&
+            s->enemy_battler == -1 &&
+            s->opponent_battlers == 0) {
+            t->saw_absent_window = true;
+            t->absent_flags = absent_flags;
+            t->phase = REPL_PHASE_D_REPLACEMENT;
+            printf("  [await-enemy-replacement] Phase C observed at frame %d: absent window (active_enemy=NONE_ACTIVE, slot=-1, battler=-1, opp_battlers=0, absentFlags=0x%02X)\n",
+                   s->frame, absent_flags);
+        }
+        return false;
+    }
+
+    if (t->phase == REPL_PHASE_D_REPLACEMENT) {
+        if (s->lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
+            s->active_enemy == ACTIVE_ENEMY_SLOT &&
+            s->enemy_slot == t->new_slot &&
+            s->enemy_battler >= 0 &&
+            s->party_index[s->enemy_battler] == t->new_slot &&
+            s->enemy_slot < s->enemy_party_count_prod &&
+            t->new_slot != t->old_slot &&
+            !s->enemy_fainted &&
+            s->mon_hp[s->enemy_battler] > 0) {
+            t->saw_replacement = true;
+            t->new_battler = s->enemy_battler;
+            t->new_hp = s->mon_hp[s->enemy_battler];
+            t->new_species = s->mon_species[s->enemy_battler];
+            t->phase = REPL_PHASE_COMPLETE;
+            printf("  [await-enemy-replacement] Phase D observed at frame %d: replacement committed (slot=%d, battler=%d, species=%u, HP=%u/%u)\n",
+                   s->frame, t->new_slot, t->new_battler, t->new_species, t->new_hp, s->mon_max_hp[t->new_battler]);
+            return true;
+        }
+        return false;
+    }
+
+    return false;
+}
+
+static int run_pure_tracker_selftests(void) {
+    int passed = 0;
+    int failed = 0;
+
+    #define ASSERT_TEST(cond, name) do { \
+        if (!(cond)) { \
+            fprintf(stderr, "  [FAIL] %s: line %d\n", (name), __LINE__); \
+            failed++; \
+        } else { \
+            passed++; \
+        } \
+    } while (0)
+
+    /* Test 1: autobattle never enters battle */
+    {
+        AutobattleTracker t;
+        autobattle_tracker_init(&t, false);
+        for (int i = 0; i < 50; i++) {
+            autobattle_tracker_step(&t, false);
+        }
+        ASSERT_TEST(!t.entered_battle && !t.exited_after_entry && t.phase == AUTOBATTLE_PHASE_INIT,
+                    "autobattle_never_enters");
+    }
+
+    /* Test 2: autobattle enters but never exits */
+    {
+        AutobattleTracker t;
+        autobattle_tracker_init(&t, false);
+        autobattle_tracker_step(&t, true);
+        for (int i = 0; i < 50; i++) {
+            autobattle_tracker_step(&t, true);
+        }
+        ASSERT_TEST(t.entered_battle && !t.exited_after_entry && t.phase == AUTOBATTLE_PHASE_IN_BATTLE,
+                    "autobattle_enters_never_exits");
+    }
+
+    /* Test 3: autobattle valid sequence (enter -> exit) */
+    {
+        AutobattleTracker t;
+        autobattle_tracker_init(&t, false);
+        autobattle_tracker_step(&t, true);
+        bool done = autobattle_tracker_step(&t, false);
+        ASSERT_TEST(done && t.entered_battle && t.exited_after_entry && t.phase == AUTOBATTLE_PHASE_EXITED,
+                    "autobattle_enter_then_exit");
+    }
+
+    /* Test 4: autobattle already active at start -> exit */
+    {
+        AutobattleTracker t;
+        autobattle_tracker_init(&t, true);
+        ASSERT_TEST(t.entered_battle && t.phase == AUTOBATTLE_PHASE_IN_BATTLE, "autobattle_initially_active");
+        bool done = autobattle_tracker_step(&t, false);
+        ASSERT_TEST(done && t.exited_after_entry && t.phase == AUTOBATTLE_PHASE_EXITED, "autobattle_initially_active_exit");
+    }
+
+    /* Test 5: enemy replacement never reaches faint phase */
+    {
+        ReplacementTracker t;
+        replacement_tracker_init(&t, 0, 1);
+        Sample s;
+        memset(&s, 0, sizeof(s));
+        s.lifecycle = BATTLE_LIFECYCLE_ACTIVE;
+        s.active_enemy = ACTIVE_ENEMY_SLOT;
+        s.enemy_slot = 0;
+        s.enemy_battler = 1;
+        s.party_index[1] = 0;
+        s.mon_hp[1] = 14;
+        s.mon_max_hp[1] = 14;
+        s.mon_species[1] = 163;
+        s.enemy_fainted = false;
+        replacement_tracker_step(&t, &s, 0);
+        ASSERT_TEST(t.saw_old_active && t.phase == REPL_PHASE_B_FAINT, "replacement_phase_a_observed");
+
+        s.mon_hp[1] = 6;
+        replacement_tracker_step(&t, &s, 0);
+        s.mon_hp[1] = 2;
+        replacement_tracker_step(&t, &s, 0);
+        ASSERT_TEST(t.saw_old_active && !t.saw_faint && t.phase == REPL_PHASE_B_FAINT,
+                    "replacement_never_reaches_faint");
+    }
+
+    /* Test 6: enemy replacement sees faint but never absent window */
+    {
+        ReplacementTracker t;
+        replacement_tracker_init(&t, 0, 1);
+        Sample s;
+        memset(&s, 0, sizeof(s));
+        s.lifecycle = BATTLE_LIFECYCLE_ACTIVE;
+        s.active_enemy = ACTIVE_ENEMY_SLOT;
+        s.enemy_slot = 0;
+        s.enemy_battler = 1;
+        s.party_index[1] = 0;
+        s.mon_hp[1] = 14;
+        s.enemy_fainted = false;
+        replacement_tracker_step(&t, &s, 0);
+
+        s.mon_hp[1] = 0;
+        s.enemy_fainted = true;
+        replacement_tracker_step(&t, &s, 0);
+        ASSERT_TEST(t.saw_faint && t.phase == REPL_PHASE_C_ABSENT, "replacement_faint_observed");
+
+        s.active_enemy = ACTIVE_ENEMY_SLOT;
+        s.enemy_slot = 1;
+        replacement_tracker_step(&t, &s, 0);
+        ASSERT_TEST(!t.saw_absent_window && !t.saw_replacement && t.phase == REPL_PHASE_C_ABSENT,
+                    "replacement_faint_without_absent_window");
+    }
+
+    /* Test 7: enemy replacement sees absent window but never new slot */
+    {
+        ReplacementTracker t;
+        replacement_tracker_init(&t, 0, 1);
+        Sample s;
+        memset(&s, 0, sizeof(s));
+        s.lifecycle = BATTLE_LIFECYCLE_ACTIVE;
+        s.active_enemy = ACTIVE_ENEMY_SLOT;
+        s.enemy_slot = 0;
+        s.enemy_battler = 1;
+        s.party_index[1] = 0;
+        s.mon_hp[1] = 14;
+        replacement_tracker_step(&t, &s, 0);
+
+        s.mon_hp[1] = 0;
+        s.enemy_fainted = true;
+        replacement_tracker_step(&t, &s, 0);
+
+        s.active_enemy = ACTIVE_ENEMY_NONE_ACTIVE;
+        s.enemy_slot = -1;
+        s.enemy_battler = -1;
+        s.opponent_battlers = 0;
+        replacement_tracker_step(&t, &s, 0x02);
+        ASSERT_TEST(t.saw_absent_window && t.phase == REPL_PHASE_D_REPLACEMENT, "replacement_absent_observed");
+
+        s.lifecycle = BATTLE_LIFECYCLE_INACTIVE;
+        bool done = replacement_tracker_step(&t, &s, 0);
+        ASSERT_TEST(!done && !t.saw_replacement && t.phase == REPL_PHASE_D_REPLACEMENT,
+                    "replacement_absent_without_new_slot");
+    }
+
+    /* Test 8: enemy replacement full sequence (A -> B -> C -> D) succeeds */
+    {
+        ReplacementTracker t;
+        replacement_tracker_init(&t, 0, 1);
+        Sample s;
+        memset(&s, 0, sizeof(s));
+        s.lifecycle = BATTLE_LIFECYCLE_ACTIVE;
+        s.active_enemy = ACTIVE_ENEMY_SLOT;
+        s.enemy_slot = 0;
+        s.enemy_battler = 1;
+        s.party_index[1] = 0;
+        s.mon_hp[1] = 14;
+        s.mon_species[1] = 163;
+        s.mon_max_hp[1] = 14;
+        replacement_tracker_step(&t, &s, 0);
+
+        s.mon_hp[1] = 0;
+        s.enemy_fainted = true;
+        replacement_tracker_step(&t, &s, 0);
+
+        s.active_enemy = ACTIVE_ENEMY_NONE_ACTIVE;
+        s.enemy_slot = -1;
+        s.enemy_battler = -1;
+        s.opponent_battlers = 0;
+        replacement_tracker_step(&t, &s, 0x02);
+
+        s.active_enemy = ACTIVE_ENEMY_SLOT;
+        s.enemy_slot = 1;
+        s.enemy_battler = 1;
+        s.party_index[1] = 1;
+        s.enemy_party_count_prod = 2;
+        s.enemy_fainted = false;
+        s.mon_hp[1] = 16;
+        s.mon_max_hp[1] = 16;
+        s.mon_species[1] = 161;
+        bool done = replacement_tracker_step(&t, &s, 0);
+        ASSERT_TEST(done && t.saw_replacement && t.phase == REPL_PHASE_COMPLETE,
+                    "replacement_full_sequence_success");
+        ASSERT_TEST(t.old_species == 163 && t.new_species == 161, "replacement_species_recorded");
+    }
+
+    /* Test 9: clear_wild_battle timeout simulation */
+    {
+        bool in_b = true;
+        bool cleared = false;
+        for (int it = 0; it < 50; it++) {
+            if (!in_b) { cleared = true; break; }
+        }
+        ASSERT_TEST(!cleared, "clear_wild_battle_timeout_sim");
+    }
+
+    #undef ASSERT_TEST
+
+    printf("Pure tracker selftests: %d passed, %d failed\n", passed, failed);
+    return (failed == 0) ? 0 : 1;
 }
 
 /** Compare only observed state: the frame number and the raw input held are labels, not state. */
@@ -528,6 +931,201 @@ static void print_matrix(const Sample* s, const char* label) {
            s->active_player_slot, s->active_player_known ? 1 : 0);
 }
 
+static uint8_t get_battler0_command(const uint8_t* ewram, size_t ewram_sz) {
+    if (!ewram || ewram_sz < 0x300) return 0xFF;
+    uint32_t bres = (uint32_t)ewram[0x254] | ((uint32_t)ewram[0x255] << 8) |
+                    ((uint32_t)ewram[0x256] << 16) | ((uint32_t)ewram[0x257] << 24);
+    if (bres < 0x02000000 || bres >= 0x02040000) return 0xFF;
+    uint32_t off = bres - 0x02000000 + 16;
+    if (off >= ewram_sz) return 0xFF;
+    return ewram[off];
+}
+
+static void clear_wild_battle(Driver* d, Sample* previous, bool* have_previous) {
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+    if (!ewram || ewram_sz < 0x400) return;
+
+    printf("  [wild btl] entering clear_wild_battle\n");
+    bool cleared = false;
+    for (int it = 0; it < 6000; it++) {
+        uint8_t ib = 0;
+        read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+        if (!((ib >> d->cfg->main_in_battle_bit) & 1)) {
+            printf("  [wild btl] battle finished after %d iterations\n", it);
+            cleared = true;
+            break;
+        }
+
+        uint32_t flags = (uint32_t)ewram[0xAC] | ((uint32_t)ewram[0xAD] << 8) |
+                         ((uint32_t)ewram[0xAE] << 16) | ((uint32_t)ewram[0xAF] << 24);
+        if (flags & 0x00000008) {
+            /* Trainer battle: attack with Tackle */
+            step_one(d, ((it % 10) < 4) ? DUALDEX_BTN_A : 0, previous, have_previous);
+            continue;
+        }
+
+        uint8_t cmd = get_battler0_command(ewram, ewram_sz);
+        uint32_t exec = 0;
+        read_u32(HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS, &exec);
+
+        if (it % 60 == 0) {
+            printf("  [wild btl] it=%d ib=%u exec=0x%08X cmd=%u cursor=%u\n",
+                   it, ib, exec, cmd, ewram[0x3A4]);
+        }
+
+        /* Check if player controller is in action selection: cmd == 17 (CONTROLLER_CHOOSEACTION) */
+        if (cmd == 17) {
+            uint8_t cursor = ewram[0x3A4];
+            if (cursor == 3) {
+                hold(d, DUALDEX_BTN_A, 4, previous, have_previous);
+                hold(d, 0, 8, previous, have_previous);
+            } else if (!(cursor & 1)) {
+                hold(d, DUALDEX_BTN_RIGHT, 4, previous, have_previous);
+                hold(d, 0, 8, previous, have_previous);
+            } else if (!(cursor & 2)) {
+                hold(d, DUALDEX_BTN_DOWN, 4, previous, have_previous);
+                hold(d, 0, 8, previous, have_previous);
+            }
+        } else {
+            /* Text, intro, or waiting: press B to advance text safely without selecting Fight */
+            uint32_t btn = ((it % 4) < 2) ? DUALDEX_BTN_B : 0;
+            step_one(d, btn, previous, have_previous);
+        }
+    }
+    if (!cleared) {
+        script_error("clear_wild_battle timed out after 6000 iterations; battle remained active");
+    }
+}
+
+static void do_menusave(Driver* d, Sample* previous, bool* have_previous) {
+    hold(d, 0, 40, previous, have_previous);
+
+    uint32_t menu_cb = 0;
+    for (int attempt = 0; attempt < 15; attempt++) {
+        hold(d, DUALDEX_BTN_START, 8, previous, have_previous);
+        hold(d, 0, 30, previous, have_previous);
+        read_u32(0x03006124u, &menu_cb);
+        if (menu_cb != 0) break;
+    }
+    if (menu_cb == 0) {
+        script_error("menusave failed: could not open start menu with START button");
+        return;
+    }
+
+    uint8_t cur_pos = 0;
+    uint8_t num_actions = 0;
+    read_u8(0x0203b8c1u, &cur_pos);
+    read_u8(0x0203b8b6u, &num_actions);
+    if (num_actions > 9) num_actions = 9;
+
+    int save_target = -1;
+    for (int i = 0; i < num_actions; i++) {
+        uint8_t action = 0;
+        read_u8(0x0203b8b8u + i, &action);
+        if (action == 5 /* MENU_ACTION_SAVE */) {
+            save_target = i;
+            break;
+        }
+    }
+    if (save_target < 0) {
+        script_error("menusave failed: MENU_ACTION_SAVE not found in start menu actions (%u actions)", num_actions);
+        return;
+    }
+
+    for (int attempt = 0; attempt < 10 && cur_pos != (uint8_t)save_target; attempt++) {
+        if (cur_pos < (uint8_t)save_target) {
+            hold(d, DUALDEX_BTN_DOWN, 4, previous, have_previous);
+        } else {
+            hold(d, DUALDEX_BTN_UP, 4, previous, have_previous);
+        }
+        hold(d, 0, 20, previous, have_previous);
+        read_u8(0x0203b8c1u, &cur_pos);
+    }
+
+    /* Select SAVE */
+    hold(d, DUALDEX_BTN_A, 8, previous, have_previous);
+    hold(d, 0, 100, previous, have_previous);
+
+    /* Confirm SAVE (Yes) */
+    hold(d, DUALDEX_BTN_A, 8, previous, have_previous);
+    hold(d, 0, 120, previous, have_previous);
+
+    /* In case of overwrite confirmation prompt, press A again */
+    hold(d, DUALDEX_BTN_A, 8, previous, have_previous);
+    hold(d, 0, 300, previous, have_previous);
+
+    /* Clear remaining text and return to overworld */
+    for (int i = 0; i < 30; i++) {
+        read_u32(0x03006124u, &menu_cb);
+        if (menu_cb == 0) break;
+        hold(d, DUALDEX_BTN_A, 6, previous, have_previous);
+        hold(d, 0, 20, previous, have_previous);
+    }
+    printf("  [menusave] in-game save completed via controller input\n");
+}
+
+static bool do_walk_tiles(Driver* d, uint32_t btn, const char* dir_name, int tiles, bool allow_blocked,
+                          Sample* previous, bool* have_previous) {
+    for (int t = 0; t < tiles; t++) {
+        uint16_t x0 = 0, y0 = 0; uint8_t g0 = 0, m0 = 0;
+        read_map_position(&x0, &y0, &g0, &m0);
+        bool moved = false;
+        for (int attempt = 0; attempt < 30 && !moved; attempt++) {
+            for (int i = 0; i < 44 && !moved; i++) {
+                step_one(d, btn, previous, have_previous);
+                uint16_t x1 = 0, y1 = 0; uint8_t g1 = 0, m1 = 0;
+                read_map_position(&x1, &y1, &g1, &m1);
+                if (x1 != x0 || y1 != y0 || g1 != g0 || m1 != m0) moved = true;
+            }
+            hold(d, 0, 8, previous, have_previous);
+            if (moved) break;
+            /* If a wild encounter intercepted the step, flee or clear it cleanly */
+            uint8_t ib = 0;
+            read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+            if ((ib >> d->cfg->main_in_battle_bit) & 1) {
+                clear_wild_battle(d, previous, have_previous);
+                read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+                if ((ib >> d->cfg->main_in_battle_bit) & 1) {
+                    /* clear_wild_battle already called script_error; break to avoid cascaded false steps */
+                    break;
+                }
+                hold(d, 0, 80, previous, have_previous);
+                uint16_t x1 = 0, y1 = 0; uint8_t g1 = 0, m1 = 0;
+                read_map_position(&x1, &y1, &g1, &m1);
+                if (x1 != x0 || y1 != y0 || g1 != g0 || m1 != m0) moved = true;
+                if (moved) break;
+            }
+            read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+            if (!((ib >> d->cfg->main_in_battle_bit) & 1)) {
+                if (attempt >= 2) {
+                    for (int k = 0; k < 5 && !moved; k++) {
+                        hold(d, DUALDEX_BTN_A, 8, previous, have_previous);
+                        hold(d, 0, 30, previous, have_previous);
+                        uint16_t x1 = 0, y1 = 0; uint8_t g1 = 0, m1 = 0;
+                        read_map_position(&x1, &y1, &g1, &m1);
+                        if (x1 != x0 || y1 != y0 || g1 != g0 || m1 != m0) moved = true;
+                    }
+                }
+            }
+        }
+        uint16_t x2 = 0, y2 = 0; uint8_t g2 = 0, m2 = 0;
+        read_map_position(&x2, &y2, &g2, &m2);
+        if (!moved) {
+            if (allow_blocked) {
+                printf("  [walk] %s blocked at (%u,%u)@%u/%u (allowed)\n",
+                       dir_name, x2, y2, g2, m2);
+            } else {
+                script_error("walk %s blocked at (%u,%u)@%u/%u after %d attempts "
+                             "(use 'walk %s <tiles> optional' to allow this)",
+                             dir_name, x2, y2, g2, m2, 30, dir_name);
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
 static int run_script(Driver* d, const char* script_path) {
     FILE* f = script_path ? fopen(script_path, "r") : stdin;
     if (!f) {
@@ -574,57 +1172,47 @@ static int run_script(Driver* d, const char* script_path) {
             uint32_t btn = parse_buttons(a1);
             int tiles = a2[0] ? atoi(a2) : 1;
             bool allow_blocked = !strcmp(a3, "optional");
-            for (int t = 0; t < tiles; t++) {
-                uint16_t x0 = 0, y0 = 0; uint8_t g0 = 0, m0 = 0;
-                read_map_position(&x0, &y0, &g0, &m0);
-                bool moved = false;
-                for (int attempt = 0; attempt < 30 && !moved; attempt++) {
-                    for (int i = 0; i < 44 && !moved; i++) {
-                        step_one(d, btn, &previous, &have_previous);
-                        uint16_t x1 = 0, y1 = 0; uint8_t g1 = 0, m1 = 0;
-                        read_map_position(&x1, &y1, &g1, &m1);
-                        if (x1 != x0 || y1 != y0 || g1 != g0 || m1 != m0) moved = true;
-                    }
-                    hold(d, 0, 8, &previous, &have_previous);
-                    if (moved) break;
-                    for (int k = 0; k < 10 && !moved; k++) {
-                        hold(d, DUALDEX_BTN_A, 8, &previous, &have_previous);
-                        hold(d, 0, 60, &previous, &have_previous);
-                        uint16_t x1 = 0, y1 = 0; uint8_t g1 = 0, m1 = 0;
-                        read_map_position(&x1, &y1, &g1, &m1);
-                        if (x1 != x0 || y1 != y0 || g1 != g0 || m1 != m0) moved = true;
-                    }
-                }
-                uint16_t x2 = 0, y2 = 0; uint8_t g2 = 0, m2 = 0;
-                read_map_position(&x2, &y2, &g2, &m2);
-                if (!moved) {
-                    if (allow_blocked) {
-                        printf("  [walk] %s blocked at (%u,%u)@%u/%u (allowed)\n",
-                               a1, x2, y2, g2, m2);
-                    } else {
-                        script_error("walk %s blocked at (%u,%u)@%u/%u after %d attempts "
-                                     "(use 'walk %s <tiles> optional' to allow this)",
-                                     a1, x2, y2, g2, m2, 30, a1);
-                    }
+            do_walk_tiles(d, btn, a1, tiles, allow_blocked, &previous, &have_previous);
+        } else if (!strcmp(cmd, "walk-to")) {
+            uint16_t target_x = (uint16_t)atoi(a1);
+            uint16_t target_y = (uint16_t)atoi(a2);
+            for (int step = 0; step < 30; step++) {
+                uint16_t x = 0, y = 0; uint8_t g = 0, m = 0;
+                read_map_position(&x, &y, &g, &m);
+                if (x == target_x && y == target_y) break;
+                uint32_t btn = 0;
+                const char* dir_name = "";
+                if (x < target_x) { btn = DUALDEX_BTN_RIGHT; dir_name = "RIGHT"; }
+                else if (x > target_x) { btn = DUALDEX_BTN_LEFT; dir_name = "LEFT"; }
+                else if (y < target_y) { btn = DUALDEX_BTN_DOWN; dir_name = "DOWN"; }
+                else if (y > target_y) { btn = DUALDEX_BTN_UP; dir_name = "UP"; }
+                if (!do_walk_tiles(d, btn, dir_name, 1, false, &previous, &have_previous)) {
+                    script_error("walk-to (%u,%u) failed: blocked while moving %s", target_x, target_y, dir_name);
                     break;
                 }
             }
+            uint16_t x = 0, y = 0; uint8_t g = 0, m = 0;
+            read_map_position(&x, &y, &g, &m);
+            if (x != target_x || y != target_y) {
+                script_error("walk-to (%u,%u) failed: reached (%u,%u) instead", target_x, target_y, x, y);
+            } else {
+                printf("  [walk-to] reached (%u,%u) OK\n", target_x, target_y);
+            }
         } else if (!strcmp(cmd, "hunt")) {
             int maxit = a1[0] ? atoi(a1) : 400;
-            uint32_t dirs[4] = { DUALDEX_BTN_LEFT, DUALDEX_BTN_UP, DUALDEX_BTN_LEFT, DUALDEX_BTN_DOWN };
+            uint32_t dirs[2] = { DUALDEX_BTN_LEFT, DUALDEX_BTN_RIGHT };
             int di = 0, found = 0, i = 0;
             for (; i < maxit && !found; i++) {
                 uint8_t ib = 0;
                 read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
                 if ((ib >> d->cfg->main_in_battle_bit) & 1) { found = 1; break; }
-                uint16_t x0 = 0, y0 = 0; uint8_t g0 = 0, m0 = 0;
-                read_map_position(&x0, &y0, &g0, &m0);
-                hold(d, dirs[di], 26, &previous, &have_previous);
+                hold(d, dirs[di], 20, &previous, &have_previous);
                 hold(d, 0, 8, &previous, &have_previous);
-                uint16_t x1 = 0, y1 = 0; uint8_t g1 = 0, m1 = 0;
-                read_map_position(&x1, &y1, &g1, &m1);
-                if (x1 == x0 && y1 == y0 && g1 == g0 && m1 == m0) di = (di + 1) % 4;
+                di = 1 - di;
             }
+            uint8_t ib = 0;
+            read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+            found = ((ib >> d->cfg->main_in_battle_bit) & 1);
             printf("  [hunt] %s after %d iterations\n", found ? "ENCOUNTER" : "TIMEOUT", i);
             if (!found) {
                 script_error("hunt timed out after %d iterations without reaching a wild encounter",
@@ -705,6 +1293,34 @@ static int run_script(Driver* d, const char* script_path) {
                 script_error("escape %s timed out after %d iterations without freeing the player "
                              "(the script lock never released)", a1, maxit);
             }
+        } else if (!strcmp(cmd, "escapeno")) {
+            /* Similar to escape, but presses DOWN first to select NO on Yes/No prompts,
+             * and presses B to fast-forward text/cancel, then tries to move. */
+            uint32_t btn = parse_buttons(a1);
+            int maxit = a2[0] ? atoi(a2) : 40;
+            int it = 0; bool moved = false;
+            for (; it < maxit && !moved; it++) {
+                hold(d, DUALDEX_BTN_DOWN, 4, &previous, &have_previous);
+                hold(d, 0, 15, &previous, &have_previous);
+                hold(d, DUALDEX_BTN_B, 8, &previous, &have_previous);
+                hold(d, 0, 15, &previous, &have_previous);
+                hold(d, DUALDEX_BTN_A, 8, &previous, &have_previous);
+                hold(d, 0, 50, &previous, &have_previous);
+                uint16_t x0 = 0, y0 = 0; uint8_t g0 = 0, m0 = 0;
+                read_map_position(&x0, &y0, &g0, &m0);
+                for (int i = 0; i < 50 && !moved; i++) {
+                    step_one(d, btn, &previous, &have_previous);
+                    uint16_t x1 = 0, y1 = 0; uint8_t g1 = 0, m1 = 0;
+                    read_map_position(&x1, &y1, &g1, &m1);
+                    if (x1 != x0 || y1 != y0 || g1 != g0 || m1 != m0) moved = true;
+                }
+                hold(d, 0, 10, &previous, &have_previous);
+            }
+            printf("  [escapeno] %s after %d iterations\n", moved ? "MOVED" : "TIMEOUT", it);
+            if (!moved) {
+                script_error("escapeno %s timed out after %d iterations without freeing the player "
+                             "(the script lock never released)", a1, maxit);
+            }
         } else if (!strcmp(cmd, "matrix")) {
             Sample s;
             sample_state(d->cfg, d->frame, 0, &s);
@@ -717,6 +1333,8 @@ static int run_script(Driver* d, const char* script_path) {
             if (!ok) {
                 script_error("savsave '%s' failed: the battery save could not be flushed", a1);
             }
+        } else if (!strcmp(cmd, "menusave")) {
+            do_menusave(d, &previous, &have_previous);
         } else if (!strcmp(cmd, "savload")) {
             struct stat st;
             if (stat(a1, &st) != 0) {
@@ -763,17 +1381,527 @@ static int run_script(Driver* d, const char* script_path) {
             } else {
                 printf("  [assert] inBattle=%s OK (frame %d)\n", a1, s.frame);
             }
+        } else if (!strcmp(cmd, "autobattle")) {
+            int max_f = a1[0] ? atoi(a1) : 4000;
+            uint8_t ib = 0;
+            read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+            bool initial_ib = ((ib >> d->cfg->main_in_battle_bit) & 1);
+
+            AutobattleTracker tracker;
+            autobattle_tracker_init(&tracker, initial_ib);
+
+            /* If not initially in battle, mash A up to 1000 frames to trigger/enter battle */
+            if (!initial_ib) {
+                for (int f = 0; f < 1000; f++) {
+                    read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+                    bool in_b = ((ib >> d->cfg->main_in_battle_bit) & 1);
+                    autobattle_tracker_step(&tracker, in_b);
+                    if (tracker.entered_battle) break;
+                    step_one(d, ((f % 10) < 4) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
+                }
+            }
+
+            if (!tracker.entered_battle) {
+                script_error("autobattle never entered battle within %d frames", max_f);
+            } else {
+                /* Phase 2: battle until inBattle releases */
+                int f = 0;
+                for (; f < max_f; f++) {
+                    read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+                    bool in_b = ((ib >> d->cfg->main_in_battle_bit) & 1);
+                    if (autobattle_tracker_step(&tracker, in_b)) {
+                        break;
+                    }
+                    step_one(d, ((f % 10) < 4) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
+                }
+                if (!tracker.exited_after_entry) {
+                    script_error("autobattle entered battle but timed out before battle exit after %d frames", max_f);
+                } else {
+                    printf("  [autobattle] battle completed cleanly after %d battle frames\n", f);
+                }
+            }
+        } else if (!strcmp(cmd, "await-enemy-replacement")) {
+            int old_slot = a1[0] ? atoi(a1) : 0;
+            int new_slot = a2[0] ? atoi(a2) : 1;
+            int max_f = a3[0] ? atoi(a3) : 3500;
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+
+            ReplacementTracker tracker;
+            replacement_tracker_init(&tracker, old_slot, new_slot);
+
+            printf("  [await-enemy-replacement] begin: %d -> %d (budget %d frames)\n",
+                   old_slot, new_slot, max_f);
+
+            for (int f = 0; f < max_f; f++) {
+                Sample s;
+                sample_state(d->cfg, d->frame, 0, &s);
+
+                if (replacement_tracker_step(&tracker, &s, s.absent_flags)) {
+                    break;
+                }
+
+                uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
+                uint32_t exec = 0;
+                read_u32(HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS, &exec);
+                uint32_t bscript = 0;
+                read_u32(0x02000128u, &bscript);
+                uint8_t bop = 0;
+                if (bscript >= 0x08000000 && bscript < 0x0A000000) {
+                    read_u8(bscript, &bop);
+                }
+
+                if (bcmd == 17) {
+                    /* In action selection: choose Fight (cursor 0) */
+                    uint8_t cur = ewram[0x3A4];
+                    if (cur != 0) {
+                        hold(d, DUALDEX_BTN_UP, 4, &previous, &have_previous);
+                        hold(d, DUALDEX_BTN_LEFT, 4, &previous, &have_previous);
+                    }
+                    hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
+                    hold(d, 0, 8, &previous, &have_previous);
+                } else if (bcmd == 19) {
+                    /* Move selection: choose Tackle (move 0) */
+                    hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
+                    hold(d, 0, 8, &previous, &have_previous);
+                } else if (bcmd == 18) {
+                    /* Yes/No box (e.g. switch prompt): press B to decline switch */
+                    hold(d, DUALDEX_BTN_B, 4, &previous, &have_previous);
+                    hold(d, 0, 10, &previous, &have_previous);
+                } else if (bcmd == 21) {
+                    /* Party menu accidentally opened: press B to cancel */
+                    hold(d, DUALDEX_BTN_B, 4, &previous, &have_previous);
+                    hold(d, 0, 15, &previous, &have_previous);
+                } else if (bop == 0x67) {
+                    /* B_SCR_OP_YESNOBOX: shift prompt "Will you change Pokémon?" -> press B to choose NO */
+                    printf("  [await-enemy-replacement] detected B_SCR_OP_YESNOBOX at frame %d, pressing B\n", d->frame);
+                    hold(d, DUALDEX_BTN_B, 4, &previous, &have_previous);
+                    hold(d, 0, 10, &previous, &have_previous);
+                } else {
+                    /* Text advancing: alternate A and B */
+                    uint32_t btn = ((f % 6) < 3) ? DUALDEX_BTN_A : 0;
+                    step_one(d, btn, &previous, &have_previous);
+                }
+            }
+
+            if (tracker.phase != REPL_PHASE_COMPLETE) {
+                script_error("await-enemy-replacement %d->%d timed out after %d frames: "
+                             "saw old active=%s saw faint=%s saw absent window=%s saw replacement=%s",
+                             old_slot, new_slot, max_f,
+                             tracker.saw_old_active ? "yes" : "no",
+                             tracker.saw_faint ? "yes" : "no",
+                             tracker.saw_absent_window ? "yes" : "no",
+                             tracker.saw_replacement ? "yes" : "no");
+            } else {
+                printf("  [await-enemy-replacement] OK: %d -> %d complete (old species=%u, replacement species=%u)\n",
+                       old_slot, new_slot, tracker.old_species, tracker.new_species);
+            }
+        } else if (!strcmp(cmd, "await-enemy-slot")) {
+            int target_slot = a1[0] ? atoi(a1) : 0;
+            int max_f = a2[0] ? atoi(a2) : 4000;
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            bool reached = false;
+            for (int f = 0; f < max_f; f++) {
+                Sample s;
+                sample_state(d->cfg, d->frame, 0, &s);
+                if (s.lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
+                    s.active_enemy == ACTIVE_ENEMY_SLOT &&
+                    s.enemy_slot == target_slot) {
+                    reached = true;
+                    break;
+                }
+                uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
+                uint32_t exec = 0;
+                read_u32(HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS, &exec);
+                uint32_t bscript = 0;
+                read_u32(0x02000128u, &bscript);
+                uint8_t bop = 0;
+                if (bscript >= 0x08000000 && bscript < 0x0A000000) {
+                    read_u8(bscript, &bop);
+                }
+                if (bcmd == 17) {
+                    /* In action selection: choose Fight (cursor 0) */
+                    uint8_t cur = ewram[0x3A4];
+                    if (cur != 0) {
+                        hold(d, DUALDEX_BTN_UP, 4, &previous, &have_previous);
+                        hold(d, DUALDEX_BTN_LEFT, 4, &previous, &have_previous);
+                    }
+                    hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
+                    hold(d, 0, 8, &previous, &have_previous);
+                } else if (bcmd == 19) {
+                    /* Move selection: choose Tackle (move 0) */
+                    hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
+                    hold(d, 0, 8, &previous, &have_previous);
+                } else if (bcmd == 18) {
+                    /* Yes/No box (e.g. switch prompt): press B to decline switch */
+                    hold(d, DUALDEX_BTN_B, 4, &previous, &have_previous);
+                    hold(d, 0, 10, &previous, &have_previous);
+                } else if (bcmd == 21) {
+                    /* Party menu accidentally opened: press B to cancel */
+                    hold(d, DUALDEX_BTN_B, 4, &previous, &have_previous);
+                    hold(d, 0, 15, &previous, &have_previous);
+                } else if (bop == 0x67) {
+                    /* B_SCR_OP_YESNOBOX: shift prompt "Will you change Pokémon?" -> press B to choose NO */
+                    printf("  [await-enemy-slot] detected B_SCR_OP_YESNOBOX at frame %d, pressing B\n", d->frame);
+                    hold(d, DUALDEX_BTN_B, 4, &previous, &have_previous);
+                    hold(d, 0, 10, &previous, &have_previous);
+                } else {
+                    /* Text advancing: alternate A and B */
+                    uint32_t btn = ((f % 6) < 3) ? DUALDEX_BTN_A : 0;
+                    step_one(d, btn, &previous, &have_previous);
+                }
+            }
+            printf("  [await-enemy-slot] slot %d %s (frame %d)\n",
+                   target_slot, reached ? "REACHED" : "TIMEOUT", d->frame);
+            if (!reached) {
+                script_error("await-enemy-slot %d timed out after %d frames", target_slot, max_f);
+            }
+        } else if (!strcmp(cmd, "voluntary-switch")) {
+            int target_slot = a1[0] ? atoi(a1) : 1;
+            int max_f = a2[0] ? atoi(a2) : 3000;
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            bool switched = false;
+            bool logged_entry = false;
+            bool logged_after_down = false;
+            int phase = 0; /* 0: select POKÉMON, 1: in party menu navigate, 2: in submenu select SHIFT, 3: post-switch */
+            Sample init_s;
+            sample_state(d->cfg, d->frame, 0, &init_s);
+            int initial_player_slot = init_s.active_player_slot;
+            int initial_party_index = init_s.party_index[0];
+            printf("  [voluntary-switch] begin: target_slot=%d (initial active_player_slot=%d, party_index[0]=%d)\n",
+                   target_slot, initial_player_slot, initial_party_index);
+
+            for (int f = 0; f < max_f; f++) {
+                Sample s;
+                sample_state(d->cfg, d->frame, 0, &s);
+                if (phase >= 3 &&
+                    s.lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
+                    s.active_player_known &&
+                    s.active_player_slot == target_slot &&
+                    s.party_index[0] == target_slot) {
+                    switched = true;
+                    break;
+                }
+                uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
+                uint32_t exec = 0;
+                read_u32(HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS, &exec);
+                uint32_t cb2 = 0;
+                read_u32(0x03005BDCu, &cb2);
+                bool in_party_menu = (cb2 >= 0x0819379Cu && cb2 < 0x0819F548u) || (bcmd == 21);
+
+                if (phase == 0) {
+                    if (bcmd == 17) {
+                        /* Action selection: move cursor to 2 (POKÉMON) */
+                        uint8_t cur = ewram[0x3A4];
+                        if (cur != 2) {
+                            if (cur & 1) {
+                                hold(d, DUALDEX_BTN_LEFT, 4, &previous, &have_previous);
+                                hold(d, 0, 8, &previous, &have_previous);
+                            }
+                            if (!(cur & 2)) {
+                                hold(d, DUALDEX_BTN_DOWN, 4, &previous, &have_previous);
+                                hold(d, 0, 8, &previous, &have_previous);
+                            }
+                        } else {
+                            /* Confirm POKÉMON */
+                            printf("  [voluntary-switch] cursor at POKÉMON (2), pressing A (frame %d)\n", d->frame);
+                            hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
+                            hold(d, 0, 20, &previous, &have_previous);
+                            phase = 1;
+                        }
+                    } else if (bcmd == 19) {
+                        /* In move selection: press B to return to action selection */
+                        hold(d, DUALDEX_BTN_B, 4, &previous, &have_previous);
+                        hold(d, 0, 8, &previous, &have_previous);
+                    } else {
+                        /* Advance text/dialogue safely with B button (never selects Fight) */
+                        uint32_t btn = ((f % 4) < 2) ? DUALDEX_BTN_B : 0;
+                        step_one(d, btn, &previous, &have_previous);
+                    }
+                } else if (phase == 1) {
+                    PartyMenuProbeState cand_a, cand_b;
+                    read_party_menu_probe_candidate_a(&cand_a);
+                    read_party_menu_probe_candidate_b(&cand_b);
+
+                    if (in_party_menu && cand_b.menu_type == 1) {
+                        if (!logged_entry) {
+                            printf("  [PARTY_MENU entry f=%d] CandA(0x020341F8): type=%d layout=%d slot=%d act=%d | CandB(0x020341FC): type=%d layout=%d slot=%d act=%d\n",
+                                   d->frame, cand_a.menu_type, cand_a.layout, cand_a.slot_id, cand_a.action,
+                                   cand_b.menu_type, cand_b.layout, cand_b.slot_id, cand_b.action);
+                            logged_entry = true;
+                        }
+
+                        if (cand_b.slot_id != target_slot) {
+                            if (cand_b.slot_id < target_slot) {
+                                hold(d, DUALDEX_BTN_DOWN, 6, &previous, &have_previous);
+                            } else {
+                                hold(d, DUALDEX_BTN_UP, 6, &previous, &have_previous);
+                            }
+                            hold(d, 0, 15, &previous, &have_previous);
+
+                            read_party_menu_probe_candidate_a(&cand_a);
+                            read_party_menu_probe_candidate_b(&cand_b);
+                            if (!logged_after_down && cand_b.slot_id == target_slot) {
+                                printf("  [PARTY_MENU after DOWN f=%d] CandA(0x020341F8): type=%d layout=%d slot=%d act=%d | CandB(0x020341FC): type=%d layout=%d slot=%d act=%d\n",
+                                       d->frame, cand_a.menu_type, cand_a.layout, cand_a.slot_id, cand_a.action,
+                                       cand_b.menu_type, cand_b.layout, cand_b.slot_id, cand_b.action);
+                                logged_after_down = true;
+                            }
+                        } else {
+                            /* Open sub-menu on target slot */
+                            printf("  [voluntary-switch] at target slot %d (CandB slot=%d), opening sub-menu (frame %d)\n",
+                                   target_slot, cand_b.slot_id, d->frame);
+                            hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
+                            hold(d, 0, 25, &previous, &have_previous);
+                            phase = 2;
+                        }
+                    } else {
+                        step_one(d, 0, &previous, &have_previous);
+                    }
+                } else if (phase == 2) {
+                    /* In sub-menu: option 0 is SHIFT. Confirm with A */
+                    printf("  [voluntary-switch] confirming SHIFT with A button (frame %d)\n", d->frame);
+                    hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
+                    hold(d, 0, 30, &previous, &have_previous);
+                    phase = 3;
+                } else {
+                    step_one(d, ((f % 6) < 3) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
+                }
+            }
+            printf("  [voluntary-switch] slot %d %s (frame %d)\n",
+                   target_slot, switched ? "SWITCHED" : "TIMEOUT", d->frame);
+            if (!switched) {
+                script_error("voluntary-switch %d timed out after %d frames", target_slot, max_f);
+            }
+        } else if (!strcmp(cmd, "surrender-to-faint")) {
+            int max_f = a1[0] ? atoi(a1) : 4000;
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            bool fainted = false;
+            for (int f = 0; f < max_f; f++) {
+                Sample s;
+                sample_state(d->cfg, d->frame, 0, &s);
+                if (s.lifecycle == BATTLE_LIFECYCLE_ACTIVE && (s.mon_hp[0] == 0)) {
+                    fainted = true;
+                    break;
+                }
+                uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
+                uint32_t exec = 0;
+                read_u32(HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS, &exec);
+                if (bcmd == 17) {
+                    /* In action selection: choose Fight (cursor 0) */
+                    uint8_t cur = ewram[0x3A4];
+                    if (cur != 0) {
+                        hold(d, DUALDEX_BTN_UP, 4, &previous, &have_previous);
+                        hold(d, DUALDEX_BTN_LEFT, 4, &previous, &have_previous);
+                    } else {
+                        hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
+                        hold(d, 0, 8, &previous, &have_previous);
+                    }
+                } else if (bcmd == 19) {
+                    /* Move selection: Move 1 (Growl, top-right, cursor 1) */
+                    uint8_t mcur = ewram[0x3A8];
+                    if (mcur != 1) {
+                        hold(d, DUALDEX_BTN_RIGHT, 4, &previous, &have_previous);
+                        hold(d, 0, 8, &previous, &have_previous);
+                    } else {
+                        hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
+                        hold(d, 0, 8, &previous, &have_previous);
+                    }
+                } else {
+                    step_one(d, ((f % 6) < 3) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
+                }
+            }
+            printf("  [surrender-to-faint] %s (frame %d)\n",
+                   fainted ? "FAINTED" : "TIMEOUT", d->frame);
+            if (!fainted) {
+                script_error("surrender-to-faint timed out after %d frames", max_f);
+            }
+        } else if (!strcmp(cmd, "forced-replacement")) {
+            int target_slot = a1[0] ? atoi(a1) : 1;
+            int max_f = a2[0] ? atoi(a2) : 3000;
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            bool replaced = false;
+            for (int f = 0; f < max_f; f++) {
+                Sample s;
+                sample_state(d->cfg, d->frame, 0, &s);
+                if (s.lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
+                    s.active_player_known &&
+                    s.active_player_slot == target_slot &&
+                    s.mon_hp[0] > 0) {
+                    replaced = true;
+                    break;
+                }
+                uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
+                uint32_t exec = 0;
+                read_u32(HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS, &exec);
+                if (bcmd == 18) {
+                    /* "Use next Pokémon?" -> press A (YES) */
+                    hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
+                    hold(d, 0, 15, &previous, &have_previous);
+                } else if (bcmd == 21) {
+                    /* Party menu: select target_slot */
+                    int8_t pslot = -1;
+                    read_u8(0x02034205u, (uint8_t*)&pslot);
+                    if (pslot != target_slot) {
+                        if (pslot < target_slot) {
+                            hold(d, DUALDEX_BTN_DOWN, 6, &previous, &have_previous);
+                        } else {
+                            hold(d, DUALDEX_BTN_UP, 6, &previous, &have_previous);
+                        }
+                        hold(d, 0, 15, &previous, &have_previous);
+                    } else {
+                        /* Confirm selection: directly sends out the mon */
+                        hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
+                        hold(d, 0, 40, &previous, &have_previous);
+                    }
+                } else {
+                    step_one(d, ((f % 6) < 3) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
+                }
+            }
+            printf("  [forced-replacement] slot %d %s (frame %d)\n",
+                   target_slot, replaced ? "REPLACED" : "TIMEOUT", d->frame);
+            if (!replaced) {
+                script_error("forced-replacement %d timed out after %d frames", target_slot, max_f);
+            }
+        } else if (!strcmp(cmd, "catchwild")) {
+            int max_f = a1[0] ? atoi(a1) : 6000;
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            bool ball_thrown = false;
+            int r_attempts = 0;
+            int f = 0;
+            for (; f < max_f; f++) {
+                uint8_t ib = 0;
+                read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+                if (!((ib >> d->cfg->main_in_battle_bit) & 1)) break;
+
+                uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
+                uint32_t exec = 0;
+                read_u32(HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS, &exec);
+
+                if (bcmd == 17) {
+                    /* On action selection screen */
+                    if (r_attempts < 2) {
+                        /* Try R button quick-throw */
+                        hold(d, DUALDEX_BTN_R, 6, &previous, &have_previous);
+                        hold(d, 0, 10, &previous, &have_previous);
+                        r_attempts++;
+                        bcmd = get_battler0_command(ewram, ewram_sz);
+                        if (bcmd != 17) {
+                            ball_thrown = true;
+                            printf("  [catchwild] Poké Ball thrown via R button at frame %d\n", d->frame);
+                        }
+                    } else {
+                        /* Fallback: open Bag (cursor 1, press A) */
+                        uint8_t cur = ewram[0x3A4];
+                        if (!(cur & 1)) {
+                            hold(d, DUALDEX_BTN_RIGHT, 4, &previous, &have_previous);
+                            hold(d, 0, 8, &previous, &have_previous);
+                        } else {
+                            hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
+                            hold(d, 0, 60, &previous, &have_previous);
+                            for (int k = 0; k < 4; k++) {
+                                hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
+                                hold(d, 0, 40, &previous, &have_previous);
+                            }
+                            ball_thrown = true;
+                            printf("  [catchwild] Poké Ball thrown via Bag menu at frame %d\n", d->frame);
+                        }
+                    }
+                } else {
+                    /* Intro dialogue or post-throw capture sequence / Dex / nickname prompt */
+                    /* B button fast-forwards intro, advances Dex text, and declines nickname (NO) */
+                    uint32_t btn = ((f % 4) < 2) ? DUALDEX_BTN_B : 0;
+                    step_one(d, btn, &previous, &have_previous);
+                }
+            }
+            uint8_t ib = 0;
+            read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+            bool out = !((ib >> d->cfg->main_in_battle_bit) & 1);
+            printf("  [catchwild] %s after %d frames (ball_thrown=%d)\n", out ? "BATTLE ENDED" : "TIMEOUT", f, ball_thrown ? 1 : 0);
+            if (!out) {
+                script_error("catchwild timed out after %d frames; capture never completed", max_f);
+            }
+            hold(d, 0, 80, &previous, &have_previous);
         } else if (!strcmp(cmd, "assert-party-count")) {
             Sample s;
             sample_state(d->cfg, d->frame, 0, &s);
             int want = a2[0] ? atoi(a2) : 0;
-            if (strcmp(a1, "player") != 0) {
-                script_error("assert-party-count expects 'player <n>', got '%s'", a1);
-            } else if (s.player_party_count_prod != (uint8_t)want) {
-                script_error("assert-party-count player %d failed: party count is %u at frame %d",
-                             want, s.player_party_count_prod, s.frame);
+            if (!strcmp(a1, "player")) {
+                if (s.player_party_count_prod != (uint8_t)want) {
+                    script_error("assert-party-count player %d failed: party count is %u at frame %d",
+                                 want, s.player_party_count_prod, s.frame);
+                } else {
+                    printf("  [assert] playerPartyCount=%d OK (frame %d)\n", want, s.frame);
+                }
+            } else if (!strcmp(a1, "enemy")) {
+                if (s.enemy_party_count_prod != (uint8_t)want) {
+                    script_error("assert-party-count enemy %d failed: party count is %u at frame %d",
+                                 want, s.enemy_party_count_prod, s.frame);
+                } else {
+                    printf("  [assert] enemyPartyCount=%d OK (frame %d)\n", want, s.frame);
+                }
             } else {
-                printf("  [assert] playerPartyCount=%d OK (frame %d)\n", want, s.frame);
+                script_error("assert-party-count expects 'player <n>' or 'enemy <n>', got '%s'", a1);
+            }
+        } else if (!strcmp(cmd, "assert-battle-kind")) {
+            Sample s;
+            sample_state(d->cfg, d->frame, 0, &s);
+            const char* current_kind = kind_name(s.kind);
+            char want_upper[64] = {0};
+            for (size_t i = 0; a1[i] && i < sizeof(want_upper) - 1; i++) {
+                char c = a1[i];
+                if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+                want_upper[i] = c;
+            }
+            if (strcmp(current_kind, want_upper) != 0) {
+                script_error("assert-battle-kind %s failed: kind is %s at frame %d",
+                             a1, current_kind, s.frame);
+            } else {
+                printf("  [assert] battleKind=%s OK (frame %d)\n", want_upper, s.frame);
+            }
+        } else if (!strcmp(cmd, "assert-active-enemy-slot")) {
+            Sample s;
+            sample_state(d->cfg, d->frame, 0, &s);
+            int want = a1[0] ? atoi(a1) : -1;
+            if (s.active_enemy != ACTIVE_ENEMY_SLOT || s.enemy_slot != want) {
+                script_error("assert-active-enemy-slot %d failed: state is %s slot %d at frame %d",
+                             want, active_enemy_name(s.active_enemy), s.enemy_slot, s.frame);
+            } else {
+                printf("  [assert] activeEnemySlot=%d OK (frame %d)\n", want, s.frame);
+            }
+        } else if (!strcmp(cmd, "assert-active-player-slot")) {
+            Sample s;
+            sample_state(d->cfg, d->frame, 0, &s);
+            int want = a1[0] ? atoi(a1) : -1;
+            if (!s.active_player_known || s.active_player_slot != want) {
+                script_error("assert-active-player-slot %d failed: known=%d slot=%d at frame %d",
+                             want, s.active_player_known ? 1 : 0, s.active_player_slot, s.frame);
+            } else {
+                printf("  [assert] activePlayerSlot=%d OK (frame %d)\n", want, s.frame);
+            }
+        } else if (!strcmp(cmd, "assert-fainted")) {
+            Sample s;
+            sample_state(d->cfg, d->frame, 0, &s);
+            bool want = !strcmp(a2, "true");
+            bool actual = false;
+            if (!strcmp(a1, "enemy")) {
+                actual = s.enemy_fainted;
+            } else if (!strcmp(a1, "player")) {
+                actual = (s.mon_hp[0] == 0);
+            } else {
+                script_error("assert-fainted expects 'enemy' or 'player', got '%s'", a1);
+                want = actual;
+            }
+            if (actual != want) {
+                script_error("assert-fainted %s %s failed: actual is %s at frame %d",
+                             a1, a2, actual ? "true" : "false", s.frame);
+            } else {
+                printf("  [assert] fainted %s=%s OK (frame %d)\n", a1, a2, s.frame);
             }
         } else if (!strcmp(cmd, "assert-map")) {
             uint16_t mx = 0, my = 0; uint8_t mg = 0, mn = 0;
@@ -785,6 +1913,17 @@ static int run_script(Driver* d, const char* script_path) {
                              wg, wn, mg, mn, mx, my, d->frame);
             } else {
                 printf("  [assert] map=%d/%d OK (frame %d)\n", wg, wn, d->frame);
+            }
+        } else if (!strcmp(cmd, "assert-pos")) {
+            uint16_t mx = 0, my = 0; uint8_t mg = 0, mn = 0;
+            read_map_position(&mx, &my, &mg, &mn);
+            int wx = a1[0] ? atoi(a1) : -1;
+            int wy = a2[0] ? atoi(a2) : -1;
+            if ((int)mx != wx || (int)my != wy) {
+                script_error("assert-pos %d %d failed: player is at (%u,%u) (map %u/%u) frame %d",
+                             wx, wy, mx, my, mg, mn, d->frame);
+            } else {
+                printf("  [assert] pos=(%d,%d) OK (frame %d)\n", wx, wy, d->frame);
             }
         } else if (!strcmp(cmd, "reject-encounter")) {
             Sample s;
@@ -803,6 +1942,12 @@ static int run_script(Driver* d, const char* script_path) {
 }
 
 int main(int argc, char** argv) {
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--selftest")) {
+            return run_pure_tracker_selftests();
+        }
+    }
+
     const char* core_path = NULL;
     const char* rom_path = NULL;
     const char* sav_path = NULL;

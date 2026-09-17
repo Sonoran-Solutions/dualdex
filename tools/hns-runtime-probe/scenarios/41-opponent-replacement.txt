@@ -1,0 +1,39 @@
+# Scenario 41: Opponent replacement in multi-party trainer battle
+# Mikey's Hoothoot (slot 0) is KO'd; assert absent battler transition, Sentret (slot 1) replaces it.
+
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-party-count player 2
+assert-map 0 12
+assert-pos 23 25
+
+# Step into Mikey's sight line at (23, 24)
+walk UP 1
+
+# Advance dialogue into battle
+mash 300
+wait 150
+
+# Assert initial active trainer battle state (Hoothoot in enemy slot 0)
+assert-battle active
+assert-battle-kind TRAINER_SINGLE
+assert-party-count player 2
+assert-party-count enemy 2
+assert-active-enemy-slot 0
+assert-active-player-slot 0
+matrix 41-hoothoot-active
+
+# Battle Hoothoot and await strict replacement by enemy slot 1 (Sentret)
+# Requires in order: old active -> old fainted (HP=0) -> absent window (NONE_ACTIVE, slot -1) -> replacement slot 1
+await-enemy-replacement 0 1 3500
+wait 120
+
+# Assert replacement state
+assert-battle active
+assert-battle-kind TRAINER_SINGLE
+assert-party-count enemy 2
+assert-active-enemy-slot 1
+assert-fainted enemy false
+matrix 41-sentret-active

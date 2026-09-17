@@ -1067,21 +1067,28 @@ Result vocabulary: `PASS`, `IMPLEMENTATION BUG`, `SOURCE/RELEASE LAYOUT MISMATCH
 | B. Wild battle entry | `ACTIVE` only when `gMain.inBattle` is set; `gBattlersCount == 2`; presence `PRESENT`; one player + one opponent battler; resolved opponent slot from `gBattlerPartyIndexes` | observed `INACTIVE` → `INITIALIZING` (frame 1606, `battlers=0`, positions `255,255,255,255`) → `ACTIVE` (frame 1609, `battlers=2`, `typeFlags=0x4`, positions `0,1`, `partyIndexes[0..1] = 0,0`, species `152,19`) | `ACTIVE` / `WILD_SINGLE` / `PRESENT` / `activeEnemy=SLOT` / `resolvedBattler=1` / `resolvedEnemySlot=0` / `opponentBattlers=1` / `activePlayerSlot=0` | **PASS** |
 | C. Wild battle HP update | live HP in `gBattleMons[b].hp` updates and DualDex applies it to the authoritative party slot | opponent HP `13/15` → `8` → `2` → `0` and player HP `20` → `17` across turns, all read from `gBattleMons[b]` (stride 136, `hp` at `0x2A`, player at battler 0 and opponent at battler 1) | player and enemy snapshots follow `gBattleMons[resolvedBattler].hp` for their resolved party slots | **PASS** |
 | D. Wild battle exit | `ACTIVE` → `ENDING` → `INACTIVE`; stale `gBattleMons`/`gBattlerPartyIndexes`/`gEnemyPartyCount` cannot keep presence or an active enemy alive | at frame 2878 `gMain.inBattle` clears while `gBattlersCount` **still reads 2**, `gBattlerPositions` **still reads 0,1** and `gBattleMons[0].hp` **still reads 19** | production presence `ABSENT`, lifecycle `INACTIVE`, active-enemy `NONE_ACTIVE` with `slot=-1` on every frame after the clear — the stale words are ignored | **PASS** |
-| E. Trainer battle | `BATTLE_TYPE_TRAINER`, `gEnemyPartyCount` bounds, initial active enemy slot | not driven — the first accessible trainer with two Pokémon is well beyond Route 29 (§11.7) | `BATTLE_KIND_TRAINER_SINGLE`; enemy party bounded by `gEnemyPartyCount`; slot follows `gBattlerPartyIndexes[resolvedBattler]` | **SYNTHETIC UNIT VERIFIED** (`test_hns_trainer_battle_classification`, `test_hns_trainer_opponent_slot_resolves_from_battler_index`); runtime **NOT RUNTIME VERIFIED** |
-| F. Opponent faint + replacement | fainted opponent never displays a stale previous opponent; replacement resolves to the new exact enemy party index | opponent faint observed: `gBattleMons[1].hp == 0`, `fainted=1`, lifecycle `ENDING`, enemy surface cleared (`enemyParty=0`, `slot=-1`) — the **replacement** half needs a trainer with a second Pokémon | when HP reaches zero, authoritative opponent slot remains available with `fainted=true`; absent-battler replacement window returns `NONE_ACTIVE` with no slot/battler; once replacement is committed, new party slot resolves without retaining old slot | faint + fail-closed clearing: **PASS**; multi-party replacement: **SYNTHETIC UNIT VERIFIED** (`test_hns_trainer_multi_party_faint_transition`, `test_hns_stale_enemy_slot_cannot_survive_replacement`); runtime **NOT RUNTIME VERIFIED** |
-| G. Opponent switch without faint | slot follows the rewritten `gBattlerPartyIndexes` | not reachable on a wild-only save | slot follows rewritten index; species/HP are never re-matched | **SYNTHETIC UNIT VERIFIED** for post-switch slot remapping through `gBattlerPartyIndexes`; full voluntary opponent-switch lifecycle remains **NOT RUNTIME VERIFIED** |
-| H. Player switch | player side from `gBattlerPositions`, slot from `gBattlerPartyIndexes` | only one party member exists on this save, so no switch was possible | active player slot resolved to `0` with `known=true` throughout | single-party slot resolution: **PASS**; party switch: **SYNTHETIC UNIT VERIFIED** (`test_hns_player_switch_slot_follows_battler_indexes`); runtime **NOT RUNTIME VERIFIED** |
+| E. Trainer battle | `BATTLE_TYPE_TRAINER`, `gEnemyPartyCount` bounds, initial active enemy slot | observed Youngster Mikey trainer battle: `inBattle=true`, `battlers=2`, `typeFlags=0x0000000C` (`BATTLE_TYPE_TRAINER` bit 3 set), positions `0,1`, player slot 0 (Chikorita Lv6), enemy slot 0 (Hoothoot Lv2 species 163 HP 14/14, `eParty=2/2`, `pParty=2/2`) | `ACTIVE` / `TRAINER_SINGLE` / `PRESENT` / `activeEnemy=SLOT` / `resolvedBattler=1` / `resolvedEnemySlot=0` / `opponentBattlers=1` / `activePlayerSlot=0` | **PASS** (Scenario 40) |
+| F. Opponent faint + replacement | fainted opponent never displays a stale previous opponent; replacement resolves to the new exact enemy party index | observed Mikey's Hoothoot KO'd (`hp=25,0`, `fainted=1`); absent-battler replacement window observed (`ae=NONE_ACTIVE, slot=-1, bat=-1, opp=0, fnt=0`); replacement Sentret (slot 1, species 161, HP 16/16) entry observed (`idx=0,1,0,0`, `ae=SLOT, slot=1, bat=1, opp=1, fnt=0`). Hardened Scenario 41 executably enforces all 4 phases via `await-enemy-replacement 0 1 3500` (Phase A: old slot active; Phase B: old slot fainted; Phase C: absent battler window `NONE_ACTIVE`/`slot=-1`; Phase D: replacement slot active with new species and HP) | when HP reached zero, authoritative opponent slot was preserved with `fainted=true`; absent-battler replacement window returned `NONE_ACTIVE` with no slot; once replacement entered, new party slot resolved to slot 1 without retaining old slot 0 | **PASS** (Scenario 41) |
+| G. Opponent switch without faint | slot follows the rewritten `gBattlerPartyIndexes` | not reachable on early Route 30 AI (Youngster Mikey does not execute voluntary switches) | slot follows rewritten index; species/HP are never re-matched | **SYNTHETIC UNIT VERIFIED** for post-switch slot remapping through `gBattlerPartyIndexes`; full voluntary opponent-switch lifecycle remains **NOT RUNTIME VERIFIED** |
+| H. Player switch | player side from `gBattlerPositions`, slot from `gBattlerPartyIndexes` | observed during active trainer battle with 2-Pokémon party (Chikorita slot 0, Hoothoot slot 1): normal controller input navigated battle action menu to POKÉMON (cursor 2), opened party menu (`gPartyMenu` at `0x020341FC`), selected slot 1 via D-pad DOWN (`slotId` changed `0 -> 1`), confirmed SHIFT sub-menu, returned to battle; `gBattlerPartyIndexes[0]` updated `0 -> 1`, battler 0 species updated `152 -> 163`, HP `25 -> 14` | `activePlayerSlot` transitioned `0 -> 1`, `playerKnown=true`, `PartySnapshot.active_battler_slot = 1`, species and HP updated cleanly | **PASS** (Scenario 42) |
 | I. Player faint + forced replacement | `hp == 0`, active player slot withheld during replacement, no stale slot survives | not driven (the starter did not faint in the observed battles) | active player slot in `PartySnapshot` marked unknown (`known=false`, `slot=-1`) while `hp == 0` and during absent-battler window, until replacement is committed through `gBattlerPartyIndexes` | **SYNTHETIC UNIT VERIFIED** (`test_hns_player_faint_forces_unknown_until_replacement`, `test_hns_stale_player_slot_cannot_survive_faint`); runtime **NOT RUNTIME VERIFIED** |
 | J. Stat-stage runtime evidence | `BattlePokemon.statStages` at offset `0x18` produces expected stage transitions | observed a live transition `6 → 5` at `statStages[2]` of `gBattleMons[0]` while the message "…" ran, i.e. a real stage drop read at the declared offset (neutral `6`) | stages are read from the declared offset; the reader does not interpret them further | **PASS** (representative, not exhaustive) |
 | K. Doubles | `gBattlersCount == 4`, two opponent-side battlers, `AMBIGUOUS`, no slot | not reachable on this save | — | **NOT RUNTIME VERIFIED** |
 | L. Partner / multi | `MULTI_OR_PARTNER`, `AMBIGUOUS`, no slot | not reachable on this save | — | **NOT RUNTIME VERIFIED** |
 
-Runtime counts for the two full runs (save regenerated from the fresh ROM, then loaded back):
+Runtime counts for the legal progression and battle verification runs:
 
 ```text
 scenarios/00-fresh-rom-to-starter-save.txt :  frames run 20699   invariant violations 0
 scenarios/10-wild-battle-entry.txt         :  frames run 1845    invariant violations 0
 scenarios/20-wild-battle-full.txt          :  frames run 3871    invariant violations 0
+scenarios/30-starter-to-egg.txt            :  frames run ~11500  invariant violations 0
+scenarios/31-egg-to-pokeballs.txt          :  frames run ~14500  invariant violations 0
+scenarios/32-catch-second-party-member.txt :  frames run ~3500   invariant violations 0
+scenarios/33-route30-trainer-ready.txt     :  frames run ~9800   invariant violations 0
+scenarios/40-trainer-battle-entry.txt      :  frames run 1579    invariant violations 0
+scenarios/41-opponent-replacement.txt      :  frames run 3639    invariant violations 0
+scenarios/42-voluntary-switch.txt          :  frames run 2321    invariant violations 0
 ```
 
 The distinct state rows observed by scenario 20 give the whole lifecycle in one trace
@@ -1136,6 +1143,8 @@ correlation**, never proximity.
 | `gBattlerPositions` | `0x02000238` | `0,1` during singles (battler 0 player side, battler 1 opponent side) | **CONFIRMED** |
 | `gAbsentBattlerFlags` | `0x0200030A` | `0x00` for singles | **CONFIRMED** |
 | `gBattleMons` | `0x02000420`, stride 136 | species `152,19` / HP `19,13` matching the party Pokémon and the encountered wild Pokémon | **CONFIRMED** |
+| `gBattleControllerExecFlags` | `0x02000300` | bit 0 is cleared when waiting for controller input (action selection, move selection, party menu) and set while executing animations/scripts | **CONFIRMED** |
+| `gPartyMenu` | `0x020341FC` | base structure for in-battle party menu; `menuType/layout` at `+0x08 = 0x02034204`, `slotId` cursor at `+0x09 = 0x02034205` transitions `0 -> 1` on D-pad DOWN, `action` at `+0x0B = 0x02034207`. Contrast with `0x020341F8`, which is the EWRAM storage for the file-static `sPartyMenuInternal` pointer (`static EWRAM_DATA struct PartyMenuInternal *sPartyMenuInternal = NULL;`). | **CONFIRMED** |
 | `gPlayerPartyCount` | `0x020342A4` | `0` before the starter, `1` afterwards | **CONFIRMED — config was wrong (see §11.6)** |
 | `gEnemyPartyCount` | `0x020342A5` | `1` during the wild battle | **CONFIRMED — config was wrong (see §11.6)** |
 | `gPlayerParty` | `0x02034764` | the level 5 Chikorita handed out by Elm decodes here (BoxPokemon checksum validates, nickname decodes to `CHIKORITA`, species word `152`) | **CONFIRMED — config was wrong (see §11.6)** |
@@ -1193,47 +1202,37 @@ discrepancy before the fix and fails if the addresses drift back.
 Both fixes are **fail-closed**: a wrong address produced `UNKNOWN`/empty state, never a wrong
 Pokémon. No UI surface displayed a fabricated opponent at any point.
 
+**Discrepancy 3 — `gBattleControllerExecFlags` address and input wait states.** The source build places `gBattleControllerExecFlags` at `0x02000304`, while the release binary places it at **`0x02000300`** (4 bytes earlier, matching the general EWRAM shift observed across the battle and party groups). Crucially, upstream battle controller logic sets bit 0 of `gBattleControllerExecFlags` when the controller task is actively executing animations or script commands, and *clears* bit 0 when the battle controller is idling waiting for player controller input (`bcmd == 17` Action Selection, `bcmd == 19` Move Selection, `bcmd == 18` Yes/No Box, and `bcmd == 21` Party Menu). Probing routines that require `(exec & 1)` during user-input states will fail to recognize that the game is awaiting input.
+
+**Discrepancy 4 — `gPartyMenu` layout disambiguation (`0x020341FC` vs `0x020341F8`).** In-battle party switching requires tracking the party menu cursor to select a replacement Pokémon. Candidate A (`0x020341F8`) corresponds to the EWRAM storage for the file-static `sPartyMenuInternal` pointer (`static EWRAM_DATA struct PartyMenuInternal *sPartyMenuInternal = NULL;`) in `src/party_menu.c`. Probing offsets relative to `0x020341F8` (such as `+0x09 = 0x02034201`) sampled across the pointer and into the early fields of `gPartyMenu`, leaving them unaffected by cursor navigation. Candidate B (**`0x020341FC`**) corresponds to the exported `gPartyMenu` struct (`struct PartyMenu`), where `menuType`/`layout` sits at `+0x08 = 0x02034204`, `slotId` sits at `+0x09 = 0x02034205`, and `action` sits at `+0x0B = 0x02034207`. Live semantic correlation during Scenario 42 confirmed this conclusively: upon entering the party menu, `0x02034205` read `0` (slot 0, Chikorita); after pressing D-pad DOWN, `0x02034205` transitioned to `1` (slot 1, Hoothoot), whereas Candidate A remained unchanged at `0`.
+
 ### 11.7 What is still not runtime verified
 
 The following rows in §11.3 remain `NOT RUNTIME VERIFIED` and must not be read as passing live on the official ROM:
 
-* trainer battle (`BATTLE_TYPE_TRAINER`, multi-member enemy party),
-* opponent switch without a faint,
-* player switch and player faint + forced replacement (needs at least two party members),
+* opponent switch without a faint (early Route 30 AI does not execute voluntary switches),
+* player faint + forced replacement (the player did not faint in the observed scenarios),
 * doubles and partner/multi battles.
+
+Multi-party trainer battles (`BATTLE_TYPE_TRAINER`), opponent faint with replacement by a subsequent party member, and in-battle player party switching are now fully **RUNTIME VERIFIED** against the official release ROM. Notably, Scenario 41 executably enforces the complete 4-phase opponent replacement state machine (`await-enemy-replacement 0 1 3500`), proving strict sequential progression through Phase A (old mon active), Phase B (old mon fainted), Phase C (absent battler window with `NONE_ACTIVE`), and Phase D (replacement mon active with new party slot, species, and HP).
 
 `battleUiVerified` and `interactiveControlsVerified` remain `false`, and `sha256Hashes` remains
 empty, because the trust promotion is a separate #40 step.
 
 #### 11.7.1 Synthetic unit verification of reader contracts
 
-While live runtime execution of multi-party trainer battles and party switches could not be driven on the official ROM with the starter-only save, the production reader logic for these transitions is rigorously verified against the official H&S 2.0.5 EWRAM layout in `native/tests/test_pokemon_reader.c` (7 dedicated tests):
+All reader contracts remain rigorously guarded by synthetic unit tests in `native/tests/test_pokemon_reader.c` (62 passing tests), running under AddressSanitizer and UndefinedBehaviorSanitizer. The unexercised forced replacement and voluntary opponent switch paths continue to be covered by `test_hns_player_faint_forces_unknown_until_replacement` and `test_hns_player_switch_slot_follows_battler_indexes`.
 
-1. `test_hns_trainer_battle_classification`: Verifies `gBattleTypeFlags = BATTLE_TYPE_TRAINER` classifies as `BATTLE_KIND_TRAINER_SINGLE` and `gEnemyPartyCount` (at `0x020342A5`) correctly bounds the enemy party snapshot.
-2. `test_hns_trainer_opponent_slot_resolves_from_battler_index`: Verifies that with an enemy party of 2 (`gEnemyPartyCount = 2`), when the active opponent is slot 1 (`gBattlerPartyIndexes[1] = 1`), `pokemon_resolve_active_enemy` resolves slot 1 (battler index 1) without defaulting to slot 0 or relying on species matching.
-3. `test_hns_trainer_multi_party_faint_transition`: Verifies the multi-party faint/replacement reader contract: while the fainted opponent still has an authoritative battler mapping, the reader preserves that slot with `fainted=true`; once `gAbsentBattlerFlags` marks the battler absent, the active enemy becomes `NONE_ACTIVE` with no slot; when the replacement is committed through `gBattlerPartyIndexes`, the new party slot becomes authoritative with no stale-slot retention.
-4. `test_hns_player_switch_slot_follows_battler_indexes`: Verifies that `pokemon_read_player_party_gba()` populates `PartySnapshot.active_battler_*` from `gBattlerPositions` + `gBattlerPartyIndexes` and follows the new player party slot after the switch is committed.
-5. `test_hns_player_faint_forces_unknown_until_replacement`: Verifies that when the active player Pokémon faints (`hp = 0`) and during the absent-battler replacement window, `pokemon_read_player_party_gba()` sets `PartySnapshot.active_battler_known = false` and `PartySnapshot.active_battler_slot = -1`; once replaced (`gBattlerPartyIndexes[0] = 1`, `hp > 0`), the new slot is recognized with updated HP.
-6. `test_hns_stale_enemy_slot_cannot_survive_replacement`: Verifies that stale `gBattleMons` data or previous slot information cannot leak into subsequent opponent evaluations.
-7. `test_hns_stale_player_slot_cannot_survive_faint`: Verifies that cached player party slot indices cannot persist after a player Pokémon faints.
+#### 11.7.2 Legal game progression pipeline (issue #1 phase 1 complete)
 
-All 7 tests run under AddressSanitizer and UndefinedBehaviorSanitizer with zero errors (native test suite: 62 passed, 0 failed).
+The game progression blockers described in the initial investigation (§4.4) were resolved by implementing a complete 4-stage legal playthrough driving the official ROM with controller input only:
 
-#### 11.7.2 Analysis of game progression blockers for live runtime validation
+1. **Stage 30 (`30-starter-to-egg.txt`)**: Traverses Route 29, declines Guide Gent's tour to enter Cherrygrove City, heads north on Route 30 to Mr. Pokémon's house, receives the Mystery Egg and Pokédex, exits and handles Elm's emergency phone call, and saves (`stage30_egg.sav`).
+2. **Stage 31 (`31-egg-to-pokeballs.txt`)**: Navigates south back through Cherrygrove, defeats the rival (Silver's Cyndaquil) with normal battle inputs, returns east across Route 29 to New Bark Town, names the rival at Elm's Lab, receives 5 Poké Balls from the aide, visits Mom to unblock Route 30, and saves (`stage31_pokeballs.sav`).
+3. **Stage 32 (`32-catch-second-party-member.txt`)**: Steps onto Route 29, encounters a wild Pokémon in tall grass, throws a Poké Ball via normal controller input, captures the wild Pokémon (Hoothoot), expanding the player party from 1 to 2 members, and saves (`stage32_party2.sav`).
+4. **Stage 33 (`33-route30-trainer-ready.txt`)**: Walks west to Cherrygrove City, heals the full party at the Pokémon Center, traverses Route 30 north past the unblocked bottleneck, defeats Youngster Joey (Rattata Lv4), and positions the player directly before Youngster Mikey at `(23, 25)` facing north, then saves (`stage33_trainer_ready.sav`).
 
-Reaching a multi-party trainer battle and achieving player party switching legally on the official H&S 2.0.5 ROM was investigated via upstream source analysis (`pokehns-expansion`):
-
-* **Starter save inventory**: The player starts with 0 Poké Balls in `00-fresh-rom-to-starter-save.txt`.
-* **Poké Ball availability**:
-  - The Cherrygrove Mart clerk does not sell Poké Balls until Professor Elm's errand is complete (`VAR_NEWBARK_TOWN_STATE >= 5`).
-  - There are no ground item Poké Balls on Route 29 or Cherrygrove City.
-  - Obtaining Poké Balls requires: traversing Route 29 to Cherrygrove City, heading north along Route 30 to Mr. Pokémon's house, receiving the Mystery Egg from Mr. Pokémon, walking back south to Cherrygrove, battling the rival (Passerby Boy / Silver), returning to New Bark Town to deliver the Egg to Elm, and talking to Elm's aide to receive 5 Poké Balls.
-* **Trainer progression gates on Route 30**:
-  - The first trainers with multi-Pokémon parties are Youngster Mikey (Hoothoot Lv2, Sentret Lv4) and Bug Catcher Don (Ledyba Lv3, Spinarak Lv3) on Route 30.
-  - Access to Route 30 north of Cherrygrove is physically blocked by two battling NPCs until the Mystery Egg has been delivered to Elm.
-* **Scope**: Driving the official ROM from Elm's lab through Cherrygrove, Mr. Pokémon's house, the rival battle, back to New Bark Town, catching a wild Pokémon to obtain a 2-Pokémon player party, and navigating to Route 30 requires a complex multi-stage script traversing several maps and cutscenes.
-
-Consequently, while the reader contract is fully **SYNTHETIC UNIT VERIFIED**, live runtime execution of multi-party trainer battles remains **NOT RUNTIME VERIFIED** until a legally progressed Route 30 save is created in a future task.
+This established a fully legal baseline with a 2-Pokémon player party facing a 2-Pokémon trainer, unblocking Scenarios 40, 41, and 42.
 
 ### 11.8 Reproducing this section
 
@@ -1243,11 +1242,22 @@ cd tools/hns-runtime-probe && ./build.sh
 # Phase 1: produce a legal save from a fresh ROM (normal progression, ~5 minutes).
 ./make-save.sh <mgba_libretro.so> "<legal hns 2.0.5 rom>.gba" "$HOME/hns205.sav"
 
-# Scenarios. Each run fails (non-zero exit) on any invariant violation.
+# Wild battle scenarios. Each run fails (non-zero exit) on any invariant violation.
 ./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
     --sav "$HOME/hns205.sav" --script scenarios/10-wild-battle-entry.txt
 ./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
     --sav "$HOME/hns205.sav" --script scenarios/20-wild-battle-full.txt
+
+# Legal progression pipeline (creates stage33_trainer_ready.sav).
+# (Run scenarios 30 -> 31 -> 32 -> 33 sequentially from the starter save)
+
+# Trainer battle and party switch scenarios (requires stage33_trainer_ready.sav).
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/stage33_trainer_ready.sav" --script scenarios/40-trainer-battle-entry.txt
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/stage33_trainer_ready.sav" --script scenarios/41-opponent-replacement.txt
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/stage33_trainer_ready.sav" --script scenarios/42-voluntary-switch.txt
 
 # Deterministic regression coverage (no ROM, no save).
 cd ../.. && ./ci.sh test

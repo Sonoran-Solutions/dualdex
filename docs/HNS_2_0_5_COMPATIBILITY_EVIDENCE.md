@@ -1414,6 +1414,9 @@ order and records a violation — fatal to the run — for any of these:
 
 * a known active player slot whose value is not `gBattlerPartyIndexes[active_battler]`;
 * the old slot reported as a known active slot while the battler holding it has `hp == 0`;
+* after that faint has been observed, the old player slot becoming authoritative again at any point
+  before replacement completes — even if `gBattleMons` already contains the replacement species/HP
+  while `gBattlerPartyIndexes` still names the old slot;
 * a live `gBattlerPartyIndexes` entry (new slot, `hp > 0`, species present, not absent-flagged) that
   production reports as no slot, or as a different slot;
 * a commit whose `gBattleMons` species/HP do not match the player party member of the slot the index

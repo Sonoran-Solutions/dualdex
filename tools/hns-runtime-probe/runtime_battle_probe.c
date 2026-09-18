@@ -49,6 +49,24 @@
 #define HNS_RELEASE_GMAIN_BASE 0x03005BD8u
 #define HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS 0x02000300u
 
+/* ABI-verified `struct BattlePokemon` member offsets that the reader configuration does not carry
+ * (documented in docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md §3.2 / §6.7). The probe reads the live
+ * move list from here so a scenario can name the exact move it is about to select instead of
+ * assuming a menu position. */
+#define HNS_BATTLE_MON_MOVES_OFFSET 0x0Cu
+#define HNS_BATTLE_MON_MOVES_COUNT  4
+
+/* Move id 45 is Growl: move category STATUS, power 0, accuracy 100, PP 40 in the pinned H&S 2.0.5
+ * move table (app/src/main/java/com/dualdex/pokemon/hns/HeartAndSoul205DataPack.kt). It is the only
+ * non-damaging move the scenario may select, because a damaging move would KO the opponent and the
+ * player would never faint. Which *menu position* holds it is read from the live move list. */
+#define HNS_MOVE_GROWL 45
+
+/* GBA party-menu cursor, semantically verified against the release ROM in §11.6 Discrepancy 4
+ * (`gPartyMenu` at 0x020341FC, `slotId` at +0x09). Used only as developer-probe UI evidence; the
+ * scenario never writes it. */
+#define HNS_RELEASE_PARTY_MENU_SLOT_ID 0x02034205u
+
 static bool g_quiet = false;
 
 static bool probe_read(void* user, uint32_t address, uint8_t* out, size_t length) {
@@ -142,9 +160,15 @@ typedef struct {
     uint16_t mon_species[DUALDEX_MAX_BATTLERS];
     uint16_t mon_hp[DUALDEX_MAX_BATTLERS];
     uint16_t mon_max_hp[DUALDEX_MAX_BATTLERS];
+    uint16_t mon_moves[DUALDEX_MAX_BATTLERS][HNS_BATTLE_MON_MOVES_COUNT];
     int8_t   mon_stat_stages[DUALDEX_MAX_BATTLERS][8];
     uint8_t  player_party_count;
     uint8_t  enemy_party_count;
+    /* Player party as production parses it, so a battle-mon read can be cross-checked against the
+     * party slot gBattlerPartyIndexes claims it came from. */
+    uint16_t party_species[6];
+    uint16_t party_hp[6];
+    uint16_t party_max_hp[6];
     /* production reader output */
     BattleLifecycleState lifecycle;
     BattleKind           kind;
@@ -158,6 +182,10 @@ typedef struct {
     uint8_t              player_party_count_prod;
     int                  active_player_slot;
     bool                 active_player_known;
+    /* The real battler index whose gBattlerPartyIndexes entry produced active_player_slot, or -1.
+     * This is the production `PartySnapshot.active_battler_index`; it is what binds "the old player
+     * Pokémon" and "the replacement Pokémon" to a concrete gBattleMons[] entry. */
+    int8_t               active_player_battler;
 } Sample;
 
 static void sample_state(const GameMemoryConfig* cfg, int frame, uint32_t input, Sample* out) {
@@ -225,6 +253,11 @@ static void sample_state(const GameMemoryConfig* cfg, int frame, uint32_t input,
             for (int s = 0; s < 8; s++) {
                 out->mon_stat_stages[b][s] = (int8_t)ewram[st_off + (size_t)s];
             }
+            size_t mv_off = mon_off + HNS_BATTLE_MON_MOVES_OFFSET;
+            for (int m = 0; m < HNS_BATTLE_MON_MOVES_COUNT; m++) {
+                out->mon_moves[b][m] = (uint16_t)(ewram[mv_off + (size_t)m * 2] |
+                                                  (ewram[mv_off + (size_t)m * 2 + 1] << 8));
+            }
         }
     }
 
@@ -249,6 +282,51 @@ static void sample_state(const GameMemoryConfig* cfg, int frame, uint32_t input,
         probe_read, NULL, ewram, ewram_sz, cfg, &player_snapshot);
     out->active_player_slot = player_snapshot.active_battler_slot;
     out->active_player_known = player_snapshot.active_battler_known;
+    out->active_player_battler = player_snapshot.active_battler_index;
+    for (uint8_t i = 0; i < 6 && i < player_snapshot.count; i++) {
+        out->party_species[i] = player_snapshot.members[i].species;
+        out->party_hp[i] = player_snapshot.members[i].current_hp;
+        out->party_max_hp[i] = player_snapshot.members[i].max_hp;
+    }
+}
+
+/**
+ * The player-side battler index, resolved by the probe itself from `gBattlerPositions`.
+ *
+ * `PartySnapshot.active_battler_index` is only populated while production considers a player
+ * battler authoritative, so a fail-closed frame carries no battler index at all. The tracker still
+ * has to be able to ask "is the raw `gBattlerPartyIndexes`/`gBattleMons` state consistent with what
+ * the production surface reported?" on exactly those frames, and answering that from production's
+ * own output would be circular. `BIT_SIDE == 1` (opponent) is the same test the reader uses.
+ */
+static int probe_resolve_player_battler(const Sample* s) {
+    if (!s || s->battlers == 0) return -1;
+    int found = -1;
+    for (uint8_t b = 0; b < s->battlers && b < DUALDEX_MAX_BATTLERS; b++) {
+        if (s->position[b] == 0xFF) continue;
+        if (s->position[b] & 1u) continue; /* opponent side */
+        if (found < 0) found = (int)b;
+    }
+    return found;
+}
+
+/** The opponent-side battler index, resolved by the probe from `gBattlerPositions`. */
+static int probe_resolve_opponent_battler(const Sample* s) {
+    if (!s || s->battlers == 0) return -1;
+    for (uint8_t b = 0; b < s->battlers && b < DUALDEX_MAX_BATTLERS; b++) {
+        if (s->position[b] == 0xFF) continue;
+        if (s->position[b] & 1u) return (int)b;
+    }
+    return -1;
+}
+
+/** Menu position (0..3) of @p move_id in the live `gBattleMons[battler].moves` list, or -1. */
+static int probe_find_move_slot(const Sample* s, int battler, uint16_t move_id) {
+    if (!s || battler < 0 || battler >= DUALDEX_MAX_BATTLERS) return -1;
+    for (int m = 0; m < HNS_BATTLE_MON_MOVES_COUNT; m++) {
+        if (s->mon_moves[battler][m] == move_id) return m;
+    }
+    return -1;
 }
 
 /* =========================================================================
@@ -404,6 +482,281 @@ static bool replacement_tracker_step(ReplacementTracker* t, const Sample* s, uin
     }
 
     return false;
+}
+
+/* =========================================================================
+ * Strict player faint -> forced-replacement tracker
+ *
+ * Same phase discipline as the opponent ReplacementTracker, with the two things the player side
+ * additionally needs:
+ *
+ *   1. every phase is bound to a concrete battler index, so "the old player Pokémon" and "the
+ *      replacement Pokémon" are gBattleMons[] entries rather than whatever slot happens to be
+ *      reported;
+ *   2. the raw battle globals are cross-checked against the production surface on every sampled
+ *      frame, so the failure modes the issue calls out — a fainted mon still presented as the
+ *      authoritative slot, the party menu opening without the battle state moving, a slot that
+ *      appears in gPartyMenu but never becomes authoritative, gBattlerPartyIndexes and
+ *      PartySnapshot disagreeing in either direction — are recorded as violations instead of
+ *      being timed out and forgotten.
+ *
+ * A single sample may advance more than one phase: the engine can reach hp == 0 and stop being
+ * authoritative on the same frame. Violations are latched, are never cleared by a later good frame,
+ * and are fatal to the run.
+ * ========================================================================= */
+
+typedef enum {
+    PLAYER_REPL_PHASE_A_OLD_ACTIVE = 0,
+    PLAYER_REPL_PHASE_B_FAINT = 1,
+    PLAYER_REPL_PHASE_C_FAIL_CLOSED = 2,
+    PLAYER_REPL_PHASE_D_COMMITTED = 3,
+    PLAYER_REPL_PHASE_COMPLETE = 4
+} PlayerReplacementPhase;
+
+#define PLAYER_REPL_MAX_VIOLATIONS 6
+
+typedef struct {
+    int old_slot;
+    int new_slot;
+    PlayerReplacementPhase phase;
+
+    bool saw_old_active;
+    bool saw_faint;
+    bool saw_fail_closed_window;
+    bool saw_replacement;
+
+    int      old_battler;
+    int      old_frame;
+    int      old_hp;
+    int      old_max_hp;
+    uint16_t old_species;
+
+    int      faint_frame;
+    bool     known_at_faint;
+    int      slot_at_faint;
+    int      battler_at_faint;
+    uint8_t  absent_flags_at_faint;
+    uint8_t  party_index_at_faint[DUALDEX_MAX_BATTLERS];
+
+    int      fail_closed_frame;
+    uint8_t  absent_flags_at_fail_closed;
+    uint8_t  party_index_at_fail_closed[DUALDEX_MAX_BATTLERS];
+    bool     absent_flag_caused_fail_closed;
+    bool     hp_zero_caused_fail_closed;
+
+    int      commit_frame;
+    int      new_battler;
+    int      new_hp;
+    int      new_max_hp;
+    uint16_t new_species;
+
+    int   violations;
+    char  violation_text[PLAYER_REPL_MAX_VIOLATIONS][192];
+} PlayerReplacementTracker;
+
+static void player_repl_violate(PlayerReplacementTracker* t, const char* fmt, ...) {
+    int slot = t->violations;
+    t->violations++;
+    if (slot >= PLAYER_REPL_MAX_VIOLATIONS) return; /* counted, message dropped */
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(t->violation_text[slot], sizeof(t->violation_text[slot]), fmt, ap);
+    va_end(ap);
+}
+
+static void player_replacement_tracker_init(PlayerReplacementTracker* t, int old_slot, int new_slot) {
+    memset(t, 0, sizeof(*t));
+    t->old_slot = old_slot;
+    t->new_slot = new_slot;
+    t->phase = PLAYER_REPL_PHASE_A_OLD_ACTIVE;
+    t->old_battler = -1;
+    t->new_battler = -1;
+    t->slot_at_faint = -1;
+    t->battler_at_faint = -1;
+}
+
+/**
+ * Step the player faint -> forced-replacement state machine on one sampled frame.
+ *
+ * Pure: it reads only the Sample and records everything in the tracker. Returns true exactly once
+ * the committed-replacement phase has been proven.
+ */
+static bool player_replacement_tracker_step(PlayerReplacementTracker* t, const Sample* s) {
+    if (!t || !s) return false;
+    if (t->phase == PLAYER_REPL_PHASE_COMPLETE) return true;
+
+    const int pb = probe_resolve_player_battler(s);
+    const bool in_battle = (s->lifecycle == BATTLE_LIFECYCLE_ACTIVE);
+
+    /* ---- Cross-checks that must hold on every sampled frame of the transition ----------------
+     * These are production-contract checks, not phase progress: they run wherever the tracker is. */
+
+    /* A production slot must always come from the authoritative battler -> slot mapping. */
+    if (s->active_player_known) {
+        if (s->active_player_battler < 0) {
+            player_repl_violate(t, "frame %d: PartySnapshot reported a known active player slot %d without a resolved battler index",
+                                s->frame, s->active_player_slot);
+        } else if ((int)s->party_index[s->active_player_battler] != s->active_player_slot) {
+            player_repl_violate(t, "frame %d: PartySnapshot slot %d does not come from gBattlerPartyIndexes[%d] == %u",
+                                s->frame, s->active_player_slot, s->active_player_battler,
+                                s->party_index[s->active_player_battler]);
+        }
+    }
+
+    if (in_battle && pb >= 0) {
+        const int idx = (int)s->party_index[pb];
+        /* The old slot must not survive its own faint as an apparently valid active Pokémon. */
+        if (idx == t->old_slot && s->mon_hp[pb] == 0 &&
+            s->active_player_known && s->active_player_slot == t->old_slot) {
+            player_repl_violate(t, "frame %d: old slot %d reported as a known active slot while battler %d holding it has HP 0 (stale-slot carryover)",
+                                s->frame, t->old_slot, pb);
+        }
+
+        /* A live gBattlerPartyIndexes entry must be exactly what production reports. */
+        const bool absent = (s->absent_flags >> pb) & 1u;
+        if (idx >= 0 && idx != t->old_slot && s->mon_hp[pb] > 0 && s->mon_species[pb] > 0 && !absent) {
+            if (!s->active_player_known) {
+                player_repl_violate(t, "frame %d: gBattlerPartyIndexes[%d] == %d with a live gBattleMons entry, but PartySnapshot reported no authoritative slot",
+                                    s->frame, pb, idx);
+            } else if (s->active_player_slot != idx) {
+                player_repl_violate(t, "frame %d: PartySnapshot slot %d disagrees with gBattlerPartyIndexes[%d] == %d",
+                                    s->frame, s->active_player_slot, pb, idx);
+            }
+        }
+    }
+
+    /* ---- Phase advancement ------------------------------------------------------------------- */
+
+    for (;;) {
+        if (t->phase == PLAYER_REPL_PHASE_A_OLD_ACTIVE) {
+            if (in_battle && s->active_player_known && s->active_player_slot == t->old_slot) {
+                const int ab = s->active_player_battler;
+                if (ab >= 0 &&
+                    (int)s->party_index[ab] == t->old_slot &&
+                    s->mon_hp[ab] > 0) {
+                    t->saw_old_active = true;
+                    t->old_battler = ab;
+                    t->old_frame = s->frame;
+                    t->old_hp = s->mon_hp[ab];
+                    t->old_max_hp = s->mon_max_hp[ab];
+                    t->old_species = s->mon_species[ab];
+                    t->phase = PLAYER_REPL_PHASE_B_FAINT;
+                    continue;
+                }
+            }
+            return false;
+        }
+
+        if (t->phase == PLAYER_REPL_PHASE_B_FAINT) {
+            if (in_battle && t->old_battler >= 0 && s->mon_hp[t->old_battler] == 0) {
+                t->saw_faint = true;
+                t->faint_frame = s->frame;
+                t->known_at_faint = s->active_player_known;
+                t->slot_at_faint = s->active_player_slot;
+                t->battler_at_faint = pb;
+                t->absent_flags_at_faint = s->absent_flags;
+                for (int b = 0; b < DUALDEX_MAX_BATTLERS; b++) {
+                    t->party_index_at_faint[b] = s->party_index[b];
+                }
+                t->phase = PLAYER_REPL_PHASE_C_FAIL_CLOSED;
+                continue;
+            }
+            return false;
+        }
+
+        if (t->phase == PLAYER_REPL_PHASE_C_FAIL_CLOSED) {
+            if (in_battle && !s->active_player_known && s->active_player_slot == -1) {
+                t->saw_fail_closed_window = true;
+                t->fail_closed_frame = s->frame;
+                t->absent_flags_at_fail_closed = s->absent_flags;
+                for (int b = 0; b < DUALDEX_MAX_BATTLERS; b++) {
+                    t->party_index_at_fail_closed[b] = s->party_index[b];
+                }
+                t->absent_flag_caused_fail_closed =
+                    (t->old_battler >= 0) && (((s->absent_flags >> t->old_battler) & 1u) != 0);
+                t->hp_zero_caused_fail_closed =
+                    (t->old_battler >= 0) && (s->mon_hp[t->old_battler] == 0);
+                t->phase = PLAYER_REPL_PHASE_D_COMMITTED;
+                continue;
+            }
+            return false;
+        }
+
+        if (t->phase == PLAYER_REPL_PHASE_D_COMMITTED) {
+            if (in_battle && t->new_slot != t->old_slot &&
+                s->active_player_known && s->active_player_slot == t->new_slot) {
+                const int nb = s->active_player_battler;
+                const bool absent = (nb >= 0) && (((s->absent_flags >> nb) & 1u) != 0);
+                if (nb >= 0 && !absent &&
+                    (int)s->party_index[nb] == t->new_slot &&
+                    s->mon_hp[nb] > 0 && s->mon_species[nb] > 0) {
+                    /* The BattlePokemon that just became active must be the party Pokémon of the
+                     * slot gBattlerPartyIndexes names — not merely *some* live battler. */
+                    if (t->new_slot >= 6 || s->party_species[t->new_slot] != s->mon_species[nb]) {
+                        player_repl_violate(t, "frame %d: active battler %d has species %u but player party slot %d holds species %u",
+                                            s->frame, nb, s->mon_species[nb], t->new_slot,
+                                            t->new_slot < 6 ? s->party_species[t->new_slot] : 0);
+                        return false;
+                    }
+                    if (s->party_hp[t->new_slot] != s->mon_hp[nb]) {
+                        player_repl_violate(t, "frame %d: player party slot %d HP %u does not match the live battler %d HP %u",
+                                            s->frame, t->new_slot, s->party_hp[t->new_slot], nb, s->mon_hp[nb]);
+                        return false;
+                    }
+                    t->saw_replacement = true;
+                    t->commit_frame = s->frame;
+                    t->new_battler = nb;
+                    t->new_hp = s->mon_hp[nb];
+                    t->new_max_hp = s->mon_max_hp[nb];
+                    t->new_species = s->mon_species[nb];
+                    t->phase = PLAYER_REPL_PHASE_COMPLETE;
+                    continue;
+                }
+            }
+            return false;
+        }
+
+        return t->phase == PLAYER_REPL_PHASE_COMPLETE;
+    }
+}
+
+/**
+ * Build one canonical live-singles frame for the player-replacement tests.
+ *
+ * The scenario's real shape (Chikorita in slot 0, Hoothoot in slot 1, one opponent Hoothoot) is
+ * used as the fixture so the negative cases exercise the same numbers as the ROM run.
+ */
+static void player_repl_test_sample(Sample* s, int frame, int player_slot, uint16_t player_hp,
+                                    uint16_t player_species, bool known, int reported_slot) {
+    memset(s, 0, sizeof(*s));
+    s->frame = frame;
+    s->lifecycle = BATTLE_LIFECYCLE_ACTIVE;
+    s->kind = BATTLE_KIND_TRAINER_SINGLE;
+    s->in_battle = true;
+    s->in_battle_readable = true;
+    s->battlers = 2;
+    s->position[0] = 0;   /* player side */
+    s->position[1] = 1;   /* opponent side */
+    s->party_index[0] = (uint8_t)player_slot;
+    s->party_index[1] = 0;
+    s->mon_species[0] = player_species;
+    s->mon_hp[0] = player_hp;
+    s->mon_max_hp[0] = (player_species == 163) ? 14 : 25;
+    s->mon_moves[0][0] = 33;   /* Tackle */
+    s->mon_moves[0][1] = 45;   /* Growl  */
+    s->mon_species[1] = 163;   /* Hoothoot, untouched opponent */
+    s->mon_hp[1] = 14;
+    s->mon_max_hp[1] = 14;
+    s->player_party_count_prod = 2;
+    s->party_species[0] = 152; /* Chikorita */
+    s->party_species[1] = 163; /* Hoothoot  */
+    s->party_max_hp[0] = 25;
+    s->party_max_hp[1] = 14;
+    s->party_hp[0] = player_hp;
+    s->party_hp[1] = 14;
+    s->active_player_known = known;
+    s->active_player_slot = reported_slot;
+    s->active_player_battler = known ? 0 : -1;
 }
 
 static int run_pure_tracker_selftests(void) {
@@ -594,6 +947,196 @@ static int run_pure_tracker_selftests(void) {
             if (!in_b) { cleared = true; break; }
         }
         ASSERT_TEST(!cleared, "clear_wild_battle_timeout_sim");
+    }
+
+    /* ---- Player faint -> forced replacement ------------------------------------------------
+     * These drive the same pure state machine the runtime command uses. They are the model the
+     * live ROM is compared against, so they must express the *strict* contract: the old slot has to
+     * go non-authoritative before the replacement may be accepted, and the production slot has to
+     * agree with gBattlerPartyIndexes on every sampled frame. */
+
+    /* Test 10: player tracker never reaches the faint */
+    {
+        PlayerReplacementTracker t;
+        player_replacement_tracker_init(&t, 0, 1);
+        bool completed = false;
+        for (int i = 0; i < 40; i++) {
+            Sample s;
+            player_repl_test_sample(&s, i, 0, (uint16_t)(16 - (i % 4)), 152, true, 0);
+            if (player_replacement_tracker_step(&t, &s)) completed = true;
+        }
+        ASSERT_TEST(!completed && !t.saw_faint && !t.saw_replacement &&
+                    t.phase == PLAYER_REPL_PHASE_B_FAINT,
+                    "player_replacement_never_reaches_faint");
+        ASSERT_TEST(t.violations == 0, "player_replacement_never_reaches_faint_no_violations");
+    }
+
+    /* Test 11: player faints but production keeps presenting the old slot as authoritative */
+    {
+        PlayerReplacementTracker t;
+        player_replacement_tracker_init(&t, 0, 1);
+        Sample s;
+        player_repl_test_sample(&s, 10, 0, 16, 152, true, 0);
+        player_replacement_tracker_step(&t, &s);
+        bool completed = false;
+        for (int i = 0; i < 6; i++) {
+            player_repl_test_sample(&s, 11 + i, 0, 0, 152, true, 0);
+            if (player_replacement_tracker_step(&t, &s)) completed = true;
+        }
+        ASSERT_TEST(!completed && t.saw_faint && !t.saw_replacement,
+                    "player_replacement_faints_stays_authoritative_no_completion");
+        ASSERT_TEST(t.violations > 0, "player_replacement_faints_stays_authoritative_violation");
+        ASSERT_TEST(t.phase == PLAYER_REPL_PHASE_C_FAIL_CLOSED,
+                    "player_replacement_faints_stays_authoritative_no_fail_closed_window");
+    }
+
+    /* Test 12: the replacement appears without the faint ever being observed */
+    {
+        PlayerReplacementTracker t;
+        player_replacement_tracker_init(&t, 0, 1);
+        Sample s;
+        player_repl_test_sample(&s, 20, 0, 16, 152, true, 0);
+        player_replacement_tracker_step(&t, &s);
+        bool completed = false;
+        for (int i = 0; i < 8; i++) {
+            /* Slot 1 is live in the same battler: battler 0's HP never reads 0. */
+            player_repl_test_sample(&s, 21 + i, 1, 14, 163, true, 1);
+            if (player_replacement_tracker_step(&t, &s)) completed = true;
+        }
+        ASSERT_TEST(!completed && !t.saw_faint && !t.saw_fail_closed_window && !t.saw_replacement &&
+                    t.phase == PLAYER_REPL_PHASE_B_FAINT,
+                    "player_replacement_commit_without_observed_faint");
+    }
+
+    /* Test 13: fail-closed window reached, replacement never commits */
+    {
+        PlayerReplacementTracker t;
+        player_replacement_tracker_init(&t, 0, 1);
+        Sample s;
+        player_repl_test_sample(&s, 30, 0, 16, 152, true, 0);
+        player_replacement_tracker_step(&t, &s);
+        bool completed = false;
+        for (int i = 0; i < 60; i++) {
+            player_repl_test_sample(&s, 31 + i, 0, 0, 152, false, -1);
+            if (player_replacement_tracker_step(&t, &s)) completed = true;
+        }
+        ASSERT_TEST(!completed && t.saw_faint && t.saw_fail_closed_window && !t.saw_replacement,
+                    "player_replacement_window_without_commit");
+        ASSERT_TEST(t.violations == 0, "player_replacement_window_without_commit_no_violations");
+    }
+
+    /* Test 14: the wrong new slot appears (production claims 1 while the live index is 0) */
+    {
+        PlayerReplacementTracker t;
+        player_replacement_tracker_init(&t, 0, 1);
+        Sample s;
+        player_repl_test_sample(&s, 40, 0, 16, 152, true, 0);
+        player_replacement_tracker_step(&t, &s);
+        player_repl_test_sample(&s, 41, 0, 0, 152, false, -1);
+        player_replacement_tracker_step(&t, &s);
+        ASSERT_TEST(t.saw_fail_closed_window, "player_replacement_wrong_slot_window_reached");
+        bool completed = false;
+        for (int i = 0; i < 4; i++) {
+            player_repl_test_sample(&s, 42 + i, 0, 14, 163, true, 1);
+            if (player_replacement_tracker_step(&t, &s)) completed = true;
+        }
+        ASSERT_TEST(!completed && !t.saw_replacement, "player_replacement_wrong_new_slot_no_completion");
+        ASSERT_TEST(t.violations > 0, "player_replacement_wrong_new_slot_violation");
+    }
+
+    /* Test 15: gBattlerPartyIndexes moved to 1 but PartySnapshot stayed on 0 */
+    {
+        PlayerReplacementTracker t;
+        player_replacement_tracker_init(&t, 0, 1);
+        Sample s;
+        player_repl_test_sample(&s, 50, 0, 16, 152, true, 0);
+        player_replacement_tracker_step(&t, &s);
+        player_repl_test_sample(&s, 51, 0, 0, 152, false, -1);
+        player_replacement_tracker_step(&t, &s);
+        bool completed = false;
+        for (int i = 0; i < 4; i++) {
+            player_repl_test_sample(&s, 52 + i, 1, 14, 163, true, 0);
+            if (player_replacement_tracker_step(&t, &s)) completed = true;
+        }
+        ASSERT_TEST(!completed && !t.saw_replacement,
+                    "player_replacement_snapshot_lags_index_no_completion");
+        ASSERT_TEST(t.violations > 0, "player_replacement_snapshot_lags_index_violation");
+    }
+
+    /* Test 16: PartySnapshot reports the new slot without authoritative party-index evidence */
+    {
+        PlayerReplacementTracker t;
+        player_replacement_tracker_init(&t, 0, 1);
+        Sample s;
+        player_repl_test_sample(&s, 60, 0, 16, 152, true, 0);
+        player_replacement_tracker_step(&t, &s);
+        player_repl_test_sample(&s, 61, 0, 0, 152, false, -1);
+        player_replacement_tracker_step(&t, &s);
+        bool completed = false;
+        for (int i = 0; i < 4; i++) {
+            player_repl_test_sample(&s, 62 + i, 0, 0, 152, true, 1);
+            if (player_replacement_tracker_step(&t, &s)) completed = true;
+        }
+        ASSERT_TEST(!completed && !t.saw_replacement,
+                    "player_replacement_slot_without_index_evidence_no_completion");
+        ASSERT_TEST(t.violations > 0, "player_replacement_slot_without_index_evidence_violation");
+    }
+
+    /* Test 17: full positive sequence A -> B -> C -> D */
+    {
+        PlayerReplacementTracker t;
+        player_replacement_tracker_init(&t, 0, 1);
+        Sample s;
+
+        player_repl_test_sample(&s, 70, 0, 16, 152, true, 0);
+        bool step_a = player_replacement_tracker_step(&t, &s);
+        ASSERT_TEST(!step_a && t.saw_old_active && t.old_species == 152 && t.old_hp == 16 &&
+                    t.old_max_hp == 25 && t.old_battler == 0,
+                    "player_replacement_phase_a_observed");
+
+        player_repl_test_sample(&s, 71, 0, 0, 152, false, -1);
+        player_replacement_tracker_step(&t, &s);
+        ASSERT_TEST(t.saw_faint && t.faint_frame == 71 && !t.known_at_faint &&
+                    t.slot_at_faint == -1 && t.battler_at_faint == 0,
+                    "player_replacement_phase_b_observed");
+
+        player_repl_test_sample(&s, 72, 0, 0, 152, false, -1);
+        player_replacement_tracker_step(&t, &s);
+        /* The faint frame and the fail-closed window are the same sampled frame here: the engine
+         * reached hp == 0 and the production surface was already non-authoritative on it, which is
+         * why a single sample is allowed to advance more than one phase. */
+        ASSERT_TEST(t.saw_fail_closed_window && t.fail_closed_frame == 71 &&
+                    t.hp_zero_caused_fail_closed && !t.absent_flag_caused_fail_closed,
+                    "player_replacement_phase_c_observed");
+
+        player_repl_test_sample(&s, 73, 1, 14, 163, true, 1);
+        bool done = player_replacement_tracker_step(&t, &s);
+        ASSERT_TEST(done && t.phase == PLAYER_REPL_PHASE_COMPLETE && t.saw_replacement &&
+                    t.commit_frame == 73,
+                    "player_replacement_full_sequence_success");
+        ASSERT_TEST(t.new_slot == 1 && t.new_slot != t.old_slot && t.new_battler == 0,
+                    "player_replacement_full_sequence_new_slot");
+        ASSERT_TEST(t.new_species == 163 && t.new_hp == 14 && t.new_max_hp == 14,
+                    "player_replacement_full_sequence_records_replacement");
+        ASSERT_TEST(t.violations == 0, "player_replacement_full_sequence_no_violations");
+    }
+
+    /* Test 18: a completed transition may not leave the old slot authoritative */
+    {
+        PlayerReplacementTracker t;
+        player_replacement_tracker_init(&t, 0, 1);
+        Sample s;
+        player_repl_test_sample(&s, 80, 0, 16, 152, true, 0);
+        player_replacement_tracker_step(&t, &s);
+        bool completed = false;
+        for (int i = 0; i < 6; i++) {
+            /* hp 0, but the production slot never leaves slot 0. */
+            player_repl_test_sample(&s, 81 + i, 0, 0, 152, true, 0);
+            if (player_replacement_tracker_step(&t, &s)) completed = true;
+        }
+        ASSERT_TEST(!completed && !t.saw_replacement && t.phase != PLAYER_REPL_PHASE_COMPLETE,
+                    "player_replacement_stale_slot_never_completes");
+        ASSERT_TEST(t.violations > 0, "player_replacement_stale_slot_violation_recorded");
     }
 
     #undef ASSERT_TEST
@@ -1675,97 +2218,316 @@ static int run_script(Driver* d, const char* script_path) {
             if (!switched) {
                 script_error("voluntary-switch %d timed out after %d frames", target_slot, max_f);
             }
-        } else if (!strcmp(cmd, "surrender-to-faint")) {
-            int max_f = a1[0] ? atoi(a1) : 4000;
+        } else if (!strcmp(cmd, "await-player-forced-replacement")) {
+            /* Drive the real player faint -> forced replacement, and prove it.
+             *
+             * The command is deliberately not "press A until slot 1 shows up". It drives ordinary
+             * controller input while the pure PlayerReplacementTracker has to observe, in order:
+             * the old player battler active and alive, that same battler at HP 0, the production
+             * surface failing closed, and finally a committed replacement whose party slot comes
+             * from gBattlerPartyIndexes and whose BattlePokemon is the party Pokemon of that slot.
+             *
+             * The move it selects is the non-damaging Growl, chosen by its position in the LIVE
+             * gBattleMons move list, not by an assumed menu slot. Two runtime facts are enforced
+             * while it runs, because they are what makes "the selected move does not damage the
+             * opponent" evidence rather than an assumption:
+             *   - the opponent's HP may never decrease;
+             *   - the opponent's Attack stage must actually drop (Growl's effect).
+             */
+            const int old_slot = a1[0] ? atoi(a1) : 0;
+            const int new_slot = a2[0] ? atoi(a2) : 1;
+            const int max_f = a3[0] ? atoi(a3) : 40000;
             size_t ewram_sz = 0;
             uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
-            bool fainted = false;
-            for (int f = 0; f < max_f; f++) {
+
+            PlayerReplacementTracker tracker;
+            player_replacement_tracker_init(&tracker, old_slot, new_slot);
+            printf("  [await-player-forced-replacement] begin: %d -> %d (budget %d frames)\n",
+                   old_slot, new_slot, max_f);
+
+            int logged_violations = 0;
+            PlayerReplacementPhase logged_phase = tracker.phase;
+            bool logged_a = false, logged_b = false, logged_c = false, logged_d = false;
+            int  last_bcmd_seen = -1;
+            int  growl_index = -1;
+            int  model_cursor = 0;
+            bool move_cursor_trusted = false;
+            int  party_menu_a_presses = 0;
+            int  last_party_a_frame = -10000;
+            int  last_party_slot = -2;
+            int  enemy_battler = -1;
+            int  enemy_hp_prev = -1;
+            int  enemy_slot_baseline = -1;
+            int  enemy_attack_baseline = -1;
+            bool enemy_damaged = false;
+            bool growl_effect_observed = false;
+            bool aborted = false;
+
+            for (int f = 0; f < max_f && !aborted; f++) {
                 Sample s;
                 sample_state(d->cfg, d->frame, 0, &s);
-                if (s.lifecycle == BATTLE_LIFECYCLE_ACTIVE && (s.mon_hp[0] == 0)) {
-                    fainted = true;
-                    break;
-                }
-                uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
-                uint32_t exec = 0;
-                read_u32(HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS, &exec);
-                if (bcmd == 17) {
-                    /* In action selection: choose Fight (cursor 0) */
-                    uint8_t cur = ewram[0x3A4];
-                    if (cur != 0) {
-                        hold(d, DUALDEX_BTN_UP, 4, &previous, &have_previous);
-                        hold(d, DUALDEX_BTN_LEFT, 4, &previous, &have_previous);
-                    } else {
-                        hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
-                        hold(d, 0, 8, &previous, &have_previous);
+
+                /* ---- ground truth for "the selected move does not damage the opponent" ------
+                 * The opponent's HP is tracked for the same active enemy slot: any decrease means
+                 * a damaging move was used, which would make the whole scenario invalid. */
+                if (enemy_battler < 0) enemy_battler = probe_resolve_opponent_battler(&s);
+                if (enemy_battler >= 0 && s.lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
+                    s.enemy_battler == enemy_battler) {
+                    const int hp = (int)s.mon_hp[enemy_battler];
+                    if (enemy_hp_prev < 0 && hp > 0 && s.enemy_slot >= 0) {
+                        enemy_hp_prev = hp;
+                        enemy_slot_baseline = s.enemy_slot;
+                        enemy_attack_baseline = s.mon_stat_stages[enemy_battler][1]; /* STAT_ATK */
+                        printf("  [await-player-forced-replacement] opponent battler %d baseline at frame %d: species %u HP %d/%u attackStage %d\n",
+                               enemy_battler, s.frame, s.mon_species[enemy_battler],
+                               hp, s.mon_max_hp[enemy_battler], enemy_attack_baseline);
+                    } else if (enemy_hp_prev > 0 && s.enemy_slot == enemy_slot_baseline &&
+                               hp < enemy_hp_prev) {
+                        enemy_damaged = true;
+                        script_error("await-player-forced-replacement: the opponent was damaged "
+                                     "(party slot %d HP %d -> %d at frame %d), so the selected move "
+                                     "was not non-damaging", enemy_slot_baseline, enemy_hp_prev,
+                                     hp, s.frame);
+                        aborted = true;
+                        break;
+                    } else if (hp > 0) {
+                        enemy_hp_prev = hp;
                     }
-                } else if (bcmd == 19) {
-                    /* Move selection: Move 1 (Growl, top-right, cursor 1) */
-                    uint8_t mcur = ewram[0x3A8];
-                    if (mcur != 1) {
-                        hold(d, DUALDEX_BTN_RIGHT, 4, &previous, &have_previous);
-                        hold(d, 0, 8, &previous, &have_previous);
-                    } else {
-                        hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
-                        hold(d, 0, 8, &previous, &have_previous);
+                    if (enemy_attack_baseline > 0 && !growl_effect_observed &&
+                        s.mon_stat_stages[enemy_battler][1] < enemy_attack_baseline) {
+                        growl_effect_observed = true;
+                        printf("  [await-player-forced-replacement] Growl effect at frame %d: opponent battler %d attack stage %d -> %d\n",
+                               s.frame, enemy_battler, enemy_attack_baseline,
+                               s.mon_stat_stages[enemy_battler][1]);
                     }
-                } else {
-                    step_one(d, ((f % 6) < 3) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
                 }
-            }
-            printf("  [surrender-to-faint] %s (frame %d)\n",
-                   fainted ? "FAINTED" : "TIMEOUT", d->frame);
-            if (!fainted) {
-                script_error("surrender-to-faint timed out after %d frames", max_f);
-            }
-        } else if (!strcmp(cmd, "forced-replacement")) {
-            int target_slot = a1[0] ? atoi(a1) : 1;
-            int max_f = a2[0] ? atoi(a2) : 3000;
-            size_t ewram_sz = 0;
-            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
-            bool replaced = false;
-            for (int f = 0; f < max_f; f++) {
-                Sample s;
-                sample_state(d->cfg, d->frame, 0, &s);
-                if (s.lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
-                    s.active_player_known &&
-                    s.active_player_slot == target_slot &&
-                    s.mon_hp[0] > 0) {
-                    replaced = true;
-                    break;
+
+                bool complete = player_replacement_tracker_step(&tracker, &s);
+                while (logged_violations < tracker.violations &&
+                       logged_violations < PLAYER_REPL_MAX_VIOLATIONS) {
+                    printf("  [await-player-forced-replacement] VIOLATION: %s\n",
+                           tracker.violation_text[logged_violations]);
+                    logged_violations++;
                 }
+                if (tracker.phase != logged_phase) {
+                    if (tracker.saw_old_active && !logged_a) {
+                        printf("  [await-player-forced-replacement] Phase A observed at frame %d: old player slot %d active (battler=%d, species=%u, HP=%d/%d)\n",
+                               tracker.old_frame, old_slot, tracker.old_battler,
+                               tracker.old_species, tracker.old_hp, tracker.old_max_hp);
+                        logged_a = true;
+                    }
+                    if (tracker.saw_faint && !logged_b) {
+                        printf("  [await-player-forced-replacement] Phase B observed at frame %d: old player battler %d HP == 0 (PartySnapshot known=%d slot=%d, absentFlags=0x%02X, partyIndexes=%u,%u,%u,%u)\n",
+                               tracker.faint_frame, tracker.old_battler,
+                               tracker.known_at_faint ? 1 : 0, tracker.slot_at_faint,
+                               tracker.absent_flags_at_faint,
+                               tracker.party_index_at_faint[0], tracker.party_index_at_faint[1],
+                               tracker.party_index_at_faint[2], tracker.party_index_at_faint[3]);
+                        logged_b = true;
+                    }
+                    if (tracker.saw_fail_closed_window && !logged_c) {
+                        printf("  [await-player-forced-replacement] Phase C observed at frame %d: fail-closed window (active_player_known=false, slot=-1; absentFlags=0x%02X [absent-bit=%d, hp==0=%d], partyIndexes=%u,%u,%u,%u)\n",
+                               tracker.fail_closed_frame, tracker.absent_flags_at_fail_closed,
+                               tracker.absent_flag_caused_fail_closed ? 1 : 0,
+                               tracker.hp_zero_caused_fail_closed ? 1 : 0,
+                               tracker.party_index_at_fail_closed[0], tracker.party_index_at_fail_closed[1],
+                               tracker.party_index_at_fail_closed[2], tracker.party_index_at_fail_closed[3]);
+                        logged_c = true;
+                    }
+                    if (tracker.saw_replacement && !logged_d) {
+                        printf("  [await-player-forced-replacement] Phase D observed at frame %d: replacement committed (slot=%d, battler=%d, species=%u, HP=%d/%d)\n",
+                               tracker.commit_frame, new_slot, tracker.new_battler,
+                               tracker.new_species, tracker.new_hp, tracker.new_max_hp);
+                        logged_d = true;
+                    }
+                    logged_phase = tracker.phase;
+                }
+                if (complete) break;
+
+                /* ---- ordinary controller input, chosen from the phase and the live menu state --
+                 * The fail-closed window and the wait for the commit are the *same* input situation:
+                 * the engine is asking for a replacement, and the tracker only separates them to
+                 * prove that the window was observed before the commit was accepted. */
+                const int pb = probe_resolve_player_battler(&s);
                 uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
-                uint32_t exec = 0;
-                read_u32(HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS, &exec);
-                if (bcmd == 18) {
-                    /* "Use next Pokémon?" -> press A (YES) */
-                    hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
-                    hold(d, 0, 15, &previous, &have_previous);
-                } else if (bcmd == 21) {
-                    /* Party menu: select target_slot */
-                    int8_t pslot = -1;
-                    read_u8(0x02034205u, (uint8_t*)&pslot);
-                    if (pslot != target_slot) {
-                        if (pslot < target_slot) {
-                            hold(d, DUALDEX_BTN_DOWN, 6, &previous, &have_previous);
+                uint32_t cb2 = 0;
+                read_u32(HNS_RELEASE_GMAIN_BASE + 0x04u, &cb2);
+                const bool in_party_menu =
+                    (cb2 >= 0x0819379Cu && cb2 < 0x0819F548u) || (bcmd == 21);
+                const bool awaiting_replacement =
+                    (tracker.phase == PLAYER_REPL_PHASE_C_FAIL_CLOSED ||
+                     tracker.phase == PLAYER_REPL_PHASE_D_COMMITTED);
+
+                if (!awaiting_replacement) {
+                    if (bcmd == 17) {
+                        /* Action selection: FIGHT is cursor 0. */
+                        uint8_t cur = ewram[0x3A4];
+                        if (cur != 0) {
+                            hold(d, (cur & 1u) ? DUALDEX_BTN_LEFT : DUALDEX_BTN_UP, 4, &previous, &have_previous);
                         } else {
-                            hold(d, DUALDEX_BTN_UP, 6, &previous, &have_previous);
+                            hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
                         }
+                        hold(d, 0, 8, &previous, &have_previous);
+                    } else if (bcmd == 19) {
+                        /* Move selection: pick the non-damaging move, verified against the live
+                         * move list. Nothing is confirmed until the cursor is on it. */
+                        if (growl_index < 0) {
+                            growl_index = probe_find_move_slot(&s, pb, HNS_MOVE_GROWL);
+                            printf("  [await-player-forced-replacement] move list at frame %d (player battler %d): %u,%u,%u,%u -> Growl(%d) at menu position %d\n",
+                                   s.frame, pb,
+                                   s.mon_moves[pb][0], s.mon_moves[pb][1],
+                                   s.mon_moves[pb][2], s.mon_moves[pb][3],
+                                   HNS_MOVE_GROWL, growl_index);
+                            if (growl_index < 0) {
+                                script_error("await-player-forced-replacement: the active player battler "
+                                             "does not know move %d (Growl); refusing to guess a menu "
+                                             "position and risk a damaging move", HNS_MOVE_GROWL);
+                                aborted = true;
+                                break;
+                            }
+                            model_cursor = 0;
+                        }
+                        uint8_t observed = ewram[0x3A8];
+                        int cursor = (move_cursor_trusted && observed <= 3) ? (int)observed : model_cursor;
+                        if (cursor != growl_index) {
+                            const int cr = cursor / 2, cc = cursor % 2;
+                            const int tr = growl_index / 2, tc = growl_index % 2;
+                            uint32_t btn;
+                            if (cr != tr) btn = (tr > cr) ? DUALDEX_BTN_DOWN : DUALDEX_BTN_UP;
+                            else btn = (tc > cc) ? DUALDEX_BTN_RIGHT : DUALDEX_BTN_LEFT;
+                            printf("  [await-player-forced-replacement] move cursor frame %d: model=%d raw(0x3A8)=%u -> pressing %s to reach Growl at %d\n",
+                                   d->frame, cursor, (unsigned)observed,
+                                   btn == DUALDEX_BTN_DOWN ? "DOWN" : btn == DUALDEX_BTN_UP ? "UP" :
+                                   btn == DUALDEX_BTN_RIGHT ? "RIGHT" : "LEFT", growl_index);
+                            hold(d, btn, 4, &previous, &have_previous);
+                            hold(d, 0, 8, &previous, &have_previous);
+                            if (btn == DUALDEX_BTN_DOWN) model_cursor = cursor + 2;
+                            else if (btn == DUALDEX_BTN_UP) model_cursor = cursor - 2;
+                            else if (btn == DUALDEX_BTN_RIGHT) model_cursor = cursor + 1;
+                            else model_cursor = cursor - 1;
+                        } else {
+                            printf("  [await-player-forced-replacement] confirming Growl at menu position %d (raw 0x3A8=%u) frame %d\n",
+                                   growl_index, (unsigned)observed, d->frame);
+                            if ((int)observed == growl_index) {
+                                move_cursor_trusted = true;
+                            }
+                            hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
+                            hold(d, 0, 8, &previous, &have_previous);
+                            /* The engine remembers the last move used, so the next menu opens here. */
+                            model_cursor = growl_index;
+                        }
+                    } else if (bcmd == 18) {
+                        /* An unexpected Yes/No box before the faint: decline it. */
+                        hold(d, DUALDEX_BTN_B, 4, &previous, &have_previous);
+                        hold(d, 0, 10, &previous, &have_previous);
+                    } else if (in_party_menu) {
+                        /* A party menu before the faint means the wrong menu was opened: cancel. */
+                        hold(d, DUALDEX_BTN_B, 4, &previous, &have_previous);
                         hold(d, 0, 15, &previous, &have_previous);
                     } else {
-                        /* Confirm selection: directly sends out the mon */
-                        hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
-                        hold(d, 0, 40, &previous, &have_previous);
+                        step_one(d, ((f % 6) < 3) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
                     }
-                } else {
-                    step_one(d, ((f % 6) < 3) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
+                } else if (awaiting_replacement) {
+                    /* Show the engine state whenever it changes while a replacement is awaited, so
+                     * the actual ROM flow (Yes/No prompt, party menu, or something else) is on the
+                     * record instead of being inferred from what the helper expected. */
+                    PartyMenuProbeState cand_b;
+                    read_party_menu_probe_candidate_b(&cand_b);
+                    if (bcmd != last_bcmd_seen || (int)cand_b.slot_id != last_party_slot) {
+                        printf("  [await-player-forced-replacement] waiting for replacement at frame %d: "
+                               "bcmd=%u inPartyMenu=%d cb2=0x%08X gPartyMenu(type=%d layout=%d slot=%d action=%u) "
+                               "hp=%u,%u absent=0x%02X partyIndexes=%u,%u\n",
+                               d->frame, (unsigned)bcmd, in_party_menu ? 1 : 0, cb2,
+                               cand_b.menu_type, cand_b.layout, cand_b.slot_id, cand_b.action,
+                               s.mon_hp[0], s.mon_hp[1], s.absent_flags,
+                               s.party_index[0], s.party_index[1]);
+                        last_bcmd_seen = bcmd;
+                    }
+                    if (bcmd == 18) {
+                        /* "Use next POKeMON?" -- YES is the default cursor. */
+                        printf("  [await-player-forced-replacement] replacement prompt at frame %d: pressing A (YES)\n", d->frame);
+                        hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
+                        hold(d, 0, 15, &previous, &have_previous);
+                    } else if (in_party_menu) {
+                        int8_t pslot = -1;
+                        read_u8(HNS_RELEASE_PARTY_MENU_SLOT_ID, (uint8_t*)&pslot);
+                        uint8_t paction = 0;
+                        read_u8(0x02034207u, &paction);
+                        if ((int)pslot != last_party_slot) {
+                            printf("  [await-player-forced-replacement] party menu at frame %d: slotId=%d action=%u (target %d)\n",
+                                   d->frame, (int)pslot, (unsigned)paction, new_slot);
+                            last_party_slot = (int)pslot;
+                        }
+                        if ((int)pslot != new_slot) {
+                            hold(d, ((int)pslot < new_slot) ? DUALDEX_BTN_DOWN : DUALDEX_BTN_UP, 6, &previous, &have_previous);
+                            hold(d, 0, 15, &previous, &have_previous);
+                        } else if (party_menu_a_presses < 4 &&
+                                   (party_menu_a_presses == 0 || d->frame - last_party_a_frame >= 300)) {
+                            party_menu_a_presses++;
+                            last_party_a_frame = d->frame;
+                            PartyMenuProbeState before;
+                            read_party_menu_probe_candidate_b(&before);
+                            printf("  [await-player-forced-replacement] confirming replacement slot %d with A "
+                                   "(press %d, frame %d; before: type=%d layout=%d slot=%d slot2=%d action=%u)\n",
+                                   new_slot, party_menu_a_presses, d->frame,
+                                   before.menu_type, before.layout, before.slot_id, before.slot_id2,
+                                   (unsigned)before.action);
+                            hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
+                            hold(d, 0, 30, &previous, &have_previous);
+                            PartyMenuProbeState after;
+                            read_party_menu_probe_candidate_b(&after);
+                            Sample post;
+                            sample_state(d->cfg, d->frame, 0, &post);
+                            uint8_t after_bcmd = get_battler0_command(ewram, ewram_sz);
+                            uint32_t after_cb2 = 0;
+                            read_u32(HNS_RELEASE_GMAIN_BASE + 0x04u, &after_cb2);
+                            printf("  [await-player-forced-replacement] after press %d (frame %d): "
+                                   "bcmd=%u cb2=0x%08X gPartyMenu(type=%d layout=%d slot=%d slot2=%d action=%u) "
+                                   "partyIndexes=%u,%u hp=%u,%u PartySnapshot known=%d slot=%d\n",
+                                   party_menu_a_presses, d->frame, (unsigned)after_bcmd, after_cb2,
+                                   after.menu_type, after.layout, after.slot_id, after.slot_id2,
+                                   (unsigned)after.action,
+                                   post.party_index[0], post.party_index[1],
+                                   post.mon_hp[0], post.mon_hp[1],
+                                   post.active_player_known ? 1 : 0, post.active_player_slot);
+                        } else {
+                            /* Waiting out the settle before any further A press. */
+                            step_one(d, 0, &previous, &have_previous);
+                        }
+                    } else {
+                        step_one(d, ((f % 6) < 3) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
+                    }
                 }
             }
-            printf("  [forced-replacement] slot %d %s (frame %d)\n",
-                   target_slot, replaced ? "REPLACED" : "TIMEOUT", d->frame);
-            if (!replaced) {
-                script_error("forced-replacement %d timed out after %d frames", target_slot, max_f);
+
+            if (tracker.violations > 0) {
+                script_error("await-player-forced-replacement %d->%d: %d production-contract violation(s) "
+                             "during the transition", old_slot, new_slot, tracker.violations);
+            }
+            if (tracker.phase != PLAYER_REPL_PHASE_COMPLETE) {
+                script_error("await-player-forced-replacement %d->%d timed out after %d frames: "
+                             "saw old active=%s saw faint=%s saw fail-closed window=%s saw replacement=%s",
+                             old_slot, new_slot, max_f,
+                             tracker.saw_old_active ? "yes" : "no",
+                             tracker.saw_faint ? "yes" : "no",
+                             tracker.saw_fail_closed_window ? "yes" : "no",
+                             tracker.saw_replacement ? "yes" : "no");
+            } else if (!growl_effect_observed && enemy_attack_baseline > 0) {
+                script_error("await-player-forced-replacement: the replacement committed but the "
+                             "non-damaging move's effect (an opponent Attack stage drop) was never "
+                             "observed, so the selected move was not proven to be Growl");
+            } else if (tracker.violations == 0) {
+                printf("  [await-player-forced-replacement] OK: %d -> %d complete (old species=%u HP %d/%d; "
+                       "replacement species=%u HP %d/%d; opponent HP %d unchanged=%d; growl effect=%d; "
+                       "move cursor raw tracked=%d)\n",
+                       old_slot, new_slot, tracker.old_species, tracker.old_hp, tracker.old_max_hp,
+                       tracker.new_species, tracker.new_hp, tracker.new_max_hp,
+                       enemy_hp_prev, enemy_damaged ? 0 : 1, growl_effect_observed ? 1 : 0,
+                       move_cursor_trusted ? 1 : 0);
+            } else {
+                printf("  [await-player-forced-replacement] transition completed, but %d "
+                       "production-contract violation(s) were recorded; the run fails\n",
+                       tracker.violations);
             }
         } else if (!strcmp(cmd, "catchwild")) {
             int max_f = a1[0] ? atoi(a1) : 6000;

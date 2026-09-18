@@ -1,0 +1,51 @@
+# Scenario 43: player faint + forced replacement in a multi-party trainer battle
+#
+# Youngster Mikey's Hoothoot cannot KO Hoothoot-as-lead quickly and Chikorita must not KO the
+# opponent, so the player deliberately uses the non-damaging Growl (selected by its position in the
+# live gBattleMons move list, never by an assumed menu slot) until Chikorita's HP reaches zero.
+# The game's own forced-replacement flow is then driven with ordinary controller input.
+#
+# `await-player-forced-replacement` is only satisfied by the committed battle-state transition:
+# old player active -> old player HP 0 -> fail-closed replacement window -> new party slot
+# authoritative in both PartySnapshot and gBattlerPartyIndexes.
+#
+# Requires stage33_trainer_ready.sav (2-Pokemon party, player at (23,25) facing Mikey).
+
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-party-count player 2
+assert-map 0 12
+assert-pos 23 25
+matrix 43-boot
+
+# Step into Mikey's sight line at (23, 24)
+walk UP 1
+
+# Advance dialogue into battle
+mash 300
+wait 150
+
+# Strict prerequisites: same battle shape as Scenario 42
+assert-battle active
+assert-battle-kind TRAINER_SINGLE
+assert-party-count player 2
+assert-party-count enemy 2
+assert-active-player-slot 0
+assert-active-enemy-slot 0
+matrix 43-chikorita-active
+
+# Faint Chikorita without defeating the opponent, then take the forced replacement to slot 1
+await-player-forced-replacement 0 1 40000
+wait 120
+
+# The replacement must be the committed active battler, and the opponent must still be there
+assert-battle active
+assert-battle-kind TRAINER_SINGLE
+assert-party-count player 2
+assert-party-count enemy 2
+assert-active-player-slot 1
+assert-active-enemy-slot 0
+assert-fainted player false
+matrix 43-hoothoot-forced-replacement-active

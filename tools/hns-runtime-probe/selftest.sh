@@ -119,6 +119,9 @@ printf 'wait 120\nmash 800\nwait 200\nawait 0xDEADBEEF 3\n' > "$WORK/await_timeo
 printf 'wait 120\nmash 800\nwait 200\nuntilout 0x0819A01D 3\n' > "$WORK/untilout_timeout.txt"
 printf 'wait 120\nmash 800\nwait 200\nautobattle 100\n' > "$WORK/autobattle_never_enters.txt"
 printf 'wait 120\nmash 800\nwait 200\nawait-enemy-replacement 0 1 100\n' > "$WORK/replacement_timeout.txt"
+# The strict player faint -> forced replacement command must not pass on a budget that ends before
+# the transition completes, even though the trainer battle it starts in is perfectly healthy.
+printf 'wait 120\nmash 800\nwait 200\nawait-player-forced-replacement 0 1 100\n' > "$WORK/player_replacement_timeout.txt"
 
 if [ -n "$SAV" ]; then
   expect_nonzero assert-false --sav "$SAV" --script "$WORK/assert_failure.txt"
@@ -126,6 +129,7 @@ if [ -n "$SAV" ]; then
   expect_nonzero untilout-timeout --sav "$SAV" --script "$WORK/untilout_timeout.txt"
   expect_nonzero autobattle-never-enters --sav "$SAV" --script "$WORK/autobattle_never_enters.txt"
   expect_nonzero replacement-timeout --sav "$SAV" --script "$WORK/replacement_timeout.txt"
+  expect_nonzero player-replacement-timeout --sav "$SAV" --script "$WORK/player_replacement_timeout.txt"
 else
   echo "  [skip] assertion cases need --sav"
 fi

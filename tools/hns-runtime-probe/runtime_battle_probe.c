@@ -612,6 +612,17 @@ static bool player_replacement_tracker_step(PlayerReplacementTracker* t, const S
                                 s->frame, t->old_slot, pb);
         }
 
+        /* Once the old Pokémon has positively fainted, its slot may never become authoritative
+         * again before the replacement transition completes. This is deliberately broader than
+         * the HP==0 check above: gBattleMons may already contain the replacement species/HP while
+         * gBattlerPartyIndexes is still stale on the old slot, and production must remain
+         * fail-closed rather than resurrecting that old slot. */
+        if (t->saw_faint && !t->saw_replacement &&
+            s->active_player_known && s->active_player_slot == t->old_slot) {
+            player_repl_violate(t, "frame %d: old player slot %d became authoritative again after its faint",
+                                s->frame, t->old_slot);
+        }
+
         /* A live gBattlerPartyIndexes entry must be exactly what production reports. */
         const bool absent = (s->absent_flags >> pb) & 1u;
         if (idx >= 0 && idx != t->old_slot && s->mon_hp[pb] > 0 && s->mon_species[pb] > 0 && !absent) {
@@ -1137,6 +1148,39 @@ static int run_pure_tracker_selftests(void) {
         ASSERT_TEST(!completed && !t.saw_replacement && t.phase != PLAYER_REPL_PHASE_COMPLETE,
                     "player_replacement_stale_slot_never_completes");
         ASSERT_TEST(t.violations > 0, "player_replacement_stale_slot_violation_recorded");
+    }
+
+    /* Test 19: after the faint, the old slot may not become authoritative again even if
+     * gBattleMons already looks like the replacement; a later valid commit cannot erase it. */
+    {
+        PlayerReplacementTracker t;
+        player_replacement_tracker_init(&t, 0, 1);
+        Sample s;
+
+        /* A: old Chikorita active. */
+        player_repl_test_sample(&s, 90, 0, 16, 152, true, 0);
+        player_replacement_tracker_step(&t, &s);
+
+        /* B: faint observed and production correctly fails closed. */
+        player_repl_test_sample(&s, 91, 0, 0, 152, false, -1);
+        player_replacement_tracker_step(&t, &s);
+
+        /* C: invalid stale resurrection. The battler already contains Hoothoot, but the raw party
+         * index and PartySnapshot both incorrectly make old slot 0 authoritative again. */
+        player_repl_test_sample(&s, 92, 0, 14, 163, true, 0);
+        bool bad_done = player_replacement_tracker_step(&t, &s);
+        ASSERT_TEST(!bad_done && t.saw_faint && t.saw_fail_closed_window &&
+                    !t.saw_replacement && t.violations > 0,
+                    "player_replacement_old_slot_cannot_resurrect_after_faint");
+
+        /* D: a legitimate slot-1 commit may complete the phase machine, but the prior violation is
+         * latched and therefore still makes the overall runtime command fail. */
+        const int violations_after_bad_frame = t.violations;
+        player_repl_test_sample(&s, 93, 1, 14, 163, true, 1);
+        bool done = player_replacement_tracker_step(&t, &s);
+        ASSERT_TEST(done && t.phase == PLAYER_REPL_PHASE_COMPLETE && t.saw_replacement &&
+                    violations_after_bad_frame > 0 && t.violations == violations_after_bad_frame,
+                    "player_replacement_latched_violation_survives_later_commit");
     }
 
     #undef ASSERT_TEST

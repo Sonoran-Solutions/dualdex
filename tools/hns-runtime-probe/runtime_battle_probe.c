@@ -603,6 +603,16 @@ static bool player_replacement_tracker_step(PlayerReplacementTracker* t, const S
         }
     }
 
+    /* Once the old Pokémon has positively fainted, its slot may never become authoritative
+     * again before the replacement transition completes. This deliberately does not depend on
+     * the current raw battler resolving: an authoritative production claim for the old slot is
+     * itself forbidden after the faint. */
+    if (t->saw_faint && !t->saw_replacement &&
+        s->active_player_known && s->active_player_slot == t->old_slot) {
+        player_repl_violate(t, "frame %d: old player slot %d became authoritative again after its faint",
+                            s->frame, t->old_slot);
+    }
+
     if (in_battle && pb >= 0) {
         const int idx = (int)s->party_index[pb];
         /* The old slot must not survive its own faint as an apparently valid active Pokémon. */
@@ -610,17 +620,6 @@ static bool player_replacement_tracker_step(PlayerReplacementTracker* t, const S
             s->active_player_known && s->active_player_slot == t->old_slot) {
             player_repl_violate(t, "frame %d: old slot %d reported as a known active slot while battler %d holding it has HP 0 (stale-slot carryover)",
                                 s->frame, t->old_slot, pb);
-        }
-
-        /* Once the old Pokémon has positively fainted, its slot may never become authoritative
-         * again before the replacement transition completes. This is deliberately broader than
-         * the HP==0 check above: gBattleMons may already contain the replacement species/HP while
-         * gBattlerPartyIndexes is still stale on the old slot, and production must remain
-         * fail-closed rather than resurrecting that old slot. */
-        if (t->saw_faint && !t->saw_replacement &&
-            s->active_player_known && s->active_player_slot == t->old_slot) {
-            player_repl_violate(t, "frame %d: old player slot %d became authoritative again after its faint",
-                                s->frame, t->old_slot);
         }
 
         /* A live gBattlerPartyIndexes entry must be exactly what production reports. */

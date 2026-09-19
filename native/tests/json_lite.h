@@ -8,8 +8,18 @@
  * test binaries, and supports exactly the subset the calculator contract
  * produces.
  *
- * Malformed input is reported as NULL instead of being partially accepted, so a
- * broken response fails the suite rather than silently matching.
+ * Strictness (the suite's fail-closed guarantee depends on it):
+ *   - malformed input is reported as NULL instead of being partially accepted;
+ *   - numbers must follow the JSON grammar - no leading zero, no leading '+',
+ *     at least one digit after '.', at least one digit in the exponent - and
+ *     must be finite (so `1e999` is rejected rather than becoming infinity and
+ *     reaching a floating-to-integer conversion);
+ *   - the escape \u0000 is rejected, and raw control bytes are rejected, so a
+ *     decoded string or object key can never alias a different value through a
+ *     NUL-terminated C comparison. This parser does not preserve string
+ *     lengths; embedded NULs are simply outside its supported subset.
+ * Anything else in the subset (nested objects/arrays, escapes, surrogate
+ * pairs, negative and fractional numbers) behaves as expected.
  *
  * Usage:
  *     jl_value* doc = jl_parse(response);
@@ -21,6 +31,7 @@
 #ifndef DUALDEX_TEST_JSON_LITE_H
 #define DUALDEX_TEST_JSON_LITE_H
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -165,6 +176,10 @@ static char* jl__parse_string(jl_parser* p) {
                             cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
                         }
                     }
+                    /* An embedded NUL would make this C string indistinguishable
+                     * from the same prefix without it (both for values and for
+                     * object keys), so it is rejected rather than aliased. */
+                    if (cp == 0) { free(out); return NULL; }
                     jl__encode_utf8(cp, buf, &extra);
                     break;
                 }
@@ -189,16 +204,34 @@ static char* jl__parse_string(jl_parser* p) {
     return NULL; /* unterminated */
 }
 
+/* Parses a JSON number. Enforces the JSON grammar:
+ *   number = [ '-' ] int [ frac ] [ exp ]
+ *   int    = '0' | [1-9] *DIGIT      (no leading zero, no leading '+')
+ *   frac   = '.' 1*DIGIT
+ *   exp    = ('e' | 'E') [ '+' | '-' ] 1*DIGIT
+ * and rejects values that are not finite (for example 1e999) so a bogus
+ * response cannot reach a floating-to-integer conversion. */
 static jl_value* jl__parse_number(jl_parser* p) {
     size_t start = p->pos;
-    if (p->pos < p->len && (p->text[p->pos] == '-' || p->text[p->pos] == '+')) p->pos++;
-    int digits = 0;
-    while (p->pos < p->len && p->text[p->pos] >= '0' && p->text[p->pos] <= '9') { p->pos++; digits++; }
+    if (p->pos < p->len && p->text[p->pos] == '-') p->pos++;
+
+    if (p->pos >= p->len) return NULL;
+    char c = p->text[p->pos];
+    if (c == '0') {
+        p->pos++; /* JSON forbids further digits here (e.g. 051) */
+    } else if (c >= '1' && c <= '9') {
+        while (p->pos < p->len && p->text[p->pos] >= '0' && p->text[p->pos] <= '9') p->pos++;
+    } else {
+        return NULL; /* '.' , '+' or '-' with no integer part */
+    }
+
     if (p->pos < p->len && p->text[p->pos] == '.') {
         p->pos++;
-        while (p->pos < p->len && p->text[p->pos] >= '0' && p->text[p->pos] <= '9') { p->pos++; digits++; }
+        int frac_digits = 0;
+        while (p->pos < p->len && p->text[p->pos] >= '0' && p->text[p->pos] <= '9') { p->pos++; frac_digits++; }
+        if (frac_digits == 0) return NULL; /* "51." is not a JSON number */
     }
-    if (digits == 0) return NULL;
+
     if (p->pos < p->len && (p->text[p->pos] == 'e' || p->text[p->pos] == 'E')) {
         p->pos++;
         if (p->pos < p->len && (p->text[p->pos] == '-' || p->text[p->pos] == '+')) p->pos++;
@@ -206,6 +239,7 @@ static jl_value* jl__parse_number(jl_parser* p) {
         while (p->pos < p->len && p->text[p->pos] >= '0' && p->text[p->pos] <= '9') { p->pos++; exp_digits++; }
         if (exp_digits == 0) return NULL;
     }
+
     char buf[64];
     size_t len = p->pos - start;
     if (len >= sizeof(buf)) return NULL;
@@ -214,6 +248,7 @@ static jl_value* jl__parse_number(jl_parser* p) {
     char* end = NULL;
     double value = strtod(buf, &end);
     if (!end || *end != '\0') return NULL;
+    if (!isfinite(value)) return NULL; /* e.g. 1e999 */
     jl_value* v = jl__new(JL_NUM);
     if (v) v->number = value;
     return v;

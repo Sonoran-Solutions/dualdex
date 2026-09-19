@@ -62,6 +62,10 @@ partially accepting it, and it is what lets the suite assert typed values
 | `gen3_spread_move_uppercase_rejected` | other casings are rejected, not coerced |
 | `gen3_spread_move_unsupported_rejected` | unknown format is an error |
 | `gen3_spread_move_non_string_rejected` | non-string format is an error |
+| `gen3_spread_move_proto_rejected` | `__proto__` must not pass the whitelist |
+| `gen3_spread_move_constructor_rejected` | `constructor` must not pass the whitelist |
+| `gen3_spread_move_to_string_rejected` | `toString` must not pass the whitelist |
+| `gen3_spread_move_has_own_property_rejected` | `hasOwnProperty` must not pass the whitelist |
 | `gen3_special_type_split_crunch` | Gen III is type-based: Dark Crunch is special |
 | `gen3_stab_and_type_effectiveness` | STAB ×1.5 then per-type effectiveness, floored in order |
 | `gen3_choice_band_item` | Choice Band ×1.5 attack, natures, dual-type effectiveness |
@@ -99,6 +103,33 @@ hide behind a matching min/max pair.
 These numbers were computed independently and then cross-checked against the
 engine; they were not produced by running the engine and copying its output.
 
+### The numeric oracle and the parser are tested too
+
+The assertion helpers and the test-only reader are part of the fail-closed
+contract, so the suite also runs self-tests over them (`oracle_self_test`,
+`parser_self_test` sections):
+
+- **Exact, non-truncating comparisons.** `check_number()` requires the JSON
+  number type, a finite value, exact integrality, and representable bounds
+  *before* any conversion, and then compares the original parsed value against
+  the expected integer. A fractional response (`minDamage: 51.9` where 51 is
+  expected - exactly what a lost flooring step produces) fails instead of being
+  truncated into a pass, and a missing or wrong-typed field fails even when the
+  expectation is zero, so `jl_num()`'s zero fallback can never fake a match.
+  Self-tests cover fractional scalars and array elements, missing fields,
+  missing elements, wrong types (string/boolean/null/array/object), values
+  outside the representable range, wrong-length roll vectors, and - as positive
+  controls, so a checker that rejected everything could not pass - exact
+  integral values including zero, negative values, and the range limit.
+- **Strict JSON (see `json_lite.h`).** Rejected: leading zeros (`051`), a
+  trailing decimal point (`51.`), a bare fraction (`-.1`), a leading `+`,
+  `1e` with no digits, `1e999` (non-finite), `NaN`, embedded NUL escapes
+  (which would otherwise alias a shorter value or key through C string
+  comparison), trailing commas, missing colons, unterminated arrays, and
+  trailing garbage. Accepted, with positive controls: `0`, negative and
+  fractional numbers, exponent forms, nested objects/arrays, escapes, and
+  UTF-8 escapes.
+
 ## `field.gameType` input contract
 
 `@smogon/calc` compares `field.gameType` **case-sensitively** against
@@ -116,9 +147,17 @@ decides the format:
 | `"doubles"` / `"Doubles"` | `Doubles` |
 | any other string, or a non-string | `{"success": false, "error": ...}` |
 
-Unknown values are never coerced. Kotlin builds requests from
-`CalcGameTypes.SINGLES` / `CalcGameTypes.DOUBLES`, and
-`CalcGameTypeRequestTest` pins the value the application actually serialises.
+Unknown values are never coerced. The whitelist is a `Map`, not an object
+literal: an object lookup also resolves inherited `Object.prototype` members, so
+`"__proto__"`, `"constructor"`, `"toString"`, `"valueOf"`, and
+`"hasOwnProperty"` returned objects/functions that passed a truthiness check,
+were handed to `new Field(...)`, and silently selected the doubles path
+(26-31 instead of 51-60) instead of being rejected. Those names now fail with
+the unsupported-format error, each guarded by its own fixture.
+
+Kotlin builds requests from `CalcGameTypes.SINGLES` / `CalcGameTypes.DOUBLES`,
+and `CalcGameTypeRequestTest` pins the value the application actually
+serialises.
 
 ### Defect record (issue #29)
 
@@ -131,7 +170,13 @@ Machamp (Hardy L50, 0 EV) Rock Slide vs Snorlax (Hardy L50, 0 EV)
 ```
 
 `gen3_spread_move_lowercase_singles` reproduces the historical request and now
-requires the corrected singles result.
+requires the corrected singles result. Note the shape of the pre-fix failures:
+only the inputs that reached the old `|| 'singles'` fallback were wrong -
+omitted `field`, an empty `field`, `null`, `""`, and the lowercase spelling -
+while an explicit canonical `"Singles"` was forwarded unchanged and produced
+51-60 even before the fix. That is why the pre-fix run failed
+`gen3_spread_move_lowercase_singles` (and the equivalence group) but not
+`gen3_spread_move_canonical_singles`.
 
 ## Regenerating the shipped bundle
 
@@ -148,15 +193,19 @@ npm ci
 Pinned versions: `@smogon/calc` 0.11.0, `esbuild` 0.28.2 (from
 `package-lock.json`). Verification performed for this change:
 
-- rebuilding the pre-change `entry.js` reproduces the committed bundle
+- rebuilding the pre-change `entry.js` reproduces the original bundle
   byte-for-byte (`sha256 f9f0075c8612408bc215826ea55bc53db07d92a87ebc141287ec19fc2aa07546`),
   confirming the toolchain and flags;
-- two consecutive regenerations of the changed bundle are identical
-  (`sha256 e618708d8fb37d1b809e62ec800f68aff13d6c54790a0f65b44ef65aa8d7a93d`);
+- consecutive regenerations of the changed bundle are identical
+  (`sha256 b60315d5be5e938f7894dd1ea63664161d631e34f718ee07a89e7026e76e8802`);
 - running the pre- and post-change bundles side by side over 3360 request
   variants shows zero differences for explicit canonical `Singles`/`Doubles`
   inputs (280/280 byte-identical outputs), so the library damage path is
   untouched; all differences are the intended format normalisation.
+
+Minified output renames identifiers, so a textual diff of the artifact is
+unreadable by construction; the run-time equivalence check above is the drift
+evidence.
 
 Regeneration is a deliberate, reviewable step. `./ci.sh test` uses the
 committed bundle and never requires Node.

@@ -46,6 +46,8 @@
 #include "js_calc_engine.h"
 #include "json_lite.h"
 
+#include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -60,6 +62,10 @@ static int g_checks_passed = 0;
 static int g_checks_failed = 0;
 static const char* g_fixture = "(suite)";
 
+/* Set only while a checker self-test runs, so the deliberate inner failure is
+ * not printed as if a real fixture had failed. */
+static int g_quiet_checks = 0;
+
 /* ------------------------------------------------------------------ */
 /* Checks: plain conditionals with counters, so nothing can be compiled
  * away (no NDEBUG-dependent assert()) and every failure names the fixture,
@@ -69,8 +75,10 @@ static const char* g_fixture = "(suite)";
 static void check_condition(const char* field, int condition) {
     if (condition) {
         g_checks_passed++;
-    } else {
-        g_checks_failed++;
+        return;
+    }
+    g_checks_failed++;
+    if (!g_quiet_checks) {
         printf(ANSI_RED "  [FAIL] %s / %s: condition not satisfied" ANSI_RESET "\n", g_fixture, field);
     }
 }
@@ -78,9 +86,62 @@ static void check_condition(const char* field, int condition) {
 static void check_int(const char* field, long expected, long actual) {
     if (expected == actual) {
         g_checks_passed++;
-    } else {
-        g_checks_failed++;
+        return;
+    }
+    g_checks_failed++;
+    if (!g_quiet_checks) {
         printf(ANSI_RED "  [FAIL] %s / %s: expected %ld, got %ld" ANSI_RESET "\n",
+               g_fixture, field, expected, actual);
+    }
+}
+
+/* Integers a JSON response may carry through this oracle. Anything outside
+ * this range could not have come from the calculator contract, and converting
+ * it would be undefined. */
+#define NUMBER_LIMIT_MAX 2147483647.0
+#define NUMBER_LIMIT_MIN (-2147483648.0)
+
+/* Returns NULL when the value can be compared exactly, otherwise the reason it
+ * cannot. Finiteness, integrality, and representable bounds are checked BEFORE
+ * any conversion, so a response that is off by a fraction - precisely what a
+ * lost flooring or rounding step produces - cannot be truncated into a pass. */
+static const char* number_reject_reason(const jl_value* value) {
+    if (!value) return "missing";
+    if (!jl_is_num(value)) return "not a JSON number";
+    double number = jl_num(value);
+    if (!isfinite(number)) return "not finite";
+    if (number != floor(number)) return "not an integer (a truncated comparison would hide this)";
+    if (number < NUMBER_LIMIT_MIN || number > NUMBER_LIMIT_MAX) return "outside the representable range";
+    return NULL;
+}
+
+/* The exact numeric assertion used for every asserted scalar and every damage
+ * roll: the expected integer is compared against the ORIGINAL parsed value,
+ * never against a cast of it. Missing fields and wrong types fail even when the
+ * expectation is zero, so jl_num()'s zero fallback can never fake a match. */
+static void check_number(const char* field, long expected, const jl_value* value) {
+    const char* reason = number_reject_reason(value);
+    if (reason) {
+        g_checks_failed++;
+        if (!g_quiet_checks) {
+            if (value && jl_is_num(value)) {
+                printf(ANSI_RED "  [FAIL] %s / %s: expected %ld, got %.17g (%s)" ANSI_RESET "\n",
+                       g_fixture, field, expected, jl_num(value), reason);
+            } else {
+                printf(ANSI_RED "  [FAIL] %s / %s: expected %ld, but the value is %s" ANSI_RESET "\n",
+                       g_fixture, field, expected, reason);
+            }
+        }
+        return;
+    }
+    double actual = jl_num(value);
+    if (actual == (double)expected) {
+        g_checks_passed++;
+        return;
+    }
+    g_checks_failed++;
+    if (!g_quiet_checks) {
+        printf(ANSI_RED "  [FAIL] %s / %s: expected %ld, got %.17g" ANSI_RESET "\n",
                g_fixture, field, expected, actual);
     }
 }
@@ -88,8 +149,10 @@ static void check_int(const char* field, long expected, long actual) {
 static void check_str(const char* field, const char* expected, const char* actual) {
     if (actual && strcmp(expected, actual) == 0) {
         g_checks_passed++;
-    } else {
-        g_checks_failed++;
+        return;
+    }
+    g_checks_failed++;
+    if (!g_quiet_checks) {
         printf(ANSI_RED "  [FAIL] %s / %s: expected \"%s\", got \"%s\"" ANSI_RESET "\n",
                g_fixture, field, expected, actual ? actual : "(null)");
     }
@@ -100,8 +163,10 @@ static void check_str(const char* field, const char* expected, const char* actua
 static void check_string_present(const char* field, const jl_value* value) {
     if (jl_is_str(value) && jl_str(value)[0] != '\0') {
         g_checks_passed++;
-    } else {
-        g_checks_failed++;
+        return;
+    }
+    g_checks_failed++;
+    if (!g_quiet_checks) {
         printf(ANSI_RED "  [FAIL] %s / %s: expected a non-empty JSON string" ANSI_RESET "\n",
                g_fixture, field);
     }
@@ -124,9 +189,12 @@ static char* read_file_to_string(const char* path) {
 }
 
 /* Copies the 16-element damage roll vector; returns the count, or -1 when the
- * response does not carry a 16-element numeric array. */
+ * response does not carry a 16-element numeric array. Elements are NOT cast to
+ * int: each one is asserted through check_number() against the original parsed
+ * value, so a fractional or out-of-range element fails instead of being
+ * truncated into a pass. */
 #define ROLL_COUNT 16
-static int response_rolls(const jl_value* doc, int out[ROLL_COUNT]) {
+static int response_rolls(const jl_value* doc, double out[ROLL_COUNT]) {
     const jl_value* damage = jl_get(doc, "damage");
     if (!jl_is_arr(damage)) return -1;
     int count = jl_len(damage);
@@ -134,9 +202,17 @@ static int response_rolls(const jl_value* doc, int out[ROLL_COUNT]) {
     for (int i = 0; i < count; i++) {
         const jl_value* item = jl_at(damage, i);
         if (!jl_is_num(item)) return -1;
-        out[i] = (int)jl_num(item);
+        out[i] = jl_num(item);
     }
     return count;
+}
+
+/* The damage array of a response, or NULL when it is missing or not an array.
+ * Per-element validity is the caller's business (check_number reports it with
+ * the offending index). */
+static const jl_value* damage_array(const jl_value* doc) {
+    const jl_value* damage = jl_get(doc, "damage");
+    return jl_is_arr(damage) ? damage : NULL;
 }
 
 /* ------------------------------------------------------------------ */
@@ -309,6 +385,31 @@ static const calc_fixture FIXTURES[] = {
         0, "gameType", NULL, NULL, -1, -1, NULL,
         "a non-string gameType must error instead of being coerced"
     },
+    {
+        "gen3_spread_move_proto_rejected",
+        "{" MACHAMP_VS_SNORLAX_HEAD ROCK_SLIDE_BODY ",\"field\":{\"gameType\":\"__proto__\"}}",
+        0, "gameType", NULL, NULL, -1, -1, NULL,
+        "an inherited Object.prototype name must not pass the format whitelist: before the "
+        "own-property-safe lookup it was accepted and silently selected the doubles path (26-31)"
+    },
+    {
+        "gen3_spread_move_constructor_rejected",
+        "{" MACHAMP_VS_SNORLAX_HEAD ROCK_SLIDE_BODY ",\"field\":{\"gameType\":\"constructor\"}}",
+        0, "gameType", NULL, NULL, -1, -1, NULL,
+        "inherited property names resolve to functions on a plain object lookup"
+    },
+    {
+        "gen3_spread_move_to_string_rejected",
+        "{" MACHAMP_VS_SNORLAX_HEAD ROCK_SLIDE_BODY ",\"field\":{\"gameType\":\"toString\"}}",
+        0, "gameType", NULL, NULL, -1, -1, NULL,
+        "inherited property names resolve to functions on a plain object lookup"
+    },
+    {
+        "gen3_spread_move_has_own_property_rejected",
+        "{" MACHAMP_VS_SNORLAX_HEAD ROCK_SLIDE_BODY ",\"field\":{\"gameType\":\"hasOwnProperty\"}}",
+        0, "gameType", NULL, NULL, -1, -1, NULL,
+        "inherited property names resolve to functions on a plain object lookup"
+    },
 
     /* --- Generation III mechanics --------------------------------- */
     {
@@ -461,40 +562,42 @@ static void run_fixture(const calc_fixture* fx) {
     if (fx->expect_move_type) check_str("moveType", fx->expect_move_type, jl_str(jl_get(doc, "moveType")));
     if (fx->expect_move_category) check_str("moveCategory", fx->expect_move_category, jl_str(jl_get(doc, "moveCategory")));
     if (fx->expect_move_power >= 0) {
-        const jl_value* power = jl_get(doc, "movePower");
-        check_condition("movePower is numeric", jl_is_num(power));
-        if (jl_is_num(power)) check_int("movePower", fx->expect_move_power, (long)jl_num(power));
+        check_number("movePower", fx->expect_move_power, jl_get(doc, "movePower"));
     }
     if (fx->expect_defender_hp >= 0) {
-        const jl_value* hp = jl_get(doc, "defenderMaxHP");
-        check_condition("defenderMaxHP is numeric", jl_is_num(hp));
-        if (jl_is_num(hp)) check_int("defenderMaxHP", fx->expect_defender_hp, (long)jl_num(hp));
+        check_number("defenderMaxHP", fx->expect_defender_hp, jl_get(doc, "defenderMaxHP"));
     }
 
-    int rolls[ROLL_COUNT];
-    int count = response_rolls(doc, rolls);
-    check_int("damage roll count", ROLL_COUNT, count);
-    if (count == ROLL_COUNT) {
+    const jl_value* damage = damage_array(doc);
+    check_condition("damage is an array", damage != NULL);
+    check_int("damage roll count", ROLL_COUNT, damage ? jl_len(damage) : -1);
+    if (damage && jl_len(damage) == ROLL_COUNT) {
         for (int i = 0; i < ROLL_COUNT; i++) {
-            if (fx->expect_rolls) {
-                if (fx->expect_rolls[i] != rolls[i]) {
-                    g_checks_failed++;
-                    printf(ANSI_RED "  [FAIL] %s / damage[%d]: expected %d, got %d" ANSI_RESET "\n",
-                           fx->name, i, fx->expect_rolls[i], rolls[i]);
-                } else {
-                    g_checks_passed++;
-                }
-            }
+            if (!fx->expect_rolls) continue;
+            char field[32];
+            snprintf(field, sizeof(field), "damage[%d]", i);
+            check_number(field, fx->expect_rolls[i], jl_at(damage, i));
         }
-        check_int("minDamage", fx->expect_rolls ? fx->expect_rolls[0] : rolls[0],
-                  (long)jl_num(jl_get(doc, "minDamage")));
-        check_int("maxDamage", fx->expect_rolls ? fx->expect_rolls[ROLL_COUNT - 1] : rolls[ROLL_COUNT - 1],
-                  (long)jl_num(jl_get(doc, "maxDamage")));
+        double first = 0.0, last = 0.0;
+        const int endpoints_usable = number_reject_reason(jl_at(damage, 0)) == NULL &&
+                                     number_reject_reason(jl_at(damage, ROLL_COUNT - 1)) == NULL;
+        if (endpoints_usable) {
+            first = jl_num(jl_at(damage, 0));
+            last = jl_num(jl_at(damage, ROLL_COUNT - 1));
+        }
+        if (fx->expect_rolls) {
+            check_number("minDamage", fx->expect_rolls[0], jl_get(doc, "minDamage"));
+            check_number("maxDamage", fx->expect_rolls[ROLL_COUNT - 1], jl_get(doc, "maxDamage"));
+        }
         const jl_value* range = jl_get(doc, "range");
         check_condition("range is a 2-element array", jl_is_arr(range) && jl_len(range) == 2);
         if (jl_is_arr(range) && jl_len(range) == 2) {
-            check_int("range[0]", rolls[0], (long)jl_num(jl_at(range, 0)));
-            check_int("range[1]", rolls[ROLL_COUNT - 1], (long)jl_num(jl_at(range, 1)));
+            if (endpoints_usable) {
+                check_number("range[0]", (long)first, jl_at(range, 0));
+                check_number("range[1]", (long)last, jl_at(range, 1));
+            } else {
+                check_condition("range endpoints comparable to the damage vector", 0);
+            }
         }
     }
 
@@ -521,25 +624,39 @@ static void check_singles_equivalence(void) {
         "{" MACHAMP_VS_SNORLAX_HEAD ROCK_SLIDE_BODY ",\"field\":{\"gameType\":\"singles\"}}",
         "{" MACHAMP_VS_SNORLAX_HEAD ROCK_SLIDE_BODY ",\"field\":{\"gameType\":\"Singles\"}}",
     };
-    int reference[ROLL_COUNT];
+    double reference[ROLL_COUNT];
     int have_reference = 0;
 
     for (int i = 0; i < (int)(sizeof(requests) / sizeof(requests[0])); i++) {
         g_fixture = labels[i];
         char* raw = js_calc_calculate(requests[i]);
         jl_value* doc = raw ? jl_parse(raw) : NULL;
-        int rolls[ROLL_COUNT];
+        const jl_value* damage = doc ? damage_array(doc) : NULL;
         if (!doc || !jl_is_bool(jl_get(doc, "success")) || !jl_bool(jl_get(doc, "success")) ||
-            response_rolls(doc, rolls) != ROLL_COUNT) {
+            !damage || jl_len(damage) != ROLL_COUNT) {
             g_checks_failed++;
-            printf(ANSI_RED "  [FAIL] singles equivalence / %s: no usable damage vector" ANSI_RESET "\n", labels[i]);
+            if (!g_quiet_checks) {
+                printf(ANSI_RED "  [FAIL] singles equivalence / %s: no usable damage vector" ANSI_RESET "\n", labels[i]);
+            }
             jl_free(doc);
             free(raw);
             continue;
         }
         for (int r = 0; r < ROLL_COUNT; r++) {
-            check_int("equivalence roll vs independent expectation",
-                      ROLLS_MACHAMP_ROCK_SLIDE_SINGLES[r], rolls[r]);
+            check_number("equivalence roll vs independent expectation",
+                         ROLLS_MACHAMP_ROCK_SLIDE_SINGLES[r], jl_at(damage, r));
+        }
+        /* Cross-input identity only compares values that passed the oracle. */
+        double rolls[ROLL_COUNT];
+        int validated = response_rolls(doc, rolls) == ROLL_COUNT;
+        for (int r = 0; validated && r < ROLL_COUNT; r++) {
+            if (number_reject_reason(jl_at(damage, r)) != NULL) validated = 0;
+        }
+        check_condition("damage vector is comparable", validated);
+        if (!validated) {
+            jl_free(doc);
+            free(raw);
+            continue;
         }
         if (!have_reference) {
             memcpy(reference, rolls, sizeof(reference));
@@ -551,6 +668,195 @@ static void check_singles_equivalence(void) {
         jl_free(doc);
         free(raw);
     }
+}
+
+/* ------------------------------------------------------------------ */
+/* Checker and parser self-tests                                       */
+/*                                                                     */
+/* The assertion helpers and the test-only JSON reader are part of the  */
+/* fail-closed contract, so they are tested alongside the engine. Each  */
+/* "rejected" case below MUST make its checker fail; if a future change */
+/* reintroduces truncation, a zero fallback, or lenient parsing, these  */
+/* cases fail ./ci.sh test instead of quietly weakening every golden.   */
+/* They are opposed by "accepted" cases so a checker that rejected      */
+/* everything could not pass this section either.                       */
+/* ------------------------------------------------------------------ */
+
+/* Runs a real scalar check against a synthetic response and returns 1 only
+ * when it failed exactly once and passed nothing. Counters are restored so the
+ * self-tests do not distort the suite totals. */
+static int checker_rejects_scalar(const char* json, const char* key, long expected) {
+    const int failed_before = g_checks_failed;
+    const int passed_before = g_checks_passed;
+    jl_value* doc = jl_parse(json);
+    g_quiet_checks = 1;
+    check_number(key, expected, doc ? jl_get(doc, key) : NULL);
+    g_quiet_checks = 0;
+    const int rejected = (g_checks_failed == failed_before + 1) && (g_checks_passed == passed_before);
+    g_checks_failed = failed_before;
+    g_checks_passed = passed_before;
+    jl_free(doc);
+    return rejected;
+}
+
+static int checker_accepts_scalar(const char* json, const char* key, long expected) {
+    const int failed_before = g_checks_failed;
+    const int passed_before = g_checks_passed;
+    jl_value* doc = jl_parse(json);
+    g_quiet_checks = 1;
+    check_number(key, expected, doc ? jl_get(doc, key) : NULL);
+    g_quiet_checks = 0;
+    const int accepted = (g_checks_failed == failed_before) && (g_checks_passed == passed_before + 1);
+    g_checks_failed = failed_before;
+    g_checks_passed = passed_before;
+    jl_free(doc);
+    return accepted;
+}
+
+/* Same, for one element of an array field. */
+static int checker_rejects_element(const char* json, const char* key, int index, long expected) {
+    const int failed_before = g_checks_failed;
+    const int passed_before = g_checks_passed;
+    jl_value* doc = jl_parse(json);
+    const jl_value* array = doc ? jl_get(doc, key) : NULL;
+    g_quiet_checks = 1;
+    check_number(key, expected, (array && jl_is_arr(array)) ? jl_at(array, index) : NULL);
+    g_quiet_checks = 0;
+    const int rejected = (g_checks_failed == failed_before + 1) && (g_checks_passed == passed_before);
+    g_checks_failed = failed_before;
+    g_checks_passed = passed_before;
+    jl_free(doc);
+    return rejected;
+}
+
+/* The reviewer's reproduction: every numeric field off by +0.9. The previous
+ * oracle cast these to int/long first and accepted all of them. */
+#define FRACTIONAL_RESPONSE \
+    "{\"success\":true," \
+    "\"damage\":[51.9,51.9,52.9,52.9,53.9,54.9,54.9,55.9,55.9,56.9,57.9,57.9,58.9,58.9,59.9,60.9]," \
+    "\"minDamage\":51.9,\"maxDamage\":60.9,\"range\":[51.9,60.9]," \
+    "\"movePower\":75.9,\"defenderMaxHP\":235.9}"
+
+static void check_oracle_self_tests(void) {
+    g_fixture = "oracle_self_test";
+
+    /* Fractional values must be rejected everywhere they are asserted. */
+    check_condition("fractional first damage roll is rejected",
+                    checker_rejects_element(FRACTIONAL_RESPONSE, "damage", 0, 51));
+    check_condition("fractional last damage roll is rejected",
+                    checker_rejects_element(FRACTIONAL_RESPONSE, "damage", 15, 60));
+    check_condition("fractional range lower bound is rejected",
+                    checker_rejects_element(FRACTIONAL_RESPONSE, "range", 0, 51));
+    check_condition("fractional range upper bound is rejected",
+                    checker_rejects_element(FRACTIONAL_RESPONSE, "range", 1, 60));
+    check_condition("fractional minDamage is rejected",
+                    checker_rejects_scalar(FRACTIONAL_RESPONSE, "minDamage", 51));
+    check_condition("fractional maxDamage is rejected",
+                    checker_rejects_scalar(FRACTIONAL_RESPONSE, "maxDamage", 60));
+    check_condition("fractional movePower is rejected",
+                    checker_rejects_scalar(FRACTIONAL_RESPONSE, "movePower", 75));
+    check_condition("fractional defenderMaxHP is rejected",
+                    checker_rejects_scalar(FRACTIONAL_RESPONSE, "defenderMaxHP", 235));
+
+    /* A fractional element inside an otherwise integral vector. */
+    check_condition("fractional element in an integral roll vector is rejected",
+                    checker_rejects_element(
+                        "{\"damage\":[51,51,52,52,53,54,54,55,55,56,57,57,58,58,59,60.9]}",
+                        "damage", 15, 60));
+
+    /* Missing fields must fail even against a zero expectation: jl_num()'s
+     * zero fallback must never fake a match. */
+    check_condition("missing field is rejected even when zero is expected",
+                    checker_rejects_scalar("{}", "minDamage", 0));
+    check_condition("missing array element is rejected",
+                    checker_rejects_element("{\"damage\":[51,51]}", "damage", 5, 53));
+
+    /* Wrong types. */
+    check_condition("string where a number is expected is rejected",
+                    checker_rejects_scalar("{\"minDamage\":\"51\"}", "minDamage", 51));
+    check_condition("boolean where a number is expected is rejected",
+                    checker_rejects_scalar("{\"minDamage\":true}", "minDamage", 1));
+    check_condition("null where a number is expected is rejected",
+                    checker_rejects_scalar("{\"minDamage\":null}", "minDamage", 0));
+    check_condition("array where a number is expected is rejected",
+                    checker_rejects_scalar("{\"minDamage\":[51]}", "minDamage", 51));
+    check_condition("object where a number is expected is rejected",
+                    checker_rejects_scalar("{\"minDamage\":{\"value\":51}}", "minDamage", 51));
+    check_condition("non-numeric array element is rejected",
+                    checker_rejects_element("{\"damage\":[\"51\",51]}", "damage", 0, 51));
+
+    /* Out-of-range values that could not come from the engine contract. */
+    check_condition("value above the representable range is rejected",
+                    checker_rejects_scalar("{\"minDamage\":2147483648}", "minDamage", 2147483647));
+    check_condition("value below the representable range is rejected",
+                    checker_rejects_scalar("{\"minDamage\":-2147483649}", "minDamage", -2147483648));
+
+    /* Positive controls: a checker that rejected everything would fail here. */
+    check_condition("exact integral value is accepted",
+                    checker_accepts_scalar("{\"minDamage\":51}", "minDamage", 51));
+    check_condition("exact zero is accepted when zero is expected",
+                    checker_accepts_scalar("{\"minDamage\":0}", "minDamage", 0));
+    check_condition("negative integral value is accepted",
+                    checker_accepts_scalar("{\"minDamage\":-1}", "minDamage", -1));
+    check_condition("integral value equal to the range limit is accepted",
+                    checker_accepts_scalar("{\"minDamage\":2147483647}", "minDamage", 2147483647));
+
+    /* Wrong-length roll vectors must not satisfy the full-vector assertion. */
+    jl_value* short_vector = jl_parse("{\"damage\":[51,51,52,52,53,54,54,55,55,56,57,57,58,58,59]}");
+    check_condition("a 15-element damage vector is rejected",
+                    short_vector && jl_len(damage_array(short_vector)) != ROLL_COUNT);
+    jl_free(short_vector);
+    jl_value* string_vector = jl_parse("{\"damage\":\"51\"}");
+    check_condition("a non-array damage field is rejected", damage_array(string_vector) == NULL);
+    jl_free(string_vector);
+}
+
+static void check_parser_self_tests(void) {
+    g_fixture = "parser_self_test";
+
+    /* Invalid JSON number spellings the previous lenient parser accepted. */
+    check_condition("leading zero is rejected", jl_parse("{\"minDamage\":051}") == NULL);
+    check_condition("trailing decimal point is rejected", jl_parse("{\"minDamage\":51.}") == NULL);
+    check_condition("bare fraction is rejected", jl_parse("{\"minDamage\":-.1}") == NULL);
+    check_condition("leading plus is rejected", jl_parse("{\"minDamage\":+5}") == NULL);
+    check_condition("exponent without digits is rejected", jl_parse("{\"minDamage\":1e}") == NULL);
+    check_condition("lone minus is rejected", jl_parse("{\"minDamage\":-}") == NULL);
+    check_condition("non-finite number is rejected", jl_parse("{\"minDamage\":1e999}") == NULL);
+    check_condition("not-a-number literal is rejected", jl_parse("{\"minDamage\":NaN}") == NULL);
+
+    /* Embedded NULs must not alias a shorter value or key. */
+    check_condition("NUL inside a string value is rejected",
+                    jl_parse("{\"moveType\":\"Rock\\u0000not-Rock\"}") == NULL);
+    check_condition("NUL inside an object key is rejected",
+                    jl_parse("{\"success\\u0000not-success\":true}") == NULL);
+
+    /* Structural nonsense stays rejected. */
+    check_condition("trailing comma is rejected", jl_parse("{\"a\":1,}") == NULL);
+    check_condition("missing colon is rejected", jl_parse("{\"a\" 1}") == NULL);
+    check_condition("unterminated array is rejected", jl_parse("[1,2") == NULL);
+    check_condition("trailing garbage is rejected", jl_parse("{\"a\":1}garbage") == NULL);
+
+    /* Positive controls for the supported subset. */
+    jl_value* doc = jl_parse(
+        "{\"a\":0,\"b\":-0.5,\"c\":1e3,\"d\":1.5e-3,\"e\":-2147483648,"
+        "\"f\":\"Rock\",\"g\":[1,2,3],\"h\":{\"i\":true},\"j\":null,\"k\":\"caf\\u00e9\"}");
+    check_condition("valid document is accepted", doc != NULL);
+    if (doc) {
+        check_number("integer zero", 0, jl_get(doc, "a"));
+        check_condition("fractional value parses", jl_is_num(jl_get(doc, "b")) &&
+                        jl_num(jl_get(doc, "b")) == -0.5);
+        check_number("exponent form", 1000, jl_get(doc, "c"));
+        check_condition("negative exponent form parses", jl_is_num(jl_get(doc, "d")) &&
+                        jl_num(jl_get(doc, "d")) == 0.0015);
+        check_number("minimum representable integer", -2147483648L, jl_get(doc, "e"));
+        check_str("string value", "Rock", jl_str(jl_get(doc, "f")));
+        check_int("array length", 3, jl_len(jl_get(doc, "g")));
+        check_condition("nested boolean", jl_is_bool(jl_get(jl_get(doc, "h"), "i")) &&
+                        jl_bool(jl_get(jl_get(doc, "h"), "i")) == 1);
+        check_condition("escape decodes to UTF-8", jl_is_str(jl_get(doc, "k")) &&
+                        strcmp(jl_str(jl_get(doc, "k")), "caf\xc3\xa9") == 0);
+    }
+    jl_free(doc);
 }
 
 /* ------------------------------------------------------------------ */
@@ -614,6 +920,10 @@ int main(void) {
 
     printf("-- equivalent singles inputs --\n");
     check_singles_equivalence();
+
+    printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
+    check_oracle_self_tests();
+    check_parser_self_tests();
 
     g_fixture = "api_cleanup";
     js_calc_cleanup();

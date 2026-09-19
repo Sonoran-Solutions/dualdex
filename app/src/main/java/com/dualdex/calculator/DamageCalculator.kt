@@ -32,114 +32,8 @@ object DamageCalculator {
 
     fun calculate(request: DamageCalculationRequest): DamageCalculationResponse {
         if (!isInitialized) return DamageCalculationResponse(success = false, error = "Calculator not initialized")
-        val reqJson = JSONObject().apply {
-            put("gen", request.gen)
-
-            // Attacker
-            val atkObj = JSONObject().apply {
-                put("species", request.attacker.species)
-                put("level", request.attacker.level)
-                request.attacker.item?.let { put("item", it) }
-                request.attacker.nature?.let { put("nature", it) }
-                request.attacker.ability?.let { put("ability", it) }
-                request.attacker.curHP?.let { put("curHP", it) }
-                request.attacker.status?.let { put("status", it) }
-                request.attacker.ivs?.let { ivs ->
-                    put("ivs", JSONObject().apply {
-                        put("hp", ivs.hp)
-                        put("atk", ivs.atk)
-                        put("def", ivs.def)
-                        put("spa", ivs.spa)
-                        put("spd", ivs.spd)
-                        put("spe", ivs.spe)
-                    })
-                }
-                request.attacker.evs?.let { evs ->
-                    put("evs", JSONObject().apply {
-                        put("hp", evs.hp)
-                        put("atk", evs.atk)
-                        put("def", evs.def)
-                        put("spa", evs.spa)
-                        put("spd", evs.spd)
-                        put("spe", evs.spe)
-                    })
-                }
-                request.attacker.boosts?.let { b ->
-                    put("boosts", JSONObject().apply {
-                        put("atk", b.atk)
-                        put("def", b.def)
-                        put("spa", b.spa)
-                        put("spd", b.spd)
-                        put("spe", b.spe)
-                    })
-                }
-            }
-            put("attacker", atkObj)
-
-            // Defender
-            val defObj = JSONObject().apply {
-                put("species", request.defender.species)
-                put("level", request.defender.level)
-                request.defender.item?.let { put("item", it) }
-                request.defender.nature?.let { put("nature", it) }
-                request.defender.ability?.let { put("ability", it) }
-                request.defender.curHP?.let { put("curHP", it) }
-                request.defender.status?.let { put("status", it) }
-                request.defender.ivs?.let { ivs ->
-                    put("ivs", JSONObject().apply {
-                        put("hp", ivs.hp)
-                        put("atk", ivs.atk)
-                        put("def", ivs.def)
-                        put("spa", ivs.spa)
-                        put("spd", ivs.spd)
-                        put("spe", ivs.spe)
-                    })
-                }
-                request.defender.evs?.let { evs ->
-                    put("evs", JSONObject().apply {
-                        put("hp", evs.hp)
-                        put("atk", evs.atk)
-                        put("def", evs.def)
-                        put("spa", evs.spa)
-                        put("spd", evs.spd)
-                        put("spe", evs.spe)
-                    })
-                }
-                request.defender.boosts?.let { b ->
-                    put("boosts", JSONObject().apply {
-                        put("atk", b.atk)
-                        put("def", b.def)
-                        put("spa", b.spa)
-                        put("spd", b.spd)
-                        put("spe", b.spe)
-                    })
-                }
-            }
-            put("defender", defObj)
-
-            // Move
-            val moveObj = JSONObject().apply {
-                put("name", request.move.name)
-                put("isCrit", request.move.isCrit)
-            }
-            put("move", moveObj)
-
-            // Field
-            val fieldObj = JSONObject().apply {
-                put("gameType", request.field.gameType)
-                request.field.weather?.let { put("weather", it) }
-                request.field.terrain?.let { put("terrain", it) }
-                request.field.defenderSide?.let { side ->
-                    put("defenderSide", JSONObject().apply {
-                        if (side.isReflect) put("isReflect", true)
-                        if (side.isLightScreen) put("isLightScreen", true)
-                    })
-                }
-            }
-            put("field", fieldObj)
-        }
-
-        val resJsonStr = nativeCalculate(reqJson.toString())
+        val reqJson = buildCalcRequestJson(request)
+        val resJsonStr = nativeCalculate(reqJson)
             ?: return DamageCalculationResponse(success = false, error = "Native calculation returned null")
 
         val resObj = JSONObject(resJsonStr)
@@ -198,3 +92,120 @@ object DamageCalculator {
         return calculate(req)
     }
 }
+
+/**
+ * Serialises [request] into the JSON contract consumed by the native QuickJS
+ * engine (`js_calc_calculate`).
+ *
+ * Top-level on purpose: JVM unit tests can then assert exactly what the
+ * application sends to the engine - including `field.gameType`, whose casing
+ * selects the singles or doubles damage path (issue #29) - without triggering
+ * [DamageCalculator]'s `System.loadLibrary` initialiser.
+ */
+internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
+    JSONObject().apply {
+        put("gen", request.gen)
+
+        // Attacker
+        val atkObj = JSONObject().apply {
+            put("species", request.attacker.species)
+            put("level", request.attacker.level)
+            request.attacker.item?.let { put("item", it) }
+            request.attacker.nature?.let { put("nature", it) }
+            request.attacker.ability?.let { put("ability", it) }
+            request.attacker.curHP?.let { put("curHP", it) }
+            request.attacker.status?.let { put("status", it) }
+            request.attacker.ivs?.let { ivs ->
+                put("ivs", JSONObject().apply {
+                    put("hp", ivs.hp)
+                    put("atk", ivs.atk)
+                    put("def", ivs.def)
+                    put("spa", ivs.spa)
+                    put("spd", ivs.spd)
+                    put("spe", ivs.spe)
+                })
+            }
+            request.attacker.evs?.let { evs ->
+                put("evs", JSONObject().apply {
+                    put("hp", evs.hp)
+                    put("atk", evs.atk)
+                    put("def", evs.def)
+                    put("spa", evs.spa)
+                    put("spd", evs.spd)
+                    put("spe", evs.spe)
+                })
+            }
+            request.attacker.boosts?.let { b ->
+                put("boosts", JSONObject().apply {
+                    put("atk", b.atk)
+                    put("def", b.def)
+                    put("spa", b.spa)
+                    put("spd", b.spd)
+                    put("spe", b.spe)
+                })
+            }
+        }
+        put("attacker", atkObj)
+
+        // Defender
+        val defObj = JSONObject().apply {
+            put("species", request.defender.species)
+            put("level", request.defender.level)
+            request.defender.item?.let { put("item", it) }
+            request.defender.nature?.let { put("nature", it) }
+            request.defender.ability?.let { put("ability", it) }
+            request.defender.curHP?.let { put("curHP", it) }
+            request.defender.status?.let { put("status", it) }
+            request.defender.ivs?.let { ivs ->
+                put("ivs", JSONObject().apply {
+                    put("hp", ivs.hp)
+                    put("atk", ivs.atk)
+                    put("def", ivs.def)
+                    put("spa", ivs.spa)
+                    put("spd", ivs.spd)
+                    put("spe", ivs.spe)
+                })
+            }
+            request.defender.evs?.let { evs ->
+                put("evs", JSONObject().apply {
+                    put("hp", evs.hp)
+                    put("atk", evs.atk)
+                    put("def", evs.def)
+                    put("spa", evs.spa)
+                    put("spd", evs.spd)
+                    put("spe", evs.spe)
+                })
+            }
+            request.defender.boosts?.let { b ->
+                put("boosts", JSONObject().apply {
+                    put("atk", b.atk)
+                    put("def", b.def)
+                    put("spa", b.spa)
+                    put("spd", b.spd)
+                    put("spe", b.spe)
+                })
+            }
+        }
+        put("defender", defObj)
+
+        // Move
+        val moveObj = JSONObject().apply {
+            put("name", request.move.name)
+            put("isCrit", request.move.isCrit)
+        }
+        put("move", moveObj)
+
+        // Field
+        val fieldObj = JSONObject().apply {
+            put("gameType", request.field.gameType)
+            request.field.weather?.let { put("weather", it) }
+            request.field.terrain?.let { put("terrain", it) }
+            request.field.defenderSide?.let { side ->
+                put("defenderSide", JSONObject().apply {
+                    if (side.isReflect) put("isReflect", true)
+                    if (side.isLightScreen) put("isLightScreen", true)
+                })
+            }
+        }
+        put("field", fieldObj)
+    }.toString()

@@ -17,19 +17,34 @@ Thank you for your interest in contributing to **DualDex**! This document provid
 
 ### Building the Project
 ```bash
-# Clone the repository
-git clone https://github.com/Sonoran-Solutions/dualdex.git
+# Clone the repository (the QuickJS submodule is required by build and test)
+git clone --recurse-submodules https://github.com/Sonoran-Solutions/dualdex.git
 cd dualdex
 
-# Run native C test suites
-gcc -O2 -I native/include native/src/pokemon_reader.c native/src/pokemon_text.c native/tests/test_pokemon_reader.c -o native/test_runner && ./native/test_runner
-
-# Run Kotlin unit tests
-./gradlew testDebugUnitTest
+# Canonical contract: native reader + H&S tracker + QuickJS calculator
+# (real host execution of the shipped bundle) + Kotlin unit tests
+./ci.sh test
 
 # Assemble debug APK
-./gradlew assembleDebug
+./ci.sh build
 ```
+
+Ad-hoc equivalents, when you only want one suite:
+
+```bash
+# Native reader suite
+gcc -O2 -I native/include native/src/pokemon_reader.c native/src/pokemon_text.c native/tests/test_pokemon_reader.c -o native/test_runner && ./native/test_runner
+
+# Kotlin unit tests
+./gradlew testDebugUnitTest
+```
+
+The QuickJS calculator suite is driven by `./ci.sh test` (it needs the pinned
+submodule and specific defines); see
+[docs/QUICKJS_CALCULATOR_TESTS.md](docs/QUICKJS_CALCULATOR_TESTS.md).
+`tools/calc-bundler/entry.js` is the source of truth for
+`app/src/main/assets/calc_bundle.js`; regenerate the committed bundle with the
+pinned toolchain as described there instead of editing it by hand.
 
 ---
 

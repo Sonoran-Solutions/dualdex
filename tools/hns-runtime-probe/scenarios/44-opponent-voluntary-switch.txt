@@ -1,0 +1,108 @@
+# Issue #1: opponent VOLUNTARY switch without a faint -- Bug Catcher Don on Route 30.
+#
+# Boots from stage34_don_ready.sav: the player stands at (19,9), diagonally adjacent to Don at
+# (20,8), battle inactive, party of 2 with the bench member alive.
+#
+# TARGET HISTORY (why this file was rewritten)
+# --------------------------------------------
+# An earlier revision of this scenario targeted TRAINER_AL_HNS in the Azalea Gym and, before that,
+# rejected Don on the strength of a single observed battle in which Razor Leaf appeared to one-shot
+# Ledyba Lv3. That rejection is DISPROVEN. The pinned source says Razor Leaf (55 BP, Grass,
+# PHYSICAL) against Ledyba Lv3 (Defence 6 with TRAINER_PARTY_IVS(0,0,0,0,0,0)) does 3-4 HP of
+# Ledyba's 15, and bounded runtime measurement with scenarios/47-don-damage-probe.txt observed:
+#
+#   turn 1  15 -> 11   (delta 4)
+#   turn 2  11 ->  7   (delta 4)
+#   turn 3   7 ->  3   (delta 4)
+#
+# so Ledyba survives three Razor Leaf hits and is still alive at 3 HP. TRAINER_AL_HNS was rejected
+# separately and for a different, source-level reason: Metapod's Harden is a TARGET_USER move and
+# therefore writes gLastLandedMoves[opponent] with a status move whenever Metapod acts last, which
+# the measured player Chikorita (Brave, Speed 9 at level 7) guarantees from level 8 onward. See
+# docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md 11.10.
+#
+# WHY DON IS THE CORRECT TARGET
+# -----------------------------
+# Don's party, in the order CreateNPCTrainerPartyFromTrainer() produces it:
+#
+#   enemy slot 0 (lead)  Ledyba Lv3   -- live moveset {Tackle}
+#   enemy slot 1 (bench) Spinarak Lv3 -- live moveset {Poison Sting, String Shot, Constrict}
+#
+# The only built-in switch heuristic reachable for a non-smart trainer is
+# FindMonWithFlagsAndSuperEffective (src/battle_ai_switch.c:1041-1102, called at :1381). Don has
+# only AI_FLAG_CHECK_BAD_MOVE, so every SMART_SWITCHING-gated condition is inert. The heuristic
+# needs:
+#
+#   (a) gLastLandedMoves[opponent] resisted by the bench mon, and
+#   (b) that bench mon has a >= 2.0x move against the active player mon.
+#
+# Ledyba knows only Tackle, whose target is the player's battler, so Ledyba NEVER writes
+# gLastLandedMoves[opponent] -- the arming value is therefore order-independent and stays RAZOR_LEAF
+# for as long as the player keeps using it. RAZOR_LEAF (Grass) is 0.25x on Bug/Poison Spinarak, so
+# (a) holds, and Spinarak's POISON_STING is 2.0x on Grass, so (b) holds. The switch then fires on a
+# 33% roll (RNG_AI_SWITCH_SE_DEFENSIVE at :1095), re-drawn every turn, with no
+# AreStatsRaised/SMART_SWITCHING budget limiting how many turns are eligible.
+#
+# The 50% immunity branch (:1381 first call, MOVE_RESULT_DOESNT_AFFECT_FOE) is NOT reachable here:
+# RAZOR_LEAF is 0.25x, not 0x, against Spinarak, so UpdateMoveResultFlags sets
+# MOVE_RESULT_NOT_VERY_EFFECTIVE only (src/battle_util.c:8330-8352). The live branch is the
+# 33% resistance branch.
+#
+# ALTERNATIVE MECHANISMS RULED OUT FOR THIS ENCOUNTER
+# ---------------------------------------------------
+#   faint replacement  -- the tracker latches and FAILS if Ledyba ever reaches HP 0
+#   pivot moves        -- neither Ledyba nor Spinarak knows U-turn / Volt Switch / Flip Turn /
+#                         Baton Pass / Teleport; Ledyba knows only Tackle
+#   phazing            -- neither knows Roar / Whirlwind / Dragon Tail
+#   scripted send-out  -- Route30_EventScript_Bugcatcher_Don is a plain trainerbattle_single
+#   forced-switch item -- neither mon holds an item
+#
+# ENGAGEMENT
+# ----------
+# Don uses MOVEMENT_TYPE_LOOK_AROUND with sight 2, so stepping east to (20,9) may or may not start
+# the battle depending on which way he happens to face. `engage UP 8` covers both cases: it presses
+# nothing at all when the sight line already started the battle, and otherwise turns to face Don and
+# talks to him -- so the battle's first action menu is never polluted by stray A presses.
+#
+# DIRECT ACTION-BYTE OBSERVATION IS NOT CLAIMED
+# ---------------------------------------------
+# gChosenActionByBattler is deliberately NOT read. Its official-release address was not established
+# by semantic correlation, so the run does not assert that a B_ACTION_SWITCH byte was observed. The
+# proof rests on the authoritative party-index transition with the outgoing mon still alive.
+
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-map 0 12
+assert-pos 19 9
+assert-party-count player 2
+party-stats player
+matrix s44-boot
+
+# --- Enter Don's battle. (19,9) is outside his sight line; step east to (20,9) which is directly
+#     south of him, then let `engage` finish the job however the approach turned out. ---
+walk RIGHT 1 optional
+wait 90
+engage UP 8
+wait 60
+assert-battle active
+matrix s44-engaged
+
+# --- Verify this is Don's party before trusting anything that follows ---
+assert-battle-kind TRAINER_SINGLE
+assert-party-count enemy 2
+assert-active-enemy-slot 0
+party-stats enemy
+matrix s44-initial-ledyba
+
+# --- Drive turns with Razor Leaf (found in the live move list, never an assumed menu slot) until
+#     the AI voluntarily switches. The roll is 33% per turn and Ledyba survives three qualifying
+#     hits, so a single attempt has ~70% odds; a run that times out or that lets Ledyba faint is a
+#     clean miss and is retried from the same battery save. ---
+await-enemy-voluntary-switch 0 1 165 40000
+
+assert-battle active
+assert-active-enemy-slot 1
+party-stats enemy
+matrix s44-spinarak

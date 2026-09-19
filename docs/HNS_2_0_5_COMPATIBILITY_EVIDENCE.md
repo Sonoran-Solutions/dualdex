@@ -1212,10 +1212,10 @@ Pokémon. No UI surface displayed a fabricated opponent at any point.
 
 The following rows in §11.3 remain `NOT RUNTIME VERIFIED` and must not be read as passing live on the official ROM:
 
-* opponent voluntary switch without a faint (early Route 30 AI does not execute voluntary switches),
+* doubles and partner/multi battles.
 * doubles and partner/multi battles.
 
-Multi-party trainer battles (`BATTLE_TYPE_TRAINER`), opponent faint with replacement by a subsequent party member, in-battle player party switching, and — since §11.9 — the player's own faint with the ROM's forced replacement are now fully **RUNTIME VERIFIED** against the official release ROM. Notably, Scenario 41 executably enforces the complete 4-phase opponent replacement state machine (`await-enemy-replacement 0 1 3500`), proving strict sequential progression through Phase A (old mon active), Phase B (old mon fainted), Phase C (absent battler window with `NONE_ACTIVE`), and Phase D (replacement mon active with new party slot, species, and HP); Scenario 43 enforces the equivalent 4-phase player-side transition (`await-player-forced-replacement 0 1 40000`).
+Multi-party trainer battles (`BATTLE_TYPE_TRAINER`), opponent faint with replacement by a subsequent party member, in-battle player party switching, the player's own faint with the ROM's forced replacement (§11.9), and — since §11.10 — the opponent's own **voluntary** switch without a faint are now fully **RUNTIME VERIFIED** against the official release ROM. Notably, Scenario 41 executably enforces the complete 4-phase opponent replacement state machine (`await-enemy-replacement 0 1 3500`), proving strict sequential progression through Phase A (old mon active), Phase B (old mon fainted), Phase C (absent battler window with `NONE_ACTIVE`), and Phase D (replacement mon active with new party slot, species, and HP); Scenario 43 enforces the equivalent 4-phase player-side transition (`await-player-forced-replacement 0 1 40000`).
 
 `battleUiVerified` and `interactiveControlsVerified` remain `false`, and `sha256Hashes` remains
 empty, because the trust promotion is a separate #40 step.
@@ -1230,18 +1230,45 @@ is covered by the **opponent** tests `test_hns_trainer_multi_party_faint_transit
 `test_hns_stale_enemy_slot_cannot_survive_replacement` and
 `test_hns_trainer_opponent_slot_resolves_from_battler_index`. Those are post-faint replacement
 tests, not a voluntary switch, so they do not make row G of §11.3 runtime verified:
-**opponent voluntary switch without a faint remains NOT RUNTIME VERIFIED.** The player-side switch
+**opponent voluntary switch without a faint is now runtime verified by Scenario 44 (§11.10)**, so the synthetic tests are corroboration rather than the only support. The player-side switch
 test (`test_hns_player_switch_slot_follows_battler_indexes`) is a different code path on a different
 side of the field and is not evidence for the opponent one.
 
 The player faint and forced-replacement contracts are guarded by
 `test_hns_player_faint_forces_unknown_until_replacement` and
-`test_hns_stale_player_slot_cannot_survive_faint`, and — since this PR — by the pure state-machine
-tests that drive the same `PlayerReplacementTracker` the runtime command uses
-(`player_replacement_*` in `tools/hns-runtime-probe/runtime_battle_probe.c`, run from
-`--selftest`): never reaches faint, faints but stays authoritative, commit without an observed
-faint, window without a commit, wrong new slot, `PartySnapshot` lagging or leading
-`gBattlerPartyIndexes`, and the positive A→B→C→D sequence.
+`test_hns_stale_player_slot_cannot_survive_faint` (`native/tests/test_pokemon_reader.c`), and by the
+pure state-machine tests that drive the same trackers the runtime commands use
+(`player_replacement_*` and `vsw_*` / opponent voluntary switch in
+`tools/hns-runtime-probe/runtime_battle_probe.c --selftest`): never reaches faint, faints but stays
+authoritative, commit without an observed faint, window without a commit, wrong new slot,
+`PartySnapshot` lagging or leading `gBattlerPartyIndexes`, the positive A→B→C→D sequence for both
+sides, and — for the opponent voluntary switch — the fail-closed faint discriminator plus the
+separation that a player-side switch can never satisfy the opponent tracker.
+
+##### Two suites, two entrypoints, one gate
+
+`ci.sh test` runs **two disjoint C test suites** and reports their counts separately, so neither can
+be mistaken for the other:
+
+```text
+native/build/test_runner                 native/tests/test_pokemon_reader.c   62 tests
+                                         -> the PRODUCTION reader: parsing, substructure
+                                            permutations, party discovery policy, battle
+                                            lifecycle, live-HP sync
+native/build/runtime_battle_probe_selftest
+                                         tools/hns-runtime-probe/runtime_battle_probe.c
+                                         --selftest                           68 tests
+                                         -> the EVIDENCE HARNESS: autobattle, opponent
+                                            replacement, opponent voluntary switch, player
+                                            forced replacement state machines
+```
+
+The tracker suite previously ran only from the probe's own `build.sh`/`--selftest` and was therefore
+outside the canonical gate. Since `--selftest` is pure — it returns before any ROM, core or
+environment is touched — it is now a required `ci.sh test` step (`tracker_selftest()` in `ci.sh`),
+and `ci.sh all` runs it too. The two suites are still counted separately on purpose: the 62 guard
+shipped reader behaviour, the 68 guard the fail-closed behaviour of the harness whose output this
+document treats as evidence, and conflating them would hide which one broke.
 
 #### 11.7.2 Legal game progression pipeline (issue #1 phase 1 complete)
 
@@ -1268,8 +1295,18 @@ cd tools/hns-runtime-probe && ./build.sh
 ./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
     --sav "$HOME/hns205.sav" --script scenarios/20-wild-battle-full.txt
 
-# Legal progression pipeline (creates stage33_trainer_ready.sav).
-# (Run scenarios 30 -> 31 -> 32 -> 33 sequentially from the starter save)
+# Legal progression pipeline. Run these IN ORDER from the starter save; each one writes the save
+# the next one boots from:
+#   30-starter-to-egg.txt                 -> stage30_egg.sav
+#   31-egg-to-pokeballs.txt               -> stage31_pokeballs.sav
+#   32-catch-second-party-member.txt      -> stage32_party2.sav
+#   33-route30-trainer-ready.txt          -> stage33_trainer_ready.sav
+#   34-route30-don-ready.txt              -> stage34_don_ready.sav
+#   45-route30-to-violet-city.txt         -> stage44a_violet_city.sav   (independent leg, see 11.10.7)
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/stage32_party2.sav" --script scenarios/33-route30-trainer-ready.txt
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/stage33_trainer_ready.sav" --script scenarios/34-route30-don-ready.txt
 
 # Trainer battle and party switch scenarios (requires stage33_trainer_ready.sav).
 ./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
@@ -1281,7 +1318,26 @@ cd tools/hns-runtime-probe && ./build.sh
 ./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
     --sav "$HOME/stage33_trainer_ready.sav" --script scenarios/43-player-faint-forced-replacement.txt
 
-# Deterministic regression coverage (no ROM, no save).
+# Opponent VOLUNTARY switch (Scenario 44, section 11.10) and its damage diagnostic, both from
+# stage34_don_ready.sav. Scenario 44 is PROBABILISTIC: the switch fires on a 33% roll re-drawn each
+# eligible turn, and an attempt that never rolls fails closed with a clean timeout and zero
+# invariant violations. Retry from the same battery save; a single PASS is the evidence. The
+# `--quiet` flag is NOT used here so the Phase A/B/C/D lines stay on the record.
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/stage34_don_ready.sav" --script scenarios/44-opponent-voluntary-switch.txt
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/stage34_don_ready.sav" --script scenarios/47-don-damage-probe.txt
+
+# Overworld navigation regression coverage (multi-map traversal, arrow warp, gate, sideways
+# staircase, wild-encounter clearing inside `walk`). Independent of Scenario 44.
+./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
+    --sav "$HOME/stage34_don_ready.sav" --script scenarios/45-route30-to-violet-city.txt
+
+# Deferred, does NOT pass, and run by nothing: kept as a labelled artifact only. See 11.10.7.
+#   ./runtime_battle_probe <core> <rom> --sav <save> --script deferred/46-sprout-tower-3f.txt
+
+# Deterministic regression coverage: the production-reader suite (62) AND the runtime tracker
+# selftests (68). Needs no ROM, no core, no save and no emulator.
 cd ../.. && ./ci.sh test
 ```
 
@@ -1435,3 +1491,250 @@ the runtime added is that the fail-closed mechanism on the player side is `hp ==
 `gAbsentBattlerFlags`, which H&S leaves clear for a fainted player battler. **No production reader
 bug was found and no production code was changed by this PR**; the changes are confined to the
 developer probe, its scenarios, its self-tests and this document.
+
+### 11.10 Opponent voluntary switch (issue #1, Scenario 44)
+
+**Status: RUNTIME VERIFIED.** `scenarios/44-opponent-voluntary-switch.txt` passes against the
+official release ROM from `/tmp/hns_baseline/stage34_don_ready.sav`, and the switch it observes is a
+genuine voluntary opponent switch, not a faint replacement.
+
+#### 11.10.1 The correction that had to be made first
+
+**Status of the earlier Don rejection: WITHDRAWN.** The history is recorded rather than edited away,
+because the provisional rejection shaped several later decisions:
+
+```text
+1. An initial runtime observation appeared lethal for Ledyba Lv3 and Don was provisionally rejected.
+2. Subsequent source review exposed a contradiction: the same damage reasoning used elsewhere in
+   this document predicts only 3-4 HP per Razor Leaf against that Ledyba.
+3. Bounded remeasurement with scenarios/47-don-damage-probe.txt produced 15 -> 11 -> 7 -> 3,
+   i.e. 4 HP per Razor Leaf hit.
+4. The original one-shot was NOT reproducible and remains an UNEXPLAINED OUTLIER. No cause is
+   asserted for it here: it was not proven to be a critical hit, and the surviving explanations
+   (a different move having been selected, or a different battle state) are speculation.
+5. The provisional rejection is therefore withdrawn and Don is used as the Scenario 44 target.
+```
+
+```text
+turn 1   15 -> 11   (delta 4)
+turn 2   11 ->  7   (delta 4)
+turn 3    7 ->  3   (delta 4)
+```
+
+Ledyba survives three qualifying hits and is still alive at 3 HP. The original "single hit killed
+it" observation is therefore not reproducible from the pinned sources, and no explanation for it was
+found; it is recorded here as an unexplained outlier rather than as evidence. The history is kept
+deliberately: the provisional rejection was wrong, and a later source-only preflight built on top of
+it (`TRAINER_AL_HNS`) was wrong for an independent reason described in 11.10.6.
+
+Source model for the measurement (pinned H&S 2.0.5):
+
+```text
+Razor Leaf   src/data/moves_info.h:2086   power 55, TYPE_GRASS, DAMAGE_CATEGORY_PHYSICAL,
+                                          accuracy 95, target TARGET_BOTH, criticalHitStage 1
+                                          (B_UPDATED_MOVE_DATA >= GEN_3, GEN_LATEST = GEN_9)
+Don          src/data/trainers_hns.h:8406 TRAINER_BATTLE_TYPE_SINGLES,
+                                          aiFlags = AI_FLAG_CHECK_BAD_MOVE
+             slot 0  SPECIES_LEDYBA   Lv3, TRAINER_PARTY_IVS(0,0,0,0,0,0), NATURE_HARDY
+             slot 1  SPECIES_SPINARAK Lv3, TRAINER_PARTY_IVS(0,0,0,0,0,0), NATURE_HARDY
+```
+
+Measured player state (`party-stats player`, production reader):
+
+```text
+slot 0 Chikorita Lv7  hp 21/25  atk 14  def 15  spe 9   nature 2 (Brave)
+       ivs 27/24/19/4/29/2   moves 33,45,75 (Tackle, Growl, Razor Leaf)
+slot 1 Hoothoot  Lv3  hp 17/17  spe 7    moves 33,45,193
+```
+
+Ledyba Lv3 with zero IVs has Defence 6 and HP 15; the arithmetic gives a base of 12, x1.5 STAB,
+x0.25 type (Grass against Bug/Flying), i.e. 3-4 after the damage roll — matching the 4 measured.
+A critical (Razor Leaf is a high-critical-ratio move, stage 1 -> 1/8 under `B_CRIT_CHANCE =
+GEN_LATEST`) computes to roughly 7-9, which is also inside the observed range and would still not
+one-shot Ledyba. Critical-hit status itself is **not** read from memory: the core would need a
+speculative `gSpecialStatuses` address for that, so it is reported as UNKNOWN and inferred only from
+the measured magnitude.
+
+#### 11.10.2 Why the switch is voluntary, not a faint replacement
+
+`FindMonWithFlagsAndSuperEffective` (`src/battle_ai_switch.c:1041-1102`, called at `:1381`) reads
+`gLastLandedMoves[battler]`, which is indexed **by target** and written by
+`MoveEndUpdateLastMoves` (`src/battle_move_resolution.c:2691-2704`):
+
+* Ledyba knows only Tackle, whose target is the player's battler, so Ledyba never writes
+  `gLastLandedMoves[opponent]`. The arming value is therefore order-independent and stays RAZOR_LEAF
+  for as long as the player keeps using it.
+* Razor Leaf against Spinarak (Bug/Poison) is 0.25x, so `UpdateMoveResultFlags`
+  (`src/battle_util.c:8330-8352`) sets `MOVE_RESULT_NOT_VERY_EFFECTIVE` and not
+  `MOVE_RESULT_DOESNT_AFFECT_FOE`: the **33% resistance branch** is the live one, not the 50%
+  immunity branch.
+* Spinarak's Poison Sting is 2.0x against Grass Chikorita, so the bench condition holds.
+* Don has no `AI_FLAG_SMART_SWITCHING`, no ACE flags, and Ledyba has no stat-raising or
+  super-effective move, so the `:1374` / `:1376` early returns do not fire and
+  `AreStatsRaised` never trips — there is no two-turn budget here.
+
+#### 11.10.3 Exact runtime observation
+
+`scenarios/44-opponent-voluntary-switch.txt`, passing run:
+
+```text
+Phase A  frame 1589  old slot 0 ACTIVE  battler=1 species=165 HP=15/15
+                    (TRAINER_SINGLE, battlers=2, opponentBattlers=1)
+Phase B  frame 2735  transition has begun WITHOUT the optional staging read agreeing
+                    (monToSwitchIntoId=-1, partyIndexes[1]=1); outgoing species 165 still HP=11 > 0
+Phase C  frame 2736  gBattlerPartyIndexes[1] rewritten to 1
+Phase D  frame 3738  VOLUNTARY SWITCH committed: slot 0 -> 1, battler=1, species 165 -> 167,
+                    new HP=15/15; outgoing species 165 last observed ALIVE at HP=3
+                    gBattlerPartyIndexes=1 == production slot=1
+```
+
+The frame at which the commit is accepted carries the decisive evidence, read through the
+**production** reader on that same frame:
+
+```text
+party-stats enemy  activeSlot=1 activeKnown=1 activeBattler=1
+  slot 0 species=165 (Ledyba)   lvl=3 hp=3/15    <-- OUTGOING MON, STILL ALIVE
+  slot 1 species=167 (Spinarak) lvl=3 hp=15/15   <-- new authoritative opponent
+MATRIX  lifecycle=ACTIVE kind=TRAINER_SINGLE inBattle=true
+        indexes=1,1  activeEnemy=SLOT resolvedBattler=1 resolvedEnemySlot=1 fainted=0
+```
+
+So: the outgoing Ledyba was at 3/15 HP in party slot 0 while `gBattlerPartyIndexes[1]` became 1, the
+production reader resolved slot 1 / Spinarak, and the battle stayed ACTIVE. No faint-based
+transition was accepted.
+
+#### 11.10.4 Attempt statistics (bounded legal attempts, one battery save)
+
+| attempt | Phase A | qualifying Razor Leaf hits | player stall switches | outcome | outgoing HP at commit |
+|---|---|---|---|---|---|
+| 1 | frame 1543, HP 15/15 | 2 | 1 | timeout | - |
+| 2 | frame 1543, HP 15/15 | 2 | 1 | timeout | - |
+| 3 | frame 1589, HP 15/15 | 3 | 1 | **PASS** | 3 |
+| 4 | frame 1543, HP 15/15 | 2 | 1 | timeout | - |
+| 5 | frame 1589, HP 15/15 | 2 | 0 | **PASS** | 7 |
+
+Two further bounded batches were run after the tracker fixes were final, to confirm the pass is
+reproducible rather than a single lucky seed. Every timeout was a clean miss: zero runtime invariant
+violations, no faint accepted, no switch claimed, and the tracker still refused to advance.
+
+```text
+batch 1 (5 attempts)   2 PASS / 3 clean timeout
+batch 2 (6 attempts)   4 PASS / 2 clean timeout
+batch 3 (4 attempts)   3 PASS / 1 clean timeout     <- after the final cleanup pass
+-----------------------------------------------
+total                 9 PASS / 13 attempts
+```
+
+A single PASS is sufficient for the gate: what makes the result trustworthy is that the accept and
+reject paths are deterministically covered by the pure selftests (`vsw_*`, 68 assertions), not the
+hit rate of the 33% roll. The 33% roll is re-drawn once per eligible turn, and because the battle's RNG is seeded from
+the booted save, attempts whose in-battle input schedule is bit-identical replay the same roll; the
+scenario is therefore retried from the battery save, exactly as a player retries a battle. No RNG was
+read, seeded or manipulated, and no savestate was used.
+
+#### 11.10.5 Stall behaviour and the optional staging read
+
+Two probe defects were found and fixed while making Scenario 44 pass. Both are harness defects, not
+reader defects; **no production reader, profile or Kotlin code was changed**.
+
+1. **A status follow-up cannot keep the arming value.** The tracker's original turn plan was "Razor
+   Leaf until it lands once, then Growl", on the assumption that a status move does not overwrite
+   `gLastLandedMoves`. `MoveEndUpdateLastMoves` sets it for *any* landed move, so Growl replaced
+   RAZOR_LEAF with a status move and the heuristic bailed on `IsBattleMoveStatus` (`:1059`). The plan
+   was therefore incapable of arming a second eligible turn. It is now "the arming move on every
+   turn", and once the outgoing mon is within one observed hit of fainting the tracker alternates the
+   player's active slot instead — `SwitchInClearSetData` (`src/battle_main.c:3414`) only clears the
+   *switching-in* battler's own index entries, so a switch preserves `gLastLandedMoves[opponent]`
+   while burning the turn. That is also a strictly stronger form of the evidence: the outgoing mon is
+   held alive on purpose rather than by luck.
+2. **An unproven address was a hard gate.** Phase B required `gBattleStruct->monToSwitchIntoId` to
+   report the new slot before the transition could be accepted. That address is explicitly *not*
+   runtime-confirmed (see the `HNS_RELEASE_BATTLE_STRUCT_PTR` note above), and in the passing run it
+   read back as `-1` while a real switch was in progress. Phase B now treats the staging read as
+   optional corroboration and advances on the authoritative transition, which is the same rule this
+   document already applies to `gChosenActionByBattler`. A faint-based replacement is still rejected,
+   because `violation_old_fainted` latches on any frame where the outgoing battler reads 0 HP, and
+   that happens before the replacement overwrites `gBattleMons`.
+
+#### 11.10.6 `TRAINER_AL_HNS` remains rejected, for an independent reason
+
+The Azalea Gym lead is not a viable substitute, and this was established from the pinned source
+before any Azalea run. Metapod's `Harden` is a `TARGET_USER` move, so
+`MoveEndUpdateLastMoves` writes `gLastLandedMoves[opponent]` with a status move every time Metapod
+acts after the player — and the measured player Chikorita (Brave, Speed 9 at level 7) out-speeds
+Metapod (Speed 10) from level 8 onward. The only escape, an `MOVE_RESULT_NO_EFFECT` flag on the
+user, cannot occur: `IsTargetingSelf` returns `skipFailure` without setting any result flag
+(`src/battle_move_resolution.c:656-659`) and the attack canceler clears `moveResultFlags` immediately
+before the move script runs (`:1010`). Additionally `AreStatsRaised` (`:230-241`, threshold
+`STAY_IN_STATS_RAISED` = 2 in `include/config/ai.h:20`) would cap a Harden lead at two eligible
+turns even if the ordering worked out.
+
+#### 11.10.7 Route 32 south is a mandatory story gate (deferred work)
+
+Discovered while attempting Azalea via the Violet City route, and recorded here because any future
+Azalea attempt must budget for it. Route 32 has exactly one corridor between its northern and
+southern halves, at `y = 10`, `x = 26..29`. `x = 25` is blocked, `x = 26` is an NPC, and `x = 27..29`
+carry coordinate triggers running `Route32_EventScript_BaldingManCheck`, which messages the player
+and applies `Route32_Movement_Turnback` until `FLAG_HIDE_SPROUT_TOWER_SILVER`,
+`FLAG_DEFEATED_VIOLET_GYM` and `FLAG_RECEIVED_TOGEPI_EGG` are all set. Measured at runtime: walking
+down column 27 the player reaches `(27,10)` and is turned back to `(27,9)`, oscillating
+indefinitely. A breadth-first search over the full pinned connection graph finds no path from Violet
+City to Azalea Town with those tiles excluded, and the Ruins of Alph connection (which does reach
+Union Cave B1F) does not reach Route 33 or Azalea either.
+
+The legal progression leg that got as far as Violet City is verified and preserved:
+
+```text
+scenarios/45-route30-to-violet-city.txt   result PASS
+    Route 30 (19,9) -> Route 31 -> Gate Route31/VioletCity -> Violet City (39,46)
+    -> Pokemon Center -> Nurse Joy heal -> in-game save
+    0 script errors, 0 invariant violations
+    output /tmp/hns_baseline/stage44a_violet_city.sav (131072 bytes, re-boot verified:
+    Violet City (39,46), Chikorita Lv7 25/25)
+```
+
+The Violet City / Sprout Tower investigation continues as a **deferred artifact**:
+`tools/hns-runtime-probe/deferred/46-sprout-tower-3f.txt`. It is deliberately kept out of
+`scenarios/`, which is the set of scripts this document cites as passing, so that nothing in the
+completed gate is a script that does not pass. It is not run by any gate and no claim above depends
+on it.
+
+What it established, and why it is worth keeping: it navigates Violet City -> Sprout Tower 1F -> 2F
+correctly, with every source-predicted tile asserting OK, and then wins Sage Nico's battle at
+`SproutTower_2F (14,3)`. After that the field accepts **no** direction for the rest of the run
+(135k frames observed), with `lifecycle=INACTIVE`, `inBattle=false`, `outcome=B_OUTCOME_WON`, zero
+runtime invariant violations, and a production reader that still resolves the party. That is a
+harness / field-state problem, not a reader problem, and it is left explicitly unresolved rather
+than papered over or worked around.
+
+#### 11.10.8 Claim matrix
+
+Every row states the strongest level actually supported. Source inference is never promoted into
+runtime evidence.
+
+| Claim | Level | Where |
+|---|---|---|
+| Opponent active-slot read at battle start (Don: slot 0, Ledyba) | **RUNTIME VERIFIED** | `s44-engaged` / `s44-initial-ledyba` MATRIX + `party-stats enemy` |
+| Trainer battle lifecycle (`TRAINER_SINGLE`, 2 battlers, `ACTIVE`, still active after the switch) | **RUNTIME VERIFIED** | every `[MATRIX]` line of the run |
+| Opponent voluntary slot transition `0 -> 1` | **RUNTIME VERIFIED** | Phase C/D, `gBattlerPartyIndexes[1]` `0 -> 1` |
+| Outgoing opponent alive at the transition | **RUNTIME VERIFIED** | Phase B frame reading (species 165, HP 11 > 0) + the never-fired `hp == 0` latch, plus slot 0 shown at 3/15 or 11/15 on the commit frame |
+| Production reader follows the new authoritative slot | **RUNTIME VERIFIED** | commit-frame `activeSlot=1`, species 167, `enemy_slot == party_index[1]` |
+| Faint replacement rejected as voluntary | **RUNTIME + SYNTHETIC VERIFIED** | order-independent `hp == 0` latch; selftests `vsw_negative_old_fainted_latched`, `vsw_faint_latched_order_independent`, `vsw_faint_replacement_never_accepted` |
+| Player-side switch cannot satisfy the opponent tracker | **SYNTHETIC VERIFIED** | selftest `vsw_player_switch_not_opponent_switch` |
+| Don Razor Leaf nonlethal damage (4 HP/hit) | **RUNTIME VERIFIED** | `scenarios/47-don-damage-probe.txt` |
+| `FindMonWithFlagsAndSuperEffective` 33% resistance branch applicability | **SOURCE VERIFIED / RUNTIME-CONSISTENT** | `src/battle_ai_switch.c:1041-1102,1381`; `src/battle_util.c:8330-8352`; the observation is consistent with it |
+| Exact runtime AI dispatch branch that returned true | **NOT VERIFIED / NOT CLAIMED** | not directly instrumented |
+| `gChosenActionByBattler` address | **NOT VERIFIED / NOT CLAIMED** | constant removed from the probe source |
+| `B_ACTION_SWITCH` direct runtime observation | **NOT VERIFIED / NOT CLAIMED** | no code path reads it |
+| Don provisional "one-shot" rejection | **WITHDRAWN** | unreproducible; measured 4 HP per hit |
+| `TRAINER_AL_HNS` as a voluntary-switch target | **SOURCE + MEASUREMENT DISPROVEN** | see 11.10.6 |
+| Route 32 south gated on Sprout Tower + Violet Gym + Togepi | **SOURCE + RUNTIME VERIFIED** | see 11.10.7 (deferred work) |
+
+**On the AI branch specifically.** The observed switch is *source-consistent* with the 33%
+resistance branch of `FindMonWithFlagsAndSuperEffective`: the arming value can only be a damaging
+move the bench resists (Razor Leaf at 0.25x on Spinarak), the 50% immunity call cannot fire because
+0.25x sets `MOVE_RESULT_NOT_VERY_EFFECTIVE` and not `MOVE_RESULT_DOESNT_AFFECT_FOE`, and the two
+unconditional gates at `:1374` / `:1376` cannot fire for this lead. That is a source argument, not a
+runtime attribution. **The exact AI dispatch branch was not directly runtime-attributed**, because
+instrumenting it would require an unproven address; the claim rests on the authoritative lifecycle
+transition instead.

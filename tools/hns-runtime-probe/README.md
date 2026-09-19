@@ -107,6 +107,36 @@ publishes through `RETRO_MEMORY_SAVE_RAM` for this ROM. Any emulator that writes
 | `scenarios/00-fresh-rom-to-starter-save.txt` | Fresh ROM → starter → in-game save |
 | `scenarios/10-wild-battle-entry.txt` | Overworld baseline → tall grass → wild encounter |
 | `scenarios/20-wild-battle-full.txt` | Entry → damage → opponent faint → teardown → exit |
+| `scenarios/45-route30-to-violet-city.txt` | **PASSES.** Route 30 → Route 31 → gate → Violet City → Pokémon Center heal → in-game save |
+| `scenarios/44-opponent-voluntary-switch.txt` | **PASSES.** Bug Catcher Don (Route 30) voluntary opponent switch: Ledyba stays alive at 3/15 HP while the engine moves the opponent to party slot 1 and the production reader follows it |
+| `scenarios/34-route30-don-ready.txt` | Route 30 → Youngster Mikey → Don's approach → in-game save |
+| `scenarios/47-don-damage-probe.txt` | **PASSES.** Diagnostic that asserts nothing about switching: bounded Razor Leaf damage trajectory against Don's Ledyba Lv3 (measured 4 HP per hit). It is the evidence behind the withdrawn one-shot rejection |
+| `deferred/46-sprout-tower-3f.txt` | **DEFERRED, does not pass.** Kept out of `scenarios/` on purpose: it localises an unresolved field-state lock after the Sprout Tower 2F trainer battle. Not run by any gate; see §11.10.7 of the compatibility evidence |
+
+## Overworld navigation: what the source gets right and what it does not
+
+Legs 45 and 46 are generated offline from the pinned decomp (`map.bin` collision + elevation,
+`metatile_attributes.bin` behaviours, `map.json` connections/warps/coord events) and every run end
+is asserted against the engine's own coordinates. Four source-derived predictions turned out to be
+**wrong on the running ROM** and had to be corrected by measurement; they are documented here
+because each one silently breaks a naive route:
+
+1. **Sideways staircases.** A `MB_SIDEWAYS_STAIRS_*` metatile has collision 0 / elevation 0 in
+   `map.bin`, but the engine turns a horizontal press *onto* it into a **diagonal** move
+   (`src/event_object_movement.c: GetSidewaysStairsCollision`). Route 31's crossing at x=25..27,
+   y=10..13 is the measured chain `(27,11) -LEFT-> (26,11) -LEFT-> (25,12) -LEFT-> (24,13)`.
+2. **Arrow warps.** `MB_WEST_ARROW_WARP` does **not** fire when the player steps onto it. It fires
+   when the player is standing on it and presses the arrow direction. Measured at Route 31 (4,10)
+   and Gate_Route31_VioletCity (1,5).
+3. **Doors settle late.** Stepping onto a door changes the coordinates immediately but the warp
+   resolves a few frames later, eating the next press. The generator therefore ends a run at every
+   transition and inserts `wait 75` before asserting.
+4. **Cutscene traps.** Route 32's coord triggers at (27,10), (28,10), (29,10) are the *only*
+   corridor south of Route 32; `Route32_EventScript_BaldingManCheck` applies
+   `Route32_Movement_Turnback` until `FLAG_HIDE_SPROUT_TOWER_SILVER`, `FLAG_DEFEATED_VIOLET_GYM`
+   and `FLAG_RECEIVED_TOGEPI_EGG` are all set. Route 32 south is a mandatory story gate, not an
+   optional route.
+
 
 ```bash
 ./runtime_battle_probe <core> <rom> --sav $HOME/hns205.sav \
@@ -116,6 +146,14 @@ publishes through `RETRO_MEMORY_SAVE_RAM` for this ROM. Any emulator that writes
 Each scenario asserts the state it claims to reach (`assert-battle`, `assert-party-count`,
 `assert-map`, `assert-in-battle-flag`), so a run that exits 0 has demonstrated the scenario, not
 merely run past it.
+
+## Self-test baseline save
+
+`selftest.sh` must be run against a **fresh starter save** (`./make-save.sh <core> <rom> <out.sav>`),
+which stands the player in New Bark Town at `(10, 10)` on map `0/0`. Four of its cases are
+position-dependent and walk into Elm's lab or hit its interior walls, so running it against a
+mid-progression save makes them fail for the wrong reason. With the correct baseline the suite is
+**20 cases, 0 failures**.
 
 ## Self-test: proving the harness can fail
 
@@ -139,11 +177,16 @@ generated into a temporary directory and are not committed.
 | `wait <frames>` | hold nothing |
 | `mash <frames>` | hold A on a 4-on / 6-off cycle |
 | `spama <count>` | press A a bounded number of times with long gaps |
-| `walk <DIR> <tiles> [optional]` | walk tile by tile; presses A when a script lock blocks progress; a blocked step is fatal unless `optional` is given |
+| `walk <DIR> <tiles> [optional] [battle]` | walk tile by tile; presses A when a script lock blocks progress; a blocked step is fatal unless `optional` is given; a wild encounter is cleared automatically, and a **trainer** battle intercepted by the step is fatal unless `battle` is given, in which case it is reported and finished with ordinary input |
+| `engage <DIR> <n>` | make a trainer start a battle without polluting its first action menu: turns to face `DIR`, then presses A until `gMain.inBattle` asserts — and presses **nothing** if a battle is already active, so a sight-line trigger and a talk both lead to a clean menu |
+| `damage-probe <moveId> <turns>` | DIAGNOSTIC, asserts nothing: drives `turns` turns of an already-active single battle with one named move (found in the live move list) and prints the opponent's HP trajectory after every change. Critical status is reported UNKNOWN — detecting it would need a speculative address |
+| `party-stats player\|enemy` | print every party member exactly as the **production** reader parsed it — species, level, live HP, atk/def/**speed**/spa/spd, nature, IVs, EVs and the live move list. Used to MEASURE facts a scenario must not assume (turn order depends on the Speed stat) |
 | `hunt <iterations>` | wander until `gMain.inBattle` asserts |
 | `escape <DIR> <iterations>` | press UP+A then try to move (for re-triggerable dialogue and Yes/No prompts) |
 | `await <cb2> <n>` | press A until `gMain.callback2` becomes `cb2` |
 | `untilout <cb2> <n>` | press UP+A while `gMain.callback2` is `cb2`, stop when it changes |
+| `walkto <x> <y> [<maxIterations>]` | move the player to a named tile on the current map, planning on a 4-connected grid and re-reading the player's tile after every step so the engine is the authority on whether a step was legal. A failed step is only believed after several spaced attempts (NPCs wander); a destination that survives them is recorded per map and routed around |
+| `await-enemy-voluntary-switch <oldSlot> <newSlot> <oldSpecies> <maxFrames>` | drive turns until an AI **voluntary** switch is observed: one opponent battler active at `oldSlot` with HP > 0, then the authoritative `gBattlerPartyIndexes[opponent]` rewrite to `newSlot` resolving through the production reader with the outgoing mon **still alive**. Fails if the outgoing mon ever reaches HP 0 (that is the faint path, Scenario 41). `gChosenActionByBattler` / `B_ACTION_SWITCH` are **not** read and **not** claimed — see the compatibility evidence §11.10.8 |
 | `matrix <label>` | print the full runtime tuple for the current frame |
 | `shot <path.ppm>` | dump the current video frame |
 | `savsave <path>` / `savload <path>` | flush / load battery save RAM |

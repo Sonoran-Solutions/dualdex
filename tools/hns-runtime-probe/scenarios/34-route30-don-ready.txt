@@ -1,0 +1,86 @@
+# Legal progression: stage33 -> defeat Youngster Mikey -> Route 30 north to just west of Don
+#
+# Boots from stage33_trainer_ready.sav (the accepted output of the hns205 -> 30 -> 31 -> 32 -> 33
+# chain) and owns ONLY the work stage33 did not do: Mikey's battle and the walk to Don's approach.
+# Route 29, the Cherrygrove heal and Joey are already established by Scenario 33 and are NOT replayed.
+#
+# WHY MIKEY MUST BE DEFEATED
+# --------------------------
+# Mikey's Hoothoot and Sentret NPCs stand on (23,23) and (23,24), and at stage33 the player is parked
+# in a pocket whose only northward exit is the ledge through that tile pair. Defeating him with
+# ordinary gameplay removes the NPCs and opens the corridor, which is what a player would do.
+#
+# WHY THE ROUTE RUNS NORTH-WEST RATHER THAN STRAIGHT UP COLUMN 20
+# ---------------------------------------------------------------
+# Derived from the pinned source (LAYOUT_ROUTE30_HNS map.bin + Johto_General_Hns / CherrygroveCity_Hns
+# metatile attributes): tile (20,11) is collision=1 and elevation 0, so the direct north approach up
+# column 20 is blocked there. (19,11)..(19,9) are collision=0 at elevation 3 and are clear, so the
+# route crosses west at y=13 and climbs column 19 instead of column 20.
+#
+# RUNTIME NOTE: the source-derived waypoints are all one tile further south than the raw source
+# prediction, which was confirmed by running the route and asserting every destination. Every
+# coordinate below is a measured value, not a computed one.
+#
+# `battle-win` is used for Mikey because the generic `autobattle` mashes A and stalls in the
+# action/move menus (it timed out at 5000 and at 25000 frames against an already-KO'd first mon).
+# `battle-win` drives the documented battle-controller states instead, requires an already-active
+# battle, uses only normal controller input, and fails on timeout.
+
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-map 0 12
+assert-pos 23 25
+assert-party-count player 2
+matrix s34-boot
+
+# --- Defeat Youngster Mikey normally (he blocks the only north corridor) ---
+walk UP 1
+spama 6
+spama 6
+battle-win 30000
+assert-battle inactive
+spama 10
+spama 10
+spama 10
+matrix s34-post-mikey
+assert-battle inactive
+assert-map 0 12
+assert-pos 23 24
+
+# --- Route 30 north-west to Don's approach (each waypoint measured) ---
+walk LEFT 1
+assert-pos 22 24
+matrix s34-route-b
+walk UP 4
+assert-pos 22 20
+walk UP 1
+assert-pos 22 19
+matrix s34-route-c
+walk LEFT 1
+assert-pos 21 19
+matrix s34-route-d
+walk UP 6
+assert-pos 21 13
+matrix s34-route-e
+walk LEFT 2
+assert-pos 19 13
+matrix s34-route-f
+walk UP 4
+assert-pos 19 9
+matrix s34-don-ready-position
+
+# --- Fail closed: the save is written only once every prerequisite below held ---
+# (19,9) is diagonal to Don at (20,8), so it is outside his 4-directional sight line and the save is
+# not interrupted by an accidental battle trigger.
+assert-battle inactive
+assert-map 0 12
+assert-pos 19 9
+assert-party-count player 2
+menusave
+assert-battle inactive
+assert-pos 19 9
+assert-party-count player 2
+matrix s34-saved
+savsave /tmp/hns_baseline/stage34_don_ready.sav

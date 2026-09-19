@@ -1,0 +1,198 @@
+# DEFERRED ARTIFACT -- NOT PART OF THE COMPATIBILITY GATE.
+#
+# This scenario is deliberately kept OUT of `scenarios/`: `scenarios/` is the set of scripts the
+# compatibility evidence in docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md cites as passing, and this one
+# does not pass. It is preserved because the failure localises a real, reproducible engine/harness
+# problem that a future task will need, and because deleting it would throw away that measurement.
+#
+# It is NOT run by any documented gate, it does NOT block Scenario 44, and no claim in the
+# compatibility document depends on it. Re-run it with an explicit path:
+#   ./runtime_battle_probe <core> <rom> --sav <save> --script deferred/46-sprout-tower-3f.txt
+#
+# WHAT IT ESTABLISHED (see compatibility evidence 11.10.7):
+#   Violet City -> Sprout Tower 1F -> 2F navigates correctly, every source-predicted tile asserts OK.
+#   The player then wins Sage Nico's battle at SproutTower_2F (14,3).
+#   After that the field accepts NO direction for the rest of the run (135k frames observed), with
+#   lifecycle=INACTIVE, inBattle=false, outcome=B_OUTCOME_WON, no invariant violation, and a
+#   production reader that still resolves the party. That is a harness/field-state problem, left
+#   explicitly unresolved rather than worked around.
+#
+# ORIGINAL HEADER FOLLOWS.
+# GATE. Until FLAG_HIDE_SPROUT_TOWER_SILVER, FLAG_DEFEATED_VIOLET_GYM and FLAG_RECEIVED_TOGEPI_EGG
+# are all set, his script messages the player and applies Route32_Movement_Turnback, so the only
+# corridor south of Route 32 cannot be used.
+#
+# The Sprout Tower sages are ordinary trainers standing in narrow corridors, so the tower runs
+# carry the `battle` token: an intercepted trainer battle is reported and finished with ordinary
+# controller input instead of being hidden.
+# controller input instead of being hidden. Every run end is asserted against the engine's
+# coordinates.
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-map 0 2
+assert-pos 39 46
+matrix leg-boot
+walk LEFT 7
+wait 75
+assert-map 0 2
+assert-pos 32 46
+matrix leg-VioletCity_hns
+walk UP 7
+wait 75
+assert-map 0 2
+assert-pos 32 39
+walk LEFT 2
+wait 75
+assert-map 0 2
+assert-pos 30 39
+walk UP 24
+wait 75
+assert-map 0 2
+assert-pos 30 15
+walk UP 1
+wait 75
+assert-map 0 2
+assert-pos 30 14
+walk UP 1
+wait 75
+assert-map 24 2
+assert-pos 10 16
+matrix leg-SproutTower_1F_hns
+walk LEFT 1 battle
+wait 75
+assert-map 24 2
+assert-pos 9 16
+walk UP 3 battle
+wait 75
+assert-map 24 2
+assert-pos 9 13
+walk LEFT 4 battle
+wait 75
+assert-map 24 2
+assert-pos 5 13
+walk UP 6 battle
+wait 75
+assert-map 24 2
+assert-pos 5 7
+walk RIGHT 1 battle
+wait 75
+assert-map 24 2
+assert-pos 6 7
+walk UP 1 battle
+wait 75
+assert-map 24 2
+assert-pos 6 6
+walk UP 1 battle
+wait 75
+assert-map 24 3
+assert-pos 6 4
+matrix leg-SproutTower_2F_hns
+walk RIGHT 1 battle
+wait 75
+assert-map 24 3
+assert-pos 7 4
+walk UP 1 battle
+wait 75
+assert-map 24 3
+assert-pos 7 3
+walk RIGHT 7 battle
+wait 75
+assert-map 24 3
+assert-pos 14 3
+walk DOWN 1 battle
+wait 75
+assert-map 24 3
+assert-pos 14 4
+walk RIGHT 3 battle
+wait 75
+assert-map 24 3
+assert-pos 17 4
+walk RIGHT 1 battle
+wait 75
+assert-map 24 3
+assert-pos 18 4
+walk RIGHT 1 battle
+wait 75
+assert-map 24 2
+assert-pos 19 4
+matrix leg-SproutTower_1F_hns
+walk LEFT 1 battle
+wait 75
+assert-map 24 2
+assert-pos 18 4
+walk UP 2 battle
+wait 75
+assert-map 24 2
+assert-pos 18 2
+walk LEFT 16 battle
+wait 75
+assert-map 24 2
+assert-pos 2 2
+walk DOWN 3 battle
+wait 75
+assert-map 24 2
+assert-pos 2 5
+walk DOWN 1 battle
+wait 75
+assert-map 24 2
+assert-pos 2 6
+walk DOWN 1 battle
+wait 75
+assert-map 24 3
+assert-pos 1 6
+matrix leg-SproutTower_2F_hns
+walk RIGHT 1 battle
+wait 75
+assert-map 24 3
+assert-pos 2 6
+walk DOWN 9 battle
+wait 75
+assert-map 24 3
+assert-pos 2 15
+walk RIGHT 7 battle
+wait 75
+assert-map 24 3
+assert-pos 9 15
+walk RIGHT 1 battle
+wait 75
+assert-map 24 3
+assert-pos 10 15
+walk DOWN 1 battle
+wait 75
+assert-map 24 4
+assert-pos 11 16
+matrix leg-SproutTower_3F_hns
+walk RIGHT 1 battle
+wait 75
+assert-map 24 4
+assert-pos 12 16
+walk RIGHT 1 battle
+wait 75
+assert-map 24 4
+assert-pos 13 16
+walk UP 9 battle
+wait 75
+assert-map 24 4
+assert-pos 13 7
+
+assert-battle inactive
+assert-map 24 4
+assert-pos 13 7
+party-stats player
+matrix leg-end
+matrix at-3f-trigger
+spama 20
+wait 200
+spama 20
+wait 200
+spama 20
+wait 400
+spama 20
+wait 200
+spama 20
+wait 200
+spama 20
+wait 400
+matrix after-scene

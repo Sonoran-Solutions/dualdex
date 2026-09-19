@@ -49,6 +49,44 @@
 #define HNS_RELEASE_GMAIN_BASE 0x03005BD8u
 #define HNS_RELEASE_BATTLE_CONTROLLER_EXEC_FLAGS 0x02000300u
 
+/* DELIBERATELY ABSENT: `gChosenActionByBattler` / `B_ACTION_SWITCH`.
+ *
+ * An earlier revision of this probe carried a guessed release address for gChosenActionByBattler
+ * (0x0200025C from the pinned source map, shifted by the same -4 that moves the runtime-confirmed
+ * battle globals) and used it to corroborate "the AI chose B_ACTION_SWITCH". That address was never
+ * established by semantic correlation, so the constant has been removed rather than left unused in
+ * the source: `gChosenActionByBattler` and `B_ACTION_SWITCH` are NOT VERIFIED and NOT CLAIMED
+ * anywhere in this tool, and no code path can accidentally start trusting them.
+ *
+ * The load-bearing proof of a voluntary opponent switch is the observable gBattlerPartyIndexes
+ * transition with the outgoing mon still alive, read through the production-configured offsets.
+ * See docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md 11.10. */
+
+/* `gBattleStruct` on the official release ROM, and `offsetof(struct BattleStruct,
+ * monToSwitchIntoId)`.
+ *
+ * Provenance for the pointer: the pinned source build reports 0x020000B4; the documented battle-global
+ * shift for this ROM is -4 (see the runtime-proven gMain block above), giving 0x020000B0. Provenance
+ * for the offset: the pinned build's DWARF (probe/dwarf.txt) gives `battlerPartyIndexes` at 225 and
+ * `monToSwitchIntoId` at 229, i.e. 4 bytes for u8[4].
+ *
+ * `OpponentHandleChoosePokemon` sets `gBattleStruct->monToSwitchIntoId[battler]` to a real party index
+ * only on the switch path -- the non-switch path leaves it at PARTY_SIZE -- so a value below
+ * PARTY_SIZE means the AI staged a switch-in for that opponent battler. This is the same field
+ * `AI_TrySwitchOrUseItem` writes as `gBattleStruct->monToSwitchIntoId[battler] =
+ * AI_monToSwitchIntoId[battler]`.
+ *
+ * The pointer address is NOT runtime-confirmed the way the battle globals are, so this read is
+ * OPTIONAL CORROBORATION and is not allowed to gate anything. It is bounds-checked, and when it
+ * fails the tracker still reaches its verdict from the authoritative gBattlerPartyIndexes rewrite
+ * plus the production surface. On the passing run recorded in 11.10 it read back as -1 while a real
+ * switch was in progress; the run was accepted, correctly, without it. A failed read degrades the
+ * reported evidence, never fabricates it and never vetoes it. */
+#define HNS_RELEASE_BATTLE_STRUCT_PTR 0x020000B0u
+
+/* offsetof(struct BattleStruct, monToSwitchIntoId) -- see the block above. */
+#define HNS_BATTLESTRUCT_MON_TO_SWITCH_INTO_ID_OFFSET 229u
+
 /* ABI-verified `struct BattlePokemon` member offsets that the reader configuration does not carry
  * (documented in docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md §3.2 / §6.7). The probe reads the live
  * move list from here so a scenario can name the exact move it is about to select instead of
@@ -57,10 +95,16 @@
 #define HNS_BATTLE_MON_MOVES_COUNT  4
 
 /* Move id 45 is Growl: move category STATUS, power 0, accuracy 100, PP 40 in the pinned H&S 2.0.5
- * move table (app/src/main/java/com/dualdex/pokemon/hns/HeartAndSoul205DataPack.kt). It is the only
- * non-damaging move the scenario may select, because a damaging move would KO the opponent and the
- * player would never faint. Which *menu position* holds it is read from the live move list. */
+ * move table (app/src/main/java/com/dualdex/pokemon/hns/HeartAndSoul205DataPack.kt). Scenario 43
+ * (player faint -> forced replacement) needs a non-damaging move, because a damaging one would KO
+ * the opponent before the player ever faints. Which *menu position* holds it is read from the live
+ * move list, never assumed. NOTE: this move must NOT be used to follow up a damaging move in
+ * Scenario 44 -- a status move overwrites gLastLandedMoves[opponent] and disarms the switch
+ * heuristic (src/battle_ai_switch.c:1059). */
 #define HNS_MOVE_GROWL 45
+/* Move id 75 is Razor Leaf in the pinned H&S 2.0.5 move table. Chikorita learns it at level 6 and
+ * the stage33 Chikorita already has it; it is the damaging move the switch heuristic keys on. */
+#define HNS_MOVE_RAZOR_LEAF 75
 
 /* GBA party-menu cursor, semantically verified against the release ROM in §11.6 Discrepancy 4
  * (`gPartyMenu` at 0x020341FC, `slotId` at +0x09). Used only as developer-probe UI evidence; the
@@ -485,6 +529,370 @@ static bool replacement_tracker_step(ReplacementTracker* t, const Sample* s, uin
 }
 
 /* =========================================================================
+ * Genuine opponent VOLUNTARY switch tracker
+ *
+ * The gap this closes: an AI-controlled Pokémon leaving the field while its HP is still ABOVE ZERO,
+ * with another enemy party member taking its place. That is NOT the faint -> replacement transition
+ * Scenario 41 proves. The engine behaviour being observed is `AI_TrySwitchOrUseItem` emitting
+ * `B_ACTION_SWITCH` (src/battle_ai_main.c:459) followed by `OpponentHandleChoosePokemon` committing
+ * `gBattlerPartyIndexes[battler] = monToSwitchIntoId` (src/battle_script_commands.c:5270).
+ *
+ * Phases, in order:
+ *
+ *   A  the old opponent is genuinely active and alive, and the battle shape is the one this tracker
+ *      is allowed to speak about;
+ *   B  the AI decided to switch this turn (see the Phase B note below);
+ *   C  the real transition, recorded as observed -- an absent/NONE_ACTIVE window is RECORDED WHEN
+ *      SEEN and never required, because a voluntary switch need not pass through one;
+ *   D  the replacement is committed and the production reader follows the authoritative party index.
+ *
+ * Everything below is fatal rather than tolerated:
+ *
+ *   - the outgoing mon reaches hp == 0 at any point: that is faint replacement (Scenario 41), so the
+ *     run fails instead of banking a false positive;
+ *   - `old_slot == new_slot`, or the reported species did not change;
+ *   - the commit lands on a different battler index than the one that was active;
+ *   - the production reader reports the new slot BEFORE `gBattlerPartyIndexes` does (the reader would
+ *     be leading authority), or a frame shows `gBattlerPartyIndexes` already rewritten while the
+ *     production surface still names the OLD slot (the reader would be lagging authority);
+ *   - the battle shape is not a two-battler trainer single: a doubles/multi-shaped state is a
+ *     different question and is rejected rather than reinterpreted.
+ *
+ * Violations latch permanently; a later good frame never clears one.
+ *
+ * PHASE B NOTE -- two readings were considered for "the AI decided to switch", and NEITHER is
+ * allowed to gate the verdict:
+ *
+ *   - `gChosenActionByBattler` / `B_ACTION_SWITCH`: deliberately NOT read. Its official-release
+ *     address was never established by semantic correlation (the source-build map address
+ *     0x0200025C and the -4-shifted candidate 0x02000258 both read 0x00 across overworld and
+ *     in-battle frames, consistent with neither `B_ACTION_NONE` (0xFF) nor an action array the
+ *     engine populates). The constant has been REMOVED from this source so no code path can start
+ *     trusting it.
+ *   - `gBattleStruct->monToSwitchIntoId`: read as OPTIONAL CORROBORATION only. Its pointer is not
+ *     runtime-confirmed either, and on the recorded passing run it read back as -1 while a real
+ *     switch was in progress.
+ *
+ * Phase B therefore advances on the AUTHORITATIVE transition (the gBattlerPartyIndexes rewrite, or
+ * an absent window) and merely REPORTS whether the optional staging read agreed. What separates a
+ * voluntary switch from a faint replacement is not either reading -- it is the order-independent
+ * `hp == 0` latch on the outgoing mon above, which fires before the replacement overwrites
+ * gBattleMons, and which the pure selftests pin directly.
+ * ========================================================================= */
+
+/* Frames of index-newer-than-surface disagreement tolerated before it is a reader-lag violation.
+ * The engine rewrites gBattlerPartyIndexes and updates what the production reader derives from it on
+ * the same or adjacent frames, so a small window is required to avoid flagging normal ordering. */
+#define HNS_VSW_LAG_GRACE_FRAMES 4
+
+typedef enum {
+    VSW_PHASE_A_OLD_ACTIVE = 0,
+    VSW_PHASE_B_AI_CHOSE_SWITCH,
+    VSW_PHASE_C_TRANSITION,
+    VSW_PHASE_D_SWITCH_COMMITTED,
+    VSW_PHASE_COMPLETE
+} VoluntarySwitchPhase;
+
+typedef struct {
+    int phase;
+    int old_slot;
+    int new_slot;
+    uint16_t expect_species;
+    /* Phase A record */
+    int old_battler;
+    uint16_t old_species;
+    uint16_t old_hp;
+    uint16_t old_max_hp;
+    /* Phase D record */
+    int new_battler;
+    uint16_t new_species;
+    uint16_t new_hp;
+    uint16_t new_max_hp;
+    int new_index_at_commit;
+    int prod_slot_at_commit;
+    /* observations */
+    bool saw_old_active;
+    bool saw_ai_chose_switch;
+    bool saw_staging_evidence;
+    bool saw_transition_window;
+    bool saw_absent_window;
+    bool saw_commit;
+    /* latched violations */
+    bool violation_old_fainted;
+    bool violation_shape;
+    bool violation_slot_unchanged;
+    bool violation_species_unchanged;
+    bool violation_species_mismatch;
+    bool violation_battler_changed;
+    bool violation_reader_leads;
+    bool violation_reader_lags;
+    int  liveness_grace;
+    bool violation_old_slot_reappeared;
+} VoluntarySwitchTracker;
+
+/*
+ * Read `gBattleStruct->monToSwitchIntoId[battler]`.
+ *
+ * Returns the staged party index, or -1 when the pointer/member could not be read or the value is
+ * outside `[0, PARTY_SIZE)` (the engine leaves it at PARTY_SIZE when no switch is staged, so an
+ * out-of-range value is "nothing staged", not an error).
+ *
+ * The `gBattleStruct` address is NOT runtime-confirmed on the official release ROM, so this is used
+ * only as decision evidence. When it cannot be read the tracker still proves the switch from
+ * `gBattlerPartyIndexes` plus the production reader in Phase D -- it simply loses the Phase B
+ * corroboration and prints that.
+ */
+#define HNS_PARTY_SIZE 6u
+static int read_mon_to_switch_into(int battler) {
+    if (battler < 0 || battler >= DUALDEX_MAX_BATTLERS) return -1;
+    uint32_t p = 0;
+    if (!read_u32(HNS_RELEASE_BATTLE_STRUCT_PTR, &p)) return -1;
+    if (p < 0x02000000u || p >= 0x02040000u) return -1;
+    uint8_t v = 0;
+    if (!read_u8(p + HNS_BATTLESTRUCT_MON_TO_SWITCH_INTO_ID_OFFSET + (uint32_t)battler, &v)) return -1;
+    if ((uint32_t)v >= HNS_PARTY_SIZE) return -1;
+    return (int)v;
+}
+
+static void voluntary_switch_tracker_init(VoluntarySwitchTracker* t, int old_slot, int new_slot,
+                                          uint16_t expect_species) {
+    memset(t, 0, sizeof(*t));
+    t->old_slot = old_slot;
+    t->new_slot = new_slot;
+    t->expect_species = expect_species;
+    t->old_battler = -1;
+    t->new_battler = -1;
+    t->new_index_at_commit = -1;
+    t->prod_slot_at_commit = -1;
+    t->phase = VSW_PHASE_A_OLD_ACTIVE;
+}
+
+/*
+ * mon_to_switch_into: gBattleStruct->monToSwitchIntoId[opponent battler], or -1 when unreadable.
+ *   `OpponentHandleChoosePokemon` writes a real party index there only on the switch path and leaves
+ *   it at PARTY_SIZE otherwise, so a value in [0, PARTY_SIZE) is engine-side staging evidence for a
+ *   switch-in. It is used only to detect that a decision happened; the commit itself is still proved
+ *   by the party index and the production reader in Phase D.
+ *
+ * Returns true once the whole transition is observed.
+ */
+static bool voluntary_switch_tracker_step(
+    VoluntarySwitchTracker* t,
+    const Sample* s,
+    int mon_to_switch_into
+) {
+    /* --- latched, order-independent checks (run even once complete, so a late violation still
+     * latches and is never erased by an earlier good frame) ------------------------------------------------- */
+    if (t->old_battler >= 0 && s->mon_hp[t->old_battler] == 0) {
+        t->violation_old_fainted = true;
+    }
+    /* Keep the LAST observed HP of the outgoing mon while the slot still holds it. Once the
+     * replacement lands, gBattleMons[old_battler] describes the NEW Pokemon, so printing
+     * s->mon_hp[old_battler] after that would silently report the wrong mon's HP. */
+    if (t->old_battler >= 0 && t->phase != VSW_PHASE_COMPLETE &&
+        s->mon_species[t->old_battler] == t->old_species &&
+        s->mon_hp[t->old_battler] > 0) {
+        t->old_hp = s->mon_hp[t->old_battler];
+    }
+    if (s->lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
+        (s->kind != BATTLE_KIND_TRAINER_SINGLE || s->battlers != 2)) {
+        t->violation_shape = true;
+    }
+    /* Reader must never lead authority. The violation is precise: the production surface names
+     * new_slot while the authoritative index for that same battler names NEITHER the old slot (the
+     * switch has not started) NOR the new slot (the switch committed). A legitimate transition
+     * legitimately passes through "reports the new slot while the index still says old", so an
+     * ordinary old->new handover must not be flagged. */
+    if (s->lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
+        s->active_enemy == ACTIVE_ENEMY_SLOT &&
+        s->enemy_slot == t->new_slot &&
+        s->enemy_battler >= 0 &&
+        s->party_index[s->enemy_battler] != (uint8_t)t->new_slot &&
+        s->party_index[s->enemy_battler] != (uint8_t)t->old_slot) {
+        t->violation_reader_leads = true;
+    }
+    if (t->saw_commit && s->lifecycle == BATTLE_LIFECYCLE_ACTIVE &&
+        s->active_enemy == ACTIVE_ENEMY_SLOT && s->enemy_slot == t->old_slot) {
+        t->violation_old_slot_reappeared = true;
+    }
+
+    if (t->phase == VSW_PHASE_COMPLETE) return true;
+
+    if (t->phase == VSW_PHASE_A_OLD_ACTIVE) {
+        if (s->lifecycle != BATTLE_LIFECYCLE_ACTIVE) return false;
+        if (s->kind != BATTLE_KIND_TRAINER_SINGLE) return false;
+        if (s->battlers != 2) return false;
+        if (s->opponent_battlers != 1) return false;
+        if (s->active_enemy != ACTIVE_ENEMY_SLOT) return false;
+        if (s->enemy_slot != t->old_slot) return false;
+        if (s->enemy_battler < 0) return false;
+        if (s->party_index[s->enemy_battler] != (uint8_t)t->old_slot) return false;
+        if (s->enemy_fainted || s->mon_hp[s->enemy_battler] == 0) return false;
+        if (t->expect_species != 0 && s->mon_species[s->enemy_battler] != t->expect_species) {
+            /* Wrong lead: do not silently track whatever happens to be out. */
+            t->violation_species_mismatch = true;
+            return false;
+        }
+
+        t->saw_old_active = true;
+        t->old_battler = s->enemy_battler;
+        t->old_species = s->mon_species[s->enemy_battler];
+        t->old_hp = s->mon_hp[s->enemy_battler];
+        t->old_max_hp = s->mon_max_hp[s->enemy_battler];
+        t->phase = VSW_PHASE_B_AI_CHOSE_SWITCH;
+        printf("  [await-enemy-voluntary-switch] Phase A: old slot %d ACTIVE at frame %d "
+               "(battler=%d species=%u HP=%u/%u; TRAINER_SINGLE, battlers=2, opponentBattlers=1)\n",
+               t->old_slot, s->frame, t->old_battler, t->old_species, t->old_hp, t->old_max_hp);
+        return false;
+    }
+
+    if (t->phase == VSW_PHASE_B_AI_CHOSE_SWITCH) {
+        /* The outgoing mon must stay alive while the decision is made. */
+        if (t->violation_old_fainted) return false;
+
+        const bool staged = (mon_to_switch_into >= 0 && mon_to_switch_into == t->new_slot);
+        if (staged) {
+            t->saw_ai_chose_switch = true;
+            t->saw_staging_evidence = true;
+            printf("  [await-enemy-voluntary-switch] Phase B: optional staging read AGREES at frame "
+                   "%d (gBattleStruct->monToSwitchIntoId[%d]=%d). This is CORROBORATION, not "
+                   "authority: the verdict does not depend on it, and gChosenActionByBattler / "
+                   "B_ACTION_SWITCH are not read at all. Outgoing species %u at HP=%u/%u > 0.\n",
+                   s->frame, t->old_battler, mon_to_switch_into, t->old_species,
+                   s->mon_hp[t->old_battler], t->old_max_hp);
+            t->phase = VSW_PHASE_C_TRANSITION;
+            return false;
+        }
+
+        /* The staging read is OPTIONAL CORROBORATION ONLY.
+         *
+         * It comes from gBattleStruct->monToSwitchIntoId, whose official-release address is NOT
+         * runtime-confirmed (see the note on HNS_RELEASE_BATTLE_STRUCT_PTR above). Making it a hard
+         * gate would let an unproven address decide whether a switch that demonstrably happened is
+         * accepted -- the same mistake the evidence rules already forbid for
+         * gChosenActionByBattler.
+         *
+         * The load-bearing evidence is the authoritative transition with the outgoing mon STILL
+         * ALIVE, so Phase B advances as soon as the engine has begun that transition, whether or
+         * not the optional read agreed. A faint-based replacement is still rejected: the
+         * order-independent latch at the top of this function fires on ANY frame where the outgoing
+         * battler reads 0 HP, and that happens before the replacement overwrites gBattleMons. */
+        const bool transition_began =
+            (s->active_enemy == ACTIVE_ENEMY_NONE_ACTIVE) ||
+            (s->enemy_battler >= 0 && s->party_index[s->enemy_battler] != (uint8_t)t->old_slot);
+        if (transition_began) {
+            printf("  [await-enemy-voluntary-switch] Phase B: transition has begun WITHOUT the "
+                   "optional staging read agreeing (monToSwitchIntoId=%d, partyIndexes[%d]=%u, "
+                   "activeEnemy=%d) at frame %d; proceeding on the authoritative transition alone. "
+                   "Outgoing species %u is still at HP=%u > 0.\n",
+                   mon_to_switch_into,
+                   t->old_battler, t->old_battler >= 0 ? s->party_index[t->old_battler] : 0,
+                   (int)s->active_enemy, s->frame, t->old_species,
+                   t->old_battler >= 0 ? s->mon_hp[t->old_battler] : 0);
+            t->saw_staging_evidence = false;
+            t->phase = VSW_PHASE_C_TRANSITION;
+            return false;
+        }
+        return false;
+    }
+
+    if (t->phase == VSW_PHASE_C_TRANSITION) {
+        if (t->violation_old_fainted) return false;
+        if (s->lifecycle != BATTLE_LIFECYCLE_ACTIVE) return false;
+
+        /* Reader-lags-authority: the index has been rewritten but the production surface keeps
+         * naming the OLD slot for that same battler. One frame of disagreement is the normal
+         * index-then-surface ordering the engine produces, so the violation is only latched once the
+         * disagreement outlives HNS_VSW_LAG_GRACE_FRAMES. */
+        if (s->enemy_battler >= 0 &&
+            s->party_index[s->enemy_battler] == (uint8_t)t->new_slot &&
+            s->active_enemy == ACTIVE_ENEMY_SLOT && s->enemy_slot == t->old_slot) {
+            if (++t->liveness_grace > HNS_VSW_LAG_GRACE_FRAMES) {
+                t->violation_reader_lags = true;
+                return false;
+            }
+        } else {
+            t->liveness_grace = 0;
+        }
+
+        if (s->active_enemy == ACTIVE_ENEMY_NONE_ACTIVE && s->enemy_slot == -1 &&
+            s->opponent_battlers == 0) {
+            t->saw_absent_window = true;
+            t->saw_transition_window = true;
+            printf("  [await-enemy-voluntary-switch] Phase C: absent window at frame %d "
+                   "(active_enemy=NONE_ACTIVE, slot=-1, opponentBattlers=0, absentFlags=0x%02X); "
+                   "outgoing species %u still at HP=%u. Recorded, NOT required.\n",
+                   s->frame, s->absent_flags, t->old_species,
+                   t->old_battler >= 0 ? s->mon_hp[t->old_battler] : 0);
+            t->phase = VSW_PHASE_D_SWITCH_COMMITTED;
+            return false;
+        }
+        if (s->enemy_battler >= 0 && s->party_index[s->enemy_battler] == (uint8_t)t->new_slot) {
+            t->saw_transition_window = true;
+            printf("  [await-enemy-voluntary-switch] Phase C: gBattlerPartyIndexes[%d] rewritten to "
+                   "%d at frame %d (outgoing species %u was last observed alive at HP=%u; the "
+                   "replacement now occupies gBattleMons[%d] as species %u)\n",
+                   s->enemy_battler, t->new_slot, s->frame, t->old_species, t->old_hp,
+                   s->enemy_battler, s->mon_species[s->enemy_battler]);
+            t->phase = VSW_PHASE_D_SWITCH_COMMITTED;
+            return false;
+        }
+        return false;
+    }
+
+    if (t->phase == VSW_PHASE_D_SWITCH_COMMITTED) {
+        if (t->violation_old_fainted) return false;
+        if (s->lifecycle != BATTLE_LIFECYCLE_ACTIVE) return false;
+
+        if (s->active_enemy == ACTIVE_ENEMY_SLOT &&
+            s->enemy_slot == t->new_slot &&
+            s->enemy_battler >= 0 &&
+            s->party_index[s->enemy_battler] == (uint8_t)t->new_slot &&
+            !s->enemy_fainted &&
+            s->mon_hp[s->enemy_battler] > 0) {
+
+            if (t->old_battler >= 0 && s->mon_hp[t->old_battler] == 0) {
+                t->violation_old_fainted = true;
+                return false;
+            }
+            if (t->new_slot == t->old_slot) { t->violation_slot_unchanged = true; return false; }
+            if (s->mon_species[s->enemy_battler] == t->old_species) {
+                t->violation_species_unchanged = true;
+                return false;
+            }
+            if (t->old_battler >= 0 && s->enemy_battler != t->old_battler) {
+                t->violation_battler_changed = true;
+                return false;
+            }
+            /* Production reader must agree with the authoritative index on this same frame. */
+            if (s->enemy_slot != (int)s->party_index[s->enemy_battler]) {
+                t->violation_reader_leads = true;
+                return false;
+            }
+
+            t->saw_commit = true;
+            t->new_battler = s->enemy_battler;
+            t->new_species = s->mon_species[s->enemy_battler];
+            t->new_hp = s->mon_hp[s->enemy_battler];
+            t->new_max_hp = s->mon_max_hp[s->enemy_battler];
+            t->new_index_at_commit = (int)s->party_index[s->enemy_battler];
+            t->prod_slot_at_commit = s->enemy_slot;
+            t->phase = VSW_PHASE_COMPLETE;
+            printf("  [await-enemy-voluntary-switch] Phase D: VOLUNTARY SWITCH committed at frame %d "
+                   "(slot %d -> %d, battler=%d, species %u -> %u, new HP=%u/%u; outgoing species %u "
+                   "was last observed ALIVE at HP=%u; gBattlerPartyIndexes=%d, production slot=%d)\n",
+                   s->frame, t->old_slot, t->new_slot, t->new_battler, t->old_species, t->new_species,
+                   t->new_hp, t->new_max_hp, t->old_species, t->old_hp,
+                   t->new_index_at_commit, t->prod_slot_at_commit);
+            return true;
+        }
+        return false;
+    }
+
+    return false;
+}
+
+/* =========================================================================
  * Strict player faint -> forced-replacement tracker
  *
  * Same phase discipline as the opponent ReplacementTracker, with the two things the player side
@@ -714,11 +1122,11 @@ static bool player_replacement_tracker_step(PlayerReplacementTracker* t, const S
                         return false;
                     }
                     t->saw_replacement = true;
-                    t->commit_frame = s->frame;
                     t->new_battler = nb;
                     t->new_hp = s->mon_hp[nb];
                     t->new_max_hp = s->mon_max_hp[nb];
                     t->new_species = s->mon_species[nb];
+                    t->commit_frame = s->frame;
                     t->phase = PLAYER_REPL_PHASE_COMPLETE;
                     continue;
                 }
@@ -736,6 +1144,52 @@ static bool player_replacement_tracker_step(PlayerReplacementTracker* t, const S
  * The scenario's real shape (Chikorita in slot 0, Hoothoot in slot 1, one opponent Hoothoot) is
  * used as the fixture so the negative cases exercise the same numbers as the ROM run.
  */
+/* Build a Sample for the voluntary-switch pure tests.
+ *
+ *   opp_index      authoritative gBattlerPartyIndexes[1] -- what the ENGINE has done
+ *   prod_reports   what the PRODUCTION READER reports as the active enemy slot
+ *   old_hp         HP of the OUTGOING party member (slot 0), tracked explicitly so "the old mon
+ *                  fainted" can be expressed without changing which battler the index names
+ *   new_hp         HP of the INCOMING party member (slot 1)
+ *   active_hp      HP mirrored into the opponent battler entry
+ *
+ * `opp_index` and `prod_reports` are deliberately separate: the reader-lag / reader-lead violations
+ * exist precisely because the two can disagree, and a model that cannot express the disagreement
+ * cannot test it. */
+static void vsw_test_sample(Sample* s, int frame, int opp_index, int prod_reports,
+                            uint16_t old_hp, uint16_t new_hp, uint16_t old_species,
+                            uint16_t new_species, uint16_t active_hp, int opp_battlers) {
+    memset(s, 0, sizeof(*s));
+    s->frame = frame;
+    s->lifecycle = BATTLE_LIFECYCLE_ACTIVE;
+    s->kind = BATTLE_KIND_TRAINER_SINGLE;
+    s->in_battle = true;
+    s->in_battle_readable = true;
+    s->battlers = 2;
+    s->position[0] = 0;
+    s->position[1] = 1;
+    s->party_index[0] = 0;
+    s->party_index[1] = (uint8_t)opp_index;
+    s->mon_species[0] = 152;                 /* Chikorita */
+    s->mon_hp[0] = 25;
+    s->mon_max_hp[0] = 25;
+    s->mon_species[1] = (opp_index == 0) ? old_species : new_species;
+    s->mon_hp[1] = active_hp;
+    s->mon_max_hp[1] = (old_hp > new_hp ? old_hp : new_hp);
+    if (s->mon_max_hp[1] == 0) s->mon_max_hp[1] = 1;
+    s->enemy_battler = 1;
+    s->enemy_slot = prod_reports;
+    s->active_enemy = (prod_reports < 0) ? ACTIVE_ENEMY_NONE_ACTIVE : ACTIVE_ENEMY_SLOT;
+    s->enemy_fainted = (active_hp == 0);
+    s->opponent_battlers = (uint8_t)opp_battlers;
+    s->enemy_party_count_prod = 2;
+    s->enemy_party_count = 2;
+    s->party_species[0] = old_species;
+    s->party_species[1] = new_species;
+    s->party_max_hp[0] = (old_hp ? old_hp : 1);
+    s->party_max_hp[1] = (new_hp ? new_hp : 1);
+}
+
 static void player_repl_test_sample(Sample* s, int frame, int player_slot, uint16_t player_hp,
                                     uint16_t player_species, bool known, int reported_slot) {
     memset(s, 0, sizeof(*s));
@@ -957,6 +1411,245 @@ static int run_pure_tracker_selftests(void) {
             if (!in_b) { cleared = true; break; }
         }
         ASSERT_TEST(!cleared, "clear_wild_battle_timeout_sim");
+    }
+
+    /* ---- Opponent VOLUNTARY switch ---------------------------------------------------------
+     * These drive the same pure state machine `await-enemy-voluntary-switch` uses. The model is the
+     * contract the live ROM is compared against, so it must express the strict version: the outgoing
+     * mon never faints, the production reader never leads or lags gBattlerPartyIndexes, and the
+     * commit is bound to the battler that was actually out. Violations latch permanently. */
+
+    /* V1: full positive sequence -- old alive, decision, transition, new slot committed. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);   /* slot 0 Ledyba (165) alive */
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1), "vsw_positive_phase_a_not_done");
+        ASSERT_TEST(t.phase == VSW_PHASE_B_AI_CHOSE_SWITCH && t.saw_old_active &&
+                    t.old_species == 165 && t.old_hp == 20, "vsw_positive_phase_a_recorded");
+        vsw_test_sample(&s, 11, 0, 0, 20, 20, 165, 168, 20, 1);   /* decision, old still alive */
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, 1), "vsw_positive_phase_b_not_done");
+        ASSERT_TEST(t.phase == VSW_PHASE_C_TRANSITION && t.saw_ai_chose_switch,
+                    "vsw_positive_phase_b_recorded");
+        /* Frame 12: the index is rewritten but the production surface still names the old slot, so
+         * this is inside the legitimate transition, not a lag violation. */
+        vsw_test_sample(&s, 12, 1, 0, 20, 20, 165, 168, 20, 1);
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1) &&
+                    t.phase == VSW_PHASE_D_SWITCH_COMMITTED && !t.violation_reader_lags,
+                    "vsw_positive_transition_frame");
+        /* Frame 13: production reader now agrees with the authoritative index -> committed. */
+        vsw_test_sample(&s, 13, 1, 1, 20, 20, 165, 168, 20, 1);
+        const bool done = voluntary_switch_tracker_step(&t, &s, -1);
+        ASSERT_TEST(done && t.phase == VSW_PHASE_COMPLETE, "vsw_positive_commit");
+        ASSERT_TEST(t.new_index_at_commit == 1 && t.prod_slot_at_commit == 1,
+                    "vsw_positive_reader_agrees");
+        ASSERT_TEST(t.new_species == 168 && t.new_hp == 20, "vsw_positive_new_mon_recorded");
+        ASSERT_TEST(!t.violation_old_fainted && !t.violation_reader_leads && !t.violation_reader_lags,
+                    "vsw_positive_no_violations");
+    }
+
+    /* V2: the old mon FAINTS -> faint replacement, not a voluntary switch. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s, -1);
+        /* The battler the tracker latched onto drops to 0 HP while still authoritative: that is the
+         * faint path, so it must latch. */
+        s.mon_hp[1] = 0;
+        s.enemy_fainted = true;
+        voluntary_switch_tracker_step(&t, &s, -1);
+        ASSERT_TEST(t.violation_old_fainted, "vsw_negative_old_fainted_latched");
+    }
+
+    /* V3: the optional staging read is NOT a gate.
+     *
+     * The staging value comes from gBattleStruct->monToSwitchIntoId, whose official-release address
+     * is not runtime-confirmed, so it must never be able to veto a transition the authoritative
+     * index has already begun -- the same rule this project already applies to
+     * gChosenActionByBattler. This asserts the current contract: the transition advances without
+     * it, `saw_ai_chose_switch` and `saw_staging_evidence` stay false so no decision evidence is
+     * claimed, and no violation is latched merely because that optional read was unavailable. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1), "vsw_no_decision_phase_a");
+        vsw_test_sample(&s, 11, 1, 0, 20, 20, 165, 168, 20, 1);
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1), "vsw_no_decision_not_complete");
+        ASSERT_TEST(t.phase == VSW_PHASE_C_TRANSITION && !t.saw_ai_chose_switch &&
+                    !t.saw_staging_evidence,
+                    "vsw_no_decision_transition_accepted_without_staging");
+        ASSERT_TEST(!t.violation_old_fainted && !t.violation_reader_leads,
+                    "vsw_no_decision_no_violation");
+    }
+
+    /* V3b: FAIL-CLOSED, and now the load-bearing discriminator.
+     *
+     * With the staging read optional, what separates a voluntary switch from a faint replacement is
+     * the outgoing mon's own HP: the latch fires on ANY frame where the outgoing battler reads 0,
+     * which is before the replacement overwrites gBattleMons. A transition whose outgoing mon ever
+     * read 0 must therefore never be accepted, even when the index transition and the production
+     * surface are otherwise perfect. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s, -1);
+        vsw_test_sample(&s, 11, 0, 0, 20, 20, 165, 168, 0, 1);   /* outgoing mon reaches 0 HP */
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1) && t.violation_old_fainted,
+                    "vsw_faint_latched_order_independent");
+        /* A perfect-looking replacement follows: index 1, production agrees, new species. */
+        vsw_test_sample(&s, 12, 1, 1, 20, 20, 165, 168, 20, 1);
+        const bool done = voluntary_switch_tracker_step(&t, &s, -1);
+        ASSERT_TEST(!done && t.violation_old_fainted && t.phase != VSW_PHASE_COMPLETE,
+                    "vsw_faint_replacement_never_accepted");
+    }
+
+    /* V3c: a PLAYER-side voluntary switch must never satisfy the OPPONENT tracker.
+     *
+     * Scenario 44 legally alternates the player's own active slot to stop attacking once the
+     * outgoing opponent is one hit from fainting. That input must be incapable of fabricating an
+     * opponent transition: the tracker reads only the opponent side (enemy_battler,
+     * gBattlerPartyIndexes[enemy battler], the production opponent resolution), while the player's
+     * own slot, species and HP live on battler 0. This drives a full player alternation and asserts
+     * the opponent tracker neither completes nor latches a violation off it. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);   /* opponent slot 0 alive */
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1), "vsw_player_switch_phase_a");
+        ASSERT_TEST(t.phase == VSW_PHASE_B_AI_CHOSE_SWITCH, "vsw_player_switch_phase_a_recorded");
+        bool any_step_completed = false;
+        for (int i = 0; i < 12; i++) {
+            vsw_test_sample(&s, 11 + i, 0, 0, 20, 20, 165, 168, 20, 1);
+            /* The player swaps its OWN active slot every other turn, which is what the stall does. */
+            s.party_index[0] = (uint8_t)(i % 2);
+            s.mon_species[0] = (i % 2) ? 163 : 152;              /* Hoothoot / Chikorita */
+            s.mon_hp[0] = 17;
+            s.active_player_slot = (i % 2);
+            s.active_player_known = true;
+            if (voluntary_switch_tracker_step(&t, &s, -1)) any_step_completed = true;
+        }
+        ASSERT_TEST(!any_step_completed && !t.saw_commit &&
+                    t.phase == VSW_PHASE_B_AI_CHOSE_SWITCH,
+                    "vsw_player_switch_not_opponent_switch");
+        ASSERT_TEST(!t.violation_old_fainted && !t.violation_reader_leads && !t.violation_reader_lags &&
+                    !t.violation_species_mismatch && !t.violation_battler_changed,
+                    "vsw_player_switch_no_spurious_violation");
+    }
+
+    /* V4: decision observed but the replacement never commits -> no completion. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s, -1);
+        for (int i = 0; i < 20; i++) {
+            vsw_test_sample(&s, 11 + i, 0, 0, 20, 20, 165, 168, 20, 1);
+            voluntary_switch_tracker_step(&t, &s, 1);
+        }
+        ASSERT_TEST(t.phase == VSW_PHASE_C_TRANSITION && !t.saw_commit,
+                    "vsw_negative_decision_without_commit");
+    }
+
+    /* V5: production reader LEADS authority -- reports the new slot while the index says old. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s, -1);
+        /* Production reports slot 1 while the authoritative index names slot 2 -- neither the old
+         * slot (0) nor the new slot (1). The reader would be asserting a switch the engine never
+         * made, so the tracker must latch rather than accept the surface. */
+        vsw_test_sample(&s, 11, 2, 1, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s, -1);
+        ASSERT_TEST(t.violation_reader_leads, "vsw_negative_reader_leads_latched");
+    }
+
+    /* V6: production reader LAGS authority -- index already 1, reader still reports 0. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s, -1);
+        vsw_test_sample(&s, 11, 0, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s, 1);               /* decision -> phase C */
+        /* The index has been rewritten but the production surface keeps reporting the OLD slot for
+         * many frames. The tracker must never complete on index evidence alone: the production
+         * reader is part of the contract, so a switch whose surface never follows is not verified. */
+        bool lag_done = false;
+        for (int i = 0; i < 24 && !lag_done; i++) {
+            vsw_test_sample(&s, 12 + i, 1, 0, 20, 20, 165, 168, 20, 1);
+            lag_done = voluntary_switch_tracker_step(&t, &s, -1);
+        }
+        ASSERT_TEST(!lag_done && t.phase != VSW_PHASE_COMPLETE,
+                    "vsw_negative_reader_lags_no_completion");
+    }
+
+    /* V7: the old slot becomes authoritative again after a committed switch -> violation. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s, -1);
+        vsw_test_sample(&s, 11, 0, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s, 1);
+        vsw_test_sample(&s, 12, 1, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s, -1);
+        vsw_test_sample(&s, 13, 1, 1, 20, 20, 165, 168, 20, 1);
+        const bool ok7 = voluntary_switch_tracker_step(&t, &s, -1);
+        ASSERT_TEST(ok7 && t.phase == VSW_PHASE_COMPLETE && !t.violation_old_slot_reappeared,
+                    "vsw_negative_reappear_committed");
+        /* A further frame in which the OLD slot is authoritative again is a re-appearance. The
+         * tracker's latch is checked before the completed-phase early return, so it still latches. */
+        vsw_test_sample(&s, 14, 0, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s, -1);
+        ASSERT_TEST(t.violation_old_slot_reappeared, "vsw_negative_old_slot_reappeared_latched");
+    }
+
+    /* V8: a doubles-shaped battle is refused outright. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
+        s.kind = BATTLE_KIND_DOUBLES;
+        s.battlers = 4;
+        voluntary_switch_tracker_step(&t, &s, -1);
+        ASSERT_TEST(t.violation_shape, "vsw_negative_doubles_shape_refused");
+    }
+
+    /* V9: wrong lead species -> refuse rather than track whatever is out. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 161, 165, 20, 1);   /* lead is 161, not 165 */
+        voluntary_switch_tracker_step(&t, &s, -1);
+        ASSERT_TEST(t.violation_species_mismatch, "vsw_negative_wrong_lead_species_refused");
+    }
+
+    /* V10: timeout -- neither decision nor commit ever observed. */
+    {
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        for (int i = 0; i < 30; i++) {
+            vsw_test_sample(&s, 10 + i, 0, 0, 20, 20, 165, 168, 20, 1);
+            voluntary_switch_tracker_step(&t, &s, -1);
+        }
+        ASSERT_TEST(t.phase == VSW_PHASE_B_AI_CHOSE_SWITCH && !t.saw_commit,
+                    "vsw_negative_timeout_no_commit");
     }
 
     /* ---- Player faint -> forced replacement ------------------------------------------------
@@ -1651,8 +2344,61 @@ static void do_menusave(Driver* d, Sample* previous, bool* have_previous) {
     printf("  [menusave] in-game save completed via controller input\n");
 }
 
+/* Drive an ALREADY-ACTIVE battle to completion with ordinary controller input: Fight + move slot 0
+ * every turn, declining every modal prompt. Uses the documented battle-controller states (bcmd 17
+ * action selection, 19 move selection, 18 Yes/No, 21 party menu) rather than blind A-mashing.
+ *
+ * Returns false when the battle has not ended within @p max_f frames; the caller decides whether
+ * that is fatal. This never starts a battle and never writes to the machine. */
+static bool drive_battle_to_end(Driver* d, int max_f, Sample* previous, bool* have_previous) {
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+    uint8_t ib = 0;
+    int f = 0;
+    bool ended = false;
+    for (; f < max_f; f++) {
+        read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+        if (!((ib >> d->cfg->main_in_battle_bit) & 1)) { ended = true; break; }
+
+        uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
+        if (bcmd == 17) {          /* action selection: cursor to Fight */
+            uint8_t cur = (ewram_sz > 0x3A4) ? ewram[0x3A4] : 0;
+            if (cur != 0) {
+                hold(d, DUALDEX_BTN_UP, 4, previous, have_previous);
+                hold(d, DUALDEX_BTN_LEFT, 4, previous, have_previous);
+            }
+            hold(d, DUALDEX_BTN_A, 4, previous, have_previous);
+            hold(d, 0, 8, previous, have_previous);
+        } else if (bcmd == 19) {   /* move selection: first move */
+            hold(d, DUALDEX_BTN_A, 4, previous, have_previous);
+            hold(d, 0, 8, previous, have_previous);
+        } else if (bcmd == 18 || bcmd == 21) {
+            /* Yes/No box (shift prompt) or an accidental party menu: decline/cancel. */
+            hold(d, DUALDEX_BTN_B, 4, previous, have_previous);
+            hold(d, 0, 12, previous, have_previous);
+        } else {
+            step_one(d, ((f % 6) < 3) ? DUALDEX_BTN_A : 0, previous, have_previous);
+        }
+    }
+    if (ended) {
+        printf("  [battle] finished after %d frames\n", f);
+        /* Clear the remaining post-battle text so the caller resumes on the overworld, and make
+         * sure the field is really unlocked again: a trainer battle ends inside the NPC's own
+         * post-battle script, and a walk that starts before that script releases the player sees
+         * every direction as blocked. B cancels a stray menu, A advances the message. */
+        for (int k = 0; k < 8; k++) {
+            hold(d, DUALDEX_BTN_B, 6, previous, have_previous);
+            hold(d, 0, 20, previous, have_previous);
+            hold(d, DUALDEX_BTN_A, 6, previous, have_previous);
+            hold(d, 0, 24, previous, have_previous);
+        }
+        hold(d, 0, 60, previous, have_previous);
+    }
+    return ended;
+}
+
 static bool do_walk_tiles(Driver* d, uint32_t btn, const char* dir_name, int tiles, bool allow_blocked,
-                          Sample* previous, bool* have_previous) {
+                          bool allow_battle, Sample* previous, bool* have_previous) {
     for (int t = 0; t < tiles; t++) {
         uint16_t x0 = 0, y0 = 0; uint8_t g0 = 0, m0 = 0;
         read_map_position(&x0, &y0, &g0, &m0);
@@ -1666,11 +2412,40 @@ static bool do_walk_tiles(Driver* d, uint32_t btn, const char* dir_name, int til
             }
             hold(d, 0, 8, previous, have_previous);
             if (moved) break;
-            /* If a wild encounter intercepted the step, flee or clear it cleanly */
+            /* A battle intercepted the step. BEFORE clearing it, prove it is actually a WILD battle:
+             * `clear_wild_battle` is only valid for wild encounters. A trainer battle reached this
+             * way means navigation walked into a trainer's sight line, which is a scenario bug the
+             * caller must fix by choosing a different route -- silently driving the trainer battle
+             * would corrupt the scenario's battle accounting and hide the mistake. */
             uint8_t ib = 0;
             read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
             if ((ib >> d->cfg->main_in_battle_bit) & 1) {
-                clear_wild_battle(d, previous, have_previous);
+                Sample bsample;
+                sample_state(d->cfg, d->frame, 0, &bsample);
+                if (bsample.kind != BATTLE_KIND_WILD_SINGLE && !allow_battle) {
+                    script_error("navigation triggered unexpected trainer battle at (%u,%u) "
+                                 "while attempting %s (battle kind=%s, battlers=%u, "
+                                 "enemy party=%u); refusing to auto-clear a trainer battle "
+                                 "(pass the 'battle' token on this walk to authorize it)",
+                                 x0, y0, dir_name, kind_name(bsample.kind), bsample.battlers,
+                                 bsample.enemy_party_count_prod);
+                    return false;
+                }
+                if (bsample.kind == BATTLE_KIND_WILD_SINGLE) {
+                    clear_wild_battle(d, previous, have_previous);
+                } else {
+                    /* The scenario explicitly authorized this: a trainer stands in the only
+                     * corridor. Report it loudly and win it with ordinary input. */
+                    printf("  [walk] %s at (%u,%u) triggered a %s battle (enemy party %u) -- "
+                           "authorized by the 'battle' token, finishing it\n",
+                           dir_name, x0, y0, kind_name(bsample.kind),
+                           bsample.enemy_party_count_prod);
+                    if (!drive_battle_to_end(d, 30000, previous, have_previous)) {
+                        script_error("walk %s: the trainer battle triggered at (%u,%u) did not "
+                                     "finish within 30000 frames", dir_name, x0, y0);
+                        break;
+                    }
+                }
                 read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
                 if ((ib >> d->cfg->main_in_battle_bit) & 1) {
                     /* clear_wild_battle already called script_error; break to avoid cascaded false steps */
@@ -1712,6 +2487,99 @@ static bool do_walk_tiles(Driver* d, uint32_t btn, const char* dir_name, int til
     return true;
 }
 
+/* Drive a VOLUNTARY player-side switch to @p target_slot with ordinary controller input.
+ *
+ * The same input path the `voluntary-switch` script command uses (action menu cursor 2 is
+ * POKEMON; the in-battle party menu opens a sub-menu whose option 0 is SHIFT), packaged as a
+ * step function so the voluntary-OPPONENT-switch tracker can reuse it while it stalls.
+ *
+ * `*phase` carries the sub-state across calls and is reset to 0 once the engine reports the target
+ * slot as the authoritative active player slot. Returns true on that commit. Never writes memory.
+ */
+static bool player_switch_step(Driver* d, int target_slot, int* phase, int* attempts,
+                               const Sample* s, Sample* previous, bool* have_previous) {
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+    uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
+    uint32_t cb2 = 0;
+    read_u32(HNS_RELEASE_GMAIN_BASE + 0x04u, &cb2);
+    bool in_party_menu = (cb2 >= 0x0819379Cu && cb2 < 0x0819F548u) || (bcmd == 21);
+
+    if (*phase >= 3) {
+        if (s->lifecycle == BATTLE_LIFECYCLE_ACTIVE && s->active_player_known &&
+            s->active_player_slot == target_slot && s->party_index[0] == target_slot) {
+            *phase = 0;
+            return true;
+        }
+        step_one(d, ((d->frame % 6) < 3) ? DUALDEX_BTN_A : 0, previous, have_previous);
+        return false;
+    }
+    if (*phase == 0) {
+        if (bcmd == 17) {
+            uint8_t cur = (ewram_sz > 0x3A4) ? ewram[0x3A4] : 0;
+            if (cur != 2) {
+                if (cur & 1u) {
+                    hold(d, DUALDEX_BTN_LEFT, 4, previous, have_previous);
+                    hold(d, 0, 8, previous, have_previous);
+                }
+                if (!(cur & 2u)) {
+                    hold(d, DUALDEX_BTN_DOWN, 4, previous, have_previous);
+                    hold(d, 0, 8, previous, have_previous);
+                }
+            } else {
+                hold(d, DUALDEX_BTN_A, 6, previous, have_previous);
+                hold(d, 0, 20, previous, have_previous);
+                *phase = 1;
+                *attempts = 0;
+            }
+        } else if (bcmd == 19) {
+            hold(d, DUALDEX_BTN_B, 4, previous, have_previous);
+            hold(d, 0, 8, previous, have_previous);
+        } else {
+            step_one(d, ((d->frame % 4) < 2) ? DUALDEX_BTN_B : 0, previous, have_previous);
+        }
+        return false;
+    }
+    if (*phase == 1) {
+        /* The in-battle party menu is identified by the controller state (bcmd 21) or by the
+         * field callback, and the cursor is read straight from the released party-menu slot byte.
+         * If the menu does not show up within a bounded number of frames the driver cancels out
+         * and re-opens it from the action menu rather than sitting in an unrecognised modal. */
+        if (in_party_menu) {
+            int8_t pslot = -1;
+            read_u8(HNS_RELEASE_PARTY_MENU_SLOT_ID, (uint8_t*)&pslot);
+            if ((int)pslot == target_slot) {
+                hold(d, DUALDEX_BTN_A, 6, previous, have_previous);
+                hold(d, 0, 25, previous, have_previous);
+                *phase = 2;
+            } else if (pslot >= 0 && pslot < 6) {
+                hold(d, (pslot < target_slot) ? DUALDEX_BTN_DOWN : DUALDEX_BTN_UP, 6,
+                     previous, have_previous);
+                hold(d, 0, 15, previous, have_previous);
+            } else {
+                /* Unreadable cursor: cancel back to the action menu and try again. */
+                hold(d, DUALDEX_BTN_B, 6, previous, have_previous);
+                hold(d, 0, 20, previous, have_previous);
+                *phase = 0;
+                *attempts += 1;
+            }
+            return false;
+        }
+        if (*attempts > 6) {
+            hold(d, DUALDEX_BTN_B, 6, previous, have_previous);
+            hold(d, 0, 20, previous, have_previous);
+            *phase = 0;
+            return false;
+        }
+        hold(d, 0, 4, previous, have_previous);
+        return false;
+    }
+    hold(d, DUALDEX_BTN_A, 6, previous, have_previous);
+    hold(d, 0, 30, previous, have_previous);
+    *phase = 3;
+    return false;
+}
+
 static int run_script(Driver* d, const char* script_path) {
     FILE* f = script_path ? fopen(script_path, "r") : stdin;
     if (!f) {
@@ -1728,9 +2596,9 @@ static int run_script(Driver* d, const char* script_path) {
     char line[512];
 
     while (fgets(line, sizeof(line), f)) {
-        char cmd[64] = {0}, a1[256] = {0}, a2[256] = {0}, a3[256] = {0};
+        char cmd[64] = {0}, a1[256] = {0}, a2[256] = {0}, a3[256] = {0}, a4[256] = {0};
         g_script_line++;
-        int n = sscanf(line, "%63s %255s %255s %255s", cmd, a1, a2, a3);
+        int n = sscanf(line, "%63s %255s %255s %255s %255s", cmd, a1, a2, a3, a4);
         if (n <= 0 || cmd[0] == '#') continue;
         /* Ignore a UTF-8 BOM / leading whitespace-only lines. */
         if (cmd[0] == '\n' || cmd[0] == '\r') continue;
@@ -1757,8 +2625,20 @@ static int run_script(Driver* d, const char* script_path) {
         } else if (!strcmp(cmd, "walk")) {
             uint32_t btn = parse_buttons(a1);
             int tiles = a2[0] ? atoi(a2) : 1;
-            bool allow_blocked = !strcmp(a3, "optional");
-            do_walk_tiles(d, btn, a1, tiles, allow_blocked, &previous, &have_previous);
+            /* Trailing tokens, in any order:
+             *   optional -- a blocked step is reported instead of fatal
+             *   battle   -- a TRAINER battle that intercepts the step is reported and finished
+             *               with ordinary input instead of failing closed. Off by default, because
+             *               a trainer battle intercepted by navigation is normally a route bug. */
+            bool allow_blocked = false;
+            bool allow_battle = false;
+            const char* extra[2] = { a3, a4 };
+            for (int i = 0; i < 2; i++) {
+                if (!strcmp(extra[i], "optional")) allow_blocked = true;
+                else if (!strcmp(extra[i], "battle")) allow_battle = true;
+            }
+            do_walk_tiles(d, btn, a1, tiles, allow_blocked, allow_battle,
+                          &previous, &have_previous);
         } else if (!strcmp(cmd, "walk-to")) {
             uint16_t target_x = (uint16_t)atoi(a1);
             uint16_t target_y = (uint16_t)atoi(a2);
@@ -1772,7 +2652,7 @@ static int run_script(Driver* d, const char* script_path) {
                 else if (x > target_x) { btn = DUALDEX_BTN_LEFT; dir_name = "LEFT"; }
                 else if (y < target_y) { btn = DUALDEX_BTN_DOWN; dir_name = "DOWN"; }
                 else if (y > target_y) { btn = DUALDEX_BTN_UP; dir_name = "UP"; }
-                if (!do_walk_tiles(d, btn, dir_name, 1, false, &previous, &have_previous)) {
+                if (!do_walk_tiles(d, btn, dir_name, 1, false, false, &previous, &have_previous)) {
                     script_error("walk-to (%u,%u) failed: blocked while moving %s", target_x, target_y, dir_name);
                     break;
                 }
@@ -2006,6 +2886,30 @@ static int run_script(Driver* d, const char* script_path) {
                     printf("  [autobattle] battle completed cleanly after %d battle frames\n", f);
                 }
             }
+        } else if (!strcmp(cmd, "battle-win")) {
+            /* battle-win <maxFrames>
+             *
+             * Drive an ALREADY-ACTIVE battle to completion with ordinary controller input (see
+             * drive_battle_to_end). This does NOT start a battle: it is for a battle the scenario
+             * deliberately entered by walking into a trainer's sight line. It fails closed if the
+             * battle never ends, and it refuses to run when no battle is active. */
+            int max_f = a1[0] ? atoi(a1) : 30000;
+            uint8_t ib = 0;
+            read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+            if (!((ib >> d->cfg->main_in_battle_bit) & 1)) {
+                script_error("battle-win: no battle is active; this command only finishes a battle "
+                             "the scenario already entered");
+            } else {
+                Sample s0;
+                sample_state(d->cfg, d->frame, 0, &s0);
+                printf("  [battle-win] finishing %s battle (enemy party %u, battlers %u)\n",
+                       kind_name(s0.kind), s0.enemy_party_count_prod, s0.battlers);
+                if (!drive_battle_to_end(d, max_f, &previous, &have_previous)) {
+                    script_error("battle-win: battle did not finish within %d frames", max_f);
+                } else {
+                    printf("  [battle-win] battle ended\n");
+                }
+            }
         } else if (!strcmp(cmd, "await-enemy-replacement")) {
             int old_slot = a1[0] ? atoi(a1) : 0;
             int new_slot = a2[0] ? atoi(a2) : 1;
@@ -2081,6 +2985,407 @@ static int run_script(Driver* d, const char* script_path) {
             } else {
                 printf("  [await-enemy-replacement] OK: %d -> %d complete (old species=%u, replacement species=%u)\n",
                        old_slot, new_slot, tracker.old_species, tracker.new_species);
+            }
+        } else if (!strcmp(cmd, "await-enemy-voluntary-switch")) {
+            /* await-enemy-voluntary-switch <oldSlot> <newSlot> <oldSpecies> <maxFrames>
+             * <oldSpecies> may be 0 to accept whatever lead is out; a non-zero value is REQUIRED to
+             * match, so tracking the wrong lead fails instead of silently proceeding. */
+            int old_slot  = a1[0] ? atoi(a1) : 0;
+            int new_slot  = a2[0] ? atoi(a2) : 1;
+            int old_species = a3[0] ? atoi(a3) : 0;
+            int max_f     = a4[0] ? atoi(a4) : 30000;
+
+            /* All four arguments are REQUIRED: a missing frame budget must fail rather than silently
+             * inherit a default, because "the run had no budget" and "the switch did not happen"
+             * would otherwise be indistinguishable in the evidence. */
+            if (n < 5) {
+                script_error("await-enemy-voluntary-switch needs 4 arguments: "
+                             "<oldSlot> <newSlot> <oldSpecies> <maxFrames> (got %d)", n - 1);
+            }
+            if (old_slot < 0 || new_slot < 0 || old_slot == new_slot) {
+                script_error("await-enemy-voluntary-switch: oldSlot and newSlot must differ and be "
+                             "non-negative (got %d -> %d)", old_slot, new_slot);
+            }
+            if (max_f < 1) {
+                script_error("await-enemy-voluntary-switch: maxFrames must be >= 1 (got %d)", max_f);
+            }
+
+            VoluntarySwitchTracker tracker;
+            voluntary_switch_tracker_init(&tracker, old_slot, new_slot, (uint16_t)old_species);
+
+            printf("  [await-enemy-voluntary-switch] begin: slot %d -> %d%s (budget %d frames)\n",
+                   old_slot, new_slot,
+                   old_species ? " (old species pinned)" : "", max_f);
+            printf("  [await-enemy-voluntary-switch] turn plan: the named move on EVERY turn "
+                   "(a status follow-up would overwrite gLastLandedMoves[opponent])\n");
+
+            /* The arming move must be used on EVERY turn that is meant to be eligible.
+             *
+             * gLastLandedMoves is set on every landed move and is indexed by TARGET
+             * (src/battle_move_resolution.c:2691-2704). A status follow-up such as Growl therefore
+             * REPLACES the damaging entry with a status move, and FindMonWithFlagsAndSuperEffective
+             * bails on a status move (src/battle_ai_switch.c:1059). An earlier revision of this
+             * tracker planned "Razor Leaf once, then Growl" on the assumption that a status move
+             * does not overwrite gLastLandedMoves; the pinned source shows it does, so that plan
+             * could never arm the heuristic for a second turn. */
+            int razor_slot = -1;
+            int move_cursor = 0;
+            bool move_cursor_trusted = false;
+            /* Landed hits that left the outgoing mon alive. A LOWER BOUND on the number of
+             * AI switch decisions taken, not the count itself: the engine rolls once per
+             * eligible turn and this counter only sees the ones that produced damage. */
+            int qualifying_hits = 0;
+            bool prev_opp_hp_valid = false;
+            uint16_t prev_opp_hp = 0;
+
+            /* STALL BUDGET -- why alternating the PLAYER's slot is legitimate, and why it cannot
+             * be mistaken for the opponent transition.
+             *
+             * Only a landed damaging move arms the heuristic. Every other player action overwrites
+             * gLastLandedMoves[opponent] with a status move (Growl), with a resisted move (Tackle is
+             * 1.0x on Spinarak), or clears it (a miss). A POKeMON switch is the single exception:
+             * SwitchInClearSetData (src/battle_main.c:3414) writes only the switching-IN battler's
+             * own entries, so gLastLandedMoves[opponent] and gLastHitBy[opponent] survive intact.
+             *
+             * So once the outgoing mon is within ONE observed hit of fainting, the tracker presses
+             * the ordinary POKeMON menu instead of attacking. That
+             *   - is normal controller-driven gameplay -- the same input path the `voluntary-switch`
+             *     command has used since Scenario 42; it writes no memory,
+             *   - keeps the outgoing mon alive, which is the whole point of the evidence,
+             *   - burns the turn, so the AI re-draws its switch roll,
+             *   - and cannot fabricate anything: the tracker only ever reads the OPPONENT side
+             *     (s->enemy_battler, gBattlerPartyIndexes[enemy battler], the production opponent
+             *     resolution), while the player's own party slot and species live on battler 0 and
+             *     are never consulted by voluntary_switch_tracker_step(). The pure selftest
+             *     `vsw_player_switch_not_opponent_switch` pins exactly that separation. */
+            int max_observed_hit = 0;
+            int stall_target_slot = 1;
+            int stall_phase = 0;
+            int stall_attempts = 0;
+            bool stalled_once = false;
+            int stall_switches = 0;
+
+            for (int f = 0; f < max_f; f++) {
+                Sample s;
+                sample_state(d->cfg, d->frame, 0, &s);
+
+                int staged = -1;
+                if (tracker.old_battler >= 0) {
+                    staged = read_mon_to_switch_into(tracker.old_battler);
+                }
+
+                if (voluntary_switch_tracker_step(&tracker, &s, staged)) break;
+
+                if (tracker.violation_old_fainted || tracker.violation_shape ||
+                    tracker.violation_reader_leads || tracker.violation_reader_lags ||
+                    tracker.violation_species_mismatch || tracker.violation_old_slot_reappeared) {
+                    break;
+                }
+
+                /* Drive the turn with ordinary controller input: confirm FIGHT in the action menu,
+                 * then the arming move located in the LIVE move list (never an assumed menu slot),
+                 * and decline any stray Yes/No with B. The party-menu stall above handles the one
+                 * modal this tracker opens on purpose. */
+                size_t ewram_sz = 0;
+                uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+                uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
+
+                if (tracker.old_battler >= 0) {
+                    const uint16_t ohp = s.mon_hp[tracker.old_battler];
+                    if (prev_opp_hp_valid && ohp > 0 && ohp < prev_opp_hp) {
+                        qualifying_hits++;
+                        const int hit = (int)prev_opp_hp - (int)ohp;
+                        if (hit > max_observed_hit) max_observed_hit = hit;
+                    }
+                    prev_opp_hp = ohp;
+                    prev_opp_hp_valid = true;
+                }
+
+                /* ---- stall instead of landing the hit that would faint the outgoing mon ---- */
+                if (tracker.old_battler >= 0 && max_observed_hit > 0) {
+                    const uint16_t ohp = s.mon_hp[tracker.old_battler];
+                    if (ohp > 0 && (int)ohp <= max_observed_hit && s.lifecycle == BATTLE_LIFECYCLE_ACTIVE) {
+                        if (!stalled_once) {
+                            printf("  [await-enemy-voluntary-switch] STALL: outgoing battler %d is at "
+                                   "HP=%u with an observed max hit of %d, so one more attack would "
+                                   "faint it. Alternating the player's active slot to keep "
+                                   "gLastLandedMoves[%d] armed without attacking.\n",
+                                   tracker.old_battler, ohp, max_observed_hit, tracker.old_battler);
+                            stalled_once = true;
+                        }
+                        if (player_switch_step(d, stall_target_slot, &stall_phase,
+                                               &stall_attempts, &s,
+                                               &previous, &have_previous)) {
+                            stall_switches++;
+                            printf("  [await-enemy-voluntary-switch] STALL: player slot %d in "
+                                   "(switch %d); outgoing battler %d still at HP=%u\n",
+                                   stall_target_slot, stall_switches, tracker.old_battler,
+                                   s.mon_hp[tracker.old_battler]);
+                            stall_target_slot = 1 - stall_target_slot;
+                        }
+                        continue;
+                    }
+                }
+
+                if (bcmd == 17) {          /* action selection: cursor to Fight, confirm */
+                    uint8_t cur = ewram[0x3A4];
+                    if (cur != 0) {
+                        hold(d, (cur & 1u) ? DUALDEX_BTN_LEFT : DUALDEX_BTN_UP, 4, &previous, &have_previous);
+                    } else {
+                        hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
+                    }
+                    hold(d, 0, 8, &previous, &have_previous);
+                } else if (bcmd == 19) {   /* move selection: the arming move, every turn */
+                    const int pb = tracker.old_battler >= 0 ? 1 - tracker.old_battler : 1;
+                    if (razor_slot < 0) razor_slot = probe_find_move_slot(&s, pb, HNS_MOVE_RAZOR_LEAF);
+                    int want = razor_slot;
+                    if (want < 0) want = 0;
+                    /* Ground the model on the cursor the ENGINE reports (ewram[0x3A8]), the same
+                     * way await-player-forced-replacement does: the menu reopens on the last move
+                     * used rather than on slot 0, so a pure dead-reckoning model can desync and
+                     * confirm the wrong move. The observed value is only trusted when it is a real
+                     * 2x2 slot index. */
+                    if (!move_cursor_trusted) {
+                        uint8_t observed = (ewram_sz > 0x3A8) ? ewram[0x3A8] : 0xFF;
+                        move_cursor = (observed <= 3) ? (int)observed : 0;
+                        move_cursor_trusted = true;
+                    }
+                    uint8_t observed_now = (ewram_sz > 0x3A8) ? ewram[0x3A8] : 0xFF;
+                    if (observed_now <= 3) move_cursor = (int)observed_now;
+                    if (move_cursor != want) {
+                        const int cr = move_cursor / 2, cc = move_cursor % 2;
+                        const int tr = want / 2, tc = want % 2;
+                        uint32_t btn = (cr != tr) ? ((tr > cr) ? DUALDEX_BTN_DOWN : DUALDEX_BTN_UP)
+                                                  : ((tc > cc) ? DUALDEX_BTN_RIGHT : DUALDEX_BTN_LEFT);
+                        hold(d, btn, 4, &previous, &have_previous);
+                        hold(d, 0, 8, &previous, &have_previous);
+                        if (btn == DUALDEX_BTN_DOWN) move_cursor += 2;
+                        else if (btn == DUALDEX_BTN_UP) move_cursor -= 2;
+                        else if (btn == DUALDEX_BTN_RIGHT) move_cursor += 1;
+                        else move_cursor -= 1;
+                        continue;
+                    }
+                    hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
+                    hold(d, 0, 8, &previous, &have_previous);
+                } else if (bcmd == 18 || bcmd == 21) {
+                    hold(d, DUALDEX_BTN_B, 4, &previous, &have_previous);
+                    hold(d, 0, 12, &previous, &have_previous);
+                } else {
+                    step_one(d, ((f % 6) < 3) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
+                }
+            }
+
+            const bool any_violation = tracker.violation_old_fainted || tracker.violation_shape ||
+                tracker.violation_slot_unchanged || tracker.violation_species_unchanged ||
+                tracker.violation_species_mismatch || tracker.violation_battler_changed ||
+                tracker.violation_reader_leads || tracker.violation_reader_lags ||
+                tracker.violation_old_slot_reappeared;
+
+            if (tracker.violation_old_fainted) {
+                script_error("await-enemy-voluntary-switch: outgoing battler %d reached hp == 0 "
+                             "before any voluntary switch committed -- this is faint replacement "
+                             "(Scenario 41), NOT a voluntary switch (qualifying hits=%d, "
+                             "observed max hit=%d, stall entered=%s, stall switches=%d)",
+                             tracker.old_battler, qualifying_hits, max_observed_hit,
+                             stalled_once ? "yes" : "no", stall_switches);
+            } else if (tracker.violation_shape) {
+                script_error("await-enemy-voluntary-switch: battle shape was not "
+                             "TRAINER_SINGLE with exactly 2 battlers; refusing to interpret it");
+            } else if (tracker.violation_species_mismatch) {
+                script_error("await-enemy-voluntary-switch: expected old species %u but the active "
+                             "opponent was a different species; refusing to track the wrong lead",
+                             (unsigned)tracker.expect_species);
+            } else if (tracker.violation_reader_leads) {
+                script_error("await-enemy-voluntary-switch: the production reader reported the new "
+                             "slot before gBattlerPartyIndexes did (reader would be leading "
+                             "authority)");
+            } else if (tracker.violation_reader_lags) {
+                script_error("await-enemy-voluntary-switch: gBattlerPartyIndexes was already "
+                             "rewritten while the production reader still named the old slot "
+                             "(reader would be lagging authority)");
+            } else if (tracker.violation_slot_unchanged) {
+                script_error("await-enemy-voluntary-switch: committed slot equals old slot %d",
+                             old_slot);
+            } else if (tracker.violation_species_unchanged) {
+                script_error("await-enemy-voluntary-switch: species unchanged (%u); the reported "
+                             "battler is the same Pokemon", (unsigned)tracker.old_species);
+            } else if (tracker.violation_battler_changed) {
+                script_error("await-enemy-voluntary-switch: commit landed on a different battler "
+                             "index than the outgoing one");
+            } else if (tracker.violation_old_slot_reappeared) {
+                script_error("await-enemy-voluntary-switch: the old slot %d became authoritative "
+                             "again after the switch", old_slot);
+            } else if (tracker.phase != VSW_PHASE_COMPLETE) {
+                script_error("await-enemy-voluntary-switch %d->%d TIMED OUT after %d frames with no "
+                             "voluntary switch: saw old active=%s, saw AI switch decision=%s, "
+                             "saw transition=%s, saw absent window=%s, saw commit=%s "
+                             "(qualifying damaging hits=%d)",
+                             old_slot, new_slot, max_f,
+                             tracker.saw_old_active ? "yes" : "no",
+                             tracker.saw_ai_chose_switch ? "yes" : "no",
+                             tracker.saw_transition_window ? "yes" : "no",
+                             tracker.saw_absent_window ? "yes" : "no",
+                             tracker.saw_commit ? "yes" : "no", qualifying_hits);
+            } else if (any_violation) {
+                script_error("await-enemy-voluntary-switch: latched violation(s) present");
+            } else {
+                printf("  [await-enemy-voluntary-switch] qualifying damaging hits before the "
+                       "switch: %d (lower bound on the AI decisions taken)\n", qualifying_hits);
+                printf("  [await-enemy-voluntary-switch] OK: VOLUNTARY SWITCH %d -> %d observed "
+                       "(species %u -> %u; old battler %d stayed at HP=%u; "
+                       "gBattlerPartyIndexes=%d == production slot %d)\n",
+                       old_slot, new_slot, (unsigned)tracker.old_species,
+                       (unsigned)tracker.new_species, tracker.old_battler,
+                       tracker.old_hp, tracker.new_index_at_commit, tracker.prod_slot_at_commit);
+            }
+        } else if (!strcmp(cmd, "engage")) {
+            /* engage <DIR> <maxPresses>
+             *
+             * Make a trainer start the battle WITHOUT polluting the battle's first action menu.
+             *
+             * A trainer whose sight line the player walks into starts the battle by itself; a
+             * trainer whose facing happens to point elsewhere does not, and then the player has to
+             * talk to them. This command covers both: it turns the player to face DIR (a step into
+             * a blocked tile turns without moving) and then presses A until `gMain.inBattle`
+             * asserts -- but if a battle is ALREADY active when it runs, it presses nothing at all,
+             * so an approach that triggered the sight line still reaches `damage-probe` with the
+             * action menu untouched. Ordinary controller input only. */
+            uint32_t btn = parse_buttons(a1);
+            int max_presses = a2[0] ? atoi(a2) : 8;
+            uint8_t ib = 0;
+            read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+            if (((ib >> d->cfg->main_in_battle_bit) & 1)) {
+                printf("  [engage] a battle was already active on entry; no input sent\n");
+            } else {
+                hold(d, btn, 6, &previous, &have_previous);
+                hold(d, 0, 20, &previous, &have_previous);
+                bool started = false;
+                for (int i = 0; i < max_presses && !started; i++) {
+                    hold(d, DUALDEX_BTN_A, 6, &previous, &have_previous);
+                    hold(d, 0, 40, &previous, &have_previous);
+                    read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+                    started = ((ib >> d->cfg->main_in_battle_bit) & 1);
+                }
+                if (!started) {
+                    script_error("engage %s: no battle started after %d A presses", a1, max_presses);
+                } else {
+                    printf("  [engage] battle started after %d A presses\n", 1);
+                }
+            }
+        } else if (!strcmp(cmd, "damage-probe")) {
+            /* damage-probe <moveId> <maxTurns>
+             *
+             * DIAGNOSTIC ONLY: this asserts nothing. It drives an ALREADY-ACTIVE single battle with
+             * one named move -- located in the LIVE move list, never an assumed menu slot -- and
+             * prints the opponent's HP trajectory, so a source-derived damage prediction can be
+             * checked against the ROM before any lifecycle claim is made on top of it.
+             *
+             * Ordinary controller input only; it never writes to the machine. Critical-hit status is
+             * NOT read from memory (that would need a speculative address); it is reported as
+             * UNKNOWN and inferred, if at all, from the measured damage magnitude. */
+            int move_id = a1[0] ? atoi(a1) : 0;
+            int max_turns = a2[0] ? atoi(a2) : 4;
+            uint8_t ib = 0;
+            read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+            if (!((ib >> d->cfg->main_in_battle_bit) & 1)) {
+                script_error("damage-probe: no battle is active; this command only measures a battle "
+                             "the scenario already entered");
+            } else {
+                Sample s0;
+                sample_state(d->cfg, d->frame, 0, &s0);
+                printf("  [damage-probe] move=%d maxTurns=%d kind=%s battlers=%u enemyParty=%u "
+                       "activeEnemy=%s slot=%d battler=%d at frame %d\n",
+                       move_id, max_turns, kind_name(s0.kind), s0.battlers,
+                       s0.enemy_party_count_prod, active_enemy_name(s0.active_enemy),
+                       s0.enemy_slot, s0.enemy_battler, s0.frame);
+                if (s0.kind != BATTLE_KIND_TRAINER_SINGLE && s0.kind != BATTLE_KIND_WILD_SINGLE) {
+                    script_error("damage-probe: only single battles are supported (kind=%s)",
+                                 kind_name(s0.kind));
+                }
+                const int opp_battler = probe_resolve_opponent_battler(&s0);
+                printf("  [damage-probe] opponent battler=%d species=%u hp=%u/%u\n",
+                       opp_battler,
+                       opp_battler >= 0 ? s0.mon_species[opp_battler] : 0,
+                       opp_battler >= 0 ? s0.mon_hp[opp_battler] : 0,
+                       opp_battler >= 0 ? s0.mon_max_hp[opp_battler] : 0);
+            }
+            {
+                int move_cursor = 0;
+                bool move_cursor_trusted = false;
+                int turn = 0;
+                bool in_action_menu = false;
+                uint16_t last_hp = 0xFFFF;
+                Sample sp;
+                sample_state(d->cfg, d->frame, 0, &sp);
+                const int opp_battler = probe_resolve_opponent_battler(&sp);
+                const int budget = max_turns * 6000 + 6000;
+                for (int f = 0; f < budget; f++) {
+                    read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
+                    if (!((ib >> d->cfg->main_in_battle_bit) & 1)) {
+                        printf("  [damage-probe] battle ended after %d turns (frame %d)\n",
+                               turn, d->frame);
+                        break;
+                    }
+                    Sample s;
+                    sample_state(d->cfg, d->frame, 0, &s);
+                    const int ob = opp_battler >= 0 ? opp_battler : probe_resolve_opponent_battler(&s);
+                    if (ob >= 0 && s.mon_hp[ob] != last_hp) {
+                        if (last_hp != 0xFFFF) {
+                            const int delta = (int)last_hp - (int)s.mon_hp[ob];
+                            printf("  [damage-probe] turn=%d battler=%d species=%u hp %u -> %u "
+                                   "(delta %d of maxHP %u) faint=%s crit=UNKNOWN frame=%d\n",
+                                   turn, ob, s.mon_species[ob], last_hp, s.mon_hp[ob], delta,
+                                   s.mon_max_hp[ob], s.mon_hp[ob] == 0 ? "YES" : "no", s.frame);
+                        }
+                        last_hp = s.mon_hp[ob];
+                    }
+                    size_t ewram_sz = 0;
+                    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+                    uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
+                    if (bcmd == 17) {
+                        if (!in_action_menu) { turn++; in_action_menu = true; }
+                        uint8_t cur = (ewram_sz > 0x3A4) ? ewram[0x3A4] : 0;
+                        if (cur != 0) {
+                            hold(d, (cur & 1u) ? DUALDEX_BTN_LEFT : DUALDEX_BTN_UP, 4,
+                                 &previous, &have_previous);
+                        }
+                        hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
+                        hold(d, 0, 8, &previous, &have_previous);
+                    } else if (bcmd == 19) {
+                        in_action_menu = false;
+                        const int pb = ob >= 0 ? 1 - ob : 1;
+                        const int want_slot = probe_find_move_slot(&s, pb, (uint16_t)move_id);
+                        if (want_slot < 0) {
+                            script_error("damage-probe: move %d is not in the player battler %d live "
+                                         "move list (%u,%u,%u,%u); refusing to use a different move",
+                                         move_id, pb, s.mon_moves[pb][0], s.mon_moves[pb][1],
+                                         s.mon_moves[pb][2], s.mon_moves[pb][3]);
+                            break;
+                        }
+                        if (!move_cursor_trusted) { move_cursor = 0; move_cursor_trusted = true; }
+                        if (move_cursor != want_slot) {
+                            const int cr = move_cursor / 2, cc = move_cursor % 2;
+                            const int tr = want_slot / 2, tc = want_slot % 2;
+                            uint32_t btn = (cr != tr) ? ((tr > cr) ? DUALDEX_BTN_DOWN : DUALDEX_BTN_UP)
+                                                      : ((tc > cc) ? DUALDEX_BTN_RIGHT : DUALDEX_BTN_LEFT);
+                            hold(d, btn, 4, &previous, &have_previous);
+                            hold(d, 0, 8, &previous, &have_previous);
+                            if (btn == DUALDEX_BTN_DOWN) move_cursor += 2;
+                            else if (btn == DUALDEX_BTN_UP) move_cursor -= 2;
+                            else if (btn == DUALDEX_BTN_RIGHT) move_cursor += 1;
+                            else move_cursor -= 1;
+                            continue;
+                        }
+                        hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
+                        hold(d, 0, 8, &previous, &have_previous);
+                    } else if (bcmd == 18 || bcmd == 21) {
+                        hold(d, DUALDEX_BTN_B, 4, &previous, &have_previous);
+                        hold(d, 0, 12, &previous, &have_previous);
+                    } else {
+                        step_one(d, ((f % 6) < 3) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
+                    }
+                    if (turn > max_turns) break;
+                }
             }
         } else if (!strcmp(cmd, "await-enemy-slot")) {
             int target_slot = a1[0] ? atoi(a1) : 0;
@@ -2652,6 +3957,42 @@ static int run_script(Driver* d, const char* script_path) {
                 }
             } else {
                 script_error("assert-party-count expects 'player <n>' or 'enemy <n>', got '%s'", a1);
+            }
+        } else if (!strcmp(cmd, "party-stats")) {
+            /* Developer diagnostic: print every party member exactly as the PRODUCTION reader parsed
+             * it, including the Speed stat the battle engine will use for turn order. A scenario that
+             * depends on turn order (which side writes gLastLandedMoves last) must MEASURE this rather
+             * than assume it. Reads only; never writes. */
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            if (!ewram || ewram_sz == 0) {
+                script_error("party-stats: EWRAM unavailable");
+            }
+            const bool enemy_side = (a1[0] && !strcmp(a1, "enemy"));
+            PartySnapshot snap;
+            memset(&snap, 0, sizeof(snap));
+            uint8_t n = enemy_side
+                ? pokemon_read_enemy_party_gba(probe_read, NULL, ewram, ewram_sz, d->cfg, &snap)
+                : pokemon_read_player_party_gba(probe_read, NULL, ewram, ewram_sz, d->cfg, &snap);
+            printf("  [party-stats] side=%s count=%u activeSlot=%d activeKnown=%d activeBattler=%d "
+                   "ambiguous=%d at frame %d\n",
+                   enemy_side ? "enemy" : "player", n, snap.active_battler_slot,
+                   snap.active_battler_known ? 1 : 0, snap.active_battler_index,
+                   snap.active_enemy_ambiguous ? 1 : 0, d->frame);
+            for (uint8_t i = 0; i < n && i < 6; i++) {
+                const ParsedPokemon* p = &snap.members[i];
+                printf("  [party-stats]   slot %u species=%u lvl=%u hp=%u/%u atk=%u def=%u spe=%u "
+                       "spa=%u spd=%u nature=%u hiddenNature=%u(+%u) ivs=%u/%u/%u/%u/%u/%u "
+                       "evs=%u/%u/%u/%u/%u/%u moves=%u,%u,%u,%u\n",
+                       i, p->species, p->level, p->current_hp, p->max_hp, p->attack, p->defense,
+                       p->speed, p->sp_attack, p->sp_defense, p->nature, p->hidden_nature,
+                       p->hidden_nature_modifier, p->hp_iv, p->attack_iv, p->defense_iv,
+                       p->speed_iv, p->sp_attack_iv, p->sp_defense_iv, p->hp_ev, p->attack_ev,
+                       p->defense_ev, p->speed_ev, p->sp_attack_ev, p->sp_defense_ev,
+                       p->moves[0], p->moves[1], p->moves[2], p->moves[3]);
+            }
+            if (n == 0) {
+                printf("  [party-stats]   (no party members parsed)\n");
             }
         } else if (!strcmp(cmd, "assert-battle-kind")) {
             Sample s;

@@ -40,8 +40,24 @@ class MapScreenView(
         onSectionSelected = { section ->
             // A tap on a map tile is a deliberate browsing selection: it must
             // survive later live updates instead of being overwritten by them.
+            //
+            // A tap can only produce a section the drawn canvas provides, so the
+            // browsed canvas is that section's own region. Keeping the two
+            // consistent means a deliberate tap is never silently discarded by the
+            // drawable-selection check.
+            val region = section.region
+            if (region != null && region.hasCanvas && region != canvas.region) {
+                browseOverride = region
+                canvas = MapScreenPresenter.canvasSelection(
+                    strategy = viewModel.locationStrategy.value,
+                    browseOverride = browseOverride,
+                    liveSection = viewModel.resolvedLocation.value,
+                    current = canvas,
+                )
+                applyCanvas()
+            }
             selection = MapScreenPresenter.onBrowsed(section)
-            renderDetailSheet()
+            publishSelection()
         }
     }
 
@@ -336,7 +352,7 @@ class MapScreenView(
             )
             applyCanvas()
             selection = MapSelection.None
-            renderDetailSheet()
+            publishSelection()
         }.apply {
             val lp = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
                 marginStart = context.dp(DualDexTheme.Spacing.tight / 2)
@@ -403,6 +419,8 @@ class MapScreenView(
             region = canvas.region,
             followsLiveRegion = true,
         )
+        // A new game means new geometry: renderLiveState reconciles the retained
+        // selection against the new strategy's canvas before publishing it.
         renderLiveState()
     }
 
@@ -447,15 +465,24 @@ class MapScreenView(
             }
         }
 
-        // A live selection must never be marked on a canvas that is not drawing
-        // the region that position belongs to.
-        regionMapView.selectedSection = when (val current = selection) {
-            is MapSelection.Live ->
-                current.section.takeIf { it.region == canvas.region }
-            is MapSelection.Browsing -> current.section
-            MapSelection.None -> null
-        }
+        publishSelection()
+    }
 
+    /**
+     * Publish the selection to the renderer and the detail sheet, together.
+     *
+     * Both outputs are derived from one reconciled [selection] on every relevant
+     * event, so the drawn highlight can never outlive the text describing it, and a
+     * selection from another canvas can never be highlighted at its old coordinates.
+     */
+    private fun publishSelection() {
+        val strategy = viewModel.locationStrategy.value
+        selection = MapScreenPresenter.reconcileSelection(selection, strategy, canvas.region)
+        regionMapView.selectedSection = MapScreenPresenter.drawableHighlight(
+            selection = selection,
+            strategy = strategy,
+            canvasRegion = canvas.region,
+        )
         renderDetailSheet()
     }
 

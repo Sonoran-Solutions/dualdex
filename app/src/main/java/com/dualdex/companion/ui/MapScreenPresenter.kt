@@ -156,11 +156,114 @@ object MapScreenPresenter {
     fun onLiveInvalidated(current: MapSelection): MapSelection =
         if (current is MapSelection.Browsing) current else MapSelection.None
 
-    /** Selection state after the user taps a map tile or a region tab. */
+    /**
+     * Selection state after the user deliberately picks a static section by tapping
+     * the canvas.
+     *
+     * Only a real tile tap may reach this. Centering the viewport on the player is
+     * *not* a browsing gesture, so [MapScreenView] must not route it here.
+     */
     fun onBrowsed(section: RegionMapSection): MapSelection = MapSelection.Browsing(section)
+
+    /**
+     * The highlight the renderer should draw for [selection] on the current canvas,
+     * or null when nothing may be highlighted.
+     *
+     * This is a separate drawing path from the live marker: `onDraw` draws
+     * `selectedSection` unconditionally, so a selection left over from another
+     * canvas would be highlighted at its old coordinates. A selection is only
+     * drawable when the active strategy's canvas for the drawn region contains that
+     * exact identity with presentable geometry.
+     */
+    fun drawableHighlight(
+        selection: MapSelection,
+        strategy: LocationStrategy,
+        canvasRegion: RegionId,
+    ): RegionMapSection? {
+        val section = when (selection) {
+            is MapSelection.Live -> selection.section
+            is MapSelection.Browsing -> selection.section
+            MapSelection.None -> return null
+        }
+        return section.takeIf {
+            isDrawableOn(it, strategy, canvasRegion)
+        }
+    }
+
+    /** True when [section] can be drawn on this strategy's canvas for [region]. */
+    fun isDrawableOn(
+        section: RegionMapSection,
+        strategy: LocationStrategy,
+        canvasRegion: RegionId,
+    ): Boolean {
+        if (!section.presentable) return false
+        if (section.region != canvasRegion) return false
+        if (section.gridX < 0 || section.gridY < 0) return false
+        if (section.width < 1 || section.height < 1) return false
+        return sectionsFor(strategy, canvasRegion).any { it.id == section.id }
+    }
+
+    /**
+     * Reconcile a selection with the canvas that is now being drawn.
+     *
+     * Called on every canvas or strategy change, before any live emission, because a
+     * region tab or a game switch must not leave stale detail content or an old
+     * highlight waiting for the next location update.
+     *
+     *  * a selection the new canvas cannot draw is dropped, so the header/kind
+     *    indicator and the highlight are cleared immediately;
+     *  * a browsing selection that the new canvas *does* provide is re-resolved to
+     *    the new canvas's own section, so its identity survives without its
+     *    coordinates being reused across a different rendering;
+     *  * a live selection is left for [onLiveInvalidated] to clear.
+     */
+    fun reconcileSelection(
+        selection: MapSelection,
+        strategy: LocationStrategy,
+        canvasRegion: RegionId,
+    ): MapSelection = when (selection) {
+        MapSelection.None -> MapSelection.None
+        is MapSelection.Live ->
+            if (isDrawableOn(selection.section, strategy, canvasRegion)) {
+                selection
+            } else {
+                MapSelection.None
+            }
+        is MapSelection.Browsing -> {
+            val resolved = sectionsFor(strategy, canvasRegion)
+                .firstOrNull { it.id == selection.section.id }
+            if (resolved != null) MapSelection.Browsing(resolved) else MapSelection.None
+        }
+    }
 
     /** True when the detail sheet's content describes the player's own position. */
     fun isLive(selection: MapSelection): Boolean = selection is MapSelection.Live
+
+    /**
+     * The section a canvas tap should report as a deliberate browsing selection.
+     *
+     * [RegionMapView] reports every `onSectionSelected` through this gate, which is
+     * how the event contract stays testable without an Android view: the renderer and
+     * the tests call the same function, so a change to what counts as a browsing
+     * gesture is caught by both.
+     *
+     * A tap that found no section reports nothing.
+     */
+    fun sectionReportedByTap(hit: RegionMapSection?): RegionMapSection? = hit
+
+    /**
+     * Centering the viewport on the player is a viewport gesture, **not** a browsing
+     * gesture, so it reports no section at all.
+     *
+     * Reporting one would make the screen classify the player's own position as a
+     * static browsing selection, which then survives the player moving away and
+     * survives invalidation. This is enforced structurally by
+     * `MapScreenPresentationTest.centerOnPlayerReportsNoSelection`, which reads the
+     * compiled renderer and fails if centering ever reaches the browsing callback
+     * again. That test is the reason [MapScreenPresenter.sectionReportedByTap] exists
+     * for taps and nothing equivalent exists here.
+     */
+    const val CENTERING_REPORTS_NO_SELECTION: Boolean = true
 
     /** Regions this strategy can actually draw. */
     fun canvasRegions(strategy: LocationStrategy): Set<RegionId> =

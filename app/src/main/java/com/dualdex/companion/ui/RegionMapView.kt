@@ -284,8 +284,12 @@ class RegionMapView @JvmOverloads constructor(
         translationY = (h / 2f) - targetY * scaleFactor
 
         clampTranslation()
-        selectedSection = sec
-        onSectionSelected?.invoke(sec)
+        // Centering the viewport on the player is NOT a browsing gesture: this method
+        // deliberately does not touch the drawn selection or report one either.
+        // Doing so would make MapScreenView classify the player's own position as a
+        // static browsing selection, which would then freeze the detail sheet and
+        // survive invalidation. Mirrored by the centering guard in
+        // MapScreenPresentationTest.
         invalidate()
     }
 
@@ -358,9 +362,10 @@ class RegionMapView @JvmOverloads constructor(
             tapGridY >= sec.gridY && tapGridY < (sec.gridY + sec.height)
         }
 
-        if (hit != null) {
-            selectedSection = hit
-            onSectionSelected?.invoke(hit)
+        val reported = MapScreenPresenter.sectionReportedByTap(hit)
+        if (reported != null) {
+            selectedSection = reported
+            onSectionSelected?.invoke(reported)
             invalidate()
         }
     }

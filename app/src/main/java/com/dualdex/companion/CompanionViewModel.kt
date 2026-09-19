@@ -4,6 +4,9 @@ import android.net.Uri
 import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.pokemon.ParsedPokemon
+import com.dualdex.pokemon.LocationResolution
+import com.dualdex.pokemon.LocationStrategy
+import com.dualdex.pokemon.LocationUnavailableReason
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionMapDatabase
 import com.dualdex.pokemon.RegionMapSection
@@ -121,6 +124,22 @@ class CompanionViewModel(
     private val _resolvedLocation = MutableStateFlow<RegionMapSection?>(null)
     val resolvedLocation: StateFlow<RegionMapSection?> = _resolvedLocation.asStateFlow()
 
+    /**
+     * Why [resolvedLocation] is null, when it is. Null means either "resolved" or
+     * "not attempted yet"; [LocationUnavailableReason] lets the UI say something
+     * true instead of showing a default location.
+     */
+    private val _locationUnavailableReason = MutableStateFlow<LocationUnavailableReason?>(null)
+    val locationUnavailableReason: StateFlow<LocationUnavailableReason?> =
+        _locationUnavailableReason.asStateFlow()
+
+    /**
+     * The map table selected from the active profile. This is the memory-layout
+     * selection: it is never changed by which region the user is browsing.
+     */
+    private val _locationStrategy = MutableStateFlow(LocationStrategy.UNVERIFIED)
+    val locationStrategy: StateFlow<LocationStrategy> = _locationStrategy.asStateFlow()
+
     private var pollingJob: Job? = null
     private val battlePresenceStabilizer = com.dualdex.battle.BattlePresenceStabilizer()
 
@@ -142,6 +161,21 @@ class CompanionViewModel(
         }
     }
 
+    /**
+     * Re-derive the active location strategy from the typed profile.
+     *
+     * A strategy change invalidates every live observation first, so a location
+     * read with the previous game's map table can never be presented under the
+     * new game. This is the only place the strategy changes.
+     */
+    private fun publishLocationStrategy() {
+        val next = LocationStrategy.forProfile(_activeProfile.value)
+        if (_locationStrategy.value != next) {
+            clearLiveMemoryObservations()
+            _locationStrategy.value = next
+        }
+    }
+
     fun setRomInfo(gameId: Int, romTitle: String, profile: RomHackProfile? = null) {
         _activeGameId.value = gameId
         _activeRomTitle.value = romTitle
@@ -151,6 +185,7 @@ class CompanionViewModel(
         }
         // No compatibility evidence was supplied, so live memory stays disabled.
         _runtimeRomTrust.value = RuntimeRomTrust()
+        publishLocationStrategy()
         clearLiveMemoryObservations()
     }
 
@@ -162,6 +197,7 @@ class CompanionViewModel(
             _activeProfile.value = RomHackProfile.UNSUPPORTED
             _activeGameId.value = 0
         }
+        publishLocationStrategy()
         clearLiveMemoryObservations()
     }
 
@@ -177,6 +213,10 @@ class CompanionViewModel(
         _activeRomIdentity.value = identity
         _activeRomTitle.value = identity.displayName
         _runtimeRomTrust.value = RuntimeRomTrust.from(compatibility, identity.sha256)
+
+        // The strategy follows the newly published profile, and publishing it
+        // drops observations taken under the previous one.
+        publishLocationStrategy()
 
         // A ROM that is not exactly verified never authorizes memory parsing, even if a poller was
         // already running. Re-assert the cleared state after publishing the new trust value.
@@ -197,6 +237,7 @@ class CompanionViewModel(
         _activeRomTitle.value = ""
         _activeProfile.value = RomHackProfile.UNSUPPORTED
         _activeGameId.value = 0
+        publishLocationStrategy()
     }
 
     fun setProfile(profile: RomHackProfile) {
@@ -204,6 +245,7 @@ class CompanionViewModel(
         _activeGameId.value = profile.gameId
         _activeRomTitle.value = profile.name
         _runtimeRomTrust.value = RuntimeRomTrust()
+        publishLocationStrategy()
         clearLiveMemoryObservations()
     }
 
@@ -346,18 +388,34 @@ class CompanionViewModel(
         if (loc != null && loc.isValid) {
             playerLocationStabilizer.onValidRead()
             if (loc != _playerLocation.value) {
-                _playerLocation.value = loc
-                val isHns = _activeProfile.value.id == "heart_and_soul" ||
-                    _activeRomTitle.value.contains("HEART", ignoreCase = true)
-                _resolvedLocation.value = RegionMapDatabase.resolveLocationOrNull(gameId, isHns, loc)
+                publishResolvedLocation(loc)
             }
         } else if (playerLocationStabilizer.onInvalidRead() == LiveObservationDecision.CLEAR) {
             // Location previously retained its last known value indefinitely on failed reads.
-            if (_playerLocation.value != null || _resolvedLocation.value != null) {
-                _playerLocation.value = null
-                _resolvedLocation.value = null
-            }
+            clearResolvedLocation(LocationUnavailableReason.INVALID_READ)
         }
+    }
+
+    /**
+     * Resolve a valid raw read through the active location strategy.
+     *
+     * The strategy is chosen from the profile, never from the raw values, so an
+     * unknown map id can only produce "unavailable" -- never another game's
+     * location and never the previously shown one.
+     */
+    private fun publishResolvedLocation(loc: PlayerLocation) {
+        _playerLocation.value = loc
+        val resolution: LocationResolution =
+            RegionMapDatabase.resolveLocationDetailed(_locationStrategy.value, loc)
+        _resolvedLocation.value = resolution.section
+        _locationUnavailableReason.value = resolution.reason
+    }
+
+    /** Drops live location state so no stale marker or name can survive. */
+    private fun clearResolvedLocation(reason: LocationUnavailableReason? = null) {
+        if (_playerLocation.value != null) _playerLocation.value = null
+        if (_resolvedLocation.value != null) _resolvedLocation.value = null
+        _locationUnavailableReason.value = reason
     }
 
     /**
@@ -386,6 +444,7 @@ class CompanionViewModel(
         }
         _playerLocation.value = null
         _resolvedLocation.value = null
+        _locationUnavailableReason.value = null
         playerPartyStabilizer.reset()
         enemyPartyStabilizer.reset()
         playerLocationStabilizer.reset()
@@ -453,8 +512,19 @@ class CompanionViewModel(
         }
     }
 
+    /**
+     * Publish a player location directly (test/UI injection seam).
+     *
+     * Kept consistent with the polling path: a valid location is resolved through
+     * the active strategy, and an absent or invalid one clears live location state
+     * instead of leaving a stale value behind.
+     */
     fun updatePlayerLocation(location: PlayerLocation?) {
-        _playerLocation.value = location
+        if (location == null || !location.isValid) {
+            clearResolvedLocation(LocationUnavailableReason.INVALID_READ)
+            return
+        }
+        publishResolvedLocation(location)
     }
 
     fun updatePlayerStatStages(stages: com.dualdex.battle.StatStages) {

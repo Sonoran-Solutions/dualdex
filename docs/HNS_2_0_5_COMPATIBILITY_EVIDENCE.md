@@ -19,6 +19,29 @@ A compiled symbol is **not** automatically runtime proof of a DualDex reader, an
 
 ---
 
+## 0. Current status (read this first)
+
+**Last updated by:** issue #11 map/location routing work, branched from
+`867d220ca65f0ca53c255b50861a296ddffe8e08` (the PR
+[#50](https://github.com/Sonoran-Solutions/dualdex/pull/50) merge).
+
+| Area | State |
+|---|---|
+| Exact ROM identity / trust gate | RUNTIME VERIFIED; `sha256Hashes` still **intentionally empty** (§1.2, §8) |
+| SaveBlock1 / party / enemy / battle symbols | RUNTIME VERIFIED on the official release ROM (§11.5) |
+| Wild + trainer battle lifecycle, switches, faints | RUNTIME VERIFIED (Scenarios 40-44, §11.9) |
+| Opponent voluntary switch without a faint | RUNTIME VERIFIED (Scenario 44) |
+| Maps / multi-region location routing (**#11**) | **SOURCE VERIFIED + unit tested**; 3 Johto runtime checkpoints RUNTIME VERIFIED; cross-region transitions and app/UI NOT YET VERIFIED (§12) |
+| Map screen presentation | NOT YET APP/UI VERIFIED (§12.8) |
+| Calculator correctness (#9) | NOT YET VERIFIED |
+| `battleUiVerified` / `interactiveControlsVerified` | still `false`, unchanged |
+
+Sections 1-11 are the historical record of the memory/layout phase and the battle-lifecycle phase,
+and are preserved as written. **§12 is the authority for maps and locations**; where an earlier map
+statement conflicts with §12, §12 wins. §7 now carries the updated map rows.
+
+---
+
 ## 1. Exact upstream target
 
 | Item | Value |
@@ -409,7 +432,7 @@ independent of the odds:
 | `gSaveblock3` exact EWRAM address | NOT YET VERIFIED (a 4-byte discrepancy was observed between builds; DualDex does not read it) |
 | H&S `gEnemyPartyCount` runtime consumption | RESOLVED in this PR — `0x342A9` is now the sole authority for the enemy party (`0` -> empty, `1..6` -> exact bounds, `>6` -> fail closed, corrupt slot -> fail closed) and the player-party blind scan is unreachable for H&S. The *values* it takes during a live battle remain NOT RUNTIME VERIFIED |
 | Which nature the party UI should display | NOT YET VERIFIED |
-| H&S map group/map number semantics | NOT YET VERIFIED (tracked in #11) |
+| H&S map group/map number semantics | SUPERSEDED by §12 — SOURCE VERIFIED and unit tested for the exact 2.0.5 build; cross-region runtime transitions still pending (§12.8) |
 
 ---
 
@@ -888,7 +911,10 @@ No broad architecture rewrite was performed (issue #8 is untouched).
 | Active battler index contract (`ActiveEnemyInfo.battler_index`) | SOURCE + unit tested; **RUNTIME VERIFIED** — resolved battler `1` for the opponent and `0` for the player in a live wild battle (§11.3) |
 | Active-enemy / active-battler mapping | SOURCE + COMPILED SYMBOL VERIFIED; fail-closed contract unit tested (native + Kotlin); wild battle RUNTIME VERIFIED (`SLOT`, slot `0`, battler `1`) and proven to stay `NONE_ACTIVE`/`-1` while stale `gBattleMons` words remain (§11.3); trainer battle opponent slot resolution and multi-party replacement RUNTIME VERIFIED (Scenarios 40/41); player switch and player faint with forced replacement RUNTIME VERIFIED (Scenarios 42/43, §11.9); doubles/partner-multi NOT RUNTIME VERIFIED |
 | Battle UI / interactive controls | NOT YET VERIFIED — `battleUiVerified` and `interactiveControlsVerified` remain `false` (unchanged by this PR) |
-| H&S maps / regions | NOT YET VERIFIED (explicitly out of scope; #11) |
+| H&S maps / regions (#11) | **SOURCE VERIFIED** — mapGroup/mapNum identity and region for the exact 2.0.5 build are generated from the pinned upstream checkout (560 locations, 120 sections) and cross-checked against upstream source by an independent oracle test; location routing is fail-closed and unit tested (§12) |
+| H&S Johto/Kanto region-map canvas | **SOURCE VERIFIED** — canvas geometry is generated from the pinned H&S `sRegionMapSections_Johto` / `_Kanto` layout grids; the legacy hand-written canvas shipped 61 coordinates that match no H&S layout (§12.2) |
+| H&S location reads at runtime | **RUNTIME VERIFIED (3 checkpoints)** — New Bark Town `0/0`, Route 30 `0/12`, Violet City `0/2`, decoded by the production reader on the official ROM and matching the pinned table (§12.6). Johto/Kanto/Sinjoh/Alola *transitions* are still NOT RUNTIME VERIFIED |
+| H&S Map screen presentation | **NOT YET APP/UI VERIFIED** — no on-device run of the Map tab against 2.0.5 was performed for this PR |
 | H&S calculator correctness | NOT YET VERIFIED (explicitly out of scope; #9) |
 
 ---
@@ -899,9 +925,11 @@ The exact 2.0.5 ROM is present locally and its SHA-256 is recorded above, and th
 memory-region reader paths did survive runtime checks. It is nonetheless **not** added to
 `heart_and_soul.json` in this phase, because:
 
-* the party, battle and map capabilities that H&S support advertises are still NOT YET VERIFIED, so
-  adding the hash would unlock authoritative live-memory reads for a ROM whose party and battle
-  interpretation has not been validated against real game state;
+* party and battle capabilities that H&S support advertises are still NOT YET VERIFIED, so adding
+  the hash would unlock authoritative live-memory reads for a ROM whose party and battle
+  interpretation has not been validated against real game state everywhere it matters. The
+  *location* reader is now runtime-checked at three Johto points (§12.6), but cross-region
+  transitions, Sinjoh/Alola and the Map screen itself are not (§12.8);
 * `battleUiVerified` and `interactiveControlsVerified` are false and #1/#11/#9 are unresolved;
 * the battle lifecycle work in §6 could not be driven through a live battle at runtime (no legal
   save file), so the battle rows in §6.5 remain NOT RUNTIME VERIFIED.
@@ -1779,3 +1807,289 @@ TRUE was not runtime-attributed.** `AI_TrySwitchOrUseItem` evaluates several ear
 before the default path, and this PR does not claim direct runtime exclusion of every one of them
 from the captured state. Instrumenting the dispatch would require an address this project has not
 established, so the claim rests on the authoritative lifecycle transition instead.
+
+---
+
+## 12. Map and location routing (issue #11)
+
+This section records how DualDex resolves a Heart & Soul 2.0.5 location, what was wrong before, and
+what is still outstanding. It was added after PR
+[#50](https://github.com/Sonoran-Solutions/dualdex/pull/50) merged as
+`867d220ca65f0ca53c255b50861a296ddffe8e08`; that commit is the starting point for this work.
+
+### 12.0 What changed, in one paragraph
+
+H&S is a multi-region build, but DualDex resolved all of it through a single hand-written Johto table
+and a `gameId != Emerald/FireRed -> Johto` fallback. Location identity is now generated from the
+pinned 2.0.5 source, selected by an explicit per-game strategy, validated as a `(mapGroup, mapNum)`
+**pair**, and returns "no authoritative location" instead of a fabricated New Bark Town whenever the
+pair is unknown. Region identity, canvas availability and runtime visit are tracked as three
+separate facts.
+
+### 12.1 Provenance of the map data
+
+| Item | Value |
+|---|---|
+| Repository | `PokemonHnS-Development/pokehns-expansion` |
+| Tag | `Release-v2.0.5` |
+| Commit | `1f42b74dff0e9fe942419845d040663dd829a973` |
+| Generated file | `app/src/main/java/com/dualdex/pokemon/hns/Hns205MapData.kt` |
+| Generator | `tools/hns-map-data/generate_hns_map_data.py` |
+| ROM dependency | **none** |
+| Extracted from | `data/maps/map_groups.json`, `data/maps/<map>/map.json`, `src/data/region_map/region_map_sections.json` (names), `src/data/region_map/region_map_layout_{johto,kanto,jk}.h` |
+| Result | 560 H&S locations, 120 sections (90 presentable, 30 named-without-canvas) |
+
+**SOURCE VERIFIED.** `mapGroup` is the index into `group_order` in `data/maps/map_groups.json`, and
+`mapNum` is the index within that group. Identities are never alphabetically sorted: the generator
+walks the file order. Only maps whose `map.json` declares `"game_version": "hns"` become locations.
+The same table also carries the Emerald and FireRed map groups that DualDex models separately, and
+admitting them would let a non-H&S `mapGroup` look like a valid H&S location.
+
+Regenerate and verify:
+
+```bash
+python3 tools/hns-map-data/generate_hns_map_data.py                 # write
+python3 tools/hns-map-data/generate_hns_map_data.py --print-summary
+python3 tools/hns-map-data/generate_hns_map_data.py --check         # byte-identical vs upstream
+python3 tools/hns-map-data/generate_hns_map_data.py --verify-digests  # no upstream needed
+```
+
+Only **tracked** upstream files are read. `region_map_entries.h` is deliberately not used: upstream
+generates it from `region_map_sections.json` and gitignores it, so a git-only checkout of the pinned
+commit cannot reproduce it. Names therefore come from the tracked Inja input, and positions from the
+tracked layout grids.
+
+**Geometry contract.** A generated `(gridX, gridY, width, height)` is a rectangle whose origin is its
+**top-left tile**, i.e. the bounding box minimum. Consumers add `width/2` and `height/2` themselves
+when they need the visual centre. An earlier revision of this PR emitted the bounding box *centre*
+alongside the full extent, which shifted all 26 multi-tile sections by half their size — Route 29
+drew from x=16 instead of x=15 and so reached into New Bark Town's tile, and Route 30 sat two rows
+south. The upstream oracle below now compares the **full numeric rectangle** for every presentable
+section, not merely whether a section appears on the right canvas.
+
+The generated file records two digests, which is what makes freshness checkable without a network:
+
+| Constant | Meaning |
+|---|---|
+| `SOURCE_DIGEST` | SHA-256 over the exact pinned upstream inputs (the map table, every H&S `map.json`, the sections JSON and the three layout grids) |
+| `MAPPING_DIGEST` | SHA-256 over the generated mapping content, independent of file formatting |
+
+`--verify-digests` reads **only** the committed generated file, re-derives `MAPPING_DIGEST` from the
+records inside it and compares. It needs no ROM, no network and no upstream checkout, so the
+canonical gate always performs a real integrity check instead of skipping one, and a hand-edited
+generated record or a stale regeneration fails `./ci.sh test`. This was confirmed by tampering with a
+single generated record and observing the check reject it.
+
+`--check` upgrades that to a byte-for-byte regeneration against the pinned checkout and is the
+explicit developer command. Regeneration is deterministic and was confirmed byte-identical across
+runs; the generated file embeds no developer path and no timestamp.
+
+### 12.1.1 Two gates: self-contained canonical, explicit source validation
+
+The canonical gate must work from a plain DualDex checkout, so the upstream comparison is **not** part
+of it and no canonical test reaches for a network or an external tree:
+
+| Command | Needs | Content |
+|---|---|---|
+| `./ci.sh test` | nothing external | native runner, tracker selftests, offline digest check, self-contained Kotlin suite |
+| `./ci.sh source-check` | the pinned upstream checkout | byte-for-byte regeneration **and** the Kotlin oracle with `-Pdualdex.hns.upstreamCheck=true` |
+
+`source-check` **fails loudly** when its required inputs are missing, unreachable or at the wrong
+revision; it never degrades to a silent skip. The Kotlin oracle tests read the
+`dualdex.hns.upstreamCheck` system property (or `DUALDEX_HNS_UPSTREAM_CHECK`), which only
+`./ci.sh source-check` sets, so they cannot quietly pass as if they had validated the source. That
+the oracle genuinely asserts was confirmed by tampering with a generated record: with the flag set
+the run fails, without it the same tamper is caught by `--verify-digests` instead.
+
+In CI (`.github/workflows/ci.yml`) the canonical `test` job stays self-contained, and a separate
+`source-validation` job fetches the pinned public upstream at
+`1f42b74dff0e9fe942419845d040663dd829a973` (sparse checkout of `data/maps` and `src/data/region_map`)
+and runs `./ci.sh source-check`. If that fetch ever fails, the job fails visibly rather than the
+cross-check disappearing.
+
+### 12.2 Discrepancies found and fixed
+
+Four independent defects existed in the committed H&S assets and resolver. All four were reproduced
+against the pinned source before being changed.
+
+| # | Defect | Evidence | Disposition |
+|---|---|---|---|
+| 1 | `map_groups_hns.json` group ordering diverged from 2.0.5 from group 25 onward: the two Alola groups and the two Sinjoh groups were absent, so `IndoorDynamic`, `SpecialArea` and the Emerald groups were shifted down | Pinned `group_order`: 25 `gMapGrouop_OutdoorAlola_Hns`, 26 `gMapGroup_IndoorAlola_Hns`, 27 `gMapGroup_IndoorDynamic_Hns`, 28 `gMapGroup_Sinjoh_Hns`, 29 `gMapGroup_IndoorSinjoh_Hns`, 30 `gMapGroup_SpecialArea_Hns`. Committed file had 32 groups and no Alola/Sinjoh group at all | Superseded by generated data (`Hns205MapData.locationGroups`) |
+| 2 | `map_groups_hns.json` group 19 (`IndoorFuchsia`) listed five `FuchsiaCity_SafariZone*` maps that 2.0.5 does not define there, so map numbers 7-11 were bogus | Pinned group 19 has exactly 7 members | Superseded by generated data |
+| 3 | `map_groups_hns.json` group 22 (`IndoorJohtoRoutes`) omitted seven `*BattleTent*` maps, shifting every later map number by seven. Map 13 is `SlateportCity_BattleTentLobby_hns`, which the legacy resolver reported as `TrainerHill_Courtyard` | Pinned group 22 has 35 members; committed had 27 | Superseded by generated data |
+| 4 | `region_map_sections_johto.json` coordinates match **no** H&S region-map view: 61 of 115 differ from the pinned Johto/Kanto grids, and every Kanto city used its vanilla FireRed position (Pallet Town `19,11` instead of `4,11`) | Compared against `sRegionMapSections_Johto/_Kanto/_JK` | Superseded by generated data derived from the layout grids |
+| 5 | `RegionMapView` selected its canvas with `getSections(region)`, which returns Heart & Soul Kanto geometry for every game, so a FireRed session drew Pallet Town at `4,11` instead of its own `5,11` | `MapScreenPresenter.sectionsFor` vs the two tables | Canvas is now selected by the active strategy **and** the browsed region |
+| 6 | The legacy `JOHTO_SECTIONS` table was the single "not Hoenn/Kanto" dumping ground: entries tagged `RegionId.JOHTO` also included FireRed Kanto, Sevii/event sections 2.0.5 does not define, and four Hoenn cities, which made a strategy appear to own canvases it cannot draw | Region ids cross-checked against the generated table | Vanilla canvases are filtered per region so a strategy draws only its own |
+
+Two further defects were in the resolver rather than the assets:
+
+* `resolveHeartAndSoulLocation` ended in `return JOHTO_DEFAULT`, so an unknown H&S map became **New
+  Bark Town**. `resolveLocationOrNull` therefore also returned a fabricated known town, defeating its
+  own "null when unknown" contract. Both paths now resolve to nothing.
+* Indoor groups 1-21 returned the group's parent town without validating `mapNum`, so any map number
+  inside a valid indoor group inherited a real town. A map number is now only valid if the pinned
+  table defines it.
+
+`RegionMapDatabase.JOHTO_DEFAULT` is removed, and the legacy `JOHTO_SECTIONS`/`KANTO_SECTIONS` tables
+are retained only as optional narrative metadata (description, landmarks, gym leader). Identity,
+region and canvas geometry always come from the generated table, so hand-written data can no longer
+override pinned source evidence.
+
+### 12.3 Canvas geometry: which coordinate source is authoritative
+
+Three region-map layouts exist in the H&S build and `src/region_map.c` selects between them
+(`region_map_layout_johto.h`, `_kanto.h`, `_jk.h`). The layout **grid** is what the game renders and
+what the player marker's cursor position is derived from, so the grids are the authoritative canvas
+source for Johto and Kanto.
+
+`region_map_entries.h` was deliberately **not** used for positions. Its `#if IS_HNS` table carries
+the FireRed/Johto map canvas, and its Sinjoh/Alola entries are unresolved `(0, 0)` placeholders. It
+is used only for display names.
+
+Verification of the legacy coordinate defect (grid bbox centre, which is how the legacy values for
+Johto towns were evidently derived): Pallet Town `4,11`, Viridian City `4,8`, Pewter City `4,4`,
+Cinnabar Island `4,14`, New Bark Town `19,10`, Violet City `12,4`, Route 29 `16,10 x4`.
+
+### 12.4 Resolution and region policy
+
+`LocationStrategy` makes the map-table selection explicit and typed:
+
+| Strategy | Selected when | Table |
+|---|---|---|
+| `EMERALD` | profile id `vanilla_emerald` | Hoenn, `mapGroup == 0` |
+| `FIRERED` | profile id `vanilla_firered` | Kanto, `mapGroup == 3` |
+| `HEART_AND_SOUL_205` | profile id `heart_and_soul` | generated 2.0.5 table |
+| `UNVERIFIED` | anything else, including `RomHackProfile.UNSUPPORTED` | none — no authoritative location |
+
+Selection keys on the **typed profile id**, never a name substring such as
+`name.contains("Heart")`, and there is no `else -> Johto` branch. A profile literally named
+"Heart and Soul Remix" selects `UNVERIFIED`.
+
+Outcomes are explicit (`LocationResolution`): `NO_STRATEGY`, `INVALID_READ`, `UNKNOWN_MAP_ID`, or a
+resolved section. Two properties are enforced by construction and by test:
+
+* a negative, out-of-range or undefined `(mapGroup, mapNum)` pair resolves to nothing;
+* an invalid `mapNum` inside an otherwise valid indoor group does not inherit that group's town.
+
+An arbitrary `escapeMapGroup`/`escapeMapNum` is **not** treated as the current map's identity. The
+legacy resolver used the escape warp as a fallback; the pinned 2.0.5 data already carries the correct
+parent section for every gate and interior, so no inference is needed.
+
+Three concepts are kept separate, which is what makes the multi-region behaviour safe:
+
+| Concept | Where it lives | Changed by |
+|---|---|---|
+| Native memory layout / map-table selection | `CompanionViewModel.locationStrategy` | active ROM profile only |
+| The player's actual region | `RegionMapSection.region` + `RegionId` | the generated H&S table |
+| The region the user is browsing | `RegionMapView.currentRegion` | region tab / canvas only |
+
+`RegionId` gains `SINJOH` and `ALOLA` because 2.0.5 genuinely places the player there
+(`region_map_sections.constants.json.txt` defines an explicit Sinjoh/Hisui range and an Alola range).
+Its `hasCanvas` flag records that DualDex has no canvas for them yet.
+
+### 12.5 Presentation policy for each region
+
+| Region | Identity | Canvas | Policy |
+|---|---|---|---|
+| Johto | `RegionId.JOHTO` | 56 sections, pinned H&S Johto grid | Fully presented; live marker supported |
+| Kanto | `RegionId.KANTO` | 34 sections, pinned H&S Kanto grid | Fully presented; live marker supported. **Tagged Kanto, never Johto** |
+| Sinjoh | `RegionId.SINJOH` | none | Named with its true region; `presentable = false`; **no marker** |
+| Alola | `RegionId.ALOLA` | none | Named with its true region; `presentable = false`; **no marker** |
+| Dynamic / link / contest | `region = null` | none | `MAPSEC_DYNAMIC`; no region claimed, no marker |
+
+Sinjoh and Alola are `presentable = false` rather than being placed at their combined-canvas
+coordinates because DualDex does not render the 28x15 combined Johto/Kanto canvas; drawing a marker
+there would place it at coordinates in a grid the app never shows. This is the intentional
+"known but not graphically supported" outcome, and it requires no new artwork.
+
+The mark is applied through a single gate, `RegionMapView.liveMarkerSection`, which requires a valid
+read, a presentable section, matching region, and non-negative coordinates. `centerOnPlayer` is a
+no-op when that gate is closed, so the Center control can never imply a position DualDex does not
+have.
+
+### 12.6 Runtime observations actually obtained
+
+**RUNTIME VERIFIED**, read-only, on the official ROM
+(`sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`, §1.2) with the
+developer-only probe (`tools/hns-runtime-probe/`, not run by CI). No RAM writes, no cheats, no save
+editing, no savestate injection. Saves were copied to `/tmp/hns_obs/` first; source and copy digests
+were identical before and after every run.
+
+```bash
+# boot sequence matches the existing scenarios: title -> load the battery save
+printf 'wait 120\nmash 800\nwait 200\nassert-map <group> <num>\n' > /tmp/obs.txt
+./runtime_battle_probe <mgba_libretro.so> "<official 2.0.5>.gba" \
+    --sav /tmp/hns_obs/<copy>.sav --script /tmp/obs.txt
+```
+
+| Save | Raw read (production reader) | Pinned table identity | Region |
+|---|---|---|---|
+| `hns205.sav` | `0/0` | `NewBarkTown_hns` -> `MAPSEC_NEW_BARK_TOWN` | Johto |
+| `stage34_don_ready.sav` | `0/12` | `Route30_hns` -> `MAPSEC_ROUTE_30` | Johto |
+| `stage44a_violet_city.sav` | `0/2` | `VioletCity_hns` -> `MAPSEC_VIOLET_CITY` | Johto |
+
+All three assert clean (`script errors: 0`). The `0/12` and `0/13` Route 30/31 values independently
+agree with the already-passing Scenario 45, which asserts them against live game state.
+
+**What this does and does not show.** It shows the production reader decodes the exact mapGroup/mapNum
+pair that the pinned H&S table keys on, at three real checkpoints, and that the generated table maps
+those pairs to the right Johto identities. It does **not** show a Kanto, Sinjoh or Alola *transition*:
+no save in `/tmp/hns_baseline/` is past Johto, and manufacturing one would require either long
+progression or a RAM write, both of which are out of scope here.
+
+A separate, unrelated observation: the **from-source** build in
+`~/Projects/upstream-hns/artifacts-default/pokehns.gba` (`sha256 250ca294…c255b`) fails closed in the
+production reader (`0/0` decodes as `255/255`, `gSaveBlock1Ptr` reads `0x00000000` at the release
+address `0x030041D8`). That is expected and correct: only the official release ROM is the supported
+target, and a from-source build has different IWRAM symbol addresses (§2.2, §5.3). The bundled x86_64
+core in `cores/build-x86_64/` cannot load on this host (`libm.so: invalid ELF header`); the host-built
+core at `~/Projects/upstream-hns/mgba-host/mgba_libretro.so` was used instead.
+
+### 12.7 Tests
+
+All canonical (`./ci.sh test`), no ROM and no network required. The upstream cross-check is an
+independent oracle: it re-reads `map_groups.json`, every `map.json`, and the layout grids, and
+**fails loudly** if the pinned checkout is not present rather than silently skipping.
+
+| Suite | Covers |
+|---|---|
+| `Hns205MapDataIntegrityTest` (13) | unique in-range keys, every location resolves to a declared section, independently pinned identities/regions/canvas positions, presentable sections have usable geometry, non-presentable sections have no anchor, generated source is self-describing and path/timestamp free, both digests are recorded and distinct, and the independent upstream source + canvas oracle |
+| `HnsLocationRoutingTest` (27) | Johto towns/routes/interiors/dungeons and Kanto; reordered groups 25-30 and the group 22 shift; Kanto-is-Kanto; invalid/negative/out-of-range ids in both dimensions; invalid `mapNum` inside a valid indoor group; escape warp is not identity; Sinjoh/Alola resolve with their own region but no canvas; dynamic maps; strategy isolation; profile-identity (not name) selection; legacy overload agrees with the typed strategy |
+| `RegionMapDatabaseTest` (11) | section sourcing from the pinned table; H&S canvas sizes (56 Johto / 34 Kanto); Sinjoh/Alola have no canvas; fail-closed resolution incl. the **regression that an unknown H&S map is not New Bark Town** |
+| `HnsLocationTrustBoundaryTest` (10) | recognised-but-unverified H&S, header/profile-name impostors, static data pack is not trust, strategy switches clear live state, H&S -> FireRed -> Emerald -> H&S leaks nothing, exact-hash prerequisite, denied reads vs denied presentation |
+| `MapScreenPresentationTest` (36) | geometry contract (multi-tile rectangles use their top-left origin and do not overlap neighbours); the canvas uses the active strategy's table (H&S Pallet Town x=4 vs FireRed x=5); per-strategy drawable regions; follow-live canvas versus explicit browsing override, including Johto -> Kanto following and a strategy switch returning to follow mode; the live/browsing/none selection model, live-follows-every-change, invalidation clearing, and a browsing selection surviving both live updates and invalidation; header state for no-location/unavailable/live; the production live-marker gate; and view-model invalidation and browsing isolation |
+
+Both suites exercise `MapScreenPresenter`, which is the production object `MapScreenView` and
+`RegionMapView` consume, so the view and the tests cannot drift apart. An earlier revision kept a
+test-local copy of the marker gate, which could pass while the real view was wired incorrectly; that
+included migrating the marker gate into the presenter and removing `RegionMapView`'s own copy.
+
+The upstream cross-check is not skippable under `./ci.sh source-check`. It resolves the pinned
+checkout from `HNS_UPSTREAM_DIR` (accepting both the repo-root-relative value CI uses and an absolute
+path), then the repo root found by walking up to `settings.gradle.kts`, then the conventional sibling
+layout. If none is present the test **fails** with the exact commit and tag to fetch, because an
+oracle that quietly skips is indistinguishable from one that verified nothing.
+
+One regression test fails against the old behaviour by construction:
+`RegionMapDatabaseTest.unknownHnsMapDoesNotBecomeNewBarkTown` asserts that nine unknown pairs resolve
+to `null` and not to the New Bark Town section the old code returned.
+
+`sha256Hashes`, `memoryLayoutVerified`, `battleUiVerified` and `interactiveControlsVerified` are
+**unchanged** by this work, and no native offset was modified.
+
+### 12.8 Remaining #11 acceptance work
+
+* **Kanto, Sinjoh and Alola runtime transitions.** Source and synthetic coverage exists; no runtime
+  checkpoint does. Requires a legal save in Kanto, which requires ordinary progression.
+* **App/UI verification.** No on-device Map-tab run against 2.0.5 was performed for this PR. The
+  browsing/live separation is asserted at the logic level, not on hardware.
+* **Sinjoh and Alola presentation.** Region identity is correct and explicit; a dedicated canvas (or
+  a deliberate decision to keep them name-only) is still open.
+* **Interior-to-parent fidelity.** Interiors resolve to their parent section because that is what
+  `region_map_section` says upstream. DualDex does not present a per-interior name, which is a
+  presentation choice, not a routing defect.
+* **On-device confirmation of the corrected geometry.** The rectangle origins and the strategy-aware
+  canvas are verified against pinned source and by the presentation suite, but no hardware run
+  rendered the corrected map for this PR.
+* **The 30 named-without-canvas sections.** Each is region-known and unmarked; if any should be
+  drawn, that is new presentation work (explicitly out of scope for #11).

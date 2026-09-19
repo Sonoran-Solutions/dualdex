@@ -7,10 +7,10 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import com.dualdex.pokemon.LocationStrategy
 import com.dualdex.pokemon.MapNodeType
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionId
-import com.dualdex.pokemon.RegionMapDatabase
 import com.dualdex.pokemon.RegionMapSection
 import kotlin.math.max
 import kotlin.math.min
@@ -21,10 +21,28 @@ class RegionMapView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
+    /**
+     * The active game's map table. It decides which game's canvas geometry is
+     * drawn, so an Emerald or FireRed session never renders Heart & Soul
+     * coordinates (their Pallet Town differs by one tile).
+     */
+    var strategy: LocationStrategy = LocationStrategy.HEART_AND_SOUL_205
+        set(value) {
+            if (field == value) return
+            field = value
+            reloadSections()
+            invalidate()
+        }
+
+    /**
+     * Which static canvas is drawn. Changing this is browsing only: it does not
+     * touch the active ROM, its trust, or the location strategy, and it clears the
+     * live marker because the live position belongs to whichever region it is in.
+     */
     var currentRegion: RegionId = RegionId.JOHTO
         set(value) {
             field = value
-            sections = RegionMapDatabase.getSections(value)
+            reloadSections()
             invalidate()
         }
 
@@ -34,22 +52,51 @@ class RegionMapView @JvmOverloads constructor(
             invalidate()
         }
 
-    /** Resolved by the active game/profile; never inferred from [currentRegion]. */
+    /**
+     * Resolved live position from the active game/profile. Never inferred from
+     * [currentRegion], and never used to place a marker unless it is presentable
+     * and belongs to the region currently being drawn.
+     */
     var resolvedLocation: RegionMapSection? = null
         set(value) {
             field = value
             invalidate()
         }
 
+    /** The section the detail sheet is describing. */
     var selectedSection: RegionMapSection? = null
         set(value) {
             field = value
             invalidate()
         }
 
+    /**
+     * The section that may carry a live player marker.
+     *
+     * Presentation, region and the browsed canvas must all agree, so browsing a
+     * Kanto canvas can never draw the player's Johto position over it.
+     */
+    val liveMarkerSection: RegionMapSection?
+        get() = MapScreenPresenter.markerSection(
+            resolved = resolvedLocation,
+            playerLocation = playerLocation,
+            canvasRegion = currentRegion,
+        )
+
+    /** Invoked when the user deliberately selects a section by tapping the canvas. */
     var onSectionSelected: ((RegionMapSection) -> Unit)? = null
 
-    private var sections: List<RegionMapSection> = RegionMapDatabase.getSections(currentRegion)
+    private var sections: List<RegionMapSection> = emptyList()
+
+    /**
+     * Canvas sections for the active strategy and browsed region.
+     *
+     * Routed through the presenter so the view and the headless tests ask exactly
+     * the same question.
+     */
+    private fun reloadSections() {
+        sections = MapScreenPresenter.sectionsFor(strategy, currentRegion)
+    }
 
     // Standard GBA Town Map is 28 columns x 15 rows
     private val gridCols = 28
@@ -205,12 +252,19 @@ class RegionMapView @JvmOverloads constructor(
 
     init {
         setWillNotDraw(false)
+        reloadSections()
     }
 
+    /**
+     * Centre the canvas on the live player position.
+     *
+     * A no-op unless a presentable live position exists on the region currently
+     * being drawn, so the control can never imply a position DualDex does not have.
+     */
+    fun canCenterOnPlayer(): Boolean = liveMarkerSection != null
+
     fun centerOnPlayer() {
-        if (playerLocation?.isValid != true) return
-        val sec = resolvedLocation ?: return
-        if (currentRegion != sec.region) return
+        val sec = liveMarkerSection ?: return
 
         val w = width.toFloat()
         val h = height.toFloat()
@@ -230,8 +284,12 @@ class RegionMapView @JvmOverloads constructor(
         translationY = (h / 2f) - targetY * scaleFactor
 
         clampTranslation()
-        selectedSection = sec
-        onSectionSelected?.invoke(sec)
+        // Centering the viewport on the player is NOT a browsing gesture: this method
+        // deliberately does not touch the drawn selection or report one either.
+        // Doing so would make MapScreenView classify the player's own position as a
+        // static browsing selection, which would then freeze the detail sheet and
+        // survive invalidation. Mirrored by the centering guard in
+        // MapScreenPresentationTest.
         invalidate()
     }
 
@@ -304,9 +362,10 @@ class RegionMapView @JvmOverloads constructor(
             tapGridY >= sec.gridY && tapGridY < (sec.gridY + sec.height)
         }
 
-        if (hit != null) {
-            selectedSection = hit
-            onSectionSelected?.invoke(hit)
+        val reported = MapScreenPresenter.sectionReportedByTap(hit)
+        if (reported != null) {
+            selectedSection = reported
+            onSectionSelected?.invoke(reported)
             invalidate()
         }
     }
@@ -478,8 +537,7 @@ class RegionMapView @JvmOverloads constructor(
     }
 
     private fun drawPlayerMarker(canvas: Canvas, startX: Float, startY: Float, tileSize: Float) {
-        if (playerLocation?.isValid != true) return
-        val currentSec = resolvedLocation ?: return
+        val currentSec = liveMarkerSection ?: return
 
         val px = startX + (currentSec.gridX + currentSec.width / 2f) * tileSize
         val py = startY + (currentSec.gridY + currentSec.height / 2f) * tileSize

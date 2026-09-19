@@ -128,6 +128,16 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+
+        // The Heart & Soul source-validation tests are opt-in so the canonical
+        // `./ci.sh test` gate stays self-contained: no ROM, no network, and no
+        // external checkout. `./ci.sh source-check` sets -Pdualdex.hns.upstreamCheck=true
+        // and points HNS_UPSTREAM_DIR at a pinned checkout.
+        unitTests.all {
+            val upstreamCheck =
+                (project.findProperty("dualdex.hns.upstreamCheck") as String?) ?: "false"
+            it.systemProperty("dualdex.hns.upstreamCheck", upstreamCheck)
+        }
     }
 
     compileOptions {

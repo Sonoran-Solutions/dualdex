@@ -29,7 +29,7 @@ jobs:
         with:
           packages: 'platform-tools'
 
-      - name: Run canonical tests
+      - name: Run canonical tests (self-contained)
         run: ./ci.sh test
 
   build:
@@ -53,3 +53,45 @@ jobs:
 
       - name: Run canonical build
         run: ./ci.sh build
+
+  source-validation:
+    name: H&S Source Validation
+    runs-on: ubuntu-latest
+
+    # Explicit, separate job: the canonical gate above is self-contained, and this
+    # one performs the independent cross-check against the pinned upstream source.
+    # It fails loudly when the pinned checkout is missing or at the wrong revision;
+    # it never degrades to a silent skip. No ROM, save or emulator state is used.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+
+      # Pinned public upstream at the exact Release-v2.0.5 commit, limited to the
+      # files actually read (data/maps, src/data/region_map).
+      - name: Fetch pinned Heart & Soul 2.0.5 source
+        uses: actions/checkout@v4
+        with:
+          repository: PokemonHnS-Development/pokehns-expansion
+          ref: 1f42b74dff0e9fe942419845d040663dd829a973
+          path: upstream-hns/pokehns-expansion
+          fetch-depth: 1
+          sparse-checkout: |
+            data/maps
+            src/data/region_map
+          sparse-checkout-cone-mode: true
+
+      - name: Run H&S source validation
+        run: ./ci.sh source-check
+        env:
+          HNS_UPSTREAM_DIR: upstream-hns/pokehns-expansion

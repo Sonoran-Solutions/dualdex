@@ -1,6 +1,7 @@
 package com.dualdex.battle
 
 import com.dualdex.calculator.CalcFieldInput
+import com.dualdex.calculator.CalcGameTypes
 import com.dualdex.calculator.CalcMoveInput
 import com.dualdex.calculator.CalcPokemonInput
 import com.dualdex.calculator.DamageCalculationRequest
@@ -1207,7 +1208,7 @@ fun buildDamageRequest(
         defender = defenderInput,
         move = CalcMoveInput(name = moveName, isCrit = false),
         field = CalcFieldInput(
-            gameType = "singles",
+            gameType = CalcGameTypes.SINGLES,
             weather = weather.calcName,
             terrain = null,
             defenderSide = SideConditions(isReflect = defenderSide.reflect, isLightScreen = defenderSide.lightScreen)

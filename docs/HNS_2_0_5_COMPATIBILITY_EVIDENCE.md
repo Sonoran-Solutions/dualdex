@@ -944,10 +944,13 @@ These were found during this phase and are **not** fixed here.
    capability was unverified. §11 records the resolution: a legal save with a party was produced by
    driving a fresh ROM through normal game progression, and wild-battle enter / HP / faint /
    teardown / exit-edge were captured at runtime against the exact official ROM. What this blocker
-   left behind, and what remains for #1, is the *reach* of that save: doubles and partner/multi still
-   need a save progressed further than Route 29, and an opponent voluntary switch is not reachable on
-   the early Route 30 AI (§11.7). Trainer battles, player switches and the player faint with forced
-   replacement were closed by Scenarios 40-43 (§11.9).
+   left behind, and what remained for #1, was the *reach* of that save: doubles and partner/multi
+   still need a save progressed further than Route 29. Earlier work also provisionally believed that
+   no usable voluntary-switch target existed on early Route 30; **Scenario 44 subsequently disproved
+   that**, using Bug Catcher Don (see §11.10), so the single-battle lifecycle is now complete for the
+   rows §11.7 tracks. Trainer battles, player switches, the player faint with forced replacement and
+   the opponent voluntary switch were closed by Scenarios 40-45 (§11.9, §11.10). Doubles, partner and
+   multi battles remain **NOT RUNTIME VERIFIED**.
 7. **Vanilla behaviour note (not a change in this PR's scope).** The legacy
    `gBattlerPartyIndexes = gBattleMons - 24` derivation is retained only for layouts that do not
    declare `battler_party_indexes_offset` (FireRed, Emerald, LeafGreen, Ruby, Sapphire, Ghost Grey,
@@ -999,8 +1002,11 @@ Most committed regression fixtures are synthetic or source-derived. PR #46 addit
 running (`kHnsReleasePlayerParty0`, `kHnsReleaseEnemyParty0`). These are decoded runtime state — not
 ROM bytes, not save files, not save states, and not copyrighted game assets — and they are the only
 runtime-captured bytes in the repository. No ROM, no ROM-derived data, and no copyrighted content is
-committed. The runtime probe is a developer tool: it is not built by `ci.sh`, not shipped in the APK,
-and does not add the H&S SHA-256 to any profile.
+committed. The runtime probe has two modes with different standing. Its **runtime/emulator mode** is
+developer-only: it needs a ROM and an mGBA core, is never run by CI, and does not add the H&S SHA-256
+to any profile. Its **pure selftest mode** (`--selftest`, no ROM, no core, no environment) is part of
+the canonical gate: `ci.sh test` compiles `runtime_battle_probe.c` into
+`native/build/runtime_battle_probe_selftest` and runs it, alongside the production-reader suite.
 
 ---
 
@@ -1070,7 +1076,7 @@ Result vocabulary: `PASS`, `IMPLEMENTATION BUG`, `SOURCE/RELEASE LAYOUT MISMATCH
 | D. Wild battle exit | `ACTIVE` → `ENDING` → `INACTIVE`; stale `gBattleMons`/`gBattlerPartyIndexes`/`gEnemyPartyCount` cannot keep presence or an active enemy alive | at frame 2878 `gMain.inBattle` clears while `gBattlersCount` **still reads 2**, `gBattlerPositions` **still reads 0,1** and `gBattleMons[0].hp` **still reads 19** | production presence `ABSENT`, lifecycle `INACTIVE`, active-enemy `NONE_ACTIVE` with `slot=-1` on every frame after the clear — the stale words are ignored | **PASS** |
 | E. Trainer battle | `BATTLE_TYPE_TRAINER`, `gEnemyPartyCount` bounds, initial active enemy slot | observed Youngster Mikey trainer battle: `inBattle=true`, `battlers=2`, `typeFlags=0x0000000C` (`BATTLE_TYPE_TRAINER` bit 3 set), positions `0,1`, player slot 0 (Chikorita Lv6), enemy slot 0 (Hoothoot Lv2 species 163 HP 14/14, `eParty=2/2`, `pParty=2/2`) | `ACTIVE` / `TRAINER_SINGLE` / `PRESENT` / `activeEnemy=SLOT` / `resolvedBattler=1` / `resolvedEnemySlot=0` / `opponentBattlers=1` / `activePlayerSlot=0` | **PASS** (Scenario 40) |
 | F. Opponent faint + replacement | fainted opponent never displays a stale previous opponent; replacement resolves to the new exact enemy party index | observed Mikey's Hoothoot KO'd (`hp=25,0`, `fainted=1`); absent-battler replacement window observed (`ae=NONE_ACTIVE, slot=-1, bat=-1, opp=0, fnt=0`); replacement Sentret (slot 1, species 161, HP 16/16) entry observed (`idx=0,1,0,0`, `ae=SLOT, slot=1, bat=1, opp=1, fnt=0`). Hardened Scenario 41 executably enforces all 4 phases via `await-enemy-replacement 0 1 3500` (Phase A: old slot active; Phase B: old slot fainted; Phase C: absent battler window `NONE_ACTIVE`/`slot=-1`; Phase D: replacement slot active with new species and HP) | when HP reached zero, authoritative opponent slot was preserved with `fainted=true`; absent-battler replacement window returned `NONE_ACTIVE` with no slot; once replacement entered, new party slot resolved to slot 1 without retaining old slot 0 | **PASS** (Scenario 41) |
-| G. Opponent switch without faint | slot follows the rewritten `gBattlerPartyIndexes` | not reachable on early Route 30 AI (Youngster Mikey does not execute voluntary switches) | slot follows rewritten index; species/HP are never re-matched | **SYNTHETIC UNIT VERIFIED** for post-switch slot remapping through `gBattlerPartyIndexes`; full voluntary opponent-switch lifecycle remains **NOT RUNTIME VERIFIED** |
+| G. Opponent switch without faint | slot follows the rewritten `gBattlerPartyIndexes` | observed with Bug Catcher Don (Ledyba Lv3 lead / Spinarak Lv3 bench, Route 30): `gBattlerPartyIndexes[1]` went `0 -> 1` while Ledyba was still alive in enemy party slot 0 (`hp>0`), production resolved `activeEnemy=SLOT slot=1` species 167 (Spinarak) on the commit frame, and the battle stayed `ACTIVE`. An earlier note here claimed this was "not reachable on early Route 30 AI"; that was disproven (see §11.10) | slot follows the rewritten index; species/HP are never re-matched | **PASS** (Scenario 44, §11.10) — RUNTIME VERIFIED for the single-battle lifecycle |
 | H. Player switch | player side from `gBattlerPositions`, slot from `gBattlerPartyIndexes` | observed during active trainer battle with 2-Pokémon party (Chikorita slot 0, Hoothoot slot 1): normal controller input navigated battle action menu to POKÉMON (cursor 2), opened party menu (`gPartyMenu` at `0x020341FC`), selected slot 1 via D-pad DOWN (`slotId` changed `0 -> 1`), confirmed SHIFT sub-menu, returned to battle; `gBattlerPartyIndexes[0]` updated `0 -> 1`, battler 0 species updated `152 -> 163`, HP `25 -> 14` | `activePlayerSlot` transitioned `0 -> 1`, `playerKnown=true`, `PartySnapshot.active_battler_slot = 1`, species and HP updated cleanly | **PASS** (Scenario 42) |
 | I. Player faint + forced replacement | `hp == 0`, active player slot withheld during replacement, no stale slot survives | observed with the 2-Pokémon party (Chikorita slot 0, Hoothoot slot 1) against Youngster Mikey: Chikorita attacked only with the non-damaging Growl and reached `hp=0` at frame 8150 while `absent=0x00` and `indexes=0,0,0,0`; the production surface was fail-closed (`known=false`, `slot=-1`) on that same frame and for the entire replacement window; the ROM then showed the ordinary in-battle party menu (`gPartyMenu` `slotId` `0 -> 1` after D-pad DOWN) and two ordinary `A` presses on slot 1 committed the replacement at frame 8747 (`indexes=1,0,0,0`, species `163`, HP `14/14`) | `activePlayerSlot` `0 -> (unknown, slot -1) -> 1`; `PartySnapshot.active_battler_slot` equalled `gBattlerPartyIndexes[0]` on the commit frame and on every frame after it; the opponent was never damaged and never left slot 0 | **PASS** (Scenario 43, §11.9) |
 | J. Stat-stage runtime evidence | `BattlePokemon.statStages` at offset `0x18` produces expected stage transitions | observed a live transition `6 → 5` at `statStages[2]` of `gBattleMons[0]` while the message "…" ran, i.e. a real stage drop read at the declared offset (neutral `6`) | stages are read from the declared offset; the reader does not interpret them further | **PASS** (representative, not exhaustive) |
@@ -1213,7 +1219,6 @@ Pokémon. No UI surface displayed a fabricated opponent at any point.
 The following rows in §11.3 remain `NOT RUNTIME VERIFIED` and must not be read as passing live on the official ROM:
 
 * doubles and partner/multi battles.
-* doubles and partner/multi battles.
 
 Multi-party trainer battles (`BATTLE_TYPE_TRAINER`), opponent faint with replacement by a subsequent party member, in-battle player party switching, the player's own faint with the ROM's forced replacement (§11.9), and — since §11.10 — the opponent's own **voluntary** switch without a faint are now fully **RUNTIME VERIFIED** against the official release ROM. Notably, Scenario 41 executably enforces the complete 4-phase opponent replacement state machine (`await-enemy-replacement 0 1 3500`), proving strict sequential progression through Phase A (old mon active), Phase B (old mon fainted), Phase C (absent battler window with `NONE_ACTIVE`), and Phase D (replacement mon active with new party slot, species, and HP); Scenario 43 enforces the equivalent 4-phase player-side transition (`await-player-forced-replacement 0 1 40000`).
 
@@ -1257,7 +1262,7 @@ native/build/test_runner                 native/tests/test_pokemon_reader.c   62
                                             lifecycle, live-HP sync
 native/build/runtime_battle_probe_selftest
                                          tools/hns-runtime-probe/runtime_battle_probe.c
-                                         --selftest                           68 tests
+                                         --selftest                           75 tests
                                          -> the EVIDENCE HARNESS: autobattle, opponent
                                             replacement, opponent voluntary switch, player
                                             forced replacement state machines
@@ -1578,15 +1583,21 @@ the measured magnitude.
 `scenarios/44-opponent-voluntary-switch.txt`, passing run:
 
 ```text
-Phase A  frame 1589  old slot 0 ACTIVE  battler=1 species=165 HP=15/15
+Phase A  frame 1543  old slot 0 ACTIVE  battler=1 species=165 (Ledyba) HP=15/15
                     (TRAINER_SINGLE, battlers=2, opponentBattlers=1)
-Phase B  frame 2735  transition has begun WITHOUT the optional staging read agreeing
-                    (monToSwitchIntoId=-1, partyIndexes[1]=1); outgoing species 165 still HP=11 > 0
-Phase C  frame 2736  gBattlerPartyIndexes[1] rewritten to 1
-Phase D  frame 3738  VOLUNTARY SWITCH committed: slot 0 -> 1, battler=1, species 165 -> 167,
-                    new HP=15/15; outgoing species 165 last observed ALIVE at HP=3
+Phase B  frame 4145  the authoritative transition has begun (partyIndexes[1]=1, activeEnemy=2);
+                    outgoing species 165 is still at HP=3 > 0.
+                    No AI decision byte is read.
+Phase C  frame 4146  gBattlerPartyIndexes[1] rewritten to 1
+Phase D  frame 4147  VOLUNTARY SWITCH committed: slot 0 -> 1, battler=1, species 165 -> 167;
                     gBattlerPartyIndexes=1 == production slot=1
+                    ENEMY PARTY AT COMMIT: slot 0 = species 165 HP=3/15 STILL ALIVE
+                                          slot 1 = species 167 HP=15/15
 ```
+
+Phase D is a fatal contract, not a print: the commit is rejected unless the production enemy party
+snapshot shows both of those rows on the commit frame. In an earlier passing run the same fields read
+`slot 0 = species 165 HP=11/15` with `slot 1 = species 167 HP=15/15`.
 
 The frame at which the commit is accepted carries the decisive evidence, read through the
 **production** reader on that same frame:
@@ -1620,19 +1631,29 @@ violations, no faint accepted, no switch claimed, and the tracker still refused 
 ```text
 batch 1 (5 attempts)   2 PASS / 3 clean timeout
 batch 2 (6 attempts)   4 PASS / 2 clean timeout
-batch 3 (4 attempts)   3 PASS / 1 clean timeout     <- after the final cleanup pass
+batch 3 (4 attempts)   3 PASS / 1 clean timeout     <- after the cleanup pass
+batch 4 (1 attempt)    1 PASS                       <- first attempt, with the fatal commit-time
+                                                       party contract in place
 -----------------------------------------------
-total                 9 PASS / 13 attempts
+total                 10 PASS / 14 attempts
 ```
 
 A single PASS is sufficient for the gate: what makes the result trustworthy is that the accept and
-reject paths are deterministically covered by the pure selftests (`vsw_*`, 68 assertions), not the
-hit rate of the 33% roll. The 33% roll is re-drawn once per eligible turn, and because the battle's RNG is seeded from
-the booted save, attempts whose in-battle input schedule is bit-identical replay the same roll; the
-scenario is therefore retried from the battery save, exactly as a player retries a battle. No RNG was
-read, seeded or manipulated, and no savestate was used.
+reject paths are deterministically covered by the pure selftests (`vsw_*`), not the hit rate of the
+roll.
 
-#### 11.10.5 Stall behaviour and the optional staging read
+The "qualifying Razor Leaf hits" column above is deliberately a **lower bound**, not an eligible-roll
+count. The tracker can observe that a damaging hit landed and left the outgoing mon alive; it cannot
+observe how many of the intervening AI action-selections satisfied the complete predicate of the
+source-supported resistance path. Player-switching stall turns in particular are ordinary
+action-selection opportunities that preserve the previous landed-move state — they are **not**
+claimed to be eligible rolls, because while Hoothoot is the active player Pokemon the bench-move
+comparison is evaluated against a different active Pokemon than it is for Chikorita. Because the
+battle's RNG is seeded from the booted save, attempts whose in-battle input schedule is bit-identical
+replay the same roll; the scenario is therefore retried from the battery save, exactly as a player
+retries a battle. No RNG was read, seeded or manipulated, and no savestate was used.
+
+#### 11.10.5 Probe defects found and fixed while making Scenario 44 pass
 
 Two probe defects were found and fixed while making Scenario 44 pass. Both are harness defects, not
 reader defects; **no production reader, profile or Kotlin code was changed**.
@@ -1647,14 +1668,25 @@ reader defects; **no production reader, profile or Kotlin code was changed**.
    *switching-in* battler's own index entries, so a switch preserves `gLastLandedMoves[opponent]`
    while burning the turn. That is also a strictly stronger form of the evidence: the outgoing mon is
    held alive on purpose rather than by luck.
-2. **An unproven address was a hard gate.** Phase B required `gBattleStruct->monToSwitchIntoId` to
-   report the new slot before the transition could be accepted. That address is explicitly *not*
-   runtime-confirmed (see the `HNS_RELEASE_BATTLE_STRUCT_PTR` note above), and in the passing run it
-   read back as `-1` while a real switch was in progress. Phase B now treats the staging read as
-   optional corroboration and advances on the authoritative transition, which is the same rule this
-   document already applies to `gChosenActionByBattler`. A faint-based replacement is still rejected,
-   because `violation_old_fainted` latches on any frame where the outgoing battler reads 0 HP, and
-   that happens before the replacement overwrites `gBattleMons`.
+2. **Two unproven addresses were in the evidence path at all.** Phase B once required
+   `gBattleStruct->monToSwitchIntoId` to report the new slot before a transition could be accepted,
+   with the pointer derived by applying the documented -4 battle-global shift to a source-build
+   address. That pointer was never confirmed by semantic correlation, and on the passing run it read
+   back as `-1` while a real switch was in progress. It is now **deleted, not downgraded**: together
+   with the already-absent `gChosenActionByBattler`, the probe no longer contains either address, so
+   no verdict can depend on an unverified read and no future edit can quietly promote one. Phase B
+   proves only that the authoritative transition has begun, and the phase is named
+   `VSW_PHASE_B_AWAIT_TRANSITION` accordingly.
+
+3. **The commit-time party contract is now fatal, not a print.** The liveness of the outgoing mon can
+   only be read from the enemy PARTY slot, because by the commit frame `gBattleMons[old_battler]`
+   already describes the replacement. A commit is therefore accepted only if, on that frame, the
+   production enemy party snapshot shows the old slot holding the old species with `current_hp > 0`
+   **and** the new slot holding the species the engine just made authoritative with `current_hp > 0`
+   — on top of the index rewrite, the reader agreement and the battle still being `ACTIVE`. Any of
+   those failing is a fatal violation with its own message, not a diagnostic. `vsw_old_party_dead_must_not_complete`
+   covers the case the `hp == 0` latch alone cannot: the party slot reads 0 while the sampled battler
+   HP never does.
 
 #### 11.10.6 `TRAINER_AL_HNS` remains rejected, for an independent reason
 
@@ -1717,24 +1749,31 @@ runtime evidence.
 | Opponent active-slot read at battle start (Don: slot 0, Ledyba) | **RUNTIME VERIFIED** | `s44-engaged` / `s44-initial-ledyba` MATRIX + `party-stats enemy` |
 | Trainer battle lifecycle (`TRAINER_SINGLE`, 2 battlers, `ACTIVE`, still active after the switch) | **RUNTIME VERIFIED** | every `[MATRIX]` line of the run |
 | Opponent voluntary slot transition `0 -> 1` | **RUNTIME VERIFIED** | Phase C/D, `gBattlerPartyIndexes[1]` `0 -> 1` |
-| Outgoing opponent alive at the transition | **RUNTIME VERIFIED** | Phase B frame reading (species 165, HP 11 > 0) + the never-fired `hp == 0` latch, plus slot 0 shown at 3/15 or 11/15 on the commit frame |
+| Outgoing opponent alive in its own enemy PARTY slot at commit | **RUNTIME VERIFIED + MACHINE-ENFORCED** | Phase D now fails the run unless the production enemy party snapshot shows the old slot still holding the old species with `current_hp > 0` on the commit frame; the passing run recorded `slot 0 = species 165 HP=3/15` (and `11/15` in another run) while the new slot held species 167 |
 | Production reader follows the new authoritative slot | **RUNTIME VERIFIED** | commit-frame `activeSlot=1`, species 167, `enemy_slot == party_index[1]` |
-| Faint replacement rejected as voluntary | **RUNTIME + SYNTHETIC VERIFIED** | order-independent `hp == 0` latch; selftests `vsw_negative_old_fainted_latched`, `vsw_faint_latched_order_independent`, `vsw_faint_replacement_never_accepted` |
+| The accepted Scenario 44 transition is not a faint | **RUNTIME VERIFIED** | the outgoing party member was still alive at commit (row above), so the accepted transition cannot have been a faint-based replacement |
+| Voluntary tracker `hp == 0` rejection logic | **SYNTHETIC VERIFIED / RUNTIME-CONSISTENT** | selftests `vsw_negative_old_fainted_latched`, `vsw_faint_latched_order_independent`, `vsw_faint_replacement_never_accepted`, `vsw_old_party_dead_must_not_complete`. Scenario 41 proves the game's faint-replacement lifecycle at runtime, but through the dedicated replacement path; **no preserved run of this exact voluntary tracker has been observed rejecting a live faint**, so the rejection logic itself is not labelled runtime verified |
 | Player-side switch cannot satisfy the opponent tracker | **SYNTHETIC VERIFIED** | selftest `vsw_player_switch_not_opponent_switch` |
 | Don Razor Leaf nonlethal damage (4 HP/hit) | **RUNTIME VERIFIED** | `scenarios/47-don-damage-probe.txt` |
-| `FindMonWithFlagsAndSuperEffective` 33% resistance branch applicability | **SOURCE VERIFIED / RUNTIME-CONSISTENT** | `src/battle_ai_switch.c:1041-1102,1381`; `src/battle_util.c:8330-8352`; the observation is consistent with it |
-| Exact runtime AI dispatch branch that returned true | **NOT VERIFIED / NOT CLAIMED** | not directly instrumented |
+| `FindMonWithFlagsAndSuperEffective` 33% resistance path applicability | **SOURCE VERIFIED / RUNTIME-CONSISTENT** | `src/battle_ai_switch.c:1041-1102,1381`; `src/battle_util.c:8330-8352`; the observation is consistent with it |
+| Exact `ShouldSwitch...()` branch that returned TRUE | **NOT VERIFIED / NOT CLAIMED** | not directly instrumented. `AI_TrySwitchOrUseItem` evaluates several earlier predicates first, and this document does not claim direct runtime exclusion of every one of them |
 | `gChosenActionByBattler` address | **NOT VERIFIED / NOT CLAIMED** | constant removed from the probe source |
 | `B_ACTION_SWITCH` direct runtime observation | **NOT VERIFIED / NOT CLAIMED** | no code path reads it |
+| `gBattleStruct->monToSwitchIntoId` release address | **NOT USED / NOT CLAIMED** | constant and reader removed from the probe source |
 | Don provisional "one-shot" rejection | **WITHDRAWN** | unreproducible; measured 4 HP per hit |
 | `TRAINER_AL_HNS` as a voluntary-switch target | **SOURCE + MEASUREMENT DISPROVEN** | see 11.10.6 |
 | Route 32 south gated on Sprout Tower + Violet Gym + Togepi | **SOURCE + RUNTIME VERIFIED** | see 11.10.7 (deferred work) |
 
 **On the AI branch specifically.** The observed switch is *source-consistent* with the 33%
-resistance branch of `FindMonWithFlagsAndSuperEffective`: the arming value can only be a damaging
-move the bench resists (Razor Leaf at 0.25x on Spinarak), the 50% immunity call cannot fire because
-0.25x sets `MOVE_RESULT_NOT_VERY_EFFECTIVE` and not `MOVE_RESULT_DOESNT_AFFECT_FOE`, and the two
-unconditional gates at `:1374` / `:1376` cannot fire for this lead. That is a source argument, not a
-runtime attribution. **The exact AI dispatch branch was not directly runtime-attributed**, because
-instrumenting it would require an unproven address; the claim rests on the authoritative lifecycle
-transition instead.
+resistance path of `FindMonWithFlagsAndSuperEffective`: the arming value is a damaging move the bench
+resists (Razor Leaf at 0.25x on Spinarak), the 50% immunity call does not fire because 0.25x sets
+`MOVE_RESULT_NOT_VERY_EFFECTIVE` and not `MOVE_RESULT_DOESNT_AFFECT_FOE`, and the two unconditional
+early returns at `:1374` / `:1376` can be shown inert for this lead (Ledyba has no `>= 2.0x` move
+against Grass and no stat-raising move).
+
+That is a source argument about *applicability*, not a runtime attribution, and it is deliberately
+weaker than "the only reachable mechanism": **the exact `ShouldSwitch...()` predicate that returned
+TRUE was not runtime-attributed.** `AI_TrySwitchOrUseItem` evaluates several earlier switch predicates
+before the default path, and this PR does not claim direct runtime exclusion of every one of them
+from the captured state. Instrumenting the dispatch would require an address this project has not
+established, so the claim rests on the authoritative lifecycle transition instead.

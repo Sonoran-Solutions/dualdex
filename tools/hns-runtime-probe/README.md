@@ -3,7 +3,17 @@
 Developer-only diagnostic used to produce the runtime half of the Heart & Soul 2.0.5 battle
 lifecycle evidence recorded in `docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md` (§11).
 
-It is **not** built by `ci.sh`, **not** part of the APK, and **not** a product feature.
+It is **not** part of the APK and **not** a product feature.
+
+It has two modes with different standing:
+
+* **runtime/emulator mode** (`<core> <rom> [--sav ...] [--script ...]`) is developer-only. It
+  needs a legally obtained ROM and an mGBA libretro core, and CI never runs it and never uses
+  a ROM or a core.
+* **pure selftest mode** (`--selftest`) needs no ROM, core, save or environment, and is part of
+  the canonical gate: `ci.sh test` compiles this file into
+  `native/build/runtime_battle_probe_selftest` and runs it, alongside the production-reader
+  suite in `native/tests/test_pokemon_reader.c`.
 
 ## What it does
 

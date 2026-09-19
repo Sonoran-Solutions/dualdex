@@ -62,30 +62,20 @@
  * transition with the outgoing mon still alive, read through the production-configured offsets.
  * See docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md 11.10. */
 
-/* `gBattleStruct` on the official release ROM, and `offsetof(struct BattleStruct,
- * monToSwitchIntoId)`.
+/* DELIBERATELY ABSENT: `gBattleStruct->monToSwitchIntoId`.
  *
- * Provenance for the pointer: the pinned source build reports 0x020000B4; the documented battle-global
- * shift for this ROM is -4 (see the runtime-proven gMain block above), giving 0x020000B0. Provenance
- * for the offset: the pinned build's DWARF (probe/dwarf.txt) gives `battlerPartyIndexes` at 225 and
- * `monToSwitchIntoId` at 229, i.e. 4 bytes for u8[4].
+ * An earlier revision staged the AI's chosen switch-in with a `gBattleStruct` pointer derived by
+ * applying the documented -4 battle-global shift to the pinned source-build address 0x020000B4,
+ * plus `offsetof(struct BattleStruct, monToSwitchIntoId)` read out of that build's DWARF. The
+ * pointer was never confirmed by semantic correlation on the official release ROM, and on the one
+ * passing Scenario 44 run it read back as -1 while a real switch was in progress.
  *
- * `OpponentHandleChoosePokemon` sets `gBattleStruct->monToSwitchIntoId[battler]` to a real party index
- * only on the switch path -- the non-switch path leaves it at PARTY_SIZE -- so a value below
- * PARTY_SIZE means the AI staged a switch-in for that opponent battler. This is the same field
- * `AI_TrySwitchOrUseItem` writes as `gBattleStruct->monToSwitchIntoId[battler] =
- * AI_monToSwitchIntoId[battler]`.
+ * A reading that is neither verified nor load-bearing does not belong in the evidence path, so the
+ * constants and the reader have been REMOVED rather than kept as "optional corroboration": a
+ * reviewer should not have to reason about whether an unproven address influenced a verdict, and no
+ * future edit can quietly promote it. The tracking phases below prove only what they observe.
  *
- * The pointer address is NOT runtime-confirmed the way the battle globals are, so this read is
- * OPTIONAL CORROBORATION and is not allowed to gate anything. It is bounds-checked, and when it
- * fails the tracker still reaches its verdict from the authoritative gBattlerPartyIndexes rewrite
- * plus the production surface. On the passing run recorded in 11.10 it read back as -1 while a real
- * switch was in progress; the run was accepted, correctly, without it. A failed read degrades the
- * reported evidence, never fabricates it and never vetoes it. */
-#define HNS_RELEASE_BATTLE_STRUCT_PTR 0x020000B0u
-
-/* offsetof(struct BattleStruct, monToSwitchIntoId) -- see the block above. */
-#define HNS_BATTLESTRUCT_MON_TO_SWITCH_INTO_ID_OFFSET 229u
+ * See also the absent `gChosenActionByBattler` block above. Neither address is used or claimed. */
 
 /* ABI-verified `struct BattlePokemon` member offsets that the reader configuration does not carry
  * (documented in docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md §3.2 / §6.7). The probe reads the live
@@ -213,6 +203,13 @@ typedef struct {
     uint16_t party_species[6];
     uint16_t party_hp[6];
     uint16_t party_max_hp[6];
+    /* Enemy party as PRODUCTION parses it. This is what makes "the outgoing Pokemon stayed alive"
+     * machine-checkable at the commit: once the switch commits, gBattleMons[old_battler] describes
+     * the REPLACEMENT, so the battler entry cannot answer that question any more. The party slot
+     * keeps the outgoing member's own HP. */
+    uint16_t enemy_party_species[6];
+    uint16_t enemy_party_hp[6];
+    uint16_t enemy_party_max_hp[6];
     /* production reader output */
     BattleLifecycleState lifecycle;
     BattleKind           kind;
@@ -318,6 +315,11 @@ static void sample_state(const GameMemoryConfig* cfg, int frame, uint32_t input,
     out->enemy_slot = info.party_slot;
     out->enemy_battler = info.battler_index;
     out->enemy_party_count_prod = enemy_snapshot.count;
+    for (uint8_t i = 0; i < 6 && i < enemy_snapshot.count; i++) {
+        out->enemy_party_species[i] = enemy_snapshot.members[i].species;
+        out->enemy_party_hp[i] = enemy_snapshot.members[i].current_hp;
+        out->enemy_party_max_hp[i] = enemy_snapshot.members[i].max_hp;
+    }
     out->opponent_battlers = info.opponent_battlers;
     out->enemy_fainted = info.fainted;
 
@@ -541,7 +543,7 @@ static bool replacement_tracker_step(ReplacementTracker* t, const Sample* s, uin
  *
  *   A  the old opponent is genuinely active and alive, and the battle shape is the one this tracker
  *      is allowed to speak about;
- *   B  the AI decided to switch this turn (see the Phase B note below);
+ *   B  the AUTHORITATIVE transition has begun (see the Phase B note below);
  *   C  the real transition, recorded as observed -- an absent/NONE_ACTIVE window is RECORDED WHEN
  *      SEEN and never required, because a voluntary switch need not pass through one;
  *   D  the replacement is committed and the production reader follows the authoritative party index.
@@ -560,24 +562,35 @@ static bool replacement_tracker_step(ReplacementTracker* t, const Sample* s, uin
  *
  * Violations latch permanently; a later good frame never clears one.
  *
- * PHASE B NOTE -- two readings were considered for "the AI decided to switch", and NEITHER is
- * allowed to gate the verdict:
+ * NO AI DECISION BYTE IS READ. Two readings were considered for "the AI decided to switch" and BOTH
+ * are absent from this source, deliberately and permanently:
  *
- *   - `gChosenActionByBattler` / `B_ACTION_SWITCH`: deliberately NOT read. Its official-release
- *     address was never established by semantic correlation (the source-build map address
- *     0x0200025C and the -4-shifted candidate 0x02000258 both read 0x00 across overworld and
- *     in-battle frames, consistent with neither `B_ACTION_NONE` (0xFF) nor an action array the
- *     engine populates). The constant has been REMOVED from this source so no code path can start
- *     trusting it.
- *   - `gBattleStruct->monToSwitchIntoId`: read as OPTIONAL CORROBORATION only. Its pointer is not
- *     runtime-confirmed either, and on the recorded passing run it read back as -1 while a real
- *     switch was in progress.
+ *   - `gChosenActionByBattler` / `B_ACTION_SWITCH`: the official-release address was never
+ *     established by semantic correlation (the source-build map address 0x0200025C and the
+ *     -4-shifted candidate 0x02000258 both read 0x00 across overworld and in-battle frames,
+ *     consistent with neither `B_ACTION_NONE` (0xFF) nor an action array the engine populates).
+ *   - `gBattleStruct->monToSwitchIntoId`: the pointer was derived by applying the documented -4
+ *     battle-global shift to a source-build address and was never confirmed either; on the one
+ *     recorded passing run it read back as -1 while a real switch was in progress.
  *
- * Phase B therefore advances on the AUTHORITATIVE transition (the gBattlerPartyIndexes rewrite, or
- * an absent window) and merely REPORTS whether the optional staging read agreed. What separates a
- * voluntary switch from a faint replacement is not either reading -- it is the order-independent
- * `hp == 0` latch on the outgoing mon above, which fires before the replacement overwrites
- * gBattleMons, and which the pure selftests pin directly.
+ * Rather than keep either as "optional corroboration" -- which would leave a reviewer reasoning
+ * about whether an unverified read influenced a verdict -- both constants and both readers have been
+ * REMOVED. Phase B is named VSW_PHASE_B_AWAIT_TRANSITION because that is all it can prove: that the
+ * authoritative transition has begun. The phase names deliberately describe observations, not AI
+ * intent, and no claim is made about which ShouldSwitch...() predicate produced the switch (see
+ * docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md 11.10.8).
+ *
+ * WHAT SEPARATES A VOLUNTARY SWITCH FROM A FAINT REPLACEMENT is therefore not a decision byte at all,
+ * but two independent liveness facts about the OUTGOING mon:
+ *
+ *   1. the order-independent latch on the sampled battler entry, which fires on ANY frame where
+ *      gBattleMons[old_battler].hp reads 0 -- and that happens before the replacement overwrites it;
+ *   2. the COMMIT-TIME ENEMY PARTY CONTRACT in Phase D, which reads the enemy PARTY slot (the only
+ *      place the outgoing mon's own HP still exists once gBattleMons[old_battler] is the
+ *      replacement) and fails the run unless it still holds the old species with HP > 0.
+ *
+ * Both are pinned by pure selftests, including the case (2) exists for: a party slot at 0 HP while
+ * the sampled battler HP never reads 0, which the latch alone cannot catch.
  * ========================================================================= */
 
 /* Frames of index-newer-than-surface disagreement tolerated before it is a reader-lag violation.
@@ -587,7 +600,7 @@ static bool replacement_tracker_step(ReplacementTracker* t, const Sample* s, uin
 
 typedef enum {
     VSW_PHASE_A_OLD_ACTIVE = 0,
-    VSW_PHASE_B_AI_CHOSE_SWITCH,
+    VSW_PHASE_B_AWAIT_TRANSITION,
     VSW_PHASE_C_TRANSITION,
     VSW_PHASE_D_SWITCH_COMMITTED,
     VSW_PHASE_COMPLETE
@@ -612,8 +625,6 @@ typedef struct {
     int prod_slot_at_commit;
     /* observations */
     bool saw_old_active;
-    bool saw_ai_chose_switch;
-    bool saw_staging_evidence;
     bool saw_transition_window;
     bool saw_absent_window;
     bool saw_commit;
@@ -628,31 +639,14 @@ typedef struct {
     bool violation_reader_lags;
     int  liveness_grace;
     bool violation_old_slot_reappeared;
+    /* Commit-time enemy-party contract (Phase D). */
+    bool violation_old_party_not_alive;
+    bool violation_old_party_species;
+    bool violation_new_party_mismatch;
+    /* What the commit frame itself showed for the outgoing member, from the production snapshot. */
+    int  old_party_hp_at_commit;
+    int  new_party_hp_at_commit;
 } VoluntarySwitchTracker;
-
-/*
- * Read `gBattleStruct->monToSwitchIntoId[battler]`.
- *
- * Returns the staged party index, or -1 when the pointer/member could not be read or the value is
- * outside `[0, PARTY_SIZE)` (the engine leaves it at PARTY_SIZE when no switch is staged, so an
- * out-of-range value is "nothing staged", not an error).
- *
- * The `gBattleStruct` address is NOT runtime-confirmed on the official release ROM, so this is used
- * only as decision evidence. When it cannot be read the tracker still proves the switch from
- * `gBattlerPartyIndexes` plus the production reader in Phase D -- it simply loses the Phase B
- * corroboration and prints that.
- */
-#define HNS_PARTY_SIZE 6u
-static int read_mon_to_switch_into(int battler) {
-    if (battler < 0 || battler >= DUALDEX_MAX_BATTLERS) return -1;
-    uint32_t p = 0;
-    if (!read_u32(HNS_RELEASE_BATTLE_STRUCT_PTR, &p)) return -1;
-    if (p < 0x02000000u || p >= 0x02040000u) return -1;
-    uint8_t v = 0;
-    if (!read_u8(p + HNS_BATTLESTRUCT_MON_TO_SWITCH_INTO_ID_OFFSET + (uint32_t)battler, &v)) return -1;
-    if ((uint32_t)v >= HNS_PARTY_SIZE) return -1;
-    return (int)v;
-}
 
 static void voluntary_switch_tracker_init(VoluntarySwitchTracker* t, int old_slot, int new_slot,
                                           uint16_t expect_species) {
@@ -668,18 +662,17 @@ static void voluntary_switch_tracker_init(VoluntarySwitchTracker* t, int old_slo
 }
 
 /*
- * mon_to_switch_into: gBattleStruct->monToSwitchIntoId[opponent battler], or -1 when unreadable.
- *   `OpponentHandleChoosePokemon` writes a real party index there only on the switch path and leaves
- *   it at PARTY_SIZE otherwise, so a value in [0, PARTY_SIZE) is engine-side staging evidence for a
- *   switch-in. It is used only to detect that a decision happened; the commit itself is still proved
- *   by the party index and the production reader in Phase D.
+ * No AI-decision byte is read. The tracker observes the OPPONENT side of the field only, and proves
+ * the transition from the authoritative gBattlerPartyIndexes rewrite, the production opponent
+ * resolution, and the enemy party snapshot that shows the outgoing member is still alive at the
+ * commit (gBattleMons[old_battler] holds the REPLACEMENT by then, so the party slot is the only
+ * place that fact survives).
  *
  * Returns true once the whole transition is observed.
  */
 static bool voluntary_switch_tracker_step(
     VoluntarySwitchTracker* t,
-    const Sample* s,
-    int mon_to_switch_into
+    const Sample* s
 ) {
     /* --- latched, order-independent checks (run even once complete, so a late violation still
      * latches and is never erased by an earlier good frame) ------------------------------------------------- */
@@ -739,57 +732,36 @@ static bool voluntary_switch_tracker_step(
         t->old_species = s->mon_species[s->enemy_battler];
         t->old_hp = s->mon_hp[s->enemy_battler];
         t->old_max_hp = s->mon_max_hp[s->enemy_battler];
-        t->phase = VSW_PHASE_B_AI_CHOSE_SWITCH;
+        t->phase = VSW_PHASE_B_AWAIT_TRANSITION;
         printf("  [await-enemy-voluntary-switch] Phase A: old slot %d ACTIVE at frame %d "
                "(battler=%d species=%u HP=%u/%u; TRAINER_SINGLE, battlers=2, opponentBattlers=1)\n",
                t->old_slot, s->frame, t->old_battler, t->old_species, t->old_hp, t->old_max_hp);
         return false;
     }
 
-    if (t->phase == VSW_PHASE_B_AI_CHOSE_SWITCH) {
-        /* The outgoing mon must stay alive while the decision is made. */
+    if (t->phase == VSW_PHASE_B_AWAIT_TRANSITION) {
+        /* The outgoing mon must still be alive when the transition starts. */
         if (t->violation_old_fainted) return false;
 
-        const bool staged = (mon_to_switch_into >= 0 && mon_to_switch_into == t->new_slot);
-        if (staged) {
-            t->saw_ai_chose_switch = true;
-            t->saw_staging_evidence = true;
-            printf("  [await-enemy-voluntary-switch] Phase B: optional staging read AGREES at frame "
-                   "%d (gBattleStruct->monToSwitchIntoId[%d]=%d). This is CORROBORATION, not "
-                   "authority: the verdict does not depend on it, and gChosenActionByBattler / "
-                   "B_ACTION_SWITCH are not read at all. Outgoing species %u at HP=%u/%u > 0.\n",
-                   s->frame, t->old_battler, mon_to_switch_into, t->old_species,
-                   s->mon_hp[t->old_battler], t->old_max_hp);
-            t->phase = VSW_PHASE_C_TRANSITION;
-            return false;
-        }
-
-        /* The staging read is OPTIONAL CORROBORATION ONLY.
-         *
-         * It comes from gBattleStruct->monToSwitchIntoId, whose official-release address is NOT
-         * runtime-confirmed (see the note on HNS_RELEASE_BATTLE_STRUCT_PTR above). Making it a hard
-         * gate would let an unproven address decide whether a switch that demonstrably happened is
-         * accepted -- the same mistake the evidence rules already forbid for
-         * gChosenActionByBattler.
-         *
-         * The load-bearing evidence is the authoritative transition with the outgoing mon STILL
-         * ALIVE, so Phase B advances as soon as the engine has begun that transition, whether or
-         * not the optional read agreed. A faint-based replacement is still rejected: the
-         * order-independent latch at the top of this function fires on ANY frame where the outgoing
-         * battler reads 0 HP, and that happens before the replacement overwrites gBattleMons. */
+        /* NOTHING is read here to ask the AI what it decided. Two candidate readings were
+         * considered and BOTH are absent from this source: `gChosenActionByBattler` and
+         * `gBattleStruct->monToSwitchIntoId`. Neither release address was ever established by
+         * semantic correlation, and the latter read back as -1 on the one recorded run where a real
+         * switch was in progress. What this phase proves is that the AUTHORITATIVE transition has
+         * begun -- nothing about which predicate caused it. */
         const bool transition_began =
             (s->active_enemy == ACTIVE_ENEMY_NONE_ACTIVE) ||
             (s->enemy_battler >= 0 && s->party_index[s->enemy_battler] != (uint8_t)t->old_slot);
         if (transition_began) {
-            printf("  [await-enemy-voluntary-switch] Phase B: transition has begun WITHOUT the "
-                   "optional staging read agreeing (monToSwitchIntoId=%d, partyIndexes[%d]=%u, "
-                   "activeEnemy=%d) at frame %d; proceeding on the authoritative transition alone. "
-                   "Outgoing species %u is still at HP=%u > 0.\n",
-                   mon_to_switch_into,
-                   t->old_battler, t->old_battler >= 0 ? s->party_index[t->old_battler] : 0,
-                   (int)s->active_enemy, s->frame, t->old_species,
+            printf("  [await-enemy-voluntary-switch] Phase B: the authoritative transition has begun "
+                   "at frame %d (partyIndexes[%d]=%u, activeEnemy=%d); outgoing species %u is still "
+                   "at HP=%u > 0. No AI decision byte is read here -- gChosenActionByBattler and "
+                   "gBattleStruct->monToSwitchIntoId are both absent from this probe because neither "
+                   "release address is established, so this phase claims only the transition.\n",
+                   s->frame, t->old_battler,
+                   t->old_battler >= 0 ? s->party_index[t->old_battler] : 0,
+                   (int)s->active_enemy, t->old_species,
                    t->old_battler >= 0 ? s->mon_hp[t->old_battler] : 0);
-            t->saw_staging_evidence = false;
             t->phase = VSW_PHASE_C_TRANSITION;
             return false;
         }
@@ -870,7 +842,46 @@ static bool voluntary_switch_tracker_step(
                 return false;
             }
 
+            /* ---------------------------------------------------------------------------------
+             * COMMIT-TIME ENEMY PARTY CONTRACT (fatal, not diagnostic).
+             *
+             * This is the only place that can still prove the outgoing Pokemon stayed alive. Once
+             * the switch commits, gBattleMons[old_battler] describes the REPLACEMENT, so the sampled
+             * battler HP that the faint latch watches is no longer evidence about the mon that left.
+             * The enemy PARTY slot is: the production parse of gEnemyParty keeps the outgoing
+             * member's own HP next to its own species.
+             *
+             * A voluntary switch therefore has to satisfy, on the commit frame:
+             *   old slot exists, still holds old_species, and its current_hp > 0
+             *   new slot exists, holds the species the engine just made authoritative, HP > 0
+             * plus everything already checked above (index committed, reader agrees, battle ACTIVE).
+             * Without these the run FAILS rather than banking a transition it cannot characterise.
+             * --------------------------------------------------------------------------------- */
+            if (t->old_slot < 0 || t->old_slot >= (int)s->enemy_party_count_prod) {
+                t->violation_old_party_not_alive = true;
+                return false;
+            }
+            if (s->enemy_party_species[t->old_slot] != t->old_species) {
+                t->violation_old_party_species = true;
+                return false;
+            }
+            if (s->enemy_party_hp[t->old_slot] == 0) {
+                t->violation_old_party_not_alive = true;
+                return false;
+            }
+            if (t->new_slot < 0 || t->new_slot >= (int)s->enemy_party_count_prod) {
+                t->violation_new_party_mismatch = true;
+                return false;
+            }
+            if (s->enemy_party_species[t->new_slot] != s->mon_species[s->enemy_battler] ||
+                s->enemy_party_hp[t->new_slot] == 0) {
+                t->violation_new_party_mismatch = true;
+                return false;
+            }
+
             t->saw_commit = true;
+            t->old_party_hp_at_commit = (int)s->enemy_party_hp[t->old_slot];
+            t->new_party_hp_at_commit = (int)s->enemy_party_hp[t->new_slot];
             t->new_battler = s->enemy_battler;
             t->new_species = s->mon_species[s->enemy_battler];
             t->new_hp = s->mon_hp[s->enemy_battler];
@@ -879,11 +890,17 @@ static bool voluntary_switch_tracker_step(
             t->prod_slot_at_commit = s->enemy_slot;
             t->phase = VSW_PHASE_COMPLETE;
             printf("  [await-enemy-voluntary-switch] Phase D: VOLUNTARY SWITCH committed at frame %d "
-                   "(slot %d -> %d, battler=%d, species %u -> %u, new HP=%u/%u; outgoing species %u "
-                   "was last observed ALIVE at HP=%u; gBattlerPartyIndexes=%d, production slot=%d)\n",
+                   "(slot %d -> %d, battler=%d, species %u -> %u; gBattlerPartyIndexes=%d, production "
+                   "slot=%d). ENEMY PARTY AT COMMIT: slot %d = species %u HP=%d/%u STILL ALIVE; "
+                   "slot %d = species %u HP=%d/%u. Outgoing battler entry last read HP=%u before the "
+                   "replacement overwrote it.\n",
                    s->frame, t->old_slot, t->new_slot, t->new_battler, t->old_species, t->new_species,
-                   t->new_hp, t->new_max_hp, t->old_species, t->old_hp,
-                   t->new_index_at_commit, t->prod_slot_at_commit);
+                   t->new_index_at_commit, t->prod_slot_at_commit,
+                   t->old_slot, (unsigned)s->enemy_party_species[t->old_slot],
+                   t->old_party_hp_at_commit, (unsigned)s->enemy_party_max_hp[t->old_slot],
+                   t->new_slot, (unsigned)s->enemy_party_species[t->new_slot],
+                   t->new_party_hp_at_commit, (unsigned)s->enemy_party_max_hp[t->new_slot],
+                   t->old_hp);
             return true;
         }
         return false;
@@ -1188,6 +1205,14 @@ static void vsw_test_sample(Sample* s, int frame, int opp_index, int prod_report
     s->party_species[1] = new_species;
     s->party_max_hp[0] = (old_hp ? old_hp : 1);
     s->party_max_hp[1] = (new_hp ? new_hp : 1);
+    /* Enemy party as PRODUCTION parses it -- the commit-time contract reads these, not the battler
+     * entry (which holds the replacement by then). old_hp/new_hp here are the PARTY slot HP. */
+    s->enemy_party_species[0] = old_species;
+    s->enemy_party_species[1] = new_species;
+    s->enemy_party_hp[0] = old_hp;
+    s->enemy_party_hp[1] = new_hp;
+    s->enemy_party_max_hp[0] = (old_hp ? old_hp : 1);
+    s->enemy_party_max_hp[1] = (new_hp ? new_hp : 1);
 }
 
 static void player_repl_test_sample(Sample* s, int frame, int player_slot, uint16_t player_hp,
@@ -1419,34 +1444,45 @@ static int run_pure_tracker_selftests(void) {
      * mon never faints, the production reader never leads or lags gBattlerPartyIndexes, and the
      * commit is bound to the battler that was actually out. Violations latch permanently. */
 
-    /* V1: full positive sequence -- old alive, decision, transition, new slot committed. */
+    /* V1: full positive sequence -- old alive, transition, new slot committed.
+     *
+     * Four frames, because the phases are strictly sequential now that no AI-decision byte is read:
+     *   10  old slot 0 active and alive            -> Phase A latched
+     *   11  index rewritten, surface still old     -> Phase B sees the transition, Phase C is armed
+     *   12  surface still old                      -> Phase C records it, Phase D is armed
+     *   13  surface agrees with the index          -> Phase D commits, party contract checked */
     {
         VoluntarySwitchTracker t;
         voluntary_switch_tracker_init(&t, 0, 1, 165);
         Sample s;
         vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);   /* slot 0 Ledyba (165) alive */
-        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1), "vsw_positive_phase_a_not_done");
-        ASSERT_TEST(t.phase == VSW_PHASE_B_AI_CHOSE_SWITCH && t.saw_old_active &&
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s), "vsw_positive_phase_a_not_done");
+        ASSERT_TEST(t.phase == VSW_PHASE_B_AWAIT_TRANSITION && t.saw_old_active &&
                     t.old_species == 165 && t.old_hp == 20, "vsw_positive_phase_a_recorded");
-        vsw_test_sample(&s, 11, 0, 0, 20, 20, 165, 168, 20, 1);   /* decision, old still alive */
-        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, 1), "vsw_positive_phase_b_not_done");
-        ASSERT_TEST(t.phase == VSW_PHASE_C_TRANSITION && t.saw_ai_chose_switch,
+        /* Frame 11: the authoritative index is rewritten while the outgoing mon is still alive. This
+         * alone is what moves the tracker forward -- nothing asks the AI anything. */
+        vsw_test_sample(&s, 11, 1, 0, 20, 20, 165, 168, 20, 1);
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s), "vsw_positive_phase_b_not_done");
+        ASSERT_TEST(t.phase == VSW_PHASE_C_TRANSITION,
                     "vsw_positive_phase_b_recorded");
         /* Frame 12: the index is rewritten but the production surface still names the old slot, so
          * this is inside the legitimate transition, not a lag violation. */
         vsw_test_sample(&s, 12, 1, 0, 20, 20, 165, 168, 20, 1);
-        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1) &&
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s) &&
                     t.phase == VSW_PHASE_D_SWITCH_COMMITTED && !t.violation_reader_lags,
                     "vsw_positive_transition_frame");
         /* Frame 13: production reader now agrees with the authoritative index -> committed. */
         vsw_test_sample(&s, 13, 1, 1, 20, 20, 165, 168, 20, 1);
-        const bool done = voluntary_switch_tracker_step(&t, &s, -1);
+        const bool done = voluntary_switch_tracker_step(&t, &s);
         ASSERT_TEST(done && t.phase == VSW_PHASE_COMPLETE, "vsw_positive_commit");
         ASSERT_TEST(t.new_index_at_commit == 1 && t.prod_slot_at_commit == 1,
                     "vsw_positive_reader_agrees");
         ASSERT_TEST(t.new_species == 168 && t.new_hp == 20, "vsw_positive_new_mon_recorded");
         ASSERT_TEST(!t.violation_old_fainted && !t.violation_reader_leads && !t.violation_reader_lags,
                     "vsw_positive_no_violations");
+        /* The commit frame must carry the machine-checked party proof, not just a print. */
+        ASSERT_TEST(t.old_party_hp_at_commit == 20 && t.new_party_hp_at_commit == 20,
+                    "vsw_positive_party_hp_recorded_at_commit");
     }
 
     /* V2: the old mon FAINTS -> faint replacement, not a voluntary switch. */
@@ -1455,36 +1491,130 @@ static int run_pure_tracker_selftests(void) {
         voluntary_switch_tracker_init(&t, 0, 1, 165);
         Sample s;
         vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
-        voluntary_switch_tracker_step(&t, &s, -1);
+        voluntary_switch_tracker_step(&t, &s);
         /* The battler the tracker latched onto drops to 0 HP while still authoritative: that is the
          * faint path, so it must latch. */
         s.mon_hp[1] = 0;
         s.enemy_fainted = true;
-        voluntary_switch_tracker_step(&t, &s, -1);
+        voluntary_switch_tracker_step(&t, &s);
         ASSERT_TEST(t.violation_old_fainted, "vsw_negative_old_fainted_latched");
     }
 
-    /* V3: the optional staging read is NOT a gate.
+    /* V3: the transition alone drives the state machine.
      *
-     * The staging value comes from gBattleStruct->monToSwitchIntoId, whose official-release address
-     * is not runtime-confirmed, so it must never be able to veto a transition the authoritative
-     * index has already begun -- the same rule this project already applies to
-     * gChosenActionByBattler. This asserts the current contract: the transition advances without
-     * it, `saw_ai_chose_switch` and `saw_staging_evidence` stay false so no decision evidence is
-     * claimed, and no violation is latched merely because that optional read was unavailable. */
+     * Neither `gChosenActionByBattler` nor `gBattleStruct->monToSwitchIntoId` is read anywhere in
+     * this probe, so there is no AI-decision input that could veto or trigger a transition. This
+     * asserts that the tracker advances on the authoritative index rewrite by itself and latches
+     * nothing while doing so. */
     {
         VoluntarySwitchTracker t;
         voluntary_switch_tracker_init(&t, 0, 1, 165);
         Sample s;
         vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
-        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1), "vsw_no_decision_phase_a");
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s), "vsw_no_decision_phase_a");
         vsw_test_sample(&s, 11, 1, 0, 20, 20, 165, 168, 20, 1);
-        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1), "vsw_no_decision_not_complete");
-        ASSERT_TEST(t.phase == VSW_PHASE_C_TRANSITION && !t.saw_ai_chose_switch &&
-                    !t.saw_staging_evidence,
-                    "vsw_no_decision_transition_accepted_without_staging");
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s), "vsw_no_decision_not_complete");
+        ASSERT_TEST(t.phase == VSW_PHASE_C_TRANSITION,
+                    "vsw_transition_drives_state_machine_alone");
         ASSERT_TEST(!t.violation_old_fainted && !t.violation_reader_leads,
                     "vsw_no_decision_no_violation");
+    }
+
+    /* V3a: COMMIT-TIME PARTY CONTRACT -- the four cases the contract must separate.
+     *
+     * The commit frame is the only place the outgoing mon's liveness survives (the battler entry
+     * holds the replacement). These drive a COMPLETE transition in each case and assert what the
+     * tracker does with the enemy party snapshot at the moment of commit. */
+    /* Runs one COMPLETE transition (A -> B -> C -> D -> commit) with the caller's party-slot HP and
+     * species for the old and new enemy slots, and returns the tracker afterwards. The helper exists
+     * so each contract case below is one frame sequence, not five copies of it. */
+    {
+        /* (a) old party slot still alive in its own slot -> the commit is ALLOWED. */
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 9, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 11, 1, 0, 9, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 12, 1, 0, 9, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 13, 1, 1, 9, 20, 165, 168, 20, 1);
+        const bool ok = voluntary_switch_tracker_step(&t, &s);
+        ASSERT_TEST(ok && t.phase == VSW_PHASE_COMPLETE && t.old_party_hp_at_commit == 9,
+                    "vsw_old_party_alive_allowed");
+    }
+    {
+        /* (b) old party slot at 0 HP -> the voluntary switch MUST NOT complete, even though the
+         *     sampled battler HP stays above zero so the faint latch never fires. This is the new
+         *     invariant doing work the latch alone cannot do. */
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 0, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 11, 1, 0, 0, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 12, 1, 0, 0, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 13, 1, 1, 0, 20, 165, 168, 20, 1);
+        const bool done = voluntary_switch_tracker_step(&t, &s);
+        ASSERT_TEST(!done && !t.saw_commit && t.phase != VSW_PHASE_COMPLETE &&
+                    t.violation_old_party_not_alive,
+                    "vsw_old_party_dead_must_not_complete");
+        ASSERT_TEST(!t.violation_old_fainted,
+                    "vsw_old_party_dead_is_independent_of_faint_latch");
+    }
+    {
+        /* (c) the old slot holds a DIFFERENT species -> the snapshot is not describing the mon that
+         *     left, so the run fails rather than banking the transition. */
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 11, 1, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 12, 1, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 13, 1, 1, 20, 20, 165, 168, 20, 1);
+        s.enemy_party_species[0] = 200;   /* wrong mon in the old slot */
+        const bool done = voluntary_switch_tracker_step(&t, &s);
+        ASSERT_TEST(!done && !t.saw_commit && t.violation_old_party_species,
+                    "vsw_old_party_wrong_species_fails");
+    }
+    {
+        /* (d) the new slot does not match the species the engine just made authoritative -> fail. */
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 11, 1, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 12, 1, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 13, 1, 1, 20, 20, 165, 168, 20, 1);
+        s.enemy_party_species[1] = 42;    /* party snapshot disagrees with the committed species */
+        const bool done = voluntary_switch_tracker_step(&t, &s);
+        ASSERT_TEST(!done && !t.saw_commit && t.violation_new_party_mismatch,
+                    "vsw_new_party_species_mismatch_fails");
+    }
+    {
+        /* (e) the new slot reads 0 HP -> the authoritative opponent cannot be a live mon -> fail. */
+        VoluntarySwitchTracker t;
+        voluntary_switch_tracker_init(&t, 0, 1, 165);
+        Sample s;
+        vsw_test_sample(&s, 10, 0, 0, 20, 0, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 11, 1, 0, 20, 0, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 12, 1, 0, 20, 0, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 13, 1, 1, 20, 0, 165, 168, 20, 1);
+        const bool done = voluntary_switch_tracker_step(&t, &s);
+        ASSERT_TEST(!done && !t.saw_commit && t.violation_new_party_mismatch,
+                    "vsw_new_party_dead_fails");
     }
 
     /* V3b: FAIL-CLOSED, and now the load-bearing discriminator.
@@ -1499,13 +1629,13 @@ static int run_pure_tracker_selftests(void) {
         voluntary_switch_tracker_init(&t, 0, 1, 165);
         Sample s;
         vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
-        voluntary_switch_tracker_step(&t, &s, -1);
+        voluntary_switch_tracker_step(&t, &s);
         vsw_test_sample(&s, 11, 0, 0, 20, 20, 165, 168, 0, 1);   /* outgoing mon reaches 0 HP */
-        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1) && t.violation_old_fainted,
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s) && t.violation_old_fainted,
                     "vsw_faint_latched_order_independent");
         /* A perfect-looking replacement follows: index 1, production agrees, new species. */
         vsw_test_sample(&s, 12, 1, 1, 20, 20, 165, 168, 20, 1);
-        const bool done = voluntary_switch_tracker_step(&t, &s, -1);
+        const bool done = voluntary_switch_tracker_step(&t, &s);
         ASSERT_TEST(!done && t.violation_old_fainted && t.phase != VSW_PHASE_COMPLETE,
                     "vsw_faint_replacement_never_accepted");
     }
@@ -1523,8 +1653,8 @@ static int run_pure_tracker_selftests(void) {
         voluntary_switch_tracker_init(&t, 0, 1, 165);
         Sample s;
         vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);   /* opponent slot 0 alive */
-        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s, -1), "vsw_player_switch_phase_a");
-        ASSERT_TEST(t.phase == VSW_PHASE_B_AI_CHOSE_SWITCH, "vsw_player_switch_phase_a_recorded");
+        ASSERT_TEST(!voluntary_switch_tracker_step(&t, &s), "vsw_player_switch_phase_a");
+        ASSERT_TEST(t.phase == VSW_PHASE_B_AWAIT_TRANSITION, "vsw_player_switch_phase_a_recorded");
         bool any_step_completed = false;
         for (int i = 0; i < 12; i++) {
             vsw_test_sample(&s, 11 + i, 0, 0, 20, 20, 165, 168, 20, 1);
@@ -1534,29 +1664,33 @@ static int run_pure_tracker_selftests(void) {
             s.mon_hp[0] = 17;
             s.active_player_slot = (i % 2);
             s.active_player_known = true;
-            if (voluntary_switch_tracker_step(&t, &s, -1)) any_step_completed = true;
+            if (voluntary_switch_tracker_step(&t, &s)) any_step_completed = true;
         }
         ASSERT_TEST(!any_step_completed && !t.saw_commit &&
-                    t.phase == VSW_PHASE_B_AI_CHOSE_SWITCH,
+                    t.phase == VSW_PHASE_B_AWAIT_TRANSITION,
                     "vsw_player_switch_not_opponent_switch");
         ASSERT_TEST(!t.violation_old_fainted && !t.violation_reader_leads && !t.violation_reader_lags &&
                     !t.violation_species_mismatch && !t.violation_battler_changed,
                     "vsw_player_switch_no_spurious_violation");
     }
 
-    /* V4: decision observed but the replacement never commits -> no completion. */
+    /* V4: the index moves but the production surface NEVER follows -> no completion.
+     *
+     * The index rewrite alone starts the transition; only the production reader agreeing on the same
+     * frame can finish it. A surface that stays on the old slot forever must therefore never be
+     * banked, and the disagreement eventually latches as a reader-lag violation. */
     {
         VoluntarySwitchTracker t;
         voluntary_switch_tracker_init(&t, 0, 1, 165);
         Sample s;
         vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
-        voluntary_switch_tracker_step(&t, &s, -1);
+        voluntary_switch_tracker_step(&t, &s);
         for (int i = 0; i < 20; i++) {
-            vsw_test_sample(&s, 11 + i, 0, 0, 20, 20, 165, 168, 20, 1);
-            voluntary_switch_tracker_step(&t, &s, 1);
+            vsw_test_sample(&s, 11 + i, 1, 0, 20, 20, 165, 168, 20, 1);
+            voluntary_switch_tracker_step(&t, &s);
         }
-        ASSERT_TEST(t.phase == VSW_PHASE_C_TRANSITION && !t.saw_commit,
-                    "vsw_negative_decision_without_commit");
+        ASSERT_TEST(!t.saw_commit && t.phase != VSW_PHASE_COMPLETE,
+                    "vsw_negative_surface_never_follows_no_commit");
     }
 
     /* V5: production reader LEADS authority -- reports the new slot while the index says old. */
@@ -1565,12 +1699,12 @@ static int run_pure_tracker_selftests(void) {
         voluntary_switch_tracker_init(&t, 0, 1, 165);
         Sample s;
         vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
-        voluntary_switch_tracker_step(&t, &s, -1);
+        voluntary_switch_tracker_step(&t, &s);
         /* Production reports slot 1 while the authoritative index names slot 2 -- neither the old
          * slot (0) nor the new slot (1). The reader would be asserting a switch the engine never
          * made, so the tracker must latch rather than accept the surface. */
         vsw_test_sample(&s, 11, 2, 1, 20, 20, 165, 168, 20, 1);
-        voluntary_switch_tracker_step(&t, &s, -1);
+        voluntary_switch_tracker_step(&t, &s);
         ASSERT_TEST(t.violation_reader_leads, "vsw_negative_reader_leads_latched");
     }
 
@@ -1580,16 +1714,16 @@ static int run_pure_tracker_selftests(void) {
         voluntary_switch_tracker_init(&t, 0, 1, 165);
         Sample s;
         vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
-        voluntary_switch_tracker_step(&t, &s, -1);
+        voluntary_switch_tracker_step(&t, &s);
         vsw_test_sample(&s, 11, 0, 0, 20, 20, 165, 168, 20, 1);
-        voluntary_switch_tracker_step(&t, &s, 1);               /* decision -> phase C */
+        voluntary_switch_tracker_step(&t, &s);               /* decision -> phase C */
         /* The index has been rewritten but the production surface keeps reporting the OLD slot for
          * many frames. The tracker must never complete on index evidence alone: the production
          * reader is part of the contract, so a switch whose surface never follows is not verified. */
         bool lag_done = false;
         for (int i = 0; i < 24 && !lag_done; i++) {
             vsw_test_sample(&s, 12 + i, 1, 0, 20, 20, 165, 168, 20, 1);
-            lag_done = voluntary_switch_tracker_step(&t, &s, -1);
+            lag_done = voluntary_switch_tracker_step(&t, &s);
         }
         ASSERT_TEST(!lag_done && t.phase != VSW_PHASE_COMPLETE,
                     "vsw_negative_reader_lags_no_completion");
@@ -1601,19 +1735,19 @@ static int run_pure_tracker_selftests(void) {
         voluntary_switch_tracker_init(&t, 0, 1, 165);
         Sample s;
         vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
-        voluntary_switch_tracker_step(&t, &s, -1);
-        vsw_test_sample(&s, 11, 0, 0, 20, 20, 165, 168, 20, 1);
-        voluntary_switch_tracker_step(&t, &s, 1);
+        voluntary_switch_tracker_step(&t, &s);
+        vsw_test_sample(&s, 11, 1, 0, 20, 20, 165, 168, 20, 1);
+        voluntary_switch_tracker_step(&t, &s);
         vsw_test_sample(&s, 12, 1, 0, 20, 20, 165, 168, 20, 1);
-        voluntary_switch_tracker_step(&t, &s, -1);
+        voluntary_switch_tracker_step(&t, &s);
         vsw_test_sample(&s, 13, 1, 1, 20, 20, 165, 168, 20, 1);
-        const bool ok7 = voluntary_switch_tracker_step(&t, &s, -1);
+        const bool ok7 = voluntary_switch_tracker_step(&t, &s);
         ASSERT_TEST(ok7 && t.phase == VSW_PHASE_COMPLETE && !t.violation_old_slot_reappeared,
                     "vsw_negative_reappear_committed");
         /* A further frame in which the OLD slot is authoritative again is a re-appearance. The
          * tracker's latch is checked before the completed-phase early return, so it still latches. */
         vsw_test_sample(&s, 14, 0, 0, 20, 20, 165, 168, 20, 1);
-        voluntary_switch_tracker_step(&t, &s, -1);
+        voluntary_switch_tracker_step(&t, &s);
         ASSERT_TEST(t.violation_old_slot_reappeared, "vsw_negative_old_slot_reappeared_latched");
     }
 
@@ -1625,7 +1759,7 @@ static int run_pure_tracker_selftests(void) {
         vsw_test_sample(&s, 10, 0, 0, 20, 20, 165, 168, 20, 1);
         s.kind = BATTLE_KIND_DOUBLES;
         s.battlers = 4;
-        voluntary_switch_tracker_step(&t, &s, -1);
+        voluntary_switch_tracker_step(&t, &s);
         ASSERT_TEST(t.violation_shape, "vsw_negative_doubles_shape_refused");
     }
 
@@ -1635,7 +1769,7 @@ static int run_pure_tracker_selftests(void) {
         voluntary_switch_tracker_init(&t, 0, 1, 165);
         Sample s;
         vsw_test_sample(&s, 10, 0, 0, 20, 20, 161, 165, 20, 1);   /* lead is 161, not 165 */
-        voluntary_switch_tracker_step(&t, &s, -1);
+        voluntary_switch_tracker_step(&t, &s);
         ASSERT_TEST(t.violation_species_mismatch, "vsw_negative_wrong_lead_species_refused");
     }
 
@@ -1646,9 +1780,9 @@ static int run_pure_tracker_selftests(void) {
         Sample s;
         for (int i = 0; i < 30; i++) {
             vsw_test_sample(&s, 10 + i, 0, 0, 20, 20, 165, 168, 20, 1);
-            voluntary_switch_tracker_step(&t, &s, -1);
+            voluntary_switch_tracker_step(&t, &s);
         }
-        ASSERT_TEST(t.phase == VSW_PHASE_B_AI_CHOSE_SWITCH && !t.saw_commit,
+        ASSERT_TEST(t.phase == VSW_PHASE_B_AWAIT_TRANSITION && !t.saw_commit,
                     "vsw_negative_timeout_no_commit");
     }
 
@@ -3052,12 +3186,22 @@ static int run_script(Driver* d, const char* script_path) {
              *   - is normal controller-driven gameplay -- the same input path the `voluntary-switch`
              *     command has used since Scenario 42; it writes no memory,
              *   - keeps the outgoing mon alive, which is the whole point of the evidence,
-             *   - burns the turn, so the AI re-draws its switch roll,
              *   - and cannot fabricate anything: the tracker only ever reads the OPPONENT side
              *     (s->enemy_battler, gBattlerPartyIndexes[enemy battler], the production opponent
-             *     resolution), while the player's own party slot and species live on battler 0 and
-             *     are never consulted by voluntary_switch_tracker_step(). The pure selftest
-             *     `vsw_player_switch_not_opponent_switch` pins exactly that separation. */
+             *     resolution and the enemy party snapshot), while the player's own party slot and
+             *     species live on battler 0 and are never consulted by
+             *     voluntary_switch_tracker_step(). The pure selftest
+             *     `vsw_player_switch_not_opponent_switch` pins exactly that separation.
+             *
+             * WHAT THE STALL DOES *NOT* CLAIM. A stall turn is an ordinary AI action-selection
+             * opportunity with the previous landed-move state preserved -- it is NOT claimed to be
+             * an eligible roll for the source-supported resistance path. That path's full predicate
+             * (which bench move is compared against which active player Pokemon) is evaluated
+             * against whatever is currently on the field, and while Hoothoot is the active player
+             * Pokemon the >= 2.0x comparison is not the same one that holds for Chikorita. Only
+             * turns whose complete predicates are satisfied should be counted as eligible
+             * opportunities, which is why this tracker reports QUALIFYING DAMAGING HITS -- a lower
+             * bound it can actually observe -- rather than an eligible-roll count it cannot. */
             int max_observed_hit = 0;
             int stall_target_slot = 1;
             int stall_phase = 0;
@@ -3069,16 +3213,13 @@ static int run_script(Driver* d, const char* script_path) {
                 Sample s;
                 sample_state(d->cfg, d->frame, 0, &s);
 
-                int staged = -1;
-                if (tracker.old_battler >= 0) {
-                    staged = read_mon_to_switch_into(tracker.old_battler);
-                }
-
-                if (voluntary_switch_tracker_step(&tracker, &s, staged)) break;
+                if (voluntary_switch_tracker_step(&tracker, &s)) break;
 
                 if (tracker.violation_old_fainted || tracker.violation_shape ||
                     tracker.violation_reader_leads || tracker.violation_reader_lags ||
-                    tracker.violation_species_mismatch || tracker.violation_old_slot_reappeared) {
+                    tracker.violation_species_mismatch || tracker.violation_old_slot_reappeared ||
+                    tracker.violation_old_party_not_alive || tracker.violation_old_party_species ||
+                    tracker.violation_new_party_mismatch) {
                     break;
                 }
 
@@ -3179,7 +3320,9 @@ static int run_script(Driver* d, const char* script_path) {
                 tracker.violation_slot_unchanged || tracker.violation_species_unchanged ||
                 tracker.violation_species_mismatch || tracker.violation_battler_changed ||
                 tracker.violation_reader_leads || tracker.violation_reader_lags ||
-                tracker.violation_old_slot_reappeared;
+                tracker.violation_old_slot_reappeared ||
+                tracker.violation_old_party_not_alive || tracker.violation_old_party_species ||
+                tracker.violation_new_party_mismatch;
 
             if (tracker.violation_old_fainted) {
                 script_error("await-enemy-voluntary-switch: outgoing battler %d reached hp == 0 "
@@ -3195,6 +3338,22 @@ static int run_script(Driver* d, const char* script_path) {
                 script_error("await-enemy-voluntary-switch: expected old species %u but the active "
                              "opponent was a different species; refusing to track the wrong lead",
                              (unsigned)tracker.expect_species);
+            } else if (tracker.violation_old_party_not_alive) {
+                script_error("await-enemy-voluntary-switch: the enemy PARTY slot %d (expected species "
+                             "%u) does not show a living Pokemon on the commit frame -- the outgoing "
+                             "mon cannot be shown to have survived the switch, so this is treated as "
+                             "a faint path, NOT a voluntary switch",
+                             tracker.old_slot, (unsigned)tracker.old_species);
+            } else if (tracker.violation_old_party_species) {
+                script_error("await-enemy-voluntary-switch: the enemy PARTY slot %d does not hold "
+                             "the outgoing species %u, so the snapshot is not describing the mon "
+                             "that left the field; refusing to interpret it",
+                             tracker.old_slot, (unsigned)tracker.old_species);
+            } else if (tracker.violation_new_party_mismatch) {
+                script_error("await-enemy-voluntary-switch: the enemy PARTY slot %d does not match "
+                             "the newly authoritative opponent, so the production party snapshot "
+                             "disagrees with the engine's own slot mapping",
+                             tracker.new_slot);
             } else if (tracker.violation_reader_leads) {
                 script_error("await-enemy-voluntary-switch: the production reader reported the new "
                              "slot before gBattlerPartyIndexes did (reader would be leading "
@@ -3217,15 +3376,15 @@ static int run_script(Driver* d, const char* script_path) {
                              "again after the switch", old_slot);
             } else if (tracker.phase != VSW_PHASE_COMPLETE) {
                 script_error("await-enemy-voluntary-switch %d->%d TIMED OUT after %d frames with no "
-                             "voluntary switch: saw old active=%s, saw AI switch decision=%s, "
-                             "saw transition=%s, saw absent window=%s, saw commit=%s "
-                             "(qualifying damaging hits=%d)",
+                             "voluntary switch: saw old active=%s, saw transition=%s, "
+                             "saw absent window=%s, saw commit=%s "
+                             "(qualifying damaging hits=%d, last outgoing HP=%u)",
                              old_slot, new_slot, max_f,
                              tracker.saw_old_active ? "yes" : "no",
-                             tracker.saw_ai_chose_switch ? "yes" : "no",
                              tracker.saw_transition_window ? "yes" : "no",
                              tracker.saw_absent_window ? "yes" : "no",
-                             tracker.saw_commit ? "yes" : "no", qualifying_hits);
+                             tracker.saw_commit ? "yes" : "no", qualifying_hits,
+                             (unsigned)tracker.old_hp);
             } else if (any_violation) {
                 script_error("await-enemy-voluntary-switch: latched violation(s) present");
             } else {

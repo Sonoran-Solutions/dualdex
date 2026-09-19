@@ -28,10 +28,18 @@
 #   enemy slot 0 (lead)  Ledyba Lv3   -- live moveset {Tackle}
 #   enemy slot 1 (bench) Spinarak Lv3 -- live moveset {Poison Sting, String Shot, Constrict}
 #
-# The only built-in switch heuristic reachable for a non-smart trainer is
-# FindMonWithFlagsAndSuperEffective (src/battle_ai_switch.c:1041-1102, called at :1381). Don has
-# only AI_FLAG_CHECK_BAD_MOVE, so every SMART_SWITCHING-gated condition is inert. The heuristic
-# needs:
+# WHAT THIS SCENARIO DOES AND DOES NOT CLAIM ABOUT THE AI
+# -------------------------------------------------------
+# The observed switch is SOURCE-CONSISTENT with the default
+# FindMonWithFlagsAndSuperEffective 33% resistance path (src/battle_ai_switch.c:1041-1102, called at
+# :1381), and that is the limit of the claim. The exact ShouldSwitch...() function that returned
+# TRUE was NOT runtime-attributed. Several earlier switch predicates are evaluated first in
+# AI_TrySwitchOrUseItem, and this scenario does not claim direct runtime exclusion of every one of
+# them -- only that the ones this document can reason about from the exact battle state are inert
+# here. Nothing reads an AI decision byte: the probe contains no code for gChosenActionByBattler or
+# gBattleStruct->monToSwitchIntoId, because neither release address is established.
+#
+# Why the default path is applicable at all -- the three source facts that must hold:
 #
 #   (a) gLastLandedMoves[opponent] resisted by the bench mon, and
 #   (b) that bench mon has a >= 2.0x move against the active player mon.
@@ -40,10 +48,15 @@
 # gLastLandedMoves[opponent] -- the arming value is therefore order-independent and stays RAZOR_LEAF
 # for as long as the player keeps using it. RAZOR_LEAF (Grass) is 0.25x on Bug/Poison Spinarak, so
 # (a) holds, and Spinarak's POISON_STING is 2.0x on Grass, so (b) holds. The switch then fires on a
-# 33% roll (RNG_AI_SWITCH_SE_DEFENSIVE at :1095), re-drawn every turn, with no
-# AreStatsRaised/SMART_SWITCHING budget limiting how many turns are eligible.
+# 33% roll (RNG_AI_SWITCH_SE_DEFENSIVE at :1095), re-drawn on each AI action-selection while that
+# state holds, with no AreStatsRaised/SMART_SWITCHING budget limiting how many turns are eligible.
 #
-# The 50% immunity branch (:1381 first call, MOVE_RESULT_DOESNT_AFFECT_FOE) is NOT reachable here:
+# The two unconditional early returns immediately before the default path (:1374
+# CanUseSuperEffectiveMoveAgainstOpponents, :1376 AreStatsRaised) can be shown inert for THIS state:
+# Ledyba knows only Tackle (Normal, 1.0x on Grass, so not a >=2.0x move) and it has no stat-raising
+# move, so neither fires.
+#
+# The 50% immunity call (:1381 first call, MOVE_RESULT_DOESNT_AFFECT_FOE) does not fire here:
 # RAZOR_LEAF is 0.25x, not 0x, against Spinarak, so UpdateMoveResultFlags sets
 # MOVE_RESULT_NOT_VERY_EFFECTIVE only (src/battle_util.c:8330-8352). The live branch is the
 # 33% resistance branch.

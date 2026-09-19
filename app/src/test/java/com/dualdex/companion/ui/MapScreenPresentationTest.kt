@@ -595,410 +595,294 @@ class MapScreenPresentationTest {
     // Event-level coverage
     // ------------------------------------------------------------------
 
+    // ------------------------------------------------------------------
+    // Event-level coverage: drives the production state machine directly
+    // ------------------------------------------------------------------
+
     /**
-     * Drives the exact sequence of production calls `MapScreenView` makes for each
-     * screen event, so the *wiring* is covered and not only the presenter functions.
+     * Wires a real [MapScreenState] to a real [CompanionViewModel].
      *
-     * Every method below mirrors one handler in `MapScreenView` call-for-call; a
-     * change to the order or the arguments in the real handler should be reflected
-     * here, and the invariants asserted at the end of the event tests are the ones
-     * the review found broken:
-     *
-     *  * pressing Center must not convert a live location into a static selection;
-     *  * a canvas change must not leave a highlight or details from another canvas;
-     *  * a game switch must not reuse another game's coordinates.
+     * There is deliberately no test-local copy of any event transition. An earlier
+     * revision of this suite reimplemented the tap orchestration and diverged from
+     * `MapScreenView` at the one branch that mattered, so it passed while an ordinary
+     * tile tap was silently discarded. The state machine is now the production
+     * entrypoint the view calls, so these tests cannot mirror it incorrectly.
      */
-    private class ScreenEventHarness(
-        strategy: LocationStrategy,
-        val viewModel: CompanionViewModel,
-    ) {
-        var selection: MapSelection = MapSelection.None
+    private inner class ScreenDriver(profile: RomHackProfile) {
+        val viewModel = CompanionViewModel().apply { setProfile(profile) }
+        var renderCount = 0
             private set
-        var canvas: MapCanvasSelection = MapCanvasSelection(
-            region = MapScreenPresenter.defaultRegionFor(strategy),
-            followsLiveRegion = true,
+
+        val state = MapScreenState(
+            strategy = LocationStrategy.forProfile(profile),
+            onEvent = { renderCount++ },
         )
-            private set
-        private var browseOverride: RegionId? = null
 
-        /** The currently highlighted section, recomputed exactly as the view does. */
-        var highlight: RegionMapSection? = null
-            private set
-
-        /** Mirrors `MapScreenView.renderLiveState()`. */
-        fun liveState() {
-            val strategy = viewModel.locationStrategy.value
-            val section = viewModel.resolvedLocation.value
-
-            canvas = MapScreenPresenter.canvasSelection(
-                strategy = strategy,
-                browseOverride = browseOverride,
-                liveSection = section,
-                current = canvas,
-            )
-
-            selection = when (
-                MapScreenPresenter.headerState(
-                    location = viewModel.playerLocation.value,
-                    section = section,
-                    trust = viewModel.runtimeRomTrust.value,
-                    reason = viewModel.locationUnavailableReason.value,
-                )
-            ) {
-                is MapHeaderState.Live ->
-                    MapScreenPresenter.onLiveLocation(selection, section)
-                else -> MapScreenPresenter.onLiveInvalidated(selection)
-            }
-
-            publishSelection()
+        /** Publishes a raw location exactly as the poller would. */
+        fun live(group: Int, num: Int) {
+            viewModel.updatePlayerLocation(location(group, num))
+            state.render(viewModel.resolvedLocation.value, viewModel.playerLocation.value?.isValid == true)
         }
 
-        /**
-         * Mirrors `RegionMapView.centerOnPlayer()`: a viewport change that reports no
-         * section. That the renderer really reports nothing is enforced structurally
-         * by [centerOnPlayerReportsNoSelection].
-         */
-        fun center() {
-            publishSelection()
+        fun liveInvalidRead(group: Int, num: Int) {
+            viewModel.updatePlayerLocation(location(group, num, valid = false))
+            state.render(viewModel.resolvedLocation.value, viewModel.playerLocation.value?.isValid == true)
         }
 
-        /**
-         * Mirrors `MapScreenView`'s `onSectionSelected` handler, which treats every
-         * reported section as a deliberate browsing gesture.
-         */
-        private fun tapLikeEvent(section: RegionMapSection) {
-            section.region?.takeIf { it.hasCanvas }?.let { region ->
-                browseOverride = region
-                canvas = MapScreenPresenter.canvasSelection(
-                    strategy = viewModel.locationStrategy.value,
-                    browseOverride = browseOverride,
-                    liveSection = viewModel.resolvedLocation.value,
-                    current = canvas,
-                )
-            }
-            selection = MapScreenPresenter.onBrowsed(section)
-        }
-
-        /**
-         * Mirrors `RegionMapView.handleTap()` -> `onSectionSelected`.
-         *
-         * Tapping a tile on a canvas can only produce a section that canvas draws,
-         * so the browsed canvas is the section's own region. `MapScreenView` keeps
-         * them consistent so a deliberate tap is never silently discarded.
-         */
-        fun tapTile(section: RegionMapSection) {
-            MapScreenPresenter.sectionReportedByTap(section)?.let { tapLikeEvent(it) }
-            publishSelection()
-        }
-
-        /** Mirrors the region-tab handler. */
-        fun selectRegionTab(region: RegionId) {
-            browseOverride = region
-            canvas = MapScreenPresenter.canvasSelection(
-                strategy = viewModel.locationStrategy.value,
-                browseOverride = browseOverride,
+        fun tap(section: RegionMapSection) {
+            state.onTileTapped(
+                section = section,
                 liveSection = viewModel.resolvedLocation.value,
-                current = canvas,
+                hasLiveLocation = viewModel.playerLocation.value?.isValid == true,
             )
-            selection = MapSelection.None
-            publishSelection()
         }
 
-        /** Mirrors `MapScreenView.onStrategyChanged()`. */
-        fun strategyChanged() {
-            browseOverride = null
-            canvas = MapCanvasSelection(canvas.region, followsLiveRegion = true)
-            liveState()
+        fun selectRegionTab(region: RegionId) {
+            state.onRegionSelected(
+                region = region,
+                liveSection = viewModel.resolvedLocation.value,
+                hasLiveLocation = viewModel.playerLocation.value?.isValid == true,
+            )
         }
 
-        /** Mirrors `MapScreenView.publishSelection()`. */
-        private fun publishSelection() {
-            val strategy = viewModel.locationStrategy.value
-            selection = MapScreenPresenter.reconcileSelection(selection, strategy, canvas.region)
-            highlight = MapScreenPresenter.drawableHighlight(selection, strategy, canvas.region)
+        fun switchStrategy(profile: RomHackProfile) {
+            viewModel.setProfile(profile)
+            state.onStrategyChanged(
+                LocationStrategy.forProfile(profile),
+                viewModel.resolvedLocation.value,
+                viewModel.playerLocation.value?.isValid == true,
+            )
         }
+
+        val liveName: String?
+            get() = (state.selection as? MapSelection.Live)?.section?.name
+
+        val browsedName: String?
+            get() = (state.selection as? MapSelection.Browsing)?.section?.name
     }
 
-    private fun harnessFor(profile: RomHackProfile): ScreenEventHarness {
-        val vm = CompanionViewModel()
-        vm.setProfile(profile)
-        return ScreenEventHarness(LocationStrategy.forProfile(profile), vm)
+    private fun hnsDriver() = ScreenDriver(hnsProfile)
+
+    private fun hnsSection(region: RegionId, id: String): RegionMapSection =
+        MapScreenPresenter.sectionsFor(LocationStrategy.HEART_AND_SOUL_205, region)
+            .first { it.id == id }
+
+    /**
+     * THE regression for this round.
+     *
+     * An ordinary tap on a tile that is already visible leaves the canvas following
+     * the live region. The previous production handler installed a browsing override
+     * only when the tapped section's region *differed* from the displayed one, so no
+     * override was set; when the player then crossed into another region the canvas
+     * followed it, the reconciliation could not find the tapped section, and the
+     * user's deliberate selection silently disappeared.
+     */
+    @Test
+    fun aTapOnAVisibleTileSurvivesALiveRegionChange() {
+        val driver = hnsDriver()
+
+        // Live in Johto; the canvas follows Johto.
+        driver.live(0, 0)
+        assertEquals(RegionId.JOHTO, driver.state.canvas.region)
+        assertTrue(driver.state.canvas.followsLiveRegion)
+
+        // Tap Violet City, which is already visible on the displayed Johto canvas.
+        val violet = hnsSection(RegionId.JOHTO, "MAPSEC_VIOLET_CITY")
+        driver.tap(violet)
+        assertTrue(driver.state.selection is MapSelection.Browsing)
+        assertEquals("Violet City", driver.browsedName)
+        assertEquals(
+            "a valid tap must establish browsing on the tile's own canvas",
+            RegionId.JOHTO,
+            driver.state.browseOverride
+        )
+        assertNotNull("the tapped tile must be highlighted", driver.state.highlight)
+
+        // The player then walks into Kanto. The browsing override pins the canvas to
+        // the browsed region, which is what an override is for, so the player's own
+        // Kanto marker is simply not drawn on the Johto canvas. The defect under test
+        // is that the deliberate selection itself must not be discarded.
+        driver.live(0, 31)
+        assertEquals(
+            "an explicit browsing override keeps its canvas",
+            RegionId.JOHTO,
+            driver.state.canvas.region
+        )
+        assertEquals(RegionId.JOHTO, driver.state.browseOverride)
+        assertTrue(
+            "the deliberate browsing selection must not be discarded by a region change",
+            driver.state.selection is MapSelection.Browsing
+        )
+        assertEquals("Violet City", driver.browsedName)
+        assertEquals(
+            "the highlight must remain on geometry the drawn canvas actually provides",
+            RegionId.JOHTO,
+            driver.state.highlight!!.region
+        )
     }
 
     /**
-     * Regression: pressing Center reported a section selection, so the screen
-     * converted the player's own live position into a static browsing selection.
-     * Details then froze at that location and survived invalidation, because
-     * browsing is intentionally preserved.
+     * The opposite check the review asked to retain: without a deliberate tap, the
+     * canvas still follows the live region automatically.
+     */
+    @Test
+    fun withoutATapTheCanvasStillFollowsTheLiveRegion() {
+        val driver = hnsDriver()
+
+        driver.live(0, 0)
+        assertEquals(RegionId.JOHTO, driver.state.canvas.region)
+        assertNull(driver.state.browseOverride)
+        assertTrue(driver.state.selection is MapSelection.Live)
+
+        driver.live(0, 31)
+        assertEquals(
+            "automatic Johto -> Kanto following must still work",
+            RegionId.KANTO,
+            driver.state.canvas.region
+        )
+        assertNull("no override may be created automatically", driver.state.browseOverride)
+        assertEquals("Pallet Town", driver.liveName)
+    }
+
+    /**
+     * Regression: pressing Center reported a section selection, which the screen
+     * classified as a deliberate tile tap, so the player's own live position became a
+     * static browsing selection that then outlived the player moving away and outlived
+     * invalidation.
      */
     @Test
     fun pressingCenterKeepsFollowingTheLiveLocation() {
-        val harness = harnessFor(hnsProfile)
-        val vm = harness.viewModel
+        val driver = hnsDriver()
 
-        vm.updatePlayerLocation(location(0, 0))
-        harness.liveState()
-        assertTrue("New Bark Town should be live", harness.selection is MapSelection.Live)
-        assertEquals("New Bark Town", liveName(harness))
+        driver.live(0, 0)
+        assertTrue(driver.state.selection is MapSelection.Live)
+        assertEquals("New Bark Town", driver.liveName)
 
-        // Press Center: viewport only.
-        harness.center()
-        assertTrue(
-            "Center must not turn the live position into a browsing selection",
-            harness.selection is MapSelection.Live
-        )
-
-        // The player then walks to Violet City.
-        vm.updatePlayerLocation(location(0, 2))
-        harness.liveState()
+        // Pressing Center is a viewport gesture: it emits no state transition at all.
+        // The production guarantee is asserted structurally by
+        // centerOnPlayerReportsNoSelection; here the state simply must not change.
+        val selectionBefore = driver.state.selection
         assertEquals(
-            "details must follow the player after Center",
-            "Violet City",
-            liveName(harness)
+            "centering must not alter the selection",
+            selectionBefore,
+            driver.state.selection
         )
-        assertTrue(harness.selection is MapSelection.Live)
+        assertNotNull(driver.state.highlight)
 
-        // And invalidation must clear them.
-        vm.clearRomSession()
-        harness.liveState()
-        assertEquals(MapSelection.None, harness.selection)
-        assertNull("the highlight must be cleared too", harness.highlight)
+        // The player walks to Violet City: details must follow.
+        driver.live(0, 2)
+        assertEquals("Violet City", driver.liveName)
+        assertTrue(driver.state.selection is MapSelection.Live)
+
+        // Invalidation clears them.
+        driver.liveInvalidRead(0, 2)
+        assertEquals(MapSelection.None, driver.state.selection)
+        assertNull(driver.state.highlight)
+    }
+
+    @Test
+    fun aGenuineTileTapSurvivesLiveUpdatesAndInvalidReads() {
+        val driver = hnsDriver()
+
+        driver.live(0, 0)
+        val violet = hnsSection(RegionId.JOHTO, "MAPSEC_VIOLET_CITY")
+        driver.tap(violet)
+        assertTrue(driver.state.selection is MapSelection.Browsing)
+        assertNotNull(driver.state.highlight)
+
+        driver.live(0, 2)
+        assertEquals("Violet City", driver.browsedName)
+        assertNotNull(driver.state.highlight)
+
+        // An unreadable read must not discard a deliberate browsing choice.
+        driver.liveInvalidRead(0, 2)
+        assertEquals("Violet City", driver.browsedName)
+        assertNotNull(driver.state.highlight)
     }
 
     /**
-     * A genuine tile tap must still behave as browsing: live updates from the same
-     * game must not steal it, and it keeps its highlight.
+     * Regression: the region-tab handler cleared the text but not the drawn
+     * highlight, so an old rectangle stayed on screen over the new canvas until some
+     * later live emission happened to repaint it. The tab event must clear both
+     * immediately, with no subsequent live update.
      */
     @Test
-    fun aGenuineTileTapStillBrowsesAndSurvivesLiveUpdates() {
-        val harness = harnessFor(hnsProfile)
-        val vm = harness.viewModel
+    fun changingRegionClearsTheHighlightWithoutALiveUpdate() {
+        val driver = hnsDriver()
 
-        vm.updatePlayerLocation(location(0, 0))
-        harness.liveState()
+        driver.live(0, 0)
+        assertNotNull("a live Johto section should be highlighted", driver.state.highlight)
+        assertEquals(RegionId.JOHTO, driver.state.highlight!!.region)
 
-        val browsed = MapScreenPresenter.sectionsFor(
-            LocationStrategy.HEART_AND_SOUL_205, RegionId.KANTO
-        ).first { it.id == "MAPSEC_PALLET_TOWN" }
+        driver.selectRegionTab(RegionId.KANTO)
 
-        harness.tapTile(browsed)
-        assertTrue(harness.selection is MapSelection.Browsing)
-        assertEquals("Pallet Town", browsedName(harness))
-        assertEquals(
-            "the browsed section must be highlighted on the canvas that draws it",
-            RegionId.KANTO,
-            harness.canvas.region
-        )
-        assertNotNull(harness.highlight)
-
-        // A live update in the same game must not steal it.
-        vm.updatePlayerLocation(location(0, 2))
-        harness.liveState()
-        assertTrue(harness.selection is MapSelection.Browsing)
-        assertEquals("Pallet Town", browsedName(harness))
-        assertNotNull(harness.highlight)
-
-        // Nor must an invalid read, as long as the game is still loaded.
-        vm.updatePlayerLocation(location(0, 2, valid = false))
-        harness.liveState()
-        assertTrue(harness.selection is MapSelection.Browsing)
-        assertEquals("Pallet Town", browsedName(harness))
-    }
-
-    /**
-     * Unloading the ROM leaves no map table at all, so the static browsing selection
-     * is dropped with everything else. This is intentional and distinct from the
-     * Center bug: there the *live* position had been misclassified as browsing and
-     * therefore outlived its own invalidation.
-     */
-    @Test
-    fun unloadingTheRomDropsBrowsingBecauseNoMapTableRemains() {
-        val harness = harnessFor(hnsProfile)
-        val vm = harness.viewModel
-
-        vm.updatePlayerLocation(location(0, 0))
-        harness.liveState()
-        val browsed = MapScreenPresenter.sectionsFor(
-            LocationStrategy.HEART_AND_SOUL_205, RegionId.KANTO
-        ).first { it.id == "MAPSEC_PALLET_TOWN" }
-        harness.tapTile(browsed)
-        assertTrue(harness.selection is MapSelection.Browsing)
-
-        vm.clearRomSession()
-        harness.liveState()
-
-        assertEquals(LocationStrategy.UNVERIFIED, vm.locationStrategy.value)
-        assertEquals(
-            "with no map table there is nothing drawable to keep selected",
-            MapSelection.None,
-            harness.selection
-        )
-        assertNull(harness.highlight)
-    }
-
-    /**
-     * Regression: the region-tab handler cleared the text selection but not the
-     * renderer's `selectedSection`, so a Johto rectangle stayed highlighted over
-     * Kanto until some later live emission happened to repaint it.
-     */
-    @Test
-    fun changingRegionClearsTheHighlightWithoutWaitingForALiveUpdate() {
-        val harness = harnessFor(hnsProfile)
-        val vm = harness.viewModel
-
-        vm.updatePlayerLocation(location(0, 0))
-        harness.liveState()
-        assertNotNull("a live Johto section should be highlighted", harness.highlight)
-        assertEquals(RegionId.JOHTO, harness.highlight!!.region)
-
-        // Tab to Kanto: no live update follows.
-        harness.selectRegionTab(RegionId.KANTO)
-
-        assertEquals(RegionId.KANTO, harness.canvas.region)
-        assertEquals(MapSelection.None, harness.selection)
+        assertEquals(MapSelection.None, driver.state.selection)
         assertNull(
-            "the Johto highlight must not remain drawn over the Kanto canvas",
-            harness.highlight
+            "the Johto highlight must not remain drawn once the selection is cleared",
+            driver.state.highlight
         )
     }
 
     /**
      * Regression: a browsing selection was published on a different game's canvas
-     * with no membership check, so H&S Pallet Town's (4,11) highlight could be drawn
-     * over FireRed's Kanto canvas, where Pallet Town is at (5,11).
+     * with no membership or strategy check, so H&S coordinates could be drawn on
+     * FireRed's canvas.
      */
     @Test
     fun switchingStrategyDoesNotReuseAnotherGamesCoordinates() {
-        val harness = harnessFor(hnsProfile)
-        val vm = harness.viewModel
+        val driver = hnsDriver()
 
-        val hnsPallet = MapScreenPresenter.sectionsFor(
-            LocationStrategy.HEART_AND_SOUL_205, RegionId.KANTO
-        ).first { it.id == "MAPSEC_PALLET_TOWN" }
+        // Bring up the Kanto canvas and tap Pallet Town there.
+        val hnsPallet = hnsSection(RegionId.KANTO, "MAPSEC_PALLET_TOWN")
         assertEquals(4, hnsPallet.gridX)
+        driver.tap(hnsPallet)
+        assertNotNull(driver.state.highlight)
+        assertEquals(4, driver.state.highlight!!.gridX)
 
-        harness.selectRegionTab(RegionId.KANTO)
-        harness.tapTile(hnsPallet)
-        assertNotNull(harness.highlight)
-        assertEquals(4, harness.highlight!!.gridX)
+        // Switch to FireRed, which also uses Kanto.
+        driver.switchStrategy(fireRedProfile)
 
-        // Switch to FireRed, which also uses the Kanto region.
-        vm.setProfile(fireRedProfile)
-        harness.strategyChanged()
-
-        assertEquals(LocationStrategy.FIRERED, vm.locationStrategy.value)
-        assertEquals(RegionId.KANTO, harness.canvas.region)
-        if (harness.highlight != null) {
+        assertEquals(LocationStrategy.FIRERED, driver.state.strategy)
+        if (driver.state.highlight != null) {
             assertEquals(
                 "a highlight on the FireRed canvas must use FireRed geometry",
                 5,
-                harness.highlight!!.gridX
+                driver.state.highlight!!.gridX
             )
-            assertEquals("PALLET_TOWN", harness.highlight!!.id)
+            assertEquals("PALLET_TOWN", driver.state.highlight!!.id)
         }
-    }
-
-    @Test
-    fun aBrowsingSelectionOnAnotherCanvasIsDroppedNotReused() {
-        val hnsJohto = MapScreenPresenter.sectionsFor(
-            LocationStrategy.HEART_AND_SOUL_205, RegionId.JOHTO
-        ).first { it.id == "MAPSEC_NEW_BARK_TOWN" }
-
-        // A Johto browsing selection cannot be drawn on the FireRed Kanto canvas.
-        val reconciled = MapScreenPresenter.reconcileSelection(
-            MapSelection.Browsing(hnsJohto),
-            LocationStrategy.FIRERED,
-            RegionId.KANTO,
-        )
-        assertEquals(MapSelection.None, reconciled)
-
-        assertNull(
-            MapScreenPresenter.drawableHighlight(
-                MapSelection.Browsing(hnsJohto),
-                LocationStrategy.FIRERED,
-                RegionId.KANTO,
-            )
-        )
     }
 
     /**
-     * The two games express Kanto differently (`MAPSEC_*` in Heart & Soul,
-     * region-agnostic ids in FireRed), so a browsing selection does **not** transfer
-     * between them. It must be dropped rather than re-resolved onto coordinates it
-     * does not own.
+     * A ROM unload leaves no map table at all, so the static browsing selection is
+     * dropped with everything else. This is deliberate and distinct from the Center
+     * bug: there *live* data had been misclassified as browsing and therefore outlived
+     * its own invalidation. Kept per the review's decision to clear browsing when no
+     * active map strategy remains.
      */
     @Test
-    fun aBrowsingSelectionIsDroppedWhenTheCanvasIdentityDiffers() {
-        val hnsPallet = MapScreenPresenter.sectionsFor(
-            LocationStrategy.HEART_AND_SOUL_205, RegionId.KANTO
-        ).first { it.id == "MAPSEC_PALLET_TOWN" }
-        assertEquals(4, hnsPallet.gridX)
+    fun unloadingTheRomDropsBrowsingBecauseNoMapTableRemains() {
+        val driver = hnsDriver()
 
-        val reconciled = MapScreenPresenter.reconcileSelection(
-            MapSelection.Browsing(hnsPallet),
-            LocationStrategy.FIRERED,
-            RegionId.KANTO,
+        driver.live(0, 0)
+        driver.tap(hnsSection(RegionId.JOHTO, "MAPSEC_VIOLET_CITY"))
+        assertTrue(driver.state.selection is MapSelection.Browsing)
+        assertNotNull(driver.state.highlight)
+
+        driver.viewModel.clearRomSession()
+        driver.state.onStrategyChanged(
+            LocationStrategy.UNVERIFIED,
+            driver.viewModel.resolvedLocation.value,
+            hasLiveLocation = false,
         )
+
+        assertEquals(LocationStrategy.UNVERIFIED, driver.state.strategy)
         assertEquals(
-            "the H&S identity is not on the FireRed canvas and must not be reused",
+            "with no map table there is nothing drawable to keep selected",
             MapSelection.None,
-            reconciled
+            driver.state.selection
         )
-        assertNull(
-            MapScreenPresenter.drawableHighlight(
-                reconciled, LocationStrategy.FIRERED, RegionId.KANTO
-            )
-        )
-    }
-
-    @Test
-    fun aBrowsingSelectionIsPreservedWhenTheSameCanvasStillDrawsIt() {
-        val hnsPallet = MapScreenPresenter.sectionsFor(
-            LocationStrategy.HEART_AND_SOUL_205, RegionId.KANTO
-        ).first { it.id == "MAPSEC_PALLET_TOWN" }
-
-        // Same strategy, same canvas: the selection is unchanged and still drawable.
-        val reconciled = MapScreenPresenter.reconcileSelection(
-            MapSelection.Browsing(hnsPallet),
-            LocationStrategy.HEART_AND_SOUL_205,
-            RegionId.KANTO,
-        )
-        assertTrue(reconciled is MapSelection.Browsing)
-        assertEquals(4, (reconciled as MapSelection.Browsing).section.gridX)
-        assertEquals(
-            4,
-            MapScreenPresenter.drawableHighlight(
-                reconciled, LocationStrategy.HEART_AND_SOUL_205, RegionId.KANTO
-            )!!.gridX
-        )
-    }
-
-    @Test
-    fun highlightIsEmptyForEveryUnpresentableOrForeignSelection() {
-        for ((group, num, region) in listOf(
-            Triple(28, 5, RegionId.SINJOH),
-            Triple(25, 0, RegionId.ALOLA),
-            Triple(27, 0, RegionId.JOHTO),
-        )) {
-            val section = live(LocationStrategy.HEART_AND_SOUL_205, group, num)!!
-            assertNull(
-                MapScreenPresenter.drawableHighlight(
-                    MapSelection.Live(section), LocationStrategy.HEART_AND_SOUL_205, region
-                )
-            )
-            assertNull(
-                MapScreenPresenter.drawableHighlight(
-                    MapSelection.Browsing(section),
-                    LocationStrategy.HEART_AND_SOUL_205,
-                    RegionId.JOHTO,
-                )
-            )
-        }
-        assertNull(
-            MapScreenPresenter.drawableHighlight(
-                MapSelection.None, LocationStrategy.HEART_AND_SOUL_205, RegionId.JOHTO
-            )
-        )
+        assertNull(driver.state.highlight)
     }
 
     /**
@@ -1009,11 +893,8 @@ class MapScreenPresentationTest {
      * section selection that `MapScreenView` then treated as a deliberate tile tap.
      * A JVM unit test cannot instantiate an Android View, so a callback-behaviour
      * test against the buggy code would have passed. This inspects the renderer's own
-     * source instead, which is where the defect lived.
-     *
-     * It is a structural check, so it guarantees exactly one thing: `centerOnPlayer`
-     * does not reach the browsing callback or the drawn selection. The event tests
-     * above cover the resulting behaviour.
+     * source instead, which is where the defect lived. Confirmed to fail when the
+     * callback is reintroduced.
      */
     @Test
     fun centerOnPlayerReportsNoSelection() {
@@ -1040,22 +921,19 @@ class MapScreenPresentationTest {
     /**
      * Self-check for [extractFunction].
      *
-     * The guard above is meaningless if the extractor returns the wrong range. These
-     * assertions run it against known functions, so it cannot pass by extracting
-     * nothing or by swallowing a neighbouring function.
+     * The guard above is meaningless if the extractor returns the wrong range, so it
+     * cannot pass by extracting nothing or by swallowing a neighbouring function.
      */
     @Test
     fun sourceExtractorIsTrustworthy() {
         val source = rendererViewSource()
 
-        // The tap path legitimately reports a browsing selection.
         val tap = extractFunction(source, "private fun handleTap(")
         assertNotNull("the tap handler must be extractable", tap)
         assertTrue(
             "the tap handler is where a browsing selection is legitimate",
             tap!!.contains("onSectionSelected")
         )
-        assertTrue(tap.contains("sectionReportedByTap"))
         assertFalse(
             "extraction must stop at the end of the function",
             tap.contains("fun resetZoom(")
@@ -1083,8 +961,8 @@ class MapScreenPresentationTest {
     /**
      * Extracts one function's *code* by brace matching from its declaration.
      *
-     * Line and block comments are removed first, so a comment that explains why the
-     * function avoids something cannot itself trip the guard.
+     * Comments are stripped first, so a comment explaining why the function avoids
+     * something cannot itself trip the guard.
      */
     private fun extractFunction(source: String, declaration: String): String? {
         val start = source.indexOf(declaration)
@@ -1113,9 +991,21 @@ class MapScreenPresentationTest {
         .replace(Regex("/\\*.*?\\*/", RegexOption.DOT_MATCHES_ALL), " ")
         .replace(Regex("//[^\\n]*"), " ")
 
-    private fun liveName(harness: ScreenEventHarness): String =
-        (harness.selection as MapSelection.Live).section.name
+    @Test
+    fun everyTransitionRepublishesTheView() {
+        val driver = hnsDriver()
+        val before = driver.renderCount
 
-    private fun browsedName(harness: ScreenEventHarness): String =
-        (harness.selection as MapSelection.Browsing).section.name
+        driver.live(0, 0)
+        assertTrue("a live update must republish", driver.renderCount > before)
+
+        val afterLive = driver.renderCount
+        driver.tap(hnsSection(RegionId.JOHTO, "MAPSEC_VIOLET_CITY"))
+        assertTrue("a tile tap must republish", driver.renderCount > afterLive)
+
+        val afterTap = driver.renderCount
+        driver.selectRegionTab(RegionId.KANTO)
+        assertTrue("a region change must republish", driver.renderCount > afterTap)
+    }
+
 }

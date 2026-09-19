@@ -8,6 +8,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.pokemon.LocationStrategy
 import com.dualdex.pokemon.LocationUnavailableReason
 import com.dualdex.pokemon.MapNodeType
 import com.dualdex.pokemon.PlayerLocation
@@ -38,26 +39,13 @@ class MapScreenView(
 
     private val regionMapView: RegionMapView = RegionMapView(context).apply {
         onSectionSelected = { section ->
-            // A tap on a map tile is a deliberate browsing selection: it must
-            // survive later live updates instead of being overwritten by them.
-            //
-            // A tap can only produce a section the drawn canvas provides, so the
-            // browsed canvas is that section's own region. Keeping the two
-            // consistent means a deliberate tap is never silently discarded by the
-            // drawable-selection check.
-            val region = section.region
-            if (region != null && region.hasCanvas && region != canvas.region) {
-                browseOverride = region
-                canvas = MapScreenPresenter.canvasSelection(
-                    strategy = viewModel.locationStrategy.value,
-                    browseOverride = browseOverride,
-                    liveSection = viewModel.resolvedLocation.value,
-                    current = canvas,
-                )
-                applyCanvas()
-            }
-            selection = MapScreenPresenter.onBrowsed(section)
-            publishSelection()
+            // Deliberate browsing selection. The transition lives in the production
+            // state machine so this handler and the tests cannot diverge.
+            state.onTileTapped(
+                section = section,
+                liveSection = viewModel.resolvedLocation.value,
+                hasLiveLocation = hasLiveLocation(),
+            )
         }
     }
 
@@ -77,24 +65,19 @@ class MapScreenView(
     private var viewScope: CoroutineScope? = null
 
     /**
-     * The region the user explicitly chose to browse, or null while the canvas
-     * follows the player's own region. Deliberately separate from the active ROM
-     * and its location strategy: browsing never selects a memory layout, and an
-     * automatic follow must not harden into a permanent manual override.
+     * All screen state and event transitions.
+     *
+     * The view holds no location state of its own: it delegates every event here and
+     * renders what comes back. This is what keeps the tests able to drive the real
+     * transitions instead of a copy of them.
      */
-    private var browseOverride: RegionId? = null
-
-    /**
-     * What the header and detail sheet are showing. One value rather than a pair of
-     * flags, so a live heading can never be paired with a stale detail sheet.
-     */
-    private var selection: MapSelection = MapSelection.None
-
-    /** Which canvas is drawn, and whether it still follows the live region. */
-    private var canvas: MapCanvasSelection = MapCanvasSelection(
-        region = RegionId.JOHTO,
-        followsLiveRegion = true,
+    private val state = MapScreenState(
+        strategy = LocationStrategy.UNVERIFIED,
+        onEvent = { renderState() },
     )
+
+    /** True only when a valid live read produced the resolved section. */
+    private fun hasLiveLocation(): Boolean = viewModel.playerLocation.value?.isValid == true
 
     init {
         setBackgroundColor(DualDexTheme.Color.background)
@@ -343,16 +326,11 @@ class MapScreenView(
             // Browsing only. This mutates which static canvas is drawn; it must
             // never touch the active ROM, its trust, or the location strategy.
             // An explicit tap becomes the user's override until they switch games.
-            browseOverride = region
-            canvas = MapScreenPresenter.canvasSelection(
-                strategy = viewModel.locationStrategy.value,
-                browseOverride = browseOverride,
+            state.onRegionSelected(
+                region = region,
                 liveSection = viewModel.resolvedLocation.value,
-                current = canvas,
+                hasLiveLocation = hasLiveLocation(),
             )
-            applyCanvas()
-            selection = MapSelection.None
-            publishSelection()
         }.apply {
             val lp = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
                 marginStart = context.dp(DualDexTheme.Spacing.tight / 2)
@@ -392,7 +370,9 @@ class MapScreenView(
             scope.launch { viewModel.playerLocation.collectLatest { renderLiveState() } }
             scope.launch { viewModel.runtimeRomTrust.collectLatest { renderLiveState() } }
             scope.launch { viewModel.resolvedLocation.collectLatest { renderLiveState() } }
-            scope.launch { viewModel.locationStrategy.collectLatest { onStrategyChanged() } }
+            // A strategy change is detected inside renderLiveState and routed to
+            // the state machine, which drops the old game's browsing override.
+            scope.launch { viewModel.locationStrategy.collectLatest { renderLiveState() } }
         }
     }
 
@@ -400,101 +380,70 @@ class MapScreenView(
      * Republish the whole screen from view-model state.
      *
      * Public so the host can force a refresh; the state itself lives in
-     * [MapScreenPresenter] so it is exercised by tests without an Android view.
+     * [MapScreenState] so it is exercised by tests without an Android view.
      */
     fun refreshUI() {
         renderLiveState()
     }
 
     /**
-     * A different game's map table is now active.
+     * Republish the whole screen from view-model state.
      *
-     * The previous browsing region belonged to the old game's canvas, so the
-     * override is dropped and the canvas returns to following live state. This is
-     * the only place browsing is reset, and it never writes back to the ROM.
+     * The transition itself lives in [MapScreenState]; this only feeds it the live
+     * inputs and renders the header, which is not part of the selection model.
      */
-    private fun onStrategyChanged() {
-        browseOverride = null
-        canvas = MapCanvasSelection(
-            region = canvas.region,
-            followsLiveRegion = true,
-        )
-        // A new game means new geometry: renderLiveState reconciles the retained
-        // selection against the new strategy's canvas before publishing it.
-        renderLiveState()
-    }
-
     private fun renderLiveState() {
         val strategy = viewModel.locationStrategy.value
         val loc = viewModel.playerLocation.value
         val section = viewModel.resolvedLocation.value
-        val trust = viewModel.runtimeRomTrust.value
 
         val header = MapScreenPresenter.headerState(
             location = loc,
             section = section,
-            trust = trust,
+            trust = viewModel.runtimeRomTrust.value,
             reason = viewModel.locationUnavailableReason.value,
         )
 
         // The renderer must use the same table the resolver did.
         regionMapView.strategy = strategy
-        regionMapView.resolvedLocation = section
-        regionMapView.playerLocation = loc
 
-        canvas = MapScreenPresenter.canvasSelection(
-            strategy = strategy,
-            browseOverride = browseOverride,
-            liveSection = section,
-            current = canvas,
-        )
-        applyCanvas()
-
-        when (header) {
-            is MapHeaderState.Live -> {
-                selection = MapScreenPresenter.onLiveLocation(selection, header.section)
-                renderLiveHeader(header)
-            }
-            is MapHeaderState.Unavailable -> {
-                selection = MapScreenPresenter.onLiveInvalidated(selection)
-                renderUnavailableHeader(header)
-            }
-            is MapHeaderState.NoLiveLocation -> {
-                selection = MapScreenPresenter.onLiveInvalidated(selection)
-                renderNoLiveHeader(header.trust)
-            }
+        if (state.strategy != strategy) {
+            // A different game's map table: the machine revalidates the retained
+            // selection against the new canvas and re-derives the highlight.
+            state.onStrategyChanged(strategy, section, hasLiveLocation())
+        } else {
+            state.render(section, hasLiveLocation())
         }
 
-        publishSelection()
+        when (header) {
+            is MapHeaderState.Live -> renderLiveHeader(header)
+            is MapHeaderState.Unavailable -> renderUnavailableHeader(header)
+            is MapHeaderState.NoLiveLocation -> renderNoLiveHeader(header.trust)
+        }
     }
 
     /**
-     * Publish the selection to the renderer and the detail sheet, together.
+     * Applies the state machine's current state to the view.
      *
-     * Both outputs are derived from one reconciled [selection] on every relevant
-     * event, so the drawn highlight can never outlive the text describing it, and a
-     * selection from another canvas can never be highlighted at its old coordinates.
+     * Invoked by [MapScreenState] after every transition, so the canvas, the
+     * highlight and the detail sheet are always repainted from one consistent state.
      */
-    private fun publishSelection() {
-        val strategy = viewModel.locationStrategy.value
-        selection = MapScreenPresenter.reconcileSelection(selection, strategy, canvas.region)
-        regionMapView.selectedSection = MapScreenPresenter.drawableHighlight(
-            selection = selection,
-            strategy = strategy,
-            canvasRegion = canvas.region,
-        )
-        renderDetailSheet()
-    }
+    private fun renderState() {
+        regionMapView.playerLocation = viewModel.playerLocation.value
+        regionMapView.resolvedLocation = viewModel.resolvedLocation.value
+        regionMapView.strategy = state.strategy
 
-    /** Applies the canvas choice and keeps the region tabs consistent. */
-    private fun applyCanvas() {
-        if (regionMapView.currentRegion != canvas.region) {
-            regionMapView.currentRegion = canvas.region
+        if (regionMapView.currentRegion != state.canvas.region) {
+            regionMapView.currentRegion = state.canvas.region
         }
-        if (regionMapView.strategy != viewModel.locationStrategy.value) {
-            regionMapView.strategy = viewModel.locationStrategy.value
+        updateRegionTabStyles(state.canvas.region)
+        regionMapView.selectedSection = state.highlight
+
+        when (val current = state.selection) {
+            is MapSelection.Live -> displaySectionDetails(current.section)
+            is MapSelection.Browsing -> displaySectionDetails(current.section)
+            MapSelection.None -> displayNoSelection()
         }
-        updateRegionTabStyles(canvas.region)
     }
 
     private fun renderLiveHeader(header: MapHeaderState.Live) {
@@ -570,20 +519,6 @@ class MapScreenView(
             "Tile (${loc.localX}, ${loc.localY}) · Group ${loc.mapGroup} · Map ${loc.mapNum}"
         } else {
             "Technical details: None"
-        }
-    }
-
-    /**
-     * Repaint the detail sheet from [selection].
-     *
-     * Called on every state change, so a live selection always describes the current
-     * location and an invalidated one is cleared rather than left on screen.
-     */
-    private fun renderDetailSheet() {
-        when (val current = selection) {
-            is MapSelection.Live -> displaySectionDetails(current.section)
-            is MapSelection.Browsing -> displaySectionDetails(current.section)
-            MapSelection.None -> displayNoSelection()
         }
     }
 

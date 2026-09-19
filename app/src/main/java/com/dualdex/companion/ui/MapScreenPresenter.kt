@@ -317,3 +317,133 @@ object MapScreenPresenter {
         return section
     }
 }
+
+/**
+ * The Map screen's state machine.
+ *
+ * Every screen event updates this object, and the view renders whatever it holds.
+ * It exists because copying the event orchestration into a test harness had already
+ * diverged from `MapScreenView` at exactly the branch that mattered: the real tile
+ * handler installed a browsing override only when the tapped section's region
+ * differed from the displayed one, so an ordinary tap on a visible tile left the
+ * override null and the selection was later discarded when the canvas followed a
+ * live region change. The harness set the override unconditionally, so it passed.
+ *
+ * With the transitions here, the view and the tests drive the same entrypoints, so
+ * there is no second copy to drift. [onEvent] is how the view learns that it must
+ * repaint the canvas, the highlight and the detail sheet together.
+ */
+class MapScreenState(
+    strategy: LocationStrategy,
+    private val onEvent: (MapScreenState) -> Unit,
+) {
+    var strategy: LocationStrategy = strategy
+        private set
+
+    var browseOverride: RegionId? = null
+        private set
+
+    var canvas: MapCanvasSelection = MapCanvasSelection(
+        region = MapScreenPresenter.defaultRegionFor(strategy),
+        followsLiveRegion = true,
+    )
+        private set
+
+    var selection: MapSelection = MapSelection.None
+        private set
+
+    /** The section the canvas should highlight, or null when none may be drawn. */
+    var highlight: RegionMapSection? = null
+        private set
+
+    /**
+     * Recompute selection, canvas and highlight from the live inputs.
+     *
+     * [liveSection] is the resolved live location and [hasLiveLocation] says whether
+     * a valid read produced it; together they decide whether a browsing selection may
+     * be retained.
+     */
+    fun render(liveSection: RegionMapSection?, hasLiveLocation: Boolean) {
+        canvas = MapScreenPresenter.canvasSelection(
+            strategy = strategy,
+            browseOverride = browseOverride,
+            liveSection = liveSection,
+            current = canvas,
+        )
+
+        selection = if (hasLiveLocation) {
+            MapScreenPresenter.onLiveLocation(selection, liveSection)
+        } else {
+            MapScreenPresenter.onLiveInvalidated(selection)
+        }
+
+        publish()
+    }
+
+    /**
+     * A deliberate tap on a map tile.
+     *
+     * A valid tap always establishes browsing on that tile's own canvas, so the
+     * selection is never discarded merely because the canvas happened to be
+     * following the live region at the time.
+     */
+    fun onTileTapped(section: RegionMapSection, liveSection: RegionMapSection?, hasLiveLocation: Boolean) {
+        val region = section.region
+        if (region != null && region.hasCanvas) {
+            browseOverride = region
+        }
+        selection = MapScreenPresenter.onBrowsed(section)
+        recomputeCanvasOnly(liveSection, hasLiveLocation)
+        publish()
+    }
+
+    /**
+     * The user chose a region canvas explicitly, which clears the detail sheet: the
+     * new canvas is a browsing choice, not a claim about where the player is.
+     */
+    fun onRegionSelected(region: RegionId, liveSection: RegionMapSection?, hasLiveLocation: Boolean) {
+        browseOverride = region
+        selection = MapSelection.None
+        recomputeCanvasOnly(liveSection, hasLiveLocation)
+        publish()
+    }
+
+    /**
+     * A different game's map table became active.
+     *
+     * The previous browsing region belonged to the old game's canvas, so the
+     * override is dropped; the retained selection is revalidated against the new
+     * canvas by [render].
+     */
+    fun onStrategyChanged(newStrategy: LocationStrategy, liveSection: RegionMapSection?, hasLiveLocation: Boolean) {
+        strategy = newStrategy
+        browseOverride = null
+        render(liveSection, hasLiveLocation)
+    }
+
+    private fun recomputeCanvasOnly(liveSection: RegionMapSection?, hasLiveLocation: Boolean) {
+        canvas = MapScreenPresenter.canvasSelection(
+            strategy = strategy,
+            browseOverride = browseOverride,
+            liveSection = liveSection,
+            current = canvas,
+        )
+    }
+
+    /**
+     * Reconcile, then publish the highlight.
+     *
+     * [hasLiveLocation] is false only when there is no valid live read; a browsing
+     * selection is still reconciled and kept in that case, so a deliberate choice
+     * survives an unreadable read.
+     */
+    private fun publish() {
+        selection = MapScreenPresenter.reconcileSelection(selection, strategy, canvas.region)
+        highlight = MapScreenPresenter.drawableHighlight(
+            selection = selection,
+            strategy = strategy,
+            canvasRegion = canvas.region,
+        )
+        onEvent(this)
+    }
+}

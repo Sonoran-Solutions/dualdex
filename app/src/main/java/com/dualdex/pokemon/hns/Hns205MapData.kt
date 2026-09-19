@@ -28,6 +28,19 @@ object Hns205MapData {
     const val UPSTREAM_COMMIT_SHA: String = "1f42b74dff0e9fe942419845d040663dd829a973"
     const val UPSTREAM_TAG: String = "Release-v2.0.5"
 
+    /**
+     * Digest of the pinned upstream inputs this table was derived from.
+     *
+     * Lets the canonical gate prove the table is current without a network or an
+     * upstream checkout: `--verify-digests` recomputes the mapping digest below
+     * from this file, while this digest is what the pinned regeneration
+     * command produces from the upstream checkout.
+     */
+    const val SOURCE_DIGEST: String = "1402d62fe2dffea77babdeb07540977cd9d4b1df07a8a8f493d246b37c92fa66"
+
+    /** Digest of the generated mapping itself; detects hand-edited records. */
+    const val MAPPING_DIGEST: String = "a2879c3fcccaf37aa6c1bc46a1b41ddacde9d1ee33c973f19aea3e7bba029688"
+
     /** A single H&S map identified by its raw mapGroup/mapNum pair. */
     data class HnsMapLocation(
         val mapName: String,

@@ -234,6 +234,35 @@ class Hns205MapDataIntegrityTest {
         )
     }
 
+    /**
+     * The generated file records digests of its upstream inputs and of the
+     * mapping itself, so the canonical gate can prove freshness without a network
+     * or an upstream checkout.
+     */
+    @Test
+    fun generatedSourceRecordsVerifiableDigests() {
+        val source = generatedSourceFile()
+        assertNotNull("the generated map data source must be present", source)
+        val text = source!!.readText()
+
+        for (constant in listOf("SOURCE_DIGEST", "MAPPING_DIGEST")) {
+            val match = Regex(
+                "const val " + constant + ": String = \"([0-9a-f]{64})\""
+            ).find(text)
+            assertNotNull("generated source must record $constant", match)
+            assertFalse("$constant must be a real digest", match!!.groupValues[1].isBlank())
+        }
+
+        val sourceDigest = Regex("SOURCE_DIGEST: String = \"([0-9a-f]{64})\"")
+            .find(text)!!.groupValues[1]
+        val mappingDigest = Regex("MAPPING_DIGEST: String = \"([0-9a-f]{64})\"")
+            .find(text)!!.groupValues[1]
+        assertTrue(
+            "the two digests must not be interchangeable",
+            sourceDigest != mappingDigest
+        )
+    }
+
     @Test
     fun sectionsAreDeterministicallyOrdered() {
         val ids = Hns205MapData.sections.map { it.sectionId }
@@ -370,28 +399,55 @@ class Hns205MapDataIntegrityTest {
      * conventional sibling layout.
      */
     private fun requireUpstreamCheckout(): File {
-        val repoRoot = generatedSourceFile()?.let { source ->
-            // <repo>/app/src/main/java/com/dualdex/pokemon/hns/Hns205MapData.kt
-            source.absoluteFile.parentFile?.parentFile?.parentFile
-                ?.parentFile?.parentFile?.parentFile?.parentFile
-                ?.parentFile?.parentFile
-        }
+        // Kotlin unit tests run with the Gradle module directory (`<repo>/app/.`)
+        // as the working directory, while the CI workflow and the generator use a
+        // repo-root-relative path. Resolve both so one HNS_UPSTREAM_DIR value works
+        // for `ci.sh` and for Gradle.
+        val workingDir = File(".").absoluteFile
+        val repoRoot = findRepoRoot(workingDir)
+
         val candidates = buildList {
-            System.getenv("HNS_UPSTREAM_DIR")?.takeIf { it.isNotBlank() }?.let { add(File(it)) }
-            if (repoRoot != null) {
-                add(File(repoRoot, "../upstream-hns/pokehns-expansion"))
+            System.getenv("HNS_UPSTREAM_DIR")?.takeIf { it.isNotBlank() }?.let { configured ->
+                add(File(configured))
+                if (!File(configured).isAbsolute && repoRoot != null) {
+                    add(File(repoRoot, configured))
+                }
             }
-            add(File("upstream-hns/pokehns-expansion"))
+            if (repoRoot != null) {
+                add(File(repoRoot, "upstream-hns/pokehns-expansion"))
+                repoRoot.parentFile?.let {
+                    add(File(it, "upstream-hns/pokehns-expansion"))
+                }
+            }
+            add(File(workingDir, "upstream-hns/pokehns-expansion"))
         }
         val found = candidates.firstOrNull { File(it, "data/maps/map_groups.json").isFile }
         assertNotNull(
             "The pinned Heart & Soul upstream checkout is required to cross-check " +
                 "the generated map data against source. Set HNS_UPSTREAM_DIR to a " +
                 "checkout of $PINNED_UPSTREAM_COMMIT at ${PINNED_UPSTREAM_TAG}. " +
-                "Searched: ${candidates.joinToString()}",
+                "Searched: ${candidates.joinToString { it.path }}",
             found
         )
         return found!!
+    }
+
+    /**
+     * Walk up from the test working directory to the Gradle project root.
+     *
+     * `settings.gradle.kts` is the marker, so this does not depend on how many
+     * directory levels the test JVM's working directory happens to sit below the
+     * root (`<repo>/app` for this module).
+     */
+    private fun findRepoRoot(start: File): File? {
+        var current: File? = start
+        var depth = 0
+        while (current != null && depth < 8) {
+            if (File(current, "settings.gradle.kts").isFile) return current
+            current = current.parentFile
+            depth++
+        }
+        return null
     }
 
     private companion object {

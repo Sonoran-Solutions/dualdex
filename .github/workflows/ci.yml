@@ -24,6 +24,34 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      # ---------------------------------------------------------------------
+      # Pinned Heart & Soul 2.0.5 source, used as an INDEPENDENT ORACLE by the
+      # Kotlin map-data integrity tests and by the generator's byte-for-byte
+      # `--check` regeneration. It is a public repository fetched at the exact
+      # pinned commit; no ROM, save or emulator state is involved, and nothing
+      # from it is committed to this repository.
+      #
+      # This step is deliberately explicit rather than implicit. The canonical
+      # gate's always-on integrity check (`--verify-digests`) needs no network;
+      # this step upgrades that to a full source cross-check. If the pinned
+      # commit ever becomes unfetchable, the failure is visible here rather than
+      # hidden behind a silently skipped oracle.
+      #
+      # `sparse-checkout` limits the checkout to the files actually read
+      # (data/maps, src/data/region_map) instead of the whole tree.
+      # ---------------------------------------------------------------------
+      - name: Fetch pinned Heart & Soul 2.0.5 source (test oracle)
+        uses: actions/checkout@v4
+        with:
+          repository: PokemonHnS-Development/pokehns-expansion
+          ref: 1f42b74dff0e9fe942419845d040663dd829a973
+          path: upstream-hns/pokehns-expansion
+          fetch-depth: 1
+          sparse-checkout: |
+            data/maps
+            src/data/region_map
+          sparse-checkout-cone-mode: true
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
@@ -31,6 +59,8 @@ jobs:
 
       - name: Run canonical tests
         run: ./ci.sh test
+        env:
+          HNS_UPSTREAM_DIR: upstream-hns/pokehns-expansion
 
   build:
     name: Build Debug APK

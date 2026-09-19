@@ -24,3 +24,7 @@ signing.properties
 
 # Developer-only runtime probe binaries (source is committed, the artifact is not).
 tools/hns-runtime-probe/runtime_battle_probe
+
+# Python bytecode from the developer-only map-data generator.
+__pycache__/
+*.pyc

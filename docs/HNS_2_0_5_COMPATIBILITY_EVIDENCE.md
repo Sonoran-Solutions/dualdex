@@ -1836,7 +1836,7 @@ separate facts.
 | Generated file | `app/src/main/java/com/dualdex/pokemon/hns/Hns205MapData.kt` |
 | Generator | `tools/hns-map-data/generate_hns_map_data.py` |
 | ROM dependency | **none** |
-| Extracted from | `data/maps/map_groups.json`, `data/maps/<map>/map.json`, `src/data/region_map/region_map_entries.h` (names only), `src/data/region_map/region_map_layout_{johto,kanto,jk}.h` |
+| Extracted from | `data/maps/map_groups.json`, `data/maps/<map>/map.json`, `src/data/region_map/region_map_sections.json` (names), `src/data/region_map/region_map_layout_{johto,kanto,jk}.h` |
 | Result | 560 H&S locations, 120 sections (90 presentable, 30 named-without-canvas) |
 
 **SOURCE VERIFIED.** `mapGroup` is the index into `group_order` in `data/maps/map_groups.json`, and
@@ -1848,14 +1848,39 @@ admitting them would let a non-H&S `mapGroup` look like a valid H&S location.
 Regenerate and verify:
 
 ```bash
-python3 tools/hns-map-data/generate_hns_map_data.py            # write
-python3 tools/hns-map-data/generate_hns_map_data.py --check    # byte-identical verification
+python3 tools/hns-map-data/generate_hns_map_data.py                 # write
 python3 tools/hns-map-data/generate_hns_map_data.py --print-summary
+python3 tools/hns-map-data/generate_hns_map_data.py --check         # byte-identical vs upstream
+python3 tools/hns-map-data/generate_hns_map_data.py --verify-digests  # no upstream needed
 ```
 
-`--check` is wired into `./ci.sh test`, so a hand-edited generated record or a stale regeneration
-fails the canonical gate. Regeneration is deterministic and was confirmed byte-identical across two
+Only **tracked** upstream files are read. `region_map_entries.h` is deliberately not used: upstream
+generates it from `region_map_sections.json` and gitignores it, so a git-only checkout of the pinned
+commit cannot reproduce it. Names therefore come from the tracked Inja input, and positions from the
+tracked layout grids.
+
+The generated file records two digests, which is what makes freshness checkable without a network:
+
+| Constant | Meaning |
+|---|---|
+| `SOURCE_DIGEST` | SHA-256 over the exact pinned upstream inputs (the map table, every H&S `map.json`, the sections JSON and the three layout grids) |
+| `MAPPING_DIGEST` | SHA-256 over the generated mapping content, independent of file formatting |
+
+`--verify-digests` reads **only** the committed generated file, re-derives `MAPPING_DIGEST` from the
+records inside it and compares. It needs no ROM, no network and no upstream checkout, so the
+canonical gate always performs a real integrity check instead of skipping one, and a hand-edited
+generated record or a stale regeneration fails `./ci.sh test`. This was confirmed by tampering with a
+single generated record and observing the check reject it.
+
+`--check` upgrades that to a byte-for-byte regeneration against the pinned checkout and is the
+explicit developer command. Regeneration is deterministic and was confirmed byte-identical across
 runs; the generated file embeds no developer path and no timestamp.
+
+In CI (`.github/workflows/ci.yml`) the pinned public upstream is fetched at
+`1f42b74dff0e9fe942419845d040663dd829a973` with a sparse checkout of `data/maps` and
+`src/data/region_map`, and `HNS_UPSTREAM_DIR` points at it, so the independent oracle test below
+runs there as well as the always-on digest check. If that fetch ever fails, the run fails visibly
+rather than silently degrading to a weaker check.
 
 ### 12.2 Discrepancies found and fixed
 
@@ -2001,11 +2026,17 @@ independent oracle: it re-reads `map_groups.json`, every `map.json`, and the lay
 
 | Suite | Covers |
 |---|---|
-| `Hns205MapDataIntegrityTest` (12) | unique in-range keys, every location resolves to a declared section, independently pinned identities/regions/canvas positions, presentable sections have usable geometry, non-presentable sections have no anchor, generated source is self-describing and path/timestamp free, and the upstream source + canvas oracle |
+| `Hns205MapDataIntegrityTest` (13) | unique in-range keys, every location resolves to a declared section, independently pinned identities/regions/canvas positions, presentable sections have usable geometry, non-presentable sections have no anchor, generated source is self-describing and path/timestamp free, both digests are recorded and distinct, and the independent upstream source + canvas oracle |
 | `HnsLocationRoutingTest` (27) | Johto towns/routes/interiors/dungeons and Kanto; reordered groups 25-30 and the group 22 shift; Kanto-is-Kanto; invalid/negative/out-of-range ids in both dimensions; invalid `mapNum` inside a valid indoor group; escape warp is not identity; Sinjoh/Alola resolve with their own region but no canvas; dynamic maps; strategy isolation; profile-identity (not name) selection; legacy overload agrees with the typed strategy |
 | `RegionMapDatabaseTest` (11) | section sourcing from the pinned table; H&S canvas sizes (56 Johto / 34 Kanto); Sinjoh/Alola have no canvas; fail-closed resolution incl. the **regression that an unknown H&S map is not New Bark Town** |
 | `HnsLocationTrustBoundaryTest` (10) | recognised-but-unverified H&S, header/profile-name impostors, static data pack is not trust, strategy switches clear live state, H&S -> FireRed -> Emerald -> H&S leaks nothing, exact-hash prerequisite, denied reads vs denied presentation |
 | `HnsMapBrowsingIsolationTest` (11) | browsing every region changes no ROM/profile/gameId/identity/trust/strategy; live marker only on its own canvas; no marker for invalid reads or unpresentable sections; invalidation clears live state; H&S Kanto geometry differs from FireRed's |
+
+The upstream cross-check is not skippable. It resolves the pinned checkout from `HNS_UPSTREAM_DIR`
+(accepting both the repo-root-relative value CI uses and an absolute path), then the repo root found
+by walking up to `settings.gradle.kts`, then the conventional sibling layout. If none is present the
+test **fails** with the exact commit and tag to fetch, because an oracle that quietly skips is
+indistinguishable from one that verified nothing.
 
 One regression test fails against the old behaviour by construction:
 `RegionMapDatabaseTest.unknownHnsMapDoesNotBecomeNewBarkTown` asserts that nine unknown pairs resolve

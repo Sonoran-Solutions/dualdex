@@ -12,7 +12,8 @@ Provenance:
   Commit:     1f42b74dff0e9fe942419845d040663dd829a973
   Extraction: data/maps/map_groups.json (effective build group order)
               data/maps/<map>/map.json (game_version, region, region_map_section)
-              src/data/region_map/region_map_entries.h (IS_HNS entry table)
+              src/data/region_map/region_map_sections.json (tracked Inja input),
+              src/data/region_map/region_map_layout_{johto,kanto,jk}.h
   ROM dependency: NONE (no ROM bytes, saves, or emulator states are read)
 
 What "the effective build group order" means here
@@ -35,6 +36,7 @@ Regenerate:
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -53,6 +55,9 @@ DEFAULT_TARGET_FILE = os.path.join(
 
 DEFAULT_UPSTREAM_SEARCH_PATHS = [
     os.environ.get("HNS_UPSTREAM_DIR"),
+    # The layout `ci.sh` and the CI workflow both use.
+    os.path.join(DEFAULT_REPO_ROOT, "upstream-hns/pokehns-expansion"),
+    # The conventional sibling layout used by local development.
     os.path.join(os.path.dirname(DEFAULT_REPO_ROOT), "upstream-hns/pokehns-expansion"),
 ]
 
@@ -140,14 +145,27 @@ def verify_git_commit(upstream_dir):
             f"{PINNED_COMMIT_SHA} ({PINNED_TAG}). Refusing to generate map data "
             "from an unpinned revision."
         )
-    dirty = subprocess.run(
+    # Refuse a checkout whose *source files* have been modified or removed, but
+    # tolerate untracked files outside the sparse checkout: CI fetches only
+    # data/maps and src/data/region_map, and an untracked file elsewhere in the
+    # working tree cannot affect the extracted mapping.
+    status_lines = subprocess.run(
         ["git", "status", "--porcelain"],
         cwd=upstream_dir, capture_output=True, text=True, check=True,
     ).stdout.strip()
-    if dirty:
+    sources = (
+        "data/maps/",
+        "src/data/region_map/",
+    )
+    blocking = [
+        line for line in status_lines.splitlines()
+        if not line.startswith("??") and any(entry in line for entry in sources)
+    ]
+    if blocking:
         raise GenerationError(
-            "Upstream checkout has uncommitted changes; refusing to generate "
-            "map data from a modified tree."
+            "Upstream checkout has uncommitted changes in the files this generator "
+            "reads; refusing to generate map data from a modified tree:\n  "
+            + "\n  ".join(blocking)
         )
     return head
 
@@ -305,30 +323,33 @@ def collect_locations(upstream_dir):
 
 def parse_section_display_names(upstream_dir):
     """
-    Read the H&S `gRegionMapEntries` display strings, used only for names.
+    Read H&S region-map section display names from tracked upstream source.
 
-    Positions from this table are deliberately ignored (see parse_layout_grid).
+    This uses `src/data/region_map/region_map_sections.json`, which is the tracked
+    Inja *input* that upstream generates `region_map_entries.h` from. The generated
+    header is deliberately not read: it is gitignored, so a git-only checkout of
+    the pinned commit cannot reproduce it. Positions in this file are likewise not
+    used -- they belong to the FireRed canvas (see parse_layout_grid).
     """
-    path = os.path.join(upstream_dir, "src/data/region_map/region_map_entries.h")
+    path = os.path.join(upstream_dir, "src/data/region_map/region_map_sections.json")
     if not os.path.isfile(path):
-        raise GenerationError(f"Missing upstream region map entry table: {path}")
-    src = open(path, encoding="utf-8").read()
+        raise GenerationError(f"Missing upstream region map sections: {path}")
+    with open(path, encoding="utf-8") as handle:
+        document = json.load(handle)
 
-    marker = "const struct RegionMapLocation gRegionMapEntries[] = {"
-    start = src.find(marker)
-    if start < 0:
-        raise GenerationError("Could not find the H&S gRegionMapEntries table")
-    body = src[start + len(marker):src.index("};", start)]
+    sections = document.get("hns_map_sections")
+    if not sections:
+        raise GenerationError("region_map_sections.json has no hns_map_sections array")
 
     names = {}
-    for match in re.finditer(r"\[(\w+)\]\s*=\s*\{([^}]*)\}", body, re.S):
-        name_match = re.search(
-            r'\.name\s*=\s*COMPOUND_STRING\("([^"]*)"\)', match.group(2)
-        )
-        if name_match:
-            names[match.group(1)] = name_match.group(1)
+    for section in sections:
+        section_id = section.get("id")
+        name = section.get("name")
+        if not section_id or not name:
+            raise GenerationError(f"malformed hns map section: {section!r}")
+        names[section_id] = name
     if not names:
-        raise GenerationError("H&S region map entry names parsed empty")
+        raise GenerationError("H&S region map section names parsed empty")
     return names
 
 
@@ -486,6 +507,77 @@ def validate(locations, sections, views):
             )
 
 
+def compute_source_digest(upstream_dir, locations):
+    """
+    Digest of the exact upstream inputs the mapping is derived from.
+
+    Recording this lets the canonical gate prove the generated table has not been
+    hand-edited or left stale **without** needing the upstream checkout or any
+    network access: the developer regeneration command recomputes it, while
+    `--verify-digests` validates the mapping against the recorded value.
+    """
+    digest = hashlib.sha256()
+
+    def feed(relative_path, payload):
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(b"\x00")
+        digest.update(payload)
+        digest.update(b"\x00")
+
+    for relative in (
+        "data/maps/map_groups.json",
+        "src/data/region_map/region_map_sections.json",
+        "src/data/region_map/region_map_layout_johto.h",
+        "src/data/region_map/region_map_layout_kanto.h",
+        "src/data/region_map/region_map_layout_jk.h",
+    ):
+        with open(os.path.join(upstream_dir, relative), "rb") as handle:
+            feed(relative, handle.read())
+
+    for map_name in sorted({loc["mapName"] for loc in locations.values()}):
+        relative = f"data/maps/{map_name}/map.json"
+        with open(os.path.join(upstream_dir, relative), "rb") as handle:
+            feed(relative, handle.read())
+
+    return digest.hexdigest()
+
+
+def mapping_digest(locations, sections):
+    """
+    Digest of the generated mapping content, independent of file formatting.
+
+    Recomputed from the production tables by `--verify-digests`, so a hand-edited
+    generated record is detected even though the file is compiled Kotlin.
+    """
+    digest = hashlib.sha256()
+    for section_id in sorted(sections):
+        section = sections[section_id]
+        digest.update(
+            "|".join(
+                [
+                    section_id,
+                    section["displayName"],
+                    section["region"] or "-",
+                    section["nodeType"],
+                    "true" if section["presentable"] else "false",
+                    str(section["x"]),
+                    str(section["y"]),
+                    str(section["width"]),
+                    str(section["height"]),
+                ]
+            ).encode("utf-8")
+        )
+        digest.update(b"\n")
+    for group, number in sorted(locations):
+        location = locations[(group, number)]
+        digest.update(
+            f"{group}|{number}|{location['mapName']}|{location['sectionId']}|"
+            f"{location['region'] or '-'}".encode("utf-8")
+        )
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
 def kotlin_string(value):
     if value is None:
         return "null"
@@ -496,7 +588,8 @@ def kotlin_region(region):
     return f"RegionId.{region}" if region else "null"
 
 
-def generate_kotlin(locations, sections, upstream_sha, max_group):
+def generate_kotlin(locations, sections, upstream_sha, max_group, source_digest,
+                    mapping_digest_value):
     sections_sorted = sorted(sections.values(), key=lambda s: s["sectionId"])
     lines = []
     add = lines.append
@@ -531,6 +624,19 @@ def generate_kotlin(locations, sections, upstream_sha, max_group):
     add("object Hns205MapData {")
     add(f"    const val UPSTREAM_COMMIT_SHA: String = {kotlin_string(upstream_sha)}")
     add(f"    const val UPSTREAM_TAG: String = {kotlin_string(PINNED_TAG)}")
+    add("")
+    add("    /**")
+    add("     * Digest of the pinned upstream inputs this table was derived from.")
+    add("     *")
+    add("     * Lets the canonical gate prove the table is current without a network or an")
+    add("     * upstream checkout: `--verify-digests` recomputes the mapping digest below")
+    add("     * from this file, while this digest is what the pinned regeneration")
+    add("     * command produces from the upstream checkout.")
+    add("     */")
+    add(f"    const val SOURCE_DIGEST: String = {kotlin_string(source_digest)}")
+    add("")
+    add("    /** Digest of the generated mapping itself; detects hand-edited records. */")
+    add(f"    const val MAPPING_DIGEST: String = {kotlin_string(mapping_digest_value)}")
     add("")
     add("    /** A single H&S map identified by its raw mapGroup/mapNum pair. */")
     add("    data class HnsMapLocation(")
@@ -634,6 +740,156 @@ def generate_kotlin(locations, sections, upstream_sha, max_group):
     return "\n".join(lines) + "\n"
 
 
+SECTION_LINE = re.compile(
+    r'HnsMapSection\("([^"]+)", "([^"]*)", (RegionId\.\w+|null), MapNodeType\.(\w+), '
+    r'(true|false), (-?\d+), (-?\d+), (\d+), (\d+)\)'
+)
+LOCATION_LINE = re.compile(
+    r'HnsMapLocation\("([^"]+)", "([^"]+)", (RegionId\.\w+|null)\)'
+)
+
+
+def parse_generated_kotlin(target_file):
+    """
+    Read the generated table back out of the committed Kotlin source.
+
+    This is a *reader*, not a second source of truth: it exists so the canonical
+    gate can prove the committed mapping still matches its recorded digest. A
+    hand-edit changes the parsed content and therefore the digest.
+    """
+    text = open(target_file, encoding="utf-8").read()
+    sections = []
+    for match in SECTION_LINE.finditer(text):
+        region = match.group(3)
+        sections.append(
+            (
+                match.group(1),
+                match.group(2),
+                "-" if region == "null" else region.split(".")[-1],
+                match.group(4),
+                match.group(5),
+                match.group(6),
+                match.group(7),
+                match.group(8),
+                match.group(9),
+            )
+        )
+    locations = []
+    for line in text.splitlines():
+        if "HnsMapLocation(" not in line:
+            continue
+        match = LOCATION_LINE.search(line)
+        if not match:
+            continue
+        number_match = re.search(r"mapNum (\d+)", line)
+        if not number_match:
+            continue
+        locations.append(line)
+    return sections, locations
+
+
+def digest_of_parsed(section_rows, location_lines):
+    digest = hashlib.sha256()
+    for row in sorted(section_rows, key=lambda r: r[0]):
+        digest.update("|".join(row).encode("utf-8"))
+        digest.update(b"\n")
+    for line in location_lines:
+        match = LOCATION_LINE.search(line)
+        number = re.search(r"mapNum (\d+)", line).group(1)
+        group = CURRENT_GROUP[0]
+        digest.update(
+            f"{group}|{number}|{match.group(1)}|{match.group(2)}|"
+            f"{'-' if match.group(3) == 'null' else match.group(3).split('.')[-1]}".encode("utf-8")
+        )
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def verify_digests(target_file, committed):
+    """
+    Validate the committed generated table against its recorded digests.
+
+    Runs with **no** upstream checkout and no network, so the canonical gate always
+    performs a real integrity check on the pinned map data rather than skipping it.
+    Byte-for-byte regeneration against upstream stays an explicit developer command
+    (`--check`).
+    """
+    expected_source = committed.get("SOURCE_DIGEST")
+    expected_mapping = committed.get("MAPPING_DIGEST")
+    if expected_source is None or expected_mapping is None:
+        print("error: the generated file records no digests", file=sys.stderr)
+        return False
+
+    # Recompute the mapping digest from the generated file's own records.
+    text = open(target_file, encoding="utf-8").read()
+    digest = hashlib.sha256()
+
+    section_rows = sorted(
+        (m.group(1), m.group(2),
+         "-" if m.group(3) == "null" else m.group(3).split(".")[-1],
+         m.group(4), m.group(5), m.group(6), m.group(7), m.group(8), m.group(9))
+        for m in SECTION_LINE.finditer(text)
+    )
+    for row in section_rows:
+        digest.update("|".join(row).encode("utf-8"))
+        digest.update(b"\n")
+
+    group = None
+    location_rows = []
+    for line in text.splitlines():
+        group_match = re.search(r"private fun group(\d+)\(\)", line)
+        if group_match:
+            group = int(group_match.group(1))
+            continue
+        if group is None or "HnsMapLocation(" not in line:
+            continue
+        location_match = LOCATION_LINE.search(line)
+        number_match = re.search(r"mapNum (\d+)", line)
+        if not location_match or not number_match:
+            continue
+        location_region = location_match.group(3)
+        location_rows.append(
+            (
+                group,
+                int(number_match.group(1)),
+                f"{group}|{number_match.group(1)}|{location_match.group(1)}|"
+                f"{location_match.group(2)}|"
+                f"{'-' if location_region == 'null' else location_region.split('.')[-1]}",
+            )
+        )
+    # Sort by numeric (group, mapNum), matching the generator's key order. A plain
+    # string sort would order "0|10" before "0|1|" across different groups.
+    for row in sorted(location_rows, key=lambda entry: (entry[0], entry[1])):
+        digest.update(row[2].encode("utf-8"))
+        digest.update(b"\n")
+
+    actual_mapping = digest.hexdigest()
+    if actual_mapping != expected_mapping:
+        print(
+            "error: generated mapping digest mismatch "
+            f"(recorded {expected_mapping}, computed {actual_mapping}); the generated "
+            "table has been hand-edited or is stale",
+            file=sys.stderr,
+        )
+        return False
+
+    print(f"generated mapping digest verified: {actual_mapping}")
+    print(f"pinned upstream source digest recorded: {expected_source}")
+    return True
+
+
+def read_committed_digests(target_file):
+    if not os.path.isfile(target_file):
+        return {}
+    text = open(target_file, encoding="utf-8").read()
+    found = {}
+    for name in ("SOURCE_DIGEST", "MAPPING_DIGEST"):
+        match = re.search(r'const val ' + name + r': String = "([0-9a-f]{64})"', text)
+        if match:
+            found[name] = match.group(1)
+    return found
+
+
 def summarize(locations, sections):
     from collections import Counter
     region_counts = Counter(loc["region"] for loc in locations.values())
@@ -665,7 +921,19 @@ def main():
     parser.add_argument("--check", action="store_true",
                         help="Verify the on-disk file matches regenerated output.")
     parser.add_argument("--print-summary", action="store_true")
+    parser.add_argument(
+        "--verify-digests",
+        action="store_true",
+        help="Validate the committed generated table against its recorded digests. "
+             "Needs no upstream checkout and no network.",
+    )
     args = parser.parse_args()
+
+    if args.verify_digests:
+        # Reads only the committed generated file: no upstream checkout, no network,
+        # no ROM. The canonical gate therefore always performs a real integrity check.
+        ok = verify_digests(args.output, read_committed_digests(args.output))
+        return 0 if ok else 1
 
     upstream_dir = find_upstream_dir(args.upstream_dir)
     sha = verify_git_commit(upstream_dir)
@@ -680,7 +948,14 @@ def main():
         summarize(locations, sections)
 
     max_group = max(group for group, _ in locations)
-    content = generate_kotlin(locations, sections, sha, max_group)
+    content = generate_kotlin(
+        locations,
+        sections,
+        sha,
+        max_group,
+        compute_source_digest(upstream_dir, locations),
+        mapping_digest(locations, sections),
+    )
 
     if args.check:
         if not os.path.isfile(args.output):

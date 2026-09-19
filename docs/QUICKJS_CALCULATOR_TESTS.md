@@ -105,22 +105,45 @@ engine; they were not produced by running the engine and copying its output.
 
 ### The numeric oracle and the parser are tested too
 
-The assertion helpers and the test-only reader are part of the fail-closed
-contract, so the suite also runs self-tests over them (`oracle_self_test`,
-`parser_self_test` sections):
+The assertion helpers, the response-validation path, and the test-only reader
+are part of the fail-closed contract, so the suite also runs self-tests over
+them (`oracle_self_test`, `smoke_path_self_test`, `parser_self_test`).
 
-- **Exact, non-truncating comparisons.** `check_number()` requires the JSON
-  number type, a finite value, exact integrality, and representable bounds
-  *before* any conversion, and then compares the original parsed value against
-  the expected integer. A fractional response (`minDamage: 51.9` where 51 is
-  expected - exactly what a lost flooring step produces) fails instead of being
-  truncated into a pass, and a missing or wrong-typed field fails even when the
-  expectation is zero, so `jl_num()`'s zero fallback can never fake a match.
+**What every successful response must satisfy** (with or without a golden
+vector), enforced by `validate_success_response()` — the single path used both
+for real engine responses and for the synthetic self-test responses:
+
+| Requirement | When |
+|---|---|
+| every damage element is a finite integral number in range | always |
+| `minDamage` / `maxDamage` present and valid | always |
+| `minDamage == damage[0]`, `maxDamage == damage[last]` | always without a golden; exact golden equality with one |
+| `range` is a 2-element array equal to the vector endpoints | always |
+| exact equality with the independently derived golden values | only when a golden vector exists |
+
+"No precomputed golden" therefore means *validate structure and internal
+consistency*, not *skip the numeric checks* — which is what the Gen 8 smoke
+fixture relies on.
+
+- **Exact, non-truncating comparisons.** `check_number_shape()` requires the
+  JSON number type, a finite value, exact integrality, and representable bounds
+  *before* any conversion, and `check_number()` then compares the original
+  parsed value against the expected integer. A fractional response
+  (`minDamage: 51.9` where 51 is expected - exactly what a lost flooring step
+  produces) fails instead of being truncated into a pass, and a missing or
+  wrong-typed field fails even when the expectation is zero, so `jl_num()`'s
+  zero fallback can never fake a match.
   Self-tests cover fractional scalars and array elements, missing fields,
   missing elements, wrong types (string/boolean/null/array/object), values
   outside the representable range, wrong-length roll vectors, and - as positive
   controls, so a checker that rejected everything could not pass - exact
   integral values including zero, negative values, and the range limit.
+- **The no-golden (smoke) branch is covered too.** `smoke_path_self_test` feeds
+  `validate_success_response()` synthetic responses with `expect_rolls == NULL`:
+  an internally consistent response must be accepted, while wrong/missing/typed
+  `minDamage` and `maxDamage`, string or fractional interior elements, a missing
+  element, a non-array `damage` field, a `range` that disagrees with the vector,
+  a missing `range`, and wrong `movePower`/`moveType` must all be rejected.
 - **Strict JSON (see `json_lite.h`).** Rejected: leading zeros (`051`), a
   trailing decimal point (`51.`), a bare fraction (`-.1`), a leading `+`,
   `1e` with no digits, `1e999` (non-finite), `NaN`, embedded NUL escapes

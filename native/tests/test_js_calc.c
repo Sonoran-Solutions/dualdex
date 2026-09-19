@@ -115,25 +115,36 @@ static const char* number_reject_reason(const jl_value* value) {
     return NULL;
 }
 
-/* The exact numeric assertion used for every asserted scalar and every damage
- * roll: the expected integer is compared against the ORIGINAL parsed value,
- * never against a cast of it. Missing fields and wrong types fail even when the
- * expectation is zero, so jl_num()'s zero fallback can never fake a match. */
-static void check_number(const char* field, long expected, const jl_value* value) {
+/* Mandatory shape validation for any asserted numeric field: the JSON number
+ * type, a finite value, exact integrality, and representable bounds. Every
+ * successful response must satisfy this for its damage elements, minDamage,
+ * maxDamage, and range, whether or not a golden vector exists. Returns 1 when
+ * the value is usable. */
+static int check_number_shape(const char* field, const jl_value* value) {
     const char* reason = number_reject_reason(value);
-    if (reason) {
-        g_checks_failed++;
-        if (!g_quiet_checks) {
-            if (value && jl_is_num(value)) {
-                printf(ANSI_RED "  [FAIL] %s / %s: expected %ld, got %.17g (%s)" ANSI_RESET "\n",
-                       g_fixture, field, expected, jl_num(value), reason);
-            } else {
-                printf(ANSI_RED "  [FAIL] %s / %s: expected %ld, but the value is %s" ANSI_RESET "\n",
-                       g_fixture, field, expected, reason);
-            }
-        }
-        return;
+    if (!reason) {
+        g_checks_passed++;
+        return 1;
     }
+    g_checks_failed++;
+    if (!g_quiet_checks) {
+        if (value && jl_is_num(value)) {
+            printf(ANSI_RED "  [FAIL] %s / %s: expected a finite integral number, got %.17g (%s)"
+                   ANSI_RESET "\n", g_fixture, field, jl_num(value), reason);
+        } else {
+            printf(ANSI_RED "  [FAIL] %s / %s: expected a finite integral number, but the value is %s"
+                   ANSI_RESET "\n", g_fixture, field, reason);
+        }
+    }
+    return 0;
+}
+
+/* The exact numeric assertion: the expected integer is compared against the
+ * ORIGINAL parsed value, never against a cast of it. Missing fields and wrong
+ * types fail even when the expectation is zero, so jl_num()'s zero fallback can
+ * never fake a match. */
+static void check_number(const char* field, long expected, const jl_value* value) {
+    if (!check_number_shape(field, value)) return;
     double actual = jl_num(value);
     if (actual == (double)expected) {
         g_checks_passed++;
@@ -312,7 +323,10 @@ typedef struct {
     const char* expect_move_category;
     int expect_move_power;         /* < 0 to skip */
     int expect_defender_hp;        /* < 0 to skip */
-    const int* expect_rolls;       /* 16 rolls, or NULL for min/max only */
+    const int* expect_rolls;       /* 16 rolls for exact equality, or NULL to check
+                                    * structure and internal consistency only
+                                    * (elements, min/max and range are still
+                                    * validated; only golden equality is optional) */
     const char* provenance;        /* where the expected numbers come from */
 } calc_fixture;
 
@@ -518,6 +532,79 @@ static const calc_fixture FIXTURES[] = {
 
 #define FIXTURE_COUNT ((int)(sizeof(FIXTURES) / sizeof(FIXTURES[0])))
 
+/* Validates a SUCCESSFUL response against a fixture.
+ *
+ * This is the only response-validation path: run_fixture() uses it for real
+ * engine responses, and the self-tests feed it synthetic responses so that
+ * every branch - including the no-golden-vector branch used by the Gen 8 smoke
+ * fixture - is exercised negatively as well.
+ *
+ * Mandatory for every successful response:
+ *   - every damage element is a finite integral number within range;
+ *   - minDamage and maxDamage are present and valid;
+ *   - minDamage == damage[0], maxDamage == damage[last], range == both.
+ * Additional when a golden vector exists: exact equality with the golden.
+ */
+static void validate_success_response(const calc_fixture* fx, const jl_value* doc) {
+    if (fx->expect_move_type) check_str("moveType", fx->expect_move_type, jl_str(jl_get(doc, "moveType")));
+    if (fx->expect_move_category) check_str("moveCategory", fx->expect_move_category, jl_str(jl_get(doc, "moveCategory")));
+    if (fx->expect_move_power >= 0) {
+        check_number("movePower", fx->expect_move_power, jl_get(doc, "movePower"));
+    }
+    if (fx->expect_defender_hp >= 0) {
+        check_number("defenderMaxHP", fx->expect_defender_hp, jl_get(doc, "defenderMaxHP"));
+    }
+
+    const jl_value* damage = damage_array(doc);
+    check_condition("damage is an array", damage != NULL);
+    check_int("damage roll count", ROLL_COUNT, damage ? jl_len(damage) : -1);
+    if (!damage || jl_len(damage) != ROLL_COUNT) return;
+
+    /* Every element is validated, with or without a golden vector. */
+    int elements_usable = 1;
+    for (int i = 0; i < ROLL_COUNT; i++) {
+        char field[32];
+        snprintf(field, sizeof(field), "damage[%d]", i);
+        const jl_value* element = jl_at(damage, i);
+        if (!check_number_shape(field, element)) {
+            elements_usable = 0;
+            continue;
+        }
+        if (fx->expect_rolls) check_number(field, fx->expect_rolls[i], element);
+    }
+
+    const double first = elements_usable ? jl_num(jl_at(damage, 0)) : 0.0;
+    const double last = elements_usable ? jl_num(jl_at(damage, ROLL_COUNT - 1)) : 0.0;
+
+    if (fx->expect_rolls) {
+        check_number("minDamage", fx->expect_rolls[0], jl_get(doc, "minDamage"));
+        check_number("maxDamage", fx->expect_rolls[ROLL_COUNT - 1], jl_get(doc, "maxDamage"));
+    } else if (elements_usable) {
+        /* No golden: min/max must still match the observed, validated bounds. */
+        check_number("minDamage", (long)first, jl_get(doc, "minDamage"));
+        check_number("maxDamage", (long)last, jl_get(doc, "maxDamage"));
+    } else {
+        /* The vector itself already failed; still require present, valid
+         * min/max rather than letting missing fields pass unnoticed. */
+        check_number_shape("minDamage", jl_get(doc, "minDamage"));
+        check_number_shape("maxDamage", jl_get(doc, "maxDamage"));
+    }
+
+    const jl_value* range = jl_get(doc, "range");
+    check_condition("range is a 2-element array", jl_is_arr(range) && jl_len(range) == 2);
+    if (jl_is_arr(range) && jl_len(range) == 2) {
+        const jl_value* low = jl_at(range, 0);
+        const jl_value* high = jl_at(range, 1);
+        if (elements_usable) {
+            check_number("range[0] vs damage[0]", (long)first, low);
+            check_number("range[1] vs damage[last]", (long)last, high);
+        } else {
+            check_number_shape("range[0]", low);
+            check_number_shape("range[1]", high);
+        }
+    }
+}
+
 static void run_fixture(const calc_fixture* fx) {
     g_fixture = fx->name;
 
@@ -559,47 +646,7 @@ static void run_fixture(const calc_fixture* fx) {
         return;
     }
 
-    if (fx->expect_move_type) check_str("moveType", fx->expect_move_type, jl_str(jl_get(doc, "moveType")));
-    if (fx->expect_move_category) check_str("moveCategory", fx->expect_move_category, jl_str(jl_get(doc, "moveCategory")));
-    if (fx->expect_move_power >= 0) {
-        check_number("movePower", fx->expect_move_power, jl_get(doc, "movePower"));
-    }
-    if (fx->expect_defender_hp >= 0) {
-        check_number("defenderMaxHP", fx->expect_defender_hp, jl_get(doc, "defenderMaxHP"));
-    }
-
-    const jl_value* damage = damage_array(doc);
-    check_condition("damage is an array", damage != NULL);
-    check_int("damage roll count", ROLL_COUNT, damage ? jl_len(damage) : -1);
-    if (damage && jl_len(damage) == ROLL_COUNT) {
-        for (int i = 0; i < ROLL_COUNT; i++) {
-            if (!fx->expect_rolls) continue;
-            char field[32];
-            snprintf(field, sizeof(field), "damage[%d]", i);
-            check_number(field, fx->expect_rolls[i], jl_at(damage, i));
-        }
-        double first = 0.0, last = 0.0;
-        const int endpoints_usable = number_reject_reason(jl_at(damage, 0)) == NULL &&
-                                     number_reject_reason(jl_at(damage, ROLL_COUNT - 1)) == NULL;
-        if (endpoints_usable) {
-            first = jl_num(jl_at(damage, 0));
-            last = jl_num(jl_at(damage, ROLL_COUNT - 1));
-        }
-        if (fx->expect_rolls) {
-            check_number("minDamage", fx->expect_rolls[0], jl_get(doc, "minDamage"));
-            check_number("maxDamage", fx->expect_rolls[ROLL_COUNT - 1], jl_get(doc, "maxDamage"));
-        }
-        const jl_value* range = jl_get(doc, "range");
-        check_condition("range is a 2-element array", jl_is_arr(range) && jl_len(range) == 2);
-        if (jl_is_arr(range) && jl_len(range) == 2) {
-            if (endpoints_usable) {
-                check_number("range[0]", (long)first, jl_at(range, 0));
-                check_number("range[1]", (long)last, jl_at(range, 1));
-            } else {
-                check_condition("range endpoints comparable to the damage vector", 0);
-            }
-        }
-    }
+    validate_success_response(fx, doc);
 
     jl_free(doc);
     free(raw);
@@ -692,7 +739,7 @@ static int checker_rejects_scalar(const char* json, const char* key, long expect
     g_quiet_checks = 1;
     check_number(key, expected, doc ? jl_get(doc, key) : NULL);
     g_quiet_checks = 0;
-    const int rejected = (g_checks_failed == failed_before + 1) && (g_checks_passed == passed_before);
+    const int rejected = (g_checks_failed > failed_before) && (g_checks_passed == passed_before);
     g_checks_failed = failed_before;
     g_checks_passed = passed_before;
     jl_free(doc);
@@ -706,7 +753,7 @@ static int checker_accepts_scalar(const char* json, const char* key, long expect
     g_quiet_checks = 1;
     check_number(key, expected, doc ? jl_get(doc, key) : NULL);
     g_quiet_checks = 0;
-    const int accepted = (g_checks_failed == failed_before) && (g_checks_passed == passed_before + 1);
+    const int accepted = (g_checks_failed == failed_before) && (g_checks_passed > passed_before);
     g_checks_failed = failed_before;
     g_checks_passed = passed_before;
     jl_free(doc);
@@ -722,7 +769,7 @@ static int checker_rejects_element(const char* json, const char* key, int index,
     g_quiet_checks = 1;
     check_number(key, expected, (array && jl_is_arr(array)) ? jl_at(array, index) : NULL);
     g_quiet_checks = 0;
-    const int rejected = (g_checks_failed == failed_before + 1) && (g_checks_passed == passed_before);
+    const int rejected = (g_checks_failed > failed_before) && (g_checks_passed == passed_before);
     g_checks_failed = failed_before;
     g_checks_passed = passed_before;
     jl_free(doc);
@@ -809,6 +856,154 @@ static void check_oracle_self_tests(void) {
     jl_value* string_vector = jl_parse("{\"damage\":\"51\"}");
     check_condition("a non-array damage field is rejected", damage_array(string_vector) == NULL);
     jl_free(string_vector);
+}
+
+/* ------------------------------------------------------------------ */
+/* Smoke-path (no golden vector) response validation                   */
+/*                                                                     */
+/* gen8_generic_engine_smoke carries no golden damage vector, so its    */
+/* branch of validate_success_response() must still validate every      */
+/* damage element, minDamage, maxDamage, and range. These self-tests    */
+/* drive that exact function with synthetic responses, so the branch is */
+/* covered negatively as well as the helper.                           */
+/* ------------------------------------------------------------------ */
+
+/* Mirrors the smoke fixture's metadata: no golden vector, and expectations
+ * that match SYNTHETIC_SMOKE_OK. The request string is unused by
+ * validate_success_response. */
+static const calc_fixture SMOKE_PROBE_FIXTURE = {
+    "smoke_path_self_test",
+    "{}",
+    1, NULL, "Fairy", "Special", 95, 166, NULL,
+    "synthetic metadata for the no-golden-vector validation path"
+};
+
+/* Deliberately arbitrary values: inputs for the checker, not Gen 8 goldens.
+ * min/max/range are internally consistent with the vector. */
+#define SYNTHETIC_SMOKE_VECTOR \
+    "10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25"
+#define SYNTHETIC_SMOKE_OK \
+    "{\"success\":true,\"damage\":[" SYNTHETIC_SMOKE_VECTOR "]," \
+    "\"minDamage\":10,\"maxDamage\":25,\"range\":[10,25]," \
+    "\"moveType\":\"Fairy\",\"moveCategory\":\"Special\",\"movePower\":95," \
+    "\"defenderMaxHP\":166}"
+
+/* Runs the real validation path (no golden vector) and reports whether it
+ * rejected the response. */
+static int smoke_response_rejected(const char* json) {
+    jl_value* doc = jl_parse(json);
+    if (!doc) return 1; /* malformed input cannot pass validation either */
+    const int failed_before = g_checks_failed;
+    const int passed_before = g_checks_passed;
+    g_quiet_checks = 1;
+    validate_success_response(&SMOKE_PROBE_FIXTURE, doc);
+    g_quiet_checks = 0;
+    const int rejected = (g_checks_failed > failed_before);
+    g_checks_failed = failed_before;
+    g_checks_passed = passed_before;
+    jl_free(doc);
+    return rejected;
+}
+
+static int smoke_response_accepted(const char* json) {
+    jl_value* doc = jl_parse(json);
+    if (!doc) return 0;
+    const int failed_before = g_checks_failed;
+    const int passed_before = g_checks_passed;
+    g_quiet_checks = 1;
+    validate_success_response(&SMOKE_PROBE_FIXTURE, doc);
+    g_quiet_checks = 0;
+    const int clean = (g_checks_failed == failed_before) && (g_checks_passed > passed_before);
+    g_checks_failed = failed_before;
+    g_checks_passed = passed_before;
+    jl_free(doc);
+    return clean;
+}
+
+static void check_smoke_path_self_tests(void) {
+    g_fixture = "smoke_path_self_test";
+
+    /* Positive control: an internally consistent response must pass. */
+    check_condition("internally consistent response is accepted",
+                    smoke_response_accepted(SYNTHETIC_SMOKE_OK));
+
+    /* minDamage / maxDamage are mandatory and must match the observed bounds. */
+    check_condition("wrong minDamage/maxDamage is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":[" SYNTHETIC_SMOKE_VECTOR "],"
+                        "\"minDamage\":999,\"maxDamage\":1000,\"range\":[10,25],"
+                        "\"moveType\":\"Fairy\",\"moveCategory\":\"Special\",\"movePower\":95,"
+                        "\"defenderMaxHP\":166}"));
+    check_condition("missing minDamage/maxDamage is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":[" SYNTHETIC_SMOKE_VECTOR "],"
+                        "\"range\":[10,25],\"moveType\":\"Fairy\",\"moveCategory\":\"Special\","
+                        "\"movePower\":95,\"defenderMaxHP\":166}"));
+    check_condition("string minDamage/maxDamage is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":[" SYNTHETIC_SMOKE_VECTOR "],"
+                        "\"minDamage\":\"oops\",\"maxDamage\":\"oops\",\"range\":[10,25],"
+                        "\"moveType\":\"Fairy\",\"moveCategory\":\"Special\",\"movePower\":95,"
+                        "\"defenderMaxHP\":166}"));
+    check_condition("null minDamage/maxDamage is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":[" SYNTHETIC_SMOKE_VECTOR "],"
+                        "\"minDamage\":null,\"maxDamage\":null,\"range\":[10,25],"
+                        "\"moveType\":\"Fairy\",\"moveCategory\":\"Special\",\"movePower\":95,"
+                        "\"defenderMaxHP\":166}"));
+
+    /* Interior damage elements are validated even without a golden vector. */
+    check_condition("string interior damage element is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":[10,11,12,13,14,\"oops\",16,17,18,19,20,21,22,23,24,25],"
+                        "\"minDamage\":10,\"maxDamage\":25,\"range\":[10,25],"
+                        "\"moveType\":\"Fairy\",\"moveCategory\":\"Special\",\"movePower\":95,"
+                        "\"defenderMaxHP\":166}"));
+    check_condition("fractional interior damage element is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":[10,11,12,13,14,15.9,16,17,18,19,20,21,22,23,24,25],"
+                        "\"minDamage\":10,\"maxDamage\":25,\"range\":[10,25],"
+                        "\"moveType\":\"Fairy\",\"moveCategory\":\"Special\",\"movePower\":95,"
+                        "\"defenderMaxHP\":166}"));
+    check_condition("missing interior damage element is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":[10,11,12,13,14],"
+                        "\"minDamage\":10,\"maxDamage\":25,\"range\":[10,25],"
+                        "\"moveType\":\"Fairy\",\"moveCategory\":\"Special\",\"movePower\":95,"
+                        "\"defenderMaxHP\":166}"));
+    check_condition("damage vector that is not an array is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":\"10-25\",\"minDamage\":10,\"maxDamage\":25,"
+                        "\"range\":[10,25],\"moveType\":\"Fairy\",\"moveCategory\":\"Special\","
+                        "\"movePower\":95,\"defenderMaxHP\":166}"));
+
+    /* range is mandatory and must agree with the validated vector. */
+    check_condition("range inconsistent with the damage vector is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":[" SYNTHETIC_SMOKE_VECTOR "],"
+                        "\"minDamage\":10,\"maxDamage\":25,\"range\":[10,99],"
+                        "\"moveType\":\"Fairy\",\"moveCategory\":\"Special\",\"movePower\":95,"
+                        "\"defenderMaxHP\":166}"));
+    check_condition("missing range is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":[" SYNTHETIC_SMOKE_VECTOR "],"
+                        "\"minDamage\":10,\"maxDamage\":25,"
+                        "\"moveType\":\"Fairy\",\"moveCategory\":\"Special\",\"movePower\":95,"
+                        "\"defenderMaxHP\":166}"));
+
+    /* The scalar metadata of the smoke branch stays validated as well. */
+    check_condition("wrong movePower is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":[" SYNTHETIC_SMOKE_VECTOR "],"
+                        "\"minDamage\":10,\"maxDamage\":25,\"range\":[10,25],"
+                        "\"moveType\":\"Fairy\",\"moveCategory\":\"Special\",\"movePower\":75,"
+                        "\"defenderMaxHP\":166}"));
+    check_condition("wrong moveType is rejected",
+                    smoke_response_rejected(
+                        "{\"success\":true,\"damage\":[" SYNTHETIC_SMOKE_VECTOR "],"
+                        "\"minDamage\":10,\"maxDamage\":25,\"range\":[10,25],"
+                        "\"moveType\":\"Normal\",\"moveCategory\":\"Special\",\"movePower\":95,"
+                        "\"defenderMaxHP\":166}"));
 }
 
 static void check_parser_self_tests(void) {
@@ -923,6 +1118,7 @@ int main(void) {
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
     check_oracle_self_tests();
+    check_smoke_path_self_tests();
     check_parser_self_tests();
 
     g_fixture = "api_cleanup";

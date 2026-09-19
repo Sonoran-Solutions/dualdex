@@ -110,7 +110,7 @@ The companion itself can be controlled through the Thor's bottom touchscreen.
 git clone https://github.com/Sonoran-Solutions/dualdex.git
 cd dualdex
 
-./ci.sh test     # native C parser tests + Kotlin unit tests
+./ci.sh test     # native reader + H&S tracker + QuickJS calculator + Kotlin tests
 ./ci.sh build    # assemble the debug APK
 ./ci.sh all      # test, then build
 ./ci.sh release  # assemble the production-signed release APK (requires
@@ -120,6 +120,13 @@ cd dualdex
 `./ci.sh` is the canonical, fail-closed build/test contract and is what GitHub
 Actions runs. The underlying Gradle tasks are `testDebugUnitTest` and
 `assembleDebug`.
+
+`./ci.sh test` runs four disjoint suites and reports them separately: the
+native reader runner, the H&S tracker selftests, the host QuickJS damage
+calculator suite (the real engine, linked against the pinned QuickJS submodule
+and executing the shipped `calc_bundle.js`), and the Kotlin unit tests. The
+QuickJS submodule is required by `test` as well as `build`; `ci.sh` initializes
+and verifies it at the recorded commit before compiling.
 
 The debug APK is written to:
 
@@ -143,6 +150,15 @@ gcc -O2 \
 
 ./native/test_runner
 ```
+
+### QuickJS calculator tests
+
+`./ci.sh test` is the supported way to run the calculator suite; it compiles
+`native/src/js_calc_engine.c` against `native/quickjs` and runs
+`native/tests/test_js_calc.c` against `app/src/main/assets/calc_bundle.js`.
+Fixture coverage, expected-value provenance, the `field.gameType` input
+contract, and the bundle regeneration recipe are documented in
+[docs/QUICKJS_CALCULATOR_TESTS.md](docs/QUICKJS_CALCULATOR_TESTS.md).
 
 ## ROMs, saves, and game files
 

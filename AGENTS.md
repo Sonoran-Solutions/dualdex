@@ -21,7 +21,8 @@ Welcome to DualDex. This repository is integrated with the Sonoran Solutions mul
 All agents **MUST** use the canonical CI script at the repository root. Do not invent custom Gradle or CMake commands.
 
 ```bash
-# Run native C parser tests + Kotlin unit tests
+# Run native reader tests + H&S tracker selftests + QuickJS calculator tests
+# + Kotlin unit tests
 ./ci.sh test
 
 # Build debug APK (app-debug.apk)
@@ -31,9 +32,10 @@ All agents **MUST** use the canonical CI script at the repository root. Do not i
 ./ci.sh all
 ```
 
-- **Prerequisites**: JDK 17, Android SDK Platform 34, Android NDK 27.2.12479018, CMake 3.22.1, and a host C compiler (GCC or Clang) for the native test runner.
-- **Git Submodules**: `native/quickjs` is a submodule required to build. `./ci.sh build` and `./ci.sh all` check it out at the exact commit recorded by the superproject and fail (rather than degrade) if it is missing, stale, or wrong; `./ci.sh test` does not need it.
-- **Fail-closed**: every command is deterministic and non-interactive. A missing prerequisite, a failing native or Kotlin test, or a failing build all return a non-zero exit code — nothing is silently skipped.
+- **Prerequisites**: JDK 17, Android SDK Platform 34, Android NDK 27.2.12479018, CMake 3.22.1, and a host C compiler (GCC or Clang) for the native host suites.
+- **Git Submodules**: `native/quickjs` is a submodule required to build **and** to run the calculator suite. `./ci.sh test`, `build`, and `all` check it out at the exact commit recorded by the superproject and fail (rather than degrade) if it is missing, stale, or wrong.
+- **Fail-closed**: every command is deterministic and non-interactive. A missing prerequisite, a failing native, calculator, or Kotlin test, or a failing build all return a non-zero exit code — nothing is silently skipped.
+- **Calculator goldens**: `native/tests/test_js_calc.c` asserts exact Gen III damage values with documented provenance; see [docs/QUICKJS_CALCULATOR_TESTS.md](docs/QUICKJS_CALCULATOR_TESTS.md) before changing fixtures or `tools/calc-bundler/entry.js`.
 
 ---
 

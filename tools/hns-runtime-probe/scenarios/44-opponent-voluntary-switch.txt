@@ -58,8 +58,10 @@
 #
 # The 50% immunity call (:1381 first call, MOVE_RESULT_DOESNT_AFFECT_FOE) does not fire here:
 # RAZOR_LEAF is 0.25x, not 0x, against Spinarak, so UpdateMoveResultFlags sets
-# MOVE_RESULT_NOT_VERY_EFFECTIVE only (src/battle_util.c:8330-8352). The live branch is the
-# 33% resistance branch.
+# MOVE_RESULT_NOT_VERY_EFFECTIVE only (src/battle_util.c:8330-8352). The applicable default-path call
+# is therefore the 33% resistance branch -- but that is a source statement about which call can
+# fire, not an attribution of the branch that actually did: the exact runtime ShouldSwitch...()
+# branch was NOT runtime-attributed and is not claimed (see 11.10.8 of the evidence document).
 #
 # ALTERNATIVE MECHANISMS RULED OUT FOR THIS ENCOUNTER
 # ---------------------------------------------------
@@ -110,9 +112,10 @@ party-stats enemy
 matrix s44-initial-ledyba
 
 # --- Drive turns with Razor Leaf (found in the live move list, never an assumed menu slot) until
-#     the AI voluntarily switches. The roll is 33% per turn and Ledyba survives three qualifying
-#     hits, so a single attempt has ~70% odds; a run that times out or that lets Ledyba faint is a
-#     clean miss and is retried from the same battery save. ---
+#     the AI voluntarily switches. This is PROBABILISTIC: the source-supported default path uses a
+#     33% roll on eligible turns, but no per-attempt probability is claimed here, and the exact
+#     runtime ShouldSwitch...() branch remains NOT VERIFIED / NOT CLAIMED. A run that times out or
+#     that lets Ledyba faint is a clean miss; retry it from the same legal battery save. ---
 await-enemy-voluntary-switch 0 1 165 40000
 
 assert-battle active

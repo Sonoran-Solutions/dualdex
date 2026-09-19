@@ -1272,7 +1272,7 @@ The tracker suite previously ran only from the probe's own `build.sh`/`--selftes
 outside the canonical gate. Since `--selftest` is pure — it returns before any ROM, core or
 environment is touched — it is now a required `ci.sh test` step (`tracker_selftest()` in `ci.sh`),
 and `ci.sh all` runs it too. The two suites are still counted separately on purpose: the 62 guard
-shipped reader behaviour, the 68 guard the fail-closed behaviour of the harness whose output this
+shipped reader behaviour, the 75 guard the fail-closed behaviour of the harness whose output this
 document treats as evidence, and conflating them would hide which one broke.
 
 #### 11.7.2 Legal game progression pipeline (issue #1 phase 1 complete)
@@ -1324,9 +1324,11 @@ cd tools/hns-runtime-probe && ./build.sh
     --sav "$HOME/stage33_trainer_ready.sav" --script scenarios/43-player-faint-forced-replacement.txt
 
 # Opponent VOLUNTARY switch (Scenario 44, section 11.10) and its damage diagnostic, both from
-# stage34_don_ready.sav. Scenario 44 is PROBABILISTIC: the switch fires on a 33% roll re-drawn each
-# eligible turn, and an attempt that never rolls fails closed with a clean timeout and zero
-# invariant violations. Retry from the same battery save; a single PASS is the evidence. The
+# stage34_don_ready.sav. Scenario 44 is PROBABILISTIC: the source-supported default switch path uses
+# a 33% roll on eligible turns, while the exact runtime ShouldSwitch...() branch remains NOT
+# VERIFIED / NOT CLAIMED (11.10.8). An attempt that never rolls fails closed with a clean timeout and
+# zero invariant violations; retry from the same battery save and take a single PASS as the evidence.
+# No per-attempt probability is claimed. The
 # `--quiet` flag is NOT used here so the Phase A/B/C/D lines stay on the record.
 ./runtime_battle_probe <mgba_libretro.so> "<rom>.gba" \
     --sav "$HOME/stage34_don_ready.sav" --script scenarios/44-opponent-voluntary-switch.txt
@@ -1342,7 +1344,7 @@ cd tools/hns-runtime-probe && ./build.sh
 #   ./runtime_battle_probe <core> <rom> --sav <save> --script deferred/46-sprout-tower-3f.txt
 
 # Deterministic regression coverage: the production-reader suite (62) AND the runtime tracker
-# selftests (68). Needs no ROM, no core, no save and no emulator.
+# selftests (75). Needs no ROM, no core, no save and no emulator.
 cd ../.. && ./ci.sh test
 ```
 

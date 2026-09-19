@@ -21,6 +21,11 @@ class RegionMapView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
+    /**
+     * Which static canvas is drawn. Changing this is browsing only: it does not
+     * touch the active ROM, its trust, or the location strategy, and it clears the
+     * live marker because the live position belongs to whichever region it is in.
+     */
     var currentRegion: RegionId = RegionId.JOHTO
         set(value) {
             field = value
@@ -34,20 +39,42 @@ class RegionMapView @JvmOverloads constructor(
             invalidate()
         }
 
-    /** Resolved by the active game/profile; never inferred from [currentRegion]. */
+    /**
+     * Resolved live position from the active game/profile. Never inferred from
+     * [currentRegion], and never used to place a marker unless it is presentable
+     * and belongs to the region currently being drawn.
+     */
     var resolvedLocation: RegionMapSection? = null
         set(value) {
             field = value
             invalidate()
         }
 
+    /** The section the detail sheet is describing. */
     var selectedSection: RegionMapSection? = null
         set(value) {
             field = value
             invalidate()
         }
 
-    var onSectionSelected: ((RegionMapSection) -> Unit)? = null
+    /**
+     * The section that may carry a live player marker.
+     *
+     * Presentation, region and the browsed canvas must all agree, so browsing a
+     * Kanto canvas can never draw the player's Johto position over it.
+     */
+    val liveMarkerSection: RegionMapSection?
+        get() {
+            if (playerLocation?.isValid != true) return null
+            val section = resolvedLocation ?: return null
+            if (!section.presentable) return null
+            if (section.region != currentRegion) return null
+            if (section.gridX < 0 || section.gridY < 0) return null
+            return section
+        }
+
+    /** [isLive] is true only for the player's own resolved position. */
+    var onSectionSelected: ((RegionMapSection, Boolean) -> Unit)? = null
 
     private var sections: List<RegionMapSection> = RegionMapDatabase.getSections(currentRegion)
 
@@ -207,10 +234,16 @@ class RegionMapView @JvmOverloads constructor(
         setWillNotDraw(false)
     }
 
+    /**
+     * Centre the canvas on the live player position.
+     *
+     * A no-op unless a presentable live position exists on the region currently
+     * being drawn, so the control can never imply a position DualDex does not have.
+     */
+    fun canCenterOnPlayer(): Boolean = liveMarkerSection != null
+
     fun centerOnPlayer() {
-        if (playerLocation?.isValid != true) return
-        val sec = resolvedLocation ?: return
-        if (currentRegion != sec.region) return
+        val sec = liveMarkerSection ?: return
 
         val w = width.toFloat()
         val h = height.toFloat()
@@ -231,7 +264,7 @@ class RegionMapView @JvmOverloads constructor(
 
         clampTranslation()
         selectedSection = sec
-        onSectionSelected?.invoke(sec)
+        onSectionSelected?.invoke(sec, true)
         invalidate()
     }
 
@@ -306,7 +339,7 @@ class RegionMapView @JvmOverloads constructor(
 
         if (hit != null) {
             selectedSection = hit
-            onSectionSelected?.invoke(hit)
+            onSectionSelected?.invoke(hit, false)
             invalidate()
         }
     }
@@ -478,8 +511,7 @@ class RegionMapView @JvmOverloads constructor(
     }
 
     private fun drawPlayerMarker(canvas: Canvas, startX: Float, startY: Float, tileSize: Float) {
-        if (playerLocation?.isValid != true) return
-        val currentSec = resolvedLocation ?: return
+        val currentSec = liveMarkerSection ?: return
 
         val px = startX + (currentSec.gridX + currentSec.width / 2f) * tileSize
         val py = startY + (currentSec.gridY + currentSec.height / 2f) * tileSize

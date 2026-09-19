@@ -8,6 +8,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.pokemon.LocationUnavailableReason
 import com.dualdex.pokemon.MapNodeType
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionId
@@ -36,8 +37,8 @@ class MapScreenView(
     private val envBadgeView: TextView
 
     private val regionMapView: RegionMapView = RegionMapView(context).apply {
-        onSectionSelected = { section ->
-            displaySectionDetails(section)
+        onSectionSelected = { section, isLive ->
+            displaySectionDetails(section, isLive)
         }
     }
 
@@ -55,6 +56,19 @@ class MapScreenView(
 
     private val regionButtons = mutableMapOf<RegionId, TextView>()
     private var viewScope: CoroutineScope? = null
+
+    /**
+     * The region canvas the user chose to browse, if any. Deliberately separate
+     * from the active ROM and its location strategy: browsing a canvas is a view
+     * concern and never selects a memory layout.
+     */
+    private var browseRegion: RegionId? = null
+
+    /**
+     * True when the detail sheet currently describes the player's own resolved
+     * position rather than a browsed map tile.
+     */
+    private var isShowingLiveLocation: Boolean = false
 
     init {
         setBackgroundColor(DualDexTheme.Color.background)
@@ -283,8 +297,9 @@ class MapScreenView(
 
         bottomCard.addView(expandableContent)
 
-        // Initial default display
-        displaySectionDetails(RegionMapDatabase.JOHTO_DEFAULT)
+        // No live location is known yet, so show nothing that could be mistaken
+        // for one.
+        displayNoSelection()
     }
 
     private fun toggleSheetExpansion() {
@@ -299,12 +314,12 @@ class MapScreenView(
             text = title,
             style = if (region == RegionId.JOHTO) DualDexButtonStyle.PRIMARY else DualDexButtonStyle.GHOST
         ) {
+            // Browsing only. This mutates which static canvas is drawn; it must
+            // never touch the active ROM, its trust, or the location strategy.
+            browseRegion = region
             regionMapView.currentRegion = region
             updateRegionTabStyles(region)
-            val firstSec = RegionMapDatabase.getSections(region).firstOrNull()
-            if (firstSec != null) {
-                displaySectionDetails(firstSec)
-            }
+            displayNoSelection()
         }.apply {
             val lp = LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
                 marginStart = context.dp(DualDexTheme.Spacing.tight / 2)
@@ -338,79 +353,74 @@ class MapScreenView(
     private fun startObserving() {
         viewScope?.cancel()
         viewScope = CoroutineScope(Dispatchers.Main + SupervisorJob()).also { scope ->
+            // Every live input funnels through renderLiveState so the screen can
+            // only ever show one consistent snapshot, never a mixture of a new
+            // ROM with a location read from the previous one.
             scope.launch {
-                viewModel.playerLocation.collectLatest { loc ->
-                    updatePlayerLocation(loc)
-                }
+                viewModel.playerLocation.collectLatest { renderLiveState() }
             }
             scope.launch {
-                viewModel.runtimeRomTrust.collectLatest {
-                    updatePlayerLocation(viewModel.playerLocation.value)
-                }
+                viewModel.runtimeRomTrust.collectLatest { renderLiveState() }
             }
             scope.launch {
-                viewModel.resolvedLocation.collectLatest { sec ->
-                    regionMapView.resolvedLocation = sec
-                    if (sec != null && regionMapView.selectedSection == null) {
-                        displaySectionDetails(sec)
-                        regionMapView.selectedSection = sec
-                    }
-                    updatePlayerLocation(viewModel.playerLocation.value)
-                }
+                viewModel.resolvedLocation.collectLatest { renderLiveState() }
+            }
+            scope.launch {
+                viewModel.locationStrategy.collectLatest { renderLiveState() }
             }
         }
     }
 
+    /**
+     * Republish live state from the ViewModel.
+     *
+     * The strategy is the source of truth for which canvas the player's own
+     * position belongs to, but choosing it here never writes back to the ROM
+     * session: browsing remains a separate, purely visual concern.
+     */
     fun refreshUI() {
-        val prof = viewModel.activeProfile.value
-        val defaultRegion = when (prof.gameId) {
-            1 -> if (prof.id == "heart_and_soul" || prof.name.contains("Heart", ignoreCase = true)) RegionId.JOHTO else RegionId.HOENN
-            2 -> RegionId.KANTO
-            else -> RegionId.JOHTO
+        if (browseRegion == null) {
+            val live = viewModel.resolvedLocation.value
+            val liveRegion = live?.region
+            if (live != null && liveRegion != null && live.presentable && liveRegion.hasCanvas) {
+                browseRegion = liveRegion
+                regionMapView.currentRegion = liveRegion
+                updateRegionTabStyles(liveRegion)
+            }
         }
-        val resolved = viewModel.resolvedLocation.value
-        regionMapView.currentRegion = resolved?.region ?: defaultRegion
-        regionMapView.resolvedLocation = resolved
-        updateRegionTabStyles(resolved?.region ?: defaultRegion)
-        updatePlayerLocation(viewModel.playerLocation.value)
+        renderLiveState()
     }
 
-    private fun updatePlayerLocation(loc: PlayerLocation?) {
+    private fun renderLiveState() {
+        val loc = viewModel.playerLocation.value
+        val section = viewModel.resolvedLocation.value
+        val trust = viewModel.runtimeRomTrust.value
+
+        regionMapView.resolvedLocation = section
         regionMapView.playerLocation = loc
 
         if (loc == null || !loc.isValid) {
-            val trust = viewModel.runtimeRomTrust.value
-            if (trust.hasActiveRom && !trust.mayReadLiveMemory) {
-                locationTitleView.text = RomCompatibilityMessages.badge(trust.status)
-                locationSubtitleView.text = RomCompatibilityMessages.detail(trust.status)
-            } else {
-                locationTitleView.text = "Waiting for player..."
-                locationSubtitleView.text = "Location will appear when a supported game runs"
-            }
-            envBadgeView.text = "Unknown"
-            envBadgeView.setTextColor(DualDexTheme.Color.textDisabled)
-            technicalCoordsView.text = "Technical details: None"
+            renderNoLiveLocation(trust)
             return
         }
 
-        val sec = viewModel.resolvedLocation.value
-        if (sec == null) {
-            locationTitleView.text = "Location unavailable"
-            locationSubtitleView.text = "This profile does not expose a supported map table"
-            envBadgeView.text = "Unknown"
-            envBadgeView.setTextColor(DualDexTheme.Color.textDisabled)
-            technicalCoordsView.text = "Technical details: (${loc.localX}, ${loc.localY}) · Group ${loc.mapGroup} · Map ${loc.mapNum}"
+        if (section == null) {
+            renderLocationUnavailable(loc, trust)
             return
         }
 
-        // Player-facing location names as primary visible header
-        locationTitleView.text = sec.name
-        locationSubtitleView.text = "${sec.region.displayName} · ${sec.name}"
+        // Live, authoritative location.
+        locationTitleView.text = section.name
+        locationSubtitleView.text = if (section.region != null) {
+            "${section.region.displayName} · ${section.name}"
+        } else {
+            section.name
+        }
 
         if (loc.isIndoors) {
             envBadgeView.text = "Indoors"
             envBadgeView.setTextColor(DualDexTheme.Color.warning)
-        } else if (sec.nodeType == MapNodeType.DUNGEON) {
+        } else if (section.nodeType == MapNodeType.DUNGEON) {
             envBadgeView.text = "Cave / Dungeon"
             envBadgeView.setTextColor(DualDexTheme.Color.accent)
         } else {
@@ -418,11 +428,79 @@ class MapScreenView(
             envBadgeView.setTextColor(DualDexTheme.Color.success)
         }
 
-        // Technical coordinates demoted to expandable section
-        technicalCoordsView.text = "Tile (${loc.localX}, ${loc.localY}) · Group ${loc.mapGroup} · Map ${loc.mapNum}"
+        technicalCoordsView.text =
+            "Tile (${loc.localX}, ${loc.localY}) · Group ${loc.mapGroup} · Map ${loc.mapNum}"
+
+        if (!section.presentable) {
+            // Named and region-known, but DualDex has no canvas that draws it, so
+            // no marker may be placed and the sheet must not claim it is current.
+            locationSubtitleView.text = "${locationSubtitleView.text} · No map for this area"
+        }
+
+        if (!isShowingLiveLocation) {
+            displaySectionDetails(section, isLive = true)
+            isShowingLiveLocation = true
+        }
     }
 
-    private fun displaySectionDetails(sec: RegionMapSection) {
+    private fun renderNoLiveLocation(trust: com.dualdex.romhack.RuntimeRomTrust) {
+        if (trust.hasActiveRom && !trust.mayReadLiveMemory) {
+            locationTitleView.text = RomCompatibilityMessages.badge(trust.status)
+            locationSubtitleView.text = RomCompatibilityMessages.detail(trust.status)
+        } else {
+            locationTitleView.text = "Waiting for player..."
+            locationSubtitleView.text = "Location will appear when a supported game runs"
+        }
+        envBadgeView.text = "Unknown"
+        envBadgeView.setTextColor(DualDexTheme.Color.textDisabled)
+        technicalCoordsView.text = "Technical details: None"
+        isShowingLiveLocation = false
+    }
+
+    /**
+     * A raw location was read but cannot be turned into a trustworthy section.
+     * The screen must say so instead of showing a plausible town.
+     */
+    private fun renderLocationUnavailable(
+        loc: PlayerLocation,
+        trust: com.dualdex.romhack.RuntimeRomTrust
+    ) {
+        locationTitleView.text = "Location unavailable"
+        locationSubtitleView.text = when (viewModel.locationUnavailableReason.value) {
+            LocationUnavailableReason.NO_STRATEGY ->
+                "This profile does not expose a supported map table"
+            LocationUnavailableReason.UNKNOWN_MAP_ID ->
+                "Group ${loc.mapGroup} · Map ${loc.mapNum} is not in the verified map table"
+            LocationUnavailableReason.INVALID_READ ->
+                "The location could not be read"
+            LocationUnavailableReason.NOT_PRESENTABLE ->
+                "This area has no map presentation"
+            null -> "This profile does not expose a supported map table"
+        }
+        envBadgeView.text = "Unknown"
+        envBadgeView.setTextColor(DualDexTheme.Color.textDisabled)
+        technicalCoordsView.text = if (trust.mayReadLiveMemory) {
+            "Tile (${loc.localX}, ${loc.localY}) · Group ${loc.mapGroup} · Map ${loc.mapNum}"
+        } else {
+            "Technical details: None"
+        }
+        isShowingLiveLocation = false
+    }
+
+    /** Clears the detail sheet so it cannot imply a current location. */
+    private fun displayNoSelection() {
+        detailNameView.text = "No location selected"
+        detailTypeBadgeView.text = "Unknown"
+        detailTypeBadgeView.setTextColor(DualDexTheme.Color.textDisabled)
+        detailDescView.text = "Tap a map tile to browse it, or load a supported game to see your location."
+        gymInfoView.visibility = View.GONE
+        poiContainer.removeAllViews()
+        connectionsView.visibility = View.GONE
+        isShowingLiveLocation = false
+    }
+
+    private fun displaySectionDetails(sec: RegionMapSection, isLive: Boolean) {
+        isShowingLiveLocation = isLive
         detailNameView.text = sec.name
         val typeName = sec.nodeType.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
         detailTypeBadgeView.text = typeName
@@ -435,7 +513,11 @@ class MapScreenView(
         }
         detailTypeBadgeView.setTextColor(badgeColor)
 
-        detailDescView.text = if (sec.description.isNotEmpty()) sec.description else "A location in the ${sec.region.displayName} region."
+        detailDescView.text = when {
+            sec.description.isNotEmpty() -> sec.description
+            sec.region != null -> "A location in the ${sec.region.displayName} region."
+            else -> "This area has no known region."
+        }
 
         if (sec.gymLeader != null) {
             gymInfoView.visibility = View.VISIBLE

@@ -99,6 +99,29 @@ tracker_selftest() {
   ./native/build/runtime_battle_probe_selftest --selftest
 }
 
+# Generated map data must match the pinned upstream revision. This is a pure
+# text comparison against a checked-in generated file: no ROM, no network, and no
+# emulator. It is wired into the canonical gate so a hand-edited generated record
+# or a stale regeneration cannot reach main unnoticed.
+hns_map_data_check() {
+  echo "== H&S 2.0.5 generated map data check =="
+  local upstream="${HNS_UPSTREAM_DIR:-}"
+  if [ -z "$upstream" ]; then
+    for candidate in "../upstream-hns/pokehns-expansion" "upstream-hns/pokehns-expansion"; do
+      if [ -f "$candidate/data/maps/map_groups.json" ]; then
+        upstream="$candidate"
+        break
+      fi
+    done
+  fi
+  if [ -z "$upstream" ]; then
+    echo "error: pinned Heart & Soul upstream checkout not found; set HNS_UPSTREAM_DIR" >&2
+    echo "       (a checkout of 1f42b74dff0e9fe942419845d040663dd829a973 / Release-v2.0.5 is required)" >&2
+    return 1
+  fi
+  python3 tools/hns-map-data/generate_hns_map_data.py --upstream-dir "$upstream" --check
+}
+
 gradle_test() {
   echo "== gradle unit tests =="
   ./gradlew testDebugUnitTest
@@ -117,9 +140,9 @@ gradle_release() {
 }
 
 case "${1:-all}" in
-  test)    native_test; tracker_selftest; gradle_test ;;
+  test)    native_test; tracker_selftest; hns_map_data_check; gradle_test ;;
   build)   gradle_build ;;
-  all)     native_test; tracker_selftest; gradle_test; gradle_build ;;
+  all)     native_test; tracker_selftest; hns_map_data_check; gradle_test; gradle_build ;;
   release) gradle_release ;;
   *)       echo "usage: $0 [test|build|all|release]" >&2; exit 2 ;;
 esac

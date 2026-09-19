@@ -1,5 +1,7 @@
 package com.dualdex.pokemon
 
+import com.dualdex.pokemon.hns.Hns205MapData
+
 /**
  * Comprehensive Region Map and Town Map database for Pokémon Heart & Soul (Johto/Kanto),
  * Emerald (Hoenn), and FireRed (Kanto).
@@ -1784,174 +1786,149 @@ object RegionMapDatabase {
         "ROUTE_4" to RegionMapSection("ROUTE_4", "Route 4", RegionId.KANTO, 11, 2, 4, 1, MapNodeType.ROUTE, "", listOf()),
     )
 
+    // ---------------------------------------------------------------------
+    // Heart & Soul 2.0.5 canvas sections
+    // ---------------------------------------------------------------------
+
     /**
-     * Return all map sections for a given region (used for rendering the Town Map canvas).
+     * Region-map sections the pinned Heart & Soul 2.0.5 build actually draws.
+     *
+     * Geometry comes from the generated H&S layout grids, not from the legacy
+     * hand-written Johto tables: those mixed Hoenn and FireRed sections into the
+     * Johto canvas and carried FireRed coordinates for Kanto.
      */
-    fun getSections(region: RegionId): List<RegionMapSection> {
-        return when (region) {
-            RegionId.JOHTO -> JOHTO_SECTIONS.values.toList()
-            RegionId.HOENN -> HOENN_SECTIONS.values.toList()
-            RegionId.KANTO -> KANTO_SECTIONS.values.toList()
+    private val hnsSectionsByRegion: Map<RegionId, List<RegionMapSection>> = buildMap {
+        for (region in RegionId.entries) {
+            val generated = Hns205MapData.sections
+                .filter { it.presentable && it.region == region }
+                .map { toSection(it) }
+            if (generated.isNotEmpty()) put(region, generated)
         }
     }
 
+    private fun toSection(generated: Hns205MapData.HnsMapSection): RegionMapSection {
+        val curated = curatedSection(generated.sectionId)
+        return RegionMapSection(
+            id = generated.sectionId,
+            name = curated?.name ?: generated.displayName,
+            region = generated.region,
+            gridX = generated.gridX,
+            gridY = generated.gridY,
+            width = generated.width,
+            height = generated.height,
+            // Presentation kind only; identity, region and geometry come from the
+            // generated 2.0.5 table.
+            nodeType = curated?.nodeType ?: generated.nodeType,
+            description = curated?.description.orEmpty(),
+            landmarks = curated?.landmarks.orEmpty(),
+            gymLeader = curated?.gymLeader,
+            badge = curated?.badge,
+            connections = curated?.connections.orEmpty(),
+            presentable = true
+        )
+    }
+
     /**
-     * Find a map section by ID across all regions.
+     * Optional curated narrative detail for a section id.
+     *
+     * Only description/landmark/gym text is taken from here; identity, region and
+     * canvas geometry always come from the generated 2.0.5 table so hand-written
+     * data can never override pinned source evidence.
+     */
+    fun curatedSection(sectionId: String): RegionMapSection? =
+        JOHTO_SECTIONS[sectionId] ?: KANTO_SECTIONS[sectionId] ?: HOENN_SECTIONS[sectionId]
+
+    /**
+     * Return all map sections for a given region (used for rendering the Town Map canvas).
+     *
+     * Johto and Kanto return the pinned Heart & Soul 2.0.5 canvases. Hoenn returns
+     * the vanilla Emerald table. Use [getSectionsForStrategy] when the active game
+     * is known, so an Emerald or FireRed session keeps its own canvas.
+     */
+    fun getSections(region: RegionId): List<RegionMapSection> = when (region) {
+        RegionId.JOHTO, RegionId.KANTO ->
+            hnsSectionsByRegion[region] ?: legacySections(region)
+        RegionId.HOENN -> legacySections(region)
+        // Sinjoh and Alola are named but have no DualDex canvas yet.
+        RegionId.SINJOH, RegionId.ALOLA -> emptyList()
+    }
+
+    /**
+     * Canvas sections for the active game's location strategy.
+     *
+     * A strategy that is not Heart & Soul uses its own native region map, so
+     * browsing a region never mixes two games' geometry.
+     */
+    fun getSectionsForStrategy(strategy: LocationStrategy, region: RegionId): List<RegionMapSection> =
+        if (strategy == LocationStrategy.HEART_AND_SOUL_205) {
+            getSections(region)
+        } else {
+            legacySections(region)
+        }
+
+    private fun legacySections(region: RegionId): List<RegionMapSection> = when (region) {
+        RegionId.JOHTO -> JOHTO_SECTIONS.values.toList()
+        RegionId.HOENN -> HOENN_SECTIONS.values.toList()
+        RegionId.KANTO -> KANTO_SECTIONS.values.toList()
+        RegionId.SINJOH, RegionId.ALOLA -> emptyList()
+    }
+
+    /**
+     * Find a map section by ID across the H&S canvas and the legacy tables.
      */
     fun getSectionById(id: String): RegionMapSection? {
-        return JOHTO_SECTIONS[id] ?: HOENN_SECTIONS[id] ?: KANTO_SECTIONS[id]
+        Hns205MapData.findSection(id)?.let { return toSection(it) }
+        return curatedSection(id)
     }
 
     /**
      * Resolve the player's live memory location into a high-level RegionMapSection.
+     *
+     * Returns null when the location cannot be resolved. Callers that render live
+     * state must handle null; there is deliberately no default location, because
+     * a fabricated "New Bark Town" is worse than an honest "unknown".
      */
-    fun resolveLocation(gameId: Int, isHeartAndSoul: Boolean, loc: PlayerLocation?): RegionMapSection {
-        if (loc == null || !loc.isValid) {
-            return if (isHeartAndSoul) JOHTO_DEFAULT else HOENN_SECTIONS.values.first()
-        }
-        return resolveLocationOrNull(gameId, isHeartAndSoul, loc) ?: JOHTO_DEFAULT
-    }
+    fun resolveLocation(strategy: LocationStrategy, loc: PlayerLocation?): RegionMapSection? =
+        LocationResolver.resolve(strategy, loc).section
+
+    /**
+     * Resolve with the reason preserved, for callers that must explain the state.
+     */
+    fun resolveLocationDetailed(strategy: LocationStrategy, loc: PlayerLocation?): LocationResolution =
+        LocationResolver.resolve(strategy, loc)
+
+    /**
+     * Resolve the player's live memory location into a high-level RegionMapSection.
+     *
+     * This legacy gameId overload is retained for callers that have not migrated
+     * to a typed [LocationStrategy]. It never fabricates a default location: an
+     * unrecognised gameId or an unknown map id resolves to null.
+     */
+    fun resolveLocation(gameId: Int, isHeartAndSoul: Boolean, loc: PlayerLocation?): RegionMapSection? =
+        resolveLocation(strategyFor(gameId, isHeartAndSoul), loc)
 
     /** Resolve only when the active game's map-number table is known. */
-    fun resolveLocationOrNull(gameId: Int, isHeartAndSoul: Boolean, loc: PlayerLocation?): RegionMapSection? {
-        if (loc == null || !loc.isValid) return null
-        if (isHeartAndSoul) return resolveHeartAndSoulLocation(loc)
+    fun resolveLocationOrNull(gameId: Int, isHeartAndSoul: Boolean, loc: PlayerLocation?): RegionMapSection? =
+        resolveLocation(strategyFor(gameId, isHeartAndSoul), loc)
 
-        return when (gameId) {
-            1 -> resolveEmeraldLocation(loc)
-            2 -> resolveFireRedLocation(loc)
-            else -> null
-        }
+    private fun strategyFor(gameId: Int, isHeartAndSoul: Boolean): LocationStrategy = when {
+        isHeartAndSoul -> LocationStrategy.HEART_AND_SOUL_205
+        gameId == 1 -> LocationStrategy.EMERALD
+        gameId == 2 -> LocationStrategy.FIRERED
+        else -> LocationStrategy.UNVERIFIED
     }
 
-    private fun resolveHeartAndSoulLocation(loc: PlayerLocation): RegionMapSection {
-        val group = loc.mapGroup
-        val num = loc.mapNum
+    // ---------------------------------------------------------------------
+    // Vanilla Emerald / FireRed resolution
+    // ---------------------------------------------------------------------
 
-        // Group 0: Towns and Routes (71 maps)
-        if (group == 0) {
-            val secKey = when (num) {
-                0 -> "MAPSEC_NEW_BARK_TOWN"
-                1 -> "MAPSEC_CHERRYGROVE_CITY"
-                2 -> "MAPSEC_VIOLET_CITY"
-                3 -> "MAPSEC_AZALEA_TOWN"
-                4 -> "MAPSEC_GOLDENROD_CITY"
-                5 -> "MAPSEC_ECRUTEAK_CITY"
-                6 -> "MAPSEC_OLIVINE_CITY"
-                7 -> "MAPSEC_CIANWOOD_CITY"
-                8 -> "MAPSEC_SAFARI_ZONE_GATE"
-                9 -> "MAPSEC_MAHOGANY_TOWN"
-                10 -> "MAPSEC_BLACKTHORN_CITY"
-                11 -> "MAPSEC_ROUTE_29"
-                12 -> "MAPSEC_ROUTE_30"
-                13 -> "MAPSEC_ROUTE_31"
-                14 -> "MAPSEC_ROUTE_32"
-                15 -> "MAPSEC_ROUTE_33"
-                16 -> "MAPSEC_ROUTE_34"
-                17 -> "MAPSEC_ROUTE_35"
-                18 -> "MAPSEC_ROUTE_36"
-                19 -> "MAPSEC_ROUTE_37"
-                20 -> "MAPSEC_ROUTE_38"
-                21 -> "MAPSEC_ROUTE_39"
-                22 -> "MAPSEC_ROUTE_40"
-                23 -> "MAPSEC_ROUTE_41"
-                24 -> "MAPSEC_ROUTE_42"
-                25 -> "MAPSEC_ROUTE_43"
-                26 -> "MAPSEC_ROUTE_44"
-                27 -> "MAPSEC_ROUTE_45"
-                28 -> "MAPSEC_ROUTE_46"
-                29 -> "MAPSEC_ROUTE_47"
-                30 -> "MAPSEC_ROUTE_48"
-                31 -> "MAPSEC_PALLET_TOWN"
-                32 -> "MAPSEC_VIRIDIAN_CITY"
-                33 -> "MAPSEC_PEWTER_CITY"
-                34 -> "MAPSEC_CERULEAN_CITY"
-                35 -> "MAPSEC_VERMILION_CITY"
-                36 -> "MAPSEC_LAVENDER_TOWN"
-                37 -> "MAPSEC_CELADON_CITY"
-                38 -> "MAPSEC_SAFFRON_CITY"
-                39 -> "MAPSEC_FUCHSIA_CITY"
-                40 -> "MAPSEC_CINNABAR_ISLAND"
-                in 41..70 -> "MAPSEC_ROUTE_${num - 40}"
-                else -> "MAPSEC_NEW_BARK_TOWN"
-            }
-            JOHTO_SECTIONS[secKey]?.let { return it }
-        }
-
-        // Indoor groups 1..21 (Towns & Cities)
-        val indoorParentKey = when (group) {
-            1 -> "MAPSEC_NEW_BARK_TOWN"
-            2 -> "MAPSEC_CHERRYGROVE_CITY"
-            3 -> "MAPSEC_VIOLET_CITY"
-            4 -> "MAPSEC_AZALEA_TOWN"
-            5 -> "MAPSEC_GOLDENROD_CITY"
-            6 -> "MAPSEC_ECRUTEAK_CITY"
-            7 -> "MAPSEC_OLIVINE_CITY"
-            8 -> "MAPSEC_CIANWOOD_CITY"
-            9 -> "MAPSEC_MAHOGANY_TOWN"
-            10 -> "MAPSEC_BLACKTHORN_CITY"
-            11 -> "MAPSEC_PALLET_TOWN"
-            12 -> "MAPSEC_VIRIDIAN_CITY"
-            13 -> "MAPSEC_PEWTER_CITY"
-            14 -> "MAPSEC_CERULEAN_CITY"
-            15 -> "MAPSEC_VERMILION_CITY"
-            16 -> "MAPSEC_LAVENDER_TOWN"
-            17 -> "MAPSEC_CELADON_CITY"
-            18 -> "MAPSEC_SAFFRON_CITY"
-            19 -> "MAPSEC_FUCHSIA_CITY"
-            20 -> "MAPSEC_CINNABAR_ISLAND"
-            21 -> "MAPSEC_INDIGO_PLATEAU"
-            else -> null
-        }
-        if (indoorParentKey != null) {
-            JOHTO_SECTIONS[indoorParentKey]?.let { return it }
-        }
-
-        // Group 24: Dungeons
-        if (group == 24) {
-            val dungKey = when (num) {
-                0, 1 -> "MAPSEC_DARK_CAVE"
-                2, 3, 4 -> "MAPSEC_SPROUT_TOWER"
-                5, 6, 7, 86, 87, 88, 89 -> "MAPSEC_RUINS_OF_ALPH"
-                8, 9, 10 -> "MAPSEC_UNION_CAVE"
-                11, 12 -> "MAPSEC_SLOWPOKE_WELL"
-                13 -> "MAPSEC_ILEX_FOREST"
-                14, 15 -> "MAPSEC_NATIONAL_PARK"
-                16, 17 -> "MAPSEC_BURNED_TOWER"
-                18, 81 -> "MAPSEC_CLIFF_CAVE"
-                19, 20, 21, 22 -> "MAPSEC_MT_MORTAR"
-                23, 24 -> "MAPSEC_LAKE_OF_RAGE"
-                in 25..29 -> "MAPSEC_ICE_PATH"
-                30, 31, 32 -> "MAPSEC_DRAGONS_DEN"
-                in 33..39 -> "MAPSEC_WHIRL_ISLANDS"
-                in 40..50 -> "MAPSEC_TIN_TOWER"
-                51, 52 -> "MAPSEC_TOHJO_FALLS"
-                53, 54, 55 -> "MAPSEC_INDIGO_PLATEAU"
-                56 -> "MAPSEC_VIRIDIAN_FOREST"
-                57, 58 -> "MAPSEC_MT_MOON"
-                59, 60 -> "MAPSEC_ROCK_TUNNEL"
-                in 61..63 -> "MAPSEC_CERULEAN_CAVE"
-                in 64..66 -> "MAPSEC_DIGLETTS_CAVE"
-                in 67..70 -> "MAPSEC_SEAFOAM_ISLANDS"
-                in 71..80 -> "MAPSEC_MT_SILVER"
-                82 -> "MAPSEC_EMBEDDED_TOWER"
-                in 83..85 -> "MAPSEC_ROCKET_HIDEOUT"
-                else -> null
-            }
-            if (dungKey != null) {
-                JOHTO_SECTIONS[dungKey]?.let { return it }
-            }
-        }
-
-        // Indoor routes (Group 22, 23) -> check escape warp if available
-        if (loc.escapeMapGroup == 0 && loc.escapeMapNum in 0..70) {
-            return resolveHeartAndSoulLocation(loc.copy(mapGroup = 0, mapNum = loc.escapeMapNum))
-        }
-
-        return JOHTO_DEFAULT
-    }
-
-    private fun resolveEmeraldLocation(loc: PlayerLocation): RegionMapSection {
+    /**
+     * Vanilla Emerald: mapGroup 0 is the towns-and-routes group, and mapNum is
+     * the Hoenn town-map index inside it. A map number outside the known table is
+     * unknown rather than "Littleroot Town".
+     */
+    fun resolveEmeraldSection(loc: PlayerLocation): RegionMapSection? {
+        if (loc.mapGroup != 0) return null
         val key = when (loc.mapNum) {
             0 -> "PETALBURG_CITY"
             1 -> "SLATEPORT_CITY"
@@ -1973,12 +1950,17 @@ object RegionMapDatabase {
             17 -> "ROUTE_102"
             18 -> "ROUTE_103"
             19 -> "ROUTE_104"
-            else -> "LITTLEROOT_TOWN"
+            else -> return null
         }
-        return HOENN_SECTIONS[key] ?: HOENN_SECTIONS.values.first()
+        return HOENN_SECTIONS[key]
     }
 
-    private fun resolveFireRedLocation(loc: PlayerLocation): RegionMapSection {
+    /**
+     * Vanilla FireRed: mapGroup 3 is the towns-and-routes group. A map number
+     * outside the known table is unknown rather than "Pallet Town".
+     */
+    fun resolveFireRedSection(loc: PlayerLocation): RegionMapSection? {
+        if (loc.mapGroup != 3) return null
         val key = when (loc.mapNum) {
             0 -> "PALLET_TOWN"
             1 -> "VIRIDIAN_CITY"
@@ -1995,8 +1977,8 @@ object RegionMapDatabase {
             20 -> "ROUTE_2"
             21 -> "ROUTE_3"
             22 -> "ROUTE_4"
-            else -> "PALLET_TOWN"
+            else -> return null
         }
-        return KANTO_SECTIONS[key] ?: KANTO_SECTIONS.values.first()
+        return KANTO_SECTIONS[key]
     }
 }

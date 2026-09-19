@@ -4,6 +4,7 @@ import com.dualdex.cheats.CheatItem
 import com.dualdex.pokemon.MapNodeType
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionId
+import com.dualdex.pokemon.LocationStrategy
 import com.dualdex.pokemon.RegionMapDatabase
 import com.dualdex.romhack.RomHackProfile
 import org.junit.Assert.*
@@ -39,8 +40,12 @@ class SecondaryScreensUiTest {
             isIndoors = false,
             isValid = true
         )
-        val section = RegionMapDatabase.resolveLocation(gameId = 1, isHeartAndSoul = true, loc = loc)
-        assertEquals("New Bark Town", section.name)
+        val section = RegionMapDatabase.resolveLocation(
+            strategy = LocationStrategy.HEART_AND_SOUL_205,
+            loc = loc
+        )
+        assertNotNull("A H&S New Bark Town read must resolve", section)
+        assertEquals("New Bark Town", section!!.name)
         assertEquals(MapNodeType.TOWN, section.nodeType)
         assertFalse("Section name should not contain emoji: ${section.name}", section.name.any { it.code > 127 })
     }

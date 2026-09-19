@@ -1860,16 +1860,48 @@ object RegionMapDatabase {
      * browsing a region never mixes two games' geometry.
      */
     fun getSectionsForStrategy(strategy: LocationStrategy, region: RegionId): List<RegionMapSection> =
-        if (strategy == LocationStrategy.HEART_AND_SOUL_205) {
-            getSections(region)
-        } else {
-            legacySections(region)
+        when (strategy) {
+            // Heart & Soul renders its own Johto and Kanto canvases and nothing else:
+            // it has no Hoenn map, so an Emerald canvas must never be reachable here.
+            LocationStrategy.HEART_AND_SOUL_205 -> when (region) {
+                RegionId.JOHTO, RegionId.KANTO -> getSections(region)
+                else -> emptyList()
+            }
+            LocationStrategy.EMERALD -> when (region) {
+                RegionId.HOENN -> legacySections(region)
+                else -> emptyList()
+            }
+            LocationStrategy.FIRERED -> when (region) {
+                RegionId.KANTO -> legacySections(region)
+                else -> emptyList()
+            }
+            // No map table at all, so no canvas.
+            LocationStrategy.UNVERIFIED -> emptyList()
         }
 
+    /**
+     * Section ids the pinned Heart & Soul 2.0.5 table owns.
+     *
+     * The legacy `JOHTO_SECTIONS` table was the single "not Hoenn/Kanto" dumping
+     * ground: it is tagged `RegionId.JOHTO` throughout but also holds FireRed Kanto
+     * entries, Sevii/event sections that 2.0.5 does not define, and four Hoenn
+     * cities. Presence in the generated table is therefore what identifies a real
+     * H&S Johto section, so the legacy Johto canvas is exactly the legacy entries the
+     * generated table does *not* claim.
+     */
+    private val hnsSectionIds: Set<String> by lazy { Hns205MapData.sectionsById.keys }
+
+    /**
+     * Vanilla canvases, for Emerald and FireRed sessions.
+     *
+     * Each region is filtered so a strategy's drawable regions are exactly the ones
+     * its own table provides. A Hoenn or Kanto location can therefore never appear on
+     * another game's canvas.
+     */
     private fun legacySections(region: RegionId): List<RegionMapSection> = when (region) {
-        RegionId.JOHTO -> JOHTO_SECTIONS.values.toList()
-        RegionId.HOENN -> HOENN_SECTIONS.values.toList()
-        RegionId.KANTO -> KANTO_SECTIONS.values.toList()
+        RegionId.JOHTO -> JOHTO_SECTIONS.values.filter { it.id !in hnsSectionIds }
+        RegionId.HOENN -> HOENN_SECTIONS.values.filter { it.region == RegionId.HOENN }
+        RegionId.KANTO -> KANTO_SECTIONS.values.filter { it.region == RegionId.KANTO }
         RegionId.SINJOH, RegionId.ALOLA -> emptyList()
     }
 

@@ -85,13 +85,22 @@ class Hns205MapDataIntegrityTest {
         Expected(27, 0, "UnionRoom_hns", "MAPSEC_DYNAMIC", null, "Dynamic"),
     )
 
-    /** Pinned canvas positions for the H&S Johto and Kanto region maps. */
+    /**
+     * Pinned canvas rectangles for the H&S Johto and Kanto region maps, as
+     * (x, y, width, height) with (x, y) the bounding box's top-left tile.
+     *
+     * Multi-tile entries among these are the ones that catch an origin/extent
+     * mix-up: a rectangle emitted at its centre is shifted by half its extent.
+     */
     private val pinnedCanvas = mapOf(
         "MAPSEC_NEW_BARK_TOWN" to intArrayOf(19, 10, 1, 1),
         "MAPSEC_VIOLET_CITY" to intArrayOf(12, 4, 1, 1),
         "MAPSEC_GOLDENROD_CITY" to intArrayOf(8, 8, 1, 2),
-        "MAPSEC_ROUTE_29" to intArrayOf(16, 10, 4, 1),
-        "MAPSEC_DARK_CAVE" to intArrayOf(16, 4, 3, 2),
+        "MAPSEC_ROUTE_29" to intArrayOf(15, 10, 4, 1),
+        "MAPSEC_ROUTE_30" to intArrayOf(14, 5, 1, 5),
+        "MAPSEC_ROUTE_32" to intArrayOf(12, 5, 1, 6),
+        "MAPSEC_ROUTE_2" to intArrayOf(4, 5, 1, 3),
+        "MAPSEC_DARK_CAVE" to intArrayOf(15, 4, 3, 2),
         "MAPSEC_PALLET_TOWN" to intArrayOf(4, 11, 1, 1),
         "MAPSEC_VIRIDIAN_CITY" to intArrayOf(4, 8, 1, 1),
         "MAPSEC_PEWTER_CITY" to intArrayOf(4, 4, 1, 1),
@@ -277,12 +286,17 @@ class Hns205MapDataIntegrityTest {
     /**
      * The independent oracle.
      *
-     * This test never degrades to a silent pass: if the pinned upstream checkout
-     * cannot be found it fails loudly, because an oracle that quietly skips is
-     * indistinguishable from one that verified nothing.
+     * This test is deliberately NOT part of the default, self-contained suite: a
+     * plain DualDex checkout has no Heart & Soul source tree, and the canonical gate
+     * must not depend on an external repository. It runs under the explicit
+     * source-validation task (`./ci.sh source-check`), where it **fails loudly** when
+     * the pinned checkout is missing or wrong rather than silently skipping, because
+     * an oracle that quietly skips is indistinguishable from one that verified
+     * nothing.
      */
     @Test
     fun matchesPinnedUpstreamSource() {
+        if (!upstreamChecksRequested()) return
         val upstream = requireUpstreamCheckout()
 
         val groups = JSONObject(File(upstream, "data/maps/map_groups.json").readText())
@@ -325,6 +339,7 @@ class Hns205MapDataIntegrityTest {
 
     @Test
     fun matchesPinnedUpstreamCanvas() {
+        if (!upstreamChecksRequested()) return
         val upstream = requireUpstreamCheckout()
 
         val jkBoxes = parseLayoutGrid(
@@ -357,26 +372,37 @@ class Hns205MapDataIntegrityTest {
         }
 
         // Conversely, a section DualDex marks presentable for Johto or Kanto must
-        // really be drawn by the view that region resolves against.
+        // really be drawn by the view that region resolves against, at exactly the
+        // rectangle that view draws.
         val johto = parseLayoutGrid(
             File(upstream, "src/data/region_map/region_map_layout_johto.h")
         )
         val kanto = parseLayoutGrid(
             File(upstream, "src/data/region_map/region_map_layout_kanto.h")
         )
+
+        var compared = 0
         for (section in Hns205MapData.sections) {
             if (!section.presentable) continue
-            val drawn = when (section.region) {
-                RegionId.JOHTO -> johto.containsKey(section.sectionId)
-                RegionId.KANTO -> kanto.containsKey(section.sectionId)
-                else -> true
+            val expected = when (section.region) {
+                RegionId.JOHTO -> johto[section.sectionId]
+                RegionId.KANTO -> kanto[section.sectionId]
+                else -> null
             }
-            assertTrue(
+            assertNotNull(
                 "${section.sectionId} claims a ${section.region} canvas position but " +
                     "the pinned ${section.region} layout does not draw it",
-                drawn
+                expected
             )
+            compared++
+            // Full bounds, not just presence: this is what catches a rectangle
+            // emitted at its centre instead of its top-left origin.
+            assertEquals("${section.sectionId} gridX", expected!![0], section.gridX)
+            assertEquals("${section.sectionId} gridY", expected[1], section.gridY)
+            assertEquals("${section.sectionId} width", expected[2], section.width)
+            assertEquals("${section.sectionId} height", expected[3], section.height)
         }
+        assertEquals("every presentable section must be bounds-checked", 90, compared)
     }
 
     // ------------------------------------------------------------------
@@ -398,6 +424,19 @@ class Hns205MapDataIntegrityTest {
      * `HNS_UPSTREAM_DIR` (the same variable the generator honours) wins, then the
      * conventional sibling layout.
      */
+    /**
+     * True only when the explicit source-validation run asked for upstream checks.
+     *
+     * The default canonical suite is self-contained: it always performs the offline
+     * digest check and the pinned-fixture assertions, and never reaches for a
+     * network or an external checkout.
+     */
+    private fun upstreamChecksRequested(): Boolean {
+        val flag = System.getProperty(UPSTREAM_CHECK_PROPERTY)
+            ?: System.getenv(UPSTREAM_CHECK_ENV)
+        return flag != null && flag.equals("true", ignoreCase = true)
+    }
+
     private fun requireUpstreamCheckout(): File {
         // Kotlin unit tests run with the Gradle module directory (`<repo>/app/.`)
         // as the working directory, while the CI workflow and the generator use a
@@ -453,6 +492,10 @@ class Hns205MapDataIntegrityTest {
     private companion object {
         const val PINNED_UPSTREAM_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
         const val PINNED_UPSTREAM_TAG = "Release-v2.0.5"
+
+        /** Set by `./ci.sh source-check`; absent in the default self-contained gate. */
+        const val UPSTREAM_CHECK_PROPERTY = "dualdex.hns.upstreamCheck"
+        const val UPSTREAM_CHECK_ENV = "DUALDEX_HNS_UPSTREAM_CHECK"
     }
 
     /** Section ids that upstream uses for at least one `game_version: hns` map. */
@@ -475,7 +518,10 @@ class Hns205MapDataIntegrityTest {
         return sections
     }
 
-    /** Bounding box of each section in an upstream `sRegionMapSections_*` grid. */
+    /**
+     * Bounding rectangle of each section in an upstream `sRegionMapSections_*`
+     * grid, as (minX, minY, width, height).
+     */
     private fun parseLayoutGrid(file: File): Map<String, IntArray> {
         if (!file.isFile) return emptyMap()
         val text = file.readText()
@@ -506,6 +552,8 @@ class Hns205MapDataIntegrityTest {
             }
             y++
         }
-        return boxes
+        return boxes.mapValues { (_, box) ->
+            intArrayOf(box[0], box[1], box[2] - box[0] + 1, box[3] - box[1] + 1)
+        }
     }
 }

@@ -39,7 +39,7 @@ object Hns205MapData {
     const val SOURCE_DIGEST: String = "1402d62fe2dffea77babdeb07540977cd9d4b1df07a8a8f493d246b37c92fa66"
 
     /** Digest of the generated mapping itself; detects hand-edited records. */
-    const val MAPPING_DIGEST: String = "a2879c3fcccaf37aa6c1bc46a1b41ddacde9d1ee33c973f19aea3e7bba029688"
+    const val MAPPING_DIGEST: String = "0968a8db007716a2bea5c2751c08022ea6b06c760cfd9ae32bff49f9f89a021d"
 
     /** A single H&S map identified by its raw mapGroup/mapNum pair. */
     data class HnsMapLocation(
@@ -113,7 +113,7 @@ object Hns205MapData {
 
     private fun MutableList<HnsMapSection>.addSectionChunk3() {
         add(HnsMapSection("MAPSEC_CLIFF_CAVE", "Cliff Cave", RegionId.JOHTO, MapNodeType.DUNGEON, true, 3, 11, 1, 1))
-        add(HnsMapSection("MAPSEC_DARK_CAVE", "Dark Cave", RegionId.JOHTO, MapNodeType.DUNGEON, true, 16, 4, 3, 2))
+        add(HnsMapSection("MAPSEC_DARK_CAVE", "Dark Cave", RegionId.JOHTO, MapNodeType.DUNGEON, true, 15, 4, 3, 2))
         add(HnsMapSection("MAPSEC_DIGLETTS_CAVE", "Diglett's Cave", RegionId.KANTO, MapNodeType.DUNGEON, false, -1, -1, 0, 0))
         add(HnsMapSection("MAPSEC_DRAGONS_DEN", "Dragon's Den", RegionId.JOHTO, MapNodeType.DUNGEON, true, 18, 1, 1, 1))
         add(HnsMapSection("MAPSEC_DYNAMIC", "Dynamic", null, MapNodeType.FACILITY, false, -1, -1, 0, 0))
@@ -158,20 +158,20 @@ object Hns205MapData {
     private fun MutableList<HnsMapSection>.addSectionChunk7() {
         add(HnsMapSection("MAPSEC_ROUTE_1", "Route 1", RegionId.KANTO, MapNodeType.ROUTE, true, 4, 9, 1, 2))
         add(HnsMapSection("MAPSEC_ROUTE_10", "Route 10", RegionId.KANTO, MapNodeType.ROUTE, true, 18, 4, 1, 2))
-        add(HnsMapSection("MAPSEC_ROUTE_11", "Route 11", RegionId.KANTO, MapNodeType.ROUTE, true, 16, 9, 3, 1))
-        add(HnsMapSection("MAPSEC_ROUTE_12", "Route 12", RegionId.KANTO, MapNodeType.ROUTE, true, 18, 9, 1, 5))
+        add(HnsMapSection("MAPSEC_ROUTE_11", "Route 11", RegionId.KANTO, MapNodeType.ROUTE, true, 15, 9, 3, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_12", "Route 12", RegionId.KANTO, MapNodeType.ROUTE, true, 18, 7, 1, 5))
         add(HnsMapSection("MAPSEC_ROUTE_13", "Route 13", RegionId.KANTO, MapNodeType.ROUTE, true, 16, 11, 2, 1))
         add(HnsMapSection("MAPSEC_ROUTE_14", "Route 14", RegionId.KANTO, MapNodeType.ROUTE, true, 15, 11, 1, 2))
         add(HnsMapSection("MAPSEC_ROUTE_15", "Route 15", RegionId.KANTO, MapNodeType.ROUTE, true, 13, 12, 2, 1))
-        add(HnsMapSection("MAPSEC_ROUTE_16", "Route 16", RegionId.KANTO, MapNodeType.ROUTE, true, 8, 6, 4, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_16", "Route 16", RegionId.KANTO, MapNodeType.ROUTE, true, 7, 6, 4, 1))
     }
 
     private fun MutableList<HnsMapSection>.addSectionChunk8() {
-        add(HnsMapSection("MAPSEC_ROUTE_17", "Route 17", RegionId.KANTO, MapNodeType.ROUTE, true, 7, 9, 1, 5))
-        add(HnsMapSection("MAPSEC_ROUTE_18", "Route 18", RegionId.KANTO, MapNodeType.ROUTE, true, 9, 12, 5, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_17", "Route 17", RegionId.KANTO, MapNodeType.ROUTE, true, 7, 7, 1, 5))
+        add(HnsMapSection("MAPSEC_ROUTE_18", "Route 18", RegionId.KANTO, MapNodeType.ROUTE, true, 7, 12, 5, 1))
         add(HnsMapSection("MAPSEC_ROUTE_19", "Route 19", RegionId.KANTO, MapNodeType.DUNGEON, true, 12, 13, 1, 2))
-        add(HnsMapSection("MAPSEC_ROUTE_2", "Route 2", RegionId.KANTO, MapNodeType.ROUTE, true, 4, 6, 1, 3))
-        add(HnsMapSection("MAPSEC_ROUTE_20", "Route 20", RegionId.KANTO, MapNodeType.ROUTE, true, 8, 14, 7, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_2", "Route 2", RegionId.KANTO, MapNodeType.ROUTE, true, 4, 5, 1, 3))
+        add(HnsMapSection("MAPSEC_ROUTE_20", "Route 20", RegionId.KANTO, MapNodeType.ROUTE, true, 5, 14, 7, 1))
         add(HnsMapSection("MAPSEC_ROUTE_21", "Route 21", RegionId.KANTO, MapNodeType.ROUTE, true, 4, 12, 1, 2))
         add(HnsMapSection("MAPSEC_ROUTE_22", "Route 22", RegionId.KANTO, MapNodeType.ROUTE, true, 2, 8, 2, 1))
         add(HnsMapSection("MAPSEC_ROUTE_24", "Route 24", RegionId.KANTO, MapNodeType.ROUTE, true, 14, 1, 1, 2))
@@ -179,35 +179,35 @@ object Hns205MapData {
 
     private fun MutableList<HnsMapSection>.addSectionChunk9() {
         add(HnsMapSection("MAPSEC_ROUTE_25", "Route 25", RegionId.KANTO, MapNodeType.ROUTE, true, 15, 1, 2, 1))
-        add(HnsMapSection("MAPSEC_ROUTE_26", "Route 26", RegionId.JOHTO, MapNodeType.ROUTE, true, 24, 8, 1, 5))
-        add(HnsMapSection("MAPSEC_ROUTE_27", "Route 27", RegionId.JOHTO, MapNodeType.ROUTE, true, 21, 10, 4, 1))
-        add(HnsMapSection("MAPSEC_ROUTE_28", "Route 28", RegionId.JOHTO, MapNodeType.ROUTE, true, 22, 5, 3, 1))
-        add(HnsMapSection("MAPSEC_ROUTE_29", "Route 29", RegionId.JOHTO, MapNodeType.ROUTE, true, 16, 10, 4, 1))
-        add(HnsMapSection("MAPSEC_ROUTE_3", "Route 3", RegionId.KANTO, MapNodeType.ROUTE, true, 6, 4, 4, 1))
-        add(HnsMapSection("MAPSEC_ROUTE_30", "Route 30", RegionId.JOHTO, MapNodeType.ROUTE, true, 14, 7, 1, 5))
+        add(HnsMapSection("MAPSEC_ROUTE_26", "Route 26", RegionId.JOHTO, MapNodeType.ROUTE, true, 24, 6, 1, 5))
+        add(HnsMapSection("MAPSEC_ROUTE_27", "Route 27", RegionId.JOHTO, MapNodeType.ROUTE, true, 20, 10, 4, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_28", "Route 28", RegionId.JOHTO, MapNodeType.ROUTE, true, 21, 5, 3, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_29", "Route 29", RegionId.JOHTO, MapNodeType.ROUTE, true, 15, 10, 4, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_3", "Route 3", RegionId.KANTO, MapNodeType.ROUTE, true, 5, 4, 4, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_30", "Route 30", RegionId.JOHTO, MapNodeType.ROUTE, true, 14, 5, 1, 5))
         add(HnsMapSection("MAPSEC_ROUTE_31", "Route 31", RegionId.JOHTO, MapNodeType.ROUTE, true, 13, 4, 2, 1))
     }
 
     private fun MutableList<HnsMapSection>.addSectionChunk10() {
-        add(HnsMapSection("MAPSEC_ROUTE_32", "Route 32", RegionId.JOHTO, MapNodeType.ROUTE, true, 12, 7, 1, 6))
+        add(HnsMapSection("MAPSEC_ROUTE_32", "Route 32", RegionId.JOHTO, MapNodeType.ROUTE, true, 12, 5, 1, 6))
         add(HnsMapSection("MAPSEC_ROUTE_33", "Route 33", RegionId.JOHTO, MapNodeType.ROUTE, true, 11, 13, 2, 1))
         add(HnsMapSection("MAPSEC_ROUTE_34", "Route 34", RegionId.JOHTO, MapNodeType.ROUTE, true, 8, 10, 1, 2))
-        add(HnsMapSection("MAPSEC_ROUTE_35", "Route 35", RegionId.JOHTO, MapNodeType.ROUTE, true, 8, 6, 1, 3))
-        add(HnsMapSection("MAPSEC_ROUTE_36", "Route 36", RegionId.JOHTO, MapNodeType.ROUTE, true, 10, 4, 3, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_35", "Route 35", RegionId.JOHTO, MapNodeType.ROUTE, true, 8, 5, 1, 3))
+        add(HnsMapSection("MAPSEC_ROUTE_36", "Route 36", RegionId.JOHTO, MapNodeType.ROUTE, true, 9, 4, 3, 1))
         add(HnsMapSection("MAPSEC_ROUTE_37", "Route 37", RegionId.JOHTO, MapNodeType.ROUTE, true, 10, 3, 1, 1))
-        add(HnsMapSection("MAPSEC_ROUTE_38", "Route 38", RegionId.JOHTO, MapNodeType.ROUTE, true, 8, 2, 3, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_38", "Route 38", RegionId.JOHTO, MapNodeType.ROUTE, true, 7, 2, 3, 1))
         add(HnsMapSection("MAPSEC_ROUTE_39", "Route 39", RegionId.JOHTO, MapNodeType.ROUTE, true, 6, 2, 1, 2))
     }
 
     private fun MutableList<HnsMapSection>.addSectionChunk11() {
-        add(HnsMapSection("MAPSEC_ROUTE_4", "Route 4", RegionId.KANTO, MapNodeType.ROUTE, true, 11, 3, 5, 1))
-        add(HnsMapSection("MAPSEC_ROUTE_40", "Route 40", RegionId.JOHTO, MapNodeType.ROUTE, true, 5, 6, 1, 5))
-        add(HnsMapSection("MAPSEC_ROUTE_41", "Route 41", RegionId.JOHTO, MapNodeType.ROUTE, true, 5, 10, 1, 3))
-        add(HnsMapSection("MAPSEC_ROUTE_42", "Route 42", RegionId.JOHTO, MapNodeType.ROUTE, true, 12, 2, 4, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_4", "Route 4", RegionId.KANTO, MapNodeType.ROUTE, true, 9, 3, 5, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_40", "Route 40", RegionId.JOHTO, MapNodeType.ROUTE, true, 5, 4, 1, 5))
+        add(HnsMapSection("MAPSEC_ROUTE_41", "Route 41", RegionId.JOHTO, MapNodeType.ROUTE, true, 5, 9, 1, 3))
+        add(HnsMapSection("MAPSEC_ROUTE_42", "Route 42", RegionId.JOHTO, MapNodeType.ROUTE, true, 11, 2, 4, 1))
         add(HnsMapSection("MAPSEC_ROUTE_43", "Route 43", RegionId.JOHTO, MapNodeType.ROUTE, true, 15, 1, 1, 1))
         add(HnsMapSection("MAPSEC_ROUTE_44", "Route 44", RegionId.JOHTO, MapNodeType.ROUTE, true, 16, 2, 2, 1))
-        add(HnsMapSection("MAPSEC_ROUTE_45", "Route 45", RegionId.JOHTO, MapNodeType.ROUTE, true, 18, 4, 1, 4))
-        add(HnsMapSection("MAPSEC_ROUTE_46", "Route 46", RegionId.JOHTO, MapNodeType.ROUTE, true, 17, 7, 1, 4))
+        add(HnsMapSection("MAPSEC_ROUTE_45", "Route 45", RegionId.JOHTO, MapNodeType.ROUTE, true, 18, 3, 1, 4))
+        add(HnsMapSection("MAPSEC_ROUTE_46", "Route 46", RegionId.JOHTO, MapNodeType.ROUTE, true, 17, 6, 1, 4))
     }
 
     private fun MutableList<HnsMapSection>.addSectionChunk12() {
@@ -218,11 +218,11 @@ object Hns205MapData {
         add(HnsMapSection("MAPSEC_ROUTE_50", "Route 50", RegionId.SINJOH, MapNodeType.ROUTE, false, -1, -1, 0, 0))
         add(HnsMapSection("MAPSEC_ROUTE_6", "Route 6", RegionId.KANTO, MapNodeType.ROUTE, true, 14, 7, 1, 2))
         add(HnsMapSection("MAPSEC_ROUTE_7", "Route 7", RegionId.KANTO, MapNodeType.ROUTE, true, 12, 6, 2, 1))
-        add(HnsMapSection("MAPSEC_ROUTE_8", "Route 8", RegionId.KANTO, MapNodeType.ROUTE, true, 16, 6, 3, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_8", "Route 8", RegionId.KANTO, MapNodeType.ROUTE, true, 15, 6, 3, 1))
     }
 
     private fun MutableList<HnsMapSection>.addSectionChunk13() {
-        add(HnsMapSection("MAPSEC_ROUTE_9", "Route 9", RegionId.KANTO, MapNodeType.ROUTE, true, 16, 3, 3, 1))
+        add(HnsMapSection("MAPSEC_ROUTE_9", "Route 9", RegionId.KANTO, MapNodeType.ROUTE, true, 15, 3, 3, 1))
         add(HnsMapSection("MAPSEC_RUINS_OF_ALPH", "Ruins Of Alph", RegionId.JOHTO, MapNodeType.DUNGEON, true, 10, 5, 2, 2))
         add(HnsMapSection("MAPSEC_SAFARI_ZONE_GATE", "Safari Zone Gate", RegionId.JOHTO, MapNodeType.TOWN, true, 2, 9, 1, 1))
         add(HnsMapSection("MAPSEC_SAFFRON_CITY", "Saffron City", RegionId.KANTO, MapNodeType.CITY, true, 14, 6, 1, 1))

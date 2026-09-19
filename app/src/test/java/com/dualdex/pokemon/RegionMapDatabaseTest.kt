@@ -68,7 +68,7 @@ class RegionMapDatabaseTest {
         assertEquals("MAPSEC_ROUTE_29", route29!!.id)
         assertEquals(MapNodeType.ROUTE, route29.nodeType)
         // Pinned H&S Johto canvas geometry, not the legacy hand-written value.
-        assertEquals(16, route29.gridX)
+        assertEquals(15, route29.gridX)
         assertEquals(10, route29.gridY)
         assertEquals(4, route29.width)
     }
@@ -87,7 +87,7 @@ class RegionMapDatabaseTest {
         assertNotNull(darkCave)
         assertEquals("MAPSEC_DARK_CAVE", darkCave!!.id)
         assertEquals(MapNodeType.DUNGEON, darkCave.nodeType)
-        assertEquals(16, darkCave.gridX)
+        assertEquals(15, darkCave.gridX)
         assertEquals(4, darkCave.gridY)
         assertEquals(3, darkCave.width)
         assertEquals(2, darkCave.height)
@@ -215,14 +215,46 @@ class RegionMapDatabaseTest {
 
     @Test
     fun nonHnsStrategyDoesNotUseTheHnsCanvas() {
-        val emeraldJohto = RegionMapDatabase.getSectionsForStrategy(
-            LocationStrategy.EMERALD, RegionId.JOHTO
+        // An Emerald session has no Johto canvas at all, and a Heart & Soul session
+        // has no Hoenn canvas: each strategy renders only the regions its own map
+        // table provides, so neither can draw the other's geometry.
+        assertTrue(
+            RegionMapDatabase.getSectionsForStrategy(
+                LocationStrategy.EMERALD, RegionId.JOHTO
+            ).isEmpty()
         )
-        val hnsJohto = RegionMapDatabase.getSectionsForStrategy(
-            LocationStrategy.HEART_AND_SOUL_205, RegionId.JOHTO
+        assertTrue(
+            RegionMapDatabase.getSectionsForStrategy(
+                LocationStrategy.HEART_AND_SOUL_205, RegionId.HOENN
+            ).isEmpty()
         )
-        assertTrue(emeraldJohto.isNotEmpty())
-        assertEquals(56, hnsJohto.size)
+        assertTrue(
+            RegionMapDatabase.getSectionsForStrategy(
+                LocationStrategy.FIRERED, RegionId.JOHTO
+            ).isEmpty()
+        )
+        assertTrue(
+            RegionMapDatabase.getSectionsForStrategy(
+                LocationStrategy.UNVERIFIED, RegionId.JOHTO
+            ).isEmpty()
+        )
+
+        assertEquals(
+            56,
+            RegionMapDatabase.getSectionsForStrategy(
+                LocationStrategy.HEART_AND_SOUL_205, RegionId.JOHTO
+            ).size
+        )
+        assertTrue(
+            RegionMapDatabase.getSectionsForStrategy(
+                LocationStrategy.EMERALD, RegionId.HOENN
+            ).isNotEmpty()
+        )
+        assertTrue(
+            RegionMapDatabase.getSectionsForStrategy(
+                LocationStrategy.FIRERED, RegionId.KANTO
+            ).isNotEmpty()
+        )
     }
 
     @Test

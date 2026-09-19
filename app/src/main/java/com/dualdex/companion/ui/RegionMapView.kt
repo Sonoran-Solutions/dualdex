@@ -7,10 +7,10 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import com.dualdex.pokemon.LocationStrategy
 import com.dualdex.pokemon.MapNodeType
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionId
-import com.dualdex.pokemon.RegionMapDatabase
 import com.dualdex.pokemon.RegionMapSection
 import kotlin.math.max
 import kotlin.math.min
@@ -22,6 +22,19 @@ class RegionMapView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
     /**
+     * The active game's map table. It decides which game's canvas geometry is
+     * drawn, so an Emerald or FireRed session never renders Heart & Soul
+     * coordinates (their Pallet Town differs by one tile).
+     */
+    var strategy: LocationStrategy = LocationStrategy.HEART_AND_SOUL_205
+        set(value) {
+            if (field == value) return
+            field = value
+            reloadSections()
+            invalidate()
+        }
+
+    /**
      * Which static canvas is drawn. Changing this is browsing only: it does not
      * touch the active ROM, its trust, or the location strategy, and it clears the
      * live marker because the live position belongs to whichever region it is in.
@@ -29,7 +42,7 @@ class RegionMapView @JvmOverloads constructor(
     var currentRegion: RegionId = RegionId.JOHTO
         set(value) {
             field = value
-            sections = RegionMapDatabase.getSections(value)
+            reloadSections()
             invalidate()
         }
 
@@ -64,19 +77,26 @@ class RegionMapView @JvmOverloads constructor(
      * Kanto canvas can never draw the player's Johto position over it.
      */
     val liveMarkerSection: RegionMapSection?
-        get() {
-            if (playerLocation?.isValid != true) return null
-            val section = resolvedLocation ?: return null
-            if (!section.presentable) return null
-            if (section.region != currentRegion) return null
-            if (section.gridX < 0 || section.gridY < 0) return null
-            return section
-        }
+        get() = MapScreenPresenter.markerSection(
+            resolved = resolvedLocation,
+            playerLocation = playerLocation,
+            canvasRegion = currentRegion,
+        )
 
-    /** [isLive] is true only for the player's own resolved position. */
-    var onSectionSelected: ((RegionMapSection, Boolean) -> Unit)? = null
+    /** Invoked when the user deliberately selects a section by tapping the canvas. */
+    var onSectionSelected: ((RegionMapSection) -> Unit)? = null
 
-    private var sections: List<RegionMapSection> = RegionMapDatabase.getSections(currentRegion)
+    private var sections: List<RegionMapSection> = emptyList()
+
+    /**
+     * Canvas sections for the active strategy and browsed region.
+     *
+     * Routed through the presenter so the view and the headless tests ask exactly
+     * the same question.
+     */
+    private fun reloadSections() {
+        sections = MapScreenPresenter.sectionsFor(strategy, currentRegion)
+    }
 
     // Standard GBA Town Map is 28 columns x 15 rows
     private val gridCols = 28
@@ -232,6 +252,7 @@ class RegionMapView @JvmOverloads constructor(
 
     init {
         setWillNotDraw(false)
+        reloadSections()
     }
 
     /**
@@ -264,7 +285,7 @@ class RegionMapView @JvmOverloads constructor(
 
         clampTranslation()
         selectedSection = sec
-        onSectionSelected?.invoke(sec, true)
+        onSectionSelected?.invoke(sec)
         invalidate()
     }
 
@@ -339,7 +360,7 @@ class RegionMapView @JvmOverloads constructor(
 
         if (hit != null) {
             selectedSection = hit
-            onSectionSelected?.invoke(hit, false)
+            onSectionSelected?.invoke(hit)
             invalidate()
         }
     }

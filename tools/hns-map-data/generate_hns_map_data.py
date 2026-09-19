@@ -174,6 +174,9 @@ def parse_layout_grid(path):
     """
     Parse a `sRegionMapSections_*` MAP_HEIGHT x MAP_WIDTH grid into bounding boxes.
 
+    Each entry is returned as (minX, minY, width, height): the rectangle's
+    top-left origin and extent.
+
     The grid is what the game actually renders and what `region_map.c` uses for
     the player marker's cursor position, so it -- not the region-map *entry*
     table -- is the authoritative H&S canvas geometry for a given view.
@@ -222,10 +225,15 @@ def parse_layout_grid(path):
                 current[2] = max(current[2], x)
                 current[3] = max(current[3], y)
 
+    # The origin is the bounding box MINIMUM, not its centre. Consumers treat
+    # (gridX, gridY, width, height) as a rectangle whose origin is its top-left
+    # tile and derive the visual centre themselves by adding width/2 and
+    # height/2. Emitting a centre here would shift every multi-tile section by
+    # half its extent.
     return {
         section: (
-            (box[0] + box[2]) // 2,
-            (box[1] + box[3]) // 2,
+            box[0],
+            box[1],
             box[2] - box[0] + 1,
             box[3] - box[1] + 1,
         )

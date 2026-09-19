@@ -1859,6 +1859,14 @@ generates it from `region_map_sections.json` and gitignores it, so a git-only ch
 commit cannot reproduce it. Names therefore come from the tracked Inja input, and positions from the
 tracked layout grids.
 
+**Geometry contract.** A generated `(gridX, gridY, width, height)` is a rectangle whose origin is its
+**top-left tile**, i.e. the bounding box minimum. Consumers add `width/2` and `height/2` themselves
+when they need the visual centre. An earlier revision of this PR emitted the bounding box *centre*
+alongside the full extent, which shifted all 26 multi-tile sections by half their size — Route 29
+drew from x=16 instead of x=15 and so reached into New Bark Town's tile, and Route 30 sat two rows
+south. The upstream oracle below now compares the **full numeric rectangle** for every presentable
+section, not merely whether a section appears on the right canvas.
+
 The generated file records two digests, which is what makes freshness checkable without a network:
 
 | Constant | Meaning |
@@ -1876,11 +1884,28 @@ single generated record and observing the check reject it.
 explicit developer command. Regeneration is deterministic and was confirmed byte-identical across
 runs; the generated file embeds no developer path and no timestamp.
 
-In CI (`.github/workflows/ci.yml`) the pinned public upstream is fetched at
-`1f42b74dff0e9fe942419845d040663dd829a973` with a sparse checkout of `data/maps` and
-`src/data/region_map`, and `HNS_UPSTREAM_DIR` points at it, so the independent oracle test below
-runs there as well as the always-on digest check. If that fetch ever fails, the run fails visibly
-rather than silently degrading to a weaker check.
+### 12.1.1 Two gates: self-contained canonical, explicit source validation
+
+The canonical gate must work from a plain DualDex checkout, so the upstream comparison is **not** part
+of it and no canonical test reaches for a network or an external tree:
+
+| Command | Needs | Content |
+|---|---|---|
+| `./ci.sh test` | nothing external | native runner, tracker selftests, offline digest check, self-contained Kotlin suite |
+| `./ci.sh source-check` | the pinned upstream checkout | byte-for-byte regeneration **and** the Kotlin oracle with `-Pdualdex.hns.upstreamCheck=true` |
+
+`source-check` **fails loudly** when its required inputs are missing, unreachable or at the wrong
+revision; it never degrades to a silent skip. The Kotlin oracle tests read the
+`dualdex.hns.upstreamCheck` system property (or `DUALDEX_HNS_UPSTREAM_CHECK`), which only
+`./ci.sh source-check` sets, so they cannot quietly pass as if they had validated the source. That
+the oracle genuinely asserts was confirmed by tampering with a generated record: with the flag set
+the run fails, without it the same tamper is caught by `--verify-digests` instead.
+
+In CI (`.github/workflows/ci.yml`) the canonical `test` job stays self-contained, and a separate
+`source-validation` job fetches the pinned public upstream at
+`1f42b74dff0e9fe942419845d040663dd829a973` (sparse checkout of `data/maps` and `src/data/region_map`)
+and runs `./ci.sh source-check`. If that fetch ever fails, the job fails visibly rather than the
+cross-check disappearing.
 
 ### 12.2 Discrepancies found and fixed
 
@@ -1893,6 +1918,8 @@ against the pinned source before being changed.
 | 2 | `map_groups_hns.json` group 19 (`IndoorFuchsia`) listed five `FuchsiaCity_SafariZone*` maps that 2.0.5 does not define there, so map numbers 7-11 were bogus | Pinned group 19 has exactly 7 members | Superseded by generated data |
 | 3 | `map_groups_hns.json` group 22 (`IndoorJohtoRoutes`) omitted seven `*BattleTent*` maps, shifting every later map number by seven. Map 13 is `SlateportCity_BattleTentLobby_hns`, which the legacy resolver reported as `TrainerHill_Courtyard` | Pinned group 22 has 35 members; committed had 27 | Superseded by generated data |
 | 4 | `region_map_sections_johto.json` coordinates match **no** H&S region-map view: 61 of 115 differ from the pinned Johto/Kanto grids, and every Kanto city used its vanilla FireRed position (Pallet Town `19,11` instead of `4,11`) | Compared against `sRegionMapSections_Johto/_Kanto/_JK` | Superseded by generated data derived from the layout grids |
+| 5 | `RegionMapView` selected its canvas with `getSections(region)`, which returns Heart & Soul Kanto geometry for every game, so a FireRed session drew Pallet Town at `4,11` instead of its own `5,11` | `MapScreenPresenter.sectionsFor` vs the two tables | Canvas is now selected by the active strategy **and** the browsed region |
+| 6 | The legacy `JOHTO_SECTIONS` table was the single "not Hoenn/Kanto" dumping ground: entries tagged `RegionId.JOHTO` also included FireRed Kanto, Sevii/event sections 2.0.5 does not define, and four Hoenn cities, which made a strategy appear to own canvases it cannot draw | Region ids cross-checked against the generated table | Vanilla canvases are filtered per region so a strategy draws only its own |
 
 Two further defects were in the resolver rather than the assets:
 
@@ -2030,13 +2057,18 @@ independent oracle: it re-reads `map_groups.json`, every `map.json`, and the lay
 | `HnsLocationRoutingTest` (27) | Johto towns/routes/interiors/dungeons and Kanto; reordered groups 25-30 and the group 22 shift; Kanto-is-Kanto; invalid/negative/out-of-range ids in both dimensions; invalid `mapNum` inside a valid indoor group; escape warp is not identity; Sinjoh/Alola resolve with their own region but no canvas; dynamic maps; strategy isolation; profile-identity (not name) selection; legacy overload agrees with the typed strategy |
 | `RegionMapDatabaseTest` (11) | section sourcing from the pinned table; H&S canvas sizes (56 Johto / 34 Kanto); Sinjoh/Alola have no canvas; fail-closed resolution incl. the **regression that an unknown H&S map is not New Bark Town** |
 | `HnsLocationTrustBoundaryTest` (10) | recognised-but-unverified H&S, header/profile-name impostors, static data pack is not trust, strategy switches clear live state, H&S -> FireRed -> Emerald -> H&S leaks nothing, exact-hash prerequisite, denied reads vs denied presentation |
-| `HnsMapBrowsingIsolationTest` (11) | browsing every region changes no ROM/profile/gameId/identity/trust/strategy; live marker only on its own canvas; no marker for invalid reads or unpresentable sections; invalidation clears live state; H&S Kanto geometry differs from FireRed's |
+| `MapScreenPresentationTest` (26) | geometry contract (multi-tile rectangles use their top-left origin and do not overlap neighbours); the canvas uses the active strategy's table (H&S Pallet Town x=4 vs FireRed x=5); per-strategy drawable regions; follow-live canvas versus explicit browsing override, including Johto -> Kanto following and a strategy switch returning to follow mode; the live/browsing/none selection model, live-follows-every-change, invalidation clearing, and a browsing selection surviving both live updates and invalidation; header state for no-location/unavailable/live; the production live-marker gate; and view-model invalidation and browsing isolation |
 
-The upstream cross-check is not skippable. It resolves the pinned checkout from `HNS_UPSTREAM_DIR`
-(accepting both the repo-root-relative value CI uses and an absolute path), then the repo root found
-by walking up to `settings.gradle.kts`, then the conventional sibling layout. If none is present the
-test **fails** with the exact commit and tag to fetch, because an oracle that quietly skips is
-indistinguishable from one that verified nothing.
+Both suites exercise `MapScreenPresenter`, which is the production object `MapScreenView` and
+`RegionMapView` consume, so the view and the tests cannot drift apart. An earlier revision kept a
+test-local copy of the marker gate, which could pass while the real view was wired incorrectly; that
+included migrating the marker gate into the presenter and removing `RegionMapView`'s own copy.
+
+The upstream cross-check is not skippable under `./ci.sh source-check`. It resolves the pinned
+checkout from `HNS_UPSTREAM_DIR` (accepting both the repo-root-relative value CI uses and an absolute
+path), then the repo root found by walking up to `settings.gradle.kts`, then the conventional sibling
+layout. If none is present the test **fails** with the exact commit and tag to fetch, because an
+oracle that quietly skips is indistinguishable from one that verified nothing.
 
 One regression test fails against the old behaviour by construction:
 `RegionMapDatabaseTest.unknownHnsMapDoesNotBecomeNewBarkTown` asserts that nine unknown pairs resolve
@@ -2056,5 +2088,8 @@ to `null` and not to the New Bark Town section the old code returned.
 * **Interior-to-parent fidelity.** Interiors resolve to their parent section because that is what
   `region_map_section` says upstream. DualDex does not present a per-interior name, which is a
   presentation choice, not a routing defect.
+* **On-device confirmation of the corrected geometry.** The rectangle origins and the strategy-aware
+  canvas are verified against pinned source and by the presentation suite, but no hardware run
+  rendered the corrected map for this PR.
 * **The 30 named-without-canvas sections.** Each is region-known and unmarked; if any should be
   drawn, that is new presentation work (explicitly out of scope for #11).

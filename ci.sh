@@ -113,8 +113,41 @@ hns_map_data_check() {
 }
 
 gradle_test() {
-  echo "== gradle unit tests =="
+  echo "== gradle unit tests (self-contained: no ROM, no network) =="
   ./gradlew testDebugUnitTest
+}
+
+# Explicit source validation against the pinned Heart & Soul 2.0.5 checkout.
+#
+# Deliberately separate from `test`: the canonical gate must stay self-contained, so
+# the upstream cross-check lives here and is run by its own CI job. This command
+# FAILS when the pinned checkout is missing, unreachable or at the wrong revision --
+# it never degrades to a silent skip. It needs no ROM and no emulator.
+source_check() {
+  echo "== H&S 2.0.5 source validation against the pinned upstream checkout =="
+  local upstream="${HNS_UPSTREAM_DIR:-}"
+  if [ -z "$upstream" ]; then
+    for candidate in "upstream-hns/pokehns-expansion" "../upstream-hns/pokehns-expansion"; do
+      if [ -f "$candidate/data/maps/map_groups.json" ]; then
+        upstream="$candidate"
+        break
+      fi
+    done
+  fi
+  if [ -z "$upstream" ]; then
+    echo "error: pinned Heart & Soul upstream checkout not found; set HNS_UPSTREAM_DIR" >&2
+    echo "       (a checkout of 1f42b74dff0e9fe942419845d040663dd829a973 / Release-v2.0.5 is required)" >&2
+    return 1
+  fi
+  export HNS_UPSTREAM_DIR="$upstream"
+
+  # 1. The generated table must regenerate byte-for-byte from the pinned source.
+  python3 tools/hns-map-data/generate_hns_map_data.py \
+    --upstream-dir "$upstream" --check
+
+  # 2. The Kotlin tests must re-derive the mapping from that source independently,
+  #    and must fail (not skip) if it is missing or wrong.
+  ./gradlew testDebugUnitTest -Pdualdex.hns.upstreamCheck=true
 }
 
 gradle_build() {
@@ -130,9 +163,10 @@ gradle_release() {
 }
 
 case "${1:-all}" in
-  test)    native_test; tracker_selftest; hns_map_data_check; gradle_test ;;
-  build)   gradle_build ;;
-  all)     native_test; tracker_selftest; hns_map_data_check; gradle_test; gradle_build ;;
-  release) gradle_release ;;
-  *)       echo "usage: $0 [test|build|all|release]" >&2; exit 2 ;;
+  test)         native_test; tracker_selftest; hns_map_data_check; gradle_test ;;
+  source-check) source_check ;;
+  build)        gradle_build ;;
+  all)          native_test; tracker_selftest; hns_map_data_check; gradle_test; gradle_build ;;
+  release)      gradle_release ;;
+  *)            echo "usage: $0 [test|source-check|build|all|release]" >&2; exit 2 ;;
 esac

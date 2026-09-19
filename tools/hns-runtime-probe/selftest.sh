@@ -69,6 +69,24 @@ expect_zero() {
   fi
 }
 
+# NOTE ON THE BASELINE SAVE.
+#
+# Four cases below are POSITION-DEPENDENT and are written against a fresh starter save standing in
+# New Bark Town at (10, 10) on map 0/0 -- which is exactly what make-save.sh produces:
+#
+#   walk-blocked-optional   walks INTO Elm's lab and must succeed
+#   untilout-timeout        needs New Bark Town's callback2 to be the non-clock one
+#   walk-blocked            must hit the lab's interior wall
+#   escape-timeout          must exhaust a script lock at the lab's (1,9) corner
+#
+# Running this script against a mid-progression save (e.g. stage33) makes those four fail for the
+# wrong reason: the player is somewhere else entirely, so the walls and callbacks under test are not
+# the ones being exercised. Produce the correct baseline with:
+#
+#   ./make-save.sh <core> <rom> /tmp/hns_baseline/hns205.sav
+#
+# and pass that file to --sav. The failures are then meaningful, not environmental.
+
 echo "== parser / save handling =="
 
 printf 'wait 30\nthis-command-does-not-exist 1 2\n' > "$WORK/unknown_command.txt"
@@ -84,6 +102,30 @@ expect_nonzero savsave-failure --script "$WORK/savsave_failure.txt"
 # a script error and its return value is folded into the exit status, so the run cannot pass with
 # zero frames executed and zero in-script errors.
 expect_nonzero missing-script --script "$WORK/definitely-missing-script.txt"
+
+# The scenario parser gained a fourth argument slot. Three invariants matter:
+#   1. an existing three-argument command parses EXACTLY as before, even with trailing garbage;
+#   2. a four-argument command that is missing its fourth argument must FAIL, not silently use a
+#      default (otherwise "no budget" and "the event never happened" would look identical);
+#   3. an unknown command still fails.
+# These are position-independent: (1) uses assert-map against the save's real map is not possible
+# without pinning the save, so it asserts on a command whose success does not depend on where the
+# player is standing.
+if [ -n "$SAV" ]; then
+  printf 'wait 30\nassert-battle inactive x y z\n' > "$WORK/parser_extra_args.txt"
+  expect_zero parser-trailing-args-ignored --sav "$SAV" --script "$WORK/parser_extra_args.txt"
+
+  printf 'wait 30\nawait-enemy-voluntary-switch 0 1\n' > "$WORK/parser_missing_arg.txt"
+  expect_nonzero parser-missing-fourth-arg --sav "$SAV" --script "$WORK/parser_missing_arg.txt"
+
+  printf 'wait 30\nawait-enemy-voluntary-switch 0 0 165 10\n' > "$WORK/parser_same_slot.txt"
+  expect_nonzero parser-same-slot-rejected --sav "$SAV" --script "$WORK/parser_same_slot.txt"
+
+  printf 'wait 30\nawait-enemy-voluntary-switch 0 1 165 0\n' > "$WORK/parser_zero_budget.txt"
+  expect_nonzero parser-zero-budget-rejected --sav "$SAV" --script "$WORK/parser_zero_budget.txt"
+else
+  echo "  [skip] parser argument cases need --sav"
+fi
 
 # A --sav that cannot be loaded must abort before the scenario runs.
 if [ -n "$SAV" ]; then

@@ -70,6 +70,35 @@ native_test() {
   ./native/build/test_runner
 }
 
+# The H&S runtime probe is a developer tool that `ci.sh` deliberately does not ship, but its
+# `--selftest` mode is PURE: no ROM, no emulator core, no environment. It exercises the fail-closed
+# state machines that the opponent voluntary-switch and player forced-replacement evidence depends
+# on, so it belongs in the canonical gate rather than only in the probe's own build script. It is a
+# separate suite from `native/build/test_runner`: that one covers the production reader, this one
+# covers the evidence harness. Both are required, and the counts are reported separately so neither
+# can be mistaken for the other.
+tracker_selftest() {
+  echo "== H&S runtime probe pure tracker selftests =="
+  local cc
+  cc="$(find_cc)"
+  if [ -z "$cc" ]; then
+    echo "error: no host C compiler found; the tracker selftest suite is required" >&2
+    return 1
+  fi
+
+  mkdir -p native/build
+  "$cc" -O2 \
+    -I native/include \
+    tools/hns-runtime-probe/runtime_battle_probe.c \
+    native/src/pokemon_reader.c \
+    native/src/pokemon_text.c \
+    native/src/gba_memory_map.c \
+    native/src/libretro_host.c \
+    -ldl -lpthread \
+    -o native/build/runtime_battle_probe_selftest
+  ./native/build/runtime_battle_probe_selftest --selftest
+}
+
 gradle_test() {
   echo "== gradle unit tests =="
   ./gradlew testDebugUnitTest
@@ -88,9 +117,9 @@ gradle_release() {
 }
 
 case "${1:-all}" in
-  test)    native_test; gradle_test ;;
+  test)    native_test; tracker_selftest; gradle_test ;;
   build)   gradle_build ;;
-  all)     native_test; gradle_test; gradle_build ;;
+  all)     native_test; tracker_selftest; gradle_test; gradle_build ;;
   release) gradle_release ;;
   *)       echo "usage: $0 [test|build|all|release]" >&2; exit 2 ;;
 esac

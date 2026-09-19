@@ -1,0 +1,152 @@
+# Issue #1: legal progression leg A1 -- Route 30 north to Violet City, Pokemon Center heal, save.
+#
+# SCOPE: this leg is NOT a prerequisite for Scenario 44 and Scenario 44 does not depend on it.
+# Scenario 44 boots from stage34_don_ready.sav, which is the output of scenario 34, and never
+# leaves Route 30. This leg exists on its own merits as overworld navigation regression
+# coverage: it is the only scenario that exercises multi-map traversal (map connections, an
+# arrow warp, a gate, a sideways staircase and wild-encounter clearing inside `walk`), and it
+# produced the legal Violet City battery save kept for the deferred Azalea work.
+#
+# Boots from stage34_don_ready.sav (player on Route 30 at (19,9)) and owns ONLY the walk north:
+# Route30 -> Route31 -> Gate Route31/VioletCity -> Violet City -> Pokemon Center, then the
+# ordinary Nurse Joy heal and an in-game save (stage44a_violet_city.sav).
+#
+# The route is derived from the pinned H&S source (map.bin collision+elevation, metatile
+# attributes/metatile behaviors, map connections, warps and arrow-warp direction rules) with two
+# runtime-MEASURED corrections: the Route 31 sideways staircase at x=25..27 y=10..13, and the
+# fact that an MB_WEST_ARROW_WARP tile fires only when the player standing on it presses west.
+# Every run end is asserted against the engine's own coordinates.
+#
+# Don (20,8) uses MOVEMENT_TYPE_LOOK_AROUND with sight 2 and sits in the only northern corridor
+# out of the (19,9) pocket, so the Route30 runs carry the `battle` token: if he happens to face a
+# direction that sees the player he challenges, the run says so and finishes that battle with
+# ordinary controller input, then continues. Any other facing and nothing happens.
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-map 0 12
+assert-pos 19 9
+matrix leg-boot
+walk RIGHT 4 battle
+assert-map 0 12
+assert-pos 23 9
+matrix leg-Route30_hns
+walk UP 1 battle
+assert-map 0 12
+assert-pos 23 8
+walk RIGHT 1 battle
+assert-map 0 12
+assert-pos 24 8
+walk UP 6 battle
+assert-map 0 12
+assert-pos 24 2
+walk LEFT 1 battle
+assert-map 0 12
+assert-pos 23 2
+walk UP 4 battle
+assert-map 0 13
+assert-pos 33 21
+matrix leg-Route31_hns
+walk RIGHT 10
+assert-map 0 13
+assert-pos 43 21
+walk UP 2
+assert-map 0 13
+assert-pos 43 19
+walk RIGHT 2
+assert-map 0 13
+assert-pos 45 19
+walk UP 6
+assert-map 0 13
+assert-pos 45 13
+walk LEFT 8
+assert-map 0 13
+assert-pos 37 13
+walk UP 1
+assert-map 0 13
+assert-pos 37 12
+walk LEFT 10
+assert-map 0 13
+assert-pos 27 12
+walk UP 1
+assert-map 0 13
+assert-pos 27 11
+walk LEFT 8
+assert-map 0 13
+assert-pos 19 13
+walk DOWN 2
+assert-map 0 13
+assert-pos 19 15
+walk LEFT 3
+assert-map 0 13
+assert-pos 16 15
+walk DOWN 3
+assert-map 0 13
+assert-pos 16 18
+walk LEFT 6
+assert-map 0 13
+assert-pos 10 18
+walk UP 1
+assert-map 0 13
+assert-pos 10 17
+walk LEFT 1
+assert-map 0 13
+assert-pos 9 17
+walk UP 5
+assert-map 0 13
+assert-pos 9 12
+walk LEFT 3
+assert-map 0 13
+assert-pos 6 12
+walk UP 1
+assert-map 0 13
+assert-pos 6 11
+walk LEFT 2
+assert-map 0 13
+assert-pos 4 11
+walk UP 1
+assert-map 0 13
+assert-pos 4 10
+walk LEFT 22
+assert-map 0 2
+assert-pos 39 46
+matrix leg-VioletCity_hns
+
+assert-battle inactive
+assert-map 0 2
+assert-pos 39 46
+party-stats player
+matrix leg-end
+walk UP 2
+assert-map 3 0
+assert-pos 7 8
+walk UP 4
+assert-pos 7 4
+matrix at-nurse
+spama 15
+wait 200
+spama 15
+wait 200
+spama 15
+wait 200
+party-stats player
+matrix healed
+walk DOWN 4
+assert-pos 7 8
+walk DOWN 1
+assert-map 0 2
+assert-pos 39 45
+walk DOWN 1
+assert-pos 39 46
+wait 90
+assert-battle inactive
+assert-map 0 2
+assert-pos 39 46
+party-stats player
+menusave
+assert-battle inactive
+assert-map 0 2
+assert-pos 39 46
+matrix a1-saved
+savsave /tmp/hns_baseline/stage44a_violet_city.sav

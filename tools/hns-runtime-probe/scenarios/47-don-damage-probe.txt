@@ -1,0 +1,36 @@
+# Issue #1 diagnostic: bounded Razor Leaf damage measurement against Don's Ledyba Lv3.
+#
+# This scenario asserts NOTHING about switching. It exists to check the source-derived damage
+# prediction (3-4 HP of Ledyba's 15 per Razor Leaf hit) against the ROM, because an earlier
+# rejection of Don rested on a single observation of Razor Leaf appearing to one-shot Ledyba.
+#
+# `damage-probe 75 4` drives four turns with move id 75 (Razor Leaf), located in the LIVE move list
+# rather than an assumed menu slot, and prints the opponent's HP after every change. It reports
+# critical-hit status as UNKNOWN: the core does not read gSpecialStatuses, and adding a speculative
+# address purely to detect a crit is out of bounds for this tool.
+#
+# Ordinary controller input only. No RAM writes, no savestates, no RNG manipulation.
+
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-map 0 12
+assert-pos 19 9
+assert-party-count player 2
+party-stats player
+matrix dp-boot
+
+walk RIGHT 1 optional
+wait 90
+engage UP 8
+wait 60
+assert-battle active
+assert-battle-kind TRAINER_SINGLE
+assert-party-count enemy 2
+assert-active-enemy-slot 0
+party-stats enemy
+matrix dp-engaged
+
+damage-probe 75 4
+matrix dp-after

@@ -32,8 +32,23 @@ data class SideConditions(
     val isLightScreen: Boolean = false
 )
 
+/**
+ * Canonical `@smogon/calc` battle-format identifiers.
+ *
+ * The embedded engine compares `field.gameType` case-sensitively against
+ * `'Singles'` / `'Doubles'` (its own `Field` default is `'Singles'`). Sending
+ * the lowercase spelling selected the doubles damage path, which halved Gen III
+ * spread moves such as Rock Slide in single battles (issue #29). Build requests
+ * from these constants; the bundle boundary additionally normalises legacy
+ * lowercase input and rejects unknown formats.
+ */
+object CalcGameTypes {
+    const val SINGLES = "Singles"
+    const val DOUBLES = "Doubles"
+}
+
 data class CalcFieldInput(
-    val gameType: String = "singles",
+    val gameType: String = CalcGameTypes.SINGLES,
     val weather: String? = null,
     val terrain: String? = null,
     val defenderSide: SideConditions? = null

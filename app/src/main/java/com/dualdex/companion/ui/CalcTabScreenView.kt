@@ -592,7 +592,7 @@ class CalcTabScreenView(
             move = CalcMoveInput(name = selectedMoveName, isCrit = isCrit),
             field = CalcFieldInput(
                 weather = currentWeather,
-                gameType = "singles",
+                gameType = CalcGameTypes.SINGLES,
                 defenderSide = if (hasScreens) SideConditions(isReflect = true, isLightScreen = true) else null
             )
         )

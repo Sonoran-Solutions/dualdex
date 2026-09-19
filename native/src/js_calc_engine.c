@@ -3,7 +3,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// Logging boundary. Android builds keep real logcat output; host builds (the
+// canonical `./ci.sh test` calculator suite) have no liblog, so the same
+// message goes to stderr instead of the engine being untestable off-device.
+// Same convention as native/src/pokemon_reader.c.
+#ifdef __ANDROID__
 #include <android/log.h>
+#define LOG_CALC(...) __android_log_print(ANDROID_LOG_ERROR, "DualDex_JNI", __VA_ARGS__)
+#else
+#define LOG_CALC(...) do { fprintf(stderr, "DualDex_JNI: " __VA_ARGS__); fputc('\n', stderr); } while (0)
+#endif
 
 static JSRuntime* g_rt = NULL;
 static JSContext* g_ctx = NULL;
@@ -79,7 +89,7 @@ char* js_calc_calculate(const char* input_json_str) {
         const char* exc_str = JS_ToCString(g_ctx, exc);
         if (exc_str) {
             // Log the error but don't return raw string as it's not JSON
-            __android_log_print(ANDROID_LOG_ERROR, "DualDex_JNI", "QuickJS calc error: %s", exc_str);
+            LOG_CALC("QuickJS calc error: %s", exc_str);
             JS_FreeCString(g_ctx, exc_str);
         }
         JS_FreeValue(g_ctx, exc);

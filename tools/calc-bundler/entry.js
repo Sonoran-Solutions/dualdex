@@ -1,5 +1,42 @@
 import { calculate, Generations, Pokemon, Move, Field, Side } from '@smogon/calc';
 
+// @smogon/calc compares field.gameType against the canonical capitalised
+// strings ('Singles'/'Doubles'); its own Field default is 'Singles'. DualDex
+// callers historically sent lowercase values ('singles'), which silently
+// selected the doubles damage path: in Gen III a spread move such as Rock
+// Slide then dealt half damage in a single battle (issue #29). Accept either
+// spelling here and reject anything else instead of coercing it.
+//
+// A Map, not an object literal: object lookup also resolves inherited
+// Object.prototype members, so `GAME_TYPES['__proto__']`, `['constructor']`,
+// `['toString']`, ... returned objects/functions that passed a truthiness
+// check and were handed to `new Field(...)` - silently selecting the doubles
+// path instead of being rejected as unsupported.
+const GAME_TYPES = new Map([
+  ['singles', 'Singles'],
+  ['Singles', 'Singles'],
+  ['doubles', 'Doubles'],
+  ['Doubles', 'Doubles']
+]);
+
+// Omitted / null / empty gameType means "not specified" and selects the
+// singles default, matching the library. Any other value must name a
+// supported battle format exactly; unknown values (including other casings
+// such as 'SINGLES', inherited property names such as '__proto__', and
+// non-strings) are an error, never a silent singles or doubles coercion.
+function normalizeGameType(raw) {
+  if (raw === undefined || raw === null) return 'Singles';
+  if (typeof raw !== 'string') {
+    throw new Error('field.gameType must be a string ("Singles" or "Doubles"), got ' + typeof raw);
+  }
+  if (raw.trim() === '') return 'Singles';
+  const canonical = GAME_TYPES.get(raw);
+  if (canonical === undefined) {
+    throw new Error('Unsupported field.gameType ' + JSON.stringify(raw) + '; expected "Singles" or "Doubles"');
+  }
+  return canonical;
+}
+
 // Global API attached to globalThis for QuickJS / headless engine
 globalThis.DualDexCalc = {
   calculateDamage: function(inputJsonStr) {
@@ -41,7 +78,7 @@ globalThis.DualDexCalc = {
       const move = new Move(gen, input.move.name, moveOptions);
 
       const fieldOptions = {
-        gameType: input.field?.gameType || 'singles'
+        gameType: normalizeGameType(input.field?.gameType)
       };
       if (input.field?.weather) fieldOptions.weather = input.field.weather;
       if (input.field?.terrain) fieldOptions.terrain = input.field.terrain;

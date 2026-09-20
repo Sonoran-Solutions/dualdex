@@ -4,6 +4,10 @@ import com.dualdex.pokemon.Gen3VanillaDataPack
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.hasMoveByName
 import com.dualdex.pokemon.hns.HeartAndSoul205DataPack
+import com.dualdex.pokemon.hns.HnsChallengeField
+import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
+import com.dualdex.pokemon.hns.HnsChallengeSettingsStatus
+import com.dualdex.pokemon.hns.HnsOptionStyle
 import com.dualdex.romhack.ProfileLoader
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
@@ -72,6 +76,34 @@ class CalcCapabilityPolicyTest {
             ),
             activeRomSha256 = hashes.first()
         )
+
+    private fun exactHnsProfile(): Pair<RomHackProfile, RuntimeRomTrust> {
+        val hnsSha256 = "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b"
+        val hashed = heartAndSoul.copy(
+            sha256Hashes = listOf(hnsSha256),
+            isVerified = true,
+            memoryLayoutVerified = true
+        )
+        return hashed to exactTrust(hashed)
+    }
+
+    private fun hnsSettingsSnapshot(
+        status: HnsChallengeSettingsStatus = HnsChallengeSettingsStatus.OBSERVED,
+        optionStyle: Int = 0,
+        optionStyleOutOfDomain: Boolean = false,
+        fairyTypes: Int = 1,
+        fairyTypesOutOfDomain: Boolean = false,
+        randomTypes: Int = 0,
+        randomTypesOutOfDomain: Boolean = false,
+        randomEffectiveness: Int = 0,
+        randomEffectivenessOutOfDomain: Boolean = false
+    ): HnsChallengeSettingsSnapshot = HnsChallengeSettingsSnapshot(
+        status = status,
+        optionStyle = HnsChallengeField(observed = true, raw = optionStyle, outOfDomain = optionStyleOutOfDomain),
+        txModeFairyTypes = HnsChallengeField(observed = true, raw = fairyTypes, outOfDomain = fairyTypesOutOfDomain),
+        txRandomType = HnsChallengeField(observed = true, raw = randomTypes, outOfDomain = randomTypesOutOfDomain),
+        txRandomTypeEffectiveness = HnsChallengeField(observed = true, raw = randomEffectiveness, outOfDomain = randomEffectivenessOutOfDomain)
+    )
 
     private fun request(
         gen: Int = 3,
@@ -1163,6 +1195,9 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.FAIRY_TOGGLE_UNREADABLE,
                 CalcLimitation.RANDOM_TYPES_UNREADABLE,
                 CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE,
+                CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED,
+                CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED,
+                CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED,
                 CalcLimitation.LIVE_INPUTS_NOT_VERIFIED,
                 CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN,
                 CalcLimitation.LEVEL_OUT_OF_RANGE,
@@ -1406,5 +1441,301 @@ class CalcCapabilityPolicyTest {
 
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.SPECIES_NOT_IN_PINNED_DATA))
         assertNull("refused verdict must never expose an executable request", refused.verdict.request)
+    }
+
+    // ------------------------------------------ Gap A runtime rules tests
+
+    @Test
+    fun `1 Missing settings exact-style H and S profile retains unreadable limitations and no request`() {
+        val (profile, trust) = exactHnsProfile()
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request(
+                attacker = CalcPokemonInput(species = "Charizard", level = 50),
+                defender = CalcPokemonInput(species = "Blastoise", level = 50),
+                move = CalcMoveInput(name = "Flamethrower")
+            ),
+            challengeSettings = null
+        )
+
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("missing challenge settings must refuse calculation")
+
+        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
+        assertNull("refused verdict must never expose an executable request", refused.verdict.request)
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.CATEGORY_SPLIT_TOGGLE_UNREADABLE))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.FAIRY_TOGGLE_UNREADABLE))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPES_UNREADABLE))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
+    }
+
+    @Test
+    fun `2 Fully observed ordinary settings clears unreadable blockers but H and S remains UNSUPPORTED due to Gap C`() {
+        val (profile, trust) = exactHnsProfile()
+        val snapshot = hnsSettingsSnapshot(
+            optionStyle = 0,
+            fairyTypes = 1,
+            randomTypes = 0,
+            randomEffectiveness = 0
+        )
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request(
+                attacker = CalcPokemonInput(species = "Charizard", level = 50),
+                defender = CalcPokemonInput(species = "Blastoise", level = 50),
+                move = CalcMoveInput(name = "Flamethrower")
+            ),
+            challengeSettings = snapshot
+        )
+
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("H&S must remain refused due to Gap C type-chart incompatibility")
+
+        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
+        assertNull("refused verdict must never expose an executable request", refused.verdict.request)
+
+        // All unreadable limitations must be gone
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.CATEGORY_SPLIT_TOGGLE_UNREADABLE))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.FAIRY_TOGGLE_UNREADABLE))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPES_UNREADABLE))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE))
+
+        // Gap C blocker must be present
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
+    }
+
+    @Test
+    fun `3 Observed zero semantics raw 0 is authoritative observation not unknown`() {
+        val (profile, trust) = exactHnsProfile()
+        val snapshot = hnsSettingsSnapshot(
+            optionStyle = 0,
+            fairyTypes = 0, // Observed Fairy OFF
+            randomTypes = 0, // Observed Random Types OFF
+            randomEffectiveness = 0 // Observed Random Effectiveness OFF
+        )
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request(),
+            challengeSettings = snapshot
+        )
+
+        val refused = outcome as CalcRequestOutcome.Refused
+        // None of the fields observed as raw=0 should be marked unreadable
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.CATEGORY_SPLIT_TOGGLE_UNREADABLE))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.FAIRY_TOGGLE_UNREADABLE))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPES_UNREADABLE))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE))
+        // And neither of the random toggles is active, so active blockers must not be present
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED))
+    }
+
+    @Test
+    fun `4 PER_MOVE_SPLIT optionStyle 0 retains authoritative move category`() {
+        val (profile, trust) = exactHnsProfile()
+        val snapshot = hnsSettingsSnapshot(optionStyle = 0)
+        // Crunch in H&S data pack is Physical (power 80, Dark). In Gen 3, Dark is type-based Special.
+        val baseReq = request(
+            attacker = CalcPokemonInput(species = "Tyranitar", level = 50),
+            defender = CalcPokemonInput(species = "Snorlax", level = 50),
+            move = CalcMoveInput(name = "Crunch")
+        )
+
+        val rules = CalcRequestBoundary.resolveHnsRuntimeRules(profile, trust, snapshot)
+        assertNotNull(rules)
+        assertEquals(HnsOptionStyle.PER_MOVE_SPLIT, rules!!.optionStyle)
+
+        val enriched = CalcDataOverrides.enrichRequest(profile, baseReq, rules)
+        assertNotNull(enriched.moveOverride)
+        assertEquals("Dark", enriched.moveOverride!!.type)
+        assertEquals("Physical", enriched.moveOverride!!.category)
+
+        val json = JSONObject(buildCalcRequestJson(enriched))
+        val moveObj = json.getJSONObject("move").getJSONObject("overrides")
+        assertEquals("Physical", moveObj.getString("category"))
+    }
+
+    @Test
+    fun `5 TYPE_BASED optionStyle 1 omits move category so engine derives category from move type`() {
+        val (profile, trust) = exactHnsProfile()
+        val snapshot = hnsSettingsSnapshot(optionStyle = 1)
+        val baseReq = request(
+            attacker = CalcPokemonInput(species = "Tyranitar", level = 50),
+            defender = CalcPokemonInput(species = "Snorlax", level = 50),
+            move = CalcMoveInput(name = "Crunch")
+        )
+
+        val rules = CalcRequestBoundary.resolveHnsRuntimeRules(profile, trust, snapshot)
+        assertNotNull(rules)
+        assertEquals(HnsOptionStyle.TYPE_BASED, rules!!.optionStyle)
+
+        val enriched = CalcDataOverrides.enrichRequest(profile, baseReq, rules)
+        assertNotNull(enriched.moveOverride)
+        assertEquals("Dark", enriched.moveOverride!!.type)
+        assertNull("TYPE_BASED optionStyle must omit category in move override", enriched.moveOverride!!.category)
+
+        val json = JSONObject(buildCalcRequestJson(enriched))
+        val moveObj = json.getJSONObject("move").getJSONObject("overrides")
+        assertFalse("category must be omitted from move overrides JSON", moveObj.has("category"))
+    }
+
+    @Test
+    fun `6 Random Types active observed raw 1 adds RANDOM_TYPES_ACTIVE_NOT_MODELLED and blocks`() {
+        val (profile, trust) = exactHnsProfile()
+        val snapshot = hnsSettingsSnapshot(randomTypes = 1)
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request(),
+            challengeSettings = snapshot
+        )
+
+        val refused = outcome as CalcRequestOutcome.Refused
+        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
+        assertNull(refused.verdict.request)
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPES_UNREADABLE))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED))
+    }
+
+    @Test
+    fun `7 Random Type Effectiveness active observed raw 1 adds RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED and blocks`() {
+        val (profile, trust) = exactHnsProfile()
+        val snapshot = hnsSettingsSnapshot(randomEffectiveness = 1)
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request(),
+            challengeSettings = snapshot
+        )
+
+        val refused = outcome as CalcRequestOutcome.Refused
+        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
+        assertNull(refused.verdict.request)
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED))
+    }
+
+    @Test
+    fun `8 Invalid settings snapshot or out of domain field fails closed`() {
+        val (profile, trust) = exactHnsProfile()
+
+        // 8a. Snapshot marked OBSERVED_INVALID
+        val invalidStatusSnapshot = hnsSettingsSnapshot(
+            status = HnsChallengeSettingsStatus.OBSERVED_INVALID
+        )
+        val outcomeInvalid = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request(),
+            challengeSettings = invalidStatusSnapshot
+        )
+        val refusedInvalid = outcomeInvalid as CalcRequestOutcome.Refused
+        assertTrue(refusedInvalid.verdict.limitations.contains(CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE))
+        assertTrue(refusedInvalid.verdict.limitations.contains(CalcLimitation.CATEGORY_SPLIT_TOGGLE_UNREADABLE))
+
+        // 8b. Single field marked outOfDomain
+        val outOfDomainSnapshot = hnsSettingsSnapshot(
+            optionStyleOutOfDomain = true
+        )
+        val outcomeOod = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request(),
+            challengeSettings = outOfDomainSnapshot
+        )
+        val refusedOod = outcomeOod as CalcRequestOutcome.Refused
+        assertTrue(refusedOod.verdict.limitations.contains(CalcLimitation.CATEGORY_SPLIT_TOGGLE_UNREADABLE))
+    }
+
+    @Test
+    fun `9 Trust gate recognized unverified H and S with valid snapshot does NOT consume it`() {
+        val unverifiedProfile = heartAndSoul
+        val snapshot = hnsSettingsSnapshot(
+            optionStyle = 0,
+            fairyTypes = 1,
+            randomTypes = 0,
+            randomEffectiveness = 0
+        )
+        val outcome = CalcRequestBoundary.build(
+            profile = unverifiedProfile,
+            trust = null,
+            request = request(),
+            challengeSettings = snapshot
+        )
+
+        val refused = outcome as CalcRequestOutcome.Refused
+        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
+        assertNull(refused.verdict.request)
+        // Must retain all unreadable limitations because trust is not exact-verified
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.CATEGORY_SPLIT_TOGGLE_UNREADABLE))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.FAIRY_TOGGLE_UNREADABLE))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPES_UNREADABLE))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE))
+    }
+
+    @Test
+    fun `10 Wrong profile vanilla FireRed and Emerald ignore supplied H and S settings snapshot`() {
+        val snapshot = hnsSettingsSnapshot(optionStyle = 0)
+        listOf(fireRed, emerald).forEach { profile ->
+            val outcome = CalcRequestBoundary.build(
+                profile = profile,
+                trust = exactTrust(profile),
+                request = request(
+                    attacker = CalcPokemonInput(species = "Machamp", level = 50),
+                    defender = CalcPokemonInput(species = "Snorlax", level = 50),
+                    move = CalcMoveInput(name = "Rock Slide")
+                ),
+                challengeSettings = snapshot
+            )
+
+            val ready = outcome as? CalcRequestOutcome.Ready
+                ?: throw AssertionError("${profile.id} must be ready and ignore H&S settings")
+            assertEquals(CalcSupport.VERIFIED, ready.verdict.support)
+            assertTrue(ready.verdict.isVerified)
+            assertNull("vanilla request must not carry hnsRuntimeRules", ready.request.hnsRuntimeRules)
+        }
+    }
+
+    @Test
+    fun `11 Caller override regression caller supplied species move overrides and runtime rules are discarded`() {
+        val (profile, trust) = exactHnsProfile()
+        val snapshot = hnsSettingsSnapshot(optionStyle = 1)
+        val spoofedRules = CalcHnsRuntimeRules(optionStyle = HnsOptionStyle.PER_MOVE_SPLIT)
+        val spoofedOverride = CalcMoveOverride(basePower = 999, type = "Normal", category = "Special")
+        val req = request(
+            attacker = CalcPokemonInput(species = "Tyranitar", level = 50),
+            defender = CalcPokemonInput(species = "Snorlax", level = 50),
+            move = CalcMoveInput(name = "Crunch")
+        ).copy(
+            moveOverride = spoofedOverride,
+            hnsRuntimeRules = spoofedRules
+        )
+
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = req,
+            challengeSettings = snapshot
+        )
+        val refused = outcome as CalcRequestOutcome.Refused
+        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
+        assertNull("refused verdict must never expose an executable request", refused.verdict.request)
+
+        // Boundary must have rebuilt rules from snapshot (TYPE_BASED), NOT spoofedRules (PER_MOVE_SPLIT)
+        // And rebuild moveOverride from HeartAndSoul205DataPack with power 80, NOT 999!
+        val enriched = CalcDataOverrides.enrichRequest(
+            profile,
+            req,
+            CalcRequestBoundary.resolveHnsRuntimeRules(profile, trust, snapshot)
+        )
+        assertEquals(80, enriched.moveOverride!!.basePower)
+        assertNull("TYPE_BASED from authoritative snapshot must omit category", enriched.moveOverride!!.category)
+        assertEquals(HnsOptionStyle.TYPE_BASED, enriched.hnsRuntimeRules!!.optionStyle)
     }
 }

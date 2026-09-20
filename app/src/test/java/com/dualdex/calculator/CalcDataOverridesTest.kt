@@ -2,6 +2,7 @@ package com.dualdex.calculator
 
 import com.dualdex.pokemon.Gen3VanillaDataPack
 import com.dualdex.pokemon.hns.HeartAndSoul205DataPack
+import com.dualdex.pokemon.hns.HnsOptionStyle
 import com.dualdex.romhack.RomHackProfile
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -286,5 +287,67 @@ class CalcDataOverridesTest {
         assertFalse(jsonVanilla.getJSONObject("attacker").has("overrides"))
         assertFalse(jsonVanilla.getJSONObject("defender").has("overrides"))
         assertFalse(jsonVanilla.getJSONObject("move").has("overrides"))
+    }
+
+    @Test
+    fun `enrichRequest retains move category when optionStyle is PER_MOVE_SPLIT`() {
+        val req = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Tyranitar"),
+            defender = CalcPokemonInput(species = "Snorlax"),
+            move = CalcMoveInput(name = "Crunch")
+        )
+        val rules = CalcHnsRuntimeRules(optionStyle = HnsOptionStyle.PER_MOVE_SPLIT)
+        val enriched = CalcDataOverrides.enrichRequest(hnsProfile, req, rules)
+
+        assertNotNull(enriched.moveOverride)
+        assertEquals("Dark", enriched.moveOverride!!.type)
+        assertEquals("Physical", enriched.moveOverride!!.category)
+        assertEquals(rules, enriched.hnsRuntimeRules)
+    }
+
+    @Test
+    fun `enrichRequest omits move category when optionStyle is TYPE_BASED`() {
+        val req = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Tyranitar"),
+            defender = CalcPokemonInput(species = "Snorlax"),
+            move = CalcMoveInput(name = "Crunch")
+        )
+        val rules = CalcHnsRuntimeRules(optionStyle = HnsOptionStyle.TYPE_BASED)
+        val enriched = CalcDataOverrides.enrichRequest(hnsProfile, req, rules)
+
+        assertNotNull(enriched.moveOverride)
+        assertEquals("Dark", enriched.moveOverride!!.type)
+        assertNull("category must be null for TYPE_BASED", enriched.moveOverride!!.category)
+        assertEquals(rules, enriched.hnsRuntimeRules)
+    }
+
+    @Test
+    fun `enrichRequest discards caller supplied hnsRuntimeRules on vanilla profile`() {
+        val rules = CalcHnsRuntimeRules(optionStyle = HnsOptionStyle.PER_MOVE_SPLIT)
+        val req = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Machamp"),
+            defender = CalcPokemonInput(species = "Snorlax"),
+            move = CalcMoveInput(name = "Rock Slide"),
+            hnsRuntimeRules = rules
+        )
+
+        val enriched = CalcDataOverrides.enrichRequest(fireRedProfile, req)
+        assertNull("vanilla profile must strip hnsRuntimeRules", enriched.hnsRuntimeRules)
+    }
+
+    @Test
+    fun `enrichRequest overrides caller supplied hnsRuntimeRules on HnS profile`() {
+        val callerRules = CalcHnsRuntimeRules(optionStyle = HnsOptionStyle.TYPE_BASED)
+        val boundaryRules = CalcHnsRuntimeRules(optionStyle = HnsOptionStyle.PER_MOVE_SPLIT)
+        val req = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Tyranitar"),
+            defender = CalcPokemonInput(species = "Snorlax"),
+            move = CalcMoveInput(name = "Crunch"),
+            hnsRuntimeRules = callerRules
+        )
+
+        val enriched = CalcDataOverrides.enrichRequest(hnsProfile, req, boundaryRules)
+        assertEquals(boundaryRules, enriched.hnsRuntimeRules)
+        assertEquals("Physical", enriched.moveOverride!!.category)
     }
 }

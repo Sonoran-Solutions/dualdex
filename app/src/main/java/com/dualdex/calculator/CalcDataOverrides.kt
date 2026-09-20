@@ -74,38 +74,60 @@ object CalcDataOverrides {
     }
 
     /**
-     * Enriches [request] with authoritative species and move overrides for [profile].
+     * Enriches [request] with authoritative species and move overrides for [profile], taking into
+     * account boundary-resolved [hnsRuntimeRules].
      *
-     * Overrides are strictly boundary-owned: caller-supplied overrides are ALWAYS discarded.
-     * - For non-H&S / vanilla profiles, any supplied overrides are stripped to null so external
-     *   callers cannot inject arbitrary stat or move power changes into a VERIFIED request.
+     * Overrides and runtime rules are strictly boundary-owned: caller-supplied overrides and rules
+     * are ALWAYS discarded.
+     * - For non-H&S / vanilla profiles, any supplied overrides or rules are stripped to null so external
+     *   callers cannot inject arbitrary stat, move power, or rule changes into a VERIFIED request.
      * - For H&S, overrides are rebuilt ONLY from [HeartAndSoul205DataPack]. If a species is ambiguous
      *   (e.g. multi-form "Eevee") or missing, the override is null and cannot be smuggled in.
+     * - When [CalcHnsRuntimeRules.optionStyle] is [com.dualdex.pokemon.hns.HnsOptionStyle.TYPE_BASED],
+     *   the move override category is omitted (null) so the engine derives category from move type.
+     *   When [com.dualdex.pokemon.hns.HnsOptionStyle.PER_MOVE_SPLIT], the pinned per-move category is retained.
      */
-    fun enrichRequest(profile: RomHackProfile, request: DamageCalculationRequest): DamageCalculationRequest {
+    fun enrichRequest(
+        profile: RomHackProfile,
+        request: DamageCalculationRequest,
+        hnsRuntimeRules: CalcHnsRuntimeRules? = null
+    ): DamageCalculationRequest {
         val pack = GameDataPackRegistry.getForProfile(profile)
         if (pack !is HeartAndSoul205DataPack) {
-            // Overrides are boundary-owned: callers cannot inject overrides into non-H&S / vanilla profiles.
-            return if (request.attackerOverride != null || request.defenderOverride != null || request.moveOverride != null) {
+            // Overrides are boundary-owned: callers cannot inject overrides or rules into non-H&S / vanilla profiles.
+            return if (request.attackerOverride != null || request.defenderOverride != null || request.moveOverride != null || request.hnsRuntimeRules != null) {
                 request.copy(
                     attackerOverride = null,
                     defenderOverride = null,
-                    moveOverride = null
+                    moveOverride = null,
+                    hnsRuntimeRules = null
                 )
             } else {
                 request
             }
         }
 
-        // Overrides are boundary-owned: caller-supplied overrides are discarded and rebuilt ONLY from HeartAndSoul205DataPack.
+        // Overrides and runtime rules are boundary-owned: caller-supplied values are discarded
+        // and rebuilt ONLY from HeartAndSoul205DataPack and boundary-resolved rules.
         val attackerOverride = buildSpeciesOverride(request.attacker.species, pack)
         val defenderOverride = buildSpeciesOverride(request.defender.species, pack)
-        val moveOverride = buildMoveOverride(request.move.name, pack)
+        val rawMoveOverride = buildMoveOverride(request.move.name, pack)
+
+        // optionStyle semantics:
+        // - PER_MOVE_SPLIT (raw 0): move's own category decides Physical/Special (category retained from pack).
+        // - TYPE_BASED (raw 1): move type decides Physical/Special as in Gen 3 (category omitted/null).
+        // - UNAVAILABLE / unknown: category split is unreadable; calculation remains refused.
+        val moveOverride = if (hnsRuntimeRules?.optionStyle == com.dualdex.pokemon.hns.HnsOptionStyle.TYPE_BASED) {
+            rawMoveOverride?.copy(category = null)
+        } else {
+            rawMoveOverride
+        }
 
         return request.copy(
             attackerOverride = attackerOverride,
             defenderOverride = defenderOverride,
-            moveOverride = moveOverride
+            moveOverride = moveOverride,
+            hnsRuntimeRules = hnsRuntimeRules
         )
     }
 }

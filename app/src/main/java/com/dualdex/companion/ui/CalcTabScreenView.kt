@@ -323,6 +323,11 @@ class CalcTabScreenView(
                 refreshUI()
             }
         }
+        scope.launch {
+            viewModel.challengeSettings.collectLatest {
+                refreshUI()
+            }
+        }
     }
 
     override fun onDetachedFromWindow() {
@@ -552,7 +557,8 @@ class CalcTabScreenView(
             attacker = attackerState,
             defender = defenderState,
             move = CalcMoveInput(name = selectedMoveName, isCrit = isCrit),
-            field = field
+            field = field,
+            challengeSettings = viewModel.challengeSettings.value
         )
 
         val authorised = outcome as? CalcRequestOutcome.Ready ?: run {

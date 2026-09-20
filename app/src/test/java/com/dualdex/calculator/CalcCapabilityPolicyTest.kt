@@ -1196,6 +1196,8 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.RANDOM_TYPES_UNREADABLE,
                 CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE,
                 CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED,
+                CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED,
+                CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED,
                 CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED,
                 CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED,
                 CalcLimitation.LIVE_INPUTS_NOT_VERIFIED,
@@ -1505,8 +1507,11 @@ class CalcCapabilityPolicyTest {
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE))
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE))
 
-        // Gap C blocker must be present
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
+        // Gap C1 closed: HNS_TYPE_CHART_NOT_MODELLED is cleared under observed rules and representable types
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
+
+        // Gap C2 blocker: HNS_ABILITY_SYSTEM_NOT_MODELLED keeps H&S strictly UNSUPPORTED
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED))
     }
 
     @Test
@@ -1737,5 +1742,123 @@ class CalcCapabilityPolicyTest {
         assertEquals(80, enriched.moveOverride!!.basePower)
         assertNull("TYPE_BASED from authoritative snapshot must omit category", enriched.moveOverride!!.category)
         assertEquals(HnsOptionStyle.TYPE_BASED, enriched.hnsRuntimeRules!!.optionStyle)
+    }
+
+    @Test
+    fun `12 Gap C1 unrepresentable type triggers UNREPRESENTABLE_TYPE_NOT_MODELLED and keeps HNS_TYPE_CHART_NOT_MODELLED`() {
+        val (profile, trust) = exactHnsProfile()
+        val rules = CalcHnsRuntimeRules(
+            optionStyle = HnsOptionStyle.PER_MOVE_SPLIT,
+            fairyTypesEnabled = true,
+            randomTypesEnabled = false,
+            randomTypeEffectivenessEnabled = false
+        )
+        val req = request(
+            attacker = CalcPokemonInput(species = "Charizard", level = 50),
+            defender = CalcPokemonInput(species = "Blastoise", level = 50),
+            move = CalcMoveInput(name = "Flamethrower")
+        ).copy(
+            hnsRuntimeRules = rules,
+            attackerOverride = CalcSpeciesOverride(
+                baseStats = StatBlock(78, 84, 78, 109, 85, 100),
+                types = listOf("FakeType")
+            )
+        )
+
+        val verdict = CalcCapabilityPolicy.evaluate(profile, trust, req)
+        assertEquals(CalcSupport.UNSUPPORTED, verdict.support)
+        assertTrue(verdict.limitations.contains(CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED))
+        assertTrue(verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
+        assertTrue(verdict.limitations.contains(CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED))
+    }
+
+    @Test
+    fun `13 Gap C1 random types active keeps HNS_TYPE_CHART_NOT_MODELLED`() {
+        val (profile, trust) = exactHnsProfile()
+        val snapshot = hnsSettingsSnapshot(
+            optionStyle = 0,
+            fairyTypes = 1,
+            randomTypes = 1, // Random Types ON
+            randomEffectiveness = 0
+        )
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request(
+                attacker = CalcPokemonInput(species = "Charizard", level = 50),
+                defender = CalcPokemonInput(species = "Blastoise", level = 50),
+                move = CalcMoveInput(name = "Flamethrower")
+            ),
+            challengeSettings = snapshot
+        )
+        val refused = outcome as CalcRequestOutcome.Refused
+        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
+    }
+
+    @Test
+    fun `14 Gap C1 random effectiveness active keeps HNS_TYPE_CHART_NOT_MODELLED`() {
+        val (profile, trust) = exactHnsProfile()
+        val snapshot = hnsSettingsSnapshot(
+            optionStyle = 0,
+            fairyTypes = 1,
+            randomTypes = 0,
+            randomEffectiveness = 1 // Random Type Effectiveness ON
+        )
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request(
+                attacker = CalcPokemonInput(species = "Charizard", level = 50),
+                defender = CalcPokemonInput(species = "Blastoise", level = 50),
+                move = CalcMoveInput(name = "Flamethrower")
+            ),
+            challengeSettings = snapshot
+        )
+        val refused = outcome as CalcRequestOutcome.Refused
+        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
+    }
+
+    @Test
+    fun `15 Gap C1 exact HnS request with missing or wrong typeSystem retains HNS_TYPE_CHART_NOT_MODELLED`() {
+        val (profile, trust) = exactHnsProfile()
+        val rules = CalcHnsRuntimeRules(
+            optionStyle = HnsOptionStyle.PER_MOVE_SPLIT,
+            fairyTypesEnabled = true,
+            randomTypesEnabled = false,
+            randomTypeEffectivenessEnabled = false
+        )
+        val baseReq = request(
+            attacker = CalcPokemonInput(species = "Charizard", level = 50),
+            defender = CalcPokemonInput(species = "Blastoise", level = 50),
+            move = CalcMoveInput(name = "Flamethrower")
+        ).copy(hnsRuntimeRules = rules)
+
+        // Case A: typeSystem is null
+        val reqNullTypeSystem = baseReq.copy(typeSystem = null)
+        val verdictNull = CalcCapabilityPolicy.evaluate(profile, trust, reqNullTypeSystem)
+        assertTrue(
+            "missing typeSystem must retain HNS_TYPE_CHART_NOT_MODELLED",
+            verdictNull.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED)
+        )
+
+        // Case B: typeSystem is wrong / arbitrary string
+        val reqWrongTypeSystem = baseReq.copy(typeSystem = "wrong_system")
+        val verdictWrong = CalcCapabilityPolicy.evaluate(profile, trust, reqWrongTypeSystem)
+        assertTrue(
+            "wrong typeSystem must retain HNS_TYPE_CHART_NOT_MODELLED",
+            verdictWrong.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED)
+        )
+
+        // Case C: typeSystem is correctly "hns_2_0_5"
+        val reqCorrectTypeSystem = baseReq.copy(typeSystem = "hns_2_0_5")
+        val verdictCorrect = CalcCapabilityPolicy.evaluate(profile, trust, reqCorrectTypeSystem)
+        assertFalse(
+            "correct typeSystem hns_2_0_5 clears HNS_TYPE_CHART_NOT_MODELLED",
+            verdictCorrect.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED)
+        )
     }
 }

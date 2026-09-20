@@ -350,4 +350,190 @@ class CalcDataOverridesTest {
         assertEquals(boundaryRules, enriched.hnsRuntimeRules)
         assertEquals("Physical", enriched.moveOverride!!.category)
     }
+
+    @Test
+    fun `Fairy mode ON retains authoritative Fairy typings for species and moves`() {
+        val clefable = CalcDataOverrides.buildSpeciesOverride("Clefable", HeartAndSoul205DataPack, fairyTypesEnabled = true)
+        assertNotNull(clefable)
+        assertEquals(listOf("Fairy"), clefable!!.types)
+
+        val togetic = CalcDataOverrides.buildSpeciesOverride("Togetic", HeartAndSoul205DataPack, fairyTypesEnabled = true)
+        assertNotNull(togetic)
+        assertEquals(listOf("Fairy", "Flying"), togetic!!.types)
+
+        val mawile = CalcDataOverrides.buildSpeciesOverride("Mawile", HeartAndSoul205DataPack, fairyTypesEnabled = true)
+        assertNotNull(mawile)
+        assertEquals(listOf("Steel", "Fairy"), mawile!!.types)
+
+        val gardevoir = CalcDataOverrides.buildSpeciesOverride("Gardevoir", HeartAndSoul205DataPack, fairyTypesEnabled = true)
+        assertNotNull(gardevoir)
+        assertEquals(listOf("Psychic", "Fairy"), gardevoir!!.types)
+
+        val moonblast = CalcDataOverrides.buildMoveOverride("Moonblast", HeartAndSoul205DataPack, fairyTypesEnabled = true)
+        assertNotNull(moonblast)
+        assertEquals("Fairy", moonblast!!.type)
+
+        val dazzlingGleam = CalcDataOverrides.buildMoveOverride("Dazzling Gleam", HeartAndSoul205DataPack, fairyTypesEnabled = true)
+        assertNotNull(dazzlingGleam)
+        assertEquals("Fairy", dazzlingGleam!!.type)
+
+        val spiritBreak = CalcDataOverrides.buildMoveOverride("Spirit Break", HeartAndSoul205DataPack, fairyTypesEnabled = true)
+        assertNotNull(spiritBreak)
+        assertEquals("Fairy", spiritBreak!!.type)
+    }
+
+    @Test
+    fun `Fairy mode OFF retypes species to pre-Fairy typings and Fairy moves to alternate types`() {
+        val clefable = CalcDataOverrides.buildSpeciesOverride("Clefable", HeartAndSoul205DataPack, fairyTypesEnabled = false)
+        assertNotNull(clefable)
+        assertEquals(listOf("Normal"), clefable!!.types)
+
+        val togetic = CalcDataOverrides.buildSpeciesOverride("Togetic", HeartAndSoul205DataPack, fairyTypesEnabled = false)
+        assertNotNull(togetic)
+        assertEquals(listOf("Normal", "Flying"), togetic!!.types)
+
+        val mawile = CalcDataOverrides.buildSpeciesOverride("Mawile", HeartAndSoul205DataPack, fairyTypesEnabled = false)
+        assertNotNull(mawile)
+        assertEquals(listOf("Steel"), mawile!!.types)
+
+        val gardevoir = CalcDataOverrides.buildSpeciesOverride("Gardevoir", HeartAndSoul205DataPack, fairyTypesEnabled = false)
+        assertNotNull(gardevoir)
+        assertEquals(listOf("Psychic"), gardevoir!!.types)
+
+        // Non-pre-Fairy species preserves standard types
+        val charizard = CalcDataOverrides.buildSpeciesOverride("Charizard", HeartAndSoul205DataPack, fairyTypesEnabled = false)
+        assertNotNull(charizard)
+        assertEquals(listOf("Fire", "Flying"), charizard!!.types)
+
+        // Fairy moves retyped according to sFairyMoveAltTypes
+        val moonblast = CalcDataOverrides.buildMoveOverride("Moonblast", HeartAndSoul205DataPack, fairyTypesEnabled = false)
+        assertNotNull(moonblast)
+        assertEquals("Dark", moonblast!!.type)
+
+        val dazzlingGleam = CalcDataOverrides.buildMoveOverride("Dazzling Gleam", HeartAndSoul205DataPack, fairyTypesEnabled = false)
+        assertNotNull(dazzlingGleam)
+        assertEquals("Normal", dazzlingGleam!!.type)
+
+        val spiritBreak = CalcDataOverrides.buildMoveOverride("Spirit Break", HeartAndSoul205DataPack, fairyTypesEnabled = false)
+        assertNotNull(spiritBreak)
+        assertEquals("Fighting", spiritBreak!!.type)
+
+        // Non-Fairy move preserves standard type
+        val flamethrower = CalcDataOverrides.buildMoveOverride("Flamethrower", HeartAndSoul205DataPack, fairyTypesEnabled = false)
+        assertNotNull(flamethrower)
+        assertEquals("Fire", flamethrower!!.type)
+    }
+
+    @Test
+    fun `enrichRequest couples Fairy OFF retyping with optionStyle`() {
+        val req = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Clefable"),
+            defender = CalcPokemonInput(species = "Swampert"),
+            move = CalcMoveInput(name = "Dazzling Gleam")
+        )
+
+        // Case 1: Fairy OFF + PER_MOVE_SPLIT -> Normal type, Special category retained
+        val rulesSplit = CalcHnsRuntimeRules(
+            optionStyle = HnsOptionStyle.PER_MOVE_SPLIT,
+            fairyTypesEnabled = false
+        )
+        val enrichedSplit = CalcDataOverrides.enrichRequest(hnsProfile, req, rulesSplit)
+        assertNotNull(enrichedSplit.moveOverride)
+        assertEquals("Normal", enrichedSplit.moveOverride!!.type)
+        assertEquals("Special", enrichedSplit.moveOverride!!.category)
+
+        // Case 2: Fairy OFF + TYPE_BASED -> Normal type, category null (engine resolves Physical)
+        val rulesTypeBased = CalcHnsRuntimeRules(
+            optionStyle = HnsOptionStyle.TYPE_BASED,
+            fairyTypesEnabled = false
+        )
+        val enrichedTypeBased = CalcDataOverrides.enrichRequest(hnsProfile, req, rulesTypeBased)
+        assertNotNull(enrichedTypeBased.moveOverride)
+        assertEquals("Normal", enrichedTypeBased.moveOverride!!.type)
+        assertNull("category must be null for TYPE_BASED", enrichedTypeBased.moveOverride!!.category)
+    }
+
+    @Test
+    fun `enrichRequest assigns hns_2_0_5 typeSystem on HnS and strips it on vanilla`() {
+        val reqHns = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Gengar"),
+            defender = CalcPokemonInput(species = "Swampert"),
+            move = CalcMoveInput(name = "Shadow Ball"),
+            typeSystem = "spoofed_system"
+        )
+        val enrichedHns = CalcDataOverrides.enrichRequest(hnsProfile, reqHns)
+        assertEquals("hns_2_0_5", enrichedHns.typeSystem)
+
+        val reqVanilla = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Gengar"),
+            defender = CalcPokemonInput(species = "Swampert"),
+            move = CalcMoveInput(name = "Shadow Ball"),
+            typeSystem = "spoofed_system"
+        )
+        val enrichedVanilla = CalcDataOverrides.enrichRequest(fireRedProfile, reqVanilla)
+        assertNull("vanilla profile must strip typeSystem", enrichedVanilla.typeSystem)
+    }
+
+    @Test
+    fun `buildCalcRequestJson serializes typeSystem when present`() {
+        val reqWith = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Gengar"),
+            defender = CalcPokemonInput(species = "Swampert"),
+            move = CalcMoveInput(name = "Shadow Ball"),
+            typeSystem = "hns_2_0_5"
+        )
+        val jsonWith = JSONObject(buildCalcRequestJson(reqWith))
+        assertTrue(jsonWith.has("typeSystem"))
+        assertEquals("hns_2_0_5", jsonWith.getString("typeSystem"))
+
+        val reqWithout = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Gengar"),
+            defender = CalcPokemonInput(species = "Swampert"),
+            move = CalcMoveInput(name = "Shadow Ball")
+        )
+        val jsonWithout = JSONObject(buildCalcRequestJson(reqWithout))
+        assertFalse(jsonWithout.has("typeSystem"))
+    }
+
+    @Test
+    fun `Charm status move retains Status category under TYPE_BASED with Fairy ON and Fairy OFF`() {
+        val req = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Clefable"),
+            defender = CalcPokemonInput(species = "Swampert"),
+            move = CalcMoveInput(name = "Charm")
+        )
+
+        // Case 1: Fairy ON + TYPE_BASED -> Fairy type, Status category retained (Status wins before optionStyle)
+        val rulesFairyOnTypeBased = CalcHnsRuntimeRules(
+            optionStyle = HnsOptionStyle.TYPE_BASED,
+            fairyTypesEnabled = true
+        )
+        val enrichedOnTb = CalcDataOverrides.enrichRequest(hnsProfile, req, rulesFairyOnTypeBased)
+        assertNotNull(enrichedOnTb.moveOverride)
+        assertEquals("Fairy", enrichedOnTb.moveOverride!!.type)
+        assertEquals("Status", enrichedOnTb.moveOverride!!.category)
+        assertEquals(0, enrichedOnTb.moveOverride!!.basePower)
+
+        // Case 2: Fairy OFF + TYPE_BASED -> Normal type, Status category retained (not converted to Physical)
+        val rulesFairyOffTypeBased = CalcHnsRuntimeRules(
+            optionStyle = HnsOptionStyle.TYPE_BASED,
+            fairyTypesEnabled = false
+        )
+        val enrichedOffTb = CalcDataOverrides.enrichRequest(hnsProfile, req, rulesFairyOffTypeBased)
+        assertNotNull(enrichedOffTb.moveOverride)
+        assertEquals("Normal", enrichedOffTb.moveOverride!!.type)
+        assertEquals("Status", enrichedOffTb.moveOverride!!.category)
+        assertEquals(0, enrichedOffTb.moveOverride!!.basePower)
+
+        // Case 3: PER_MOVE_SPLIT control -> Fairy type, Status category retained
+        val rulesSplit = CalcHnsRuntimeRules(
+            optionStyle = HnsOptionStyle.PER_MOVE_SPLIT,
+            fairyTypesEnabled = true
+        )
+        val enrichedSplit = CalcDataOverrides.enrichRequest(hnsProfile, req, rulesSplit)
+        assertNotNull(enrichedSplit.moveOverride)
+        assertEquals("Fairy", enrichedSplit.moveOverride!!.type)
+        assertEquals("Status", enrichedSplit.moveOverride!!.category)
+        assertEquals(0, enrichedSplit.moveOverride!!.basePower)
+    }
 }

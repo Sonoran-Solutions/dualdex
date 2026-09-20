@@ -157,6 +157,27 @@ static void check_number(const char* field, long expected, const jl_value* value
     }
 }
 
+static void check_double(const char* field, double expected, const jl_value* value) {
+    if (!value || !jl_is_num(value)) {
+        g_checks_failed++;
+        if (!g_quiet_checks) {
+            printf(ANSI_RED "  [FAIL] %s / %s: expected JSON number %.4f, but value is missing or not a number" ANSI_RESET "\n",
+                   g_fixture, field, expected);
+        }
+        return;
+    }
+    double actual = jl_num(value);
+    if (fabs(actual - expected) < 1e-6) {
+        g_checks_passed++;
+        return;
+    }
+    g_checks_failed++;
+    if (!g_quiet_checks) {
+        printf(ANSI_RED "  [FAIL] %s / %s: expected %.4f, got %.4f" ANSI_RESET "\n",
+               g_fixture, field, expected, actual);
+    }
+}
+
 static void check_str(const char* field, const char* expected, const char* actual) {
     if (actual && strcmp(expected, actual) == 0) {
         g_checks_passed++;
@@ -1553,6 +1574,379 @@ static void check_gap_b_data_overrides(void) {
     }
 }
 
+static void check_gap_c1_type_system(void) {
+    printf("-- Gap C1: H&S exact type system, Fairy toggle, request isolation --\n");
+
+    /*
+     * Test A: Ghost -> Steel effectiveness.
+     * Gen 3 vanilla: Ghost -> Steel is resisted (0.5x).
+     * H&S 2.0.5: Ghost -> Steel is neutral (1.0x).
+     * Attacker: Gengar (level 50, SpA 150), Move: Shadow Ball (overrides: category: Special).
+     * Defender: Registeel (level 50, SpD 170).
+     * Vanilla ADV: 20..24 dmg (eff 0.5).
+     * H&S 2.0.5:  41..49 dmg (eff 1.0).
+     */
+    g_fixture = "gap_c1_ghost_steel_matchup";
+    {
+        const char* req_adv =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Gengar\",\"level\":50},"
+            "\"defender\":{\"species\":\"Registeel\",\"level\":50},"
+            "\"move\":{\"name\":\"Shadow Ball\",\"overrides\":{\"category\":\"Special\"}}}";
+
+        const char* req_hns =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Gengar\",\"level\":50},"
+            "\"defender\":{\"species\":\"Registeel\",\"level\":50},"
+            "\"move\":{\"name\":\"Shadow Ball\",\"overrides\":{\"category\":\"Special\"}}}";
+
+        char* out_adv = js_calc_calculate(req_adv);
+        char* out_hns = js_calc_calculate(req_hns);
+
+        check_condition("ADV Ghost->Steel succeeds", out_adv != NULL);
+        check_condition("H&S Ghost->Steel succeeds", out_hns != NULL);
+
+        if (out_adv && out_hns) {
+            jl_value* doc_adv = jl_parse(out_adv);
+            jl_value* doc_hns = jl_parse(out_hns);
+
+            if (doc_adv && doc_hns) {
+                check_double("ADV effectiveness is 0.5", 0.5, jl_get(doc_adv, "effectiveness"));
+                check_number("ADV minDamage is 20", 20, jl_get(doc_adv, "minDamage"));
+                check_number("ADV maxDamage is 24", 24, jl_get(doc_adv, "maxDamage"));
+
+                check_double("H&S effectiveness is 1.0", 1.0, jl_get(doc_hns, "effectiveness"));
+                check_number("H&S minDamage is 41", 41, jl_get(doc_hns, "minDamage"));
+                check_number("H&S maxDamage is 49", 49, jl_get(doc_hns, "maxDamage"));
+            }
+            jl_free(doc_adv);
+            jl_free(doc_hns);
+        }
+        free(out_adv);
+        free(out_hns);
+    }
+
+    /*
+     * Test B: Dark -> Steel effectiveness.
+     * Gen 3 vanilla: Dark -> Steel is resisted (0.5x).
+     * H&S 2.0.5: Dark -> Steel is neutral (1.0x).
+     * Attacker: Houndoom (level 50, SpA 130), Move: Crunch (80 BP, Special in Gen 3).
+     * Defender: Registeel (level 50, SpD 170).
+     * Vanilla ADV: 17..21 dmg (eff 0.5).
+     * H&S 2.0.5:  35..42 dmg (eff 1.0).
+     */
+    g_fixture = "gap_c1_dark_steel_matchup";
+    {
+        const char* req_adv =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Houndoom\",\"level\":50},"
+            "\"defender\":{\"species\":\"Registeel\",\"level\":50},"
+            "\"move\":{\"name\":\"Crunch\"}}";
+
+        const char* req_hns =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Houndoom\",\"level\":50},"
+            "\"defender\":{\"species\":\"Registeel\",\"level\":50},"
+            "\"move\":{\"name\":\"Crunch\"}}";
+
+        char* out_adv = js_calc_calculate(req_adv);
+        char* out_hns = js_calc_calculate(req_hns);
+
+        check_condition("ADV Dark->Steel succeeds", out_adv != NULL);
+        check_condition("H&S Dark->Steel succeeds", out_hns != NULL);
+
+        if (out_adv && out_hns) {
+            jl_value* doc_adv = jl_parse(out_adv);
+            jl_value* doc_hns = jl_parse(out_hns);
+
+            if (doc_adv && doc_hns) {
+                check_double("ADV effectiveness is 0.5", 0.5, jl_get(doc_adv, "effectiveness"));
+                check_number("ADV minDamage is 17", 17, jl_get(doc_adv, "minDamage"));
+                check_number("ADV maxDamage is 21", 21, jl_get(doc_adv, "maxDamage"));
+
+                check_double("H&S effectiveness is 1.0", 1.0, jl_get(doc_hns, "effectiveness"));
+                check_number("H&S minDamage is 35", 35, jl_get(doc_hns, "minDamage"));
+                check_number("H&S maxDamage is 42", 42, jl_get(doc_hns, "maxDamage"));
+            }
+            jl_free(doc_adv);
+            jl_free(doc_hns);
+        }
+        free(out_adv);
+        free(out_hns);
+    }
+
+    /*
+     * Test C: Fairy type super-effectiveness and category defaulting.
+     * Attacker: Clefable (level 50, overrides: types: ["Fairy"], baseStats: hp 95, atk 70, def 73, spa 95, spd 90, spe 60).
+     * Defender: Dragonite (level 50, Dragon/Flying, Def 115, SpD 120).
+     * Move: Moonblast (overrides: type: "Fairy", basePower: 95; category omitted).
+     * In H&S, Moonblast is Fairy (Special). Fairy vs Dragon/Flying is 2.0x (2.0 x 1.0).
+     * Expected: minDamage 107, maxDamage 126, eff 2.0, category "Special".
+     */
+    g_fixture = "gap_c1_fairy_offensive_matchup";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Clefable\",\"level\":50,"
+            "\"overrides\":{\"types\":[\"Fairy\"],\"baseStats\":{\"hp\":95,\"atk\":70,\"def\":73,\"spa\":95,\"spd\":90,\"spe\":60}}},"
+            "\"defender\":{\"species\":\"Dragonite\",\"level\":50},"
+            "\"move\":{\"name\":\"Moonblast\",\"overrides\":{\"type\":\"Fairy\",\"basePower\":95}}}";
+
+        char* out = js_calc_calculate(req);
+        check_condition("Fairy Moonblast succeeds", out != NULL);
+        if (out) {
+            jl_value* doc = jl_parse(out);
+            if (doc) {
+                check_str("category defaulted to Special", "Special", jl_str(jl_get(doc, "moveCategory")));
+                check_double("effectiveness is 2.0", 2.0, jl_get(doc, "effectiveness"));
+                check_number("minDamage is 107", 107, jl_get(doc, "minDamage"));
+                check_number("maxDamage is 126", 126, jl_get(doc, "maxDamage"));
+            }
+            jl_free(doc);
+        }
+        free(out);
+    }
+
+    /*
+     * Test D: Fairy type defensive immunity (0x).
+     * Attacker: Dragonite (level 50).
+     * Defender: Clefable (level 50, overrides: types: ["Fairy"]).
+     * Move: Dragon Claw (Dragon type).
+     * In H&S, Dragon -> Fairy is 0.0x immune.
+     * Expected: minDamage 0, maxDamage 0, eff 0.0, success true.
+     */
+    g_fixture = "gap_c1_fairy_defensive_immunity";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Dragonite\",\"level\":50},"
+            "\"defender\":{\"species\":\"Clefable\",\"level\":50,\"overrides\":{\"types\":[\"Fairy\"]}},"
+            "\"move\":{\"name\":\"Dragon Claw\"}}";
+
+        char* out = js_calc_calculate(req);
+        check_condition("Dragon vs Fairy succeeds", out != NULL);
+        if (out) {
+            jl_value* doc = jl_parse(out);
+            if (doc) {
+                check_condition("success is true on immunity", jl_bool(jl_get(doc, "success")) == 1);
+                check_double("effectiveness is 0.0", 0.0, jl_get(doc, "effectiveness"));
+                check_number("minDamage is 0", 0, jl_get(doc, "minDamage"));
+                check_number("maxDamage is 0", 0, jl_get(doc, "maxDamage"));
+            }
+            jl_free(doc);
+        }
+        free(out);
+    }
+
+    /*
+     * Test E: optionStyle category coupling on retyped move.
+     * Attacker: Clefable (level 50, overrides: types: ["Normal"], baseStats: hp 95, atk 70, def 73, spa 95, spd 90, spe 60).
+     * Defender: Swampert (level 50).
+     * Move: Dazzling Gleam retyped to Normal (BP 80).
+     * Case 1: PER_MOVE_SPLIT (category = "Special") -> 48..57 dmg.
+     * Case 2: TYPE_BASED (category = "Physical") -> 38..45 dmg.
+     */
+    g_fixture = "gap_c1_option_style_category_coupling";
+    {
+        const char* req_split =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Clefable\",\"level\":50,"
+            "\"overrides\":{\"types\":[\"Normal\"],\"baseStats\":{\"hp\":95,\"atk\":70,\"def\":73,\"spa\":95,\"spd\":90,\"spe\":60}}},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Dazzling Gleam\",\"overrides\":{\"type\":\"Normal\",\"basePower\":80,\"category\":\"Special\"}}}";
+
+        const char* req_type_based =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Clefable\",\"level\":50,"
+            "\"overrides\":{\"types\":[\"Normal\"],\"baseStats\":{\"hp\":95,\"atk\":70,\"def\":73,\"spa\":95,\"spd\":90,\"spe\":60}}},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Dazzling Gleam\",\"overrides\":{\"type\":\"Normal\",\"basePower\":80,\"category\":\"Physical\"}}}";
+
+        char* out_split = js_calc_calculate(req_split);
+        char* out_tb = js_calc_calculate(req_type_based);
+
+        check_condition("split calculation succeeds", out_split != NULL);
+        check_condition("type-based calculation succeeds", out_tb != NULL);
+
+        if (out_split && out_tb) {
+            jl_value* doc_split = jl_parse(out_split);
+            jl_value* doc_tb = jl_parse(out_tb);
+
+            if (doc_split && doc_tb) {
+                check_str("split category is Special", "Special", jl_str(jl_get(doc_split, "moveCategory")));
+                check_number("split minDamage is 48", 48, jl_get(doc_split, "minDamage"));
+                check_number("split maxDamage is 57", 57, jl_get(doc_split, "maxDamage"));
+
+                check_str("type-based category is Physical", "Physical", jl_str(jl_get(doc_tb, "moveCategory")));
+                check_number("type-based minDamage is 38", 38, jl_get(doc_tb, "minDamage"));
+                check_number("type-based maxDamage is 45", 45, jl_get(doc_tb, "maxDamage"));
+            }
+            jl_free(doc_split);
+            jl_free(doc_tb);
+        }
+        free(out_split);
+        free(out_tb);
+    }
+
+    /*
+     * Test F: Request isolation (zero state leakage or global mutation).
+     * Sequence: H&S -> Vanilla -> H&S -> Vanilla
+     * Verify neither mutates the shared engine state.
+     */
+    g_fixture = "gap_c1_request_isolation";
+    {
+        const char* req_hns =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Gengar\",\"level\":50},"
+            "\"defender\":{\"species\":\"Registeel\",\"level\":50},"
+            "\"move\":{\"name\":\"Shadow Ball\",\"overrides\":{\"category\":\"Special\"}}}";
+
+        const char* req_adv =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Gengar\",\"level\":50},"
+            "\"defender\":{\"species\":\"Registeel\",\"level\":50},"
+            "\"move\":{\"name\":\"Shadow Ball\",\"overrides\":{\"category\":\"Special\"}}}";
+
+        char* out1 = js_calc_calculate(req_hns);
+        char* out2 = js_calc_calculate(req_adv);
+        char* out3 = js_calc_calculate(req_hns);
+        char* out4 = js_calc_calculate(req_adv);
+
+        check_condition("isolation run 1 succeeds", out1 != NULL);
+        check_condition("isolation run 2 succeeds", out2 != NULL);
+        check_condition("isolation run 3 succeeds", out3 != NULL);
+        check_condition("isolation run 4 succeeds", out4 != NULL);
+
+        if (out1 && out2 && out3 && out4) {
+            jl_value* d1 = jl_parse(out1);
+            jl_value* d2 = jl_parse(out2);
+            jl_value* d3 = jl_parse(out3);
+            jl_value* d4 = jl_parse(out4);
+
+            if (d1 && d2 && d3 && d4) {
+                check_number("run 1 H&S minDamage", 41, jl_get(d1, "minDamage"));
+                check_number("run 2 ADV minDamage", 20, jl_get(d2, "minDamage"));
+                check_number("run 3 H&S minDamage", 41, jl_get(d3, "minDamage"));
+                check_number("run 4 ADV minDamage", 20, jl_get(d4, "minDamage"));
+            }
+            jl_free(d1);
+            jl_free(d2);
+            jl_free(d3);
+            jl_free(d4);
+        }
+        free(out1);
+        free(out2);
+        free(out3);
+        free(out4);
+    }
+
+    /*
+     * Test G: Unsupported typeSystem is rejected with success=false.
+     */
+    g_fixture = "gap_c1_unsupported_type_system";
+    {
+        const char* req_bad =
+            "{\"gen\":3,\"typeSystem\":\"invalid_type_sys\","
+            "\"attacker\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50},"
+            "\"move\":{\"name\":\"Tackle\"}}";
+
+        char* out_bad = js_calc_calculate(req_bad);
+        check_condition("unsupported typeSystem returns response", out_bad != NULL);
+        if (out_bad) {
+            jl_value* doc = jl_parse(out_bad);
+            if (doc) {
+                check_condition("unsupported typeSystem is rejected with success=false", jl_bool(jl_get(doc, "success")) == 0);
+                check_string_present("unsupported typeSystem error string", jl_get(doc, "error"));
+            }
+            jl_free(doc);
+        }
+        free(out_bad);
+    }
+
+    /*
+     * Test H: Status move category preservation (Status wins before optionStyle).
+     * Charm (MOVE_CHARM, id 204) in H&S is Fairy / Status / 0 BP.
+     * When Fairy ON:  type Fairy, category Status.
+     * When Fairy OFF: type Normal, category Status.
+     * Under TYPE_BASED optionStyle, Status moves MUST remain Status, never converted to
+     * Special (Fairy ON) or Physical (Fairy OFF).
+     */
+    g_fixture = "gap_c1_charm_status_category_preservation";
+    {
+        // Case 1: Charm with Fairy ON and category Status
+        const char* req_fairy_on =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Clefable\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Charm\",\"overrides\":{\"type\":\"Fairy\",\"category\":\"Status\",\"basePower\":0}}}";
+
+        // Case 2: Charm with Fairy OFF and category Status
+        const char* req_fairy_off =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Clefable\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Charm\",\"overrides\":{\"type\":\"Normal\",\"category\":\"Status\",\"basePower\":0}}}";
+
+        // Case 3: Charm with Fairy ON and category omitted (must NOT default to Special)
+        const char* req_fairy_on_no_cat =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Clefable\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Charm\",\"overrides\":{\"type\":\"Fairy\"}}}";
+
+        // Case 4: Vanilla ADV control
+        const char* req_vanilla =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Clefable\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Charm\"}}";
+
+        char* out1 = js_calc_calculate(req_fairy_on);
+        char* out2 = js_calc_calculate(req_fairy_off);
+        char* out3 = js_calc_calculate(req_fairy_on_no_cat);
+        char* out4 = js_calc_calculate(req_vanilla);
+
+        check_condition("Charm Fairy ON succeeds", out1 != NULL);
+        check_condition("Charm Fairy OFF succeeds", out2 != NULL);
+        check_condition("Charm Fairy ON no category succeeds", out3 != NULL);
+        check_condition("Charm vanilla control succeeds", out4 != NULL);
+
+        if (out1 && out2 && out3 && out4) {
+            jl_value* d1 = jl_parse(out1);
+            jl_value* d2 = jl_parse(out2);
+            jl_value* d3 = jl_parse(out3);
+            jl_value* d4 = jl_parse(out4);
+
+            if (d1 && d2 && d3 && d4) {
+                check_str("Charm Fairy ON category is Status", "Status", jl_str(jl_get(d1, "moveCategory")));
+                check_number("Charm Fairy ON minDamage is 0", 0, jl_get(d1, "minDamage"));
+                check_number("Charm Fairy ON maxDamage is 0", 0, jl_get(d1, "maxDamage"));
+
+                check_str("Charm Fairy OFF category is Status", "Status", jl_str(jl_get(d2, "moveCategory")));
+                check_number("Charm Fairy OFF minDamage is 0", 0, jl_get(d2, "minDamage"));
+                check_number("Charm Fairy OFF maxDamage is 0", 0, jl_get(d2, "maxDamage"));
+
+                check_str("Charm Fairy ON without category remains Status", "Status", jl_str(jl_get(d3, "moveCategory")));
+                check_number("Charm Fairy ON no category minDamage is 0", 0, jl_get(d3, "minDamage"));
+                check_number("Charm Fairy ON no category maxDamage is 0", 0, jl_get(d3, "maxDamage"));
+
+                check_str("Charm vanilla category is Status", "Status", jl_str(jl_get(d4, "moveCategory")));
+                check_number("Charm vanilla minDamage is 0", 0, jl_get(d4, "minDamage"));
+                check_number("Charm vanilla maxDamage is 0", 0, jl_get(d4, "maxDamage"));
+            }
+            jl_free(d1);
+            jl_free(d2);
+            jl_free(d3);
+            jl_free(d4);
+        }
+        free(out1);
+        free(out2);
+        free(out3);
+        free(out4);
+    }
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -1573,6 +1967,9 @@ int main(void) {
 
     printf("-- Gap B: authoritative species/move overrides, category, isolation, malformed --\n");
     check_gap_b_data_overrides();
+
+    printf("-- Gap C1: exact type system + Fairy toggle behavior --\n");
+    check_gap_c1_type_system();
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
     check_oracle_self_tests();

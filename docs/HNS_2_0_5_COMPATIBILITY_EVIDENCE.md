@@ -2325,3 +2325,88 @@ and the suite returned to **78/78 PASS**.
 * **Doubles** were not exercised on the ROM; the AMBIGUOUS verdict is synthetic-suite verified.
 * Nothing here establishes engine **compatibility**: the observations say what the engine holds,
   not that DualDex can model the mechanics that depend on them.
+
+---
+
+## 15. Calculator Gap C1 — exact type system + Fairy toggle evidence (issue #9)
+
+**Added by:** the Gap C1 slice (type chart + Fairy mode toggle), branched from commit `5e6b46de1d82982c6912d78019406e016b58137c` (PR #61 merge).
+
+This section documents the upstream source provenance and verification evidence for closing the type-system gap in H&S 2.0.5.
+
+### 15.1 Upstream Source Evidence
+
+All mappings are extracted deterministically from `PokemonHnS-Development/pokehns-expansion` at commit `1f42b74dff0e9fe942419845d040663dd829a973`:
+
+1. **Modern Type Chart:**
+   - In `include/config/battle.h:53`: `#define B_UPDATED_TYPE_MATCHUPS GEN_LATEST` where `GEN_LATEST == GEN_9` (`include/config/general.h:17`).
+   - In `src/data/types_info.h:8`: `#define STL_RS 1.0` (evaluated at `GEN_9`, so Ghost and Dark against Steel are neutral 1.0x).
+   - The 21x21 upstream matrix (`src/data/types_info.h:18-40`) is extracted by `tools/hns-type-system/generate_hns_type_system.py` into `tools/calc-bundler/hns_type_chart.json` (19x19 representable types).
+2. **Fairy Toggle Mode (`tx_Mode_Fairy_Types`):**
+   - In `src/pokemon.c:5704`: `sPreFairyTypes` maps 20 species to their pre-Fairy typings when `tx_Mode_Fairy_Types == 0`.
+   - In `src/pokemon.c:5748`: `sFairyMoveAltTypes` maps 34 Fairy moves to their alternate typings when `tx_Mode_Fairy_Types == 0` (falling back to `TYPE_NORMAL` per `src/pokemon.c:5795`).
+   - Extracted into `app/src/main/java/com/dualdex/pokemon/hns/HnsFairyTypeMappings.kt`.
+   - `--verify` verified against local upstream checkout with zero drift.
+
+### 15.2 Request-Local Engine Isolation
+
+In `tools/calc-bundler/entry.js`:
+- Incoming request specifies `typeSystem: "hns_2_0_5"`.
+- A request-local duck-typed generation facade (`num = 3`, `types = HNS_TYPES_PROVIDER`) is passed to `calculate()`.
+- `@smogon/calc` ADV arithmetic (`gen.num == 3`) runs unchanged; type effectiveness is resolved from the custom provider without modifying global library tables or changing generations.
+- If `typeSystem` is omitted or null, standard Gen 3 tables apply.
+
+### 15.3 Move Category Coupling and Status Move Invariant
+
+In H&S `GetBattleMoveCategory()` (`src/battle_util.c:9183`):
+```c
+if (IsBattleMoveStatus(move))
+    return DAMAGE_CATEGORY_STATUS;
+
+if (B_PHYSICAL_SPECIAL_SPLIT < GEN_4 ||
+    gSaveBlock3Ptr->challengeSettings.optionStyle == 1)
+    return gTypesInfo[GetBattleMoveType(move)].damageCategory;
+
+return GetMoveCategory(move);
+```
+**Status wins before `optionStyle`**. Under `optionStyle == 1` (`TYPE_BASED`), only non-status moves derive damage category from the effective move type.
+
+DualDex models this invariant faithfully:
+- In `CalcDataOverrides.kt`:
+  - If a move is Status (e.g. Charm, Fairy / Status / 0 BP), `category = "Status"` is **retained** under both `PER_MOVE_SPLIT` and `TYPE_BASED`.
+  - Non-status moves under `TYPE_BASED` have `category = null`, triggering type-based Physical/Special derivation.
+- In `tools/calc-bundler/entry.js`:
+  - When `typeSystem === 'hns_2_0_5'` and `overrides.type === 'Fairy'` with category omitted, `category = 'Special'` is applied only for damaging moves (`!isBaseStatus`).
+- Verified for Charm across Fairy ON, Fairy OFF, and PER_MOVE_SPLIT in both `CalcDataOverridesTest.kt` and `test_js_calc.c`.
+
+### 15.4 Policy Invariant: Request TypeSystem Requirement
+
+`CalcCapabilityPolicy.kt` evaluates `typeChartModelled` to conditionally clear `HNS_TYPE_CHART_NOT_MODELLED`. To prevent latent promotion bugs, the policy strictly requires:
+```kotlin
+request.typeSystem == "hns_2_0_5"
+```
+If the evaluated request is missing `typeSystem` or supplies any other value, `HNS_TYPE_CHART_NOT_MODELLED` remains active, even if exact trust and challenge rules are observed (tested in `CalcCapabilityPolicyTest` test 15).
+
+### 15.5 Verification Evidence
+
+- `native/tests/test_js_calc.c:check_gap_c1_type_system`:
+  - Ghost -> Steel: ADV = 20..24 (eff 0.5) vs H&S = 41..49 (eff 1.0).
+  - Dark -> Steel: ADV = 17..21 (eff 0.5) vs H&S = 35..42 (eff 1.0).
+  - Fairy -> Dragon/Flying: Clefable Moonblast vs Dragonite = 107..126 (eff 2.0).
+  - Dragon -> Fairy immunity: Dragonite Dragon Claw vs Clefable = 0..0 (eff 0.0).
+  - OptionStyle category coupling: Dazzling Gleam Special 48..57 vs Physical 38..45.
+  - Charm status preservation: Charm Fairy ON = Status (0 dmg), Charm Fairy OFF = Status (0 dmg, Normal), Charm no-category = Status (0 dmg).
+  - Request isolation: H&S -> ADV -> H&S -> ADV (zero table mutation).
+  - Unsupported typeSystem returns `success: false`.
+- CI contract updated:
+  - `./ci.sh test` includes `test_generate_hns_type_system.py` unit tests and QuickJS suite (1887 checks).
+  - `./ci.sh source-check` includes `generate_hns_type_system.py --verify`.
+- **Behavioral Semantic Mutation Control:**
+  - Mutated Ghost -> Steel in `hns_type_chart.json` from `1.0` to `0.5` and rebuilt bundle.
+  - Executed `./ci.sh test`: `gap_c1_ghost_steel_matchup` and `gap_c1_request_isolation` failed immediately with 5 failed assertions:
+    - `[FAIL] gap_c1_ghost_steel_matchup / H&S effectiveness is 1.0: expected 1.0000, got 0.5000`
+    - `[FAIL] gap_c1_ghost_steel_matchup / H&S minDamage is 41: expected 41, got 20`
+    - `[FAIL] gap_c1_ghost_steel_matchup / H&S maxDamage is 49: expected 49, got 24`
+    - `[FAIL] gap_c1_request_isolation / run 1 H&S minDamage: expected 41, got 20`
+    - `[FAIL] gap_c1_request_isolation / run 3 H&S minDamage: expected 41, got 20`
+  - Restoring `1.0` and rebuilding bundle restored 100% passing results (1887 passed, 0 failed).

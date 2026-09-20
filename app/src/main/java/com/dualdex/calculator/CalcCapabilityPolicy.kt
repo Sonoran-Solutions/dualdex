@@ -96,6 +96,16 @@ enum class CalcLimitation(val blocks: Boolean) {
     HNS_TYPE_CHART_NOT_MODELLED(true),
 
     /**
+     * The Heart & Soul 2.0.5 ability system is not modelled by the calculator pipeline (Gap C2).
+     */
+    HNS_ABILITY_SYSTEM_NOT_MODELLED(true),
+
+    /**
+     * The request contains a type that cannot be represented in the type chart.
+     */
+    UNREPRESENTABLE_TYPE_NOT_MODELLED(true),
+
+    /**
      * The Heart & Soul 2.0.5 "RANDOM TYPES" challenge is active in live memory, which is not modelled
      * by the calculator.
      */
@@ -305,6 +315,10 @@ data class CalcCapabilityVerdict(
                 "this build can randomize type effectiveness and the setting is not read"
             CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED ->
                 "the H&S modern type chart (Fairy type and neutral Steel vs Ghost/Dark) is not modelled by the generation III calculation pipeline"
+            CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED ->
+                "the Heart & Soul 2.0.5 ability system is not modelled by the calculator (Gap C2)"
+            CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED ->
+                "the request contains an unrepresentable type not present in the type chart"
             CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED ->
                 "this battle has the Random Types challenge active, which is not modelled"
             CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED ->
@@ -456,6 +470,12 @@ object CalcCapabilityPolicy {
         CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE
     )
 
+    val HNS_REPRESENTABLE_TYPES: Set<String> = setOf(
+        "Normal", "Fighting", "Flying", "Poison", "Ground", "Rock", "Bug", "Ghost", "Steel",
+        "Fire", "Water", "Grass", "Electric", "Psychic", "Ice", "Dragon", "Dark", "Fairy",
+        "???"
+    )
+
     const val HNS_DATA_PACK_ID = "hns_2_0_5"
     const val HNS_ENGINE = "pokeemerald-expansion"
     const val HNS_PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
@@ -498,9 +518,8 @@ object CalcCapabilityPolicy {
                 contentSource = HNS_DATA_PACK_ID,
                 ceiling = CalcSupport.ESTIMATED,
                 alwaysLimitations = listOf(
-                    // Gap C blocker: the Gen 3 ADV calculation pipeline does not model the H&S modern type chart
-                    // (Fairy type present; Steel does not resist Ghost and Dark).
-                    CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED,
+                    // Gap C blocker: the H&S ability system is not modelled by the calculator (Gap C2).
+                    CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED,
                     CalcLimitation.BADGE_BOOST_NOT_MODELLED,
                     CalcLimitation.BUILDS_NOT_HASH_VERIFIED
                 ),
@@ -592,6 +611,54 @@ object CalcCapabilityPolicy {
                 rules.randomTypeEffectivenessEnabled != null
             if (!allRequiredObserved) {
                 limitations.add(CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE)
+            }
+
+            // 6. Type chart modelling (Gap C1):
+            // Types must be representable in the H&S type chart (standard 18 types or ???)
+            val pack = GameDataPackRegistry.getForProfile(profile)
+            val requestTypes = mutableListOf<String>()
+            if (request.attackerOverride != null) {
+                requestTypes.addAll(request.attackerOverride.types)
+            } else {
+                val s = pack.getSpeciesByName(request.attacker.species)
+                if (s != null) {
+                    requestTypes.add(s.type1.displayName)
+                    s.type2?.let { requestTypes.add(it.displayName) }
+                }
+            }
+            if (request.defenderOverride != null) {
+                requestTypes.addAll(request.defenderOverride.types)
+            } else {
+                val s = pack.getSpeciesByName(request.defender.species)
+                if (s != null) {
+                    requestTypes.add(s.type1.displayName)
+                    s.type2?.let { requestTypes.add(it.displayName) }
+                }
+            }
+            if (request.moveOverride != null) {
+                requestTypes.add(request.moveOverride.type)
+            } else {
+                val m = pack.getMoveByName(request.move.name)
+                if (m != null) {
+                    requestTypes.add(m.type.displayName)
+                }
+            }
+
+            val unrepresentable = requestTypes.any { it !in HNS_REPRESENTABLE_TYPES }
+            if (unrepresentable) {
+                limitations.add(CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED)
+            }
+
+            val typeChartModelled = exactTrusted &&
+                allRequiredObserved &&
+                rules != null &&
+                rules.randomTypesEnabled == false &&
+                rules.randomTypeEffectivenessEnabled == false &&
+                !unrepresentable &&
+                request.typeSystem == "hns_2_0_5"
+
+            if (!typeChartModelled) {
+                limitations.add(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED)
             }
         }
 

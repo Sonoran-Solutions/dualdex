@@ -126,6 +126,8 @@ hns_map_data_check() {
 hns_generator_test() {
   echo "== H&S data-pack generator tests =="
   (cd tools/hns-data-pack && python3 -m unittest test_generate_hns_data_pack -v)
+  echo "== H&S type-system generator tests =="
+  (cd tools/hns-type-system && python3 -m unittest test_generate_hns_type_system -v)
 }
 
 # Locate the ARM preprocessor the data-pack generator drives. Fail-closed: the
@@ -351,6 +353,11 @@ source_check() {
   #     materialized.
   echo "== battle-pokemon layout verification (pinned upstream) =="
   python3 tools/hns-layout/generate_hns_battle_pokemon_layout.py \
+    --upstream-dir "$upstream" --verify
+
+  # 1d. The H&S type-system matrix and Fairy mappings must regenerate byte-for-byte from the pinned source.
+  echo "== type-system matrix and fairy mappings verification (pinned upstream) =="
+  python3 tools/hns-type-system/generate_hns_type_system.py \
     --upstream-dir "$upstream" --verify
 
   # Regression for the bootstrap's error propagation itself (this is the

@@ -96,8 +96,26 @@ enum class CalcLimitation(val blocks: Boolean) {
     HNS_TYPE_CHART_NOT_MODELLED(true),
 
     /**
+     * An authoritative live effective ability could not be read from live memory (unobserved,
+     * party slot mismatch, bench Pokemon, faint window, or out-of-domain ID), or an H&S manual
+     * participant has an unspecified ability.
+     */
+    HNS_EFFECTIVE_ABILITY_UNREADABLE(true),
+
+    /**
+     * The Heart & Soul 2.0.5 ability's damage effect is not modelled by the calculator pipeline.
+     */
+    HNS_ABILITY_EFFECT_NOT_MODELLED(true),
+
+    /**
+     * The Heart & Soul 2.0.5 held-item system is not modelled by the calculator pipeline (Gap C3).
+     */
+    HNS_HELD_ITEM_SYSTEM_NOT_MODELLED(true),
+
+    /**
      * The Heart & Soul 2.0.5 ability system is not modelled by the calculator pipeline (Gap C2).
      */
+    @Deprecated("Superseded by HNS_EFFECTIVE_ABILITY_UNREADABLE, HNS_ABILITY_EFFECT_NOT_MODELLED, and HNS_HELD_ITEM_SYSTEM_NOT_MODELLED")
     HNS_ABILITY_SYSTEM_NOT_MODELLED(true),
 
     /**
@@ -315,6 +333,12 @@ data class CalcCapabilityVerdict(
                 "this build can randomize type effectiveness and the setting is not read"
             CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED ->
                 "the H&S modern type chart (Fairy type and neutral Steel vs Ghost/Dark) is not modelled by the generation III calculation pipeline"
+            CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE ->
+                "an authoritative live effective ability could not be read or ability is unspecified"
+            CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED ->
+                "the Heart & Soul 2.0.5 ability's damage effect is not modelled by the calculator"
+            CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED ->
+                "the Heart & Soul 2.0.5 held-item system is not modelled by the calculator (Gap C3)"
             CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED ->
                 "the Heart & Soul 2.0.5 ability system is not modelled by the calculator (Gap C2)"
             CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED ->
@@ -518,8 +542,8 @@ object CalcCapabilityPolicy {
                 contentSource = HNS_DATA_PACK_ID,
                 ceiling = CalcSupport.ESTIMATED,
                 alwaysLimitations = listOf(
-                    // Gap C blocker: the H&S ability system is not modelled by the calculator (Gap C2).
-                    CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED,
+                    // Gap C3 blocker: the Heart & Soul 2.0.5 held-item system is not modelled by the calculator (Gap C3).
+                    CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED,
                     CalcLimitation.BADGE_BOOST_NOT_MODELLED,
                     CalcLimitation.BUILDS_NOT_HASH_VERIFIED
                 ),
@@ -735,9 +759,8 @@ object CalcCapabilityPolicy {
     fun isAbilityModelled(ruleset: CalcRuleset, ability: String): Boolean = when (ruleset) {
         CalcRuleset.VANILLA_GEN3 ->
             canonicalAbility(ability) != null
-        // H&S 2.0.5 uses later-generation ability implementations; none of them are verified for
-        // the ADV pipeline, so no ability is treated as modelled.
-        CalcRuleset.HNS_2_0_5 -> false
+        CalcRuleset.HNS_2_0_5 ->
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(ability).category.isSupportedForDamage
     }
 
     /**
@@ -782,11 +805,15 @@ object CalcCapabilityPolicy {
      * is the same value the verdict was computed from.
      */
     fun normaliseNames(ruleset: CalcRuleset, request: DamageCalculationRequest): DamageCalculationRequest {
-        if (ruleset != CalcRuleset.VANILLA_GEN3) return request
-        fun fix(input: CalcPokemonInput): CalcPokemonInput = input.copy(
-            ability = input.ability?.let { canonicalAbility(it) ?: it },
-            item = input.item?.let { canonicalItem(it) ?: it }
-        )
+        fun fix(input: CalcPokemonInput): CalcPokemonInput = when (ruleset) {
+            CalcRuleset.VANILLA_GEN3 -> input.copy(
+                ability = input.ability?.let { canonicalAbility(it) ?: it },
+                item = input.item?.let { canonicalItem(it) ?: it }
+            )
+            CalcRuleset.HNS_2_0_5 -> input.copy(
+                ability = input.ability?.let { com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(it) ?: it }
+            )
+        }
         return request.copy(
             attacker = fix(request.attacker),
             defender = fix(request.defender),
@@ -838,14 +865,40 @@ object CalcCapabilityPolicy {
         }
 
         listOf(request.attacker, request.defender).forEach { input ->
-            input.ability?.takeIf { it.isNotBlank() }?.let { ability ->
-                if (!isAbilityModelled(capability.ruleset, ability)) {
-                    limitations.add(CalcLimitation.ABILITY_NOT_MODELLED)
+            if (capability.ruleset == CalcRuleset.HNS_2_0_5) {
+                if (input.origin == CalcInputOrigin.LIVE_READ) {
+                    if (input.unknownFields.contains(CalcInputField.ABILITY) || input.ability.isNullOrBlank()) {
+                        limitations.add(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE)
+                    } else {
+                        val classification = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.ability)
+                        if (!classification.category.isSupportedForDamage) {
+                            limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
+                        }
+                    }
+                } else {
+                    if (input.ability.isNullOrBlank()) {
+                        limitations.add(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE)
+                    } else {
+                        val classification = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.ability)
+                        if (!classification.category.isSupportedForDamage) {
+                            limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
+                        }
+                    }
                 }
-            }
 
-            input.item?.takeIf { it.isNotBlank() }?.let { item ->
-                itemLimitation(capability.ruleset, item)?.let(limitations::add)
+                input.item?.takeIf { it.isNotBlank() }?.let { item ->
+                    itemLimitation(capability.ruleset, item)?.let(limitations::add)
+                }
+            } else {
+                input.ability?.takeIf { it.isNotBlank() }?.let { ability ->
+                    if (!isAbilityModelled(capability.ruleset, ability)) {
+                        limitations.add(CalcLimitation.ABILITY_NOT_MODELLED)
+                    }
+                }
+
+                input.item?.takeIf { it.isNotBlank() }?.let { item ->
+                    itemLimitation(capability.ruleset, item)?.let(limitations::add)
+                }
             }
 
             input.boosts?.let { boosts ->

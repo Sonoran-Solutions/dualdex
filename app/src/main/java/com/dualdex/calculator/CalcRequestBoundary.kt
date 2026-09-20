@@ -61,8 +61,18 @@ object CalcRequestBoundary {
         profile: RomHackProfile,
         trust: RuntimeRomTrust?,
         request: DamageCalculationRequest,
-        challengeSettings: HnsChallengeSettingsSnapshot? = null
-    ): CalcRequestOutcome = authorize(profile, trust, request, liveReadHint = false, challengeSettings = challengeSettings)
+        challengeSettings: HnsChallengeSettingsSnapshot? = null,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null
+    ): CalcRequestOutcome = authorize(
+        profile = profile,
+        trust = trust,
+        request = request,
+        liveReadHint = false,
+        challengeSettings = challengeSettings,
+        playerBattlerState = playerBattlerState,
+        enemyBattlerState = enemyBattlerState
+    )
 
     /**
      * Build the request for one participant pair, prepared through [CalcInputPreparation].
@@ -81,7 +91,9 @@ object CalcRequestBoundary {
         move: CalcMoveInput,
         field: CalcFieldInput,
         gen: Int = 3,
-        challengeSettings: HnsChallengeSettingsSnapshot? = null
+        challengeSettings: HnsChallengeSettingsSnapshot? = null,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null
     ): CalcRequestOutcome {
         val prepared = CalcInputPreparation.prepare(
             attacker = attacker,
@@ -90,7 +102,15 @@ object CalcRequestBoundary {
             field = field,
             gen = gen
         )
-        return authorize(profile, trust, prepared.request, liveReadHint = false, challengeSettings = challengeSettings)
+        return authorize(
+            profile = profile,
+            trust = trust,
+            request = prepared.request,
+            liveReadHint = false,
+            challengeSettings = challengeSettings,
+            playerBattlerState = playerBattlerState,
+            enemyBattlerState = enemyBattlerState
+        )
     }
 
     /**
@@ -105,8 +125,18 @@ object CalcRequestBoundary {
         trust: RuntimeRomTrust?,
         request: DamageCalculationRequest,
         inputsFromLiveRead: Boolean,
-        challengeSettings: HnsChallengeSettingsSnapshot? = null
-    ): CalcRequestOutcome = authorize(profile, trust, request, liveReadHint = inputsFromLiveRead, challengeSettings = challengeSettings)
+        challengeSettings: HnsChallengeSettingsSnapshot? = null,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null
+    ): CalcRequestOutcome = authorize(
+        profile = profile,
+        trust = trust,
+        request = request,
+        liveReadHint = inputsFromLiveRead,
+        challengeSettings = challengeSettings,
+        playerBattlerState = playerBattlerState,
+        enemyBattlerState = enemyBattlerState
+    )
 
     /**
      * Resolves calculator-owned [CalcHnsRuntimeRules] from [challengeSettings] under strict trust.
@@ -161,6 +191,97 @@ object CalcRequestBoundary {
         )
     }
 
+    private fun reconcileParticipantAbility(
+        participant: CalcPokemonInput,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        liveReadHint: Boolean,
+        isExactHns: Boolean,
+        isExactVerified: Boolean
+    ): CalcPokemonInput {
+        val isLive = participant.origin == CalcInputOrigin.LIVE_READ || liveReadHint
+        if (!isExactHns || !isLive) {
+            return participant
+        }
+
+        // If presenter marked ABILITY as unknown and ability is null (e.g. partySlot mismatch), keep it unknown.
+        if (participant.unknownFields.contains(CalcInputField.ABILITY) && participant.ability == null) {
+            return participant
+        }
+
+        val state = observation?.state
+        val identity = observation?.abilityIdentity
+        val isAuthoritativeValid = isExactVerified &&
+            observation != null &&
+            state != null &&
+            state.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED &&
+            !state.abilityOutOfDomain &&
+            state.abilityId != null
+
+        if (!isAuthoritativeValid) {
+            // Authoritative observation is missing, unreadable, or invalid.
+            // A live-read participant cannot claim an ability without authoritative runtime observation.
+            val newUnknowns = if (participant.unknownFields.contains(CalcInputField.ABILITY)) {
+                participant.unknownFields
+            } else {
+                participant.unknownFields + CalcInputField.ABILITY
+            }
+            return participant.copy(ability = null, unknownFields = newUnknowns)
+        }
+
+        val authoritativeName = if (state!!.abilityId == 0) {
+            "None"
+        } else {
+            val declared = identity as? com.dualdex.pokemon.DeclaredAbility.Declared
+            if (declared != null && declared.name.isNotBlank()) {
+                com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(declared.name) ?: declared.name
+            } else {
+                null
+            }
+        }
+
+        if (authoritativeName == null) {
+            val newUnknowns = if (participant.unknownFields.contains(CalcInputField.ABILITY)) {
+                participant.unknownFields
+            } else {
+                participant.unknownFields + CalcInputField.ABILITY
+            }
+            return participant.copy(ability = null, unknownFields = newUnknowns)
+        }
+
+        // Anti-spoofing: authoritative runtime observation wins over any caller-supplied value
+        val newUnknowns = participant.unknownFields - CalcInputField.ABILITY
+        return participant.copy(ability = authoritativeName, unknownFields = newUnknowns)
+    }
+
+    private fun reconcileLiveBattlerAbilities(
+        request: DamageCalculationRequest,
+        liveReadHint: Boolean,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactHns: Boolean,
+        isExactVerified: Boolean
+    ): DamageCalculationRequest {
+        if (!isExactHns) return request
+        val reconciledAttacker = reconcileParticipantAbility(
+            participant = request.attacker,
+            observation = playerBattlerState,
+            liveReadHint = liveReadHint,
+            isExactHns = isExactHns,
+            isExactVerified = isExactVerified
+        )
+        val reconciledDefender = reconcileParticipantAbility(
+            participant = request.defender,
+            observation = enemyBattlerState,
+            liveReadHint = liveReadHint,
+            isExactHns = isExactHns,
+            isExactVerified = isExactVerified
+        )
+        return request.copy(
+            attacker = reconciledAttacker,
+            defender = reconciledDefender
+        )
+    }
+
     /**
      * The single authorization decision every entrypoint above funnels into.
      *
@@ -173,10 +294,22 @@ object CalcRequestBoundary {
         trust: RuntimeRomTrust?,
         request: DamageCalculationRequest,
         liveReadHint: Boolean,
-        challengeSettings: HnsChallengeSettingsSnapshot? = null
+        challengeSettings: HnsChallengeSettingsSnapshot? = null,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null
     ): CalcRequestOutcome {
+        val isExactHns = CalcCapabilityPolicy.capabilityFor(profile)?.ruleset == CalcRuleset.HNS_2_0_5
+        val readIsTrusted = CalcCapabilityPolicy.isExactRuntimeVerified(profile, trust)
+        val reconciled = reconcileLiveBattlerAbilities(
+            request = request,
+            liveReadHint = liveReadHint,
+            playerBattlerState = playerBattlerState,
+            enemyBattlerState = enemyBattlerState,
+            isExactHns = isExactHns,
+            isExactVerified = readIsTrusted
+        )
         val hnsRules = resolveHnsRuntimeRules(profile, trust, challengeSettings)
-        val enriched = CalcDataOverrides.enrichRequest(profile, request, hnsRules)
+        val enriched = CalcDataOverrides.enrichRequest(profile, reconciled, hnsRules)
         // Live provenance is a property of the request. The hint may add it, never remove it.
         val isLiveRead = liveReadHint || enriched.isFromLiveRead()
 
@@ -190,14 +323,13 @@ object CalcRequestBoundary {
         val reasons = LinkedHashSet<CalcLimitation>()
 
         // (1) Is the read itself trusted? Only an exact-verified ROM makes a live read trusted.
-        val readIsTrusted = CalcCapabilityPolicy.isExactRuntimeVerified(profile, trust)
         if (!readIsTrusted) reasons.add(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED)
 
         // (2) Is the evidence complete? Independent of (1): a trusted ROM does not fill a field the
         // reader never carried, and an untrusted ROM does not make an unknown field less unknown.
-        val evidenceIncomplete = request.preparationLimitations.contains(
+        val evidenceIncomplete = enriched.preparationLimitations.contains(
             CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN
-        ) || request.unknownLiveFields().isNotEmpty()
+        ) || enriched.unknownLiveFields().isNotEmpty()
         if (evidenceIncomplete) reasons.add(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
 
         return when (val authorised = base.request) {

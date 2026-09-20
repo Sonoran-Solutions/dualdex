@@ -1947,6 +1947,246 @@ static void check_gap_c1_type_system(void) {
     }
 }
 
+static void check_gap_c2_abilities(void) {
+    /*
+     * Test A: Guts physical boost with odd attack stat and burn halving ignored.
+     * Attacker: Swellow L50 Hardy (IV 31, EV 0; Base Atk 85 -> Atk stat 105, which is odd).
+     * Defender: Swampert L50 Hardy (IV 31, EV 0; HP 175, Def 110).
+     * Move: Wing Attack (Flying, 60 BP, Physical).
+     *
+     * In both H&S fixed-point arithmetic (uq4_12_multiply_by_int_half_down) and ADV:
+     * 105 * 1.5 = 157.5 -> 157.
+     * Swellow unboosted (no status): damage [34..40].
+     * Swellow Guts + brn: damage [49..58] (burn attack drop ignored, 1.5x boost applied).
+     */
+    g_fixture = "gap_c2_guts_status_boost_odd_attack";
+    {
+        const char* req_unboosted =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Swellow\",\"level\":50,\"ability\":\"Guts\"},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Wing Attack\"}}";
+
+        const char* req_guts_brn =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Swellow\",\"level\":50,\"ability\":\"Guts\",\"status\":\"brn\"},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Wing Attack\"}}";
+
+        char* out1 = js_calc_calculate(req_unboosted);
+        char* out2 = js_calc_calculate(req_guts_brn);
+
+        check_condition("Swellow unboosted succeeds", out1 != NULL);
+        check_condition("Swellow Guts+brn succeeds", out2 != NULL);
+
+        if (out1 && out2) {
+            jl_value* d1 = jl_parse(out1);
+            jl_value* d2 = jl_parse(out2);
+            if (d1 && d2) {
+                check_number("Swellow unboosted minDamage", 34, jl_get(d1, "minDamage"));
+                check_number("Swellow unboosted maxDamage", 40, jl_get(d1, "maxDamage"));
+
+                check_number("Swellow Guts+brn minDamage", 49, jl_get(d2, "minDamage"));
+                check_number("Swellow Guts+brn maxDamage", 58, jl_get(d2, "maxDamage"));
+            }
+            jl_free(d1);
+            jl_free(d2);
+        }
+        free(out1);
+        free(out2);
+    }
+
+    /*
+     * Test B: Prevention of default species ability substitution under H&S 2.0.5.
+     * Machamp's 0th ability in Gen 3 is Guts.
+     * When Machamp has status "brn" and NO ability is specified (or ability is "None"):
+     * Under H&S 2.0.5: ability defaults to '(other)', so Guts is NOT substituted.
+     * Burn halves physical attack -> Cross Chop deals 40-48 damage.
+     * Under Vanilla Gen 3 control: @smogon/calc substitutes Guts -> Cross Chop deals 117-138 damage.
+     */
+    g_fixture = "gap_c2_default_ability_substitution_prevention";
+    {
+        const char* req_hns_omitted =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"status\":\"brn\"},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Cross Chop\"}}";
+
+        const char* req_hns_none =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"ability\":\"None\",\"status\":\"brn\"},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Cross Chop\"}}";
+
+        const char* req_vanilla_omitted =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"status\":\"brn\"},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Cross Chop\"}}";
+
+        char* out1 = js_calc_calculate(req_hns_omitted);
+        char* out2 = js_calc_calculate(req_hns_none);
+        char* out3 = js_calc_calculate(req_vanilla_omitted);
+
+        check_condition("Machamp H&S omitted succeeds", out1 != NULL);
+        check_condition("Machamp H&S None succeeds", out2 != NULL);
+        check_condition("Machamp Vanilla omitted succeeds", out3 != NULL);
+
+        if (out1 && out2 && out3) {
+            jl_value* d1 = jl_parse(out1);
+            jl_value* d2 = jl_parse(out2);
+            jl_value* d3 = jl_parse(out3);
+            if (d1 && d2 && d3) {
+                check_number("Machamp H&S omitted minDamage is halved by burn", 40, jl_get(d1, "minDamage"));
+                check_number("Machamp H&S omitted maxDamage is halved by burn", 48, jl_get(d1, "maxDamage"));
+
+                check_number("Machamp H&S None minDamage matches omitted", 40, jl_get(d2, "minDamage"));
+                check_number("Machamp H&S None maxDamage matches omitted", 48, jl_get(d2, "maxDamage"));
+
+                check_number("Machamp Vanilla omitted minDamage gets Guts boost", 117, jl_get(d3, "minDamage"));
+                check_number("Machamp Vanilla omitted maxDamage gets Guts boost", 138, jl_get(d3, "maxDamage"));
+            }
+            jl_free(d1);
+            jl_free(d2);
+            jl_free(d3);
+        }
+        free(out1);
+        free(out2);
+        free(out3);
+    }
+
+    /*
+     * Test C: Thick Fat halves incoming Fire and Ice moves; unaffected for other types.
+     * Attacker: Charizard L50 Hardy. Defender: Snorlax L50 Hardy.
+     * Move 1: Flamethrower (Fire, Special, 95 BP).
+     * Thick Fat Snorlax: damage 28-33 (50% reduction).
+     * Immunity Snorlax: damage 54-64.
+     * Move 2: Wing Attack (Flying, Physical, 60 BP).
+     * Thick Fat Snorlax: damage 43-51.
+     * Immunity Snorlax: damage 43-51 (identical, control).
+     */
+    g_fixture = "gap_c2_thick_fat_fire_ice";
+    {
+        const char* req_thick_fat_fire =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Charizard\",\"level\":50},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"ability\":\"Thick Fat\"},"
+            "\"move\":{\"name\":\"Flamethrower\"}}";
+
+        const char* req_immunity_fire =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Charizard\",\"level\":50},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"ability\":\"Immunity\"},"
+            "\"move\":{\"name\":\"Flamethrower\"}}";
+
+        const char* req_thick_fat_fly =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Charizard\",\"level\":50},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"ability\":\"Thick Fat\"},"
+            "\"move\":{\"name\":\"Wing Attack\"}}";
+
+        const char* req_immunity_fly =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Charizard\",\"level\":50},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"ability\":\"Immunity\"},"
+            "\"move\":{\"name\":\"Wing Attack\"}}";
+
+        char* out1 = js_calc_calculate(req_thick_fat_fire);
+        char* out2 = js_calc_calculate(req_immunity_fire);
+        char* out3 = js_calc_calculate(req_thick_fat_fly);
+        char* out4 = js_calc_calculate(req_immunity_fly);
+
+        check_condition("Thick Fat Flamethrower succeeds", out1 != NULL);
+        check_condition("Immunity Flamethrower succeeds", out2 != NULL);
+        check_condition("Thick Fat Wing Attack succeeds", out3 != NULL);
+        check_condition("Immunity Wing Attack succeeds", out4 != NULL);
+
+        if (out1 && out2 && out3 && out4) {
+            jl_value* d1 = jl_parse(out1);
+            jl_value* d2 = jl_parse(out2);
+            jl_value* d3 = jl_parse(out3);
+            jl_value* d4 = jl_parse(out4);
+            if (d1 && d2 && d3 && d4) {
+                check_number("Thick Fat Fire minDamage", 28, jl_get(d1, "minDamage"));
+                check_number("Thick Fat Fire maxDamage", 33, jl_get(d1, "maxDamage"));
+
+                check_number("Immunity Fire minDamage", 54, jl_get(d2, "minDamage"));
+                check_number("Immunity Fire maxDamage", 64, jl_get(d2, "maxDamage"));
+
+                check_number("Thick Fat Flying minDamage", 43, jl_get(d3, "minDamage"));
+                check_number("Thick Fat Flying maxDamage", 51, jl_get(d3, "maxDamage"));
+
+                check_number("Immunity Flying minDamage", 43, jl_get(d4, "minDamage"));
+                check_number("Immunity Flying maxDamage", 51, jl_get(d4, "maxDamage"));
+            }
+            jl_free(d1);
+            jl_free(d2);
+            jl_free(d3);
+            jl_free(d4);
+        }
+        free(out1);
+        free(out2);
+        free(out3);
+        free(out4);
+    }
+
+    /*
+     * Test D: Proven no-damage-effect abilities (Keen Eye, Insomnia, None).
+     * Attacker: Pidgeot L50 Hardy. Defender: Swampert L50 Hardy. Move: Wing Attack.
+     * All three must produce identical damage bounds: [33..39].
+     */
+    g_fixture = "gap_c2_proven_no_damage_effect";
+    {
+        const char* req_keen_eye =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Pidgeot\",\"level\":50,\"ability\":\"Keen Eye\"},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Wing Attack\"}}";
+
+        const char* req_insomnia =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Pidgeot\",\"level\":50,\"ability\":\"Insomnia\"},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Wing Attack\"}}";
+
+        const char* req_none =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Pidgeot\",\"level\":50,\"ability\":\"None\"},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Wing Attack\"}}";
+
+        char* out1 = js_calc_calculate(req_keen_eye);
+        char* out2 = js_calc_calculate(req_insomnia);
+        char* out3 = js_calc_calculate(req_none);
+
+        check_condition("Keen Eye succeeds", out1 != NULL);
+        check_condition("Insomnia succeeds", out2 != NULL);
+        check_condition("None succeeds", out3 != NULL);
+
+        if (out1 && out2 && out3) {
+            jl_value* d1 = jl_parse(out1);
+            jl_value* d2 = jl_parse(out2);
+            jl_value* d3 = jl_parse(out3);
+            if (d1 && d2 && d3) {
+                check_number("Keen Eye minDamage", 33, jl_get(d1, "minDamage"));
+                check_number("Keen Eye maxDamage", 39, jl_get(d1, "maxDamage"));
+
+                check_number("Insomnia minDamage", 33, jl_get(d2, "minDamage"));
+                check_number("Insomnia maxDamage", 39, jl_get(d2, "maxDamage"));
+
+                check_number("None minDamage", 33, jl_get(d3, "minDamage"));
+                check_number("None maxDamage", 39, jl_get(d3, "maxDamage"));
+            }
+            jl_free(d1);
+            jl_free(d2);
+            jl_free(d3);
+        }
+        free(out1);
+        free(out2);
+        free(out3);
+    }
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -1970,6 +2210,9 @@ int main(void) {
 
     printf("-- Gap C1: exact type system + Fairy toggle behavior --\n");
     check_gap_c1_type_system();
+
+    printf("-- Gap C2: authoritative effective ability input + conditional ability support --\n");
+    check_gap_c2_abilities();
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
     check_oracle_self_tests();

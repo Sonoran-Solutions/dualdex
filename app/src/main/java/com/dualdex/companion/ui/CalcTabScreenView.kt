@@ -328,6 +328,26 @@ class CalcTabScreenView(
                 refreshUI()
             }
         }
+        scope.launch {
+            viewModel.playerBattlerState.collectLatest {
+                refreshUI()
+            }
+        }
+        scope.launch {
+            viewModel.enemyBattlerState.collectLatest {
+                refreshUI()
+            }
+        }
+        scope.launch {
+            viewModel.playerStatStages.collectLatest {
+                refreshUI()
+            }
+        }
+        scope.launch {
+            viewModel.enemyStatStages.collectLatest {
+                refreshUI()
+            }
+        }
     }
 
     override fun onDetachedFromWindow() {
@@ -513,7 +533,6 @@ class CalcTabScreenView(
     private fun recalculate() {
         val party = viewModel.playerParty.value
         val selectedIdx = viewModel.selectedMemberIndex.value
-        val attacker = if (party.isNotEmpty() && selectedIdx in party.indices) party[selectedIdx] else null
 
         val enemyParty = viewModel.enemyParty.value
         val inBattle = viewModel.isInBattle.value
@@ -528,18 +547,24 @@ class CalcTabScreenView(
         // reported and the boundary refuses to label the result verified. The benchmark fallbacks
         // stay MANUAL, because there the user is asserting a hypothetical rather than reading one.
         val isExpansionItems = viewModel.activeProfile.value.hasPhysSpecSplit
+        val isExactHns = CalcCapabilityPolicy.capabilityFor(viewModel.activeProfile.value)?.ruleset == CalcRuleset.HNS_2_0_5
         val attackerState = CalcParticipantPresenter.attacker(
             party = party,
             selectedIndex = selectedIdx,
             speciesNameOf = { SpeciesDatabase.get(it.species).name },
             playerStages = viewModel.playerStatStages.value,
-            isExpansionItems = isExpansionItems
+            isExpansionItems = isExpansionItems,
+            playerBattlerState = viewModel.playerBattlerState.value,
+            isExactHns = isExactHns
         )
         val defenderState = CalcParticipantPresenter.defender(
             observedOpponent = enemyMon,
             chosenSpecies = selectedDefenderSpecies,
             enemyStages = viewModel.enemyStatStages.value,
-            isExpansionItems = isExpansionItems
+            isExpansionItems = isExpansionItems,
+            enemyBattlerState = viewModel.enemyBattlerState.value,
+            isExactHns = isExactHns,
+            activeEnemySlot = if (inBattle && viewModel.activeEnemyResolution.value.hasResolvedSlot) enemySlot else null
         )
 
         val field = CalcFieldInput(
@@ -558,7 +583,9 @@ class CalcTabScreenView(
             defender = defenderState,
             move = CalcMoveInput(name = selectedMoveName, isCrit = isCrit),
             field = field,
-            challengeSettings = viewModel.challengeSettings.value
+            challengeSettings = viewModel.challengeSettings.value,
+            playerBattlerState = viewModel.playerBattlerState.value,
+            enemyBattlerState = viewModel.enemyBattlerState.value
         )
 
         val authorised = outcome as? CalcRequestOutcome.Ready ?: run {

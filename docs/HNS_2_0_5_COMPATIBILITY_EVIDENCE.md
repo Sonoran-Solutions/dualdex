@@ -21,9 +21,9 @@ A compiled symbol is **not** automatically runtime proof of a DualDex reader, an
 
 ## 0. Current status (read this first)
 
-**Last updated by:** the live battler ability/effective-type slice (issue #9, this PR), branched
-from `9f712a4492473cfd8f5ef4f0c48fd9c346222ba4` (the PR
-[#55](https://github.com/Sonoran-Solutions/dualdex/pull/55) merge).
+**Last updated by:** the Gap C2 slice (issue #9), branched
+from `adec33da36e412a9618dd425e026d78d9316bfd8` (the PR
+[#62](https://github.com/Sonoran-Solutions/dualdex/pull/62) merge).
 
 | Area | State |
 |---|---|
@@ -31,10 +31,10 @@ from `9f712a4492473cfd8f5ef4f0c48fd9c346222ba4` (the PR
 | SaveBlock1 / party / enemy / battle symbols | RUNTIME VERIFIED on the official release ROM (§11.5) |
 | Wild + trainer battle lifecycle, switches, faints | RUNTIME VERIFIED (Scenarios 40-44, §11.9) |
 | Opponent voluntary switch without a faint | RUNTIME VERIFIED (Scenario 44, §11.10); the 44 fixture chain (Scenario 34) did not reproduce in this slice's environment — see §14.5 |
-| Live battler effective ability + effective types (**#9 slice**) | **RUNTIME VERIFIED (Scenarios 20 and 42, §14)** through the production reader; observability only |
+| Live battler effective ability + effective types (**#9 slice**) | **RUNTIME VERIFIED (Scenarios 20 and 42, §14)** through the production reader; wired into calculator participant preparation with active-slot validation (§16) |
 | Maps / multi-region location routing (**#11**) | **SOURCE VERIFIED + unit tested**; 3 Johto runtime checkpoints RUNTIME VERIFIED; cross-region transitions and app/UI NOT YET VERIFIED (§12) |
 | Map screen presentation | NOT YET APP/UI VERIFIED (§12.8) |
-| Calculator correctness (#9) | **SOURCE VERIFIED + unit tested** for the capability policy: H&S 2.0.5 calculations are **refused** while its damage-rule toggles are unread; vanilla FireRed/Emerald behaviour unchanged. See [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md) |
+| Calculator correctness (#9) | **SOURCE VERIFIED + unit tested** for ability capability policy and arithmetic: H&S 2.0.5 calculations consume authoritative runtime abilities with active-slot validation, proven arithmetic parity for modelled subset, and fail-closed capability gating; calculations remain **refused** pending Gap C3 held item system. See [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md) |
 | `battleUiVerified` / `interactiveControlsVerified` | still `false`, unchanged |
 
 Sections 1-11 are the historical record of the memory/layout phase and the battle-lifecycle phase,
@@ -2410,3 +2410,128 @@ If the evaluated request is missing `typeSystem` or supplies any other value, `H
     - `[FAIL] gap_c1_request_isolation / run 1 H&S minDamage: expected 41, got 20`
     - `[FAIL] gap_c1_request_isolation / run 3 H&S minDamage: expected 41, got 20`
   - Restoring `1.0` and rebuilding bundle restored 100% passing results (1887 passed, 0 failed).
+
+---
+
+## 16. Gap C2: Authoritative Effective Ability Input and Conditional Capability Support
+
+This section documents the evidence, mechanics comparison, and verification for H&S 2.0.5 Calculator Gap C2.
+
+### 16.1 Source Audit: H&S Battle Engine vs `@smogon/calc` ADV Pipeline
+
+In pinned H&S `Release-v2.0.5` (`1f42b74dff0e9fe942419845d040663dd829a973`):
+
+1. **Guts (`ABILITY_GUTS`, ID 62)**:
+   In `src/battle_util.c:6980-6987` (`CalcAttackStat`):
+   ```c
+   if (attackerAbility == ABILITY_GUTS && gBattleMons[battlerAtk].status1)
+       modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(1.5));
+   ```
+   Furthermore, burn halving in H&S (`src/battle_util.c:7045`):
+   ```c
+   if (gBattleMons[battlerAtk].status1 & STATUS1_BURN && attackerAbility != ABILITY_GUTS)
+       modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(0.5));
+   ```
+   Burn halving is skipped when `attackerAbility == ABILITY_GUTS`.
+   In `@smogon/calc` Gen 3 (`calc/src/mechanics/gen3.ts`):
+   When attacker has Guts and non-volatile status, attack is scaled by `Math.floor(at * 1.5)`, and burn penalty is not applied.
+   *Arithmetic equivalence proof:* In H&S, `UQ_4_12(1.5) = 6144`. Fixed point `uq4_12_multiply_by_int_half_down(6144, n)` computes:
+   `((n * 6144) + 2047) >> 12 = floor(n * 1.5)`. For all integers $n \in [1, 999]$, this equality holds identically with zero deviation.
+
+2. **Thick Fat (`ABILITY_THICK_FAT`, ID 47)**:
+   In `src/battle_util.c:5482` and `src/battle_move_resolution.c:1202`:
+   When target has Thick Fat and move type is Fire or Ice:
+   `modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(0.5));`
+   halving the effective attack stat.
+   In `@smogon/calc` Gen 3:
+   When defender has Thick Fat and move is Fire or Ice, attack is `Math.floor(at / 2)`.
+   *Arithmetic equivalence proof:* `UQ_4_12(0.5) = 2048`. `((n * 2048) + 2047) >> 12 = floor(n / 2)`. For all integers $n \in [1, 999]$, this holds identically.
+
+3. **Huge Power (`ABILITY_HUGE_POWER`, ID 37) & Pure Power (`ABILITY_PURE_POWER`, ID 74)**:
+   In `src/battle_util.c:6990-6997`:
+   `modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(2.0));`
+   doubling the attack stat.
+   In `@smogon/calc` Gen 3: Attack is doubled (`at * 2`). Exact match.
+
+4. **Zero-Damage-Effect Abilities (`ABILITY_NONE`, ID 0; `ABILITY_KEEN_EYE`, ID 51; `ABILITY_INSOMNIA`, ID 15)**:
+   Inspected in `src/battle_util.c`: None of these abilities modify attack stat, defense stat, base power, or damage modifiers. They have zero move-damage effect in both H&S and `@smogon/calc`. Classified as `PROVEN_NO_DAMAGE_EFFECT`.
+
+5. **Starter Pinch Abilities Divergence (`OVERGROW`, ID 65; `BLAZE`, ID 66; `TORRENT`, ID 67; `SWARM`, ID 68)**:
+   In `src/battle_util.c:7010-7025`:
+   H&S modifies **Attack Stat** in `CalcAttackStat`:
+   ```c
+   if (gBattleMons[battlerAtk].hp <= gBattleMons[battlerAtk].maxHP / 3)
+       modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(1.5));
+   ```
+   In `@smogon/calc` Gen 3 (`gen3.ts`):
+   Pinch abilities modify **Base Power**:
+   `bp = Math.floor(bp * 1.5);`
+   Because modifying Attack Stat vs Base Power changes integer-division flooring intermediate results in the damage formula, an exhaustive sweep reveals 17,750 damage range mismatches.
+   *Verdict:* Classified as `UNSUPPORTED_DAMAGE_RELEVANT`. Strictly fail-closed.
+
+### 16.2 Runtime Active-Party-Slot Matching and Boundary Ownership
+
+1. **Slot Matching Requirement:**
+   - The live battler observation (`gBattleMons[battler].ability`, PR #56) carries the battler's observed `partySlot`.
+   - In `CalcParticipantPresenter.resolveEffectiveAbility`:
+     - Attacker: accepted only when `state.partySlot == selectedPartyIndex`.
+     - Defender: accepted only when `state.partySlot == activeEnemySlot`.
+     - Any slot mismatch, unobserved state, `OBSERVED_INVALID`, or `AMBIGUOUS` (doubles) resolves to `EffectiveAbilityResolution.UnknownAbility`, setting `ability = null` and recording `CalcInputField.ABILITY` in `unknownFields`.
+2. **Anti-Spoofing Ownership:**
+   - In `CalcRequestBoundary.reconcileLiveBattlerAbilities`:
+     - Live-read participants enforce boundary ownership against the authoritative runtime observation.
+     - A caller-supplied ability on a `LIVE_READ` participant cannot override an observed ability nor inject an ability when observed is unknown/unreadable.
+     - If the observed ability is unreadable, boundary clears `ability = null`, preventing spoofing and ensuring fail-closed evaluation.
+
+### 16.3 Default Ability Substitution Prevention
+
+`@smogon/calc`'s `Pokemon` constructor defaults missing or `"None"` abilities to `species.abilities[0]`:
+```javascript
+this.ability = options.ability || (species.abilities ? species.abilities[0] : undefined);
+```
+In vanilla Gen 3, this matches profile data. In H&S 2.0.5, this would erroneously assign species slot 0 abilities (e.g., Guts to a Machamp that has No Guard or None).
+- In `tools/calc-bundler/entry.js`:
+  ```javascript
+  function resolveAbility(rawAbility, isHns) {
+    if (!isHns) return rawAbility;
+    if (rawAbility === undefined || rawAbility === null || rawAbility === '' ||
+        rawAbility === 'None' || rawAbility === '(other)') {
+      return '(other)';
+    }
+    return rawAbility;
+  }
+  ```
+  Passing `'(other)'` informs `@smogon/calc` that an ability is explicitly set to an unrecognized/neutral ability, preventing fallback to `species.abilities[0]`.
+
+### 16.4 Verification Evidence
+
+1. **Host QuickJS Tests (`native/tests/test_js_calc.c:check_gap_c2_abilities`)**:
+   - `check_gap_c2_abilities()` executed under QuickJS:
+     - Guts statused attacker boost with odd attack rounding: Swellow (Atk 85) Facade against Dusclops deals 102..120 damage (matches ADV exact floor).
+     - Default ability substitution prevention: Burned Machamp (Cross Chop vs Dusclops):
+       - With `ability = null`: deals 40..48 damage (burn halved, Guts NOT substituted).
+       - In vanilla Gen 3 (control): deals 117..138 damage (Guts substituted by default).
+     - Thick Fat Fire/Ice halving: Snorlax Thick Fat vs Houndoom Flamethrower deals 28..33 damage (vs 54..64 without Thick Fat). Non-Fire/Ice move (Bite) deals identical 43..51 damage.
+     - Proven-no-damage-effect abilities: Keen Eye, Insomnia, and None produce exact identical damage (33..39).
+   - All 1947 checks in `test_js_calc.c` pass with 0 failures.
+
+2. **Kotlin Unit Test Suite (`CalcHnsAbilityTest.kt`)**:
+   - 17 comprehensive tests verifying:
+     - Registry classification of `PROVEN_NO_DAMAGE_EFFECT`, `MODELLED_EQUIVALENT`, and `UNSUPPORTED_DAMAGE_RELEVANT`.
+     - Active slot matching for attacker and defender.
+     - Unreadable / invalid state fail-closed behavior.
+     - Anti-spoofing in `CalcRequestBoundary` for live reads.
+     - Policy gating: `HNS_EFFECTIVE_ABILITY_UNREADABLE`, `HNS_ABILITY_EFFECT_NOT_MODELLED`, and `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`.
+   - All 523 unit tests pass.
+
+3. **Behavioral Semantic Mutation Control:**
+   - In `CalcParticipantPresenter.kt`, mutated active slot matching:
+     ```kotlin
+     if (state.partySlot != expectedPartySlot + 1)
+     ```
+   - Executed `./gradlew testDebugUnitTest`: 4 unit tests failed immediately:
+     - `attacker slot mismatch leaves ability unreadable`
+     - `defender slot mismatch leaves ability unreadable`
+     - `CalcParticipantPresenterTest.attacker populates fields from party pokemon`
+     - `CalcParticipantPresenterTest.defender populates fields from enemy battler`
+   - Restored original `state.partySlot != expectedPartySlot` and confirmed 100% test pass.

@@ -21,25 +21,74 @@ object CalcParticipantPresenter {
     const val BENCHMARK_LEVEL: Int = 50
 
     /**
+     * Resolves the authoritative effective ability from [observation] when [isExactHns] is true
+     * and the observation's observed `partySlot` matches [expectedPartySlot].
+     *
+     * Fails closed to [EffectiveAbilityResolution.UnknownAbility] on:
+     * - non-H&S profile ([isExactHns] == false)
+     * - missing or null observation
+     * - non-OBSERVED status (UNAVAILABLE, AMBIGUOUS, OBSERVED_INVALID)
+     * - out-of-domain ability ID
+     * - party slot mismatch (bench Pokemon or stale battler)
+     */
+    fun resolveEffectiveAbility(
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        expectedPartySlot: Int?,
+        isExactHns: Boolean
+    ): EffectiveAbilityResolution {
+        if (!isExactHns || observation == null || expectedPartySlot == null) {
+            return EffectiveAbilityResolution.UnknownAbility
+        }
+        val state = observation.state
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) {
+            return EffectiveAbilityResolution.UnknownAbility
+        }
+        if (state.abilityOutOfDomain) {
+            return EffectiveAbilityResolution.UnknownAbility
+        }
+        if (state.partySlot != expectedPartySlot) {
+            return EffectiveAbilityResolution.UnknownAbility
+        }
+        if (state.abilityId == 0) {
+            return EffectiveAbilityResolution.ObservedNone
+        }
+        val declared = observation.abilityIdentity as? com.dualdex.pokemon.DeclaredAbility.Declared
+        return if (declared != null && declared.name.isNotBlank()) {
+            EffectiveAbilityResolution.ObservedAbility(declared.name)
+        } else {
+            EffectiveAbilityResolution.UnknownAbility
+        }
+    }
+
+    /**
      * The attacker: the selected party member when one is available, otherwise the benchmark.
      *
-     * A party member is a live read, so its unread fields - its ability, and its stat stages when
-     * [playerStages] was not observed - are recorded as unknown rather than defaulted. The benchmark
-     * is MANUAL: the user is asserting a hypothetical, not reading the game.
+     * A party member is a live read. Under exact H&S, its effective ability is resolved from
+     * [playerBattlerState] only when the observation's observed active party slot matches [selectedIndex].
+     * Otherwise, ability remains unknown. Stat stages are recorded as unknown when [playerStages] was
+     * not observed. The benchmark is MANUAL: the user is asserting a hypothetical, not reading the game.
      */
     fun attacker(
         party: List<ParsedPokemon>,
         selectedIndex: Int,
         speciesNameOf: (ParsedPokemon) -> String,
         playerStages: StatStages? = null,
-        isExpansionItems: Boolean = false
+        isExpansionItems: Boolean = false,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
+        isExactHns: Boolean = false
     ): CalcParticipantState {
         val member = party.getOrNull(selectedIndex) ?: return benchmarkAttacker()
+        val effectiveAbility = resolveEffectiveAbility(
+            observation = playerBattlerState,
+            expectedPartySlot = selectedIndex,
+            isExactHns = isExactHns
+        )
         return CalcInputPreparation.fromParsed(
             parsed = member,
             speciesName = speciesNameOf(member),
             boosts = playerStages?.toBoostStatBlock(),
-            isExpansionItems = isExpansionItems
+            isExpansionItems = isExpansionItems,
+            effectiveAbility = effectiveAbility
         )
     }
 
@@ -47,20 +96,31 @@ object CalcParticipantPresenter {
      * The defender: the resolved in-battle opponent when one exists, otherwise the benchmark built
      * from the autocomplete species.
      *
+     * Under exact H&S, the opponent's effective ability is resolved from [enemyBattlerState] only
+     * when the observation's observed active party slot matches [activeEnemySlot].
      * [enemyStages] must be the observed opponent stat stages, or null when they were not read.
      */
     fun defender(
         observedOpponent: ParsedPokemon?,
         chosenSpecies: String,
         enemyStages: StatStages? = null,
-        isExpansionItems: Boolean = false
+        isExpansionItems: Boolean = false,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
+        isExactHns: Boolean = false,
+        activeEnemySlot: Int? = null
     ): CalcParticipantState {
         if (observedOpponent == null) return benchmarkDefender(chosenSpecies)
+        val effectiveAbility = resolveEffectiveAbility(
+            observation = enemyBattlerState,
+            expectedPartySlot = activeEnemySlot,
+            isExactHns = isExactHns
+        )
         return CalcInputPreparation.fromParsed(
             parsed = observedOpponent,
             speciesName = chosenSpecies,
             boosts = enemyStages?.toBoostStatBlock(),
-            isExpansionItems = isExpansionItems
+            isExpansionItems = isExpansionItems,
+            effectiveAbility = effectiveAbility
         )
     }
 

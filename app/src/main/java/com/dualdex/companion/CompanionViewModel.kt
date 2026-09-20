@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+/** Re-export of [com.dualdex.pokemon.hns.BattlerRuntimeObservation] for backward compatibility. */
+typealias BattlerRuntimeObservation = com.dualdex.pokemon.hns.BattlerRuntimeObservation
+
 data class RomItem(
     val title: String,
     val fileName: String,
@@ -150,20 +153,6 @@ class CompanionViewModel(
         MutableStateFlow<com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot?>(null)
     val challengeSettings: StateFlow<com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot?> =
         _challengeSettings.asStateFlow()
-
-    /**
-     * Live battler runtime state for the two authoritative active battlers (issue #9):
-     * the engine's CURRENT effective ability and types, read from `gBattleMons`, never
-     * reconstructed from declarations or settings. Published with the ability identity
-     * resolved against the active data pack's pinned catalogue (naming only); the pair is
-     * null whenever the read fails closed, and never retained across a teardown or a
-     * ROM/profile switch.
-     */
-    data class BattlerRuntimeObservation(
-        val state: com.dualdex.pokemon.hns.HnsBattlerRuntimeState,
-        /** Canonical H&S ability identity for the observed ID, when the catalogue knows it. */
-        val abilityIdentity: com.dualdex.pokemon.DeclaredAbility? = null
-    )
 
     private val _playerBattlerState = MutableStateFlow<BattlerRuntimeObservation?>(null)
     val playerBattlerState: StateFlow<BattlerRuntimeObservation?> = _playerBattlerState.asStateFlow()

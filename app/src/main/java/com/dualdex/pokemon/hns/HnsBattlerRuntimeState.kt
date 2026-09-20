@@ -229,3 +229,15 @@ data class HnsBattlerRuntimeState(
         }
     }
 }
+
+/**
+ * Live battler runtime state for an authoritative active battler (issue #9):
+ * the engine's CURRENT effective ability and types, read from `gBattleMons`, never
+ * reconstructed from declarations or settings. Published with the ability identity
+ * resolved against the active data pack's pinned catalogue (naming only).
+ */
+data class BattlerRuntimeObservation(
+    val state: HnsBattlerRuntimeState,
+    /** Canonical H&S ability identity for the observed ID, when the catalogue knows it. */
+    val abilityIdentity: DeclaredAbility? = null
+)

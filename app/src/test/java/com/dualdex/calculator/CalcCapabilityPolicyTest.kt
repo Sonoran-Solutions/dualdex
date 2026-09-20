@@ -1197,6 +1197,9 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE,
                 CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED,
                 CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED,
+                CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE,
+                CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
+                CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED,
                 CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED,
                 CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED,
                 CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED,
@@ -1229,8 +1232,11 @@ class CalcCapabilityPolicyTest {
         assertFalse(CalcCapabilityPolicy.GEN3_MODELLED_ABILITIES.contains("Multiscale"))
         assertFalse(CalcCapabilityPolicy.GEN3_MODELLED_ABILITIES.contains("Adaptability"))
         assertTrue(CalcCapabilityPolicy.GEN3_MODELLED_ABILITIES.contains("Thick Fat"))
-        // H&S uses later-generation ability implementations, so nothing is treated as modelled.
-        assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Thick Fat"))
+        // H&S uses conditional ability support (Gap C2). Thick Fat and Guts are modelled equivalents; Overgrow is unsupported.
+        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Thick Fat"))
+        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Guts"))
+        assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Overgrow"))
+        assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Adaptability"))
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.VANILLA_GEN3, "Thick Fat"))
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.VANILLA_GEN3, "thick fat"))
         // The engine compares exactly, so a differently-cased name is only usable once it has been
@@ -1510,8 +1516,9 @@ class CalcCapabilityPolicyTest {
         // Gap C1 closed: HNS_TYPE_CHART_NOT_MODELLED is cleared under observed rules and representable types
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
 
-        // Gap C2 blocker: HNS_ABILITY_SYSTEM_NOT_MODELLED keeps H&S strictly UNSUPPORTED
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED))
+        // Gap C3 blocker: HNS_HELD_ITEM_SYSTEM_NOT_MODELLED keeps H&S strictly UNSUPPORTED
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED))
     }
 
     @Test
@@ -1769,7 +1776,7 @@ class CalcCapabilityPolicyTest {
         assertEquals(CalcSupport.UNSUPPORTED, verdict.support)
         assertTrue(verdict.limitations.contains(CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED))
         assertTrue(verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
-        assertTrue(verdict.limitations.contains(CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED))
+        assertTrue(verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
     }
 
     @Test

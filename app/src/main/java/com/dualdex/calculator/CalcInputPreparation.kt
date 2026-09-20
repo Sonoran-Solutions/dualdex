@@ -118,6 +118,20 @@ fun DamageCalculationRequest.unknownLiveFields(): List<CalcInputField> {
 }
 
 /**
+ * Outcome of resolving the authoritative live effective ability for a calculation participant (issue #9).
+ *
+ * Distinct states:
+ * - [ObservedAbility]: Live engine currently uses this named ability;
+ * - [ObservedNone]: Live engine explicitly has ABILITY_NONE (0);
+ * - [UnknownAbility]: Ability could not be authoritatively resolved (mismatching slot, bench, faint, etc.).
+ */
+sealed class EffectiveAbilityResolution {
+    data class ObservedAbility(val name: String) : EffectiveAbilityResolution()
+    object ObservedNone : EffectiveAbilityResolution()
+    object UnknownAbility : EffectiveAbilityResolution()
+}
+
+/**
  * The single production transformation from parsed participant state to a calculation request.
  *
  * Both the Calc screen and the regression tests drive this function, so the tests exercise the
@@ -126,9 +140,12 @@ fun DamageCalculationRequest.unknownLiveFields(): List<CalcInputField> {
  * The rules it enforces:
  *  - A LIVE_READ participant carries every field the reader supplied, plus an explicit record of
  *    every damage-relevant field it did not. Unknown fields are never shortened to neutral.
- *  - A LIVE_READ participant's ability is recorded as unknown. The reader supplies an ability
- *    *slot*, and DualDex has no ability-id table, so the ability's name is not known; the library's
- *    own species default is evidence about the species, not about this Pokemon.
+ *  - A LIVE_READ participant's ability is recorded as unknown unless an authoritative live battle
+ *    observation is supplied. The generic party parser supplies only an ability slot, not an
+ *    effective ability; Heart & Soul 2.0.5 has a separate authoritative battle-state reader (PR #56),
+ *    and only that exact-trusted runtime observation from gBattleMons may fill the live effective ability.
+ *    Vanilla builds have no live runtime ability reader, and the library's own species default is
+ *    evidence about the species, not about this Pokemon.
  *  - A manual participant keeps whatever the caller supplied, because the caller is asserting those
  *    values rather than reading them, and the screen's benchmark defaults are part of that
  *    assertion.
@@ -180,20 +197,25 @@ object CalcInputPreparation {
     /**
      * Build a participant state from a live read of [parsed].
      *
-     * The reader reliably reports nature, level, IVs, EVs, current HP, the HP slot and the held-item
-     * id. It reports an ability *slot* rather than an ability, and it does not report stat stages, so
-     * those two are recorded as unknown unless the caller supplies them.
+     * The generic party reader reliably reports nature, level, IVs, EVs, current HP, the HP slot and
+     * the held-item id. It reports an ability slot rather than an ability, and does not report stat
+     * stages, so those are recorded as unknown unless the caller supplies authoritative live observations.
      *
      * [boosts] must be supplied only when the reader actually reports this participant's stat
      * stages; pass null when they were not observed. A null is recorded as unknown, which is what
      * stops an observed-but-unread stage change from being calculated as neutral.
+     *
+     * [effectiveAbility] must be supplied only from an authoritative live observation (e.g. H&S
+     * `gBattleMons[battler].ability` for a slot-matching active battler); pass [EffectiveAbilityResolution.UnknownAbility]
+     * when the ability was not read or when slot matching fails.
      */
     fun fromParsed(
         parsed: ParsedPokemon,
         speciesName: String,
         boosts: StatBlock? = null,
         itemName: String? = null,
-        isExpansionItems: Boolean = false
+        isExpansionItems: Boolean = false,
+        effectiveAbility: EffectiveAbilityResolution = EffectiveAbilityResolution.UnknownAbility
     ): CalcParticipantState {
         val resolvedItem = itemName
             ?: if (parsed.heldItem > 0) {
@@ -203,14 +225,18 @@ object CalcInputPreparation {
                 NO_ITEM
             }
 
+        val (resolvedAbility, abilityUnknown) = when (effectiveAbility) {
+            is EffectiveAbilityResolution.ObservedAbility -> effectiveAbility.name to false
+            is EffectiveAbilityResolution.ObservedNone -> "None" to false
+            is EffectiveAbilityResolution.UnknownAbility -> null to true
+        }
+
         return CalcParticipantState(
             species = speciesName,
             level = parsed.level,
             nature = parsed.natureName.takeIf { it.isNotBlank() },
             item = resolvedItem,
-            // Unknown on purpose: the reader supplies an ability slot, not an ability, and there is
-            // no ability-id table to resolve it. See the class documentation.
-            ability = null,
+            ability = resolvedAbility,
             status = statusNameOf(parsed),
             boosts = boosts,
             curHP = parsed.currentHp.takeIf { it > 0 },
@@ -231,11 +257,11 @@ object CalcInputPreparation {
                 spe = parsed.speedEv
             ),
             origin = CalcInputOrigin.LIVE_READ,
-            // The reader cannot name this Pokemon's ability (it supplies a slot and DualDex has no
-            // ability-id table) and does not report stat stages when the caller passes none. Those
-            // are the fields this read genuinely does not carry.
+            // The generic party reader supplies only an ability slot. Only an exact-trusted H&S
+            // battle-state reader (gBattleMons) can name the live effective ability; when none was
+            // supplied, or when stat stages were not observed, those fields are genuinely uncarried.
             unknownFields = buildList {
-                add(CalcInputField.ABILITY)
+                if (abilityUnknown) add(CalcInputField.ABILITY)
                 if (boosts == null) add(CalcInputField.BOOSTS)
                 // A non-zero condition matching no known bit is lost information, not a healthy
                 // Pokemon, so it is recorded as unknown as well as sent for rejection.

@@ -52,11 +52,11 @@ existing request field reproduces this build's rule, not whether the current UI 
 | # | Mechanic / state | H&S 2.0.5 (pinned) | Bridge can express | Verdict |
 |---|---|---|---|---|
 | 1 | Damage formula | Generation III arithmetic with modern data | partially | **INDIVIDUALLY DEMONSTRATED ONLY** — the crit multiplier, spread reduction, category rule (Gap A/B), and type chart (Gap C1) match; modern modifiers/abilities/items do not (§3.2) |
-| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for damaging moves in TYPE_BASED to trigger Gen 3 type derivation; Status moves retain Status in both); `optionStyle` is consumed by `CalcRequestBoundary` | **PLUMBED / REFUSED** — `optionStyle` selects category behavior with Status prioritized, but H&S calculations remain refused due to Gap C2 ability system incompatibility (§3.1, §9) |
-| 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **SUPPORTED / REFUSED (GAP C1 CLOSED)** — type chart is exact and verified in QuickJS. H&S calculations remain refused due to Gap C2 (`HNS_ABILITY_SYSTEM_NOT_MODELLED`). (§3.1, §9) |
-| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `@smogon/calc` constructor (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C2 ability system incompatibility (§3.1, §9) |
-| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C2 ability system incompatibility (§3.1, §9) |
-| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **no** | **REFUSED** — the ADV pipeline models only its Gen III list and silently ignores the rest (§6) |
+| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for damaging moves in TYPE_BASED to trigger Gen 3 type derivation; Status moves retain Status in both); `optionStyle` is consumed by `CalcRequestBoundary` | **PLUMBED / REFUSED** — `optionStyle` selects category behavior with Status prioritized, but H&S calculations remain refused due to Gap C3 held item system blocker (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`) (§3.1, §9) |
+| 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **SUPPORTED / REFUSED (GAP C1 CLOSED)** — type chart is exact and verified in QuickJS. H&S calculations remain refused due to Gap C3 (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`). (§3.1, §9) |
+| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `@smogon/calc` constructor (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C3 held item system blocker (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`) (§3.1, §9) |
+| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C3 held item system blocker (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`) (§3.1, §9) |
+| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; strict per-ability capability gating (`PROVEN_NO_DAMAGE_EFFECT`, `MODELLED_EQUIVALENT`, `UNSUPPORTED_DAMAGE_RELEVANT`) in `HnsAbilityRegistry`. Engine default ability substitution prevented via `'(other)'`. | **CONDITIONALLY MODELLED / REFUSED (GAP C2 CLOSED)** — live read and manual abilities are verified or fail-closed. H&S calculations remain refused due to Gap C3 held item system (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`). (§3.2, §6, §9) |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **no** | **REFUSED** — item identity is not authoritative and the percentages differ (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **SUPPORTED** as a boolean crit (`isCrit`), which is what the request shape carries |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes | **SUPPORTED** for Sun/Rain/Sand/Hail |
@@ -67,7 +67,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 14 | Badge boost | Active: player-side ×1.1 Atk/SpA/Def/SpD/Speed (`B_BADGE_BOOST GEN_3`) `[include/config/battle.h:30]`, `[src/battle_util.c:9135]` | **no** | **not modelled** — see §8 |
 | 15 | Move-specific mechanics (multi-hit, weight, fixed damage, Hidden Power, Return) | Modern | partially | **not modelled** beyond the ADV pipeline's own support (§8) |
 | 16 | Challenge settings that change stats | No EVs `[include/global.h:309]`, Base Stat Equalizer `[:304]`, trainer IV/EV scaling `[:312]`, Max Party IVs `[:314]`, Mirror `[:307]` | **no** | **REFUSED** (§4.2) |
-| 17 | Challenge settings that change the rule | `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness` | **yes** — `CalcRequestBoundary` consumes exact-trusted runtime snapshot into `CalcHnsRuntimeRules`; exact type chart and Fairy toggle modelled (Gap C1); active randomizers block | **CONSUMED / REFUSED** — runtime rules are known and unreadable blockers cleared when observed, but active unsupported rules and Gap C2 block calculation (§4.1, §9) |
+| 17 | Challenge settings that change the rule | `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness` | **yes** — `CalcRequestBoundary` consumes exact-trusted runtime snapshot into `CalcHnsRuntimeRules`; exact type chart and Fairy toggle modelled (Gap C1); active randomizers block | **CONSUMED / REFUSED** — runtime rules are known and unreadable blockers cleared when observed, but active unsupported rules and Gap C3 held item system block calculation (§4.1, §9) |
 | 18 | Legendary ability overrides | `tx_Mode_Legendary_Abilities` default **ON**, substitutes abilities for slot 0 `[src/pokemon.c:5551]`, `[src/new_game.c:147]` | no | folds into row 6 |
 
 ---
@@ -122,12 +122,14 @@ Only these individual behaviours are source-and-test demonstrated:
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
 | Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
 | Species & move data | modern stats, types, power from pinned pack | authoritative overrides via `CalcDataOverrides` | **MATCHES (Gap B closed)** |
-| Weather, screens | see §2 rows 9, 12 | supported | **matches** |
-| Abilities, items, badge boost | modern abilities (~80 modifiers), items, badge boost | Gen 3 pipeline | **does not match (Gap C2 open)** |
+| Abilities (audited subset) | Guts, Thick Fat, Huge Power, Pure Power; Keen Eye, Insomnia, None | Gen 3 pipeline + `resolveAbility` guard in `entry.js` | **MATCHES (Gap C2 closed)** — arithmetic equivalence proven; unmodelled/divergent abilities fail-closed via `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
+| Abilities (unsupported) | modern damage-affecting abilities (~80 modifiers) + starter pinch abilities | Gen 3 pipeline | **does not match** — blocked fail-closed by `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
+| Held items | modern type-boost ×1.2, gems ×1.3, modern items | Gen 3 pipeline | **does not match (Gap C3 open)** — blocked fail-closed by `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED` (§7) |
+| Badge boost | player-side ×1.1 stats | not modelled | **does not match** — see §8 |
 
-Matching the critical-hit, spread-damage, data overrides, and type chart does **not** establish equivalence of the whole
-calculation pipeline, and this document no longer claims it does. `gen: 3` remains what the policy
-sends. H&S calculations remain strictly refused (`UNSUPPORTED`) due to the remaining Gap C blocker: `HNS_ABILITY_SYSTEM_NOT_MODELLED`.
+Matching the critical-hit, spread-damage, data overrides, type chart, and audited abilities does **not** establish
+equivalence of the whole calculation pipeline, and this document no longer claims it does. `gen: 3` remains what the policy
+sends. H&S calculations remain strictly refused (`UNSUPPORTED`) due to the remaining Gap C blocker: `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`.
 
 ### 3.3 Three different claims that must not be conflated
 
@@ -144,9 +146,10 @@ The matrix in §2 uses these distinctions, and any future H&S work must keep the
 
 **Consuming the record (2) does not imply reproducing the mechanic (3).** Even though the engine now
 receives authoritative H&S base stats, move properties, exact modern type chart matchups (Gap C1 closed),
-and consumed runtime challenge settings (Gap A closed), H&S calculations remain **refused**
-because the rest of Gap C remains open: the H&S ability system and items differ from the vanilla Gen 3
-pipeline (§6, §7), blocked fail-closed by `HNS_ABILITY_SYSTEM_NOT_MODELLED` (Gap C2).
+consumed runtime challenge settings (Gap A closed), and authoritative effective abilities with conditional
+capability gating (Gap C2 closed), H&S calculations remain **refused** because the rest of Gap C remains open:
+the H&S held item system differs from the vanilla Gen 3 pipeline (§7), blocked fail-closed by
+`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED` (Gap C3).
 
 
 ### 3.4 Vanilla Gen III verified set
@@ -186,9 +189,9 @@ challenge-menu toggle flipping exactly `tx_Mode_Fairy_Types`).
 - **Randomizer activation is known:** observed raw 0 clears unreadable blockers; observed raw 1 blocks with
   explicit active-not-modelled limitations.
 - **Unsupported mechanics still block:** live battler abilities (observed via `gBattleMons`, PR #56),
-  authoritative data overrides (PR #57), runtime rules (PR #61), and the exact H&S type chart (Gap C1, PR #62)
-  are plumbed, but the H&S ability system (Gap C2) remains unmodelled, so all H&S calculations remain
-  refused (`CalcSupport.UNSUPPORTED`).
+  authoritative data overrides (PR #57), runtime rules (PR #61), the exact H&S type chart (Gap C1, PR #62),
+  and authoritative effective abilities with conditional capability gating (Gap C2) are plumbed, but the H&S
+  held item system (Gap C3) remains unmodelled, so all H&S calculations remain refused (`CalcSupport.UNSUPPORTED`).
 
 Two properties make challenge settings decisive rather than a caveat:
 
@@ -234,7 +237,7 @@ The calculator truthfully distinguishes three states:
    - `tx_Random_Type == 1`: Observed ON. Blocks calculation with `RANDOM_TYPES_ACTIVE_NOT_MODELLED`.
    - `tx_Random_TypeEffectiveness == 1`: Observed ON. Blocks calculation with `RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED`.
 
-**Every H&S calculation remains refused (`CalcSupport.UNSUPPORTED`) after Gap A + C1 because Gap C2 abilities remain unresolved.**
+**Every H&S calculation remains refused (`CalcSupport.UNSUPPORTED`) after Gap A, C1, and C2 because the Gap C3 held item system remains unmodelled.**
 
 ### 4.2 Value-changing fields
 
@@ -300,7 +303,8 @@ an unrecognised ability string: the number changes but the ability does not. The
 both halves of this in `gen3_explicit_guts_boosts_a_statused_attacker` and
 `gen3_unmodelled_ability_is_silently_ignored`.
 
-`CalcCapabilityPolicy.GEN3_MODELLED_ABILITIES` is therefore a whitelist of what the pipeline
+### 6.1 Generation III Modelled Abilities
+`CalcCapabilityPolicy.GEN3_MODELLED_ABILITIES` is a whitelist of what the ADV pipeline
 *actually applies*, not a list of Generation III abilities. Deliberately excluded, with reasons:
 
 | Ability | Why it is not whitelisted |
@@ -310,18 +314,47 @@ both halves of this in `gen3_explicit_guts_boosts_a_statused_attacker` and
 | `Flash Fire`, `Plus`, `Minus` | Their boosts need the same unforwarded flag |
 | `Forecast` | It rewrites Castform's typing from supplied weather, but the bridge passes a chosen ability name rather than the ability the running game actually has |
 
-For H&S, nothing is treated as modelled: the hack uses later-generation ability implementations, so
-even a name that shares a Generation III string is not the same mechanic.
+### 6.2 Heart & Soul 2.0.5 Ability Capability (Gap C2 Closed)
 
-**Spelling.** Ability and item names are matched leniently but *sent* canonically:
-`CalcCapabilityPolicy.normaliseNames` rewrites an accepted name to the exact spelling the engine
-compares against (`"GUTS"` → `"Guts"`). Without that rewrite a leniently-spelled name would be
-passed through as written, silently ignored by the engine, and still reported as verified. An
-unrecognised name is never rewritten — it passes through unchanged and is refused or downgraded.
+H&S features ~80 post-Gen-III abilities affecting damage. DualDex replaces the blanket statement
+that the H&S ability system is unmodelled with a strict per-ability and per-participant capability decision:
 
-Held-item names follow the same rule: `"choice band"` is accepted and sent as `"Choice Band"`.
-`Sea Incense` is intentionally *not* in the type-boost list: the engine models it as its own ×1.05
-Water case rather than as the generic ×1.1 type-boost item.
+1. **Authoritative Runtime Effective Ability Input:**
+   Effective abilities are read live from `gBattleMons[battler].ability` (PR #56) and delivered as
+   `BattlerRuntimeObservation`. `CalcParticipantPresenter` maps this observation to `EffectiveAbilityResolution`:
+   - Active-party-slot matching: The player's live ability is accepted **only** when the selected party index
+     matches the observed `partySlot`. The opponent's live ability is accepted **only** when the observed enemy
+     party slot matches `activeEnemySlot`. Mismatches leave `ability = null` with `CalcInputField.ABILITY` in
+     `unknownFields`.
+   - Faint/replacement/unavailable windows, `AMBIGUOUS` (doubles), and `OBSERVED_INVALID` fail closed to unknown
+     ability (`HNS_EFFECTIVE_ABILITY_UNREADABLE`).
+   - Anti-spoofing in `CalcRequestBoundary`: Live-read participants enforce boundary ownership; caller-supplied
+     abilities cannot override or fabricate authoritative observations.
+
+2. **Per-Ability Capability Audit (`HnsAbilityRegistry`):**
+   - `PROVEN_NO_DAMAGE_EFFECT` (`ABILITY_NONE`, `KEEN EYE`, `INSOMNIA`): Proven to have zero move-damage effect in
+     the H&S battle engine. No ability blocker is added.
+   - `MODELLED_EQUIVALENT` (`GUTS`, `THICK FAT`, `HUGE POWER`, `PURE POWER`): Proven exact arithmetic parity with
+     the ADV pipeline across all stats and status conditions (see §16 of compatibility evidence). No ability
+     blocker is added.
+   - `UNSUPPORTED_DAMAGE_RELEVANT` (`OVERGROW`, `BLAZE`, `TORRENT`, `SWARM`, modern abilities): Damage-relevant but
+     divergent or unmodelled. Blocks calculation with `HNS_ABILITY_EFFECT_NOT_MODELLED`.
+     *(Note: Starter pinch abilities modify Attack stat via fixed-point math in H&S but modify Base Power in ADV,
+     creating integer-division flooring divergences; they are strictly fail-closed).*
+
+3. **Prevention of `@smogon/calc` Default Ability Substitution:**
+   `@smogon/calc`'s `Pokemon` constructor defaults missing or `"None"` abilities to `species.abilities[0]`.
+   In H&S, this would silently grant abilities (e.g. giving Machamp Guts when it has No Guard or None).
+   In `tools/calc-bundler/entry.js`, `resolveAbility()` maps omitted, empty, `"None"`, or `"(other)"` abilities
+   to `'(other)'` when `typeSystem === 'hns_2_0_5'`, preventing default substitution. Pinned in native tests
+   (`native/tests/test_js_calc.c:check_gap_c2_abilities`).
+
+4. **Spelling and Normalization:**
+   Ability and item names are matched leniently but sent canonically: `CalcCapabilityPolicy.normaliseNames`
+   rewrites accepted names to exact Title Case (`"GUTS"` → `"Guts"`, `"HUGE POWER"` → `"Huge Power"`).
+   Unmodelled names are left intact and blocked. Held-item names follow the same rule (`"choice band"` → `"Choice Band"`).
+   `Sea Incense` is intentionally *not* in the type-boost list: the engine models it as its own ×1.05
+   Water case rather than as the generic ×1.1 type-boost item.
 
 ---
 
@@ -470,15 +503,40 @@ H&S calculations remain strictly **refused** (`UNSUPPORTED`, `request == null`) 
 - Verified via host QuickJS suite (`native/tests/test_js_calc.c:check_gap_c1_type_system`), Kotlin unit tests
   (`CalcDataOverridesTest.kt`, `CalcCapabilityPolicyTest.kt`), and type-system generator tests (`test_generate_hns_type_system.py`).
 
+**Why H&S calculations remained refused after Gap C1:**
+Gap C1 closed the type-system gap. When challenge settings were observed, randomizers were OFF, and types were
+representable, `HNS_TYPE_CHART_NOT_MODELLED` was cleared. However, calculations remained refused
+due to unmodelled abilities (`HNS_ABILITY_SYSTEM_NOT_MODELLED`).
+
+#### Gap C2 — authoritative effective ability input + conditional ability support (CLOSED)
+
+**Update (issue #9, Gap C2 slice):** The blanket ability blocker is replaced with a precise, per-participant,
+per-ability capability decision:
+- **Authoritative live effective abilities:** Live active battler ability is read from `gBattleMons[battler].ability`
+  (PR #56) and delivered as `BattlerRuntimeObservation`.
+- **Active-party-slot matching:** The player's ability is accepted only when `partySlot == selectedPartyIndex`.
+  The enemy's ability is accepted only when `partySlot == activeEnemySlot`. Slot mismatches, faint windows,
+  `AMBIGUOUS` (doubles), and `OBSERVED_INVALID` fail closed to unknown ability (`HNS_EFFECTIVE_ABILITY_UNREADABLE`).
+- **Anti-spoofing ownership:** In `CalcRequestBoundary`, caller-supplied abilities on `LIVE_READ` participants
+  cannot override or fabricate authoritative observations.
+- **Conditional ability capability (`HnsAbilityRegistry`):**
+  - `PROVEN_NO_DAMAGE_EFFECT` (`ABILITY_NONE`, `KEEN EYE`, `INSOMNIA`): zero move-damage effect in H&S. Cleared with no ability blocker.
+  - `MODELLED_EQUIVALENT` (`GUTS`, `THICK FAT`, `HUGE POWER`, `PURE POWER`): exact arithmetic parity proven against ADV pipeline. Cleared with no ability blocker.
+  - `UNSUPPORTED_DAMAGE_RELEVANT` (`OVERGROW`, `BLAZE`, `TORRENT`, `SWARM`, modern abilities): damage-relevant but divergent or unmodelled. Fails closed with `HNS_ABILITY_EFFECT_NOT_MODELLED`.
+- **Default ability substitution prevention:** `@smogon/calc` defaulting to `species.abilities[0]` is prevented
+  by setting `options.ability = '(other)'` when ability is omitted, empty, or `"None"` under `typeSystem === 'hns_2_0_5'`.
+- Verified via QuickJS host tests (`native/tests/test_js_calc.c:check_gap_c2_abilities`) and Kotlin unit tests (`CalcHnsAbilityTest.kt`).
+
 **Why H&S calculations remain refused:**
-Gap C1 closes the type-system gap. When challenge settings are observed, randomizers are OFF, and types are
-representable, `HNS_TYPE_CHART_NOT_MODELLED` is cleared. However, H&S calculations remain strictly refused
-(`CalcSupport.UNSUPPORTED`, `request == null`) by the next precise Gap C blocker: `HNS_ABILITY_SYSTEM_NOT_MODELLED` (Gap C2).
+Gap C2 resolves ability input and capability gating. When participants have modelled or proven-no-effect abilities,
+no ability blockers are added. However, H&S calculations remain strictly **refused** (`CalcSupport.UNSUPPORTED`,
+`request == null`) by the next precise Gap C blocker: `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED` (Gap C3).
 
-#### Gap C2 — ability system and remaining mechanics (OPEN)
+#### Gap C3 — held item system and modern items (OPEN)
 
-H&S features ~80 modern abilities affecting damage that the Gen 3 ADV calculation pipeline does not model.
-Until the ability system is modelled, all H&S calculations remain refused with `HNS_ABILITY_SYSTEM_NOT_MODELLED`.
+H&S uses modern held item percentages (type-boost ×1.2, gems ×1.3) and modern items (Choice Specs, Life Orb, Expert Belt,
+Eviolite, Assault Vest) that the Gen 3 ADV calculation pipeline does not model (§7).
+Until the held item system is modelled, all H&S calculations remain refused with `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`.
 
 ### Then, concretely
 
@@ -488,7 +546,8 @@ Until the ability system is modelled, all H&S calculations remain refused with `
    (`RANDOM_TYPES_ACTIVE_NOT_MODELLED`, `RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED`).
 2. Gap B is CLOSED: authoritative H&S species and move data are consumed via `overrides`.
 3. Gap C1 is CLOSED: exact modern type chart, Fairy toggle ON/OFF, and optionStyle category coupling.
-4. Gap C2 is OPEN: ability system and remaining mechanics (`HNS_ABILITY_SYSTEM_NOT_MODELLED`).
-5. Add golden fixtures for H&S calculations whose inputs are covered, verified against known in-game
+4. Gap C2 is CLOSED: authoritative effective ability input, active-slot matching, and conditional ability support.
+5. Gap C3 is OPEN: held item system and modern damage items (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`).
+6. Add golden fixtures for H&S calculations whose inputs are covered, verified against known in-game
    or upstream results. Only calculations that survive all gaps may reach `ESTIMATED`, and
    `VERIFIED` stays out of reach while the §4.2 fields are unread.

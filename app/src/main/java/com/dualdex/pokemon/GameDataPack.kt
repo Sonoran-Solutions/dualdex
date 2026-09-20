@@ -45,6 +45,21 @@ interface GameDataPack {
 
     /** True only when this pack has an explicitly verified value for the entry. */
     fun isMoveAuthoritative(id: Int): Boolean = false
+
+    /**
+     * The ability the build's static data declares for [slot] (0-2) of species/form [id].
+     *
+     * This is a static identity lookup, not a runtime battle read: it answers "which ability
+     * is this slot declared to hold in this exact build?" and nothing more. Runtime state
+     * (challenge settings, ability randomizers, in-battle ability changes) can still make a
+     * live Pokemon's effective ability differ from its declared slot, so this value is never
+     * a substitute for observed current-battle data.
+     *
+     * Packs without a source-backed ability declaration for this species (vanilla packs,
+     * overlays without custom ability data) return [DeclaredAbility.Absent]. This default is
+     * intentionally conservative: no pack pretends to know an ability it has not pinned.
+     */
+    fun getDeclaredAbilityForSlot(id: Int, slot: Int): DeclaredAbility = DeclaredAbility.Absent
 }
 
 /**
@@ -220,6 +235,17 @@ class ProfileOverlayDataPack(
 
     override fun isMoveAuthoritative(id: Int): Boolean =
         basePack.isMoveAuthoritative(id)
+
+    /**
+     * Overlaid species have no source-backed ability declarations in DualDex, so their
+     * slots are explicitly absent rather than inherited from the base pack. A matching ID
+     * does not prove the base pack's declarations still apply: an overlay may rebrand a
+     * species without reproducing its ability slots.
+     */
+    override fun getDeclaredAbilityForSlot(id: Int, slot: Int): DeclaredAbility {
+        if (id in convertedSpecies) return DeclaredAbility.Absent
+        return basePack.getDeclaredAbilityForSlot(id, slot)
+    }
 }
 
 object GameDataPackRegistry {

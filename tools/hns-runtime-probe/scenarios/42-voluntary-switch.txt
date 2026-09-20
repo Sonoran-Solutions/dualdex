@@ -24,6 +24,7 @@ assert-party-count enemy 2
 assert-active-enemy-slot 0
 assert-active-player-slot 0
 matrix 42-initial-chikorita
+battler-state 42-initial-chikorita
 
 # Perform voluntary switch to slot 1 (Hoothoot)
 voluntary-switch 1 2500
@@ -36,3 +37,4 @@ assert-party-count player 2
 assert-active-player-slot 1
 assert-fainted player false
 matrix 42-hoothoot-switched
+battler-state 42-hoothoot-switched

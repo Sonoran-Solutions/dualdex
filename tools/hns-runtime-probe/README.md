@@ -23,7 +23,8 @@ It has two modes with different standing:
    battle globals DualDex reads;
 3. feeds the **live** emulated memory into the **production** readers
    (`pokemon_read_battle_lifecycle`, `pokemon_resolve_active_enemy`,
-   `pokemon_read_player_party_gba`, `pokemon_read_enemy_party_gba`);
+   `pokemon_read_player_party_gba`, `pokemon_read_enemy_party_gba`,
+   `pokemon_read_battler_runtime_state_gba`, `pokemon_read_challenge_settings_gba`);
 4. checks the runtime invariants on **every** frame and **fails the run** (non-zero exit) if **any**
    invariant is violated — violations are accumulated so a single run shows every problem it found,
    rather than stopping at the first one:

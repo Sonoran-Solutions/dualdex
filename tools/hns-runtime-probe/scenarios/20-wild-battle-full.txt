@@ -13,8 +13,10 @@ wait 240
 matrix wild-entry
 assert-battle active
 assert-in-battle-flag true
+battler-state wild-entry
 mash 120
 matrix turn-1
+battler-state turn-1
 mash 120
 matrix turn-2
 mash 120
@@ -24,3 +26,4 @@ wait 500
 matrix after-battle
 assert-battle inactive
 assert-in-battle-flag false
+battler-state after-battle

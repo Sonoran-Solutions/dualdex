@@ -343,6 +343,18 @@ state path whenever the running ROM is exactly trusted. Until a later slice cons
 B and C close — the request still cannot name the rule that will be applied, which is why the four
 `*_UNREADABLE` limitations still block.
 
+Two further *input observability* facts now exist alongside Gap A, still without changing any
+verdict (issue #9, live-battler slice; see §14 of the compatibility evidence):
+
+* the **effective live ability** of an authoritative active battler is observed from
+  `gBattleMons[battler].ability` and can be named against the pinned PR #54 catalogue;
+* the battler's **current effective types** are observed from the same live battle state.
+
+These close part of the “what would the battler's inputs even be?” question, but nothing consumes
+them yet: `ABILITY` remains in `CalcInputPreparation.unknownFields`, no species/move/type override
+is forwarded (Gap B), and no ability is promoted to modelled because its catalogue name resolves
+(§6). Naming an observed ID is identity bookkeeping, not mechanic support.
+
 ### Gap B — the engine does not consume H&S data
 
 The bridge resolves names against the library's own tables (§3.3). Closing this means forwarding

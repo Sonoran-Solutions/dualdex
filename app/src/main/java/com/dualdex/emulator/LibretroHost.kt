@@ -50,6 +50,13 @@ object LibretroHost {
      * A null/failed read is UNAVAILABLE; no default is ever substituted.
      */
     external fun nativeReadChallengeSettings(gameId: Int): IntArray?
+
+    /**
+     * H&S 2.0.5 live battler ability + effective types as a flat typed tuple; see
+     * [com.dualdex.pokemon.hns.HnsBattlerRuntimeState.fromNativeArray] for the layout.
+     * A null/failed read is UNAVAILABLE; doubles degrade to AMBIGUOUS with no ability named.
+     */
+    external fun nativeReadBattlerRuntimeState(gameId: Int, role: Int): IntArray?
     external fun nativeSaveState(statePath: String): Boolean
     external fun nativeLoadState(statePath: String): Boolean
     external fun nativeLoadSaveRam(savePath: String): Boolean

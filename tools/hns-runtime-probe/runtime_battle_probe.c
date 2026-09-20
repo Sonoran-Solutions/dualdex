@@ -227,6 +227,12 @@ typedef struct {
      * This is the production `PartySnapshot.active_battler_index`; it is what binds "the old player
      * Pokémon" and "the replacement Pokémon" to a concrete gBattleMons[] entry. */
     int8_t               active_player_battler;
+    /* Live battler ability + effective types, read by the PRODUCTION reader
+     * (pokemon_read_battler_runtime_state_gba) for both authoritative roles.
+     * This is the issue-#9 observation the matrix and the `battler-state`
+     * script command report. */
+    BattlerRuntimeState  player_battler_state;
+    BattlerRuntimeState  enemy_battler_state;
 } Sample;
 
 static void sample_state(const GameMemoryConfig* cfg, int frame, uint32_t input, Sample* out) {
@@ -334,6 +340,13 @@ static void sample_state(const GameMemoryConfig* cfg, int frame, uint32_t input,
         out->party_hp[i] = player_snapshot.members[i].current_hp;
         out->party_max_hp[i] = player_snapshot.members[i].max_hp;
     }
+
+    pokemon_read_battler_runtime_state_gba(
+        probe_read, NULL, ewram, ewram_sz, cfg, BATTLER_ROLE_PLAYER,
+        &out->player_battler_state);
+    pokemon_read_battler_runtime_state_gba(
+        probe_read, NULL, ewram, ewram_sz, cfg, BATTLER_ROLE_OPPONENT,
+        &out->enemy_battler_state);
 }
 
 /**
@@ -2301,6 +2314,8 @@ static void write_ppm(const char* path) {
  *   untilout <cb2> <n>             press UP+A while gMain.callback2 is <cb2>, stop when it changes.
  *                                  Timeout is an ERROR.
  *   matrix <label>                 print the full runtime tuple for the current frame
+ *   battler-state <label>          print the PRODUCTION live battler ability/type observation
+ *                                  for both authoritative roles (issue #9); diagnostic only
  *   shot <path.ppm>                dump the current video frame
  *   savsave <path>                 flush the core's battery save RAM to a .sav file. Failure is an
  *                                  ERROR.
@@ -2325,7 +2340,9 @@ static void print_matrix(const Sample* s, const char* label) {
            "enemyPartyCount=%u playerPartyCount=%u species=%u,%u,%u,%u hp=%u,%u,%u,%u "
            "maxHP=%u,%u,%u,%u statStages0=%d,%d,%d,%d,%d,%d,%d,%d "
            "activeEnemy=%s resolvedBattler=%d resolvedEnemySlot=%d opponentBattlers=%u fainted=%d "
-           "activePlayerSlot=%d playerKnown=%d\n",
+           "activePlayerSlot=%d playerKnown=%d "
+           "playerBattler=%d playerAbility=%u playerTypes=%u,%u,%u playerBStatus=%d "
+           "enemyBattler=%d enemyAbility=%u enemyTypes=%u,%u,%u enemyBStatus=%d\n",
            label, mx, my, mg, mn, s->frame,
            s->in_battle_readable ? (s->in_battle ? "true" : "false") : "unreadable",
            lifecycle_name(s->lifecycle), kind_name(s->kind), presence_name(s->presence),
@@ -2341,7 +2358,19 @@ static void print_matrix(const Sample* s, const char* label) {
            s->mon_stat_stages[0][6], s->mon_stat_stages[0][7],
            active_enemy_name(s->active_enemy), s->enemy_battler, s->enemy_slot,
            s->opponent_battlers, s->enemy_fainted ? 1 : 0,
-           s->active_player_slot, s->active_player_known ? 1 : 0);
+           s->active_player_slot, s->active_player_known ? 1 : 0,
+           (int)s->player_battler_state.battler_index,
+           (unsigned)s->player_battler_state.ability_id,
+           (unsigned)s->player_battler_state.types[0],
+           (unsigned)s->player_battler_state.types[1],
+           (unsigned)s->player_battler_state.types[2],
+           (int)s->player_battler_state.status,
+           (int)s->enemy_battler_state.battler_index,
+           (unsigned)s->enemy_battler_state.ability_id,
+           (unsigned)s->enemy_battler_state.types[0],
+           (unsigned)s->enemy_battler_state.types[1],
+           (unsigned)s->enemy_battler_state.types[2],
+           (int)s->enemy_battler_state.status);
 }
 
 static uint8_t get_battler0_command(const uint8_t* ewram, size_t ewram_sz) {
@@ -2957,6 +2986,34 @@ static int run_script(Driver* d, const char* script_path) {
                 printf("[CHALLENGE] sturdy=%u levelCap=%u expMultiplier=%u legendaryAbilities=%u\n",
                        cs.tx_mode_sturdy.raw, cs.tx_challenges_level_cap.raw,
                        cs.tx_challenges_exp_multiplier.raw, cs.tx_mode_legendary_abilities.raw);
+            }
+        } else if (!strcmp(cmd, "battler-state")) {
+            // Live battler ability + effective types through the PRODUCTION reader (issue #9).
+            // Diagnostic only: asserts nothing, writes nothing.
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            BattlerRuntimeState st[2];
+            bool ok[2] = {false, false};
+            if (ewram && ewram_sz > 0 && d->cfg) {
+                ok[0] = pokemon_read_battler_runtime_state_gba(
+                    probe_read, NULL, ewram, ewram_sz, d->cfg, BATTLER_ROLE_PLAYER, &st[0]);
+                ok[1] = pokemon_read_battler_runtime_state_gba(
+                    probe_read, NULL, ewram, ewram_sz, d->cfg, BATTLER_ROLE_OPPONENT, &st[1]);
+            }
+            for (int role = 0; role < 2; role++) {
+                const char* who = role == 0 ? "player" : "enemy";
+                if (!ok[role]) {
+                    printf("[BATTLER] %s %s UNAVAILABLE/AMBIGUOUS status=%d frame=%d\n",
+                           a1[0] ? a1 : "step", who, (int)st[role].status, d->frame);
+                    continue;
+                }
+                printf("[BATTLER] %s %s battler=%d partySlot=%d status=%d frame=%d "
+                       "ability=%u types=%u,%u,%u\n",
+                       a1[0] ? a1 : "step", who, (int)st[role].battler_index,
+                       (int)st[role].party_slot, (int)st[role].status, d->frame,
+                       (unsigned)st[role].ability_id,
+                       (unsigned)st[role].types[0], (unsigned)st[role].types[1],
+                       (unsigned)st[role].types[2]);
             }
         } else if (!strcmp(cmd, "shot")) {
             write_ppm(a1);

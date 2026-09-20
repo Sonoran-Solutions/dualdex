@@ -792,6 +792,73 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
     return result;
 }
 
+/**
+ * Live battler ability + effective types for one authoritative active H&S 2.0.5
+ * battler, as a typed flat tuple.
+ *
+ * Layout: [0] BattlerRuntimeStateStatus, [1] battler index (-1 = none), [2] party slot
+ * (-1 = unknown), [3] partySlotKnown, [4] abilityObserved, [5] abilityInvalid,
+ * [6] ability id, [7] typesObserved, [8] typesInvalid, [9] type count,
+ * [10..12] raw type values.
+ *
+ * A failed/unauthorized read returns status 0 (UNAVAILABLE) with everything else
+ * zeroed: the caller must not substitute a declared ability, a party slot or a
+ * previous observation, and AMBIGUOUS (doubles) publishes no ability at all.
+ */
+JNIEXPORT jintArray JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env, jobject thiz, jint game_id, jint role) {
+    (void)thiz;
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+
+    BattlerRuntimeState state;
+    // Pre-zeroed so a read that never ran (no EWRAM, unknown game) is a clean UNAVAILABLE too.
+    memset(&state, 0, sizeof(state));
+    state.status = BATTLER_RUNTIME_STATE_UNAVAILABLE;
+    state.battler_index = -1;
+    state.party_slot = -1;
+    bool ok = false;
+    if (ewram && ewram_sz > 0 &&
+        (role == (jint)BATTLER_ROLE_PLAYER || role == (jint)BATTLER_ROLE_OPPONENT)) {
+        const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+        if (cfg) {
+            ok = pokemon_read_battler_runtime_state_gba(
+                dualdex_jni_gba_read, NULL, ewram, ewram_sz, cfg,
+                (BattlerRole)role, &state);
+        }
+    }
+    if (!ok) {
+        // Fail closed. The reader leaves exactly UNAVAILABLE or AMBIGUOUS in status (with every
+        // field zeroed, so no ability, battler or slot survives); a read that never ran keeps
+        // the pre-set UNAVAILABLE. Both must publish no observation data.
+        if (state.status != BATTLER_RUNTIME_STATE_AMBIGUOUS) {
+            state.status = BATTLER_RUNTIME_STATE_UNAVAILABLE;
+        }
+        state.battler_index = -1;
+        state.party_slot = -1;
+    }
+
+    jint values[13] = {0};
+    values[0] = (jint)state.status;
+    values[1] = (jint)state.battler_index;
+    values[2] = (jint)state.party_slot;
+    values[3] = state.party_slot_known ? 1 : 0;
+    values[4] = state.ability_observed ? 1 : 0;
+    values[5] = state.ability_invalid ? 1 : 0;
+    values[6] = (jint)state.ability_id;
+    values[7] = state.types_observed ? 1 : 0;
+    values[8] = state.types_invalid ? 1 : 0;
+    values[9] = (jint)state.type_count;
+    for (int t = 0; t < 3 && t < (int)state.type_count; t++) {
+        values[10 + t] = (jint)state.types[t];
+    }
+
+    jintArray result = (*env)->NewIntArray(env, 13);
+    if (!result) return NULL;
+    (*env)->SetIntArrayRegion(env, result, 0, 13, values);
+    return result;
+}
+
 JNIEXPORT jint JNICALL
 Java_com_dualdex_emulator_LibretroHost_nativeReadBattlePresence(JNIEnv* env, jobject thiz, jint game_id) {
     (void)env;

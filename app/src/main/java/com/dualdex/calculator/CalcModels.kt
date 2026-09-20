@@ -27,7 +27,19 @@ data class CalcPokemonInput(
      * An empty list means nothing was known to be missing; it is not a claim that the values are
      * complete. Only a reader that reports what it could not carry populates this.
      */
-    val unknownFields: List<CalcInputField> = emptyList()
+    val unknownFields: List<CalcInputField> = emptyList(),
+    /**
+     * Party slot provenance for live reads (0-indexed party slot, or null if manual/unknown).
+     * Used by [CalcRequestBoundary] to verify that live runtime observations match this
+     * specific participant rather than another party member or stale battler.
+     */
+    val partySlot: Int? = null,
+    /**
+     * Authoritative numeric ability ID for Heart & Soul 2.0.5 live reads (or null if manual/unknown).
+     * Used by [CalcCapabilityPolicy] to determine ability capability directly from the authoritative
+     * runtime ID rather than from a display name string.
+     */
+    val abilityId: Int? = null
 )
 
 data class StatBlock(

@@ -328,6 +328,26 @@ class CalcTabScreenView(
                 refreshUI()
             }
         }
+        scope.launch {
+            viewModel.playerBattlerState.collectLatest {
+                refreshUI()
+            }
+        }
+        scope.launch {
+            viewModel.enemyBattlerState.collectLatest {
+                refreshUI()
+            }
+        }
+        scope.launch {
+            viewModel.playerStatStages.collectLatest {
+                refreshUI()
+            }
+        }
+        scope.launch {
+            viewModel.enemyStatStages.collectLatest {
+                refreshUI()
+            }
+        }
     }
 
     override fun onDetachedFromWindow() {
@@ -513,7 +533,6 @@ class CalcTabScreenView(
     private fun recalculate() {
         val party = viewModel.playerParty.value
         val selectedIdx = viewModel.selectedMemberIndex.value
-        val attacker = if (party.isNotEmpty() && selectedIdx in party.indices) party[selectedIdx] else null
 
         val enemyParty = viewModel.enemyParty.value
         val inBattle = viewModel.isInBattle.value
@@ -522,24 +541,39 @@ class CalcTabScreenView(
             enemyParty.getOrNull(enemySlot)
         } else null
 
+        // Snapshot immutable observations once per calculation cycle to prevent race conditions
+        val activeProfile = viewModel.activeProfile.value
+        val runtimeRomTrust = viewModel.runtimeRomTrust.value
+        val challengeSettingsSnapshot = viewModel.challengeSettings.value
+        val playerBattlerSnapshot = viewModel.playerBattlerState.value
+        val enemyBattlerSnapshot = viewModel.enemyBattlerState.value
+        val playerStagesSnapshot = viewModel.playerStatStages.value
+        val enemyStagesSnapshot = viewModel.enemyStatStages.value
+
         // Participants whose values came from the running game go through the shared production
         // presenter and preparation, which record every damage-relevant field the reader did not
         // carry. A live read is never shortened to "neutral": an unobserved status or stat stage is
         // reported and the boundary refuses to label the result verified. The benchmark fallbacks
         // stay MANUAL, because there the user is asserting a hypothetical rather than reading one.
-        val isExpansionItems = viewModel.activeProfile.value.hasPhysSpecSplit
+        val isExpansionItems = activeProfile.hasPhysSpecSplit
+        val isExactHns = CalcCapabilityPolicy.capabilityFor(activeProfile)?.ruleset == CalcRuleset.HNS_2_0_5
         val attackerState = CalcParticipantPresenter.attacker(
             party = party,
             selectedIndex = selectedIdx,
             speciesNameOf = { SpeciesDatabase.get(it.species).name },
-            playerStages = viewModel.playerStatStages.value,
-            isExpansionItems = isExpansionItems
+            playerStages = playerStagesSnapshot,
+            isExpansionItems = isExpansionItems,
+            playerBattlerState = playerBattlerSnapshot,
+            isExactHns = isExactHns
         )
         val defenderState = CalcParticipantPresenter.defender(
             observedOpponent = enemyMon,
             chosenSpecies = selectedDefenderSpecies,
-            enemyStages = viewModel.enemyStatStages.value,
-            isExpansionItems = isExpansionItems
+            enemyStages = enemyStagesSnapshot,
+            isExpansionItems = isExpansionItems,
+            enemyBattlerState = enemyBattlerSnapshot,
+            isExactHns = isExactHns,
+            activeEnemySlot = if (inBattle && viewModel.activeEnemyResolution.value.hasResolvedSlot) enemySlot else null
         )
 
         val field = CalcFieldInput(
@@ -552,13 +586,15 @@ class CalcTabScreenView(
         // it produces is worth. It is the same decision the engine gate uses, so this screen cannot
         // present a confident result that the policy refused.
         val outcome = CalcRequestBoundary.build(
-            profile = viewModel.activeProfile.value,
-            trust = viewModel.runtimeRomTrust.value,
+            profile = activeProfile,
+            trust = runtimeRomTrust,
             attacker = attackerState,
             defender = defenderState,
             move = CalcMoveInput(name = selectedMoveName, isCrit = isCrit),
             field = field,
-            challengeSettings = viewModel.challengeSettings.value
+            challengeSettings = challengeSettingsSnapshot,
+            playerBattlerState = playerBattlerSnapshot,
+            enemyBattlerState = enemyBattlerSnapshot
         )
 
         val authorised = outcome as? CalcRequestOutcome.Ready ?: run {

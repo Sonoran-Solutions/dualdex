@@ -194,12 +194,25 @@ globalThis.DualDexCalc = {
         }
       }
 
+      function resolveAbility(rawAbility, isHns) {
+        if (isHns) {
+          if (!rawAbility || rawAbility.trim() === '' || rawAbility.trim().toLowerCase() === 'none' || rawAbility.trim().toLowerCase() === '(other)') {
+            return '(other)';
+          }
+          return rawAbility;
+        }
+        return rawAbility || undefined;
+      }
+
+      const isHns = input.typeSystem === 'hns_2_0_5';
+
       const attackerOptions = {
         level: input.attacker.level || 50
       };
       if (input.attacker.item) attackerOptions.item = input.attacker.item;
       if (input.attacker.nature) attackerOptions.nature = input.attacker.nature;
-      if (input.attacker.ability) attackerOptions.ability = input.attacker.ability;
+      const resolvedAttackerAbility = resolveAbility(input.attacker.ability, isHns);
+      if (resolvedAttackerAbility) attackerOptions.ability = resolvedAttackerAbility;
       if (input.attacker.ivs) attackerOptions.ivs = input.attacker.ivs;
       if (input.attacker.evs) attackerOptions.evs = input.attacker.evs;
       if (input.attacker.boosts) attackerOptions.boosts = input.attacker.boosts;
@@ -219,7 +232,8 @@ globalThis.DualDexCalc = {
       };
       if (input.defender.item) defenderOptions.item = input.defender.item;
       if (input.defender.nature) defenderOptions.nature = input.defender.nature;
-      if (input.defender.ability) defenderOptions.ability = input.defender.ability;
+      const resolvedDefenderAbility = resolveAbility(input.defender.ability, isHns);
+      if (resolvedDefenderAbility) defenderOptions.ability = resolvedDefenderAbility;
       if (input.defender.ivs) defenderOptions.ivs = input.defender.ivs;
       if (input.defender.evs) defenderOptions.evs = input.defender.evs;
       if (input.defender.boosts) defenderOptions.boosts = input.defender.boosts;

@@ -30,9 +30,10 @@ three share one damage pipeline (`@smogon/calc`'s ADV implementation, sent as `g
 reason that is documented in §3 and is not a default. Vanilla FireRed/Emerald requests that stay
 inside the verified input set are presented as **Verified**. H&S 2.0.5 requests are **refused**:
 H&S lets the player change the *rule* that decides damage category, whether the Fairy type exists,
-species typings, and the type chart itself, and DualDex does not read those settings, so there is no
-honest number to show. Every other build — CFRU hacks, split-mechanics vanilla builds, any
-unidentified ROM — is **refused** with a stated reason rather than given a Gen III number.
+species typings, and the type chart itself; while DualDex reads those settings at runtime (#55),
+calculator preparation does not yet consume them, so there is no honest number to show. Every other
+build — CFRU hacks, split-mechanics vanilla builds, any unidentified ROM — is **refused** with a
+stated reason rather than given a Gen III number.
 
 The single decision point is `CalcCapabilityPolicy`
 (`app/src/main/java/com/dualdex/calculator/CalcCapabilityPolicy.kt`); the only way to turn
@@ -49,7 +50,8 @@ existing request field reproduces this build's rule, not whether the current UI 
 | # | Mechanic / state | H&S 2.0.5 (pinned) | Bridge can express | Verdict |
 |---|---|---|---|---|
 | 1 | Damage formula | Generation III arithmetic with modern data | partially | **INDIVIDUALLY DEMONSTRATED ONLY** — the crit multiplier and spread reduction match; the chart, category rule and modifiers do not (§3.2) |
-| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **no** | **REFUSED** — it is also a live toggle (§4.1), and the engine derives category from type (§3.3) |
+| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **partially** — bridge can express both behaviors via `move.overrides.category`, but DualDex does not yet consume `optionStyle` to choose the correct live rule | **REFUSED** — it is a live toggle (§4.1), and `optionStyle` is not yet consumed to select between per-move category override and type-derived category |
+
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **no** | **DOES NOT MATCH** — the generation III chart resists Ghost and Dark with Steel and has no Fairy (§3.1) |
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `@smogon/calc` constructor (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C (§3.1, §9) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C (§3.1, §9) |
@@ -353,10 +355,12 @@ verdict (issue #9, live-battler slice; see §14 of the compatibility evidence):
   `gBattleMons[battler].ability` and can be named against the pinned PR #54 catalogue;
 * the battler's **current effective types** are observed from the same live battle state.
 
-These close part of the “what would the battler's inputs even be?” question, but nothing consumes
-them yet: `ABILITY` remains in `CalcInputPreparation.unknownFields`, no species/move/type override
-is forwarded (Gap B), and no ability is promoted to modelled because its catalogue name resolves
+These close part of the “what would the battler's inputs even be?” question, but nothing wires
+them to live battle state yet: `ABILITY` remains in `CalcInputPreparation.unknownFields`, live
+effective types are not yet mapped to species overrides (authoritative static pack overrides are now
+forwarded in Gap B below), and no ability is promoted to modelled because its catalogue name resolves
 (§6). Naming an observed ID is identity bookkeeping, not mechanic support.
+
 
 ### Gap B — the engine does not consume H&S data (CLOSED)
 

@@ -185,20 +185,66 @@ class CalcDataOverridesTest {
     }
 
     @Test
-    fun `enrichRequest preserves explicitly supplied overrides`() {
+    fun `enrichRequest discards caller-supplied overrides and replaces them with authoritative HnS values`() {
         val customOverride = CalcSpeciesOverride(
-            baseStats = StatBlock(hp = 100, atk = 100, def = 100, spa = 100, spd = 100, spe = 100),
-            types = listOf("Normal")
+            baseStats = StatBlock(hp = 999, atk = 999, def = 999, spa = 999, spd = 999, spe = 999),
+            types = listOf("Ghost")
         )
+        val bogusMove = CalcMoveOverride(basePower = 999, type = "Fire", category = "Status")
         val req = DamageCalculationRequest(
             attacker = CalcPokemonInput(species = "Arbok"),
             defender = CalcPokemonInput(species = "Swampert"),
             move = CalcMoveInput(name = "Sludge Bomb"),
-            attackerOverride = customOverride
+            attackerOverride = customOverride,
+            moveOverride = bogusMove
         )
 
         val enriched = CalcDataOverrides.enrichRequest(hnsProfile, req)
-        assertEquals(customOverride, enriched.attackerOverride)
+        // Must NOT preserve caller's custom override; must replace with pinned Arbok & Sludge Bomb values
+        assertEquals(95, enriched.attackerOverride!!.baseStats.atk)
+        assertEquals(listOf("Poison"), enriched.attackerOverride!!.types)
+        assertEquals(90, enriched.moveOverride!!.basePower)
+        assertEquals("Poison", enriched.moveOverride!!.type)
+        assertEquals("Special", enriched.moveOverride!!.category)
+    }
+
+    @Test
+    fun `enrichRequest discards caller-supplied overrides on vanilla profile leaving them null`() {
+        val customOverride = CalcSpeciesOverride(
+            baseStats = StatBlock(hp = 999, atk = 999, def = 999, spa = 999, spd = 999, spe = 999),
+            types = listOf("Dragon")
+        )
+        val bogusMove = CalcMoveOverride(basePower = 999, type = "Dragon", category = "Physical")
+        val req = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Machamp"),
+            defender = CalcPokemonInput(species = "Snorlax"),
+            move = CalcMoveInput(name = "Rock Slide"),
+            attackerOverride = customOverride,
+            moveOverride = bogusMove
+        )
+
+        val enriched = CalcDataOverrides.enrichRequest(fireRedProfile, req)
+        assertNull(enriched.attackerOverride)
+        assertNull(enriched.defenderOverride)
+        assertNull(enriched.moveOverride)
+    }
+
+    @Test
+    fun `ambiguous species like Eevee cannot smuggle a caller-supplied override`() {
+        val smuggledOverride = CalcSpeciesOverride(
+            baseStats = StatBlock(hp = 100, atk = 100, def = 100, spa = 100, spd = 100, spe = 100),
+            types = listOf("Normal")
+        )
+        val req = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Eevee"),
+            defender = CalcPokemonInput(species = "Snorlax"),
+            move = CalcMoveInput(name = "Tackle"),
+            attackerOverride = smuggledOverride
+        )
+
+        val enriched = CalcDataOverrides.enrichRequest(hnsProfile, req)
+        // Eevee is multi-form so buildSpeciesOverride returns null; smuggled override is discarded
+        assertNull(enriched.attackerOverride)
     }
 
     @Test

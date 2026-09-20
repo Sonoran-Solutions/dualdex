@@ -74,15 +74,33 @@ object CalcDataOverrides {
     }
 
     /**
-     * Enriches [request] with authoritative species and move overrides for [profile] if not already present.
+     * Enriches [request] with authoritative species and move overrides for [profile].
+     *
+     * Overrides are strictly boundary-owned: caller-supplied overrides are ALWAYS discarded.
+     * - For non-H&S / vanilla profiles, any supplied overrides are stripped to null so external
+     *   callers cannot inject arbitrary stat or move power changes into a VERIFIED request.
+     * - For H&S, overrides are rebuilt ONLY from [HeartAndSoul205DataPack]. If a species is ambiguous
+     *   (e.g. multi-form "Eevee") or missing, the override is null and cannot be smuggled in.
      */
     fun enrichRequest(profile: RomHackProfile, request: DamageCalculationRequest): DamageCalculationRequest {
         val pack = GameDataPackRegistry.getForProfile(profile)
-        if (pack !is HeartAndSoul205DataPack) return request
+        if (pack !is HeartAndSoul205DataPack) {
+            // Overrides are boundary-owned: callers cannot inject overrides into non-H&S / vanilla profiles.
+            return if (request.attackerOverride != null || request.defenderOverride != null || request.moveOverride != null) {
+                request.copy(
+                    attackerOverride = null,
+                    defenderOverride = null,
+                    moveOverride = null
+                )
+            } else {
+                request
+            }
+        }
 
-        val attackerOverride = request.attackerOverride ?: buildSpeciesOverride(request.attacker.species, pack)
-        val defenderOverride = request.defenderOverride ?: buildSpeciesOverride(request.defender.species, pack)
-        val moveOverride = request.moveOverride ?: buildMoveOverride(request.move.name, pack)
+        // Overrides are boundary-owned: caller-supplied overrides are discarded and rebuilt ONLY from HeartAndSoul205DataPack.
+        val attackerOverride = buildSpeciesOverride(request.attacker.species, pack)
+        val defenderOverride = buildSpeciesOverride(request.defender.species, pack)
+        val moveOverride = buildMoveOverride(request.move.name, pack)
 
         return request.copy(
             attackerOverride = attackerOverride,

@@ -77,8 +77,25 @@ jobs:
         with:
           packages: 'platform-tools'
 
-      # Pinned public upstream at the exact Release-v2.0.5 commit, limited to the
-      # files actually read (data/maps, src/data/region_map).
+      # The data-pack verification step runs the ARM preprocessor against the
+      # pinned upstream source, so the job needs arm-none-eabi-cpp on PATH plus
+      # the target C-library headers it must resolve (newlib's <string.h>,
+      # <stdlib.h>, ... included via include/global.h). gcc-arm-none-eabi alone
+      # ships no target headers; without libnewlib-arm-none-eabi preprocessing
+      # dies with `fatal error: string.h: No such file or directory`.
+      # `ci.sh source-check` locates the toolchain fail-closed and refuses to
+      # skip the check.
+      - name: Install ARM preprocessor and newlib headers (data-pack verification)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
+
+      # Pinned public upstream at the exact Release-v2.0.5 commit, limited to
+      # what validation needs: the map tables (data/maps, src/data/region_map),
+      # the sources the data-pack generator preprocesses (all of include, plus
+      # src/pokemon.c, src/move.c and their src/data includes), the upstream
+      # tools that generate its build-time headers (tools/mapjson,
+      # tools/jsonproc, tools/learnset_helpers -- run by ./ci.sh source-check),
+      # and the full data/ tree the tutor-learnset generation scans for .inc
+      # scripts (data/maps and data/layouts are read for the map headers).
       - name: Fetch pinned Heart & Soul 2.0.5 source
         uses: actions/checkout@v4
         with:
@@ -87,8 +104,14 @@ jobs:
           path: upstream-hns/pokehns-expansion
           fetch-depth: 1
           sparse-checkout: |
-            data/maps
-            src/data/region_map
+            data
+            include
+            src/data
+            src/pokemon.c
+            src/move.c
+            tools/mapjson
+            tools/jsonproc
+            tools/learnset_helpers
           sparse-checkout-cone-mode: true
 
       - name: Run H&S source validation

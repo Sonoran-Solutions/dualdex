@@ -6,7 +6,8 @@
 # Actions. Run from the repo root:
 #
 #   ./ci.sh test     # native reader suite + H&S tracker selftests +
-#                    # QuickJS calculator suite + Kotlin unit tests
+#                    # QuickJS calculator suite + data-pack generator tests
+#                    # + Kotlin unit tests
 #   ./ci.sh build    # assemble the debug APK
 #   ./ci.sh all      # test then build (default)
 #   ./ci.sh release  # assemble the production-signed release APK (requires
@@ -19,7 +20,7 @@
 # exit code.
 
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "${BASH_SOURCE[0]}")"
 
 # Resolve a host C compiler: prefer gcc, fall back to clang.
 find_cc() {
@@ -114,6 +115,46 @@ hns_map_data_check() {
   python3 tools/hns-map-data/generate_hns_map_data.py --verify-digests
 }
 
+# H&S data-pack generator tests. Mandatory and self-contained: they drive the
+# real extraction code (extract_abilities incl. run_cpp and the table
+# cross-checks) against tiny synthetic fixtures through a stub preprocessor, so
+# they need no upstream checkout, no ARM toolchain, no ROM, and no network. They
+# pin the fail-closed enum-parser contract: an assignment the parser cannot
+# resolve (unresolved alias, parenthesized initializer, arithmetic) must raise,
+# never invent a sequential ID, and the ABILITIES_COUNT_GEN* anchor pattern of
+# the pinned header must resolve explicitly instead of by counter coincidence.
+hns_generator_test() {
+  echo "== H&S data-pack generator tests =="
+  (cd tools/hns-data-pack && python3 -m unittest test_generate_hns_data_pack -v)
+}
+
+# Locate the ARM preprocessor the data-pack generator drives. Fail-closed: the
+# source validation job refuses to run its data-pack verification without one
+# instead of silently skipping it.
+find_hns_cpp() {
+  if [ -n "${ARM_CPP:-}" ] && [ -x "${ARM_CPP}" ]; then
+    printf '%s\n' "$ARM_CPP"
+    return 0
+  fi
+  if command -v arm-none-eabi-cpp >/dev/null 2>&1; then
+    command -v arm-none-eabi-cpp
+    return 0
+  fi
+  local candidate
+  for candidate in \
+    /opt/devkitpro/devkitARM/bin/arm-none-eabi-cpp \
+    /usr/bin/arm-none-eabi-cpp \
+    "$HOME"/opt/*/bin/arm-none-eabi-cpp \
+    "$HOME"/devkit*/devkitARM/bin/arm-none-eabi-cpp \
+    /opt/*/bin/arm-none-eabi-cpp; do
+    if [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
 # The QuickJS damage calculator is production code: the same js_calc_engine.c
 # and the same committed bundle (app/src/main/assets/calc_bundle.js) the APK
 # ships. Compiling it for the host against the pinned QuickJS sources lets the
@@ -170,6 +211,61 @@ gradle_test() {
 # the upstream cross-check lives here and is run by its own CI job. This command
 # FAILS when the pinned checkout is missing, unreachable or at the wrong revision --
 # it never degrades to a silent skip. It needs no ROM and no emulator.
+# Regenerate the pinned upstream's gitignored build-time artifacts
+# (include/constants/{map_groups,layouts,map_event_ids,region_map_sections}.h,
+# src/data/{map_group_count,tutor_moves}.h and
+# src/data/pokemon/teachable_learnsets.h) in place within $HNS_UPSTREAM_DIR,
+# using upstream's own committed tools from upstream's own committed JSON
+# sources. $1 = host C++ compiler binary, $2 = provisioning output directory.
+#
+# Every required operation propagates failure explicitly. Callers invoke this
+# in contexts where bash suppresses errexit for the whole command list (`if !`,
+# `||` chains); an inner `set -e` does NOT re-enable errexit there, so a plain
+# `set -e` block would silently ignore an early failure whenever a later
+# command succeeded (e.g. a dev checkout with pre-existing generated headers).
+# Do not replace the explicit `|| exit 1` propagation with set -e.
+regen_upstream_headers() {
+  local cc_bin="$1" prov_build="$2"
+  local upstream="${HNS_UPSTREAM_DIR:?HNS_UPSTREAM_DIR must be set}"
+  (
+    cd "$upstream" || exit 1
+    for required in \
+      tools/mapjson/mapjson.cpp tools/mapjson/json11.cpp \
+      tools/jsonproc/jsonproc.cpp tools/jsonproc/inja.hpp \
+      tools/learnset_helpers/make_tutors.py \
+      tools/learnset_helpers/make_teaching_types.py \
+      tools/learnset_helpers/make_teachables.py \
+      src/data/pokemon/all_learnables.json \
+      src/data/pokemon/special_movesets.json \
+      data/maps/map_groups.json data/layouts/layouts.json \
+      src/data/region_map/region_map_sections.json \
+      src/data/region_map/region_map_sections.constants.json.txt; do
+      if [ ! -e "$required" ]; then
+        echo "error: $required missing from pinned upstream checkout; it is required" >&2
+        echo "       to generate the build-time headers the source validation preprocesses" >&2
+        exit 1
+      fi
+    done
+    "$cc_bin" -O2 -std=c++17 -w -I tools/jsonproc tools/jsonproc/jsonproc.cpp \
+      -o "$prov_build/jsonproc" || exit 1
+    "$cc_bin" -O2 -std=c++17 -w tools/mapjson/json11.cpp tools/mapjson/mapjson.cpp \
+      -o "$prov_build/mapjson" || exit 1
+    "$prov_build/mapjson" groups hns data/maps/map_groups.json data/maps/*/*.json \
+      data/maps include/constants || exit 1
+    "$prov_build/mapjson" layouts hns data/layouts/layouts.json data/layouts include/constants || exit 1
+    "$prov_build/mapjson" event_constants emerald data/maps/*/*.json \
+      include/constants/map_event_ids.h || exit 1
+    "$prov_build/jsonproc" src/data/region_map/region_map_sections.json \
+      src/data/region_map/region_map_sections.constants.json.txt \
+      include/constants/region_map_sections.h || exit 1
+    python3 tools/learnset_helpers/make_tutors.py "$prov_build/all_tutors.json" || exit 1
+    python3 tools/learnset_helpers/make_teaching_types.py \
+      "$prov_build/all_teaching_types.json" || exit 1
+    python3 tools/learnset_helpers/make_teachables.py --build POKEMON_HNS \
+      "$prov_build" || exit 1
+  )
+}
+
 source_check() {
   echo "== H&S 2.0.5 source validation against the pinned upstream checkout =="
   local upstream="${HNS_UPSTREAM_DIR:-}"
@@ -192,7 +288,92 @@ source_check() {
   python3 tools/hns-map-data/generate_hns_map_data.py \
     --upstream-dir "$upstream" --check
 
-  # 2. The Kotlin tests must re-derive the mapping from that source independently,
+  # 2. The committed Kotlin data pack (species, moves, AND the ability catalogue
+  #    with its per-species slot declarations) must regenerate byte-for-byte from
+  #    the pinned source. This is the check that actually compares the committed
+  #    ability catalogue against upstream; it needs the ARM preprocessor the
+  #    generator drives, so locate it fail-closed rather than skipping silently.
+  local cpp_bin
+  if ! cpp_bin="$(find_hns_cpp)"; then
+    echo "error: arm-none-eabi-cpp not found; the data-pack verification is required." >&2
+    echo "       Install gcc-arm-none-eabi (or devkitARM) or set ARM_CPP." >&2
+    return 1
+  fi
+  # Materialize the pinned upstream's generated headers. The gitignored build
+  # artifacts included by the preprocessed sources (include/constants/{
+  # map_groups,layouts,map_event_ids,region_map_sections}.h and src/data/{
+  # map_group_count,tutor_moves}.h plus src/data/pokemon/teachable_learnsets.h)
+  # are produced by the upstream build's own committed tools from committed JSON
+  # sources within the checkout: tools/mapjson, tools/jsonproc and the
+  # tools/learnset_helpers scripts. A dev checkout that has been built already
+  # has them; a sparse CI checkout does not, so build the tools with the host
+  # C++ compiler and regenerate exactly those files. Fail closed: refuse if the
+  # sources for the tools or their JSON inputs are missing, and refuse to run if
+  # generation leaves the checkout's tracked files modified. This is not faking
+  # headers: it is upstream's own toolchain generating upstream's own headers
+  # from upstream's own data.
+  echo "== regenerating pinned upstream build-time headers (mapjson/jsonproc) =="
+  local cc_bin
+  cc_bin="$(command -v g++ || command -v clang++)" || {
+    echo "error: no host C++ compiler (g++ or clang++) found; building mapjson/jsonproc" >&2
+    echo "       to generate the pinned upstream's include/constants headers is required" >&2
+    return 1
+  }
+  local prov_build preflight
+  prov_build="$(mktemp -d)"
+  preflight="$(mktemp)"
+  trap 'rm -rf "$prov_build"; rm -f "$preflight"' RETURN
+  if ! regen_upstream_headers "$cc_bin" "$prov_build"; then
+    echo "error: regenerating the pinned upstream's build-time headers failed;" >&2
+    echo "       refusing to validate against a possibly stale provisioning" >&2
+    return 1
+  fi
+  if [ -n "$(git -C "$upstream" status --porcelain --untracked-files=no)" ]; then
+    echo "error: regenerating upstream build-time headers modified tracked files in" >&2
+    echo "       $upstream; refusing to validate from a dirty checkout" >&2
+    return 1
+  fi
+
+  # Regression for the bootstrap's error propagation itself (this is the
+  # scenario the regeneration block must guard against: a dev checkout with
+  # pre-existing generated headers lets later commands succeed, so an early
+  # failure is only caught if every required operation propagates explicitly).
+  # Exercises the production path against the real pinned checkout: an
+  # injected early compiler failure must fail the check before the data-pack
+  # verification or Gradle stages, and a working compiler must regenerate all
+  # provisioning artifacts. See tools/ci/test_bootstrap_fail_closed.sh.
+  # Re-entry guard: the regression test itself drives source_check; the guard
+  # suppresses ONLY this recursive invocation of the regression suite. It must
+  # never skip the mandatory stages below (target-header preflight, data-pack
+  # --verify, Kotlin upstream validation): a test-recursion flag may prevent
+  # another test invocation, it must not prevent the verification this command
+  # promises to perform.
+  if [ -z "${DUALDEX_BOOTSTRAP_REGRESSION_ACTIVE:-}" ]; then
+    echo "== source-check bootstrap fail-closed regression =="
+    DUALDEX_BOOTSTRAP_REGRESSION_ACTIVE=1 \
+      tools/ci/test_bootstrap_fail_closed.sh "$cc_bin" "$upstream" || return 1
+  fi
+
+  echo "  data-pack preprocessor: $cpp_bin"
+
+  # Preflight: the ARM preprocessor must resolve the real target C-library
+  # headers (<string.h> via include/global.h). A bare gcc-arm-none-eabi install
+  # without libnewlib-arm-none-eabi (or devkitARM without newlib) fails exactly
+  # here, so fail closed with the remedy instead of a fatal include error in the
+  # middle of the generator run.
+  printf '#include <string.h>\n' > "$preflight"
+  if ! "$cpp_bin" -E "$preflight" >/dev/null 2>&1; then
+    echo "error: $cpp_bin cannot preprocess <string.h>; install the target C-library" >&2
+    echo "       headers (e.g. libnewlib-arm-none-eabi on Ubuntu, or devkitARM's newlib)" >&2
+    echo "       or point ARM_CPP at a toolchain that resolves them." >&2
+    return 1
+  fi
+  rm -f "$preflight"
+
+  python3 tools/hns-data-pack/generate_hns_data_pack.py \
+    --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --verify
+
+  # 3. The Kotlin tests must re-derive the mapping from that source independently,
   #    and must fail (not skip) if it is missing or wrong.
   ./gradlew testDebugUnitTest -Pdualdex.hns.upstreamCheck=true
 }
@@ -209,11 +390,16 @@ gradle_release() {
   ./gradlew assembleRelease
 }
 
+# Dispatch only when ci.sh is executed. When it is sourced as a library (e.g.
+# by tools/ci/test_bootstrap_fail_closed.sh, which drives source_check and
+# regen_upstream_headers directly), the command vocabulary must not run.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 case "${1:-all}" in
-  test)         native_test; tracker_selftest; calc_test; hns_map_data_check; gradle_test ;;
+  test)         native_test; tracker_selftest; calc_test; hns_map_data_check; hns_generator_test; gradle_test ;;
   source-check) source_check ;;
   build)        gradle_build ;;
-  all)          native_test; tracker_selftest; calc_test; hns_map_data_check; gradle_test; gradle_build ;;
+  all)          native_test; tracker_selftest; calc_test; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
   release)      gradle_release ;;
   *)            echo "usage: $0 [test|source-check|build|all|release]" >&2; exit 2 ;;
 esac
+fi

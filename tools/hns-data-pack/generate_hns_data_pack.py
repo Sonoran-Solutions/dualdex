@@ -516,7 +516,284 @@ def extract_moves(cpp_bin, upstream_dir):
     return moves_dict
 
 
-def validate_extracted_data(species_dict, moves_dict):
+# ----------------------------- Abilities -----------------------------
+#
+# The H&S ability catalogue and per-species ability-slot declarations. Extracted
+# from the same pinned checkout as the species/move tables; IDs are the build's
+# own `enum Ability` values, never inferred from ordering or external databases.
+
+# Ability enum constants whose meaning is fixed by the build's own headers.
+ABILITY_SENTINELS = {"ABILITY_NONE"}
+
+# The build's generation-boundary bookkeeping members. They are ENUM MEMBERS, not
+# preprocessor macros (the header declares e.g. `ABILITIES_COUNT_GEN3,` and
+# `ABILITY_TANGLED_FEET = ABILITIES_COUNT_GEN3,`), so they survive preprocessing
+# as symbolic names and must be resolved like any other member. They are then
+# excluded from the identity catalogue, which holds only real ability constants.
+ABILITY_COUNT_ANCHORS = (
+    "ABILITIES_COUNT_GEN3",
+    "ABILITIES_COUNT_GEN4",
+    "ABILITIES_COUNT_GEN5",
+    "ABILITIES_COUNT_GEN6",
+    "ABILITIES_COUNT_GEN7",
+    "ABILITIES_COUNT_GEN8",
+    "ABILITIES_COUNT_GEN9",
+    "ABILITIES_COUNT",
+)
+
+# Names the enum parser accepts as members: real ability constants plus the
+# count anchors above.
+ABILITY_ENUM_MEMBER_NAME_RE = re.compile(
+    r"^(ABILITY_[A-Za-z0-9_]+|ABILITIES_COUNT(_GEN[3-9])?)$"
+)
+
+
+def parse_ability_enum(enum_out):
+    """Resolve a preprocessed `enum Ability` to a {name: numeric ID} map.
+
+    Exactly three declaration forms are understood - the forms the pinned header
+    actually uses:
+      - `NAME = <integer>` : explicit value (post-Gen-3 abilities, explicit anchors);
+      - `NAME`            : implicit value, previous member's value + 1 (Gen-3 names
+                            and the ABILITIES_COUNT_GEN* anchors);
+      - `NAME = <symbol>` : alias of an already-defined member, which the header
+                            uses for the first ability after each count anchor
+                            (e.g. `ABILITY_TANGLED_FEET = ABILITIES_COUNT_GEN3`).
+
+    Anything else is an unsupported assignment and raises: an undefined symbol
+    (e.g. `ABILITY_STENCH = UNRESOLVED_ALIAS`), a parenthesized initializer
+    (`ABILITY_SPEED_BOOST = (1)`), arithmetic, or a macro that survived
+    preprocessing. An unsupported assignment must NEVER fall back to the running
+    counter: that would invent a sequential ID and silently corrupt the name->ID
+    mapping in a way contiguity checks cannot detect.
+    """
+    member_ids = {}
+    next_implicit = None
+    in_enum = False
+    for line in enum_out.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("enum ") and "Ability" in stripped:
+            in_enum = True
+            continue
+        if not in_enum:
+            continue
+        if stripped.startswith("}"):
+            in_enum = False
+            continue
+        if not stripped or stripped.startswith("#") or stripped == "{":
+            # Preprocessor line markers, the enum's opening brace, and blank lines.
+            continue
+
+        decl = stripped[:-1].strip() if stripped.endswith(",") else stripped
+        name, eq, raw_value = decl.partition("=")
+        name = name.strip()
+        if not ABILITY_ENUM_MEMBER_NAME_RE.match(name):
+            raise ValueError(f"Unsupported ability enum declaration: {stripped!r}")
+        value = raw_value.strip() if eq else None
+
+        if value is None:
+            # No assignment at all: the implicit previous+1 rule. This is only
+            # valid C when a previous member exists.
+            if next_implicit is None:
+                raise ValueError(
+                    f"Ability enum member {name} has an implicit value but no previous "
+                    "explicit value to continue from"
+                )
+            resolved = next_implicit
+        elif re.fullmatch(r"[0-9]+", value):
+            resolved = int(value)
+        elif re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+            # Assignment present and symbolic: only an alias of an already-defined
+            # member resolves. An undefined symbol is a hard error, never a
+            # sequential ID.
+            if value not in member_ids:
+                raise ValueError(
+                    f"Unresolvable ability enum assignment {name} = {value}; refusing "
+                    "to invent a sequential ID"
+                )
+            resolved = member_ids[value]
+        else:
+            raise ValueError(
+                f"Unsupported ability enum assignment {name} = {value!r}; refusing to "
+                "invent a sequential ID"
+            )
+
+        if name in member_ids and member_ids[name] != resolved:
+            raise ValueError(f"Conflicting enum values for {name}")
+        member_ids[name] = resolved
+        next_implicit = resolved + 1
+    return member_ids
+
+
+def extract_abilities(cpp_bin, upstream_dir):
+    """Extract the numeric ID and display name of every ability in the pinned build.
+
+    Sources, both preprocessed with the build's own configuration:
+      - include/constants/abilities.h : `enum Ability` gives the numeric ID for every
+        ABILITY_* constant. Assignments the parser cannot resolve (unknown symbols,
+        parenthesized initializers, arithmetic) are hard errors - a value is never
+        invented from the running counter. The ABILITIES_COUNT_GEN* anchors are
+        enum members, not macros, and are resolved explicitly so the symbolic
+        references that follow them (e.g. ABILITY_TANGLED_FEET = ABILITIES_COUNT_GEN3)
+        resolve to the anchor's real value instead of a coincidental counter value.
+      - src/data/abilities.h          : `gAbilitiesInfo[ABILITIES_COUNT]` gives the
+        display name for each designated `[ABILITY_X]` entry.
+    Every non-sentinel constant must have a table entry and vice versa; anything else
+    is data drift and a hard failure.
+    """
+    # 1. Numeric IDs from the preprocessed enum.
+    enum_out = run_cpp(cpp_bin, upstream_dir, "include/constants/abilities.h")
+    enum_ids = parse_ability_enum(enum_out)
+
+    if enum_ids.get("ABILITY_NONE") != 0:
+        raise ValueError(f"ABILITY_NONE must be 0, got {enum_ids.get('ABILITY_NONE')}")
+
+    # The count anchors are bookkeeping members, not catalogue identities. Capture
+    # the total before dropping them so it can be checked against the real data
+    # below instead of being parsed and discarded.
+    abilities_count = enum_ids.pop("ABILITIES_COUNT", None)
+    for anchor in ABILITY_COUNT_ANCHORS[:-1]:
+        enum_ids.pop(anchor, None)
+
+    # 2. Display names from the ability info table.
+    table_out = run_cpp(cpp_bin, upstream_dir, "src/data/abilities.h")
+    start = table_out.find("gAbilitiesInfo[ABILITIES_COUNT]")
+    if start == -1:
+        start = table_out.find("gAbilitiesInfo")
+    if start == -1:
+        raise ValueError("Could not find gAbilitiesInfo in preprocessed src/data/abilities.h")
+
+    table_ids = {}
+    entries = extract_designated_entries(table_out, start, r"ABILITY_[A-Za-z0-9_]+", "gAbilitiesInfo")
+    for aconst, body in entries:
+        if aconst in table_ids:
+            raise ValueError(f"Duplicate gAbilitiesInfo entry for {aconst}")
+        name_m = re.search(r'\.name\s*=\s*_\("([^"]+)"\)', body)
+        if not name_m:
+            raise ValueError(f"Missing .name for gAbilitiesInfo entry {aconst}")
+        raw_name = name_m.group(1).strip()
+        if aconst == "ABILITY_NONE":
+            if raw_name != "-------":
+                raise ValueError(f"ABILITY_NONE display name drifted: {raw_name}")
+            continue  # sentinel: kept in slot tables, not in the identity catalogue
+        table_ids[aconst] = raw_name
+
+    # 3. Cross-check: every real constant must appear exactly once in the table.
+    # Note: display names are stored verbatim from the build's table (e.g. "DRIZZLE",
+    # "AS ONE"); no case or wording transformation is applied, and names are not
+    # unique across abilities (AS ONE covers both As One Ice/Shadow Rider).
+    real_constants = {c for c in enum_ids if c not in ABILITY_SENTINELS}
+    missing = sorted(real_constants - set(table_ids))
+    extra = sorted(set(table_ids) - real_constants)
+    if missing:
+        raise ValueError(f"Abilities in enum but not in gAbilitiesInfo: {missing}")
+    if extra:
+        raise ValueError(f"Abilities in gAbilitiesInfo but not in enum: {extra}")
+
+    abilities = {}
+    for aconst, raw_name in table_ids.items():
+        aid = enum_ids[aconst]
+        if aid in abilities:
+            raise ValueError(f"Duplicate ability ID {aid} ({aconst})")
+        abilities[aid] = {
+            "id": aid,
+            "name": raw_name,
+            "constant": aconst,
+        }
+
+    # The count anchor must agree with the extracted data rather than being parsed
+    # and discarded: the declared ABILITIES_COUNT is the value just past the highest
+    # real ability ID in the pinned header.
+    if abilities_count is not None and abilities and abilities_count != max(abilities) + 1:
+        raise ValueError(
+            f"ABILITIES_COUNT anchor is {abilities_count}, but the highest extracted "
+            f"ability ID is {max(abilities)}; the enum no longer matches its own count"
+        )
+    return abilities
+
+
+def extract_species_abilities(cpp_bin, upstream_dir):
+    """Extract the ordered per-species/form ability slots from the pinned build.
+
+    Reads `gSpeciesInfo` from preprocessed src/pokemon.c (the same table the species
+    extractor uses). Each entry's `.abilities` initializer is a fixed 3-slot array
+    (NUM_NORMAL_ABILITY_SLOTS 2 + NUM_HIDDEN_ABILITY_SLOTS 1, defined in
+    include/constants/pokemon.h). All three slots are preserved in position, including
+    explicit ABILITY_NONE sentinels, so slot numbers never shift.
+
+    Species whose declared slots are not source-established (the nameless "??????????"
+    placeholder species 0-form entries) are recorded as an explicit absence rather than
+    guessed. Macros like MEOWTH_ABILITIES are already expanded by the preprocessor.
+    """
+    abilities = extract_abilities(cpp_bin, upstream_dir)
+    constant_to_id = {a["constant"]: a["id"] for a in abilities.values()}
+
+    output = run_cpp(cpp_bin, upstream_dir, "src/pokemon.c")
+    start = output.find("gSpeciesInfo[] =")
+    if start == -1:
+        start = output.find("gSpeciesInfo")
+    if start == -1:
+        raise ValueError("Could not find gSpeciesInfo in preprocessed src/pokemon.c")
+
+    # Preprocessed .abilities initializers are flat `{ A, B, C }` lists; this stricter
+    # pattern refuses to match anything unexpected (e.g. a macro that survived expansion).
+    # A few species (the four Ogerpon base forms) declare fewer than all three slots;
+    # C zero-fills the remaining designated-initializer members, i.e. they hold
+    # ABILITY_NONE. Those are padded with the sentinel so slot positions always align
+    # with NUM_ABILITY_SLOTS (include/constants/pokemon.h:393).
+    abilities_re = re.compile(r"\.abilities\s*=\s*\{([^{}]*)\}")
+    split_re = re.compile(r"\s*,\s*")
+    const_re = re.compile(r"^(ABILITY_[A-Za-z0-9_]+)$")
+
+    species_abilities = {}
+    entries = extract_designated_entries(output, start, r"\d+", "gSpeciesInfo")
+    for species_id_raw, body in entries:
+        species_id = int(species_id_raw)
+        if species_id in species_abilities:
+            raise ValueError(f"Duplicate species ID {species_id} in preprocessed gSpeciesInfo")
+
+        name_m = re.search(r'\.speciesName\s*=\s*_\("([^"]+)"\)', body)
+        if not name_m:
+            raise ValueError(f"Missing .speciesName for species {species_id} in ability extraction")
+        raw_name = name_m.group(1).strip()
+        if raw_name in ["??????????", "Egg", "EGG"] or not raw_name:
+            species_abilities[species_id] = None  # explicit absence
+            continue
+
+        am = abilities_re.search(body)
+        if not am:
+            raise ValueError(f"Missing .abilities initializer for species {species_id} ({raw_name})")
+        slot_values = [v.strip() for v in split_re.split(am.group(1).strip()) if v.strip()]
+        if not 0 < len(slot_values) <= 3:
+            raise ValueError(
+                f"Species {species_id} ({raw_name}) declared {len(slot_values)} ability slots, "
+                "expected 1-3"
+            )
+        # C zero-fills designated-initializer array members beyond the written ones:
+        # a short initializer means the unwritten slots hold ABILITY_NONE.
+        slot_values += ["ABILITY_NONE"] * (3 - len(slot_values))
+        slots = []
+        for slot, v in enumerate(slot_values):
+            cm = const_re.match(v)
+            if not cm:
+                raise ValueError(
+                    f"Unresolved expression '{v}' in species {species_id} ({raw_name}) slot {slot}; "
+                    "refusing to coerce to an ability ID"
+                )
+            c = cm.group(1)
+            if c in ABILITY_SENTINELS:
+                slots.append(None)  # explicit empty/sentinel slot, position preserved
+                continue
+            aid = constant_to_id.get(c)
+            if aid is None:
+                raise ValueError(f"Ability constant {c} in species {species_id} has no catalogue ID")
+            slots.append(aid)
+        species_abilities[species_id] = slots
+
+    return abilities, species_abilities
+
+
+def validate_extracted_data(species_dict, moves_dict, abilities_dict, species_abilities):
     # Required canonical IDs
     if 500 not in species_dict or species_dict[500]["name"] != "Emboar":
         raise AssertionError(f"ID 500 expected Emboar, got {species_dict.get(500)}")
@@ -557,11 +834,79 @@ def validate_extracted_data(species_dict, moves_dict):
         assert m["name"], f"Empty name for move {mid}"
         assert m["power"] >= 0 and m["pp"] >= 0, f"Invalid stats for move {mid}"
 
+    # Independent ability-catalogue expectations, pinned by hand directly from
+    # src/data/abilities.h and include/constants/abilities.h of the pinned checkout
+    # (not derived from this generator's own output). Display names are stored
+    # verbatim as the build writes them (uppercase in the source table).
+    expected_abilities = {
+        2: "DRIZZLE",         # ABILITY_DRIZZLE
+        7: "LIMBER",          # ABILITY_LIMBER
+        26: "LEVITATE",       # ABILITY_LEVITATE
+        65: "OVERGROW",       # ABILITY_OVERGROW
+        88: "DOWNLOAD",       # ABILITY_DOWNLOAD (post-Gen-3 anchor range)
+        112: "SLOW START",    # ABILITY_SLOW_START
+        130: "CURSED BODY",   # ABILITY_CURSED_BODY
+        185: "PARENTAL BOND",
+        224: "BEAST BOOST",   # ABILITY_BEAST_BOOST
+        248: "ICE FACE",      # ABILITY_ICE_FACE (Gen 8 range)
+        266: "AS ONE",        # ABILITY_AS_ONE_ICE_RIDER (same display name as Shadow Rider)
+        310: "POISON PUPPETEER",  # highest enum value
+    }
+    for aid, expected_name in expected_abilities.items():
+        actual = abilities_dict.get(aid)
+        assert actual is not None, f"Expected ability ID {aid} ({expected_name}) missing from catalogue"
+        assert actual["name"] == expected_name, (
+            f"Ability ID {aid}: expected '{expected_name}', got '{actual['name']}'"
+        )
+    assert 0 not in abilities_dict, "ABILITY_NONE sentinel must not appear in the identity catalogue"
+    ids_sorted = sorted(abilities_dict)
+    assert ids_sorted == list(range(1, len(abilities_dict) + 1)), (
+        "Ability catalogue must be exactly the contiguous non-zero enum range"
+    )
 
-def generate_kotlin_source(species_dict, moves_dict):
+    # Independent per-species slot expectations, pinned by hand from the source.
+    # Species IDs are the build's national-dex-numbered SPECIES_* IDs (e.g. species
+    # 500 is Emboar, species 1 is Bulbasaur):
+    # - Bulbasaur (1):   { OVERGROW, NONE, CHLOROPHYLL } -> one empty middle slot
+    # - Meowth (52):     { PICKUP, TECHNICIAN, UNNERVE }
+    # - Gengar (94):     { LEVITATE, CURSED_BODY, NONE }
+    # - Abomasnow (460): { SNOW_WARNING, NONE, SOUNDPROOF }
+    # - Ogerpon Teal (1416): { DEFIANT, NONE } with C zero-fill -> { DEFIANT, NONE, NONE }
+    # (ability IDs per include/constants/abilities.h of the pinned checkout)
+    expected_slots = {
+        1: [65, None, 34],
+        52: [53, 101, 127],
+        94: [26, 130, None],
+        460: [117, None, 43],
+        1416: [128, None, None],
+    }
+    for sid, slots in expected_slots.items():
+        assert sid in species_dict, f"Expected species {sid} missing"
+        actual_slots = species_abilities.get(sid)
+        assert actual_slots == slots, f"Species {sid} slots: expected {slots}, got {actual_slots}"
+
+    declared = {sid: s for sid, s in species_abilities.items() if s is not None}
+    assert len(declared) >= 1400, f"Expected at least 1400 declared species, got {len(declared)}"
+    assert len(species_abilities) >= len(species_dict), (
+        "Slot table must cover every species entry the pack exposes"
+    )
+    for sid, s in species_dict.items():
+        assert sid in species_abilities, f"Species {sid} missing from ability-slot table"
+    for sid, slots in declared.items():
+        assert len(slots) == 3, f"Species {sid} must have 3 preserved slots"
+        for slot, aid in enumerate(slots):
+            assert aid is None or aid in abilities_dict, (
+                f"Species {sid} slot {slot} references unknown ability ID {aid}"
+            )
+            if aid is not None:
+                assert aid != 0, f"Species {sid} slot {slot} uses numeric 0 instead of a sentinel"
+
+
+def generate_kotlin_source(species_dict, moves_dict, abilities_dict, species_abilities):
     lines = []
     lines.append("package com.dualdex.pokemon.hns")
     lines.append("")
+    lines.append("import com.dualdex.pokemon.DeclaredAbility")
     lines.append("import com.dualdex.pokemon.GameDataPack")
     lines.append("import com.dualdex.pokemon.MoveCategory")
     lines.append("import com.dualdex.pokemon.MoveInfo")
@@ -581,6 +926,18 @@ def generate_kotlin_source(species_dict, moves_dict):
     lines.append(" *")
     lines.append(f" * Total Species: {len(species_dict)}")
     lines.append(f" * Total Moves: {len(moves_dict)}")
+    lines.append(f" * Total Abilities: {len(abilities_dict)}")
+    lines.append(" * Species with declared ability slots: "
+                 f"{sum(1 for s in species_abilities.values() if s is not None)}")
+    lines.append(" *")
+    lines.append(" * Runtime-ability boundary (identity only, not effective battle state):")
+    lines.append(" *   GetAbilityBySpecies [src/pokemon.c:5548] overrides declared slot 0 with")
+    lines.append(" *   sLegendaryCustomAbilities [src/pokemon.c:5535] whenever the challenge")
+    lines.append(" *   setting tx_Mode_Legendary_Abilities is ON (default ON, [src/new_game.c:147],")
+    lines.append(" *   challenge menu item LEGEN. ABILITIES [src/challenge_menu.c:462], TAB_MODE is")
+    lines.append(" *   always unlocked [src/challenge_menu.c:183]); tx_Random_Abilities rerolls")
+    lines.append(" *   abilities entirely [src/pokemon.c:5585]. DualDex reads neither setting, so")
+    lines.append(" *   these declarations are not evidence of a live Pokemon's ability.")
     lines.append(" *")
     lines.append(" * DO NOT EDIT DIRECTLY. Regenerate using:")
     lines.append(" *   python3 tools/hns-data-pack/generate_hns_data_pack.py")
@@ -596,6 +953,15 @@ def generate_kotlin_source(species_dict, moves_dict):
     lines.append("    private val speciesMap = HashMap<Int, SpeciesInfo>()")
     lines.append("    private val movesMap = HashMap<Int, MoveInfo>()")
     lines.append("")
+    lines.append("    /** The build's own slot layout: 2 normal slots + 1 hidden slot. */")
+    lines.append("    private const val ABILITY_SLOT_COUNT = 3")
+    lines.append("")
+    lines.append("    /** Ability ID -> display name, for the catalogue lookup. */")
+    lines.append("    private val abilityNameMap = HashMap<Int, String>()")
+    lines.append("")
+    lines.append("    /** Species/form ID -> declared ability ID per slot (null = ABILITY_NONE sentinel). */")
+    lines.append("    private val speciesAbilityMap = HashMap<Int, Array<Int?>>()")
+    lines.append("")
     lines.append("    init {")
 
     # Chunk registration to stay well under JVM 64KB method bytecode limits
@@ -607,10 +973,25 @@ def generate_kotlin_source(species_dict, moves_dict):
     moves_chunk_size = 200
     moves_chunks = [moves_sorted[i:i + moves_chunk_size] for i in range(0, len(moves_sorted), moves_chunk_size)]
 
+    abilities_sorted = sorted(abilities_dict.items())
+    ability_chunk_size = 200
+    ability_chunks = [abilities_sorted[i:i + ability_chunk_size] for i in range(0, len(abilities_sorted), ability_chunk_size)]
+
+    species_abilities_sorted = sorted(
+        ((sid, s) for sid, s in species_abilities.items() if s is not None),
+        key=lambda pair: pair[0],
+    )
+    species_ability_chunk_size = 400
+    species_ability_chunks = [species_abilities_sorted[i:i + species_ability_chunk_size] for i in range(0, len(species_abilities_sorted), species_ability_chunk_size)]
+
     for i in range(len(species_chunks)):
         lines.append(f"        registerSpeciesChunk{i + 1}()")
     for i in range(len(moves_chunks)):
         lines.append(f"        registerMoveChunk{i + 1}()")
+    for i in range(len(ability_chunks)):
+        lines.append(f"        registerAbilityChunk{i + 1}()")
+    for i in range(len(species_ability_chunks)):
+        lines.append(f"        registerSpeciesAbilityChunk{i + 1}()")
 
     lines.append("    }")
     lines.append("")
@@ -622,6 +1003,46 @@ def generate_kotlin_source(species_dict, moves_dict):
     lines.append("")
     lines.append("    override fun isSpeciesAuthoritative(id: Int): Boolean = speciesMap.containsKey(id)")
     lines.append("    override fun isMoveAuthoritative(id: Int): Boolean = movesMap.containsKey(id)")
+    lines.append("")
+    lines.append("    /**")
+    lines.append("     * The ability identity catalogue for this exact build.")
+    lines.append("     *")
+    lines.append("     * Maps this build's own numeric ability IDs (the `enum Ability` values of")
+    lines.append("     * include/constants/abilities.h) to display names from the build's")
+    lines.append("     * gAbilitiesInfo table. Slot declarations reference these IDs.")
+    lines.append("     *")
+    lines.append("     * This is identity data only: it proves that ability ID N exists in this build")
+    lines.append("     * and what the build calls it. It does NOT model any ability's battle effect,")
+    lines.append("     * and it is never evidence that the damage engine implements the ability.")
+    lines.append("     */")
+    lines.append("    fun getAbility(id: Int): DeclaredAbility =")
+    lines.append("        if (id <= 0) DeclaredAbility.Absent else abilityNameMap[id]")
+    lines.append("            ?.let { DeclaredAbility.Declared(id, it) } ?: DeclaredAbility.Absent")
+    lines.append("")
+    lines.append("    /**")
+    lines.append("     * The ability the pinned build's static data declares for one ability slot of")
+    lines.append("     * one exact species/form ID.")
+    lines.append("     *")
+    lines.append("     * Slots are positional: slot 0 and 1 are the normal slots, slot 2 is the hidden")
+    lines.append("     * slot (NUM_ABILITY_SLOTS = 2 + 1, include/constants/pokemon.h:393). A declared")
+    lines.append("     * ABILITY_NONE sentinel is reported as [DeclaredAbility.EmptySlot] and the slot")
+    lines.append("     * position is always preserved, so a slot number never shifts.")
+    lines.append("     *")
+    lines.append("     * This is a declaration lookup, not a battle read: it is not proof of a live")
+    lines.append("     * Pokemon's current ability, because the build's own challenge settings (see the")
+    lines.append("     * file header) can change which ability actually applies. Unknown species, out of")
+    lines.append("     * range slots, and packs without ability declarations return")
+    lines.append("     * [DeclaredAbility.Absent] - never a substitute.")
+    lines.append("     */")
+    lines.append("    override fun getDeclaredAbilityForSlot(id: Int, slot: Int): DeclaredAbility {")
+    lines.append("        if (slot < 0 || slot >= ABILITY_SLOT_COUNT) return DeclaredAbility.Absent")
+    lines.append("        val slots = speciesAbilityMap[id] ?: return DeclaredAbility.Absent")
+    lines.append("        return when (val abilityId = slots[slot]) {")
+    lines.append("            null -> DeclaredAbility.EmptySlot")
+    lines.append("            else -> abilityNameMap[abilityId]?.let { DeclaredAbility.Declared(abilityId, it) }")
+    lines.append("                ?: DeclaredAbility.Absent")
+    lines.append("        }")
+    lines.append("    }")
     lines.append("")
     lines.append("    /**")
     lines.append("     * Authoritative name -> entry lookups for this exact build.")
@@ -720,6 +1141,22 @@ def generate_kotlin_source(species_dict, moves_dict):
         lines.append("    }")
         lines.append("")
 
+    for i, chunk in enumerate(ability_chunks):
+        lines.append(f"    private fun registerAbilityChunk{i + 1}() {{")
+        for aid, a in chunk:
+            name_escaped = a["name"].replace('"', '\\"')
+            lines.append(f'        abilityNameMap[{aid}] = "{name_escaped}"')
+        lines.append("    }")
+        lines.append("")
+
+    for i, chunk in enumerate(species_ability_chunks):
+        lines.append(f"    private fun registerSpeciesAbilityChunk{i + 1}() {{")
+        for sid, slots in chunk:
+            slot_args = ", ".join("null" if s is None else str(s) for s in slots)
+            lines.append(f"        speciesAbilityMap[{sid}] = arrayOf({slot_args})")
+        lines.append("    }")
+        lines.append("")
+
     for i, chunk in enumerate(moves_chunks):
         lines.append(f"    private fun registerMoveChunk{i + 1}() {{")
         for mid, m in chunk:
@@ -764,11 +1201,16 @@ def main():
     moves_dict = extract_moves(cpp_bin, upstream_dir)
     print(f"Extracted {len(moves_dict)} authoritative moves.")
 
+    print("Extracting ability catalogue and species ability slots via preprocessor...")
+    abilities_dict, species_abilities = extract_species_abilities(cpp_bin, upstream_dir)
+    declared_count = sum(1 for s in species_abilities.values() if s is not None)
+    print(f"Extracted {len(abilities_dict)} abilities and {declared_count} species slot declarations.")
+
     print("Validating data integrity...")
-    validate_extracted_data(species_dict, moves_dict)
+    validate_extracted_data(species_dict, moves_dict, abilities_dict, species_abilities)
     print("Validation passed.")
 
-    kotlin_code = generate_kotlin_source(species_dict, moves_dict)
+    kotlin_code = generate_kotlin_source(species_dict, moves_dict, abilities_dict, species_abilities)
 
     if args.verify:
         print(f"Verifying determinism against {args.out_file}...")

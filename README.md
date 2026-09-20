@@ -110,7 +110,8 @@ The companion itself can be controlled through the Thor's bottom touchscreen.
 git clone https://github.com/Sonoran-Solutions/dualdex.git
 cd dualdex
 
-./ci.sh test     # native reader + H&S tracker + QuickJS calculator + Kotlin tests
+./ci.sh test     # native reader + H&S tracker + QuickJS calculator + data-pack
+                 # generator tests + Kotlin tests
 ./ci.sh build    # assemble the debug APK
 ./ci.sh all      # test, then build
 ./ci.sh release  # assemble the production-signed release APK (requires
@@ -121,10 +122,12 @@ cd dualdex
 Actions runs. The underlying Gradle tasks are `testDebugUnitTest` and
 `assembleDebug`.
 
-`./ci.sh test` runs four disjoint suites and reports them separately: the
+`./ci.sh test` runs five disjoint suites and reports them separately: the
 native reader runner, the H&S tracker selftests, the host QuickJS damage
 calculator suite (the real engine, linked against the pinned QuickJS submodule
-and executing the shipped `calc_bundle.js`), and the Kotlin unit tests. The
+and executing the shipped `calc_bundle.js`), the H&S data-pack generator
+tests (the real extraction code against synthetic fixtures, pinning the
+fail-closed ability-enum parser contract), and the Kotlin unit tests. The
 QuickJS submodule is required by `test` as well as `build`; `ci.sh` initializes
 and verifies it at the recorded commit before compiling.
 

@@ -16,7 +16,7 @@
  *     gSaveblock3 == 52 bytes, challengeSettings at offset 16
  *     (ROM cross-checks: GetBattleMoveCategory reads optionStyle at
  *     gSaveBlock3Ptr + 0x11 bit 1; GetCurrentLevelCap and
- *     GetBaseStatEqualizerValue read SaveBlock3 + 0x18 bits 5-6/2-3;
+ *     GetBaseStatEqualizerValue read SaveBlock3 + 0x18 bits 5-6/3-4;
  *     RandomizerFeatureEnabled reads SaveBlock3 + 0x14/0x15).
  *   - bit positions: LSB-first within each byte, identical across the
  *     pinned ARM toolchain and an independent host/clang probe.

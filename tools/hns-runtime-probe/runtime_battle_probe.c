@@ -2958,7 +2958,7 @@ static int run_script(Driver* d, const char* script_path) {
                        cs.tx_mode_sturdy.raw, cs.tx_challenges_level_cap.raw,
                        cs.tx_challenges_exp_multiplier.raw, cs.tx_mode_legendary_abilities.raw);
             }
-        } else if (!strcmp(cmd, "shot")) {        } else if (!strcmp(cmd, "shot")) {
+        } else if (!strcmp(cmd, "shot")) {
             write_ppm(a1);
         } else if (!strcmp(cmd, "savsave")) {
             bool ok = libretro_host_flush_save_ram(a1);

@@ -98,6 +98,20 @@ expect_nonzero savload-missing --script "$WORK/savload_failure.txt"
 printf 'savsave %s/no-such-directory/out.sav\n' "$WORK" > "$WORK/savsave_failure.txt"
 expect_nonzero savsave-failure --script "$WORK/savsave_failure.txt"
 
+# `shot` must actually produce its output file. The command dispatcher collapsed a duplicated
+# branch once (the first identical strcmp condition won with an empty body), leaving the
+# write unreachable, so assert on the artifact itself, not just the exit status.
+printf 'wait 30\nshot %s/shot-out.ppm\n' "$WORK" > "$WORK/shot_ok.txt"
+CASES=$((CASES + 1))
+"$BIN" "$CORE" "$ROM" --script "$WORK/shot_ok.txt" --quiet > "$WORK/shot-ok.log" 2>&1
+rc=$?
+if [ "$rc" -eq 0 ] && [ -s "$WORK/shot-out.ppm" ] && head -c 2 "$WORK/shot-out.ppm" | grep -q 'P6'; then
+  printf '  [PASS] %-24s wrote %s\n' "shot-writes-file" "$WORK/shot-out.ppm"
+else
+  printf '  [FAIL] %-24s exited %s (shot artifact missing or not a PPM)\n' "shot-writes-file" "$rc"
+  FAILURES=$((FAILURES + 1))
+fi
+
 # A --script that cannot be opened means the scenario never ran at all. The runner reports this as
 # a script error and its return value is folded into the exit status, so the run cannot pass with
 # zero frames executed and zero in-script errors.

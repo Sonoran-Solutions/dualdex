@@ -1190,6 +1190,369 @@ static int load_bundle(void) {
     return 0;
 }
 
+static void check_gap_b_data_overrides(void) {
+    g_fixture = "gap_b_species_base_stat_override";
+    {
+        /*
+         * Test A: Species base-stat override is consumed.
+         *
+         * Attacker: Arbok L50 Hardy (IV 31, EV 0).
+         * Defender: Swampert L50 Hardy (IV 31, EV 0; HP 175, Def 110).
+         * Move: Sludge Bomb (Poison, 90 BP, physical in Gen 3; Ground resists -> x0.5).
+         *
+         * Vanilla Gen 3 Arbok base Atk: 85 -> Atk stat 105.
+         *   Damage: [24, 24, 25, 25, 25, 26, 26, 26, 26, 27, 27, 27, 28, 28, 28, 29]
+         *
+         * H&S 2.0.5 Arbok base Atk: 95 (authoritative H&S increase) -> Atk stat 115.
+         *   Damage: [27, 27, 27, 28, 28, 28, 29, 29, 29, 30, 30, 30, 31, 31, 31, 32]
+         *
+         * The override must strictly increase damage in accordance with the supplied base stat.
+         */
+        const char* req_vanilla =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Arbok\",\"level\":50,\"nature\":\"Hardy\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50,\"nature\":\"Hardy\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Sludge Bomb\"}}";
+
+        const char* req_override =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Arbok\",\"level\":50,\"nature\":\"Hardy\"," IVS_MAX "," EVS_ZERO ","
+            "\"overrides\":{\"baseStats\":{\"hp\":60,\"atk\":95,\"def\":69,\"spa\":65,\"spd\":79,\"spe\":80}}},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50,\"nature\":\"Hardy\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Sludge Bomb\"}}";
+
+        char* out_vanilla = js_calc_calculate(req_vanilla);
+        char* out_override = js_calc_calculate(req_override);
+
+        check_condition("vanilla Arbok calculation succeeds", out_vanilla != NULL);
+        check_condition("overridden Arbok calculation succeeds", out_override != NULL);
+
+        if (out_vanilla && out_override) {
+            jl_value* doc_v = jl_parse(out_vanilla);
+            jl_value* doc_o = jl_parse(out_override);
+
+            check_condition("vanilla response is valid JSON", doc_v != NULL);
+            check_condition("overridden response is valid JSON", doc_o != NULL);
+
+            if (doc_v && doc_o) {
+                check_number("vanilla minDamage", 24, jl_get(doc_v, "minDamage"));
+                check_number("vanilla maxDamage", 29, jl_get(doc_v, "maxDamage"));
+
+                check_number("overridden minDamage", 27, jl_get(doc_o, "minDamage"));
+                check_number("overridden maxDamage", 32, jl_get(doc_o, "maxDamage"));
+
+                check_condition("overridden base stat strictly increases min damage",
+                                jl_num(jl_get(doc_o, "minDamage")) > jl_num(jl_get(doc_v, "minDamage")));
+                check_condition("overridden base stat strictly increases max damage",
+                                jl_num(jl_get(doc_o, "maxDamage")) > jl_num(jl_get(doc_v, "maxDamage")));
+            }
+            jl_free(doc_v);
+            jl_free(doc_o);
+        }
+        free(out_vanilla);
+        free(out_override);
+    }
+
+    g_fixture = "gap_b_species_type_override";
+    {
+        /*
+         * Test B: Species type override is consumed.
+         * Charizard default typing: Fire / Flying.
+         * Override typing: Fire / Dragon.
+         * Assert returned attackerTypes array contains ["Fire", "Dragon"].
+         */
+        const char* req =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Charizard\",\"level\":50,"
+            "\"overrides\":{\"types\":[\"Fire\",\"Dragon\"]}},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Flamethrower\"}}";
+
+        char* out = js_calc_calculate(req);
+        check_condition("type override calculation succeeds", out != NULL);
+        if (out) {
+            jl_value* doc = jl_parse(out);
+            check_condition("type override response is valid JSON", doc != NULL);
+            if (doc) {
+                check_condition("response success is true", jl_bool(jl_get(doc, "success")) == 1);
+                const jl_value* types = jl_get(doc, "attackerTypes");
+                check_condition("attackerTypes is an array", jl_is_arr(types));
+                if (jl_is_arr(types)) {
+                    check_int("attackerTypes length", 2, jl_len(types));
+                    check_str("attackerTypes[0]", "Fire", jl_str(jl_at(types, 0)));
+                    check_str("attackerTypes[1]", "Dragon", jl_str(jl_at(types, 1)));
+                }
+            }
+            jl_free(doc);
+        }
+        free(out);
+    }
+
+    g_fixture = "gap_b_move_base_power_override";
+    {
+        /*
+         * Test C: Move base-power override is consumed.
+         * Tackle: Gen 3 library power = 35. H&S 2.0.5 authoritative power = 40.
+         * Attacker: Snorlax L50. Defender: Swampert L50.
+         *
+         * Vanilla (35 BP): damage [25..30], movePower = 35.
+         * Overridden (40 BP): damage [28..33], movePower = 40.
+         */
+        const char* req_vanilla =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Snorlax\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Tackle\"}}";
+
+        const char* req_override =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Snorlax\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Tackle\",\"overrides\":{\"basePower\":40}}}";
+
+        char* out_vanilla = js_calc_calculate(req_vanilla);
+        char* out_override = js_calc_calculate(req_override);
+
+        check_condition("vanilla Tackle calculation succeeds", out_vanilla != NULL);
+        check_condition("overridden Tackle calculation succeeds", out_override != NULL);
+
+        if (out_vanilla && out_override) {
+            jl_value* doc_v = jl_parse(out_vanilla);
+            jl_value* doc_o = jl_parse(out_override);
+
+            if (doc_v && doc_o) {
+                check_number("vanilla movePower", 35, jl_get(doc_v, "movePower"));
+                check_number("vanilla minDamage", 25, jl_get(doc_v, "minDamage"));
+                check_number("vanilla maxDamage", 30, jl_get(doc_v, "maxDamage"));
+
+                check_number("overridden movePower", 40, jl_get(doc_o, "movePower"));
+                check_number("overridden minDamage", 28, jl_get(doc_o, "minDamage"));
+                check_number("overridden maxDamage", 33, jl_get(doc_o, "maxDamage"));
+
+                check_condition("overridden base power strictly increases damage",
+                                jl_num(jl_get(doc_o, "minDamage")) > jl_num(jl_get(doc_v, "minDamage")));
+            }
+            jl_free(doc_v);
+            jl_free(doc_o);
+        }
+        free(out_vanilla);
+        free(out_override);
+    }
+
+    g_fixture = "gap_b_move_type_override";
+    {
+        /*
+         * Test D: Move type override is consumed.
+         * Tackle overridden to type Fighting (super-effective vs Normal Snorlax).
+         */
+        const char* req =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50},"
+            "\"move\":{\"name\":\"Tackle\",\"overrides\":{\"type\":\"Fighting\",\"basePower\":40}}}";
+
+        char* out = js_calc_calculate(req);
+        check_condition("move type override calculation succeeds", out != NULL);
+        if (out) {
+            jl_value* doc = jl_parse(out);
+            if (doc) {
+                check_str("moveType is Fighting", "Fighting", jl_str(jl_get(doc, "moveType")));
+                check_number("minDamage reflects super-effective hit", 47, jl_get(doc, "minDamage"));
+                check_number("maxDamage reflects super-effective hit", 56, jl_get(doc, "maxDamage"));
+            }
+            jl_free(doc);
+        }
+        free(out);
+    }
+
+    g_fixture = "gap_b_move_category_behavior";
+    {
+        /*
+         * Test E: Move category behavior is pinned honestly at Gen 3.
+         * In Gen 3, Ghost is naturally Physical.
+         * Attacker: Alakazam (Modest, 135 SpA, 50 Atk).
+         * Defender: Swampert (Def 110, SpD 110).
+         *
+         * 1. Without category override: Shadow Ball defaults to Physical (20..24 dmg).
+         * 2. With category override "Special": Shadow Ball uses SpA (43..51 dmg).
+         */
+        const char* req_default =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Alakazam\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Shadow Ball\"}}";
+
+        const char* req_special =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Alakazam\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Shadow Ball\",\"overrides\":{\"category\":\"Special\"}}}";
+
+        char* out_default = js_calc_calculate(req_default);
+        char* out_special = js_calc_calculate(req_special);
+
+        check_condition("default Shadow Ball calculation succeeds", out_default != NULL);
+        check_condition("Special Shadow Ball calculation succeeds", out_special != NULL);
+
+        if (out_default && out_special) {
+            jl_value* doc_def = jl_parse(out_default);
+            jl_value* doc_spc = jl_parse(out_special);
+
+            if (doc_def && doc_spc) {
+                check_str("default category is Physical", "Physical", jl_str(jl_get(doc_def, "moveCategory")));
+                check_number("default minDamage (Physical)", 20, jl_get(doc_def, "minDamage"));
+                check_number("default maxDamage (Physical)", 24, jl_get(doc_def, "maxDamage"));
+
+                check_str("overridden category is Special", "Special", jl_str(jl_get(doc_spc, "moveCategory")));
+                check_number("overridden minDamage (Special)", 43, jl_get(doc_spc, "minDamage"));
+                check_number("overridden maxDamage (Special)", 51, jl_get(doc_spc, "maxDamage"));
+            }
+            jl_free(doc_def);
+            jl_free(doc_spc);
+        }
+        free(out_default);
+        free(out_special);
+    }
+
+    g_fixture = "gap_b_request_isolation";
+    {
+        /*
+         * Negative isolation control:
+         * 1. Execute request with overrides.
+         * 2. Execute equivalent request without overrides.
+         * 3. Second result must use normal library data again (no table leakage or mutation).
+         */
+        const char* req_with_override =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Snorlax\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Tackle\",\"overrides\":{\"basePower\":99}}}";
+
+        const char* req_without_override =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Snorlax\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Tackle\"}}";
+
+        char* out1 = js_calc_calculate(req_with_override);
+        char* out2 = js_calc_calculate(req_without_override);
+
+        check_condition("first request succeeds", out1 != NULL);
+        check_condition("second request succeeds", out2 != NULL);
+
+        if (out1 && out2) {
+            jl_value* doc1 = jl_parse(out1);
+            jl_value* doc2 = jl_parse(out2);
+
+            if (doc1 && doc2) {
+                check_number("first request has overridden BP 99", 99, jl_get(doc1, "movePower"));
+                check_number("second request returns to library default BP 35", 35, jl_get(doc2, "movePower"));
+                check_number("second request returns to library default minDamage 25", 25, jl_get(doc2, "minDamage"));
+            }
+            jl_free(doc1);
+            jl_free(doc2);
+        }
+        free(out1);
+        free(out2);
+    }
+
+    g_fixture = "gap_b_malformed_overrides";
+    {
+        /* Missing required base stat */
+        const char* req_missing_stat =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Arbok\",\"level\":50,"
+            "\"overrides\":{\"baseStats\":{\"hp\":60,\"atk\":95}}},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Sludge Bomb\"}}";
+        char* out_ms = js_calc_calculate(req_missing_stat);
+        check_condition("missing base stat returns response", out_ms != NULL);
+        if (out_ms) {
+            jl_value* doc = jl_parse(out_ms);
+            if (doc) {
+                check_condition("missing base stat is rejected with success=false", jl_bool(jl_get(doc, "success")) == 0);
+                check_string_present("missing base stat error string", jl_get(doc, "error"));
+            }
+            jl_free(doc);
+        }
+        free(out_ms);
+
+        /* Negative base power */
+        const char* req_neg_bp =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Arbok\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Sludge Bomb\",\"overrides\":{\"basePower\":-10}}}";
+        char* out_nbp = js_calc_calculate(req_neg_bp);
+        check_condition("negative base power returns response", out_nbp != NULL);
+        if (out_nbp) {
+            jl_value* doc = jl_parse(out_nbp);
+            if (doc) {
+                check_condition("negative base power is rejected with success=false", jl_bool(jl_get(doc, "success")) == 0);
+                check_string_present("negative base power error string", jl_get(doc, "error"));
+            }
+            jl_free(doc);
+        }
+        free(out_nbp);
+
+        /* Unknown type name */
+        const char* req_unk_type =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Arbok\",\"level\":50,"
+            "\"overrides\":{\"types\":[\"NotAType\"]}},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Sludge Bomb\"}}";
+        char* out_ut = js_calc_calculate(req_unk_type);
+        check_condition("unknown type returns response", out_ut != NULL);
+        if (out_ut) {
+            jl_value* doc = jl_parse(out_ut);
+            if (doc) {
+                check_condition("unknown type is rejected with success=false", jl_bool(jl_get(doc, "success")) == 0);
+                check_string_present("unknown type error string", jl_get(doc, "error"));
+            }
+            jl_free(doc);
+        }
+        free(out_ut);
+
+        /* Unsupported category encoding */
+        const char* req_bad_cat =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Arbok\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Sludge Bomb\",\"overrides\":{\"category\":\"PHYSICAL\"}}}";
+        char* out_bc = js_calc_calculate(req_bad_cat);
+        check_condition("unsupported category returns response", out_bc != NULL);
+        if (out_bc) {
+            jl_value* doc = jl_parse(out_bc);
+            if (doc) {
+                check_condition("unsupported category is rejected with success=false", jl_bool(jl_get(doc, "success")) == 0);
+                check_string_present("unsupported category error string", jl_get(doc, "error"));
+            }
+            jl_free(doc);
+        }
+        free(out_bc);
+
+        /* Extra unknown field in override */
+        const char* req_extra_field =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Arbok\",\"level\":50,"
+            "\"overrides\":{\"unknownKey\":123}},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Sludge Bomb\"}}";
+        char* out_ef = js_calc_calculate(req_extra_field);
+        check_condition("extra unknown field returns response", out_ef != NULL);
+        if (out_ef) {
+            jl_value* doc = jl_parse(out_ef);
+            if (doc) {
+                check_condition("extra unknown field is rejected with success=false", jl_bool(jl_get(doc, "success")) == 0);
+                check_string_present("extra unknown field error string", jl_get(doc, "error"));
+            }
+            jl_free(doc);
+        }
+        free(out_ef);
+    }
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -1207,6 +1570,9 @@ int main(void) {
 
     printf("-- equivalent singles inputs --\n");
     check_singles_equivalence();
+
+    printf("-- Gap B: authoritative species/move overrides, category, isolation, malformed --\n");
+    check_gap_b_data_overrides();
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
     check_oracle_self_tests();

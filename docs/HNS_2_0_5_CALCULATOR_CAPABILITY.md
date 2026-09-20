@@ -30,9 +30,10 @@ three share one damage pipeline (`@smogon/calc`'s ADV implementation, sent as `g
 reason that is documented in §3 and is not a default. Vanilla FireRed/Emerald requests that stay
 inside the verified input set are presented as **Verified**. H&S 2.0.5 requests are **refused**:
 H&S lets the player change the *rule* that decides damage category, whether the Fairy type exists,
-species typings, and the type chart itself, and DualDex does not read those settings, so there is no
-honest number to show. Every other build — CFRU hacks, split-mechanics vanilla builds, any
-unidentified ROM — is **refused** with a stated reason rather than given a Gen III number.
+species typings, and the type chart itself; while DualDex reads those settings at runtime (#55),
+calculator preparation does not yet consume them, so there is no honest number to show. Every other
+build — CFRU hacks, split-mechanics vanilla builds, any unidentified ROM — is **refused** with a
+stated reason rather than given a Gen III number.
 
 The single decision point is `CalcCapabilityPolicy`
 (`app/src/main/java/com/dualdex/calculator/CalcCapabilityPolicy.kt`); the only way to turn
@@ -49,10 +50,12 @@ existing request field reproduces this build's rule, not whether the current UI 
 | # | Mechanic / state | H&S 2.0.5 (pinned) | Bridge can express | Verdict |
 |---|---|---|---|---|
 | 1 | Damage formula | Generation III arithmetic with modern data | partially | **INDIVIDUALLY DEMONSTRATED ONLY** — the crit multiplier and spread reduction match; the chart, category rule and modifiers do not (§3.2) |
-| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **no** | **REFUSED** — it is also a live toggle (§4.1), and the engine derives category from type (§3.3) |
+| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **partially** — bridge can express both behaviors via `move.overrides.category`, but DualDex does not yet consume `optionStyle` to choose the correct live rule | **REFUSED** — it is a live toggle (§4.1), and `optionStyle` is not yet consumed to select between per-move category override and type-derived category |
+
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **no** | **DOES NOT MATCH** — the generation III chart resists Ghost and Dark with Steel and has no Fairy (§3.1) |
-| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **no** — the bridge forwards a name and the library resolves it against its own tables (§3.3) | **IDENTITY ONLY** — the name is proven to belong to this build (1427 species; ambiguous form names refused, §5), but the engine computes from its own record, so this is *not* consumption of the H&S record |
-| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **no** — same name-resolution path as row 4 | **IDENTITY ONLY** — 934 moves proven to belong to this build, but power/type/category are read from the library's own generation III table, which derives category from **type** (`.../src/move.ts:129`) |
+| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `@smogon/calc` constructor (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C (§3.1, §9) |
+| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C (§3.1, §9) |
+
 | 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **no** | **REFUSED** — the ADV pipeline models only its Gen III list and silently ignores the rest (§6) |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **no** | **REFUSED** — item identity is not authoritative and the percentages differ (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **SUPPORTED** as a boolean crit (`isCrit`), which is what the request shape carries |
@@ -126,17 +129,19 @@ The matrix in §2 uses these distinctions, and any future H&S work must keep the
 
 1. **Identity exists in pinned H&S data.** `HeartAndSoul205DataPack` can name species 1433 and move
    847, and `CalcRequestBoundary` proves a name belongs to the build.
-2. **The calculator consumes that H&S record.** It does **not**. The bridge passes a *name*:
-   `new Pokemon(gen, input.attacker.species, ...)` and `new Move(gen, input.move.name, ...)`
-   (`tools/calc-bundler/entry.js:60`, `:78`), and the library resolves it against **its own**
-   generation tables. `@smogon/calc` 0.11.0 exposes an `overrides` escape hatch on both
-   (`.../src/pokemon.ts:53`, `.../src/move.ts:58`) but `entry.js` never forwards it, so no H&S
-   base-stat, typing or move-property data reaches the engine.
+2. **The calculator consumes that H&S record.** The plumbing gap (Gap B) is now closed:
+   `CalcDataOverrides` extracts authoritative base stats, types, base power, type, and category
+   from `HeartAndSoul205DataPack`, serializes them as `overrides` on `attacker`, `defender`, and
+   `move`, and `tools/calc-bundler/entry.js` strictly validates and passes them to `@smogon/calc`'s
+   `Pokemon` and `Move` constructors (`options.overrides`).
 3. **The calculator reproduces the H&S mechanic.** It does so only where §3.2 says "matches".
 
-**A resolving name is therefore evidence of (1) alone.** It says the request names content this build
-has; it does not say the number was computed from that content. §2 rows 4 and 5 are labelled
-*identity only* for this reason.
+**Consuming the record (2) does not imply reproducing the mechanic (3).** Even though the engine now
+receives authoritative H&S base stats and move properties, H&S calculations remain **refused**
+because Gap C remains open: the generation III type chart lacks Fairy and disagrees on Steel
+resistances (§3.1), abilities and items differ (§6, §7), and runtime challenge settings rule toggles
+(Gap A) are unconsumed by the calculator.
+
 
 ### 3.4 Vanilla Gen III verified set
 
@@ -350,35 +355,55 @@ verdict (issue #9, live-battler slice; see §14 of the compatibility evidence):
   `gBattleMons[battler].ability` and can be named against the pinned PR #54 catalogue;
 * the battler's **current effective types** are observed from the same live battle state.
 
-These close part of the “what would the battler's inputs even be?” question, but nothing consumes
-them yet: `ABILITY` remains in `CalcInputPreparation.unknownFields`, no species/move/type override
-is forwarded (Gap B), and no ability is promoted to modelled because its catalogue name resolves
+These close part of the “what would the battler's inputs even be?” question, but nothing wires
+them to live battle state yet: `ABILITY` remains in `CalcInputPreparation.unknownFields`, live
+effective types are not yet mapped to species overrides (authoritative static pack overrides are now
+forwarded in Gap B below), and no ability is promoted to modelled because its catalogue name resolves
 (§6). Naming an observed ID is identity bookkeeping, not mechanic support.
 
-### Gap B — the engine does not consume H&S data
 
-The bridge resolves names against the library's own tables (§3.3). Closing this means forwarding
-`overrides` through `tools/calc-bundler/entry.js` for the species, move, type and base-stat values
-the pinned pack already holds — `@smogon/calc` 0.11.0 supports it (`.../src/pokemon.ts:53`,
-`.../src/move.ts:58`); the bridge simply never passes it. This is a prerequisite for any H&S number,
-not a refinement: without it a "supported" H&S calculation would be computed from generation III
-records.
+### Gap B — the engine does not consume H&S data (CLOSED)
 
-Note the second-order consequence for `gen`: because the library derives a damaging move's category
-from its **type** below generation 4 (`.../src/move.ts:129`), forwarding H&S move data while sending
-`gen: 3` would give H&S's per-move categories the wrong answer. Gap B and the `gen` choice are
-therefore coupled, and neither can be settled before Gap C.
+**Update (issue #9, Gap B slice):** The data-consumption plumbing gap is now closed.
+DualDex extracts authoritative species base stats and types, as well as move base power, type,
+and category, from `HeartAndSoul205DataPack` via `CalcDataOverrides.kt`. When an H&S request passes
+through `CalcRequestBoundary`, it is enriched with `attackerOverride`, `defenderOverride`, and
+`moveOverride`. `DamageCalculator.kt` serializes these under `overrides` in the QuickJS JSON payload.
+
+In `tools/calc-bundler/entry.js`, strict runtime validation (`validateSpeciesOverrides`,
+`validateMoveOverrides`) verifies that stats, types, basePower, and category match schema constraints,
+and passes them to `@smogon/calc`'s `Pokemon` and `Move` constructors (`options.overrides`).
+The host QuickJS native test suite (`native/tests/test_js_calc.c:check_gap_b_data_overrides`)
+asserts that overrides modify damage arithmetic, type effectiveness, and stat scaling.
+
+**Category behavior under Gen 3:**
+In `@smogon/calc` 0.11.0, `Move` stores `options.overrides.category`. When `category` is explicitly
+provided in `overrides`, the Gen 3 ADV pipeline (`calculateADV`) uses `move.category` to select
+`atk`/`def` vs `spa`/`spd`. When `category` is omitted from `overrides`, it falls back to Gen 3
+type-based category derivation (`SPECIAL.includes(data.type)`).
+
+**Why H&S calculations remain refused:**
+Gap B closes the **data-consumption plumbing** only. H&S calculations remain strictly **refused**
+(`UNSUPPORTED`) because Gap C remains open:
+- The Gen 3 type chart lacks Fairy (`gen.types.get('Fairy')` is undefined in Gen 3, crashing on
+  moves and producing `NaN` rolls against Fairy defenders).
+- Steel resists Ghost and Dark in Gen 3 (`STL_RS` in H&S is neutral).
+- Modern abilities and items remain unmodelled by the Gen 3 pipeline.
+- Challenge settings rule toggles (Gap A) are not consumed by the calculator.
 
 ### Gap C — the calculator does not reproduce H&S mechanics
 
-Per §3.2: the type chart disagrees today (Ghost/Dark → Steel), and abilities, items, the category
-rule, terrain, badge boost and modern side conditions all differ. Each needs either a positive
-demonstration like the crit and spread constants have, or an explicit "not modelled" limitation.
+Per §3.2: the type chart disagrees today (Ghost/Dark → Steel; Fairy absent), and abilities, items,
+the category rule, terrain, badge boost and modern side conditions all differ. Each needs either a
+positive demonstration like the crit and spread constants have, or an explicit "not modelled"
+limitation.
 
 ### Then, concretely
 
 1. Close Gap A; replace the four blocking limitations with conditional ones.
-2. Close Gap B; add `gen`-selection evidence from Gap C rather than assuming.
-3. Add golden fixtures for H&S calculations whose inputs are covered, verified against known in-game
+2. Gap B is CLOSED: authoritative H&S data is consumed via `overrides`.
+3. Close Gap C: resolve generation / type chart compatibility (e.g. handling Fairy and modern Steel
+   interactions), ability/item mechanics, and category rule selection based on `optionStyle`.
+4. Add golden fixtures for H&S calculations whose inputs are covered, verified against known in-game
    or upstream results. Only calculations that survive all three gaps may reach `ESTIMATED`, and
    `VERIFIED` stays out of reach while the §4.2 fields are unread.

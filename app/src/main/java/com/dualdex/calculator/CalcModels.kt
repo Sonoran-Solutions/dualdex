@@ -71,6 +71,17 @@ data class CalcFieldInput(
     val defenderSide: SideConditions? = null
 )
 
+data class CalcSpeciesOverride(
+    val baseStats: StatBlock,
+    val types: List<String>
+)
+
+data class CalcMoveOverride(
+    val basePower: Int,
+    val type: String,
+    val category: String? = null
+)
+
 data class DamageCalculationRequest(
     val gen: Int = 3,
     val attacker: CalcPokemonInput,
@@ -84,7 +95,10 @@ data class DamageCalculationRequest(
      *
      * Defaults to empty for callers that assert complete values.
      */
-    val preparationLimitations: List<CalcLimitation> = emptyList()
+    val preparationLimitations: List<CalcLimitation> = emptyList(),
+    val attackerOverride: CalcSpeciesOverride? = null,
+    val defenderOverride: CalcSpeciesOverride? = null,
+    val moveOverride: CalcMoveOverride? = null
 )
 
 data class DamageCalculationResponse(

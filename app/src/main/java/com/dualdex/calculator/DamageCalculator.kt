@@ -144,6 +144,19 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("spe", b.spe)
                 })
             }
+            request.attackerOverride?.let { override ->
+                put("overrides", JSONObject().apply {
+                    put("types", JSONArray(override.types))
+                    put("baseStats", JSONObject().apply {
+                        put("hp", override.baseStats.hp)
+                        put("atk", override.baseStats.atk)
+                        put("def", override.baseStats.def)
+                        put("spa", override.baseStats.spa)
+                        put("spd", override.baseStats.spd)
+                        put("spe", override.baseStats.spe)
+                    })
+                })
+            }
         }
         put("attacker", atkObj)
 
@@ -185,6 +198,19 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("spe", b.spe)
                 })
             }
+            request.defenderOverride?.let { override ->
+                put("overrides", JSONObject().apply {
+                    put("types", JSONArray(override.types))
+                    put("baseStats", JSONObject().apply {
+                        put("hp", override.baseStats.hp)
+                        put("atk", override.baseStats.atk)
+                        put("def", override.baseStats.def)
+                        put("spa", override.baseStats.spa)
+                        put("spd", override.baseStats.spd)
+                        put("spe", override.baseStats.spe)
+                    })
+                })
+            }
         }
         put("defender", defObj)
 
@@ -192,6 +218,13 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
         val moveObj = JSONObject().apply {
             put("name", request.move.name)
             put("isCrit", request.move.isCrit)
+            request.moveOverride?.let { override ->
+                put("overrides", JSONObject().apply {
+                    put("basePower", override.basePower)
+                    put("type", override.type)
+                    override.category?.let { put("category", it) }
+                })
+            }
         }
         put("move", moveObj)
 

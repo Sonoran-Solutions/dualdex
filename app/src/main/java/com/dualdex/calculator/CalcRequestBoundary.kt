@@ -115,10 +115,11 @@ object CalcRequestBoundary {
         request: DamageCalculationRequest,
         liveReadHint: Boolean
     ): CalcRequestOutcome {
+        val enriched = CalcDataOverrides.enrichRequest(profile, request)
         // Live provenance is a property of the request. The hint may add it, never remove it.
-        val isLiveRead = liveReadHint || request.isFromLiveRead()
+        val isLiveRead = liveReadHint || enriched.isFromLiveRead()
 
-        val base = CalcCapabilityPolicy.evaluate(profile, trust, request)
+        val base = CalcCapabilityPolicy.evaluate(profile, trust, enriched)
 
         if (!isLiveRead) {
             val authorised = base.request ?: return CalcRequestOutcome.Refused(base)

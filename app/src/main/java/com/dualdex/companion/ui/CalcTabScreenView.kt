@@ -597,7 +597,25 @@ class CalcTabScreenView(
             )
         )
 
-        val res = DamageCalculator.calculate(req)
+        // The production boundary decides whether this request may run at all, and what the number
+        // it produces is worth. It is the same decision the engine gate uses, so this screen cannot
+        // present a confident result that the policy refused.
+        val outcome = CalcRequestBoundary.build(
+            profile = viewModel.activeProfile.value,
+            trust = viewModel.runtimeRomTrust.value,
+            request = req,
+            inputsFromLiveRead = attacker != null || enemyMon != null
+        )
+
+        val authorised = outcome as? CalcRequestOutcome.Ready ?: run {
+            val verdict = (outcome as CalcRequestOutcome.Refused).verdict
+            resultTextView.text = CalcResultPresentation.forVerdict(verdict).headline
+            return
+        }
+
+        val res = DamageCalculator.calculate(authorised.request)
+        val presentation = CalcResultPresentation.forVerdict(authorised.verdict)
+
         if (res.success) {
             val rangeStr = if (res.range.isNotEmpty()) "${res.minDamage} - ${res.maxDamage} HP" else "N/A"
             val rollsStr = res.range.joinToString(", ")
@@ -605,7 +623,8 @@ class CalcTabScreenView(
             val critText = if (isCrit) " [Critical Hit!]" else ""
             val weatherText = if (currentWeather != null) " [Weather: $currentWeather]" else ""
 
-            resultTextView.text = "${res.desc}$critText$weatherText\n\n" +
+            resultTextView.text = "${presentation.headline}\n\n" +
+                    "${res.desc}$critText$weatherText\n\n" +
                     "Damage Range: $rangeStr\n" +
                     "Move: ${res.moveName} (${res.moveType} ${res.moveCategory}, ${res.movePower} Power)\n" +
                     "Defender Max HP: ${res.defenderMaxHP} HP$koText\n\n" +

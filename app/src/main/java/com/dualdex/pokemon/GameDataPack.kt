@@ -28,6 +28,18 @@ interface GameDataPack {
     fun getMove(id: Int): MoveInfo?
     fun getEffectiveness(attackType: PokemonType, defType: PokemonType): Double
 
+    /**
+     * Authoritative name -> entry lookups.
+     *
+     * The damage-calculator bridge selects content by name, so a caller must be able to prove that
+     * a name belongs to *this* build before sending a request. Resolving against a shared
+     * later-generation dex instead silently computes a number from another game's base stats,
+     * typing, or base power. Packs that do not override these fall back to the shared databases,
+     * which is only sound for packs whose data those databases already describe.
+     */
+    fun getSpeciesByName(name: String): SpeciesInfo? = SpeciesDatabase.getByName(name, this)
+    fun getMoveByName(name: String): MoveInfo? = MoveDatabase.getByName(name, this)
+
     /** True only when this pack has an explicitly verified value for the entry. */
     fun isSpeciesAuthoritative(id: Int): Boolean = false
 
@@ -189,6 +201,17 @@ class ProfileOverlayDataPack(
 
     override fun getMove(id: Int): MoveInfo? = basePack.getMove(id)
 
+    override fun getSpeciesByName(name: String): SpeciesInfo? {
+        // A custom species name must resolve to the overlay entry, not to whatever the base pack
+        // holds under the same name.
+        val trimmed = name.trim().lowercase()
+        convertedSpecies.entries.firstOrNull { it.value.name.lowercase() == trimmed }
+            ?.let { return it.value }
+        return basePack.getSpeciesByName(name)
+    }
+
+    override fun getMoveByName(name: String): MoveInfo? = basePack.getMoveByName(name)
+
     override fun getEffectiveness(attackType: PokemonType, defType: PokemonType): Double =
         basePack.getEffectiveness(attackType, defType)
 
@@ -286,3 +309,19 @@ fun GameDataPack.resolveMove(id: Int): MoveInfo {
         pp = 0
     )
 }
+
+/**
+ * True only when [name] resolves to real content for this pack.
+ *
+ * Mirrors [resolveSpecies]: the pack's own index is authoritative, and the shared databases are
+ * consulted only while [GameDataPack.allowGlobalFallback] allows it. A build that blocks global
+ * fallback (an exact version-pinned pack) therefore answers this from its own pinned data alone,
+ * which is what lets a caller refuse a name the engine would otherwise resolve against records
+ * from another game.
+ */
+fun GameDataPack.hasSpeciesByName(name: String): Boolean =
+    getSpeciesByName(name) != null || (allowGlobalFallback && SpeciesDatabase.getByName(name) != null)
+
+/** True only when [name] resolves to real content for this pack. See [hasSpeciesByName]. */
+fun GameDataPack.hasMoveByName(name: String): Boolean =
+    getMoveByName(name) != null || (allowGlobalFallback && MoveDatabase.getByName(name) != null)

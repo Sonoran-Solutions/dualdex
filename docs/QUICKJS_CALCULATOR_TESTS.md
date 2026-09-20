@@ -74,6 +74,9 @@ partially accepting it, and it is what lets the suite assert typed values
 | `gen3_reflect_physical_singles` | singles Reflect is ×1/2 |
 | `gen3_reflect_doubles_uses_two_thirds` | doubles screens are ×2/3: format-dependent |
 | `gen3_light_screen_special_singles` | singles Light Screen is ×1/2 |
+| `gen3_crit_doubles_the_attack_form` | the Crit checkbox path: Generation III crits are ×2 |
+| `gen3_explicit_guts_boosts_a_statused_attacker` | a whitelisted ability must reach the pipeline |
+| `gen3_unmodelled_ability_is_silently_ignored` | the silent-degradation path the policy gates |
 | `gen8_generic_engine_smoke` | generic modern-generation coverage (not H&S) |
 | `invalid_json_input`, `unknown_species`, `unknown_move` | error contract |
 
@@ -240,3 +243,24 @@ input contract and vanilla Gen III rules. It does **not** establish H&S 2.0.5
 compatibility: those fixtures need the hack's own species/move/item data and
 belong to issue #9. `gen8_generic_engine_smoke` is generic engine coverage, not
 H&S coverage.
+
+## Which ruleset is sent, and why (`gen` is not a default)
+
+`CalcCapabilityPolicy` decides the `gen` value that
+`app/src/main/java/com/dualdex/calculator/CalcRequestBoundary.kt` authorises, and
+`CalcCapabilityPolicyTest` asserts it. Two of these fixtures exist specifically to
+pin that decision and the silent-degradation path around it:
+
+- `gen3_crit_doubles_the_attack_form` pins the ×2 critical-hit multiplier. Heart
+  & Soul 2.0.5 deliberately keeps this at its Generation III value
+  (`B_CRIT_MULTIPLIER == GEN_3` in the pinned upstream source), so the modern
+  pipeline's ×1.5 would understate every critical hit in both supported builds.
+- `gen3_unmodelled_ability_is_silently_ignored` is a deliberate negative
+  fixture: an ability the ADV pipeline does not model returns an unmodified
+  number with no error. That is why `CalcCapabilityPolicy` carries an explicit
+  ability whitelist instead of passing ability names through, and why anything
+  outside it is refused or downgraded rather than reported as verified.
+
+The full ruleset decision, the per-mechanic capability matrix for H&S 2.0.5, and
+the reason the ADV pipeline is the right arithmetic for a Gen 9-configured hack
+are documented in [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md).

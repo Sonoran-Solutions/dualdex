@@ -64,7 +64,8 @@ object DamageCalculator {
             attackerName = resObj.optString("attackerName", ""),
             defenderName = resObj.optString("defenderName", ""),
             defenderMaxHP = resObj.optInt("defenderMaxHP", 0),
-            koChanceText = resObj.optString("koChanceText", "")
+            koChanceText = resObj.optString("koChanceText", ""),
+            effectiveness = if (resObj.has("effectiveness")) resObj.optDouble("effectiveness") else null
         )
     }
 
@@ -105,6 +106,7 @@ object DamageCalculator {
 internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
     JSONObject().apply {
         put("gen", request.gen)
+        request.typeSystem?.let { put("typeSystem", it) }
 
         // Attacker
         val atkObj = JSONObject().apply {

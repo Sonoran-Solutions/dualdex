@@ -100,6 +100,7 @@ data class CalcHnsRuntimeRules(
 
 data class DamageCalculationRequest(
     val gen: Int = 3,
+    val typeSystem: String? = null,
     val attacker: CalcPokemonInput,
     val defender: CalcPokemonInput,
     val move: CalcMoveInput,
@@ -132,5 +133,6 @@ data class DamageCalculationResponse(
     val defenderName: String = "",
     val defenderMaxHP: Int = 0,
     val koChanceText: String = "",
+    val effectiveness: Double? = null,
     val error: String? = null
 )

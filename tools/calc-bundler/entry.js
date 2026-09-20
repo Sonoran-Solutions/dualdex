@@ -133,13 +133,66 @@ function validateMoveOverrides(raw) {
   return result;
 }
 
+import HNS_TYPE_CHART from './hns_type_chart.json';
+
+function toID(text) {
+  return ('' + text).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+class HnsType {
+  constructor(name, effectiveness) {
+    this.kind = 'Type';
+    this.id = toID(name);
+    this.name = name;
+    this.effectiveness = effectiveness;
+  }
+}
+
+const HNS_TYPES_BY_ID = {};
+for (const typeName of Object.keys(HNS_TYPE_CHART)) {
+  const t = new HnsType(typeName, HNS_TYPE_CHART[typeName]);
+  HNS_TYPES_BY_ID[t.id] = t;
+}
+
+const HNS_TYPES_PROVIDER = {
+  get(id) {
+    return HNS_TYPES_BY_ID[id];
+  },
+  *[Symbol.iterator]() {
+    for (const id in HNS_TYPES_BY_ID) {
+      yield HNS_TYPES_BY_ID[id];
+    }
+  }
+};
+
+function createHnsGeneration(baseGen) {
+  return {
+    num: 3,
+    abilities: baseGen.abilities,
+    items: baseGen.items,
+    moves: baseGen.moves,
+    species: baseGen.species,
+    natures: baseGen.natures,
+    types: HNS_TYPES_PROVIDER,
+  };
+}
+
 // Global API attached to globalThis for QuickJS / headless engine
 globalThis.DualDexCalc = {
   calculateDamage: function(inputJsonStr) {
     try {
       const input = typeof inputJsonStr === 'string' ? JSON.parse(inputJsonStr) : inputJsonStr;
       const genNum = input.gen || 3;
-      const gen = Generations.get(genNum);
+      const baseGen = Generations.get(genNum);
+
+      let gen = baseGen;
+      if (input.typeSystem !== undefined && input.typeSystem !== null) {
+        if (input.typeSystem === 'hns_2_0_5') {
+          gen = createHnsGeneration(baseGen);
+        } else {
+          throw new Error('Unsupported typeSystem: ' + JSON.stringify(input.typeSystem));
+        }
+      }
 
       const attackerOptions = {
         level: input.attacker.level || 50
@@ -186,12 +239,14 @@ globalThis.DualDexCalc = {
 
       const rawMoveOverrides = input.move?.overrides || input.moveOverride;
       const moveOverrides = validateMoveOverrides(rawMoveOverrides);
+      if (input.typeSystem === 'hns_2_0_5' && moveOverrides && moveOverrides.category === undefined && moveOverrides.type === 'Fairy') {
+        moveOverrides.category = 'Special';
+      }
       if (moveOverrides) {
         moveOptions.overrides = moveOverrides;
       }
 
       const move = new Move(gen, input.move.name, moveOptions);
-
 
       const fieldOptions = {
         gameType: normalizeGameType(input.field?.gameType)
@@ -207,8 +262,29 @@ globalThis.DualDexCalc = {
       const damageArray = Array.isArray(result.damage) ? result.damage : [result.damage];
       const minDmg = damageArray[0] || 0;
       const maxDmg = damageArray[damageArray.length - 1] || 0;
+      const isImmune = maxDmg === 0;
       const range = result.range ? result.range() : [minDmg, maxDmg];
-      const ko = result.koChance ? result.koChance() : null;
+      const ko = (!isImmune && result.kochance) ? result.kochance(false) : null;
+      let descStr = '';
+      if (isImmune) {
+        descStr = attacker.name + ' ' + move.name + ' vs. ' + defender.name + ': 0-0 (0 - 0%)';
+      } else {
+        try {
+          descStr = result.fullDesc ? result.fullDesc('%', false) : (result.desc ? result.desc() : '');
+        } catch (e) {
+          descStr = '';
+        }
+      }
+
+      let typeEffectiveness = 1;
+      const moveTypeRecord = gen.types.get(toID(move.type));
+      if (moveTypeRecord && defender.types) {
+        for (const defType of defender.types) {
+          if (defType && moveTypeRecord.effectiveness[defType] !== undefined) {
+            typeEffectiveness *= moveTypeRecord.effectiveness[defType];
+          }
+        }
+      }
 
       return JSON.stringify({
         success: true,
@@ -216,7 +292,7 @@ globalThis.DualDexCalc = {
         minDamage: minDmg,
         maxDamage: maxDmg,
         range: range,
-        desc: result.desc ? result.desc() : "",
+        desc: descStr,
         moveName: move.name,
         moveCategory: move.category,
         moveType: move.type,
@@ -226,7 +302,8 @@ globalThis.DualDexCalc = {
         defenderName: defender.name,
         defenderTypes: defender.types,
         defenderMaxHP: defender.maxHP(),
-        koChanceText: ko ? ko.text : ""
+        koChanceText: ko ? ko.text : "",
+        effectiveness: typeEffectiveness
       });
     } catch (e) {
       return JSON.stringify({

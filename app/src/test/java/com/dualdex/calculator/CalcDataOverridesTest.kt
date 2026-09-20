@@ -494,4 +494,46 @@ class CalcDataOverridesTest {
         val jsonWithout = JSONObject(buildCalcRequestJson(reqWithout))
         assertFalse(jsonWithout.has("typeSystem"))
     }
+
+    @Test
+    fun `Charm status move retains Status category under TYPE_BASED with Fairy ON and Fairy OFF`() {
+        val req = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Clefable"),
+            defender = CalcPokemonInput(species = "Swampert"),
+            move = CalcMoveInput(name = "Charm")
+        )
+
+        // Case 1: Fairy ON + TYPE_BASED -> Fairy type, Status category retained (Status wins before optionStyle)
+        val rulesFairyOnTypeBased = CalcHnsRuntimeRules(
+            optionStyle = HnsOptionStyle.TYPE_BASED,
+            fairyTypesEnabled = true
+        )
+        val enrichedOnTb = CalcDataOverrides.enrichRequest(hnsProfile, req, rulesFairyOnTypeBased)
+        assertNotNull(enrichedOnTb.moveOverride)
+        assertEquals("Fairy", enrichedOnTb.moveOverride!!.type)
+        assertEquals("Status", enrichedOnTb.moveOverride!!.category)
+        assertEquals(0, enrichedOnTb.moveOverride!!.basePower)
+
+        // Case 2: Fairy OFF + TYPE_BASED -> Normal type, Status category retained (not converted to Physical)
+        val rulesFairyOffTypeBased = CalcHnsRuntimeRules(
+            optionStyle = HnsOptionStyle.TYPE_BASED,
+            fairyTypesEnabled = false
+        )
+        val enrichedOffTb = CalcDataOverrides.enrichRequest(hnsProfile, req, rulesFairyOffTypeBased)
+        assertNotNull(enrichedOffTb.moveOverride)
+        assertEquals("Normal", enrichedOffTb.moveOverride!!.type)
+        assertEquals("Status", enrichedOffTb.moveOverride!!.category)
+        assertEquals(0, enrichedOffTb.moveOverride!!.basePower)
+
+        // Case 3: PER_MOVE_SPLIT control -> Fairy type, Status category retained
+        val rulesSplit = CalcHnsRuntimeRules(
+            optionStyle = HnsOptionStyle.PER_MOVE_SPLIT,
+            fairyTypesEnabled = true
+        )
+        val enrichedSplit = CalcDataOverrides.enrichRequest(hnsProfile, req, rulesSplit)
+        assertNotNull(enrichedSplit.moveOverride)
+        assertEquals("Fairy", enrichedSplit.moveOverride!!.type)
+        assertEquals("Status", enrichedSplit.moveOverride!!.category)
+        assertEquals(0, enrichedSplit.moveOverride!!.basePower)
+    }
 }

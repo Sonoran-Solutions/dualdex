@@ -2356,14 +2356,38 @@ In `tools/calc-bundler/entry.js`:
 - `@smogon/calc` ADV arithmetic (`gen.num == 3`) runs unchanged; type effectiveness is resolved from the custom provider without modifying global library tables or changing generations.
 - If `typeSystem` is omitted or null, standard Gen 3 tables apply.
 
-### 15.3 Move Category Coupling
+### 15.3 Move Category Coupling and Status Move Invariant
 
-- Under `optionStyle == 0` (`PER_MOVE_SPLIT`), `CalcDataOverrides` retains the move's explicit category (`category = "Special" / "Physical"`).
-- Under `optionStyle == 1` (`TYPE_BASED`), `CalcDataOverrides` sets `category = null`.
-  - If Fairy is ON, Moonblast defaults to `Special` in H&S.
-  - If Fairy is OFF, Moonblast retypes to Dark (Special), Dazzling Gleam retypes to Normal (Physical), and Spirit Break retypes to Fighting (Physical).
+In H&S `GetBattleMoveCategory()` (`src/battle_util.c:9183`):
+```c
+if (IsBattleMoveStatus(move))
+    return DAMAGE_CATEGORY_STATUS;
 
-### 15.4 Verification Evidence
+if (B_PHYSICAL_SPECIAL_SPLIT < GEN_4 ||
+    gSaveBlock3Ptr->challengeSettings.optionStyle == 1)
+    return gTypesInfo[GetBattleMoveType(move)].damageCategory;
+
+return GetMoveCategory(move);
+```
+**Status wins before `optionStyle`**. Under `optionStyle == 1` (`TYPE_BASED`), only non-status moves derive damage category from the effective move type.
+
+DualDex models this invariant faithfully:
+- In `CalcDataOverrides.kt`:
+  - If a move is Status (e.g. Charm, Fairy / Status / 0 BP), `category = "Status"` is **retained** under both `PER_MOVE_SPLIT` and `TYPE_BASED`.
+  - Non-status moves under `TYPE_BASED` have `category = null`, triggering type-based Physical/Special derivation.
+- In `tools/calc-bundler/entry.js`:
+  - When `typeSystem === 'hns_2_0_5'` and `overrides.type === 'Fairy'` with category omitted, `category = 'Special'` is applied only for damaging moves (`!isBaseStatus`).
+- Verified for Charm across Fairy ON, Fairy OFF, and PER_MOVE_SPLIT in both `CalcDataOverridesTest.kt` and `test_js_calc.c`.
+
+### 15.4 Policy Invariant: Request TypeSystem Requirement
+
+`CalcCapabilityPolicy.kt` evaluates `typeChartModelled` to conditionally clear `HNS_TYPE_CHART_NOT_MODELLED`. To prevent latent promotion bugs, the policy strictly requires:
+```kotlin
+request.typeSystem == "hns_2_0_5"
+```
+If the evaluated request is missing `typeSystem` or supplies any other value, `HNS_TYPE_CHART_NOT_MODELLED` remains active, even if exact trust and challenge rules are observed (tested in `CalcCapabilityPolicyTest` test 15).
+
+### 15.5 Verification Evidence
 
 - `native/tests/test_js_calc.c:check_gap_c1_type_system`:
   - Ghost -> Steel: ADV = 20..24 (eff 0.5) vs H&S = 41..49 (eff 1.0).
@@ -2371,9 +2395,18 @@ In `tools/calc-bundler/entry.js`:
   - Fairy -> Dragon/Flying: Clefable Moonblast vs Dragonite = 107..126 (eff 2.0).
   - Dragon -> Fairy immunity: Dragonite Dragon Claw vs Clefable = 0..0 (eff 0.0).
   - OptionStyle category coupling: Dazzling Gleam Special 48..57 vs Physical 38..45.
+  - Charm status preservation: Charm Fairy ON = Status (0 dmg), Charm Fairy OFF = Status (0 dmg, Normal), Charm no-category = Status (0 dmg).
   - Request isolation: H&S -> ADV -> H&S -> ADV (zero table mutation).
   - Unsupported typeSystem returns `success: false`.
 - CI contract updated:
-  - `./ci.sh test` includes `test_generate_hns_type_system.py` unit tests and QuickJS suite.
+  - `./ci.sh test` includes `test_generate_hns_type_system.py` unit tests and QuickJS suite (1887 checks).
   - `./ci.sh source-check` includes `generate_hns_type_system.py --verify`.
-- Semantic mutation: mutating `moonblast` alternate type in `HnsFairyTypeMappings.kt` caused `test_fairy_move_alt_mappings` to fail immediately. Reverting restored 100% pass.
+- **Behavioral Semantic Mutation Control:**
+  - Mutated Ghost -> Steel in `hns_type_chart.json` from `1.0` to `0.5` and rebuilt bundle.
+  - Executed `./ci.sh test`: `gap_c1_ghost_steel_matchup` and `gap_c1_request_isolation` failed immediately with 5 failed assertions:
+    - `[FAIL] gap_c1_ghost_steel_matchup / H&S effectiveness is 1.0: expected 1.0000, got 0.5000`
+    - `[FAIL] gap_c1_ghost_steel_matchup / H&S minDamage is 41: expected 41, got 20`
+    - `[FAIL] gap_c1_ghost_steel_matchup / H&S maxDamage is 49: expected 49, got 24`
+    - `[FAIL] gap_c1_request_isolation / run 1 H&S minDamage: expected 41, got 20`
+    - `[FAIL] gap_c1_request_isolation / run 3 H&S minDamage: expected 41, got 20`
+  - Restoring `1.0` and rebuilding bundle restored 100% passing results (1887 passed, 0 failed).

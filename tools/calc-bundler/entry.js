@@ -239,7 +239,9 @@ globalThis.DualDexCalc = {
 
       const rawMoveOverrides = input.move?.overrides || input.moveOverride;
       const moveOverrides = validateMoveOverrides(rawMoveOverrides);
-      if (input.typeSystem === 'hns_2_0_5' && moveOverrides && moveOverrides.category === undefined && moveOverrides.type === 'Fairy') {
+      const baseMove = gen.moves.get(toID(input.move.name));
+      const isBaseStatus = baseMove && baseMove.category === 'Status';
+      if (input.typeSystem === 'hns_2_0_5' && moveOverrides && moveOverrides.category === undefined && moveOverrides.type === 'Fairy' && !isBaseStatus) {
         moveOverrides.category = 'Special';
       }
       if (moveOverrides) {

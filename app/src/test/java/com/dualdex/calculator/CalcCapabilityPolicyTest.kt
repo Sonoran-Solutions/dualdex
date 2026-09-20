@@ -1821,4 +1821,44 @@ class CalcCapabilityPolicyTest {
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED))
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
     }
+
+    @Test
+    fun `15 Gap C1 exact HnS request with missing or wrong typeSystem retains HNS_TYPE_CHART_NOT_MODELLED`() {
+        val (profile, trust) = exactHnsProfile()
+        val rules = CalcHnsRuntimeRules(
+            optionStyle = HnsOptionStyle.PER_MOVE_SPLIT,
+            fairyTypesEnabled = true,
+            randomTypesEnabled = false,
+            randomTypeEffectivenessEnabled = false
+        )
+        val baseReq = request(
+            attacker = CalcPokemonInput(species = "Charizard", level = 50),
+            defender = CalcPokemonInput(species = "Blastoise", level = 50),
+            move = CalcMoveInput(name = "Flamethrower")
+        ).copy(hnsRuntimeRules = rules)
+
+        // Case A: typeSystem is null
+        val reqNullTypeSystem = baseReq.copy(typeSystem = null)
+        val verdictNull = CalcCapabilityPolicy.evaluate(profile, trust, reqNullTypeSystem)
+        assertTrue(
+            "missing typeSystem must retain HNS_TYPE_CHART_NOT_MODELLED",
+            verdictNull.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED)
+        )
+
+        // Case B: typeSystem is wrong / arbitrary string
+        val reqWrongTypeSystem = baseReq.copy(typeSystem = "wrong_system")
+        val verdictWrong = CalcCapabilityPolicy.evaluate(profile, trust, reqWrongTypeSystem)
+        assertTrue(
+            "wrong typeSystem must retain HNS_TYPE_CHART_NOT_MODELLED",
+            verdictWrong.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED)
+        )
+
+        // Case C: typeSystem is correctly "hns_2_0_5"
+        val reqCorrectTypeSystem = baseReq.copy(typeSystem = "hns_2_0_5")
+        val verdictCorrect = CalcCapabilityPolicy.evaluate(profile, trust, reqCorrectTypeSystem)
+        assertFalse(
+            "correct typeSystem hns_2_0_5 clears HNS_TYPE_CHART_NOT_MODELLED",
+            verdictCorrect.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED)
+        )
+    }
 }

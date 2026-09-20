@@ -651,9 +651,11 @@ object CalcCapabilityPolicy {
 
             val typeChartModelled = exactTrusted &&
                 allRequiredObserved &&
-                rules?.randomTypesEnabled == false &&
-                rules?.randomTypeEffectivenessEnabled == false &&
-                !unrepresentable
+                rules != null &&
+                rules.randomTypesEnabled == false &&
+                rules.randomTypeEffectivenessEnabled == false &&
+                !unrepresentable &&
+                request.typeSystem == "hns_2_0_5"
 
             if (!typeChartModelled) {
                 limitations.add(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED)

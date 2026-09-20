@@ -52,10 +52,10 @@ existing request field reproduces this build's rule, not whether the current UI 
 | # | Mechanic / state | H&S 2.0.5 (pinned) | Bridge can express | Verdict |
 |---|---|---|---|---|
 | 1 | Damage formula | Generation III arithmetic with modern data | partially | **INDIVIDUALLY DEMONSTRATED ONLY** — the crit multiplier and spread reduction match; the chart, category rule and modifiers do not (§3.2) |
-| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for TYPE_BASED to trigger Gen 3 type derivation); `optionStyle` is consumed by `CalcRequestBoundary` | **PLUMBED / REFUSED** — `optionStyle` selects between explicit category override and type-derived category, but H&S calculations remain refused due to Gap C type-chart incompatibility (§3.1, §9) |
+| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for damaging moves in TYPE_BASED to trigger Gen 3 type derivation; Status moves retain Status in both); `optionStyle` is consumed by `CalcRequestBoundary` | **PLUMBED / REFUSED** — `optionStyle` selects category behavior with Status prioritized, but H&S calculations remain refused due to Gap C2 ability system incompatibility (§3.1, §9) |
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **SUPPORTED / REFUSED (GAP C1 CLOSED)** — type chart is exact and verified in QuickJS. H&S calculations remain refused due to Gap C2 (`HNS_ABILITY_SYSTEM_NOT_MODELLED`). (§3.1, §9) |
-| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `@smogon/calc` constructor (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C (§3.1, §9) |
-| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C (§3.1, §9) |
+| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `@smogon/calc` constructor (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C2 ability system incompatibility (§3.1, §9) |
+| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C2 ability system incompatibility (§3.1, §9) |
 | 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **no** | **REFUSED** — the ADV pipeline models only its Gen III list and silently ignores the rest (§6) |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **no** | **REFUSED** — item identity is not authoritative and the percentages differ (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **SUPPORTED** as a boolean crit (`isCrit`), which is what the request shape carries |
@@ -67,7 +67,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 14 | Badge boost | Active: player-side ×1.1 Atk/SpA/Def/SpD/Speed (`B_BADGE_BOOST GEN_3`) `[include/config/battle.h:30]`, `[src/battle_util.c:9135]` | **no** | **not modelled** — see §8 |
 | 15 | Move-specific mechanics (multi-hit, weight, fixed damage, Hidden Power, Return) | Modern | partially | **not modelled** beyond the ADV pipeline's own support (§8) |
 | 16 | Challenge settings that change stats | No EVs `[include/global.h:309]`, Base Stat Equalizer `[:304]`, trainer IV/EV scaling `[:312]`, Max Party IVs `[:314]`, Mirror `[:307]` | **no** | **REFUSED** (§4.2) |
-| 17 | Challenge settings that change the rule | `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness` | **partially** — `CalcRequestBoundary` consumes exact-trusted runtime snapshot into `CalcHnsRuntimeRules`; active randomizer and type-chart differences remain unmodelled | **CONSUMED / REFUSED** — runtime rules are known and unreadable blockers cleared when observed, but active unsupported rules and Gap C block calculation (§4.1, §9) |
+| 17 | Challenge settings that change the rule | `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness` | **yes** — `CalcRequestBoundary` consumes exact-trusted runtime snapshot into `CalcHnsRuntimeRules`; exact type chart and Fairy toggle modelled (Gap C1); active randomizers block | **CONSUMED / REFUSED** — runtime rules are known and unreadable blockers cleared when observed, but active unsupported rules and Gap C2 block calculation (§4.1, §9) |
 | 18 | Legendary ability overrides | `tx_Mode_Legendary_Abilities` default **ON**, substitutes abilities for slot 0 `[src/pokemon.c:5551]`, `[src/new_game.c:147]` | no | folds into row 6 |
 
 ---
@@ -104,10 +104,11 @@ Additionally, runtime Fairy toggle behavior (`tx_Mode_Fairy_Types`) is modelled:
 - When Fairy is ON (`fairyTypesEnabled == true`), species and moves retain their authoritative H&S Fairy typings.
 - When Fairy is OFF (`fairyTypesEnabled == false`), species retype according to upstream `sPreFairyTypes` (20 species)
   and moves retype according to `sFairyMoveAltTypes` (34 moves) via `HnsFairyTypeMappings.kt`.
-- Coupling with `optionStyle`: under `TYPE_BASED` (`optionStyle == 1`), the move's damage category is derived
-  from its effective (retyped) type (e.g. Moonblast -> Dark -> Special; Dazzling Gleam -> Normal -> Physical).
+- Coupling with `optionStyle`: under `TYPE_BASED` (`optionStyle == 1`), status moves retain `Status` (Status wins before
+  `optionStyle` in H&S `GetBattleMoveCategory`), while non-status moves derive damage category from their effective
+  (retyped) type (e.g. Moonblast -> Dark -> Special; Dazzling Gleam -> Normal -> Physical).
 - Host QuickJS tests in `native/tests/test_js_calc.c:check_gap_c1_type_system` verify Ghost/Dark -> Steel neutrality,
-  Fairy offensive 2x, Dragon -> Fairy 0x immunity, and request isolation.
+  Fairy offensive 2x, Dragon -> Fairy 0x immunity, Charm status category preservation, and request isolation.
 
 ### 3.2 What is demonstrated, and what is not
 
@@ -142,10 +143,10 @@ The matrix in §2 uses these distinctions, and any future H&S work must keep the
 3. **The calculator reproduces the H&S mechanic.** It does so only where §3.2 says "matches".
 
 **Consuming the record (2) does not imply reproducing the mechanic (3).** Even though the engine now
-receives authoritative H&S base stats and move properties, H&S calculations remain **refused**
-because Gap C remains open: the generation III type chart lacks Fairy and disagrees on Steel
-resistances (§3.1), abilities and items differ (§6, §7), and runtime challenge settings rule toggles
-(Gap A) are unconsumed by the calculator.
+receives authoritative H&S base stats, move properties, exact modern type chart matchups (Gap C1 closed),
+and consumed runtime challenge settings (Gap A closed), H&S calculations remain **refused**
+because the rest of Gap C remains open: the H&S ability system and items differ from the vanilla Gen 3
+pipeline (§6, §7), blocked fail-closed by `HNS_ABILITY_SYSTEM_NOT_MODELLED` (Gap C2).
 
 
 ### 3.4 Vanilla Gen III verified set
@@ -174,18 +175,20 @@ DualDex reads this struct at runtime — `pokemon_read_challenge_settings_gba` d
 and the runtime verification in `HNS_2_0_5_COMPATIBILITY_EVIDENCE.md` §13 observed live values (including a
 challenge-menu toggle flipping exactly `tx_Mode_Fairy_Types`).
 
-**Current status (Gap A closed):**
+**Current status (Gap A and Gap C1 closed):**
 - **Runtime settings are observed:** whenever the ROM is exactly trusted, the snapshot is delivered to
   calculator preparation.
 - **Four rule fields are now consumed:** `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, and
   `tx_Random_TypeEffectiveness` are mapped into `CalcHnsRuntimeRules` by `CalcRequestBoundary`.
 - **`optionStyle` selects category behavior:** raw 0 (`PER_MOVE_SPLIT`) retains boundary-owned move category
-  overrides, while raw 1 (`TYPE_BASED`) omits them to trigger type-based category derivation.
+  overrides. Raw 1 (`TYPE_BASED`) retains `Status` for status moves (Status wins before `optionStyle` in H&S),
+  while omitting category for damaging moves to trigger type-based category derivation.
 - **Randomizer activation is known:** observed raw 0 clears unreadable blockers; observed raw 1 blocks with
   explicit active-not-modelled limitations.
-- **Unsupported mechanics still block:** live battler abilities (observed via `gBattleMons`, PR #56) and
-  authoritative data overrides (PR #57) are plumbed, but the H&S type chart (Gap C) remains unmodelled,
-  so all H&S calculations remain refused (`CalcSupport.UNSUPPORTED`).
+- **Unsupported mechanics still block:** live battler abilities (observed via `gBattleMons`, PR #56),
+  authoritative data overrides (PR #57), runtime rules (PR #61), and the exact H&S type chart (Gap C1, PR #62)
+  are plumbed, but the H&S ability system (Gap C2) remains unmodelled, so all H&S calculations remain
+  refused (`CalcSupport.UNSUPPORTED`).
 
 Two properties make challenge settings decisive rather than a caveat:
 
@@ -396,13 +399,13 @@ and `snapshot.status == OBSERVED`), the boundary constructs `CalcHnsRuntimeRules
   limitations are cleared without introducing active-not-modelled blockers.
 - If observed ON (`tx_Random_Type == 1`, `tx_Random_TypeEffectiveness == 1`), calculation is blocked
   with `RANDOM_TYPES_ACTIVE_NOT_MODELLED` and/or `RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED`.
-- Because the H&S type chart (Fairy type, Steel neutral to Ghost/Dark) is not yet modelled in the
-  Gen 3 ADV pipeline, all H&S calculations remain blocked with `HNS_TYPE_CHART_NOT_MODELLED`.
+- With exact runtime settings observed, randomizers OFF, and representable types, the type chart is
+  modelled via `typeSystem: "hns_2_0_5"` (Gap C1 closed).
 
 **Why H&S calculations remain refused:**
-Gap A connects challenge rules to calculator requests and capability evaluation, but all H&S calculations
-remain strictly refused (`CalcSupport.UNSUPPORTED`) because Gap C remains open (type chart / mechanics
-incompatibility).
+Gap A connected challenge rules to calculator requests and capability evaluation, but all H&S calculations
+remain strictly refused (`CalcSupport.UNSUPPORTED`) because Gap C2 remains open (ability system /
+mechanics incompatibility, §9).
 
 Two further *input observability* facts now exist alongside Gap A, still without changing any
 verdict (issue #9, live-battler slice; see §14 of the compatibility evidence):
@@ -438,14 +441,11 @@ provided in `overrides`, the Gen 3 ADV pipeline (`calculateADV`) uses `move.cate
 `atk`/`def` vs `spa`/`spd`. When `category` is omitted from `overrides`, it falls back to Gen 3
 type-based category derivation (`SPECIAL.includes(data.type)`).
 
-**Why H&S calculations remain refused:**
-Gap B closes the **data-consumption plumbing** only. H&S calculations remain strictly **refused**
-(`UNSUPPORTED`) because Gap C remains open:
-- The Gen 3 type chart lacks Fairy (`gen.types.get('Fairy')` is undefined in Gen 3, crashing on
-  moves and producing `NaN` rolls against Fairy defenders).
-- Steel resists Ghost and Dark in Gen 3 (`STL_RS` in H&S is neutral).
-- Modern abilities and items remain unmodelled by the Gen 3 pipeline.
-- Challenge settings rule toggles (Gap A) were not previously consumed.
+**Why H&S calculations remained refused after Gap B:**
+Gap B closed data-consumption plumbing only. At the time of Gap B, calculations remained refused
+pending Gap A (resolved in PR #61) and Gap C. Following Gap C1 (exact type system + Fairy toggle),
+H&S calculations remain strictly **refused** (`UNSUPPORTED`, `request == null`) due to Gap C2
+(`HNS_ABILITY_SYSTEM_NOT_MODELLED`).
 
 ### Gap C — the calculator does not reproduce H&S mechanics
 

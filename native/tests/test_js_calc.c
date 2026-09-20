@@ -1863,6 +1863,88 @@ static void check_gap_c1_type_system(void) {
         }
         free(out_bad);
     }
+
+    /*
+     * Test H: Status move category preservation (Status wins before optionStyle).
+     * Charm (MOVE_CHARM, id 204) in H&S is Fairy / Status / 0 BP.
+     * When Fairy ON:  type Fairy, category Status.
+     * When Fairy OFF: type Normal, category Status.
+     * Under TYPE_BASED optionStyle, Status moves MUST remain Status, never converted to
+     * Special (Fairy ON) or Physical (Fairy OFF).
+     */
+    g_fixture = "gap_c1_charm_status_category_preservation";
+    {
+        // Case 1: Charm with Fairy ON and category Status
+        const char* req_fairy_on =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Clefable\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Charm\",\"overrides\":{\"type\":\"Fairy\",\"category\":\"Status\",\"basePower\":0}}}";
+
+        // Case 2: Charm with Fairy OFF and category Status
+        const char* req_fairy_off =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Clefable\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Charm\",\"overrides\":{\"type\":\"Normal\",\"category\":\"Status\",\"basePower\":0}}}";
+
+        // Case 3: Charm with Fairy ON and category omitted (must NOT default to Special)
+        const char* req_fairy_on_no_cat =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Clefable\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Charm\",\"overrides\":{\"type\":\"Fairy\"}}}";
+
+        // Case 4: Vanilla ADV control
+        const char* req_vanilla =
+            "{\"gen\":3,"
+            "\"attacker\":{\"species\":\"Clefable\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Charm\"}}";
+
+        char* out1 = js_calc_calculate(req_fairy_on);
+        char* out2 = js_calc_calculate(req_fairy_off);
+        char* out3 = js_calc_calculate(req_fairy_on_no_cat);
+        char* out4 = js_calc_calculate(req_vanilla);
+
+        check_condition("Charm Fairy ON succeeds", out1 != NULL);
+        check_condition("Charm Fairy OFF succeeds", out2 != NULL);
+        check_condition("Charm Fairy ON no category succeeds", out3 != NULL);
+        check_condition("Charm vanilla control succeeds", out4 != NULL);
+
+        if (out1 && out2 && out3 && out4) {
+            jl_value* d1 = jl_parse(out1);
+            jl_value* d2 = jl_parse(out2);
+            jl_value* d3 = jl_parse(out3);
+            jl_value* d4 = jl_parse(out4);
+
+            if (d1 && d2 && d3 && d4) {
+                check_str("Charm Fairy ON category is Status", "Status", jl_str(jl_get(d1, "moveCategory")));
+                check_number("Charm Fairy ON minDamage is 0", 0, jl_get(d1, "minDamage"));
+                check_number("Charm Fairy ON maxDamage is 0", 0, jl_get(d1, "maxDamage"));
+
+                check_str("Charm Fairy OFF category is Status", "Status", jl_str(jl_get(d2, "moveCategory")));
+                check_number("Charm Fairy OFF minDamage is 0", 0, jl_get(d2, "minDamage"));
+                check_number("Charm Fairy OFF maxDamage is 0", 0, jl_get(d2, "maxDamage"));
+
+                check_str("Charm Fairy ON without category remains Status", "Status", jl_str(jl_get(d3, "moveCategory")));
+                check_number("Charm Fairy ON no category minDamage is 0", 0, jl_get(d3, "minDamage"));
+                check_number("Charm Fairy ON no category maxDamage is 0", 0, jl_get(d3, "maxDamage"));
+
+                check_str("Charm vanilla category is Status", "Status", jl_str(jl_get(d4, "moveCategory")));
+                check_number("Charm vanilla minDamage is 0", 0, jl_get(d4, "minDamage"));
+                check_number("Charm vanilla maxDamage is 0", 0, jl_get(d4, "maxDamage"));
+            }
+            jl_free(d1);
+            jl_free(d2);
+            jl_free(d3);
+            jl_free(d4);
+        }
+        free(out1);
+        free(out2);
+        free(out3);
+        free(out4);
+    }
 }
 
 int main(void) {

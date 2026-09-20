@@ -78,10 +78,15 @@ jobs:
           packages: 'platform-tools'
 
       # The data-pack verification step runs the ARM preprocessor against the
-      # pinned upstream source, so the job needs arm-none-eabi-cpp on PATH.
-      # `ci.sh source-check` locates it fail-closed and refuses to skip the check.
-      - name: Install ARM preprocessor (data-pack verification)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi
+      # pinned upstream source, so the job needs arm-none-eabi-cpp on PATH plus
+      # the target C-library headers it must resolve (newlib's <string.h>,
+      # <stdlib.h>, ... included via include/global.h). gcc-arm-none-eabi alone
+      # ships no target headers; without libnewlib-arm-none-eabi preprocessing
+      # dies with `fatal error: string.h: No such file or directory`.
+      # `ci.sh source-check` locates the toolchain fail-closed and refuses to
+      # skip the check.
+      - name: Install ARM preprocessor and newlib headers (data-pack verification)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
 
       # Pinned public upstream at the exact Release-v2.0.5 commit, limited to the
       # files actually read: the map tables (data/maps, src/data/region_map) and

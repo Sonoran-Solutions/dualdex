@@ -245,6 +245,24 @@ source_check() {
     return 1
   fi
   echo "  data-pack preprocessor: $cpp_bin"
+
+  # Preflight: the ARM preprocessor must resolve the real target C-library
+  # headers (<string.h> via include/global.h). A bare gcc-arm-none-eabi install
+  # without libnewlib-arm-none-eabi (or devkitARM without newlib) fails exactly
+  # here, so fail closed with the remedy instead of a fatal include error in the
+  # middle of the generator run.
+  local preflight
+  preflight="$(mktemp)"
+  trap 'rm -f "$preflight"' RETURN
+  printf '#include <string.h>\n' > "$preflight"
+  if ! "$cpp_bin" -E "$preflight" >/dev/null 2>&1; then
+    echo "error: $cpp_bin cannot preprocess <string.h>; install the target C-library" >&2
+    echo "       headers (e.g. libnewlib-arm-none-eabi on Ubuntu, or devkitARM's newlib)" >&2
+    echo "       or point ARM_CPP at a toolchain that resolves them." >&2
+    return 1
+  fi
+  rm -f "$preflight"
+
   python3 tools/hns-data-pack/generate_hns_data_pack.py \
     --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --verify
 

@@ -6,7 +6,7 @@ The project started from a pretty simple idea: if the Thor already has a second 
 
 DualDex reads game state directly from the emulator for supported ROM profiles, so information like your party or current opponent can be pulled into the companion without having to enter everything by hand.
 
-> **Project status:** DualDex is currently being prepared for its first public beta. The main focus right now is save safety, ROM/version detection, battle-state accuracy, calculator correctness, controller behavior, and release infrastructure. Expect rough edges until the beta checklist is complete.
+> **Project status:** DualDex is currently being prepared for its first public beta. The active compatibility milestone is finishing exact Pokémon Heart & Soul 2.0.5 as a complete first-class integration. After H&S is finished, the remaining general pre-beta hardening work will be completed using H&S as the primary complex validation ROM alongside the vanilla FireRed/Emerald regression baselines. Only then will new ROM integrations resume: R.O.W.E. first, followed by Pokémon Unbound, before the release-candidate/beta cut.
 
 See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the current release plan and the [open issues](https://github.com/Sonoran-Solutions/dualdex/issues) for known bugs and engineering work.
 
@@ -79,7 +79,17 @@ DualDex currently includes profiles for:
 - Pokémon Heart & Soul
 - Pokémon Unbound
 
-Profile presence does **not** currently mean every release of that game or hack is fully verified. Exact-version detection, memory-layout validation, and per-hack calculator accuracy are part of the work being completed before the public beta.
+Profile presence does **not** currently mean every release of that game or hack is fully verified. Exact-version detection, memory-layout validation, and per-hack calculator accuracy are required before a profile can make authoritative companion claims.
+
+The planned pre-beta compatibility sequence is intentionally serial:
+
+1. finish exact **Heart & Soul 2.0.5** completely;
+2. finish the remaining general pre-beta safety/UX/release blockers, using H&S as the main complex real-game validation target while keeping FireRed/Emerald green;
+3. add one exact **R.O.W.E.** release as the next pokeemerald-expansion-family integration and use it to validate that the H&S source/ABI/data-pack/capability work is actually reusable;
+4. add one exact **Pokémon Unbound** release after R.O.W.E., treating its CFRU/FireRed-derived architecture as a separate integration rather than assuming Emerald-expansion compatibility;
+5. only then cut and validate the first release candidate/public beta.
+
+R.O.W.E. and Unbound must still be pinned to exact versions/hashes before any verified live-memory or calculator claim is enabled.
 
 The long-term goal is to clearly distinguish between:
 
@@ -171,14 +181,24 @@ Because DualDex is still pre-beta, keep external backups of any save files you c
 
 ## Project roadmap
 
-The immediate goal is a stable **AYN Thor GBA beta**. Broader Android layouts and additional systems come later.
+The immediate goal is a stable **AYN Thor GBA beta**, but new ROM support is deliberately sequenced behind correctness work rather than developed in parallel.
+
+### Current pre-beta order
+
+1. **Finish Heart & Soul 2.0.5 to the full supported beta contract.** Complete calculator/ruleset work, exact trust promotion, battle/location acceptance, and remaining H&S-specific capability evidence.
+2. **Finish the remaining general pre-beta blockers using H&S as the primary stress-test ROM.** Save safety, ROM switching, cheat gating, Assistant fallback truthfulness, credential/backup security, controller shortcuts, hardware soak, and release behavior should all be exercised against H&S in addition to the vanilla baselines.
+3. **Integrate R.O.W.E. next.** Treat one exact release as the first deliberate reuse test for the pokeemerald-expansion-oriented tooling and abstractions built during H&S. Reuse must be proven; H&S-specific assumptions should not simply be copied.
+4. **Integrate Pokémon Unbound after R.O.W.E.** Pin one exact release and build a separate evidence-backed CFRU/FireRed-derived compatibility contract.
+5. **Cut the release candidate and public beta only after those steps are complete.**
+
+This ordering intentionally prevents a new ROM integration from distracting from the current hardening pass, while also using R.O.W.E. and Unbound to validate that DualDex's compatibility architecture can scale beyond H&S before the first wider beta.
 
 - [Public beta release checklist](RELEASE_CHECKLIST.md)
 - [UI design audit](UI_DESIGN_AUDIT.md)
 - [Future platform roadmap](FUTURE_PLATFORM_ROADMAP.md)
 - [Post-beta Enhanced Battle Console](POST_BETA_ENHANCED_BATTLE_CONSOLE.md)
 
-Long term, the goal is to make DualDex a multi-generation Pokémon companion platform rather than keeping it permanently tied to GBA. That work is intentionally separated from the current beta so it does not turn into feature creep before the first release.
+Long term, the goal is to make DualDex a multi-generation Pokémon companion platform rather than keeping it permanently tied to GBA. The broader platform roadmap remains separated from this GBA pre-beta sequence so DS/3DS/Switch work does not become feature creep before the first release.
 
 ## Technical documentation
 

@@ -721,6 +721,77 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattleUiState(JNIEnv* env, jobj
     return (jint)pokemon_read_battle_ui_state(ewram, ewram_sz, cfg);
 }
 
+/**
+ * H&S 2.0.5 SaveBlock3.challengeSettings as a typed flat tuple.
+ *
+ * Layout: [0] ChallengeSettingsStatus, then one triple per decoded field in the
+ * fixed model order:
+ *         [1+3i] observed (1 when the field was decoded from live memory),
+ *         [2+3i] raw decoded value (undefined when observed == 0),
+ *         [3+3i] out-of-domain flag (1 when the pinned source never assigns
+ *                this value; never set for 1-bit fields).
+ *
+ * A failed/unauthorized read returns status 0 with all triples zeroed: the
+ * caller must not substitute source defaults, and a zero field value from a
+ * REAL read (observed == 1, raw == 0) is a legitimate observation, not a
+ * failure.
+ */
+JNIEXPORT jintArray JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, jobject thiz, jint game_id) {
+    (void)thiz;
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+
+    ChallengeSettingsSnapshot snapshot;
+    bool ok = false;
+    if (ewram && ewram_sz > 0) {
+        const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+        if (cfg) {
+            ok = pokemon_read_challenge_settings_gba(
+                dualdex_jni_gba_read, NULL, ewram, ewram_sz, cfg, &snapshot);
+        }
+    }
+    if (!ok) {
+        // Fail closed: status 0 (UNAVAILABLE), everything else zero.
+        memset(&snapshot, 0, sizeof(snapshot));
+        snapshot.status = CHALLENGE_SETTINGS_UNAVAILABLE;
+    }
+
+    const ChallengeSettingField* fields[] = {
+        &snapshot.option_style,
+        &snapshot.tx_mode_fairy_types,
+        &snapshot.tx_random_type,
+        &snapshot.tx_random_type_effectiveness,
+        &snapshot.tx_random_abilities,
+        &snapshot.tx_random_moves,
+        &snapshot.tx_challenges_no_evs,
+        &snapshot.tx_challenges_base_stat_equalizer,
+        &snapshot.tx_challenges_mirror,
+        &snapshot.tx_challenges_mirror_thief,
+        &snapshot.tx_challenges_trainer_scaling_ivs,
+        &snapshot.tx_challenges_trainer_scaling_evs,
+        &snapshot.tx_challenges_max_party_ivs,
+        &snapshot.tx_mode_sturdy,
+        &snapshot.tx_challenges_level_cap,
+        &snapshot.tx_challenges_exp_multiplier,
+        &snapshot.tx_mode_legendary_abilities
+    };
+    const size_t field_count = sizeof(fields) / sizeof(fields[0]);
+
+    jint values[1 + 17 * 3];
+    values[0] = (jint)snapshot.status;
+    for (size_t i = 0; i < field_count; i++) {
+        values[1 + 3 * i + 0] = fields[i]->observed ? 1 : 0;
+        values[1 + 3 * i + 1] = (jint)fields[i]->raw;
+        values[1 + 3 * i + 2] = fields[i]->invalid ? 1 : 0;
+    }
+
+    jintArray result = (*env)->NewIntArray(env, (jsize)(1 + 3 * field_count));
+    if (!result) return NULL;
+    (*env)->SetIntArrayRegion(env, result, 0, (jsize)(1 + 3 * field_count), values);
+    return result;
+}
+
 JNIEXPORT jint JNICALL
 Java_com_dualdex_emulator_LibretroHost_nativeReadBattlePresence(JNIEnv* env, jobject thiz, jint game_id) {
     (void)env;

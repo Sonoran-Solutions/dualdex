@@ -144,7 +144,7 @@ never mixed implicitly.
 | `gBattleControllerExecFlags` | `0x020002F4` | 4 | `0x2F4` |
 | `gAbsentBattlerFlags` | `0x0200030A` | 1 | `0x30A` |
 | `gBattleMons` | `0x02000420` | `0x220` | `0x420` |
-| `gSaveblock3` | `0x0200921C` | `0x34` | `0x921C` |
+| `gSaveblock3` | `0x0200921C` | `0x34` | `0x921C` — see the challenge-settings section (§13): the **release ROM's** `gSaveblock3` is `0x02009218`, 4 bytes lower, the same −4 shift §11.6 found for the party group; `0x0200921C` is the from-source build's value |
 | `gSaveblock1` | `0x020124A8` | `0x3E10` | `0x124A8` |
 | `gSaveblock2` | `0x020162B8` | `0xFB4` | `0x162B8` |
 | `gPlayerPartyCount` | `0x020342A8` | 1 | `0x342A8` |
@@ -195,7 +195,7 @@ addresses the release ROM uses.
 
 | Symbol | Absolute GBA address | Source build | Release ROM (runtime) |
 |---|---|---|---|
-| `gSaveBlock3Ptr` | `0x03000178` | `0x03000178` | not used by DualDex |
+| `gSaveBlock3Ptr` | `0x03000178` | `0x03000178` | `0x03000178` — runtime-observed (challenge-settings reader, §13); the pointer's value is `0x02009218` |
 | `gSaveBlock2Ptr` | `0x030041BC` | `0x030041BC` | `0x030041D4` |
 | `gSaveBlock1Ptr` | `0x030041C0` | `0x030041C0` | **`0x030041D8`** |
 | `gPokemonStoragePtr` | `0x030041C4` | `0x030041C4` | `0x030041DC` |
@@ -2094,3 +2094,82 @@ to `null` and not to the New Bark Town section the old code returned.
   rendered the corrected map for this PR.
 * **The 30 named-without-canvas sections.** Each is region-known and unmarked; if any should be
   drawn, that is new presentation work (explicitly out of scope for #11).
+
+---
+
+## 13. Runtime challenge settings (issue #9 slice)
+
+DualDex now reads the pinned H&S 2.0.5 `SaveBlock3.challengeSettings` at runtime through the
+production native reader (`pokemon_read_challenge_settings_gba`). This section records the ABI
+evidence and the runtime verification. **This is observability only**: no calculator capability
+changed, no trust flag changed, and no live ability is established.
+
+### 13.1 ABI re-derived from the pinned source and the official release ROM
+
+The layout was re-derived with three independent methods that agree:
+
+1. **Compiled probe with the pinned toolchain.** `struct ChallengeSettings` was extracted verbatim
+   from the pinned `include/global.h` and compiled with the ARM GNU Toolchain 13.2.Rel1 and the §10
+   flags (`-mabi=apcs-gnu` et al.). With those flags `sizeof(struct ChallengeSettings) == 32` (31
+   used bytes plus alignment padding) and `offsetof(struct SaveBlock3, challengeSettings) == 16`;
+   an AAPCS/clang host probe gives 31 @ 11, which is why earlier hand calculations that used the
+   wrong ABI disagreed. The generator
+   (`tools/hns-layout/generate_hns_challenge_layout.py`) regenerates the committed layout table
+   (`native/src/hns_challenge_settings_layout_gen.h`) from the pinned checkout byte-for-byte under
+   `./ci.sh source-check`.
+2. **The official release build's own code.** `SetDefaultChallengeSettings` in both
+   `build/hns/src/new_game.o` and `build/hns-release/src/new_game.o` RMWs `gSaveblock3 + 0x10/0x14/
+   0x1b/0x2c`, and the merged bit masks (`0x010010ac`, `0xffff800c`, `0x1c`, `0x3fb`) match a host
+   clang reimplementation of the same statements bit-for-bit — so the internal bit layout is
+   identical across compilers (LSB-first within each byte). `GetBattleMoveCategory`,
+   `GetCurrentLevelCap`, `GetBaseStatEqualizerValue` and `RandomizerFeatureEnabled` in
+   `pokehns.elf` and `pokehns-release.elf` read `gSaveBlock3Ptr + 0x11` bit 1 (`optionStyle`),
+   `+ 0x18` bits 3-4 (BaseStatEqualizer) / bits 5-6 (LevelCap), and `+ 0x14/0x15` bits
+   (randomizer fields), pinning challengeSettings at SaveBlock3 + 16 and several field positions
+   independently of any table.
+3. **Source value domains.** Multi-bit domains come from the pinned source's own choice tables:
+   LevelCap OFF/NORMAL/HARD, TrainerScalingIVs OFF/SCALE/HARD, MaxPartyIVs' three choices,
+   ExpMultiplier x1.0/x1.5/x2.0/x0.0, BaseStatEqualizer's 0/100/255/500 table. A value outside a
+   field's domain (LevelCap == 3) is reported out-of-domain, never coerced. `optionStyle` is a
+   1-bit source field (0 = per-move split, 1 = type-decided), so it has no out-of-domain encoding.
+
+Field positions (byte.bit, from the start of `ChallengeSettings`; add 16 for SaveBlock3-relative
+bytes): optionStyle 1.1; tx_Random_Type 4.5; tx_Random_TypeEffectiveness 4.6;
+tx_Random_Abilities 4.7; tx_Random_Moves 5.0; tx_Challenges_BaseStatEqualizer 8.3-4;
+tx_Challenges_LevelCap 8.5-6; tx_Challenges_ExpMultiplier 9.0-1; tx_Challenges_Mirror 9.2;
+tx_Challenges_Mirror_Thief 9.3; tx_Challenges_NoEVs 9.4; tx_Challenges_TrainerScalingIVs 10.3-4;
+tx_Challenges_TrainerScalingEVs 10.5-6; tx_Challenges_MaxPartyIVs 11.0-1; tx_Mode_Fairy_Types
+28.6; tx_Mode_Sturdy 28.7; tx_Mode_Legendary_Abilities 29.1.
+
+### 13.2 Release-ROM address correction (runtime-observed)
+
+The production reader reads `gSaveBlock3Ptr` from IWRAM `0x03000178` on every call and requires its
+value to equal the compiled `gSaveblock3` base exactly (SaveBlock3 is never re-based by
+`SetSaveBlocksPointers`). The first runtime run **failed closed**: the reader declined to read
+because the from-source `gSaveblock3` address `0x0200921C` never appears as the pointer's value.
+Runtime observation on the official release ROM: the word at `0x03000178` is **`0x02009218`**, which
+is exactly `pokehns-release.elf`'s `gSaveblock3` symbol — 4 bytes below the from-source build, the
+same −4 EWRAM shift §11.6 found for the party group. §2.1's earlier claim that the SaveBlock arrays
+were "confirmed unchanged on the release ROM" was true only for the windows the pointers move
+inside, not for the base addresses themselves; the table row is corrected above. DualDex ships the
+runtime-verified `0x02009218`.
+
+### 13.3 Runtime verification (scenario 50, read-only)
+
+`tools/hns-runtime-probe/scenarios/50-challenge-settings-fairy-toggle.txt` drives a fresh ROM
+through ordinary progression to the new-game challenge menu (the only place 2.0.5 exposes the
+menu), sets GAMEMODE → CUSTOM (rows are locked while RECOMMENDED is selected), walks to
+ADD FAIRY TYPE, cycles it ON → OFF with DPAD RIGHT, and confirms. The production reader observed:
+
+| Point | optionStyle | fairyTypes | sturdy | legendaryAbilities | everything else |
+|---|---|---|---|---|---|
+| menu open (boot defaults) | 0 | **1** | 1 | 1 | 0 |
+| after confirm | 0 | **0** | 1 | 1 | 0 |
+
+Exactly one decoded field changed — the one option the player changed — and every other field kept
+its observed value, including zeros staying observed-zeros. The game was abandoned without saving,
+so no battery state persists from the run. Read at the two menu-stage points also demonstrated that
+the menu's selections live outside SaveBlock3 until `Task_ConfirmSaveYes` writes them.
+
+`./ci.sh source-check` regenerates the layout table from the pinned checkout; `./ci.sh test` stays
+self-contained (the table is committed and the native suite does not need the upstream checkout).

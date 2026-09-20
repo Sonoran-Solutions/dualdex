@@ -288,6 +288,14 @@ source_check() {
   python3 tools/hns-map-data/generate_hns_map_data.py \
     --upstream-dir "$upstream" --check
 
+  # 1b. The challenge-settings layout table must regenerate byte-for-byte from the pinned
+  # source, compiled with the pinned ARM toolchain (same toolchain/flags as §10 of the
+  # compatibility evidence). This is the source-check for the runtime challenge-settings
+  # reader: sizeof/offsetof/bit positions for SaveBlock3.challengeSettings.
+  echo "== challenge-settings layout verification (pinned upstream) =="
+  python3 tools/hns-layout/generate_hns_challenge_layout.py \
+    --upstream-dir "$upstream" --verify
+
   # 2. The committed Kotlin data pack (species, moves, AND the ability catalogue
   #    with its per-species slot declarations) must regenerate byte-for-byte from
   #    the pinned source. This is the check that actually compares the committed

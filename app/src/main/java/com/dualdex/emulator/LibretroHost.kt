@@ -43,6 +43,13 @@ object LibretroHost {
     external fun nativeReadBattleUiState(gameId: Int): Int
     external fun nativeReadBattlePresence(gameId: Int): Int
     external fun nativeReadPlayerLocation(gameId: Int): PlayerLocation?
+
+    /**
+     * H&S 2.0.5 SaveBlock3.challengeSettings as a flat typed tuple; see
+     * [com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot.fromNativeArray] for the layout.
+     * A null/failed read is UNAVAILABLE; no default is ever substituted.
+     */
+    external fun nativeReadChallengeSettings(gameId: Int): IntArray?
     external fun nativeSaveState(statePath: String): Boolean
     external fun nativeLoadState(statePath: String): Boolean
     external fun nativeLoadSaveRam(savePath: String): Boolean

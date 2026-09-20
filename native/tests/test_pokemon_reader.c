@@ -4014,6 +4014,406 @@ static void test_hns_stale_player_slot_cannot_survive_faint(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_stale_player_slot_cannot_survive_faint" ANSI_RESET "\n");
 }
 
+// ===========================================================================
+// H&S 2.0.5 runtime challenge settings (issue #9).
+//
+// The semantic expectations below are hand-pinned in the SAVEBLOCK3 frame —
+// byte/bit positions read out of the official release ROM's own code and out of
+// the pinned source text — deliberately independent from the production
+// decoder's ChallengeSettings-relative generated table. A reader that swapped
+// two settings, or a generated table that drifted, must fail these pins.
+// ===========================================================================
+
+// GetBattleMoveCategory (ROM 0x080CF604): ldrb [gSaveBlock3Ptr, #0x11]; bit 1.
+#define PIN_OPTION_STYLE_BYTE 17
+#define PIN_OPTION_STYLE_BIT 1
+// GetBaseStatEqualizerValue (ROM 0x080F0230): ldrb [gSaveBlock3Ptr, #0x18];
+// `lsls #0x1b; lsrs #0x1e` extracts bits 3-4.
+#define PIN_BST_EQ_BYTE 24
+#define PIN_BST_EQ_BIT 3
+#define PIN_BST_EQ_WIDTH 2
+// GetCurrentLevelCap (ROM 0x080EE674): ldrb [gSaveBlock3Ptr, #0x18]; bits 5-6.
+#define PIN_LEVEL_CAP_BYTE 24
+#define PIN_LEVEL_CAP_BIT 5
+#define PIN_LEVEL_CAP_WIDTH 2
+// SetDefaultChallengeSettings (devkit .o): halfword RMW at +0x2c with mask 0x3fb
+// sets bit 6 of byte 0x2c (=44) — tx_Mode_Fairy_Types.
+#define PIN_FAIRY_BYTE 44
+#define PIN_FAIRY_BIT 6
+// Same RMW mask sets bit 7 of byte 0x2c — tx_Mode_Sturdy; byte 0x2d (45) bit 1
+// — tx_Mode_Legendary_Abilities.
+#define PIN_STURDY_BYTE 44
+#define PIN_STURDY_BIT 7
+#define PIN_LEGENDARY_ABILITIES_BYTE 45
+#define PIN_LEGENDARY_ABILITIES_BIT 1
+// RandomizerFeatureEnabled (ROM 0x081F024C): ldrb [gSaveBlock3Ptr, #0x14];
+// `lsls #0x1a; lsrs #0x1f` extracts bit 5 — tx_Random_Type; bit 6 is
+// tx_Random_TypeEffectiveness, bit 7 tx_Random_Abilities.
+#define PIN_RANDOM_TYPE_BYTE 20
+#define PIN_RANDOM_TYPE_BIT 5
+#define PIN_RANDOM_TYPE_EFFECTIVENESS_BYTE 20
+#define PIN_RANDOM_TYPE_EFFECTIVENESS_BIT 6
+#define PIN_RANDOM_ABILITIES_BYTE 20
+#define PIN_RANDOM_ABILITIES_BIT 7
+// NoEVs: challenge-menu RMW (byte 0x19 = 25) bit 4 — pinned from the challenge
+// menu write set against the pinned source declaration order.
+#define PIN_NO_EVS_BYTE 25
+#define PIN_NO_EVS_BIT 4
+#define PIN_EXP_MULT_BYTE 25
+#define PIN_EXP_MULT_BIT 0
+#define PIN_EXP_MULT_WIDTH 2
+#define PIN_MIRROR_BYTE 25
+#define PIN_MIRROR_BIT 2
+#define PIN_MIRROR_THIEF_BYTE 25
+#define PIN_MIRROR_THIEF_BIT 3
+#define PIN_SCALING_IVS_BYTE 26
+#define PIN_SCALING_IVS_BIT 3
+#define PIN_SCALING_IVS_WIDTH 2
+#define PIN_SCALING_EVS_BYTE 26
+#define PIN_SCALING_EVS_BIT 5
+#define PIN_SCALING_EVS_WIDTH 2
+#define PIN_MAX_PARTY_IVS_BYTE 27
+#define PIN_MAX_PARTY_IVS_BIT 0
+#define PIN_MAX_PARTY_IVS_WIDTH 2
+
+#define HNS_SB3_BASE_ABS 0x02009218u // official release ROM's gSaveblock3 (runtime-observed pointer value; the from-source build sits 4 bytes higher)
+#define HNS_SB3_PTR_ABS 0x03000178u
+
+/** Point gSaveBlock3Ptr at the compiled gSaveblock3 and zero the struct. */
+static void hns_cs_fixture_init(FakeGba* gba) {
+    fake_gba_init(gba, true, true);
+    write32_le_t(gba->iwram + (HNS_SB3_PTR_ABS - 0x03000000u), HNS_SB3_BASE_ABS);
+    memset(gba->ewram + (HNS_SB3_BASE_ABS - 0x02000000u), 0, 64);
+}
+
+/** Set one bit of SaveBlock3 (SB3-relative byte index). */
+static void hns_cs_set_bit(FakeGba* gba, uint32_t byte, uint8_t bit, unsigned value) {
+    uint8_t* p = gba->ewram + (HNS_SB3_BASE_ABS - 0x02000000u) + byte;
+    if (value) *p |= (uint8_t)(1u << bit);
+    else       *p &= (uint8_t)~(1u << bit);
+}
+
+/** Write a 2-bit field of SaveBlock3 (SB3-relative byte index). */
+static void hns_cs_set_field2(FakeGba* gba, uint32_t byte, uint8_t bit, unsigned value) {
+    uint8_t* p = gba->ewram + (HNS_SB3_BASE_ABS - 0x02000000u) + byte;
+    *p = (uint8_t)((*p & ~(0x3u << bit)) | ((value & 0x3u) << bit));
+}
+
+/** A zeroed snapshot must be all-unobserved: the reader's own contract. */
+static void expect_unavailable(const ChallengeSettingsSnapshot* snap, const char* what) {
+    TEST_ASSERT(snap->status == CHALLENGE_SETTINGS_UNAVAILABLE, what);
+    TEST_ASSERT(!snap->option_style.observed && !snap->tx_mode_fairy_types.observed &&
+                !snap->tx_random_type.observed && !snap->tx_random_type_effectiveness.observed &&
+                !snap->tx_random_abilities.observed && !snap->tx_random_moves.observed &&
+                !snap->tx_challenges_no_evs.observed &&
+                !snap->tx_challenges_base_stat_equalizer.observed &&
+                !snap->tx_challenges_mirror.observed && !snap->tx_challenges_mirror_thief.observed &&
+                !snap->tx_challenges_trainer_scaling_ivs.observed &&
+                !snap->tx_challenges_trainer_scaling_evs.observed &&
+                !snap->tx_challenges_max_party_ivs.observed && !snap->tx_mode_sturdy.observed &&
+                !snap->tx_challenges_level_cap.observed &&
+                !snap->tx_challenges_exp_multiplier.observed &&
+                !snap->tx_mode_legendary_abilities.observed,
+                "an unavailable read must leave every field unobserved");
+}
+
+/** All-zero struct: every field observed, every value 0 — observed, NOT unknown. */
+static void test_hns_challenge_settings_zero_is_observed_not_unknown(void) {
+    printf("Running test_hns_challenge_settings_zero_is_observed_not_unknown...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(cfg != NULL, "H&S config must exist");
+
+    static FakeGba gba;
+    hns_cs_fixture_init(&gba);
+
+    ChallengeSettingsSnapshot snap;
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &snap),
+                "an all-zero trusted layout must read");
+    TEST_ASSERT(snap.status == CHALLENGE_SETTINGS_OBSERVED,
+                "all-zero must be OBSERVED, not unavailable");
+    TEST_ASSERT(snap.option_style.observed && snap.option_style.raw == 0 && !snap.option_style.invalid,
+                "observed optionStyle == 0 is a legitimate observed value, not unknown");
+    TEST_ASSERT(snap.tx_mode_fairy_types.observed && snap.tx_mode_fairy_types.raw == 0,
+                "observed Fairy off is a legitimate observed value, not unknown");
+    TEST_ASSERT(snap.tx_challenges_level_cap.observed && snap.tx_challenges_level_cap.raw == 0,
+                "observed LevelCap OFF is a legitimate observed value, not unknown");
+    TEST_ASSERT(snap.tx_mode_legendary_abilities.observed && snap.tx_mode_legendary_abilities.raw == 0,
+                "observed Legendary-abilities off is a legitimate observed value, not unknown");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_challenge_settings_zero_is_observed_not_unknown" ANSI_RESET "\n");
+}
+
+/** Representative enabled settings, decoded against the hand-pinned SB3 positions. */
+static void test_hns_challenge_settings_representative_enabled(void) {
+    printf("Running test_hns_challenge_settings_representative_enabled...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(cfg != NULL, "H&S config must exist");
+
+    static FakeGba gba;
+    hns_cs_fixture_init(&gba);
+    hns_cs_set_bit(&gba, PIN_OPTION_STYLE_BYTE, PIN_OPTION_STYLE_BIT, 1);
+    hns_cs_set_bit(&gba, PIN_FAIRY_BYTE, PIN_FAIRY_BIT, 1);
+    hns_cs_set_bit(&gba, PIN_RANDOM_TYPE_BYTE, PIN_RANDOM_TYPE_BIT, 1);
+    hns_cs_set_bit(&gba, PIN_RANDOM_TYPE_EFFECTIVENESS_BYTE, PIN_RANDOM_TYPE_EFFECTIVENESS_BIT, 1);
+    hns_cs_set_bit(&gba, PIN_NO_EVS_BYTE, PIN_NO_EVS_BIT, 1);
+    hns_cs_set_field2(&gba, PIN_BST_EQ_BYTE, PIN_BST_EQ_BIT, 3);      // 500 BST
+    hns_cs_set_bit(&gba, PIN_MIRROR_BYTE, PIN_MIRROR_BIT, 1);
+    // Mirror_Thief deliberately left 0: an asymmetric pair across the byte so a
+    // mutation that swaps the two settings must fail the decodes below.
+    hns_cs_set_field2(&gba, PIN_SCALING_IVS_BYTE, PIN_SCALING_IVS_BIT, 2); // HARD
+    hns_cs_set_field2(&gba, PIN_SCALING_EVS_BYTE, PIN_SCALING_EVS_BIT, 3);
+    hns_cs_set_field2(&gba, PIN_MAX_PARTY_IVS_BYTE, PIN_MAX_PARTY_IVS_BIT, 1);
+    hns_cs_set_field2(&gba, PIN_LEVEL_CAP_BYTE, PIN_LEVEL_CAP_BIT, 1);     // NORMAL
+    hns_cs_set_field2(&gba, PIN_EXP_MULT_BYTE, PIN_EXP_MULT_BIT, 2);       // x2.0
+    hns_cs_set_bit(&gba, PIN_STURDY_BYTE, PIN_STURDY_BIT, 1);
+
+    ChallengeSettingsSnapshot snap;
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &snap),
+                "representative enabled settings must read");
+    TEST_ASSERT(snap.status == CHALLENGE_SETTINGS_OBSERVED, "status must be OBSERVED");
+    TEST_ASSERT(!snap.option_style.invalid && !snap.tx_challenges_level_cap.invalid &&
+                !snap.tx_challenges_base_stat_equalizer.invalid,
+                "in-domain values must never be flagged invalid");
+    TEST_ASSERT(snap.option_style.raw == 1, "optionStyle must decode as set");
+    TEST_ASSERT(snap.tx_mode_fairy_types.raw == 1, "Fairy types must decode as set");
+    TEST_ASSERT(snap.tx_random_type.raw == 1, "tx_Random_Type must decode as set");
+    TEST_ASSERT(snap.tx_random_type_effectiveness.raw == 1, "tx_Random_TypeEffectiveness must decode as set");
+    TEST_ASSERT(snap.tx_challenges_no_evs.raw == 1, "NoEVs must decode as set");
+    TEST_ASSERT(snap.tx_challenges_base_stat_equalizer.raw == 3, "BST equalizer must decode as 3 (500)");
+    TEST_ASSERT(snap.tx_challenges_mirror.raw == 1, "Mirror must decode as set");
+    TEST_ASSERT(snap.tx_challenges_mirror_thief.raw == 0 && snap.tx_challenges_mirror_thief.observed,
+                "Mirror_Thief must stay observed 0 while Mirror is 1 (asymmetric pin)");
+    TEST_ASSERT(snap.tx_challenges_trainer_scaling_ivs.raw == 2, "ScalingIVs must decode as 2 (HARD)");
+    TEST_ASSERT(snap.tx_challenges_trainer_scaling_evs.raw == 3, "ScalingEVs must decode as 3");
+    TEST_ASSERT(snap.tx_challenges_max_party_ivs.raw == 1, "MaxPartyIVs must decode as 1");
+    TEST_ASSERT(snap.tx_challenges_level_cap.raw == 1, "LevelCap must decode as 1 (NORMAL)");
+    TEST_ASSERT(snap.tx_challenges_exp_multiplier.raw == 2, "ExpMultiplier must decode as 2 (x2.0)");
+    TEST_ASSERT(snap.tx_mode_sturdy.raw == 1, "Sturdy mode must decode as set");
+    // Fields left at zero in this fixture are observed OFF, not unknown.
+    TEST_ASSERT(snap.tx_random_abilities.observed && snap.tx_random_abilities.raw == 0,
+                "tx_Random_Abilities must stay observed 0");
+    TEST_ASSERT(snap.tx_random_moves.observed && snap.tx_random_moves.raw == 0,
+                "tx_Random_Moves must stay observed 0");
+    TEST_ASSERT(snap.tx_mode_legendary_abilities.observed && snap.tx_mode_legendary_abilities.raw == 0,
+                "Legendary abilities must stay observed 0");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_challenge_settings_representative_enabled" ANSI_RESET "\n");
+}
+
+/** optionStyle alternate value plus independent single-field changes. */
+static void test_hns_challenge_settings_option_style_and_isolation(void) {
+    printf("Running test_hns_challenge_settings_option_style_and_isolation...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(cfg != NULL, "H&S config must exist");
+
+    static FakeGba gba;
+    hns_cs_fixture_init(&gba);
+
+    ChallengeSettingsSnapshot snap;
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &snap),
+                "baseline read must succeed");
+    TEST_ASSERT(snap.option_style.raw == 0, "optionStyle must start at 0");
+
+    hns_cs_set_bit(&gba, PIN_OPTION_STYLE_BYTE, PIN_OPTION_STYLE_BIT, 1);
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &snap),
+                "flip read must succeed");
+    TEST_ASSERT(snap.option_style.raw == 1, "optionStyle must decode the alternate value 1");
+    TEST_ASSERT(snap.tx_mode_fairy_types.raw == 0,
+                "flipping optionStyle must not disturb any other field");
+
+    // Multiple fields changed independently, one at a time.
+    hns_cs_set_bit(&gba, PIN_FAIRY_BYTE, PIN_FAIRY_BIT, 1);
+    hns_cs_set_field2(&gba, PIN_LEVEL_CAP_BYTE, PIN_LEVEL_CAP_BIT, 2);
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &snap),
+                "two-field read must succeed");
+    TEST_ASSERT(snap.tx_mode_fairy_types.raw == 1 && snap.tx_challenges_level_cap.raw == 2,
+                "both changed fields must decode");
+    TEST_ASSERT(snap.option_style.raw == 1,
+                "earlier field must keep its observed value");
+    TEST_ASSERT(snap.tx_random_type.raw == 0,
+                "untouched field must stay observed 0");
+
+    // Asymmetric neighbour pair inside one byte: only the Thief bit set.
+    hns_cs_set_bit(&gba, PIN_MIRROR_BYTE, PIN_MIRROR_BIT, 0);
+    hns_cs_set_bit(&gba, PIN_MIRROR_THIEF_BYTE, PIN_MIRROR_THIEF_BIT, 1);
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &snap),
+                "thief-only read must succeed");
+    TEST_ASSERT(snap.tx_challenges_mirror.raw == 0 &&
+                snap.tx_challenges_mirror_thief.raw == 1,
+                "Mirror/Mirror_Thief must decode independently (swap-detecting pin)");
+
+    // Back to zero: the observed value must follow memory both ways.
+    hns_cs_set_bit(&gba, PIN_OPTION_STYLE_BYTE, PIN_OPTION_STYLE_BIT, 0);
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &snap),
+                "reset read must succeed");
+    TEST_ASSERT(snap.option_style.raw == 0 && snap.option_style.observed,
+                "optionStyle must be observed 0 after a reset, never unknown");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_challenge_settings_option_style_and_isolation" ANSI_RESET "\n");
+}
+
+/** Values the pinned source never assigns must be flagged, never coerced. */
+static void test_hns_challenge_settings_out_of_domain(void) {
+    printf("Running test_hns_challenge_settings_out_of_domain...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(cfg != NULL, "H&S config must exist");
+
+    static FakeGba gba;
+    hns_cs_fixture_init(&gba);
+    hns_cs_set_field2(&gba, PIN_LEVEL_CAP_BYTE, PIN_LEVEL_CAP_BIT, 3); // OFF/NORMAL/HARD only
+    hns_cs_set_field2(&gba, PIN_SCALING_IVS_BYTE, PIN_SCALING_IVS_BIT, 3); // OFF/SCALE/HARD only
+    hns_cs_set_field2(&gba, PIN_MAX_PARTY_IVS_BYTE, PIN_MAX_PARTY_IVS_BIT, 3);
+
+    ChallengeSettingsSnapshot snap;
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &snap),
+                "the bytes were readable, so the read itself succeeds");
+    TEST_ASSERT(snap.status == CHALLENGE_SETTINGS_OBSERVED_INVALID,
+                "out-of-domain values must mark the snapshot OBSERVED_INVALID");
+    TEST_ASSERT(snap.tx_challenges_level_cap.observed && snap.tx_challenges_level_cap.raw == 3 &&
+                snap.tx_challenges_level_cap.invalid,
+                "LevelCap == 3 must be preserved raw and flagged out-of-domain");
+    TEST_ASSERT(snap.tx_challenges_trainer_scaling_ivs.observed &&
+                snap.tx_challenges_trainer_scaling_ivs.raw == 3 &&
+                snap.tx_challenges_trainer_scaling_ivs.invalid,
+                "ScalingIVs == 3 must be preserved raw and flagged out-of-domain");
+    TEST_ASSERT(snap.tx_challenges_max_party_ivs.observed &&
+                snap.tx_challenges_max_party_ivs.raw == 3 &&
+                snap.tx_challenges_max_party_ivs.invalid,
+                "MaxPartyIVs == 3 must be preserved raw and flagged out-of-domain");
+    // In-domain fields in the same snapshot stay clean.
+    TEST_ASSERT(snap.option_style.observed && !snap.option_style.invalid,
+                "optionStyle must stay in-domain in an OBSERVED_INVALID snapshot");
+    TEST_ASSERT(snap.tx_mode_fairy_types.observed && snap.tx_mode_fairy_types.raw == 0,
+                "other fields must stay observed in an OBSERVED_INVALID snapshot");
+    // ExpMultiplier's source domain really uses all four encodings.
+    hns_cs_set_field2(&gba, PIN_EXP_MULT_BYTE, PIN_EXP_MULT_BIT, 3);
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &snap),
+                "ExpMultiplier=3 (x0.0) must read");
+    TEST_ASSERT(!snap.tx_challenges_exp_multiplier.invalid && snap.tx_challenges_exp_multiplier.raw == 3,
+                "ExpMultiplier == 3 is a real source value, not out-of-domain");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_challenge_settings_out_of_domain" ANSI_RESET "\n");
+}
+
+/** Trust and memory failures: the reader must never authorize an untrusted read. */
+static void test_hns_challenge_settings_fail_closed(void) {
+    printf("Running test_hns_challenge_settings_fail_closed...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    const GameMemoryConfig* fr = pokemon_get_game_config(GAME_FIRERED);
+    const GameMemoryConfig* em = pokemon_get_game_config(GAME_EMERALD);
+    TEST_ASSERT(cfg != NULL && fr != NULL && em != NULL, "configs must exist");
+
+    ChallengeSettingsSnapshot snap;
+
+    // A populated fixture that must never be readable through a wrong profile.
+    static FakeGba gba;
+    hns_cs_fixture_init(&gba);
+    hns_cs_set_bit(&gba, PIN_FAIRY_BYTE, PIN_FAIRY_BIT, 1);
+
+    // Wrong profile: FireRed/Emerald layouts do not declare SaveBlock3.
+    TEST_ASSERT(!pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, fr, &snap),
+                "FireRed layout must not authorize the H&S SaveBlock3 read");
+    expect_unavailable(&snap, "wrong profile must produce an UNAVAILABLE snapshot");
+    TEST_ASSERT(!pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, em, &snap),
+                "Emerald layout must not authorize the H&S SaveBlock3 read");
+
+    // No absolute-address reader.
+    TEST_ASSERT(!pokemon_read_challenge_settings_gba(NULL, NULL, NULL, 0, cfg, &snap),
+                "a NULL reader must fail closed");
+    expect_unavailable(&snap, "NULL reader must produce an UNAVAILABLE snapshot");
+
+    // Null / unknown configuration.
+    TEST_ASSERT(!pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, NULL, &snap),
+                "a NULL configuration must fail closed");
+
+    // Unreadable gSaveBlock3Ptr (IWRAM not mapped).
+    static FakeGba no_iwram;
+    hns_cs_fixture_init(&no_iwram);
+    fake_gba_init(&no_iwram, false, true); // re-init without IWRAM
+    TEST_ASSERT(!pokemon_read_challenge_settings_gba(fake_gba_read, &no_iwram.table, NULL, 0, cfg, &snap),
+                "an unreadable gSaveBlock3Ptr must fail closed");
+    expect_unavailable(&snap, "unreadable pointer must produce an UNAVAILABLE snapshot");
+
+    // Pointer not equal to the compiled gSaveblock3: stale / another binary / misaligned.
+    static const uint32_t bad_bases[] = {
+        HNS_SB3_BASE_ABS + 4u,   // ASLR-style shift SaveBlock3 never gets
+        HNS_SB3_BASE_ABS - 4u,
+        0x02000000u,             // raw EWRAM base
+        0x0202FFFFu,             // plausible but wrong
+        0x03000000u              // IWRAM: outside EWRAM entirely
+    };
+    for (size_t i = 0; i < sizeof(bad_bases) / sizeof(bad_bases[0]); i++) {
+        static FakeGba wrong_ptr;
+        hns_cs_fixture_init(&wrong_ptr);
+        write32_le_t(wrong_ptr.iwram + (HNS_SB3_PTR_ABS - 0x03000000u), bad_bases[i]);
+        TEST_ASSERT(!pokemon_read_challenge_settings_gba(fake_gba_read, &wrong_ptr.table, NULL, 0, cfg, &snap),
+                    "a pointer that is not the compiled gSaveblock3 must fail closed");
+        expect_unavailable(&snap, "wrong pointer must produce an UNAVAILABLE snapshot");
+    }
+
+    // Truncated memory window: EWRAM mapped only through the middle of the struct.
+    static FakeGba truncated;
+    hns_cs_fixture_init(&truncated);
+    gba_memory_map_clear(&truncated.table);
+    gba_memory_map_add(&truncated.table, truncated.iwram, 0x03000000u, 0x8000u, 0xFF000000u, 0u, 0u, 0u);
+    gba_memory_map_add(&truncated.table, truncated.ewram, 0x02000000u, 0x9230u, 0xFF000000u, 0u, 0u, 0u);
+    TEST_ASSERT(!pokemon_read_challenge_settings_gba(fake_gba_read, &truncated.table, NULL, 0, cfg, &snap),
+                "a truncated window must fail closed");
+    expect_unavailable(&snap, "truncated window must produce an UNAVAILABLE snapshot");
+
+    // No bytes written at all (pointer sane, struct blank) must still read as all-zero.
+    static FakeGba blank;
+    hns_cs_fixture_init(&blank);
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &blank.table, NULL, 0, cfg, &snap),
+                "the blank-but-trusted fixture must read");
+    TEST_ASSERT(snap.status == CHALLENGE_SETTINGS_OBSERVED && snap.tx_mode_fairy_types.raw == 0,
+                "blank struct reads as observed zero, not as the earlier fixture");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_challenge_settings_fail_closed" ANSI_RESET "\n");
+}
+
+/** No caching: a game/profile switch can never inherit the previous game's settings. */
+static void test_hns_challenge_settings_no_stale_across_games(void) {
+    printf("Running test_hns_challenge_settings_no_stale_across_games...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    const GameMemoryConfig* fr = pokemon_get_game_config(GAME_FIRERED);
+    TEST_ASSERT(cfg != NULL && fr != NULL, "configs must exist");
+
+    static FakeGba gba;
+    hns_cs_fixture_init(&gba);
+    hns_cs_set_bit(&gba, PIN_FAIRY_BYTE, PIN_FAIRY_BIT, 1);
+    hns_cs_set_field2(&gba, PIN_LEVEL_CAP_BYTE, PIN_LEVEL_CAP_BIT, 2);
+
+    ChallengeSettingsSnapshot snap;
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &snap),
+                "precondition: trusted H&S read must succeed");
+    TEST_ASSERT(snap.tx_mode_fairy_types.raw == 1 && snap.tx_challenges_level_cap.raw == 2,
+                "precondition: fixture values must decode");
+
+    // The "ROM switched" world: same reader, different game config. The reader must not serve
+    // the previous game's settings and must not cache them between calls.
+    TEST_ASSERT(!pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, fr, &snap),
+                "after a profile switch the previous settings must not be served");
+    expect_unavailable(&snap, "a profile switch must produce an UNAVAILABLE snapshot");
+
+    // Back on the exact build, with different memory content: the fresh values must decode.
+    hns_cs_set_bit(&gba, PIN_FAIRY_BYTE, PIN_FAIRY_BIT, 0);
+    hns_cs_set_bit(&gba, PIN_RANDOM_TYPE_BYTE, PIN_RANDOM_TYPE_BIT, 1);
+    TEST_ASSERT(pokemon_read_challenge_settings_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &snap),
+                "re-authorized read must succeed");
+    TEST_ASSERT(snap.tx_mode_fairy_types.raw == 0 && snap.tx_random_type.raw == 1 &&
+                snap.tx_challenges_level_cap.raw == 2,
+                "fresh values must replace the previous game's settings");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_challenge_settings_no_stale_across_games" ANSI_RESET "\n");
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
@@ -4093,6 +4493,14 @@ int main(void) {
     test_firered_corrupt_authoritative_slot_fails_closed();
 
     test_party_discovery_policy_assignments();
+
+    // H&S 2.0.5 runtime challenge settings (issue #9).
+    test_hns_challenge_settings_zero_is_observed_not_unknown();
+    test_hns_challenge_settings_representative_enabled();
+    test_hns_challenge_settings_option_style_and_isolation();
+    test_hns_challenge_settings_out_of_domain();
+    test_hns_challenge_settings_fail_closed();
+    test_hns_challenge_settings_no_stale_across_games();
 
     printf("===================================================\n");
     printf("Results: %d Passed, %d Failed\n", g_tests_passed, g_tests_failed);

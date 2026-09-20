@@ -2925,7 +2925,40 @@ static int run_script(Driver* d, const char* script_path) {
             Sample s;
             sample_state(d->cfg, d->frame, 0, &s);
             print_matrix(&s, a1[0] ? a1 : "step");
-        } else if (!strcmp(cmd, "shot")) {
+        } else if (!strcmp(cmd, "challenge-settings")) {
+            // Read SaveBlock3.challengeSettings through the PRODUCTION reader so the runtime
+            // evidence is evidence about the reader that ships (issue #9). Diagnostic only:
+            // asserts nothing, writes nothing.
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            ChallengeSettingsSnapshot cs;
+            bool ok = false;
+            if (ewram && ewram_sz > 0 && d->cfg) {
+                ok = pokemon_read_challenge_settings_gba(
+                    probe_read, NULL, ewram, ewram_sz, d->cfg, &cs);
+            }
+            if (!ok) {
+                printf("[CHALLENGE] %s UNAVAILABLE (status=%d) frame=%d\n",
+                       a1[0] ? a1 : "step", (int)CHALLENGE_SETTINGS_UNAVAILABLE, d->frame);
+                script_error("challenge-settings read failed; the production reader declined the read");
+            } else {
+                printf("[CHALLENGE] %s status=%d frame=%d\n", a1[0] ? a1 : "step", (int)cs.status, d->frame);
+                printf("[CHALLENGE] optionStyle=%u fairyTypes=%u randomType=%u typeEffectiveness=%u "
+                       "randomAbilities=%u randomMoves=%u\n",
+                       cs.option_style.raw, cs.tx_mode_fairy_types.raw, cs.tx_random_type.raw,
+                       cs.tx_random_type_effectiveness.raw, cs.tx_random_abilities.raw,
+                       cs.tx_random_moves.raw);
+                printf("[CHALLENGE] noEVs=%u bstEqualizer=%u mirror=%u mirrorThief=%u "
+                       "scalingIVs=%u scalingEVs=%u maxPartyIVs=%u\n",
+                       cs.tx_challenges_no_evs.raw, cs.tx_challenges_base_stat_equalizer.raw,
+                       cs.tx_challenges_mirror.raw, cs.tx_challenges_mirror_thief.raw,
+                       cs.tx_challenges_trainer_scaling_ivs.raw,
+                       cs.tx_challenges_trainer_scaling_evs.raw, cs.tx_challenges_max_party_ivs.raw);
+                printf("[CHALLENGE] sturdy=%u levelCap=%u expMultiplier=%u legendaryAbilities=%u\n",
+                       cs.tx_mode_sturdy.raw, cs.tx_challenges_level_cap.raw,
+                       cs.tx_challenges_exp_multiplier.raw, cs.tx_mode_legendary_abilities.raw);
+            }
+        } else if (!strcmp(cmd, "shot")) {        } else if (!strcmp(cmd, "shot")) {
             write_ppm(a1);
         } else if (!strcmp(cmd, "savsave")) {
             bool ok = libretro_host_flush_save_ram(a1);

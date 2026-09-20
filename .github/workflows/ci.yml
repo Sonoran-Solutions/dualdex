@@ -88,10 +88,13 @@ jobs:
       - name: Install ARM preprocessor and newlib headers (data-pack verification)
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
 
-      # Pinned public upstream at the exact Release-v2.0.5 commit, limited to the
-      # files actually read: the map tables (data/maps, src/data/region_map) and
+      # Pinned public upstream at the exact Release-v2.0.5 commit, limited to
+      # what validation needs: the map tables (data/maps, src/data/region_map),
       # the sources the data-pack generator preprocesses (all of include, plus
-      # src/pokemon.c, src/move.c and their src/data includes).
+      # src/pokemon.c, src/move.c and their src/data includes), the upstream
+      # tools that generate its build-time headers (tools/mapjson,
+      # tools/jsonproc -- run by ./ci.sh source-check), and data/layouts which
+      # the layouts header generation reads.
       - name: Fetch pinned Heart & Soul 2.0.5 source
         uses: actions/checkout@v4
         with:
@@ -101,10 +104,13 @@ jobs:
           fetch-depth: 1
           sparse-checkout: |
             data/maps
+            data/layouts
             include
             src/data
             src/pokemon.c
             src/move.c
+            tools/mapjson
+            tools/jsonproc
           sparse-checkout-cone-mode: true
 
       - name: Run H&S source validation

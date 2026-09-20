@@ -244,6 +244,62 @@ source_check() {
     echo "       Install gcc-arm-none-eabi (or devkitARM) or set ARM_CPP." >&2
     return 1
   fi
+  # Materialize the pinned upstream's generated headers. Four headers included
+  # by the preprocessed sources (include/constants/{map_groups,layouts,
+  # map_event_ids,region_map_sections}.h) are gitignored build artifacts
+  # produced by the upstream build's own committed tools from JSON sources
+  # within the checkout: tools/mapjson and tools/jsonproc. A dev checkout that
+  # has been built already has them; a sparse CI checkout does not, so build the
+  # tools with the host C++ compiler and regenerate exactly those four files.
+  # Fail closed: refuse if the sources for the tools or their JSON inputs are
+  # missing, and refuse to run if generation leaves the checkout's tracked
+  # files modified. This is not faking headers: it is upstream's own toolchain
+  # generating upstream's own headers from upstream's own data.
+  echo "== regenerating pinned upstream build-time headers (mapjson/jsonproc) =="
+  local cc_bin
+  cc_bin="$(command -v g++ || command -v clang++)" || {
+    echo "error: no host C++ compiler (g++ or clang++) found; building mapjson/jsonproc" >&2
+    echo "       to generate the pinned upstream's include/constants headers is required" >&2
+    return 1
+  }
+  local prov_build preflight
+  prov_build="$(mktemp -d)"
+  preflight="$(mktemp)"
+  trap 'rm -rf "$prov_build"; rm -f "$preflight"' RETURN
+  (
+    set -e
+    cd "$upstream"
+    for required in \
+      tools/mapjson/mapjson.cpp tools/mapjson/json11.cpp \
+      tools/jsonproc/jsonproc.cpp tools/jsonproc/inja.hpp \
+      data/maps/map_groups.json data/layouts/layouts.json \
+      src/data/region_map/region_map_sections.json \
+      src/data/region_map/region_map_sections.constants.json.txt; do
+      if [ ! -e "$required" ]; then
+        echo "error: $required missing from pinned upstream checkout; it is required" >&2
+        echo "       to generate the build-time headers the source validation preprocesses" >&2
+        exit 1
+      fi
+    done
+    "$cc_bin" -O2 -std=c++17 -w -I tools/jsonproc tools/jsonproc/jsonproc.cpp \
+      -o "$prov_build/jsonproc"
+    "$cc_bin" -O2 -std=c++17 -w tools/mapjson/json11.cpp tools/mapjson/mapjson.cpp \
+      -o "$prov_build/mapjson"
+    "$prov_build/mapjson" groups hns data/maps/map_groups.json data/maps/*/*.json \
+      data/maps include/constants
+    "$prov_build/mapjson" layouts hns data/layouts/layouts.json data/layouts include/constants
+    "$prov_build/mapjson" event_constants emerald data/maps/*/*.json \
+      include/constants/map_event_ids.h
+    "$prov_build/jsonproc" src/data/region_map/region_map_sections.json \
+      src/data/region_map/region_map_sections.constants.json.txt \
+      include/constants/region_map_sections.h
+  ) || return 1
+  if [ -n "$(git -C "$upstream" status --porcelain --untracked-files=no)" ]; then
+    echo "error: regenerating upstream build-time headers modified tracked files in" >&2
+    echo "       $upstream; refusing to validate from a dirty checkout" >&2
+    return 1
+  fi
+
   echo "  data-pack preprocessor: $cpp_bin"
 
   # Preflight: the ARM preprocessor must resolve the real target C-library
@@ -251,9 +307,6 @@ source_check() {
   # without libnewlib-arm-none-eabi (or devkitARM without newlib) fails exactly
   # here, so fail closed with the remedy instead of a fatal include error in the
   # middle of the generator run.
-  local preflight
-  preflight="$(mktemp)"
-  trap 'rm -f "$preflight"' RETURN
   printf '#include <string.h>\n' > "$preflight"
   if ! "$cpp_bin" -E "$preflight" >/dev/null 2>&1; then
     echo "error: $cpp_bin cannot preprocess <string.h>; install the target C-library" >&2

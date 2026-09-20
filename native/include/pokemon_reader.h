@@ -636,10 +636,12 @@ typedef enum {
  *
  *   UNAVAILABLE       no observation exists: the layout does not declare the live fields, the
  *                     lifecycle is not authoritatively ACTIVE, the battler could not be resolved,
- *                     or the required BattlePokemon bytes were unreadable. No field carries a
- *                     value and nothing is retained from a previous observation.
- *   AMBIGUOUS         the battle is active but more than one opponent battler is present, so a
- *                     single-opponent surface must not name one. Nothing is observed.
+ *                     the resolved battler is fainted (a pre-replacement transition window), or
+ *                     the required BattlePokemon bytes were unreadable. No field carries a value
+ *                     and nothing is retained from a previous observation.
+ *   AMBIGUOUS         the battle is active but more than one battler is present on the requested
+ *                     side (player or opponent doubles/partner), so a single-battler surface must
+ *                     not name one. Nothing is observed.
  *   OBSERVED          every field was decoded from live `gBattleMons` state.
  *   OBSERVED_INVALID  the bytes were read, but at least one observed value is outside the pinned
  *                     source's domain. Values are reported verbatim and flagged, never coerced.
@@ -688,10 +690,12 @@ typedef struct {
  *   3. the authoritative lifecycle (gMain.inBattle + the compiled battle globals) is ACTIVE —
  *      INACTIVE, INITIALIZING, ENDING and UNKNOWN all return false with no state retained, so
  *      battle teardown and pre-battle frames can never publish an observation;
- *   4. the battler is resolved through the same authoritative path the HP/stat-stage surfaces
- *      use (player: battler 0 + gBattlerPartyIndexes[0]; opponent:
- *      pokemon_resolve_active_enemy's battler, which is AMBIGUOUS in doubles and never "the
- *      first enemy");
+ *   4. the battler is resolved through the same authoritative path every other battle surface
+ *      uses (player: the single present player-side battler per `gBattlerPositions` via the shared
+ *      single-player resolver — AMBIGUOUS when two player-side battlers are present and UNAVAILABLE
+ *      while it is fainted, never a defaulted battler 0; opponent:
+ *      pokemon_resolve_active_enemy's battler, which is AMBIGUOUS in doubles, never "the first
+ *      enemy", and rejected while at 0 HP);
  *   5. the battler index is inside the compiled battler count and the battler is not absent;
  *   6. the complete ability and types bytes are readable through the bounds-checked reader.
  *

@@ -2247,9 +2247,12 @@ The reader flags any observed value outside these domains (`ability > 310`, a ty
 3. `pokemon_read_battle_lifecycle()` reports **ACTIVE** — `INACTIVE`, `INITIALIZING`, `ENDING` and
    `UNKNOWN` all return nothing, so battle teardown and pre-battle frames cannot publish state;
 4. the battler comes from the same authoritative machinery as every other battle surface: the
-   player role reads battler 0 with its slot from `gBattlerPartyIndexes[0]`; the opponent role goes
-   through `pokemon_resolve_active_enemy()`, which is **AMBIGUOUS in doubles** (nothing is named)
-   and never "the first enemy";
+   player role resolves the single present player-side battler through `gBattlerPositions` (the
+   shared `resolve_single_player_battler()` helper), which is **AMBIGUOUS with two player-side
+   battlers** and **UNAVAILABLE while that battler is fainted** — never a defaulted battler 0;
+   the opponent role goes through `pokemon_resolve_active_enemy()`, which is **AMBIGUOUS in
+   doubles** (nothing is named), never "the first enemy", and **UNAVAILABLE while the resolved
+   enemy is at 0 HP** (the forced-switch window);
 5. the battler index is inside the compiled battler count and the battler is not absent
    (`gAbsentBattlerFlags`);
 6. the complete ability and types bytes are readable through the bounds-checked reader.

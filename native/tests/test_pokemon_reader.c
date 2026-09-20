@@ -4705,6 +4705,129 @@ static void test_hns_battler_state_stale_ability_gone_after_replacement(void) {
 }
 
 /**
+ * Player doubles: two present player-side battlers mean neither role may publish an
+ * observation. The opponent side was already AMBIGUOUS; the player side must degrade the
+ * same way instead of publishing defaulted battler 0 while a partner is also active.
+ */
+static void test_hns_battler_state_player_doubles_is_ambiguous(void) {
+    printf("Running test_hns_battler_state_player_doubles_is_ambiguous...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 2);
+    hns_battle_set_in_battle(&fx, true);
+    hns_battle_set_counters(&fx, 4, 1u /* BATTLE_TYPE_DOUBLE */, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(&fx, 0, 0, 0);   // player left  -> player party slot 0
+    hns_battle_set_battler(&fx, 1, 1, 0);   // opponent left -> enemy party slot 0
+    hns_battle_set_battler(&fx, 2, 2, 1);   // player right  -> player party slot 1
+    hns_battle_set_battler(&fx, 3, 3, 1);   // opponent right -> enemy party slot 1
+    hns_battle_set_mon(&fx, 0, 155, 50);
+    hns_battle_set_mon(&fx, 1, 16, 40);
+    hns_battle_set_mon(&fx, 2, 158, 60);
+    hns_battle_set_mon(&fx, 3, 19, 35);
+    { const uint8_t t[3] = {PIN_TYPE_FIRE, PIN_TYPE_NONE, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(&fx, 0, PIN_ABILITY_BLAZE, t); }
+    { const uint8_t t[3] = {PIN_TYPE_GRASS, PIN_TYPE_POISON, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(&fx, 2, PIN_ABILITY_OVERGROW, t); }
+
+    BattleStateRaw life;
+    TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram,
+                                              sizeof(gba.ewram), cfg, &life)
+                    == BATTLE_LIFECYCLE_ACTIVE,
+                "fixture precondition: the doubles battle must be ACTIVE");
+
+    // The opponent side must stay AMBIGUOUS (unchanged behaviour) ...
+    BattlerRuntimeState enemy;
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &enemy),
+                "opponent doubles must not name a first enemy");
+    TEST_ASSERT(enemy.status == BATTLER_RUNTIME_STATE_AMBIGUOUS,
+                "opponent doubles observation must be AMBIGUOUS");
+    TEST_ASSERT(!enemy.ability_observed && enemy.battler_index == -1,
+                "an ambiguous opponent observation must carry nothing");
+
+    // ... and the player side must degrade the same way, never publish battler 0.
+    BattlerRuntimeState player;
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &player),
+                "player doubles must not name defaulted battler 0");
+    TEST_ASSERT(player.status == BATTLER_RUNTIME_STATE_AMBIGUOUS,
+                "player doubles observation must be AMBIGUOUS, not battler 0");
+    TEST_ASSERT(player.battler_index == -1 && player.party_slot == -1 && !player.party_slot_known,
+                "an ambiguous player observation must carry no battler or slot");
+    TEST_ASSERT(!player.ability_observed && !player.types_observed,
+                "an ambiguous player observation must carry no ability or types");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_player_doubles_is_ambiguous" ANSI_RESET "\n");
+}
+
+/**
+ * The real faint/replacement window: while the outgoing battler sits at 0 HP and the
+ * replacement has NOT yet been installed, that side's observation must be UNAVAILABLE (no
+ * stale ability/types from the fainted mon). Only once the engine commits the replacement
+ * (new party slot, rewritten gBattleMons, new words) does the side become observable again.
+ * Verified for both sides independently; the alive side keeps observing throughout.
+ */
+static void test_hns_battler_state_faint_window_unavailable_before_replacement(void) {
+    printf("Running test_hns_battler_state_faint_window_unavailable_before_replacement...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    // --- Player faint window: player mon at 0 HP, replacement not yet installed. -------------
+    hns_battle_set_mon(&fx, 0, 155, 0);
+    BattlerRuntimeState player;
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &player),
+                "a fainted player battler before its replacement must not be observable");
+    expect_battler_unavailable(&player,
+                               "the pre-replacement window must publish no player ability/types");
+    // The still-alive opponent is unaffected: the gate is per-battler, not global.
+    BattlerRuntimeState enemy;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &enemy),
+                "the alive opponent must stay observable during the player's faint window");
+    TEST_ASSERT(enemy.status == BATTLER_RUNTIME_STATE_OBSERVED && enemy.ability_id == 51,
+                "the opponent observation must be intact while the player mon is fainted");
+
+    // The engine commits the player replacement: new slot, rewritten gBattleMons[0].
+    hns_battle_set_battler(&fx, 0, 0, 1);
+    hns_battle_set_mon(&fx, 0, 158, 38);
+    { const uint8_t t[3] = {PIN_TYPE_GRASS, PIN_TYPE_NONE, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(&fx, 0, PIN_ABILITY_OVERGROW, t); }
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &player),
+                "the committed player replacement must be observable");
+    TEST_ASSERT(player.party_slot == 1 && player.ability_id == PIN_ABILITY_OVERGROW,
+                "after the replacement commits, its own slot and ability are authoritative");
+
+    // --- Opponent faint window: enemy mon at 0 HP, replacement not yet installed. ------------
+    hns_battle_set_mon(&fx, 1, 16, 0);
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &enemy),
+                "a fainted opponent before its replacement must not be observable");
+    expect_battler_unavailable(&enemy,
+                               "the pre-replacement window must publish no enemy ability/types");
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &player),
+                "the alive player must stay observable during the opponent's faint window");
+    TEST_ASSERT(player.ability_id == PIN_ABILITY_OVERGROW,
+                "the player observation must be intact while the enemy mon is fainted");
+
+    // The engine commits the opponent replacement: new slot, rewritten gBattleMons[1].
+    hns_battle_set_battler(&fx, 1, 1, 1);
+    hns_battle_set_mon(&fx, 1, 21, 35);
+    { const uint8_t t[3] = {PIN_TYPE_NORMAL, PIN_TYPE_FLYING, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(&fx, 1, 16 /* PINNED: *not* the old ability */, t); }
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &enemy),
+                "the committed opponent replacement must be observable");
+    TEST_ASSERT(enemy.party_slot == 1 && enemy.ability_id == 16,
+                "after the replacement commits, its own slot and ability are authoritative");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_faint_window_unavailable_before_replacement" ANSI_RESET "\n");
+}
+
+/**
  * An ability ID outside the pinned catalogue domain stays explicit: reported
  * raw, flagged, never substituted with slot 0 / the party's abilityNum / the
  * first declared ability.
@@ -4998,6 +5121,8 @@ int main(void) {
     test_hns_battler_state_player_switch_follows_authority();
     test_hns_battler_state_opponent_switch_follows_authority();
     test_hns_battler_state_stale_ability_gone_after_replacement();
+    test_hns_battler_state_player_doubles_is_ambiguous();
+    test_hns_battler_state_faint_window_unavailable_before_replacement();
     test_hns_battler_state_unresolved_ability_stays_raw();
     test_hns_battler_state_type_representations();
     test_hns_battler_state_trust_and_lifecycle_failures();

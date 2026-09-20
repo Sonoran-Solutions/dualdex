@@ -1226,13 +1226,70 @@ static void apply_battle_mon_hp(
 }
 
 /**
+ * Authoritative resolution of the single active player-side battler.
+ *
+ * The active player battler is whichever battler `gBattlerPositions` puts on the player side and
+ * marks present. It is battler 0 in every non-link battle H&S 2.0.5 can start, but the index is
+ * taken from the resolution rather than assumed, so a topology where it is not 0 still resolves
+ * correctly and a topology with a partner (two present player-side battlers) does not resolve at
+ * all instead of guessing. The slot is `gBattlerPartyIndexes[battler]`, and `alive` is the
+ * battler's live HP — a fainted battler is a forced-switch transition, never a live battler.
+ *
+ * Every battle surface that speaks of "the player's active battler" must resolve through this
+ * helper so there is exactly one player-side authority and no battler-0 default anywhere.
+ */
+typedef struct {
+    bool    resolved;       // exactly one present player-side battler exists
+    uint8_t battler;        // its gBattleMons index (valid only when resolved)
+    int16_t party_index;    // gBattlerPartyIndexes[battler], -1 when unavailable
+    bool    alive;          // the battler's current HP is above 0
+    uint8_t present_count;  // number of present player-side battlers observed (0, 1 or 2+)
+} PlayerBattlerResolution;
+
+static void resolve_single_player_battler(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    const BattleStateRaw* state,
+    PlayerBattlerResolution* out
+) {
+    if (!out) return;
+    memset(out, 0, sizeof(*out));
+    out->party_index = -1;
+    if (!config || !state) return;
+    if (state->lifecycle != BATTLE_LIFECYCLE_ACTIVE) return;
+    if (!state->positions_readable || !state->party_indexes_readable) return;
+    if (state->battlers_count < 2) return;
+
+    int8_t  player_battler = -1;
+
+    for (uint8_t b = 0; b < state->battlers_count && b < DUALDEX_MAX_BATTLERS; b++) {
+        BattlerTacticalState tactical;
+        read_battler_tactical_state(ewram, ewram_size, config, state, b, &tactical);
+        if (!tactical.index_valid || position_is_opponent_side(tactical.position)) continue;
+        if (!tactical.present) continue;
+        out->present_count++;
+        if (player_battler < 0) player_battler = (int8_t)b;
+    }
+
+    // Two player-side battlers means this is not a single-participant battle surface.
+    if (out->present_count != 1 || player_battler < 0) return;
+
+    BattlerTacticalState active;
+    read_battler_tactical_state(ewram, ewram_size, config, state, (uint8_t)player_battler, &active);
+    out->resolved = true;
+    out->battler = (uint8_t)player_battler;
+    out->party_index = active.party_index;
+    out->alive = active.alive;
+}
+
+/**
  * Authoritative player-side battler -> party slot.
  *
- * Battler 0 is the player's active battler in every non-link battle H&S 2.0.5 can start, and
- * `gBattlerPositions[0]` must confirm the player side. The slot is then
- * `gBattlerPartyIndexes[0]`, validated against the authoritative player party count. No species
- * comparison, no HP comparison, no slot-0 default: when any of that is unavailable the slot
- * stays unknown.
+ * The single active player battler comes from `resolve_single_player_battler()`; the slot is its
+ * `gBattlerPartyIndexes` entry, validated against the authoritative player party count. No species
+ * comparison, no HP comparison, no slot-0 default: when any of that is unavailable the slot stays
+ * unknown.
  */
 static void sync_live_player_battle_mon(
     const uint8_t* ewram,
@@ -1242,41 +1299,21 @@ static void sync_live_player_battle_mon(
     PartySnapshot* out_snapshot
 ) {
     if (!config || !state || !out_snapshot) return;
-    if (state->lifecycle != BATTLE_LIFECYCLE_ACTIVE) return;
     if (out_snapshot->count == 0) return;
-    if (!state->positions_readable || !state->party_indexes_readable) return;
-    if (state->battlers_count < 2) return;
 
-    // The active player battler is whichever battler `gBattlerPositions` puts on the player side.
-    // It is battler 0 in every non-link battle H&S 2.0.5 can start, but the index is taken from
-    // the resolution rather than assumed, so a topology where it is not 0 still resolves correctly
-    // and a topology with a partner degrades instead of guessing.
-    int8_t  player_battler = -1;
-    uint8_t player_battlers = 0;
-
-    for (uint8_t b = 0; b < state->battlers_count && b < DUALDEX_MAX_BATTLERS; b++) {
-        BattlerTacticalState tactical;
-        read_battler_tactical_state(ewram, ewram_size, config, state, b, &tactical);
-        if (!tactical.index_valid || position_is_opponent_side(tactical.position)) continue;
-        if (!tactical.present) continue;
-        player_battlers++;
-        if (player_battler < 0) player_battler = (int8_t)b;
-    }
-
-    // Two player-side battlers means this is not a single-participant battle surface.
-    if (player_battlers != 1 || player_battler < 0) return;
-
-    BattlerTacticalState active;
-    read_battler_tactical_state(ewram, ewram_size, config, state, (uint8_t)player_battler, &active);
+    PlayerBattlerResolution player;
+    resolve_single_player_battler(ewram, ewram_size, config, state, &player);
 
     // A fainted player battler whose replacement is still being announced is a transition: the
     // slot is withheld until the engine's mapping actually moves, exactly as on the enemy side.
-    if (!active.alive) return;
-    if (active.party_index < 0 || active.party_index >= out_snapshot->count) return;
+    if (!player.resolved || !player.alive) return;
+    if (player.party_index < 0 || player.party_index >= out_snapshot->count) return;
 
-    apply_battle_mon_hp(ewram, ewram_size, config, (uint8_t)player_battler, &active, out_snapshot);
-    out_snapshot->active_battler_slot = (int8_t)active.party_index;
-    out_snapshot->active_battler_index = player_battler;
+    BattlerTacticalState active;
+    read_battler_tactical_state(ewram, ewram_size, config, state, player.battler, &active);
+    apply_battle_mon_hp(ewram, ewram_size, config, player.battler, &active, out_snapshot);
+    out_snapshot->active_battler_slot = (int8_t)player.party_index;
+    out_snapshot->active_battler_index = (int8_t)player.battler;
     out_snapshot->active_battler_known = true;
 }
 
@@ -2314,16 +2351,29 @@ bool pokemon_read_battler_runtime_state_gba(
         return false;
     }
 
-    // Resolve which gBattleMons entry this role observes. The opponent path is the same
-    // authoritative single-opponent resolution the HP/stat-stage surfaces use: in a battle
-    // with two opponent battlers nothing is chosen and the observation is explicitly AMBIGUOUS.
+    // Resolve which gBattleMons entry this role observes. Both paths reuse the authoritative
+    // per-side resolution the HP/party surfaces use — the player role never defaults to battler 0
+    // and the opponent role never picks "the first enemy".
     int8_t battler = -1;
     int16_t party_slot = -1;
     if (role == BATTLER_ROLE_PLAYER) {
-        // The player surface is the same battler the stat-stage path reads for the player:
-        // battler 0, whose party slot comes from the authoritative gBattlerPartyIndexes[0].
-        battler = 0;
-        party_slot = battle.party_index[0];
+        // Player side: the single present player-side battler per gBattlerPositions. In a battle
+        // with two present player-side battlers (doubles/partner) nothing is chosen and the
+        // observation is explicitly AMBIGUOUS; a fainted battler is a pre-replacement transition,
+        // not a live battler, and observes nothing.
+        PlayerBattlerResolution player;
+        resolve_single_player_battler(ewram, ewram_size, config, &battle, &player);
+        if (!player.resolved) {
+            if (player.present_count > 1) {
+                out_state->status = BATTLER_RUNTIME_STATE_AMBIGUOUS;
+            }
+            return false; // no observation is published without a single resolved player battler
+        }
+        if (!player.alive) {
+            return false; // faint/replacement window: the outgoing battler is not live state
+        }
+        battler = (int8_t)player.battler;
+        party_slot = player.party_index;
     } else {
         ActiveEnemyInfo info;
         PartySnapshot scratch;
@@ -2334,6 +2384,9 @@ bool pokemon_read_battler_runtime_state_gba(
             return false; // no observation is published for a multi-opponent battle
         }
         if (enemy != ACTIVE_ENEMY_SLOT) return false;
+        if (info.fainted) {
+            return false; // 0 HP is a forced-switch window, not a presentable live battler
+        }
         battler = info.battler_index;
         party_slot = info.party_slot;
     }

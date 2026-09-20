@@ -20,7 +20,7 @@
 # exit code.
 
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "${BASH_SOURCE[0]}")"
 
 # Resolve a host C compiler: prefer gcc, fall back to clang.
 find_cc() {
@@ -211,6 +211,61 @@ gradle_test() {
 # the upstream cross-check lives here and is run by its own CI job. This command
 # FAILS when the pinned checkout is missing, unreachable or at the wrong revision --
 # it never degrades to a silent skip. It needs no ROM and no emulator.
+# Regenerate the pinned upstream's gitignored build-time artifacts
+# (include/constants/{map_groups,layouts,map_event_ids,region_map_sections}.h,
+# src/data/{map_group_count,tutor_moves}.h and
+# src/data/pokemon/teachable_learnsets.h) in place within $HNS_UPSTREAM_DIR,
+# using upstream's own committed tools from upstream's own committed JSON
+# sources. $1 = host C++ compiler binary, $2 = provisioning output directory.
+#
+# Every required operation propagates failure explicitly. Callers invoke this
+# in contexts where bash suppresses errexit for the whole command list (`if !`,
+# `||` chains); an inner `set -e` does NOT re-enable errexit there, so a plain
+# `set -e` block would silently ignore an early failure whenever a later
+# command succeeded (e.g. a dev checkout with pre-existing generated headers).
+# Do not replace the explicit `|| exit 1` propagation with set -e.
+regen_upstream_headers() {
+  local cc_bin="$1" prov_build="$2"
+  local upstream="${HNS_UPSTREAM_DIR:?HNS_UPSTREAM_DIR must be set}"
+  (
+    cd "$upstream" || exit 1
+    for required in \
+      tools/mapjson/mapjson.cpp tools/mapjson/json11.cpp \
+      tools/jsonproc/jsonproc.cpp tools/jsonproc/inja.hpp \
+      tools/learnset_helpers/make_tutors.py \
+      tools/learnset_helpers/make_teaching_types.py \
+      tools/learnset_helpers/make_teachables.py \
+      src/data/pokemon/all_learnables.json \
+      src/data/pokemon/special_movesets.json \
+      data/maps/map_groups.json data/layouts/layouts.json \
+      src/data/region_map/region_map_sections.json \
+      src/data/region_map/region_map_sections.constants.json.txt; do
+      if [ ! -e "$required" ]; then
+        echo "error: $required missing from pinned upstream checkout; it is required" >&2
+        echo "       to generate the build-time headers the source validation preprocesses" >&2
+        exit 1
+      fi
+    done
+    "$cc_bin" -O2 -std=c++17 -w -I tools/jsonproc tools/jsonproc/jsonproc.cpp \
+      -o "$prov_build/jsonproc" || exit 1
+    "$cc_bin" -O2 -std=c++17 -w tools/mapjson/json11.cpp tools/mapjson/mapjson.cpp \
+      -o "$prov_build/mapjson" || exit 1
+    "$prov_build/mapjson" groups hns data/maps/map_groups.json data/maps/*/*.json \
+      data/maps include/constants || exit 1
+    "$prov_build/mapjson" layouts hns data/layouts/layouts.json data/layouts include/constants || exit 1
+    "$prov_build/mapjson" event_constants emerald data/maps/*/*.json \
+      include/constants/map_event_ids.h || exit 1
+    "$prov_build/jsonproc" src/data/region_map/region_map_sections.json \
+      src/data/region_map/region_map_sections.constants.json.txt \
+      include/constants/region_map_sections.h || exit 1
+    python3 tools/learnset_helpers/make_tutors.py "$prov_build/all_tutors.json" || exit 1
+    python3 tools/learnset_helpers/make_teaching_types.py \
+      "$prov_build/all_teaching_types.json" || exit 1
+    python3 tools/learnset_helpers/make_teachables.py --build POKEMON_HNS \
+      "$prov_build" || exit 1
+  )
+}
+
 source_check() {
   echo "== H&S 2.0.5 source validation against the pinned upstream checkout =="
   local upstream="${HNS_UPSTREAM_DIR:-}"
@@ -268,49 +323,33 @@ source_check() {
   prov_build="$(mktemp -d)"
   preflight="$(mktemp)"
   trap 'rm -rf "$prov_build"; rm -f "$preflight"' RETURN
-  (
-    set -e
-    cd "$upstream"
-    for required in \
-      tools/mapjson/mapjson.cpp tools/mapjson/json11.cpp \
-      tools/jsonproc/jsonproc.cpp tools/jsonproc/inja.hpp \
-      tools/learnset_helpers/make_tutors.py \
-      tools/learnset_helpers/make_teaching_types.py \
-      tools/learnset_helpers/make_teachables.py \
-      src/data/pokemon/all_learnables.json \
-      src/data/pokemon/special_movesets.json \
-      data/maps/map_groups.json data/layouts/layouts.json \
-      src/data/region_map/region_map_sections.json \
-      src/data/region_map/region_map_sections.constants.json.txt; do
-      if [ ! -e "$required" ]; then
-        echo "error: $required missing from pinned upstream checkout; it is required" >&2
-        echo "       to generate the build-time headers the source validation preprocesses" >&2
-        exit 1
-      fi
-    done
-    "$cc_bin" -O2 -std=c++17 -w -I tools/jsonproc tools/jsonproc/jsonproc.cpp \
-      -o "$prov_build/jsonproc"
-    "$cc_bin" -O2 -std=c++17 -w tools/mapjson/json11.cpp tools/mapjson/mapjson.cpp \
-      -o "$prov_build/mapjson"
-    "$prov_build/mapjson" groups hns data/maps/map_groups.json data/maps/*/*.json \
-      data/maps include/constants
-    "$prov_build/mapjson" layouts hns data/layouts/layouts.json data/layouts include/constants
-    "$prov_build/mapjson" event_constants emerald data/maps/*/*.json \
-      include/constants/map_event_ids.h
-    "$prov_build/jsonproc" src/data/region_map/region_map_sections.json \
-      src/data/region_map/region_map_sections.constants.json.txt \
-      include/constants/region_map_sections.h
-    python3 tools/learnset_helpers/make_tutors.py "$prov_build/all_tutors.json"
-    python3 tools/learnset_helpers/make_teaching_types.py \
-      "$prov_build/all_teaching_types.json"
-    python3 tools/learnset_helpers/make_teachables.py --build POKEMON_HNS \
-      "$prov_build"
-  ) || return 1
+  if ! regen_upstream_headers "$cc_bin" "$prov_build"; then
+    echo "error: regenerating the pinned upstream's build-time headers failed;" >&2
+    echo "       refusing to validate against a possibly stale provisioning" >&2
+    return 1
+  fi
   if [ -n "$(git -C "$upstream" status --porcelain --untracked-files=no)" ]; then
     echo "error: regenerating upstream build-time headers modified tracked files in" >&2
     echo "       $upstream; refusing to validate from a dirty checkout" >&2
     return 1
   fi
+
+  # Regression for the bootstrap's error propagation itself (this is the
+  # scenario the regeneration block must guard against: a dev checkout with
+  # pre-existing generated headers lets later commands succeed, so an early
+  # failure is only caught if every required operation propagates explicitly).
+  # Exercises the production path against the real pinned checkout: an
+  # injected early compiler failure must fail the check before the data-pack
+  # verification or Gradle stages, and a working compiler must regenerate all
+  # provisioning artifacts. See tools/ci/test_bootstrap_fail_closed.sh.
+  # Re-entry guard: the regression test itself drives source_check; the guard
+  # keeps any nested source_check from invoking this test again.
+  if [ -n "${DUALDEX_BOOTSTRAP_REGRESSION_ACTIVE:-}" ]; then
+    return 0
+  fi
+  echo "== source-check bootstrap fail-closed regression =="
+  DUALDEX_BOOTSTRAP_REGRESSION_ACTIVE=1 \
+    tools/ci/test_bootstrap_fail_closed.sh "$cc_bin" "$upstream"
 
   echo "  data-pack preprocessor: $cpp_bin"
 
@@ -348,6 +387,10 @@ gradle_release() {
   ./gradlew assembleRelease
 }
 
+# Dispatch only when ci.sh is executed. When it is sourced as a library (e.g.
+# by tools/ci/test_bootstrap_fail_closed.sh, which drives source_check and
+# regen_upstream_headers directly), the command vocabulary must not run.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 case "${1:-all}" in
   test)         native_test; tracker_selftest; calc_test; hns_map_data_check; hns_generator_test; gradle_test ;;
   source-check) source_check ;;
@@ -356,3 +399,4 @@ case "${1:-all}" in
   release)      gradle_release ;;
   *)            echo "usage: $0 [test|source-check|build|all|release]" >&2; exit 2 ;;
 esac
+fi

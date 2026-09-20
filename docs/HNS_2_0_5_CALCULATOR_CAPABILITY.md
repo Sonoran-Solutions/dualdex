@@ -51,7 +51,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 
 | # | Mechanic / state | H&S 2.0.5 (pinned) | Bridge can express | Verdict |
 |---|---|---|---|---|
-| 1 | Damage formula | Generation III arithmetic with modern data | partially | **INDIVIDUALLY DEMONSTRATED ONLY** — the crit multiplier and spread reduction match; the chart, category rule and modifiers do not (§3.2) |
+| 1 | Damage formula | Generation III arithmetic with modern data | partially | **INDIVIDUALLY DEMONSTRATED ONLY** — the crit multiplier, spread reduction, category rule (Gap A/B), and type chart (Gap C1) match; modern modifiers/abilities/items do not (§3.2) |
 | 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for damaging moves in TYPE_BASED to trigger Gen 3 type derivation; Status moves retain Status in both); `optionStyle` is consumed by `CalcRequestBoundary` | **PLUMBED / REFUSED** — `optionStyle` selects category behavior with Status prioritized, but H&S calculations remain refused due to Gap C2 ability system incompatibility (§3.1, §9) |
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **SUPPORTED / REFUSED (GAP C1 CLOSED)** — type chart is exact and verified in QuickJS. H&S calculations remain refused due to Gap C2 (`HNS_ABILITY_SYSTEM_NOT_MODELLED`). (§3.1, §9) |
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `@smogon/calc` constructor (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C2 ability system incompatibility (§3.1, §9) |
@@ -218,27 +218,30 @@ The calculator truthfully distinguishes three states:
    out-of-domain. In this state, `CATEGORY_SPLIT_TOGGLE_UNREADABLE`, `FAIRY_TOGGLE_UNREADABLE`,
    `RANDOM_TYPES_UNREADABLE`, `RANDOM_TYPE_EFFECTIVENESS_UNREADABLE`, and `CHALLENGE_SETTINGS_UNREADABLE`
    block the calculation.
-2. **Observed OFF:**
+2. **Observed and modelled:**
    - `optionStyle == 0` (`PER_MOVE_SPLIT`): The boundary-owned H&S move override retains its explicit
-     pinned category (`category = "Physical" / "Special"`).
-   - `optionStyle == 1` (`TYPE_BASED`): The boundary-owned H&S move override omits category (`category = null`),
-     letting `@smogon/calc` ADV derive the category from the move's type.
+     pinned category (`category = "Physical" / "Special" / "Status"`).
+   - `optionStyle == 1` (`TYPE_BASED`): Status moves retain `"Status"` (Status wins before `optionStyle` in H&S),
+     while non-status moves omit category (`category = null`), letting the engine derive Physical or Special
+     from the effective move type.
+   - `tx_Mode_Fairy_Types`: Observed ON (1) or OFF (0); species and moves are retyped according to H&S source mappings
+     when OFF (`sPreFairyTypes`, `sFairyMoveAltTypes`), and `typeSystem: "hns_2_0_5"` selects the modern 19x19 type chart (Gap C1 closed).
+     Under exact trust, observed rules, randomizers OFF, representable types, and `request.typeSystem == "hns_2_0_5"`,
+     `HNS_TYPE_CHART_NOT_MODELLED` is cleared.
    - `tx_Random_Type == 0` (raw 0): Observed OFF. No random-type blocker is added.
    - `tx_Random_TypeEffectiveness == 0` (raw 0): Observed OFF. No random effectiveness blocker is added.
-   - `tx_Mode_Fairy_Types`: Observed ON (1) or OFF (0); `FAIRY_TOGGLE_UNREADABLE` is cleared.
 3. **Observed ON but unsupported:**
    - `tx_Random_Type == 1`: Observed ON. Blocks calculation with `RANDOM_TYPES_ACTIVE_NOT_MODELLED`.
    - `tx_Random_TypeEffectiveness == 1`: Observed ON. Blocks calculation with `RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED`.
-   - Fairy mode (ON or OFF): While the toggle state is now known, the H&S type chart itself is not modelled
-     by the Gen 3 ADV pipeline (Fairy absent, Steel resists Ghost/Dark), so calculation remains blocked with
-     `HNS_TYPE_CHART_NOT_MODELLED`.
 
-**Every H&S calculation remains refused (`CalcSupport.UNSUPPORTED`) after Gap A.**
+**Every H&S calculation remains refused (`CalcSupport.UNSUPPORTED`) after Gap A + C1 because Gap C2 abilities remain unresolved.**
 
 ### 4.2 Value-changing fields
 
-These would downgrade a calculation from *Verified* to *Approximate* if the rule fields above were
-read; today they are additional supporting reasons in the same refusal.
+The rule fields above (`optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_*`) are now read and consumed.
+In contrast, the value-changing challenge settings below modify participant stats, moves, or abilities directly.
+Because these value-changing fields are not yet incorporated into calculator request and value preparation, they
+remain separate unresolved inputs and mechanics.
 
 | Field | Default | What it changes |
 |---|---|---|

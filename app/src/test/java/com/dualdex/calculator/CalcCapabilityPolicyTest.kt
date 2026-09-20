@@ -1224,6 +1224,7 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED,
                 CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED,
                 CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED,
+                CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
                 CalcLimitation.HNS_BASE_STAT_EQUALIZER_NOT_MODELLED,
                 CalcLimitation.HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED,
                 CalcLimitation.BADGE_BOOST_NOT_MODELLED,

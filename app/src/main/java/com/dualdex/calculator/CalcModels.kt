@@ -151,6 +151,40 @@ data class CalcHnsRuntimeRules(
     val legendaryAbilitiesEnabled: Boolean? = null
 )
 
+/**
+ * Authoritative live H&S battle state that can differ from the static request operands (Gap C4a R1).
+ *
+ * H&S mutates damage operands during battle: `SET_BATTLER_TYPE` rewrites current effective types
+ * (Soak), Power Trick swaps the raw `gBattleMons` battle stat words, and `SetTypeBeforeUsingMove`
+ * can force the current move's type to Electric (Ion Deluge / Electrify) without changing its
+ * static effect ID. The static species/move request is therefore not the live truth.
+ *
+ * Bound by [CalcRequestBoundary] from the exact-trusted runtime observation. A null
+ * [DamageCalculationRequest.hnsLiveBattleState] means the request does not claim to be an active
+ * battle (manual hypothetical, or a live read of stored party data), so the live-battle-state gate
+ * does not apply. When it is present, every mutable class must be authoritatively observed:
+ *
+ *  - [attackerTypes] / [defenderTypes]: the engine's current effective types for that participant,
+ *    or null when unobserved. A third non-empty type, an out-of-domain/typeless value, or a set
+ *    that differs from the static record cannot be represented by the two-type calculator, so it
+ *    blocks rather than silently using the static typing.
+ *  - [attackerBattleStatWordsObserved] / [defenderBattleStatWordsObserved]: true only when an
+ *    authoritative observation of the engine's current raw stat words exists. No runtime reader
+ *    produces this yet (Gap C4b), so it is false in production.
+ *  - [dynamicMoveTypeObserved]: true only when the current move's effective type was authoritatively
+ *    observed. No runtime reader produces this yet (Gap C4b).
+ *  - [transientStateObserved]: true only when other transient damage state reachable by the
+ *    supported ordinary subset was authoritatively observed. No runtime reader produces this yet.
+ */
+data class CalcHnsLiveBattleState(
+    val attackerTypes: List<String>? = null,
+    val defenderTypes: List<String>? = null,
+    val attackerBattleStatWordsObserved: Boolean = false,
+    val defenderBattleStatWordsObserved: Boolean = false,
+    val dynamicMoveTypeObserved: Boolean = false,
+    val transientStateObserved: Boolean = false
+)
+
 data class DamageCalculationRequest(
     val gen: Int = 3,
     val typeSystem: String? = null,
@@ -169,7 +203,13 @@ data class DamageCalculationRequest(
     val attackerOverride: CalcSpeciesOverride? = null,
     val defenderOverride: CalcSpeciesOverride? = null,
     val moveOverride: CalcMoveOverride? = null,
-    val hnsRuntimeRules: CalcHnsRuntimeRules? = null
+    val hnsRuntimeRules: CalcHnsRuntimeRules? = null,
+    /**
+     * Authoritative live battle state for an active exact-H&S battle, or null when the request is
+     * not an active battle (Gap C4a R1). Boundary-owned: [CalcRequestBoundary] overwrites any
+     * caller-supplied value from the exact-trusted runtime observation.
+     */
+    val hnsLiveBattleState: CalcHnsLiveBattleState? = null
 )
 
 data class DamageCalculationResponse(

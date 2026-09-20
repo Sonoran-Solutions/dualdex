@@ -2283,10 +2283,16 @@ static void check_gap_c3_items(void) {
  *   include/fpmath.h: uq4_12_multiply_by_int_half_down(mod, v)
  *     (mod * v + 2047) / 4096, integer division
  *
- * The audit result this pins: the bare base path matches the ADV host exactly,
- * but H&S's roll-before-STAB/type/burn/screens placement and UQ4.12 half-down
- * composition do NOT, so a request that exercises those modifiers is refused by
- * HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED. */
+ * The audit result this pins: the bare base path matches the ADV host exactly
+ * for both the physical and special stat pairs (neutral stages), but H&S's
+ * roll-before-STAB/type/burn/screens placement and UQ4.12 half-down composition
+ * do NOT, so a request that exercises those modifiers is refused by
+ * HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED.
+ *
+ * Non-neutral stat stages are deliberately NOT given a positive fixture: H&S
+ * applies stages before its fixed-point ability/item composition while ADV
+ * applies ability modifiers before stages, and the staged-stat rounding has not
+ * been independently proven, so the policy blocks non-neutral stages (R2). */
 static long hns_uq12(double v) { return (long)(v * 4096.0 + 0.5); }
 static long hns_int_half_down(long modifier, long value) {
     return (modifier * value + 2047) / 4096;
@@ -2345,6 +2351,39 @@ static void check_gap_c4a_arithmetic_parity(void) {
                 check_int("neutral max roll", 60, (long)engine[ROLL_COUNT - 1]);
             } else {
                 check_condition("neutral response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* Neutral special path (Gap C4a R2): Alakazam Thunderbolt vs Snorlax. Thunderbolt is special
+     * under H&S per-move split, has no STAB (Alakazam is Psychic) and is 1x vs Normal.
+     *   SpA = floor((2*135 + 31 + 0)*50/100) + 5 = 155
+     *   SpD = floor((2*110 + 31 + 0)*50/100) + 5 = 130
+     *   base = floor(95*155*22/130/50) + 2 = 51
+     * This broadens the positive parity proof beyond the physical case; non-neutral stat stages
+     * are instead blocked by the policy until C4b proves the staged-stat rounding. */
+    g_fixture = "gap_c4a_parity_neutral_special_matches";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Alakazam\",\"level\":50,\"nature\":\"Hardy\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Thunderbolt\",\"overrides\":{\"basePower\":95,\"type\":\"Electric\",\"category\":\"Special\"}}}";
+        char* out = js_calc_calculate(req);
+        check_condition("neutral special request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_ordinary_rolls(50, 95, 155, 130, 0, 1.0, 0, 0, oracle);
+                check_condition(
+                    "neutral special base damage matches the independent H&S oracle exactly",
+                    rolls_equal(engine, oracle));
+                check_int("neutral special min roll", 43, (long)engine[0]);
+                check_int("neutral special max roll", 51, (long)engine[ROLL_COUNT - 1]);
+            } else {
+                check_condition("neutral special response carried 16 rolls", 0);
             }
             jl_free(doc);
             free(out);

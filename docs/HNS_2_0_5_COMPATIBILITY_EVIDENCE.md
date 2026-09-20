@@ -2748,16 +2748,43 @@ transcribed from `CalculateBaseDamage` / `DoMoveDamageCalcVars` / `ApplyModifier
 
 * `gap_c4a_parity_neutral_base_matches` — Machamp Rock Slide (non-STAB, 1x) vs Snorlax is
   51–60 on both the oracle and the committed bundle.
+* `gap_c4a_parity_neutral_special_matches` — Alakazam Thunderbolt (special, non-STAB, 1x) vs
+  Snorlax is 43–51 on both, using the independently transcribed SpA/SpD pair (155/130). This
+  broadens the positive proof beyond the physical case.
 * `gap_c4a_divergence_stab_detected` — Karate Chop (STAB, 2x) is `102,102,102,104,…,120` in H&S
   versus `102,103,…,120` in ADV; the fixture requires the divergence so the gate stays warranted.
 * `gap_c4a_divergence_crit_stab_detected` — crit + STAB/type also diverges.
 
 The divergence is ordering/rounding: H&S applies the random roll before STAB/type/burn/screens and
 composes modifiers in UQ4.12 half-down; ADV applies burn/screens/weather before `+2` and STAB/type
-before the roll. A request exercising any non-identity modifier adds
-`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`.
+before the roll. A request exercising any non-identity modifier, **including any non-neutral stat
+stage**, adds `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`. Non-neutral stages are blocked rather than
+given a fabricated positive fixture: H&S applies stages before its fixed-point ability/item
+composition while ADV applies ability modifiers before stages, and the staged-stat rounding is not
+independently proven. The only positive parity cases are neutral-stage physical and special requests.
 
-### 18.5 Mutation controls
+### 18.5 Live battle state (R1)
+
+`CalcCapabilityPolicy.hnsLiveBattleStateNotModelled` refuses an active H&S battle whose mutable
+damage operands are not authoritatively observed with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`.
+`CalcRequestBoundary.bindHnsLiveBattleState` marks battle context from an explicit `activeBattle`
+hint or any supplied runtime observation, and binds the current effective types for a slot-matched,
+OBSERVED, in-domain battler; the stat-word, dynamic-move-type, and transient-state authority flags
+stay false until Gap C4b provides readers.
+
+Evidence:
+
+* A static Normal defender (Snorlax) with an observed live Water type (Soak) cannot clear the
+  ordinary-safe path: `CalcHnsLiveBattleStateTest` asserts `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`,
+  and that the modifier detector adds `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` for the live 2×
+  Electric matchup rather than seeing the static 1×.
+* A third non-empty live type, a slot-mismatched observation, an out-of-domain type, and an
+  unobserved active battler each block.
+* A policy-level fully-observed shape (types matching the static record plus all class-authority
+  flags) clears the gate, proving it is per-class rather than an unconditional live-read refusal.
+* A manual hypothetical or stored-party read is not an active battle and is unaffected.
+
+### 18.6 Mutation controls
 
 * **Control 1 (arithmetic rounding).** Changed the oracle's base-damage `+2` to `+3`. The native
   suite failed `gap_c4a_parity_neutral_base_matches` (1963 passed / 1 failed). Reverted.
@@ -2765,11 +2792,20 @@ before the roll. A request exercising any non-identity modifier adds
   `CalcHnsMechanicsTest` and `HnsMoveMechanicsRegistryTest` failed 3 tests, including
   `Return and Hidden Power are refused by the move mechanics gate`. Reverted and re-verified
   byte-for-byte against the pinned source.
+* **Control 3 (live battle state gate, R1).** Removed the `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`
+  limitation emission from `CalcCapabilityPolicy`. `CalcHnsLiveBattleStateTest` failed on the
+  unobserved-active-battler and Soak/Water regressions. Reverted.
+* **Control 4 (staged-stat handling, R2).** Removed the `hnsHasNonNeutralStages` check from
+  `hnsModifierOrderDiverges`. `CalcHnsMechanicsTest` failed
+  `non-neutral stat stages are refused by the modifier-order gate`. Reverted.
 
-### 18.6 What this slice does not verify
+### 18.7 What this slice does not verify
 
 No official H&S 2.0.5 ROM battle result has been compared with any value here. The ordinary base
 arithmetic is **SOURCE/HOST VERIFIED**, not runtime verified. H&S production remains
-`CalcSupport.UNSUPPORTED` with `request == null`; `BADGE_BOOST_NOT_MODELLED` and
-`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` keep it refused. `BUILDS_NOT_HASH_VERIFIED` and
-`battleUiVerified` are unchanged. Gap C4b owns the runtime validation and the modifier-order fix.
+`CalcSupport.UNSUPPORTED` with `request == null`; `BADGE_BOOST_NOT_MODELLED`,
+`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` (now including non-neutral stat stages), and
+`HNS_LIVE_BATTLE_STATE_NOT_MODELLED` keep it refused. `BUILDS_NOT_HASH_VERIFIED` and
+`battleUiVerified` are unchanged. Gap C4b owns the runtime validation, the modifier-order/staged-stat
+fix, and the authoritative consumption of effective battler types, battle stat words, the dynamic
+move type, and transient damage state.

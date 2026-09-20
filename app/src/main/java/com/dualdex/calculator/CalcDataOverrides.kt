@@ -127,14 +127,15 @@ object CalcDataOverrides {
         val pack = GameDataPackRegistry.getForProfile(profile)
         if (pack !is HeartAndSoul205DataPack) {
             // Overrides and typeSystem are boundary-owned: callers cannot inject overrides, rules, or typeSystem
-            // into non-H&S / vanilla profiles.
-            return if (request.attackerOverride != null || request.defenderOverride != null || request.moveOverride != null || request.hnsRuntimeRules != null || request.typeSystem != null) {
+            // into non-H&S / vanilla profiles. Live battle state is likewise H&S-only.
+            return if (request.attackerOverride != null || request.defenderOverride != null || request.moveOverride != null || request.hnsRuntimeRules != null || request.typeSystem != null || request.hnsLiveBattleState != null) {
                 request.copy(
                     attackerOverride = null,
                     defenderOverride = null,
                     moveOverride = null,
                     hnsRuntimeRules = null,
-                    typeSystem = null
+                    typeSystem = null,
+                    hnsLiveBattleState = null
                 )
             } else {
                 request
@@ -170,7 +171,10 @@ object CalcDataOverrides {
             attackerOverride = attackerOverride,
             defenderOverride = defenderOverride,
             moveOverride = moveOverride,
-            hnsRuntimeRules = hnsRuntimeRules
+            hnsRuntimeRules = hnsRuntimeRules,
+            // Boundary-owned exactly like the rules above: stripped here and re-bound from the
+            // exact-trusted runtime observation by CalcRequestBoundary.
+            hnsLiveBattleState = null
         )
     }
 }

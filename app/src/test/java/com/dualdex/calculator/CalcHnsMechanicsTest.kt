@@ -79,12 +79,19 @@ class CalcHnsMechanicsTest {
         defenderSpecies: String = "Snorlax",
         isCrit: Boolean = false,
         attackerAbility: String? = "None",
-        typeSystem: String? = "hns_2_0_5"
+        typeSystem: String? = "hns_2_0_5",
+        attackerBoosts: StatBlock? = null,
+        defenderBoosts: StatBlock? = null
     ) = DamageCalculationRequest(
         gen = 3,
         typeSystem = typeSystem,
-        attacker = CalcPokemonInput(species = attackerSpecies, level = 50, ability = attackerAbility),
-        defender = CalcPokemonInput(species = defenderSpecies, level = 50, ability = "None"),
+        attacker = CalcPokemonInput(
+            species = attackerSpecies,
+            level = 50,
+            ability = attackerAbility,
+            boosts = attackerBoosts
+        ),
+        defender = CalcPokemonInput(species = defenderSpecies, level = 50, ability = "None", boosts = defenderBoosts),
         move = CalcMoveInput(name = move, isCrit = isCrit)
     )
 
@@ -199,6 +206,57 @@ class CalcHnsMechanicsTest {
         val (profile, trust) = exactHns()
         val verdict = refused(profile, trust, "Tackle", isCrit = true)
         assertTrue(verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+    }
+
+    @Test
+    fun `non-neutral stat stages are refused by the modifier-order gate`() {
+        val (profile, trust) = exactHns()
+        // R2: the independent oracle's positive equality proof is neutral-stage only. H&S applies
+        // stat stages before its ability/item fixed-point composition while ADV applies ability
+        // modifiers before stages, and the staged-stat rounding is not independently proven, so a
+        // staged request cannot clear the ordinary-safe path until C4b proves it.
+        val cases = linkedMapOf(
+            "attacker Atk +1" to request("Tackle", attackerBoosts = StatBlock(atk = 1)),
+            "attacker Atk -1" to request("Tackle", attackerBoosts = StatBlock(atk = -1)),
+            "attacker Def +1" to request("Tackle", attackerBoosts = StatBlock(def = 1)),
+            "attacker Def -1" to request("Tackle", attackerBoosts = StatBlock(def = -1)),
+            "defender Atk +1" to request("Tackle", defenderBoosts = StatBlock(atk = 1)),
+            "defender Def -1" to request("Tackle", defenderBoosts = StatBlock(def = -1)),
+            "special SpA +2" to request("Tackle", attackerBoosts = StatBlock(spa = 2)),
+            "special SpD -2" to request("Tackle", defenderBoosts = StatBlock(spd = -2)),
+            "speed stage" to request("Tackle", attackerBoosts = StatBlock(spe = 1))
+        )
+        cases.forEach { (label, req) ->
+            val verdict = (CalcRequestBoundary.build(
+                profile = profile,
+                trust = trust,
+                request = req,
+                challengeSettings = settings()
+            ) as CalcRequestOutcome.Refused).verdict
+            assertTrue(
+                "$label must be refused while staged-stat rounding is unproven: ${verdict.limitations}",
+                verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
+            )
+        }
+    }
+
+    @Test
+    fun `neutral stat stages clear the modifier-order gate`() {
+        val (profile, trust) = exactHns()
+        val verdict = (CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request(
+                "Tackle",
+                attackerBoosts = StatBlock(),
+                defenderBoosts = StatBlock()
+            ),
+            challengeSettings = settings()
+        ) as CalcRequestOutcome.Refused).verdict
+        assertFalse(
+            "an explicitly neutral stage block is not a divergence: ${verdict.limitations}",
+            verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
+        )
     }
 
     @Test

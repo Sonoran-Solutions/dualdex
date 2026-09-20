@@ -232,6 +232,22 @@ enum class CalcLimitation(val blocks: Boolean) {
     HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED(true),
 
     /**
+     * An active H&S battle's mutable damage operands are not authoritatively observed, so the
+     * static species/move request is not the live truth (issue #9, Gap C4a R1).
+     *
+     * H&S rewrites damage operands during battle that the request shape does not represent:
+     * `SET_BATTLER_TYPE` changes the current effective types (Soak), Power Trick swaps the raw
+     * `gBattleMons` battle stat words with unchanged stat stages and unchanged effect ID, and
+     * `SetTypeBeforeUsingMove` can force the current move's type to Electric (Ion Deluge /
+     * Electrify) without changing its static effect ID. A request that exercises one of these
+     * classes without authoritative live observation cannot be shown to reproduce the running
+     * calculation, so it fails closed here. This gate is deliberately coarse: Gap C4b must
+     * consume effective battler types, battle stat words, the dynamic move type, and transient
+     * damage state before any of these classes may clear (§10.5).
+     */
+    HNS_LIVE_BATTLE_STATE_NOT_MODELLED(true),
+
+    /**
      * The build scales type-boost held items to a later-generation percentage than the generation
      * III pipeline applies.
      */
@@ -455,6 +471,8 @@ data class CalcCapabilityVerdict(
                 "the selected move's damage mechanics are not proven equivalent to the generation III pipeline"
             CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED ->
                 "the pinned H&S damage modifier order and fixed-point rounding differ from the generation III pipeline for this request"
+            CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED ->
+                "this is an active battle whose current effective types, battle stat words, or dynamic move type are not authoritatively observed"
             CalcLimitation.ITEM_BOOST_PERCENTAGE_DIFFERS ->
                 "this build scales type-boost items differently from the generation III pipeline"
             CalcLimitation.LIVE_INPUTS_NOT_VERIFIED ->
@@ -821,6 +839,15 @@ object CalcCapabilityPolicy {
             if (hnsModifierOrderDiverges(pack, request)) {
                 limitations.add(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
             }
+
+            // 8. Live battle state (Gap C4a R1). The request shape carries static species/move
+            // operands, but H&S mutates them during battle (current effective types, raw battle
+            // stat words, dynamic move type, transient state). An active battle whose mutable
+            // classes are not authoritatively observed fails closed here rather than letting the
+            // static view clear the ordinary-safe path.
+            if (hnsLiveBattleStateNotModelled(pack, request)) {
+                limitations.add(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
+            }
         }
 
         if (!isExactRuntimeVerified(profile, trust)) {
@@ -977,6 +1004,12 @@ object CalcCapabilityPolicy {
      * each modifier with UQ4.12 half-down. The host applies burn/screens/weather before `+2` and
      * STAB/type before the roll. Any non-identity modifier therefore changes the integer range, so
      * this returns true unless the request is provably the bare neutral path.
+     *
+     * Non-neutral stat stages are included (Gap C4a R2). H&S applies stat stages *before* its
+     * ability/item fixed-point composition while the ADV host applies ability modifiers before
+     * stages, and the staged-stat rounding has not been independently proven for H&S, so a staged
+     * request cannot clear the ordinary-safe path until C4b proves it. The only positive parity
+     * cases are neutral-stage physical and special requests (see the native oracle).
      */
     private fun hnsModifierOrderDiverges(
         pack: GameDataPack,
@@ -989,9 +1022,17 @@ object CalcCapabilityPolicy {
             if (side.isReflect || side.isLightScreen) return true
         }
         if (request.attacker.status?.trim()?.lowercase() == "brn") return true
+        if (hnsHasNonNeutralStages(request.attacker.boosts) ||
+            hnsHasNonNeutralStages(request.defender.boosts)
+        ) {
+            return true
+        }
 
-        // STAB: the attacker's effective type includes the move's effective type.
-        val attackerTypes = hnsEffectiveTypes(request.attacker, request.attackerOverride, pack)
+        // STAB: the attacker's effective type includes the move's effective type. An authoritative
+        // live type observation is the live truth and must be used instead of the static record,
+        // otherwise a mid-battle SET_BATTLER_TYPE (e.g. Soak) would look neutral when it is not.
+        val live = request.hnsLiveBattleState
+        val attackerTypes = hnsEffectiveTypes(request.attacker, request.attackerOverride, pack, live?.attackerTypes)
         val moveTypeName = request.moveOverride?.type
             ?: pack.getMoveByName(request.move.name)?.type?.displayName
         if (moveTypeName == null || attackerTypes.isEmpty()) return true
@@ -999,7 +1040,7 @@ object CalcCapabilityPolicy {
 
         // Type effectiveness: anything other than exactly 1.0 diverges.
         val moveType = com.dualdex.pokemon.PokemonType.fromString(moveTypeName) ?: return true
-        val defenderTypes = hnsEffectiveTypes(request.defender, request.defenderOverride, pack)
+        val defenderTypes = hnsEffectiveTypes(request.defender, request.defenderOverride, pack, live?.defenderTypes)
         if (defenderTypes.isEmpty()) return true
         var effectiveness = 1.0
         for (typeName in defenderTypes) {
@@ -1009,12 +1050,80 @@ object CalcCapabilityPolicy {
         return effectiveness != 1.0
     }
 
-    /** The effective species types from the boundary-owned override, else the pinned pack. */
+    /** True when any offensive/defensive battle stat stage is non-neutral. */
+    private fun hnsHasNonNeutralStages(boosts: StatBlock?): Boolean {
+        if (boosts == null) return false
+        return boosts.atk != 0 || boosts.def != 0 || boosts.spa != 0 || boosts.spd != 0 || boosts.spe != 0
+    }
+
+    /**
+     * True when an active H&S battle carries a mutable damage operand this calculator does not
+     * authoritatively observe (Gap C4a R1).
+     *
+     * Returns false when [DamageCalculationRequest.hnsLiveBattleState] is null: a manual
+     * hypothetical, or a live read of stored party data, is not an active battle and none of these
+     * operands can have been rewritten. When it is present, each class is checked independently so
+     * a class that is provably neutral (observed live types that match the static record) does not
+     * itself block, while every unobserved class does.
+     */
+    private fun hnsLiveBattleStateNotModelled(
+        pack: GameDataPack,
+        request: DamageCalculationRequest
+    ): Boolean {
+        val live = request.hnsLiveBattleState ?: return false
+
+        // 1. Current effective battler types. An authoritative observation that matches the static
+        //    record is the only way this class is provably neutral; unobserved, out-of-domain,
+        //    typeless, third non-empty, or mismatching typing blocks.
+        if (!hnsLiveTypesProven(request.attacker, request.attackerOverride, live.attackerTypes, pack)) return true
+        if (!hnsLiveTypesProven(request.defender, request.defenderOverride, live.defenderTypes, pack)) return true
+
+        // 2. Raw battle stat words (Power Trick swaps gBattleMons attack/defense with unchanged
+        //    stages). No runtime reader supplies this yet: C4b.
+        if (!live.attackerBattleStatWordsObserved || !live.defenderBattleStatWordsObserved) return true
+
+        // 3. Dynamic move type (Ion Deluge / Electrify via SetTypeBeforeUsingMove). The move keeps
+        //    its static effect ID, so the generated effect map cannot see it. C4b.
+        if (!live.dynamicMoveTypeObserved) return true
+
+        // 4. Other transient damage state reachable by the supported ordinary subset. C4b.
+        if (!live.transientStateObserved) return true
+
+        return false
+    }
+
+    /**
+     * True only when [observed] is an authoritative current-type observation that the static
+     * two-type request already represents: observed, in-domain, representable, at most two
+     * non-empty slots, and equal as a set to the static record.
+     */
+    private fun hnsLiveTypesProven(
+        input: CalcPokemonInput,
+        override: CalcSpeciesOverride?,
+        observed: List<String>?,
+        pack: GameDataPack
+    ): Boolean {
+        if (observed == null || observed.isEmpty()) return false
+        // The request shape carries at most two types; a third non-empty live type (e.g. a layered
+        // AddType) cannot be represented and must block rather than be truncated.
+        if (observed.size > 2) return false
+        if (observed.any { it !in HNS_REPRESENTABLE_TYPES }) return false
+        val static = hnsEffectiveTypes(input, override, pack, null)
+        if (static.isEmpty()) return false
+        return observed.map { it.lowercase() }.toSet() == static.map { it.lowercase() }.toSet()
+    }
+
+    /**
+     * The effective species types: the authoritative live observation when present, else the
+     * boundary-owned override, else the pinned pack.
+     */
     private fun hnsEffectiveTypes(
         input: CalcPokemonInput,
         override: CalcSpeciesOverride?,
-        pack: GameDataPack
+        pack: GameDataPack,
+        liveTypes: List<String>? = null
     ): List<String> {
+        if (liveTypes != null && liveTypes.isNotEmpty()) return liveTypes
         if (override != null) return override.types
         val species = pack.getSpeciesByName(input.species) ?: return emptyList()
         return listOfNotNull(species.type1.displayName, species.type2?.displayName)

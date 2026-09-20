@@ -54,12 +54,45 @@ object CalcRequestBoundary {
     }
 
     /**
+     * Build the request for one participant pair, prepared through [CalcInputPreparation].
+     *
+     * This is the overload production callers use, because it starts from the same
+     * [CalcParticipantState] values the screen holds rather than from a hand-assembled request. The
+     * preparation records what a live read did not carry, and that record travels with the request
+     * into [CalcCapabilityPolicy], so a verified hash cannot convert an unobserved status, ability
+     * or stat stage into an authoritative one.
+     */
+    fun build(
+        profile: RomHackProfile,
+        trust: RuntimeRomTrust?,
+        attacker: CalcParticipantState,
+        defender: CalcParticipantState,
+        move: CalcMoveInput,
+        field: CalcFieldInput,
+        gen: Int = 3
+    ): CalcRequestOutcome {
+        val prepared = CalcInputPreparation.prepare(
+            attacker = attacker,
+            defender = defender,
+            move = move,
+            field = field,
+            gen = gen
+        )
+        return build(profile, trust, prepared.request, prepared.request.isFromLiveRead())
+    }
+
+    /**
      * Build the request from a calculator that observed live game state.
      *
      * A manual (hypothetical) matchup may be calculated against an unverified build, because
      * nothing was read from the running game. A calculation whose inputs came from a live memory
      * read may not: presenting an unverified read as a verified number is exactly the failure this
      * boundary exists to prevent.
+     *
+     * The reason reported distinguishes an incomplete read from an untrusted one. A read that is
+     * missing a damage-relevant field is a different problem from a read whose values are complete
+     * but not verified against the running ROM, and a caller that saw only "not verified" for both
+     * would have no way to tell which one to fix.
      */
     fun build(
         profile: RomHackProfile,
@@ -69,18 +102,31 @@ object CalcRequestBoundary {
     ): CalcRequestOutcome {
         val outcome = build(profile, trust, request)
         if (!inputsFromLiveRead) return outcome
-        if (outcome is CalcRequestOutcome.Ready && outcome.verdict.isVerified) return outcome
 
-        val verdict = when (outcome) {
-            is CalcRequestOutcome.Ready -> outcome.verdict.copy(
-                support = CalcSupport.UNSUPPORTED,
-                request = null,
-                limitations = outcome.verdict.limitations + CalcLimitation.LIVE_INPUTS_NOT_VERIFIED
+        // Two independent facts, reported as two reasons. A live read is never verified because the
+        // values are reads, and it is separately incomplete when the reader could not carry a
+        // damage-relevant field. Collapsing them would leave a caller unable to tell "this needs a
+        // verified ROM" from "this needs the reader to carry more state".
+        val additions = buildList {
+            add(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED)
+            if (request.preparationLimitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)) {
+                add(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
+            }
+        }
+
+        return when (outcome) {
+            // The policy authorised it; a live read alone is enough to refuse that authorisation.
+            is CalcRequestOutcome.Ready -> CalcRequestOutcome.Refused(
+                outcome.verdict.copy(
+                    support = CalcSupport.UNSUPPORTED,
+                    request = null,
+                    limitations = outcome.verdict.limitations + additions
+                )
             )
-            is CalcRequestOutcome.Refused -> outcome.verdict.copy(
-                limitations = outcome.verdict.limitations + CalcLimitation.LIVE_INPUTS_NOT_VERIFIED
+            // Already refused for its own reason: keep that reason and add the live-read ones.
+            is CalcRequestOutcome.Refused -> CalcRequestOutcome.Refused(
+                outcome.verdict.copy(limitations = outcome.verdict.limitations + additions)
             )
         }
-        return CalcRequestOutcome.Refused(verdict)
     }
 }

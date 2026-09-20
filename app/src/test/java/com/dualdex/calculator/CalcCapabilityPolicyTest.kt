@@ -1,6 +1,7 @@
 package com.dualdex.calculator
 
 import com.dualdex.pokemon.Gen3VanillaDataPack
+import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.hasMoveByName
 import com.dualdex.pokemon.hns.HeartAndSoul205DataPack
 import com.dualdex.romhack.ProfileLoader
@@ -86,6 +87,91 @@ class CalcCapabilityPolicyTest {
         field = field
     )
 
+    // ------------------------------------------------ live-read production fixtures
+
+    /**
+     * The same Machamp the native suite pins: Hardy L50, 31 IVs, 0 EVs, so its Rock Slide against the
+     * benchmark Snorlax is 51-60 plain, 102-120 on a critical hit, and 75-89 while burned with Guts.
+     *
+     * [statusCondition] uses the reader's bit layout: bit 4 is burn.
+     */
+    private fun machamp(statusCondition: Long = 0L): ParsedPokemon = ParsedPokemon(
+        isValid = true,
+        isEmpty = false,
+        pid = 123456L,
+        tid = 1000,
+        sid = 2000,
+        nickname = "Machamp",
+        otName = "Red",
+        species = 68,
+        heldItem = 0,
+        level = 50,
+        nature = 0,
+        natureName = "Hardy",
+        isShiny = false,
+        abilitySlot = 0,
+        isEgg = false,
+        friendship = 255,
+        experience = 100000L,
+        hpIv = 31, attackIv = 31, defenseIv = 31, speedIv = 31, spAttackIv = 31, spDefenseIv = 31,
+        hpEv = 0, attackEv = 0, defenseEv = 0, speedEv = 0, spAttackEv = 0, spDefenseEv = 0,
+        moves = intArrayOf(1, 0, 0, 0),
+        pp = intArrayOf(30, 0, 0, 0),
+        currentHp = 150,
+        maxHp = 150,
+        attack = 150,
+        defense = 100,
+        speed = 100,
+        spAttack = 85,
+        spDefense = 100,
+        statusCondition = statusCondition
+    )
+
+    /**
+     * Runs a real live read through the SAME presenter the Calc screen uses.
+     *
+     * This is the connection the original tests missed: they validated a hand-authored request, so a
+     * screen that dropped a participant's status or stat stages still passed. Driving
+     * [CalcParticipantPresenter] means the screen's participant selection is under test.
+     */
+    private fun screenAttacker(
+        member: ParsedPokemon,
+        stages: com.dualdex.battle.StatStages? = null
+    ): CalcParticipantState = CalcParticipantPresenter.attacker(
+        party = listOf(member),
+        selectedIndex = 0,
+        speciesNameOf = { "Machamp" },
+        playerStages = stages
+    )
+
+    private fun screenDefender(opponent: ParsedPokemon?): CalcParticipantState =
+        CalcParticipantPresenter.defender(
+            observedOpponent = opponent,
+            chosenSpecies = "Snorlax",
+            enemyStages = null
+        )
+
+    private fun manualMachamp(origin: CalcInputOrigin = CalcInputOrigin.MANUAL) = CalcParticipantState(
+        species = "Machamp",
+        level = 50,
+        nature = "Hardy",
+        boosts = CalcParticipantState.NONE,
+        ivs = StatBlock(hp = 31, atk = 31, def = 31, spa = 31, spd = 31, spe = 31),
+        evs = StatBlock(),
+        curHP = 150,
+        origin = origin
+    )
+
+    private fun manualSnorlax() = CalcParticipantState(
+        species = "Snorlax",
+        level = 50,
+        nature = "Hardy",
+        boosts = CalcParticipantState.NONE,
+        ivs = StatBlock(hp = 31, atk = 31, def = 31, spa = 31, spd = 31, spe = 31),
+        evs = StatBlock(),
+        curHP = 235
+    )
+
     // ---------------------------------------- the verified vanilla Gen III decision
 
     @Test
@@ -124,6 +210,23 @@ class CalcCapabilityPolicyTest {
         assertTrue(presentation.isVerified)
         assertTrue(presentation.headline.startsWith(CalcResultPresentation.VERIFIED_PREFIX))
         assertTrue(presentation.headline.contains("FireRed"))
+    }
+
+    @Test
+    fun `a verified headline discloses the badge-boost scope it cannot enforce`() {
+        // The request shape cannot express the generation III badge boost, so a verified number is
+        // about 10% low for a badged player. Documenting that in a design note did not make it true
+        // on screen, so the limitation now travels with the claim.
+        val profile = fireRed
+        val ready = CalcRequestBoundary.build(profile, exactTrust(profile), request())
+            as CalcRequestOutcome.Ready
+
+        val headline = CalcResultPresentation.forVerdict(ready.verdict).headline
+        assertTrue(
+            "a verified headline must state its scope, was: $headline",
+            headline.contains(CalcResultPresentation.BADGE_BOOST_NOTE)
+        )
+        assertTrue(headline.contains("badge boost"))
     }
 
     // ------------------------------------------- trust caps without changing hashes
@@ -559,6 +662,67 @@ class CalcCapabilityPolicyTest {
     }
 
     @Test
+    fun `weather spelling the engine would ignore is canonicalised in the authorised request`() {
+        // Regression for the R2 review finding. The validator accepted weather case-insensitively
+        // while normaliseNames only canonicalised abilities and items, so "rain" was approved and
+        // then forwarded verbatim. The engine's Field.hasWeather is `weathers.includes(this.weather)`,
+        // so "rain" behaves exactly like NO weather - the same validation-versus-execution mismatch
+        // as the singles/Singles defect.
+        val profile = fireRed
+        val accepted = mapOf(
+            "Rain" to "Rain",
+            "rain" to "Rain",
+            "RAIN" to "Rain",
+            " rain " to "Rain",
+            "sun" to "Sun",
+            "HAIL" to "Hail"
+        )
+
+        accepted.forEach { (supplied, canonical) ->
+            val ready = CalcRequestBoundary.build(
+                profile,
+                exactTrust(profile),
+                request(field = CalcFieldInput(weather = supplied))
+            ) as? CalcRequestOutcome.Ready
+                ?: throw AssertionError("'$supplied' should be accepted and canonicalised")
+
+            assertTrue("'$supplied' must stay verified", ready.verdict.isVerified)
+            assertEquals(
+                "'$supplied' must be sent as '$canonical' or the engine ignores it",
+                canonical,
+                ready.request.field.weather
+            )
+            assertEquals(
+                "the serialised request is what the engine reads",
+                canonical,
+                JSONObject(buildCalcRequestJson(ready.request)).getJSONObject("field").getString("weather")
+            )
+        }
+    }
+
+    @Test
+    fun `canonicalised weather is weather the engine actually applies`() {
+        // The point of the rewrite, stated as the engine's own behaviour: the canonical spelling
+        // changes the number, and the lowercase one that used to be forwarded does not.
+        val canonical = CalcCapabilityPolicy.canonicalWeather("rain")
+        val lowered = CalcCapabilityPolicy.canonicalWeather("RAIN")
+        assertEquals("Rain", canonical)
+        assertEquals(canonical, lowered)
+
+        // What the policy accepts is always a canonical spelling, so a forwarded value can never be
+        // one the engine silently drops.
+        listOf("Sun", "rain", "RAIN", "sand", "hail").forEach { supplied ->
+            val resolved = CalcCapabilityPolicy.canonicalWeather(supplied)
+            assertNotNull("'$supplied' must resolve", resolved)
+            assertTrue(
+                "'$supplied' resolved to '$resolved', which is not a modelled spelling",
+                CalcCapabilityPolicy.MODELLED_WEATHER.contains(resolved!!)
+            )
+        }
+        assertNull(CalcCapabilityPolicy.canonicalWeather("sunny"))
+    }
+
+    @Test
     fun `snow is refused rather than silently computed as no weather`() {
         // Snow is a real, reachable condition in Heart & Soul 2.0.5 (Ice Defense x1.5, no chip
         // damage, distinct from Hail). The engine compares weather exactly and would treat this as
@@ -671,17 +835,118 @@ class CalcCapabilityPolicyTest {
     }
 
     @Test
-    fun `live-read inputs on an exact-verified ROM stay verified`() {
+    fun `live-read inputs on an exact-verified ROM are refused when the read is incomplete`() {
+        // Regression for the R1 review finding. The screen used to drop a live participant's status,
+        // ability and stat stages while preparing the request. The engine treats an omitted status as
+        // no status and an omitted boost set as stage 0, so an exact-verified ROM promoted that
+        // silence to "Verified" - and a burned Machamp was reported as 51-60 instead of 75-89.
         val profile = fireRed
+        val burned = screenAttacker(machamp())
+
         val outcome = CalcRequestBoundary.build(
             profile = profile,
             trust = exactTrust(profile),
-            request = request(),
+            attacker = burned,
+            defender = screenDefender(null),
+            move = CalcMoveInput(name = "Rock Slide"),
+            field = CalcFieldInput()
+        )
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("an incomplete live read must never be verified")
+
+        assertFalse(refused.verdict.isVerified)
+        assertTrue(
+            "the missing field must be the reason, got ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
+        )
+    }
+
+    @Test
+    fun `a live read that carried every field is refused for the read, not for being incomplete`() {
+        // The two live-read problems stay distinct. A participant that declared no unknown fields
+        // must not be described as incomplete - it is simply a read.
+        val profile = fireRed
+        val completePreparation = CalcInputPreparation.prepare(
+            attacker = manualMachamp(origin = CalcInputOrigin.LIVE_READ),
+            defender = manualSnorlax(),
+            move = CalcMoveInput(name = "Rock Slide"),
+            field = CalcFieldInput()
+        )
+        assertEquals(
+            "a complete manual-shaped participant reports no unknown field",
+            emptyList<CalcLimitation>(),
+            completePreparation.preparationLimitations
+        )
+
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = exactTrust(profile),
+            request = completePreparation.request,
             inputsFromLiveRead = true
         )
-        val ready = outcome as? CalcRequestOutcome.Ready
-            ?: throw AssertionError("live-read inputs on the exact verified ROM are legitimate")
-        assertTrue(ready.verdict.isVerified)
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("a live read must not be presented as verified")
+
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED))
+        assertFalse(
+            "a read that carried its fields is not an incomplete read",
+            refused.verdict.limitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
+        )
+    }
+
+    @Test
+    fun `a parser-backed live read is reported as both a read and incomplete`() {
+        // And when the real reader is used, both facts are reported, so a caller can see which one
+        // to fix rather than guessing from a single message.
+        val profile = fireRed
+        val prepared = CalcInputPreparation.prepare(
+            attacker = screenAttacker(machamp()),
+            defender = screenDefender(null),
+            move = CalcMoveInput(name = "Rock Slide"),
+            field = CalcFieldInput()
+        )
+
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = exactTrust(profile),
+            request = prepared.request,
+            inputsFromLiveRead = true
+        )
+        val refused = outcome as CalcRequestOutcome.Refused
+
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN))
+        // The reader cannot name the ability, so that is the field it reports as missing.
+        assertTrue(prepared.unknownLiveFields.contains(CalcInputField.ABILITY))
+    }
+
+    @Test
+    fun `the observed status of a burned live participant reaches the request`() {
+        // The other half of the R1 fix: carrying the state that the reader *does* report. With the
+        // status carried and a whitelisted ability supplied, the request that reaches the engine is
+        // the one that produces the burned-and-Guts number, not the plain one.
+        val profile = fireRed
+        val prepared = CalcInputPreparation.prepare(
+            attacker = screenAttacker(machamp(statusCondition = 1L shl 4)).copy(ability = "Guts"),
+            defender = screenDefender(null),
+            move = CalcMoveInput(name = "Rock Slide"),
+            field = CalcFieldInput()
+        )
+
+        assertEquals("brn", prepared.request.attacker.status)
+        assertEquals("Guts", prepared.request.attacker.ability)
+        assertEquals(CalcInputOrigin.LIVE_READ, prepared.request.attacker.origin)
+        // The live read is in there, so the boundary still refuses - but for the right reason.
+        assertTrue(
+            prepared.preparationLimitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
+        )
+    }
+
+    @Test
+    fun `a zero status condition is an observation of no status, not a missing field`() {
+        val healthy = screenAttacker(machamp())
+        assertNull("a healthy Pokemon has no status, which is known", healthy.status)
+        assertEquals("None", healthy.item)
     }
 
     @Test
@@ -750,6 +1015,7 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.RANDOM_TYPES_UNREADABLE,
                 CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE,
                 CalcLimitation.LIVE_INPUTS_NOT_VERIFIED,
+                CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN,
                 CalcLimitation.LEVEL_OUT_OF_RANGE,
                 CalcLimitation.STATUS_NOT_MODELLED,
                 CalcLimitation.FIELD_CONDITION_NOT_MODELLED ->

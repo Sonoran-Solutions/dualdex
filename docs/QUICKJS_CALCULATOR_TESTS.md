@@ -249,7 +249,7 @@ H&S coverage.
 `CalcCapabilityPolicy` decides the `gen` value that
 `app/src/main/java/com/dualdex/calculator/CalcRequestBoundary.kt` authorises, and
 `CalcCapabilityPolicyTest` asserts it. Two of these fixtures exist specifically to
-pin that decision and the silent-degradation path around it:
+pin that decision and the silent-degradation and exact-match input contracts around it:
 
 - `gen3_crit_doubles_the_attack_form` pins the ×2 critical-hit multiplier. Heart
   & Soul 2.0.5 deliberately keeps this at its Generation III value
@@ -260,7 +260,14 @@ pin that decision and the silent-degradation path around it:
   number with no error. That is why `CalcCapabilityPolicy` carries an explicit
   ability whitelist instead of passing ability names through, and why anything
   outside it is refused or downgraded rather than reported as verified.
+- `gen3_rain_halves_a_fire_attack` and `gen3_lowercase_rain_is_ignored_by_the_engine`
+  pin that weather is an **exact-match** input: the canonical spelling halves a
+  Fire attack while `"rain"` is silently read as no weather at all. The capability
+  policy therefore rewrites an accepted spelling to its canonical form before
+  authorising a request, rather than validating leniently and forwarding verbatim.
 
-The full ruleset decision, the per-mechanic capability matrix for H&S 2.0.5, and
-the reason the ADV pipeline is the right arithmetic for a Gen 9-configured hack
-are documented in [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md).
+The full ruleset decision, the per-mechanic capability matrix for H&S 2.0.5, and the
+individual behaviours the ADV pipeline is *demonstrated* to share with that hack are
+documented in [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md).
+That document also records why a resolving H&S name is evidence of identity only, and
+not of the engine computing from H&S data.

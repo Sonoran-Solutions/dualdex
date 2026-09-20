@@ -314,6 +314,17 @@ static const int ROLLS_FLAMETHROWER_THICK_FAT[ROLL_COUNT] =
 static const int ROLLS_HYDRO_PUMP_LIGHT_SCREEN[ROLL_COUNT] =
     {16, 16, 16, 16, 16, 17, 17, 17, 17, 17, 18, 18, 18, 18, 18, 19};
 
+/* Machamp Flamethrower (Fire 95, special) vs Snorlax in Rain. Rain halves a
+ * Fire attack's damage, on the same pre-+2 value Light Screen halves:
+ *   floor(22*95*85/130) = 1366 -> floor(1366/50) = 27; floor(27/2) = 13 -> +2 = 15
+ * Deliberately the same vector as the Light Screen fixture above, since both are
+ * a x1/2 attack-form modifier in singles - but reached through the weather path,
+ * which the engine reads with an EXACT string compare (`weathers.includes(...)`).
+ * "rain" and "RAIN" therefore produce the no-weather vector 24-29 instead, which
+ * is why CalcCapabilityPolicy canonicalises the spelling before authorising. */
+static const int ROLLS_FLAMETHROWER_IN_RAIN[ROLL_COUNT] =
+    {12, 12, 13, 13, 13, 13, 13, 13, 13, 14, 14, 14, 14, 14, 14, 15};
+
 /* Critical hits double the attack form AFTER the +2, so the roll vector is
  * exactly twice the non-critical Rock Slide vector:
  *   floor(22*75*150/85) = 2911 -> floor(2911/50) = 58 -> +2 = 60 -> x2 = 120
@@ -521,6 +532,28 @@ static const calc_fixture FIXTURES[] = {
         "\"field\":{\"gameType\":\"Singles\"}}",
         1, NULL, "Rock", "Physical", 75, 235, ROLLS_MACHAMP_ROCK_SLIDE_SINGLES_CRIT,
         "Gen III critical hits double the attack form after +2: 102-120, not the modern 76-90"
+    },
+
+    /* --- weather is an exact-match input --------------------------- *
+     * The engine reads weather with `weathers.includes(this.weather)`, so a spelling it does not
+     * recognise is not an error - it behaves as no weather at all. The canonical spelling is
+     * therefore part of the accepted-input contract, not cosmetic, and the capability policy
+     * rewrites accepted spelling to these values before authorising a request. */
+    {
+        "gen3_rain_halves_a_fire_attack",
+        "{" MACHAMP_VS_SNORLAX_HEAD "\"move\":{\"name\":\"Flamethrower\"},"
+        "\"field\":{\"gameType\":\"Singles\",\"weather\":\"Rain\"}}",
+        1, NULL, "Fire", "Special", 95, 235, ROLLS_FLAMETHROWER_IN_RAIN,
+        "canonical 'Rain' is applied: a Fire attack is halved to 12-15"
+    },
+    {
+        "gen3_lowercase_rain_is_ignored_by_the_engine",
+        "{" MACHAMP_VS_SNORLAX_HEAD "\"move\":{\"name\":\"Flamethrower\"},"
+        "\"field\":{\"gameType\":\"Singles\",\"weather\":\"rain\"}}",
+        1, NULL, "Fire", "Special", 95, 235, ROLLS_FLAMETHROWER_NO_THICK_FAT,
+        "negative control for the canonicalisation above: 'rain' is silently treated as NO weather "
+        "and returns the unmodified 24-29, so a validator that accepted it case-insensitively while "
+        "forwarding it verbatim would approve a request the engine reads differently"
     },
 
     /* --- ability input contract (issue #9) ------------------------ *

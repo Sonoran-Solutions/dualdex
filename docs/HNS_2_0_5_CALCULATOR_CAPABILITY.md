@@ -48,11 +48,11 @@ existing request field reproduces this build's rule, not whether the current UI 
 
 | # | Mechanic / state | H&S 2.0.5 (pinned) | Bridge can express | Verdict |
 |---|---|---|---|---|
-| 1 | Damage formula | Generation III arithmetic with modern data | yes | **SUPPORTED** (§3) |
-| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **no** | **REFUSED** — it is also a live toggle (§4.1) |
-| 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | partially | **SUPPORTED for Gen III type pairs** (§3); Fairy/Stellar rows are unreachable in the ADV pipeline |
-| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | yes, by name | **SUPPORTED** with the pinned pack only — 1427 species, and ambiguous form names are refused (§5) |
-| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | yes, by name | **SUPPORTED** with the pinned pack only — 934 moves (§5) |
+| 1 | Damage formula | Generation III arithmetic with modern data | partially | **INDIVIDUALLY DEMONSTRATED ONLY** — the crit multiplier and spread reduction match; the chart, category rule and modifiers do not (§3.2) |
+| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **no** | **REFUSED** — it is also a live toggle (§4.1), and the engine derives category from type (§3.3) |
+| 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **no** | **DOES NOT MATCH** — the generation III chart resists Ghost and Dark with Steel and has no Fairy (§3.1) |
+| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **no** — the bridge forwards a name and the library resolves it against its own tables (§3.3) | **IDENTITY ONLY** — the name is proven to belong to this build (1427 species; ambiguous form names refused, §5), but the engine computes from its own record, so this is *not* consumption of the H&S record |
+| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **no** — same name-resolution path as row 4 | **IDENTITY ONLY** — 934 moves proven to belong to this build, but power/type/category are read from the library's own generation III table, which derives category from **type** (`.../src/move.ts:129`) |
 | 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **no** | **REFUSED** — the ADV pipeline models only its Gen III list and silently ignores the rest (§6) |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **no** | **REFUSED** — item identity is not authoritative and the percentages differ (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **SUPPORTED** as a boolean crit (`isCrit`), which is what the request shape carries |
@@ -69,43 +69,83 @@ existing request field reproduces this build's rule, not whether the current UI 
 
 ---
 
-## 3. Why the ADV pipeline is the right arithmetic for all three builds
+## 3. Which mechanics are individually demonstrated, and which are not
 
-This is the least obvious decision in the policy and it is load-bearing, so the reasoning is
-recorded explicitly.
+An earlier revision of this document claimed the hack's type chart "agrees with Generation III's
+chart on every Generation III type pair", and concluded from that plus the critical-hit and
+spread-damage constants that the ADV pipeline was "the right arithmetic" for H&S. **That claim was
+wrong and is withdrawn.** The correction matters because the matrix below is the foundation any
+future H&S support will be built on.
 
-H&S 2.0.5 is **not** a Generation III game. `GEN_LATEST` is Generation IX
-(`[include/config/general.h:70]`, `:73`), and the hack carries modern type matchups, modern move
-data, per-move categories and modern items. What it *also* carries is a set of damage constants
-deliberately pinned to Generation III:
+### 3.1 The type chart does not match
 
-| Constant | H&S value | Consequence |
+| Matchup | Pinned H&S | `@smogon/calc` 0.11.0 at `gen: 3` |
 |---|---|---|
-| `B_CRIT_MULTIPLIER` | `GEN_3` `[include/config/battle.h:6]` | a critical hit is **×2**, not the modern ×1.5 |
-| `B_MULTIPLE_TARGETS_DMG` | `GEN_3` `[include/config/battle.h:47]` | a two-target hit is **×0.5**, not ×0.75 |
-| `B_BADGE_BOOST` | `GEN_3` `[include/config/battle.h:30]` | badge boost is active (unmodelled, §8) |
-| Thick Fat placement | Generation III | it halves the **attack stat** `[src/battle_util.c:7121]`, inside `CalcAttackStat` `[src/battle_util.c:7191]` |
+| Ghost → Steel | **×1** | ×0.5 |
+| Dark → Steel | **×1** | ×0.5 |
 
-A modern-generation run would therefore get critical hits and spread moves wrong. The ADV pipeline
-gets all four right. The remaining question is the type chart, and here the hack's modern table and
-Generation III's table agree on every type pair Generation III has:
+H&S sets `B_UPDATED_TYPE_MATCHUPS` to `GEN_9` `[include/config/battle.h:53]`, so its `STL_RS` macro
+resolves to ×1.0 `[src/data/types_info.h:8]`, used by the Ghost and Dark rows
+`[src/data/types_info.h:25]`, `:35`. The calculator's chart assigns ×0.5 to both
+(`.../src/data/types.ts:313`, `:333`) and then aliases the generation III chart to it with
+`const ADV = GSC;` (`.../src/data/types.ts:357`). `ADV`, `DPP` and `BW` are all the same object, so
+no single `@smogon/calc` generation reproduces H&S's Steel row.
 
-* `STL_RS` (`Ghost/Dark → Steel`) is a no-op under `B_UPDATED_TYPE_MATCHUPS == GEN_9`
-  `[src/data/types_info.h:8]`, `[include/config/battle.h:53]` — and the hack's table resolves it to
-  ×1.0 `[src/data/types_info.h:25]`, `:35`, which is exactly what `@smogon/calc`'s `ADV = GSC` chart
-  produces (`tools/calc-bundler/node_modules/@smogon/calc/src/data/types.ts:313`, `:333`).
-* Generation III has no Fairy interaction to disagree about; the modern chart only *adds* Fairy.
+The earlier note that "Generation III has no Fairy interaction to disagree about" is also
+misleading: H&S *does* have Fairy, so those rows are not a shared-generation question at all — the
+hack's chart has interactions the generation III chart cannot express.
 
-So the ADV pipeline reproduces H&S's arithmetic for the content Generation III shares with it. That
-licenses `gen: 3` and nothing more: it does **not** license ignoring the rows above that the bridge
-cannot express. The same pipeline is trivially correct for exact vanilla FireRed/Emerald.
+### 3.2 What is demonstrated, and what is not
 
-**Vanilla Gen III verified set.** A vanilla request is presented as *Verified* only when every field
-is covered: the running ROM is the exact build the profile was verified against, the species and
-move names resolve in that build's data, and no ability, held item, status or field value outside
-the modelled sets appears. The badge boost (row 14) is **outside** that set and is not modelled for
-any build, so the verified claim is scoped to calculations from the unbadged state the golden
-fixtures encode — see §8.
+Only these individual behaviours are source-and-test demonstrated:
+
+| Behaviour | H&S (pinned source) | Calculator at `gen: 3` | Status |
+|---|---|---|---|
+| Critical-hit multiplier | ×2 (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, applied `[src/battle_util.c:7477]` | ×2 | **matches** — pinned by `gen3_crit_doubles_the_attack_form` |
+| Two-target reduction | ×0.5 (`B_MULTIPLE_TARGETS_DMG GEN_3`) `[include/config/battle.h:47]` | ×0.5 | **matches** — pinned by the existing spread-move fixtures |
+| Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack form | **matches** |
+| Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | generation III (no Fairy; Steel resists both) | **does not match** |
+| Weather, screens, category rule, abilities, items, badge boost | see §2 rows 2, 6, 7, 9–14 | partial | **does not match** |
+
+Matching the critical-hit and spread-damage constants does **not** establish equivalence of the whole
+calculation pipeline, and this document no longer claims it does. `gen: 3` remains what the policy
+sends, but the justification is narrower than before: it is the arithmetic whose *individual*
+generation III constants H&S demonstrably shares, and H&S calculations are refused anyway, so the
+value currently reaches no H&S result at all. It is evidence for a starting point, not a
+compatibility finding.
+
+### 3.3 Three different claims that must not be conflated
+
+The matrix in §2 uses these distinctions, and any future H&S work must keep them separate:
+
+1. **Identity exists in pinned H&S data.** `HeartAndSoul205DataPack` can name species 1433 and move
+   847, and `CalcRequestBoundary` proves a name belongs to the build.
+2. **The calculator consumes that H&S record.** It does **not**. The bridge passes a *name*:
+   `new Pokemon(gen, input.attacker.species, ...)` and `new Move(gen, input.move.name, ...)`
+   (`tools/calc-bundler/entry.js:60`, `:78`), and the library resolves it against **its own**
+   generation tables. `@smogon/calc` 0.11.0 exposes an `overrides` escape hatch on both
+   (`.../src/pokemon.ts:53`, `.../src/move.ts:58`) but `entry.js` never forwards it, so no H&S
+   base-stat, typing or move-property data reaches the engine.
+3. **The calculator reproduces the H&S mechanic.** It does so only where §3.2 says "matches".
+
+**A resolving name is therefore evidence of (1) alone.** It says the request names content this build
+has; it does not say the number was computed from that content. §2 rows 4 and 5 are labelled
+*identity only* for this reason.
+
+### 3.4 Vanilla Gen III verified set
+
+A vanilla request is presented as *Verified* only when the running ROM is the exact build the profile
+was verified against, every participant's damage-relevant state is **carried or explicitly recorded
+as unknown** (`CalcInputPreparation`), the species and move names resolve in that build's data, and
+no ability, held item, status, stat stage, level or field value outside the modelled sets appears.
+
+Two exclusions are enforced or disclosed rather than merely documented:
+
+* An incomplete **live read** can never be verified: a field the reader could not carry is reported,
+  not shortened to neutral, and blocks the result (§4 of the review's R1 finding).
+* The generation III **badge boost** is unmodelled for every build and the request shape cannot
+  express it. It is not enforced in code, so the verified headline states the scope explicitly
+  (`CalcResultPresentation.BADGE_BOOST_NOTE`) instead of leaving it to this document.
 
 ---
 
@@ -272,14 +312,43 @@ Recorded so they are not mistaken for oversights. Each is a deliberate scope bou
 
 ## 9. How to promote H&S from refused to approximate
 
-In order, and each step is independently verifiable:
+**Reading the challenge toggles is necessary but not sufficient.** An earlier revision of this
+document treated it as the whole promotion path. It is one of three independent gaps, and §3.3 shows
+why: proving a name belongs to the build does not make the engine compute from that build's record,
+and matching two constants does not make it reproduce the build's mechanics.
 
-1. Read `SaveBlock3.challengeSettings` (offset and size ABI-verified; §4) and expose
-   `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness`.
-2. Replace the four blocking limitations in the H&S capability row with conditional ones, so a run
-   with all four in their known state reaches `ESTIMATED` (never `VERIFIED` while the §4.2 fields
-   remain unread).
+The three gaps, in dependency order:
+
+### Gap A — the rule is unknown
+
+Read `SaveBlock3.challengeSettings` (offset and size ABI-verified; §4) and expose `optionStyle`,
+`tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness`. Until then the request
+cannot name the rule that will be applied, which is why the four `*_UNREADABLE` limitations block.
+
+### Gap B — the engine does not consume H&S data
+
+The bridge resolves names against the library's own tables (§3.3). Closing this means forwarding
+`overrides` through `tools/calc-bundler/entry.js` for the species, move, type and base-stat values
+the pinned pack already holds — `@smogon/calc` 0.11.0 supports it (`.../src/pokemon.ts:53`,
+`.../src/move.ts:58`); the bridge simply never passes it. This is a prerequisite for any H&S number,
+not a refinement: without it a "supported" H&S calculation would be computed from generation III
+records.
+
+Note the second-order consequence for `gen`: because the library derives a damaging move's category
+from its **type** below generation 4 (`.../src/move.ts:129`), forwarding H&S move data while sending
+`gen: 3` would give H&S's per-move categories the wrong answer. Gap B and the `gen` choice are
+therefore coupled, and neither can be settled before Gap C.
+
+### Gap C — the calculator does not reproduce H&S mechanics
+
+Per §3.2: the type chart disagrees today (Ghost/Dark → Steel), and abilities, items, the category
+rule, terrain, badge boost and modern side conditions all differ. Each needs either a positive
+demonstration like the crit and spread constants have, or an explicit "not modelled" limitation.
+
+### Then, concretely
+
+1. Close Gap A; replace the four blocking limitations with conditional ones.
+2. Close Gap B; add `gen`-selection evidence from Gap C rather than assuming.
 3. Add golden fixtures for H&S calculations whose inputs are covered, verified against known in-game
-   or upstream results.
-4. Only then consider making `gen: 3` conditional, if any covered rule turns out to need a different
-   pipeline.
+   or upstream results. Only calculations that survive all three gaps may reach `ESTIMATED`, and
+   `VERIFIED` stays out of reach while the §4.2 fields are unread.

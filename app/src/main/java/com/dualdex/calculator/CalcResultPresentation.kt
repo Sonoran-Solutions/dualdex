@@ -27,13 +27,23 @@ data class CalcResultPresentation(
         const val UNSUPPORTED_PREFIX = "⛔ Unsupported"
 
         /**
-         * The headline for a verdict, including the build's identity when verified and the full
-         * reason list when it is not.
+         * The scope a verified result is limited to, shown with every verified headline.
+         *
+         * The request shape cannot express the generation III badge boost, so a badged player's real
+         * damage is about 10% higher than a verified number shows. Documenting that only in a design
+         * note did not enforce it, and the code cannot establish the running game's badge state, so
+         * the limit travels with the claim itself.
+         */
+        const val BADGE_BOOST_NOTE: String = "unbadged; badge boost is not applied"
+
+        /**
+         * The headline for a verdict, including the build's identity and scope when verified and the
+         * full reason list when it is not.
          */
         fun forVerdict(verdict: CalcCapabilityVerdict): CalcResultPresentation =
             when (verdict.support) {
                 CalcSupport.VERIFIED -> CalcResultPresentation(
-                    headline = "$VERIFIED_PREFIX (${verdict.capability.label})",
+                    headline = "$VERIFIED_PREFIX (${verdict.capability.label}; $BADGE_BOOST_NOTE)",
                     isVerified = true,
                     support = verdict.support
                 )

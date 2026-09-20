@@ -103,13 +103,6 @@ enum class CalcLimitation(val blocks: Boolean) {
     /** The request asks for a different generation than the resolved ruleset uses. */
     MECHANICS_GENERATION_MISMATCH(false),
 
-    /**
-     * The calculation's attacker and/or defender came from a live memory read, which is only
-     * legitimate when the running ROM is the exact verified build. Presenting an unverified read
-     * as a verified number is the failure this policy exists to prevent.
-     */
-    LIVE_INPUTS_NOT_VERIFIED(true),
-
     /** The species is not present in the pinned data for this build. */
     SPECIES_NOT_IN_PINNED_DATA(true),
 
@@ -142,7 +135,27 @@ enum class CalcLimitation(val blocks: Boolean) {
      * it compares weather names exactly and silently ignores anything it does not recognise (so
      * "Snow" would compute as *no weather*), and it ignores `terrain` entirely.
      */
-    FIELD_CONDITION_NOT_MODELLED(true);
+    FIELD_CONDITION_NOT_MODELLED(true),
+
+    /**
+     * A participant whose values came from a live memory read is missing at least one
+     * damage-relevant field, and the engine cannot distinguish that gap from a neutral value.
+     *
+     * This is the reason an exact-verified ROM alone must not produce a verified result: a burned
+     * attacker whose status the reader did not carry would otherwise be calculated as unburned and
+     * labelled verified. Blocking, because there is no honest number for a participant whose state
+     * is incomplete - an omitted ability is not the species' default, and an omitted stat stage is
+     * not stage zero.
+     */
+    LIVE_PARTICIPANT_STATE_UNKNOWN(true),
+
+    /**
+     * A participant came from a live memory read whose values are, alone, not enough to authorize
+     * the calculation. Distinct from [LIVE_PARTICIPANT_STATE_UNKNOWN] and from
+     * [ROM_NOT_EXACT_VERIFIED]: this says the inputs were read but are not verified, not that a
+     * field is missing and not that the ROM is unrecognised.
+     */
+    LIVE_INPUTS_NOT_VERIFIED(true);
 
     /** True when no damage number may be produced at all from this request. */
     val blocksCalculation: Boolean get() = blocks
@@ -162,17 +175,29 @@ enum class CalcRuleset {
  *
  * [mechanicsGeneration] and [contentSource] are deliberately separate fields because they answer
  * different questions:
- *  - [mechanicsGeneration] is the `@smogon/calc` generation whose damage pipeline reproduces this
- *    build's engine arithmetic. It is the number sent as `gen`.
+ *  - [mechanicsGeneration] is the `@smogon/calc` generation whose damage pipeline the build's
+ *    engine is *individually demonstrated* to share constants with. It is the number sent as `gen`.
  *  - [contentSource] names where this build's species/move/item records come from. It is a pinned
  *    data-pack id, never a bundled dex, because the bridge selects content by name and must be able
  *    to prove a name belongs to this build.
  *
- * For H&S 2.0.5 these differ. The hack keeps the generation III damage arithmetic (its own
- * `B_CRIT_MULTIPLIER` is `GEN_3`) and its type table is the modern one, which for every generation
- * III type pair equals generation III's, so the ADV pipeline is the right arithmetic. Its content
- * is the hack's own pinned pack (1427 species, 934 moves). What the ADV pipeline cannot express is
- * the hack's *player-configurable rules*, which is why that row can never be verified.
+ * Two claims must NOT be read into these fields, because neither is true today:
+ *
+ *  1. **A resolving name is not data consumption.** The bridge passes a name to
+ *     `new Pokemon(gen, species, ...)` / `new Move(gen, name, ...)` and the library resolves it
+ *     against *its own* tables; it never receives this build's base stats, typings or move
+ *     properties. [contentSource] therefore records proven *identity*, not provenance of the
+ *     numbers that were computed.
+ *  2. **[mechanicsGeneration] is not an equivalence verdict.** For H&S 2.0.5 only the critical-hit
+ *     multiplier, the two-target reduction and Thick Fat's placement are demonstrated to match. The
+ *     generation III chart does **not** match the hack's (it makes Steel resist Ghost and Dark and
+ *     has no Fairy), and abilities, items, the category rule, terrain and badge boost all differ.
+ *
+ * H&S 2.0.5 is nevertheless the case where the two fields diverge, which is why they are separate:
+ * its content is the hack's own pinned pack (1427 species, 934 moves) while its damage arithmetic
+ * shares individual generation III constants. What the pipeline cannot express is the hack's
+ * *player-configurable rules*, which is why that row can never be verified. See
+ * docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §§3-4.
  */
 data class CalcCapability(
     val ruleset: CalcRuleset,
@@ -223,10 +248,17 @@ data class CalcCapabilityVerdict(
      * calculation, so an unverified result cannot be presented without its reason.
      */
     val supportDetail: String
-        get() = when {
-            limitations.isNotEmpty() -> limitations.joinToString("; ") { describe(it) }
-            support == CalcSupport.UNSUPPORTED -> unsupportedReason
-            else -> ""
+        get() {
+            // Several stages add reasons (the capability row, request validation, the production
+            // preparation path and the live-read refusal), so the same reason can legitimately be
+            // reached twice. De-duplicating here keeps a headline from repeating itself without
+            // making every caller remember to.
+            val distinct = limitations.distinct()
+            return when {
+                distinct.isNotEmpty() -> distinct.joinToString("; ") { describe(it) }
+                support == CalcSupport.UNSUPPORTED -> unsupportedReason
+                else -> ""
+            }
         }
 
     companion object {
@@ -258,7 +290,7 @@ data class CalcCapabilityVerdict(
             CalcLimitation.ITEM_BOOST_PERCENTAGE_DIFFERS ->
                 "this build scales type-boost items differently from the generation III pipeline"
             CalcLimitation.LIVE_INPUTS_NOT_VERIFIED ->
-                "these values were read from a ROM that is not exact-verified"
+                "these values were read from a game state that is not verified"
             CalcLimitation.SPECIES_NOT_IN_PINNED_DATA ->
                 "the species is not in this build's pinned data"
             CalcLimitation.MOVE_NOT_IN_PINNED_DATA ->
@@ -273,6 +305,8 @@ data class CalcCapabilityVerdict(
                 "the status condition is not one this calculation models"
             CalcLimitation.FIELD_CONDITION_NOT_MODELLED ->
                 "this calculation's engine does not model that weather or terrain"
+            CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN ->
+                "a live-read participant is missing a damage-relevant field, and a missing field is not a neutral one"
         }
     }
 }
@@ -427,11 +461,18 @@ object CalcCapabilityPolicy {
         if (packId == HNS_DATA_PACK_ID && expansionEngine && profile.hasPhysSpecSplit) {
             return CalcCapability(
                 ruleset = CalcRuleset.HNS_2_0_5,
-                // The hack keeps the generation III damage pipeline (its own B_CRIT_MULTIPLIER is
-                // GEN_3, i.e. a critical hit doubles damage), so the ADV pipeline is the right
-                // arithmetic. Its *rules* are still player-configurable, which is why this row
-                // cannot reach VERIFIED. See docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md.
+                // 3 is chosen because the hack is INDIVIDUALLY DEMONSTRATED to share three
+                // generation III constants with this pipeline: the critical-hit multiplier is x2
+                // (B_CRIT_MULTIPLIER GEN_3), a two-target hit is halved (B_MULTIPLE_TARGETS_DMG
+                // GEN_3), and Thick Fat halves the attack stat. It is NOT an equivalence finding:
+                // the generation III chart makes Steel resist Ghost and Dark while the hack's does
+                // not, and the hack has Fairy. This value currently reaches no H&S result at all,
+                // because the row below refuses every H&S request.
+                // See docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §§3.2, 3.3.
                 mechanicsGeneration = 3,
+                // Identity only: the pinned pack proves which names belong to this build. The
+                // engine still computes from its own records, because entry.js forwards no
+                // overrides. See §3.3.
                 contentSource = HNS_DATA_PACK_ID,
                 ceiling = CalcSupport.ESTIMATED,
                 alwaysLimitations = listOf(
@@ -485,6 +526,11 @@ object CalcCapabilityPolicy {
         val capability = capabilityFor(profile) ?: return unsupported(profile)
 
         val limitations = LinkedHashSet(capability.alwaysLimitations)
+
+        // Limitations the production preparation path already discovered are part of the decision,
+        // not a separate opinion: an incomplete live read must be able to lower the verdict even
+        // when every supplied field looks fine.
+        limitations.addAll(request.preparationLimitations)
 
         if (request.gen != capability.mechanicsGeneration) {
             limitations.add(CalcLimitation.MECHANICS_GENERATION_MISMATCH)
@@ -597,10 +643,19 @@ object CalcCapabilityPolicy {
         GEN3_MODELLED_ITEM_NAMES.firstOrNull { it.equals(item.trim(), ignoreCase = true) }
 
     /**
-     * Rewrites ability and item names to the exact spelling the engine matches against.
+     * Rewrites ability, held-item and weather names to the exact spelling the engine matches
+     * against.
      *
-     * Called by the boundary for an authorised request only, so the value that reaches the engine is
-     * always the canonical name that produced the verdict.
+     * This is not cosmetic. The engine compares all three exactly:
+     *  - ability and item names are compared as strings, so a differently-cased name is silently
+     *    ignored;
+     *  - `Field.hasWeather` is `weathers.includes(this.weather)`, so `"rain"` and `"RAIN"` are not
+     *    Rain - they behave exactly like *no weather at all* while still passing a lenient check.
+     *
+     * Validating leniently and forwarding verbatim would therefore reproduce the singles/Singles
+     * defect this policy exists to prevent: an approved request that the engine silently reads
+     * differently. Called by [evaluate] for an authorised request only, so what reaches the engine
+     * is the same value the verdict was computed from.
      */
     fun normaliseNames(ruleset: CalcRuleset, request: DamageCalculationRequest): DamageCalculationRequest {
         if (ruleset != CalcRuleset.VANILLA_GEN3) return request
@@ -608,8 +663,22 @@ object CalcCapabilityPolicy {
             ability = input.ability?.let { canonicalAbility(it) ?: it },
             item = input.item?.let { canonicalItem(it) ?: it }
         )
-        return request.copy(attacker = fix(request.attacker), defender = fix(request.defender))
+        return request.copy(
+            attacker = fix(request.attacker),
+            defender = fix(request.defender),
+            field = request.field.copy(
+                weather = request.field.weather?.let { canonicalWeather(it) ?: it }
+            )
+        )
     }
+
+    /**
+     * The canonical spelling of [weather] when the generation III pipeline models it, else null.
+     *
+     * Lenient on input, canonical on output, for the reason in [normaliseNames].
+     */
+    fun canonicalWeather(weather: String): String? =
+        MODELLED_WEATHER.firstOrNull { it.equals(weather.trim(), ignoreCase = true) }
 
     private fun collectRequestLimitations(
         profile: RomHackProfile,
@@ -636,7 +705,7 @@ object CalcCapabilityPolicy {
         // keys and then ignores the value, which would turn a Snow or terrain battle into a
         // confident no-weather, no-terrain number.
         request.field.weather?.takeIf { it.isNotBlank() }?.let { weather ->
-            if (MODELLED_WEATHER.none { it.equals(weather, ignoreCase = true) }) {
+            if (canonicalWeather(weather) == null) {
                 limitations.add(CalcLimitation.FIELD_CONDITION_NOT_MODELLED)
             }
         }

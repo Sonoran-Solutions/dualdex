@@ -34,12 +34,15 @@ class HnsBattlerRuntimeStateTest {
         ability: Int = 66,
         abilityInvalid: Int = 0,
         types: List<Int> = listOf(11, 0, 0),
-        typesInvalid: Int = 0
+        typesInvalid: Int = 0,
+        item: Int = 426,
+        itemInvalid: Int = 0
     ): IntArray = intArrayOf(
         /* status */ 2, /* battler */ battler, /* slot */ slot, /* slotKnown */ 1,
         /* abilityObserved */ 1, /* abilityInvalid */ abilityInvalid, /* abilityId */ ability,
         /* typesObserved */ 1, /* typesInvalid */ typesInvalid, /* count */ types.size,
-        /* types */ *(types + List(3 - types.size) { 0 }).toIntArray()
+        /* types */ *(types + List(3 - types.size) { 0 }).toIntArray(),
+        /* itemObserved */ 1, /* itemInvalid */ itemInvalid, /* itemId */ item
     )
 
     @Test
@@ -54,6 +57,8 @@ class HnsBattlerRuntimeStateTest {
         assertEquals(11, st.types[0].raw)
         assertTrue(st.types[0].observed)
         assertFalse(st.typesOutOfDomain)
+        assertEquals(426, st.itemId)
+        assertFalse(st.itemOutOfDomain)
     }
 
     @Test
@@ -64,20 +69,27 @@ class HnsBattlerRuntimeStateTest {
             assertNull(st.battlerIndex)
             assertNull(st.partySlot)
             assertNull(st.abilityId)
+            assertNull(st.itemId)
             assertTrue(st.types.isEmpty())
         }
         // An explicit unavailable status with trailing zeros must not invent fields.
-        val st = HnsBattlerRuntimeState.fromNativeArray(intArrayOf(0, 3, 2, 1, 1, 0, 66, 1, 0, 3, 11, 0, 0))
+        val st = HnsBattlerRuntimeState.fromNativeArray(
+            intArrayOf(0, 3, 2, 1, 1, 0, 66, 1, 0, 3, 11, 0, 0, 1, 0, 426)
+        )
         assertEquals(HnsBattlerRuntimeStatus.UNAVAILABLE, st.status)
         assertNull(st.abilityId)
+        assertNull(st.itemId)
     }
 
     @Test
     fun `ambiguous status carries no observation at all`() {
-        val st = HnsBattlerRuntimeState.fromNativeArray(intArrayOf(1, 3, 2, 1, 1, 0, 66, 1, 0, 3, 1, 2, 3))
+        val st = HnsBattlerRuntimeState.fromNativeArray(
+            intArrayOf(1, 3, 2, 1, 1, 0, 66, 1, 0, 3, 1, 2, 3, 1, 0, 426)
+        )
         assertEquals(HnsBattlerRuntimeStatus.AMBIGUOUS, st.status)
         assertNull(st.battlerIndex)
         assertNull(st.abilityId)
+        assertNull(st.itemId)
         assertTrue(st.types.isEmpty())
     }
 
@@ -201,5 +213,45 @@ class HnsBattlerRuntimeStateTest {
         assertNull(st.types[1].name)
         // In-domain slots are still observed normally.
         assertEquals("Grass", st.types[0].name)
+    }
+
+    // ------------------------------------------------------------------
+    // Current held-item identity resolution (naming only)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `observed item id resolves through the pinned catalogue`() {
+        // 426 = ITEM_CHARCOAL, 442 = ITEM_CHOICE_BAND (pinned from the upstream enum Item).
+        assertEquals(
+            "CHARCOAL",
+            HnsBattlerRuntimeState.fromNativeArray(observedTuple(item = 426)).resolveItemIdentity()?.sourceName
+        )
+        assertEquals(
+            "CHOICE BAND",
+            HnsBattlerRuntimeState.fromNativeArray(observedTuple(item = 442)).resolveItemIdentity()?.sourceName
+        )
+    }
+
+    @Test
+    fun `item none is an identity, not an absence of observation`() {
+        val st = HnsBattlerRuntimeState.fromNativeArray(observedTuple(item = 0))
+        assertEquals(0, st.itemId)
+        assertFalse(st.itemOutOfDomain)
+        assertEquals("ITEM_NONE", st.resolveItemIdentity()?.canonicalSymbol)
+    }
+
+    @Test
+    fun `out-of-domain item is never named and never substituted`() {
+        val st = HnsBattlerRuntimeState.fromNativeArray(
+            observedTuple(item = HnsBattlerRuntimeStateIds.ITEM_ID_MAX + 1, itemInvalid = 1)
+        )
+        assertEquals(HnsBattlerRuntimeStatus.OBSERVED_INVALID, st.status)
+        assertEquals(HnsBattlerRuntimeStateIds.ITEM_ID_MAX + 1, st.itemId)
+        assertNull(st.resolveItemIdentity())
+    }
+
+    @Test
+    fun `unavailable state resolves no item identity`() {
+        assertNull(HnsBattlerRuntimeState.fromNativeArray(null).resolveItemIdentity())
     }
 }

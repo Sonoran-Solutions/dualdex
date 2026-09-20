@@ -128,6 +128,8 @@ hns_generator_test() {
   (cd tools/hns-data-pack && python3 -m unittest test_generate_hns_data_pack -v)
   echo "== H&S type-system generator tests =="
   (cd tools/hns-type-system && python3 -m unittest test_generate_hns_type_system -v)
+  echo "== H&S item-catalogue generator tests =="
+  (cd tools/hns-items && python3 -m unittest test_generate_hns_items -v)
 }
 
 # Locate the ARM preprocessor the data-pack generator drives. Fail-closed: the
@@ -359,6 +361,15 @@ source_check() {
   echo "== type-system matrix and fairy mappings verification (pinned upstream) =="
   python3 tools/hns-type-system/generate_hns_type_system.py \
     --upstream-dir "$upstream" --verify
+
+  # 1e. The exact held-item identity catalogue (enum Item + gItemsInfo) must
+  #     regenerate byte-for-byte from the pinned source. This is the source-check
+  #     for the H&S item domain and per-item hold effects (Gap C3); it needs the
+  #     ARM preprocessor because the item table's initializers depend on the
+  #     build's own config macros.
+  echo "== held-item catalogue verification (pinned upstream) =="
+  python3 tools/hns-items/generate_hns_items.py \
+    --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --verify
 
   # Regression for the bootstrap's error propagation itself (this is the
   # scenario the regeneration block must guard against: a dev checkout with

@@ -1200,6 +1200,10 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE,
                 CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
                 CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED,
+                CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE,
+                CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED,
+                CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE,
+                CalcLimitation.BADGE_BOOST_NOT_MODELLED,
                 CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED,
                 CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED,
                 CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED,
@@ -1519,8 +1523,14 @@ class CalcCapabilityPolicyTest {
         // Gap C1 closed: HNS_TYPE_CHART_NOT_MODELLED is cleared under observed rules and representable types
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
 
-        // Gap C3 blocker: HNS_HELD_ITEM_SYSTEM_NOT_MODELLED keeps H&S strictly UNSUPPORTED
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
+        // Gap C3 closed for the explicit subset: the blanket held-item blocker is gone and no
+        // item-specific blocker applies to a participant that supplied no item.
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE))
+        // ... and the next production mechanics blocker keeps H&S strictly UNSUPPORTED.
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED))
     }
 
@@ -1779,7 +1789,10 @@ class CalcCapabilityPolicyTest {
         assertEquals(CalcSupport.UNSUPPORTED, verdict.support)
         assertTrue(verdict.limitations.contains(CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED))
         assertTrue(verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
-        assertTrue(verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
+        // Gap C3: the blanket held-item blocker is gone; no item-specific blocker applies to
+        // these itemless participants, so the refusal rests on the type chart and badge blockers.
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
+        assertTrue(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
     }
 
     @Test

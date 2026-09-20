@@ -435,12 +435,13 @@ class CompanionViewModel(
             _challengeSettings.value = nextChallenge
         }
 
-        // Live battler ability + effective types (issue #9): observation only. The read is
-        // gated on the authoritative lifecycle/battler machinery in the native reader, so it
-        // fails closed on every trust/lifecycle failure and never retains a previous battler's
-        // state. The ability ID is named against the active data pack's pinned catalogue;
-        // the catalogue is never the source of the observation and enables no calculator
-        // capability here.
+        // Live battler ability + effective types + current held item (issue #9): observation
+        // only. The read is gated on the authoritative lifecycle/battler machinery in the native
+        // reader, so it fails closed on every trust/lifecycle failure and never retains a
+        // previous battler's state. The ability ID is named against the active data pack's
+        // pinned catalogue and the item ID against the exact H&S item catalogue; neither
+        // catalogue is the source of the observation and neither enables calculator capability
+        // here.
         publishBattlerRuntimeState(
             gameId,
             com.dualdex.pokemon.hns.HnsBattlerRole.PLAYER,
@@ -464,7 +465,8 @@ class CompanionViewModel(
             if (state.status.isObservation) {
                 BattlerRuntimeObservation(
                     state = state,
-                    abilityIdentity = state.resolveAbilityIdentity(activeGameDataPack)
+                    abilityIdentity = state.resolveAbilityIdentity(activeGameDataPack),
+                    itemIdentity = state.resolveItemIdentity()
                 )
             } else {
                 null

@@ -793,17 +793,18 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
 }
 
 /**
- * Live battler ability + effective types for one authoritative active H&S 2.0.5
- * battler, as a typed flat tuple.
+ * Live battler ability + effective types + current held item for one authoritative
+ * active H&S 2.0.5 battler, as a typed flat tuple.
  *
  * Layout: [0] BattlerRuntimeStateStatus, [1] battler index (-1 = none), [2] party slot
  * (-1 = unknown), [3] partySlotKnown, [4] abilityObserved, [5] abilityInvalid,
  * [6] ability id, [7] typesObserved, [8] typesInvalid, [9] type count,
- * [10..12] raw type values.
+ * [10..12] raw type values, [13] itemObserved, [14] itemInvalid, [15] item id.
  *
  * A failed/unauthorized read returns status 0 (UNAVAILABLE) with everything else
  * zeroed: the caller must not substitute a declared ability, a party slot or a
  * previous observation, and AMBIGUOUS (doubles) publishes no ability at all.
+ * ITEM_NONE (0) is an authoritative item observation, never an unknown.
  */
 JNIEXPORT jintArray JNICALL
 Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env, jobject thiz, jint game_id, jint role) {
@@ -838,7 +839,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
         state.party_slot = -1;
     }
 
-    jint values[13] = {0};
+    jint values[16] = {0};
     values[0] = (jint)state.status;
     values[1] = (jint)state.battler_index;
     values[2] = (jint)state.party_slot;
@@ -852,10 +853,13 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     for (int t = 0; t < 3 && t < (int)state.type_count; t++) {
         values[10 + t] = (jint)state.types[t];
     }
+    values[13] = state.item_observed ? 1 : 0;
+    values[14] = state.item_invalid ? 1 : 0;
+    values[15] = (jint)state.item_id;
 
-    jintArray result = (*env)->NewIntArray(env, 13);
+    jintArray result = (*env)->NewIntArray(env, 16);
     if (!result) return NULL;
-    (*env)->SetIntArrayRegion(env, result, 0, 13, values);
+    (*env)->SetIntArrayRegion(env, result, 0, 16, values);
     return result;
 }
 

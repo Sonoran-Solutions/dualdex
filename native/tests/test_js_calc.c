@@ -2188,6 +2188,85 @@ static void check_gap_c2_abilities(void) {
     }
 }
 
+/*
+ * Gap C3: held items are never forwarded to the engine as raw H&S source names.
+ *
+ * The production policy (Kotlin) classifies an H&S item by its exact numeric ID and
+ * omits it from the engine request: ITEM_NONE and a proven no-damage item both mean
+ * "no item effect", and an unsupported damage item refuses the request before it is
+ * built. These host checks pin the engine behaviour that policy depends on:
+ *   - an omitted item and `"item": "None"` are the same calculation;
+ *   - a name the engine does not model is silently a no-op (so omission is safe);
+ *   - a name the engine DOES model changes damage (so an H&S source name must never
+ *     be forwarded raw — the policy must refuse it).
+ */
+static void check_gap_c3_items(void) {
+    g_fixture = "gap_c3_item_none_is_no_item";
+    {
+        const char* req_omitted =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Charizard\",\"level\":50},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50},"
+            "\"move\":{\"name\":\"Flamethrower\"}}";
+
+        const char* req_none =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Charizard\",\"level\":50,\"item\":\"None\"},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50},"
+            "\"move\":{\"name\":\"Flamethrower\"}}";
+
+        const char* req_unknown_name =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Charizard\",\"level\":50,\"item\":\"Amulet Coin\"},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50},"
+            "\"move\":{\"name\":\"Flamethrower\"}}";
+
+        const char* req_modelled_name =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Charizard\",\"level\":50,\"item\":\"Charcoal\"},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50},"
+            "\"move\":{\"name\":\"Flamethrower\"}}";
+
+        char* out_omitted = js_calc_calculate(req_omitted);
+        char* out_none = js_calc_calculate(req_none);
+        char* out_unknown = js_calc_calculate(req_unknown_name);
+        char* out_modelled = js_calc_calculate(req_modelled_name);
+
+        check_condition("H&S omitted item succeeds", out_omitted != NULL);
+        check_condition("H&S item None succeeds", out_none != NULL);
+        check_condition("H&S unknown item name succeeds", out_unknown != NULL);
+        check_condition("H&S modelled item name succeeds", out_modelled != NULL);
+
+        if (out_omitted && out_none && out_unknown && out_modelled) {
+            jl_value* d_omitted = jl_parse(out_omitted);
+            jl_value* d_none = jl_parse(out_none);
+            jl_value* d_unknown = jl_parse(out_unknown);
+            jl_value* d_modelled = jl_parse(out_modelled);
+            if (d_omitted && d_none && d_unknown && d_modelled) {
+                check_condition(
+                    "ITEM_NONE equals an omitted item (omission is an explicit no-item)",
+                    jl_num(jl_get(d_none, "minDamage")) == jl_num(jl_get(d_omitted, "minDamage")) &&
+                        jl_num(jl_get(d_none, "maxDamage")) == jl_num(jl_get(d_omitted, "maxDamage")));
+                check_condition(
+                    "an unmodelled item name is a silent no-op",
+                    jl_num(jl_get(d_unknown, "minDamage")) == jl_num(jl_get(d_omitted, "minDamage")) &&
+                        jl_num(jl_get(d_unknown, "maxDamage")) == jl_num(jl_get(d_omitted, "maxDamage")));
+                check_condition(
+                    "a name the engine models changes damage (raw H&S names must never be forwarded)",
+                    jl_num(jl_get(d_modelled, "minDamage")) > jl_num(jl_get(d_omitted, "minDamage")));
+            }
+            jl_free(d_omitted);
+            jl_free(d_none);
+            jl_free(d_unknown);
+            jl_free(d_modelled);
+        }
+        free(out_omitted);
+        free(out_none);
+        free(out_unknown);
+        free(out_modelled);
+    }
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -2214,6 +2293,9 @@ int main(void) {
 
     printf("-- Gap C2: authoritative effective ability input + conditional ability support --\n");
     check_gap_c2_abilities();
+
+    printf("-- Gap C3: held-item no-op / name-safety contract --\n");
+    check_gap_c3_items();
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
     check_oracle_self_tests();

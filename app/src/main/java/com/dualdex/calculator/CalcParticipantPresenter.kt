@@ -69,6 +69,42 @@ object CalcParticipantPresenter {
     }
 
     /**
+     * Resolves the authoritative current item from [observation] when [isExactHns] is true.
+     *
+     * The rules encode the stored-party-item vs current-battle-item distinction:
+     * - not exact H&S -> [EffectiveItemResolution.GenericDatabase] (legacy behaviour);
+     * - no active battle -> the parsed party item is authoritative ([EffectiveItemResolution.PartyStored]);
+     * - active battle and the observation's party slot matches [expectedPartySlot] -> the battle
+     *   engine's current item wins ([EffectiveItemResolution.BattleEffective]);
+     * - active battle and the slot does not match -> the selected member is on the bench, so the
+     *   exact parsed party item is used;
+     * - active battle and the slot cannot be authoritatively established -> unknown, never a
+     *   fallback to the party item (a consumed/Knocked-Off item must not be resurrected).
+     */
+    fun resolveEffectiveItem(
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        expectedPartySlot: Int?,
+        parsedHeldItem: Int,
+        isExactHns: Boolean,
+        activeBattle: Boolean
+    ): EffectiveItemResolution {
+        if (!isExactHns) return EffectiveItemResolution.GenericDatabase
+        if (!activeBattle) return EffectiveItemResolution.PartyStored(parsedHeldItem)
+        if (expectedPartySlot == null) return EffectiveItemResolution.UnknownItem
+        val state = observation?.state ?: return EffectiveItemResolution.UnknownItem
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) {
+            return EffectiveItemResolution.UnknownItem
+        }
+        if (state.partySlot != expectedPartySlot) {
+            return EffectiveItemResolution.PartyStored(parsedHeldItem)
+        }
+        if (state.itemOutOfDomain || state.itemId == null) {
+            return EffectiveItemResolution.UnknownItem
+        }
+        return EffectiveItemResolution.BattleEffective(state.itemId)
+    }
+
+    /**
      * The attacker: the selected party member when one is available, otherwise the benchmark.
      *
      * A party member is a live read. Under exact H&S, its effective ability is resolved from
@@ -83,7 +119,8 @@ object CalcParticipantPresenter {
         playerStages: StatStages? = null,
         isExpansionItems: Boolean = false,
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
-        isExactHns: Boolean = false
+        isExactHns: Boolean = false,
+        activeBattle: Boolean = false
     ): CalcParticipantState {
         val member = party.getOrNull(selectedIndex) ?: return benchmarkAttacker()
         val effectiveAbility = resolveEffectiveAbility(
@@ -91,13 +128,21 @@ object CalcParticipantPresenter {
             expectedPartySlot = selectedIndex,
             isExactHns = isExactHns
         )
+        val effectiveItem = resolveEffectiveItem(
+            observation = playerBattlerState,
+            expectedPartySlot = selectedIndex,
+            parsedHeldItem = member.heldItem,
+            isExactHns = isExactHns,
+            activeBattle = activeBattle
+        )
         return CalcInputPreparation.fromParsed(
             parsed = member,
             speciesName = speciesNameOf(member),
             boosts = playerStages?.toBoostStatBlock(),
             isExpansionItems = isExpansionItems,
             effectiveAbility = effectiveAbility,
-            partySlot = selectedIndex
+            partySlot = selectedIndex,
+            effectiveItem = effectiveItem
         )
     }
 
@@ -105,9 +150,10 @@ object CalcParticipantPresenter {
      * The defender: the resolved in-battle opponent when one exists, otherwise the benchmark built
      * from the autocomplete species.
      *
-     * Under exact H&S, the opponent's effective ability is resolved from [enemyBattlerState] only
-     * when the observation's observed active party slot matches [activeEnemySlot].
-     * [enemyStages] must be the observed opponent stat stages, or null when they were not read.
+     * Under exact H&S, the opponent's effective ability and current item are resolved from
+     * [enemyBattlerState] only when the observation's observed active party slot matches
+     * [activeEnemySlot]. [enemyStages] must be the observed opponent stat stages, or null when they
+     * were not read.
      */
     fun defender(
         observedOpponent: ParsedPokemon?,
@@ -116,7 +162,8 @@ object CalcParticipantPresenter {
         isExpansionItems: Boolean = false,
         enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
         isExactHns: Boolean = false,
-        activeEnemySlot: Int? = null
+        activeEnemySlot: Int? = null,
+        activeBattle: Boolean = false
     ): CalcParticipantState {
         if (observedOpponent == null) return benchmarkDefender(chosenSpecies)
         val effectiveAbility = resolveEffectiveAbility(
@@ -124,13 +171,21 @@ object CalcParticipantPresenter {
             expectedPartySlot = activeEnemySlot,
             isExactHns = isExactHns
         )
+        val effectiveItem = resolveEffectiveItem(
+            observation = enemyBattlerState,
+            expectedPartySlot = activeEnemySlot,
+            parsedHeldItem = observedOpponent.heldItem,
+            isExactHns = isExactHns,
+            activeBattle = activeBattle
+        )
         return CalcInputPreparation.fromParsed(
             parsed = observedOpponent,
             speciesName = chosenSpecies,
             boosts = enemyStages?.toBoostStatBlock(),
             isExpansionItems = isExpansionItems,
             effectiveAbility = effectiveAbility,
-            partySlot = activeEnemySlot
+            partySlot = activeEnemySlot,
+            effectiveItem = effectiveItem
         )
     }
 

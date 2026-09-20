@@ -21,6 +21,11 @@ import com.dualdex.pokemon.PokemonType
  * to an observation purely to NAME the observed ID; it is never the source of
  * the observation and never evidence that the damage calculator models the
  * ability.
+ *
+ * The held item is governed by the same rule: [HnsBattlerRuntimeState.itemId] is the
+ * engine's CURRENT item word (`gBattleMons[battler].item`), which the engine rewrites
+ * on consume/knock-off/swap/steal/fling. It is NOT the party structure's stored item,
+ * and the generated item catalogue is used only to NAME the observed ID.
  */
 enum class HnsBattlerRuntimeStatus {
     /** No observation exists for this frame: no state is retained and no default is substituted. */
@@ -86,6 +91,12 @@ object HnsBattlerRuntimeStateIds {
     const val TYPE_ID_MAX = 20
     /** Highest ID the pinned `enum Ability` assigns (ABILITIES_COUNT - 1). */
     const val ABILITY_ID_MAX = 310
+    /**
+     * Highest ID the pinned `enum Item` assigns (ITEMS_COUNT - 1). Sourced from the
+     * exact generated H&S item catalogue so the game-state domain and the item
+     * catalogue can never drift apart silently.
+     */
+    val ITEM_ID_MAX: Int get() = Hns205ItemCatalogue.ITEM_ID_MAX
 }
 
 /**
@@ -141,6 +152,12 @@ fun hnsRuntimeTypeName(id: Int): String? = when (id) {
  *   declared species-slot ability, and NOT calculator capability.
  * @param abilityOutOfDomain true when the ID is outside the pinned
  *   `enum Ability` domain; the raw value is still preserved.
+ * @param itemId the engine's CURRENT held-item identity for the battler
+ *   (`gBattleMons[battler].item`). NOT the party structure's stored item:
+ *   the battle engine rewrites this word when an item is consumed, knocked off,
+ *   swapped, stolen or flung. `ITEM_NONE` (0) is an authoritative "no item".
+ * @param itemOutOfDomain true when the ID is outside the pinned `enum Item`
+ *   domain; the raw value is still preserved.
  */
 data class HnsBattlerRuntimeState(
     val status: HnsBattlerRuntimeStatus = HnsBattlerRuntimeStatus.UNAVAILABLE,
@@ -148,7 +165,9 @@ data class HnsBattlerRuntimeState(
     val partySlot: Int? = null,
     val abilityId: Int? = null,
     val abilityOutOfDomain: Boolean = false,
-    val types: List<HnsBattlerTypeObservation> = emptyList()
+    val types: List<HnsBattlerTypeObservation> = emptyList(),
+    val itemId: Int? = null,
+    val itemOutOfDomain: Boolean = false
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
@@ -171,6 +190,21 @@ data class HnsBattlerRuntimeState(
         return hnsPack?.getAbility(id)
     }
 
+    /**
+     * The exact H&S item identity for the observed current item ID, resolved through
+     * the generated pinned catalogue — used ONLY to NAME the observed ID, never to
+     * produce it or to authorize capability.
+     *
+     * Returns null when no observation exists, when the ID is out of domain, or when
+     * the ID has no catalogue entry. `ITEM_NONE` (0) resolves to its catalogue
+     * identity, which is the authoritative "no item" observation.
+     */
+    fun resolveItemIdentity(): HnsItemData? {
+        if (!status.isObservation || itemOutOfDomain) return null
+        val id = itemId ?: return null
+        return Hns205ItemCatalogue.get(id)
+    }
+
     companion object {
         /**
          * Decode the native tuple (all-zero/unavailable and malformed tuples
@@ -179,10 +213,11 @@ data class HnsBattlerRuntimeState(
          * Layout: [0] status, [1] battler index (-1 = none), [2] party slot
          * (-1 = unknown), [3] partySlotKnown, [4] abilityObserved,
          * [5] abilityInvalid, [6] ability id, [7] typesObserved,
-         * [8] typesInvalid, [9] type count, [10..12] raw type values.
+         * [8] typesInvalid, [9] type count, [10..12] raw type values,
+         * [13] itemObserved, [14] itemInvalid, [15] item id.
          */
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
-            if (raw == null || raw.size < 13) return HnsBattlerRuntimeState()
+            if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
             val status = HnsBattlerRuntimeStatus.fromNativeCode(raw[0])
             if (!status.isObservation) return HnsBattlerRuntimeState(status = status)
             val typesObserved = raw[7] != 0
@@ -199,19 +234,25 @@ data class HnsBattlerRuntimeState(
             val abilityId = raw[6].takeIf { abilityObserved }
             val abilityOutOfDomain = raw[5] != 0 ||
                 (abilityObserved && (raw[6] < 0 || raw[6] > HnsBattlerRuntimeStateIds.ABILITY_ID_MAX))
+            val itemObserved = raw[13] != 0
+            val itemId = raw[15].takeIf { itemObserved }
+            val itemOutOfDomain = raw[14] != 0 ||
+                (itemObserved && (raw[15] < 0 || raw[15] > HnsBattlerRuntimeStateIds.ITEM_ID_MAX))
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
                 partySlot = raw[2].takeIf { raw[3] != 0 && it in 0..5 },
                 abilityId = abilityId,
                 abilityOutOfDomain = abilityOutOfDomain,
-                types = types
+                types = types,
+                itemId = itemId,
+                itemOutOfDomain = itemOutOfDomain
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for
             // out-of-domain observations, but a tuple whose flags claim an out-of-domain
             // value while the status claims clean must degrade honestly rather than pass.
             return if (decoded.status == HnsBattlerRuntimeStatus.OBSERVED &&
-                (decoded.abilityOutOfDomain || decoded.typesOutOfDomain)
+                (decoded.abilityOutOfDomain || decoded.typesOutOfDomain || decoded.itemOutOfDomain)
             ) {
                 decoded.copy(status = HnsBattlerRuntimeStatus.OBSERVED_INVALID)
             } else {
@@ -236,12 +277,14 @@ data class HnsBattlerRuntimeState(
 
 /**
  * Live battler runtime state for an authoritative active battler (issue #9):
- * the engine's CURRENT effective ability and types, read from `gBattleMons`, never
- * reconstructed from declarations or settings. Published with the ability identity
- * resolved against the active data pack's pinned catalogue (naming only).
+ * the engine's CURRENT effective ability, types and held item, read from `gBattleMons`,
+ * never reconstructed from declarations or settings. Published with the ability and item
+ * identities resolved against the pinned catalogues (naming only).
  */
 data class BattlerRuntimeObservation(
     val state: HnsBattlerRuntimeState,
     /** Canonical H&S ability identity for the observed ID, when the catalogue knows it. */
-    val abilityIdentity: DeclaredAbility? = null
+    val abilityIdentity: DeclaredAbility? = null,
+    /** Exact H&S item identity for the observed current item ID, when the catalogue knows it. */
+    val itemIdentity: HnsItemData? = null
 )

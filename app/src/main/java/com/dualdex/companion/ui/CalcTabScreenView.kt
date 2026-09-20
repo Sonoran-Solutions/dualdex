@@ -564,7 +564,8 @@ class CalcTabScreenView(
             playerStages = playerStagesSnapshot,
             isExpansionItems = isExpansionItems,
             playerBattlerState = playerBattlerSnapshot,
-            isExactHns = isExactHns
+            isExactHns = isExactHns,
+            activeBattle = inBattle
         )
         val defenderState = CalcParticipantPresenter.defender(
             observedOpponent = enemyMon,
@@ -573,7 +574,8 @@ class CalcTabScreenView(
             isExpansionItems = isExpansionItems,
             enemyBattlerState = enemyBattlerSnapshot,
             isExactHns = isExactHns,
-            activeEnemySlot = if (inBattle && viewModel.activeEnemyResolution.value.hasResolvedSlot) enemySlot else null
+            activeEnemySlot = if (inBattle && viewModel.activeEnemyResolution.value.hasResolvedSlot) enemySlot else null,
+            activeBattle = inBattle
         )
 
         val field = CalcFieldInput(
@@ -594,7 +596,8 @@ class CalcTabScreenView(
             field = field,
             challengeSettings = challengeSettingsSnapshot,
             playerBattlerState = playerBattlerSnapshot,
-            enemyBattlerState = enemyBattlerSnapshot
+            enemyBattlerState = enemyBattlerSnapshot,
+            activeBattle = inBattle
         )
 
         val authorised = outcome as? CalcRequestOutcome.Ready ?: run {

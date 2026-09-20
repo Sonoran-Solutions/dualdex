@@ -175,6 +175,8 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_mons_types_offset = HNS_BATTLE_POKEMON_TYPES_OFFSET,
     .battle_mons_type_count = HNS_BATTLE_POKEMON_TYPE_COUNT,
     .battle_mons_type_width = HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE,
+    .battle_mons_item_offset = HNS_BATTLE_POKEMON_ITEM_OFFSET,
+    .battle_mons_item_size = HNS_BATTLE_POKEMON_ITEM_SIZE,
     .battler_party_indexes_offset = 0x144,
     .battlers_count_offset = 0xB0,
     .battle_type_flags_offset = 0xAC,
@@ -2299,7 +2301,9 @@ static bool battle_pokemon_layout_declared(const GameMemoryConfig* config) {
            config->battle_mons_ability_size != 0 &&
            config->battle_mons_types_offset != 0 &&
            config->battle_mons_type_count != 0 &&
-           config->battle_mons_type_width != 0;
+           config->battle_mons_type_width != 0 &&
+           config->battle_mons_item_offset != 0 &&
+           config->battle_mons_item_size != 0;
 }
 
 /**
@@ -2313,7 +2317,9 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
            config->battle_mons_ability_size == HNS_BATTLE_POKEMON_ABILITY_SIZE &&
            config->battle_mons_types_offset == HNS_BATTLE_POKEMON_TYPES_OFFSET &&
            config->battle_mons_type_count == HNS_BATTLE_POKEMON_TYPE_COUNT &&
-           config->battle_mons_type_width == HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE;
+           config->battle_mons_type_width == HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE &&
+           config->battle_mons_item_offset == HNS_BATTLE_POKEMON_ITEM_OFFSET &&
+           config->battle_mons_item_size == HNS_BATTLE_POKEMON_ITEM_SIZE;
 }
 
 bool pokemon_read_battler_runtime_state_gba(
@@ -2430,6 +2436,21 @@ bool pokemon_read_battler_runtime_state_gba(
         return false;
     }
 
+    // Current held-item identity. This is the battle engine's live item word, not the party
+    // structure's stored item; the engine rewrites it when an item is consumed, knocked off,
+    // swapped, stolen or flung. ITEM_NONE (0) is an authoritative "no item".
+    uint8_t item_bytes[HNS_BATTLE_POKEMON_ITEM_SIZE];
+    if (HNS_BATTLE_POKEMON_ITEM_SIZE > sizeof(item_bytes)) return false;
+    if (!read(user, mon_base + HNS_BATTLE_POKEMON_ITEM_OFFSET,
+              item_bytes, sizeof(item_bytes))) {
+        return false;
+    }
+
+    uint16_t item = 0;
+    for (unsigned i = 0; i < HNS_BATTLE_POKEMON_ITEM_SIZE; i++) {
+        item |= (uint16_t)(item_bytes[i] << (8u * i)); // little-endian, APCS-GNU
+    }
+
     out_state->battler_index = battler;
     out_state->party_slot = (int8_t)party_slot;
     out_state->party_slot_known = true;
@@ -2446,7 +2467,12 @@ bool pokemon_read_battler_runtime_state_gba(
     }
     out_state->types_invalid = any_type_invalid;
 
-    out_state->status = (out_state->ability_invalid || out_state->types_invalid)
+    out_state->item_observed = true;
+    out_state->item_id = item;
+    out_state->item_invalid = item > HNS_BATTLE_POKEMON_ITEM_ID_MAX;
+
+    out_state->status = (out_state->ability_invalid || out_state->types_invalid ||
+                         out_state->item_invalid)
         ? BATTLER_RUNTIME_STATE_OBSERVED_INVALID
         : BATTLER_RUNTIME_STATE_OBSERVED;
     return true;

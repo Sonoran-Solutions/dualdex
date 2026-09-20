@@ -39,7 +39,18 @@ data class CalcPokemonInput(
      * Used by [CalcCapabilityPolicy] to determine ability capability directly from the authoritative
      * runtime ID rather than from a display name string.
      */
-    val abilityId: Int? = null
+    val abilityId: Int? = null,
+    /**
+     * Authoritative numeric item ID for Heart & Soul 2.0.5 (or null if manual/unknown). For a live
+     * read this is the engine's current held-item identity (`gBattleMons[battler].item`) when the
+     * participant is the active battler, or the exact parsed party held-item ID for a bench
+     * participant. Capability is decided from this numeric ID, never from [item].
+     */
+    val itemId: Int? = null,
+    /** Where [itemId] came from; only [CalcItemProvenance.BATTLE_EFFECTIVE] is current battle state. */
+    val itemProvenance: CalcItemProvenance = CalcItemProvenance.MANUAL,
+    /** True when an observed item ID was outside the exact H&S item domain. */
+    val itemOutOfDomain: Boolean = false
 )
 
 data class StatBlock(

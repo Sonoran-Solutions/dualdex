@@ -34,7 +34,7 @@ from `adec33da36e412a9618dd425e026d78d9316bfd8` (the PR
 | Live battler effective ability + effective types (**#9 slice**) | **RUNTIME VERIFIED (Scenarios 20 and 42, §14)** through the production reader; wired into calculator participant preparation with active-slot validation (§16) |
 | Maps / multi-region location routing (**#11**) | **SOURCE VERIFIED + unit tested**; 3 Johto runtime checkpoints RUNTIME VERIFIED; cross-region transitions and app/UI NOT YET VERIFIED (§12) |
 | Map screen presentation | NOT YET APP/UI VERIFIED (§12.8) |
-| Calculator correctness (#9) | **SOURCE VERIFIED + unit tested** for ability capability policy and arithmetic: H&S 2.0.5 calculations consume authoritative runtime abilities with active-slot validation, proven arithmetic parity for modelled subset, and fail-closed capability gating; calculations remain **refused** pending Gap C3 held item system. See [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md) |
+| Calculator correctness (#9) | **SOURCE VERIFIED + unit tested** for ability and held-item capability policy and arithmetic: H&S 2.0.5 calculations consume authoritative runtime abilities and current held items with active-slot validation, proven arithmetic parity for the modelled ability subset, conditional item capability, and fail-closed gating; calculations remain **refused** pending the Gap C4 badge boost. See [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md) |
 | `battleUiVerified` / `interactiveControlsVerified` | still `false`, unchanged |
 
 Sections 1-11 are the historical record of the memory/layout phase and the battle-lifecycle phase,
@@ -297,7 +297,7 @@ arm-none-eabi-gcc -iquote <tag>/include -DMODERN=1 -DTESTING=0 -DPOKEMON_HNS -st
 | `level` | `0x2C` | `0x2B` | — | recorded |
 | `friendship` | `0x2D` | `0x2C` | — | recorded |
 | **`maxHP`** | **`0x2E`** | `0x2D` | — | **changed (recorded)** |
-| `item` | `0x30` | `0x2F` | — | recorded |
+| `item` | `0x30` | `0x2F` | — | **ABI VERIFIED; production reader reads offset `0x30`, width `2`, ID domain `0..900` (Gap C3)** |
 | `nickname` | `0x32` | `0x31` | — | recorded |
 | `ppBonuses` | `0x3F` | `0x3C` | — | recorded |
 | `otName` | `0x40` | `0x3D` | — | recorded |
@@ -906,7 +906,7 @@ No broad architecture rewrite was performed (issue #8 is untouched).
 | Expansion nature / shiny semantics | SOURCE VERIFIED; unit tested; UI policy NOT YET VERIFIED |
 | H&S 2.0.5 Species / Move Data Pack (`HeartAndSoul205DataPack`) | SOURCE VERIFIED (extracted via `arm-none-eabi-cpp` preprocessor directly from pinned upstream checkout `1f42b74dff0e9fe942419845d040663dd829a973` with zero commercial ROM dependency); unit tested |
 | Profile Custom Species Isolation (Ghost Grey vs H&S 500-502) | SOURCE VERIFIED; unit tested |
-| H&S 2.0.5 Held Items | NON-AUTHORITATIVE (held items marked unverified in live party presentation pending dedicated item audit) |
+| H&S 2.0.5 Held Items | **SOURCE VERIFIED** — exact `enum Item` domain (`ITEM_ID_MAX = 900`, `ITEMS_COUNT = 901`) and every `gItemsInfo` symbol/name/`holdEffect`/`holdEffectParam` generated from the pinned `src/item.c` and source-checked byte-for-byte (`tools/hns-items/generate_hns_items.py --verify`). **ABI VERIFIED** — `BattlePokemon.item` offset `0x30`, width `2`, domain via the compiled ARM probe (`native/src/hns_battle_pokemon_layout_gen.h`). **UNIT/HOST VERIFIED** — native observation (`test_pokemon_reader.c`), Kotlin identity/capability (`Hns205ItemCatalogueTest.kt`, `HnsItemRegistryTest.kt`, `CalcHnsItemTest.kt`), generator tests, and the QuickJS no-op/name-safety contract (`test_js_calc.c:check_gap_c3_items`). The current-battle-item-over-stored-party-item precedence and faint-window clearing are **synthetic-fixture UNIT VERIFIED**. Reading `gBattleMons[battler].item` live on the official ROM is **NOT YET RUNTIME VERIFIED** |
 | Battle lifecycle (`gMain.inBattle`, `gBattlersCount`, `gBattleOutcome`, `gBattlerPositions`, `gAbsentBattlerFlags`) | COMPILED SYMBOL + ABI VERIFIED; `gMain` release base **corrected to `0x03005BD8`** by runtime evidence (§11.6); battle enter, HP, faint, teardown and exit-edge RUNTIME VERIFIED with 0 invariant violations (§11.3). Trainer battle classification, opponent replacement, player switch and player faint with forced replacement RUNTIME VERIFIED (Scenarios 40-43, §11.9); doubles/partner-multi and opponent voluntary switch NOT RUNTIME VERIFIED |
 | Production battle presence for H&S | `gMain.inBattle` lifecycle only (no `gBattleMons[0].species`); lifecycle-null semantics unit tested; inactive, active, ending and post-exit (stale-state) cases all RUNTIME VERIFIED (§11.3) |
 | Active battler index contract (`ActiveEnemyInfo.battler_index`) | SOURCE + unit tested; **RUNTIME VERIFIED** — resolved battler `1` for the opponent and `0` for the player in a live wild battle (§11.3) |
@@ -957,7 +957,7 @@ These were found during this phase and are **not** fixed here.
    - An exact, version-pinned H&S 2.0.5 data pack (`HeartAndSoul205DataPack`, pack ID `hns_2_0_5`) was generated directly from the pinned upstream source checkout (`PokemonHnS-Development/pokehns-expansion` at commit `1f42b74dff0e9fe942419845d040663dd829a973`, tag `Release-v2.0.5`) using a preprocessor-derived extractor (`tools/hns-data-pack/generate_hns_data_pack.py`) with zero commercial ROM / `.gba` dependencies.
    - Generation accurately extracts 1,427 species and 934 moves. Mechanics follow Gen 8 baseline (Fairy type enabled, Physical/Special split enabled, modern type chart without Steel resisting Ghost/Dark), with Gen 9 species (e.g. Terapagos) and Gen 9 moves (e.g. Tera Starstorm with `PokemonType.STELLAR` and Malignant Chain) fully resolved.
    - Global fallback is strictly blocked (`allowGlobalFallback = false`): unknown species or move IDs render safe placeholders (`"Unknown Species #<id>"` / `"Unknown Move #<id>"`) rather than polluting or substituting with generic entries.
-   - Held items are explicitly marked non-authoritative (`(unverified)`) in live party presentation pending dedicated item table extraction.
+   - Held items have an exact source-derived identity catalogue for the calculator (Gap C3: `Hns205ItemCatalogue` + numeric-ID `HnsItemRegistry`), and current battle items are read from `gBattleMons[battler].item`; the live party presentation display was not changed by this slice and still does not use that catalogue.
 3. **Stale map groups.** `map_groups_hns.json` does not match 2.0.5, which adds/reorders groups
    including `OutdoorAlola`, `IndoorAlola`, `IndoorDynamic`, `Sinjoh`, `IndoorSinjoh`, `SpecialArea`.
    Groups 25+ must not be treated as authoritative, and unknown H&S map IDs should fail to an unmapped
@@ -2514,7 +2514,7 @@ In vanilla Gen 3, this matches profile data. In H&S 2.0.5, this would erroneousl
      - Boundary defense-in-depth ID/name mismatch rejection.
      - Authoritative numeric `abilityId` driving capability verdict rather than identity name string.
      - Direct ability domain range-checking at boundary and policy layers.
-     - Policy gating to `HNS_ABILITY_EFFECT_NOT_MODELLED`, `HNS_EFFECTIVE_ABILITY_UNREADABLE`, and `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`.
+     - Policy gating to `HNS_ABILITY_EFFECT_NOT_MODELLED`, `HNS_EFFECTIVE_ABILITY_UNREADABLE`, `HNS_ITEM_EFFECT_NOT_MODELLED`, `HNS_EFFECTIVE_ITEM_UNREADABLE`, `HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE`, and the next mechanics blocker `BADGE_BOOST_NOT_MODELLED` (the blanket `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED` is removed).
    - All 529 unit tests pass.
 
 3. **Behavioral Semantic Mutation Controls:**
@@ -2524,3 +2524,177 @@ In vanilla Gen 3, this matches profile data. In H&S 2.0.5, this would erroneousl
    - **Control 4 (Numeric ID Authority)**: Mutated `CalcCapabilityPolicy.collectRequestLimitations` to classify by display name (`classify(input.ability)`) rather than numeric ID (`classify(input.abilityId)`). Executed unit tests: `live read capability verdict derives from authoritative abilityId not identity name` failed immediately with `AssertionError`.
    - **Control 5 (Domain Range Check)**: Mutated `CalcRequestBoundary.reconcileParticipantAbility` and `CalcCapabilityPolicy.collectRequestLimitations` to omit the `0..ABILITY_ID_MAX` check. Executed unit tests: `live read abilityId directly range-checked against pinned ability domain` failed immediately with `AssertionError`.
    - All mutants reverted and test suite confirmed 100% green.
+
+---
+
+## 17. Gap C3: authoritative held-item identity and conditional item capability (issue #9)
+
+Status vocabulary for this section: **SOURCE VERIFIED**, **ABI VERIFIED**, **UNIT/HOST VERIFIED**,
+**RUNTIME VERIFIED**, **NOT YET RUNTIME VERIFIED**. Synthetic fixtures are labelled UNIT/HOST, never
+runtime.
+
+### 17.1 Source audit (pinned commit `1f42b74dff0e9fe942419845d040663dd829a973`)
+
+- **Current item identity is `gBattleMons[battler].item`.** It is rewritten when an item is consumed
+  (`[src/battle_script_commands.c:6607]`), stolen (`[src/battle_script_commands.c:2227]`, `:2239]`;
+  `[src/battle_move_resolution.c:3095]`, `:3100]`), knocked off (`[src/battle_move_resolution.c:3055]`),
+  swapped by Trick/Switcheroo (`[src/battle_script_commands.c:9818-9819]`), or flung
+  (`[data/battle_scripts_1.s:528]` removeitem). The controller ALSO pushes in-battle item changes back
+  into the party record immediately through `REQUEST_HELDITEM_BATTLE`:
+  `BtlController_EmitSetMonData(..., REQUEST_HELDITEM_BATTLE, ...)` is emitted on consume
+  (`[src/battle_script_commands.c:6611]`), Knock Off (`[src/battle_move_resolution.c:3063]`), steal
+  (`[src/battle_script_commands.c:2242-2249]`), Trick/Switcheroo (`[src/battle_script_commands.c:9824-9827]`)
+  and Fling (`[src/battle_util.c:10216]`), and the controller handler writes it into party storage with
+  `SetMonData(&party[monId], MON_DATA_HELD_ITEM, ...)` (`[src/battle_controllers.c:1804-1806]`). The party
+  record is therefore **not** frozen until battle end — it is a separate, asynchronously-updated copy.
+  `gBattleMons[battler].item` remains the synchronous battle-engine authority.
+- **Damage-path derivation:** `CalculateMoveDamage` sets `holdEffectAtk/Def = GetBattlerHoldEffect(...)`
+  (`[src/battle_util.c:8231-8234]`) → `GetBattlerHoldEffectInternal` (`:5813-5838`) →
+  `GetItemHoldEffect(gBattleMons[battler].item)` (`[src/item.c:860-863]`); the parameter comes from
+  `GetBattlerHoldEffectParam` (`[src/battle_util.c:5849-5855]`, `[src/item.c:865-867]`).
+- **Type boosters are ×1.2 in H&S, not ×1.1.** `I_TYPE_BOOST_POWER = GEN_LATEST = GEN_9`
+  (`[include/config/item.h:15]`, `[include/config/general.h:73]`, `:70]`) ⇒ `TYPE_BOOST_PARAM = 20`
+  (`[src/data/items.h:10]`) ⇒ base-power ×1.2 (`[src/battle_util.c:6808]`, `:6839-6843]`, `:6871]`).
+  The generated catalogue records Charcoal `holdEffectParam = 20`, confirming the source value.
+- **Choice Band is ×1.5 but composition diverges.** Applied in `CalcAttackStat` after stat stages and
+  abilities via fixed-point `uq4_12_multiply_half_down` (`[src/battle_util.c:7177-7180]`), floored once at
+  `:7191]`; the ADV pipeline applies item transforms with intermediate integer floors. Not equivalent.
+- **Gems are ×1.3 and consumed.** `GEM_BOOST_PARAM = 30` (`[src/data/items.h:9]`,
+  `[include/config/item.h:13]`), applied to base power (`[src/battle_util.c:6633-6634]`), queued for
+  consumption (`[src/battle_script_commands.c:1347-1353]`, `[data/battle_scripts_1.s:7058-7064]`).
+  The generated catalogue records `holdEffectParam = 30`.
+- **Resist berries are ×0.5 and consumed** (`[src/battle_util.c:7686-7696]`,
+  `[src/battle_script_commands.c:1484-1501]`); **Focus Sash/Band, Leftovers, Shell Bell and Rocky Helmet**
+  affect survival/HP/KO presentation (`[src/battle_util.c:8193-8206]`,
+  `[src/battle_hold_effects.c:536-656]`, `:245-262]`).
+- **Harmless utility (static, ordinary-damage-only):** Exp. Share (`HOLD_EFFECT_EXP_SHARE`), Soothe Bell
+  (`HOLD_EFFECT_FRIENDSHIP_UP`, `[src/pokemon.c:7777]`), Amulet Coin (`HOLD_EFFECT_DOUBLE_PRIZE`,
+  `[src/battle_main.c:3189]`), Cleanse Tag (`HOLD_EFFECT_REPEL`, `[src/wild_encounter.c:1334]`) and
+  Lucky Egg (`HOLD_EFFECT_LUCKY_EGG`, `[src/battle_script_commands.c:11982]`) have no crit/power/type/
+  stat/survival/KO/HP/status/speed interaction and are `PROVEN_NO_ORDINARY_DAMAGE_EFFECT`. This is a
+  context-free statement only about their OWN hold effect; the item's identity is still damage-relevant
+  to the item-dependent moves below.
+
+**Move/item interaction audit (SOURCE VERIFIED).** The pinned damage path reads held-item state for a
+complete, audited set of moves, so the static item classification above is not sufficient on its own.
+Every read found:
+
+| Move | ID | Interaction | Pinned source |
+|---|---|---|---|
+| Fling | 374 | attacker item identity | `CalcMoveBasePower EFFECT_FLING` `[src/battle_util.c:6344-6346]` |
+| Natural Gift | 363 | attacker item identity (power + type) | `[src/battle_util.c:6395-6397]`, `[src/battle_main.c:6327-6330]` |
+| Acrobatics | 512 | attacker item absence | `[src/battle_util.c:6421-6424]` |
+| Knock Off | 282 | defender item presence | `[src/battle_util.c:6619-6623]` |
+| Poltergeist | 737 | defender item presence (move fails) | `[src/battle_move_resolution.c:1301-1305]` |
+| Judgment | 449 | attacker item identity (type) | `GetDynamicMoveType EFFECT_CHANGE_TYPE_ON_ITEM` `[src/battle_main.c:6284-6286]` |
+| Techno Blast | 546 | attacker item identity (type) | `[src/battle_main.c:6284-6286]` |
+| Multi-Attack | 672 | attacker item identity (type) | `[src/battle_main.c:6284-6286]` |
+
+Audited and deliberately excluded: Weather Ball (only the Utility Umbrella hold effect, which no
+supported item has, `[src/battle_main.c:6212-6240]`), Low Kick / Heat Crash (weight via the Float Stone
+hold effect, `GetBattlerWeight` `[src/battle_util.c:6053-6087]`, and Float Stone is refused statically),
+Pluck/Bug Bite/Thief/Covet (item moved after the formula), Sucker Punch (reads the defender's chosen
+move), and the gem/plate/choice/pinch-berry hold effects (ordinary-move multipliers already refused
+statically). Because the authorized request strips supported items before the engine, every audited move
+is refused with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` before it can no-op on the wrong item state. See
+`HnsMoveItemInteractionRegistry` and `docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md` §7.2.
+
+### 17.2 Exact item catalogue (SOURCE VERIFIED)
+
+`tools/hns-items/generate_hns_items.py` preprocesses the pinned `src/item.c` with the pinned
+`arm-none-eabi-cpp` and derives the exact `enum Item` domain (`ITEMS_COUNT = 901`, `ITEM_ID_MAX = 900`)
+plus every `gItemsInfo[]` symbol, display name, `holdEffect` and `holdEffectParam`. The committed
+`app/src/main/java/com/dualdex/pokemon/hns/Hns205ItemCatalogue.kt` regenerates byte-for-byte
+(`--verify`). Enum aliases (e.g. `ITEM_ENERGYPOWDER = ITEM_ENERGY_POWDER`) resolve to one canonical
+identity; an unresolved alias, missing table entry, duplicated ID, or out-of-domain constant is a hard
+error. `ItemDatabase.expansionMap` is not H&S authority.
+
+### 17.3 ABI (ABI VERIFIED)
+
+The compiled probe adds `__builtin_offsetof(struct BattlePokemon, item)`,
+`sizeof(((struct BattlePokemon *)0)->item)` and `ITEMS_COUNT`, compiled with the §3 flags:
+
+| Constant | Generated value | Upstream source comment |
+|---|---|---|
+| `HNS_BATTLE_POKEMON_ITEM_OFFSET` | `0x30` (48) | `0x2F` (stale hand-written comment) |
+| `HNS_BATTLE_POKEMON_ITEM_SIZE` | `2` | — |
+| `HNS_BATTLE_POKEMON_ITEM_ID_MAX` | `900` (`ITEMS_COUNT - 1`) | — |
+
+The compiled offset `0x30` agrees with the independently recorded §3.2 row and is explained by natural
+alignment (`u16 maxHP` rounds to `0x2E`, pushing `item` to `0x30`); the `/*0x2F*/` comment is stale, and
+the same compiled layout already gives `hp = 0x2A`, which the production config uses. The native
+layout-pin test independently pins `136 / 0x30 / 2 / 900`, so a generated-table or reader drift fails
+the semantic tests, and source-check regenerates the header byte-for-byte.
+
+### 17.4 Live current item path (UNIT/HOST VERIFIED, NOT YET RUNTIME VERIFIED)
+
+`BattlerRuntimeState` gains `item_observed` / `item_invalid` / `item_id`; the reader decodes
+`gBattleMons[battler].item` through the bounds-checked reader under the same lifecycle/battler
+resolution as the ability/types read, and reports an out-of-domain ID as `OBSERVED_INVALID` with the raw
+value preserved. The JNI tuple is 16 ints (`[13..15]` = item observed/invalid/id). Kotlin
+`HnsBattlerRuntimeState.fromNativeArray` decodes them and `resolveItemIdentity()` names the ID from the
+generated catalogue. Reading `gBattleMons[battler].item` on the official ROM was not performed for this
+slice.
+
+### 17.5 Stored party item vs current battle item (UNIT/HOST VERIFIED)
+
+`CalcParticipantPresenter.resolveEffectiveItem` and `CalcRequestBoundary.reconcileParticipantItem`
+implement and test: active player/enemy slot match → current battle item, including authoritative
+`ITEM_NONE` overriding a stale nonzero party item; bench player → parsed party item; opponent slot
+mismatch, faint window, doubles ambiguity and unverified reads → unreadable, never a fallback. The
+`activeBattle` flag is a hint, not the authority: `reconcileLiveBattlerItems` treats any supplied runtime
+observation as battle evidence, so a raw LIVE_READ caller cannot declare `activeBattle = false` while
+handing over an observed battler and thereby downgrade to the party item. Capability is
+`HnsItemRegistry.classify(itemId)` (static) combined with `HnsMoveItemInteractionRegistry` (contextual),
+never a display name; manual names resolve through the exact catalogue. These are synthetic-fixture unit
+tests, not runtime evidence.
+
+### 17.6 Verification evidence
+
+1. **Kotlin unit tests** (`Hns205ItemCatalogueTest.kt`, `HnsItemRegistryTest.kt`,
+   `HnsMoveItemInteractionTest.kt`, `CalcHnsItemTest.kt`): exact catalogue identity/domain/alias/name
+   resolution, numeric-ID authority, generic-`ItemDatabase` mutation independence, presenter
+   active/bench/out-of-battle/faint behaviour, boundary anti-spoofing, opponent slot matching and doubles
+   refusal, ITEM_NONE clearing, manual resolution, the context-free static subset (Amulet Coin + ordinary
+   move) versus the contextual gate (Amulet Coin + Fling, ITEM_NONE + Acrobatics, defender item + Knock
+   Off) and the raw-boundary battle-context regression, and the next-blocker assertion
+   (`BADGE_BOOST_NOT_MODELLED` present, item blockers and the blanket absent, UNSUPPORTED,
+   `request == null`).
+2. **Native tests** (`native/tests/test_pokemon_reader.c`): item offset/width/domain pins, `ITEM_NONE` as
+   observed zero, switch/consume rewrite clearing the old item, out-of-domain raw preservation, faint
+   window publishing no stale item.
+3. **Generator tests** (`tools/hns-items/test_generate_hns_items.py`): explicit/alias/implicit/macro-list
+   enum resolution, bookkeeping anchors, fail-closed unresolved aliases and arithmetic, contiguous
+   catalogue construction, and Kotlin rendering.
+4. **QuickJS host tests** (`native/tests/test_js_calc.c:check_gap_c3_items`): an omitted item and
+   `"item": "None"` are the same calculation; an unmodelled item name is a silent no-op; a name the engine
+   models changes damage — which is why the policy never forwards a raw H&S source name. Suite total:
+   1954 checks, 0 failures.
+5. **Source-check:** `tools/hns-items/generate_hns_items.py --verify` and the extended
+   `tools/hns-layout/generate_hns_battle_pokemon_layout.py --verify` both report zero drift against the
+   pinned checkout.
+
+### 17.7 Mutation controls
+
+- **Control 1 (authority).** Mutated `CalcRequestBoundary.reconcileParticipantItem` so the party stored
+  item wins (`participant.itemId ?: state.itemId`). `CalcHnsItemTest` failed 3 tests, including
+  `authoritative ITEM_NONE after a battle mutation is not overridden by the party item`.
+- **Control 2 (numeric identity).** Mutated `CalcCapabilityPolicy.collectHnsItemLimitation` to classify a
+  live item by its display name (`classifyByName(input.item)`) instead of its numeric ID. `CalcHnsItemTest`
+  failed 4 tests, including `numeric item id is the authority when the display name disagrees`.
+- **Control 3 (contextual interaction gate, review R1).** Mutated
+  `HnsMoveItemInteraction.requiresBlock` from `isItemDependent && !modelled` to
+  `isItemDependent && modelled`, i.e. the audit still identified item-dependent moves but stopped adding
+  the blocker. Running `CalcHnsItemTest` + `HnsMoveItemInteractionTest` failed 5 tests:
+  `the same utility item with Fling is refused as item dependent`,
+  `ITEM_NONE with Acrobatics is refused as item dependent`,
+  `defender held utility item with Knock Off is refused as item dependent`,
+  `manual utility item with an item dependent move is refused`, and
+  `every audited move still resolves to its exact H and S pack identity`.
+- All mutants were reverted and the full suite returned green.
+
+### 17.8 What this slice does not verify
+
+Live on-ROM item observation, item consumption/Knock-Off transitions in a running battle, and any H&S
+damage number remain **NOT YET RUNTIME VERIFIED**. No H&S calculation is produced: `BADGE_BOOST_NOT_MODELLED`
+(Gap C4) keeps the result `UNSUPPORTED` with `request == null`.

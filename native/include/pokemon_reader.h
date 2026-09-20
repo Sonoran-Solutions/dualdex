@@ -158,7 +158,7 @@ typedef struct {
     uint32_t battle_mons_stat_stages_offset; // offset of statStages within struct BattlePokemon
 
     // Live BattlePokemon observation (Heart & Soul 2.0.5 only; every other layout leaves all
-    // five zero so an unsupported game fails closed instead of reinterpreting a vanilla
+    // seven zero so an unsupported game fails closed instead of reinterpreting a vanilla
     // BattlePokemon through the H&S structure). The values must equal the generated ABI table
     // in native/src/hns_battle_pokemon_layout_gen.h; the reader cross-checks them at runtime.
     uint32_t battle_mons_ability_offset;     // offset of `ability` within struct BattlePokemon
@@ -166,6 +166,8 @@ typedef struct {
     uint32_t battle_mons_types_offset;       // offset of `types` within struct BattlePokemon
     uint32_t battle_mons_type_count;         // element count of `types`
     uint32_t battle_mons_type_width;         // compiled byte width of one `types` element
+    uint32_t battle_mons_item_offset;        // offset of `item` within struct BattlePokemon
+    uint32_t battle_mons_item_size;          // compiled byte width of `item`
 
     uint32_t battler_party_indexes_offset;   // EWRAM-relative gBattlerPartyIndexes, 0 = unavailable
     uint32_t battlers_count_offset;          // EWRAM-relative gBattlersCount, 0 = unavailable
@@ -654,8 +656,9 @@ typedef enum {
 } BattlerRuntimeStateStatus;
 
 /**
- * The effective ability and current type state of one authoritative active battler, read
- * directly from the running battle engine's `gBattleMons[battler]` (Heart & Soul 2.0.5).
+ * The effective ability, current type state and current held-item identity of one authoritative
+ * active battler, read directly from the running battle engine's `gBattleMons[battler]`
+ * (Heart & Soul 2.0.5).
  *
  * This is LIVE COMBAT STATE, not a declaration:
  *   - `ability_id` is the engine's CURRENT identity for the battler. It is not the party's
@@ -664,6 +667,11 @@ typedef enum {
  *     above this layer; the catalogue is never used to produce the ID.
  *   - `types` are the engine's current type words, exposed verbatim (TYPE_NONE 0 stays 0,
  *     duplicates are preserved). They are not the species' static typings.
+ *   - `item_id` is the engine's CURRENT held-item identity for the battler, read from
+ *     `gBattleMons[battler].item`. It is NOT the party structure's stored item: the battle
+ *     engine rewrites this word when an item is consumed, knocked off, swapped, stolen or
+ *     flung, so it is the only authoritative answer to "what is this battler holding now".
+ *     ITEM_NONE (0) is an authoritative "no item", never an unknown.
  */
 typedef struct {
     BattlerRuntimeStateStatus status;
@@ -677,11 +685,14 @@ typedef struct {
     uint8_t  type_count;           // number of observed type slots (0 when not observed)
     uint8_t  types[3];             // current type values, verbatim
     bool     types_invalid;        // at least one value outside the pinned enum Type domain
+    bool     item_observed;        // the item word was decoded from live memory
+    bool     item_invalid;         // outside the pinned ITEMS_COUNT domain (still reported raw)
+    uint16_t item_id;              // the engine's current held-item identity (ITEM_NONE = 0)
 } BattlerRuntimeState;
 
 /**
- * Read the effective ability and current types of the active battler for @p role, straight
- * from the running H&S 2.0.5 battle engine.
+ * Read the effective ability, current types and current held item of the active battler for
+ * @p role, straight from the running H&S 2.0.5 battle engine.
  *
  * Fail-closed contract. An OBSERVED/AMBIGUOUS verdict requires, in order:
  *   1. @p config declares the live BattlePokemon layout (only the exact H&S 2.0.5 layout does;
@@ -697,11 +708,12 @@ typedef struct {
  *      pokemon_resolve_active_enemy's battler, which is AMBIGUOUS in doubles, never "the first
  *      enemy", and rejected while at 0 HP);
  *   5. the battler index is inside the compiled battler count and the battler is not absent;
- *   6. the complete ability and types bytes are readable through the bounds-checked reader.
+ *   6. the complete ability, types and item bytes are readable through the bounds-checked reader.
  *
  * Observed values outside the pinned enum domains (ability > HNS_BATTLE_POKEMON_ABILITY_ID_MAX,
- * a type byte > HNS_BATTLE_POKEMON_TYPE_ID_MAX) are reported verbatim with
- * status OBSERVED_INVALID — never substituted, defaulted or renamed.
+ * a type byte > HNS_BATTLE_POKEMON_TYPE_ID_MAX, an item > HNS_BATTLE_POKEMON_ITEM_ID_MAX) are
+ * reported verbatim with status OBSERVED_INVALID — never substituted, defaulted or renamed.
+ * ITEM_NONE (0) is inside the domain and is an authoritative "no held item".
  *
  * @return true only when the snapshot status is OBSERVED or OBSERVED_INVALID.
  */

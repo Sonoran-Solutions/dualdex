@@ -59,7 +59,16 @@ data class CalcParticipantState(
     /**
      * Authoritative numeric ability ID for live reads (or null if manual/unknown).
      */
-    val abilityId: Int? = null
+    val abilityId: Int? = null,
+    /**
+     * Authoritative numeric item ID (issue #9, Gap C3). For a live H&S read this is the current
+     * battle item for an active battler or the exact parsed party item for a bench participant.
+     */
+    val itemId: Int? = null,
+    /** Where [itemId] came from. */
+    val itemProvenance: CalcItemProvenance = CalcItemProvenance.MANUAL,
+    /** True when an observed item ID was outside the exact H&S item domain. */
+    val itemOutOfDomain: Boolean = false
 ) {
     companion object {
         /**
@@ -140,6 +149,50 @@ sealed class EffectiveAbilityResolution {
 }
 
 /**
+ * Where a calculation participant's held-item identity came from.
+ *
+ * "Stored party item" and "current battle item" are deliberately distinct facts:
+ * a battle can consume, knock off, swap or steal an item, and the party record
+ * is NOT guaranteed to hold the same atomic current state. H&S controllers DO
+ * propagate some in-battle item changes back into party data immediately (via
+ * `REQUEST_HELDITEM_BATTLE`), so the party record must not be assumed to be
+ * frozen until battle end; it is still a separate, asynchronously-updated copy.
+ * For a live H&S participant the battle engine's current item wins whenever the
+ * participant is the authoritative active battler; a bench participant keeps the
+ * exact parsed party item.
+ */
+enum class CalcItemProvenance {
+    /** Supplied by the user as a hypothetical; no game read. */
+    MANUAL,
+
+    /** Exact parsed party structure item; authoritative for a bench participant. */
+    PARTY_STORAGE,
+
+    /** The battle engine's current item (`gBattleMons[battler].item`); wins for an active battler. */
+    BATTLE_EFFECTIVE,
+
+    /** The item identity could not be authoritatively resolved. */
+    UNKNOWN
+}
+
+/**
+ * Outcome of resolving the authoritative current item for a calculation participant (issue #9).
+ *
+ * Distinct states:
+ * - [BattleEffective]: the live engine's current item (ITEM_NONE = 0 means explicitly no item);
+ * - [PartyStored]: the exact parsed party structure item (bench/out-of-battle);
+ * - [UnknownItem]: the item could not be authoritatively resolved (unreadable, out of domain, or
+ *   an active-battle window in which no single authoritative battler exists).
+ * - [GenericDatabase]: the legacy generic `ItemDatabase` name lookup, used only by non-H&S builds.
+ */
+sealed class EffectiveItemResolution {
+    data class BattleEffective(val itemId: Int) : EffectiveItemResolution()
+    data class PartyStored(val itemId: Int) : EffectiveItemResolution()
+    object UnknownItem : EffectiveItemResolution()
+    object GenericDatabase : EffectiveItemResolution()
+}
+
+/**
  * The single production transformation from parsed participant state to a calculation request.
  *
  * Both the Calc screen and the regression tests drive this function, so the tests exercise the
@@ -216,6 +269,12 @@ object CalcInputPreparation {
      * [effectiveAbility] must be supplied only from an authoritative live observation (e.g. H&S
      * `gBattleMons[battler].ability` for a slot-matching active battler); pass [EffectiveAbilityResolution.UnknownAbility]
      * when the ability was not read or when slot matching fails.
+     *
+     * [effectiveItem] must be supplied from the participant's own authoritative item resolution:
+     * the battle engine's current item for an active battler, the exact parsed party item for a
+     * bench participant, or [EffectiveItemResolution.UnknownItem] when neither was read. Only
+     * [EffectiveItemResolution.GenericDatabase] (the non-H&S default) names an item through the
+     * generic `ItemDatabase`; H&S never does.
      */
     fun fromParsed(
         parsed: ParsedPokemon,
@@ -224,15 +283,49 @@ object CalcInputPreparation {
         itemName: String? = null,
         isExpansionItems: Boolean = false,
         effectiveAbility: EffectiveAbilityResolution = EffectiveAbilityResolution.UnknownAbility,
-        partySlot: Int? = null
+        partySlot: Int? = null,
+        effectiveItem: EffectiveItemResolution = EffectiveItemResolution.GenericDatabase
     ): CalcParticipantState {
-        val resolvedItem = itemName
-            ?: if (parsed.heldItem > 0) {
-                ItemDatabase.get(parsed.heldItem, isExpansionItems).name
-            } else {
-                // An empty held-item slot is an observation, not a gap: the Pokemon holds nothing.
-                NO_ITEM
+        val resolvedItem: String?
+        val resolvedItemId: Int?
+        val itemProvenance: CalcItemProvenance
+        var itemOutOfDomain = false
+        var itemUnknown = false
+        when (effectiveItem) {
+            is EffectiveItemResolution.GenericDatabase -> {
+                resolvedItem = itemName
+                    ?: if (parsed.heldItem > 0) {
+                        ItemDatabase.get(parsed.heldItem, isExpansionItems).name
+                    } else {
+                        // An empty held-item slot is an observation, not a gap.
+                        NO_ITEM
+                    }
+                resolvedItemId = null
+                itemProvenance = CalcItemProvenance.PARTY_STORAGE
             }
+            is EffectiveItemResolution.BattleEffective -> {
+                val resolved = resolveHnsItem(effectiveItem.itemId, CalcItemProvenance.BATTLE_EFFECTIVE)
+                resolvedItem = resolved.name
+                resolvedItemId = resolved.id
+                itemProvenance = resolved.provenance
+                itemOutOfDomain = resolved.outOfDomain
+                itemUnknown = resolved.unknown
+            }
+            is EffectiveItemResolution.PartyStored -> {
+                val resolved = resolveHnsItem(effectiveItem.itemId, CalcItemProvenance.PARTY_STORAGE)
+                resolvedItem = resolved.name
+                resolvedItemId = resolved.id
+                itemProvenance = resolved.provenance
+                itemOutOfDomain = resolved.outOfDomain
+                itemUnknown = resolved.unknown
+            }
+            EffectiveItemResolution.UnknownItem -> {
+                resolvedItem = null
+                resolvedItemId = null
+                itemProvenance = CalcItemProvenance.UNKNOWN
+                itemUnknown = true
+            }
+        }
 
         val (resolvedAbility, resolvedAbilityId, abilityUnknown) = when (effectiveAbility) {
             is EffectiveAbilityResolution.ObservedAbility -> Triple(effectiveAbility.name, effectiveAbility.abilityId, false)
@@ -267,18 +360,49 @@ object CalcInputPreparation {
             ),
             origin = CalcInputOrigin.LIVE_READ,
             // The generic party reader supplies only an ability slot. Only an exact-trusted H&S
-            // battle-state reader (gBattleMons) can name the live effective ability; when none was
-            // supplied, or when stat stages were not observed, those fields are genuinely uncarried.
+            // battle-state reader (gBattleMons) can name the live effective ability or the current
+            // battle item; when none was supplied, or when stat stages were not observed, those
+            // fields are genuinely uncarried.
             unknownFields = buildList {
                 if (abilityUnknown) add(CalcInputField.ABILITY)
+                if (itemUnknown) add(CalcInputField.ITEM)
                 if (boosts == null) add(CalcInputField.BOOSTS)
                 // A non-zero condition matching no known bit is lost information, not a healthy
                 // Pokemon, so it is recorded as unknown as well as sent for rejection.
                 if (statusNameOf(parsed) == UNKNOWN_STATUS) add(CalcInputField.STATUS)
             },
             partySlot = partySlot,
-            abilityId = resolvedAbilityId
+            abilityId = resolvedAbilityId,
+            itemId = resolvedItemId,
+            itemProvenance = itemProvenance,
+            itemOutOfDomain = itemOutOfDomain
         )
+    }
+
+    /** One participant item resolution, from the exact H&S catalogue. */
+    private data class ResolvedHnsItem(
+        val name: String?,
+        val id: Int?,
+        val provenance: CalcItemProvenance,
+        val outOfDomain: Boolean,
+        val unknown: Boolean
+    )
+
+    /**
+     * Resolves a numeric H&S item ID against the exact generated catalogue.
+     *
+     * ID 0 (`ITEM_NONE`) is an authoritative no-item observation. An ID outside the
+     * exact domain is unknown, never coerced and never treated as no item.
+     */
+    private fun resolveHnsItem(id: Int, provenance: CalcItemProvenance): ResolvedHnsItem {
+        if (id == 0) {
+            return ResolvedHnsItem(null, 0, provenance, outOfDomain = false, unknown = false)
+        }
+        val data = com.dualdex.pokemon.hns.Hns205ItemCatalogue.get(id)
+        if (id < 0 || data == null) {
+            return ResolvedHnsItem(null, null, provenance, outOfDomain = true, unknown = true)
+        }
+        return ResolvedHnsItem(data.sourceName, id, provenance, outOfDomain = false, unknown = false)
     }
 
     /**
@@ -327,7 +451,10 @@ object CalcInputPreparation {
         origin = origin,
         unknownFields = unknownFields,
         partySlot = partySlot,
-        abilityId = abilityId
+        abilityId = abilityId,
+        itemId = itemId,
+        itemProvenance = itemProvenance,
+        itemOutOfDomain = itemOutOfDomain
     )
 
     /**

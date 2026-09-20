@@ -63,7 +63,8 @@ object CalcRequestBoundary {
         request: DamageCalculationRequest,
         challengeSettings: HnsChallengeSettingsSnapshot? = null,
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
-        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
+        activeBattle: Boolean = false
     ): CalcRequestOutcome = authorize(
         profile = profile,
         trust = trust,
@@ -71,7 +72,8 @@ object CalcRequestBoundary {
         liveReadHint = false,
         challengeSettings = challengeSettings,
         playerBattlerState = playerBattlerState,
-        enemyBattlerState = enemyBattlerState
+        enemyBattlerState = enemyBattlerState,
+        activeBattle = activeBattle
     )
 
     /**
@@ -93,7 +95,8 @@ object CalcRequestBoundary {
         gen: Int = 3,
         challengeSettings: HnsChallengeSettingsSnapshot? = null,
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
-        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
+        activeBattle: Boolean = false
     ): CalcRequestOutcome {
         val prepared = CalcInputPreparation.prepare(
             attacker = attacker,
@@ -109,7 +112,8 @@ object CalcRequestBoundary {
             liveReadHint = false,
             challengeSettings = challengeSettings,
             playerBattlerState = playerBattlerState,
-            enemyBattlerState = enemyBattlerState
+            enemyBattlerState = enemyBattlerState,
+            activeBattle = activeBattle
         )
     }
 
@@ -127,7 +131,8 @@ object CalcRequestBoundary {
         inputsFromLiveRead: Boolean,
         challengeSettings: HnsChallengeSettingsSnapshot? = null,
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
-        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
+        activeBattle: Boolean = false
     ): CalcRequestOutcome = authorize(
         profile = profile,
         trust = trust,
@@ -135,7 +140,8 @@ object CalcRequestBoundary {
         liveReadHint = inputsFromLiveRead,
         challengeSettings = challengeSettings,
         playerBattlerState = playerBattlerState,
-        enemyBattlerState = enemyBattlerState
+        enemyBattlerState = enemyBattlerState,
+        activeBattle = activeBattle
     )
 
     /**
@@ -301,6 +307,151 @@ object CalcRequestBoundary {
     }
 
     /**
+     * Reconciles one live H&S participant's held item against the authoritative observation.
+     *
+     * This is the anti-spoofing / stale-state boundary:
+     * - an active-battle participant whose observed party slot matches its own [CalcPokemonInput.partySlot]
+     *   takes the ENGINE'S CURRENT item (`gBattleMons[battler].item`), overriding anything the caller
+     *   supplied — including a stale nonzero party item while the engine reports ITEM_NONE;
+     * - a matching slot whose item read is unreadable/out of domain becomes explicitly unknown, and
+     *   never falls back to the party item;
+     * - a participant whose observed active slot is a different slot is on the bench and keeps its
+     *   exact parsed party item — but only where a bench is meaningful ([allowBench]); an opponent
+     *   whose observation names a different slot has no authoritative identity and fails closed;
+     * - an active battle in which no single authoritative battler can be established (faint window,
+     *   doubles ambiguity, unverified read) becomes unknown, never a party fallback.
+     *
+     * [activeBattle] is a HINT, not the authority: [reconcileLiveBattlerItems] treats any supplied
+     * runtime observation as evidence that a battle is active, so this function is never called with
+     * `activeBattle = false` while an authoritative battler exists. The party-storage branch is
+     * therefore reachable only when no battle evidence is present at all.
+     */
+    private fun reconcileParticipantItem(
+        participant: CalcPokemonInput,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        liveReadHint: Boolean,
+        isExactHns: Boolean,
+        isExactVerified: Boolean,
+        activeBattle: Boolean,
+        allowBench: Boolean
+    ): CalcPokemonInput {
+        val isLive = participant.origin == CalcInputOrigin.LIVE_READ || liveReadHint
+        if (!isExactHns || !isLive) return participant
+
+        if (!activeBattle) {
+            // Out of battle: there is no current battle item. The parsed party structure is the
+            // authoritative stored item, so it keeps party provenance and is not a battle claim.
+            if (participant.itemId == null) {
+                return participant.copy(
+                    itemProvenance = CalcItemProvenance.UNKNOWN,
+                    unknownFields = participant.unknownFields + CalcInputField.ITEM
+                )
+            }
+            return participant.copy(
+                itemProvenance = CalcItemProvenance.PARTY_STORAGE,
+                itemOutOfDomain = false,
+                unknownFields = participant.unknownFields - CalcInputField.ITEM
+            )
+        }
+
+        val state = observation?.state
+        val isSlotMatched = participant.partySlot != null &&
+            state?.partySlot != null &&
+            state.partySlot == participant.partySlot
+        val itemDomainValid = state != null && !state.itemOutOfDomain &&
+            state.itemId != null && state.itemId in 0..com.dualdex.pokemon.hns.Hns205ItemCatalogue.ITEM_ID_MAX
+        val isAuthoritativeValid = isExactVerified &&
+            observation != null &&
+            state != null &&
+            state.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED &&
+            isSlotMatched
+
+        if (isAuthoritativeValid) {
+            if (!itemDomainValid) {
+                return participant.copy(
+                    item = null,
+                    itemId = null,
+                    itemProvenance = CalcItemProvenance.UNKNOWN,
+                    itemOutOfDomain = true,
+                    unknownFields = participant.unknownFields + CalcInputField.ITEM
+                )
+            }
+            val itemId = state!!.itemId!!
+            return participant.copy(
+                item = com.dualdex.pokemon.hns.Hns205ItemCatalogue.get(itemId)?.sourceName,
+                itemId = itemId,
+                itemProvenance = CalcItemProvenance.BATTLE_EFFECTIVE,
+                itemOutOfDomain = false,
+                unknownFields = participant.unknownFields - CalcInputField.ITEM
+            )
+        }
+
+        // The observation names a different, authoritatively-known active slot: this participant is
+        // on the bench, so the exact parsed party item is the right authority.
+        val observedDifferentSlot = state != null &&
+            state.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED &&
+            state.partySlot != null &&
+            participant.partySlot != null &&
+            state.partySlot != participant.partySlot
+        if (observedDifferentSlot && allowBench) {
+            return participant.copy(
+                itemProvenance = CalcItemProvenance.PARTY_STORAGE,
+                unknownFields = participant.unknownFields - CalcInputField.ITEM
+            )
+        }
+
+        // No single authoritative active battler: the current item is unreadable. Never resurrect
+        // a stale party item here.
+        return participant.copy(
+            item = null,
+            itemId = null,
+            itemProvenance = CalcItemProvenance.UNKNOWN,
+            itemOutOfDomain = false,
+            unknownFields = participant.unknownFields + CalcInputField.ITEM
+        )
+    }
+
+    private fun reconcileLiveBattlerItems(
+        request: DamageCalculationRequest,
+        liveReadHint: Boolean,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactHns: Boolean,
+        isExactVerified: Boolean,
+        activeBattle: Boolean
+    ): DamageCalculationRequest {
+        if (!isExactHns) return request
+        // Battle context is authoritative runtime provenance, not a caller declaration. A supplied
+        // runtime observation is itself evidence that a battle is active, so a LIVE_READ caller
+        // cannot pass `activeBattle = false` while handing over a current battler and thereby
+        // downgrade to the party-stored item. When no observation exists the flag is the only
+        // signal, and `false` then legitimately means the out-of-battle party-storage case.
+        val battleContext = activeBattle || playerBattlerState != null || enemyBattlerState != null
+        val reconciledAttacker = reconcileParticipantItem(
+            participant = request.attacker,
+            observation = playerBattlerState,
+            liveReadHint = liveReadHint,
+            isExactHns = isExactHns,
+            isExactVerified = isExactVerified,
+            activeBattle = battleContext,
+            allowBench = true
+        )
+        val reconciledDefender = reconcileParticipantItem(
+            participant = request.defender,
+            observation = enemyBattlerState,
+            liveReadHint = liveReadHint,
+            isExactHns = isExactHns,
+            isExactVerified = isExactVerified,
+            activeBattle = battleContext,
+            allowBench = false
+        )
+        return request.copy(
+            attacker = reconciledAttacker,
+            defender = reconciledDefender
+        )
+    }
+
+    /**
      * The single authorization decision every entrypoint above funnels into.
      *
      * Trust and completeness are evaluated separately because they are separate defects with
@@ -314,17 +465,27 @@ object CalcRequestBoundary {
         liveReadHint: Boolean,
         challengeSettings: HnsChallengeSettingsSnapshot? = null,
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
-        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
+        activeBattle: Boolean = false
     ): CalcRequestOutcome {
         val isExactHns = CalcCapabilityPolicy.capabilityFor(profile)?.ruleset == CalcRuleset.HNS_2_0_5
         val readIsTrusted = CalcCapabilityPolicy.isExactRuntimeVerified(profile, trust)
-        val reconciled = reconcileLiveBattlerAbilities(
+        val reconciledAbilities = reconcileLiveBattlerAbilities(
             request = request,
             liveReadHint = liveReadHint,
             playerBattlerState = playerBattlerState,
             enemyBattlerState = enemyBattlerState,
             isExactHns = isExactHns,
             isExactVerified = readIsTrusted
+        )
+        val reconciled = reconcileLiveBattlerItems(
+            request = reconciledAbilities,
+            liveReadHint = liveReadHint,
+            playerBattlerState = playerBattlerState,
+            enemyBattlerState = enemyBattlerState,
+            isExactHns = isExactHns,
+            isExactVerified = readIsTrusted,
+            activeBattle = activeBattle
         )
         val hnsRules = resolveHnsRuntimeRules(profile, trust, challengeSettings)
         val enriched = CalcDataOverrides.enrichRequest(profile, reconciled, hnsRules)

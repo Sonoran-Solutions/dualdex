@@ -4436,6 +4436,21 @@ static void test_hns_challenge_settings_no_stale_across_games(void) {
 #define PIN_BATTLE_POKEMON_TYPE_ELEMENT_SIZE 1
 #define PIN_BATTLE_POKEMON_ABILITY_ID_MAX 310
 #define PIN_BATTLE_POKEMON_TYPE_ID_MAX 20
+// The compiled item offset is 0x30, NOT the stale /*0x2F*/ source comment: the
+// expansion's struct BattlePokemon is naturally aligned and `enum Item` is a
+// 2-byte packed enum, so `u16 maxHP` at 0x2D rounds to 0x2E and `item` lands at
+// 0x30. The same compiled layout gives hp = 0x2A, which the production config
+// already uses. Independently pinned from the compiled ABI probe.
+#define PIN_BATTLE_POKEMON_ITEM_OFFSET 0x30
+#define PIN_BATTLE_POKEMON_ITEM_SIZE 2
+#define PIN_BATTLE_POKEMON_ITEM_ID_MAX 900
+
+// Pinned H&S item identities used by the observation tests, taken from the pinned
+// enum Item (independently of the generated Kotlin catalogue).
+#define PIN_ITEM_NONE 0
+#define PIN_ITEM_CHARCOAL 426
+#define PIN_ITEM_CHOICE_BAND 442
+#define PIN_ITEM_OUT_OF_DOMAIN (PIN_BATTLE_POKEMON_ITEM_ID_MAX + 1)
 
 // Pinned Gen III + H&S ability identities for observation tests (from the
 // pinned include/constants/abilities.h, independently of the data pack).
@@ -4453,13 +4468,15 @@ static void test_hns_challenge_settings_no_stale_across_games(void) {
 #define PIN_TYPE_GRASS 12
 #define PIN_TYPE_ELECTRIC 14
 
-/** A failed read must leave no field carrying a value: no stale battler, slot or ability. */
+/** A failed read must leave no field carrying a value: no stale battler, slot, ability or item. */
 static void expect_battler_unavailable(const BattlerRuntimeState* st, const char* msg) {
     TEST_ASSERT(st->status == BATTLER_RUNTIME_STATE_UNAVAILABLE, msg);
     TEST_ASSERT(st->battler_index == -1 && st->party_slot == -1 && !st->party_slot_known,
                 "an unavailable observation must not carry a battler or slot");
     TEST_ASSERT(!st->ability_observed && !st->types_observed && st->type_count == 0,
                 "an unavailable observation must not carry an ability or types");
+    TEST_ASSERT(!st->item_observed && !st->item_invalid && st->item_id == 0,
+                "an unavailable observation must not carry a stale held item");
 }
 
 /**
@@ -4475,6 +4492,13 @@ static void hns_battle_set_battler_ability_types(HnsBattleFixture* fx, uint8_t b
     for (unsigned t = 0; t < PIN_BATTLE_POKEMON_TYPE_COUNT; t++) {
         mon[PIN_BATTLE_POKEMON_TYPES_OFFSET + t] = types[t];
     }
+}
+
+/** Write the engine's current battle held-item word for one battler, at the pinned offset. */
+static void hns_battle_set_battler_item(HnsBattleFixture* fx, uint8_t battler, uint16_t item) {
+    uint8_t* mon = fx->gba->ewram + fx->cfg->battle_mons_offset +
+                   ((size_t)battler * fx->cfg->battle_mons_size);
+    write16_le_t(mon + PIN_BATTLE_POKEMON_ITEM_OFFSET, item);
 }
 
 static bool read_battler_state(const HnsBattleFixture* fx, BattlerRole role,
@@ -4508,6 +4532,12 @@ static void test_hns_battle_pokemon_live_layout_pins(void) {
                 "generated ability domain must equal the pinned ABILITY_ID_MAX");
     TEST_ASSERT(HNS_BATTLE_POKEMON_TYPE_ID_MAX == PIN_BATTLE_POKEMON_TYPE_ID_MAX,
                 "generated type domain must equal the pinned TYPE_ID_MAX");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_ITEM_OFFSET == PIN_BATTLE_POKEMON_ITEM_OFFSET,
+                "generated item offset must equal the compiled pinned 0x30");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_ITEM_SIZE == PIN_BATTLE_POKEMON_ITEM_SIZE,
+                "generated item width must equal the pinned 2");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_ITEM_ID_MAX == PIN_BATTLE_POKEMON_ITEM_ID_MAX,
+                "generated item domain must equal the pinned ITEMS_COUNT - 1");
 
     const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
     TEST_ASSERT(cfg->battle_mons_size == PIN_BATTLE_POKEMON_SIZEOF &&
@@ -4515,7 +4545,9 @@ static void test_hns_battle_pokemon_live_layout_pins(void) {
                 cfg->battle_mons_ability_size == PIN_BATTLE_POKEMON_ABILITY_SIZE &&
                 cfg->battle_mons_types_offset == PIN_BATTLE_POKEMON_TYPES_OFFSET &&
                 cfg->battle_mons_type_count == PIN_BATTLE_POKEMON_TYPE_COUNT &&
-                cfg->battle_mons_type_width == PIN_BATTLE_POKEMON_TYPE_ELEMENT_SIZE,
+                cfg->battle_mons_type_width == PIN_BATTLE_POKEMON_TYPE_ELEMENT_SIZE &&
+                cfg->battle_mons_item_offset == PIN_BATTLE_POKEMON_ITEM_OFFSET &&
+                cfg->battle_mons_item_size == PIN_BATTLE_POKEMON_ITEM_SIZE,
                 "the H&S config must carry the pinned BattlePokemon layout");
 
     // Vanilla games must not inherit the H&S live-field interpretation.
@@ -4525,7 +4557,8 @@ static void test_hns_battle_pokemon_live_layout_pins(void) {
     for (size_t i = 0; i < sizeof(VANILLA) / sizeof(VANILLA[0]); i++) {
         const GameMemoryConfig* v = pokemon_get_game_config(VANILLA[i]);
         TEST_ASSERT(v != NULL && v->battle_mons_ability_offset == 0 &&
-                    v->battle_mons_types_offset == 0 && v->battle_mons_type_count == 0,
+                    v->battle_mons_types_offset == 0 && v->battle_mons_type_count == 0 &&
+                    v->battle_mons_item_offset == 0 && v->battle_mons_item_size == 0,
                     "a vanilla layout must not declare the H&S live fields");
     }
 
@@ -4549,8 +4582,10 @@ static void hns_battler_fixture_two_battlers(HnsBattleFixture* fx, FakeGba* gba,
     hns_battle_set_mon(fx, 1, 16, 40);
     { const uint8_t types[3] = {PIN_TYPE_FIRE, PIN_TYPE_NONE, PIN_TYPE_NONE};
       hns_battle_set_battler_ability_types(fx, 0, PIN_ABILITY_BLAZE, types); }
+    hns_battle_set_battler_item(fx, 0, PIN_ITEM_CHARCOAL);
     { const uint8_t types[3] = {PIN_TYPE_NORMAL, PIN_TYPE_FLYING, PIN_TYPE_NONE};
       hns_battle_set_battler_ability_types(fx, 1, 51, types); }
+    hns_battle_set_battler_item(fx, 1, PIN_ITEM_CHOICE_BAND);
 }
 
 /**
@@ -4578,6 +4613,8 @@ static void test_hns_battler_state_observes_active_player(void) {
                 st.types[0] == PIN_TYPE_FIRE && st.types[1] == PIN_TYPE_NONE &&
                 st.types[2] == PIN_TYPE_NONE && !st.types_invalid,
                 "a monotype battler must preserve the TYPE_NONE sentinels verbatim");
+    TEST_ASSERT(st.item_observed && !st.item_invalid && st.item_id == PIN_ITEM_CHARCOAL,
+                "the current held item must be the engine's item word, not the party structure's");
 
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_hns_battler_state_observes_active_player" ANSI_RESET "\n");
@@ -4603,6 +4640,8 @@ static void test_hns_battler_state_observes_active_opponent(void) {
     TEST_ASSERT(st.types_observed && st.types[0] == PIN_TYPE_NORMAL &&
                 st.types[1] == PIN_TYPE_FLYING && st.types[2] == PIN_TYPE_NONE,
                 "the opponent's current dual typing must be observed");
+    TEST_ASSERT(st.item_observed && st.item_id == PIN_ITEM_CHOICE_BAND,
+                "the opponent's current item must be its own, never the player's");
 
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_hns_battler_state_observes_active_opponent" ANSI_RESET "\n");
@@ -4906,6 +4945,82 @@ static void test_hns_battler_state_type_representations(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_battler_state_type_representations" ANSI_RESET "\n");
 }
 
+/**
+ * `ITEM_NONE` (0) is an authoritative observation, not a gap: the engine word is
+ * decoded, flagged valid, and preserved as zero.
+ */
+static void test_hns_battler_state_item_none_is_observed_zero(void) {
+    printf("Running test_hns_battler_state_item_none_is_observed_zero...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+    hns_battle_set_battler_item(&fx, 0, PIN_ITEM_NONE);
+
+    BattlerRuntimeState st;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "ITEM_NONE must be observable");
+    TEST_ASSERT(st.status == BATTLER_RUNTIME_STATE_OBSERVED, "ITEM_NONE is inside the domain");
+    TEST_ASSERT(st.item_observed && !st.item_invalid && st.item_id == PIN_ITEM_NONE,
+                "ITEM_NONE must be reported as observed zero, never as unreadable");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_item_none_is_observed_zero" ANSI_RESET "\n");
+}
+
+/**
+ * The current battle item follows the authoritative battler: a switch/consume rewrite
+ * must replace the old item, and an engine ITEM_NONE must never retain the old value.
+ */
+static void test_hns_battler_state_current_item_follows_rewrite(void) {
+    printf("Running test_hns_battler_state_current_item_follows_rewrite...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    BattlerRuntimeState before;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &before),
+                "precondition: initial player observation");
+    TEST_ASSERT(before.item_id == PIN_ITEM_CHARCOAL, "precondition: initial item");
+
+    // The engine commits a switch and consumes the new battler's item in the same window.
+    hns_battle_set_battler(&fx, 0, 0, 1);
+    hns_battle_set_mon(&fx, 0, 158, 38);
+    { const uint8_t types[3] = {PIN_TYPE_GRASS, PIN_TYPE_POISON, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(&fx, 0, PIN_ABILITY_OVERGROW, types); }
+    hns_battle_set_battler_item(&fx, 0, PIN_ITEM_NONE);
+
+    BattlerRuntimeState after;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &after),
+                "post-switch player must be observable");
+    TEST_ASSERT(after.item_observed && after.item_id == PIN_ITEM_NONE,
+                "the previous battler's item must not survive; ITEM_NONE is the current truth");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_current_item_follows_rewrite" ANSI_RESET "\n");
+}
+
+/** An item ID outside ITEMS_COUNT is reported raw and flagged, never coerced. */
+static void test_hns_battler_state_out_of_domain_item_stays_raw(void) {
+    printf("Running test_hns_battler_state_out_of_domain_item_stays_raw...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+    hns_battle_set_battler_item(&fx, 0, PIN_ITEM_OUT_OF_DOMAIN);
+
+    BattlerRuntimeState st;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "an out-of-domain item is still an observation");
+    TEST_ASSERT(st.status == BATTLER_RUNTIME_STATE_OBSERVED_INVALID,
+                "the status must degrade honestly, not silently pass");
+    TEST_ASSERT(st.item_observed && st.item_invalid && st.item_id == PIN_ITEM_OUT_OF_DOMAIN,
+                "the raw item value must be preserved verbatim, never coerced");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_out_of_domain_item_stays_raw" ANSI_RESET "\n");
+}
+
 /** Trust and lifecycle failure matrix: no path may default to battler 0/slot 0 or retain state. */
 static void test_hns_battler_state_trust_and_lifecycle_failures(void) {
     printf("Running test_hns_battler_state_trust_and_lifecycle_failures...\n");
@@ -5125,6 +5240,9 @@ int main(void) {
     test_hns_battler_state_faint_window_unavailable_before_replacement();
     test_hns_battler_state_unresolved_ability_stays_raw();
     test_hns_battler_state_type_representations();
+    test_hns_battler_state_item_none_is_observed_zero();
+    test_hns_battler_state_current_item_follows_rewrite();
+    test_hns_battler_state_out_of_domain_item_stays_raw();
     test_hns_battler_state_trust_and_lifecycle_failures();
     test_hns_battler_state_teardown_and_profile_switch();
 

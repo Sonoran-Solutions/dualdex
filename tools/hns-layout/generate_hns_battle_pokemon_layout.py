@@ -106,6 +106,11 @@ def build_probe_c() -> str:
             "    sizeof(((struct BattlePokemon *)0)->types[0]);",
             "const unsigned long ddx_abilities_count = ABILITIES_COUNT;",
             "const unsigned long ddx_mon_types_count = NUMBER_OF_MON_TYPES;",
+            "const unsigned long ddx_item_offset =",
+            "    __builtin_offsetof(struct BattlePokemon, item);",
+            "const unsigned long ddx_item_size =",
+            "    sizeof(((struct BattlePokemon *)0)->item);",
+            "const unsigned long ddx_items_count = ITEMS_COUNT;",
         ]
     ) + "\n"
 
@@ -193,12 +198,14 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
     # /*0xNN*/ byte offset comment. Extract the ones DualDex reads.
     ability_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*enum Ability ability;", body)
     types_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*enum Type types\[(\d+)\];", body)
-    if not ability_m or not types_m:
-        fail("could not parse the labelled ability/types members from "
+    item_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*enum Item item;", body)
+    if not ability_m or not types_m or not item_m:
+        fail("could not parse the labelled ability/types/item members from "
              "include/pokemon.h; the pinned source shape changed")
     pins["source_ability_offset"] = int(ability_m.group(1), 16)
     pins["source_types_offset"] = int(types_m.group(1), 16)
     pins["source_type_count"] = int(types_m.group(2))
+    pins["source_item_offset"] = int(item_m.group(1), 16)
 
     # ABILITIES_COUNT is the last enum constant; the highest explicit ability ID
     # appears just above it. Same for TYPE_STELLAR / NUMBER_OF_MON_TYPES.
@@ -230,6 +237,9 @@ def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int
     type_element_size = compiled["ddx_type_element_size"]
     ability_id_max = compiled["ddx_abilities_count"] - 1
     type_id_max = compiled["ddx_mon_types_count"] - 1
+    item_offset = compiled["ddx_item_offset"]
+    item_size = compiled["ddx_item_size"]
+    item_id_max = compiled["ddx_items_count"] - 1
 
     agreements = []
     disagreements = []
@@ -239,6 +249,7 @@ def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int
         ("type slot count", type_count, pins["source_type_count"]),
         ("highest ability ID", ability_id_max, pins["source_ability_id_max"]),
         ("highest type ID", type_id_max, pins["source_type_id_max"]),
+        ("item byte offset", item_offset, pins["source_item_offset"]),
     ]
     for label, compiled_v, source_v in checks:
         (agreements if compiled_v == source_v else disagreements).append(
@@ -277,6 +288,9 @@ def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int
         " *     GetBattlerTypes' consumers), so values are exposed verbatim.",
         " *   - Ability: ABILITY_NONE (0) is part of the pinned enum; the reader",
         " *     preserves it as an observed value and never substitutes.",
+        " *   - Item: ITEM_NONE (0) is part of the pinned enum and means an",
+        " *     authoritative empty held-item slot. The item domain is the pinned",
+        " *     ITEMS_COUNT; an observed ID above ITEM_ID_MAX is reported as such.",
         " *",
         " * Source-text cross-check (compiled ABI wins on disagreement):",
     ]
@@ -300,6 +314,9 @@ def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int
         "#define HNS_BATTLE_POKEMON_TYPE_COUNT " + str(type_count),
         "#define HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE " + str(type_element_size),
         "#define HNS_BATTLE_POKEMON_TYPE_ID_MAX " + str(type_id_max),
+        "#define HNS_BATTLE_POKEMON_ITEM_OFFSET " + str(item_offset),
+        "#define HNS_BATTLE_POKEMON_ITEM_SIZE " + str(item_size),
+        "#define HNS_BATTLE_POKEMON_ITEM_ID_MAX " + str(item_id_max),
         "",
         "#if HNS_BATTLE_POKEMON_ABILITY_OFFSET + HNS_BATTLE_POKEMON_ABILITY_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
         "#error \"BattlePokemon ability field exceeds the compiled struct size\"",
@@ -307,7 +324,10 @@ def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int
         "#if HNS_BATTLE_POKEMON_TYPES_OFFSET + HNS_BATTLE_POKEMON_TYPE_COUNT * HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
         "#error \"BattlePokemon types field exceeds the compiled struct size\"",
         "#endif",
-        "#if HNS_BATTLE_POKEMON_ABILITY_SIZE > 4 || HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE > 4",
+        "#if HNS_BATTLE_POKEMON_ITEM_OFFSET + HNS_BATTLE_POKEMON_ITEM_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
+        "#error \"BattlePokemon item field exceeds the compiled struct size\"",
+        "#endif",
+        "#if HNS_BATTLE_POKEMON_ABILITY_SIZE > 4 || HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE > 4 || HNS_BATTLE_POKEMON_ITEM_SIZE > 4",
         "#error \"BattlePokemon field widths are implausible for this ABI\"",
         "#endif",
         "",
@@ -397,6 +417,7 @@ def main() -> None:
         "ddx_sizeof_bp", "ddx_ability_offset", "ddx_ability_size",
         "ddx_types_offset", "ddx_types_size", "ddx_type_element_size",
         "ddx_abilities_count", "ddx_mon_types_count",
+        "ddx_item_offset", "ddx_item_size", "ddx_items_count",
     ]
     for sym in required_symbols:
         if sym not in compiled:

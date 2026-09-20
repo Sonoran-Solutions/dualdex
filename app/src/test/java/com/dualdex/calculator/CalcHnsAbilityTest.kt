@@ -408,7 +408,7 @@ class CalcHnsAbilityTest {
     // ---------------------------------------------------------------------
 
     @Test
-    fun `supported abilities clear ability blockers and fail closed to held item blocker`() {
+    fun `supported abilities clear ability blockers and leave the next mechanics blocker`() {
         val trust = exactTrust(heartAndSoul)
         val snapshot = hnsSettingsSnapshot()
 
@@ -427,15 +427,19 @@ class CalcHnsAbilityTest {
             challengeSettings = snapshot
         )
         val refused = outcome as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("H&S must remain refused via HNS_HELD_ITEM_SYSTEM_NOT_MODELLED")
+            ?: throw AssertionError("H&S must remain refused via the next mechanics blocker")
 
         assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
         assertNull(refused.verdict.request)
         // No ability blockers present
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
-        // Held item blocker present
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
+        // Gap C3: no held item supplied here, so no item-specific blocker is present ...
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
+        // ... and the next production mechanics blocker keeps H&S refused.
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
     }
 
     @Test

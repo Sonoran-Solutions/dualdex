@@ -52,12 +52,12 @@ existing request field reproduces this build's rule, not whether the current UI 
 | # | Mechanic / state | H&S 2.0.5 (pinned) | Bridge can express | Verdict |
 |---|---|---|---|---|
 | 1 | Damage formula | Generation III arithmetic with modern data | partially | **INDIVIDUALLY DEMONSTRATED ONLY** — the crit multiplier, spread reduction, category rule (Gap A/B), and type chart (Gap C1) match; modern modifiers/abilities/items do not (§3.2) |
-| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for damaging moves in TYPE_BASED to trigger Gen 3 type derivation; Status moves retain Status in both); `optionStyle` is consumed by `CalcRequestBoundary` | **PLUMBED / REFUSED** — `optionStyle` selects category behavior with Status prioritized, but H&S calculations remain refused due to Gap C3 held item system blocker (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`) (§3.1, §9) |
-| 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **SUPPORTED / REFUSED (GAP C1 CLOSED)** — type chart is exact and verified in QuickJS. H&S calculations remain refused due to Gap C3 (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`). (§3.1, §9) |
-| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `@smogon/calc` constructor (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C3 held item system blocker (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`) (§3.1, §9) |
-| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to Gap C3 held item system blocker (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`) (§3.1, §9) |
-| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; strict per-ability capability gating (`PROVEN_NO_DAMAGE_EFFECT`, `MODELLED_EQUIVALENT`, `UNSUPPORTED_DAMAGE_RELEVANT`) in `HnsAbilityRegistry`. Engine default ability substitution prevented via `'(other)'`. | **CONDITIONALLY MODELLED / REFUSED (GAP C2 CLOSED)** — live read and manual abilities are verified or fail-closed. H&S calculations remain refused due to Gap C3 held item system (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`). (§3.2, §6, §9) |
-| 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **no** | **REFUSED** — item identity is not authoritative and the percentages differ (§7) |
+| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for damaging moves in TYPE_BASED to trigger Gen 3 type derivation; Status moves retain Status in both); `optionStyle` is consumed by `CalcRequestBoundary` | **PLUMBED / REFUSED** — `optionStyle` selects category behavior with Status prioritized, but H&S calculations remain refused due to the next mechanics blocker `BADGE_BOOST_NOT_MODELLED` (Gap C4) (§3.1, §9) |
+| 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **SUPPORTED / REFUSED (GAP C1 CLOSED)** — type chart is exact and verified in QuickJS. H&S calculations remain refused due to the next mechanics blocker `BADGE_BOOST_NOT_MODELLED` (Gap C4). (§3.1, §9) |
+| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `@smogon/calc` constructor (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to the next mechanics blocker `BADGE_BOOST_NOT_MODELLED` (Gap C4) (§3.1, §9) |
+| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused due to the next mechanics blocker `BADGE_BOOST_NOT_MODELLED` (Gap C4) (§3.1, §9) |
+| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; strict per-ability capability gating (`PROVEN_NO_DAMAGE_EFFECT`, `MODELLED_EQUIVALENT`, `UNSUPPORTED_DAMAGE_RELEVANT`) in `HnsAbilityRegistry`. Engine default ability substitution prevented via `'(other)'`. | **CONDITIONALLY MODELLED / REFUSED (GAP C2 CLOSED)** — live read and manual abilities are verified or fail-closed. H&S calculations remain refused due to the next mechanics blocker `BADGE_BOOST_NOT_MODELLED` (Gap C4). (§3.2, §6, §9) |
+| 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **identity yes; damage effects no** — exact item identity and the current battle item are consumed; no damage item is modelled; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — no item blocker only for `ITEM_NONE`/proven no-*ordinary*-damage items **and** a move that does not read item state; damage items fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`, and item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) fail closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **SUPPORTED** as a boolean crit (`isCrit`), which is what the request shape carries |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes | **SUPPORTED** for Sun/Rain/Sand/Hail |
 | 10 | Snow | Ice Defense ×1.5 `[src/battle_util.c:7389]`; Snow never chips, Hail chips 1/16 `[src/battle_end_turn.c:155]` | **no** | **REFUSED** when asked for — the ADV pipeline has no Snow concept and would compute it as *no weather* |
@@ -67,7 +67,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 14 | Badge boost | Active: player-side ×1.1 Atk/SpA/Def/SpD/Speed (`B_BADGE_BOOST GEN_3`) `[include/config/battle.h:30]`, `[src/battle_util.c:9135]` | **no** | **not modelled** — see §8 |
 | 15 | Move-specific mechanics (multi-hit, weight, fixed damage, Hidden Power, Return) | Modern | partially | **not modelled** beyond the ADV pipeline's own support (§8) |
 | 16 | Challenge settings that change stats | No EVs `[include/global.h:309]`, Base Stat Equalizer `[:304]`, trainer IV/EV scaling `[:312]`, Max Party IVs `[:314]`, Mirror `[:307]` | **no** | **REFUSED** (§4.2) |
-| 17 | Challenge settings that change the rule | `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness` | **yes** — `CalcRequestBoundary` consumes exact-trusted runtime snapshot into `CalcHnsRuntimeRules`; exact type chart and Fairy toggle modelled (Gap C1); active randomizers block | **CONSUMED / REFUSED** — runtime rules are known and unreadable blockers cleared when observed, but active unsupported rules and Gap C3 held item system block calculation (§4.1, §9) |
+| 17 | Challenge settings that change the rule | `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness` | **yes** — `CalcRequestBoundary` consumes exact-trusted runtime snapshot into `CalcHnsRuntimeRules`; exact type chart and Fairy toggle modelled (Gap C1); active randomizers block | **CONSUMED / REFUSED** — runtime rules are known and unreadable blockers cleared when observed, but active unsupported rules and the next mechanics blocker `BADGE_BOOST_NOT_MODELLED` blocks calculation (§4.1, §9) |
 | 18 | Legendary ability overrides | `tx_Mode_Legendary_Abilities` default **ON**, substitutes abilities for slot 0 `[src/pokemon.c:5551]`, `[src/new_game.c:147]` | no | folds into row 6 |
 
 ---
@@ -123,12 +123,12 @@ Only these individual behaviours are source-and-test demonstrated:
 | Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
 | Abilities (supported subset) | Keen Eye, Insomnia, None (`PROVEN_NO_DAMAGE_EFFECT`) | Gen 3 pipeline + `resolveAbility` guard in `entry.js` | **MATCHES (Gap C2 closed)** — zero move-damage effect in H&S battle engine; unmodelled/divergent abilities fail-closed via `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
 | Abilities (temporarily unsupported) | Guts, Thick Fat, Huge Power, Pure Power, starter pinch abilities, modern abilities | Gen 3 pipeline | **does not match** — modifier composition (compound fixed-point multiplier vs ADV sequential floor) and stat-stage application order (stages before abilities vs abilities before stages) diverge; blocked fail-closed by `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
-| Held items | modern type-boost ×1.2, gems ×1.3, modern items | Gen 3 pipeline | **does not match (Gap C3 open)** — blocked fail-closed by `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED` (§7) |
+| Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items | identity consumed; no damage item modelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — `ITEM_NONE` and a small source-proven no-ordinary-damage set clear the item blockers only for an item-independent move; every damage-relevant item fails closed with `HNS_ITEM_EFFECT_NOT_MODELLED`; every item-dependent move fails closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`; unreadable current item is `HNS_EFFECTIVE_ITEM_UNREADABLE` (§7) |
 | Badge boost | player-side ×1.1 stats | not modelled | **does not match** — see §8 |
 
 Matching the critical-hit, spread-damage, data overrides, type chart, and audited abilities does **not** establish
 equivalence of the whole calculation pipeline, and this document no longer claims it does. `gen: 3` remains what the policy
-sends. H&S calculations remain strictly refused (`UNSUPPORTED`) due to the remaining Gap C blocker: `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`.
+sends. H&S calculations remain strictly refused (`UNSUPPORTED`) due to the remaining Gap C blocker: `BADGE_BOOST_NOT_MODELLED` (the generation III badge boost, §8).
 
 ### 3.3 Three different claims that must not be conflated
 
@@ -147,8 +147,8 @@ The matrix in §2 uses these distinctions, and any future H&S work must keep the
 receives authoritative H&S base stats, move properties, exact modern type chart matchups (Gap C1 closed),
 consumed runtime challenge settings (Gap A closed), and authoritative effective abilities with conditional
 capability gating (Gap C2 closed), H&S calculations remain **refused** because the rest of Gap C remains open:
-the H&S held item system differs from the vanilla Gen 3 pipeline (§7), blocked fail-closed by
-`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED` (Gap C3).
+the generation III badge boost has no equivalent in the request shape (§8), blocked fail-closed by
+`BADGE_BOOST_NOT_MODELLED` (Gap C4).
 
 
 ### 3.4 Vanilla Gen III verified set
@@ -189,8 +189,9 @@ challenge-menu toggle flipping exactly `tx_Mode_Fairy_Types`).
   explicit active-not-modelled limitations.
 - **Unsupported mechanics still block:** live battler abilities (observed via `gBattleMons`, PR #56),
   authoritative data overrides (PR #57), runtime rules (PR #61), the exact H&S type chart (Gap C1, PR #62),
-  and authoritative effective abilities with conditional capability gating (Gap C2) are plumbed, but the H&S
-  held item system (Gap C3) remains unmodelled, so all H&S calculations remain refused (`CalcSupport.UNSUPPORTED`).
+  authoritative effective abilities with conditional capability gating (Gap C2), and exact current held-item
+  identity with conditional item capability (Gap C3) are plumbed, but the generation III badge boost remains
+  unmodelled, so all H&S calculations remain refused (`CalcSupport.UNSUPPORTED`).
 
 Two properties make challenge settings decisive rather than a caveat:
 
@@ -236,7 +237,7 @@ The calculator truthfully distinguishes three states:
    - `tx_Random_Type == 1`: Observed ON. Blocks calculation with `RANDOM_TYPES_ACTIVE_NOT_MODELLED`.
    - `tx_Random_TypeEffectiveness == 1`: Observed ON. Blocks calculation with `RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED`.
 
-**Every H&S calculation remains refused (`CalcSupport.UNSUPPORTED`) after Gap A, C1, and C2 because the Gap C3 held item system remains unmodelled.**
+**Every H&S calculation remains refused (`CalcSupport.UNSUPPORTED`) after Gap A, C1, C2, and C3 because the generation III badge boost remains unmodelled (`BADGE_BOOST_NOT_MODELLED`).**
 
 ### 4.2 Value-changing fields
 
@@ -364,31 +365,152 @@ that the H&S ability system is unmodelled with a strict per-ability and per-part
    (`native/tests/test_js_calc.c:check_gap_c2_abilities`).
 
 4. **Spelling and Normalization:**
-   Ability and item names are matched leniently but sent canonically: `CalcCapabilityPolicy.normaliseNames`
+   For vanilla, ability and item names are matched leniently but sent canonically: `CalcCapabilityPolicy.normaliseNames`
    rewrites accepted names to exact Title Case (`"GUTS"` → `"Guts"`, `"HUGE POWER"` → `"Huge Power"`).
-   Unmodelled names are left intact and blocked. Held-item names follow the same rule (`"choice band"` → `"Choice Band"`).
-   `Sea Incense` is intentionally *not* in the type-boost list: the engine models it as its own ×1.05
-   Water case rather than as the generic ×1.1 type-boost item.
+   Unmodelled names are left intact and blocked. `Sea Incense` is intentionally *not* in the type-boost list:
+   the engine models it as its own ×1.05 Water case rather than as the generic ×1.1 type-boost item.
+   For H&S, item capability is decided by the exact numeric item ID, never by a name, and the authorized
+   request omits the item entirely because no H&S damage item is modelled (§7).
 
 ---
 
-## 7. Held items
+## 7. Held items (Gap C3 closed for an explicit, contextual subset)
 
-Two independent problems, either of which is disqualifying for a verified claim:
+Final item capability is **contextual**: it is the combination of the static item audit
+(`HnsItemRegistry`) with the current move/item interaction audit
+(`HnsMoveItemInteractionRegistry`). An item's own hold effect can be proven harmless for the ordinary
+damage path and still determine the result of a move that reads item identity, presence or absence, so
+the two audits are never collapsed.
 
-* **Identity is not authoritative for H&S.** H&S item ids are expansion ids with H&S-restyled
-  display names, and its item table is not an audited source in this phase. A held-item id cannot be
-  turned into a name the engine will match.
-* **The percentages differ.** H&S scales type-boost items to ×1.2 `[src/data/items.h:10]` and gems
-  to ×1.3 `[src/data/items.h:9]`; the ADV pipeline applies ×1.1 to the attack stat. Later-generation
-  damage items (Choice Specs, Life Orb, Expert Belt, Eviolite, Assault Vest) have no ADV equivalent
-  at all and would be silently inert.
+H&S item identity is now exact and independent of the generic expansion table:
+
+* **Exact source-derived catalogue.** `tools/hns-items/generate_hns_items.py` preprocesses the pinned
+  build's own `src/item.c` translation unit and derives, from `include/constants/items.h` (`enum Item`)
+  and `src/data/items.h` (`gItemsInfo[]`):
+  - the exact item domain: `ITEM_NONE = 0` … `ITEM_ID_MAX = 900` (`ITEMS_COUNT = 901`);
+  - every canonical `ITEM_*` symbol, its exact `gItemsInfo` display name, and its compiled
+    `holdEffect` / `holdEffectParam`.
+  The generated Kotlin artifact is `app/src/main/java/com/dualdex/pokemon/hns/Hns205ItemCatalogue.kt`.
+  Aliases in the enum (e.g. `ITEM_ENERGYPOWDER = ITEM_ENERGY_POWDER`) resolve to the one canonical
+  table identity and never produce a second entry; an unresolved alias or a missing table entry is a
+  hard generation error. `ItemDatabase.expansionMap` is **never** H&S authority.
+* **Current battle item, not stored party item.** For a live active battler the authority is the engine's
+  own current item word, `gBattleMons[battler].item`. The battle engine rewrites that word when an item is
+  consumed (`[src/battle_script_commands.c:6607]`), knocked off (`[src/battle_move_resolution.c:3055]`),
+  stolen (`[src/battle_script_commands.c:2227]`, `:2239`), swapped (Trick/Switcheroo,
+  `[src/battle_script_commands.c:9818-9819]`) or flung. The controller also pushes in-battle item changes
+  back into the party record immediately through `REQUEST_HELDITEM_BATTLE`
+  (`[src/battle_controllers.c:1804-1806]` writes `MON_DATA_HELD_ITEM`; emitted on consume
+  `[src/battle_script_commands.c:6611]`, Knock Off `[src/battle_move_resolution.c:3063]`, steal
+  `[src/battle_script_commands.c:2242-2249]`, Trick/Switcheroo `[src/battle_script_commands.c:9824-9827]`
+  and Fling `[src/battle_util.c:10216]`), so `ParsedPokemon.heldItem` is **not** guaranteed to be frozen
+  until battle end; it is a separate, asynchronously-updated copy, while `gBattleMons[battler].item` is the
+  synchronous battle-engine authority. The current state wins whenever the participant is the authoritative
+  active battler.
+  The damage-path derivation is `CalculateMoveDamage → GetBattlerHoldEffect → GetItemHoldEffect →
+  gItemsInfo[...].holdEffect` and `GetBattlerHoldEffectParam` (`[src/battle_util.c:8231-8234]`,
+  `:5813-5855]`, `[src/item.c:860-867]`).
+* **Precedence rules.** Active player/enemy slot match → current battle item, including an authoritative
+  `ITEM_NONE` that overrides a stale nonzero party item. Bench player → exact parsed party held-item ID
+  (no `gBattleMons` observation required). Slot mismatch for the opponent, faint/replacement windows,
+  doubles ambiguity, and unverified reads → unreadable current item, never a party fallback. The
+  `activeBattle` boolean is a hint, not the authority: any supplied runtime observation is itself battle
+  evidence, so a raw LIVE_READ caller cannot pass `activeBattle = false` while handing over a current
+  battler and thereby downgrade to the party item.
+* **Numeric-ID capability.** `HnsItemRegistry.classify(itemId)` is the capability authority; a display
+  name can never authorize capability, and an unknown/out-of-domain ID is `UNCLASSIFIED`. The registry
+  resolves its own entries to IDs through the generated catalogue at construction, so a stale registry
+  entry fails at class initialisation instead of silently degrading.
+* **Contextual interaction audit.** A move whose damage calculation reads held-item state is audited
+  separately by `HnsMoveItemInteractionRegistry`, keyed by the exact pack's numeric move ID. Because no
+  item-dependent interaction is modelled, every such move adds
+  `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` and no item-dependent request reaches the engine. This is
+  required, not optional: the authorized request strips every supported item before `@smogon/calc`
+  (`HnsItemRegistry.engineItemName` returns null), which destroys exactly the input Fling/Knock
+  Off/Acrobatics need, so the move must be refused first rather than allowed to no-op.
+
+### 7.1 Supported static subset (no item blocker for item-independent moves)
+
+This table is the **static** half of the contextual decision. It proves only that the item's own hold
+effect does not touch the ordinary damage path; a request using any of these items is still refused if
+the selected move is item-dependent (§7.2).
+
+| Item | H&S numeric ID | Identity source | H&S source effect | ADV behavior | DualDex category | Reason |
+|---|---|---|---|---|---|---|
+| `ITEM_NONE` | 0 | `gItemsInfo[0]` | none | none | `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` | Authoritatively no held item. |
+| Exp. Share | 461 | `gItemsInfo` | `HOLD_EFFECT_EXP_SHARE` (EXP only, `[src/battle_script_commands.c:11969-11987]`) | none | `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` | No crit/power/type/stat/survival/HP/status/speed interaction. Fling-gated like every other item (§7.2). |
+| Soothe Bell | 463 | `gItemsInfo` | `HOLD_EFFECT_FRIENDSHIP_UP` (`[src/pokemon.c:7777]`) | none | `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` | Friendship only. Fling power 10. |
+| Amulet Coin | 466 | `gItemsInfo` | `HOLD_EFFECT_DOUBLE_PRIZE` (`[src/battle_main.c:3189]`, `[src/battle_hold_effects.c:48]`, `:1055]`) | none | `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` | Prize money only. Fling power 30. |
+| Cleanse Tag | 467 | `gItemsInfo` | `HOLD_EFFECT_REPEL` (`[src/wild_encounter.c:1334]`) | none | `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` | Wild encounters only. Fling power 30. |
+| Lucky Egg | 470 | `gItemsInfo` | `HOLD_EFFECT_LUCKY_EGG` (EXP ×1.5, `[src/battle_script_commands.c:11982]`) | none | `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` | Earned EXP only. Fling power 30. |
+
+### 7.2 Move/item interaction audit (the contextual half)
+
+`HnsMoveItemInteractionRegistry` audits every pinned damage-path read of held-item state. Every move
+below is present in the exact H&S pack and is blocked with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`
+because this calculator does not reproduce the interaction. The lookup key is the pack's numeric move
+ID, so a moved or renamed move fails a test rather than silently dropping out of the gate.
+
+| Move | H&S numeric ID | Interaction | Pinned source | Effect on damage |
+|---|---|---|---|---|
+| Fling | 374 | attacker item identity | `CalcMoveBasePower EFFECT_FLING` `[src/battle_util.c:6344-6346]` | `basePower = GetFlingPowerFromItemId(gBattleMons[battlerAtk].item)`; harmless items are flingable (Soothe Bell 10; Amulet Coin / Cleanse Tag / Lucky Egg / Exp. Share 30). |
+| Natural Gift | 363 | attacker item identity | `[src/battle_util.c:6395-6397]`, `[src/battle_main.c:6327-6330]` | base power and **type** derive from the attacker's held berry. |
+| Acrobatics | 512 | attacker item absence | `[src/battle_util.c:6421-6424]` | doubles base power when `gBattleMons[battlerAtk].item == ITEM_NONE`; therefore even `ITEM_NONE` is not context-free. |
+| Knock Off | 282 | defender item presence | `[src/battle_util.c:6619-6623]` | ×1.5 when the defender holds a removable item. |
+| Poltergeist | 737 | defender item presence | `[src/battle_move_resolution.c:1301-1305]` | fails outright when the defender holds no item. |
+| Judgment | 449 | attacker item identity | `GetDynamicMoveType EFFECT_CHANGE_TYPE_ON_ITEM` `[src/battle_main.c:6284-6286]` | the held plate selects the move type. |
+| Techno Blast | 546 | attacker item identity | `[src/battle_main.c:6284-6286]` | the held Drive selects the move type. |
+| Multi-Attack | 672 | attacker item identity | `[src/battle_main.c:6284-6286]` | the held Memory selects the move type. |
+
+Deliberately excluded, after auditing the whole damage path: `Weather Ball` (its only item read is the
+Utility Umbrella hold effect at `[src/battle_main.c:6212-6240]`, and no supported item has that hold
+effect); Low Kick / Heat Crash (weight only via the Float Stone hold effect,
+`GetBattlerWeight` `[src/battle_util.c:6053-6087]`, and Float Stone is refused statically);
+Pluck/Bug Bite/Thief/Covet (the item is moved after the damage formula); Sucker Punch (it reads the
+defender's chosen move, not an item); and the gem/plate/choice/pinch-berry hold effects (they multiply
+an ordinary move and are already refused by the static audit).
+
+### 7.3 Representative refused items (fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`)
+
+| Item | H&S numeric ID | H&S source effect | ADV behavior | DualDex category | Reason |
+|---|---|---|---|---|---|
+| Charcoal (and the other traditional type boosters) | 426 | ×1.2 to base power (`TYPE_BOOST_PARAM = 20`, `[src/battle_util.c:6808]`, `:6839-6843]`, `:6871]`) | ×1.1 applied to the attack stat | `UNSUPPORTED_DAMAGE_RELEVANT` | Multiplier and application stage differ. |
+| Choice Band | 442 | ×1.5 post-stage Attack, composed in fixed point (`[src/battle_util.c:7177-7180]`, `:7191]`) | sequential integer floors | `UNSUPPORTED_DAMAGE_RELEVANT` | Modifier ordering/composition diverge off neutral stages. |
+| Choice Specs / Choice Scarf | 443 / 444 | same composition | special / Speed only | `UNSUPPORTED_DAMAGE_RELEVANT` | Same ordering concern; Scarf changes speed-dependent power/order. |
+| Light Ball | 392 | ×2 Atk/SpA for Pikachu (`[src/battle_util.c:7173-7176]`) | ×2 Attack | `UNSUPPORTED_DAMAGE_RELEVANT` | H&S condition and composition not proven equal. |
+| Thick Club | 394 | ×2 physical Attack for Cubone/Marowak (`[src/battle_util.c:7165-7168]`) | ×2 Attack | `UNSUPPORTED_DAMAGE_RELEVANT` | Not proven ADV-equivalent in H&S composition. |
+| Deep Sea Tooth / Scale | 399 / 398 | ×2 SpA / SpD for Clamperl (`[src/battle_util.c:7169-7172]`, `:7353-7356]`) | ×2 | `UNSUPPORTED_DAMAGE_RELEVANT` | Not proven ADV-equivalent. |
+| Soul Dew | 400 | ×1.2 Psychic/Dragon base power for the Lati twins (`[src/battle_util.c:6833-6838]`) | ×1.5 SpD (ADV) | `UNSUPPORTED_DAMAGE_RELEVANT` | H&S and ADV semantics differ. |
+| Life Orb / Expert Belt | 479 / 477 | ×1.3 after the roll + 1/10 recoil / ×1.2 on super-effective hits (`[src/battle_util.c:7673-7674]`, `:7669-7671]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Post-Gen-III items. |
+| Muscle Band / Wise Glasses | 475 / 476 | ≈×1.1 physical / special base power (`[src/battle_util.c:6813-6819]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Post-Gen-III items. |
+| Eviolite / Assault Vest | 494 / 503 | ×1.5 Def / SpD (`[src/battle_util.c:7361-7373]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Evolution state is not in the request shape. |
+| Normal Gem / Fire Gem | 339 / 340 | ×1.3 matching-type base power and consumed (`[src/battle_util.c:6633-6634]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Gem consumption state is not modelled. |
+| Occa Berry | 550 | ×0.5 super-effective Fire damage and consumed (`[src/battle_util.c:7686-7696]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Consumption state is not modelled. |
+| Focus Sash / Focus Band | 481 / 469 | survive at 1 HP (Sash consumed) (`[src/battle_util.c:8193-8206]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | KO presentation would be wrong. |
+| Leftovers / Shell Bell / Rocky Helmet | 472 / 473 / 496 | between-turn heal / heal on damage / recoil on contact (`[src/battle_hold_effects.c:642-656]`, `:536-555]`, `:245-262]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | KO/HP presentation would be wrong. |
+
+`ITEM_NONE` and the supported subset above pass the **static** item gate for an item-independent move;
+every other in-domain item is `UNCLASSIFIED` by default and therefore fails closed with
+`HNS_ITEM_EFFECT_NOT_MODELLED`. Independently, any request whose move is item-dependent (§7.2) fails
+closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`, even when the item itself is `ITEM_NONE` or a
+supported static item. An observed current item that cannot be authoritatively read is
+`HNS_EFFECTIVE_ITEM_UNREADABLE`, and a manual name that does not resolve in the exact H&S catalogue is
+`HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE`.
+
+Because no H&S item's damage effect is modelled, the engine request omits the item entirely for every
+supported participant (`HnsItemRegistry.engineItemName` returns null). This is safe: the QuickJS host
+suite proves an omitted item and `"None"` are the same calculation, and that a name the engine does not
+model is a silent no-op, while a name it does model changes damage — which is exactly why a raw H&S
+source name must never be forwarded.
 
 For vanilla Gen III the policy whitelists exactly the items the ADV pipeline applies
 (`CalcCapabilityPolicy.GEN3_MODELLED_ITEM_NAMES`); anything else downgrades a vanilla result to
-*Approximate*. Note that pinch berries (Liechi/Salac/Petaya/…) and Sitrus are modelled by no
-generation in this library, so they are never treated as modelled.
+*Approximate*. The H&S catalogue and numeric item capability never leak into a vanilla calculation.
+Note that pinch berries (Liechi/Salac/Petaya/…) and Sitrus are modelled by no generation in this
+library, so they are never treated as modelled.
+
 ---
+
 
 ## 8. Known limitations that are not fixed here
 
@@ -544,13 +666,51 @@ per-ability capability decision:
 **Why H&S calculations remain refused:**
 Gap C2 resolves ability input and capability gating. When participants have modelled or proven-no-effect abilities,
 no ability blockers are added. However, H&S calculations remain strictly **refused** (`CalcSupport.UNSUPPORTED`,
-`request == null`) by the next precise Gap C blocker: `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED` (Gap C3).
+`request == null`) by the next mechanics blocker: `BADGE_BOOST_NOT_MODELLED` (Gap C4, §8). The blanket
+held-item blocker was removed by Gap C3 below; the badge boost is now the first refusal reason an
+otherwise-covered request reaches.
 
-#### Gap C3 — held item system and modern items (OPEN)
+#### Gap C3 — authoritative held items + contextual item capability (CLOSED for an explicit subset)
 
-H&S uses modern held item percentages (type-boost ×1.2, gems ×1.3) and modern items (Choice Specs, Life Orb, Expert Belt,
-Eviolite, Assault Vest) that the Gen 3 ADV calculation pipeline does not model (§7).
-Until the held item system is modelled, all H&S calculations remain refused with `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`.
+**Update (issue #9, Gap C3 slice):** The blanket `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED` blocker is replaced
+with a precise, per-participant, per-item, **per-move** capability decision:
+
+- **Exact item catalogue.** `tools/hns-items/generate_hns_items.py` derives the exact `enum Item` domain
+  (`ITEM_ID_MAX = 900`, `ITEMS_COUNT = 901`), canonical symbols, display names, `holdEffect` and
+  `holdEffectParam` from the pinned build's `src/item.c` translation unit; the generated
+  `Hns205ItemCatalogue.kt` is source-checked byte-for-byte. `ItemDatabase.expansionMap` is not authority.
+- **Authoritative current item.** `HnsBattlerRuntimeState` gains `itemId` / `itemOutOfDomain`, read from
+  `gBattleMons[battler].item` through the pinned ABI probe (`HNS_BATTLE_POKEMON_ITEM_OFFSET 0x30`,
+  width 2). The item word is current battle state and is updated on consume/knock-off/steal/swap/fling.
+- **Stored party item vs current battle item.** `CalcParticipantPresenter.resolveEffectiveItem` and
+  `CalcRequestBoundary.reconcileParticipantItem` implement: active-slot match → current battle item wins
+  (including authoritative `ITEM_NONE` over a stale nonzero party item); bench player → parsed party item;
+  opponent slot mismatch, faint window, doubles ambiguity, or unverified read → unreadable, never a fallback.
+  Battle context is authoritative, not caller-declared: a supplied runtime observation establishes it, so
+  `activeBattle = false` cannot downgrade an observed battler to the party item.
+- **Static item capability (`HnsItemRegistry`), decided by numeric ID:**
+  - `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` (`ITEM_NONE`, Exp. Share, Soothe Bell, Amulet Coin, Cleanse Tag,
+    Lucky Egg): the item's own hold effect adds no item blocker for an item-independent move.
+  - `UNSUPPORTED_DAMAGE_RELEVANT` (type boosters, Choice items, species items, Life Orb, Expert Belt,
+    gems, resist berries, Focus Sash/Band, Leftovers/Shell Bell/Rocky Helmet): `HNS_ITEM_EFFECT_NOT_MODELLED`.
+  - Any other in-domain, unreadable, or out-of-domain identity: `HNS_ITEM_EFFECT_NOT_MODELLED` or
+    `HNS_EFFECTIVE_ITEM_UNREADABLE` respectively; an unresolvable manual name is
+    `HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE`.
+- **Contextual interaction audit (`HnsMoveItemInteractionRegistry`), decided by numeric move ID.**
+  Fling, Natural Gift, Acrobatics, Knock Off, Poltergeist, Judgment, Techno Blast and Multi-Attack read
+  held-item state in the pinned damage path (§7.2). None is modelled, so each adds
+  `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` and is refused before the engine. The final capability is the union
+  of the static and interaction audits, so `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` is never trusted context-free.
+- **No raw H&S name is forwarded.** Every statically-supported item is ordinary-damage-free, so the
+  authorized request omits the item; no H&S source name can silently match an unrelated ADV item. This
+  stripping is safe only because every item-dependent move was refused first.
+- Verified via Kotlin unit tests (`Hns205ItemCatalogueTest.kt`, `HnsItemRegistryTest.kt`,
+  `HnsMoveItemInteractionTest.kt`, `CalcHnsItemTest.kt`), native ABI/reader tests, generator tests
+  (`test_generate_hns_items.py`) and the QuickJS host suite (`native/tests/test_js_calc.c:check_gap_c3_items`).
+
+**Why H&S calculations remain refused after Gap C3:** identity and current-vs-stored item state are now
+truthful and item capability is conditional, but the generation III badge boost still has no equivalent in
+the request shape, so `BADGE_BOOST_NOT_MODELLED` (Gap C4) keeps H&S strictly refused.
 
 ### Then, concretely
 
@@ -561,7 +721,11 @@ Until the held item system is modelled, all H&S calculations remain refused with
 2. Gap B is CLOSED: authoritative H&S species and move data are consumed via `overrides`.
 3. Gap C1 is CLOSED: exact modern type chart, Fairy toggle ON/OFF, and optionStyle category coupling.
 4. Gap C2 is CLOSED: authoritative effective ability input, active-slot matching, and conditional ability support.
-5. Gap C3 is OPEN: held item system and modern damage items (`HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`).
-6. Add golden fixtures for H&S calculations whose inputs are covered, verified against known in-game
+5. Gap C3 is CLOSED for an explicit, contextual subset: exact item identity, current battle item
+   authority, static item capability, and a per-move item-interaction audit; all damage items and all
+   item-dependent moves fail closed precisely.
+6. Gap C4 is OPEN: badge boost and the remaining mechanics/pipeline correctness keep H&S refused
+   (`BADGE_BOOST_NOT_MODELLED`).
+7. Add golden fixtures for H&S calculations whose inputs are covered, verified against known in-game
    or upstream results. Only calculations that survive all gaps may reach `ESTIMATED`, and
    `VERIFIED` stays out of reach while the §4.2 fields are unread.

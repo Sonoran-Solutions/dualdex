@@ -623,6 +623,81 @@ def generate_kotlin_source(species_dict, moves_dict):
     lines.append("    override fun isSpeciesAuthoritative(id: Int): Boolean = speciesMap.containsKey(id)")
     lines.append("    override fun isMoveAuthoritative(id: Int): Boolean = movesMap.containsKey(id)")
     lines.append("")
+    lines.append("    /**")
+    lines.append("     * Authoritative name -> entry lookups for this exact build.")
+    lines.append("     *")
+    lines.append("     * The damage-calculator bridge selects content BY NAME, so a caller must be able to")
+    lines.append("     * prove that a name belongs to this build before the request is sent. Resolving")
+    lines.append("     * against a shared later-generation dex instead would silently compute a number from")
+    lines.append("     * another game's base stats, typing or base power.")
+    lines.append("     *")
+    lines.append("     * Matching is case-insensitive and whitespace-trimmed. Generated from the pinned")
+    lines.append("     * upstream source; returns null rather than a substitute entry.")
+    lines.append("     */")
+    lines.append("    override fun getSpeciesByName(name: String): SpeciesInfo? =")
+    lines.append("        speciesByName(name.trim().lowercase())")
+    lines.append("")
+    lines.append("    override fun getMoveByName(name: String): MoveInfo? =")
+    lines.append("        movesByName(name.trim().lowercase())")
+    lines.append("")
+
+    # Group by lowercase name. Species whose forms differ in type or base stats cannot be named by
+    # a name-only lookup: the engine would silently use one form's numbers for the other. Those
+    # names must resolve to null so the calculator boundary refuses the request instead of
+    # publishing a confident number for the wrong form.
+    def name_signature(s):
+        return (s["type1"], s["type2"], s["hp"], s["atk"], s["def"], s["spa"], s["spd"], s["spe"])
+
+    species_groups = {}
+    for sid, s in species_dict.items():
+        species_groups.setdefault(s["name"].lower(), []).append((sid, s))
+
+    unambiguous_species = {}
+    ambiguous_species = []
+    for lower_name, entries in species_groups.items():
+        entries.sort(key=lambda pair: pair[0])
+        signatures = {name_signature(s) for _, s in entries}
+        if len(signatures) == 1:
+            # Identical forms (e.g. Unown letters, Alcremie decorations): the lowest id is the
+            # base form and shares every damage-relevant value with the others.
+            unambiguous_species[lower_name] = entries[0][0]
+        else:
+            ambiguous_species.append((lower_name, [sid for sid, _ in entries]))
+
+    lines.append("    private fun speciesByName(key: String): SpeciesInfo? = when (key) {")
+    for lower_name in sorted(unambiguous_species):
+        key_escaped = lower_name.replace("\\", "\\\\").replace('"', '\\"')
+        lines.append(f'        "{key_escaped}" -> speciesMap[{unambiguous_species[lower_name]}]')
+    lines.append("        else -> null")
+    lines.append("    }")
+    lines.append("")
+    lines.append("    /**")
+    lines.append("     * Names that map to more than one form with DIFFERENT types or base stats.")
+    lines.append("     *")
+    lines.append("     * A name-only calculation request cannot say which form is meant, so these names are")
+    lines.append("     * deliberately absent from [speciesByName] and resolve to null. That is what makes")
+    lines.append("     * the calculator boundary refuse them instead of computing one form's damage for")
+    lines.append("     * another form's species name.")
+    lines.append("     */")
+    lines.append("    val multiFormNames: Set<String> = setOf(")
+    for lower_name, ids in sorted(ambiguous_species):
+        key_escaped = lower_name.replace("\\", "\\\\").replace('"', '\\"')
+        id_list = ", ".join(str(i) for i in ids)
+        lines.append(f'        "{key_escaped}", // ids {id_list}')
+    lines.append("    )")
+    lines.append("")
+    lines.append("    private fun movesByName(key: String): MoveInfo? = when (key) {")
+
+    moves_by_name = sorted(
+        ((m["name"].lower(), mid) for mid, m in moves_dict.items()),
+        key=lambda pair: pair[0],
+    )
+    for lower_name, mid in moves_by_name:
+        key_escaped = lower_name.replace("\\", "\\\\").replace('"', '\\"')
+        lines.append(f'        "{key_escaped}" -> movesMap[{mid}]')
+    lines.append("        else -> null")
+    lines.append("    }")
+    lines.append("")
     lines.append("    private fun registerSpecies(id: Int, name: String, t1: PokemonType, t2: PokemonType?,")
     lines.append("                                hp: Int, atk: Int, def: Int, spa: Int, spd: Int, spe: Int) {")
     lines.append("        speciesMap[id] = SpeciesInfo(id, name, t1, t2, hp, atk, def, spa, spd, spe)")

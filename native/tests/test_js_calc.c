@@ -314,6 +314,35 @@ static const int ROLLS_FLAMETHROWER_THICK_FAT[ROLL_COUNT] =
 static const int ROLLS_HYDRO_PUMP_LIGHT_SCREEN[ROLL_COUNT] =
     {16, 16, 16, 16, 16, 17, 17, 17, 17, 17, 18, 18, 18, 18, 18, 19};
 
+/* Machamp Flamethrower (Fire 95, special) vs Snorlax in Rain. Rain halves a
+ * Fire attack's damage, on the same pre-+2 value Light Screen halves:
+ *   floor(22*95*85/130) = 1366 -> floor(1366/50) = 27; floor(27/2) = 13 -> +2 = 15
+ * Deliberately the same vector as the Light Screen fixture above, since both are
+ * a x1/2 attack-form modifier in singles - but reached through the weather path,
+ * which the engine reads with an EXACT string compare (`weathers.includes(...)`).
+ * "rain" and "RAIN" therefore produce the no-weather vector 24-29 instead, which
+ * is why CalcCapabilityPolicy canonicalises the spelling before authorising. */
+static const int ROLLS_FLAMETHROWER_IN_RAIN[ROLL_COUNT] =
+    {12, 12, 13, 13, 13, 13, 13, 13, 13, 14, 14, 14, 14, 14, 14, 15};
+
+/* Critical hits double the attack form AFTER the +2, so the roll vector is
+ * exactly twice the non-critical Rock Slide vector:
+ *   floor(22*75*150/85) = 2911 -> floor(2911/50) = 58 -> +2 = 60 -> x2 = 120
+ * Rock vs Normal is 1.0, so no type step follows. The Generation III multiplier
+ * is x2, not the modern x1.5 (which would give 76-90). */
+static const int ROLLS_MACHAMP_ROCK_SLIDE_SINGLES_CRIT[ROLL_COUNT] =
+    {102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 114, 115, 116, 117, 118, 120};
+
+/* Machamp Rock Slide while burned and holding Guts. Guts cancels the burn's
+ * halving and multiplies attack by 1.5 in the same step, and the attack form is
+ * floored after both:
+ *   A = 150, burn + Guts -> floor(150 * 1.5) = 225
+ *   floor(22*75*225/85) = 4367 -> floor(4367/50) = 87 -> +2 = 89
+ * (The halving is skipped, not applied and then undone: 150/2 = 75 does not
+ * appear anywhere in the result.) */
+static const int ROLLS_MACHAMP_ROCK_SLIDE_GUTS_BURN[ROLL_COUNT] =
+    {75, 76, 77, 78, 79, 80, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89};
+
 typedef struct {
     const char* name;              /* fixture id, reported on failure */
     const char* request;           /* exact JSON request sent to the engine */
@@ -490,6 +519,69 @@ static const calc_fixture FIXTURES[] = {
         "\"field\":{\"gameType\":\"Singles\",\"defenderSide\":{\"isLightScreen\":true}}}",
         1, NULL, "Water", "Special", 120, 235, ROLLS_HYDRO_PUMP_LIGHT_SCREEN,
         "Gen III singles Light Screen halves the special attack form (x1/2)"
+    },
+
+    /* --- critical hits -------------------------------------------- *
+     * The Crit checkbox on the Calc screen is a live production input, and the multiplier is the
+     * one damage constant Heart & Soul 2.0.5 deliberately keeps at its Generation III value
+     * (B_CRIT_MULTIPLIER == GEN_3 in the pinned upstream source), so a drift to the modern x1.5
+     * would silently understate every critical hit in both supported builds. */
+    {
+        "gen3_crit_doubles_the_attack_form",
+        "{" MACHAMP_VS_SNORLAX_HEAD "\"move\":{\"name\":\"Rock Slide\",\"isCrit\":true},"
+        "\"field\":{\"gameType\":\"Singles\"}}",
+        1, NULL, "Rock", "Physical", 75, 235, ROLLS_MACHAMP_ROCK_SLIDE_SINGLES_CRIT,
+        "Gen III critical hits double the attack form after +2: 102-120, not the modern 76-90"
+    },
+
+    /* --- weather is an exact-match input --------------------------- *
+     * The engine reads weather with `weathers.includes(this.weather)`, so a spelling it does not
+     * recognise is not an error - it behaves as no weather at all. The canonical spelling is
+     * therefore part of the accepted-input contract, not cosmetic, and the capability policy
+     * rewrites accepted spelling to these values before authorising a request. */
+    {
+        "gen3_rain_halves_a_fire_attack",
+        "{" MACHAMP_VS_SNORLAX_HEAD "\"move\":{\"name\":\"Flamethrower\"},"
+        "\"field\":{\"gameType\":\"Singles\",\"weather\":\"Rain\"}}",
+        1, NULL, "Fire", "Special", 95, 235, ROLLS_FLAMETHROWER_IN_RAIN,
+        "canonical 'Rain' is applied: a Fire attack is halved to 12-15"
+    },
+    {
+        "gen3_lowercase_rain_is_ignored_by_the_engine",
+        "{" MACHAMP_VS_SNORLAX_HEAD "\"move\":{\"name\":\"Flamethrower\"},"
+        "\"field\":{\"gameType\":\"Singles\",\"weather\":\"rain\"}}",
+        1, NULL, "Fire", "Special", 95, 235, ROLLS_FLAMETHROWER_NO_THICK_FAT,
+        "negative control for the canonicalisation above: 'rain' is silently treated as NO weather "
+        "and returns the unmodified 24-29, so a validator that accepted it case-insensitively while "
+        "forwarding it verbatim would approve a request the engine reads differently"
+    },
+
+    /* --- ability input contract (issue #9) ------------------------ *
+     * CalcCapabilityPolicy keeps an ability whitelist because this engine IGNORES an ability it
+     * does not model instead of erroring - a silent wrong-number path. Both halves of that are
+     * pinned here: a whitelisted ability must change the number, and an ability outside the
+     * Generation III pipeline must NOT be doing what the caller assumes it does. */
+    {
+        "gen3_explicit_guts_boosts_a_statused_attacker",
+        "{\"gen\":3,"
+        "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Guts\","
+        "\"status\":\"brn\"," IVS_MAX "," EVS_ZERO "},"
+        "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\"," IVS_MAX "," EVS_ZERO "},"
+        ROCK_SLIDE_BODY ",\"field\":{\"gameType\":\"Singles\"}}",
+        1, NULL, "Rock", "Physical", 75, 235, ROLLS_MACHAMP_ROCK_SLIDE_GUTS_BURN,
+        "an explicitly supplied whitelisted ability reaches the pipeline: Guts cancels the burn halving and adds x1.5"
+    },
+    {
+        "gen3_unmodelled_ability_is_silently_ignored",
+        "{\"gen\":3,"
+        "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\"," IVS_MAX "," EVS_ZERO "},"
+        "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Multiscale\","
+        IVS_MAX "," EVS_ZERO "},"
+        ROCK_SLIDE_BODY ",\"field\":{\"gameType\":\"Singles\"}}",
+        1, NULL, "Rock", "Physical", 75, 235, ROLLS_MACHAMP_ROCK_SLIDE_SINGLES,
+        "proof of the silent-degradation path the policy gates: a post-Gen-III defender ability "
+        "returns the unmodified number with no error, so the boundary must refuse it rather than "
+        "let it be reported as verified"
     },
 
     /* --- generic engine coverage (NOT H&S 2.0.5 coverage) --------- */

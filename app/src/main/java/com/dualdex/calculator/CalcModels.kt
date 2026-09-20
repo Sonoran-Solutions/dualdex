@@ -10,7 +10,24 @@ data class CalcPokemonInput(
     val ivs: StatBlock? = null,
     val evs: StatBlock? = null,
     val boosts: StatBlock? = null,
-    val status: String? = null
+    val status: String? = null,
+    /**
+     * Where these values came from. A live memory read must never be able to pass for a complete
+     * observation: the engine cannot distinguish an omitted status from a neutral one, so the
+     * capability policy needs the origin to decide whether silence may be reported as verified.
+     *
+     * Defaults to [CalcInputOrigin.MANUAL] for callers that are asserting values rather than
+     * reading them.
+     */
+    val origin: CalcInputOrigin = CalcInputOrigin.MANUAL,
+    /**
+     * Damage-relevant fields this participant's source could not supply, carried on the request so
+     * the boundary can evaluate completeness without a side channel.
+     *
+     * An empty list means nothing was known to be missing; it is not a claim that the values are
+     * complete. Only a reader that reports what it could not carry populates this.
+     */
+    val unknownFields: List<CalcInputField> = emptyList()
 )
 
 data class StatBlock(
@@ -59,7 +76,15 @@ data class DamageCalculationRequest(
     val attacker: CalcPokemonInput,
     val defender: CalcPokemonInput,
     val move: CalcMoveInput,
-    val field: CalcFieldInput = CalcFieldInput()
+    val field: CalcFieldInput = CalcFieldInput(),
+    /**
+     * Limitations discovered while the request was prepared from participant state, before any
+     * support decision was made. Carried on the request so the production preparation path and the
+     * capability policy cannot disagree about what the inputs actually cover.
+     *
+     * Defaults to empty for callers that assert complete values.
+     */
+    val preparationLimitations: List<CalcLimitation> = emptyList()
 )
 
 data class DamageCalculationResponse(

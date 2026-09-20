@@ -510,10 +510,6 @@ class CalcTabScreenView(
         val selectedIdx = viewModel.selectedMemberIndex.value
         val attacker = if (party.isNotEmpty() && selectedIdx in party.indices) party[selectedIdx] else null
 
-        val atkSpecies = attacker?.let { SpeciesDatabase.get(it.species).name }
-            ?: "Salamence"
-        val atkLevel = attacker?.level ?: 50
-
         val enemyParty = viewModel.enemyParty.value
         val inBattle = viewModel.isInBattle.value
         val enemySlot = viewModel.activeEnemyMemberIndex.value
@@ -521,83 +517,56 @@ class CalcTabScreenView(
             enemyParty.getOrNull(enemySlot)
         } else null
 
-        val defInput = if (enemyMon != null) {
-            CalcPokemonInput(
-                species = selectedDefenderSpecies,
-                level = enemyMon.level,
-                curHP = enemyMon.currentHp,
-                nature = enemyMon.natureName,
-                item = if (enemyMon.heldItem > 0) ItemDatabase.get(enemyMon.heldItem).name else null,
-                ivs = StatBlock(
-                    hp = enemyMon.hpIv,
-                    atk = enemyMon.attackIv,
-                    def = enemyMon.defenseIv,
-                    spa = enemyMon.spAttackIv,
-                    spd = enemyMon.spDefenseIv,
-                    spe = enemyMon.speedIv
-                ),
-                evs = StatBlock(
-                    hp = enemyMon.hpEv,
-                    atk = enemyMon.attackEv,
-                    def = enemyMon.defenseEv,
-                    spa = enemyMon.spAttackEv,
-                    spd = enemyMon.spDefenseEv,
-                    spe = enemyMon.speedEv
-                )
-            )
-        } else {
-            CalcPokemonInput(
-                species = selectedDefenderSpecies,
-                level = 50,
-                evs = StatBlock(hp = 252, def = 252, spd = 252)
-            )
-        }
-
-        val atkInput = if (attacker != null) {
-            CalcPokemonInput(
-                species = atkSpecies,
-                level = atkLevel,
-                curHP = attacker.currentHp,
-                nature = attacker.natureName,
-                item = if (attacker.heldItem > 0) ItemDatabase.get(attacker.heldItem).name else null,
-                ivs = StatBlock(
-                    hp = attacker.hpIv,
-                    atk = attacker.attackIv,
-                    def = attacker.defenseIv,
-                    spa = attacker.spAttackIv,
-                    spd = attacker.spDefenseIv,
-                    spe = attacker.speedIv
-                ),
-                evs = StatBlock(
-                    hp = attacker.hpEv,
-                    atk = attacker.attackEv,
-                    def = attacker.defenseEv,
-                    spa = attacker.spAttackEv,
-                    spd = attacker.spDefenseEv,
-                    spe = attacker.speedEv
-                )
-            )
-        } else {
-            CalcPokemonInput(
-                species = atkSpecies,
-                level = atkLevel,
-                evs = StatBlock(atk = 252, spa = 252, spe = 252)
-            )
-        }
-
-        val req = DamageCalculationRequest(
-            gen = 3,
-            attacker = atkInput,
-            defender = defInput,
-            move = CalcMoveInput(name = selectedMoveName, isCrit = isCrit),
-            field = CalcFieldInput(
-                weather = currentWeather,
-                gameType = CalcGameTypes.SINGLES,
-                defenderSide = if (hasScreens) SideConditions(isReflect = true, isLightScreen = true) else null
-            )
+        // Participants whose values came from the running game go through the shared production
+        // presenter and preparation, which record every damage-relevant field the reader did not
+        // carry. A live read is never shortened to "neutral": an unobserved status or stat stage is
+        // reported and the boundary refuses to label the result verified. The benchmark fallbacks
+        // stay MANUAL, because there the user is asserting a hypothetical rather than reading one.
+        val isExpansionItems = viewModel.activeProfile.value.hasPhysSpecSplit
+        val attackerState = CalcParticipantPresenter.attacker(
+            party = party,
+            selectedIndex = selectedIdx,
+            speciesNameOf = { SpeciesDatabase.get(it.species).name },
+            playerStages = viewModel.playerStatStages.value,
+            isExpansionItems = isExpansionItems
+        )
+        val defenderState = CalcParticipantPresenter.defender(
+            observedOpponent = enemyMon,
+            chosenSpecies = selectedDefenderSpecies,
+            enemyStages = viewModel.enemyStatStages.value,
+            isExpansionItems = isExpansionItems
         )
 
-        val res = DamageCalculator.calculate(req)
+        val field = CalcFieldInput(
+            weather = currentWeather,
+            gameType = CalcGameTypes.SINGLES,
+            defenderSide = if (hasScreens) SideConditions(isReflect = true, isLightScreen = true) else null
+        )
+
+        // The production boundary decides whether this request may run at all, and what the number
+        // it produces is worth. It is the same decision the engine gate uses, so this screen cannot
+        // present a confident result that the policy refused.
+        val outcome = CalcRequestBoundary.build(
+            profile = viewModel.activeProfile.value,
+            trust = viewModel.runtimeRomTrust.value,
+            attacker = attackerState,
+            defender = defenderState,
+            move = CalcMoveInput(name = selectedMoveName, isCrit = isCrit),
+            field = field
+        )
+
+        val authorised = outcome as? CalcRequestOutcome.Ready ?: run {
+            val verdict = (outcome as CalcRequestOutcome.Refused).verdict
+            resultTextView.text = CalcResultPresentation.forVerdict(verdict).headline
+            return
+        }
+
+        val res = DamageCalculator.calculate(authorised.request)
+        val presentation = CalcResultPresentation.forVerdict(
+            verdict = authorised.verdict,
+            request = authorised.request
+        )
+
         if (res.success) {
             val rangeStr = if (res.range.isNotEmpty()) "${res.minDamage} - ${res.maxDamage} HP" else "N/A"
             val rollsStr = res.range.joinToString(", ")
@@ -605,7 +574,8 @@ class CalcTabScreenView(
             val critText = if (isCrit) " [Critical Hit!]" else ""
             val weatherText = if (currentWeather != null) " [Weather: $currentWeather]" else ""
 
-            resultTextView.text = "${res.desc}$critText$weatherText\n\n" +
+            resultTextView.text = "${presentation.headline}\n\n" +
+                    "${res.desc}$critText$weatherText\n\n" +
                     "Damage Range: $rangeStr\n" +
                     "Move: ${res.moveName} (${res.moveType} ${res.moveCategory}, ${res.movePower} Power)\n" +
                     "Defender Max HP: ${res.defenderMaxHP} HP$koText\n\n" +

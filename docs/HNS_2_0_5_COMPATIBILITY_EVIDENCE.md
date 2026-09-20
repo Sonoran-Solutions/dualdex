@@ -33,7 +33,7 @@ A compiled symbol is **not** automatically runtime proof of a DualDex reader, an
 | Opponent voluntary switch without a faint | RUNTIME VERIFIED (Scenario 44) |
 | Maps / multi-region location routing (**#11**) | **SOURCE VERIFIED + unit tested**; 3 Johto runtime checkpoints RUNTIME VERIFIED; cross-region transitions and app/UI NOT YET VERIFIED (§12) |
 | Map screen presentation | NOT YET APP/UI VERIFIED (§12.8) |
-| Calculator correctness (#9) | NOT YET VERIFIED |
+| Calculator correctness (#9) | **SOURCE VERIFIED + unit tested** for the capability policy: H&S 2.0.5 calculations are **refused** while its damage-rule toggles are unread; vanilla FireRed/Emerald behaviour unchanged. See [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md) |
 | `battleUiVerified` / `interactiveControlsVerified` | still `false`, unchanged |
 
 Sections 1-11 are the historical record of the memory/layout phase and the battle-lifecycle phase,
@@ -915,7 +915,7 @@ No broad architecture rewrite was performed (issue #8 is untouched).
 | H&S Johto/Kanto region-map canvas | **SOURCE VERIFIED** — canvas geometry is generated from the pinned H&S `sRegionMapSections_Johto` / `_Kanto` layout grids; the legacy hand-written canvas shipped 61 coordinates that match no H&S layout (§12.2) |
 | H&S location reads at runtime | **RUNTIME VERIFIED (3 checkpoints)** — New Bark Town `0/0`, Route 30 `0/12`, Violet City `0/2`, decoded by the production reader on the official ROM and matching the pinned table (§12.6). Johto/Kanto/Sinjoh/Alola *transitions* are still NOT RUNTIME VERIFIED |
 | H&S Map screen presentation | **NOT YET APP/UI VERIFIED** — no on-device run of the Map tab against 2.0.5 was performed for this PR |
-| H&S calculator correctness | NOT YET VERIFIED (explicitly out of scope; #9) |
+| H&S calculator correctness | **SOURCE VERIFIED + unit tested** for the capability policy (#9). The mechanics inventory and provenance are in [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md). H&S calculations are **refused**, not approximated: `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type` and `tx_Random_TypeEffectiveness` can change the damage rule itself and DualDex reads none of `SaveBlock3.challengeSettings`. H&S golden damage fixtures therefore do not exist yet, and no H&S number is presented. This also holds the empty `sha256Hashes` line below: adding the exact 2.0.5 hash would still not make an H&S damage result verified |
 
 ---
 

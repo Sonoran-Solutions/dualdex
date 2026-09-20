@@ -1,0 +1,47 @@
+# Runtime verification of the H&S 2.0.5 challenge-settings reader (issue #9).
+#
+# Drives a FRESH ROM through normal game progression to the new-game challenge menu, sets
+# GAMEMODE -> CUSTOM, toggles ADD FAIRY TYPE OFF, confirms, and prints the production reader's
+# challenge-settings snapshot before and after. Read-only: no RAM writes, no cheats, no ROM
+# patching, and no in-game save (the game is abandoned without saving, so nothing persists).
+#
+# Expected observation (docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md, challenge-settings section):
+#   before confirm  SaveBlock3 holds the boot defaults  (fairyTypes=1)
+#   after confirm   exactly fairyTypes flips to 0; every other decoded field unchanged.
+
+# --- boot: copyright -> title -> main menu -> NEW GAME -> challenge menu -------
+mash 3700
+challenge-settings menu-open-boot-defaults
+
+# GAMEMODE row: DPAD RIGHT -> CUSTOM (rows are locked while GAMEMODE is RECOMMENDED).
+press RIGHT 6
+wait 10
+
+# Walk down to ADD FAIRY TYPE (display order: GAMEMODE, MOVEPOOL, PHYS/SP SPLIT, ADD FAIRY TYPE).
+press DOWN 2
+wait 6
+press DOWN 2
+wait 6
+press DOWN 2
+wait 10
+
+# DPAD RIGHT cycles the row value ON -> OFF (challenge_menu.c ProcessLeftRight).
+press RIGHT 6
+wait 10
+
+# Walk the tabs to the end; R on the last tab opens the confirm prompt; A answers Yes.
+press R 4
+wait 30
+press R 4
+wait 30
+press R 4
+wait 30
+press R 4
+wait 30
+press R 4
+wait 30
+press R 4
+wait 40
+press A 6
+wait 60
+challenge-settings after-confirmation-fairy-off

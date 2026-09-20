@@ -140,6 +140,17 @@ class CompanionViewModel(
     private val _locationStrategy = MutableStateFlow(LocationStrategy.UNVERIFIED)
     val locationStrategy: StateFlow<LocationStrategy> = _locationStrategy.asStateFlow()
 
+    /**
+     * Runtime H&S 2.0.5 challenge settings (issue #9). Observation state only: it never
+     * authorizes a calculator capability by itself and carries no source defaults. Non-UNAVAILABLE
+     * only while the running ROM is exactly trusted, because it is read inside the same
+     * [RuntimeRomTrust.mayReadLiveMemory] gate as every other live observation.
+     */
+    private val _challengeSettings =
+        MutableStateFlow<com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot?>(null)
+    val challengeSettings: StateFlow<com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot?> =
+        _challengeSettings.asStateFlow()
+
     private var pollingJob: Job? = null
     private val battlePresenceStabilizer = com.dualdex.battle.BattlePresenceStabilizer()
 
@@ -394,6 +405,22 @@ class CompanionViewModel(
             // Location previously retained its last known value indefinitely on failed reads.
             clearResolvedLocation(LocationUnavailableReason.INVALID_READ)
         }
+
+        // Challenge settings are save-state, not battle state: they only exist for the exact
+        // trusted H&S 2.0.5 layout (the native reader itself fails closed for every other game).
+        // A failed read is published as UNAVAILABLE — never replaced with a source default, and
+        // never carried across a ROM/profile switch because clearLiveMemoryObservations() runs on
+        // every session change.
+        val challengeSnapshot = coreCoordinator.readChallengeSettings(gameId)
+        val nextChallenge =
+            if (challengeSnapshot.status != com.dualdex.pokemon.hns.HnsChallengeSettingsStatus.UNAVAILABLE) {
+                challengeSnapshot
+            } else {
+                null
+            }
+        if (nextChallenge != _challengeSettings.value) {
+            _challengeSettings.value = nextChallenge
+        }
     }
 
     /**
@@ -445,6 +472,7 @@ class CompanionViewModel(
         _playerLocation.value = null
         _resolvedLocation.value = null
         _locationUnavailableReason.value = null
+        _challengeSettings.value = null
         playerPartyStabilizer.reset()
         enemyPartyStabilizer.reset()
         playerLocationStabilizer.reset()

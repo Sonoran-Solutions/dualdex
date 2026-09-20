@@ -159,7 +159,14 @@ Two exclusions are enforced or disclosed rather than merely documented:
 
 `struct ChallengeSettings` is 32 bytes at `[include/global.h:253]`, a member of `SaveBlock3`
 `[include/global.h:359]`, reached as `gSaveBlock3Ptr->challengeSettings` `[include/global.h:363]`.
-DualDex reads none of it.
+**Update (challenge-settings reader slice of issue #9):** DualDex now reads this struct at runtime
+— `pokemon_read_challenge_settings_gba` decodes it into a typed snapshot (`ChallengeSettingsSnapshot`)
+that the companion publishes only while the running ROM is exactly trusted, and the runtime
+verification in `HNS_2_0_5_COMPATIBILITY_EVIDENCE.md` §13 observed live values (including a
+challenge-menu toggle flipping exactly `tx_Mode_Fairy_Types`). **This changes no calculator
+claim**: the policy still refuses H&S (the rule-reads below are still unanswered by any request),
+`CalcCapabilityPolicy` is untouched, source defaults are still never substituted for runtime
+observations, and no effective live ability is established.
 
 Two properties make this decisive rather than a caveat:
 
@@ -179,8 +186,9 @@ Two properties make this decisive rather than a caveat:
 | `tx_Random_Type` | 0 `[include/global.h:283]` | `GetSpeciesType` returns a randomized type `[src/pokemon.c:5731]`, `[include/randomizer.h:91]`. |
 | `tx_Random_TypeEffectiveness` | 0 `[include/global.h:284]` | `GetTypeModifier` remaps the **attacking** type inside the chart at damage time `[src/battle_util.c:8533]`. |
 
-Because DualDex cannot read any of these, it cannot say which rule applies to a given battle. The
-policy therefore refuses H&S with exactly these four reasons
+The runtime reader observes these fields (see the update above), but no request path consumes them
+yet, so DualDex still cannot say which rule applies to a given battle. The policy therefore refuses
+H&S with exactly these four reasons
 (`CalcCapabilityPolicy.HNS_REQUIRED_RULE_READS`) rather than showing a number it cannot justify.
 **This is the gate that makes an H&S result impossible to mistake for a Gen III result.**
 
@@ -328,8 +336,12 @@ The three gaps, in dependency order:
 ### Gap A — the rule is unknown
 
 Read `SaveBlock3.challengeSettings` (offset and size ABI-verified; §4) and expose `optionStyle`,
-`tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness`. Until then the request
-cannot name the rule that will be applied, which is why the four `*_UNREADABLE` limitations block.
+`tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness`. **The read itself now
+exists** (challenge-settings reader slice of issue #9; runtime-verified, §13 of the compatibility
+evidence): the snapshot is available to future calculator logic through the companion's production
+state path whenever the running ROM is exactly trusted. Until a later slice consumes it — and Gaps
+B and C close — the request still cannot name the rule that will be applied, which is why the four
+`*_UNREADABLE` limitations still block.
 
 ### Gap B — the engine does not consume H&S data
 

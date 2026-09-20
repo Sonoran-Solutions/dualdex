@@ -96,7 +96,9 @@ static const GameMemoryConfig CONFIG_EMERALD = {
 //   gBattlerPositions        0x02000238             4
 //   gBattleControllerExec... 0x020002F4             4
 //   gBattleMons              0x02000420             0x220 (4 battlers x 136 bytes)
-//   gSaveblock3              0x0200921C             0x34
+//   gSaveblock3              0x0200921C             0x34 (source build; the official release
+//                                                 ROM runs it at 0x02009218, see the
+//                                                 ChallengeSettings note below)
 //   gSaveblock1              0x020124A8             0x3E10 (15760-byte block + 128-byte window)
 //   gPlayerPartyCount        0x020342A8             1
 //   gEnemyPartyCount         0x020342A9             1
@@ -178,6 +180,15 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .save_block1_pos_offset = 0x04,
     .save_block1_location_offset = 0x08,
     .save_block1_escape_warp_offset = 0x28,
+    // SaveBlock3 (ChallengeSettings): gSaveBlock3Ptr lives in IWRAM (.iwram init area) and the
+    // compiled gSaveblock3 is in EWRAM. The release ROM's gSaveBlock3Ptr is runtime-verified at
+    // 0x03000178 and its value is runtime-verified 0x02009218 (pokehns-release.elf's gSaveblock3
+    // symbol; 4 bytes below the from-source build's 0x0200921C, the same -4 EWRAM shift §11.6 of
+    // the compatibility evidence found for the party group). The reader requires the pointer
+    // VALUE to equal this compiled base exactly, so a stale pointer, a wrong ROM, or an unreadable
+    // IWRAM byte can only fail closed, never misread.
+    .save_block3_ptr_gba_address = 0x03000178,
+    .save_block3_base_gba_address = DUALDEX_GBA_EWRAM_BASE + 0x9218,
     .storage_layout = PKMN_STORAGE_EXPANSION,
     .player_party_policy = PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
     .has_evs = true,
@@ -2063,6 +2074,165 @@ bool pokemon_read_player_location_gba(
     legacy.save_block1_escape_warp_offset = 0x24;
 
     return decode_location_fields(sb1, ewram_size - (size_t)(sb1 - ewram), &legacy, out_location);
+}
+
+// ---------------------------------------------------------------------------
+// Heart & Soul 2.0.5 ChallengeSettings (SaveBlock3) reader.
+//
+// The struct is 32 bytes at SaveBlock3 + 16, and SaveBlock3 never moves:
+// SetSaveBlocksPointers() re-bases only gSaveBlock2Ptr/gSaveBlock1Ptr/
+// gPokemonStoragePtr, and gSaveBlock3Ptr is statically initialised to
+// &gSaveblock3 (src/load_save.c). The pointer is still read from IWRAM through
+// the bounds-checked reader on every call and required to equal the compiled
+// base exactly, so an unreadable IWRAM byte, a stale pointer, or a pointer from
+// a different binary can only fail closed.
+//
+// Field positions come from the generated layout table
+// (native/src/hns_challenge_settings_layout_gen.h), compiled evidence from the
+// pinned upstream source — never from this file's own copy of the struct.
+// ---------------------------------------------------------------------------
+
+#include "hns_challenge_settings_layout_gen.h"
+
+static void zero_challenge_settings_snapshot(ChallengeSettingsSnapshot* out) {
+    memset(out, 0, sizeof(*out));
+    out->status = CHALLENGE_SETTINGS_UNAVAILABLE;
+}
+
+static void challenge_field_set(ChallengeSettingField* field,
+                                const HnsChallengeFieldLayout* layout,
+                                uint8_t byte_value) {
+    uint8_t raw = (byte_value >> layout->bit_offset) & layout->domain_mask;
+    field->observed = true;
+    field->raw = raw;
+    field->invalid = ((layout->valid_values >> raw) & 1u) == 0u;
+}
+
+static const HnsChallengeFieldLayout* challenge_layout_by_name(const char* name) {
+    for (size_t i = 0; i < HNS_CHALLENGE_FIELD_COUNT; i++) {
+        if (strcmp(HNS_CHALLENGE_FIELD_LAYOUT[i].name, name) == 0) {
+            return &HNS_CHALLENGE_FIELD_LAYOUT[i];
+        }
+    }
+    return NULL; // unreachable: the generated table is fixed
+}
+
+static void decode_challenge_fields(
+    const uint8_t* cs_bytes,
+    size_t cs_available,
+    ChallengeSettingsSnapshot* out
+) {
+    if (cs_available < HNS_CHALLENGE_SETTINGS_SIZEOF) return; // truncated
+
+    static const char* k_field_names[] = {
+        "optionStyle",
+        "tx_Mode_Fairy_Types",
+        "tx_Random_Type",
+        "tx_Random_TypeEffectiveness",
+        "tx_Random_Abilities",
+        "tx_Random_Moves",
+        "tx_Challenges_NoEVs",
+        "tx_Challenges_BaseStatEqualizer",
+        "tx_Challenges_Mirror",
+        "tx_Challenges_Mirror_Thief",
+        "tx_Challenges_TrainerScalingIVs",
+        "tx_Challenges_TrainerScalingEVs",
+        "tx_Challenges_MaxPartyIVs",
+        "tx_Mode_Sturdy",
+        "tx_Challenges_LevelCap",
+        "tx_Challenges_ExpMultiplier",
+        "tx_Mode_Legendary_Abilities"
+    };
+    ChallengeSettingField* k_field_targets[] = {
+        &out->option_style,
+        &out->tx_mode_fairy_types,
+        &out->tx_random_type,
+        &out->tx_random_type_effectiveness,
+        &out->tx_random_abilities,
+        &out->tx_random_moves,
+        &out->tx_challenges_no_evs,
+        &out->tx_challenges_base_stat_equalizer,
+        &out->tx_challenges_mirror,
+        &out->tx_challenges_mirror_thief,
+        &out->tx_challenges_trainer_scaling_ivs,
+        &out->tx_challenges_trainer_scaling_evs,
+        &out->tx_challenges_max_party_ivs,
+        &out->tx_mode_sturdy,
+        &out->tx_challenges_level_cap,
+        &out->tx_challenges_exp_multiplier,
+        &out->tx_mode_legendary_abilities
+    };
+
+    bool any_invalid = false;
+    for (size_t i = 0; i < sizeof(k_field_names) / sizeof(k_field_names[0]); i++) {
+        const HnsChallengeFieldLayout* layout = challenge_layout_by_name(k_field_names[i]);
+        if (!layout) {
+            // The generated table is fixed at compile time; a missing entry is
+            // a build error, not a runtime condition. Fail closed anyway.
+            return;
+        }
+        if ((size_t)layout->byte_offset >= HNS_CHALLENGE_SETTINGS_SIZEOF) return;
+        challenge_field_set(k_field_targets[i], layout, cs_bytes[layout->byte_offset]);
+        if (k_field_targets[i]->invalid) any_invalid = true;
+    }
+
+    out->status = any_invalid
+        ? CHALLENGE_SETTINGS_OBSERVED_INVALID
+        : CHALLENGE_SETTINGS_OBSERVED;
+}
+
+bool pokemon_read_challenge_settings_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    ChallengeSettingsSnapshot* out_snapshot
+) {
+    (void)ewram;
+    (void)ewram_size;
+
+    if (!out_snapshot) return false;
+    zero_challenge_settings_snapshot(out_snapshot);
+    if (!read || !config || !config_is_usable(config)) return false;
+
+    // Only a layout that explicitly declares SaveBlock3 may authorize this read.
+    // Every other game's config leaves both addresses zero, so a wrong profile
+    // (or a GAME_UNKNOWN ROM) can never inherit the H&S layout.
+    if (config->save_block3_ptr_gba_address == 0 ||
+        config->save_block3_base_gba_address == 0) {
+        return false;
+    }
+
+    uint8_t raw_ptr[4];
+    if (!read(user, config->save_block3_ptr_gba_address, raw_ptr, sizeof(raw_ptr))) {
+        return false; // gSaveBlock3Ptr is not readable through a verified region.
+    }
+    uint32_t base = read32_le(raw_ptr);
+
+    // SaveBlock3 is statically initialised to the compiled gSaveblock3 symbol
+    // and is never re-based, so only the exact compiled address is valid.
+    if (base != config->save_block3_base_gba_address) return false;
+
+    // The whole struct must sit inside EWRAM.
+    uint32_t cs_base = base + HNS_SAVEBLOCK3_CHALLENGE_SETTINGS_OFFSET;
+    if (cs_base < DUALDEX_GBA_EWRAM_BASE ||
+        cs_base > DUALDEX_GBA_EWRAM_BASE + DUALDEX_GBA_EWRAM_SIZE -
+            HNS_CHALLENGE_SETTINGS_SIZEOF) {
+        return false;
+    }
+
+    uint8_t cs_bytes[HNS_CHALLENGE_SETTINGS_SIZEOF];
+    if (!read(user, cs_base, cs_bytes, sizeof(cs_bytes))) {
+        return false; // truncated/unreadable window: never a partial snapshot.
+    }
+
+    decode_challenge_fields(cs_bytes, sizeof(cs_bytes), out_snapshot);
+    if (out_snapshot->status == CHALLENGE_SETTINGS_UNAVAILABLE) {
+        zero_challenge_settings_snapshot(out_snapshot);
+        return false;
+    }
+    return true;
 }
 
 bool pokemon_read_battle_stat_stages(

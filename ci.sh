@@ -334,6 +334,15 @@ source_check() {
     return 1
   fi
 
+  # 1b. The challenge-settings layout table must regenerate byte-for-byte from the pinned
+  # source, compiled with the pinned ARM toolchain (same toolchain/flags as §10 of the
+  # compatibility evidence). This is the source-check for the runtime challenge-settings
+  # reader: sizeof/offsetof/bit positions for SaveBlock3.challengeSettings. It compiles the
+  # pinned global.h, so it must run AFTER the build-time headers above are materialized.
+  echo "== challenge-settings layout verification (pinned upstream) =="
+  python3 tools/hns-layout/generate_hns_challenge_layout.py \
+    --upstream-dir "$upstream" --verify
+
   # Regression for the bootstrap's error propagation itself (this is the
   # scenario the regeneration block must guard against: a dev checkout with
   # pre-existing generated headers lets later commands succeed, so an early

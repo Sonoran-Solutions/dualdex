@@ -371,4 +371,18 @@ open class LibretroCoreCoordinator(
     } catch (_: Exception) {
         null
     }
+
+    /**
+     * H&S 2.0.5 runtime challenge settings through the production native reader.
+     * Every failure degrades to null (UNAVAILABLE) — never to a default.
+     */
+    open fun readChallengeSettings(gameId: Int): com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot = try {
+        com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot.fromNativeArray(
+            executeExclusive(50L) { LibretroHost.nativeReadChallengeSettings(gameId) }
+        )
+    } catch (_: UnsatisfiedLinkError) {
+        com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot()
+    } catch (_: Exception) {
+        com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot()
+    }
 }

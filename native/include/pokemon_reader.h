@@ -185,6 +185,16 @@ typedef struct {
     uint32_t save_block1_location_offset;    // struct-relative offset of SaveBlock1.location
     uint32_t save_block1_escape_warp_offset; // struct-relative offset of SaveBlock1.escapeWarp
 
+    // SaveBlock3 resolution (Heart & Soul 2.0.5 ChallengeSettings). Both fields are absolute
+    // GBA addresses; a zero value means "this layout does not declare SaveBlock3" and the
+    // challenge-settings reader fails closed. Unlike SaveBlock1, SaveBlock3 never moves:
+    // SetSaveBlocksPointers() re-bases only gSaveBlock2Ptr/gSaveBlock1Ptr/gPokemonStoragePtr,
+    // and gSaveBlock3Ptr is statically initialised to &gSaveblock3. The pointer is still read
+    // from IWRAM on every call and required to equal the compiled base, so a stale pointer,
+    // a different binary, or an unreadable IWRAM byte can never authorize a read.
+    uint32_t save_block3_ptr_gba_address;    // absolute GBA address of `gSaveBlock3Ptr`, 0 = unavailable
+    uint32_t save_block3_base_gba_address;   // absolute GBA address of the compiled `gSaveblock3`
+
     PokemonStorageLayout storage_layout;     // which BoxPokemon bit layout to parse
     PartyDiscoveryPolicy player_party_policy;// Discovery policy: authoritative static vs heuristic
 
@@ -450,6 +460,64 @@ typedef struct {
 } PlayerLocationRaw;
 
 /**
+ * Status of a challenge-settings snapshot.
+ *
+ *   UNAVAILABLE       the read never happened: the configuration does not declare SaveBlock3,
+ *                     the pointer is unreadable/invalid, or the bytes are unreadable. No field
+ *                     carries a value and no default may be substituted.
+ *   OBSERVED          every field was decoded from live memory and is inside the pinned
+ *                     source's value domain.
+ *   OBSERVED_INVALID  the bytes were read, but at least one multi-bit field holds a value the
+ *                     pinned source never assigns (e.g. LevelCap == 3). Each such field is
+ *                     flagged; observed fields are still reported, nothing is coerced.
+ */
+typedef enum {
+    CHALLENGE_SETTINGS_UNAVAILABLE = 0,
+    CHALLENGE_SETTINGS_OBSERVED = 1,
+    CHALLENGE_SETTINGS_OBSERVED_INVALID = 2
+} ChallengeSettingsStatus;
+
+/**
+ * One decoded field. `observed` is the provenance flag: a source field being 0 is a legitimate
+ * observed value and must never be confused with "unknown" (observed == false). For multi-bit
+ * fields `invalid` marks a value outside the pinned source's domain; `raw` always holds the
+ * decoded bits when observed. 1-bit fields can never be invalid (any bit is in domain).
+ */
+typedef struct {
+    bool    observed;
+    bool    invalid;
+    uint8_t raw;
+} ChallengeSettingField;
+
+/**
+ * A point-in-time snapshot of SaveBlock3.challengeSettings for the exact H&S 2.0.5 build.
+ *
+ * `status` is the authoritative verdict for the whole struct; the individual fields preserve
+ * provenance so a consumer can distinguish "observed off" from "not read" without consulting
+ * source defaults, which are never used as runtime observations.
+ */
+typedef struct {
+    ChallengeSettingsStatus status;
+    ChallengeSettingField option_style;               // 0 = per-move split, 1 = type-decided
+    ChallengeSettingField tx_mode_fairy_types;
+    ChallengeSettingField tx_random_type;
+    ChallengeSettingField tx_random_type_effectiveness;
+    ChallengeSettingField tx_random_abilities;
+    ChallengeSettingField tx_random_moves;
+    ChallengeSettingField tx_challenges_no_evs;
+    ChallengeSettingField tx_challenges_base_stat_equalizer;
+    ChallengeSettingField tx_challenges_mirror;
+    ChallengeSettingField tx_challenges_mirror_thief; // source: tx_Challenges_Mirror_Thief
+    ChallengeSettingField tx_challenges_trainer_scaling_ivs;
+    ChallengeSettingField tx_challenges_trainer_scaling_evs;
+    ChallengeSettingField tx_challenges_max_party_ivs;
+    ChallengeSettingField tx_mode_sturdy;
+    ChallengeSettingField tx_challenges_level_cap;
+    ChallengeSettingField tx_challenges_exp_multiplier;
+    ChallengeSettingField tx_mode_legendary_abilities;
+} ChallengeSettingsSnapshot;
+
+/**
  * Read the active player position and map coordinates from SaveBlock1 in EWRAM.
  *
  * Fails closed: returns false when @p config is NULL or describes GAME_UNKNOWN, and never falls
@@ -489,6 +557,42 @@ bool pokemon_read_player_location_gba(
     size_t ewram_size,
     const GameMemoryConfig* config,
     PlayerLocationRaw* out_location
+);
+
+/**
+ * Read the pinned H&S 2.0.5 SaveBlock3.challengeSettings through the bounds-checked
+ * absolute-address reader, and decode it into a typed snapshot.
+ *
+ * This is a MEMORY-READ / OBSERVABILITY API only: it changes no emulator memory and enables no
+ * calculator capability.
+ *
+ * Fail-closed contract. The snapshot is OBSERVED only when, in order:
+ *   1. @p config declares SaveBlock3 (both `save_block3_*` addresses non-zero; every other
+ *      game's layout zeroes them, so a wrong profile can never authorize the read);
+ *   2. `gSaveBlock3Ptr` (IWRAM) is readable through @p read;
+ *   3. the pointer equals the compiled `gSaveblock3` address exactly (SaveBlock3 never moves;
+ *      a stale pointer, another binary's pointer, or an out-of-EWRAM value fails closed);
+ *   4. the whole 32-byte struct is readable through @p read.
+ * Any failure returns false with a zeroed, UNAVAILABLE snapshot. Nothing is ever scanned,
+ * guessed, cached, or substituted with a source default.
+ *
+ * Decoding uses the generated layout table
+ * (`native/src/hns_challenge_settings_layout_gen.h`), which is compiled evidence from the pinned
+ * upstream source. A multi-bit field whose value the pinned source never assigns (its
+ * `valid_values` mask rejects it) is flagged invalid and the snapshot status is
+ * CHALLENGE_SETTINGS_OBSERVED_INVALID; 1-bit fields are always in domain. optionStyle is a
+ * 1-bit source field (0 = per-move split, 1 = type decides physical/special), so it has no
+ * out-of-domain encoding; its source enum meaning is preserved in the raw value.
+ *
+ * @return true only when the snapshot status is OBSERVED or OBSERVED_INVALID.
+ */
+bool pokemon_read_challenge_settings_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    ChallengeSettingsSnapshot* out_snapshot
 );
 
 /**

@@ -118,6 +118,7 @@ publishes through `RETRO_MEMORY_SAVE_RAM` for this ROM. Any emulator that writes
 | `scenarios/10-wild-battle-entry.txt` | Overworld baseline → tall grass → wild encounter |
 | `scenarios/20-wild-battle-full.txt` | Entry → damage → opponent faint → teardown → exit |
 | `scenarios/45-route30-to-violet-city.txt` | **PASSES.** Route 30 → Route 31 → gate → Violet City → Pokémon Center heal → in-game save |
+| `scenarios/50-challenge-settings-fairy-toggle.txt` | **PASSES.** Challenge-settings runtime verification (issue #9): new-game challenge menu, GAMEMODE → CUSTOM, ADD FAIRY TYPE ON → OFF, confirm; the production reader observes exactly `tx_Mode_Fairy_Types` flip 1 → 0. Read-only; the game is abandoned without saving |
 | `scenarios/44-opponent-voluntary-switch.txt` | **PASSES.** Bug Catcher Don (Route 30) voluntary opponent switch: Ledyba stays alive at 3/15 HP while the engine moves the opponent to party slot 1 and the production reader follows it |
 | `scenarios/34-route30-don-ready.txt` | Route 30 → Youngster Mikey → Don's approach → in-game save |
 | `scenarios/47-don-damage-probe.txt` | **PASSES.** Diagnostic that asserts nothing about switching: bounded Razor Leaf damage trajectory against Don's Ledyba Lv3 (measured 4 HP per hit). It is the evidence behind the withdrawn one-shot rejection |
@@ -198,6 +199,7 @@ generated into a temporary directory and are not committed.
 | `walkto <x> <y> [<maxIterations>]` | move the player to a named tile on the current map, planning on a 4-connected grid and re-reading the player's tile after every step so the engine is the authority on whether a step was legal. A failed step is only believed after several spaced attempts (NPCs wander); a destination that survives them is recorded per map and routed around |
 | `await-enemy-voluntary-switch <oldSlot> <newSlot> <oldSpecies> <maxFrames>` | drive turns until an AI **voluntary** switch is observed: one opponent battler active at `oldSlot` with HP > 0, then the authoritative `gBattlerPartyIndexes[opponent]` rewrite to `newSlot` resolving through the production reader with the outgoing mon **still alive**. Fails if the outgoing mon ever reaches HP 0 (that is the faint path, Scenario 41). `gChosenActionByBattler` / `B_ACTION_SWITCH` are **not** read and **not** claimed — see the compatibility evidence §11.10.8 |
 | `matrix <label>` | print the full runtime tuple for the current frame |
+| `challenge-settings <label>` | print SaveBlock3.challengeSettings decoded by the **production** reader (`pokemon_read_challenge_settings_gba`) for the current frame; a declined read is a script error (fail-closed), never a default. Used by the challenge-settings runtime verification (scenario 50) |
 | `shot <path.ppm>` | dump the current video frame |
 | `savsave <path>` / `savload <path>` | flush / load battery save RAM |
 | `assert-battle inactive\|active` | assert the authoritative lifecycle state |

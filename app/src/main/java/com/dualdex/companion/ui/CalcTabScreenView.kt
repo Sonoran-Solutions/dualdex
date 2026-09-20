@@ -562,7 +562,10 @@ class CalcTabScreenView(
         }
 
         val res = DamageCalculator.calculate(authorised.request)
-        val presentation = CalcResultPresentation.forVerdict(authorised.verdict)
+        val presentation = CalcResultPresentation.forVerdict(
+            verdict = authorised.verdict,
+            request = authorised.request
+        )
 
         if (res.success) {
             val rangeStr = if (res.range.isNotEmpty()) "${res.minDamage} - ${res.maxDamage} HP" else "N/A"

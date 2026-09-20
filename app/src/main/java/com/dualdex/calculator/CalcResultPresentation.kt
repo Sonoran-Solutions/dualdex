@@ -37,14 +37,35 @@ data class CalcResultPresentation(
         const val BADGE_BOOST_NOTE: String = "unbadged; badge boost is not applied"
 
         /**
+         * Appended when a participant's values were asserted rather than observed - a hypothetical
+         * setup, or a benchmark the screen filled in.
+         *
+         * `MANUAL` means the user is asserting the values; it is not proof that every omitted field
+         * was explicitly supplied. A verified hypothetical must not read as a verified observation
+         * of the battle in front of the player, so the two say different things.
+         */
+        const val ASSUMED_INPUTS_NOTE: String = "assumed inputs, not read from the game"
+
+        /**
          * The headline for a verdict, including the build's identity and scope when verified and the
          * full reason list when it is not.
+         *
+         * [request] is optional so the verdict alone can still be rendered; supply it to disclose
+         * that the values were asserted rather than read.
          */
-        fun forVerdict(verdict: CalcCapabilityVerdict): CalcResultPresentation =
-            when (verdict.support) {
+        fun forVerdict(
+            verdict: CalcCapabilityVerdict,
+            request: DamageCalculationRequest? = null
+        ): CalcResultPresentation {
+            val assumed = request?.hasAssumedInputs() == true
+            return when (verdict.support) {
                 CalcSupport.VERIFIED -> CalcResultPresentation(
-                    headline = "$VERIFIED_PREFIX (${verdict.capability.label}; $BADGE_BOOST_NOTE)",
-                    isVerified = true,
+                    headline = buildString {
+                        append("$VERIFIED_PREFIX (${verdict.capability.label}; $BADGE_BOOST_NOTE")
+                        if (assumed) append("; $ASSUMED_INPUTS_NOTE")
+                        append(")")
+                    },
+                    isVerified = !assumed,
                     support = verdict.support
                 )
                 CalcSupport.ESTIMATED -> CalcResultPresentation(
@@ -58,5 +79,16 @@ data class CalcResultPresentation(
                     support = verdict.support
                 )
             }
+        }
     }
 }
+
+/**
+ * True when any participant's values were asserted rather than read from the running game.
+ *
+ * This is the "hypothetical" signal. It is deliberately separate from whether the calculation is
+ * *supported*: a manual matchup may be fully supported and still not be an observation of the battle
+ * in front of the player.
+ */
+fun DamageCalculationRequest.hasAssumedInputs(): Boolean =
+    attacker.origin == CalcInputOrigin.MANUAL || defender.origin == CalcInputOrigin.MANUAL

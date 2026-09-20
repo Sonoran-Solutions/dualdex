@@ -162,6 +162,34 @@ class CalcCapabilityPolicyTest {
         origin = origin
     )
 
+    /**
+     * A live read that carries every field it can and declares no unknown ones.
+     *
+     * `origin` is LIVE_READ and the ability is supplied explicitly, so this is the "trusted and
+     * complete live read" case. It exists so the live-read rules can be tested on their merits
+     * rather than only through the always-unknown ability of the real reader.
+     */
+    private fun completeLiveRead(): CalcParticipantPreparation = CalcInputPreparation.prepare(
+        attacker = manualMachamp(origin = CalcInputOrigin.LIVE_READ).copy(
+            ability = "Guts",
+            unknownFields = emptyList()
+        ),
+        defender = manualSnorlax(),
+        move = CalcMoveInput(name = "Rock Slide"),
+        field = CalcFieldInput()
+    )
+
+    /**
+     * The production presenter applied to a parsed participant whose status bits are all known, so
+     * the run carries no STATUS gap - used as the positive control for status handling.
+     */
+    private fun CalcParticipantPreparationForTest(parsed: ParsedPokemon): CalcParticipantState =
+        CalcParticipantPresenter.attacker(
+            party = listOf(parsed),
+            selectedIndex = 0,
+            speciesNameOf = { "Machamp" }
+        )
+
     private fun manualSnorlax() = CalcParticipantState(
         species = "Snorlax",
         level = 50,
@@ -819,85 +847,31 @@ class CalcCapabilityPolicyTest {
     // ------------------------------------------------------ live-read boundary
 
     @Test
-    fun `live-read inputs are refused unless the ROM is exact-verified`() {
+    fun `an untrusted live read is refused because the read is untrusted`() {
+        // Situation 1: live inputs, ROM not exact-trusted.
         val profile = fireRed
+        val prepared = completeLiveRead()
+
         val outcome = CalcRequestBoundary.build(
             profile = profile,
             trust = null,
-            request = request(),
+            request = prepared.request,
             inputsFromLiveRead = true
         )
         val refused = outcome as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("live-read inputs on an unverified ROM must be refused")
-
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED))
-        assertFalse(refused.verdict.isVerified)
-    }
-
-    @Test
-    fun `live-read inputs on an exact-verified ROM are refused when the read is incomplete`() {
-        // Regression for the R1 review finding. The screen used to drop a live participant's status,
-        // ability and stat stages while preparing the request. The engine treats an omitted status as
-        // no status and an omitted boost set as stage 0, so an exact-verified ROM promoted that
-        // silence to "Verified" - and a burned Machamp was reported as 51-60 instead of 75-89.
-        val profile = fireRed
-        val burned = screenAttacker(machamp())
-
-        val outcome = CalcRequestBoundary.build(
-            profile = profile,
-            trust = exactTrust(profile),
-            attacker = burned,
-            defender = screenDefender(null),
-            move = CalcMoveInput(name = "Rock Slide"),
-            field = CalcFieldInput()
-        )
-        val refused = outcome as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("an incomplete live read must never be verified")
-
-        assertFalse(refused.verdict.isVerified)
-        assertTrue(
-            "the missing field must be the reason, got ${refused.verdict.limitations}",
-            refused.verdict.limitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
-        )
-    }
-
-    @Test
-    fun `a live read that carried every field is refused for the read, not for being incomplete`() {
-        // The two live-read problems stay distinct. A participant that declared no unknown fields
-        // must not be described as incomplete - it is simply a read.
-        val profile = fireRed
-        val completePreparation = CalcInputPreparation.prepare(
-            attacker = manualMachamp(origin = CalcInputOrigin.LIVE_READ),
-            defender = manualSnorlax(),
-            move = CalcMoveInput(name = "Rock Slide"),
-            field = CalcFieldInput()
-        )
-        assertEquals(
-            "a complete manual-shaped participant reports no unknown field",
-            emptyList<CalcLimitation>(),
-            completePreparation.preparationLimitations
-        )
-
-        val outcome = CalcRequestBoundary.build(
-            profile = profile,
-            trust = exactTrust(profile),
-            request = completePreparation.request,
-            inputsFromLiveRead = true
-        )
-        val refused = outcome as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("a live read must not be presented as verified")
+            ?: throw AssertionError("an untrusted read must be refused")
 
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED))
         assertFalse(
-            "a read that carried its fields is not an incomplete read",
+            "the read is complete, so incompleteness is not also a reason",
             refused.verdict.limitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
         )
     }
 
     @Test
-    fun `a parser-backed live read is reported as both a read and incomplete`() {
-        // And when the real reader is used, both facts are reported, so a caller can see which one
-        // to fix rather than guessing from a single message.
+    fun `a trusted but incomplete live read is refused for the missing evidence`() {
+        // Situation 2: exact-trusted ROM, but a required field is unknown. The ROM being verified
+        // does not fill a field the reader never carried.
         val profile = fireRed
         val prepared = CalcInputPreparation.prepare(
             attacker = screenAttacker(machamp()),
@@ -912,41 +886,216 @@ class CalcCapabilityPolicyTest {
             request = prepared.request,
             inputsFromLiveRead = true
         )
-        val refused = outcome as CalcRequestOutcome.Refused
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("missing evidence must refuse the calculation")
 
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED))
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN))
-        // The reader cannot name the ability, so that is the field it reports as missing.
-        assertTrue(prepared.unknownLiveFields.contains(CalcInputField.ABILITY))
+        assertFalse(
+            "the ROM is exact-trusted, so the read is not itself untrusted",
+            refused.verdict.limitations.contains(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED)
+        )
     }
 
     @Test
-    fun `the observed status of a burned live participant reaches the request`() {
-        // The other half of the R1 fix: carrying the state that the reader *does* report. With the
-        // status carried and a whitelisted ability supplied, the request that reaches the engine is
-        // the one that produces the burned-and-Guts number, not the plain one.
+    fun `a trusted and complete live read is authorised on its actual inputs`() {
+        // Situation 3, the regression the previous revision got wrong: it refused every live read
+        // unconditionally, so supplying the correct ability and every other field still failed.
+        // Reading a value from the game does not make it untrusted, and it must not be a permanent
+        // prohibition on live calculations.
         val profile = fireRed
+        val prepared = completeLiveRead()
+
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = exactTrust(profile),
+            request = prepared.request,
+            inputsFromLiveRead = true
+        )
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("a trusted, complete live read must be calculable, got $outcome")
+
+        assertTrue(ready.verdict.isVerified)
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN))
+    }
+
+    @Test
+    fun `a verified hypothetical is disclosed as asserted, not observed`() {
+        // A manual matchup on an exact-verified ROM is fully supported, but its values were asserted
+        // by the user rather than read from the game. It must not read as a verified observation of
+        // the battle in front of the player.
+        val profile = fireRed
+        val manual = CalcRequestBoundary.build(profile, exactTrust(profile), request())
+            as CalcRequestOutcome.Ready
+
+        val observed = CalcResultPresentation.forVerdict(manual.verdict, manual.request)
+        assertTrue(
+            "asserted values must be disclosed, was: ${observed.headline}",
+            observed.headline.contains(CalcResultPresentation.ASSUMED_INPUTS_NOTE)
+        )
+        assertFalse(
+            "a hypothetical must not present as an observed verified result",
+            observed.isVerified
+        )
+
+        // The same verdict rendered without the request keeps the observation wording, so the
+        // distinction is driven by provenance and not by the support level.
+        assertTrue(CalcResultPresentation.forVerdict(manual.verdict).isVerified)
+    }
+
+    @Test
+    fun `every public entrypoint makes the same authorization decision`() {
+        // Request provenance must not disappear because a caller picks a different overload, and the
+        // legacy Boolean must not be able to *erase* a live origin.
+        val profile = fireRed
+        val live = completeLiveRead().request
+        assertEquals(CalcInputOrigin.LIVE_READ, live.attacker.origin)
+
+        // Missing trust: refused through every entrypoint.
+        listOf(
+            "three-arg" to CalcRequestBoundary.build(profile, null, live),
+            "flag true" to CalcRequestBoundary.build(profile, null, live, true),
+            "flag false" to CalcRequestBoundary.build(profile, null, live, false)
+        ).forEach { (name, outcome) ->
+            val refused = outcome as? CalcRequestOutcome.Refused
+                ?: throw AssertionError("$name must refuse an untrusted live read")
+            assertTrue(
+                "$name must report the untrusted read",
+                refused.verdict.limitations.contains(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED)
+            )
+        }
+
+        // Exact trust: authorised through every entrypoint, including the three-argument form.
+        listOf(
+            "three-arg" to CalcRequestBoundary.build(profile, exactTrust(profile), live),
+            "flag true" to CalcRequestBoundary.build(profile, exactTrust(profile), live, true),
+            "flag false" to CalcRequestBoundary.build(profile, exactTrust(profile), live, false)
+        ).forEach { (name, outcome) ->
+            val ready = outcome as? CalcRequestOutcome.Ready
+                ?: throw AssertionError("$name must authorise a trusted complete live read")
+            assertTrue(ready.verdict.isVerified)
+        }
+
+        // Mismatched trust: the profile is verified, the running bytes are not.
+        val mismatch = trustFor(profile, listOf("00".repeat(32)))
+        val refused = CalcRequestBoundary.build(profile, mismatch, live, true)
+            as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("mismatched trust must refuse")
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED))
+    }
+
+    @Test
+    fun `the legacy flag cannot erase a live origin`() {
+        // A caller that cannot set `origin` may add live provenance with the flag; passing false
+        // must not convert an explicitly live request into a manual one.
+        val profile = fireRed
+        val live = completeLiveRead().request
+
+        val viaFalse = CalcRequestBoundary.build(profile, null, live, false)
+        val viaThreeArg = CalcRequestBoundary.build(profile, null, live)
+
+        assertEquals(viaThreeArg::class, viaFalse::class)
+        assertEquals(
+            (viaThreeArg as CalcRequestOutcome.Refused).verdict.limitations,
+            (viaFalse as CalcRequestOutcome.Refused).verdict.limitations
+        )
+    }
+
+    @Test
+    fun `an unrecognised live status is refused and is not silently treated as healthy`() {
+        // R3: statusNameOf returned the sentinel, but toInput dropped it, so an unrecognised non-zero
+        // condition became "no status" and the policy never saw anything to reject.
+        val profile = fireRed
+        // Bit 8 is outside every modelled position (bits 0-2 sleep, 3 psn, 4 brn, 5 frz,
+        // 6 par, 7 tox) and the low three bits are clear, so nothing claims it.
+        val unrecognised = machamp(statusCondition = 1L shl 8)
+
+        assertEquals(
+            CalcInputPreparation.UNKNOWN_STATUS,
+            CalcInputPreparation.statusNameOf(unrecognised)
+        )
+
         val prepared = CalcInputPreparation.prepare(
-            attacker = screenAttacker(machamp(statusCondition = 1L shl 4)).copy(ability = "Guts"),
+            attacker = CalcParticipantPreparationForTest(unrecognised),
             defender = screenDefender(null),
             move = CalcMoveInput(name = "Rock Slide"),
             field = CalcFieldInput()
         )
 
-        assertEquals("brn", prepared.request.attacker.status)
-        assertEquals("Guts", prepared.request.attacker.ability)
-        assertEquals(CalcInputOrigin.LIVE_READ, prepared.request.attacker.origin)
-        // The live read is in there, so the boundary still refuses - but for the right reason.
-        assertTrue(
-            prepared.preparationLimitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
+        // The sentinel must survive into the request, and the field must be recorded as unknown.
+        assertEquals(CalcInputPreparation.UNKNOWN_STATUS, prepared.request.attacker.status)
+        assertTrue(prepared.unknownLiveFields.contains(CalcInputField.STATUS))
+
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = exactTrust(profile),
+            request = prepared.request,
+            inputsFromLiveRead = true
         )
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("an unrecognised status must refuse the calculation")
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.STATUS_NOT_MODELLED))
     }
 
     @Test
-    fun `a zero status condition is an observation of no status, not a missing field`() {
-        val healthy = screenAttacker(machamp())
-        assertNull("a healthy Pokemon has no status, which is known", healthy.status)
-        assertEquals("None", healthy.item)
+    fun `an unrecognised status is refused even when the ability is known`() {
+        // Positive control for the test above: it must fail because status information was lost,
+        // not merely because the ability is always unknown for a live read. Here the ability is
+        // supplied, so only the status can be the reason.
+        val profile = fireRed
+        val attacker = CalcParticipantState(
+            species = "Machamp",
+            level = 50,
+            nature = "Hardy",
+            ability = "Guts",
+            item = null,
+            status = CalcInputPreparation.UNKNOWN_STATUS,
+            boosts = CalcParticipantState.NONE,
+            curHP = 150,
+            ivs = StatBlock(hp = 31, atk = 31, def = 31, spa = 31, spd = 31, spe = 31),
+            evs = StatBlock(),
+            origin = CalcInputOrigin.MANUAL,
+            unknownFields = emptyList()
+        )
+        val prepared = CalcInputPreparation.prepare(
+            attacker = attacker,
+            defender = screenDefender(null),
+            move = CalcMoveInput(name = "Rock Slide"),
+            field = CalcFieldInput()
+        )
+
+        assertFalse(
+            "ability is supplied, so incompleteness must not be the reason",
+            prepared.preparationLimitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
+        )
+
+        val refused = CalcRequestBoundary.build(
+            profile = profile,
+            trust = exactTrust(profile),
+            request = prepared.request
+        ) as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("the lost status must be the reason it is refused")
+
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.STATUS_NOT_MODELLED))
+    }
+
+    @Test
+    fun `a zero status remains a known healthy observation`() {
+        // The positive control for the whole status question: no status bits is information, not a
+        // gap, so it must neither be recorded as unknown nor refused.
+        val healthy = screenAttacker(machamp(statusCondition = 0L))
+
+        assertNull(healthy.status)
+        assertFalse(healthy.unknownFields.contains(CalcInputField.STATUS))
+
+        val prepared = CalcInputPreparation.prepare(
+            attacker = healthy.copy(ability = "Guts"),
+            defender = screenDefender(null),
+            move = CalcMoveInput(name = "Rock Slide"),
+            field = CalcFieldInput()
+        )
+        assertNull(prepared.request.attacker.status)
+        assertFalse(prepared.unknownLiveFields.contains(CalcInputField.STATUS))
     }
 
     @Test

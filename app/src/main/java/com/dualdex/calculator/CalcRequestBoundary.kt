@@ -25,33 +25,40 @@ sealed class CalcRequestOutcome {
 /**
  * The production request-building boundary between the companion UI and the embedded calculator.
  *
- * This is the only place that may turn application state into a calculation request. It exists so
- * that the Calc screen, the battle console, and any future caller all make the *same* decision, and
- * so that "unsupported" is produced here rather than being discovered as a wrong number later.
+ * This is the only place that may turn application state into a calculation request. Every public
+ * entrypoint funnels into one authorization decision, so a caller cannot get a weaker answer by
+ * choosing a different overload.
  *
- * The boundary is intentionally thin: it resolves the build's capability row, validates the
- * request against the pinned data for that build, and refuses anything it cannot vouch for. It
- * changes no trust hash and reads no live memory.
+ * ## What decides "trusted"
+ *
+ * Reading a value from the game does **not** make it untrusted, and it does not make it complete.
+ * Two independent questions are asked, and they produce two independent reasons:
+ *
+ * | Situation | Treatment |
+ * |---|---|
+ * | live inputs, ROM not exact-trusted | refused: the *read* is untrusted ([CalcLimitation.LIVE_INPUTS_NOT_VERIFIED]) |
+ * | live inputs, exact-trusted ROM, a required field unknown | refused: the *evidence* is incomplete ([CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN]) |
+ * | live inputs, exact-trusted ROM, context complete | evaluated on its actual mechanics and inputs - the live source is not itself a reason to refuse |
+ * | manual hypothetical | the policy's estimate/verified rules, with assumptions disclosed |
+ *
+ * Provenance is carried by the request itself ([CalcPokemonInput.origin]), so a caller cannot erase
+ * it by picking a different overload; see [isFromLiveRead]. The legacy Boolean may only *add* live
+ * provenance, never remove it.
  */
 object CalcRequestBoundary {
 
     /**
-     * Build the request for a manual calculation on [profile].
+     * Build the request for a manual or already-assembled calculation on [profile].
      *
-     * [request.gen] is advisory: the boundary normalises it to the resolved build's mechanics
-     * generation, so a caller's Gen III default can never select another damage pipeline for a
-     * modern build. Passing the wrong generation is recorded as a limitation rather than trusted.
+     * Live provenance is read from the request itself. A request whose participants declare
+     * [CalcInputOrigin.LIVE_READ] is treated as a live read here even though this overload has no
+     * flag, so a caller cannot bypass the live-read rules by calling the three-argument form.
      */
     fun build(
         profile: RomHackProfile,
         trust: RuntimeRomTrust?,
         request: DamageCalculationRequest
-    ): CalcRequestOutcome {
-        val verdict = CalcCapabilityPolicy.evaluate(profile, trust, request)
-        val authorised = verdict.request
-            ?: return CalcRequestOutcome.Refused(verdict)
-        return CalcRequestOutcome.Ready(request = authorised, verdict = verdict)
-    }
+    ): CalcRequestOutcome = authorize(profile, trust, request, liveReadHint = false)
 
     /**
      * Build the request for one participant pair, prepared through [CalcInputPreparation].
@@ -78,55 +85,78 @@ object CalcRequestBoundary {
             field = field,
             gen = gen
         )
-        return build(profile, trust, prepared.request, prepared.request.isFromLiveRead())
+        return authorize(profile, trust, prepared.request, liveReadHint = false)
     }
 
     /**
-     * Build the request from a calculator that observed live game state.
+     * Build the request, with an explicit live-read flag for callers that cannot set
+     * [CalcPokemonInput.origin].
      *
-     * A manual (hypothetical) matchup may be calculated against an unverified build, because
-     * nothing was read from the running game. A calculation whose inputs came from a live memory
-     * read may not: presenting an unverified read as a verified number is exactly the failure this
-     * boundary exists to prevent.
-     *
-     * The reason reported distinguishes an incomplete read from an untrusted one. A read that is
-     * missing a damage-relevant field is a different problem from a read whose values are complete
-     * but not verified against the running ROM, and a caller that saw only "not verified" for both
-     * would have no way to tell which one to fix.
+     * [inputsFromLiveRead] is a *hint*: it can only add live provenance. Passing `false` for a
+     * request whose participants already declare a live read does not make that request manual.
      */
     fun build(
         profile: RomHackProfile,
         trust: RuntimeRomTrust?,
         request: DamageCalculationRequest,
         inputsFromLiveRead: Boolean
-    ): CalcRequestOutcome {
-        val outcome = build(profile, trust, request)
-        if (!inputsFromLiveRead) return outcome
+    ): CalcRequestOutcome = authorize(profile, trust, request, liveReadHint = inputsFromLiveRead)
 
-        // Two independent facts, reported as two reasons. A live read is never verified because the
-        // values are reads, and it is separately incomplete when the reader could not carry a
-        // damage-relevant field. Collapsing them would leave a caller unable to tell "this needs a
-        // verified ROM" from "this needs the reader to carry more state".
-        val additions = buildList {
-            add(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED)
-            if (request.preparationLimitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)) {
-                add(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
-            }
+    /**
+     * The single authorization decision every entrypoint above funnels into.
+     *
+     * Trust and completeness are evaluated separately because they are separate defects with
+     * separate fixes: a caller told only "not verified" cannot tell whether it needs a verified ROM
+     * or a reader that carries more state.
+     */
+    private fun authorize(
+        profile: RomHackProfile,
+        trust: RuntimeRomTrust?,
+        request: DamageCalculationRequest,
+        liveReadHint: Boolean
+    ): CalcRequestOutcome {
+        // Live provenance is a property of the request. The hint may add it, never remove it.
+        val isLiveRead = liveReadHint || request.isFromLiveRead()
+
+        val base = CalcCapabilityPolicy.evaluate(profile, trust, request)
+
+        if (!isLiveRead) {
+            val authorised = base.request ?: return CalcRequestOutcome.Refused(base)
+            return CalcRequestOutcome.Ready(request = authorised, verdict = base)
         }
 
-        return when (outcome) {
-            // The policy authorised it; a live read alone is enough to refuse that authorisation.
-            is CalcRequestOutcome.Ready -> CalcRequestOutcome.Refused(
-                outcome.verdict.copy(
-                    support = CalcSupport.UNSUPPORTED,
-                    request = null,
-                    limitations = outcome.verdict.limitations + additions
+        val reasons = LinkedHashSet<CalcLimitation>()
+
+        // (1) Is the read itself trusted? Only an exact-verified ROM makes a live read trusted.
+        val readIsTrusted = CalcCapabilityPolicy.isExactRuntimeVerified(profile, trust)
+        if (!readIsTrusted) reasons.add(CalcLimitation.LIVE_INPUTS_NOT_VERIFIED)
+
+        // (2) Is the evidence complete? Independent of (1): a trusted ROM does not fill a field the
+        // reader never carried, and an untrusted ROM does not make an unknown field less unknown.
+        val evidenceIncomplete = request.preparationLimitations.contains(
+            CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN
+        ) || request.unknownLiveFields().isNotEmpty()
+        if (evidenceIncomplete) reasons.add(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
+
+        return when (val authorised = base.request) {
+            // The policy already refused. Keep its reasons and add whichever live-read problems apply.
+            null -> CalcRequestOutcome.Refused(
+                base.copy(limitations = base.limitations + reasons)
+            )
+            // The policy authorised it. A live read is only refused for a reason that actually
+            // applies: an untrusted read, or missing evidence. With both satisfied the request
+            // stands on its own mechanics and inputs, and the live source is not itself a defect.
+            else -> if (reasons.isEmpty()) {
+                CalcRequestOutcome.Ready(request = authorised, verdict = base)
+            } else {
+                CalcRequestOutcome.Refused(
+                    base.copy(
+                        support = CalcSupport.UNSUPPORTED,
+                        request = null,
+                        limitations = base.limitations + reasons
+                    )
                 )
-            )
-            // Already refused for its own reason: keep that reason and add the live-read ones.
-            is CalcRequestOutcome.Refused -> CalcRequestOutcome.Refused(
-                outcome.verdict.copy(limitations = outcome.verdict.limitations + additions)
-            )
+            }
         }
     }
 }

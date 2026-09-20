@@ -88,8 +88,14 @@ H&S sets `B_UPDATED_TYPE_MATCHUPS` to `GEN_9` `[include/config/battle.h:53]`, so
 resolves to ×1.0 `[src/data/types_info.h:8]`, used by the Ghost and Dark rows
 `[src/data/types_info.h:25]`, `:35`. The calculator's chart assigns ×0.5 to both
 (`.../src/data/types.ts:313`, `:333`) and then aliases the generation III chart to it with
-`const ADV = GSC;` (`.../src/data/types.ts:357`). `ADV`, `DPP` and `BW` are all the same object, so
-no single `@smogon/calc` generation reproduces H&S's Steel row.
+`const ADV = GSC;` (`.../src/data/types.ts:357`). `ADV`, `DPP` and `BW` are all the same object.
+
+The precise finding is that the **selected generation III chart is incompatible** on this row: the
+chart the policy actually sends makes Steel resist Ghost and Dark while H&S does not. It is *not*
+that no later generation has the interaction — the library's `XY` chart does set Ghost → Steel and
+Dark → Steel to ×1 (`.../src/data/types.ts:378`, `:380`). What remains unestablished is full H&S
+pipeline equivalence; these two rows alone would not settle it, because the same chart change comes
+bundled with everything else generation VI altered.
 
 The earlier note that "Generation III has no Fairy interaction to disagree about" is also
 misleading: H&S *does* have Fairy, so those rows are not a shared-generation question at all — the

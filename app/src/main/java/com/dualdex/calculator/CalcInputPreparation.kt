@@ -104,6 +104,20 @@ fun DamageCalculationRequest.isFromLiveRead(): Boolean =
     attacker.origin == CalcInputOrigin.LIVE_READ || defender.origin == CalcInputOrigin.LIVE_READ
 
 /**
+ * Every damage-relevant field the live reads behind this request did not carry.
+ *
+ * Read from the request rather than from a side channel, so provenance cannot be dropped by a caller
+ * that chooses a different boundary overload.
+ */
+fun DamageCalculationRequest.unknownLiveFields(): List<CalcInputField> {
+    val fields = LinkedHashSet<CalcInputField>()
+    listOf(attacker, defender).forEach { participant ->
+        if (participant.origin == CalcInputOrigin.LIVE_READ) fields += participant.unknownFields
+    }
+    return fields.toList()
+}
+
+/**
  * The single production transformation from parsed participant state to a calculation request.
  *
  * Both the Calc screen and the regression tests drive this function, so the tests exercise the
@@ -223,6 +237,9 @@ object CalcInputPreparation {
             unknownFields = buildList {
                 add(CalcInputField.ABILITY)
                 if (boosts == null) add(CalcInputField.BOOSTS)
+                // A non-zero condition matching no known bit is lost information, not a healthy
+                // Pokemon, so it is recorded as unknown as well as sent for rejection.
+                if (statusNameOf(parsed) == UNKNOWN_STATUS) add(CalcInputField.STATUS)
             }
         )
     }
@@ -265,8 +282,13 @@ object CalcInputPreparation {
         ivs = ivs,
         evs = evs,
         boosts = boosts,
-        status = status?.takeIf { it != UNKNOWN_STATUS },
-        origin = origin
+        // [UNKNOWN_STATUS] is deliberately PRESERVED here. Substituting null for it would assert
+        // "this Pokemon has no status", which is the unknown-versus-neutral confusion this class
+        // exists to prevent - and the engine would then compute a healthy Pokemon. The sentinel is
+        // not one of the modelled status names, so the policy refuses it.
+        status = status,
+        origin = origin,
+        unknownFields = unknownFields
     )
 
     /**

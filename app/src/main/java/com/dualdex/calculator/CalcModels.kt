@@ -19,7 +19,15 @@ data class CalcPokemonInput(
      * Defaults to [CalcInputOrigin.MANUAL] for callers that are asserting values rather than
      * reading them.
      */
-    val origin: CalcInputOrigin = CalcInputOrigin.MANUAL
+    val origin: CalcInputOrigin = CalcInputOrigin.MANUAL,
+    /**
+     * Damage-relevant fields this participant's source could not supply, carried on the request so
+     * the boundary can evaluate completeness without a side channel.
+     *
+     * An empty list means nothing was known to be missing; it is not a claim that the values are
+     * complete. Only a reader that reports what it could not carry populates this.
+     */
+    val unknownFields: List<CalcInputField> = emptyList()
 )
 
 data class StatBlock(

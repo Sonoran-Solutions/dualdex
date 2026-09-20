@@ -193,9 +193,30 @@ object CalcRequestBoundary {
             optionStyle = optionStyle,
             fairyTypesEnabled = fairy,
             randomTypesEnabled = randomTypes,
-            randomTypeEffectivenessEnabled = randomEffectiveness
+            randomTypeEffectivenessEnabled = randomEffectiveness,
+            randomAbilitiesEnabled = observedFlag(challengeSettings.txRandomAbilities),
+            randomMovesEnabled = observedFlag(challengeSettings.txRandomMoves),
+            noEvsEnabled = observedFlag(challengeSettings.txChallengesNoEvs),
+            baseStatEqualizerMode = observedRaw(challengeSettings.txChallengesBaseStatEqualizer),
+            mirrorEnabled = observedFlag(challengeSettings.txChallengesMirror),
+            mirrorThiefEnabled = observedFlag(challengeSettings.txChallengesMirrorThief),
+            trainerScalingIvsMode = observedRaw(challengeSettings.txChallengesTrainerScalingIvs),
+            trainerScalingEvsMode = observedRaw(challengeSettings.txChallengesTrainerScalingEvs),
+            maxPartyIvsMode = observedRaw(challengeSettings.txChallengesMaxPartyIvs),
+            sturdyEnabled = observedFlag(challengeSettings.txModeSturdy),
+            levelCapMode = observedRaw(challengeSettings.txChallengesLevelCap),
+            expMultiplierMode = observedRaw(challengeSettings.txChallengesExpMultiplier),
+            legendaryAbilitiesEnabled = observedFlag(challengeSettings.txModeLegendaryAbilities)
         )
     }
+
+    /** The boolean meaning of a 1-bit field, or null when it was unobserved / out of domain. */
+    private fun observedFlag(field: com.dualdex.pokemon.hns.HnsChallengeField): Boolean? =
+        if (field.observed && !field.outOfDomain) field.observedFlag else null
+
+    /** The raw value of a multi-bit field, or null when it was unobserved / out of domain. */
+    private fun observedRaw(field: com.dualdex.pokemon.hns.HnsChallengeField): Int? =
+        if (field.observed && !field.outOfDomain) field.raw else null
 
     private fun reconcileParticipantAbility(
         participant: CalcPokemonInput,

@@ -2698,3 +2698,78 @@ tests, not runtime evidence.
 Live on-ROM item observation, item consumption/Knock-Off transitions in a running battle, and any H&S
 damage number remain **NOT YET RUNTIME VERIFIED**. No H&S calculation is produced: `BADGE_BOOST_NOT_MODELLED`
 (Gap C4) keeps the result `UNSUPPORTED` with `request == null`.
+
+---
+
+## 18. Gap C4a: remaining-mechanics inventory, badge audit, move gating, arithmetic parity (issue #9)
+
+Pinned source: `pokehns-expansion` commit `1f42b74dff0e9fe942419845d040663dd829a973` (tag
+`Release-v2.0.5`). No ROM bytes are used by any item in this section.
+
+### 18.1 Challenge-settings inventory (SOURCE VERIFIED, UNIT VERIFIED)
+
+All 17 `SaveBlock3.challengeSettings` fields are classified by `HnsChallengeSettingInventory`
+(one row per field, asserted by `HnsChallengeSettingInventoryTest`). The 4 Gap A rule fields are
+consumed; `tx_Random_Moves` and `tx_Challenges_BaseStatEqualizer` are the only new conditional
+blockers (`HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED` and `HNS_BASE_STAT_EQUALIZER_NOT_MODELLED`).
+The remaining value-changing fields (`NoEVs`, `Mirror`, `Mirror_Thief`, `TrainerScalingIVs/EVs`,
+`MaxPartyIVs`, `LevelCap`, `ExpMultiplier`, `Random_Abilities`, `Legendary_Abilities`) are captured
+downstream because the calculator consumes the final observed level / IV / EV / ability / party
+values; `tx_Mode_Sturdy` is irrelevant to the supported ability subset. See capability doc §10.1.
+
+### 18.2 Badge boost (SOURCE VERIFIED, still blocked)
+
+`B_BADGE_BOOST = GEN_3`; `GetBadgeBoostModifier() = UQ_4_12(1.1)`; the badge is composed into the
+attack/defence modifier in UQ4.12 (`uq4_12_multiply_half_down`) after stat stages and ability/item
+multipliers, then applied once (`uq4_12_multiply_by_int_half_down`) `[src/battle_util.c:6894]`,
+`:6903]`, `:7189]`, `:7392]`, `:9135]`. Eligibility is `ShouldGetStatBadgeBoost` `[src/battle_util.c:9143]`
+(player side; link / e-Reader / recorded-link / Frontier / secret-base trainer excluded). The four
+flags resolve to `FLAG_BADGE01_GET`, `FLAG_BADGE06_GET` (H&S), `FLAG_BADGE07_GET` (SpA and SpD share
+it) via `FlagGet`/SaveBlock1 `[include/constants/flags.h:1363]`, `:1368]`, `:1369]`.
+
+DualDex has **no ABI-backed badge-state reader**, so a caller cannot supply proven live badge state
+and the calculator must not fabricate it. `BADGE_BOOST_NOT_MODELLED` is therefore retained. This is a
+deliberate fail-closed decision, not an oversight.
+
+### 18.3 Move mechanics (SOURCE VERIFIED, HOST VERIFIED)
+
+`tools/hns-move-mechanics/generate_hns_move_effects.py` extracts the exact effect/flag data from the
+pinned `src/data/moves_info.h` into `Hns205MoveEffects.kt` (928 resolved effects, 357 ordinary, 6
+unresolved). The generator is verified byte-for-byte by `./ci.sh source-check` and unit-tested by
+`test_generate_hns_move_effects.py` against synthetic fixtures. `HnsMoveMechanicsRegistry` refuses
+everything outside the ordinary set with `HNS_MOVE_MECHANICS_NOT_MODELLED`; C3 item-dependent moves
+keep `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` and are not double-reported.
+
+### 18.4 Arithmetic parity (SOURCE/HOST VERIFIED, NOT RUNTIME VERIFIED)
+
+`native/tests/test_js_calc.c:check_gap_c4a_arithmetic_parity` contains an independent oracle
+transcribed from `CalculateBaseDamage` / `DoMoveDamageCalcVars` / `ApplyModifiersAfterDmgRoll` /
+`fpmath.h`. Fixtures:
+
+* `gap_c4a_parity_neutral_base_matches` — Machamp Rock Slide (non-STAB, 1x) vs Snorlax is
+  51–60 on both the oracle and the committed bundle.
+* `gap_c4a_divergence_stab_detected` — Karate Chop (STAB, 2x) is `102,102,102,104,…,120` in H&S
+  versus `102,103,…,120` in ADV; the fixture requires the divergence so the gate stays warranted.
+* `gap_c4a_divergence_crit_stab_detected` — crit + STAB/type also diverges.
+
+The divergence is ordering/rounding: H&S applies the random roll before STAB/type/burn/screens and
+composes modifiers in UQ4.12 half-down; ADV applies burn/screens/weather before `+2` and STAB/type
+before the roll. A request exercising any non-identity modifier adds
+`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`.
+
+### 18.5 Mutation controls
+
+* **Control 1 (arithmetic rounding).** Changed the oracle's base-damage `+2` to `+3`. The native
+  suite failed `gap_c4a_parity_neutral_base_matches` (1963 passed / 1 failed). Reverted.
+* **Control 2 (move gate).** Added Return (move ID 216) to `Hns205MoveEffects.ordinaryMoveIds`.
+  `CalcHnsMechanicsTest` and `HnsMoveMechanicsRegistryTest` failed 3 tests, including
+  `Return and Hidden Power are refused by the move mechanics gate`. Reverted and re-verified
+  byte-for-byte against the pinned source.
+
+### 18.6 What this slice does not verify
+
+No official H&S 2.0.5 ROM battle result has been compared with any value here. The ordinary base
+arithmetic is **SOURCE/HOST VERIFIED**, not runtime verified. H&S production remains
+`CalcSupport.UNSUPPORTED` with `request == null`; `BADGE_BOOST_NOT_MODELLED` and
+`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` keep it refused. `BUILDS_NOT_HASH_VERIFIED` and
+`battleUiVerified` are unchanged. Gap C4b owns the runtime validation and the modifier-order fix.

@@ -118,7 +118,37 @@ data class CalcHnsRuntimeRules(
     val optionStyle: com.dualdex.pokemon.hns.HnsOptionStyle = com.dualdex.pokemon.hns.HnsOptionStyle.UNAVAILABLE,
     val fairyTypesEnabled: Boolean? = null,
     val randomTypesEnabled: Boolean? = null,
-    val randomTypeEffectivenessEnabled: Boolean? = null
+    val randomTypeEffectivenessEnabled: Boolean? = null,
+    // Remaining value-changing / behaviour-changing challenge settings (Gap C4a). Each is the
+    // directly observed raw source value (multi-bit fields) or boolean meaning (1-bit fields), or
+    // null when the field was unobserved / out of the pinned source's domain. Source defaults are
+    // never substituted: null means "not known", and the policy decides whether it must block.
+    /** `tx_Random_Abilities` (1-bit). Effect captured downstream by the observed effective ability. */
+    val randomAbilitiesEnabled: Boolean? = null,
+    /** `tx_Random_Moves` (1-bit). Active blocks: the current learned move is not authoritative. */
+    val randomMovesEnabled: Boolean? = null,
+    /** `tx_Challenges_NoEvs` (1-bit). Effect captured downstream by the observed EV values. */
+    val noEvsEnabled: Boolean? = null,
+    /** `tx_Challenges_BaseStatEqualizer` raw index into the 0/100/255/500 table. Nonzero blocks. */
+    val baseStatEqualizerMode: Int? = null,
+    /** `tx_Challenges_Mirror` (1-bit). Effect captured downstream by the observed party. */
+    val mirrorEnabled: Boolean? = null,
+    /** `tx_Challenges_Mirror_Thief` (1-bit). Effect captured downstream by the observed party. */
+    val mirrorThiefEnabled: Boolean? = null,
+    /** `tx_Challenges_TrainerScalingIVs` raw mode. Effect captured downstream by observed IVs. */
+    val trainerScalingIvsMode: Int? = null,
+    /** `tx_Challenges_TrainerScalingEVs` raw mode. Effect captured downstream by observed EVs. */
+    val trainerScalingEvsMode: Int? = null,
+    /** `tx_Challenges_MaxPartyIVs` raw mode. Effect captured downstream by observed IVs. */
+    val maxPartyIvsMode: Int? = null,
+    /** `tx_Mode_Sturdy` (1-bit). Only reachable through the Sturdy ability, which is blocked. */
+    val sturdyEnabled: Boolean? = null,
+    /** `tx_Challenges_LevelCap` raw mode. Effect captured downstream by the observed level. */
+    val levelCapMode: Int? = null,
+    /** `tx_Challenges_ExpMultiplier` raw mode. Effect captured downstream by the observed level. */
+    val expMultiplierMode: Int? = null,
+    /** `tx_Mode_Legendary_Abilities` (1-bit). Effect captured downstream by the observed ability. */
+    val legendaryAbilitiesEnabled: Boolean? = null
 )
 
 data class DamageCalculationRequest(

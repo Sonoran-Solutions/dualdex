@@ -152,10 +152,14 @@ sealed class EffectiveAbilityResolution {
  * Where a calculation participant's held-item identity came from.
  *
  * "Stored party item" and "current battle item" are deliberately distinct facts:
- * a battle can consume, knock off, swap or steal an item, and the party structure
- * is only re-synchronised at battle end. For a live H&S participant the battle
- * engine's current item wins whenever the participant is the authoritative active
- * battler; a bench participant keeps the exact parsed party item.
+ * a battle can consume, knock off, swap or steal an item, and the party record
+ * is NOT guaranteed to hold the same atomic current state. H&S controllers DO
+ * propagate some in-battle item changes back into party data immediately (via
+ * `REQUEST_HELDITEM_BATTLE`), so the party record must not be assumed to be
+ * frozen until battle end; it is still a separate, asynchronously-updated copy.
+ * For a live H&S participant the battle engine's current item wins whenever the
+ * participant is the authoritative active battler; a bench participant keeps the
+ * exact parsed party item.
  */
 enum class CalcItemProvenance {
     /** Supplied by the user as a hypothetical; no game read. */

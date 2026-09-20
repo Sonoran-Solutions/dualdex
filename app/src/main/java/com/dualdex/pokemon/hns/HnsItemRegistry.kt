@@ -26,11 +26,19 @@ data class HnsItemData(
  */
 enum class HnsItemCategory {
     /**
-     * Proven from pinned H&S source to have no effect on the calculator's damage
-     * result: no crit, move-power, type, stat, survival/KO, between-turn HP,
-     * status or speed-dependent-power interaction.
+     * Proven from pinned H&S source that the item's OWN hold effect has no effect on
+     * the ORDINARY damage path: no crit, move-power, type, stat, survival/KO,
+     * between-turn HP, status or speed-dependent-power interaction.
+     *
+     * This is deliberately NOT a claim that the item identity can never affect damage.
+     * A move whose semantics read item identity/presence/absence (Fling, Natural Gift,
+     * Acrobatics, Knock Off, Poltergeist, Judgment, Techno Blast, Multi-Attack) is a
+     * separate, contextual interaction audited by
+     * [HnsMoveItemInteractionRegistry]. Final capability is the combination of this
+     * static audit with that interaction audit; see
+     * `CalcCapabilityPolicy.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`.
      */
-    PROVEN_NO_DAMAGE_EFFECT,
+    PROVEN_NO_ORDINARY_DAMAGE_EFFECT,
 
     /**
      * Proven from pinned H&S source to have identical damage arithmetic, trigger
@@ -55,7 +63,7 @@ enum class HnsItemCategory {
     UNCLASSIFIED;
 
     val isSupportedForDamage: Boolean
-        get() = this == PROVEN_NO_DAMAGE_EFFECT ||
+        get() = this == PROVEN_NO_ORDINARY_DAMAGE_EFFECT ||
             this == MODELLED_EQUIVALENT ||
             this == MODELLED_HNS_SPECIFIC
 }
@@ -111,7 +119,7 @@ object HnsItemRegistry {
         // 0: ITEM_NONE — authoritative "no held item".
         register(
             symbol = "ITEM_NONE",
-            category = HnsItemCategory.PROVEN_NO_DAMAGE_EFFECT,
+            category = HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT,
             rationale = "Authoritatively no held item; zero damage effect."
         )
 
@@ -120,24 +128,30 @@ object HnsItemRegistry {
         // status or speed interaction anywhere in the pinned source.
         register(
             symbol = "ITEM_AMULET_COIN",
-            category = HnsItemCategory.PROVEN_NO_DAMAGE_EFFECT,
+            category = HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT,
             rationale = "HOLD_EFFECT_DOUBLE_PRIZE applies only to prize money " +
                 "(src/battle_main.c:3189, src/battle_hold_effects.c:48,1055). No damage interaction."
         )
         register(
             symbol = "ITEM_SOOTHE_BELL",
-            category = HnsItemCategory.PROVEN_NO_DAMAGE_EFFECT,
+            category = HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT,
             rationale = "HOLD_EFFECT_FRIENDSHIP_UP applies only to friendship (src/pokemon.c:7777). No damage interaction."
         )
         register(
             symbol = "ITEM_CLEANSE_TAG",
-            category = HnsItemCategory.PROVEN_NO_DAMAGE_EFFECT,
+            category = HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT,
             rationale = "HOLD_EFFECT_REPEL applies only to wild encounters (src/wild_encounter.c:1334). No damage interaction."
         )
         register(
             symbol = "ITEM_LUCKY_EGG",
-            category = HnsItemCategory.PROVEN_NO_DAMAGE_EFFECT,
+            category = HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT,
             rationale = "HOLD_EFFECT_LUCKY_EGG multiplies earned EXP only (src/battle_script_commands.c:11982). No damage interaction."
+        )
+        register(
+            symbol = "ITEM_EXP_SHARE",
+            category = HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT,
+            rationale = "HOLD_EFFECT_EXP_SHARE splits earned EXP only (src/battle_script_commands.c:11969-11987). " +
+                "No crit/power/type/stat/survival/HP/status/speed interaction."
         )
 
         // Traditional type boosters: H&S ×1.2 to base power, ADV ×1.1 applied at a
@@ -370,6 +384,12 @@ object HnsItemRegistry {
      *
      * No H&S damage item is modelled today, so this is always null; it exists so a
      * future modelled item cannot be forwarded by its raw H&S source name.
+     *
+     * This stripping is correct only for moves that do not read item state. A move
+     * whose semantics DO read item identity/presence/absence must never be allowed to
+     * reach this point: [HnsMoveItemInteractionRegistry] exists so the policy can
+     * refuse it first, because forwarding no item would otherwise destroy exactly the
+     * input the move needs and let the engine compute a plausible wrong number.
      */
     @Suppress("UNUSED_PARAMETER")
     fun engineItemName(id: Int?): String? {

@@ -320,6 +320,11 @@ object CalcRequestBoundary {
      *   whose observation names a different slot has no authoritative identity and fails closed;
      * - an active battle in which no single authoritative battler can be established (faint window,
      *   doubles ambiguity, unverified read) becomes unknown, never a party fallback.
+     *
+     * [activeBattle] is a HINT, not the authority: [reconcileLiveBattlerItems] treats any supplied
+     * runtime observation as evidence that a battle is active, so this function is never called with
+     * `activeBattle = false` while an authoritative battler exists. The party-storage branch is
+     * therefore reachable only when no battle evidence is present at all.
      */
     private fun reconcileParticipantItem(
         participant: CalcPokemonInput,
@@ -416,13 +421,19 @@ object CalcRequestBoundary {
         activeBattle: Boolean
     ): DamageCalculationRequest {
         if (!isExactHns) return request
+        // Battle context is authoritative runtime provenance, not a caller declaration. A supplied
+        // runtime observation is itself evidence that a battle is active, so a LIVE_READ caller
+        // cannot pass `activeBattle = false` while handing over a current battler and thereby
+        // downgrade to the party-stored item. When no observation exists the flag is the only
+        // signal, and `false` then legitimately means the out-of-battle party-storage case.
+        val battleContext = activeBattle || playerBattlerState != null || enemyBattlerState != null
         val reconciledAttacker = reconcileParticipantItem(
             participant = request.attacker,
             observation = playerBattlerState,
             liveReadHint = liveReadHint,
             isExactHns = isExactHns,
             isExactVerified = isExactVerified,
-            activeBattle = activeBattle,
+            activeBattle = battleContext,
             allowBench = true
         )
         val reconciledDefender = reconcileParticipantItem(
@@ -431,7 +442,7 @@ object CalcRequestBoundary {
             liveReadHint = liveReadHint,
             isExactHns = isExactHns,
             isExactVerified = isExactVerified,
-            activeBattle = activeBattle,
+            activeBattle = battleContext,
             allowBench = false
         )
         return request.copy(

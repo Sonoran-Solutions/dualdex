@@ -157,13 +157,14 @@ class CalcHnsItemTest {
         attacker: CalcPokemonInput,
         defender: CalcPokemonInput = CalcPokemonInput(
             species = "Swampert", level = 50, ability = "None", abilityId = 0
-        )
+        ),
+        moveName: String = "Cross Chop"
     ): DamageCalculationRequest = DamageCalculationRequest(
         gen = 3,
         typeSystem = "hns_2_0_5",
         attacker = attacker,
         defender = defender,
-        move = CalcMoveInput(name = "Cross Chop")
+        move = CalcMoveInput(name = moveName)
     )
 
     private fun HnsItemCategory.assertSupported() = assertTrue("$this must be supported", isSupportedForDamage)
@@ -252,12 +253,13 @@ class CalcHnsItemTest {
         playerBattlerState: BattlerRuntimeObservation? = null,
         enemyBattlerState: BattlerRuntimeObservation? = null,
         activeBattle: Boolean = true,
-        defender: CalcPokemonInput = CalcPokemonInput(species = "Swampert", level = 50, ability = "None", abilityId = 0)
+        defender: CalcPokemonInput = CalcPokemonInput(species = "Swampert", level = 50, ability = "None", abilityId = 0),
+        moveName: String = "Cross Chop"
     ): CalcCapabilityVerdict {
         val outcome = CalcRequestBoundary.build(
             profile = heartAndSoul,
             trust = exactTrust(heartAndSoul),
-            request = baseRequest(attacker, defender),
+            request = baseRequest(attacker, defender, moveName),
             challengeSettings = hnsSettingsSnapshot(),
             playerBattlerState = playerBattlerState,
             enemyBattlerState = enemyBattlerState,
@@ -490,6 +492,148 @@ class CalcHnsItemTest {
     }
 
     // ------------------------------------------------------------------
+    // Contextual move/item interaction (review R1)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `proven utility item with an ordinary move clears both item audits`() {
+        val verdict = outcomeFor(
+            attacker = liveInput(
+                species = "Machamp", partySlot = 0, itemId = amuletCoin,
+                provenance = CalcItemProvenance.PARTY_STORAGE, item = "Amulet Coin"
+            ),
+            activeBattle = false,
+            moveName = "Tackle"
+        )
+        assertFalse(
+            "an ordinary move must not add the item-dependent-move blocker",
+            verdict.limitations.contains(CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED)
+        )
+        assertFalse(
+            "Amulet Coin's own hold effect is still ordinary-damage-free",
+            verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED)
+        )
+    }
+
+    @Test
+    fun `the same utility item with Fling is refused as item dependent`() {
+        val verdict = outcomeFor(
+            attacker = liveInput(
+                species = "Machamp", partySlot = 0, itemId = amuletCoin,
+                provenance = CalcItemProvenance.PARTY_STORAGE, item = "Amulet Coin"
+            ),
+            activeBattle = false,
+            moveName = "Fling"
+        )
+        assertTrue(
+            "Fling's base power is the attacker's item identity",
+            verdict.limitations.contains(CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED)
+        )
+        // The item's own hold effect is still supported; the move interaction is the reason.
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals(CalcSupport.UNSUPPORTED, verdict.support)
+        assertNull(verdict.request)
+    }
+
+    @Test
+    fun `ITEM_NONE with Acrobatics is refused as item dependent`() {
+        val verdict = outcomeFor(
+            attacker = liveInput(
+                species = "Machamp", partySlot = 0, itemId = itemNone,
+                provenance = CalcItemProvenance.PARTY_STORAGE
+            ),
+            activeBattle = false,
+            moveName = "Acrobatics"
+        )
+        assertTrue(
+            "Acrobatics doubles when the attacker has no item, so ITEM_NONE is not context-free",
+            verdict.limitations.contains(CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED)
+        )
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+    }
+
+    @Test
+    fun `defender held utility item with Knock Off is refused as item dependent`() {
+        val verdict = outcomeFor(
+            attacker = liveInput(
+                species = "Machamp", partySlot = 0, itemId = itemNone,
+                provenance = CalcItemProvenance.PARTY_STORAGE
+            ),
+            defender = liveInput(
+                species = "Swampert", partySlot = 0, itemId = amuletCoin,
+                provenance = CalcItemProvenance.PARTY_STORAGE, item = "Amulet Coin"
+            ),
+            activeBattle = false,
+            moveName = "Knock Off"
+        )
+        assertTrue(
+            "Knock Off's x1.5 depends on the defender holding an item",
+            verdict.limitations.contains(CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED)
+        )
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+    }
+
+    @Test
+    fun `manual utility item with an item dependent move is refused`() {
+        val verdict = outcomeFor(
+            attacker = CalcPokemonInput(species = "Machamp", level = 50, item = "Amulet Coin", ability = "None"),
+            activeBattle = false,
+            moveName = "Fling"
+        )
+        assertTrue(verdict.limitations.contains(CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED))
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+    }
+
+    // ------------------------------------------------------------------
+    // Boundary: battle context is authoritative, not caller-declared (review R2)
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `live read cannot downgrade to party storage while an active battler is observed`() {
+        // The raw caller claims a supported party item AND declares activeBattle = false, but hands
+        // over an authoritative current battler whose item is Charcoal. The observation is itself
+        // battle evidence, so the current item must win: the weaker party-storage path must not be
+        // taken just because the caller omitted/declared false battle context.
+        val verdict = outcomeFor(
+            attacker = liveInput(
+                species = "Machamp", partySlot = 0, itemId = amuletCoin,
+                provenance = CalcItemProvenance.PARTY_STORAGE, item = "Amulet Coin"
+            ),
+            playerBattlerState = abilityNoneObservation(itemId = charcoal),
+            activeBattle = false
+        )
+        assertTrue(
+            "the authoritative current battle item must win",
+            verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED)
+        )
+        assertFalse(
+            "the read was readable, so it must not be reported unreadable",
+            verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE)
+        )
+        assertFalse(
+            "an ordinary move must not add the interaction blocker",
+            verdict.limitations.contains(CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED)
+        )
+    }
+
+    @Test
+    fun `live read with an active observation and no battle declaration still clears a stale party item`() {
+        // Same loophole, mirror image: the caller declares no battle and a party Charcoal, but the
+        // observation is an authoritative ITEM_NONE. The current item must win and the stale party
+        // item must not be resurrected.
+        val verdict = outcomeFor(
+            attacker = liveInput(
+                species = "Machamp", partySlot = 0, itemId = charcoal,
+                provenance = CalcItemProvenance.PARTY_STORAGE, item = "CHARCOAL"
+            ),
+            playerBattlerState = abilityNoneObservation(itemId = itemNone),
+            activeBattle = false
+        )
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
+    }
+
+    // ------------------------------------------------------------------
     // Registry / audit pins and vanilla isolation
     // ------------------------------------------------------------------
 
@@ -498,7 +642,7 @@ class CalcHnsItemTest {
         assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, HnsItemRegistry.classify(charcoal).category)
         assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, HnsItemRegistry.classify(choiceBand).category)
         // ITEM_NONE is the only always-supported identity here.
-        assertEquals(HnsItemCategory.PROVEN_NO_DAMAGE_EFFECT, HnsItemRegistry.classify(itemNone).category)
+        assertEquals(HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT, HnsItemRegistry.classify(itemNone).category)
     }
 
     @Test

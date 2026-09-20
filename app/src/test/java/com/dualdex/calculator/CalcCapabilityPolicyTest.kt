@@ -1203,6 +1203,7 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE,
                 CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED,
                 CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE,
+                CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED,
                 CalcLimitation.BADGE_BOOST_NOT_MODELLED,
                 CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED,
                 CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED,

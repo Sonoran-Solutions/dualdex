@@ -1,5 +1,6 @@
 package com.dualdex.calculator
 
+import com.dualdex.pokemon.GameDataPack
 import com.dualdex.pokemon.GameDataPackRegistry
 import com.dualdex.pokemon.hasMoveByName
 import com.dualdex.pokemon.hasSpeciesByName
@@ -126,6 +127,20 @@ enum class CalcLimitation(val blocks: Boolean) {
      * capability can be established for it (issue #9, Gap C3).
      */
     HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE(true),
+
+    /**
+     * The selected H&S 2.0.5 move's damage semantics read held-item state (attacker item
+     * identity, defender item presence, or item absence) and that interaction is not
+     * explicitly reproduced by this calculator (issue #9, Gap C3).
+     *
+     * Static item capability is not context-free: an item whose own hold effect never
+     * touches the ordinary damage path can still determine Fling's base power, double
+     * Acrobatics in the absence of an item, or add Knock Off's x1.5. The authorized
+     * request strips supported items before the engine, which destroys exactly that
+     * input, so the move must be refused before it ever reaches the engine rather than
+     * allowed to no-op.
+     */
+    HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED(true),
 
     /**
      * The Heart & Soul 2.0.5 held-item system is not modelled by the calculator pipeline (Gap C3).
@@ -366,6 +381,8 @@ data class CalcCapabilityVerdict(
                 "the Heart & Soul 2.0.5 held item's damage effect is not modelled by the calculator"
             CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE ->
                 "the item could not be tied to the exact Heart & Soul 2.0.5 item catalogue"
+            CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED ->
+                "the selected move's damage depends on held-item state, which is not modelled for this build"
             CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED ->
                 "the Heart & Soul 2.0.5 held-item system is not modelled by the calculator (Gap C3)"
             CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED ->
@@ -842,6 +859,27 @@ object CalcCapabilityPolicy {
     }
 
     /**
+     * Records [CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED] when the selected H&S
+     * move's damage semantics read held-item state and this calculator does not explicitly
+     * reproduce that interaction.
+     *
+     * The move is resolved to the exact pack's numeric ID so a differently-cased or
+     * differently-spelled name cannot dodge the audit. A move absent from the pack is already
+     * refused by [CalcLimitation.MOVE_NOT_IN_PINNED_DATA]; this gate deliberately does not
+     * double-report an unknown move, because it has no item interaction to reason about.
+     */
+    private fun collectHnsItemDependentMoveLimitation(
+        pack: GameDataPack,
+        request: DamageCalculationRequest,
+        limitations: MutableSet<CalcLimitation>
+    ) {
+        val move = pack.getMoveByName(request.move.name) ?: return
+        if (com.dualdex.pokemon.hns.HnsMoveItemInteractionRegistry.classify(move.id).requiresBlock) {
+            limitations.add(CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED)
+        }
+    }
+
+    /**
      * Classifies one H&S participant's held item and records the exact limitation.
      *
      * The numeric ID is the capability authority:
@@ -852,6 +890,10 @@ object CalcCapabilityPolicy {
      * - manual identity resolves through the exact H&S catalogue by ID or name; a name that does not
      *   resolve is [CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE];
      * - an omitted manual item is the request semantics' explicit no-item and adds no blocker.
+     *
+     * This is the STATIC half of the contextual capability. The move/item interaction is audited
+     * separately by [collectHnsItemDependentMoveLimitation]; the final capability is the union, so a
+     * statically-supported item is not silently trusted when the selected move reads item state.
      */
     private fun collectHnsItemLimitation(
         input: CalcPokemonInput,
@@ -933,9 +975,14 @@ object CalcCapabilityPolicy {
                     input.ability?.let { com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(it) ?: it }
                 },
                 // Gap C3: no H&S item's damage effect is modelled today. Every item that reaches
-                // this point is either ITEM_NONE or a proven no-damage item, so the engine must
-                // receive no item at all. Forwarding the raw H&S source name could silently match
-                // an unrelated ADV item name. A modelled item would be mapped explicitly here.
+                // this point is either ITEM_NONE or a proven no-ordinary-damage item, so the engine
+                // must receive no item at all. Forwarding the raw H&S source name could silently
+                // match an unrelated ADV item name. A modelled item would be mapped explicitly here.
+                //
+                // Stripping the item is only safe because a move whose damage reads item state is
+                // already refused by HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED in
+                // collectHnsItemDependentMoveLimitation; this method is reached only for an
+                // authorized request. See that gate for the interaction audit.
                 item = com.dualdex.pokemon.hns.HnsItemRegistry.engineItemName(input.itemId)
             )
         }
@@ -975,6 +1022,17 @@ object CalcCapabilityPolicy {
         }
         if (!pack.hasMoveByName(request.move.name)) {
             limitations.add(CalcLimitation.MOVE_NOT_IN_PINNED_DATA)
+        }
+
+        // Gap C3 item capability is contextual, not a property of the item alone. The static
+        // item audit answers only whether an item's OWN hold effect touches the ordinary
+        // damage path; a move whose damage semantics read item identity, presence or absence
+        // is a separate interaction this calculator does not reproduce. The authorized request
+        // strips supported items before the engine, which destroys exactly that input, so the
+        // move must be refused here: before it reaches the engine and silently no-ops on the
+        // wrong item state.
+        if (capability.ruleset == CalcRuleset.HNS_2_0_5) {
+            collectHnsItemDependentMoveLimitation(pack, request, limitations)
         }
 
         // Field conditions the generation III pipeline cannot express. The engine accepts these

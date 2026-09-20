@@ -21,9 +21,10 @@ class HnsItemRegistryTest {
     // ------------------------------------------------------------------
 
     @Test
-    fun `item none and proven utility items are supported no-damage`() {
+    fun `item none and proven utility items are supported no-ordinary-damage`() {
         val supported = mapOf(
             0 to "ITEM_NONE",
+            461 to "ITEM_EXP_SHARE",
             466 to "ITEM_AMULET_COIN",
             463 to "ITEM_SOOTHE_BELL",
             467 to "ITEM_CLEANSE_TAG",
@@ -33,8 +34,8 @@ class HnsItemRegistryTest {
             val entry = HnsItemRegistry.classify(id)
             assertEquals("id $id symbol", symbol, entry.data?.canonicalSymbol)
             assertEquals(
-                "id $id ($symbol) must be proven no-damage",
-                HnsItemCategory.PROVEN_NO_DAMAGE_EFFECT,
+                "id $id ($symbol) must be proven no ordinary damage",
+                HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT,
                 entry.category
             )
             assertTrue(entry.category.isSupportedForDamage)

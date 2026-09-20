@@ -151,6 +151,26 @@ class CompanionViewModel(
     val challengeSettings: StateFlow<com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot?> =
         _challengeSettings.asStateFlow()
 
+    /**
+     * Live battler runtime state for the two authoritative active battlers (issue #9):
+     * the engine's CURRENT effective ability and types, read from `gBattleMons`, never
+     * reconstructed from declarations or settings. Published with the ability identity
+     * resolved against the active data pack's pinned catalogue (naming only); the pair is
+     * null whenever the read fails closed, and never retained across a teardown or a
+     * ROM/profile switch.
+     */
+    data class BattlerRuntimeObservation(
+        val state: com.dualdex.pokemon.hns.HnsBattlerRuntimeState,
+        /** Canonical H&S ability identity for the observed ID, when the catalogue knows it. */
+        val abilityIdentity: com.dualdex.pokemon.DeclaredAbility? = null
+    )
+
+    private val _playerBattlerState = MutableStateFlow<BattlerRuntimeObservation?>(null)
+    val playerBattlerState: StateFlow<BattlerRuntimeObservation?> = _playerBattlerState.asStateFlow()
+
+    private val _enemyBattlerState = MutableStateFlow<BattlerRuntimeObservation?>(null)
+    val enemyBattlerState: StateFlow<BattlerRuntimeObservation?> = _enemyBattlerState.asStateFlow()
+
     private var pollingJob: Job? = null
     private val battlePresenceStabilizer = com.dualdex.battle.BattlePresenceStabilizer()
 
@@ -393,6 +413,10 @@ class CompanionViewModel(
             _playerStatStages.value = com.dualdex.battle.StatStages()
             _enemyStatStages.value = com.dualdex.battle.StatStages()
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
+            // Live battler ability/types die with the battle: nothing is retained
+            // through teardown, and the reader cannot serve stale gBattleMons words.
+            if (_playerBattlerState.value != null) _playerBattlerState.value = null
+            if (_enemyBattlerState.value != null) _enemyBattlerState.value = null
         }
 
         val loc = coreCoordinator.readPlayerLocation(gameId)
@@ -420,6 +444,44 @@ class CompanionViewModel(
             }
         if (nextChallenge != _challengeSettings.value) {
             _challengeSettings.value = nextChallenge
+        }
+
+        // Live battler ability + effective types (issue #9): observation only. The read is
+        // gated on the authoritative lifecycle/battler machinery in the native reader, so it
+        // fails closed on every trust/lifecycle failure and never retains a previous battler's
+        // state. The ability ID is named against the active data pack's pinned catalogue;
+        // the catalogue is never the source of the observation and enables no calculator
+        // capability here.
+        publishBattlerRuntimeState(
+            gameId,
+            com.dualdex.pokemon.hns.HnsBattlerRole.PLAYER,
+            _playerBattlerState
+        )
+        publishBattlerRuntimeState(
+            gameId,
+            com.dualdex.pokemon.hns.HnsBattlerRole.OPPONENT,
+            _enemyBattlerState
+        )
+    }
+
+    /** Reads one role's live battler state and publishes it with its catalogue identity. */
+    private fun publishBattlerRuntimeState(
+        gameId: Int,
+        role: Int,
+        target: MutableStateFlow<BattlerRuntimeObservation?>
+    ) {
+        val state = coreCoordinator.readBattlerRuntimeState(gameId, role)
+        val next =
+            if (state.status.isObservation) {
+                BattlerRuntimeObservation(
+                    state = state,
+                    abilityIdentity = state.resolveAbilityIdentity(activeGameDataPack)
+                )
+            } else {
+                null
+            }
+        if (next != target.value) {
+            target.value = next
         }
     }
 
@@ -469,6 +531,8 @@ class CompanionViewModel(
         if (_battleUiSnapshot.value != com.dualdex.battle.BattleUiSnapshot()) {
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
         }
+        if (_playerBattlerState.value != null) _playerBattlerState.value = null
+        if (_enemyBattlerState.value != null) _enemyBattlerState.value = null
         _playerLocation.value = null
         _resolvedLocation.value = null
         _locationUnavailableReason.value = null

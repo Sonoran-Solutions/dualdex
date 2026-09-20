@@ -385,4 +385,22 @@ open class LibretroCoreCoordinator(
     } catch (_: Exception) {
         com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot()
     }
+
+    /**
+     * H&S 2.0.5 live battler ability + effective types through the production
+     * native reader. Every failure degrades to the model's UNAVAILABLE default —
+     * never to a declared ability, a party slot or a retained observation.
+     */
+    open fun readBattlerRuntimeState(
+        gameId: Int,
+        role: Int
+    ): com.dualdex.pokemon.hns.HnsBattlerRuntimeState = try {
+        com.dualdex.pokemon.hns.HnsBattlerRuntimeState.fromNativeArray(
+            executeExclusive(50L) { LibretroHost.nativeReadBattlerRuntimeState(gameId, role) }
+        )
+    } catch (_: UnsatisfiedLinkError) {
+        com.dualdex.pokemon.hns.HnsBattlerRuntimeState()
+    } catch (_: Exception) {
+        com.dualdex.pokemon.hns.HnsBattlerRuntimeState()
+    }
 }

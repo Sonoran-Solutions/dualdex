@@ -110,6 +110,7 @@ assert-party-count enemy 2
 assert-active-enemy-slot 0
 party-stats enemy
 matrix s44-initial-ledyba
+battler-state s44-initial-ledyba
 
 # --- Drive turns with Razor Leaf (found in the live move list, never an assumed menu slot) until
 #     the AI voluntarily switches. This is PROBABILISTIC: the source-supported default path uses a
@@ -122,3 +123,4 @@ assert-battle active
 assert-active-enemy-slot 1
 party-stats enemy
 matrix s44-spinarak
+battler-state s44-spinarak

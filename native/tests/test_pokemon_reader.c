@@ -1,6 +1,7 @@
 #include "pokemon_reader.h"
 #include "pokemon_text.h"
 #include "gba_memory_map.h"
+#include "../src/hns_battle_pokemon_layout_gen.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -4414,6 +4415,494 @@ static void test_hns_challenge_settings_no_stale_across_games(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_challenge_settings_no_stale_across_games" ANSI_RESET "\n");
 }
 
+// ===========================================================================
+// H&S 2.0.5 live battler ability + effective types (issue #9).
+//
+// The semantic pins below are hand-pinned independently from the production
+// layout table: offsets from the labelled /*0xNN*/ member comments in the
+// pinned include/pokemon.h (compiled ABI evidence agrees with every one of
+// them; see docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md), widths from the packed
+// APCS-GNU ABI, and the ID domains from the pinned constant enums
+// (include/constants/abilities.h, include/constants/pokemon.h). A production
+// table or reader that drifts from these pins must fail these tests at the
+// semantic level, not just a checksum.
+// ===========================================================================
+
+#define PIN_BATTLE_POKEMON_SIZEOF 136
+#define PIN_BATTLE_POKEMON_ABILITY_OFFSET 0x20
+#define PIN_BATTLE_POKEMON_ABILITY_SIZE 2
+#define PIN_BATTLE_POKEMON_TYPES_OFFSET 0x22
+#define PIN_BATTLE_POKEMON_TYPE_COUNT 3
+#define PIN_BATTLE_POKEMON_TYPE_ELEMENT_SIZE 1
+#define PIN_BATTLE_POKEMON_ABILITY_ID_MAX 310
+#define PIN_BATTLE_POKEMON_TYPE_ID_MAX 20
+
+// Pinned Gen III + H&S ability identities for observation tests (from the
+// pinned include/constants/abilities.h, independently of the data pack).
+#define PIN_ABILITY_OVERGROW 65
+#define PIN_ABILITY_BLAZE 66
+#define PIN_ABILITY_TORRENT 67
+
+// Pinned H&S type IDs (from the pinned include/constants/pokemon.h).
+#define PIN_TYPE_NONE 0
+#define PIN_TYPE_NORMAL 1
+#define PIN_TYPE_FLYING 3
+#define PIN_TYPE_POISON 4
+#define PIN_TYPE_MYSTERY 10
+#define PIN_TYPE_FIRE 11
+#define PIN_TYPE_GRASS 12
+#define PIN_TYPE_ELECTRIC 14
+
+/** A failed read must leave no field carrying a value: no stale battler, slot or ability. */
+static void expect_battler_unavailable(const BattlerRuntimeState* st, const char* msg) {
+    TEST_ASSERT(st->status == BATTLER_RUNTIME_STATE_UNAVAILABLE, msg);
+    TEST_ASSERT(st->battler_index == -1 && st->party_slot == -1 && !st->party_slot_known,
+                "an unavailable observation must not carry a battler or slot");
+    TEST_ASSERT(!st->ability_observed && !st->types_observed && st->type_count == 0,
+                "an unavailable observation must not carry an ability or types");
+}
+
+/**
+ * Write the engine's current effective ability + type words for one battler,
+ * at the independently pinned offsets (NOT at values read from the production
+ * table): this is what makes a layout mutation fail these tests semantically.
+ */
+static void hns_battle_set_battler_ability_types(HnsBattleFixture* fx, uint8_t battler,
+                                                 uint16_t ability, const uint8_t types[3]) {
+    uint8_t* mon = fx->gba->ewram + fx->cfg->battle_mons_offset +
+                   ((size_t)battler * fx->cfg->battle_mons_size);
+    write16_le_t(mon + PIN_BATTLE_POKEMON_ABILITY_OFFSET, ability);
+    for (unsigned t = 0; t < PIN_BATTLE_POKEMON_TYPE_COUNT; t++) {
+        mon[PIN_BATTLE_POKEMON_TYPES_OFFSET + t] = types[t];
+    }
+}
+
+static bool read_battler_state(const HnsBattleFixture* fx, BattlerRole role,
+                               BattlerRuntimeState* out) {
+    return pokemon_read_battler_runtime_state_gba(fake_gba_read, &fx->gba->table,
+                                                  fx->gba->ewram, sizeof(fx->gba->ewram),
+                                                  fx->cfg, role, out);
+}
+
+/**
+ * The generated BattlePokemon layout table and the H&S production config must
+ * match the independently pinned values exactly, and no other game may declare
+ * the live fields.
+ */
+static void test_hns_battle_pokemon_live_layout_pins(void) {
+    printf("Running test_hns_battle_pokemon_live_layout_pins...\n");
+
+    TEST_ASSERT(HNS_BATTLE_POKEMON_SIZEOF == PIN_BATTLE_POKEMON_SIZEOF,
+                "generated BattlePokemon stride must equal the pinned 136");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_ABILITY_OFFSET == PIN_BATTLE_POKEMON_ABILITY_OFFSET,
+                "generated ability offset must equal the pinned 0x20");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_ABILITY_SIZE == PIN_BATTLE_POKEMON_ABILITY_SIZE,
+                "generated ability width must equal the pinned 2");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_TYPES_OFFSET == PIN_BATTLE_POKEMON_TYPES_OFFSET,
+                "generated types offset must equal the pinned 0x22");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_TYPE_COUNT == PIN_BATTLE_POKEMON_TYPE_COUNT,
+                "generated type count must equal the pinned 3");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE == PIN_BATTLE_POKEMON_TYPE_ELEMENT_SIZE,
+                "generated type element width must equal the pinned 1");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_ABILITY_ID_MAX == PIN_BATTLE_POKEMON_ABILITY_ID_MAX,
+                "generated ability domain must equal the pinned ABILITY_ID_MAX");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_TYPE_ID_MAX == PIN_BATTLE_POKEMON_TYPE_ID_MAX,
+                "generated type domain must equal the pinned TYPE_ID_MAX");
+
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    TEST_ASSERT(cfg->battle_mons_size == PIN_BATTLE_POKEMON_SIZEOF &&
+                cfg->battle_mons_ability_offset == PIN_BATTLE_POKEMON_ABILITY_OFFSET &&
+                cfg->battle_mons_ability_size == PIN_BATTLE_POKEMON_ABILITY_SIZE &&
+                cfg->battle_mons_types_offset == PIN_BATTLE_POKEMON_TYPES_OFFSET &&
+                cfg->battle_mons_type_count == PIN_BATTLE_POKEMON_TYPE_COUNT &&
+                cfg->battle_mons_type_width == PIN_BATTLE_POKEMON_TYPE_ELEMENT_SIZE,
+                "the H&S config must carry the pinned BattlePokemon layout");
+
+    // Vanilla games must not inherit the H&S live-field interpretation.
+    static const GbaGameId VANILLA[] = {
+        GAME_FIRERED, GAME_LEAFGREEN, GAME_EMERALD, GAME_RUBY, GAME_SAPPHIRE
+    };
+    for (size_t i = 0; i < sizeof(VANILLA) / sizeof(VANILLA[0]); i++) {
+        const GameMemoryConfig* v = pokemon_get_game_config(VANILLA[i]);
+        TEST_ASSERT(v != NULL && v->battle_mons_ability_offset == 0 &&
+                    v->battle_mons_types_offset == 0 && v->battle_mons_type_count == 0,
+                    "a vanilla layout must not declare the H&S live fields");
+    }
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battle_pokemon_live_layout_pins" ANSI_RESET "\n");
+}
+
+/** A standard singles battle whose two live battlers carry distinct abilities and types. */
+static void hns_battler_fixture_two_battlers(HnsBattleFixture* fx, FakeGba* gba,
+                                             const GameMemoryConfig* cfg) {
+    pokemon_reader_reset();
+    hns_battle_fixture_init(fx, gba, cfg);
+    hns_battle_fill_player_party(fx, 2);
+    hns_battle_fill_enemy_party(fx, 2);
+    hns_battle_set_in_battle(fx, true);
+    hns_battle_set_counters(fx, 2, 0u, 0);
+    gba->ewram[cfg->absent_battler_flags_offset] = 0;
+    hns_battle_set_battler(fx, 0, 0, 0);
+    hns_battle_set_battler(fx, 1, 1, 0);
+    hns_battle_set_mon(fx, 0, 155, 50);
+    hns_battle_set_mon(fx, 1, 16, 40);
+    { const uint8_t types[3] = {PIN_TYPE_FIRE, PIN_TYPE_NONE, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(fx, 0, PIN_ABILITY_BLAZE, types); }
+    { const uint8_t types[3] = {PIN_TYPE_NORMAL, PIN_TYPE_FLYING, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(fx, 1, 51, types); }
+}
+
+/**
+ * The active player battler's effective ability and types are read straight
+ * from gBattleMons[0], with authoritative provenance (battler 0, party slot
+ * from gBattlerPartyIndexes[0]).
+ */
+static void test_hns_battler_state_observes_active_player(void) {
+    printf("Running test_hns_battler_state_observes_active_player...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    BattlerRuntimeState st;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "an active player battler must be observable");
+    TEST_ASSERT(st.status == BATTLER_RUNTIME_STATE_OBSERVED, "status must be OBSERVED");
+    TEST_ASSERT(st.battler_index == 0, "the player observation must be battler 0");
+    TEST_ASSERT(st.party_slot_known && st.party_slot == 0,
+                "the player slot must come from gBattlerPartyIndexes[0]");
+    TEST_ASSERT(st.ability_observed && !st.ability_invalid && st.ability_id == PIN_ABILITY_BLAZE,
+                "the effective ability must be the engine's current word, not a declaration");
+    TEST_ASSERT(st.types_observed && st.type_count == 3 &&
+                st.types[0] == PIN_TYPE_FIRE && st.types[1] == PIN_TYPE_NONE &&
+                st.types[2] == PIN_TYPE_NONE && !st.types_invalid,
+                "a monotype battler must preserve the TYPE_NONE sentinels verbatim");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_observes_active_player" ANSI_RESET "\n");
+}
+
+/** The active single opponent battler is observed through the authoritative enemy resolution. */
+static void test_hns_battler_state_observes_active_opponent(void) {
+    printf("Running test_hns_battler_state_observes_active_opponent...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    BattlerRuntimeState st;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st),
+                "an active single opponent must be observable");
+    TEST_ASSERT(st.status == BATTLER_RUNTIME_STATE_OBSERVED, "status must be OBSERVED");
+    TEST_ASSERT(st.battler_index == 1, "the opponent observation must be the real enemy battler");
+    TEST_ASSERT(st.party_slot_known && st.party_slot == 0,
+                "the enemy slot must come from the authoritative battler path");
+    TEST_ASSERT(st.ability_observed && st.ability_id == 51,
+                "the opponent's effective ability must be its own, never the player's");
+    TEST_ASSERT(st.types_observed && st.types[0] == PIN_TYPE_NORMAL &&
+                st.types[1] == PIN_TYPE_FLYING && st.types[2] == PIN_TYPE_NONE,
+                "the opponent's current dual typing must be observed");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_observes_active_opponent" ANSI_RESET "\n");
+}
+
+/**
+ * A player switch commits through gBattlerPartyIndexes[0] and a rewritten
+ * gBattleMons[0]; the observation must follow the new battler and the old
+ * ability must be gone.
+ */
+static void test_hns_battler_state_player_switch_follows_authority(void) {
+    printf("Running test_hns_battler_state_player_switch_follows_authority...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    BattlerRuntimeState before;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &before),
+                "precondition: initial player observation");
+    TEST_ASSERT(before.ability_id == PIN_ABILITY_BLAZE && before.party_slot == 0,
+                "precondition: initial ability/slot");
+
+    // The engine commits the switch: new party slot + a rewritten gBattleMons[0].
+    hns_battle_set_battler(&fx, 0, 0, 1);
+    hns_battle_set_mon(&fx, 0, 158, 38);
+    { const uint8_t types[3] = {PIN_TYPE_GRASS, PIN_TYPE_POISON, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(&fx, 0, PIN_ABILITY_OVERGROW, types); }
+
+    BattlerRuntimeState after;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &after),
+                "post-switch player must be observable");
+    TEST_ASSERT(after.party_slot == 1, "the slot must follow the authoritative party index");
+    TEST_ASSERT(after.ability_id == PIN_ABILITY_OVERGROW,
+                "the stale Blaze ability must disappear; the new battler's ability is authoritative");
+    TEST_ASSERT(after.types[0] == PIN_TYPE_GRASS && after.types[1] == PIN_TYPE_POISON,
+                "the new battler's current types must be observed");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_player_switch_follows_authority" ANSI_RESET "\n");
+}
+
+/** An opponent voluntary switch commits through the enemy battler's party index; observation follows. */
+static void test_hns_battler_state_opponent_switch_follows_authority(void) {
+    printf("Running test_hns_battler_state_opponent_switch_follows_authority...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    BattlerRuntimeState before;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &before),
+                "precondition: initial opponent observation");
+    TEST_ASSERT(before.ability_id == 51 && before.party_slot == 0,
+                "precondition: initial ability/slot");
+
+    // Voluntary switch: same enemy battler, new party slot, rewritten gBattleMons[1].
+    hns_battle_set_battler(&fx, 1, 1, 1);
+    hns_battle_set_mon(&fx, 1, 21, 35);
+    { const uint8_t types[3] = {PIN_TYPE_NORMAL, PIN_TYPE_FLYING, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(&fx, 1, 16 /* PINNED: *not* the old ability */, types); }
+
+    BattlerRuntimeState after;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &after),
+                "post-switch opponent must be observable");
+    TEST_ASSERT(after.battler_index == 1 && after.party_slot == 1,
+                "the observation must follow the authoritative battler/party state");
+    TEST_ASSERT(after.ability_id == 16,
+                "the previous opponent's ability must not survive the switch");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_opponent_switch_follows_authority" ANSI_RESET "\n");
+}
+
+/** A faint + forced replacement must not leave the outgoing battler's ability anywhere. */
+static void test_hns_battler_state_stale_ability_gone_after_replacement(void) {
+    printf("Running test_hns_battler_state_stale_ability_gone_after_replacement...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    // Player active mon faints (hp -> 0, engine keeps the battler until the switch window).
+    hns_battle_set_mon(&fx, 0, 155, 0);
+    // The engine commits the replacement: same battler index, new party slot, new mon.
+    hns_battle_set_battler(&fx, 0, 0, 1);
+    hns_battle_set_mon(&fx, 0, 158, 38);
+    { const uint8_t types[3] = {PIN_TYPE_GRASS, PIN_TYPE_NONE, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(&fx, 0, PIN_ABILITY_OVERGROW, types); }
+
+    BattlerRuntimeState st;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "the committed replacement battler must be observable");
+    TEST_ASSERT(st.party_slot == 1, "the replacement's own party slot must be reported");
+    TEST_ASSERT(st.ability_id == PIN_ABILITY_OVERGROW,
+                "the fainted mon's ability must be gone, never retained");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_stale_ability_gone_after_replacement" ANSI_RESET "\n");
+}
+
+/**
+ * An ability ID outside the pinned catalogue domain stays explicit: reported
+ * raw, flagged, never substituted with slot 0 / the party's abilityNum / the
+ * first declared ability.
+ */
+static void test_hns_battler_state_unresolved_ability_stays_raw(void) {
+    printf("Running test_hns_battler_state_unresolved_ability_stays_raw...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    // An ID the pinned source never assigns (ABILITIES_COUNT == 311, max ID 310).
+    { const uint8_t types[3] = {PIN_TYPE_FIRE, PIN_TYPE_NONE, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(&fx, 0, PIN_BATTLE_POKEMON_ABILITY_ID_MAX + 7, types); }
+
+    BattlerRuntimeState st;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "an out-of-domain ability is still an observation");
+    TEST_ASSERT(st.status == BATTLER_RUNTIME_STATE_OBSERVED_INVALID,
+                "the status must degrade honestly, not silently pass");
+    TEST_ASSERT(st.ability_observed && st.ability_invalid &&
+                st.ability_id == PIN_BATTLE_POKEMON_ABILITY_ID_MAX + 7,
+                "the raw observation must be preserved verbatim");
+    TEST_ASSERT(!st.types_invalid && st.types[0] == PIN_TYPE_FIRE,
+                "the types must still be observed normally");
+
+    // ABILITY_NONE (0) is part of the pinned enum: a legitimate observed state,
+    // preserved explicitly and never substituted.
+    hns_battle_set_battler_ability_types(&fx, 0, 0, (const uint8_t[3]){PIN_TYPE_FIRE, 0, 0});
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "ABILITY_NONE is in the pinned domain");
+    TEST_ASSERT(st.status == BATTLER_RUNTIME_STATE_OBSERVED &&
+                st.ability_id == 0 && !st.ability_invalid,
+                "ABILITY_NONE must be reported as observed zero, never substituted");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_unresolved_ability_stays_raw" ANSI_RESET "\n");
+}
+
+/** Current type representation: dual, monotype sentinels, duplicates, invalid encoding. */
+static void test_hns_battler_state_type_representations(void) {
+    printf("Running test_hns_battler_state_type_representations...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    BattlerRuntimeState st;
+
+    // Duplicate slots are meaningful and preserved (e.g. the Tera shape).
+    { const uint8_t types[3] = {PIN_TYPE_ELECTRIC, PIN_TYPE_ELECTRIC, PIN_TYPE_ELECTRIC};
+      hns_battle_set_battler_ability_types(&fx, 0, PIN_ABILITY_BLAZE, types); }
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "duplicates must read");
+    TEST_ASSERT(st.types[0] == PIN_TYPE_ELECTRIC && st.types[1] == PIN_TYPE_ELECTRIC &&
+                st.types[2] == PIN_TYPE_ELECTRIC && st.status == BATTLER_RUNTIME_STATE_OBSERVED,
+                "duplicate slots must be exposed verbatim, never de-duplicated");
+
+    // TYPE_MYSTERY is a battle-only value and must survive verbatim.
+    { const uint8_t types[3] = {PIN_TYPE_MYSTERY, PIN_TYPE_MYSTERY, PIN_TYPE_MYSTERY};
+      hns_battle_set_battler_ability_types(&fx, 0, PIN_ABILITY_BLAZE, types); }
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "MYSTERY must read");
+    TEST_ASSERT(st.types[0] == PIN_TYPE_MYSTERY && !st.types_invalid,
+                "the battle-only typeless value must be preserved, never mapped to Normal");
+
+    // An encoding the pinned source never assigns degrades honestly.
+    { const uint8_t types[3] = {PIN_TYPE_FIRE, PIN_BATTLE_POKEMON_TYPE_ID_MAX + 1, PIN_TYPE_NONE};
+      hns_battle_set_battler_ability_types(&fx, 0, PIN_ABILITY_BLAZE, types); }
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "an invalid type encoding is still an observation");
+    TEST_ASSERT(st.status == BATTLER_RUNTIME_STATE_OBSERVED_INVALID && st.types_invalid,
+                "the invalid encoding must be flagged");
+    TEST_ASSERT(st.types[1] == PIN_BATTLE_POKEMON_TYPE_ID_MAX + 1,
+                "the raw value must be preserved, never coerced to a valid type");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_type_representations" ANSI_RESET "\n");
+}
+
+/** Trust and lifecycle failure matrix: no path may default to battler 0/slot 0 or retain state. */
+static void test_hns_battler_state_trust_and_lifecycle_failures(void) {
+    printf("Running test_hns_battler_state_trust_and_lifecycle_failures...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    const GameMemoryConfig* fr = pokemon_get_game_config(GAME_FIRERED);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    BattlerRuntimeState st;
+
+    // Wrong game (recognized but not the exact trusted layout for this surface).
+    TEST_ASSERT(!pokemon_read_battler_runtime_state_gba(
+                    fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), fr,
+                    BATTLER_ROLE_PLAYER, &st),
+                "a vanilla layout must never reinterpret its BattlePokemon through H&S");
+    expect_battler_unavailable(&st, "wrong game must produce a clean UNAVAILABLE state");
+
+    // Inactive battle: the engine's own gate is false.
+    hns_battle_set_in_battle(&fx, false);
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "an inactive battle has no live battler state");
+    expect_battler_unavailable(&st, "inactive battle must produce UNAVAILABLE");
+    hns_battle_set_in_battle(&fx, true);
+
+    // Initializing battle: the controllers are not authoritative yet.
+    hns_battle_set_counters(&fx, 0, 0u, 0);
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "an initializing battle must not publish an observation");
+    expect_battler_unavailable(&st, "initializing battle must produce UNAVAILABLE");
+
+    // Ending battle: the outcome is already recorded.
+    hns_battle_set_counters(&fx, 2, 0u, 1);
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "an ending battle must not publish an observation");
+    expect_battler_unavailable(&st, "ending battle must produce UNAVAILABLE");
+    hns_battle_set_counters(&fx, 2, 0u, 0);
+
+    // Unknown lifecycle: the gate is unreadable (no IWRAM).
+    static FakeGba no_iwram;
+    fake_gba_init(&no_iwram, false, true);
+    memcpy(no_iwram.ewram, gba.ewram, sizeof(gba.ewram));
+    TEST_ASSERT(!pokemon_read_battler_runtime_state_gba(
+                    fake_gba_read, &no_iwram.table, no_iwram.ewram, sizeof(no_iwram.ewram),
+                    cfg, BATTLER_ROLE_PLAYER, &st),
+                "an unreadable lifecycle gate must degrade to UNKNOWN");
+    expect_battler_unavailable(&st, "unknown lifecycle must produce UNAVAILABLE");
+
+    // Unreadable gBattleMons: EWRAM mapped only up to the gBattleMons base.
+    static FakeGba truncated;
+    fake_gba_init(&truncated, true, false);
+    gba_memory_map_clear(&truncated.table);
+    gba_memory_map_add(&truncated.table, truncated.iwram, 0x03000000u, 0x8000u, 0xFF000000u, 0u, 0u, 0u);
+    gba_memory_map_add(&truncated.table, truncated.ewram, 0x02000000u, cfg->battle_mons_offset, 0xFF000000u, 0u, 0u, 0u);
+    memcpy(truncated.ewram, gba.ewram, cfg->battle_mons_offset);
+    TEST_ASSERT(!pokemon_read_battler_runtime_state_gba(
+                    fake_gba_read, &truncated.table, truncated.ewram, sizeof(truncated.ewram),
+                    cfg, BATTLER_ROLE_PLAYER, &st),
+                "an unreadable gBattleMons must fail closed");
+    expect_battler_unavailable(&st, "unreadable BattlePokemon must produce UNAVAILABLE");
+
+    // Absent battler: the engine has flagged the player's battler as absent.
+    gba.ewram[cfg->absent_battler_flags_offset] = 0x01;
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "an absent battler is not a live battler");
+    expect_battler_unavailable(&st, "absent battler must produce UNAVAILABLE");
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+
+    // Doubles: two opponent battlers are present, so a single-opponent surface
+    // must report AMBIGUOUS and observe nothing.
+    hns_battle_set_counters(&fx, 4, 1u /* BATTLE_TYPE_DOUBLE */, 0);
+    hns_battle_set_battler(&fx, 2, 2, 1);
+    hns_battle_set_battler(&fx, 3, 3, 1);
+    hns_battle_set_mon(&fx, 2, 19, 40);
+    hns_battle_set_mon(&fx, 3, 25, 40);
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st),
+                "doubles must not name a first enemy");
+    TEST_ASSERT(st.status == BATTLER_RUNTIME_STATE_AMBIGUOUS,
+                "multi-opponent observation must be explicitly AMBIGUOUS");
+    TEST_ASSERT(!st.ability_observed && st.battler_index == -1,
+                "an ambiguous observation must carry no ability or battler");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_trust_and_lifecycle_failures" ANSI_RESET "\n");
+}
+
+/** Battle teardown clears the observation; nothing survives into the overworld or a profile switch. */
+static void test_hns_battler_state_teardown_and_profile_switch(void) {
+    printf("Running test_hns_battler_state_teardown_and_profile_switch...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    const GameMemoryConfig* fr = pokemon_get_game_config(GAME_FIRERED);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    BattlerRuntimeState st;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "precondition: active observation");
+    TEST_ASSERT(st.ability_id == PIN_ABILITY_BLAZE,
+                "precondition: observed ability");
+
+    // The battle engine tears down: gMain.inBattle clears while the stale
+    // gBattleMons words remain in EWRAM. Nothing may be published from them.
+    hns_battle_set_in_battle(&fx, false);
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
+                "teardown must stop the observation");
+    expect_battler_unavailable(&st, "after teardown no stale ability may survive");
+
+    // A ROM/profile switch: the same memory through another game's config.
+    hns_battle_set_in_battle(&fx, true);
+    TEST_ASSERT(!pokemon_read_battler_runtime_state_gba(
+                    fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), fr,
+                    BATTLER_ROLE_PLAYER, &st),
+                "after a profile switch the previous observation must not be served");
+    expect_battler_unavailable(&st, "profile switch must produce UNAVAILABLE");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_teardown_and_profile_switch" ANSI_RESET "\n");
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
@@ -4501,6 +4990,18 @@ int main(void) {
     test_hns_challenge_settings_out_of_domain();
     test_hns_challenge_settings_fail_closed();
     test_hns_challenge_settings_no_stale_across_games();
+
+    // H&S 2.0.5 live battler ability + effective types (issue #9).
+    test_hns_battle_pokemon_live_layout_pins();
+    test_hns_battler_state_observes_active_player();
+    test_hns_battler_state_observes_active_opponent();
+    test_hns_battler_state_player_switch_follows_authority();
+    test_hns_battler_state_opponent_switch_follows_authority();
+    test_hns_battler_state_stale_ability_gone_after_replacement();
+    test_hns_battler_state_unresolved_ability_stays_raw();
+    test_hns_battler_state_type_representations();
+    test_hns_battler_state_trust_and_lifecycle_failures();
+    test_hns_battler_state_teardown_and_profile_switch();
 
     printf("===================================================\n");
     printf("Results: %d Passed, %d Failed\n", g_tests_passed, g_tests_failed);

@@ -156,6 +156,17 @@ typedef struct {
     uint32_t battle_mons_size;         // sizeof(struct BattlePokemon)
     uint32_t battle_mons_hp_offset;    // offset of hp within struct BattlePokemon
     uint32_t battle_mons_stat_stages_offset; // offset of statStages within struct BattlePokemon
+
+    // Live BattlePokemon observation (Heart & Soul 2.0.5 only; every other layout leaves all
+    // five zero so an unsupported game fails closed instead of reinterpreting a vanilla
+    // BattlePokemon through the H&S structure). The values must equal the generated ABI table
+    // in native/src/hns_battle_pokemon_layout_gen.h; the reader cross-checks them at runtime.
+    uint32_t battle_mons_ability_offset;     // offset of `ability` within struct BattlePokemon
+    uint32_t battle_mons_ability_size;       // compiled byte width of `ability`
+    uint32_t battle_mons_types_offset;       // offset of `types` within struct BattlePokemon
+    uint32_t battle_mons_type_count;         // element count of `types`
+    uint32_t battle_mons_type_width;         // compiled byte width of one `types` element
+
     uint32_t battler_party_indexes_offset;   // EWRAM-relative gBattlerPartyIndexes, 0 = unavailable
     uint32_t battlers_count_offset;          // EWRAM-relative gBattlersCount, 0 = unavailable
     uint32_t battle_type_flags_offset;       // EWRAM-relative gBattleTypeFlags, 0 = unavailable
@@ -607,6 +618,97 @@ bool pokemon_read_battle_stat_stages(
     const GameMemoryConfig* config,
     uint8_t battler_index,
     int8_t out_stages[7]
+);
+
+/**
+ * Which active battler a live observation is requested for.
+ *
+ * The resolution of the concrete battler index is never the caller's job: the reader reuses the
+ * same authoritative machinery the HP/stat-stage surfaces use.
+ */
+typedef enum {
+    BATTLER_ROLE_PLAYER   = 0,  // the active player-side battler
+    BATTLER_ROLE_OPPONENT = 1   // the single active opponent battler
+} BattlerRole;
+
+/**
+ * Status of a live battler runtime observation.
+ *
+ *   UNAVAILABLE       no observation exists: the layout does not declare the live fields, the
+ *                     lifecycle is not authoritatively ACTIVE, the battler could not be resolved,
+ *                     or the required BattlePokemon bytes were unreadable. No field carries a
+ *                     value and nothing is retained from a previous observation.
+ *   AMBIGUOUS         the battle is active but more than one opponent battler is present, so a
+ *                     single-opponent surface must not name one. Nothing is observed.
+ *   OBSERVED          every field was decoded from live `gBattleMons` state.
+ *   OBSERVED_INVALID  the bytes were read, but at least one observed value is outside the pinned
+ *                     source's domain. Values are reported verbatim and flagged, never coerced.
+ */
+typedef enum {
+    BATTLER_RUNTIME_STATE_UNAVAILABLE = 0,
+    BATTLER_RUNTIME_STATE_AMBIGUOUS = 1,
+    BATTLER_RUNTIME_STATE_OBSERVED = 2,
+    BATTLER_RUNTIME_STATE_OBSERVED_INVALID = 3
+} BattlerRuntimeStateStatus;
+
+/**
+ * The effective ability and current type state of one authoritative active battler, read
+ * directly from the running battle engine's `gBattleMons[battler]` (Heart & Soul 2.0.5).
+ *
+ * This is LIVE COMBAT STATE, not a declaration:
+ *   - `ability_id` is the engine's CURRENT identity for the battler. It is not the party's
+ *     stored ability slot, not the species' declared slot ability, and not derived from any
+ *     challenge setting. Naming an observed ID against the pinned ability catalogue happens
+ *     above this layer; the catalogue is never used to produce the ID.
+ *   - `types` are the engine's current type words, exposed verbatim (TYPE_NONE 0 stays 0,
+ *     duplicates are preserved). They are not the species' static typings.
+ */
+typedef struct {
+    BattlerRuntimeStateStatus status;
+    int8_t   battler_index;        // the gBattleMons entry that was read, -1 when not observed
+    int8_t   party_slot;           // authoritative gBattlerPartyIndexes slot, -1 when unknown
+    bool     party_slot_known;     // true only when the slot came from authoritative state
+    bool     ability_observed;     // the ability word was decoded from live memory
+    bool     ability_invalid;      // outside the pinned enum Ability domain (still reported raw)
+    uint16_t ability_id;           // the engine's current effective ability identity
+    bool     types_observed;       // the type words were decoded from live memory
+    uint8_t  type_count;           // number of observed type slots (0 when not observed)
+    uint8_t  types[3];             // current type values, verbatim
+    bool     types_invalid;        // at least one value outside the pinned enum Type domain
+} BattlerRuntimeState;
+
+/**
+ * Read the effective ability and current types of the active battler for @p role, straight
+ * from the running H&S 2.0.5 battle engine.
+ *
+ * Fail-closed contract. An OBSERVED/AMBIGUOUS verdict requires, in order:
+ *   1. @p config declares the live BattlePokemon layout (only the exact H&S 2.0.5 layout does;
+ *      vanilla and every other game fail closed with UNAVAILABLE);
+ *   2. the declared layout equals the generated ABI table exactly (drift cannot read);
+ *   3. the authoritative lifecycle (gMain.inBattle + the compiled battle globals) is ACTIVE —
+ *      INACTIVE, INITIALIZING, ENDING and UNKNOWN all return false with no state retained, so
+ *      battle teardown and pre-battle frames can never publish an observation;
+ *   4. the battler is resolved through the same authoritative path the HP/stat-stage surfaces
+ *      use (player: battler 0 + gBattlerPartyIndexes[0]; opponent:
+ *      pokemon_resolve_active_enemy's battler, which is AMBIGUOUS in doubles and never "the
+ *      first enemy");
+ *   5. the battler index is inside the compiled battler count and the battler is not absent;
+ *   6. the complete ability and types bytes are readable through the bounds-checked reader.
+ *
+ * Observed values outside the pinned enum domains (ability > HNS_BATTLE_POKEMON_ABILITY_ID_MAX,
+ * a type byte > HNS_BATTLE_POKEMON_TYPE_ID_MAX) are reported verbatim with
+ * status OBSERVED_INVALID — never substituted, defaulted or renamed.
+ *
+ * @return true only when the snapshot status is OBSERVED or OBSERVED_INVALID.
+ */
+bool pokemon_read_battler_runtime_state_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    BattlerRole role,
+    BattlerRuntimeState* out_state
 );
 
 /**

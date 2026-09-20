@@ -343,6 +343,16 @@ source_check() {
   python3 tools/hns-layout/generate_hns_challenge_layout.py \
     --upstream-dir "$upstream" --verify
 
+  # 1c. The live BattlePokemon layout table (ability offset/width, types
+  #     offset/count/width, enum domains) must regenerate byte-for-byte from the
+  #     pinned source, compiled with the same pinned ARM toolchain. This is the
+  #     source-check for the runtime live-battler reader; it compiles the pinned
+  #     global.h, so it must run AFTER the build-time headers above are
+  #     materialized.
+  echo "== battle-pokemon layout verification (pinned upstream) =="
+  python3 tools/hns-layout/generate_hns_battle_pokemon_layout.py \
+    --upstream-dir "$upstream" --verify
+
   # Regression for the bootstrap's error propagation itself (this is the
   # scenario the regeneration block must guard against: a dev checkout with
   # pre-existing generated headers lets later commands succeed, so an early

@@ -1,6 +1,7 @@
 #include "pokemon_reader.h"
 #include "pokemon_text.h"
 #include "gba_memory_map.h"
+#include "hns_battle_pokemon_layout_gen.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -164,6 +165,16 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_mons_size = 136,
     .battle_mons_hp_offset = 0x2A,
     .battle_mons_stat_stages_offset = 0x18,
+    // Live BattlePokemon observation. The values are the generated ABI table macros, so the
+    // production layout and the source-check evidence cannot drift apart without failing to
+    // compile (the reader additionally cross-checks them at runtime, see
+    // battle_pokemon_layout_matches_pinned_abi). Every other game's config leaves them zero,
+    // so no vanilla BattlePokemon is ever reinterpreted through this structure.
+    .battle_mons_ability_offset = HNS_BATTLE_POKEMON_ABILITY_OFFSET,
+    .battle_mons_ability_size = HNS_BATTLE_POKEMON_ABILITY_SIZE,
+    .battle_mons_types_offset = HNS_BATTLE_POKEMON_TYPES_OFFSET,
+    .battle_mons_type_count = HNS_BATTLE_POKEMON_TYPE_COUNT,
+    .battle_mons_type_width = HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE,
     .battler_party_indexes_offset = 0x144,
     .battlers_count_offset = 0xB0,
     .battle_type_flags_offset = 0xAC,
@@ -2232,6 +2243,159 @@ bool pokemon_read_challenge_settings_gba(
         zero_challenge_settings_snapshot(out_snapshot);
         return false;
     }
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Live battler runtime state (issue #9): authoritative gBattleMons observation.
+// ---------------------------------------------------------------------------
+
+/**
+ * True when the layout declares the live ability/types fields.
+ *
+ * Every non-H&S layout leaves all five fields zero, so this is the gate that makes an
+ * unsupported game fail closed instead of reinterpreting its (different-sized) BattlePokemon
+ * through the H&S 2.0.5 structure.
+ */
+static bool battle_pokemon_layout_declared(const GameMemoryConfig* config) {
+    return config->battle_mons_ability_offset != 0 &&
+           config->battle_mons_ability_size != 0 &&
+           config->battle_mons_types_offset != 0 &&
+           config->battle_mons_type_count != 0 &&
+           config->battle_mons_type_width != 0;
+}
+
+/**
+ * Drift guard: a layout that declares the live fields must equal the generated ABI table
+ * exactly. Only a layout that names itself after this ABI is allowed to pass, so a stale or
+ * hand-edited config can never authorize a read at guessed offsets.
+ */
+static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* config) {
+    return config->battle_mons_size == HNS_BATTLE_POKEMON_SIZEOF &&
+           config->battle_mons_ability_offset == HNS_BATTLE_POKEMON_ABILITY_OFFSET &&
+           config->battle_mons_ability_size == HNS_BATTLE_POKEMON_ABILITY_SIZE &&
+           config->battle_mons_types_offset == HNS_BATTLE_POKEMON_TYPES_OFFSET &&
+           config->battle_mons_type_count == HNS_BATTLE_POKEMON_TYPE_COUNT &&
+           config->battle_mons_type_width == HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE;
+}
+
+bool pokemon_read_battler_runtime_state_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    BattlerRole role,
+    BattlerRuntimeState* out_state
+) {
+    if (!out_state) return false;
+    // Every failure below leaves this zeroed UNAVAILABLE snapshot in place: no field is ever
+    // carried over from a previous observation, a previous battler or a previous battle.
+    memset(out_state, 0, sizeof(*out_state));
+    out_state->status = BATTLER_RUNTIME_STATE_UNAVAILABLE;
+    out_state->battler_index = -1;
+    out_state->party_slot = -1;
+
+    if (!read || !config || !config_is_usable(config) || !ewram || ewram_size == 0) {
+        return false;
+    }
+    if (!battle_pokemon_layout_declared(config) ||
+        !battle_pokemon_layout_matches_pinned_abi(config)) {
+        return false;
+    }
+
+    // The lifecycle decision is the engine's own authoritative state, exactly as for every
+    // other battle surface. Nothing is published from INACTIVE, INITIALIZING, ENDING or
+    // UNKNOWN frames, so battle teardown and pre-battle garbage can never present itself as
+    // live combat state.
+    BattleStateRaw battle;
+    if (pokemon_read_battle_lifecycle(read, user, ewram, ewram_size, config, &battle) !=
+        BATTLE_LIFECYCLE_ACTIVE) {
+        return false;
+    }
+
+    // Resolve which gBattleMons entry this role observes. The opponent path is the same
+    // authoritative single-opponent resolution the HP/stat-stage surfaces use: in a battle
+    // with two opponent battlers nothing is chosen and the observation is explicitly AMBIGUOUS.
+    int8_t battler = -1;
+    int16_t party_slot = -1;
+    if (role == BATTLER_ROLE_PLAYER) {
+        // The player surface is the same battler the stat-stage path reads for the player:
+        // battler 0, whose party slot comes from the authoritative gBattlerPartyIndexes[0].
+        battler = 0;
+        party_slot = battle.party_index[0];
+    } else {
+        ActiveEnemyInfo info;
+        PartySnapshot scratch;
+        ActiveEnemyState enemy = pokemon_resolve_active_enemy(
+            read, user, ewram, ewram_size, config, &scratch, &info);
+        if (enemy == ACTIVE_ENEMY_AMBIGUOUS) {
+            out_state->status = BATTLER_RUNTIME_STATE_AMBIGUOUS;
+            return false; // no observation is published for a multi-opponent battle
+        }
+        if (enemy != ACTIVE_ENEMY_SLOT) return false;
+        battler = info.battler_index;
+        party_slot = info.party_slot;
+    }
+
+    if (battler < 0 || (uint8_t)battler >= battle.battlers_count ||
+        (uint8_t)battler >= DUALDEX_MAX_BATTLERS) {
+        return false;
+    }
+    if (party_slot < 0 || party_slot > 5) {
+        return false; // provenance requires an authoritative party slot; never default to slot 0
+    }
+    if (battle.absent_flags_readable &&
+        (battle.absent_battler_flags & (1u << (uint8_t)battler))) {
+        return false; // an absent battler is not a live battler
+    }
+
+    const uint32_t mon_base = DUALDEX_GBA_EWRAM_BASE + config->battle_mons_offset +
+                              (uint32_t)(uint8_t)battler * config->battle_mons_size;
+
+    // The complete required field bytes must be readable through the bounds-checked reader;
+    // a truncated or unmapped window fails closed rather than yielding a partial observation.
+    uint8_t ability_bytes[HNS_BATTLE_POKEMON_ABILITY_SIZE];
+    if (HNS_BATTLE_POKEMON_ABILITY_SIZE > sizeof(ability_bytes)) return false;
+    if (!read(user, mon_base + HNS_BATTLE_POKEMON_ABILITY_OFFSET,
+              ability_bytes, sizeof(ability_bytes))) {
+        return false;
+    }
+
+    uint16_t ability = 0;
+    for (unsigned i = 0; i < HNS_BATTLE_POKEMON_ABILITY_SIZE; i++) {
+        ability |= (uint16_t)(ability_bytes[i] << (8u * i)); // little-endian, APCS-GNU
+    }
+
+    uint8_t type_bytes[HNS_BATTLE_POKEMON_TYPE_COUNT * HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE];
+    if (HNS_BATTLE_POKEMON_TYPE_COUNT * HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE > sizeof(type_bytes) ||
+        HNS_BATTLE_POKEMON_TYPE_COUNT > sizeof(out_state->types)) {
+        return false;
+    }
+    if (!read(user, mon_base + HNS_BATTLE_POKEMON_TYPES_OFFSET,
+              type_bytes, HNS_BATTLE_POKEMON_TYPE_COUNT * HNS_BATTLE_POKEMON_TYPE_ELEMENT_SIZE)) {
+        return false;
+    }
+
+    out_state->battler_index = battler;
+    out_state->party_slot = (int8_t)party_slot;
+    out_state->party_slot_known = true;
+    out_state->ability_observed = true;
+    out_state->ability_id = ability;
+    out_state->ability_invalid = ability > HNS_BATTLE_POKEMON_ABILITY_ID_MAX;
+
+    out_state->type_count = HNS_BATTLE_POKEMON_TYPE_COUNT;
+    out_state->types_observed = true;
+    bool any_type_invalid = false;
+    for (unsigned t = 0; t < HNS_BATTLE_POKEMON_TYPE_COUNT; t++) {
+        out_state->types[t] = type_bytes[t]; // verbatim: sentinels and duplicates preserved
+        if (type_bytes[t] > HNS_BATTLE_POKEMON_TYPE_ID_MAX) any_type_invalid = true;
+    }
+    out_state->types_invalid = any_type_invalid;
+
+    out_state->status = (out_state->ability_invalid || out_state->types_invalid)
+        ? BATTLER_RUNTIME_STATE_OBSERVED_INVALID
+        : BATTLER_RUNTIME_STATE_OBSERVED;
     return true;
 }
 

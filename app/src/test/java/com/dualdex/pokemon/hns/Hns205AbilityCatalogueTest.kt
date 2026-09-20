@@ -19,6 +19,7 @@ import com.dualdex.romhack.ProfileLoader
 import com.dualdex.romhack.RomHackProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -225,15 +226,18 @@ class Hns205AbilityCatalogueTest {
 
     @Test
     fun `every declared slot references a live catalogue identity`() {
+        // All three positional slots, not just slot 0: a dangling reference in the
+        // hidden slot is caught here AND by the completeness gate below.
         for (id in 1..maxSpeciesId) {
-            val slot0 = pack.getDeclaredAbilityForSlot(id, 0)
-            if (slot0 is DeclaredAbility.Declared) {
-                val resolved = pack.getAbility(slot0.abilityId) as? DeclaredAbility.Declared
+            for (slot in 0..2) {
+                val declared = pack.getDeclaredAbilityForSlot(id, slot) as? DeclaredAbility.Declared
+                    ?: continue
+                val resolved = pack.getAbility(declared.abilityId) as? DeclaredAbility.Declared
                 assertTrue(
-                    "species $id slot 0 references dangling ability ${slot0.abilityId}",
+                    "species $id slot $slot references dangling ability ${declared.abilityId}",
                     resolved != null
                 )
-                assertEquals(resolved!!.name, slot0.name)
+                assertEquals(resolved!!.name, declared.name)
             }
         }
     }
@@ -249,6 +253,103 @@ class Hns205AbilityCatalogueTest {
                 }
             }
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Completeness: the slot table must cover every authoritative species/form
+    // ------------------------------------------------------------------
+
+    /**
+     * Species/form IDs that are authoritative in the pack but legitimately lack a
+     * source-established ability declaration. There are none: the pinned build's
+     * gSpeciesInfo gives every real species/form a three-slot `.abilities`
+     * initializer (a short initializer zero-fills to the ABILITY_NONE sentinel), and
+     * the placeholder/egg entries that lack declarations are not authoritative
+     * species. If a legitimate exclusion ever appears it must be listed here BY
+     * ID - never handled by skipping the lookup.
+     */
+    private val completenessExclusions: Set<Int> = emptySet()
+
+    /**
+     * The always-on completeness gate: every species/form ID the pack claims as
+     * authoritative must resolve ALL THREE positional slots as [DeclaredAbility.Declared]
+     * or [DeclaredAbility.EmptySlot]. [DeclaredAbility.Absent] is a valid answer only
+     * for unknown species and out-of-range slots; for an authoritative species it
+     * means a slot record was deleted or dangles, and that is a data-integrity
+     * failure. This is deliberately not skippable per-slot: the older integrity
+     * tests above only inspect slots that already resolve as Declared, so without
+     * this gate a deleted record or a dangling hidden-slot reference would pass.
+     */
+    private fun assertCompleteAbilityDeclarations(target: GameDataPack) {
+        var authoritativeCount = 0
+        for (id in 1..maxSpeciesId) {
+            if (!target.isSpeciesAuthoritative(id)) continue
+            authoritativeCount++
+            if (id in completenessExclusions) continue
+            for (slot in 0..2) {
+                val declared = target.getDeclaredAbilityForSlot(id, slot)
+                assertTrue(
+                    "species $id slot $slot must resolve as Declared or EmptySlot, got $declared",
+                    declared is DeclaredAbility.Declared || declared is DeclaredAbility.EmptySlot
+                )
+            }
+        }
+        // Pinned from the committed pack: the scan must actually reach every
+        // authoritative entry (1427 species/forms, max ID 1523).
+        assertEquals(1427, authoritativeCount)
+    }
+
+    @Test
+    fun `every authoritative species form resolves all three ability slots`() {
+        assertCompleteAbilityDeclarations(pack)
+    }
+
+    // Negative controls: the completeness gate must FAIL on exactly the
+    // corruptions it exists to catch. Both controls mutate the pack's private
+    // slot table through reflection and restore it in a finally block, so no
+    // other test can observe the tampering.
+
+    @Test
+    fun `deleting an unpinned species slot record fails completeness validation`() {
+        val map = speciesAbilityMapForTest()
+        val removed = map.remove(2) // Ivysaur: not pinned by any other test here
+        try {
+            assertNotNull("control record species 2 must exist", removed)
+            val failure = runCatching { assertCompleteAbilityDeclarations(pack) }.exceptionOrNull()
+            assertTrue(
+                "deleting speciesAbilityMap[2] must fail completeness validation",
+                failure is AssertionError
+            )
+        } finally {
+            if (removed != null) map[2] = removed
+        }
+    }
+
+    @Test
+    fun `a dangling hidden slot reference fails completeness validation`() {
+        val map = speciesAbilityMapForTest()
+        val original = map[3] // Venusaur: not pinned by any other test here
+        try {
+            assertNotNull("control record species 3 must exist", original)
+            // Slot 2 (the hidden slot) points at an ID absent from the catalogue:
+            // the lookup degrades to Absent and only the completeness gate notices.
+            map[3] = arrayOf(original!![0], original[1], 999)
+            val failure = runCatching { assertCompleteAbilityDeclarations(pack) }.exceptionOrNull()
+            assertTrue(
+                "a dangling hidden-slot reference must fail completeness validation",
+                failure is AssertionError
+            )
+        } finally {
+            if (original != null) map[3] = original
+        }
+    }
+
+    /** Test-only reflection access to the generated pack's private slot table. */
+    @Suppress("UNCHECKED_CAST")
+    private fun speciesAbilityMapForTest(): MutableMap<Int, Array<Int?>> {
+        val field = HeartAndSoul205DataPack::class.java.getDeclaredField("speciesAbilityMap")
+        field.isAccessible = true
+        return field.get(pack) as MutableMap<Int, Array<Int?>>
     }
 
     // ------------------------------------------------------------------

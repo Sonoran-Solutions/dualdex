@@ -77,8 +77,16 @@ jobs:
         with:
           packages: 'platform-tools'
 
+      # The data-pack verification step runs the ARM preprocessor against the
+      # pinned upstream source, so the job needs arm-none-eabi-cpp on PATH.
+      # `ci.sh source-check` locates it fail-closed and refuses to skip the check.
+      - name: Install ARM preprocessor (data-pack verification)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi
+
       # Pinned public upstream at the exact Release-v2.0.5 commit, limited to the
-      # files actually read (data/maps, src/data/region_map).
+      # files actually read: the map tables (data/maps, src/data/region_map) and
+      # the sources the data-pack generator preprocesses (all of include, plus
+      # src/pokemon.c, src/move.c and their src/data includes).
       - name: Fetch pinned Heart & Soul 2.0.5 source
         uses: actions/checkout@v4
         with:
@@ -88,7 +96,10 @@ jobs:
           fetch-depth: 1
           sparse-checkout: |
             data/maps
-            src/data/region_map
+            include
+            src/data
+            src/pokemon.c
+            src/move.c
           sparse-checkout-cone-mode: true
 
       - name: Run H&S source validation

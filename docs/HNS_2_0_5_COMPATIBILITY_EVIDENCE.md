@@ -1891,8 +1891,8 @@ of it and no canonical test reaches for a network or an external tree:
 
 | Command | Needs | Content |
 |---|---|---|
-| `./ci.sh test` | nothing external | native runner, tracker selftests, offline digest check, self-contained Kotlin suite |
-| `./ci.sh source-check` | the pinned upstream checkout | byte-for-byte regeneration **and** the Kotlin oracle with `-Pdualdex.hns.upstreamCheck=true` |
+| `./ci.sh test` | nothing external | native runner, tracker selftests, offline digest check, data-pack generator tests, self-contained Kotlin suite |
+| `./ci.sh source-check` | the pinned upstream checkout + `arm-none-eabi-cpp` | byte-for-byte regeneration of the map data **and** the data pack (species, moves, ability catalogue and per-species slots) via `generate_hns_data_pack.py --verify`, **and** the Kotlin oracle with `-Pdualdex.hns.upstreamCheck=true` |
 
 `source-check` **fails loudly** when its required inputs are missing, unreachable or at the wrong
 revision; it never degrades to a silent skip. The Kotlin oracle tests read the
@@ -1903,9 +1903,10 @@ the run fails, without it the same tamper is caught by `--verify-digests` instea
 
 In CI (`.github/workflows/ci.yml`) the canonical `test` job stays self-contained, and a separate
 `source-validation` job fetches the pinned public upstream at
-`1f42b74dff0e9fe942419845d040663dd829a973` (sparse checkout of `data/maps` and `src/data/region_map`)
-and runs `./ci.sh source-check`. If that fetch ever fails, the job fails visibly rather than the
-cross-check disappearing.
+`1f42b74dff0e9fe942419845d040663dd829a973` (sparse checkout of `data/maps`, `include`, `src/data`,
+`src/pokemon.c` and `src/move.c`) and runs `./ci.sh source-check`, having installed
+`gcc-arm-none-eabi` so the data-pack verification has its preprocessor. If that fetch ever fails,
+the job fails visibly rather than the cross-check disappearing.
 
 ### 12.2 Discrepancies found and fixed
 

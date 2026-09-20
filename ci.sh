@@ -6,7 +6,8 @@
 # Actions. Run from the repo root:
 #
 #   ./ci.sh test     # native reader suite + H&S tracker selftests +
-#                    # QuickJS calculator suite + Kotlin unit tests
+#                    # QuickJS calculator suite + data-pack generator tests
+#                    # + Kotlin unit tests
 #   ./ci.sh build    # assemble the debug APK
 #   ./ci.sh all      # test then build (default)
 #   ./ci.sh release  # assemble the production-signed release APK (requires
@@ -114,6 +115,46 @@ hns_map_data_check() {
   python3 tools/hns-map-data/generate_hns_map_data.py --verify-digests
 }
 
+# H&S data-pack generator tests. Mandatory and self-contained: they drive the
+# real extraction code (extract_abilities incl. run_cpp and the table
+# cross-checks) against tiny synthetic fixtures through a stub preprocessor, so
+# they need no upstream checkout, no ARM toolchain, no ROM, and no network. They
+# pin the fail-closed enum-parser contract: an assignment the parser cannot
+# resolve (unresolved alias, parenthesized initializer, arithmetic) must raise,
+# never invent a sequential ID, and the ABILITIES_COUNT_GEN* anchor pattern of
+# the pinned header must resolve explicitly instead of by counter coincidence.
+hns_generator_test() {
+  echo "== H&S data-pack generator tests =="
+  (cd tools/hns-data-pack && python3 -m unittest test_generate_hns_data_pack -v)
+}
+
+# Locate the ARM preprocessor the data-pack generator drives. Fail-closed: the
+# source validation job refuses to run its data-pack verification without one
+# instead of silently skipping it.
+find_hns_cpp() {
+  if [ -n "${ARM_CPP:-}" ] && [ -x "${ARM_CPP}" ]; then
+    printf '%s\n' "$ARM_CPP"
+    return 0
+  fi
+  if command -v arm-none-eabi-cpp >/dev/null 2>&1; then
+    command -v arm-none-eabi-cpp
+    return 0
+  fi
+  local candidate
+  for candidate in \
+    /opt/devkitpro/devkitARM/bin/arm-none-eabi-cpp \
+    /usr/bin/arm-none-eabi-cpp \
+    "$HOME"/opt/*/bin/arm-none-eabi-cpp \
+    "$HOME"/devkit*/devkitARM/bin/arm-none-eabi-cpp \
+    /opt/*/bin/arm-none-eabi-cpp; do
+    if [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
 # The QuickJS damage calculator is production code: the same js_calc_engine.c
 # and the same committed bundle (app/src/main/assets/calc_bundle.js) the APK
 # ships. Compiling it for the host against the pinned QuickJS sources lets the
@@ -192,7 +233,22 @@ source_check() {
   python3 tools/hns-map-data/generate_hns_map_data.py \
     --upstream-dir "$upstream" --check
 
-  # 2. The Kotlin tests must re-derive the mapping from that source independently,
+  # 2. The committed Kotlin data pack (species, moves, AND the ability catalogue
+  #    with its per-species slot declarations) must regenerate byte-for-byte from
+  #    the pinned source. This is the check that actually compares the committed
+  #    ability catalogue against upstream; it needs the ARM preprocessor the
+  #    generator drives, so locate it fail-closed rather than skipping silently.
+  local cpp_bin
+  if ! cpp_bin="$(find_hns_cpp)"; then
+    echo "error: arm-none-eabi-cpp not found; the data-pack verification is required." >&2
+    echo "       Install gcc-arm-none-eabi (or devkitARM) or set ARM_CPP." >&2
+    return 1
+  fi
+  echo "  data-pack preprocessor: $cpp_bin"
+  python3 tools/hns-data-pack/generate_hns_data_pack.py \
+    --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --verify
+
+  # 3. The Kotlin tests must re-derive the mapping from that source independently,
   #    and must fail (not skip) if it is missing or wrong.
   ./gradlew testDebugUnitTest -Pdualdex.hns.upstreamCheck=true
 }
@@ -210,10 +266,10 @@ gradle_release() {
 }
 
 case "${1:-all}" in
-  test)         native_test; tracker_selftest; calc_test; hns_map_data_check; gradle_test ;;
+  test)         native_test; tracker_selftest; calc_test; hns_map_data_check; hns_generator_test; gradle_test ;;
   source-check) source_check ;;
   build)        gradle_build ;;
-  all)          native_test; tracker_selftest; calc_test; hns_map_data_check; gradle_test; gradle_build ;;
+  all)          native_test; tracker_selftest; calc_test; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
   release)      gradle_release ;;
   *)            echo "usage: $0 [test|source-check|build|all|release]" >&2; exit 2 ;;
 esac

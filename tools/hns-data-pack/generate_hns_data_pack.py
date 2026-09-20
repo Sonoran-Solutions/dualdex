@@ -525,24 +525,51 @@ def extract_moves(cpp_bin, upstream_dir):
 # Ability enum constants whose meaning is fixed by the build's own headers.
 ABILITY_SENTINELS = {"ABILITY_NONE"}
 
+# The build's generation-boundary bookkeeping members. They are ENUM MEMBERS, not
+# preprocessor macros (the header declares e.g. `ABILITIES_COUNT_GEN3,` and
+# `ABILITY_TANGLED_FEET = ABILITIES_COUNT_GEN3,`), so they survive preprocessing
+# as symbolic names and must be resolved like any other member. They are then
+# excluded from the identity catalogue, which holds only real ability constants.
+ABILITY_COUNT_ANCHORS = (
+    "ABILITIES_COUNT_GEN3",
+    "ABILITIES_COUNT_GEN4",
+    "ABILITIES_COUNT_GEN5",
+    "ABILITIES_COUNT_GEN6",
+    "ABILITIES_COUNT_GEN7",
+    "ABILITIES_COUNT_GEN8",
+    "ABILITIES_COUNT_GEN9",
+    "ABILITIES_COUNT",
+)
 
-def extract_abilities(cpp_bin, upstream_dir):
-    """Extract the numeric ID and display name of every ability in the pinned build.
+# Names the enum parser accepts as members: real ability constants plus the
+# count anchors above.
+ABILITY_ENUM_MEMBER_NAME_RE = re.compile(
+    r"^(ABILITY_[A-Za-z0-9_]+|ABILITIES_COUNT(_GEN[3-9])?)$"
+)
 
-    Sources, both preprocessed with the build's own configuration:
-      - include/constants/abilities.h : `enum Ability` gives the numeric ID for every
-        ABILITY_* constant (post-Gen-3 values are explicit `ABILITY_X = N` in source;
-        the preprocessor resolves the ABILITIES_COUNT_GEN* anchors).
-      - src/data/abilities.h          : `gAbilitiesInfo[ABILITIES_COUNT]` gives the
-        display name for each designated `[ABILITY_X]` entry.
-    Every non-sentinel constant must have a table entry and vice versa; anything else
-    is data drift and a hard failure.
+
+def parse_ability_enum(enum_out):
+    """Resolve a preprocessed `enum Ability` to a {name: numeric ID} map.
+
+    Exactly three declaration forms are understood - the forms the pinned header
+    actually uses:
+      - `NAME = <integer>` : explicit value (post-Gen-3 abilities, explicit anchors);
+      - `NAME`            : implicit value, previous member's value + 1 (Gen-3 names
+                            and the ABILITIES_COUNT_GEN* anchors);
+      - `NAME = <symbol>` : alias of an already-defined member, which the header
+                            uses for the first ability after each count anchor
+                            (e.g. `ABILITY_TANGLED_FEET = ABILITIES_COUNT_GEN3`).
+
+    Anything else is an unsupported assignment and raises: an undefined symbol
+    (e.g. `ABILITY_STENCH = UNRESOLVED_ALIAS`), a parenthesized initializer
+    (`ABILITY_SPEED_BOOST = (1)`), arithmetic, or a macro that survived
+    preprocessing. An unsupported assignment must NEVER fall back to the running
+    counter: that would invent a sequential ID and silently corrupt the name->ID
+    mapping in a way contiguity checks cannot detect.
     """
-    # 1. Numeric IDs from the preprocessed enum.
-    enum_out = run_cpp(cpp_bin, upstream_dir, "include/constants/abilities.h")
-    enum_ids = {}
+    member_ids = {}
+    next_implicit = None
     in_enum = False
-    cur_id = None
     for line in enum_out.split("\n"):
         stripped = line.strip()
         if stripped.startswith("enum ") and "Ability" in stripped:
@@ -553,31 +580,80 @@ def extract_abilities(cpp_bin, upstream_dir):
         if stripped.startswith("}"):
             in_enum = False
             continue
-        m = re.match(r"^(ABILITY_[A-Za-z0-9_]+)\s*(?:=\s*([0-9]+|ABILITY_[A-Za-z0-9_]+))?", stripped)
-        if not m:
+        if not stripped or stripped.startswith("#") or stripped == "{":
+            # Preprocessor line markers, the enum's opening brace, and blank lines.
             continue
-        cname, val = m.group(1), m.group(2)
-        if val is not None:
-            if val.isdigit():
-                cur_id = int(val)
-            elif val in enum_ids:
-                cur_id = enum_ids[val]
-            else:
-                raise ValueError(f"Unresolvable ability enum anchor {cname} = {val}")
-        elif cur_id is None:
-            raise ValueError(f"Ability enum constant {cname} has no resolvable numeric ID")
-        if cname in enum_ids and enum_ids[cname] != cur_id:
-            raise ValueError(f"Conflicting enum values for {cname}")
-        enum_ids[cname] = cur_id
-        cur_id += 1
 
-    for anchor in ("ABILITIES_COUNT", "ABILITIES_COUNT_GEN3", "ABILITIES_COUNT_GEN4",
-                   "ABILITIES_COUNT_GEN5", "ABILITIES_COUNT_GEN6", "ABILITIES_COUNT_GEN7",
-                   "ABILITIES_COUNT_GEN8", "ABILITIES_COUNT_GEN9"):
-        enum_ids.pop(anchor, None)
+        decl = stripped[:-1].strip() if stripped.endswith(",") else stripped
+        name, eq, raw_value = decl.partition("=")
+        name = name.strip()
+        if not ABILITY_ENUM_MEMBER_NAME_RE.match(name):
+            raise ValueError(f"Unsupported ability enum declaration: {stripped!r}")
+        value = raw_value.strip() if eq else None
+
+        if value is None:
+            # No assignment at all: the implicit previous+1 rule. This is only
+            # valid C when a previous member exists.
+            if next_implicit is None:
+                raise ValueError(
+                    f"Ability enum member {name} has an implicit value but no previous "
+                    "explicit value to continue from"
+                )
+            resolved = next_implicit
+        elif re.fullmatch(r"[0-9]+", value):
+            resolved = int(value)
+        elif re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+            # Assignment present and symbolic: only an alias of an already-defined
+            # member resolves. An undefined symbol is a hard error, never a
+            # sequential ID.
+            if value not in member_ids:
+                raise ValueError(
+                    f"Unresolvable ability enum assignment {name} = {value}; refusing "
+                    "to invent a sequential ID"
+                )
+            resolved = member_ids[value]
+        else:
+            raise ValueError(
+                f"Unsupported ability enum assignment {name} = {value!r}; refusing to "
+                "invent a sequential ID"
+            )
+
+        if name in member_ids and member_ids[name] != resolved:
+            raise ValueError(f"Conflicting enum values for {name}")
+        member_ids[name] = resolved
+        next_implicit = resolved + 1
+    return member_ids
+
+
+def extract_abilities(cpp_bin, upstream_dir):
+    """Extract the numeric ID and display name of every ability in the pinned build.
+
+    Sources, both preprocessed with the build's own configuration:
+      - include/constants/abilities.h : `enum Ability` gives the numeric ID for every
+        ABILITY_* constant. Assignments the parser cannot resolve (unknown symbols,
+        parenthesized initializers, arithmetic) are hard errors - a value is never
+        invented from the running counter. The ABILITIES_COUNT_GEN* anchors are
+        enum members, not macros, and are resolved explicitly so the symbolic
+        references that follow them (e.g. ABILITY_TANGLED_FEET = ABILITIES_COUNT_GEN3)
+        resolve to the anchor's real value instead of a coincidental counter value.
+      - src/data/abilities.h          : `gAbilitiesInfo[ABILITIES_COUNT]` gives the
+        display name for each designated `[ABILITY_X]` entry.
+    Every non-sentinel constant must have a table entry and vice versa; anything else
+    is data drift and a hard failure.
+    """
+    # 1. Numeric IDs from the preprocessed enum.
+    enum_out = run_cpp(cpp_bin, upstream_dir, "include/constants/abilities.h")
+    enum_ids = parse_ability_enum(enum_out)
 
     if enum_ids.get("ABILITY_NONE") != 0:
         raise ValueError(f"ABILITY_NONE must be 0, got {enum_ids.get('ABILITY_NONE')}")
+
+    # The count anchors are bookkeeping members, not catalogue identities. Capture
+    # the total before dropping them so it can be checked against the real data
+    # below instead of being parsed and discarded.
+    abilities_count = enum_ids.pop("ABILITIES_COUNT", None)
+    for anchor in ABILITY_COUNT_ANCHORS[:-1]:
+        enum_ids.pop(anchor, None)
 
     # 2. Display names from the ability info table.
     table_out = run_cpp(cpp_bin, upstream_dir, "src/data/abilities.h")
@@ -624,6 +700,15 @@ def extract_abilities(cpp_bin, upstream_dir):
             "name": raw_name,
             "constant": aconst,
         }
+
+    # The count anchor must agree with the extracted data rather than being parsed
+    # and discarded: the declared ABILITIES_COUNT is the value just past the highest
+    # real ability ID in the pinned header.
+    if abilities_count is not None and abilities and abilities_count != max(abilities) + 1:
+        raise ValueError(
+            f"ABILITIES_COUNT anchor is {abilities_count}, but the highest extracted "
+            f"ability ID is {max(abilities)}; the enum no longer matches its own count"
+        )
     return abilities
 
 

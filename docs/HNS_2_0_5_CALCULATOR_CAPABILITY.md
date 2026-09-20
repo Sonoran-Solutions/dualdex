@@ -164,18 +164,27 @@ Two exclusions are enforced or disclosed rather than merely documented:
 
 `struct ChallengeSettings` is 32 bytes at `[include/global.h:253]`, a member of `SaveBlock3`
 `[include/global.h:359]`, reached as `gSaveBlock3Ptr->challengeSettings` `[include/global.h:363]`.
-**Update (challenge-settings reader slice of issue #9):** DualDex now reads this struct at runtime
-— `pokemon_read_challenge_settings_gba` decodes it into a typed snapshot (`ChallengeSettingsSnapshot`)
-that the companion publishes only while the running ROM is exactly trusted, and the runtime
-verification in `HNS_2_0_5_COMPATIBILITY_EVIDENCE.md` §13 observed live values (including a
-challenge-menu toggle flipping exactly `tx_Mode_Fairy_Types`). **This changes no calculator
-claim**: the policy still refuses H&S (the rule-reads below are still unanswered by any request),
-`CalcCapabilityPolicy` is untouched, source defaults are still never substituted for runtime
-observations, and no effective live ability is established.
+DualDex reads this struct at runtime — `pokemon_read_challenge_settings_gba` decodes it into a typed snapshot
+(`HnsChallengeSettingsSnapshot`) that the companion publishes only while the running ROM is exactly trusted,
+and the runtime verification in `HNS_2_0_5_COMPATIBILITY_EVIDENCE.md` §13 observed live values (including a
+challenge-menu toggle flipping exactly `tx_Mode_Fairy_Types`).
 
-Two properties make this decisive rather than a caveat:
+**Current status (Gap A closed):**
+- **Runtime settings are observed:** whenever the ROM is exactly trusted, the snapshot is delivered to
+  calculator preparation.
+- **Four rule fields are now consumed:** `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, and
+  `tx_Random_TypeEffectiveness` are mapped into `CalcHnsRuntimeRules` by `CalcRequestBoundary`.
+- **`optionStyle` selects category behavior:** raw 0 (`PER_MOVE_SPLIT`) retains boundary-owned move category
+  overrides, while raw 1 (`TYPE_BASED`) omits them to trigger type-based category derivation.
+- **Randomizer activation is known:** observed raw 0 clears unreadable blockers; observed raw 1 blocks with
+  explicit active-not-modelled limitations.
+- **Unsupported mechanics still block:** live battler abilities (observed via `gBattleMons`, PR #56) and
+  authoritative data overrides (PR #57) are plumbed, but the H&S type chart (Gap C) remains unmodelled,
+  so all H&S calculations remain refused (`CalcSupport.UNSUPPORTED`).
 
-1. **Some fields change the rule, not just the values.** No request shape can absorb them.
+Two properties make challenge settings decisive rather than a caveat:
+
+1. **Some fields change the rule, not just the values.** They dictate category derivation, typing rules, and chart lookups.
 2. **Several are ON by default, and the Mode tab is free.** `TAB_MODE` has no lock entries
    `[src/challenge_menu.c:183]`, so those rows can be flipped at any time, including mid-run. The
    defaults come from the challenge menu, not from `new_game.c`: `NewGameInitData` snapshots the
@@ -376,7 +385,7 @@ and `snapshot.status == OBSERVED`), the boundary constructs `CalcHnsRuntimeRules
 
 `CalcCapabilityPolicy.kt` evaluates `request.hnsRuntimeRules`:
 - If missing, unreadable, or untrusted, calculation is blocked with `FAIRY_TOGGLE_UNREADABLE`,
-  `SPLIT_STYLE_UNREADABLE`, `RANDOM_TYPES_UNREADABLE`, `RANDOM_TYPE_EFFECTIVENESS_UNREADABLE`, and
+  `CATEGORY_SPLIT_TOGGLE_UNREADABLE`, `RANDOM_TYPES_UNREADABLE`, `RANDOM_TYPE_EFFECTIVENESS_UNREADABLE`, and
   `CHALLENGE_SETTINGS_UNREADABLE`.
 - If observed OFF (`tx_Random_Type == 0`, `tx_Random_TypeEffectiveness == 0`), the unreadable
   limitations are cleared without introducing active-not-modelled blockers.

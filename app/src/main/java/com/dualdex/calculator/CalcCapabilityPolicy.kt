@@ -69,9 +69,10 @@ enum class CalcLimitation(val blocks: Boolean) {
 
     /**
      * The build's damage-rule toggle for move category (`challengeSettings.optionStyle`, bound to
-     * the "PHYS/SP SPLIT" row of the in-game Mode tab). When it is on, a move's own `category`
-     * field decides physical/special; when it is off, the move's TYPE decides, as in generation
-     * III. Unread, so the active category rule is unknown.
+     * the "PHYS/SP SPLIT" row of the in-game Mode tab). Raw value 0 (`PER_MOVE_SPLIT`) selects
+     * per-move category where a move's own `category` field decides physical/special; raw value 1
+     * (`TYPE_BASED`) selects generation III's type-based damage category where the move's TYPE
+     * decides. Unread, so the active category rule is unknown.
      */
     CATEGORY_SPLIT_TOGGLE_UNREADABLE(true),
 
@@ -440,8 +441,8 @@ object CalcCapabilityPolicy {
      *
      * Each is `SaveBlock3.challengeSettings`, is player-settable on a free tab, and changes which
      * rule the engine applies rather than merely which values it uses:
-     *  - `optionStyle` - the "PHYS/SP SPLIT" row. Off selects generation III's type-based damage
-     *    category for every move; on selects the move's own category.
+     *  - `optionStyle` - the "PHYS/SP SPLIT" row. Raw value 0 (`PER_MOVE_SPLIT`) selects the move's
+     *    own category; raw value 1 (`TYPE_BASED`) selects generation III's type-based damage category.
      *  - `tx_Mode_Fairy_Types` - "ADD FAIRY TYPE". Off deletes the type: species revert to their
      *    pre-Fairy typings and Fairy moves are retyped.
      *  - `tx_Random_Type` - "RANDOM TYPES" rewrites species typings.

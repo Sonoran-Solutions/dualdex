@@ -1,5 +1,8 @@
 package com.dualdex.calculator
 
+import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
+import com.dualdex.pokemon.hns.HnsChallengeSettingsStatus
+import com.dualdex.pokemon.hns.HnsOptionStyle
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
 
@@ -57,8 +60,9 @@ object CalcRequestBoundary {
     fun build(
         profile: RomHackProfile,
         trust: RuntimeRomTrust?,
-        request: DamageCalculationRequest
-    ): CalcRequestOutcome = authorize(profile, trust, request, liveReadHint = false)
+        request: DamageCalculationRequest,
+        challengeSettings: HnsChallengeSettingsSnapshot? = null
+    ): CalcRequestOutcome = authorize(profile, trust, request, liveReadHint = false, challengeSettings = challengeSettings)
 
     /**
      * Build the request for one participant pair, prepared through [CalcInputPreparation].
@@ -76,7 +80,8 @@ object CalcRequestBoundary {
         defender: CalcParticipantState,
         move: CalcMoveInput,
         field: CalcFieldInput,
-        gen: Int = 3
+        gen: Int = 3,
+        challengeSettings: HnsChallengeSettingsSnapshot? = null
     ): CalcRequestOutcome {
         val prepared = CalcInputPreparation.prepare(
             attacker = attacker,
@@ -85,7 +90,7 @@ object CalcRequestBoundary {
             field = field,
             gen = gen
         )
-        return authorize(profile, trust, prepared.request, liveReadHint = false)
+        return authorize(profile, trust, prepared.request, liveReadHint = false, challengeSettings = challengeSettings)
     }
 
     /**
@@ -99,8 +104,62 @@ object CalcRequestBoundary {
         profile: RomHackProfile,
         trust: RuntimeRomTrust?,
         request: DamageCalculationRequest,
-        inputsFromLiveRead: Boolean
-    ): CalcRequestOutcome = authorize(profile, trust, request, liveReadHint = inputsFromLiveRead)
+        inputsFromLiveRead: Boolean,
+        challengeSettings: HnsChallengeSettingsSnapshot? = null
+    ): CalcRequestOutcome = authorize(profile, trust, request, liveReadHint = inputsFromLiveRead, challengeSettings = challengeSettings)
+
+    /**
+     * Resolves calculator-owned [CalcHnsRuntimeRules] from [challengeSettings] under strict trust.
+     *
+     * Trust Contract:
+     * 1. Profile must resolve to exact H&S 2.0.5 capability.
+     * 2. Runtime trust must be exactRuntimeVerified for this profile.
+     * 3. Snapshot must be non-null and have status OBSERVED (OBSERVED_INVALID or UNAVAILABLE fails closed).
+     * 4. Each field must be observed and in-domain (outOfDomain fails closed to unknown).
+     *
+     * Source defaults are NEVER substituted. Non-H&S profiles or unverified trust produce null.
+     */
+    fun resolveHnsRuntimeRules(
+        profile: RomHackProfile,
+        trust: RuntimeRomTrust?,
+        challengeSettings: HnsChallengeSettingsSnapshot?
+    ): CalcHnsRuntimeRules? {
+        val capability = CalcCapabilityPolicy.capabilityFor(profile) ?: return null
+        if (capability.ruleset != CalcRuleset.HNS_2_0_5) return null
+        if (!CalcCapabilityPolicy.isExactRuntimeVerified(profile, trust)) return null
+        if (challengeSettings == null || challengeSettings.status != HnsChallengeSettingsStatus.OBSERVED) return null
+
+        val optionStyle = if (challengeSettings.optionStyle.observed && !challengeSettings.optionStyle.outOfDomain) {
+            challengeSettings.optionStyleSemantics
+        } else {
+            HnsOptionStyle.UNAVAILABLE
+        }
+
+        val fairy = if (challengeSettings.txModeFairyTypes.observed && !challengeSettings.txModeFairyTypes.outOfDomain) {
+            challengeSettings.txModeFairyTypes.observedFlag
+        } else {
+            null
+        }
+
+        val randomTypes = if (challengeSettings.txRandomType.observed && !challengeSettings.txRandomType.outOfDomain) {
+            challengeSettings.txRandomType.observedFlag
+        } else {
+            null
+        }
+
+        val randomEffectiveness = if (challengeSettings.txRandomTypeEffectiveness.observed && !challengeSettings.txRandomTypeEffectiveness.outOfDomain) {
+            challengeSettings.txRandomTypeEffectiveness.observedFlag
+        } else {
+            null
+        }
+
+        return CalcHnsRuntimeRules(
+            optionStyle = optionStyle,
+            fairyTypesEnabled = fairy,
+            randomTypesEnabled = randomTypes,
+            randomTypeEffectivenessEnabled = randomEffectiveness
+        )
+    }
 
     /**
      * The single authorization decision every entrypoint above funnels into.
@@ -113,9 +172,11 @@ object CalcRequestBoundary {
         profile: RomHackProfile,
         trust: RuntimeRomTrust?,
         request: DamageCalculationRequest,
-        liveReadHint: Boolean
+        liveReadHint: Boolean,
+        challengeSettings: HnsChallengeSettingsSnapshot? = null
     ): CalcRequestOutcome {
-        val enriched = CalcDataOverrides.enrichRequest(profile, request)
+        val hnsRules = resolveHnsRuntimeRules(profile, trust, challengeSettings)
+        val enriched = CalcDataOverrides.enrichRequest(profile, request, hnsRules)
         // Live provenance is a property of the request. The hint may add it, never remove it.
         val isLiveRead = liveReadHint || enriched.isFromLiveRead()
 

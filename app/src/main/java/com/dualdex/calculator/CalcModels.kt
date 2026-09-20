@@ -82,6 +82,22 @@ data class CalcMoveOverride(
     val category: String? = null
 )
 
+/**
+ * Calculator-owned immutable representation of Heart & Soul 2.0.5 runtime challenge rules.
+ *
+ * Resolved and owned by [CalcRequestBoundary] strictly from an authoritative, exact-trusted
+ * [com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot].
+ *
+ * Source defaults are NEVER used: unobserved or out-of-domain fields are represented as
+ * unknown ([com.dualdex.pokemon.hns.HnsOptionStyle.UNAVAILABLE] or `null`).
+ */
+data class CalcHnsRuntimeRules(
+    val optionStyle: com.dualdex.pokemon.hns.HnsOptionStyle = com.dualdex.pokemon.hns.HnsOptionStyle.UNAVAILABLE,
+    val fairyTypesEnabled: Boolean? = null,
+    val randomTypesEnabled: Boolean? = null,
+    val randomTypeEffectivenessEnabled: Boolean? = null
+)
+
 data class DamageCalculationRequest(
     val gen: Int = 3,
     val attacker: CalcPokemonInput,
@@ -98,7 +114,8 @@ data class DamageCalculationRequest(
     val preparationLimitations: List<CalcLimitation> = emptyList(),
     val attackerOverride: CalcSpeciesOverride? = null,
     val defenderOverride: CalcSpeciesOverride? = null,
-    val moveOverride: CalcMoveOverride? = null
+    val moveOverride: CalcMoveOverride? = null,
+    val hnsRuntimeRules: CalcHnsRuntimeRules? = null
 )
 
 data class DamageCalculationResponse(

@@ -53,8 +53,8 @@ enum class CalcLimitation(val blocks: Boolean) {
 
     /**
      * H&S 2.0.5 challenge settings (`SaveBlock3.challengeSettings`) can change damage-relevant
-     * state (EV application, base-stat equalization, species types, ability and move data) and are
-     * not read by DualDex.
+     * state (EV application, base-stat equalization, species types, ability and move data) and
+     * could not be read from live memory, hold an invalid status, or have required fields unobserved.
      */
     CHALLENGE_SETTINGS_UNREADABLE(false),
 
@@ -69,9 +69,10 @@ enum class CalcLimitation(val blocks: Boolean) {
 
     /**
      * The build's damage-rule toggle for move category (`challengeSettings.optionStyle`, bound to
-     * the "PHYS/SP SPLIT" row of the in-game Mode tab). When it is on, a move's own `category`
-     * field decides physical/special; when it is off, the move's TYPE decides, as in generation
-     * III. The player can flip it at any time, so a request cannot name which rule applies.
+     * the "PHYS/SP SPLIT" row of the in-game Mode tab). Raw value 0 (`PER_MOVE_SPLIT`) selects
+     * per-move category where a move's own `category` field decides physical/special; raw value 1
+     * (`TYPE_BASED`) selects generation III's type-based damage category where the move's TYPE
+     * decides. Unread, so the active category rule is unknown.
      */
     CATEGORY_SPLIT_TOGGLE_UNREADABLE(true),
 
@@ -82,11 +83,29 @@ enum class CalcLimitation(val blocks: Boolean) {
      */
     FAIRY_TOGGLE_UNREADABLE(true),
 
-    /** The build's "RANDOM TYPES" toggle rewrites species typings at random. */
+    /** The build's "RANDOM TYPES" toggle rewrites species typings at random. Unread. */
     RANDOM_TYPES_UNREADABLE(true),
 
-    /** The build's "RANDOM TYPE EFFECTIVENESS" toggle remaps the attacking type in the chart. */
+    /** The build's "RANDOM TYPE EFFECTIVENESS" toggle remaps the attacking type in the chart. Unread. */
     RANDOM_TYPE_EFFECTIVENESS_UNREADABLE(true),
+
+    /**
+     * The Heart & Soul 2.0.5 modern type chart (Fairy type present; Steel does not resist Ghost/Dark)
+     * is not modelled by the generation III calculation pipeline (Gap C).
+     */
+    HNS_TYPE_CHART_NOT_MODELLED(true),
+
+    /**
+     * The Heart & Soul 2.0.5 "RANDOM TYPES" challenge is active in live memory, which is not modelled
+     * by the calculator.
+     */
+    RANDOM_TYPES_ACTIVE_NOT_MODELLED(true),
+
+    /**
+     * The Heart & Soul 2.0.5 "RANDOM TYPE EFFECTIVENESS" challenge is active in live memory, which is
+     * not modelled by the calculator.
+     */
+    RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED(true),
 
     /**
      * The build's generation III badge boost (a flat x1.1 damage modifier for the player's side)
@@ -183,11 +202,10 @@ enum class CalcRuleset {
  *
  * Two claims must NOT be read into these fields, because neither is true today:
  *
- *  1. **A resolving name is not data consumption.** The bridge passes a name to
- *     `new Pokemon(gen, species, ...)` / `new Move(gen, name, ...)` and the library resolves it
- *     against *its own* tables; it never receives this build's base stats, typings or move
- *     properties. [contentSource] therefore records proven *identity*, not provenance of the
- *     numbers that were computed.
+ *  1. **Authoritative data consumption is not mechanics equivalence.** The bridge forwards
+ *     authoritative base stats, types, power, and category overrides from the pinned pack,
+ *     which `@smogon/calc` consumes (Gap B closed). However, the engine still executes Gen 3
+ *     pipeline arithmetic.
  *  2. **[mechanicsGeneration] is not an equivalence verdict.** For H&S 2.0.5 only the critical-hit
  *     multiplier, the two-target reduction and Thick Fat's placement are demonstrated to match. The
  *     generation III chart does **not** match the hack's (it makes Steel resist Ghost and Dark and
@@ -268,7 +286,7 @@ data class CalcCapabilityVerdict(
             CalcLimitation.BUILDS_NOT_HASH_VERIFIED ->
                 "this build has no verified ROM hash, so a result cannot be confirmed against your ROM"
             CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE ->
-                "H&S challenge settings can change stats, types and moves and are not read"
+                "H&S challenge settings could not be read from live memory or are invalid"
             CalcLimitation.HELD_ITEM_DATA_NOT_AUTHORITATIVE ->
                 "H&S 2.0.5 held items are not an authoritative table"
             CalcLimitation.ABILITY_NOT_MODELLED ->
@@ -285,6 +303,12 @@ data class CalcCapabilityVerdict(
                 "this build can randomize species types and the setting is not read"
             CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE ->
                 "this build can randomize type effectiveness and the setting is not read"
+            CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED ->
+                "the H&S modern type chart (Fairy type and neutral Steel vs Ghost/Dark) is not modelled by the generation III calculation pipeline"
+            CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED ->
+                "this battle has the Random Types challenge active, which is not modelled"
+            CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED ->
+                "this battle has the Random Type Effectiveness challenge active, which is not modelled"
             CalcLimitation.BADGE_BOOST_NOT_MODELLED ->
                 "the generation III badge boost is not part of the calculation"
             CalcLimitation.ITEM_BOOST_PERCENTAGE_DIFFERS ->
@@ -413,13 +437,12 @@ object CalcCapabilityPolicy {
 
     /**
      * The Heart & Soul 2.0.5 rule toggles that must be read before any H&S damage number may be
-     * presented, in the order they are reported.
+     * presented, in the canonical order they are reported when absent or unread.
      *
      * Each is `SaveBlock3.challengeSettings`, is player-settable on a free tab, and changes which
      * rule the engine applies rather than merely which values it uses:
-     *  - `optionStyle` - the "PHYS/SP SPLIT" row. Off selects generation III's type-based damage
-     *    category for every move; on selects the move's own category. The same species, move and
-     *    level therefore has two different correct answers.
+     *  - `optionStyle` - the "PHYS/SP SPLIT" row. Raw value 0 (`PER_MOVE_SPLIT`) selects the move's
+     *    own category; raw value 1 (`TYPE_BASED`) selects generation III's type-based damage category.
      *  - `tx_Mode_Fairy_Types` - "ADD FAIRY TYPE". Off deletes the type: species revert to their
      *    pre-Fairy typings and Fairy moves are retyped.
      *  - `tx_Random_Type` - "RANDOM TYPES" rewrites species typings.
@@ -470,21 +493,14 @@ object CalcCapabilityPolicy {
                 // because the row below refuses every H&S request.
                 // See docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §§3.2, 3.3.
                 mechanicsGeneration = 3,
-                // Identity only: the pinned pack proves which names belong to this build. The
-                // engine still computes from its own records, because entry.js forwards no
-                // overrides. See §3.3.
+                // Pinned pack proves which names belong to this build. Data overrides are
+                // forwarded via CalcDataOverrides (Gap B closed).
                 contentSource = HNS_DATA_PACK_ID,
                 ceiling = CalcSupport.ESTIMATED,
                 alwaysLimitations = listOf(
-                    // Damage-rule toggles the player can flip at any time and DualDex cannot read.
-                    // Until these are read, the request cannot name the rule that will be applied,
-                    // so no number - verified or approximate - may be presented.
-                    CalcLimitation.CATEGORY_SPLIT_TOGGLE_UNREADABLE,
-                    CalcLimitation.FAIRY_TOGGLE_UNREADABLE,
-                    CalcLimitation.RANDOM_TYPES_UNREADABLE,
-                    CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE,
-                    // Unread state that changes damage-relevant values rather than the rule.
-                    CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE,
+                    // Gap C blocker: the Gen 3 ADV calculation pipeline does not model the H&S modern type chart
+                    // (Fairy type present; Steel does not resist Ghost and Dark).
+                    CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED,
                     CalcLimitation.BADGE_BOOST_NOT_MODELLED,
                     CalcLimitation.BUILDS_NOT_HASH_VERIFIED
                 ),
@@ -537,6 +553,47 @@ object CalcCapabilityPolicy {
         }
 
         collectRequestLimitations(profile, capability, request, limitations)
+
+        if (capability.ruleset == CalcRuleset.HNS_2_0_5) {
+            val exactTrusted = isExactRuntimeVerified(profile, trust)
+            val rules = if (exactTrusted) request.hnsRuntimeRules else null
+
+            // 1. optionStyle (CATEGORY_SPLIT)
+            if (rules?.optionStyle != com.dualdex.pokemon.hns.HnsOptionStyle.PER_MOVE_SPLIT &&
+                rules?.optionStyle != com.dualdex.pokemon.hns.HnsOptionStyle.TYPE_BASED) {
+                limitations.add(CalcLimitation.CATEGORY_SPLIT_TOGGLE_UNREADABLE)
+            }
+
+            // 2. Fairy Mode
+            if (rules?.fairyTypesEnabled == null) {
+                limitations.add(CalcLimitation.FAIRY_TOGGLE_UNREADABLE)
+            }
+
+            // 3. Random Types
+            when (rules?.randomTypesEnabled) {
+                null -> limitations.add(CalcLimitation.RANDOM_TYPES_UNREADABLE)
+                true -> limitations.add(CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED)
+                false -> { /* Observed OFF: no limitation */ }
+            }
+
+            // 4. Random Type Effectiveness
+            when (rules?.randomTypeEffectivenessEnabled) {
+                null -> limitations.add(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE)
+                true -> limitations.add(CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED)
+                false -> { /* Observed OFF: no limitation */ }
+            }
+
+            // 5. Generic challenge settings unreadable
+            val allRequiredObserved = rules != null &&
+                (rules.optionStyle == com.dualdex.pokemon.hns.HnsOptionStyle.PER_MOVE_SPLIT ||
+                 rules.optionStyle == com.dualdex.pokemon.hns.HnsOptionStyle.TYPE_BASED) &&
+                rules.fairyTypesEnabled != null &&
+                rules.randomTypesEnabled != null &&
+                rules.randomTypeEffectivenessEnabled != null
+            if (!allRequiredObserved) {
+                limitations.add(CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE)
+            }
+        }
 
         if (!isExactRuntimeVerified(profile, trust)) {
             limitations.add(CalcLimitation.ROM_NOT_EXACT_VERIFIED)

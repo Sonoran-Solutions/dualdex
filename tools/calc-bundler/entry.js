@@ -37,6 +37,102 @@ function normalizeGameType(raw) {
   return canonical;
 }
 
+const VALID_TYPES = new Set([
+  'Normal', 'Fighting', 'Flying', 'Poison', 'Ground', 'Rock', 'Bug', 'Ghost', 'Steel',
+  'Fire', 'Water', 'Grass', 'Electric', 'Psychic', 'Ice', 'Dragon', 'Dark', 'Fairy',
+  'Stellar', '???'
+]);
+const VALID_CATEGORIES = new Set(['Physical', 'Special', 'Status']);
+const STAT_NAMES = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
+
+function validateSpeciesOverrides(raw, label) {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error(label + ' overrides must be an object');
+  }
+
+  for (const key of Object.keys(raw)) {
+    if (key !== 'baseStats' && key !== 'types') {
+      throw new Error('Unknown field ' + JSON.stringify(key) + ' in ' + label + ' override');
+    }
+  }
+
+  const result = {};
+
+  if (raw.baseStats !== undefined) {
+    if (typeof raw.baseStats !== 'object' || raw.baseStats === null || Array.isArray(raw.baseStats)) {
+      throw new Error(label + ' overrides.baseStats must be an object');
+    }
+    for (const key of Object.keys(raw.baseStats)) {
+      if (!STAT_NAMES.includes(key)) {
+        throw new Error('Unknown stat ' + JSON.stringify(key) + ' in ' + label + ' baseStats');
+      }
+    }
+    const baseStats = {};
+    for (const stat of STAT_NAMES) {
+      const val = raw.baseStats[stat];
+      if (typeof val !== 'number' || !Number.isInteger(val) || val <= 0) {
+        throw new Error('Invalid base stat ' + stat + ' in ' + label + ': expected positive integer, got ' + JSON.stringify(val));
+      }
+      baseStats[stat] = val;
+    }
+    result.baseStats = baseStats;
+  }
+
+  if (raw.types !== undefined) {
+    if (!Array.isArray(raw.types) || raw.types.length === 0 || raw.types.length > 2) {
+      throw new Error(label + ' overrides.types must be an array of 1 or 2 type names');
+    }
+    for (const t of raw.types) {
+      if (typeof t !== 'string' || !VALID_TYPES.has(t)) {
+        throw new Error('Invalid type ' + JSON.stringify(t) + ' in ' + label + ' overrides.types');
+      }
+    }
+    result.types = raw.types.slice();
+  }
+
+  return result;
+}
+
+function validateMoveOverrides(raw) {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('move overrides must be an object');
+  }
+
+  for (const key of Object.keys(raw)) {
+    if (key !== 'basePower' && key !== 'type' && key !== 'category') {
+      throw new Error('Unknown field ' + JSON.stringify(key) + ' in move override');
+    }
+  }
+
+  const result = {};
+
+  if (raw.basePower !== undefined) {
+    const bp = raw.basePower;
+    if (typeof bp !== 'number' || !Number.isInteger(bp) || bp < 0) {
+      throw new Error('Invalid move basePower: expected non-negative integer, got ' + JSON.stringify(bp));
+    }
+    result.basePower = bp;
+  }
+
+  if (raw.type !== undefined) {
+    if (typeof raw.type !== 'string' || !VALID_TYPES.has(raw.type)) {
+      throw new Error('Invalid move type: expected valid TypeName, got ' + JSON.stringify(raw.type));
+    }
+    result.type = raw.type;
+  }
+
+  if (raw.category !== undefined) {
+    if (typeof raw.category !== 'string' || !VALID_CATEGORIES.has(raw.category)) {
+      throw new Error('Unsupported move category ' + JSON.stringify(raw.category) + '; expected "Physical", "Special", or "Status"');
+    }
+    result.category = raw.category;
+  }
+
+  return result;
+}
+
 // Global API attached to globalThis for QuickJS / headless engine
 globalThis.DualDexCalc = {
   calculateDamage: function(inputJsonStr) {
@@ -57,6 +153,12 @@ globalThis.DualDexCalc = {
       if (input.attacker.status) attackerOptions.status = input.attacker.status;
       if (input.attacker.curHP !== undefined) attackerOptions.curHP = input.attacker.curHP;
 
+      const rawAttackerOverrides = input.attacker?.overrides || input.attackerOverride;
+      const attackerOverrides = validateSpeciesOverrides(rawAttackerOverrides, 'attacker');
+      if (attackerOverrides) {
+        attackerOptions.overrides = attackerOverrides;
+      }
+
       const attacker = new Pokemon(gen, input.attacker.species, attackerOptions);
 
       const defenderOptions = {
@@ -71,11 +173,25 @@ globalThis.DualDexCalc = {
       if (input.defender.status) defenderOptions.status = input.defender.status;
       if (input.defender.curHP !== undefined) defenderOptions.curHP = input.defender.curHP;
 
+      const rawDefenderOverrides = input.defender?.overrides || input.defenderOverride;
+      const defenderOverrides = validateSpeciesOverrides(rawDefenderOverrides, 'defender');
+      if (defenderOverrides) {
+        defenderOptions.overrides = defenderOverrides;
+      }
+
       const defender = new Pokemon(gen, input.defender.species, defenderOptions);
 
       const moveOptions = {};
       if (input.move.isCrit) moveOptions.isCrit = input.move.isCrit;
+
+      const rawMoveOverrides = input.move?.overrides || input.moveOverride;
+      const moveOverrides = validateMoveOverrides(rawMoveOverrides);
+      if (moveOverrides) {
+        moveOptions.overrides = moveOverrides;
+      }
+
       const move = new Move(gen, input.move.name, moveOptions);
+
 
       const fieldOptions = {
         gameType: normalizeGameType(input.field?.gameType)
@@ -106,7 +222,9 @@ globalThis.DualDexCalc = {
         moveType: move.type,
         movePower: move.bp,
         attackerName: attacker.name,
+        attackerTypes: attacker.types,
         defenderName: defender.name,
+        defenderTypes: defender.types,
         defenderMaxHP: defender.maxHP(),
         koChanceText: ko ? ko.text : ""
       });

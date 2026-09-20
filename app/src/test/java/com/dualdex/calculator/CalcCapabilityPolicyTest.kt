@@ -1259,4 +1259,79 @@ class CalcCapabilityPolicyTest {
             assertTrue("$limitation must block", limitation.blocksCalculation)
         }
     }
+
+    // ------------------------------------------ Gap B policy regression assertions
+
+    @Test
+    fun `H and S request with complete species and move overrides remains refused as UNSUPPORTED`() {
+        val profile = heartAndSoul
+        val baseReq = request(
+            attacker = CalcPokemonInput(species = "Arbok", level = 50),
+            defender = CalcPokemonInput(species = "Snorlax", level = 50),
+            move = CalcMoveInput(name = "Tackle")
+        )
+
+        // Enrich through CalcDataOverrides (authoritative H&S overrides populated)
+        val enriched = CalcDataOverrides.enrichRequest(profile, baseReq)
+        assertNotNull(enriched.attackerOverride)
+        assertNotNull(enriched.defenderOverride)
+        assertNotNull(enriched.moveOverride)
+
+        // Pass through CalcRequestBoundary
+        val outcome = CalcRequestBoundary.build(profile, null, enriched)
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("H&S request with complete overrides must still be refused")
+
+        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
+        assertNull("refused verdict must never expose an executable request", refused.verdict.request)
+        CalcCapabilityPolicy.HNS_REQUIRED_RULE_READS.forEach { limitation ->
+            assertTrue(
+                "refusal must report blocking limitation $limitation",
+                refused.verdict.limitations.contains(limitation)
+            )
+        }
+    }
+
+    @Test
+    fun `exact runtime verified trust does not promote H and S with overrides to supported`() {
+        val hnsSha256 = "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b"
+        val hashed = heartAndSoul.copy(
+            sha256Hashes = listOf(hnsSha256),
+            isVerified = true,
+            memoryLayoutVerified = true
+        )
+        val req = request(
+            attacker = CalcPokemonInput(species = "Charizard", level = 50),
+            defender = CalcPokemonInput(species = "Blastoise", level = 50),
+            move = CalcMoveInput(name = "Flamethrower")
+        )
+
+        val outcome = CalcRequestBoundary.build(hashed, exactTrust(hashed), req)
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("exact verified trust must NOT promote H&S to supported")
+
+        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
+        assertFalse(refused.verdict.isVerified)
+        assertNull(refused.verdict.request)
+    }
+
+    @Test
+    fun `vanilla FireRed and Emerald calculations remain unmodified and do not receive H and S overrides`() {
+        listOf(fireRed, emerald).forEach { profile ->
+            val req = request(
+                attacker = CalcPokemonInput(species = "Machamp", level = 50),
+                defender = CalcPokemonInput(species = "Snorlax", level = 50),
+                move = CalcMoveInput(name = "Rock Slide")
+            )
+            val outcome = CalcRequestBoundary.build(profile, exactTrust(profile), req)
+            val ready = outcome as? CalcRequestOutcome.Ready
+                ?: throw AssertionError("${profile.id} must be ready")
+
+            assertEquals(CalcSupport.VERIFIED, ready.verdict.support)
+            assertTrue(ready.verdict.isVerified)
+            assertNull("vanilla profile must not have attackerOverride", ready.request.attackerOverride)
+            assertNull("vanilla profile must not have defenderOverride", ready.request.defenderOverride)
+            assertNull("vanilla profile must not have moveOverride", ready.request.moveOverride)
+        }
+    }
 }

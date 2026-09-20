@@ -10,8 +10,9 @@ Before working down the individual tasks, keep the following release-level rules
 
 - [ ] **Feature-freeze major additions until the beta blockers are complete.**
   - Do not add new major companion features, broad single-screen work, ads, cloud saves, or speculative emulator features during hardening.
-  - Finish already-active ROM support work only when it does not delay architecture/safety fixes.
-  - Put good new ideas into issues/backlog instead of expanding the beta scope.
+  - Complete Heart & Soul 2.0.5 and the general pre-beta blockers before beginning another ROM integration.
+  - After that hardening pass, the only planned compatibility additions before the beta cut are R.O.W.E. followed by Unbound, in that order.
+  - Put other good new ideas into issues/backlog instead of expanding the beta scope.
 - [ ] Keep the initial beta promise narrow:
   - Reliable GBA Pokémon emulation on AYN Thor.
   - Protected/recoverable saves.
@@ -21,6 +22,28 @@ Before working down the individual tasks, keep the following release-level rules
   - No full Compose rewrite.
   - No large dependency modernization project unless required for a blocker.
   - Prefer targeted architecture fixes that preserve already-working behavior.
+
+### Pre-beta ROM Integration Sequence
+
+New ROM support is **not** parallel work during the current hardening pass. The compatibility sequence before the first public beta is:
+
+1. [ ] **Finish exact Heart & Soul 2.0.5 completely.**
+   - Close its remaining calculator/ruleset, exact-trust, battle, location, and capability-evidence gaps.
+   - Do not start another ROM integration while H&S still has unresolved first-class support blockers.
+2. [ ] **Finish the remaining general pre-beta product/release blockers using H&S as the primary complex validation ROM.**
+   - Keep exact vanilla FireRed/Emerald as regression baselines.
+   - Exercise H&S through save safety and recovery, ROM switching, process death/reboot, suspend/resume, fast-forward, save states, cheat gating, Assistant fallback behavior, credential/backup policy, controller shortcuts, second-display reconnect, and extended Thor soak testing.
+   - Fix general product defects before adding another compatibility target rather than discovering them independently in every future hack.
+3. [ ] **Add one exact R.O.W.E. release next.**
+   - Pin the exact version/hash before authoritative live-memory claims.
+   - Use it as the first deliberate validation that the source-driven data pack, ABI probing, exact-ROM trust, battle-state, runtime-rule, and calculator-override work developed for H&S can be reused by another pokeemerald-expansion-family hack.
+   - Refactor only the H&S-specific seams that R.O.W.E. proves need to become reusable; do not start a speculative generic-hack rewrite.
+4. [ ] **Add one exact Pokémon Unbound release after R.O.W.E.**
+   - Treat Unbound as a CFRU/FireRed-derived integration with its own evidence, layout, data, rules, and exact trust contract.
+   - Reuse common trust/capability/testing infrastructure, but do not assume the H&S/R.O.W.E. Emerald-expansion memory layout applies.
+5. [ ] **Only after the compatibility sequence above, cut the release candidate and proceed through the beta rings.**
+
+This sequence is the intentional exception to the general feature freeze: **new ROM support resumes only after H&S and the general pre-beta blockers are complete.** R.O.W.E. and Unbound are compatibility validation milestones, not permission to add unrelated features before beta.
 
 ### Lock Permanent App Identity Before Distribution
 
@@ -101,7 +124,7 @@ Before promoting a release candidate:
 - [ ] If a blocker is found, fix only the blocker and cut `rc2`/later rather than silently changing the tested artifact.
 - [ ] Promote the same tested commit/artifact lineage to `0.9.0-beta.1` once the RC passes the tester rings and soak tests.
 
-> **Target beta promise:** DualDex runs GBA Pokémon games reliably on the AYN Thor, protects the user's saves, and provides trustworthy live companion information for a small documented list of exact ROM versions.
+> **Target beta promise:** DualDex runs GBA Pokémon games reliably on the AYN Thor, protects the user's saves, and provides trustworthy live companion information for a small documented list of exact ROM versions. The planned compatibility path to that beta is FireRed/Emerald baselines → complete H&S 2.0.5 → general pre-beta hardening on H&S → exact R.O.W.E. → exact Unbound → RC/beta.
 
 ## Phase 1 — Release Blockers
 

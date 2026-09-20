@@ -343,13 +343,16 @@ source_check() {
   # verification or Gradle stages, and a working compiler must regenerate all
   # provisioning artifacts. See tools/ci/test_bootstrap_fail_closed.sh.
   # Re-entry guard: the regression test itself drives source_check; the guard
-  # keeps any nested source_check from invoking this test again.
-  if [ -n "${DUALDEX_BOOTSTRAP_REGRESSION_ACTIVE:-}" ]; then
-    return 0
+  # suppresses ONLY this recursive invocation of the regression suite. It must
+  # never skip the mandatory stages below (target-header preflight, data-pack
+  # --verify, Kotlin upstream validation): a test-recursion flag may prevent
+  # another test invocation, it must not prevent the verification this command
+  # promises to perform.
+  if [ -z "${DUALDEX_BOOTSTRAP_REGRESSION_ACTIVE:-}" ]; then
+    echo "== source-check bootstrap fail-closed regression =="
+    DUALDEX_BOOTSTRAP_REGRESSION_ACTIVE=1 \
+      tools/ci/test_bootstrap_fail_closed.sh "$cc_bin" "$upstream" || return 1
   fi
-  echo "== source-check bootstrap fail-closed regression =="
-  DUALDEX_BOOTSTRAP_REGRESSION_ACTIVE=1 \
-    tools/ci/test_bootstrap_fail_closed.sh "$cc_bin" "$upstream"
 
   echo "  data-pack preprocessor: $cpp_bin"
 

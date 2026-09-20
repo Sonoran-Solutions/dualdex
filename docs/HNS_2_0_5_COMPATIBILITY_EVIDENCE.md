@@ -2462,7 +2462,11 @@ In pinned H&S `Release-v2.0.5` (`1f42b74dff0e9fe942419845d040663dd829a973`):
    - Live-read participants enforce boundary ownership against the authoritative runtime observation; caller-supplied abilities cannot override or fabricate observed abilities.
 3. **Atomic Snapshotting in Recalculate:**
    `CalcTabScreenView.recalculate()` captures `playerBattlerState` and `enemyBattlerState` StateFlows into immutable local values once at method entry and passes those identical snapshots to both `CalcParticipantPresenter` and `CalcRequestBoundary`. This eliminates time-of-check to time-of-use race conditions between presenter UI formatting and boundary validation during live polling or party switches.
-4. **Defense-in-Depth ID/Name Binding Verification:**
+4. **Authoritative Numeric ID Determines Capability:**
+   In `CalcCapabilityPolicy.collectRequestLimitations`, capability for live observations is determined strictly by the authoritative runtime numeric `abilityId` (`HnsAbilityRegistry.classify(input.abilityId)`). The PR #54 catalogue name is preserved for UI display and diagnostics, but never determines capability. A malformed observation with an unsupported numeric ID (e.g. 65 Overgrow) paired with a supported catalogue name (e.g. "Keen Eye") fails closed with `HNS_ABILITY_EFFECT_NOT_MODELLED`.
+5. **Direct Domain Range Checking:**
+   `abilityId` is directly range-checked against the pinned ability domain (`0..HnsBattlerRuntimeStateIds.ABILITY_ID_MAX`, i.e. 0..310) across native tuple decoding (`HnsBattlerRuntimeState.fromNativeArray`), presenter resolution (`CalcParticipantPresenter.resolveEffectiveAbility`), central boundary reconciliation (`CalcRequestBoundary.reconcileParticipantAbility`), and capability policy evaluation (`CalcCapabilityPolicy.collectRequestLimitations`). Out-of-domain IDs fail closed with `HNS_EFFECTIVE_ABILITY_UNREADABLE`.
+6. **Defense-in-Depth ID/Name Binding Verification:**
    `BattlerRuntimeObservation` carries both `state.abilityId` and `abilityIdentity` (`DeclaredAbility.Declared?`).
    Both `CalcParticipantPresenter` and `CalcRequestBoundary` verify that:
    `observation.abilityIdentity.abilityId == state.abilityId` (and if `state.abilityId == 0`, that `abilityIdentity` is not a declared non-zero ability).
@@ -2500,7 +2504,7 @@ In vanilla Gen 3, this matches profile data. In H&S 2.0.5, this would erroneousl
    - All 1947 checks in `test_js_calc.c` pass with 0 failures.
 
 2. **Kotlin Unit Test Suite (`CalcHnsAbilityTest.kt`)**:
-   - 19 comprehensive tests verifying:
+   - 21 comprehensive tests verifying:
      - Registry classification of `PROVEN_NO_DAMAGE_EFFECT` (`None`, `Keen Eye`, `Insomnia`) vs `UNSUPPORTED_DAMAGE_RELEVANT` (`Guts`, `Thick Fat`, `Huge Power`, `Pure Power`, `Overgrow`, etc.).
      - Presenter defense-in-depth ID/name mismatch rejection.
      - Presenter active slot matching and partySlot provenance.
@@ -2508,11 +2512,15 @@ In vanilla Gen 3, this matches profile data. In H&S 2.0.5, this would erroneousl
      - Boundary rejecting observation on partySlot mismatch and clearing ability.
      - Boundary rejecting observation when LIVE_READ participant has null partySlot provenance.
      - Boundary defense-in-depth ID/name mismatch rejection.
+     - Authoritative numeric `abilityId` driving capability verdict rather than identity name string.
+     - Direct ability domain range-checking at boundary and policy layers.
      - Policy gating to `HNS_ABILITY_EFFECT_NOT_MODELLED`, `HNS_EFFECTIVE_ABILITY_UNREADABLE`, and `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED`.
-   - All 527 unit tests pass.
+   - All 529 unit tests pass.
 
 3. **Behavioral Semantic Mutation Controls:**
    - **Control 1 (Slot Matching)**: Mutated `CalcParticipantPresenter.kt` active slot matching (`state.partySlot != expectedPartySlot + 1`). Executed unit tests: 4 tests failed immediately (`attacker slot mismatch leaves ability unreadable`, `defender slot mismatch leaves ability unreadable`, presenter tests).
    - **Control 2 (Boundary Provenance)**: Mutated `CalcRequestBoundary.reconcileParticipantAbility` to ignore slot mismatch (`true || state.partySlot == participant.partySlot`). Executed unit tests: `CalcHnsAbilityTest` test `reconcileLiveBattlerAbilities rejects observation on partySlot mismatch and clears ability` failed immediately.
    - **Control 3 (Defense-in-depth)**: Mutated ID/name verification in boundary. Executed unit tests: `reconcileLiveBattlerAbilities rejects observation with mismatched abilityId and abilityIdentity` failed immediately.
+   - **Control 4 (Numeric ID Authority)**: Mutated `CalcCapabilityPolicy.collectRequestLimitations` to classify by display name (`classify(input.ability)`) rather than numeric ID (`classify(input.abilityId)`). Executed unit tests: `live read capability verdict derives from authoritative abilityId not identity name` failed immediately with `AssertionError`.
+   - **Control 5 (Domain Range Check)**: Mutated `CalcRequestBoundary.reconcileParticipantAbility` and `CalcCapabilityPolicy.collectRequestLimitations` to omit the `0..ABILITY_ID_MAX` check. Executed unit tests: `live read abilityId directly range-checked against pinned ability domain` failed immediately with `AssertionError`.
    - All mutants reverted and test suite confirmed 100% green.

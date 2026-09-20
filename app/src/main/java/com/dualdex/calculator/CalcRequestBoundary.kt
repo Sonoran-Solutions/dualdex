@@ -212,15 +212,20 @@ object CalcRequestBoundary {
             state?.partySlot != null &&
             state.partySlot == participant.partySlot
 
+        // Direct range check on abilityId against pinned ability domain
+        val isDomainValid = state != null &&
+            !state.abilityOutOfDomain &&
+            state.abilityId != null &&
+            state.abilityId in 0..com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.ABILITY_ID_MAX
+
         val isAuthoritativeValid = isExactVerified &&
             observation != null &&
             state != null &&
             state.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED &&
-            !state.abilityOutOfDomain &&
-            state.abilityId != null &&
+            isDomainValid &&
             isSlotMatched
 
-        if (!isAuthoritativeValid) {
+        if (state == null || !isAuthoritativeValid) {
             // Authoritative observation is missing, unreadable, invalid, or belongs to a different party slot.
             // A live-read participant cannot claim an ability without an authoritative runtime observation for its slot.
             val newUnknowns = if (participant.unknownFields.contains(CalcInputField.ABILITY)) {
@@ -228,11 +233,11 @@ object CalcRequestBoundary {
             } else {
                 participant.unknownFields + CalcInputField.ABILITY
             }
-            return participant.copy(ability = null, unknownFields = newUnknowns)
+            return participant.copy(ability = null, abilityId = null, unknownFields = newUnknowns)
         }
 
         // Defense-in-depth: verify identity abilityId matches state abilityId
-        val authoritativeName = if (state!!.abilityId == 0) {
+        val authoritativeName = if (state.abilityId == 0) {
             val declared = identity as? com.dualdex.pokemon.DeclaredAbility.Declared
             if (declared != null && declared.abilityId != 0) {
                 null // ID mismatch: state is 0 but identity declares non-zero
@@ -254,12 +259,16 @@ object CalcRequestBoundary {
             } else {
                 participant.unknownFields + CalcInputField.ABILITY
             }
-            return participant.copy(ability = null, unknownFields = newUnknowns)
+            return participant.copy(ability = null, abilityId = null, unknownFields = newUnknowns)
         }
 
         // Anti-spoofing: authoritative runtime observation wins over any caller-supplied value
         val newUnknowns = participant.unknownFields - CalcInputField.ABILITY
-        return participant.copy(ability = authoritativeName, unknownFields = newUnknowns)
+        return participant.copy(
+            ability = authoritativeName,
+            abilityId = state.abilityId,
+            unknownFields = newUnknowns
+        )
     }
 
     private fun reconcileLiveBattlerAbilities(

@@ -33,7 +33,13 @@ data class CalcPokemonInput(
      * Used by [CalcRequestBoundary] to verify that live runtime observations match this
      * specific participant rather than another party member or stale battler.
      */
-    val partySlot: Int? = null
+    val partySlot: Int? = null,
+    /**
+     * Authoritative numeric ability ID for Heart & Soul 2.0.5 live reads (or null if manual/unknown).
+     * Used by [CalcCapabilityPolicy] to determine ability capability directly from the authoritative
+     * runtime ID rather than from a display name string.
+     */
+    val abilityId: Int? = null
 )
 
 data class StatBlock(

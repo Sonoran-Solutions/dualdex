@@ -43,7 +43,9 @@ object CalcParticipantPresenter {
         if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) {
             return EffectiveAbilityResolution.UnknownAbility
         }
-        if (state.abilityOutOfDomain || state.abilityId == null) {
+        if (state.abilityOutOfDomain || state.abilityId == null ||
+            state.abilityId !in 0..com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.ABILITY_ID_MAX
+        ) {
             return EffectiveAbilityResolution.UnknownAbility
         }
         if (state.partySlot != expectedPartySlot) {
@@ -60,7 +62,7 @@ object CalcParticipantPresenter {
         }
         // Defense-in-depth: verify identity abilityId matches state abilityId
         return if (declared != null && declared.abilityId == state.abilityId && declared.name.isNotBlank()) {
-            EffectiveAbilityResolution.ObservedAbility(declared.name)
+            EffectiveAbilityResolution.ObservedAbility(declared.name, state.abilityId)
         } else {
             EffectiveAbilityResolution.UnknownAbility
         }

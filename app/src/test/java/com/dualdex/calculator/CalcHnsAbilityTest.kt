@@ -6,6 +6,7 @@ import com.dualdex.pokemon.hns.BattlerRuntimeObservation
 import com.dualdex.pokemon.hns.HnsAbilityCategory
 import com.dualdex.pokemon.hns.HnsAbilityRegistry
 import com.dualdex.pokemon.hns.HnsBattlerRuntimeState
+import com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
 import com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus
 import com.dualdex.pokemon.hns.HnsChallengeField
 import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
@@ -206,7 +207,9 @@ class CalcHnsAbilityTest {
             isExactHns = true
         )
         assertTrue(resolution is EffectiveAbilityResolution.ObservedAbility)
-        assertEquals("Keen Eye", (resolution as EffectiveAbilityResolution.ObservedAbility).name)
+        val observed = resolution as EffectiveAbilityResolution.ObservedAbility
+        assertEquals("Keen Eye", observed.name)
+        assertEquals(51, observed.abilityId)
     }
 
     @Test
@@ -332,10 +335,11 @@ class CalcHnsAbilityTest {
         val participant = CalcInputPreparation.fromParsed(
             parsed = parsed,
             speciesName = "Pidgeot",
-            effectiveAbility = EffectiveAbilityResolution.ObservedAbility("Keen Eye"),
+            effectiveAbility = EffectiveAbilityResolution.ObservedAbility("Keen Eye", 51),
             partySlot = 0
         )
         assertEquals("Keen Eye", participant.ability)
+        assertEquals(51, participant.abilityId)
         assertEquals(0, participant.partySlot)
         assertFalse(participant.unknownFields.contains(CalcInputField.ABILITY))
     }
@@ -350,6 +354,7 @@ class CalcHnsAbilityTest {
             partySlot = 1
         )
         assertEquals("None", participant.ability)
+        assertEquals(0, participant.abilityId)
         assertEquals(1, participant.partySlot)
         assertFalse(participant.unknownFields.contains(CalcInputField.ABILITY))
     }
@@ -683,5 +688,105 @@ class CalcHnsAbilityTest {
         // Ability must have failed closed to unreadable
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN))
+    }
+
+    @Test
+    fun `live read capability verdict derives from authoritative abilityId not identity name`() {
+        val trust = exactTrust(heartAndSoul)
+        val snapshot = hnsSettingsSnapshot()
+
+        // Malformed observation where runtime ID is 65 (Overgrow, unsupported)
+        // but identity declared name is "Keen Eye" (supported no-damage name) with matching ID 65
+        val malformedObs = BattlerRuntimeObservation(
+            state = HnsBattlerRuntimeState(
+                status = HnsBattlerRuntimeStatus.OBSERVED,
+                battlerIndex = 0,
+                partySlot = 0,
+                abilityId = 65,
+                abilityOutOfDomain = false,
+                types = emptyList()
+            ),
+            abilityIdentity = DeclaredAbility.Declared(
+                abilityId = 65,
+                name = "Keen Eye"
+            )
+        )
+
+        val req = DamageCalculationRequest(
+            gen = 3,
+            typeSystem = "hns_2_0_5",
+            attacker = CalcPokemonInput(
+                species = "Pidgeot",
+                level = 50,
+                origin = CalcInputOrigin.LIVE_READ,
+                partySlot = 0
+            ),
+            defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
+            move = CalcMoveInput(name = "Wing Attack")
+        )
+
+        val outcome = CalcRequestBoundary.build(
+            profile = heartAndSoul,
+            trust = trust,
+            request = req,
+            challengeSettings = snapshot,
+            playerBattlerState = malformedObs
+        )
+
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("Must be refused due to unsupported Overgrow ability")
+
+        // Capability verdict MUST be chosen from the authoritative numeric ID (65 -> Overgrow -> UNSUPPORTED),
+        // NEVER from the identity display name string ("Keen Eye")
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+    }
+
+    @Test
+    fun `live read abilityId directly range-checked against pinned ability domain`() {
+        val trust = exactTrust(heartAndSoul)
+        val snapshot = hnsSettingsSnapshot()
+
+        // Observation with abilityId > ABILITY_ID_MAX (311) but abilityOutOfDomain erroneously false
+        val outOfDomainObs = BattlerRuntimeObservation(
+            state = HnsBattlerRuntimeState(
+                status = HnsBattlerRuntimeStatus.OBSERVED,
+                battlerIndex = 0,
+                partySlot = 0,
+                abilityId = HnsBattlerRuntimeStateIds.ABILITY_ID_MAX + 1,
+                abilityOutOfDomain = false,
+                types = emptyList()
+            ),
+            abilityIdentity = DeclaredAbility.Declared(
+                abilityId = HnsBattlerRuntimeStateIds.ABILITY_ID_MAX + 1,
+                name = "UnknownOverMax"
+            )
+        )
+
+        val req = DamageCalculationRequest(
+            gen = 3,
+            typeSystem = "hns_2_0_5",
+            attacker = CalcPokemonInput(
+                species = "Pidgeot",
+                level = 50,
+                origin = CalcInputOrigin.LIVE_READ,
+                partySlot = 0
+            ),
+            defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
+            move = CalcMoveInput(name = "Wing Attack")
+        )
+
+        val outcome = CalcRequestBoundary.build(
+            profile = heartAndSoul,
+            trust = trust,
+            request = req,
+            challengeSettings = snapshot,
+            playerBattlerState = outOfDomainObs
+        )
+
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("Must be refused due to out-of-domain ability ID")
+
+        // Must fail closed to unreadable because abilityId exceeds pinned domain
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
     }
 }

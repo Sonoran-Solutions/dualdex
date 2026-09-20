@@ -55,7 +55,11 @@ data class CalcParticipantState(
     /**
      * Party slot provenance for live reads (0-indexed party slot, or null if manual/unknown).
      */
-    val partySlot: Int? = null
+    val partySlot: Int? = null,
+    /**
+     * Authoritative numeric ability ID for live reads (or null if manual/unknown).
+     */
+    val abilityId: Int? = null
 ) {
     companion object {
         /**
@@ -130,7 +134,7 @@ fun DamageCalculationRequest.unknownLiveFields(): List<CalcInputField> {
  * - [UnknownAbility]: Ability could not be authoritatively resolved (mismatching slot, bench, faint, etc.).
  */
 sealed class EffectiveAbilityResolution {
-    data class ObservedAbility(val name: String) : EffectiveAbilityResolution()
+    data class ObservedAbility(val name: String, val abilityId: Int? = null) : EffectiveAbilityResolution()
     object ObservedNone : EffectiveAbilityResolution()
     object UnknownAbility : EffectiveAbilityResolution()
 }
@@ -230,10 +234,10 @@ object CalcInputPreparation {
                 NO_ITEM
             }
 
-        val (resolvedAbility, abilityUnknown) = when (effectiveAbility) {
-            is EffectiveAbilityResolution.ObservedAbility -> effectiveAbility.name to false
-            is EffectiveAbilityResolution.ObservedNone -> "None" to false
-            is EffectiveAbilityResolution.UnknownAbility -> null to true
+        val (resolvedAbility, resolvedAbilityId, abilityUnknown) = when (effectiveAbility) {
+            is EffectiveAbilityResolution.ObservedAbility -> Triple(effectiveAbility.name, effectiveAbility.abilityId, false)
+            is EffectiveAbilityResolution.ObservedNone -> Triple("None", 0, false)
+            is EffectiveAbilityResolution.UnknownAbility -> Triple(null, null, true)
         }
 
         return CalcParticipantState(
@@ -272,7 +276,8 @@ object CalcInputPreparation {
                 // Pokemon, so it is recorded as unknown as well as sent for rejection.
                 if (statusNameOf(parsed) == UNKNOWN_STATUS) add(CalcInputField.STATUS)
             },
-            partySlot = partySlot
+            partySlot = partySlot,
+            abilityId = resolvedAbilityId
         )
     }
 
@@ -321,7 +326,8 @@ object CalcInputPreparation {
         status = status,
         origin = origin,
         unknownFields = unknownFields,
-        partySlot = partySlot
+        partySlot = partySlot,
+        abilityId = abilityId
     )
 
     /**

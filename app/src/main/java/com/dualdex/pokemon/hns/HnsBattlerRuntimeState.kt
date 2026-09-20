@@ -195,12 +195,16 @@ data class HnsBattlerRuntimeState(
                         raw[10 + slot] > HnsBattlerRuntimeStateIds.TYPE_ID_MAX
                 )
             }
+            val abilityObserved = raw[4] != 0
+            val abilityId = raw[6].takeIf { abilityObserved }
+            val abilityOutOfDomain = raw[5] != 0 ||
+                (abilityObserved && (raw[6] < 0 || raw[6] > HnsBattlerRuntimeStateIds.ABILITY_ID_MAX))
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
                 partySlot = raw[2].takeIf { raw[3] != 0 && it in 0..5 },
-                abilityId = raw[6].takeIf { raw[4] != 0 },
-                abilityOutOfDomain = raw[5] != 0,
+                abilityId = abilityId,
+                abilityOutOfDomain = abilityOutOfDomain,
                 types = types
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for

@@ -330,8 +330,12 @@ that the H&S ability system is unmodelled with a strict per-ability and per-part
      Any slot mismatch or missing provenance strips caller-supplied abilities to `null` and marks `ABILITY` unknown.
    - Single snapshot per recalculate: `CalcTabScreenView.recalculate()` captures `playerBattlerState` and
      `enemyBattlerState` once per cycle, eliminating race conditions across presenter and boundary passes.
-   - Defense-in-depth: Both presenter and boundary verify `observation.abilityIdentity.abilityId == state.abilityId`.
-     A malformed observation with mismatched ID and name fails closed to unknown (`HNS_EFFECTIVE_ABILITY_UNREADABLE`).
+   - Authoritative numeric ID drives capability verdict: For live observations, capability is determined strictly
+     from the authoritative runtime numeric `abilityId` (`HnsAbilityRegistry.classify(abilityId)`). The catalogue
+     display name (`abilityIdentity.name`) is preserved for UI display and diagnostics, but never determines capability.
+     A malformed observation masquerading as supported under a false name fails closed via `abilityId`.
+   - Domain range check: `abilityId` is directly range-checked against the pinned ability domain (`0..ABILITY_ID_MAX`,
+     i.e. 0..310) at native array decoding, presenter resolution, boundary reconciliation, and policy evaluation.
    - Faint/replacement/unavailable windows, `AMBIGUOUS` (doubles), and `OBSERVED_INVALID` fail closed to unknown
      ability (`HNS_EFFECTIVE_ABILITY_UNREADABLE`).
    - Anti-spoofing in `CalcRequestBoundary`: Live-read participants enforce boundary ownership; caller-supplied

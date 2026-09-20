@@ -764,6 +764,16 @@ object CalcCapabilityPolicy {
     }
 
     /**
+     * True only when the numeric H&S ability ID's damage effect reaches the pipeline for [ruleset].
+     */
+    fun isAbilityModelled(ruleset: CalcRuleset, abilityId: Int): Boolean = when (ruleset) {
+        CalcRuleset.VANILLA_GEN3 -> false
+        CalcRuleset.HNS_2_0_5 ->
+            abilityId in 0..com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.ABILITY_ID_MAX &&
+                com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(abilityId).category.isSupportedForDamage
+    }
+
+    /**
      * The canonical spelling of [ability] when the ADV pipeline models it, else null.
      *
      * The engine matches ability names exactly, so a differently-cased name is not the ability - it
@@ -811,7 +821,12 @@ object CalcCapabilityPolicy {
                 item = input.item?.let { canonicalItem(it) ?: it }
             )
             CalcRuleset.HNS_2_0_5 -> input.copy(
-                ability = input.ability?.let { com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(it) ?: it }
+                ability = if (input.abilityId != null) {
+                    com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(input.abilityId)
+                        ?: input.ability?.let { com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(it) ?: it }
+                } else {
+                    input.ability?.let { com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(it) ?: it }
+                }
             )
         }
         return request.copy(
@@ -867,10 +882,14 @@ object CalcCapabilityPolicy {
         listOf(request.attacker, request.defender).forEach { input ->
             if (capability.ruleset == CalcRuleset.HNS_2_0_5) {
                 if (input.origin == CalcInputOrigin.LIVE_READ) {
-                    if (input.unknownFields.contains(CalcInputField.ABILITY) || input.ability.isNullOrBlank()) {
+                    if (input.unknownFields.contains(CalcInputField.ABILITY) || input.ability.isNullOrBlank() || input.abilityId == null) {
+                        limitations.add(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE)
+                    } else if (input.abilityId !in 0..com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.ABILITY_ID_MAX) {
                         limitations.add(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE)
                     } else {
-                        val classification = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.ability)
+                        // Authoritative numeric ability ID determines capability verdict,
+                        // NEVER the display name string.
+                        val classification = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.abilityId)
                         if (!classification.category.isSupportedForDamage) {
                             limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
                         }
@@ -879,7 +898,11 @@ object CalcCapabilityPolicy {
                     if (input.ability.isNullOrBlank()) {
                         limitations.add(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE)
                     } else {
-                        val classification = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.ability)
+                        val classification = if (input.abilityId != null) {
+                            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.abilityId)
+                        } else {
+                            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.ability)
+                        }
                         if (!classification.category.isSupportedForDamage) {
                             limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
                         }

@@ -2,7 +2,7 @@
 
 > **Long-term roadmap only. This document is explicitly not part of the AYN Thor `0.9.0-beta.1` release scope.**
 >
-> The current GBA beta should be stabilized, released, and validated with real users before work begins here. Nothing in this document should delay the initial beta.
+> Before this broader platform roadmap begins, DualDex will finish the current GBA pre-beta sequence: complete Heart & Soul 2.0.5, finish the remaining general beta blockers using H&S as the primary complex validation ROM, integrate one exact R.O.W.E. release as the first pokeemerald-expansion reuse test, integrate one exact Pokémon Unbound release, then cut/validate the GBA beta. Those are GBA compatibility milestones, not platform-expansion phases. Nothing in this document should interrupt that sequence.
 
 ## Vision
 
@@ -1044,14 +1044,16 @@ These should be rechecked when implementation starts because emulator projects a
 
 This roadmap stays **outside the current release checklist’s beta exit criteria**.
 
-The current priority remains:
+The GBA work immediately before this roadmap is intentionally ordered:
 
-1. protect GBA saves,
-2. stabilize the current mGBA lifecycle,
-3. make ROM/version detection trustworthy,
-4. make GBA memory profiles authoritative,
-5. make the existing companion/calculator accurate,
-6. release and learn from real AYN Thor users.
+1. finish exact Heart & Soul 2.0.5 to the full supported compatibility contract;
+2. finish save safety, ROM switching, security/privacy, controller, Assistant/Cheats gating, release, and hardware-soak blockers using H&S as the primary complex validation ROM while retaining FireRed/Emerald regression coverage;
+3. integrate one exact R.O.W.E. release and use it to prove the pokeemerald-expansion-oriented tooling and abstractions generalize beyond H&S;
+4. integrate one exact Pokémon Unbound release with an independent CFRU/FireRed-derived compatibility contract;
+5. cut, soak, and release the first AYN Thor beta;
+6. only then begin the broader multi-generation/platform expansion described in this document.
+
+R.O.W.E. and Unbound are deliberately placed **after** the general hardening pass so new compatibility work does not hide or multiply product-level defects. R.O.W.E. comes before Unbound because it is the controlled reuse test for the H&S-derived expansion architecture; Unbound then exercises the more different CFRU path.
 
 That work is not separate from the Gen 1–9 vision. It is the foundation for it.
 

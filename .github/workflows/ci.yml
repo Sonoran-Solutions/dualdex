@@ -93,8 +93,9 @@ jobs:
       # the sources the data-pack generator preprocesses (all of include, plus
       # src/pokemon.c, src/move.c and their src/data includes), the upstream
       # tools that generate its build-time headers (tools/mapjson,
-      # tools/jsonproc -- run by ./ci.sh source-check), and data/layouts which
-      # the layouts header generation reads.
+      # tools/jsonproc, tools/learnset_helpers -- run by ./ci.sh source-check),
+      # and the full data/ tree the tutor-learnset generation scans for .inc
+      # scripts (data/maps and data/layouts are read for the map headers).
       - name: Fetch pinned Heart & Soul 2.0.5 source
         uses: actions/checkout@v4
         with:
@@ -103,14 +104,14 @@ jobs:
           path: upstream-hns/pokehns-expansion
           fetch-depth: 1
           sparse-checkout: |
-            data/maps
-            data/layouts
+            data
             include
             src/data
             src/pokemon.c
             src/move.c
             tools/mapjson
             tools/jsonproc
+            tools/learnset_helpers
           sparse-checkout-cone-mode: true
 
       - name: Run H&S source validation

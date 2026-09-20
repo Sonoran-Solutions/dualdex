@@ -244,17 +244,19 @@ source_check() {
     echo "       Install gcc-arm-none-eabi (or devkitARM) or set ARM_CPP." >&2
     return 1
   fi
-  # Materialize the pinned upstream's generated headers. Four headers included
-  # by the preprocessed sources (include/constants/{map_groups,layouts,
-  # map_event_ids,region_map_sections}.h) are gitignored build artifacts
-  # produced by the upstream build's own committed tools from JSON sources
-  # within the checkout: tools/mapjson and tools/jsonproc. A dev checkout that
-  # has been built already has them; a sparse CI checkout does not, so build the
-  # tools with the host C++ compiler and regenerate exactly those four files.
-  # Fail closed: refuse if the sources for the tools or their JSON inputs are
-  # missing, and refuse to run if generation leaves the checkout's tracked
-  # files modified. This is not faking headers: it is upstream's own toolchain
-  # generating upstream's own headers from upstream's own data.
+  # Materialize the pinned upstream's generated headers. The gitignored build
+  # artifacts included by the preprocessed sources (include/constants/{
+  # map_groups,layouts,map_event_ids,region_map_sections}.h and src/data/{
+  # map_group_count,tutor_moves}.h plus src/data/pokemon/teachable_learnsets.h)
+  # are produced by the upstream build's own committed tools from committed JSON
+  # sources within the checkout: tools/mapjson, tools/jsonproc and the
+  # tools/learnset_helpers scripts. A dev checkout that has been built already
+  # has them; a sparse CI checkout does not, so build the tools with the host
+  # C++ compiler and regenerate exactly those files. Fail closed: refuse if the
+  # sources for the tools or their JSON inputs are missing, and refuse to run if
+  # generation leaves the checkout's tracked files modified. This is not faking
+  # headers: it is upstream's own toolchain generating upstream's own headers
+  # from upstream's own data.
   echo "== regenerating pinned upstream build-time headers (mapjson/jsonproc) =="
   local cc_bin
   cc_bin="$(command -v g++ || command -v clang++)" || {
@@ -272,6 +274,11 @@ source_check() {
     for required in \
       tools/mapjson/mapjson.cpp tools/mapjson/json11.cpp \
       tools/jsonproc/jsonproc.cpp tools/jsonproc/inja.hpp \
+      tools/learnset_helpers/make_tutors.py \
+      tools/learnset_helpers/make_teaching_types.py \
+      tools/learnset_helpers/make_teachables.py \
+      src/data/pokemon/all_learnables.json \
+      src/data/pokemon/special_movesets.json \
       data/maps/map_groups.json data/layouts/layouts.json \
       src/data/region_map/region_map_sections.json \
       src/data/region_map/region_map_sections.constants.json.txt; do
@@ -293,6 +300,11 @@ source_check() {
     "$prov_build/jsonproc" src/data/region_map/region_map_sections.json \
       src/data/region_map/region_map_sections.constants.json.txt \
       include/constants/region_map_sections.h
+    python3 tools/learnset_helpers/make_tutors.py "$prov_build/all_tutors.json"
+    python3 tools/learnset_helpers/make_teaching_types.py \
+      "$prov_build/all_teaching_types.json"
+    python3 tools/learnset_helpers/make_teachables.py --build POKEMON_HNS \
+      "$prov_build"
   ) || return 1
   if [ -n "$(git -C "$upstream" status --porcelain --untracked-files=no)" ]; then
     echo "error: regenerating upstream build-time headers modified tracked files in" >&2

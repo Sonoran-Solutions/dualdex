@@ -2539,8 +2539,15 @@ runtime.
   (`[src/battle_script_commands.c:6607]`), stolen (`[src/battle_script_commands.c:2227]`, `:2239]`;
   `[src/battle_move_resolution.c:3095]`, `:3100]`), knocked off (`[src/battle_move_resolution.c:3055]`),
   swapped by Trick/Switcheroo (`[src/battle_script_commands.c:9818-9819]`), or flung
-  (`[data/battle_scripts_1.s:528]` removeitem). The party structure is only re-synchronised at battle
-  end (`[src/battle_controllers.c:1805-1806]`), so the party record is **stored** item state.
+  (`[data/battle_scripts_1.s:528]` removeitem). The controller ALSO pushes in-battle item changes back
+  into the party record immediately through `REQUEST_HELDITEM_BATTLE`:
+  `BtlController_EmitSetMonData(..., REQUEST_HELDITEM_BATTLE, ...)` is emitted on consume
+  (`[src/battle_script_commands.c:6611]`), Knock Off (`[src/battle_move_resolution.c:3063]`), steal
+  (`[src/battle_script_commands.c:2242-2249]`), Trick/Switcheroo (`[src/battle_script_commands.c:9824-9827]`)
+  and Fling (`[src/battle_util.c:10216]`), and the controller handler writes it into party storage with
+  `SetMonData(&party[monId], MON_DATA_HELD_ITEM, ...)` (`[src/battle_controllers.c:1804-1806]`). The party
+  record is therefore **not** frozen until battle end — it is a separate, asynchronously-updated copy.
+  `gBattleMons[battler].item` remains the synchronous battle-engine authority.
 - **Damage-path derivation:** `CalculateMoveDamage` sets `holdEffectAtk/Def = GetBattlerHoldEffect(...)`
   (`[src/battle_util.c:8231-8234]`) → `GetBattlerHoldEffectInternal` (`:5813-5838`) →
   `GetItemHoldEffect(gBattleMons[battler].item)` (`[src/item.c:860-863]`); the parameter comes from
@@ -2560,11 +2567,37 @@ runtime.
   `[src/battle_script_commands.c:1484-1501]`); **Focus Sash/Band, Leftovers, Shell Bell and Rocky Helmet**
   affect survival/HP/KO presentation (`[src/battle_util.c:8193-8206]`,
   `[src/battle_hold_effects.c:536-656]`, `:245-262]`).
-- **Harmless utility:** Exp. Share (`HOLD_EFFECT_EXP_SHARE`), Soothe Bell
+- **Harmless utility (static, ordinary-damage-only):** Exp. Share (`HOLD_EFFECT_EXP_SHARE`), Soothe Bell
   (`HOLD_EFFECT_FRIENDSHIP_UP`, `[src/pokemon.c:7777]`), Amulet Coin (`HOLD_EFFECT_DOUBLE_PRIZE`,
   `[src/battle_main.c:3189]`), Cleanse Tag (`HOLD_EFFECT_REPEL`, `[src/wild_encounter.c:1334]`) and
   Lucky Egg (`HOLD_EFFECT_LUCKY_EGG`, `[src/battle_script_commands.c:11982]`) have no crit/power/type/
-  stat/survival/KO/HP/status/speed interaction and are `PROVEN_NO_DAMAGE_EFFECT`.
+  stat/survival/KO/HP/status/speed interaction and are `PROVEN_NO_ORDINARY_DAMAGE_EFFECT`. This is a
+  context-free statement only about their OWN hold effect; the item's identity is still damage-relevant
+  to the item-dependent moves below.
+
+**Move/item interaction audit (SOURCE VERIFIED).** The pinned damage path reads held-item state for a
+complete, audited set of moves, so the static item classification above is not sufficient on its own.
+Every read found:
+
+| Move | ID | Interaction | Pinned source |
+|---|---|---|---|
+| Fling | 374 | attacker item identity | `CalcMoveBasePower EFFECT_FLING` `[src/battle_util.c:6344-6346]` |
+| Natural Gift | 363 | attacker item identity (power + type) | `[src/battle_util.c:6395-6397]`, `[src/battle_main.c:6327-6330]` |
+| Acrobatics | 512 | attacker item absence | `[src/battle_util.c:6421-6424]` |
+| Knock Off | 282 | defender item presence | `[src/battle_util.c:6619-6623]` |
+| Poltergeist | 737 | defender item presence (move fails) | `[src/battle_move_resolution.c:1301-1305]` |
+| Judgment | 449 | attacker item identity (type) | `GetDynamicMoveType EFFECT_CHANGE_TYPE_ON_ITEM` `[src/battle_main.c:6284-6286]` |
+| Techno Blast | 546 | attacker item identity (type) | `[src/battle_main.c:6284-6286]` |
+| Multi-Attack | 672 | attacker item identity (type) | `[src/battle_main.c:6284-6286]` |
+
+Audited and deliberately excluded: Weather Ball (only the Utility Umbrella hold effect, which no
+supported item has, `[src/battle_main.c:6212-6240]`), Low Kick / Heat Crash (weight via the Float Stone
+hold effect, `GetBattlerWeight` `[src/battle_util.c:6053-6087]`, and Float Stone is refused statically),
+Pluck/Bug Bite/Thief/Covet (item moved after the formula), Sucker Punch (reads the defender's chosen
+move), and the gem/plate/choice/pinch-berry hold effects (ordinary-move multipliers already refused
+statically). Because the authorized request strips supported items before the engine, every audited move
+is refused with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` before it can no-op on the wrong item state. See
+`HnsMoveItemInteractionRegistry` and `docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md` §7.2.
 
 ### 17.2 Exact item catalogue (SOURCE VERIFIED)
 
@@ -2608,17 +2641,24 @@ slice.
 `CalcParticipantPresenter.resolveEffectiveItem` and `CalcRequestBoundary.reconcileParticipantItem`
 implement and test: active player/enemy slot match → current battle item, including authoritative
 `ITEM_NONE` overriding a stale nonzero party item; bench player → parsed party item; opponent slot
-mismatch, faint window, doubles ambiguity and unverified reads → unreadable, never a fallback. Capability
-is `HnsItemRegistry.classify(itemId)`, never a display name; manual names resolve through the exact
-catalogue. These are synthetic-fixture unit tests, not runtime evidence.
+mismatch, faint window, doubles ambiguity and unverified reads → unreadable, never a fallback. The
+`activeBattle` flag is a hint, not the authority: `reconcileLiveBattlerItems` treats any supplied runtime
+observation as battle evidence, so a raw LIVE_READ caller cannot declare `activeBattle = false` while
+handing over an observed battler and thereby downgrade to the party item. Capability is
+`HnsItemRegistry.classify(itemId)` (static) combined with `HnsMoveItemInteractionRegistry` (contextual),
+never a display name; manual names resolve through the exact catalogue. These are synthetic-fixture unit
+tests, not runtime evidence.
 
 ### 17.6 Verification evidence
 
-1. **Kotlin unit tests** (`Hns205ItemCatalogueTest.kt`, `HnsItemRegistryTest.kt`, `CalcHnsItemTest.kt`):
-   exact catalogue identity/domain/alias/name resolution, numeric-ID authority, generic-`ItemDatabase`
-   mutation independence, presenter active/bench/out-of-battle/faint behaviour, boundary anti-spoofing,
-   opponent slot matching and doubles refusal, ITEM_NONE clearing, manual resolution, and the next-blocker
-   assertion (`BADGE_BOOST_NOT_MODELLED` present, item blockers and the blanket absent, UNSUPPORTED,
+1. **Kotlin unit tests** (`Hns205ItemCatalogueTest.kt`, `HnsItemRegistryTest.kt`,
+   `HnsMoveItemInteractionTest.kt`, `CalcHnsItemTest.kt`): exact catalogue identity/domain/alias/name
+   resolution, numeric-ID authority, generic-`ItemDatabase` mutation independence, presenter
+   active/bench/out-of-battle/faint behaviour, boundary anti-spoofing, opponent slot matching and doubles
+   refusal, ITEM_NONE clearing, manual resolution, the context-free static subset (Amulet Coin + ordinary
+   move) versus the contextual gate (Amulet Coin + Fling, ITEM_NONE + Acrobatics, defender item + Knock
+   Off) and the raw-boundary battle-context regression, and the next-blocker assertion
+   (`BADGE_BOOST_NOT_MODELLED` present, item blockers and the blanket absent, UNSUPPORTED,
    `request == null`).
 2. **Native tests** (`native/tests/test_pokemon_reader.c`): item offset/width/domain pins, `ITEM_NONE` as
    observed zero, switch/consume rewrite clearing the old item, out-of-domain raw preservation, faint
@@ -2642,7 +2682,16 @@ catalogue. These are synthetic-fixture unit tests, not runtime evidence.
 - **Control 2 (numeric identity).** Mutated `CalcCapabilityPolicy.collectHnsItemLimitation` to classify a
   live item by its display name (`classifyByName(input.item)`) instead of its numeric ID. `CalcHnsItemTest`
   failed 4 tests, including `numeric item id is the authority when the display name disagrees`.
-- Both mutants were reverted and the full suite returned green.
+- **Control 3 (contextual interaction gate, review R1).** Mutated
+  `HnsMoveItemInteraction.requiresBlock` from `isItemDependent && !modelled` to
+  `isItemDependent && modelled`, i.e. the audit still identified item-dependent moves but stopped adding
+  the blocker. Running `CalcHnsItemTest` + `HnsMoveItemInteractionTest` failed 5 tests:
+  `the same utility item with Fling is refused as item dependent`,
+  `ITEM_NONE with Acrobatics is refused as item dependent`,
+  `defender held utility item with Knock Off is refused as item dependent`,
+  `manual utility item with an item dependent move is refused`, and
+  `every audited move still resolves to its exact H and S pack identity`.
+- All mutants were reverted and the full suite returned green.
 
 ### 17.8 What this slice does not verify
 

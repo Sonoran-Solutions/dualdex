@@ -203,23 +203,26 @@ object CalcRequestBoundary {
             return participant
         }
 
-        // If presenter marked ABILITY as unknown and ability is null (e.g. partySlot mismatch), keep it unknown.
-        if (participant.unknownFields.contains(CalcInputField.ABILITY) && participant.ability == null) {
-            return participant
-        }
-
         val state = observation?.state
         val identity = observation?.abilityIdentity
+
+        // Central boundary slot provenance binding:
+        // A live-read participant under exact H&S must carry partySlot, and it must match the observed battler's partySlot.
+        val isSlotMatched = participant.partySlot != null &&
+            state?.partySlot != null &&
+            state.partySlot == participant.partySlot
+
         val isAuthoritativeValid = isExactVerified &&
             observation != null &&
             state != null &&
             state.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED &&
             !state.abilityOutOfDomain &&
-            state.abilityId != null
+            state.abilityId != null &&
+            isSlotMatched
 
         if (!isAuthoritativeValid) {
-            // Authoritative observation is missing, unreadable, or invalid.
-            // A live-read participant cannot claim an ability without authoritative runtime observation.
+            // Authoritative observation is missing, unreadable, invalid, or belongs to a different party slot.
+            // A live-read participant cannot claim an ability without an authoritative runtime observation for its slot.
             val newUnknowns = if (participant.unknownFields.contains(CalcInputField.ABILITY)) {
                 participant.unknownFields
             } else {
@@ -228,14 +231,20 @@ object CalcRequestBoundary {
             return participant.copy(ability = null, unknownFields = newUnknowns)
         }
 
+        // Defense-in-depth: verify identity abilityId matches state abilityId
         val authoritativeName = if (state!!.abilityId == 0) {
-            "None"
+            val declared = identity as? com.dualdex.pokemon.DeclaredAbility.Declared
+            if (declared != null && declared.abilityId != 0) {
+                null // ID mismatch: state is 0 but identity declares non-zero
+            } else {
+                "None"
+            }
         } else {
             val declared = identity as? com.dualdex.pokemon.DeclaredAbility.Declared
-            if (declared != null && declared.name.isNotBlank()) {
+            if (declared != null && declared.abilityId == state.abilityId && declared.name.isNotBlank()) {
                 com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(declared.name) ?: declared.name
             } else {
-                null
+                null // missing, blank, or ID mismatch
             }
         }
 

@@ -43,17 +43,23 @@ object CalcParticipantPresenter {
         if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) {
             return EffectiveAbilityResolution.UnknownAbility
         }
-        if (state.abilityOutOfDomain) {
+        if (state.abilityOutOfDomain || state.abilityId == null) {
             return EffectiveAbilityResolution.UnknownAbility
         }
         if (state.partySlot != expectedPartySlot) {
             return EffectiveAbilityResolution.UnknownAbility
         }
-        if (state.abilityId == 0) {
-            return EffectiveAbilityResolution.ObservedNone
-        }
         val declared = observation.abilityIdentity as? com.dualdex.pokemon.DeclaredAbility.Declared
-        return if (declared != null && declared.name.isNotBlank()) {
+        if (state.abilityId == 0) {
+            // Defense-in-depth: if identity is declared with non-zero ID, reject the mismatch
+            return if (declared != null && declared.abilityId != 0) {
+                EffectiveAbilityResolution.UnknownAbility
+            } else {
+                EffectiveAbilityResolution.ObservedNone
+            }
+        }
+        // Defense-in-depth: verify identity abilityId matches state abilityId
+        return if (declared != null && declared.abilityId == state.abilityId && declared.name.isNotBlank()) {
             EffectiveAbilityResolution.ObservedAbility(declared.name)
         } else {
             EffectiveAbilityResolution.UnknownAbility
@@ -88,7 +94,8 @@ object CalcParticipantPresenter {
             speciesName = speciesNameOf(member),
             boosts = playerStages?.toBoostStatBlock(),
             isExpansionItems = isExpansionItems,
-            effectiveAbility = effectiveAbility
+            effectiveAbility = effectiveAbility,
+            partySlot = selectedIndex
         )
     }
 
@@ -120,7 +127,8 @@ object CalcParticipantPresenter {
             speciesName = chosenSpecies,
             boosts = enemyStages?.toBoostStatBlock(),
             isExpansionItems = isExpansionItems,
-            effectiveAbility = effectiveAbility
+            effectiveAbility = effectiveAbility,
+            partySlot = activeEnemySlot
         )
     }
 

@@ -121,9 +121,8 @@ Only these individual behaviours are source-and-test demonstrated:
 | Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack form | **matches** |
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
 | Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
-| Species & move data | modern stats, types, power from pinned pack | authoritative overrides via `CalcDataOverrides` | **MATCHES (Gap B closed)** |
-| Abilities (audited subset) | Guts, Thick Fat, Huge Power, Pure Power; Keen Eye, Insomnia, None | Gen 3 pipeline + `resolveAbility` guard in `entry.js` | **MATCHES (Gap C2 closed)** — arithmetic equivalence proven; unmodelled/divergent abilities fail-closed via `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
-| Abilities (unsupported) | modern damage-affecting abilities (~80 modifiers) + starter pinch abilities | Gen 3 pipeline | **does not match** — blocked fail-closed by `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
+| Abilities (supported subset) | Keen Eye, Insomnia, None (`PROVEN_NO_DAMAGE_EFFECT`) | Gen 3 pipeline + `resolveAbility` guard in `entry.js` | **MATCHES (Gap C2 closed)** — zero move-damage effect in H&S battle engine; unmodelled/divergent abilities fail-closed via `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
+| Abilities (temporarily unsupported) | Guts, Thick Fat, Huge Power, Pure Power, starter pinch abilities, modern abilities | Gen 3 pipeline | **does not match** — modifier composition (compound fixed-point multiplier vs ADV sequential floor) and stat-stage application order (stages before abilities vs abilities before stages) diverge; blocked fail-closed by `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
 | Held items | modern type-boost ×1.2, gems ×1.3, modern items | Gen 3 pipeline | **does not match (Gap C3 open)** — blocked fail-closed by `HNS_HELD_ITEM_SYSTEM_NOT_MODELLED` (§7) |
 | Badge boost | player-side ×1.1 stats | not modelled | **does not match** — see §8 |
 
@@ -319,28 +318,39 @@ both halves of this in `gen3_explicit_guts_boosts_a_statused_attacker` and
 H&S features ~80 post-Gen-III abilities affecting damage. DualDex replaces the blanket statement
 that the H&S ability system is unmodelled with a strict per-ability and per-participant capability decision:
 
-1. **Authoritative Runtime Effective Ability Input:**
+1. **Authoritative Runtime Effective Ability Input & Boundary Slot Provenance:**
    Effective abilities are read live from `gBattleMons[battler].ability` (PR #56) and delivered as
    `BattlerRuntimeObservation`. `CalcParticipantPresenter` maps this observation to `EffectiveAbilityResolution`:
    - Active-party-slot matching: The player's live ability is accepted **only** when the selected party index
      matches the observed `partySlot`. The opponent's live ability is accepted **only** when the observed enemy
      party slot matches `activeEnemySlot`. Mismatches leave `ability = null` with `CalcInputField.ABILITY` in
      `unknownFields`.
+   - Central boundary slot provenance binding: `CalcPokemonInput` carries `partySlot` provenance.
+     `CalcRequestBoundary.reconcileParticipantAbility` directly verifies `participant.partySlot == observation.state.partySlot`.
+     Any slot mismatch or missing provenance strips caller-supplied abilities to `null` and marks `ABILITY` unknown.
+   - Single snapshot per recalculate: `CalcTabScreenView.recalculate()` captures `playerBattlerState` and
+     `enemyBattlerState` once per cycle, eliminating race conditions across presenter and boundary passes.
+   - Defense-in-depth: Both presenter and boundary verify `observation.abilityIdentity.abilityId == state.abilityId`.
+     A malformed observation with mismatched ID and name fails closed to unknown (`HNS_EFFECTIVE_ABILITY_UNREADABLE`).
    - Faint/replacement/unavailable windows, `AMBIGUOUS` (doubles), and `OBSERVED_INVALID` fail closed to unknown
      ability (`HNS_EFFECTIVE_ABILITY_UNREADABLE`).
    - Anti-spoofing in `CalcRequestBoundary`: Live-read participants enforce boundary ownership; caller-supplied
      abilities cannot override or fabricate authoritative observations.
 
 2. **Per-Ability Capability Audit (`HnsAbilityRegistry`):**
-   - `PROVEN_NO_DAMAGE_EFFECT` (`ABILITY_NONE`, `KEEN EYE`, `INSOMNIA`): Proven to have zero move-damage effect in
+   - **Supported in C2:** `PROVEN_NO_DAMAGE_EFFECT` (`ABILITY_NONE`, `KEEN EYE`, `INSOMNIA`): Proven to have zero move-damage effect in
      the H&S battle engine. No ability blocker is added.
-   - `MODELLED_EQUIVALENT` (`GUTS`, `THICK FAT`, `HUGE POWER`, `PURE POWER`): Proven exact arithmetic parity with
-     the ADV pipeline across all stats and status conditions (see §16 of compatibility evidence). No ability
-     blocker is added.
-   - `UNSUPPORTED_DAMAGE_RELEVANT` (`OVERGROW`, `BLAZE`, `TORRENT`, `SWARM`, modern abilities): Damage-relevant but
-     divergent or unmodelled. Blocks calculation with `HNS_ABILITY_EFFECT_NOT_MODELLED`.
-     *(Note: Starter pinch abilities modify Attack stat via fixed-point math in H&S but modify Base Power in ADV,
-     creating integer-division flooring divergences; they are strictly fail-closed).*
+   - **Temporarily Unsupported:** `UNSUPPORTED_DAMAGE_RELEVANT` (`GUTS`, `THICK FAT`, `HUGE POWER`, `PURE POWER`, starter pinch abilities,
+     and modern abilities): While isolated multipliers match for some Gen 3 abilities, H&S fixed-point ability composition
+     and stat-stage ordering diverge from ADV:
+     - H&S combines ability multipliers together in fixed-point (`UQ_4_12`) and applies stat stages *before* ability multipliers,
+       whereas ADV applies ability modifiers sequentially with intermediate flooring *before* stat stages.
+     - Example: with raw Attack 105, a statused Guts attacker vs Thick Fat defender produces effective Attack 79 in H&S
+       (combined modifier $1.5 \times 0.5 = 0.75$ applied once) versus 78 in ADV ($\lfloor 105/2 \rfloor = 52 \rightarrow \lfloor 52 \times 1.5 \rfloor = 78$).
+     - Non-neutral stat stages compound this divergence.
+     - Starter pinch abilities modify Attack stat in H&S vs Base Power in ADV (17,750 diverging damage spreads).
+     - All damage-relevant abilities remain strictly fail-closed with `HNS_ABILITY_EFFECT_NOT_MODELLED` until the damage-order
+       and rounding layer is modelled.
 
 3. **Prevention of `@smogon/calc` Default Ability Substitution:**
    `@smogon/calc`'s `Pokemon` constructor defaults missing or `"None"` abilities to `species.abilities[0]`.
@@ -386,8 +396,8 @@ Recorded so they are not mistaken for oversights. Each is a deliberate scope bou
    is about 10% higher than a verified result shows.
 2. **Ability defaults when no ability is supplied.** The engine applies the species' first bundled
    ability when the caller omits one. For vanilla Gen III that is the same data the profile
-   describes, so it is correct there. For H&S it would not be, which is one more reason H&S is
-   refused.
+   describes, so it is correct there. For H&S, `resolveAbility()` in `entry.js` now maps omitted/empty/None
+   to `'(other)'` to prevent default substitution, while DualDex policy strictly refuses unmodelled abilities.
 3. **Move mechanics beyond the ADV pipeline.** Multi-hit turn-doubling, weight-based power, fixed
    damage, Hidden Power's IV-derived base power and Return/Frustration's happiness scaling are not
    modelled; the second and third also collide with the native validator's 16-roll response shape.

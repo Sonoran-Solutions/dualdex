@@ -1949,15 +1949,16 @@ static void check_gap_c1_type_system(void) {
 
 static void check_gap_c2_abilities(void) {
     /*
-     * Test A: Guts physical boost with odd attack stat and burn halving ignored.
+     * Test A: Guts physical boost with odd attack stat in ADV engine.
+     * Note: While ADV computes floor(105 * 1.5) = 157, in H&S, ability multipliers are
+     * combined in fixed-point and stat stages are applied before ability modifiers.
+     * When interacting with other abilities (e.g. Thick Fat) or non-neutral stat stages,
+     * compound rounding diverges (e.g. Guts 105 Atk vs Thick Fat: H&S 79 vs ADV 78).
+     * Therefore, Kotlin CalcCapabilityPolicy marks Guts UNSUPPORTED_DAMAGE_RELEVANT for H&S
+     * production calculations, pending future modifier-layer modeling.
      * Attacker: Swellow L50 Hardy (IV 31, EV 0; Base Atk 85 -> Atk stat 105, which is odd).
      * Defender: Swampert L50 Hardy (IV 31, EV 0; HP 175, Def 110).
      * Move: Wing Attack (Flying, 60 BP, Physical).
-     *
-     * In both H&S fixed-point arithmetic (uq4_12_multiply_by_int_half_down) and ADV:
-     * 105 * 1.5 = 157.5 -> 157.
-     * Swellow unboosted (no status): damage [34..40].
-     * Swellow Guts + brn: damage [49..58] (burn attack drop ignored, 1.5x boost applied).
      */
     g_fixture = "gap_c2_guts_status_boost_odd_attack";
     {

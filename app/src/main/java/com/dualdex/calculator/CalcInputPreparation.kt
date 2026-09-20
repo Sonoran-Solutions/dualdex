@@ -51,7 +51,11 @@ data class CalcParticipantState(
      * neutral" (no status, no held item, stage 0). Only this list is evidence that a field was
      * genuinely unavailable.
      */
-    val unknownFields: List<CalcInputField> = emptyList()
+    val unknownFields: List<CalcInputField> = emptyList(),
+    /**
+     * Party slot provenance for live reads (0-indexed party slot, or null if manual/unknown).
+     */
+    val partySlot: Int? = null
 ) {
     companion object {
         /**
@@ -215,7 +219,8 @@ object CalcInputPreparation {
         boosts: StatBlock? = null,
         itemName: String? = null,
         isExpansionItems: Boolean = false,
-        effectiveAbility: EffectiveAbilityResolution = EffectiveAbilityResolution.UnknownAbility
+        effectiveAbility: EffectiveAbilityResolution = EffectiveAbilityResolution.UnknownAbility,
+        partySlot: Int? = null
     ): CalcParticipantState {
         val resolvedItem = itemName
             ?: if (parsed.heldItem > 0) {
@@ -266,7 +271,8 @@ object CalcInputPreparation {
                 // A non-zero condition matching no known bit is lost information, not a healthy
                 // Pokemon, so it is recorded as unknown as well as sent for rejection.
                 if (statusNameOf(parsed) == UNKNOWN_STATUS) add(CalcInputField.STATUS)
-            }
+            },
+            partySlot = partySlot
         )
     }
 
@@ -314,7 +320,8 @@ object CalcInputPreparation {
         // not one of the modelled status names, so the policy refuses it.
         status = status,
         origin = origin,
-        unknownFields = unknownFields
+        unknownFields = unknownFields,
+        partySlot = partySlot
     )
 
     /**

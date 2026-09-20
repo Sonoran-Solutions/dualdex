@@ -1231,10 +1231,13 @@ class CalcCapabilityPolicyTest {
         // because the engine would silently ignore them.
         assertFalse(CalcCapabilityPolicy.GEN3_MODELLED_ABILITIES.contains("Multiscale"))
         assertFalse(CalcCapabilityPolicy.GEN3_MODELLED_ABILITIES.contains("Adaptability"))
-        assertTrue(CalcCapabilityPolicy.GEN3_MODELLED_ABILITIES.contains("Thick Fat"))
-        // H&S uses conditional ability support (Gap C2). Thick Fat and Guts are modelled equivalents; Overgrow is unsupported.
-        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Thick Fat"))
-        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Guts"))
+        // H&S uses conditional ability support (Gap C2). Keen Eye and Insomnia are supported (zero damage effect);
+        // Thick Fat and Guts are temporarily unsupported due to modifier composition & stat stages ordering divergence.
+        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Keen Eye"))
+        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Insomnia"))
+        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "None"))
+        assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Thick Fat"))
+        assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Guts"))
         assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Overgrow"))
         assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Adaptability"))
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.VANILLA_GEN3, "Thick Fat"))

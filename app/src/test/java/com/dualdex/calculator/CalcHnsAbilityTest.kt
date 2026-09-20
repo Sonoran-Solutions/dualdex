@@ -152,25 +152,25 @@ class CalcHnsAbilityTest {
     }
 
     @Test
-    fun `HnsAbilityRegistry classifies modelled equivalent abilities`() {
+    fun `HnsAbilityRegistry classifies Guts, Thick Fat, Huge Power, Pure Power as temporarily unsupported`() {
         val guts = HnsAbilityRegistry.classify(62)
-        assertEquals(HnsAbilityCategory.MODELLED_EQUIVALENT, guts.category)
-        assertTrue(guts.category.isSupportedForDamage)
+        assertEquals(HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT, guts.category)
+        assertFalse(guts.category.isSupportedForDamage)
         assertEquals("Guts", HnsAbilityRegistry.canonicalTitleCaseName(62))
 
         val thickFat = HnsAbilityRegistry.classify(47)
-        assertEquals(HnsAbilityCategory.MODELLED_EQUIVALENT, thickFat.category)
-        assertTrue(thickFat.category.isSupportedForDamage)
+        assertEquals(HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT, thickFat.category)
+        assertFalse(thickFat.category.isSupportedForDamage)
         assertEquals("Thick Fat", HnsAbilityRegistry.canonicalTitleCaseName(47))
 
         val hugePower = HnsAbilityRegistry.classify(37)
-        assertEquals(HnsAbilityCategory.MODELLED_EQUIVALENT, hugePower.category)
-        assertTrue(hugePower.category.isSupportedForDamage)
+        assertEquals(HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT, hugePower.category)
+        assertFalse(hugePower.category.isSupportedForDamage)
         assertEquals("Huge Power", HnsAbilityRegistry.canonicalTitleCaseName(37))
 
         val purePower = HnsAbilityRegistry.classify(74)
-        assertEquals(HnsAbilityCategory.MODELLED_EQUIVALENT, purePower.category)
-        assertTrue(purePower.category.isSupportedForDamage)
+        assertEquals(HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT, purePower.category)
+        assertFalse(purePower.category.isSupportedForDamage)
         assertEquals("Pure Power", HnsAbilityRegistry.canonicalTitleCaseName(74))
     }
 
@@ -199,14 +199,14 @@ class CalcHnsAbilityTest {
 
     @Test
     fun `resolveEffectiveAbility returns ObservedAbility on matching slot and observed status`() {
-        val obs = battlerObservation(partySlot = 2, abilityId = 62, declaredName = "Guts")
+        val obs = battlerObservation(partySlot = 2, abilityId = 51, declaredName = "Keen Eye")
         val resolution = CalcParticipantPresenter.resolveEffectiveAbility(
             observation = obs,
             expectedPartySlot = 2,
             isExactHns = true
         )
         assertTrue(resolution is EffectiveAbilityResolution.ObservedAbility)
-        assertEquals("Guts", (resolution as EffectiveAbilityResolution.ObservedAbility).name)
+        assertEquals("Keen Eye", (resolution as EffectiveAbilityResolution.ObservedAbility).name)
     }
 
     @Test
@@ -222,7 +222,7 @@ class CalcHnsAbilityTest {
 
     @Test
     fun `resolveEffectiveAbility fails closed to UnknownAbility on party slot mismatch`() {
-        val obs = battlerObservation(partySlot = 1, abilityId = 62)
+        val obs = battlerObservation(partySlot = 1, abilityId = 51)
         val resolution = CalcParticipantPresenter.resolveEffectiveAbility(
             observation = obs,
             expectedPartySlot = 0,
@@ -238,7 +238,7 @@ class CalcHnsAbilityTest {
             HnsBattlerRuntimeStatus.AMBIGUOUS,
             HnsBattlerRuntimeStatus.OBSERVED_INVALID
         ).forEach { status ->
-            val obs = battlerObservation(status = status, partySlot = 0, abilityId = 62)
+            val obs = battlerObservation(status = status, partySlot = 0, abilityId = 51)
             val resolution = CalcParticipantPresenter.resolveEffectiveAbility(
                 observation = obs,
                 expectedPartySlot = 0,
@@ -261,7 +261,7 @@ class CalcHnsAbilityTest {
 
     @Test
     fun `resolveEffectiveAbility fails closed to UnknownAbility when isExactHns is false`() {
-        val obs = battlerObservation(partySlot = 0, abilityId = 62)
+        val obs = battlerObservation(partySlot = 0, abilityId = 51)
         val resolution = CalcParticipantPresenter.resolveEffectiveAbility(
             observation = obs,
             expectedPartySlot = 0,
@@ -276,11 +276,50 @@ class CalcHnsAbilityTest {
             EffectiveAbilityResolution.UnknownAbility,
             CalcParticipantPresenter.resolveEffectiveAbility(null, 0, true)
         )
-        val obs = battlerObservation(partySlot = 0, abilityId = 62)
+        val obs = battlerObservation(partySlot = 0, abilityId = 51)
         assertEquals(
             EffectiveAbilityResolution.UnknownAbility,
             CalcParticipantPresenter.resolveEffectiveAbility(obs, null, true)
         )
+    }
+
+    @Test
+    fun `resolveEffectiveAbility defense-in-depth rejects ability identity ID mismatch`() {
+        // state.abilityId = 65 (Overgrow) but identity = Declared(51, "Keen Eye")
+        val mismatchedObs = BattlerRuntimeObservation(
+            state = HnsBattlerRuntimeState(
+                status = HnsBattlerRuntimeStatus.OBSERVED,
+                partySlot = 0,
+                abilityId = 65,
+                abilityOutOfDomain = false,
+                types = emptyList()
+            ),
+            abilityIdentity = DeclaredAbility.Declared(abilityId = 51, name = "Keen Eye")
+        )
+        val res = CalcParticipantPresenter.resolveEffectiveAbility(
+            observation = mismatchedObs,
+            expectedPartySlot = 0,
+            isExactHns = true
+        )
+        assertEquals(EffectiveAbilityResolution.UnknownAbility, res)
+
+        // state.abilityId = 0 (NONE) but identity = Declared(51, "Keen Eye")
+        val zeroMismatchObs = BattlerRuntimeObservation(
+            state = HnsBattlerRuntimeState(
+                status = HnsBattlerRuntimeStatus.OBSERVED,
+                partySlot = 0,
+                abilityId = 0,
+                abilityOutOfDomain = false,
+                types = emptyList()
+            ),
+            abilityIdentity = DeclaredAbility.Declared(abilityId = 51, name = "Keen Eye")
+        )
+        val resZero = CalcParticipantPresenter.resolveEffectiveAbility(
+            observation = zeroMismatchObs,
+            expectedPartySlot = 0,
+            isExactHns = true
+        )
+        assertEquals(EffectiveAbilityResolution.UnknownAbility, resZero)
     }
 
     // ---------------------------------------------------------------------
@@ -292,10 +331,12 @@ class CalcHnsAbilityTest {
         val parsed = dummyParsedPokemon()
         val participant = CalcInputPreparation.fromParsed(
             parsed = parsed,
-            speciesName = "Machamp",
-            effectiveAbility = EffectiveAbilityResolution.ObservedAbility("Guts")
+            speciesName = "Pidgeot",
+            effectiveAbility = EffectiveAbilityResolution.ObservedAbility("Keen Eye"),
+            partySlot = 0
         )
-        assertEquals("Guts", participant.ability)
+        assertEquals("Keen Eye", participant.ability)
+        assertEquals(0, participant.partySlot)
         assertFalse(participant.unknownFields.contains(CalcInputField.ABILITY))
     }
 
@@ -305,9 +346,11 @@ class CalcHnsAbilityTest {
         val participant = CalcInputPreparation.fromParsed(
             parsed = parsed,
             speciesName = "Machamp",
-            effectiveAbility = EffectiveAbilityResolution.ObservedNone
+            effectiveAbility = EffectiveAbilityResolution.ObservedNone,
+            partySlot = 1
         )
         assertEquals("None", participant.ability)
+        assertEquals(1, participant.partySlot)
         assertFalse(participant.unknownFields.contains(CalcInputField.ABILITY))
     }
 
@@ -317,29 +360,32 @@ class CalcHnsAbilityTest {
         val participant = CalcInputPreparation.fromParsed(
             parsed = parsed,
             speciesName = "Machamp",
-            effectiveAbility = EffectiveAbilityResolution.UnknownAbility
+            effectiveAbility = EffectiveAbilityResolution.UnknownAbility,
+            partySlot = 0
         )
         assertNull(participant.ability)
+        assertEquals(0, participant.partySlot)
         assertTrue(participant.unknownFields.contains(CalcInputField.ABILITY))
     }
 
     @Test
-    fun `CalcParticipantPresenter attacker integrates live battler state with slot matching`() {
-        val party = listOf(dummyParsedPokemon(68), dummyParsedPokemon(143))
-        val obs = battlerObservation(partySlot = 1, abilityId = 47, declaredName = "Thick Fat")
+    fun `CalcParticipantPresenter attacker integrates live battler state with slot matching and partySlot provenance`() {
+        val party = listOf(dummyParsedPokemon(68), dummyParsedPokemon(18))
+        val obs = battlerObservation(partySlot = 1, abilityId = 51, declaredName = "Keen Eye")
 
-        // Selected slot 1 matches battler partySlot 1 -> Thick Fat resolved
+        // Selected slot 1 matches battler partySlot 1 -> Keen Eye resolved, partySlot = 1
         val activeAttacker = CalcParticipantPresenter.attacker(
             party = party,
             selectedIndex = 1,
-            speciesNameOf = { "Snorlax" },
+            speciesNameOf = { "Pidgeot" },
             playerBattlerState = obs,
             isExactHns = true
         )
-        assertEquals("Thick Fat", activeAttacker.ability)
+        assertEquals("Keen Eye", activeAttacker.ability)
+        assertEquals(1, activeAttacker.partySlot)
         assertFalse(activeAttacker.unknownFields.contains(CalcInputField.ABILITY))
 
-        // Selected slot 0 mismatches battler partySlot 1 -> UnknownAbility
+        // Selected slot 0 mismatches battler partySlot 1 -> UnknownAbility, partySlot = 0
         val benchedAttacker = CalcParticipantPresenter.attacker(
             party = party,
             selectedIndex = 0,
@@ -348,6 +394,7 @@ class CalcHnsAbilityTest {
             isExactHns = true
         )
         assertNull(benchedAttacker.ability)
+        assertEquals(0, benchedAttacker.partySlot)
         assertTrue(benchedAttacker.unknownFields.contains(CalcInputField.ABILITY))
     }
 
@@ -360,18 +407,18 @@ class CalcHnsAbilityTest {
         val trust = exactTrust(heartAndSoul)
         val snapshot = hnsSettingsSnapshot()
 
-        // Test with Guts (MODELLED_EQUIVALENT)
-        val gutsReq = DamageCalculationRequest(
+        // Test with Keen Eye (PROVEN_NO_DAMAGE_EFFECT)
+        val keenEyeReq = DamageCalculationRequest(
             gen = 3,
             typeSystem = "hns_2_0_5",
-            attacker = CalcPokemonInput(species = "Machamp", level = 50, ability = "Guts"),
+            attacker = CalcPokemonInput(species = "Pidgeot", level = 50, ability = "Keen Eye"),
             defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
-            move = CalcMoveInput(name = "Cross Chop")
+            move = CalcMoveInput(name = "Wing Attack")
         )
         val outcome = CalcRequestBoundary.build(
             profile = heartAndSoul,
             trust = trust,
-            request = gutsReq,
+            request = keenEyeReq,
             challengeSettings = snapshot
         )
         val refused = outcome as? CalcRequestOutcome.Refused
@@ -391,6 +438,24 @@ class CalcHnsAbilityTest {
         val trust = exactTrust(heartAndSoul)
         val snapshot = hnsSettingsSnapshot()
 
+        // Test Guts (temporarily unsupported in C2 due to modifier composition & stat stages ordering)
+        val gutsReq = DamageCalculationRequest(
+            gen = 3,
+            typeSystem = "hns_2_0_5",
+            attacker = CalcPokemonInput(species = "Machamp", level = 50, ability = "Guts"),
+            defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
+            move = CalcMoveInput(name = "Cross Chop")
+        )
+        val outcomeGuts = CalcRequestBoundary.build(
+            profile = heartAndSoul,
+            trust = trust,
+            request = gutsReq,
+            challengeSettings = snapshot
+        )
+        val refusedGuts = outcomeGuts as CalcRequestOutcome.Refused
+        assertTrue(refusedGuts.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+
+        // Test Blaze
         val blazeReq = DamageCalculationRequest(
             gen = 3,
             typeSystem = "hns_2_0_5",
@@ -398,14 +463,14 @@ class CalcHnsAbilityTest {
             defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
             move = CalcMoveInput(name = "Flamethrower")
         )
-        val outcome = CalcRequestBoundary.build(
+        val outcomeBlaze = CalcRequestBoundary.build(
             profile = heartAndSoul,
             trust = trust,
             request = blazeReq,
             challengeSettings = snapshot
         )
-        val refused = outcome as CalcRequestOutcome.Refused
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        val refusedBlaze = outcomeBlaze as CalcRequestOutcome.Refused
+        assertTrue(refusedBlaze.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
     }
 
     @Test
@@ -421,7 +486,8 @@ class CalcHnsAbilityTest {
                 level = 50,
                 ability = null,
                 origin = CalcInputOrigin.LIVE_READ,
-                unknownFields = listOf(CalcInputField.ABILITY)
+                unknownFields = listOf(CalcInputField.ABILITY),
+                partySlot = 0
             ),
             defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
             move = CalcMoveInput(name = "Cross Chop")
@@ -437,25 +503,26 @@ class CalcHnsAbilityTest {
     }
 
     @Test
-    fun `CalcRequestBoundary anti-spoofing overrides caller-supplied ability with authoritative live read`() {
+    fun `CalcRequestBoundary anti-spoofing overrides caller-supplied ability with authoritative live read on matching slot`() {
         val trust = exactTrust(heartAndSoul)
         val snapshot = hnsSettingsSnapshot()
 
-        // Authoritative observation reports Guts (62)
-        val authoritativeObs = battlerObservation(partySlot = 0, abilityId = 62, declaredName = "Guts")
+        // Authoritative observation reports Keen Eye (51) on partySlot 0
+        val authoritativeObs = battlerObservation(partySlot = 0, abilityId = 51, declaredName = "Keen Eye")
 
-        // Caller attempts to spoof "Huge Power" on a LIVE_READ participant
+        // Caller attempts to spoof "Blaze" on a LIVE_READ participant with matching partySlot 0
         val spoofedReq = DamageCalculationRequest(
             gen = 3,
             typeSystem = "hns_2_0_5",
             attacker = CalcPokemonInput(
-                species = "Machamp",
+                species = "Pidgeot",
                 level = 50,
-                ability = "Huge Power",
-                origin = CalcInputOrigin.LIVE_READ
+                ability = "Blaze",
+                origin = CalcInputOrigin.LIVE_READ,
+                partySlot = 0
             ),
             defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
-            move = CalcMoveInput(name = "Cross Chop")
+            move = CalcMoveInput(name = "Wing Attack")
         )
 
         val outcome = CalcRequestBoundary.build(
@@ -466,9 +533,121 @@ class CalcHnsAbilityTest {
             playerBattlerState = authoritativeObs
         )
         val refused = outcome as CalcRequestOutcome.Refused
-        // Verify that the policy evaluated with Guts, not the spoofed Huge Power
+        // Verify that the boundary reconciled with Keen Eye (supported), not the spoofed Blaze (unsupported)
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
+    }
+
+    @Test
+    fun `CalcRequestBoundary rejects observation and marks unreadable on partySlot mismatch`() {
+        val trust = exactTrust(heartAndSoul)
+        val snapshot = hnsSettingsSnapshot()
+
+        // Active battler is partySlot 0 with Keen Eye
+        val activeBattlerObs = battlerObservation(partySlot = 0, abilityId = 51, declaredName = "Keen Eye")
+
+        // Participant claims partySlot 1 (bench) and supplies ability = "Keen Eye"
+        val benchedReq = DamageCalculationRequest(
+            gen = 3,
+            typeSystem = "hns_2_0_5",
+            attacker = CalcPokemonInput(
+                species = "Pidgeot",
+                level = 50,
+                ability = "Keen Eye",
+                origin = CalcInputOrigin.LIVE_READ,
+                partySlot = 1
+            ),
+            defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
+            move = CalcMoveInput(name = "Wing Attack")
+        )
+
+        val outcome = CalcRequestBoundary.build(
+            profile = heartAndSoul,
+            trust = trust,
+            request = benchedReq,
+            challengeSettings = snapshot,
+            playerBattlerState = activeBattlerObs
+        )
+        val refused = outcome as CalcRequestOutcome.Refused
+        // Boundary must reject the slot mismatch, wipe ability to null, and flag unreadable
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN))
+    }
+
+    @Test
+    fun `CalcRequestBoundary rejects observation when LIVE_READ participant has null partySlot provenance`() {
+        val trust = exactTrust(heartAndSoul)
+        val snapshot = hnsSettingsSnapshot()
+
+        val activeBattlerObs = battlerObservation(partySlot = 0, abilityId = 51, declaredName = "Keen Eye")
+
+        // LIVE_READ participant with no partySlot provenance
+        val unprovenancedReq = DamageCalculationRequest(
+            gen = 3,
+            typeSystem = "hns_2_0_5",
+            attacker = CalcPokemonInput(
+                species = "Pidgeot",
+                level = 50,
+                ability = "Keen Eye",
+                origin = CalcInputOrigin.LIVE_READ,
+                partySlot = null
+            ),
+            defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
+            move = CalcMoveInput(name = "Wing Attack")
+        )
+
+        val outcome = CalcRequestBoundary.build(
+            profile = heartAndSoul,
+            trust = trust,
+            request = unprovenancedReq,
+            challengeSettings = snapshot,
+            playerBattlerState = activeBattlerObs
+        )
+        val refused = outcome as CalcRequestOutcome.Refused
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
+    }
+
+    @Test
+    fun `CalcRequestBoundary defense-in-depth rejects ability identity ID mismatch`() {
+        val trust = exactTrust(heartAndSoul)
+        val snapshot = hnsSettingsSnapshot()
+
+        // Malformed observation: state says Overgrow (65) but identity says Keen Eye (51)
+        val malformedObs = BattlerRuntimeObservation(
+            state = HnsBattlerRuntimeState(
+                status = HnsBattlerRuntimeStatus.OBSERVED,
+                partySlot = 0,
+                abilityId = 65,
+                abilityOutOfDomain = false,
+                types = emptyList()
+            ),
+            abilityIdentity = DeclaredAbility.Declared(abilityId = 51, name = "Keen Eye")
+        )
+
+        val req = DamageCalculationRequest(
+            gen = 3,
+            typeSystem = "hns_2_0_5",
+            attacker = CalcPokemonInput(
+                species = "Pidgeot",
+                level = 50,
+                ability = "Keen Eye",
+                origin = CalcInputOrigin.LIVE_READ,
+                partySlot = 0
+            ),
+            defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
+            move = CalcMoveInput(name = "Wing Attack")
+        )
+
+        val outcome = CalcRequestBoundary.build(
+            profile = heartAndSoul,
+            trust = trust,
+            request = req,
+            challengeSettings = snapshot,
+            playerBattlerState = malformedObs
+        )
+        val refused = outcome as CalcRequestOutcome.Refused
+        // Must fail closed to unreadable because identity ID does not match state ID
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
     }
 
     @Test
@@ -476,20 +655,21 @@ class CalcHnsAbilityTest {
         val trust = exactTrust(heartAndSoul)
         val snapshot = hnsSettingsSnapshot()
 
-        // Caller claims Guts on LIVE_READ, but authoritative state is UNAVAILABLE
+        // Caller claims Keen Eye on LIVE_READ, but authoritative state is UNAVAILABLE
         val invalidObs = battlerObservation(status = HnsBattlerRuntimeStatus.UNAVAILABLE)
 
         val spoofedReq = DamageCalculationRequest(
             gen = 3,
             typeSystem = "hns_2_0_5",
             attacker = CalcPokemonInput(
-                species = "Machamp",
+                species = "Pidgeot",
                 level = 50,
-                ability = "Guts",
-                origin = CalcInputOrigin.LIVE_READ
+                ability = "Keen Eye",
+                origin = CalcInputOrigin.LIVE_READ,
+                partySlot = 0
             ),
             defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
-            move = CalcMoveInput(name = "Cross Chop")
+            move = CalcMoveInput(name = "Wing Attack")
         )
 
         val outcome = CalcRequestBoundary.build(

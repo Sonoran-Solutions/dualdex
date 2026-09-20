@@ -109,8 +109,8 @@ object HnsAbilityRegistry {
             id = 37,
             canonicalName = "HUGE POWER",
             titleCaseName = "Huge Power",
-            category = HnsAbilityCategory.MODELLED_EQUIVALENT,
-            rationale = "battle_util.c:6990 doubles physical attack (x2.0). Matches ADV exactly."
+            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+            rationale = "Modifier ordering/composition divergence: H&S composes ability multipliers together and applies stat stages before abilities, whereas ADV applies ability modifiers sequentially before stat stages."
         )
 
         // 47: THICK FAT
@@ -118,8 +118,8 @@ object HnsAbilityRegistry {
             id = 47,
             canonicalName = "THICK FAT",
             titleCaseName = "Thick Fat",
-            category = HnsAbilityCategory.MODELLED_EQUIVALENT,
-            rationale = "battle_util.c:7121 halves attack stat on Fire/Ice moves. For all integers n, ((2048*n)+2047)>>12 == floor(n/2). Matches ADV exactly."
+            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+            rationale = "Modifier ordering/composition divergence: when interacting with other ability modifiers (e.g. Guts) or non-neutral stat stages, compound fixed-point rounding differs from ADV sequential flooring."
         )
 
         // 51: KEEN EYE
@@ -136,8 +136,8 @@ object HnsAbilityRegistry {
             id = 62,
             canonicalName = "GUTS",
             titleCaseName = "Guts",
-            category = HnsAbilityCategory.MODELLED_EQUIVALENT,
-            rationale = "battle_util.c:7057 multiplies attack by 1.5 when statused. battle_util.c:7465 ignores burn halving. For all n, ((6144*n)+2047)>>12 == floor(n*1.5). Matches ADV exactly."
+            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+            rationale = "Modifier ordering/composition divergence: when interacting with other ability modifiers (e.g. Thick Fat) or non-neutral stat stages, compound fixed-point rounding differs from ADV sequential flooring."
         )
 
         // 65: OVERGROW
@@ -181,8 +181,8 @@ object HnsAbilityRegistry {
             id = 74,
             canonicalName = "PURE POWER",
             titleCaseName = "Pure Power",
-            category = HnsAbilityCategory.MODELLED_EQUIVALENT,
-            rationale = "battle_util.c:6990 doubles physical attack (x2.0). Matches ADV exactly."
+            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+            rationale = "Modifier ordering/composition divergence: stat stages and compound ability interactions differ from ADV sequential pipeline."
         )
 
         // Modern damage abilities explicitly audited and marked unsupported

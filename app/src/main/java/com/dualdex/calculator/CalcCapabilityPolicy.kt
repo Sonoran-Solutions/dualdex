@@ -666,11 +666,6 @@ object CalcCapabilityPolicy {
                 contentSource = HNS_DATA_PACK_ID,
                 ceiling = CalcSupport.ESTIMATED,
                 alwaysLimitations = listOf(
-                    // Gap C3 is now conditional: the blanket HNS_HELD_ITEM_SYSTEM_NOT_MODELLED is
-                    // gone. Per-participant item state is classified by numeric ID in
-                    // collectRequestLimitations, so an unknown/unreadable item, an unsupported
-                    // damage item and an authoritative no-item produce distinct verdicts.
-                    CalcLimitation.BADGE_BOOST_NOT_MODELLED,
                     CalcLimitation.BUILDS_NOT_HASH_VERIFIED
                 ),
                 label = HNS_LABEL
@@ -831,16 +826,23 @@ object CalcCapabilityPolicy {
                 limitations.add(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED)
             }
 
-            // 7. Ordinary-damage modifier ordering (Gap C4a). The bare base formula matches, but
-            // the pinned H&S pipeline applies the random roll before STAB/type/burn/screens and
-            // composes modifiers in UQ4.12 half-down, which the ADV host does not reproduce. A
-            // request that exercises any non-identity modifier is refused; only the neutral bare
-            // path is proven equivalent.
+            // 7. Ordinary-damage modifier ordering (Gap C4b).
+            // calculateHnsDamage in QuickJS implements the exact H&S 2.0.5 UQ4.12 roll-first
+            // pipeline, supporting neutral base damage, STAB, type effectiveness, crits, stat
+            // stages (-6..+6), burn, screens (Reflect / Light Screen), doubles, and rain/sun weather.
             if (hnsModifierOrderDiverges(pack, request)) {
                 limitations.add(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
             }
 
-            // 8. Live battle state (Gap C4a R1). The request shape carries static species/move
+            // 8. Badge boost observability (Gap C4b).
+            // In an active battle, the player battler's badge boosts must be authoritatively observed
+            // from save memory; an active battle where the player battler's badge boosts were not
+            // observed fails closed here.
+            if (hnsBadgeBoostNotModelled(request)) {
+                limitations.add(CalcLimitation.BADGE_BOOST_NOT_MODELLED)
+            }
+
+            // 9. Live battle state (Gap C4a R1 / C4b). The request shape carries static species/move
             // operands, but H&S mutates them during battle (current effective types, raw battle
             // stat words, dynamic move type, transient state). An active battle whose mutable
             // classes are not authoritatively observed fails closed here rather than letting the
@@ -996,64 +998,56 @@ object CalcCapabilityPolicy {
     }
 
     /**
-     * True when [request] would exercise a damage modifier whose H&S placement/rounding differs
-     * from the ADV host (Gap C4a arithmetic audit).
+     * True when [request] would exercise a damage modifier not supported by the H&S calculator
+     * engine (Gap C4b arithmetic parity).
      *
-     * The bare base formula (`power * Atk * (2L/5+2) / Def / 50 + 2`) is byte-identical, but H&S
-     * then applies the random roll before STAB, type effectiveness, burn and screens and composes
-     * each modifier with UQ4.12 half-down. The host applies burn/screens/weather before `+2` and
-     * STAB/type before the roll. Any non-identity modifier therefore changes the integer range, so
-     * this returns true unless the request is provably the bare neutral path.
+     * In Gap C4b, calculateHnsDamage executes the exact H&S 2.0.5 pipeline: roll-first UQ4.12
+     * half-down composition, STAB (including Adaptability), type effectiveness, crits (with drop
+     * ignore rules), stat stages (-6..+6), burn, screens (Reflect / Light Screen, singles/doubles),
+     * and weather (Rain / Sun).
      *
-     * Non-neutral stat stages are included (Gap C4a R2). H&S applies stat stages *before* its
-     * ability/item fixed-point composition while the ADV host applies ability modifiers before
-     * stages, and the staged-stat rounding has not been independently proven for H&S, so a staged
-     * request cannot clear the ordinary-safe path until C4b proves it. The only positive parity
-     * cases are neutral-stage physical and special requests (see the native oracle).
+     * Requests with unsupported weather (e.g. Sandstorm / Hail), out-of-range stat stages, or
+     * missing typeSystem fail closed.
      */
     private fun hnsModifierOrderDiverges(
         pack: GameDataPack,
         request: DamageCalculationRequest
     ): Boolean {
-        if (request.move.isCrit) return true
-        if (!request.field.weather.isNullOrBlank()) return true
-        if (request.field.gameType.trim().equals("Doubles", ignoreCase = true)) return true
-        request.field.defenderSide?.let { side ->
-            if (side.isReflect || side.isLightScreen) return true
-        }
-        if (request.attacker.status?.trim()?.lowercase() == "brn") return true
-        if (hnsHasNonNeutralStages(request.attacker.boosts) ||
-            hnsHasNonNeutralStages(request.defender.boosts)
+        if (request.typeSystem != "hns_2_0_5") return true
+        val weather = request.field.weather?.trim()?.lowercase()
+        if (!weather.isNullOrBlank() && weather != "none" &&
+            !weather.contains("rain") && !weather.contains("sun")
         ) {
             return true
         }
-
-        // STAB: the attacker's effective type includes the move's effective type. An authoritative
-        // live type observation is the live truth and must be used instead of the static record,
-        // otherwise a mid-battle SET_BATTLER_TYPE (e.g. Soak) would look neutral when it is not.
-        val live = request.hnsLiveBattleState
-        val attackerTypes = hnsEffectiveTypes(request.attacker, request.attackerOverride, pack, live?.attackerTypes)
-        val moveTypeName = request.moveOverride?.type
-            ?: pack.getMoveByName(request.move.name)?.type?.displayName
-        if (moveTypeName == null || attackerTypes.isEmpty()) return true
-        if (attackerTypes.any { it.equals(moveTypeName, ignoreCase = true) }) return true
-
-        // Type effectiveness: anything other than exactly 1.0 diverges.
-        val moveType = com.dualdex.pokemon.PokemonType.fromString(moveTypeName) ?: return true
-        val defenderTypes = hnsEffectiveTypes(request.defender, request.defenderOverride, pack, live?.defenderTypes)
-        if (defenderTypes.isEmpty()) return true
-        var effectiveness = 1.0
-        for (typeName in defenderTypes) {
-            val defenderType = com.dualdex.pokemon.PokemonType.fromString(typeName) ?: return true
-            effectiveness *= pack.getEffectiveness(moveType, defenderType)
+        if (hnsHasOutOfRangeStages(request.attacker.boosts) ||
+            hnsHasOutOfRangeStages(request.defender.boosts)
+        ) {
+            return true
         }
-        return effectiveness != 1.0
+        return false
     }
 
-    /** True when any offensive/defensive battle stat stage is non-neutral. */
-    private fun hnsHasNonNeutralStages(boosts: StatBlock?): Boolean {
+    /** True when any stat stage is outside the supported -6..+6 range. */
+    private fun hnsHasOutOfRangeStages(boosts: StatBlock?): Boolean {
         if (boosts == null) return false
-        return boosts.atk != 0 || boosts.def != 0 || boosts.spa != 0 || boosts.spd != 0 || boosts.spe != 0
+        return boosts.atk !in -6..6 || boosts.def !in -6..6 ||
+            boosts.spa !in -6..6 || boosts.spd !in -6..6 ||
+            boosts.spe !in -6..6
+    }
+
+    /**
+     * True when badge boost state is unmodelled or unobserved (Gap C4b).
+     *
+     * In an active battle, the player battler's badge boosts must be authoritatively observed from
+     * save memory. If the player battler's badge boosts were not observed, this returns true.
+     */
+    private fun hnsBadgeBoostNotModelled(request: DamageCalculationRequest): Boolean {
+        val live = request.hnsLiveBattleState ?: return false
+        if (request.attacker.partySlot != null && live.attackerBadgeBoosts == null) return true
+        if (request.defender.partySlot != null && live.defenderBadgeBoosts == null) return true
+        if (request.attacker.partySlot == null && request.defender.partySlot == null) return true
+        return false
     }
 
     /**

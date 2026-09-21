@@ -34,6 +34,12 @@
  *     ITEMS_COUNT; an observed ID above ITEM_ID_MAX is reported as such.
  *
  * Source-text cross-check (compiled ABI wins on disagreement):
+ *   agree — attack byte offset: compiled 2, source text 2
+ *   agree — defense byte offset: compiled 4, source text 4
+ *   agree — speed byte offset: compiled 6, source text 6
+ *   agree — spAttack byte offset: compiled 8, source text 8
+ *   agree — spDefense byte offset: compiled 10, source text 10
+ *   agree — statStages byte offset: compiled 24, source text 24
  *   agree — ability byte offset: compiled 32, source text 32
  *   agree — types byte offset: compiled 34, source text 34
  *   agree — type slot count: compiled 3, source text 3
@@ -46,6 +52,18 @@
 #define DUALDEX_HNS_BATTLE_POKEMON_LAYOUT_GEN_H
 
 #define HNS_BATTLE_POKEMON_SIZEOF 136
+#define HNS_BATTLE_POKEMON_ATTACK_OFFSET 2
+#define HNS_BATTLE_POKEMON_ATTACK_SIZE 2
+#define HNS_BATTLE_POKEMON_DEFENSE_OFFSET 4
+#define HNS_BATTLE_POKEMON_DEFENSE_SIZE 2
+#define HNS_BATTLE_POKEMON_SPEED_OFFSET 6
+#define HNS_BATTLE_POKEMON_SPEED_SIZE 2
+#define HNS_BATTLE_POKEMON_SPATTACK_OFFSET 8
+#define HNS_BATTLE_POKEMON_SPATTACK_SIZE 2
+#define HNS_BATTLE_POKEMON_SPDEFENSE_OFFSET 10
+#define HNS_BATTLE_POKEMON_SPDEFENSE_SIZE 2
+#define HNS_BATTLE_POKEMON_STAT_STAGES_OFFSET 24
+#define HNS_BATTLE_POKEMON_STAT_STAGES_COUNT 8
 #define HNS_BATTLE_POKEMON_ABILITY_OFFSET 32
 #define HNS_BATTLE_POKEMON_ABILITY_SIZE 2
 #define HNS_BATTLE_POKEMON_ABILITY_ID_MAX 310
@@ -57,6 +75,24 @@
 #define HNS_BATTLE_POKEMON_ITEM_SIZE 2
 #define HNS_BATTLE_POKEMON_ITEM_ID_MAX 900
 
+#if HNS_BATTLE_POKEMON_ATTACK_OFFSET + HNS_BATTLE_POKEMON_ATTACK_SIZE > HNS_BATTLE_POKEMON_SIZEOF
+#error "BattlePokemon attack field exceeds the compiled struct size"
+#endif
+#if HNS_BATTLE_POKEMON_DEFENSE_OFFSET + HNS_BATTLE_POKEMON_DEFENSE_SIZE > HNS_BATTLE_POKEMON_SIZEOF
+#error "BattlePokemon defense field exceeds the compiled struct size"
+#endif
+#if HNS_BATTLE_POKEMON_SPEED_OFFSET + HNS_BATTLE_POKEMON_SPEED_SIZE > HNS_BATTLE_POKEMON_SIZEOF
+#error "BattlePokemon speed field exceeds the compiled struct size"
+#endif
+#if HNS_BATTLE_POKEMON_SPATTACK_OFFSET + HNS_BATTLE_POKEMON_SPATTACK_SIZE > HNS_BATTLE_POKEMON_SIZEOF
+#error "BattlePokemon spAttack field exceeds the compiled struct size"
+#endif
+#if HNS_BATTLE_POKEMON_SPDEFENSE_OFFSET + HNS_BATTLE_POKEMON_SPDEFENSE_SIZE > HNS_BATTLE_POKEMON_SIZEOF
+#error "BattlePokemon spDefense field exceeds the compiled struct size"
+#endif
+#if HNS_BATTLE_POKEMON_STAT_STAGES_OFFSET + HNS_BATTLE_POKEMON_STAT_STAGES_COUNT > HNS_BATTLE_POKEMON_SIZEOF
+#error "BattlePokemon statStages field exceeds the compiled struct size"
+#endif
 #if HNS_BATTLE_POKEMON_ABILITY_OFFSET + HNS_BATTLE_POKEMON_ABILITY_SIZE > HNS_BATTLE_POKEMON_SIZEOF
 #error "BattlePokemon ability field exceeds the compiled struct size"
 #endif

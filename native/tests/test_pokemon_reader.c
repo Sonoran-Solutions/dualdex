@@ -4445,6 +4445,21 @@ static void test_hns_challenge_settings_no_stale_across_games(void) {
 #define PIN_BATTLE_POKEMON_ITEM_SIZE 2
 #define PIN_BATTLE_POKEMON_ITEM_ID_MAX 900
 
+#define PIN_BATTLE_POKEMON_ATTACK_OFFSET 2
+#define PIN_BATTLE_POKEMON_ATTACK_SIZE 2
+#define PIN_BATTLE_POKEMON_DEFENSE_OFFSET 4
+#define PIN_BATTLE_POKEMON_DEFENSE_SIZE 2
+#define PIN_BATTLE_POKEMON_SPEED_OFFSET 6
+#define PIN_BATTLE_POKEMON_SPEED_SIZE 2
+#define PIN_BATTLE_POKEMON_SPATTACK_OFFSET 8
+#define PIN_BATTLE_POKEMON_SPATTACK_SIZE 2
+#define PIN_BATTLE_POKEMON_SPDEFENSE_OFFSET 10
+#define PIN_BATTLE_POKEMON_SPDEFENSE_SIZE 2
+#define PIN_BATTLE_POKEMON_STAT_STAGES_OFFSET 0x18
+#define PIN_BATTLE_POKEMON_STAT_STAGES_COUNT 8
+#define PIN_SAVE_BLOCK1_FLAGS_OFFSET 0x198C
+#define PIN_SAVE_BLOCK1_BADGES_OFFSET 0x1A9C
+
 // Pinned H&S item identities used by the observation tests, taken from the pinned
 // enum Item (independently of the generated Kotlin catalogue).
 #define PIN_ITEM_NONE 0
@@ -4477,6 +4492,14 @@ static void expect_battler_unavailable(const BattlerRuntimeState* st, const char
                 "an unavailable observation must not carry an ability or types");
     TEST_ASSERT(!st->item_observed && !st->item_invalid && st->item_id == 0,
                 "an unavailable observation must not carry a stale held item");
+    TEST_ASSERT(!st->stats_observed && st->raw_attack == 0 && st->raw_defense == 0 &&
+                st->raw_speed == 0 && st->raw_sp_attack == 0 && st->raw_sp_defense == 0,
+                "an unavailable observation must not carry stats");
+    TEST_ASSERT(!st->stages_observed, "an unavailable observation must not carry stat stages");
+    TEST_ASSERT(!st->badges_observed && !st->badge_boost_atk && !st->badge_boost_def &&
+                !st->badge_boost_spe && !st->badge_boost_spa && !st->badge_boost_spd &&
+                st->raw_badges_byte == 0,
+                "an unavailable observation must not carry badges");
 }
 
 /**
@@ -4499,6 +4522,36 @@ static void hns_battle_set_battler_item(HnsBattleFixture* fx, uint8_t battler, u
     uint8_t* mon = fx->gba->ewram + fx->cfg->battle_mons_offset +
                    ((size_t)battler * fx->cfg->battle_mons_size);
     write16_le_t(mon + PIN_BATTLE_POKEMON_ITEM_OFFSET, item);
+}
+
+/** Write the engine's battle raw stats for one battler, at the pinned offsets. */
+static void hns_battle_set_battler_stats(HnsBattleFixture* fx, uint8_t battler,
+                                         uint16_t atk, uint16_t def, uint16_t spe,
+                                         uint16_t spa, uint16_t spd) {
+    uint8_t* mon = fx->gba->ewram + fx->cfg->battle_mons_offset +
+                   ((size_t)battler * fx->cfg->battle_mons_size);
+    write16_le_t(mon + PIN_BATTLE_POKEMON_ATTACK_OFFSET, atk);
+    write16_le_t(mon + PIN_BATTLE_POKEMON_DEFENSE_OFFSET, def);
+    write16_le_t(mon + PIN_BATTLE_POKEMON_SPEED_OFFSET, spe);
+    write16_le_t(mon + PIN_BATTLE_POKEMON_SPATTACK_OFFSET, spa);
+    write16_le_t(mon + PIN_BATTLE_POKEMON_SPDEFENSE_OFFSET, spd);
+}
+
+/** Write the engine's battle stat stages for one battler, at the pinned offset. */
+static void hns_battle_set_battler_stat_stages(HnsBattleFixture* fx, uint8_t battler,
+                                               const uint8_t stages[8]) {
+    uint8_t* mon = fx->gba->ewram + fx->cfg->battle_mons_offset +
+                   ((size_t)battler * fx->cfg->battle_mons_size);
+    for (unsigned s = 0; s < PIN_BATTLE_POKEMON_STAT_STAGES_COUNT; s++) {
+        mon[PIN_BATTLE_POKEMON_STAT_STAGES_OFFSET + s] = stages[s];
+    }
+}
+
+/** Write the player's Johto badges byte into SaveBlock1. */
+static void hns_battle_set_badges(HnsBattleFixture* fx, uint8_t badges) {
+    uint32_t sb1_addr = fx->cfg->save_block1_base_gba_address + 88u;
+    uint32_t badges_addr = sb1_addr + fx->cfg->save_block1_badges_offset;
+    fx->gba->ewram[badges_addr - 0x02000000u] = badges;
 }
 
 static bool read_battler_state(const HnsBattleFixture* fx, BattlerRole role,
@@ -4538,6 +4591,30 @@ static void test_hns_battle_pokemon_live_layout_pins(void) {
                 "generated item width must equal the pinned 2");
     TEST_ASSERT(HNS_BATTLE_POKEMON_ITEM_ID_MAX == PIN_BATTLE_POKEMON_ITEM_ID_MAX,
                 "generated item domain must equal the pinned ITEMS_COUNT - 1");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_ATTACK_OFFSET == PIN_BATTLE_POKEMON_ATTACK_OFFSET,
+                "generated attack offset must equal the pinned 2");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_ATTACK_SIZE == PIN_BATTLE_POKEMON_ATTACK_SIZE,
+                "generated attack width must equal the pinned 2");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_DEFENSE_OFFSET == PIN_BATTLE_POKEMON_DEFENSE_OFFSET,
+                "generated defense offset must equal the pinned 4");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_DEFENSE_SIZE == PIN_BATTLE_POKEMON_DEFENSE_SIZE,
+                "generated defense width must equal the pinned 2");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_SPEED_OFFSET == PIN_BATTLE_POKEMON_SPEED_OFFSET,
+                "generated speed offset must equal the pinned 6");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_SPEED_SIZE == PIN_BATTLE_POKEMON_SPEED_SIZE,
+                "generated speed width must equal the pinned 2");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_SPATTACK_OFFSET == PIN_BATTLE_POKEMON_SPATTACK_OFFSET,
+                "generated spAttack offset must equal the pinned 8");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_SPATTACK_SIZE == PIN_BATTLE_POKEMON_SPATTACK_SIZE,
+                "generated spAttack width must equal the pinned 2");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_SPDEFENSE_OFFSET == PIN_BATTLE_POKEMON_SPDEFENSE_OFFSET,
+                "generated spDefense offset must equal the pinned 10");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_SPDEFENSE_SIZE == PIN_BATTLE_POKEMON_SPDEFENSE_SIZE,
+                "generated spDefense width must equal the pinned 2");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_STAT_STAGES_OFFSET == PIN_BATTLE_POKEMON_STAT_STAGES_OFFSET,
+                "generated statStages offset must equal the pinned 0x18");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_STAT_STAGES_COUNT == PIN_BATTLE_POKEMON_STAT_STAGES_COUNT,
+                "generated statStages count must equal the pinned 8");
 
     const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
     TEST_ASSERT(cfg->battle_mons_size == PIN_BATTLE_POKEMON_SIZEOF &&
@@ -4547,8 +4624,21 @@ static void test_hns_battle_pokemon_live_layout_pins(void) {
                 cfg->battle_mons_type_count == PIN_BATTLE_POKEMON_TYPE_COUNT &&
                 cfg->battle_mons_type_width == PIN_BATTLE_POKEMON_TYPE_ELEMENT_SIZE &&
                 cfg->battle_mons_item_offset == PIN_BATTLE_POKEMON_ITEM_OFFSET &&
-                cfg->battle_mons_item_size == PIN_BATTLE_POKEMON_ITEM_SIZE,
-                "the H&S config must carry the pinned BattlePokemon layout");
+                cfg->battle_mons_item_size == PIN_BATTLE_POKEMON_ITEM_SIZE &&
+                cfg->battle_mons_attack_offset == PIN_BATTLE_POKEMON_ATTACK_OFFSET &&
+                cfg->battle_mons_attack_size == PIN_BATTLE_POKEMON_ATTACK_SIZE &&
+                cfg->battle_mons_defense_offset == PIN_BATTLE_POKEMON_DEFENSE_OFFSET &&
+                cfg->battle_mons_defense_size == PIN_BATTLE_POKEMON_DEFENSE_SIZE &&
+                cfg->battle_mons_speed_offset == PIN_BATTLE_POKEMON_SPEED_OFFSET &&
+                cfg->battle_mons_speed_size == PIN_BATTLE_POKEMON_SPEED_SIZE &&
+                cfg->battle_mons_spattack_offset == PIN_BATTLE_POKEMON_SPATTACK_OFFSET &&
+                cfg->battle_mons_spattack_size == PIN_BATTLE_POKEMON_SPATTACK_SIZE &&
+                cfg->battle_mons_spdefense_offset == PIN_BATTLE_POKEMON_SPDEFENSE_OFFSET &&
+                cfg->battle_mons_spdefense_size == PIN_BATTLE_POKEMON_SPDEFENSE_SIZE &&
+                cfg->battle_mons_stat_stages_offset == PIN_BATTLE_POKEMON_STAT_STAGES_OFFSET &&
+                cfg->save_block1_flags_offset == PIN_SAVE_BLOCK1_FLAGS_OFFSET &&
+                cfg->save_block1_badges_offset == PIN_SAVE_BLOCK1_BADGES_OFFSET,
+                "the H&S config must carry the pinned BattlePokemon layout and SaveBlock1 offsets");
 
     // Vanilla games must not inherit the H&S live-field interpretation.
     static const GbaGameId VANILLA[] = {
@@ -4558,7 +4648,10 @@ static void test_hns_battle_pokemon_live_layout_pins(void) {
         const GameMemoryConfig* v = pokemon_get_game_config(VANILLA[i]);
         TEST_ASSERT(v != NULL && v->battle_mons_ability_offset == 0 &&
                     v->battle_mons_types_offset == 0 && v->battle_mons_type_count == 0 &&
-                    v->battle_mons_item_offset == 0 && v->battle_mons_item_size == 0,
+                    v->battle_mons_item_offset == 0 && v->battle_mons_item_size == 0 &&
+                    v->battle_mons_attack_offset == 0 && v->battle_mons_defense_offset == 0 &&
+                    v->battle_mons_speed_offset == 0 && v->battle_mons_spattack_offset == 0 &&
+                    v->battle_mons_spdefense_offset == 0 && v->save_block1_badges_offset == 0,
                     "a vanilla layout must not declare the H&S live fields");
     }
 
@@ -5141,6 +5234,130 @@ static void test_hns_battler_state_teardown_and_profile_switch(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_battler_state_teardown_and_profile_switch" ANSI_RESET "\n");
 }
 
+static void test_hns_badge_state_reading(void) {
+    printf("Running test_hns_badge_state_reading...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    const GameMemoryConfig* fr = pokemon_get_game_config(GAME_FIRERED);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battle_fixture_init(&fx, &gba, cfg);
+
+    HnsBadgeState badges;
+    memset(&badges, 0, sizeof(badges));
+
+    // Null checks
+    TEST_ASSERT(!pokemon_read_hns_badge_state_gba(NULL, &gba.table, cfg, &badges),
+                "null reader must fail");
+    TEST_ASSERT(!pokemon_read_hns_badge_state_gba(fake_gba_read, &gba.table, NULL, &badges),
+                "null config must fail");
+    TEST_ASSERT(!pokemon_read_hns_badge_state_gba(fake_gba_read, &gba.table, cfg, NULL),
+                "null out must fail");
+    TEST_ASSERT(!pokemon_read_hns_badge_state_gba(fake_gba_read, &gba.table, fr, &badges),
+                "non-H&S config must fail");
+
+    // Valid reading: set bits 0, 2, 5, 6
+    // bit 0: Falkner (Zephyr) -> atk
+    // bit 1: Bugsy (Hive)
+    // bit 2: Whitney (Plain) -> spe
+    // bit 3: Morty (Fog)
+    // bit 4: Chuck (Storm)
+    // bit 5: Jasmine (Mineral) -> def
+    // bit 6: Pryce (Glacier) -> spa & spd
+    // bit 7: Clair (Rising)
+    // 0b01100101 = 0x65 = 101
+    hns_battle_set_badges(&fx, 0x65);
+    TEST_ASSERT(pokemon_read_hns_badge_state_gba(fake_gba_read, &gba.table, cfg, &badges),
+                "valid badge read must succeed");
+    TEST_ASSERT(badges.raw_badges_byte == 0x65, "raw badges byte must match 0x65");
+    TEST_ASSERT(badges.badge_atk, "Falkner Zephyr badge must boost Atk");
+    TEST_ASSERT(badges.badge_spe, "Whitney Plain badge must boost Spe");
+    TEST_ASSERT(badges.badge_def, "Jasmine Mineral badge must boost Def");
+    TEST_ASSERT(badges.badge_spa, "Pryce Glacier badge must boost SpA");
+    TEST_ASSERT(badges.badge_spd, "Pryce Glacier badge must boost SpD");
+
+    // Invalid pointer fails closed
+    write32_le_t(gba.iwram + (cfg->save_block1_ptr_gba_address - 0x03000000u), 0x02000000u); // below sb1 base
+    TEST_ASSERT(!pokemon_read_hns_badge_state_gba(fake_gba_read, &gba.table, cfg, &badges),
+                "corrupt sb1 pointer must fail closed");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_badge_state_reading" ANSI_RESET "\n");
+}
+
+static void test_hns_battler_state_stats_stages_badges(void) {
+    printf("Running test_hns_battler_state_stats_stages_badges...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    // Player (battler 0) stats and stages:
+    hns_battle_set_battler_stats(&fx, 0, 120, 95, 110, 85, 90);
+    uint8_t stages_player[8] = {6, 8, 5, 6, 7, 4, 6, 6}; // atk +2, def -1, spa +1, spd -2
+    hns_battle_set_battler_stat_stages(&fx, 0, stages_player);
+    hns_battle_set_badges(&fx, 0x65); // Atk, Spe, Def, SpA, SpD badges active
+
+    // Opponent (battler 1) stats and stages:
+    hns_battle_set_battler_stats(&fx, 1, 80, 70, 90, 60, 65);
+    uint8_t stages_enemy[8] = {6, 6, 7, 6, 6, 6, 6, 6}; // def +1
+    hns_battle_set_battler_stat_stages(&fx, 1, stages_enemy);
+
+    BattlerRuntimeState st_player;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st_player), "player read must succeed");
+    TEST_ASSERT(st_player.stats_observed, "player stats must be observed");
+    TEST_ASSERT(st_player.raw_attack == 120, "player raw attack must be 120");
+    TEST_ASSERT(st_player.raw_defense == 95, "player raw defense must be 95");
+    TEST_ASSERT(st_player.raw_speed == 110, "player raw speed must be 110");
+    TEST_ASSERT(st_player.raw_sp_attack == 85, "player raw sp_attack must be 85");
+    TEST_ASSERT(st_player.raw_sp_defense == 90, "player raw sp_defense must be 90");
+
+    TEST_ASSERT(st_player.stages_observed, "player stages must be observed");
+    TEST_ASSERT(st_player.stat_stages[1] == 2, "player atk stage must be +2");
+    TEST_ASSERT(st_player.stat_stages[2] == -1, "player def stage must be -1");
+    TEST_ASSERT(st_player.stat_stages[3] == 0, "player spe stage must be 0");
+    TEST_ASSERT(st_player.stat_stages[4] == 1, "player spa stage must be +1");
+    TEST_ASSERT(st_player.stat_stages[5] == -2, "player spd stage must be -2");
+
+    TEST_ASSERT(st_player.badges_observed, "player badges must be observed");
+    TEST_ASSERT(st_player.raw_badges_byte == 0x65, "player raw badges byte must be 0x65");
+    TEST_ASSERT(st_player.badge_boost_atk, "player atk badge boost must be active");
+    TEST_ASSERT(st_player.badge_boost_def, "player def badge boost must be active");
+    TEST_ASSERT(st_player.badge_boost_spe, "player spe badge boost must be active");
+    TEST_ASSERT(st_player.badge_boost_spa, "player spa badge boost must be active");
+    TEST_ASSERT(st_player.badge_boost_spd, "player spd badge boost must be active");
+
+    // Opponent read:
+    BattlerRuntimeState st_enemy;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st_enemy), "enemy read must succeed");
+    TEST_ASSERT(st_enemy.stats_observed, "enemy stats must be observed");
+    TEST_ASSERT(st_enemy.raw_attack == 80, "enemy raw attack must be 80");
+    TEST_ASSERT(st_enemy.raw_defense == 70, "enemy raw defense must be 70");
+    TEST_ASSERT(st_enemy.raw_speed == 90, "enemy raw speed must be 90");
+    TEST_ASSERT(st_enemy.raw_sp_attack == 60, "enemy raw sp_attack must be 60");
+    TEST_ASSERT(st_enemy.raw_sp_defense == 65, "enemy raw sp_defense must be 65");
+
+    TEST_ASSERT(st_enemy.stages_observed, "enemy stages must be observed");
+    TEST_ASSERT(st_enemy.stat_stages[2] == 1, "enemy def stage must be +1");
+
+    // Opponents NEVER get badge boosts!
+    TEST_ASSERT(!st_enemy.badges_observed, "enemy must not have badges observed");
+    TEST_ASSERT(!st_enemy.badge_boost_atk && !st_enemy.badge_boost_def && !st_enemy.badge_boost_spe &&
+                !st_enemy.badge_boost_spa && !st_enemy.badge_boost_spd,
+                "enemy must never receive badge boosts");
+
+    // Badge exclusions on player: Link battle (0x02)
+    hns_battle_set_counters(&fx, 2, 0x02u, 0); // BATTLE_TYPE_LINK
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st_player), "player read in link battle");
+    TEST_ASSERT(st_player.badges_observed, "badges are still read from save block");
+    TEST_ASSERT(st_player.raw_badges_byte == 0x65, "raw badges byte still observed");
+    TEST_ASSERT(!st_player.badge_boost_atk && !st_player.badge_boost_def && !st_player.badge_boost_spe &&
+                !st_player.badge_boost_spa && !st_player.badge_boost_spd,
+                "badge boosts must be disabled in link battle");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_stats_stages_badges" ANSI_RESET "\n");
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
@@ -5245,6 +5462,8 @@ int main(void) {
     test_hns_battler_state_out_of_domain_item_stays_raw();
     test_hns_battler_state_trust_and_lifecycle_failures();
     test_hns_battler_state_teardown_and_profile_switch();
+    test_hns_badge_state_reading();
+    test_hns_battler_state_stats_stages_badges();
 
     printf("===================================================\n");
     printf("Results: %d Passed, %d Failed\n", g_tests_passed, g_tests_failed);

@@ -176,13 +176,35 @@ data class CalcHnsRuntimeRules(
  *  - [transientStateObserved]: true only when other transient damage state reachable by the
  *    supported ordinary subset was authoritatively observed. No runtime reader produces this yet.
  */
+data class CalcRawStats(
+    val attack: Int,
+    val defense: Int,
+    val speed: Int,
+    val spAttack: Int,
+    val spDefense: Int
+)
+
+data class CalcBadgeBoosts(
+    val atk: Boolean = false,
+    val def: Boolean = false,
+    val spe: Boolean = false,
+    val spa: Boolean = false,
+    val spd: Boolean = false
+)
+
 data class CalcHnsLiveBattleState(
     val attackerTypes: List<String>? = null,
     val defenderTypes: List<String>? = null,
     val attackerBattleStatWordsObserved: Boolean = false,
     val defenderBattleStatWordsObserved: Boolean = false,
     val dynamicMoveTypeObserved: Boolean = false,
-    val transientStateObserved: Boolean = false
+    val transientStateObserved: Boolean = false,
+    val attackerRawStats: CalcRawStats? = null,
+    val defenderRawStats: CalcRawStats? = null,
+    val attackerStatStages: List<Int>? = null,
+    val defenderStatStages: List<Int>? = null,
+    val attackerBadgeBoosts: CalcBadgeBoosts? = null,
+    val defenderBadgeBoosts: CalcBadgeBoosts? = null
 )
 
 data class DamageCalculationRequest(

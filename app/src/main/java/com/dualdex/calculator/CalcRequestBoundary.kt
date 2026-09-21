@@ -495,6 +495,36 @@ object CalcRequestBoundary {
     ): CalcHnsLiveBattleState? {
         val battleContext = activeBattle || playerBattlerState != null || enemyBattlerState != null
         if (!battleContext) return null
+        val attackerRaw = authoritativeObservedRawStats(
+            participantPartySlot = request.attacker.partySlot,
+            observation = playerBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val defenderRaw = authoritativeObservedRawStats(
+            participantPartySlot = request.defender.partySlot,
+            observation = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val attackerStages = authoritativeObservedStatStages(
+            participantPartySlot = request.attacker.partySlot,
+            observation = playerBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val defenderStages = authoritativeObservedStatStages(
+            participantPartySlot = request.defender.partySlot,
+            observation = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val attackerBadges = authoritativeObservedBadgeBoosts(
+            participantPartySlot = request.attacker.partySlot,
+            observation = playerBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val defenderBadges = authoritativeObservedBadgeBoosts(
+            participantPartySlot = request.defender.partySlot,
+            observation = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
         return CalcHnsLiveBattleState(
             attackerTypes = authoritativeObservedTypes(
                 participantPartySlot = request.attacker.partySlot,
@@ -505,7 +535,92 @@ object CalcRequestBoundary {
                 participantPartySlot = request.defender.partySlot,
                 observation = enemyBattlerState,
                 isExactVerified = isExactVerified
-            )
+            ),
+            attackerBattleStatWordsObserved = attackerRaw != null,
+            defenderBattleStatWordsObserved = defenderRaw != null,
+            dynamicMoveTypeObserved = false,
+            transientStateObserved = false,
+            attackerRawStats = attackerRaw,
+            defenderRawStats = defenderRaw,
+            attackerStatStages = attackerStages,
+            defenderStatStages = defenderStages,
+            attackerBadgeBoosts = attackerBadges,
+            defenderBadgeBoosts = defenderBadges
+        )
+    }
+
+    private fun authoritativeObservedRawStats(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): CalcRawStats? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (participantPartySlot == null || state.partySlot == null ||
+            state.partySlot != participantPartySlot
+        ) {
+            return null
+        }
+        if (!state.statsObserved) return null
+        val rawAttack = state.rawAttack ?: return null
+        val rawDefense = state.rawDefense ?: return null
+        val rawSpeed = state.rawSpeed ?: return null
+        val rawSpAttack = state.rawSpAttack ?: return null
+        val rawSpDefense = state.rawSpDefense ?: return null
+        if (rawAttack <= 0 || rawDefense <= 0 || rawSpeed <= 0 ||
+            rawSpAttack <= 0 || rawSpDefense <= 0
+        ) {
+            return null
+        }
+        return CalcRawStats(
+            attack = rawAttack,
+            defense = rawDefense,
+            speed = rawSpeed,
+            spAttack = rawSpAttack,
+            spDefense = rawSpDefense
+        )
+    }
+
+    private fun authoritativeObservedStatStages(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): List<Int>? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (participantPartySlot == null || state.partySlot == null ||
+            state.partySlot != participantPartySlot
+        ) {
+            return null
+        }
+        if (!state.stagesObserved) return null
+        if (state.statStages.size != 8) return null
+        if (state.statStages.any { it !in -6..6 }) return null
+        return state.statStages
+    }
+
+    private fun authoritativeObservedBadgeBoosts(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): CalcBadgeBoosts? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (participantPartySlot == null || state.partySlot == null ||
+            state.partySlot != participantPartySlot
+        ) {
+            return null
+        }
+        if (!state.badgesObserved) return null
+        return CalcBadgeBoosts(
+            atk = state.badgeBoostAtk,
+            def = state.badgeBoostDef,
+            spe = state.badgeBoostSpe,
+            spa = state.badgeBoostSpa,
+            spd = state.badgeBoostSpd
         )
     }
 

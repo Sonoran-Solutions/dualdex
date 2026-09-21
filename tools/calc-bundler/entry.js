@@ -272,7 +272,242 @@ globalThis.DualDexCalc = {
       if (input.field?.attackerSide) fieldOptions.attackerSide = new Side(input.field.attackerSide);
       if (input.field?.defenderSide) fieldOptions.defenderSide = new Side(input.field.defenderSide);
 
+function halfDown(mod, val) {
+  return Math.floor((mod * val + 2047) / 4096);
+}
+
+const HNS_STAT_STAGE_RATIOS = [
+  [10, 40], // -6
+  [10, 35], // -5
+  [10, 30], // -4
+  [10, 25], // -3
+  [10, 20], // -2
+  [10, 15], // -1
+  [10, 10], //  0
+  [15, 10], // +1
+  [20, 10], // +2
+  [25, 10], // +3
+  [30, 10], // +4
+  [35, 10], // +5
+  [40, 10]  // +6
+];
+
+function calculateHnsDamage(gen, attacker, defender, move, field, input) {
+  let typeEffectiveness = 1.0;
+  const moveTypeRecord = gen.types.get(toID(move.type));
+  if (moveTypeRecord && defender.types) {
+    for (const defType of defender.types) {
+      if (defType && moveTypeRecord.effectiveness[defType] !== undefined) {
+        typeEffectiveness *= moveTypeRecord.effectiveness[defType];
+      }
+    }
+  }
+
+  const maxHP = defender.maxHP();
+
+  if (move.category === 'Status' || move.bp === 0 || typeEffectiveness === 0) {
+    const zeroRolls = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const descStr = attacker.name + ' ' + move.name + ' vs. ' + defender.name + ': 0-0 (0 - 0%)';
+    return {
+      success: true,
+      damage: zeroRolls,
+      minDamage: 0,
+      maxDamage: 0,
+      range: [0, 0],
+      desc: descStr,
+      moveName: move.name,
+      moveCategory: move.category,
+      moveType: move.type,
+      movePower: move.bp,
+      attackerName: attacker.name,
+      attackerTypes: attacker.types,
+      defenderName: defender.name,
+      defenderTypes: defender.types,
+      defenderMaxHP: maxHP,
+      koChanceText: "",
+      effectiveness: typeEffectiveness
+    };
+  }
+
+  const isPhysical = (move.category === 'Physical');
+
+  let rawAtk;
+  if (isPhysical) {
+    rawAtk = (input.attacker?.rawStats?.attack !== undefined)
+      ? input.attacker.rawStats.attack
+      : (attacker.rawStats ? attacker.rawStats.atk : attacker.stats.atk);
+  } else {
+    rawAtk = (input.attacker?.rawStats?.spAttack !== undefined)
+      ? input.attacker.rawStats.spAttack
+      : (attacker.rawStats ? attacker.rawStats.spa : attacker.stats.spa);
+  }
+
+  let rawDef;
+  if (isPhysical) {
+    rawDef = (input.defender?.rawStats?.defense !== undefined)
+      ? input.defender.rawStats.defense
+      : (defender.rawStats ? defender.rawStats.def : defender.stats.def);
+  } else {
+    rawDef = (input.defender?.rawStats?.spDefense !== undefined)
+      ? input.defender.rawStats.spDefense
+      : (defender.rawStats ? defender.rawStats.spd : defender.stats.spd);
+  }
+
+  let atkStage = 0;
+  if (Array.isArray(input.attacker?.statStages) && input.attacker.statStages.length >= 6) {
+    atkStage = isPhysical ? input.attacker.statStages[1] : input.attacker.statStages[4];
+  } else if (input.attacker?.boosts) {
+    atkStage = isPhysical ? (input.attacker.boosts.atk || 0) : (input.attacker.boosts.spa || 0);
+  } else if (attacker.boosts) {
+    atkStage = isPhysical ? (attacker.boosts.atk || 0) : (attacker.boosts.spa || 0);
+  }
+
+  let defStage = 0;
+  if (Array.isArray(input.defender?.statStages) && input.defender.statStages.length >= 6) {
+    defStage = isPhysical ? input.defender.statStages[2] : input.defender.statStages[5];
+  } else if (input.defender?.boosts) {
+    defStage = isPhysical ? (input.defender.boosts.def || 0) : (input.defender.boosts.spd || 0);
+  } else if (defender.boosts) {
+    defStage = isPhysical ? (defender.boosts.def || 0) : (defender.boosts.spd || 0);
+  }
+
+  if (move.isCrit) {
+    if (atkStage < 0) atkStage = 0;
+    if (defStage > 0) defStage = 0;
+  }
+  atkStage = Math.max(-6, Math.min(6, atkStage));
+  defStage = Math.max(-6, Math.min(6, defStage));
+
+  const atkRatio = HNS_STAT_STAGE_RATIOS[atkStage + 6];
+  let userFinalAttack = Math.floor((rawAtk * atkRatio[0]) / atkRatio[1]);
+
+  const defRatio = HNS_STAT_STAGE_RATIOS[defStage + 6];
+  let targetFinalDefense = Math.floor((rawDef * defRatio[0]) / defRatio[1]);
+
+  if (defender.ability === 'Thick Fat' && (move.type === 'Fire' || move.type === 'Ice')) {
+    userFinalAttack = halfDown(2048, userFinalAttack);
+  }
+  const attackerStatus = (attacker.status || input.attacker?.status || '').toLowerCase();
+  if (attacker.ability === 'Guts' && attackerStatus) {
+    userFinalAttack = halfDown(6144, userFinalAttack);
+  }
+  if (isPhysical && (attacker.ability === 'Huge Power' || attacker.ability === 'Pure Power')) {
+    userFinalAttack = userFinalAttack * 2;
+  }
+
+  const atkBadge = isPhysical ? !!input.attacker?.badgeBoosts?.atk : !!input.attacker?.badgeBoosts?.spa;
+  if (atkBadge) {
+    userFinalAttack = halfDown(4506, userFinalAttack);
+  }
+  const defBadge = isPhysical ? !!input.defender?.badgeBoosts?.def : !!input.defender?.badgeBoosts?.spd;
+  if (defBadge) {
+    targetFinalDefense = halfDown(4506, targetFinalDefense);
+  }
+
+  userFinalAttack = Math.max(1, userFinalAttack);
+  targetFinalDefense = Math.max(1, targetFinalDefense);
+
+  let bp = move.bp;
+  const item = (input.attacker?.item || attacker.item || '').toLowerCase();
+  if (item === 'charcoal' && move.type === 'Fire') bp = halfDown(4915, bp);
+  else if (item === 'mystic water' && move.type === 'Water') bp = halfDown(4915, bp);
+  else if (item === 'miracle seed' && move.type === 'Grass') bp = halfDown(4915, bp);
+  else if (item === 'magnet' && move.type === 'Electric') bp = halfDown(4915, bp);
+  else if (item === 'silk scarf' && move.type === 'Normal') bp = halfDown(4915, bp);
+  else if (item === 'black belt' && move.type === 'Fighting') bp = halfDown(4915, bp);
+  else if (item === 'sharp beak' && move.type === 'Flying') bp = halfDown(4915, bp);
+  else if (item === 'poison barb' && move.type === 'Poison') bp = halfDown(4915, bp);
+  else if (item === 'soft sand' && move.type === 'Ground') bp = halfDown(4915, bp);
+  else if (item === 'hard stone' && move.type === 'Rock') bp = halfDown(4915, bp);
+  else if (item === 'silver powder' && move.type === 'Bug') bp = halfDown(4915, bp);
+  else if (item === 'spell tag' && move.type === 'Ghost') bp = halfDown(4915, bp);
+  else if (item === 'metal coat' && move.type === 'Steel') bp = halfDown(4915, bp);
+  else if (item === 'twisted spoon' && move.type === 'Psychic') bp = halfDown(4915, bp);
+  else if (item === 'never-melt ice' && move.type === 'Ice') bp = halfDown(4915, bp);
+  else if (item === 'dragon fang' && move.type === 'Dragon') bp = halfDown(4915, bp);
+  else if (item === 'black glasses' && move.type === 'Dark') bp = halfDown(4915, bp);
+
+  const level = attacker.level || 50;
+  let dmg = Math.floor(Math.floor(Math.floor(bp * userFinalAttack * (Math.floor((2 * level) / 5) + 2)) / targetFinalDefense) / 50) + 2;
+
+  const gameType = normalizeGameType(field.gameType || input.field?.gameType);
+  if (gameType === 'Doubles') {
+    dmg = halfDown(2048, dmg);
+  }
+
+  const weatherStr = (field.weather || input.field?.weather || '').toLowerCase();
+  if (weatherStr.includes('rain')) {
+    if (move.type === 'Fire') dmg = halfDown(2048, dmg);
+    else if (move.type === 'Water') dmg = halfDown(6144, dmg);
+  } else if (weatherStr.includes('sun')) {
+    if (move.type === 'Water') dmg = halfDown(2048, dmg);
+    else if (move.type === 'Fire') dmg = halfDown(6144, dmg);
+  }
+
+  if (move.isCrit) {
+    dmg = halfDown(8192, dmg);
+  }
+
+  const hasStab = attacker.types && attacker.types.some(t => t.toLowerCase() === move.type.toLowerCase());
+  const stabMod = (attacker.ability === 'Adaptability') ? 8192 : 6144;
+
+  const isBurned = isPhysical && (attackerStatus === 'brn') && (attacker.ability !== 'Guts');
+
+  let hasScreen = false;
+  if (!move.isCrit) {
+    const defSide = field.defenderSide || input.field?.defenderSide;
+    if (isPhysical && defSide?.isReflect) hasScreen = true;
+    if (!isPhysical && defSide?.isLightScreen) hasScreen = true;
+  }
+  const screenMod = (gameType === 'Doubles') ? 2732 : 2048;
+
+  const damageArray = [];
+  for (let r = 85; r <= 100; r++) {
+    let x = Math.floor((dmg * r) / 100);
+    if (hasStab) x = halfDown(stabMod, x);
+    if (typeEffectiveness !== 1.0) {
+      x = halfDown(Math.round(typeEffectiveness * 4096), x);
+    }
+    if (isBurned) x = halfDown(2048, x);
+    if (hasScreen) x = halfDown(screenMod, x);
+    if (x === 0) x = 1;
+    damageArray.push(x);
+  }
+
+  const minDmg = damageArray[0];
+  const maxDmg = damageArray[15];
+  const range = [minDmg, maxDmg];
+  const minPct = ((minDmg / maxHP) * 100).toFixed(1);
+  const maxPct = ((maxDmg / maxHP) * 100).toFixed(1);
+  const descStr = attacker.name + ' ' + move.name + ' vs. ' + defender.name + ': ' + minDmg + '-' + maxDmg + ' (' + minPct + ' - ' + maxPct + '%)';
+
+  return {
+    success: true,
+    damage: damageArray,
+    minDamage: minDmg,
+    maxDamage: maxDmg,
+    range: range,
+    desc: descStr,
+    moveName: move.name,
+    moveCategory: move.category,
+    moveType: move.type,
+    movePower: move.bp,
+    attackerName: attacker.name,
+    attackerTypes: attacker.types,
+    defenderName: defender.name,
+    defenderTypes: defender.types,
+    defenderMaxHP: maxHP,
+    koChanceText: "",
+    effectiveness: typeEffectiveness
+  };
+}
+
       const field = new Field(fieldOptions);
+
+      if (input.typeSystem === 'hns_2_0_5') {
+        return JSON.stringify(calculateHnsDamage(gen, attacker, defender, move, field, input));
+      }
+
       const result = calculate(gen, attacker, defender, move, field);
 
       const damageArray = Array.isArray(result.damage) ? result.damage : [result.damage];

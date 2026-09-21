@@ -1512,7 +1512,7 @@ class CalcCapabilityPolicyTest {
     }
 
     @Test
-    fun `2 Fully observed ordinary settings clears unreadable blockers but H and S remains UNSUPPORTED due to Gap C`() {
+    fun `2 Fully observed ordinary settings clears unreadable blockers but unsupplied abilities fail closed`() {
         val (profile, trust) = exactHnsProfile()
         val snapshot = hnsSettingsSnapshot(
             optionStyle = 0,
@@ -1532,7 +1532,7 @@ class CalcCapabilityPolicyTest {
         )
 
         val refused = outcome as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("H&S must remain refused due to Gap C type-chart incompatibility")
+            ?: throw AssertionError("unsupplied abilities must fail closed, got $outcome")
 
         assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
         assertNull("refused verdict must never expose an executable request", refused.verdict.request)
@@ -1553,9 +1553,41 @@ class CalcCapabilityPolicyTest {
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE))
-        // ... and the next production mechanics blocker keeps H&S strictly UNSUPPORTED.
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
+        // Gap C4b: blanket badge blocker is gone, but unsupplied abilities fail closed
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED))
+    }
+
+    @Test
+    fun `2b Fully observed ordinary request with supported abilities reaches ESTIMATED under Gap C4b`() {
+        val (profile, trust) = exactHnsProfile()
+        val snapshot = hnsSettingsSnapshot(
+            optionStyle = 0,
+            fairyTypes = 1,
+            randomTypes = 0,
+            randomEffectiveness = 0
+        )
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request(
+                attacker = CalcPokemonInput(species = "Charizard", level = 50, ability = "None"),
+                defender = CalcPokemonInput(species = "Blastoise", level = 50, ability = "None"),
+                move = CalcMoveInput(name = "Flamethrower")
+            ),
+            challengeSettings = snapshot
+        )
+
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("H&S ordinary calculation should reach Ready, got $outcome")
+
+        assertEquals(CalcSupport.ESTIMATED, ready.verdict.support)
+        assertNotNull("ready verdict must expose an executable request", ready.request)
+
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
     }
 
     @Test
@@ -1814,9 +1846,9 @@ class CalcCapabilityPolicyTest {
         assertTrue(verdict.limitations.contains(CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED))
         assertTrue(verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
         // Gap C3: the blanket held-item blocker is gone; no item-specific blocker applies to
-        // these itemless participants, so the refusal rests on the type chart and badge blockers.
+        // these itemless participants, so the refusal rests on the unrepresentable type.
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
-        assertTrue(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
+        assertFalse(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
     }
 
     @Test

@@ -25,17 +25,20 @@ library source). *NOT FOUND* means the evidence does not exist and is never trea
 
 ## 1. The three answers, in one paragraph
 
-DualDex supports **exact verified FireRed**, **exact verified Emerald**, and **exact H&S 2.0.5**. All
-three share one damage pipeline (`@smogon/calc`'s ADV implementation, sent as `gen: 3`), for a
-reason that is documented in §3 and is not a default. Vanilla FireRed/Emerald requests that stay
-inside the verified input set are presented as **Verified**. H&S 2.0.5 requests are **refused**:
-H&S lets the player change the *rule* that decides damage category, whether the Fairy type exists,
-species typings, and the type chart itself; while DualDex consumes those settings at runtime via
-`CalcRequestBoundary` (§4.1), the H&S type chart (Fairy type, modern Steel interactions) and modern
-mechanics are not yet modelled by the Gen 3 ADV pipeline (Gap C, §9), so there is no honest number
-to show. Every other
-build — CFRU hacks, split-mechanics vanilla builds, any unidentified ROM — is **refused** with a
-stated reason rather than given a Gen III number.
+DualDex supports **exact verified FireRed**, **exact verified Emerald**, and **exact H&S 2.0.5**.
+Vanilla FireRed/Emerald requests that stay inside the verified input set are presented as **Verified**
+using `@smogon/calc`'s ADV pipeline (`gen: 3`). H&S 2.0.5 requests within the supported ordinary subset
+are presented as **Estimated** (`CalcSupport.ESTIMATED`): H&S lets the player change rules (category split,
+Fairy type, randomizers), applies modern base data and type matchups, and executes a distinct UQ4.12
+roll-first damage calculation pipeline with Gen III badge boosts. DualDex consumes challenge settings at
+runtime via `CalcRequestBoundary` (§4.1), executes the exact 19x19 H&S type chart (Gap C1, §3.1), audits
+authoritative abilities (Gap C2, §6) and held items (Gap C3, §7), and in Gap C4b executes the exact
+UQ4.12 damage arithmetic in QuickJS (`calculateHnsDamage`, §11) with live-observed battle stats, stat
+stages, and SaveBlock1 badge boosts. Requests outside the supported ordinary subset (unmodelled moves,
+unsupported abilities/items, out-of-range stat stages, unmodelled weather, active randomizers, or
+unobserved mutable state in active battles) remain strictly **refused** (`CalcSupport.UNSUPPORTED`)
+with a stated reason. Every other build — CFRU hacks, split-mechanics vanilla builds, any unidentified
+ROM — is **refused** rather than given a Gen III number.
 
 The single decision point is `CalcCapabilityPolicy`
 (`app/src/main/java/com/dualdex/calculator/CalcCapabilityPolicy.kt`); the only way to turn
@@ -51,23 +54,23 @@ existing request field reproduces this build's rule, not whether the current UI 
 
 | # | Mechanic / state | H&S 2.0.5 (pinned) | Bridge can express | Verdict |
 |---|---|---|---|---|
-| 1 | Damage formula | Generation III arithmetic with modern data | partially | **INDIVIDUALLY DEMONSTRATED ONLY** — the crit multiplier, spread reduction, category rule (Gap A/B), and type chart (Gap C1) match; modern modifiers/abilities/items do not (§3.2) |
-| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for damaging moves in TYPE_BASED to trigger Gen 3 type derivation; Status moves retain Status in both); `optionStyle` is consumed by `CalcRequestBoundary` | **PLUMBED / REFUSED** — `optionStyle` selects category behavior with Status prioritized, but H&S calculations remain refused because the generation III badge boost is unmodelled (`BADGE_BOOST_NOT_MODELLED`) and the pinned H&S damage-modifier order is not reproduced (`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`) (Gap C4a) (§3.1, §9) |
-| 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / REFUSED (GAP C1 CLOSED)** — type chart is exact and verified in QuickJS. H&S calculations remain refused because the generation III badge boost is unmodelled (`BADGE_BOOST_NOT_MODELLED`), the pinned H&S damage-modifier order is not reproduced (`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`), and mutable live battle state is not observed (`HNS_LIVE_BATTLE_STATE_NOT_MODELLED`) (Gap C4a). (§3.1, §9) |
-| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `@smogon/calc` constructor (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused because the generation III badge boost is unmodelled (`BADGE_BOOST_NOT_MODELLED`) and the pinned H&S damage-modifier order is not reproduced (`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`) (Gap C4a) (§3.1, §9) |
-| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **PLUMBED / REFUSED** — overrides are extracted and forwarded, but H&S calculations remain refused because the generation III badge boost is unmodelled (`BADGE_BOOST_NOT_MODELLED`) and the pinned H&S damage-modifier order is not reproduced (`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`) (Gap C4a) (§3.1, §9) |
-| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; strict per-ability capability gating (`PROVEN_NO_DAMAGE_EFFECT`, `MODELLED_EQUIVALENT`, `UNSUPPORTED_DAMAGE_RELEVANT`) in `HnsAbilityRegistry`. Engine default ability substitution prevented via `'(other)'`. | **CONDITIONALLY MODELLED / REFUSED (GAP C2 CLOSED)** — live read and manual abilities are verified or fail-closed. H&S calculations remain refused because the generation III badge boost is unmodelled (`BADGE_BOOST_NOT_MODELLED`) and the pinned H&S damage-modifier order is not reproduced (`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`) (Gap C4a). (§3.2, §6, §9) |
+| 1 | Damage formula | Generation III arithmetic with modern data; UQ4.12 roll-first order | **yes** — dedicated `calculateHnsDamage` pipeline in `entry.js` implements exact UQ4.12 arithmetic, stat stages, badge boosts, pre-roll modifiers, roll step, and post-roll modifiers | **MODELLED / ESTIMATED (GAP C4b CLOSED for supported ordinary subset)** — full parity across all 16 damage rolls with native C oracle (§11) |
+| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for damaging moves in TYPE_BASED to trigger Gen 3 type derivation; Status moves retain Status in both); `optionStyle` is consumed by `CalcRequestBoundary` | **MODELLED / ESTIMATED (GAP A/B/C4b)** — `optionStyle` selects category behavior with Status prioritized; supported ordinary subset executes in `calculateHnsDamage` |
+| 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / ESTIMATED (GAP C1/C4b)** — type chart is exact and verified in QuickJS. Used by `calculateHnsDamage` for post-roll type effectiveness |
+| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / ESTIMATED (GAP B/C4b)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats` |
+| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / ESTIMATED (GAP B/C4b)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage` |
+| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; strict per-ability capability gating (`PROVEN_NO_DAMAGE_EFFECT`, `MODELLED_EQUIVALENT`, `UNSUPPORTED_DAMAGE_RELEVANT`) in `HnsAbilityRegistry`. Engine default ability substitution prevented via `'(other)'`. | **CONDITIONALLY MODELLED / ESTIMATED (GAP C2/C4b)** — live read and manual abilities are verified or fail-closed. Supported abilities (None, Keen Eye, Insomnia, Thick Fat, Guts, Huge Power) execute in `calculateHnsDamage` |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **identity yes; damage effects no** — exact item identity and the current battle item are consumed; no damage item is modelled; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — no item blocker only for `ITEM_NONE`/proven no-*ordinary*-damage items **and** a move that does not read item state; damage items fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`, and item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) fail closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
-| 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **INDIVIDUALLY DEMONSTRATED, COMPOSED REQUEST REFUSED** — the constant is Gen III ×2 and a boolean `isCrit` carries it, but the composed H&S pipeline applies the crit step at a different point/rounding than ADV, so any crit request adds `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` (§10.4). The H&S crit *odds* (Gen 7+) are not modelled either |
-| 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes | **INDIVIDUALLY DEMONSTRATED, COMPOSED REQUEST REFUSED** — the Sun/Rain/Sand/Hail constants are source-verified, but weather is composed at a different point than ADV, so any request carrying weather adds `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` (§10.4) |
-| 10 | Snow | Ice Defense ×1.5 `[src/battle_util.c:7389]`; Snow never chips, Hail chips 1/16 `[src/battle_end_turn.c:155]` | **no** | **REFUSED** when asked for — the ADV pipeline has no Snow concept and would compute it as *no weather* |
-| 11 | Terrain | Implemented; ×1.3 (`B_TERRAIN_TYPE_BOOST GEN_LATEST`) `[src/battle_util.c:6640]` | accepted but dead | **REFUSED** when asked for — the ADV pipeline ignores `terrain` entirely |
-| 12 | Reflect / Light Screen | ×0.5 singles, ×0.667 doubles `[src/battle_util.c:7544]` | yes | **INDIVIDUALLY DEMONSTRATED, COMPOSED REQUEST REFUSED** — the ×0.5 / ×0.667 constants are source-verified, but screens are composed at a different point than ADV, so a request with Reflect/Light Screen adds `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` (§10.4) |
-| 13 | Multi-target reduction | Generation III value: ×0.5 for two targets (`B_MULTIPLE_TARGETS_DMG GEN_3`) `[include/config/battle.h:47]`, `[src/battle_util.c:7403]` | yes (`Doubles`) | **INDIVIDUALLY DEMONSTRATED, COMPOSED REQUEST REFUSED** — ×0.5 is another constant the hack deliberately keeps Gen III and is independently demonstrated, but a Doubles request adds `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` because the spread step is composed at a different point (§10.4) |
-| 14 | Badge boost | Active: player-side ×1.1 Atk/SpA/Def/SpD/Speed (`B_BADGE_BOOST GEN_3`) `[include/config/battle.h:30]`, `[src/battle_util.c:9135]`, eligibility-gated `[src/battle_util.c:9143]` | **no** — no badge-state field and no authoritative flag reader | **not modelled** — `BADGE_BOOST_NOT_MODELLED` (audited in §10.2) |
+| 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / ESTIMATED (GAP C4b)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled |
+| 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes | **MODELLED / ESTIMATED (GAP C4b)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. Unmodelled weather fails closed |
+| 10 | Snow | Ice Defense ×1.5 `[src/battle_util.c:7389]`; Snow never chips, Hail chips 1/16 `[src/battle_end_turn.c:155]` | **no** | **REFUSED** when asked for — fails closed |
+| 11 | Terrain | Implemented; ×1.3 (`B_TERRAIN_TYPE_BOOST GEN_LATEST`) `[src/battle_util.c:6640]` | accepted but dead | **REFUSED** when asked for — fails closed |
+| 12 | Reflect / Light Screen | ×0.5 singles, ×0.667 doubles `[src/battle_util.c:7544]` | yes | **MODELLED / ESTIMATED (GAP C4b)** — singles (2048) / doubles (2732) evaluated post-roll via UQ4.12 `halfDown` in `calculateHnsDamage`. Pinned in `test_js_calc.c` |
+| 13 | Multi-target reduction | Generation III value: ×0.5 for two targets (`B_MULTIPLE_TARGETS_DMG GEN_3`) `[include/config/battle.h:47]`, `[src/battle_util.c:7403]` | yes (`Doubles`) | **MODELLED / ESTIMATED (GAP C4b)** — evaluated pre-roll via UQ4.12 `halfDown(2048, dmg)` in `calculateHnsDamage` |
+| 14 | Badge boost | Active: player-side ×1.1 Atk/SpA/Def/SpD/Speed (`B_BADGE_BOOST GEN_3`) `[include/config/battle.h:30]`, `[src/battle_util.c:9135]`, eligibility-gated `[src/battle_util.c:9143]` | **yes** — read from SaveBlock1 (`0x1A9C`), eligibility-gated (`HNS_BATTLE_TYPE_BADGE_EXCLUSIONS`), forwarded via JNI | **MODELLED / ESTIMATED (GAP C4b)** — player-side badge boost flags read from SaveBlock1 and evaluated via UQ4.12 `halfDown(4506, stat)` in QuickJS. If in active battle and unobserved, fails closed with `BADGE_BOOST_NOT_MODELLED` (§11) |
 | 15 | Move-specific mechanics (multi-hit, weight, fixed damage, Hidden Power, Return) | Modern | **gated by effect ID** | **CONDITIONALLY GATED (Gap C4a)** — `HnsMoveMechanicsRegistry` allows only the source-proven ordinary `EFFECT_HIT` subset; every other effect fails closed with `HNS_MOVE_MECHANICS_NOT_MODELLED` (§10.3) |
 | 16 | Challenge settings that change stats | No EVs `[include/global.h:309]`, Base Stat Equalizer `[:304]`, trainer IV/EV scaling `[:312]`, Max Party IVs `[:314]`, Mirror `[:307]` | partly | **CLASSIFIED (Gap C4a)** — value-changing fields that only alter stored values are captured downstream; Base Stat Equalizer and Random Moves block precisely (§10.1) |
-| 17 | Challenge settings that change the rule | `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness` | **yes** — `CalcRequestBoundary` consumes exact-trusted runtime snapshot into `CalcHnsRuntimeRules`; exact type chart and Fairy toggle modelled (Gap C1); active randomizers block | **CONSUMED / REFUSED** — runtime rules are known and unreadable blockers cleared when observed, but active unsupported rules and the C4a mechanics/arithmetic blockers keep calculation refused (§4.1, §10) |
+| 17 | Challenge settings that change the rule | `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness` | **yes** — `CalcRequestBoundary` consumes exact-trusted runtime snapshot into `CalcHnsRuntimeRules`; exact type chart and Fairy toggle modelled (Gap C1); active randomizers block | **CONSUMED / ESTIMATED (GAP A/C1/C4b)** — runtime rules are known and unreadable blockers cleared when observed; active unsupported rules block fail-closed; supported ordinary subset executes in `calculateHnsDamage` (§4.1, §11) |
 | 18 | Legendary ability overrides | `tx_Mode_Legendary_Abilities` default **ON**, substitutes abilities for slot 0 `[src/pokemon.c:5551]`, `[src/new_game.c:147]` | no | folds into row 6 |
 
 ---
@@ -114,27 +117,23 @@ Additionally, runtime Fairy toggle behavior (`tx_Mode_Fairy_Types`) is modelled:
 
 Only these individual behaviours are source-and-test demonstrated:
 
-> **"matches" below is an *isolated-behaviour* finding, never a support verdict.** A composed H&S
-> request that exercises the critical-hit, two-target, Thick Fat, weather, or screen behaviour is
-> currently **refused**: the H&S modifier order/rounding differs from ADV, so the request adds
-> `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` (§10.4). The individual constant remains demonstrated and
-> visible; the composed calculation is not supported.
+> **Gap C4b status:** With the implementation of `calculateHnsDamage` in `tools/calc-bundler/entry.js` (§11),
+> the H&S UQ4.12 roll-first calculation order is fully implemented and proven against the native C oracle.
+> Supported requests (ordinary moves, supported abilities and items, valid stat stages -6..+6, SaveBlock1 badge
+> boosts) are promoted to **Estimated** (`CalcSupport.ESTIMATED`). Unmodelled items/moves, out-of-range stat stages,
+> unmodelled weather, active randomizers, and unobserved active-battle state remain strictly **refused** (`CalcSupport.UNSUPPORTED`).
 
-| Behaviour | H&S (pinned source) | Calculator at `gen: 3` + `typeSystem: "hns_2_0_5"` | Status |
+| Behaviour | H&S (pinned source) | Calculator (`calculateHnsDamage` + `typeSystem: "hns_2_0_5"`) | Status |
 |---|---|---|---|
-| Critical-hit multiplier | ×2 (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, applied `[src/battle_util.c:7477]` | ×2 | **isolated match** — pinned by `gen3_crit_doubles_the_attack_form`; a composed crit request is refused (§10.4) |
-| Two-target reduction | ×0.5 (`B_MULTIPLE_TARGETS_DMG GEN_3`) `[include/config/battle.h:47]` | ×0.5 | **isolated match** — pinned by the existing spread-move fixtures; a composed Doubles request is refused (§10.4) |
-| Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack form | **matches** |
+| Critical-hit multiplier | ×2 (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, applied `[src/battle_util.c:7477]` | ×2 pre-roll UQ4.12 `halfDown(8192, dmg)`, crit drop-ignore rules | **MATCHES (Gap C4b closed)** |
+| Two-target reduction | ×0.5 (`B_MULTIPLE_TARGETS_DMG GEN_3`) `[include/config/battle.h:47]` | ×0.5 pre-roll UQ4.12 `halfDown(2048, dmg)` | **MATCHES (Gap C4b closed)** |
+| Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack/spAttack stat in `calculateHnsDamage` | **MATCHES (Gap C4b closed)** |
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
 | Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
-| Abilities (supported subset) | Keen Eye, Insomnia, None (`PROVEN_NO_DAMAGE_EFFECT`) | Gen 3 pipeline + `resolveAbility` guard in `entry.js` | **MATCHES (Gap C2 closed)** — zero move-damage effect in H&S battle engine; unmodelled/divergent abilities fail-closed via `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
-| Abilities (temporarily unsupported) | Guts, Thick Fat, Huge Power, Pure Power, starter pinch abilities, modern abilities | Gen 3 pipeline | **does not match** — modifier composition (compound fixed-point multiplier vs ADV sequential floor) and stat-stage application order (stages before abilities vs abilities before stages) diverge; blocked fail-closed by `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
+| Abilities (supported subset) | Keen Eye, Insomnia, None, Thick Fat, Guts, Huge Power | H&S UQ4.12 pipeline in `calculateHnsDamage` | **MATCHES (Gap C2/C4b closed)** — exact formula and stage interaction executed; unmodelled/divergent abilities fail-closed via `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
+| Abilities (unsupported) | starter pinch abilities, modern abilities | not modelled | **does not match** — blocked fail-closed by `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
 | Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items | identity consumed; no damage item modelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — `ITEM_NONE` and a small source-proven no-ordinary-damage set clear the item blockers only for an item-independent move; every damage-relevant item fails closed with `HNS_ITEM_EFFECT_NOT_MODELLED`; every item-dependent move fails closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`; unreadable current item is `HNS_EFFECTIVE_ITEM_UNREADABLE` (§7) |
-| Badge boost | player-side ×1.1 stats | not modelled | **does not match** — see §8 |
-
-Matching the critical-hit, spread-damage, data overrides, type chart, and audited abilities does **not** establish
-equivalence of the whole calculation pipeline, and this document no longer claims it does. `gen: 3` remains what the policy
-sends. H&S calculations remain strictly refused (`UNSUPPORTED`) due to the remaining Gap C blockers: `BADGE_BOOST_NOT_MODELLED` (the generation III badge boost, §8), `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` (the audited modifier-order/staged-stat divergence, §10.4), and `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` (mutable live battle state, §10.5).
+| Badge boost | player-side ×1.1 stats | SaveBlock1 reader (`0x1A9C`), UQ4.12 `halfDown(4506, stat)` in QuickJS | **MATCHES (Gap C4b closed)** — see §11 |
 
 ### 3.3 Three different claims that must not be conflated
 
@@ -147,14 +146,12 @@ The matrix in §2 uses these distinctions, and any future H&S work must keep the
    from `HeartAndSoul205DataPack`, serializes them as `overrides` on `attacker`, `defender`, and
    `move`, and `tools/calc-bundler/entry.js` strictly validates and passes them to `@smogon/calc`'s
    `Pokemon` and `Move` constructors (`options.overrides`).
-3. **The calculator reproduces the H&S mechanic.** It does so only where §3.2 says "matches".
+3. **The calculator reproduces the H&S mechanic.** It does so where §3.2 says "MATCHES".
 
-**Consuming the record (2) does not imply reproducing the mechanic (3).** Even though the engine now
-receives authoritative H&S base stats, move properties, exact modern type chart matchups (Gap C1 closed),
-consumed runtime challenge settings (Gap A closed), and authoritative effective abilities with conditional
-capability gating (Gap C2 closed), H&S calculations remain **refused** because the rest of Gap C remains open:
-the generation III badge boost has no equivalent in the request shape (§8), blocked fail-closed by
-`BADGE_BOOST_NOT_MODELLED` (Gap C4).
+**Consuming the record (2) does not imply reproducing the mechanic (3).** In Gap C4b, the calculator
+engine executes the exact H&S UQ4.12 arithmetic pipeline (`calculateHnsDamage`), allowing the supported
+ordinary subset to be evaluated truthfully with `CalcSupport.ESTIMATED`. Unsupported mechanics and unobserved
+active battle states remain strictly fail-closed (`CalcSupport.UNSUPPORTED`).
 
 
 ### 3.4 Vanilla Gen III verified set
@@ -524,36 +521,38 @@ library, so they are never treated as modelled.
 
 Recorded so they are not mistaken for oversights. Each is a deliberate scope boundary.
 
-1. **Badge boost (audited in §10.2, still blocked).** Active in H&S (`B_BADGE_BOOST GEN_3`), worth
+1. **Badge boost (audited in §10.2, resolved in §11).** Active in H&S (`B_BADGE_BOOST GEN_3`), worth
    ×1.1 to the player's attacking and defensive stats through an eligibility-gated, UQ4.12-composed
-   modifier. DualDex does not read the authoritative badge flag state from save memory, so it cannot
-   prove the live badge state and refuses every H&S request with `BADGE_BOOST_NOT_MODELLED`. The
-   verified vanilla claim is scoped to the unbadged state the golden fixtures encode.
+   modifier. DualDex now reads the authoritative badge flag state from SaveBlock1 (`0x1A9C`) at runtime
+   (`pokemon_read_hns_badge_state_gba`), binds player badge boosts when eligible, and evaluates them
+   via UQ4.12 `halfDown(4506, stat)` in `calculateHnsDamage`. If in an active battle and the player's
+   badge flags are unobserved, `BADGE_BOOST_NOT_MODELLED` blocks fail-closed.
 2. **Ability defaults when no ability is supplied.** The engine applies the species' first bundled
    ability when the caller omits one. For vanilla Gen III that is the same data the profile
    describes, so it is correct there. For H&S, `resolveAbility()` in `entry.js` maps omitted/empty/None
    to `'(other)'` to prevent default substitution, while DualDex policy strictly refuses unmodelled abilities.
 3. **Move mechanics beyond the ADV pipeline (gated in §10.3).** Multi-hit turn-doubling, weight-based
    power, fixed damage, Hidden Power's IV-derived base power, Return/Frustration's happiness scaling
-   and the rest of the special-effect families are not modelled. Gap C4a now derives each move's
+   and the rest of the special-effect families are not modelled. Gap C4a derives each move's
    exact `enum BattleMoveEffects` value from the pinned source and refuses every move outside the
    source-proven ordinary subset with `HNS_MOVE_MECHANICS_NOT_MODELLED`; it is no longer an implicit
    assumption that an unclassified move is ordinary.
-4. **Ordinary-damage modifier ordering (audited in §10.4, blocked).** The bare base formula matches
-   the host exactly, but H&S applies the random roll *before* STAB, type effectiveness, burn and
-   screens and composes each modifier with UQ4.12 half-down, while `@smogon/calc` 0.11.0 applies
-   burn/screens/weather before `+2` and STAB/type before the roll. Requests that exercise any
-   non-identity modifier, including any non-neutral stat stage (whose H&S rounding is not
-   independently proven), are refused with `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`.
-4a. **Mutable live battle state (gated in §10.5, blocked).** H&S rewrites operands the request shape
-   does not carry — current effective types (`SET_BATTLER_TYPE`), raw battle stat words (Power
-   Trick), the dynamic move type (`SetTypeBeforeUsingMove`), and transient damage state. An active
-   battle whose mutable classes are not authoritatively observed is refused with
-   `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`; a live type observation that matches the static record is
-   still bound and used by the modifier detector.
-5. **No H&S golden damage fixtures against the running ROM.** Gap C4a adds **source/host goldens**
-   for the ordinary physical and special base path and divergences (native `gap_c4a_*` fixtures), but
-   no number has been validated against a running official H&S 2.0.5 battle. That is Gap C4b.
+4. **Ordinary-damage modifier ordering (resolved in §11).** The modifier ordering divergence is resolved
+   by `calculateHnsDamage` in `tools/calc-bundler/entry.js`. It applies the random roll *before* STAB,
+   type effectiveness, burn and screens, composing each modifier with UQ4.12 half-down matching the pinned
+   H&S source. Requests within the supported modifier set (neutral, STAB, type effectiveness, crits, stat
+   stages -6..+6, rain/sun weather, screens, burn) clear the modifier-order gate. Unsupported modifiers
+   (unmodelled weather, out-of-range stat stages) continue to fail closed with `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`.
+4a. **Mutable live battle state (gated in §10.5, expanded in §11).** H&S rewrites operands the request shape
+   does not carry — current effective types (`SET_BATTLER_TYPE`), raw battle stat words (Power Trick),
+   the dynamic move type (`SetTypeBeforeUsingMove`), and transient damage state. In Gap C4b, live battler
+   effective types, raw battle stats (`0x18`), and stat stages (`0x28`) are read live from `gBattleMons`.
+   An active battle whose mutable classes are not authoritatively observed is refused with
+   `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`.
+5. **No H&S golden damage fixtures against the running ROM.** Gap C4a/C4b provide **source/host goldens**
+   for the ordinary physical, special, STAB, crit, stat stage, badge boost, weather, and screen paths
+   (native `test_js_calc.c` fixtures matching the independent C oracle), but full end-to-end loop
+   validation against an official running ROM remains an open beta gate.
 6. **Snow, terrain and modern side conditions** are refused rather than approximated, because the
    ADV pipeline accepts the fields and ignores them — the worst possible failure mode. The Calc
    screen only offers Sun/Rain/Sand/Hail, so this gate is invisible in the UI today; it exists to
@@ -753,11 +752,17 @@ the request shape, so `BADGE_BOOST_NOT_MODELLED` (Gap C4) keeps H&S strictly ref
    non-neutral stat stages plus unobserved mutable live battle state fail closed. H&S is still
    refused by `BADGE_BOOST_NOT_MODELLED`, `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`, **and**
    `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` (§10).
-7. Gap C4b is OPEN: no ordinary H&S damage result has been validated against the running official
-   2.0.5 ROM, the modifier-order/staged-stat divergence must be resolved, and effective battler
-   types, battle stat words, the dynamic move type, and transient state must be authoritatively
-   consumed (or proven neutral) before any H&S result can be published. `VERIFIED` stays out of
-   reach while the §4.2 fields are unread.
+7. Gap C4b is CLOSED for the supported ordinary subset:
+   - Dedicated QuickJS calculation engine (`calculateHnsDamage`) implements the exact H&S 2.0.5 UQ4.12
+     roll-first arithmetic sequence with half-down rounding.
+   - Exact parity across all 16 damage rolls demonstrated against the native C oracle in `test_js_calc.c`.
+   - SaveBlock1 badge boost flags (`0x1A9C`) read live and evaluated via UQ4.12 `halfDown(4506, stat)`
+     (active battles without observed player badge flags fail closed with `BADGE_BOOST_NOT_MODELLED`).
+   - Live raw battle stats (`0x18`) and stat stages (`0x28`) read live from `gBattleMons[battler]` and
+     evaluated with critical-hit drop-ignore rules.
+   - Requests within the supported ordinary subset are promoted to `CalcSupport.ESTIMATED`. Unmodelled
+     mechanics, unsupported abilities/items, out-of-range stages, unmodelled weather, active randomizers,
+     and unobserved active battle states remain strictly fail-closed (`CalcSupport.UNSUPPORTED`). (§11)
 
 ---
 
@@ -918,5 +923,84 @@ C2/C3/type/setting blockers where applicable). Gap C4b must:
    type, and transient damage state (or prove each class neutral) before
    `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` may clear (§10.5 R1).
 
-Until then, H&S remains `UNSUPPORTED` with `request == null`, and `BUILDS_NOT_HASH_VERIFIED` is
-untouched: no ROM hash or trust is promoted here.
+Until then, H&S production calculations outside the supported ordinary subset remain `UNSUPPORTED`
+with `request == null`, and `BUILDS_NOT_HASH_VERIFIED` is untouched: no ROM hash or trust is promoted here.
+
+---
+
+## 11. Gap C4b — Runtime Parity, ABI-Backed Readers, and the H&S Arithmetic Engine
+
+This section documents the Gap C4b implementation (issues #9 and #40), advancing H&S 2.0.5 calculator
+support from source-audited but refused to **runtime-proven, source-faithful calculation** for the
+supported ordinary mechanics subset.
+
+### 11.1 ABI-backed Battle Mons layout and SaveBlock1 badge state reader
+
+1. **Battle Mons Layout (`gBattleMons[battler]`):**
+   - Derived and verified via `tools/hns-layout/generate_hns_battle_pokemon_layout.py`:
+     - Raw battle stats: `attack` (0x18), `defense` (0x1A), `speed` (0x1C), `spAttack` (0x1E), `spDefense` (0x20) (10 bytes total).
+     - Stat stages: `statStages[NUM_BATTLE_STATS]` at offset 0x28 (8 bytes: hp, atk, def, speed, spAtk, spDef, acc, evasion).
+       Default neutral stage is 6 (`DEFAULT_STAT_STAGE`), valid range 0..12 corresponding to -6..+6.
+   - Pinned in `native/src/hns_battle_pokemon_layout_gen.h` and verified with `--verify`.
+
+2. **SaveBlock1 Badge State Reader:**
+   - Badge flags live in SaveBlock1 flags at `0x198C + (1363 >> 3)`:
+     - `FLAG_BADGE01_GET` (bit 3 of 1363, byte `0x1A9C` bit 0)
+     - `FLAG_BADGE06_GET` (bit 0 of 1368, byte `0x1A9C` bit 5)
+     - `FLAG_BADGE07_GET` (bit 1 of 1369, byte `0x1A9C` bit 6)
+   - Implemented in `pokemon_read_hns_badge_state_gba` in `native/src/pokemon_reader.c`.
+   - Populated into `HnsBattlerRuntimeState` for the player battler only, respecting `HNS_BATTLE_TYPE_BADGE_EXCLUSIONS`.
+   - JNI array expanded to 38 elements in `dualdex_jni.c` and unpacked in `HnsBattlerRuntimeState.kt`.
+
+### 11.2 The H&S QuickJS calculation engine (`calculateHnsDamage`)
+
+Rather than relying on `@smogon/calc`'s ADV `calculateADV` (which applies STAB and type before roll and evaluates modifiers in a different order), `tools/calc-bundler/entry.js` implements a dedicated `calculateHnsDamage(gen, attacker, defender, move, field)` pipeline matching upstream pokeemerald-expansion `CalculateBaseDamage` / `DoMoveDamageCalcVars` / `ApplyModifiersAfterDmgRoll`:
+
+1. **Effective Stat Resolution:**
+   - Uses `rawStats` if observed, otherwise computes from base stats, IVs, EVs, and nature.
+   - Applies stat stages (-6..+6) using upstream `HNS_STAT_STAGE_RATIOS` with crit drop-ignore rules (target defensive boosts ignored, attacker offensive drops ignored).
+   - Applies ability modifiers (Thick Fat, Guts, Huge Power) and badge boosts (`halfDown(4506, stat)`) in UQ4.12.
+2. **Base Damage:**
+   - `Math.floor(Math.floor(Math.floor(bp * userFinalAttack * (Math.floor(2 * level / 5) + 2)) / targetFinalDefense) / 50) + 2`.
+3. **Pre-Roll Modifiers (applied to damage including +2):**
+   - Doubles spread reduction: `halfDown(2048, dmg)`
+   - Weather: Rain/Sun `halfDown(6144/2048, dmg)`
+   - Critical hit: `halfDown(8192, dmg)`
+4. **16-Step Damage Roll:**
+   - For `r = 85..100`: `x = Math.floor((dmg * r) / 100)`.
+5. **Post-Roll Modifiers (per-roll UQ4.12 half-down):**
+   - STAB: `halfDown(6144, x)` (or 8192 for Adaptability)
+   - Type effectiveness: `halfDown(Math.round(eff * 4096), x)` using the 19x19 H&S type matrix
+   - Burn: `halfDown(2048, x)`
+   - Screens: Reflect / Light Screen (`halfDown(2048, x)` singles / `halfDown(2732, x)` doubles)
+6. **Minimum Damage Floor:**
+   - `if (x === 0 && eff > 0) x = 1`.
+
+### 11.3 Host Parity and Evidence
+
+In `native/tests/test_js_calc.c`:
+- `check_gap_c4a_arithmetic_parity`: Karate Chop STAB and Crit STAB now assert 100% exact parity (`rolls_equal(engine, oracle) == 1`) across all 16 rolls.
+- `check_gap_c4b_arithmetic_coverage`: Asserts exact parity across all 16 rolls for:
+  - Stat stages (+2 Atk, -1 Def)
+  - Critical hits ignoring adverse stat stages
+  - Offensive and defensive badge boosts (`badgeBoosts: { attack: true, defense: true }`)
+  - Weather modifier (Sun boost on Fire move)
+  - Screens (Reflect reduction)
+  - Explicit raw battle stats (`rawStats`)
+
+### 11.4 Policy Promotion to `ESTIMATED` and Fail-Closed Boundaries
+
+In `app/src/main/java/com/dualdex/calculator/CalcCapabilityPolicy.kt`:
+- `BADGE_BOOST_NOT_MODELLED` is removed from `alwaysLimitations`.
+- In active battles (`request.hnsLiveBattleState != null`), badge boost is checked: if the player battler's badges are unobserved, `BADGE_BOOST_NOT_MODELLED` blocks.
+- `hnsModifierOrderDiverges` returns false for the supported ordinary pipeline (neutral, STAB, type effectiveness, crits, burn, screens, rain/sun, and stat stages -6..+6).
+- Supported requests now return `CalcRequestOutcome.Ready` with `CalcSupport.ESTIMATED`.
+- Strict fail-closed gates remain:
+  - Unmodelled move mechanics: `HNS_MOVE_MECHANICS_NOT_MODELLED`
+  - Unmodelled / divergent abilities: `HNS_ABILITY_EFFECT_NOT_MODELLED`
+  - Damage-relevant items: `HNS_ITEM_EFFECT_NOT_MODELLED`
+  - Item-dependent moves: `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`
+  - Unmodelled weather (Hail, Snow, Sand, Fog): `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`
+  - Out-of-range stat stages: `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`
+  - Active randomizers: `RANDOM_TYPES_ACTIVE_NOT_MODELLED`, `RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED`
+  - Active battles with unobserved battler state: `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` and `BADGE_BOOST_NOT_MODELLED`.

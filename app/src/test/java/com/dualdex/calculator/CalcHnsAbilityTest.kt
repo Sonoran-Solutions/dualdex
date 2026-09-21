@@ -426,20 +426,21 @@ class CalcHnsAbilityTest {
             request = keenEyeReq,
             challengeSettings = snapshot
         )
-        val refused = outcome as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("H&S must remain refused via the next mechanics blocker")
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("H&S supported ability must reach Ready under C4b, got $outcome")
 
-        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
-        assertNull(refused.verdict.request)
+        assertEquals(CalcSupport.ESTIMATED, ready.verdict.support)
+        assertNotNull(ready.request)
         // No ability blockers present
-        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
-        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
         // Gap C3: no held item supplied here, so no item-specific blocker is present ...
-        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
-        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
-        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
-        // ... and the next production mechanics blocker keeps H&S refused.
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
+        // Gap C4b: badge and modifier order blockers are cleared
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
     }
 
     @Test

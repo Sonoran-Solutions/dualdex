@@ -175,8 +175,8 @@ class CalcHnsLiveBattleStateTest {
             "a live type that differs from the static record must block: ${verdict.limitations}",
             verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
         )
-        assertTrue(
-            "the detector must use the live Water typing (2x), not the static Normal 1x: ${verdict.limitations}",
+        assertFalse(
+            "under C4b, 2x type effectiveness is modeled by calculateHnsDamage: ${verdict.limitations}",
             verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
         )
     }
@@ -225,7 +225,10 @@ class CalcHnsLiveBattleStateTest {
             challengeSettings = settings(),
             activeBattle = false
         )
-        val verdict = (outcome as CalcRequestOutcome.Refused).verdict
+        val verdict = when (outcome) {
+            is CalcRequestOutcome.Ready -> outcome.verdict
+            is CalcRequestOutcome.Refused -> outcome.verdict
+        }
         assertFalse(
             "a manual hypothetical is not an active battle: ${verdict.limitations}",
             verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)

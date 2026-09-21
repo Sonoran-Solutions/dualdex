@@ -159,6 +159,27 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     })
                 })
             }
+            request.hnsLiveBattleState?.attackerRawStats?.let { raw ->
+                put("rawStats", JSONObject().apply {
+                    put("attack", raw.attack)
+                    put("defense", raw.defense)
+                    put("speed", raw.speed)
+                    put("spAttack", raw.spAttack)
+                    put("spDefense", raw.spDefense)
+                })
+            }
+            request.hnsLiveBattleState?.attackerStatStages?.let { stages ->
+                put("statStages", JSONArray(stages))
+            }
+            request.hnsLiveBattleState?.attackerBadgeBoosts?.let { b ->
+                put("badgeBoosts", JSONObject().apply {
+                    put("atk", b.atk)
+                    put("def", b.def)
+                    put("spe", b.spe)
+                    put("spa", b.spa)
+                    put("spd", b.spd)
+                })
+            }
         }
         put("attacker", atkObj)
 
@@ -211,6 +232,27 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                         put("spd", override.baseStats.spd)
                         put("spe", override.baseStats.spe)
                     })
+                })
+            }
+            request.hnsLiveBattleState?.defenderRawStats?.let { raw ->
+                put("rawStats", JSONObject().apply {
+                    put("attack", raw.attack)
+                    put("defense", raw.defense)
+                    put("speed", raw.speed)
+                    put("spAttack", raw.spAttack)
+                    put("spDefense", raw.spDefense)
+                })
+            }
+            request.hnsLiveBattleState?.defenderStatStages?.let { stages ->
+                put("statStages", JSONArray(stages))
+            }
+            request.hnsLiveBattleState?.defenderBadgeBoosts?.let { b ->
+                put("badgeBoosts", JSONObject().apply {
+                    put("atk", b.atk)
+                    put("def", b.def)
+                    put("spe", b.spe)
+                    put("spa", b.spa)
+                    put("spd", b.spd)
                 })
             }
         }

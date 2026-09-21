@@ -359,6 +359,16 @@ source_check() {
   python3 tools/hns-layout/generate_hns_battle_pokemon_layout.py \
     --upstream-dir "$upstream" --verify
 
+  # 1c-bis. The live battle-state layout table (HP/maxHP/status1, volatile bit
+  #     positions, and the gimmick active array) must regenerate byte-for-byte
+  #     from the pinned source, compiled with the same pinned ARM toolchain.
+  #     This is the source-check for the C4e live-state readers; it compiles
+  #     the pinned global.h/battle.h, so it must run AFTER the build-time
+  #     headers above are materialized.
+  echo "== live battle-state layout verification (pinned upstream) =="
+  python3 tools/hns-layout/generate_hns_live_battle_layout.py \
+    --upstream-dir "$upstream" --verify
+
   # 1d. The H&S type-system matrix and Fairy mappings must regenerate byte-for-byte from the pinned source.
   echo "== type-system matrix and fairy mappings verification (pinned upstream) =="
   python3 tools/hns-type-system/generate_hns_type_system.py \

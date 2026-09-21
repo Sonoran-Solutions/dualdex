@@ -800,7 +800,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * never silently drift apart.  Every public surface that touches this tuple
  * references BATTLER_RUNTIME_STATE_TUPLE_LEN instead of a local literal.
  */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 42
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 56
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -823,6 +823,13 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  *         "the read never happened" so Kotlin can't conflate 'none absent' with
  *         'unreadable'. The same rule applies to battlers_count: 0 means
  *         'unreadable', never 'zero battlers'.
+ * [42] hpObserved, [43] hp, [44] maxHp, [45] statusObserved, [46] status1,
+ * [47] volatilesObserved, [48] volatileElectrified, [49] volatileGlaiveRush,
+ * [50] volatileMinimize, [51] volatileSemiInvulnerable,
+ * [52] gimmickObserved, [53] activeGimmick,
+ * [54] fieldStatusesReadable, [55] fieldStatuses.
+ *         Every Gap C4e `*Observed` bit separates an observed neutral value
+ *         (bit 1, payload 0) from a field that was never read (bit 0).
  *
  * A failed/unauthorized read returns status 0 (UNAVAILABLE) with everything else
  * zeroed: the caller must not substitute a declared ability, a party slot or a
@@ -908,6 +915,23 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
      * type (that is topology inference, forbidden by the C4c authority rule). */
     values[40] = (jint)state.battlers_count;
     values[41] = (state.battlers_count_readable) ? 1 : 0;
+    /* [42..55] Gap C4e live damage operands. Each `*Observed` bit distinguishes "the read
+     * produced a neutral value" (1 with a zero payload) from "the field was never read"
+     * (0), so Kotlin can never conflate a real zero with an unobserved one. */
+    values[42] = (state.hp_observed) ? 1 : 0;
+    values[43] = (jint)state.hp;
+    values[44] = (jint)state.max_hp;
+    values[45] = (state.status_observed) ? 1 : 0;
+    values[46] = (jint)state.status1;
+    values[47] = (state.volatiles_observed) ? 1 : 0;
+    values[48] = (state.volatile_electrified) ? 1 : 0;
+    values[49] = (state.volatile_glaive_rush) ? 1 : 0;
+    values[50] = (state.volatile_minimize) ? 1 : 0;
+    values[51] = (jint)state.volatile_semi_invulnerable;
+    values[52] = (state.gimmick_observed) ? 1 : 0;
+    values[53] = (jint)state.active_gimmick;
+    values[54] = (state.field_statuses_readable) ? 1 : 0;
+    values[55] = (jint)state.field_statuses;
 
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;

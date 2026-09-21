@@ -194,7 +194,36 @@ data class HnsBattlerRuntimeState(
     val battlersCount: Int = 0,
     /** true when battlersCount was actually read from live memory; distinguish
      *  'the read produced 0' from 'the read never happened' or 'unreadable'. */
-    val battlersCountReadable: Boolean = false
+    val battlersCountReadable: Boolean = false,
+    // --- Gap C4e live damage operands -------------------------------------------------------
+    /** true when the current HP / max HP pair was decoded from live `gBattleMons`. */
+    val hpObserved: Boolean = false,
+    /** Engine's current HP (`gBattleMons[battler].hp`). Only meaningful when [hpObserved]. */
+    val hp: Int = 0,
+    /** Engine's current max HP (`gBattleMons[battler].maxHP`). Only meaningful when [hpObserved]. */
+    val maxHp: Int = 0,
+    /** true when the current status word was decoded from live `gBattleMons`. */
+    val statusObserved: Boolean = false,
+    /** Engine's current status word; 0 is an observed 'no status'. */
+    val status1: Int = 0,
+    /** true when the damage-relevant volatile bits were decoded from live memory. */
+    val volatilesObserved: Boolean = false,
+    /** VOLATILE_ELECTRIFIED: Electrify forces the current move to Electric (any type). */
+    val volatileElectrified: Boolean = false,
+    /** VOLATILE_GLAIVE_RUSH: the defender takes double damage from any incoming move. */
+    val volatileGlaiveRush: Boolean = false,
+    /** VOLATILE_MINIMIZE (recorded; only relevant to move-flagged effects, excluded by the allow-list). */
+    val volatileMinimize: Boolean = false,
+    /** `enum SemiInvulnerableState` (recorded; only relevant to move-flagged effects). */
+    val volatileSemiInvulnerable: Int = 0,
+    /** true when `gBattleStruct->gimmick.activeGimmick[side][slot]` was decoded. */
+    val gimmickObserved: Boolean = false,
+    /** `enum Gimmick` active for this battler's party slot; 0 = GIMMICK_NONE. */
+    val activeGimmick: Int = 0,
+    /** true when the battle-global `gFieldStatuses` word was actually read. */
+    val fieldStatusesReadable: Boolean = false,
+    /** Battle-global status word (Ion Deluge is one bit). Only meaningful when readable. */
+    val fieldStatuses: Int = 0
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
@@ -249,12 +278,20 @@ data class HnsBattlerRuntimeState(
          * [37] raw badges byte, [38] absentBattlerFlags (possibly unreliable),
          * [39] absentFlagsReadable (1 = flags was actually read, 0 = unreadable),
          * [40] battlersCount (gBattlersCount; 0 = unreadable),
-         * [41] battlersCountReadable (1 = count was actually read, 0 = unreadable).
+         * [41] battlersCountReadable (1 = count was actually read, 0 = unreadable),
+         * [42] hpObserved, [43] hp, [44] maxHp, [45] statusObserved, [46] status1,
+         * [47] volatilesObserved, [48] volatileElectrified, [49] volatileGlaiveRush,
+         * [50] volatileMinimize, [51] volatileSemiInvulnerable,
+         * [52] gimmickObserved, [53] activeGimmick,
+         * [54] fieldStatusesReadable, [55] fieldStatuses.
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
-         * the JNI, native reader, and this decoder can never drift.
+         * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is
+         * the pre-C4e contract (still honored for existing tests); [C4E_TUPLE_LEN]
+         * additionally carries the Gap C4e live operands.
          */
         private const val TUPLE_LEN = 42
+        private const val C4E_TUPLE_LEN = 56
 
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -304,6 +341,14 @@ data class HnsBattlerRuntimeState(
              * battlers'). */
             val battlersCountReadable = raw.size >= TUPLE_LEN && raw[41] != 0
             val battlersCount = if (battlersCountReadable && raw.size >= TUPLE_LEN) raw[40] else 0
+            // Gap C4e live operands. A field is only decoded when the tuple is long enough;
+            // a short (pre-C4e) tuple leaves every new field unobserved rather than defaulting.
+            val c4e = raw.size >= C4E_TUPLE_LEN
+            val hpObserved = c4e && raw[42] != 0
+            val statusObserved = c4e && raw[45] != 0
+            val volatilesObserved = c4e && raw[47] != 0
+            val gimmickObserved = c4e && raw[52] != 0
+            val fieldStatusesReadable = c4e && raw[54] != 0
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
@@ -331,7 +376,21 @@ data class HnsBattlerRuntimeState(
                 absentBattlerFlags = absentBattlerFlags,
                 absentFlagsReadable = absentFlagsReadable,
                 battlersCount = battlersCount,
-                battlersCountReadable = battlersCountReadable
+                battlersCountReadable = battlersCountReadable,
+                hpObserved = hpObserved,
+                hp = if (hpObserved) raw[43].coerceAtLeast(0) else 0,
+                maxHp = if (hpObserved) raw[44].coerceAtLeast(0) else 0,
+                statusObserved = statusObserved,
+                status1 = if (statusObserved) raw[46] else 0,
+                volatilesObserved = volatilesObserved,
+                volatileElectrified = volatilesObserved && raw[48] != 0,
+                volatileGlaiveRush = volatilesObserved && raw[49] != 0,
+                volatileMinimize = volatilesObserved && raw[50] != 0,
+                volatileSemiInvulnerable = if (volatilesObserved) raw[51].coerceIn(0, 6) else 0,
+                gimmickObserved = gimmickObserved,
+                activeGimmick = if (gimmickObserved) raw[53].coerceIn(0, 5) else 0,
+                fieldStatusesReadable = fieldStatusesReadable,
+                fieldStatuses = if (fieldStatusesReadable) raw[55] else 0
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for
             // out-of-domain observations, but a tuple whose flags claim an out-of-domain

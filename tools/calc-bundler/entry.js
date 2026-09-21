@@ -395,6 +395,22 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     userFinalAttack = userFinalAttack * 2;
   }
 
+  // H&S 2.0.5 pinch abilities (src/battle_util.c CalcAttackStat): the attacker's ability
+  // modifier is x1.5 when the effective move type matches the boosted type AND the live HP is at
+  // or below maxHP/3 (integer division). This is an ATTACK-STAT modifier, composed with
+  // uq4_12_multiply_half_down, exactly as the surrounding Thick Fat/Guts/Huge Power modifiers.
+  // The HP operands are boundary-owned live gBattleMons values; when they are absent the branch
+  // does not fire, and the Kotlin capability policy refuses a matching-type pinch request instead
+  // of letting it be computed as inactive.
+  const HNS_PINCH_TYPES = { Overgrow: 'Grass', Blaze: 'Fire', Torrent: 'Water', Swarm: 'Bug' };
+  const pinchType = HNS_PINCH_TYPES[attacker.ability];
+  const pinchHp = input.attacker?.hp;
+  const pinchMaxHp = input.attacker?.maxHP;
+  if (pinchType && move.type === pinchType && Number.isInteger(pinchHp) && Number.isInteger(pinchMaxHp) &&
+      pinchMaxHp > 0 && pinchHp <= Math.floor(pinchMaxHp / 3)) {
+    userFinalAttack = halfDown(6144, userFinalAttack);
+  }
+
   const atkBadge = isPhysical ? !!input.attacker?.badgeBoosts?.atk : !!input.attacker?.badgeBoosts?.spa;
   if (atkBadge) {
     userFinalAttack = halfDown(4506, userFinalAttack);

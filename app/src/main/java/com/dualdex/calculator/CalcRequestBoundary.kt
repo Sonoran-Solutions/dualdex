@@ -473,6 +473,66 @@ object CalcRequestBoundary {
     }
 
     /**
+     * Reconciles a live H&S participant's current HP and status against the authoritative live
+     * `gBattleMons[battler].hp` / `.status1` words.
+     *
+     * Both are live battle state, not stored party snapshots: HP changes every turn and a battler
+     * can be poisoned, burned or asleep while the party structure still reads healthy (or vice
+     * versa). A caller-crafted `curHP` is rebound whenever the engine HP was read so a favorable
+     * crafted value can never satisfy a pinch-ability threshold. For the supported ordinary subset
+     * the observed status must be neutral, so a neutral live `status1` clears a stale party status
+     * to null; a non-zero live status is left for the policy to refuse precisely (it is never
+     * silently converted to a modelled status string).
+     */
+    private fun reconcileLiveBattlerHpStatus(
+        request: DamageCalculationRequest,
+        liveReadHint: Boolean,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactHns: Boolean,
+        isExactVerified: Boolean,
+        activeBattle: Boolean
+    ): DamageCalculationRequest {
+        if (!isExactHns) return request
+        val battleContext = activeBattle || playerBattlerState != null || enemyBattlerState != null
+        if (!battleContext) return request
+
+        fun fix(
+            participant: CalcPokemonInput,
+            observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?
+        ): CalcPokemonInput {
+            val isLive = participant.origin == CalcInputOrigin.LIVE_READ || liveReadHint
+            if (!isLive || !isExactVerified) return participant
+            val state = observation?.state ?: return participant
+            if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return participant
+            if (participant.partySlot == null || state.partySlot == null ||
+                state.partySlot != participant.partySlot
+            ) {
+                return participant
+            }
+            // Current HP is live battle state, not the stored party snapshot: rebind it from the
+            // engine whenever it was read (a caller-crafted curHP must never survive).
+            val withHp = if (state.hpObserved && state.hp >= 0) {
+                participant.copy(curHP = state.hp)
+            } else {
+                participant
+            }
+            // The live status word is the authority for "has a status"; a neutral live word
+            // clears a stale party status. A non-zero live word is left for the policy to refuse.
+            return if (state.statusObserved && state.status1 == 0) {
+                withHp.copy(status = null)
+            } else {
+                withHp
+            }
+        }
+
+        return request.copy(
+            attacker = fix(request.attacker, playerBattlerState),
+            defender = fix(request.defender, enemyBattlerState)
+        )
+    }
+
+    /**
      * Binds the authoritative live H&S battle state for [request], or null when this is not an
      * active battle.
      *
@@ -525,6 +585,41 @@ object CalcRequestBoundary {
             observation = enemyBattlerState,
             isExactVerified = isExactVerified
         )
+        val attackerHpPair = authoritativeObservedHp(
+            participantPartySlot = request.attacker.partySlot,
+            observation = playerBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val attackerStatus1 = authoritativeObservedStatus1(
+            participantPartySlot = request.attacker.partySlot,
+            observation = playerBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val fieldStatuses = authoritativeObservedFieldStatuses(
+            playerBattlerState = playerBattlerState,
+            enemyBattlerState = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val attackerElectrified = authoritativeObservedElectrified(
+            participantPartySlot = request.attacker.partySlot,
+            observation = playerBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val defenderGlaiveRush = authoritativeObservedGlaiveRush(
+            participantPartySlot = request.defender.partySlot,
+            observation = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val attackerGimmick = authoritativeObservedGimmick(
+            participantPartySlot = request.attacker.partySlot,
+            observation = playerBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val defenderGimmick = authoritativeObservedGimmick(
+            participantPartySlot = request.defender.partySlot,
+            observation = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
         return CalcHnsLiveBattleState(
             attackerTypes = authoritativeObservedTypes(
                 participantPartySlot = request.attacker.partySlot,
@@ -538,20 +633,18 @@ object CalcRequestBoundary {
             ),
             attackerBattleStatWordsObserved = attackerRaw != null,
             defenderBattleStatWordsObserved = defenderRaw != null,
-            // Dynamic move type (Ion Deluge / Electrify via SetTypeBeforeUsingMove): 
-            // Ion Deluge affects ONLY Normal-type moves (converts to Electric).
-            // BUT: Electrify affects ANY type (converts to Electric) — so non-Normal is NOT
-            // immune. Fail-closed: never observed.
-            dynamicMoveTypeObserved = authoritativeDynamicMoveTypeObserved(request),
-            // Transient damage state (GetGlaiveRushModifier, weather via volatiles,
-            // Minimize/U-turn/Underground/etc.):
-            // GetGlaiveRushModifier(ctx->battlerDef) returns ×2 when the defender
-            // has the Glaive Rush volatile — applies to ANY incoming move type.
-            // Entity: gBattleMons[def].volatiles.glaiveRush (BattlePokemon volatile).
-            // For non-Normal EFFECT_HIT moves the defender volatile is NOT irrelevant
-            // (Karate Chop vs a Glaive-Rush defender proves it).
-            // Fail-closed: never observed.
-            transientStateObserved = authoritativeTransientStateObserved(request),
+            // Dynamic move type (Ion Deluge / Electrify via SetTypeBeforeUsingMove). The C4d
+            // audit proved these are the only remaining relevant causes for the ordinary
+            // EFFECT_HIT subset; both are now observed. The boolean is true only when BOTH the
+            // battle-global field word and the attacker volatile were read; the actual observed
+            // values are preserved on the state, so the policy can refuse an active retype.
+            dynamicMoveTypeObserved = fieldStatuses != null && attackerElectrified != null,
+            // Transient damage state. Glaive Rush (`GetGlaiveRushModifier`) doubles any incoming
+            // move and is the only unexcluded transient for the ordinary subset; Minimize and the
+            // semi-invulnerable states are reachable only through move flags the ordinary
+            // allow-list excludes (tools/hns-move-mechanics STATE_DEPENDENT_FLAGS). The boolean is
+            // true only when the defender volatile was read.
+            transientStateObserved = defenderGlaiveRush != null,
             attackerRawStats = attackerRaw,
             defenderRawStats = defenderRaw,
             attackerStatStages = attackerStages,
@@ -566,7 +659,15 @@ object CalcRequestBoundary {
                 playerBattlerState = playerBattlerState,
                 enemyBattlerState = enemyBattlerState,
                 isExactVerified = isExactVerified
-            )
+            ),
+            fieldStatuses = fieldStatuses,
+            attackerElectrified = attackerElectrified,
+            defenderGlaiveRush = defenderGlaiveRush,
+            attackerGimmick = attackerGimmick,
+            defenderGimmick = defenderGimmick,
+            attackerHp = attackerHpPair?.first,
+            attackerMaxHp = attackerHpPair?.second,
+            attackerStatus1 = attackerStatus1
         )
     }
 
@@ -802,53 +903,105 @@ object CalcRequestBoundary {
     }
 
     /**
-     * True when the dynamic move type (Ion Deluge / Electrify) is provably irrelevant
-     * for this request's move type.
+     * The battle-global `gFieldStatuses` word, or null unless BOTH authoritative battle-level
+     * observations read it and agree.
      *
-     * Pinned H&S src/battle_main.c SetTypeBeforeUsingMove() at 1f42b74d:
-     *   if ((gFieldStatuses & STATUS_FIELD_ION_DELUGE && moveType == TYPE_NORMAL)
-     *    || gBattleMons[battler].volatiles.electrified)
-     *       gBattleStruct->dynamicMoveType = TYPE_ELECTRIC | F_DYNAMIC_TYPE_SET;
-     *
-     * Ion Deluge is Normal-only (moveType == TYPE_NORMAL), but Electrify affects ANY
-     * type. Non-Normal moves are therefore NOT immune to Electrify, and there is no way
-     * to observe the Electrify volatile from Kotlin today.
-     *
-     * Fail-closed: always returns false until the Electrify volatile is read at runtime.
+     * Field statuses are battle-global (the same word for both sides), so disagreement is a torn
+     * read and must fail closed rather than pick a side. A read that produced 0 is an observed
+     * neutral word, distinct from `null` (never read).
      */
-    private fun authoritativeDynamicMoveTypeObserved(
-        request: DamageCalculationRequest
-    ): Boolean {
-        // P1 FIX: Electrify affects ANY type. Non-Normal is NOT immune.
-        // Gate remains closed until runtime volatile is observable.
-        return false
+    private fun authoritativeObservedFieldStatuses(
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Int? {
+        if (!isExactVerified) return null
+        val player = playerBattlerState?.state ?: return null
+        val enemy = enemyBattlerState?.state ?: return null
+        if (player.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (enemy.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!player.fieldStatusesReadable || !enemy.fieldStatusesReadable) return null
+        if (player.fieldStatuses != enemy.fieldStatuses) return null
+        return player.fieldStatuses
     }
 
-    /**
-     * True when transient damage state is provably irrelevant for this request.
-     *
-     * Pinned H&S src/battle_util.c DoMoveDamageCalcVars() at 1f42b74d:
-     *   DAMAGE_APPLY_MODIFIER(GetGlaiveRushModifier(ctx->battlerDef));
-     *   where GetGlaiveRushModifier returns UQ_4_12(2.0) when the defender
-     *   volatiles.glaiveRush flag is set. This applies to ANY incoming move type:
-     *   Karate Chop (Fighting) vs a Glaive-Rush defender gets ×2 damage.
-     *
-     * Other transient state affecting ordinary damage:
-     *   - Minimize: volatiles.minimize → ×2 (MoveIncreasesPowerToMinimizedTargets)
-     *   - Underground: volatiles.semiInvulnerable == STATE_UNDERGROUND → ×2
-     *   - Airborne: volatiles.semiInvulnerable == STATE_AIRBORNE → ×2
-     *   These are state-dependent flags that the request shape cannot express.
-     *
-     * Fail-closed: NONE of these volatiles are observable from Kotlin yet, so the
-     * gate remains closed until they are.
-     */
-    private fun authoritativeTransientStateObserved(
-        request: DamageCalculationRequest
-    ): Boolean {
-        // P1 FIX: GetGlaiveRushModifier applies to ANY move type, not just Normal.
-        // Gate remains closed until the relevant defense volatiles are observable.
-        return false
+    /** `gBattleMons[battler].volatiles.electrified`, or null when the slot-matched dev word was not read. */
+    private fun authoritativeObservedElectrified(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Boolean? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        if (!state.volatilesObserved) return null
+        return state.volatileElectrified
     }
+
+    /** `gBattleMons[battler].volatiles.glaiveRush`, or null when the slot-matched word was not read. */
+    private fun authoritativeObservedGlaiveRush(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Boolean? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        if (!state.volatilesObserved) return null
+        return state.volatileGlaiveRush
+    }
+
+    /** `gBattleStruct->gimmick.activeGimmick[side][slot]`, or null when the slot-matched value was not read. */
+    private fun authoritativeObservedGimmick(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Int? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        if (!state.gimmickObserved) return null
+        if (state.activeGimmick !in 0..5) return null
+        return state.activeGimmick
+    }
+
+    /** The slot-matched live HP/maxHP pair, or null when either was not read. */
+    private fun authoritativeObservedHp(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Pair<Int, Int>? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        if (!state.hpObserved) return null
+        if (state.maxHp <= 0) return null
+        return state.hp to state.maxHp
+    }
+
+    /** The slot-matched live `status1` word, or null when it was not read. 0 is an observed neutral. */
+    private fun authoritativeObservedStatus1(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Int? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        if (!state.statusObserved) return null
+        return state.status1
+    }
+
+    private fun slotMatches(
+        participantPartySlot: Int?,
+        state: com.dualdex.pokemon.hns.HnsBattlerRuntimeState
+    ): Boolean = participantPartySlot != null && state.partySlot != null &&
+        state.partySlot == participantPartySlot
 
     /**
      * The single authorization decision every entrypoint above funnels into.
@@ -886,8 +1039,17 @@ object CalcRequestBoundary {
             isExactVerified = readIsTrusted,
             activeBattle = activeBattle
         )
+        val reconciledStatus = reconcileLiveBattlerHpStatus(
+            request = reconciled,
+            liveReadHint = liveReadHint,
+            playerBattlerState = playerBattlerState,
+            enemyBattlerState = enemyBattlerState,
+            isExactHns = isExactHns,
+            isExactVerified = readIsTrusted,
+            activeBattle = activeBattle
+        )
         val hnsRules = resolveHnsRuntimeRules(profile, trust, challengeSettings)
-        val enriched = CalcDataOverrides.enrichRequest(profile, reconciled, hnsRules)
+        val enriched = CalcDataOverrides.enrichRequest(profile, reconciledStatus, hnsRules)
         // Live battle state is boundary-owned exactly like the runtime rules: the caller cannot
         // inject it, and it is re-bound here from the exact-trusted runtime observation. A request
         // in an active H&S battle whose mutable operands (current types, battle stat words, dynamic
@@ -896,7 +1058,7 @@ object CalcRequestBoundary {
         val withLiveState = enriched.copy(
             hnsLiveBattleState = if (isExactHns) {
                 bindHnsLiveBattleState(
-                    request = reconciled,
+                    request = reconciledStatus,
                     playerBattlerState = playerBattlerState,
                     enemyBattlerState = enemyBattlerState,
                     activeBattle = activeBattle,

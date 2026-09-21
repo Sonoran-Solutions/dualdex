@@ -3119,3 +3119,124 @@ OPEN**.
 - QuickJS calculator suite: `2005 passed, 0 failed` (1987 before C4d; 18 new golden checks).
 - Kotlin unit tests: unchanged and green.
 - `./ci.sh all` passes; `git diff --check` passes.
+
+---
+
+## Gap C4e — first production-authorized H&S 2.0.5 live Singles subset
+
+C4e closes the remaining live operands for a narrow ordinary Singles request, promotes the exact
+official-ROM SHA, and opens the first `Ready` / `ESTIMATED` production path. It does not weaken any
+fail-closed gate. The evidence levels below use the same vocabulary as §§1-13.
+
+### What C4e added (SOURCE VERIFIED)
+
+- **Dynamic move type.** `SetTypeBeforeUsingMove` (`src/battle_main.c:6418`) and `GetDynamicMoveType`
+  (`src/battle_main.c:6176`) were re-audited end to end. For the ordinary `EFFECT_HIT` subset the only
+  two relevant retype writers are `STATUS_FIELD_ION_DELUGE` (Normal-only) and
+  `gBattleMons[battler].volatiles.electrified` (any type); every other branch needs a non-`EFFECT_HIT`
+  effect or an ability the ability gate refuses.
+- **Transient state.** `GetGlaiveRushModifier` (`src/battle_util.c:7481`) is the only unexcluded
+  transient for the ordinary subset. Minimize/underground/underwater/airborne are excluded by the
+  move-mechanics generator's `STATE_DEPENDENT_FLAGS` allow-list.
+- **Conditional pinch abilities.** `CalcAttackStat` (`src/battle_util.c:7023`) applies the x1.5
+  Attack-stat pinch modifier for `Overgrow`/`Blaze`/`Torrent`/`Swarm` when the move type matches and
+  `hp <= maxHP/3`.
+- **Gimmick.** `GetActiveGimmick` (`src/battle_gimmick.c:60`) reads
+  `gBattleStruct->gimmick.activeGimmick[side][partyIndex]`. Pinned config keeps
+  `P_MEGA_EVOLUTIONS`/`P_PRIMAL_REVERSIONS`/`P_ULTRA_BURST_FORMS`/`P_GIGANTAMAX_FORMS` false and
+  `B_FLAG_DYNAMAX_BATTLE` 0, but Tera and Z-Moves remain reachable through their key items, so the
+  state is observed rather than declared impossible.
+
+### New ABI evidence (SOURCE VERIFIED, generated)
+
+`tools/hns-layout/generate_hns_live_battle_layout.py` compiles a probe against the pinned headers with
+the pinned ARM toolchain and emits `native/src/hns_live_battle_layout_gen.h`; `./ci.sh source-check`
+regenerates and byte-compares it. Values for the pinned commit: `hp` 42, `maxHP` 46, `status1` 80,
+`volatiles` 84; volatile bits `electrified` 54, `glaiveRush` 64, `minimize` 72, `semiInvulnerable`
+51/width 3; `BattleStruct.gimmick` 668, `BattleGimmickData.activeGimmick` 11. The EWRAM globals
+`gFieldStatuses` (`0x2F4`) and the `gBattleStruct` pointer (`0xB4`) are shared with the already-pinned
+battle globals and are runtime-verified below.
+
+### Runtime reader semantics (HOST VERIFIED)
+
+`pokemon_read_battler_runtime_state_gba` decodes HP/maxHP, `status1`, the volatile bits and the
+gimmick byte per OBSERVED battler, plus the battle-global field-status word. Every new `*_observed` /
+`*_readable` bit separates an observed neutral value from an unread field; `gBattleStruct` is read
+afresh and must point inside EWRAM before the gimmick byte is dereferenced. The JNI tuple grew from 42
+to 56 ints; the Kotlin decoder keeps the pre-C4e 42-int contract for the older fields and treats a
+short tuple's new fields as unobserved.
+
+### Official-ROM runtime observation (RUNTIME VERIFIED, neutral state)
+
+`tools/hns-runtime-probe/evidence/golden-c4e-live-operands.log` is a raw run of scenario
+`60-golden-a-neutral.txt` against the exact official ROM
+(`edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`, printed by the harness). At the
+Golden A hit frame the production reader reported:
+
+- player (Chikorita): `hp=14 maxHP=20 status1=0x00000000 volatiles_observed=1 electrified=0
+  glaiveRush=0 minimize=0 gimmick_observed=1 gimmick=0 fieldStatuses=0x00000000`;
+- enemy (Pidgey): `hp=15 maxHP=15 status1=0` and the same neutral volatile/gimmick/field state.
+
+The `[GOLDEN-HIT] PASS` line records the same `damage=6` Golden A hit. This proves the neutral values
+the first production subset depends on. A **positive transition** (an active Electrify / Glaive Rush /
+Tera frame) was deliberately not manufactured, so the active cases remain refused at runtime and are
+SOURCE + HOST reasoned only.
+
+### Host oracle (HOST VERIFIED)
+
+`native/tests/test_js_calc.c` `check_gap_c4e_pinch_abilities` asserts the pinch arithmetic against the
+independent H&S oracle: inactive (11/23) unboosted, active-at-threshold (7/23) boosted to
+`floor(13*1.5)=19`, one-HP-above-threshold (8/23) unboosted, and wrong-type (Normal) unboosted even at
+1 HP. `test_pokemon_reader.c` `test_hns_battler_state_c4e_live_operands` asserts the reader
+observation, positive bit transitions, null/out-of-EWRAM `gBattleStruct` failing closed, and teardown
+leaving no C4e operand.
+
+### Production-boundary evidence (HOST VERIFIED)
+
+`CalcHnsC4eProductionBoundaryTest` drives the real `CalcRequestBoundary`: the positive control
+(Golden-A-equivalent live state) returns `Ready` with a non-null request and `ESTIMATED`; the emitted
+JSON carries the live HP/maxHP and the pinned move override. Adjacent negatives remove exactly one
+authority each and refuse with the precise limitation (wrong hash, unreadable volatile, unreadable
+field status, unreadable/active gimmick, active Electrify, active Ion Deluge, active Glaive Rush,
+unsupported ability, unverified pinch HP, stale slot, unobserved badge, unsupported move, active live
+status). Anti-spoofing tests prove the boundary strips a caller-crafted `hnsLiveBattleState` and
+`curHP` and rebinds from runtime observations, and that a spoofed ability is overridden by the
+authoritative numeric ID.
+
+### Mutation control
+
+Two meaningful mutations were applied, the targeted suites run, and both reverted. Exact results:
+
+| Mutation | Change | Before | Mutated | After revert |
+|---|---|---|---|---|
+| M1 — new live-state authority | `dynamicMoveTypeObserved = false` in `CalcRequestBoundary.bindHnsLiveBattleState` (suppresses the field-status + electrified authority) | `CalcHnsC4eProductionBoundaryTest`: 19 passed, 0 failed | 3 failed (`exact trusted ... Ready`, `pinch ... inactive`, `caller-crafted HP ...`), 16 passed | 19 passed, 0 failed |
+| M2 — conditional ability | `calculateHnsDamage`: `pinchHp <= floor(maxHP/3)` → `pinchHp < floor(maxHP/3)` (threshold) | QuickJS suite `2012 passed, 0 failed` | `2011 passed, 1 failed` (`gap_c4e_overgrow_active_at_threshold`) | `2012 passed, 0 failed` |
+
+Both mutations were confirmed reverted (`git diff` clean of the mutation markers) before the final
+runs.
+
+### Trust / hash decision
+
+The exact C4d SHA is **promoted** into `app/src/main/assets/profiles/heart_and_soul.json`. The
+unlocked live-memory surfaces were audited (party/enemy/location reads have exact H&S layout evidence;
+the calculator has its own per-capability gates; Assistant/cheats/interactive controls are gated by
+their own policies and `interactiveControlsVerified` stays false). Regression tests pin exact-hash
+trust, one-bit-different rejection, and recognized-header-without-exact-hash rejection.
+`battleUiVerified` and `interactiveControlsVerified` are unchanged. `BUILDS_NOT_HASH_VERIFIED` is no
+longer a blanket H&S limitation; a request on a non-exact ROM still gets `ROM_NOT_EXACT_VERIFIED`.
+
+### Production promotion status
+
+**Open, bounded.** A request satisfying every condition in
+`docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md` §14.9 reaches `Ready` / `CalcSupport.ESTIMATED`; every other
+H&S request remains refused. Doubles remains BLOCKED (AMBIGUOUS per-side observation), badge-boost
+arithmetic remains host-verified only (Golden D not validated), and no positive volatile/gimmick
+runtime transition is claimed.
+
+### CI status (C4e)
+
+- Native reader suite: `88 passed, 0 failed` (87 before C4e; 1 new C4e test).
+- Pure tracker selftests: `75 passed, 0 failed`.
+- QuickJS calculator suite: `2012 passed, 0 failed` (2005 before C4e; 7 new pinch/host checks).
+- Kotlin unit tests: `656 passed, 0 failed` (634 before C4e; 22 new boundary/trust tests).
+- `./ci.sh all` and `git diff --check` pass; exact-head GitHub Actions green (see the PR).

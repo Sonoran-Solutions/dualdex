@@ -175,16 +175,19 @@ class CalcHnsAbilityTest {
     }
 
     @Test
-    fun `HnsAbilityRegistry classifies starter pinch and unmodelled abilities as unsupported`() {
-        // Starters pinch abilities modify Attack stat in H&S vs Base Power in ADV
+    fun `HnsAbilityRegistry classifies starter pinch abilities as conditionally modelled`() {
+        // Gap C4e: H&S applies the pinch x1.5 as an Attack-stat modifier when the move type
+        // matches and hp <= maxHP/3. It is modelled in calculateHnsDamage, and the capability
+        // policy requires authoritative live HP (or proves the ability irrelevant by move type)
+        // before a request may proceed.
         listOf(65, 66, 67, 68).forEach { starterAbilityId ->
             val entry = HnsAbilityRegistry.classify(starterAbilityId)
             assertEquals(
-                "Ability $starterAbilityId must be UNSUPPORTED_DAMAGE_RELEVANT",
-                HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+                "Ability $starterAbilityId must be MODELLED_HNS_CONDITIONAL",
+                HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
                 entry.category
             )
-            assertFalse(entry.category.isSupportedForDamage)
+            assertTrue(entry.category.isSupportedForDamage)
         }
 
         // Modern ability (e.g. Adaptability = 91)
@@ -466,7 +469,9 @@ class CalcHnsAbilityTest {
         val refusedGuts = outcomeGuts as CalcRequestOutcome.Refused
         assertTrue(refusedGuts.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
 
-        // Test Blaze
+        // Test Blaze: conditionally modelled (Gap C4e). With a Fire move the pinch condition is
+        // relevant, and a manual request carries no authoritative live HP, so it must refuse
+        // precisely rather than assume the condition inactive.
         val blazeReq = DamageCalculationRequest(
             gen = 3,
             typeSystem = "hns_2_0_5",
@@ -481,7 +486,7 @@ class CalcHnsAbilityTest {
             challengeSettings = snapshot
         )
         val refusedBlaze = outcomeBlaze as CalcRequestOutcome.Refused
-        assertTrue(refusedBlaze.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertTrue(refusedBlaze.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
     }
 
     @Test
@@ -701,19 +706,19 @@ class CalcHnsAbilityTest {
         val trust = exactTrust(heartAndSoul)
         val snapshot = hnsSettingsSnapshot()
 
-        // Malformed observation where runtime ID is 65 (Overgrow, unsupported)
-        // but identity declared name is "Keen Eye" (supported no-damage name) with matching ID 65
+        // Malformed observation where runtime ID is 91 (Adaptability, unsupported)
+        // but identity declared name is "Keen Eye" (supported no-damage name) with matching ID 91
         val malformedObs = BattlerRuntimeObservation(
             state = HnsBattlerRuntimeState(
                 status = HnsBattlerRuntimeStatus.OBSERVED,
                 battlerIndex = 0,
                 partySlot = 0,
-                abilityId = 65,
+                abilityId = 91,
                 abilityOutOfDomain = false,
                 types = emptyList()
             ),
             abilityIdentity = DeclaredAbility.Declared(
-                abilityId = 65,
+                abilityId = 91,
                 name = "Keen Eye"
             )
         )
@@ -740,9 +745,9 @@ class CalcHnsAbilityTest {
         )
 
         val refused = outcome as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("Must be refused due to unsupported Overgrow ability")
+            ?: throw AssertionError("Must be refused due to unsupported Adaptability ability")
 
-        // Capability verdict MUST be chosen from the authoritative numeric ID (65 -> Overgrow -> UNSUPPORTED),
+        // Capability verdict MUST be chosen from the authoritative numeric ID (91 -> Adaptability -> UNSUPPORTED),
         // NEVER from the identity display name string ("Keen Eye")
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
     }

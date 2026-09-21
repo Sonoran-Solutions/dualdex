@@ -261,6 +261,54 @@ enum class CalcLimitation(val blocks: Boolean) {
     HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED(true),
 
     /**
+     * The move's effective type was authoritatively observed to be rewritten to Electric by an
+     * active dynamic-type mechanism (`gFieldStatuses & STATUS_FIELD_ION_DELUGE` on a Normal move,
+     * or the attacker's `volatiles.electrified` on any move).
+     *
+     * C4e observes the field word and the attacker volatile, so the *neutral* case is now
+     * authoritative. The *active* Electric retype is deliberately not published: the ordinary
+     * subset's arithmetic/type evidence does not cover the forced Electric typing, so the request
+     * fails closed rather than compute it with the static type (issue #9, Gap C4e).
+     */
+    HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED(true),
+
+    /**
+     * The defender's `volatiles.glaiveRush` was authoritatively observed true. `GetGlaiveRushModifier`
+     * doubles the damage of any incoming move, and that x2 is not part of the ordinary-subset
+     * arithmetic, so the request fails closed (issue #9, Gap C4e).
+     */
+    HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED(true),
+
+    /**
+     * An active H&S battle's gimmick state (`gBattleStruct->gimmick.activeGimmick`) could not be
+     * read, so Tera/Dynamax/Z/Mega could be silently active and change STAB, stats or type
+     * semantics. Unreadable fails closed (issue #9, Gap C4e).
+     */
+    HNS_GIMMICK_STATE_UNREADABLE(true),
+
+    /**
+     * A live gimmick (Tera/Dynamax/Z/Mega/Ultra Burst) was authoritatively observed active for a
+     * participant. The ordinary-subset arithmetic does not model any gimmick's damage effect, so
+     * the request fails closed (issue #9, Gap C4e).
+     */
+    HNS_GIMMICK_ACTIVE_NOT_MODELLED(true),
+
+    /**
+     * The attacker's authoritative live `status1` is non-zero (a status condition is active) or
+     * could not be read. The ordinary subset models only a neutral status from live state, so a
+     * live status fails closed rather than letting a stale party snapshot decide (issue #9, Gap C4e).
+     */
+    HNS_LIVE_STATUS_NOT_MODELLED(true),
+
+    /**
+     * A conditionally-supported pinch ability (`Overgrow`/`Blaze`/`Torrent`/`Swarm`) applies to the
+     * selected move's type, but the authoritative live HP/max HP needed to decide its 1/3-HP
+     * condition was not observed. The condition cannot be assumed inactive, so the request fails
+     * closed (issue #9, Gap C4e).
+     */
+    HNS_ABILITY_CONDITION_UNVERIFIED(true),
+
+    /**
      * The build scales type-boost held items to a later-generation percentage than the generation
      * III pipeline applies.
      */
@@ -488,6 +536,18 @@ data class CalcCapabilityVerdict(
                 "this is an active battle whose current effective types, battle stat words, or dynamic move type are not authoritatively observed"
             CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED ->
                 "this is a Doubles battle whose current target count is not authoritatively observed, so the spread-move reduction cannot be determined"
+            CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED ->
+                "the current move's type is being rewritten to Electric by Ion Deluge or Electrify, which this calculation does not model"
+            CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED ->
+                "the defender has the Glaive Rush volatile, which doubles incoming damage and is not modelled"
+            CalcLimitation.HNS_GIMMICK_STATE_UNREADABLE ->
+                "the battle's gimmick state (Tera/Dynamax/Z) could not be read"
+            CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED ->
+                "a battle gimmick (Tera/Dynamax/Z) is active and is not modelled by this calculation"
+            CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED ->
+                "the attacker's live status condition is not modelled by this ordinary-damage calculation"
+            CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED ->
+                "a pinch ability applies to this move but its live HP condition could not be verified"
             CalcLimitation.ITEM_BOOST_PERCENTAGE_DIFFERS ->
                 "this build scales type-boost items differently from the generation III pipeline"
             CalcLimitation.LIVE_INPUTS_NOT_VERIFIED ->
@@ -639,6 +699,23 @@ object CalcCapabilityPolicy {
         "???"
     )
 
+    /** `STATUS_FIELD_ION_DELUGE` from the pinned `include/constants/battle.h`. */
+    const val HNS_STATUS_FIELD_ION_DELUGE: Int = 1 shl 10
+
+    /**
+     * The pinch abilities and the move type each boosts, keyed by the pinned numeric ability ID.
+     *
+     * Pinned H&S `CalcAttackStat` (`src/battle_util.c:7023`) applies x1.5 as an Attack-stat
+     * modifier when `moveType == TYPE_X && hp <= maxHP/3`. These are the only conditional
+     * abilities C4e promotes; every other ability stays on the generic capability gate.
+     */
+    val HNS_PINCH_ABILITY_TYPES: Map<Int, String> = mapOf(
+        65 to "Grass", // Overgrow
+        66 to "Fire",  // Blaze
+        67 to "Water", // Torrent
+        68 to "Bug"    // Swarm
+    )
+
     const val HNS_DATA_PACK_ID = "hns_2_0_5"
     const val HNS_ENGINE = "pokeemerald-expansion"
     const val HNS_PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
@@ -680,9 +757,10 @@ object CalcCapabilityPolicy {
                 // forwarded via CalcDataOverrides (Gap B closed).
                 contentSource = HNS_DATA_PACK_ID,
                 ceiling = CalcSupport.ESTIMATED,
-                alwaysLimitations = listOf(
-                    CalcLimitation.BUILDS_NOT_HASH_VERIFIED
-                ),
+                // Gap C4e promotes the exact 2.0.5 ROM SHA into the profile, so this row no
+                // longer carries a blanket "no hash" limitation. An untrusted or non-exact ROM
+                // still adds ROM_NOT_EXACT_VERIFIED per request in evaluate().
+                alwaysLimitations = emptyList(),
                 label = HNS_LABEL
             )
         }
@@ -874,6 +952,12 @@ object CalcCapabilityPolicy {
             if (hnsLiveBattleStateNotModelled(pack, request)) {
                 limitations.add(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
             }
+
+            // 9b. Gap C4e live-operand disposition. The boundary observed the field word,
+            // electrified volatile, Glaive Rush volatile, gimmick state, HP and status; a positive
+            // (or unread) value that the ordinary arithmetic does not model fails closed with its
+            // own precise limitation rather than the coarse live-state blocker.
+            collectHnsLiveOperandLimitations(request, limitations)
         }
 
         if (!isExactRuntimeVerified(profile, trust)) {
@@ -1317,6 +1401,90 @@ object CalcCapabilityPolicy {
     fun canonicalWeather(weather: String): String? =
         MODELLED_WEATHER.firstOrNull { it.equals(weather.trim(), ignoreCase = true) }
 
+    /**
+     * Records the ability limitation for one authoritative H&S classification (Gap C4e).
+     *
+     * A pinch ability (`Overgrow`/`Blaze`/`Torrent`/`Swarm`) is conditionally supported:
+     *  - for the defender it is irrelevant (pinch abilities only modify the holder's Attack);
+     *  - for the attacker, if the effective move type does not match the boosted type, the
+     *    ability is provably irrelevant and adds no blocker;
+     *  - otherwise the 1/3-HP condition is live state: an authoritative observed HP/max HP pair
+     *    clears it (the arithmetic is modelled), while an unobserved pair is refused precisely
+     *    ([CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED]) rather than assumed inactive.
+     *
+     * Any non-pinch ability keeps the original rule: an unsupported classification blocks.
+     */
+    private fun collectHnsAbilityCapabilityLimitation(
+        classification: com.dualdex.pokemon.hns.HnsAbilityEntry,
+        isAttacker: Boolean,
+        request: DamageCalculationRequest,
+        limitations: MutableSet<CalcLimitation>
+    ) {
+        val pinchType = classification.abilityId?.let { HNS_PINCH_ABILITY_TYPES[it] }
+        if (pinchType != null) {
+            if (!isAttacker) return // defender pinch abilities never modify incoming damage
+            val moveType = request.moveOverride?.type
+            if (moveType == null) {
+                // The effective move type could not be resolved from the pinned pack; the
+                // ability's relevance cannot be proven, so fail closed on the ability.
+                limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
+            } else if (!moveType.equals(pinchType, ignoreCase = true)) {
+                // Provably irrelevant for this move's type.
+            } else {
+                val hp = request.hnsLiveBattleState?.attackerHp
+                val maxHp = request.hnsLiveBattleState?.attackerMaxHp
+                if (hp == null || maxHp == null || maxHp <= 0) {
+                    limitations.add(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED)
+                }
+            }
+            return
+        }
+        if (!classification.category.isSupportedForDamage) {
+            limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
+        }
+    }
+
+    /**
+     * Records the Gap C4e live-operand limitations for an active H&S battle.
+     *
+     * The boundary has already observed the operands ([CalcHnsLiveBattleState]); this decides
+     * whether the observed values are usable:
+     *  - an active dynamic-type retype (Electrify, or Ion Deluge on a Normal move) blocks;
+     *  - an active defender Glaive Rush volatile blocks (x2 not modelled);
+     *  - an unread gimmick blocks; an active gimmick blocks;
+     *  - an unread or non-zero live attacker status blocks.
+     */
+    private fun collectHnsLiveOperandLimitations(
+        request: DamageCalculationRequest,
+        limitations: MutableSet<CalcLimitation>
+    ) {
+        val live = request.hnsLiveBattleState ?: return
+        val staticType = request.moveOverride?.type
+        val fieldStatuses = live.fieldStatuses
+        val electrified = live.attackerElectrified
+        if (fieldStatuses != null && electrified != null && staticType != null) {
+            val ionDelugeActive = (fieldStatuses and HNS_STATUS_FIELD_ION_DELUGE) != 0 &&
+                staticType.equals("Normal", ignoreCase = true)
+            if (electrified || ionDelugeActive) {
+                limitations.add(CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED)
+            }
+        }
+        if (live.defenderGlaiveRush == true) {
+            limitations.add(CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED)
+        }
+        val attackerGimmick = live.attackerGimmick
+        val defenderGimmick = live.defenderGimmick
+        if (attackerGimmick == null || defenderGimmick == null) {
+            limitations.add(CalcLimitation.HNS_GIMMICK_STATE_UNREADABLE)
+        } else if (attackerGimmick != 0 || defenderGimmick != 0) {
+            limitations.add(CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED)
+        }
+        val status1 = live.attackerStatus1
+        if (status1 == null || status1 != 0) {
+            limitations.add(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED)
+        }
+    }
+
     private fun collectRequestLimitations(
         profile: RomHackProfile,
         capability: CalcCapability,
@@ -1362,7 +1530,7 @@ object CalcCapabilityPolicy {
             limitations.add(CalcLimitation.FIELD_CONDITION_NOT_MODELLED)
         }
 
-        listOf(request.attacker, request.defender).forEach { input ->
+        listOf(request.attacker to true, request.defender to false).forEach { (input, isAttacker) ->
             if (capability.ruleset == CalcRuleset.HNS_2_0_5) {
                 if (input.origin == CalcInputOrigin.LIVE_READ) {
                     if (input.unknownFields.contains(CalcInputField.ABILITY) || input.ability.isNullOrBlank() || input.abilityId == null) {
@@ -1372,10 +1540,12 @@ object CalcCapabilityPolicy {
                     } else {
                         // Authoritative numeric ability ID determines capability verdict,
                         // NEVER the display name string.
-                        val classification = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.abilityId)
-                        if (!classification.category.isSupportedForDamage) {
-                            limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
-                        }
+                        collectHnsAbilityCapabilityLimitation(
+                            classification = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.abilityId),
+                            isAttacker = isAttacker,
+                            request = request,
+                            limitations = limitations
+                        )
                     }
                 } else {
                     if (input.ability.isNullOrBlank()) {
@@ -1386,9 +1556,12 @@ object CalcCapabilityPolicy {
                         } else {
                             com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.ability)
                         }
-                        if (!classification.category.isSupportedForDamage) {
-                            limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
-                        }
+                        collectHnsAbilityCapabilityLimitation(
+                            classification = classification,
+                            isAttacker = isAttacker,
+                            request = request,
+                            limitations = limitations
+                        )
                     }
                 }
 

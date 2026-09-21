@@ -223,7 +223,43 @@ data class CalcHnsLiveBattleState(
      * four-battler Doubles battle shape (see §12.1 of the capability doc), and the policy
      * fails closed rather than guessing.
      */
-    val moveTargetCount: Int? = null
+    val moveTargetCount: Int? = null,
+    // --- Gap C4e live operand authority ------------------------------------------------------
+    /**
+     * The battle-global `gFieldStatuses` word, or null when it was not read. Ion Deluge is the
+     * only bit that can retype an otherwise-supported ordinary move: it forces a Normal move to
+     * Electric. A non-null value is an authoritative observation; 0 is an observed neutral word.
+     */
+    val fieldStatuses: Int? = null,
+    /**
+     * `gBattleMons[attacker].volatiles.electrified` (Electrify), or null when unread. Electrify
+     * retypes any move to Electric, so it must be observed false for the ordinary subset.
+     */
+    val attackerElectrified: Boolean? = null,
+    /**
+     * `gBattleMons[defender].volatiles.glaiveRush`, or null when unread. Glaive Rush doubles the
+     * damage of any incoming move regardless of type, so it must be observed false.
+     */
+    val defenderGlaiveRush: Boolean? = null,
+    /**
+     * `gBattleStruct->gimmick.activeGimmick[side][partySlot]` for the attacker, or null when
+     * unread. 0 is `GIMMICK_NONE`; any other value is a live gimmick (Tera/Dynamax/Z/...).
+     */
+    val attackerGimmick: Int? = null,
+    /** The defender's active gimmick, or null when unread. */
+    val defenderGimmick: Int? = null,
+    /**
+     * The attacker's authoritative current HP and max HP (`gBattleMons[attacker].hp` / `.maxHP`),
+     * or null when unread. Required to decide a pinch ability's 1/3-HP condition from live state,
+     * never from a stale party snapshot.
+     */
+    val attackerHp: Int? = null,
+    val attackerMaxHp: Int? = null,
+    /**
+     * The attacker's authoritative `status1` word, or null when unread. 0 is an observed
+     * "no status"; the ordinary subset requires that (a non-zero live status is not modelled here).
+     */
+    val attackerStatus1: Int? = null
 )
 
 data class DamageCalculationRequest(

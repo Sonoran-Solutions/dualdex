@@ -164,6 +164,35 @@
       "notes": "The raw Def stage was read live from gBattleMons[defender].statStages by the production reader immediately before the hit; the [GOLDEN-HIT] PASS line records defenderDefStage=-1. The values here describe the hit frame exactly as logged: the attacker stood at 20/21 HP immediately before Scratch (the Leer turn cost it 1 HP), and the encountered Pidgey was level 2. Neither is a damage operand for this request (defender level is not read by the calculator; Scratch is Normal, so Torrent cannot apply)."
     }
   ],
+  "c4e_live_operand_observation": {
+    "verdict": "RUNTIME VERIFIED (neutral state)",
+    "scenario": "scenarios/60-golden-a-neutral.txt",
+    "log": "evidence/golden-c4e-live-operands.log",
+    "rom_sha256": "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b",
+    "observed_at_frame": 2392,
+    "reader": "production pokemon_read_battler_runtime_state_gba (Gap C4e fields)",
+    "observed": {
+      "attacker": {
+        "species": "Chikorita (152)",
+        "hp": 14, "max_hp": 20, "hp_observed": true,
+        "status1": "0x00000000", "status_observed": true,
+        "volatiles_observed": true, "electrified": false,
+        "glaive_rush": false, "minimize": false, "semi_invulnerable": 0,
+        "gimmick_observed": true, "active_gimmick": "GIMMICK_NONE (0)",
+        "field_statuses": "0x00000000", "field_statuses_readable": true
+      },
+      "defender": {
+        "species": "Pidgey (16)",
+        "hp": 15, "max_hp": 15,
+        "volatiles_observed": true, "glaive_rush": false,
+        "gimmick_observed": true, "active_gimmick": "GIMMICK_NONE (0)",
+        "field_statuses": "0x00000000"
+      }
+    },
+    "why": "The first production-authorized ordinary Singles subset needs the neutral value of every mutable operand added in C4e: no Ion Deluge / Electrify retype, no Glaive Rush, no active gimmick, no live status, and an authoritative HP/maxHP pair for the pinch-ability threshold. All of those are observed on the exact official ROM at the Golden A hit frame.",
+    "positive_transition": false,
+    "positive_transition_note": "A positive transition (e.g. an active Electrify, Glaive Rush or Tera frame) was not produced, so the active/positive behavior remains SOURCE + HOST reasoned and runtime-refused, not runtime-verified. The source-derived ABI plus an observed neutral zero is the evidence the neutral subset is authorized on."
+  },
   "indirect_observations": [
     {
       "id": "E",
@@ -184,7 +213,7 @@
   ],
   "deferred": {
     "D": "Badge boost: not reachable in the fresh-starter progression used here (no badges). Retained as an unvalidated blocker; not overclaimed.",
-    "F": "New volatile reader (Glaive Rush et al.): no reader added, so no positive runtime fixture is claimed.",
+    "F": "Gap C4e added readers for the HP/maxHP pair, live status1, the electrified/Glaive Rush volatile bits and the gimmick active array. Their NEUTRAL values are RUNTIME VERIFIED on the official ROM (c4e_live_operand_observation above); a positive transition for an active volatile/gimmick was not manufactured, so the active cases stay fail-closed.",
     "G": "Doubles: production path remains BLOCKED (per-side battler observation is AMBIGUOUS); no artificial two-battler representation was manufactured."
   }
 }

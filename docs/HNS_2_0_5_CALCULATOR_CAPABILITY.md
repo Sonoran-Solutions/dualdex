@@ -18,6 +18,12 @@ It is derived from the pinned upstream source, not from behaviour observed in th
 No upstream source is vendored into DualDex. No ROM bytes are committed, copied, or reproduced.
 Line references below are `file:line` into that pinned checkout.
 
+> **Gap C4e status (current).** The exact official H&S 2.0.5 ROM SHA-256 is now promoted into
+> `heart_and_soul.json`, and a **narrow ordinary Singles subset reaches `Ready` / `ESTIMATED`**
+> through the real `CalcRequestBoundary`. Everything outside that subset still fails closed. See
+> §14 for the authorized subset, the new live readers and the exact hash decision; §13 is the
+> historical C4d record, which deliberately did not promote.
+
 **Vocabulary.** *SOURCE VERIFIED* means read directly from the pinned source (or from the vendored
 library source). *NOT FOUND* means the evidence does not exist and is never treated as true.
 
@@ -29,11 +35,13 @@ DualDex supports **exact verified FireRed**, **exact verified Emerald**, and **e
 Vanilla FireRed/Emerald requests that stay inside the verified input set are presented as **Verified**
 using `@smogon/calc`'s ADV pipeline (`gen: 3`). H&S 2.0.5 calculator support is a **partial, fail-closed
 slice (Gap C4b/PARTIAL, Gap C4c/OPEN)**: the UQ4.12 roll-first damage arithmetic is implemented in QuickJS
-(`calculateHnsDamage`, §11) and host-verified against the native C oracle, but the live operands it
-depends on — current effective types, battle stat words, the dynamic move type, transient damage
-state, the runtime `GetMoveTargetCount` count, and manual badge applicability — are fundamentally
-unobservable without runtime volatile state readers, so **production H&S requests are refused**
-(`CalcSupport.UNSUPPORTED`) rather than published as an estimate. H&S lets the player change rules (category split, Fairy type, randomizers), applies modern
+(`calculateHnsDamage`, §11) and host-verified against the native C oracle. After Gap C4e the live
+operands it depends on — current effective types, battle stat words, the dynamic move type, transient
+damage state, the runtime `GetMoveTargetCount` count, the gimmick state, and the attacker's live
+HP/status — are observed from exact-trusted runtime state for the ordinary Singles subset, so that
+subset is published as **Estimated** (§14). Everything outside it — Doubles, active dynamic-type
+retypes, Glaive Rush, active gimmicks, non-neutral live status, unsupported abilities/items/moves,
+randomizers — is still **refused** (`CalcSupport.UNSUPPORTED`) rather than published as an estimate. H&S lets the player change rules (category split, Fairy type, randomizers), applies modern
 base data and type matchups, and executes a distinct UQ4.12 pipeline with Gen III badge boosts; DualDex
 consumes challenge settings at runtime via `CalcRequestBoundary` (§4.1), executes the exact 19x19 H&S
 type chart (Gap C1, §3.1), and audits authoritative abilities (Gap C2, §6) and held items (Gap C3, §7).
@@ -1424,3 +1432,283 @@ promote yet. C4d is therefore a successful **evidence** slice, not a production-
 | HOST VERIFIED | DualDex/QuickJS agrees with the independent oracle | ✅ C4a/C4b/C4c fixtures unchanged; **new** `check_gap_c4d_rom_damage_goldens` asserts engine == oracle for every golden operand. |
 | RUNTIME VERIFIED | Observed on the official H&S 2.0.5 release ROM | ✅ Direct roll goldens A (neutral), B (STAB + resistance), C (live stat stage). Golden E is RUNTIME OBSERVED (indirect) only and is **not** counted with the direct roll goldens. |
 | PRODUCTION AUTHORIZED | All operands boundary-owned and proven | ❌ None — see §13.8. |
+
+---
+
+## 14. Gap C4e — first production-authorized exact H&S 2.0.5 live Singles subset
+
+C4e is the first slice that **opens** a production `Ready` path for H&S. It follows the required
+order — source proof, authoritative runtime observation, runtime verification, trust audit, boundary
+authorization — and it does **not** weaken any fail-closed gate. The strongest honest claim is:
+
+> Exact H&S 2.0.5 live **Singles** ordinary-damage requests satisfying every condition in §14.9 are
+> production-authorized as `Ready` / `CalcSupport.ESTIMATED`. Every request outside that subset still
+> fails closed with a precise limitation, and no H&S request is ever presented as `VERIFIED`.
+
+### 14.0 Baseline (post-#68)
+
+* Starting `main`: `9b769cebf8b4c3c76042fc9d126d31786b64859a` (merge of PR #68).
+* `./ci.sh all` green after the changes in this slice (see the PR for exact-head Actions).
+* Post-#68 state verified before C4e: dynamic move type and transient state were fail-closed; Doubles
+  remained blocked; `sha256Hashes` was empty; no H&S request reached `Ready` / `ESTIMATED`.
+* The C4d official-ROM evidence SHA is `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`,
+  re-verified from `tools/hns-runtime-probe/evidence/rom-damage-goldens.json` and the raw probe logs.
+
+### 14.1 Source audit
+
+The C4d mechanism-by-mechanism audit (§§13.2-13.3) is reused rather than re-derived. C4e closes the
+three classes it left open:
+
+1. **Effective move type.** `SetTypeBeforeUsingMove` (`src/battle_main.c:6418`) has exactly two
+   writers that can retype an otherwise-supported ordinary `EFFECT_HIT` move, both independent of the
+   move-mechanics allow-list:
+   * `gFieldStatuses & STATUS_FIELD_ION_DELUGE && GetBattleMoveType(move) == TYPE_NORMAL` (Normal-only);
+   * `gBattleMons[battler].volatiles.electrified` (any type).
+   Both are now read. Every other non-`TYPE_NONE` return of `GetDynamicMoveType` requires either a
+   non-`EFFECT_HIT` effect (refused by `ordinaryMoveIds`) or an unclassified ability
+   (`Liquid Voice`, `Normalize`, the ate abilities) that the ability gate refuses.
+2. **Transient damage state.** `GetGlaiveRushModifier` (`src/battle_util.c:7481`) doubles any incoming
+   move and is not excluded by the move allow-list, so the defender's `volatiles.glaiveRush` is read.
+   `GetMinimizeModifier`, `GetUndergroundModifier`, `GetDiveModifier` and `GetAirborneModifier` are
+   gated by move flags that `tools/hns-move-mechanics` already excludes from `ordinaryMoveIds`
+   (`minimizeDoubleDamage`, `damagesUnderground`, `damagesUnderwater`, `damagesAirborne`,
+   `damagesAirborneDoubleDamage`), so no reader is added for those.
+3. **Conditional pinch abilities.** `CalcAttackStat` (`src/battle_util.c:7023`) applies x1.5 as an
+   **Attack-stat** modifier when `moveType == TYPE_X && hp <= maxHP/3` for `Overgrow` (Grass),
+   `Blaze` (Fire), `Torrent` (Water) and `Swarm` (Bug). The modifier is composed with
+   `uq4_12_multiply_half_down` after the stat stage, which is exactly where
+   `calculateHnsDamage` already applies its ability modifiers.
+4. **Gimmick.** `GetActiveGimmick(battler)` (`src/battle_gimmick.c:60`) is
+   `gBattleStruct->gimmick.activeGimmick[GetBattlerSide(battler)][gBattlerPartyIndexes[battler]]`.
+   The pinned config sets `P_MEGA_EVOLUTIONS FALSE`, `P_PRIMAL_REVERSIONS FALSE`,
+   `P_ULTRA_BURST_FORMS FALSE`, `P_GIGANTAMAX_FORMS FALSE` and `B_FLAG_DYNAMAX_BATTLE 0`
+   (Dynamax unreachable), but Tera and Z-Moves remain reachable through the Tera Orb / Z-Power Ring.
+   Because the state is reachable, it is **observed** rather than declared unreachable.
+
+### 14.2 New ABI members (generated, not hand-maintained)
+
+`tools/hns-layout/generate_hns_live_battle_layout.py` compiles a probe against the pinned headers with
+the pinned ARM toolchain and emits `native/src/hns_live_battle_layout_gen.h`. Ordinary members are
+`offsetof`/`sizeof` scalars; bitfield members are located by compiling one designated-initializer
+object per bit and reading back the set bit (the `semiInvulnerable` probe uses
+`SEMI_INVULNERABLE_COUNT` so both the base bit and the width are recovered). Values for the pinned
+commit:
+
+| Member | Value |
+|---|---|
+| `struct BattlePokemon.hp` / `.maxHP` | 42 / 46 |
+| `struct BattlePokemon.status1` | 80 |
+| `struct BattlePokemon.volatiles` | 84 |
+| volatile `electrified` bit | 54 |
+| volatile `glaiveRush` bit | 64 |
+| volatile `minimize` bit | 72 |
+| volatile `semiInvulnerable` | bit 51, width 3 |
+| `struct BattleStruct.gimmick` | 668 |
+| `struct BattleGimmickData.activeGimmick` | 11 (side stride 6) |
+
+`./ci.sh source-check` regenerates the header and fails on any drift. The EWRAM global addresses
+(shared by the already-pinned battle globals) are:
+
+| Global | EWRAM offset |
+|---|---|
+| `gFieldStatuses` | `0x2F4` |
+| `gBattleStruct` pointer | `0xB4` |
+
+`gBattleStruct` is a heap pointer: the reader reads the pointer afresh, requires it to fall inside the
+EWRAM window it was handed, and only then dereferences `activeGimmick`. A null, stale or out-of-EWRAM
+pointer leaves the gimmick **unobserved** (never `NONE`).
+
+### 14.3 Runtime reader semantics
+
+`pokemon_read_battler_runtime_state_gba` now also decodes, per OBSERVED authoritative battler:
+
+* `hp` / `maxHP` (`hp_observed`, `max_hp`);
+* `status1` (`status_observed`; the raw word, `0` is an observed neutral);
+* the damage-relevant volatile bits (`volatiles_observed`, `volatile_electrified`,
+  `volatile_glaive_rush`, plus the recorded `volatile_minimize` / `volatile_semi_invulnerable`);
+* the gimmick byte (`gimmick_observed`, `active_gimmick`);
+* the battle-global `gFieldStatuses` word (`field_statuses_readable`, `field_statuses`).
+
+Every `*_observed` / `*_readable` bit separates **observed neutral** (bit set, payload zero) from
+**never read** (bit clear), so `false` is never collapsed with `unreadable`. The tuple grew from 42 to
+56 ints (`BATTLER_RUNTIME_STATE_TUPLE_LEN`), and the Kotlin decoder keeps the pre-C4e 42-int contract
+for the older fields while decoding the new ones only from a 56-int tuple — a short tuple leaves the
+new fields unobserved rather than defaulted. All new reads share the existing fail-closed lifecycle
+(ACTIVE only), battler resolution, party-slot binding, teardown clearing and profile-switch clearing;
+nothing is cached across battles.
+
+### 14.4 Effective move-type resolution
+
+For the supported subset the boundary binds `fieldStatuses` (both battle-level observations must read
+it and agree) and the attacker's `electrified` bit. `dynamicMoveTypeObserved` becomes true only when
+both were read. The policy then decides:
+
+* `electrified == true` → `HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED` (any type);
+* Ion Deluge set **and** the move's effective type is Normal → the same limitation;
+* otherwise static type is source-proven unchanged and the ordinary arithmetic applies.
+
+The active Electric retype is deliberately **not** published: the ordinary-subset arithmetic/type
+evidence does not cover the forced typing, so it stays refused rather than computed with the static
+type. This closes the C4d blocker "dynamic move type no longer uses a blanket unobserved blocker".
+
+### 14.5 Transient-state resolution
+
+`glaiveRush` is bound from the defender's slot-matched volatile word; `transientStateObserved` becomes
+true when it was read. `glaiveRush == true` → `HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED` (x2 not modelled);
+`false` clears. Minimize and the semi-invulnerable states are proven unreachable for the ordinary
+subset by the move-flag allow-list (§14.1.2), so no live reader is needed for them.
+
+### 14.6 Conditional pinch ability support
+
+`Overgrow` (65), `Blaze` (66), `Torrent` (67) and `Swarm` (68) are now
+`HnsAbilityCategory.MODELLED_HNS_CONDITIONAL`. `calculateHnsDamage` applies
+`halfDown(6144, userFinalAttack)` when the effective move type matches the boosted type **and**
+`input.attacker.hp <= floor(input.attacker.maxHP / 3)`, mirroring `CalcAttackStat`. The capability
+policy:
+
+* for the defender, treats a pinch ability as irrelevant (pinch abilities do not affect incoming
+  damage);
+* for the attacker, proves irrelevance when the effective move type differs;
+* otherwise requires the authoritative live HP/maxHP pair and refuses with
+  `HNS_ABILITY_CONDITION_UNVERIFIED` when it was not read — it never assumes the condition inactive.
+
+Live HP is boundary-reconciled: a caller-crafted `curHP` is overwritten from
+`gBattleMons[battler].hp` whenever the engine HP was read, and the engine JSON receives both `hp` and
+`maxHP`. Host tests (`check_gap_c4e_pinch_abilities`) cover inactive, active-at-threshold, one-HP-above
+threshold and wrong-type cases against the independent H&S oracle.
+
+### 14.7 Gimmick decision
+
+Gimmick state is **observed**, not declared `NONE`. `attackerGimmick` / `defenderGimmick` are bound
+from the exact-trusted observation; unreadable → `HNS_GIMMICK_STATE_UNREADABLE`; any non-`NONE` value
+→ `HNS_GIMMICK_ACTIVE_NOT_MODELLED`. Tera/Dynamax/Z/Mega/Ultra Burst damage semantics stay
+unmodelled and fail closed. The neutral `GIMMICK_NONE` case is runtime-verified on the official ROM
+(§14.11).
+
+### 14.8 Exact-ROM trust audit and hash promotion
+
+Promoting the exact SHA makes `RuntimeRomTrust.mayReadLiveMemory == true`, which unlocks every
+live-memory feature in the companion. The C4e audit dispositions each unlocked surface:
+
+| Unlocked surface | Disposition |
+|---|---|
+| Player/enemy party reads | Exact H&S 2.0.5 layout evidence already exists (`memoryLayoutVerified`, C1-C4 dossiers); no new claim. |
+| Location / map reads | Exact layout evidence exists (H&S SaveBlock1 handling); fail closed on unknown IDs. |
+| Battle lifecycle / active battler | Runtime-validated in the C4d probe run and native tests. |
+| Calculator live observations | Have their own per-capability gates (§§4-13 plus §14.9); the hash does not bypass any of them. |
+| Badge state | Read from SaveBlock1; player-side only; the calculator gate is independent. |
+| Assistant / cheats / interactive controls | `battleUiVerified` and `interactiveControlsVerified` remain `false`; interactive controls are gated by `BattleInteractionPolicy`, not by the hash. |
+
+No unlocked surface becomes unsafe or overclaimed, so C4e **promotes only the exact C4d SHA** into
+`app/src/main/assets/profiles/heart_and_soul.json`. No broader hash, no header-based trust, and
+`battleUiVerified` / `interactiveControlsVerified` are unchanged. Regression tests pin: exact hash →
+exact trust; one-bit-different hash → `RECOGNIZED_UNVERIFIED` and no live memory; recognized header
+without the exact hash → unverified.
+
+### 14.9 Authorized production subset
+
+A request reaches `Ready` / `ESTIMATED` only when **all** of the following hold:
+
+* the running ROM is the exact promoted H&S 2.0.5 SHA and the profile is exact-verified;
+* an active **Singles** battle with both battler observations OBSERVED and party-slot-matched;
+* an ordinary `EFFECT_HIT` move from `Hns205MoveEffects.ordinaryMoveIds` that does not read item
+  state (`HnsMoveItemInteractionRegistry`);
+* attacker and defender effective types observed and equal to the pinned static record, at most two
+  represenable types;
+* raw battle stat words and stat stages observed (`-6..+6`);
+* attacker badge boosts observed (defender badge state is irrelevant);
+* supported challenge settings: optionStyle / Fairy observed, Random Types and Random Type
+  Effectiveness observed **off**, Base Stat Equalizer observed **off**, Random Moves observed **off**;
+* supported/none held items and supported attacks (attacker pinch ability handled per §14.6);
+* effective move type fully resolved (no active Electrify / Ion Deluge);
+* defender Glaive Rush observed false;
+* gimmick state observed `GIMMICK_NONE` for both participants;
+* attacker live `status1` observed `0`;
+* no unmodelled weather/terrain/status/move mechanic.
+
+Everything else remains refused. This is a deliberately small capability class, not "H&S is
+supported".
+
+**Provenance of every mutable operand for that subset** (task §3 audit). "Boundary-owned" means
+`CalcRequestBoundary` rebinds it from the exact-trusted runtime observation and strips any caller
+value; "source-proven" means the pinned source/data proves it cannot vary for this request.
+
+| Operand | Provenance |
+|---|---|
+| attacker effective types | boundary-owned `gBattleMons[a].types`; must equal the pinned static record |
+| defender effective types | boundary-owned `gBattleMons[d].types`; must equal the pinned static record |
+| raw battle stat words | boundary-owned `gBattleMons` attack/defense/speed/spA/spD |
+| stat stages | boundary-owned `gBattleMons.statStages` |
+| current item | boundary-owned `gBattleMons[battler].item`; supported/no item only |
+| effective ability | boundary-owned numeric `abilityId`; supported or conditionally supported |
+| current HP / max HP | boundary-owned `gBattleMons.hp` / `.maxHP`; required for a relevant pinch ability |
+| badge applicability | boundary-owned player-side badge state; enemy badges source-proven irrelevant |
+| move type / effective type | pinned pack override + observed Ion Deluge field word and Electrify volatile |
+| weather | request field; only none/Rain/Sun accepted |
+| screens | request defender side (Singles); host-verified |
+| burn / status | boundary-owned live `status1` must be 0; non-neutral refuses |
+| crit flag | request `isCrit`; C4d indirect observation |
+| game format | request `Singles`; Doubles refuses |
+| field statuses | boundary-owned battle-global `gFieldStatuses` (both observations must agree) |
+| attacker volatiles | boundary-owned `electrified` (and recorded minimize/semi-invuln) |
+| defender volatiles | boundary-owned `glaiveRush` must be false |
+| gimmick / Tera | boundary-owned `gBattleStruct->gimmick.activeGimmick` must be `GIMMICK_NONE` |
+
+Every caller-supplied field on `hnsLiveBattleState` (and `curHP`) is discarded and rebound, so no
+caller value can independently authorize an H&S live calculation.
+
+### 14.10 Production-boundary evidence
+
+`CalcHnsC4eProductionBoundaryTest` drives the real `CalcRequestBoundary`:
+
+* **Positive control** — a C4d Golden-A-equivalent live state (Chikorita + Tackle vs Pidgey, live
+  HP 14/20, Overgrow irrelevant to a Normal move) returns `Ready`, a non-null request and
+  `ESTIMATED`; the emitted JSON carries the live HP/maxHP and the pinned move override.
+* **Adjacent negatives** — removing exactly one authority refuses with a precise limitation: wrong
+  ROM hash, unreadable volatile, unreadable field status, unreadable/active gimmick, active
+  Electrify, active Ion Deluge on a Normal move, active Glaive Rush, unsupported ability, unverified
+  pinch HP, stale participant slot, unobserved badge state, unsupported move, active live status.
+* **Anti-spoofing** — a caller-crafted `hnsLiveBattleState` and a caller-crafted `curHP` are stripped
+  and rebound from the runtime observations; a caller-spoofed ability is overridden by the
+  authoritative numeric ID. No caller-provided `hnsLiveBattleState` field can independently authorize
+  an H&S live calculation.
+
+### 14.11 Runtime verification
+
+`tools/hns-runtime-probe/evidence/golden-c4e-live-operands.log` is a raw official-ROM run (ROM SHA
+`edf76ec...7679b`) that prints the new fields through the production reader at the Golden A hit frame:
+HP/maxHP observed (14/20 and 15/15), `status1 == 0`, volatiles observed with `electrified` and
+`glaiveRush` false, `activeGimmick == GIMMICK_NONE`, and `gFieldStatuses == 0`. That is the neutral
+state the first production subset depends on, so the neutral case is **RUNTIME VERIFIED**. No positive
+transition (an actually-active volatile/gimmick) was manufactured, so the active cases stay
+SOURCE + HOST reasoned and are refused at runtime rather than claimed verified.
+
+### 14.12 Reuse of the C4d goldens
+
+The positive control is a Golden-A-equivalent live request (Chikorita + ordinary Normal move vs
+Pidgey) constructed through normal product authority; the engine's independent host oracle still
+produces the 5..7 range and the observed ROM damage 6 remains a valid roll. Golden B's Overgrow is
+conditionally supported and inactive at 11/23 HP, and Golden C's Torrent is irrelevant to a Normal
+move, so both shapes are compatible with the new subset. The C4d native golden test is unchanged and
+still green; C4e adds the pinch-ability fixtures alongside it.
+
+### 14.13 Doubles, badge Golden D, and remaining limitations
+
+* **Doubles** remains **BLOCKED** by the AMBIGUOUS per-side battler observation. C4e adds no
+  battle-level Doubles plumbing and does not make production Doubles an acceptance requirement.
+* **Badge Golden D** remains unvalidated: negative/neutral badge state is observed false and the
+  request is correctly computed without a boost, but no positive badge-boost arithmetic is claimed
+  RUNTIME VERIFIED. The C4b host oracle coverage remains HOST VERIFIED.
+* **Golden F** is partially satisfied: the new readers have a neutral-state runtime observation
+  (§14.11) but no positive transition.
+* Active dynamic-type retypes, active Glaive Rush, active gimmicks, non-neutral live status, and
+  unsupported abilities/items/moves remain refused so a confident wrong number is never published.
+
+### 14.14 Issues #9 and #40
+
+#9 is **not closed by this document alone**: it still requires exact FireRed/Emerald goldens (owned
+elsewhere), broader H&S mechanic coverage (Doubles, items, more abilities, modern behaviour), and the
+umbrella evidence wiring. C4e satisfies the bounded "supported H&S calculations have golden fixtures"
+and "unsupported mechanics fail honestly" criteria for the ordinary Singles subset; the remainder
+stays open. #40 is far broader (hardware, maps, lifecycle, cheats, Assistant, release) and remains
+open.

@@ -2,6 +2,7 @@
 #include "pokemon_text.h"
 #include "gba_memory_map.h"
 #include "hns_battle_pokemon_layout_gen.h"
+#include "hns_live_battle_layout_gen.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -187,12 +188,35 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_mons_spattack_size = HNS_BATTLE_POKEMON_SPATTACK_SIZE,
     .battle_mons_spdefense_offset = HNS_BATTLE_POKEMON_SPDEFENSE_OFFSET,
     .battle_mons_spdefense_size = HNS_BATTLE_POKEMON_SPDEFENSE_SIZE,
+    // Gap C4e live damage operands, all from the generated live-battle ABI table.
+    .battle_mons_max_hp_offset = HNS_LIVE_BP_MAX_HP_OFFSET,
+    .battle_mons_status_offset = HNS_LIVE_BP_STATUS_OFFSET,
+    .battle_mons_volatiles_offset = HNS_LIVE_BP_VOLATILES_OFFSET,
+    .battle_mons_volatile_electrified_bit = HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT,
+    .battle_mons_volatile_glaive_rush_bit = HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT,
+    .battle_mons_volatile_minimize_bit = HNS_LIVE_BP_VOLATILE_MINIMIZE_BIT,
+    .battle_mons_volatile_semi_invulnerable_bit = HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT,
+    .battle_mons_volatile_semi_invulnerable_width = HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH,
     .battler_party_indexes_offset = 0x144,
     .battlers_count_offset = 0xB0,
     .battle_type_flags_offset = 0xAC,
     .battle_outcome_offset = 0x12C,
     .battler_positions_offset = 0x238,
     .absent_battler_flags_offset = 0x30A,
+    // Gap C4e battle-global live state. gFieldStatuses and gBattleStruct are EWRAM globals whose
+    // addresses are shared with gBattlersCount/gBattlerPartyIndexes (release ELF, same EWRAM
+    // image); the from-source and official release builds agree on the EWRAM battle globals, and
+    // the probe runtime run verifies the reads (see the compatibility evidence §14). gBattleStruct
+    // is a POINTER to the heap-allocated battle struct, read afresh each observation and required
+    // to point inside EWRAM before any byte is dereferenced.
+    .field_statuses_offset = 0x2F4,
+    .field_status_ion_deluge_mask = (1u << 10), // STATUS_FIELD_ION_DELUGE
+    .battle_struct_ptr_offset = 0xB4,
+    .battle_struct_gimmick_offset = HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET,
+    .battle_gimmick_active_offset = HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET,
+    .battle_gimmick_side_stride = HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT,
+    .battle_gimmick_party_count = HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT,
+    .battle_gimmick_count = HNS_LIVE_BATTLE_GIMMICK_COUNT,
     .main_struct_gba_address = 0x03005BD8,
     .main_in_battle_byte_offset = 0x439,
     .main_in_battle_bit = 1,
@@ -2326,7 +2350,12 @@ static bool battle_pokemon_layout_declared(const GameMemoryConfig* config) {
            config->battle_mons_spattack_size != 0 &&
            config->battle_mons_spdefense_offset != 0 &&
            config->battle_mons_spdefense_size != 0 &&
-           config->battle_mons_stat_stages_offset != 0;
+           config->battle_mons_stat_stages_offset != 0 &&
+           config->battle_mons_max_hp_offset != 0 &&
+           config->battle_mons_status_offset != 0 &&
+           config->battle_mons_volatiles_offset != 0 &&
+           config->field_statuses_offset != 0 &&
+           config->battle_struct_ptr_offset != 0;
 }
 
 /**
@@ -2353,7 +2382,20 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
            config->battle_mons_spattack_size == HNS_BATTLE_POKEMON_SPATTACK_SIZE &&
            config->battle_mons_spdefense_offset == HNS_BATTLE_POKEMON_SPDEFENSE_OFFSET &&
            config->battle_mons_spdefense_size == HNS_BATTLE_POKEMON_SPDEFENSE_SIZE &&
-           config->battle_mons_stat_stages_offset == HNS_BATTLE_POKEMON_STAT_STAGES_OFFSET;
+           config->battle_mons_stat_stages_offset == HNS_BATTLE_POKEMON_STAT_STAGES_OFFSET &&
+           config->battle_mons_max_hp_offset == HNS_LIVE_BP_MAX_HP_OFFSET &&
+           config->battle_mons_status_offset == HNS_LIVE_BP_STATUS_OFFSET &&
+           config->battle_mons_volatiles_offset == HNS_LIVE_BP_VOLATILES_OFFSET &&
+           config->battle_mons_volatile_electrified_bit == HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT &&
+           config->battle_mons_volatile_glaive_rush_bit == HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT &&
+           config->battle_mons_volatile_minimize_bit == HNS_LIVE_BP_VOLATILE_MINIMIZE_BIT &&
+           config->battle_mons_volatile_semi_invulnerable_bit == HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT &&
+           config->battle_mons_volatile_semi_invulnerable_width == HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH &&
+           config->battle_struct_gimmick_offset == HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET &&
+           config->battle_gimmick_active_offset == HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET &&
+           config->battle_gimmick_side_stride == HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT &&
+           config->battle_gimmick_party_count == HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT &&
+           config->battle_gimmick_count == HNS_LIVE_BATTLE_GIMMICK_COUNT;
 }
 
 bool pokemon_read_hns_badge_state_gba(
@@ -2560,6 +2602,57 @@ bool pokemon_read_battler_runtime_state_gba(
         return false;
     }
 
+    /*
+     * Gap C4e live damage operands. Each read is independent: a failure leaves only that
+     * field unobserved (its `*_observed` flag stays false), never a defaulted value, so a
+     * caller can distinguish "observed neutral" from "not read". The whole observation still
+     * fails only when a field that the OBSERVED verdict depends on is out of domain.
+     */
+    uint8_t live_hp_bytes[HNS_LIVE_BP_HP_SIZE];
+    uint8_t live_max_hp_bytes[HNS_LIVE_BP_MAX_HP_SIZE];
+    uint8_t live_status_bytes[HNS_LIVE_BP_STATUS_SIZE];
+    bool hp_ok = HNS_LIVE_BP_HP_SIZE == 2 &&
+                 read(user, mon_base + HNS_LIVE_BP_HP_OFFSET, live_hp_bytes, sizeof(live_hp_bytes));
+    bool max_hp_ok = HNS_LIVE_BP_MAX_HP_SIZE == 2 &&
+                     read(user, mon_base + HNS_LIVE_BP_MAX_HP_OFFSET, live_max_hp_bytes, sizeof(live_max_hp_bytes));
+    bool status_ok = HNS_LIVE_BP_STATUS_SIZE == 4 &&
+                     read(user, mon_base + HNS_LIVE_BP_STATUS_OFFSET, live_status_bytes, sizeof(live_status_bytes));
+    if (hp_ok) {
+        out_state->hp_observed = true;
+        out_state->hp = (uint16_t)(live_hp_bytes[0] | (live_hp_bytes[1] << 8));
+    }
+    if (max_hp_ok) {
+        out_state->max_hp = (uint16_t)(live_max_hp_bytes[0] | (live_max_hp_bytes[1] << 8));
+    }
+    if (status_ok) {
+        out_state->status_observed = true;
+        out_state->status1 = (uint32_t)live_status_bytes[0] |
+                             ((uint32_t)live_status_bytes[1] << 8) |
+                             ((uint32_t)live_status_bytes[2] << 16) |
+                             ((uint32_t)live_status_bytes[3] << 24);
+    }
+
+    /* The four volatile booleans live in the first 10 bytes of `volatiles`; read only that
+     * window so a partial struct read cannot mislocate a bit. */
+    uint8_t volatile_bytes[10];
+    if (HNS_LIVE_BP_VOLATILES_OFFSET + sizeof(volatile_bytes) <= HNS_BATTLE_POKEMON_SIZEOF &&
+        read(user, mon_base + HNS_LIVE_BP_VOLATILES_OFFSET, volatile_bytes, sizeof(volatile_bytes))) {
+        out_state->volatiles_observed = true;
+        #define HNS_LIVE_VOLATILE_BIT(bytes, bit) \
+            (((bytes)[(bit) / 8] >> ((bit) % 8)) & 1u)
+        out_state->volatile_electrified =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT) != 0;
+        out_state->volatile_glaive_rush =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT) != 0;
+        out_state->volatile_minimize =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_MINIMIZE_BIT) != 0;
+        out_state->volatile_semi_invulnerable = (uint8_t)(
+            (volatile_bytes[HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT / 8] >>
+             (HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT % 8)) &
+            ((1u << HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH) - 1u));
+        #undef HNS_LIVE_VOLATILE_BIT
+    }
+
     out_state->battler_index = battler;
     out_state->party_slot = (int8_t)party_slot;
     out_state->party_slot_known = true;
@@ -2627,6 +2720,51 @@ bool pokemon_read_battler_runtime_state_gba(
     if (battle.counters_readable) {
         out_state->battlers_count = battle.battlers_count;
         out_state->battlers_count_readable = true;
+    }
+
+    /* Battle-global `gFieldStatuses` (Ion Deluge is one bit). Read once per observation; it is
+     * the same word for every battler, so the boundary cross-checks the two observations agree. */
+    if (config->field_statuses_offset != 0) {
+        uint8_t fs_bytes[4];
+        if (read(user, DUALDEX_GBA_EWRAM_BASE + config->field_statuses_offset,
+                 fs_bytes, sizeof(fs_bytes))) {
+            out_state->field_statuses_readable = true;
+            out_state->field_statuses = (uint32_t)fs_bytes[0] |
+                                        ((uint32_t)fs_bytes[1] << 8) |
+                                        ((uint32_t)fs_bytes[2] << 16) |
+                                        ((uint32_t)fs_bytes[3] << 24);
+        }
+    }
+
+    /*
+     * `GetActiveGimmick(battler) == gBattleStruct->gimmick.activeGimmick[side][partyIndex]`.
+     * `gBattleStruct` is a heap pointer, so read the pointer word afresh and require it to fall
+     * inside the EWRAM window this observation was handed before dereferencing the byte. A null,
+     * stale or out-of-EWRAM pointer leaves the gimmick unobserved (never "NONE").
+     */
+    if (config->battle_struct_ptr_offset != 0) {
+        uint8_t ptr_bytes[4];
+        if (read(user, DUALDEX_GBA_EWRAM_BASE + config->battle_struct_ptr_offset,
+                 ptr_bytes, sizeof(ptr_bytes))) {
+            uint32_t bs_ptr = (uint32_t)ptr_bytes[0] |
+                              ((uint32_t)ptr_bytes[1] << 8) |
+                              ((uint32_t)ptr_bytes[2] << 16) |
+                              ((uint32_t)ptr_bytes[3] << 24);
+            uint32_t byte_addr = bs_ptr + config->battle_struct_gimmick_offset +
+                                 config->battle_gimmick_active_offset +
+                                 (uint32_t)role * config->battle_gimmick_side_stride +
+                                 (uint32_t)party_slot;
+            if (bs_ptr >= DUALDEX_GBA_EWRAM_BASE &&
+                (size_t)(bs_ptr - DUALDEX_GBA_EWRAM_BASE) < ewram_size &&
+                byte_addr >= DUALDEX_GBA_EWRAM_BASE &&
+                (size_t)(byte_addr - DUALDEX_GBA_EWRAM_BASE) < ewram_size) {
+                uint8_t gimmick = 0;
+                if (read(user, byte_addr, &gimmick, 1)) {
+                    out_state->gimmick_observed = true;
+                    out_state->active_gimmick = gimmick;
+                }
+            }
+        }
     }
 
     out_state->status = (out_state->ability_invalid || out_state->types_invalid ||

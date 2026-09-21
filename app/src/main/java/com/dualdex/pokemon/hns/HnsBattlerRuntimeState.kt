@@ -182,7 +182,19 @@ data class HnsBattlerRuntimeState(
     val badgeBoostSpe: Boolean = false,
     val badgeBoostSpa: Boolean = false,
     val badgeBoostSpd: Boolean = false,
-    val rawBadgesByte: Int? = null
+    val rawBadgesByte: Int? = null,
+    /** `gAbsentBattlerFlags`: which battlers are currently absent (fainted/forced-out). 0 when not readable. */
+    val absentBattlerFlags: Int = 0,
+    /** true when absentBattlerFlags was actually read from live memory;
+     *  distinguish 'the read produced 0' from 'the read never happened' or 'unreadable'. */
+    val absentFlagsReadable: Boolean = false,
+    /** `gBattlersCount`: battle-level topological count (2 for Singles, 4 for Doubles).
+     *  0 when not readable. Battle-level state: both the player-side and enemy-side
+     *  observations of the same active battle must carry the same value. */
+    val battlersCount: Int = 0,
+    /** true when battlersCount was actually read from live memory; distinguish
+     *  'the read produced 0' from 'the read never happened' or 'unreadable'. */
+    val battlersCountReadable: Boolean = false
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
@@ -225,7 +237,8 @@ data class HnsBattlerRuntimeState(
          * Decode the native tuple (all-zero/unavailable and malformed tuples
          * alike decode to UNAVAILABLE — never to a defaulted observation).
          *
-         * Layout: [0] status, [1] battler index (-1 = none), [2] party slot
+         * Layout (must match BATTLER_RUNTIME_STATE_TUPLE_LEN in dualdex_jni.c):
+         * [0] status, [1] battler index (-1 = none), [2] party slot
          * (-1 = unknown), [3] partySlotKnown, [4] abilityObserved,
          * [5] abilityInvalid, [6] ability id, [7] typesObserved,
          * [8] typesInvalid, [9] type count, [10..12] raw type values,
@@ -233,8 +246,16 @@ data class HnsBattlerRuntimeState(
          * [16] statsObserved, [17..21] raw atk/def/spe/spa/spd,
          * [22] stagesObserved, [23..30] stat stages (hp..eva),
          * [31] badgesObserved, [32..36] badge boost atk/def/spe/spa/spd,
-         * [37] raw badges byte.
+         * [37] raw badges byte, [38] absentBattlerFlags (possibly unreliable),
+         * [39] absentFlagsReadable (1 = flags was actually read, 0 = unreadable),
+         * [40] battlersCount (gBattlersCount; 0 = unreadable),
+         * [41] battlersCountReadable (1 = count was actually read, 0 = unreadable).
+         *
+         * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
+         * the JNI, native reader, and this decoder can never drift.
          */
+        private const val TUPLE_LEN = 42
+
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
             val status = HnsBattlerRuntimeStatus.fromNativeCode(raw[0])
@@ -257,21 +278,32 @@ data class HnsBattlerRuntimeState(
             val itemId = raw[15].takeIf { itemObserved }
             val itemOutOfDomain = raw[14] != 0 ||
                 (itemObserved && (raw[15] < 0 || raw[15] > HnsBattlerRuntimeStateIds.ITEM_ID_MAX))
-            val statsObserved = raw.size >= 38 && raw[16] != 0
+            val statsObserved = raw.size >= TUPLE_LEN && raw[16] != 0
             val rawAttack = if (statsObserved) raw[17] else null
             val rawDefense = if (statsObserved) raw[18] else null
             val rawSpeed = if (statsObserved) raw[19] else null
             val rawSpAttack = if (statsObserved) raw[20] else null
             val rawSpDefense = if (statsObserved) raw[21] else null
-            val stagesObserved = raw.size >= 38 && raw[22] != 0
+            val stagesObserved = raw.size >= TUPLE_LEN && raw[22] != 0
             val statStages = if (stagesObserved && raw.size >= 31) (23..30).map { raw[it] } else emptyList()
-            val badgesObserved = raw.size >= 38 && raw[31] != 0
-            val badgeBoostAtk = raw.size >= 38 && raw[32] != 0
-            val badgeBoostDef = raw.size >= 38 && raw[33] != 0
-            val badgeBoostSpe = raw.size >= 38 && raw[34] != 0
-            val badgeBoostSpa = raw.size >= 38 && raw[35] != 0
-            val badgeBoostSpd = raw.size >= 38 && raw[36] != 0
-            val rawBadgesByte = if (badgesObserved && raw.size >= 38) raw[37] else null
+            val badgesObserved = raw.size >= TUPLE_LEN && raw[31] != 0
+            val badgeBoostAtk = raw.size >= TUPLE_LEN && raw[32] != 0
+            val badgeBoostDef = raw.size >= TUPLE_LEN && raw[33] != 0
+            val badgeBoostSpe = raw.size >= TUPLE_LEN && raw[34] != 0
+            val badgeBoostSpa = raw.size >= TUPLE_LEN && raw[35] != 0
+            val badgeBoostSpd = raw.size >= TUPLE_LEN && raw[36] != 0
+            val rawBadgesByte = if (badgesObserved && raw.size >= TUPLE_LEN) raw[37] else null
+            /* absentBattlerFlags is only authoritative when the native reader
+             * actually read the field; absentFlagsReadable [39] distinguishes
+             * "the read produced 0" from "the read never happened". */
+            val absentFlagsReadable = raw.size >= TUPLE_LEN && raw[39] != 0
+            val absentBattlerFlags = if (absentFlagsReadable && raw.size >= TUPLE_LEN) raw[38] else 0
+            /* battlersCount is battle-level: only authoritative when the native reader
+             * actually read gBattlersCount; the readability bit distinguishes "the read
+             * produced 0" from "the read never happened" (0 must never mean 'zero
+             * battlers'). */
+            val battlersCountReadable = raw.size >= TUPLE_LEN && raw[41] != 0
+            val battlersCount = if (battlersCountReadable && raw.size >= TUPLE_LEN) raw[40] else 0
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
@@ -295,7 +327,11 @@ data class HnsBattlerRuntimeState(
                 badgeBoostSpe = badgeBoostSpe,
                 badgeBoostSpa = badgeBoostSpa,
                 badgeBoostSpd = badgeBoostSpd,
-                rawBadgesByte = rawBadgesByte
+                rawBadgesByte = rawBadgesByte,
+                absentBattlerFlags = absentBattlerFlags,
+                absentFlagsReadable = absentFlagsReadable,
+                battlersCount = battlersCount,
+                battlersCountReadable = battlersCountReadable
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for
             // out-of-domain observations, but a tuple whose flags claim an out-of-domain

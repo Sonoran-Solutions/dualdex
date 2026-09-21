@@ -538,18 +538,35 @@ object CalcRequestBoundary {
             ),
             attackerBattleStatWordsObserved = attackerRaw != null,
             defenderBattleStatWordsObserved = defenderRaw != null,
-            dynamicMoveTypeObserved = false,
-            transientStateObserved = false,
+            // Dynamic move type (Ion Deluge / Electrify via SetTypeBeforeUsingMove): 
+            // Ion Deluge affects ONLY Normal-type moves (converts to Electric).
+            // BUT: Electrify affects ANY type (converts to Electric) — so non-Normal is NOT
+            // immune. Fail-closed: never observed.
+            dynamicMoveTypeObserved = authoritativeDynamicMoveTypeObserved(request),
+            // Transient damage state (GetGlaiveRushModifier, weather via volatiles,
+            // Minimize/U-turn/Underground/etc.):
+            // GetGlaiveRushModifier(ctx->battlerDef) returns ×2 when the defender
+            // has the Glaive Rush volatile — applies to ANY incoming move type.
+            // Entity: gBattleMons[def].volatiles.glaiveRush (BattlePokemon volatile).
+            // For non-Normal EFFECT_HIT moves the defender volatile is NOT irrelevant
+            // (Karate Chop vs a Glaive-Rush defender proves it).
+            // Fail-closed: never observed.
+            transientStateObserved = authoritativeTransientStateObserved(request),
             attackerRawStats = attackerRaw,
             defenderRawStats = defenderRaw,
             attackerStatStages = attackerStages,
             defenderStatStages = defenderStages,
             attackerBadgeBoosts = attackerBadges,
             defenderBadgeBoosts = defenderBadges,
-            // `GetMoveTargetCount(ctx)` is live target-presence state that no reader provides yet.
-            // A boundary-owned null (never a caller value) makes the policy fail closed for H&S
-            // Doubles spread moves instead of guessing the target count from the move class.
-            moveTargetCount = null
+            // `GetMoveTargetCount(ctx)` computed from authoritative gAbsentBattlerFlags,
+            // gBattlersCount, and the move's static target class. Only available when both
+            // observations are present and the battler indices can be resolved.
+            moveTargetCount = authoritativeMoveTargetCount(
+                request = request,
+                playerBattlerState = playerBattlerState,
+                enemyBattlerState = enemyBattlerState,
+                isExactVerified = isExactVerified
+            )
         )
     }
 
@@ -655,6 +672,182 @@ object CalcRequestBoundary {
             .filter { it.observed && !it.outOfDomain && !it.isTypeNoneSentinel }
             .mapNotNull { it.name }
         return names.ifEmpty { null }
+    }
+
+    /**
+     * Compute the authoritative runtime target count for an H&S Doubles spread move,
+     * equivalent to `GetMoveTargetCount(ctx)` from the pinned source.
+     *
+     * Every operand is bound to an OBSERVED runtime value; nothing is inferred from
+     * the request shape:
+     *
+     * - exact trust is required;
+     * - the request field must be a Doubles battle (static context only — the
+     *   observed battler count is never substituted for it or vice versa);
+     * - BOTH battle-level observations (player side and enemy side) must be present
+     *   with the authoritative battle-level state readable:
+     *     * `absentFlagsReadable` on both — a flags value of 0 is only authoritative
+     *       when the read actually ran;
+     *     * `battlersCountReadable` on both — the observed gBattlersCount is battle
+     *       state carried with the observation, never topology inferred from
+     *       `field.gameType` (that inference is exactly what the C4c authority rule
+     *       forbids);
+     *     * the two observations must AGREE on both `absentBattlerFlags` and
+     *       `battlersCount` — a single-word disagreement is a torn read and fails
+     *       closed;
+     *     * the agreed observed count must be exactly 4 (the OBSERVED Doubles value).
+     *       A count of 2 means the live battle is not a four-battler doubles battle,
+     *       so no spread count can be computed from it — fail closed rather than
+     *       trusting the request's game type label.
+     *
+     * The move's static target class is consumed as the internal
+     * [com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass] values (exact pinned
+     * `enum MoveTarget` numbers): BOTH=6 and FOES_AND_ALLY=11 compute the spread
+     * count from the observed absent flags; OPPONENTS_FIELD=13 is always 1. Every
+     * other class — TARGET_SELECTED=1, TARGET_RANDOM=5, TARGET_USER=7, ... and any
+     * unknown value — fails closed with null: upstream `GetMoveTargetCount` returns
+     * `IsBattlerAlive(...)` for those, which requires per-battler HP state this
+     * boundary does not read, so it must not fabricate "1".
+     *
+     * For the supported ordinary EFFECT_HIT subset, the target class is purely static:
+     * `GetBattlerMoveTargetType` only adds dynamic overrides for EFFECT_CURSE, terrain,
+     * and Tera Starstorm -- none of which apply to EFFECT_HIT.
+     */
+    private fun authoritativeMoveTargetCount(
+        request: DamageCalculationRequest,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Int? {
+        if (!isExactVerified) return null
+        if (!request.field.gameType.equals(CalcGameTypes.DOUBLES, ignoreCase = true)) {
+            // Singles: no spread reduction possible, count is irrelevant.
+            return null
+        }
+
+        val playerState = playerBattlerState?.state ?: return null
+        val enemyState = enemyBattlerState?.state ?: return null
+        if (playerState.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (enemyState.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+
+        val attackerBattler = playerState.battlerIndex ?: return null
+        val defenderBattler = enemyState.battlerIndex ?: return null
+
+        /* P1 (round 1 + round 2): absent_flags is only authoritative when the native
+         * reader actually read the field (absentFlagsReadable); 0 otherwise means
+         * 'unreadable', not 'none absent'. Both battle-level observations must agree. */
+        if (!playerState.absentFlagsReadable) return null
+        if (!enemyState.absentFlagsReadable) return null
+        if (playerState.absentBattlerFlags != enemyState.absentBattlerFlags) return null
+        val absentFlags = playerState.absentBattlerFlags
+
+        /* P1 (round 2): gBattlersCount is battle-level state carried with each
+         * observation, never inferred from field.gameType. Both observations must
+         * have READ the count, must agree on it, and the agreed OBSERVED value must
+         * be 4 (four-battler doubles). A 2-battler (singles) count or an unreadable
+         * count fails closed. */
+        if (!playerState.battlersCountReadable) return null
+        if (!enemyState.battlersCountReadable) return null
+        val battlersCount = playerState.battlersCount
+        if (battlersCount != enemyState.battlersCount) return null
+        if (battlersCount != 4) return null
+
+        if (attackerBattler !in 0..3 || defenderBattler !in 0..3) return null
+
+        // Get the move's static target class from the pinned source data.
+        // For the ordinary EFFECT_HIT subset, the target class is purely static.
+        val moveData = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)
+            ?: return null // move not in pinned H&S data
+        val moveTargetClass = com.dualdex.pokemon.hns.Hns205MoveEffects.targetClassByMoveId[moveData.id]
+            ?: return null // unknown move target class
+
+        // Compute the target count using the same logic as the native
+        // pokemon_compute_hns_target_count. The classes are the internal
+        // SpreadTargetClass values, carried with the exact pinned `enum MoveTarget`
+        // numbers: BOTH=6, FOES_AND_ALLY=11, OPPONENTS_FIELD=13.
+        // Unknown/unsupported classes fail closed (null), never a fabricated count.
+        val bitFlank = 2
+        return when (moveTargetClass) {
+            com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass.TARGET_BOTH,
+            com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass.TARGET_FOES_AND_ALLY -> {
+                val defPresent = if (absentFlags and (1 shl defenderBattler) == 0) 1 else 0
+                val defPartner = defenderBattler xor bitFlank
+                val defPartnerPresent = if (defPartner < battlersCount &&
+                    absentFlags and (1 shl defPartner) == 0) 1 else 0
+                var count = defPresent + defPartnerPresent
+                if (moveTargetClass ==
+                    com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass.TARGET_FOES_AND_ALLY
+                ) {
+                    val atkPartner = attackerBattler xor bitFlank
+                    if (atkPartner < battlersCount &&
+                        absentFlags and (1 shl atkPartner) == 0) {
+                        count++
+                    }
+                }
+                count
+            }
+            com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass.TARGET_OPPONENTS_FIELD ->
+                1 // always 1 (Spikes/Toxic Spikes/Stealth Rock)
+            else -> {
+                /* Every other class fails closed. TARGET_SELECTED (1),
+                 * TARGET_DEPENDS (3), TARGET_OPPONENT (4), TARGET_RANDOM (5),
+                 * TARGET_USER (7) and friends dispatch to IsBattlerAlive(...) in
+                 * upstream GetMoveTargetCount, which needs per-battler HP state this
+                 * boundary does not read. A missing HP read must not be papered over
+                 * with "1": null (unobserved) is the only honest answer. This
+                 * matches the native reader, whose same classes return 0. */
+                null
+            }
+        }
+    }
+
+    /**
+     * True when the dynamic move type (Ion Deluge / Electrify) is provably irrelevant
+     * for this request's move type.
+     *
+     * Pinned H&S src/battle_main.c SetTypeBeforeUsingMove() at 1f42b74d:
+     *   if ((gFieldStatuses & STATUS_FIELD_ION_DELUGE && moveType == TYPE_NORMAL)
+     *    || gBattleMons[battler].volatiles.electrified)
+     *       gBattleStruct->dynamicMoveType = TYPE_ELECTRIC | F_DYNAMIC_TYPE_SET;
+     *
+     * Ion Deluge is Normal-only (moveType == TYPE_NORMAL), but Electrify affects ANY
+     * type. Non-Normal moves are therefore NOT immune to Electrify, and there is no way
+     * to observe the Electrify volatile from Kotlin today.
+     *
+     * Fail-closed: always returns false until the Electrify volatile is read at runtime.
+     */
+    private fun authoritativeDynamicMoveTypeObserved(
+        request: DamageCalculationRequest
+    ): Boolean {
+        // P1 FIX: Electrify affects ANY type. Non-Normal is NOT immune.
+        // Gate remains closed until runtime volatile is observable.
+        return false
+    }
+
+    /**
+     * True when transient damage state is provably irrelevant for this request.
+     *
+     * Pinned H&S src/battle_util.c DoMoveDamageCalcVars() at 1f42b74d:
+     *   DAMAGE_APPLY_MODIFIER(GetGlaiveRushModifier(ctx->battlerDef));
+     *   where GetGlaiveRushModifier returns UQ_4_12(2.0) when the defender
+     *   volatiles.glaiveRush flag is set. This applies to ANY incoming move type:
+     *   Karate Chop (Fighting) vs a Glaive-Rush defender gets ×2 damage.
+     *
+     * Other transient state affecting ordinary damage:
+     *   - Minimize: volatiles.minimize → ×2 (MoveIncreasesPowerToMinimizedTargets)
+     *   - Underground: volatiles.semiInvulnerable == STATE_UNDERGROUND → ×2
+     *   - Airborne: volatiles.semiInvulnerable == STATE_AIRBORNE → ×2
+     *   These are state-dependent flags that the request shape cannot express.
+     *
+     * Fail-closed: NONE of these volatiles are observable from Kotlin yet, so the
+     * gate remains closed until they are.
+     */
+    private fun authoritativeTransientStateObserved(
+        request: DamageCalculationRequest
+    ): Boolean {
+        // P1 FIX: GetGlaiveRushModifier applies to ANY move type, not just Normal.
+        // Gate remains closed until the relevant defense volatiles are observable.
+        return false
     }
 
     /**

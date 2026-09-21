@@ -59,7 +59,9 @@ DEFAULT_UPSTREAM_SEARCH_PATHS = [
 MOVE_ENUM_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*(?:=\s*([^,]+))?,?$")
 MOVE_ENTRY_RE = re.compile(r"^\s*\[(MOVE_[A-Z0-9_]+)\]\s*=")
 EFFECT_VALUE_RE = re.compile(r"\.effect\s*=\s*([^,\n]+)")
+TARGET_VALUE_RE = re.compile(r"\.target\s*=\s*([^,\n]+)")
 PLAIN_EFFECT_RE = re.compile(r"EFFECT_[A-Z0-9_]+")
+PLAIN_TARGET_RE = re.compile(r"TARGET_[A-Z0-9_]+")
 
 # Flags that make an otherwise-EFFECT_HIT move's damage depend on battle state the
 # request shape cannot express, so the ADV pipeline cannot be trusted to reproduce it.
@@ -162,16 +164,19 @@ def _entry_body(lines, start, end):
 
 
 def classify_body(body):
-    """Return (effect, complication) for one move body.
+    """Return (effect, complication, target) for one move body.
 
     ``effect`` is the single unambiguous ``EFFECT_*`` symbol, or None when the effect is
     conditional, computed or declared more than once. ``complication`` is a short reason
     string when an ``EFFECT_HIT`` move must not be treated as ordinary, else None.
+    ``target`` is the single unambiguous ``TARGET_*`` symbol, or None.
     """
     if_depth = 0
     depth = 0
     plain_effects = set()
     computed_effects = set()
+    plain_targets = set()
+    computed_targets = set()
     multi_hit = False
     strike_count = 1
     explosion = False
@@ -200,20 +205,28 @@ def classify_body(body):
                     plain_effects.add(value)
                 else:
                     computed_effects.add(value)
+            found_target = TARGET_VALUE_RE.search(line)
+            if found_target and depth <= 1:
+                tvalue = found_target.group(1).strip()
+                if if_depth == 0 and PLAIN_TARGET_RE.fullmatch(tvalue):
+                    plain_targets.add(tvalue)
+                else:
+                    computed_targets.add(tvalue)
         depth += line.count("{") - line.count("}")
 
     effect = next(iter(plain_effects)) if len(plain_effects) == 1 and not computed_effects else None
+    target = next(iter(plain_targets)) if len(plain_targets) == 1 and not computed_targets else None
     if effect != "EFFECT_HIT":
-        return effect, None
+        return effect, None, target
     if multi_hit:
-        return effect, "multiHit"
+        return effect, "multiHit", target
     if strike_count > 1:
-        return effect, f"strikeCount={strike_count}"
+        return effect, f"strikeCount={strike_count}", target
     if explosion:
-        return effect, "explosion"
+        return effect, "explosion", target
     if flags:
-        return effect, flags[0]
-    return effect, None
+        return effect, flags[0], target
+    return effect, None, target
 
 
 def parse_move_table(text):
@@ -233,17 +246,20 @@ def parse_move_table(text):
         raise ValueError("Could not find the end of the pinned gMovesInfo table")
 
     effect_by_symbol = {}
+    target_by_symbol = {}
     ordinary_symbols = set()
     unresolved = set()
     for symbol, body in _entry_body(lines, start, end):
-        effect, complication = classify_body(body)
+        effect, complication, target = classify_body(body)
         if effect is None:
             unresolved.add(symbol)
             continue
         effect_by_symbol[symbol] = effect
+        if target is not None:
+            target_by_symbol[symbol] = target
         if effect == "EFFECT_HIT" and complication is None:
             ordinary_symbols.add(symbol)
-    return effect_by_symbol, ordinary_symbols, unresolved
+    return effect_by_symbol, target_by_symbol, ordinary_symbols, unresolved
 
 
 def build_maps(upstream_dir):
@@ -251,11 +267,12 @@ def build_maps(upstream_dir):
     moves_header = os.path.join(upstream_dir, "include/constants/moves.h")
     move_table = os.path.join(upstream_dir, "src/data/moves_info.h")
     ids = parse_move_enum(open(moves_header, encoding="utf-8", errors="replace").read())
-    effect_by_symbol, ordinary_symbols, unresolved = parse_move_table(
+    effect_by_symbol, target_by_symbol, ordinary_symbols, unresolved = parse_move_table(
         open(move_table, encoding="utf-8", errors="replace").read()
     )
 
     effect_by_id = {}
+    target_by_id = {}
     ordinary = set()
     for symbol, effect in effect_by_symbol.items():
         if symbol not in ids:
@@ -271,13 +288,41 @@ def build_maps(upstream_dir):
                 )
             continue
         effect_by_id[move_id] = effect
+        if symbol in target_by_symbol:
+            target_by_id[move_id] = target_by_symbol[symbol]
         if symbol in ordinary_symbols:
             ordinary.add(move_id)
-    return effect_by_id, ordinary, unresolved
+    return effect_by_id, target_by_id, ordinary, unresolved
 
 
-def generate_kotlin(effect_by_id, ordinary):
+def generate_kotlin(effect_by_id, target_by_id, ordinary):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
+    # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
+    # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
+    #   TARGET_NONE=0, TARGET_SELECTED=1, TARGET_SMART=2, TARGET_DEPENDS=3,
+    #   TARGET_OPPONENT=4, TARGET_RANDOM=5, TARGET_BOTH=6, TARGET_USER=7,
+    #   TARGET_ALLY=8, TARGET_USER_AND_ALLY=9, TARGET_USER_OR_ALLY=10,
+    #   TARGET_FOES_AND_ALLY=11, TARGET_FIELD=12, TARGET_OPPONENTS_FIELD=13,
+    #   TARGET_ALL_BATTLERS=14.
+    # These are internal SpreadTargetClass values, NOT a renumbered MoveTarget
+    # enum; the Kotlin consumer must compare against these exact numbers.
+    TARGET_CLASS_MAP = {
+        "TARGET_NONE": 0,
+        "TARGET_SELECTED": 1,
+        "TARGET_SMART": 2,
+        "TARGET_DEPENDS": 3,
+        "TARGET_OPPONENT": 4,
+        "TARGET_RANDOM": 5,
+        "TARGET_BOTH": 6,
+        "TARGET_USER": 7,
+        "TARGET_ALLY": 8,
+        "TARGET_USER_AND_ALLY": 9,
+        "TARGET_USER_OR_ALLY": 10,
+        "TARGET_FOES_AND_ALLY": 11,
+        "TARGET_FIELD": 12,
+        "TARGET_OPPONENTS_FIELD": 13,
+        "TARGET_ALL_BATTLERS": 14,
+    }
     lines = []
     lines.append("package com.dualdex.pokemon.hns")
     lines.append("")
@@ -300,6 +345,14 @@ def generate_kotlin(effect_by_id, ordinary):
     lines.append(" * to reproduce: `EFFECT_HIT` with no multi-hit, explosion, always-crit or")
     lines.append(" * state-dependent damage flag. See generate_hns_move_effects.py for the exact rule.")
     lines.append(" *")
+    lines.append(" * `targetClassByMoveId` maps move IDs to the INTERNAL `SpreadTargetClass`")
+    lines.append(" * values (see Hns205MoveEffects.SpreadTargetClass below). Those are the EXACT")
+    lines.append(" * values of the pinned H&S `enum MoveTarget` members, carried verbatim; the")
+    lines.append(" * map is NOT the pinned enum itself and must never be renumbered.")
+    lines.append(" * Only spread classes (BOTH=6, FOES_AND_ALLY=11) affect the damage formula's")
+    lines.append(" * spread reduction. Other classes are preserved with their exact enum values;")
+    lines.append(" * unsupported/ambiguous classes fail closed on the consumer side.")
+    lines.append(" *")
     lines.append(" * DO NOT EDIT DIRECTLY. Regenerate using:")
     lines.append(" *   python3 tools/hns-move-mechanics/generate_hns_move_effects.py")
     lines.append(" */")
@@ -315,6 +368,30 @@ def generate_kotlin(effect_by_id, ordinary):
     for move_id in sorted(ordinary):
         lines.append(f"        {move_id},")
     lines.append("    )")
+    lines.append("")
+    lines.append("    /**")
+    lines.append("     * Internal spread/target classes, carried with the EXACT values of the pinned")
+    lines.append("     * H&S 2.0.5 `enum MoveTarget` (1f42b74d). This is not the pinned enum itself;")
+    lines.append("     * it exists so the boundary can dispatch `GetMoveTargetCount` semantics without")
+    lines.append("     * importing the game's full target vocabulary.")
+    lines.append("     */")
+    lines.append("    object SpreadTargetClass {")
+    for name in sorted(TARGET_CLASS_MAP):
+        lines.append(f"        const val {name} = {TARGET_CLASS_MAP[name]}")
+    lines.append("    }")
+    lines.append("")
+    lines.append("    /**")
+    lines.append("     * Pinned move ID -> the move's static target class from `gMovesInfo[move].target`,")
+    lines.append("     * as a [SpreadTargetClass] value (exact pinned `enum MoveTarget` number).")
+    lines.append("     * Only spread classes (BOTH=6, FOES_AND_ALLY=11) affect the damage formula;")
+    lines.append("     * every other class fails closed on the consumer side.")
+    lines.append("     */")
+    lines.append("    val targetClassByMoveId: Map<Int, Int> = buildMap {")
+    for move_id in sorted(target_by_id):
+        target_sym = target_by_id[move_id]
+        target_val = TARGET_CLASS_MAP.get(target_sym, 0)
+        lines.append(f"        put({move_id}, SpreadTargetClass.{target_sym}) // pinned enum value {target_val}")
+    lines.append("    }")
     lines.append("}")
     lines.append("")
     return "\n".join(lines)
@@ -329,8 +406,8 @@ def main():
 
     upstream_dir = find_upstream_dir(args.upstream_dir)
     verify_git_commit(upstream_dir)
-    effect_by_id, ordinary, unresolved = build_maps(upstream_dir)
-    generated = generate_kotlin(effect_by_id, ordinary)
+    effect_by_id, target_by_id, ordinary, unresolved = build_maps(upstream_dir)
+    generated = generate_kotlin(effect_by_id, target_by_id, ordinary)
 
     if args.verify:
         if not os.path.isfile(args.output):

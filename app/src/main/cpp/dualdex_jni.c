@@ -793,6 +793,16 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
 }
 
 /**
+ * The tuple length of the native battler-runtime-state flat tuple.
+ *
+ * Centralized so JNI (nativeReadBattlerRuntimeState), the Kotlin decoder
+ * (HnsBattlerRuntimeState.fromNativeArray), and the capability policy can
+ * never silently drift apart.  Every public surface that touches this tuple
+ * references BATTLER_RUNTIME_STATE_TUPLE_LEN instead of a local literal.
+ */
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 42
+
+/**
  * Live battler ability + effective types + current held item for one authoritative
  * active H&S 2.0.5 battler, as a typed flat tuple.
  *
@@ -802,7 +812,17 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * [10..12] raw type values, [13] itemObserved, [14] itemInvalid, [15] item id,
  * [16] statsObserved, [17..21] raw atk, def, spe, spa, spd,
  * [22] stagesObserved, [23..30] stat stages, [31] badgesObserved,
- * [32..36] badge boost atk, def, spe, spa, spd, [37] raw badges byte.
+ * [32..36] badge boost atk, def, spe, spa, spd, [37] raw badges byte,
+ * [38] absentBattlerFlags flags (0 when not readable, possibly unreliable),
+ * [39] absentFlagsReadable (1 when the absent_flags field was actually read,
+ * 0 for both 'no absent battlers' and 'unreadable'),
+ * [40] battlersCount (gBattlersCount: 2 singles / 4 doubles; 0 when unreadable),
+ * [41] battlersCountReadable (1 when the battlers_count field was actually read,
+ * 0 when it was never read),
+ *         NOTE: absent_flags_readable distinguishes "the read produced 0" from
+ *         "the read never happened" so Kotlin can't conflate 'none absent' with
+ *         'unreadable'. The same rule applies to battlers_count: 0 means
+ *         'unreadable', never 'zero battlers'.
  *
  * A failed/unauthorized read returns status 0 (UNAVAILABLE) with everything else
  * zeroed: the caller must not substitute a declared ability, a party slot or a
@@ -842,7 +862,9 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
         state.party_slot = -1;
     }
 
-    jint values[38] = {0};
+    /* P0 FIX: stack buffer sized to the centralized constant, not 38. */
+    jint values[BATTLER_RUNTIME_STATE_TUPLE_LEN];
+    memset(values, 0, sizeof(values));
     values[0] = (jint)state.status;
     values[1] = (jint)state.battler_index;
     values[2] = (jint)state.party_slot;
@@ -876,10 +898,20 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     values[35] = state.badge_boost_spa ? 1 : 0;
     values[36] = state.badge_boost_spd ? 1 : 0;
     values[37] = (jint)state.raw_badges_byte;
+    values[38] = (jint)state.absent_battler_flags;
+    /* [39] absentFlagsReadable: 1 when the native reader actually read gAbsentBattlerFlags,
+     * 0 when the read never ran or the layout does not declare the field. */
+    values[39] = (state.absent_flags_readable) ? 1 : 0;
+    /* [40]/[41] battlersCount + readability: battle-level gBattlersCount carried
+     * verbatim from the authoritative battle observation. 0 with the readable bit
+     * clear means 'never read'; the count must never be inferred from the game
+     * type (that is topology inference, forbidden by the C4c authority rule). */
+    values[40] = (jint)state.battlers_count;
+    values[41] = (state.battlers_count_readable) ? 1 : 0;
 
-    jintArray result = (*env)->NewIntArray(env, 38);
+    jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;
-    (*env)->SetIntArrayRegion(env, result, 0, 38, values);
+    (*env)->SetIntArrayRegion(env, result, 0, BATTLER_RUNTIME_STATE_TUPLE_LEN, values);
     return result;
 }
 

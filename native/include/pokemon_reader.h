@@ -716,6 +716,10 @@ typedef struct {
     bool     badge_boost_spa;      // Badge 7 (SpA) active for this battler in this battle
     bool     badge_boost_spd;      // Badge 7 (SpD) active for this battler in this battle
     uint8_t  raw_badges_byte;      // verbatim flags[0x10C] byte (SaveBlock1+0x1A98, Attack badge bit 7)
+    uint8_t  absent_battler_flags;  // gAbsentBattlerFlags (0 when not readable)
+    bool     absent_flags_readable; // true when gAbsentBattlerFlags was actually read; false for both 'none absent' and 'unreadable'
+    uint8_t  battlers_count;        // gBattlersCount (0 when not readable)
+    bool     battlers_count_readable; // true when gBattlersCount was actually read
 } BattlerRuntimeState;
 
 /**
@@ -838,6 +842,67 @@ uint8_t pokemon_read_battle_presence_gba(
     const uint8_t* ewram,
     size_t ewram_size,
     const GameMemoryConfig* config
+);
+
+/**
+ * H&S 2.0.5 spread-move target classes, carried with the EXACT values of the
+ * pinned `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
+ *
+ *   TARGET_NONE=0, TARGET_SELECTED=1, TARGET_SMART=2, TARGET_DEPENDS=3,
+ *   TARGET_OPPONENT=4, TARGET_RANDOM=5, TARGET_BOTH=6, TARGET_USER=7,
+ *   TARGET_ALLY=8, TARGET_USER_AND_ALLY=9, TARGET_USER_OR_ALLY=10,
+ *   TARGET_FOES_AND_ALLY=11, TARGET_FIELD=12, TARGET_OPPONENTS_FIELD=13,
+ *   TARGET_ALL_BATTLERS=14.
+ *
+ * These are the internal spread target classes relevant to
+ * `pokemon_compute_hns_target_count`, NOT a renumbered copy of the pinned enum;
+ * the values must stay bit-identical to the pinned enum members so generated
+ * data (Hns205MoveEffects.SpreadTargetClass) and this reader can never drift.
+ *
+ * Used to compute `GetMoveTargetCount(ctx)` from battle state
+ * (`gAbsentBattlerFlags`, `gBattlersCount`, and the attacker/defender battler
+ * indices). Only spread classes are enumerated here; every other class —
+ * including any unknown or unsupported value — fails closed with a count of 0.
+ */
+typedef enum {
+    HNS_MOVE_TARGET_BOTH = 6,
+    HNS_MOVE_TARGET_FOES_AND_ALLY = 11,
+    HNS_MOVE_TARGET_OPPONENTS_FIELD = 13,
+} HnsMoveTargetClass;
+
+/**
+ * Compute the runtime target count for a move in the current H&S 2.0.5 battle,
+ * equivalent to the upstream `GetMoveTargetCount(ctx)` semantics.
+ *
+ * H&S halves a spread move only when the count of currently present targets is
+ * exactly 2 (`B_MULTIPLE_TARGETS_DMG GEN_3`). The count depends on:
+ *   - `gAbsentBattlerFlags`: which battlers are currently absent (fainted/forced-out);
+ *   - the move's static target class (`TARGET_BOTH`, `TARGET_FOES_AND_ALLY`, etc.);
+ *   - the attacker and defender battler indices.
+ *
+ * For the supported ordinary EFFECT_HIT subset, the target class is purely static:
+ * `GetBattlerMoveTargetType` only adds dynamic overrides for EFFECT_CURSE (non-Ghost
+ * -> TARGET_USER), CanBattlerHitBothFoesInTerrain, and EFFECT_TERA_STARSTORM -- none
+ * of which apply to EFFECT_HIT.
+ *
+ * @param absent_battler_flags  gAbsentBattlerFlags (1 byte from EWRAM)
+ * @param battlers_count        gBattlersCount (2 for singles, 4 for doubles)
+ * @param attacker_battler      the attacking battler's gBattleMons index
+ * @param defender_battler      the defending battler's gBattleMons index
+ * @param move_target_class     the move's static target class (from gMovesInfo[move].target),
+ *                              as one of the HnsMoveTargetClass spread values
+ * @return the number of present targets, or 0 when the inputs are insufficient
+ *         (invalid battler count or out-of-range battler indices) or the target
+ *         class is not a supported spread class (fail-closed). In particular a
+ *         single-target class such as TARGET_SELECTED never yields a count here:
+ *         the boundary refuses to assert "1" without authoritative state.
+ */
+uint8_t pokemon_compute_hns_target_count(
+    uint8_t absent_battler_flags,
+    uint8_t battlers_count,
+    uint8_t attacker_battler,
+    uint8_t defender_battler,
+    uint8_t move_target_class
 );
 
 #ifdef __cplusplus

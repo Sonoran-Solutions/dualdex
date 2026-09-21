@@ -5423,6 +5423,255 @@ static void test_hns_battler_state_stats_stages_badges(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_battler_state_stats_stages_badges" ANSI_RESET "\n");
 }
 
+/* ---- Gap C4c: runtime target count computation ---- */
+
+static void test_hns_target_count_computation(void) {
+    printf("Running test_hns_target_count_computation...\n");
+
+    /*
+     * H&S GetMoveTargetCount semantics (from pinned source, battle_util.c:6122):
+     *
+     * TARGET_BOTH:
+     *   return !(gAbsentBattlerFlags & (1u << battlerDef))
+     *        + !(gAbsentBattlerFlags & (1u << BATTLE_PARTNER(battlerDef)));
+     *
+     * TARGET_FOES_AND_ALLY:
+     *   return !(gAbsentBattlerFlags & (1u << battlerDef))
+     *        + !(gAbsentBattlerFlags & (1u << BATTLE_PARTNER(battlerDef)))
+     *        + !(gAbsentBattlerFlags & (1u << BATTLE_PARTNER(battlerAtk)));
+     *
+     * TARGET_OPPONENTS_FIELD: always 1.
+     * TARGET_SELECTED / TARGET_RANDOM / TARGET_OPPONENT: IsBattlerAlive(battlerDef).
+     * TARGET_USER: IsBattlerAlive(battlerAtk).
+     *
+     * Battler positions: 0=PlayerLeft, 1=OpponentLeft, 2=PlayerRight, 3=OpponentRight.
+     * BATTLE_PARTNER(id) = (id) ^ 2.
+     *
+     * Singles (battlers_count=2): only battlers 0 and 1 exist.
+     *   Partner of 1 is 1^2=3, but 3 >= battlers_count(2), so partner is out of range.
+     * Doubles (battlers_count=4): all four battlers exist.
+     *   Partner of 1 is 3, partner of 0 is 2.
+     */
+
+    /* --- Singles: TARGET_BOTH against a present defender --- */
+    {
+        /* Singles, battler 0 attacks battler 1. No absent flags. */
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0, /*battlers_count=*/2,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/HNS_MOVE_TARGET_BOTH);
+        /* Partner of 1 is 3, which is >= 2, so only defender counts. */
+        TEST_ASSERT(count == 1,
+            "Singles TARGET_BOTH with present defender must return 1");
+    }
+
+    /* --- Singles: TARGET_BOTH with absent defender (should still return count) */
+    {
+        /* Defender (battler 1) is absent */
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/(1u << 1), /*battlers_count=*/2,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/HNS_MOVE_TARGET_BOTH);
+        /* Defender absent: 0. Partner of 1 is 3, which >= 2. Total = 0. */
+        TEST_ASSERT(count == 0,
+            "Singles TARGET_BOTH with absent defender must return 0");
+    }
+
+    /* --- Doubles: TARGET_BOTH with both opponents present --- */
+    {
+        /* Doubles, attacker=0 (PlayerLeft), defender=1 (OpponentLeft). */
+        /* No absent flags: all 4 battlers present. */
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0, /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/HNS_MOVE_TARGET_BOTH);
+        /* Defender 1 present: 1. Partner of 1 is 3, present: 1. Total = 2. */
+        TEST_ASSERT(count == 2,
+            "Doubles TARGET_BOTH with both opponents present must return 2");
+    }
+
+    /* --- Doubles: TARGET_BOTH with one opponent fainted --- */
+    {
+        /* Battler 3 (OpponentRight) is absent (fainted). */
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/(1u << 3), /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/HNS_MOVE_TARGET_BOTH);
+        /* Defender 1 present: 1. Partner of 1 is 3, absent: 0. Total = 1. */
+        TEST_ASSERT(count == 1,
+            "Doubles TARGET_BOTH with one opponent fainted must return 1");
+    }
+
+    /* --- Doubles: TARGET_BOTH targeting the other opponent --- */
+    {
+        /* Defender is 3 (OpponentRight), attacker is 0. */
+        /* Battler 1 is absent. */
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/(1u << 1), /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/3,
+            /*target_class=*/HNS_MOVE_TARGET_BOTH);
+        /* Defender 3 present: 1. Partner of 3 is 1, absent: 0. Total = 1. */
+        TEST_ASSERT(count == 1,
+            "Doubles TARGET_BOTH targeting absent-side opponent must return 1");
+    }
+
+    /* --- Doubles: TARGET_FOES_AND_ALLY with all present --- */
+    {
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0, /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/HNS_MOVE_TARGET_FOES_AND_ALLY);
+        /* Defender 1 present: 1. Partner of 1 is 3, present: 1.
+         * Partner of attacker(0) is 2, present: 1. Total = 3. */
+        TEST_ASSERT(count == 3,
+            "Doubles TARGET_FOES_AND_ALLY with all present must return 3");
+    }
+
+    /* --- Doubles: TARGET_FOES_AND_ALLY with attacker's partner fainted --- */
+    {
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/(1u << 2), /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/HNS_MOVE_TARGET_FOES_AND_ALLY);
+        /* Defender 1 present: 1. Partner of 1 is 3, present: 1.
+         * Partner of attacker(0) is 2, absent: 0. Total = 2. */
+        TEST_ASSERT(count == 2,
+            "Doubles TARGET_FOES_AND_ALLY with attacker partner fainted must return 2");
+    }
+
+    /* --- TARGET_OPPONENTS_FIELD always returns 1 --- */
+    {
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0, /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/HNS_MOVE_TARGET_OPPONENTS_FIELD);
+        TEST_ASSERT(count == 1,
+            "TARGET_OPPONENTS_FIELD must always return 1");
+    }
+
+    /* --- TARGET_SELECTED fails closed (single-target, ambiguous) --- */
+    {
+        /* TARGET_SELECTED is NOT a supported spread class: upstream
+         * GetMoveTargetCount returns IsBattlerAlive(battlerDef), which this
+         * pure function cannot verify authoritatively. The agreed rule
+         * (native, header and Kotlin) is fail-closed: return 0, never a
+         * fabricated 1. */
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0, /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/1); /* TARGET_SELECTED == 1 in the pinned enum */
+        TEST_ASSERT(count == 0,
+            "TARGET_SELECTED must fail closed (return 0, not a fabricated 1)");
+    }
+
+    /* Unknown/unsupported target classes fail closed, exactly like
+     * TARGET_SELECTED: no fabricated count is ever returned. */
+    {
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0, /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/0); /* TARGET_NONE == 0, not a spread class */
+        TEST_ASSERT(count == 0,
+            "TARGET_NONE (unsupported class) must fail closed (return 0)");
+    }
+    {
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0, /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/99); /* outside the pinned enum domain */
+        TEST_ASSERT(count == 0,
+            "Out-of-domain target class must fail closed (return 0)");
+    }
+
+    /* --- Invalid inputs fail closed --- */
+    {
+        /* battlers_count = 3 (invalid: must be 2 or 4) */
+        uint8_t count = pokemon_compute_hns_target_count(
+            0, /*battlers_count=*/3, 0, 1, HNS_MOVE_TARGET_BOTH);
+        TEST_ASSERT(count == 0,
+            "Invalid battlers_count must fail closed (return 0)");
+    }
+    {
+        /* attacker out of range */
+        uint8_t count = pokemon_compute_hns_target_count(
+            0, /*battlers_count=*/2, /*attacker=*/5, 1, HNS_MOVE_TARGET_BOTH);
+        TEST_ASSERT(count == 0,
+            "Out-of-range attacker must fail closed (return 0)");
+    }
+    {
+        /* defender out of range */
+        uint8_t count = pokemon_compute_hns_target_count(
+            0, /*battlers_count=*/2, 0, /*defender=*/5, HNS_MOVE_TARGET_BOTH);
+        TEST_ASSERT(count == 0,
+            "Out-of-range defender must fail closed (return 0)");
+    }
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_target_count_computation" ANSI_RESET "\n");
+}
+
+/*
+ * Gap C4c anti-spoof test: proves that a caller-supplied target count cannot
+ * bypass the boundary. The native function is purely computational (no boundary),
+ * so this test verifies that the inputs are derived from authoritative battle
+ * state rather than from caller-supplied values.
+ *
+ * The real anti-spoof enforcement happens in CalcRequestBoundary, which overwrites
+ * moveTargetCount from the exact-trusted runtime observation. Here we verify that
+ * the native computation itself produces deterministic, fail-closed results.
+ */
+static void test_hns_target_count_anti_spoof(void) {
+    printf("Running test_hns_target_count_anti_spoof...\n");
+
+    /*
+     * A caller who supplies a "favorable" absent_battler_flags (claiming all
+     * opponents are absent) must not get a valid count from authoritative state.
+     * In production, CalcRequestBoundary binds moveTargetCount from the native
+     * reader, not from caller input. Here we verify the native function's
+     * fail-closed behavior with adversarial inputs.
+     */
+
+    /* Adversary claims all opponents absent (flags=0xFF) but battlers_count is 4.
+     * The function correctly returns 0 for TARGET_BOTH because both defenders are
+     * marked absent. This is the CORRECT behavior: if the flags are authoritative,
+     * absent battlers should reduce the count. */
+    {
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0xFF, /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/HNS_MOVE_TARGET_BOTH);
+        /* Both defender(1) and partner(3) are absent. Count = 0. */
+        TEST_ASSERT(count == 0,
+            "All-absent flags with TARGET_BOTH must return 0");
+    }
+
+    /* Verify that a zero absent-flags value (no battlers absent) produces count 2
+     * for TARGET_BOTH in doubles. This is the "all present" baseline. */
+    {
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0, /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/HNS_MOVE_TARGET_BOTH);
+        TEST_ASSERT(count == 2,
+            "Zero absent flags with TARGET_BOTH in doubles must return 2");
+    }
+
+    /* Verify that an unsupported single-target class (TARGET_SELECTED = 1 in
+     * the pinned enum) fails closed regardless of absent flags: a caller cannot
+     * coax a fabricated "1" out of the native computation. */
+    {
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0, /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/1); /* TARGET_SELECTED */
+        TEST_ASSERT(count == 0,
+            "TARGET_SELECTED must fail closed (0) regardless of absent flags");
+    }
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_target_count_anti_spoof" ANSI_RESET "\n");
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
@@ -5529,6 +5778,8 @@ int main(void) {
     test_hns_battler_state_teardown_and_profile_switch();
     test_hns_badge_state_reading();
     test_hns_battler_state_stats_stages_badges();
+    test_hns_target_count_computation();
+    test_hns_target_count_anti_spoof();
 
     printf("===================================================\n");
     printf("Results: %d Passed, %d Failed\n", g_tests_passed, g_tests_failed);

@@ -7,12 +7,7 @@ walk DOWN 2
 walk LEFT 14
 walk DOWN 3
 walk LEFT 1
-hunt 200
-wait 300
-assert-battle active
-assert-battle-kind WILD_SINGLE
-party-stats player
-party-stats enemy
-golden-state A-before
-damage-probe 33 3
-golden-state A-after
+# Golden A: Chikorita L5 (Atk 12) Tackle vs a wild Pidgey with live Def 7. The wild encounter
+# and its stats are RNG; the command flees non-matching encounters so the attacker stays L5 and the
+# documented roll range stays 5..7, and it stops with exit 0 on the asserted non-fatal hit.
+golden-grind 0 33 33 16 7 6 6 1 5 60

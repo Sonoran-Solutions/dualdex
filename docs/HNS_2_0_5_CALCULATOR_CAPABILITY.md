@@ -1318,7 +1318,7 @@ ordinary `EFFECT_HIT` subset:
 | `GetTargetDamageModifier` (spread reduction) | `battle_util.c:7403` | Depends on `GetMoveTargetCount(ctx)`; the target-count authority exists but production Doubles is blocked (§13.6). Singles is always 1.0. |
 | `GetParentalBondModifier` | `battle_util.c:7415` | Only reachable via the Parental Bond ability (unclassified); ability gate refuses it. |
 | `GetWeatherDamageModifier` | `battle_util.c:7434` | Rain/Sun carried by `request.field.weather`; any other weather is refused by `hnsModifierOrderDiverges`. |
-| `GetCriticalModifier` | `battle_util.c:7474` | Carried by `request.move.isCrit`; **runtime validated** (golden E). |
+| `GetCriticalModifier` | `battle_util.c:7474` | Carried by `request.move.isCrit`; **runtime observed (indirect)** (golden E: the crit bit was not read directly and the faint caps the exact roll). |
 | `GetGlaiveRushModifier` | `battle_util.c:7481` | Defender `volatiles.glaiveRush`, type-agnostic ×2. Unread → **FAIL CLOSED**. |
 | `GetSameTypeAttackBonusModifier` | `battle_util.c:7422` | Attacker types are observed; `Adaptability` is unclassified and refused. |
 | `ctx->typeEffectivenessModifier` | type chart | Handled by the exact H&S chart (Gap C1); **runtime validated** (golden B). |
@@ -1348,16 +1348,22 @@ active battle.
 
 The goldens were produced with `tools/hns-runtime-probe` on the official H&S 2.0.5 release ROM,
 using only ordinary controller input. The full records, operands and reproduction steps are in
-`tools/hns-runtime-probe/evidence/` (`rom-damage-goldens.json`, `README.md`, and the three probe
-logs). The host half lives in `native/tests/test_js_calc.c` (`check_gap_c4d_rom_damage_goldens`) and
-runs in `./ci.sh test`.
+`tools/hns-runtime-probe/evidence/` (`rom-damage-goldens.json`, `README.md`, and the four probe
+logs). Each evidence run prints the SHA-256 of the ROM file it actually loaded
+(`[ROM] path=... sha256=... loaded=1`), so the committed logs are bound to the same bytes the JSON
+records (`rom.sha256`, and a per-golden `rom_sha256`); that is evidence bookkeeping only and does
+not promote the product trust hash (§13.7). The direct goldens are captured by the `golden-grind`
+command: it is permissive about the RNG grind but exits 0 only on one machine-asserted
+`[GOLDEN-HIT] PASS` hit satisfying the live species, live raw Defense, attacker level and exact
+damage, and never on a fainting target. The host half lives in `native/tests/test_js_calc.c`
+(`check_gap_c4d_rom_damage_goldens`) and runs in `./ci.sh test`.
 
 | Golden | Move / setup | Observed ROM damage | DualDex rolls | Result |
 |---|---|---|---|---|
-| A — neutral ordinary | Chikorita L5 Tackle vs Pidgey L3 (Def 7) | 6 (16→10) | 5..7 | RUNTIME VERIFIED |
-| B — STAB + type resistance | Chikorita L6 Razor Leaf vs Pidgey (Def 7, Normal/Flying) | 6 (14→8) | 6..7 | RUNTIME VERIFIED |
-| C — live non-neutral stat stage | Totodile L5 Leer (Def −1) then Scratch vs Pidgey (Def 6) | 10 (13→3) | 9..11 | RUNTIME VERIFIED |
-| E — critical hit (indirect) | Chikorita L5 Tackle, critical | ≥10 (10→0) | non-crit max 7; crit 11..14 | RUNTIME OBSERVED (indirect; the faint caps the exact roll) |
+| A — neutral ordinary | Chikorita L5 Tackle vs Pidgey L3 (Def 7) | 6 (15→9) | 5..7 | RUNTIME VERIFIED (direct roll golden) |
+| B — STAB + type resistance | Chikorita L6 Razor Leaf vs Pidgey L3 (Def 7, Normal/Flying) | 6 (15→9) | 6..7 | RUNTIME VERIFIED (direct roll golden) |
+| C — live non-neutral stat stage | Totodile L5 Leer (Def −1) then Scratch vs Pidgey L2 (Def 6) | 10 (13→3) | 9..11 | RUNTIME VERIFIED (direct roll golden) |
+| E — critical hit (indirect) | Chikorita L5 Tackle, critical | ≥10 (10→0) | non-crit max 7; crit 11..14 | RUNTIME OBSERVED (indirect; the faint caps the exact roll). **Not** one of the A/B/C direct roll goldens |
 | D — badge boost | — | — | — | NOT VALIDATED: no badge is reachable from the fresh-starter progression used here. Retained as an explicit blocker; not overclaimed. |
 | F — new volatile reader | — | — | — | NOT CLAIMED: no new reader was added, so no positive runtime fixture exists. |
 | G — Doubles | — | — | — | DEFERRED: production Doubles remains blocked (§13.6). |
@@ -1416,5 +1422,5 @@ promote yet. C4d is therefore a successful **evidence** slice, not a production-
 |---|---|---|
 | SOURCE VERIFIED | Established from pinned H&S 2.0.5 source | ✅ Full `SetTypeBeforeUsingMove` / `GetDynamicMoveType` / `DoMoveDamageCalcVars` / `GetOtherModifiers` audit (§§13.2-13.3). |
 | HOST VERIFIED | DualDex/QuickJS agrees with the independent oracle | ✅ C4a/C4b/C4c fixtures unchanged; **new** `check_gap_c4d_rom_damage_goldens` asserts engine == oracle for every golden operand. |
-| RUNTIME VERIFIED | Observed on the official H&S 2.0.5 release ROM | ✅ Golden A (neutral), Golden B (STAB + resistance), Golden C (live stat stage); Golden E critical observed indirectly. |
+| RUNTIME VERIFIED | Observed on the official H&S 2.0.5 release ROM | ✅ Direct roll goldens A (neutral), B (STAB + resistance), C (live stat stage). Golden E is RUNTIME OBSERVED (indirect) only and is **not** counted with the direct roll goldens. |
 | PRODUCTION AUTHORIZED | All operands boundary-owned and proven | ❌ None — see §13.8. |

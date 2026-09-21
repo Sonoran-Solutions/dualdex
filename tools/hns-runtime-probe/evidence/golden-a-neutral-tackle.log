@@ -2,8 +2,10 @@
 core   : /home/dq/Projects/upstream-hns/mgba-host/mgba_libretro.so
 rom    : /home/dq/Downloads/Pokémon Heart and Soul (v2.0.5).gba
 save   : .scratch/hns205.sav
-script : .scratch/golden-a2.txt
+script : tools/hns-runtime-probe/scenarios/60-golden-a-neutral.txt
 layout : playerParty=0x34764 playerPartyCount=0x342A4 enemyParty=0x342B4 enemyPartyCount=0x342A5 battleMons=0x420 battlersCount=0xB0 battleTypeFlags=0xAC outcome=0x12C partyIndexes=0x144 positions=0x238 absentFlags=0x30A gMain=0x03005BD8+0x439 bit 1
+rom sha256 : edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+[ROM] path=/home/dq/Downloads/Pokémon Heart and Soul (v2.0.5).gba sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b loaded=1
 
 -- memory regions after load: 0 --
 save RAM size: 131072 bytes
@@ -17,37 +19,75 @@ battery save load: OK
   1587  INITIALIZING UNKNOWN   UNKNOWN  inB=true  bat=0 flags=0x00000000 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=0,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=0,0,0,0
   1589  INITIALIZING UNKNOWN   UNKNOWN  inB=true  bat=0 flags=0x00000004 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=0,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=0,0,0,0
   1590  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=0,0,0,0 eParty=1/1 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=0,0,0,0
-  [hunt] ENCOUNTER after 6 iterations
-  1615  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=20,16,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
-  [assert] battle=active OK (frame 1903)
-  [assert] battleKind=WILD_SINGLE OK (frame 1903)
-  [party-stats] side=player count=1 activeSlot=0 activeKnown=1 activeBattler=0 ambiguous=0 at frame 1903
-  [party-stats]   slot 0 species=152 lvl=5 hp=20/20 atk=12 def=12 spe=8 spa=11 spd=11 nature=2 hiddenNature=2(+0) ivs=27/24/19/4/29/2 evs=0/0/0/0/0/0 moves=33,45,0,0
-  [party-stats] side=enemy count=1 activeSlot=0 activeKnown=1 activeBattler=1 ambiguous=0 at frame 1903
-  [party-stats]   slot 0 species=16 lvl=3 hp=16/16 atk=8 def=7 spe=8 spa=8 spd=7 nature=18 hiddenNature=18(+0) ivs=30/30/15/16/30/23 evs=0/0/0/0/0/0 moves=33,64,0,0
-[GOLDEN] label=A-before frame=1903 lifecycle=ACTIVE kind=WILD_SINGLE battlers=2 absent=0x00 presence=PRESENT playerParty=1 enemyParty=1
+  1615  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=20,13,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [golden-grind] encounter 0 frame=1615 kind=WILD_SINGLE species=16 def=6 golden=0
+  2033  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  2061  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  2100  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [golden-grind] encounter 0 ended without a usable golden hit
+  2249  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000000 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  2348  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000000 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  2350  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  2351  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  2369  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/1 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  2376  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,161,0,0 hp=20,15,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [golden-grind] encounter 1 frame=2376 kind=WILD_SINGLE species=161 def=7 golden=0
+  2794  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,161,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  2822  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  2861  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [golden-grind] encounter 1 ended without a usable golden hit
+  3138  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000000 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  3237  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000000 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  3239  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  3240  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  3258  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/1 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  3265  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,19,0,0 hp=20,13,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [golden-grind] encounter 2 frame=3265 kind=WILD_SINGLE species=19 def=5 golden=0
+  3683  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,19,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  3711  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  3750  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [golden-grind] encounter 2 ended without a usable golden hit
+  3955  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000000 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4054  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000000 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4056  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4057  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4075  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/1 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4082  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=20,15,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [golden-grind] encounter 3 frame=4082 kind=WILD_SINGLE species=16 def=6 golden=0
+  4500  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4528  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4567  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [golden-grind] encounter 3 ended without a usable golden hit
+  4788  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000000 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4887  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000000 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4889  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4890  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4908  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,15,0,0 eParty=1/1 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4915  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,19,0,0 hp=20,13,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [golden-grind] encounter 4 frame=4915 kind=WILD_SINGLE species=19 def=6 golden=0
+  5333  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,19,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  5361  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  5400  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [golden-grind] encounter 4 ended without a usable golden hit
+  5633  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000000 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  5732  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000000 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  5734  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  5735  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  5753  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=20,13,0,0 eParty=1/1 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  5760  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=20,15,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [golden-grind] encounter 5 frame=5760 kind=WILD_SINGLE species=16 def=7 golden=1
+  6294  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=14,15,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  6469  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=14,9,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+[GOLDEN] label=grind-hit frame=6468 lifecycle=ACTIVE kind=WILD_SINGLE battlers=2 absent=0x00 presence=PRESENT playerParty=1 enemyParty=1
 [GOLDEN] side=player battler=0 partySlot=0 status=2 ability=65 abilityObs=1 types=13,13,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=12 def=12 spe=8 spa=11 spd=11 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=1 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
-[GOLDEN] side=player species=152 hp=20 maxHP=20 moves=33,45,0,0 partyIndex=0
-[GOLDEN] side=enemy battler=1 partySlot=0 status=2 ability=51 abilityObs=1 types=1,3,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=8 def=7 spe=8 spa=8 spd=7 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
-[GOLDEN] side=enemy species=16 hp=16 maxHP=16 moves=33,64,0,0 partyIndex=0
-  [damage-probe] move=33 maxTurns=3 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=SLOT slot=0 battler=1 at frame 1903
-  [damage-probe] opponent battler=1 species=16 hp=16/16
-  2260  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=20,10,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
-  [damage-probe] turn=1 battler=1 species=16 hp 16 -> 10 (delta 6 of maxHP 16) faint=no crit=UNKNOWN frame=2260
-  2403  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=14,10,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
-  2622  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=14,0,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=1 pParty=1 pSlot=0/1 st0=6,6,6,6
-  [damage-probe] turn=2 battler=1 species=16 hp 10 -> 0 (delta 10 of maxHP 16) faint=YES crit=UNKNOWN frame=2622
-  2826  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=14,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
-  2837  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=14,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
-  2875  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=14,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
-  [damage-probe] battle ended after 2 turns (frame 2875)
-[GOLDEN] label=A-after frame=2875 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
-[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
-[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=player species=152 hp=14 maxHP=20 moves=33,45,0,0 partyIndex=0
+[GOLDEN] side=enemy battler=1 partySlot=0 status=2 ability=77 abilityObs=1 types=1,3,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=8 def=7 spe=9 spa=7 spd=7 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=enemy species=16 hp=15 maxHP=15 moves=33,64,0,0 partyIndex=0
+[GOLDEN-HIT] PASS setup=0 move=33 attackerSpecies=152 attackerLevel=5 defenderSpecies=16 defenderLevel=3 defenderHpMax=15 defenderDef=7 defenderDefStage=0 hpBefore=15 hpAfter=9 damage=6 frame=6469
 
 -- summary --
-frames run                    : 2875
-frames checked                : 2875
+frames run                    : 6469
+frames checked                : 6469
 runtime invariant violations  : 0
 script errors                 : 0
 script runner status          : ok

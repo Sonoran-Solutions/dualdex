@@ -3051,15 +3051,20 @@ contract is unchanged.
 ### Official-ROM goldens (RUNTIME VERIFIED)
 
 Full reproduction steps and the machine-readable record are in
-`tools/hns-runtime-probe/evidence/` (`rom-damage-goldens.json`, `README.md`, and three probe logs).
-All runs used ordinary controller input only; no RAM writes, no save states, no cheats.
+`tools/hns-runtime-probe/evidence/` (`rom-damage-goldens.json`, `README.md`, and four probe logs).
+All runs used ordinary controller input only; no RAM writes, no save states, no cheats. The direct
+goldens are captured by the `golden-grind` command, which is permissive about the RNG grind but
+stops with exit 0 only on one machine-asserted `[GOLDEN-HIT] PASS` hit (live species, live raw
+Defense, attacker level and exact damage; never a fainting target). Each run prints the SHA-256 of
+the ROM file it actually loaded, so raw log -> exact SHA -> evidence JSON -> host oracle is closed;
+that is evidence bookkeeping only and does not promote the product trust hash.
 
 | Golden | Scenario | Observed ROM damage | DualDex rolls | Verdict |
 |---|---|---|---|---|
-| A neutral ordinary | `scenarios/60-golden-a-neutral.txt` | Chikorita L5 Tackle vs Pidgey L3 → **6** (16→10) | 5..7 | RUNTIME VERIFIED |
-| B STAB + resistance | `scenarios/62-golden-b-stab-grind.txt` | Chikorita L6 Razor Leaf vs Pidgey (Normal/Flying) → **6** (14→8) | 6..7 | RUNTIME VERIFIED |
-| C live stat stage | `scenarios/61-golden-c-stat-stage.txt` | Totodile L5 Leer (Def −1) then Scratch vs Pidgey (Def 6) → **10** (13→3) | 9..11 | RUNTIME VERIFIED |
-| E critical (indirect) | same as A | second Tackle took 10 HP → 0; non-crit max is 7 | non-crit 5..7; crit 11..14 | RUNTIME OBSERVED (indirect) |
+| A neutral ordinary | `scenarios/60-golden-a-neutral.txt` | Chikorita L5 Tackle vs Pidgey L3 (Def 7) → **6** (15→9) | 5..7 | RUNTIME VERIFIED (direct roll golden) |
+| B STAB + resistance | `scenarios/62-golden-b-stab-grind.txt` | Chikorita L6 Razor Leaf vs Pidgey L3 (Def 7, Normal/Flying) → **6** (15→9) | 6..7 | RUNTIME VERIFIED (direct roll golden) |
+| C live stat stage | `scenarios/61-golden-c-stat-stage.txt` | Totodile L5 Leer (Def −1) then Scratch vs Pidgey L2 (Def 6) → **10** (13→3) | 9..11 | RUNTIME VERIFIED (direct roll golden) |
+| E critical (indirect) | `evidence/golden-e-crit-indirect.log` (preserved original A capture) | second Tackle took 10 HP → 0; non-crit max is 7 | non-crit 5..7; crit 11..14 | RUNTIME OBSERVED (indirect) — **not** one of the A/B/C direct roll goldens |
 | D badge boost | — | — | — | NOT VALIDATED (no badge reachable from the fresh-starter progression) |
 | F new volatile reader | — | — | — | NOT CLAIMED (no reader added) |
 | G Doubles | — | — | — | DEFERRED (production still BLOCKED) |
@@ -3076,16 +3081,17 @@ All runs used ordinary controller input only; no RAM writes, no save states, no 
 Golden C additionally requires the stage-0 oracle (6..8) to exclude the observed 10, so a
 regression that ignored the live Defense stage fails. Golden B additionally asserts that neither the
 no-STAB reading (4..5) nor the no-resistance reading (12..15) contains the observed 6. Golden E
-asserts the non-critical maximum (7) is below the observed 10-HP drop and that the critical range
-(11..14) can account for it.
+asserts the non-critical maximum (7) is below the observed 10-HP drop, that the critical range
+(11..14) can account for it, and the stronger faint-cap relation: the 10 HP remaining is no more
+than the minimum critical roll (11), so the faint cannot have come from a below-range critical.
 
 ### Mutation control
 
 The highest-risk new assertion is "the live stat stage is material". Mutating the Golden C request's
 defender stage from `-1` to `0` (leaving everything else identical) produced exactly two failures —
 `Golden C engine matches the independent oracle` and `Golden C ROM damage 10 is a valid H&S roll` —
-and the suite dropped from `2004 passed, 0 failed` to `2002 passed, 2 failed`. The mutation was
-reverted and the suite returned to `2004 passed, 0 failed`.
+and the suite dropped from `2005 passed, 0 failed` to `2003 passed, 2 failed`. The mutation was
+reverted and the suite returned to `2005 passed, 0 failed`.
 
 ### Trust / hash decision
 
@@ -3093,7 +3099,10 @@ The exact H&S 2.0.5 ROM SHA-256 observed during these runs was **not** added to
 `app/src/main/assets/profiles/heart_and_soul.json`. `sha256Hashes` stays empty,
 `battleUiVerified` and `interactiveControlsVerified` stay `false`, and `mayReadLiveMemory` stays
 false. The goldens were produced by a developer-only probe that runs outside the product trust
-model. Hash promotion remains an issue-#40 closure decision.
+model. The probe does print the loaded ROM's SHA-256 into each run log (`[ROM] ... sha256=...`),
+and `rom-damage-goldens.json` records it per golden, but that is evidence bookkeeping only: it
+does not touch `RuntimeRomTrust` and is not a trust promotion. Hash promotion remains an issue-#40
+closure decision.
 
 ### Production promotion status
 
@@ -3107,6 +3116,6 @@ OPEN**.
 
 - Native reader suite: `87 passed, 0 failed` (unchanged).
 - Pure tracker selftests: `75 passed, 0 failed` (unchanged).
-- QuickJS calculator suite: `2004 passed, 0 failed` (1987 before C4d; 17 new golden checks).
+- QuickJS calculator suite: `2005 passed, 0 failed` (1987 before C4d; 18 new golden checks).
 - Kotlin unit tests: unchanged and green.
 - `./ci.sh all` passes; `git diff --check` passes.

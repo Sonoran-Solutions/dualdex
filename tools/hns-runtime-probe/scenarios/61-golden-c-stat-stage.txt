@@ -7,14 +7,7 @@ walk DOWN 2
 walk LEFT 14
 walk DOWN 3
 walk LEFT 1
-hunt 200
-wait 300
-assert-battle active
-assert-battle-kind WILD_SINGLE
-party-stats player
-party-stats enemy
-golden-state C-before
-damage-probe 43 1
-golden-state C-after-leer
-damage-probe 10 3
-golden-state C-after-scratch
+# Golden C: Totodile L5 (Atk 12) uses Leer once (Def stage -1) then Scratch on a wild Pidgey with
+# live Def 6. The command flees non-matching encounters so the attacker stays L5, uses the setup
+# move once, and stops with exit 0 on the asserted non-fatal hit in 9..11 (stage 0 would be 6..8).
+golden-grind 43 10 10 16 6 10 10 1 5 60

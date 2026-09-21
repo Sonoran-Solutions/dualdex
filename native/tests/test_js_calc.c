@@ -2775,7 +2775,7 @@ static void check_gap_c4d_rom_damage_goldens(void) {
      * ROM record: scenarios/golden-a; starter Chikorita L5 (Atk 12) used Tackle (Normal, 40 BP,
      * physical) on a wild Pidgey L3 (Def 7, Normal/Flying). No STAB (Grass attacker), no type
      * modifier (Normal vs Normal/Flying = 1.0), no stages, no badges, no weather/screen/burn.
-     * Observed non-fainting hit: 6 damage (16 -> 10 HP). A hit that faints the target is excluded.
+     * Observed non-fainting hit: 6 damage (15 -> 9 HP). A hit that faints the target is excluded.
      *
      * base = floor(floor(floor(2*5/5+2) * 40 * 12 / 7) / 50) + 2 = floor(274/50) + 2 = 7
      * rolls(85..100) = floor(7*r/100) -> 5..7; the observed 6 is roll 86-99.
@@ -2789,7 +2789,7 @@ static void check_gap_c4d_rom_damage_goldens(void) {
             "\"statStages\":[0,0,0,0,0,0,0,0]},"
             "\"defender\":{\"species\":\"Pidgey\",\"level\":3,\"ability\":\"(other)\","
             "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]},"
-            "\"rawStats\":{\"attack\":8,\"defense\":7,\"speed\":8,\"spAttack\":8,\"spDefense\":7},"
+            "\"rawStats\":{\"attack\":8,\"defense\":7,\"speed\":9,\"spAttack\":7,\"spDefense\":7},"
             "\"statStages\":[0,0,0,0,0,0,0,0]},"
             "\"move\":{\"name\":\"Tackle\",\"overrides\":{\"basePower\":40,\"type\":\"Normal\",\"category\":\"Physical\"}},"
             "\"field\":{\"gameType\":\"Singles\"}}";
@@ -2806,11 +2806,11 @@ static void check_gap_c4d_rom_damage_goldens(void) {
 
     /* Golden B — STAB and type effectiveness in the same hit.
      *
-     * ROM record: scenarios/golden-b; Chikorita L6 (Atk 13, Grass; 10/23 HP, so Overgrow is below
+     * ROM record: scenarios/golden-b; Chikorita L6 (Atk 13, Grass; 11/23 HP, so Overgrow is above
      * its 1/3-HP pinch threshold and is neutral) used Razor Leaf (Grass, 55 BP, physical) on a wild
      * Pidgey (Def 7, Normal/Flying). Grass is super-effective on nothing here and RESISTED by
      * Flying, so the post-roll chain is STAB x1.5 then type x0.5. Observed non-fainting hit: 6
-     * damage (14 -> 8 HP).
+     * damage (15 -> 9 HP).
      *
      * base = floor(floor(4 * 55 * 13 / 7) / 50) + 2 = floor(408/50) + 2 = 10
      * rolls = 8..10; STAB -> 12..15; type x0.5 -> 6..7. The observed 6 is the low roll.
@@ -2824,9 +2824,9 @@ static void check_gap_c4d_rom_damage_goldens(void) {
             "\"attacker\":{\"species\":\"Chikorita\",\"level\":6,\"ability\":\"(other)\","
             "\"rawStats\":{\"attack\":13,\"defense\":13,\"speed\":9,\"spAttack\":12,\"spDefense\":12},"
             "\"statStages\":[0,0,0,0,0,0,0,0]},"
-            "\"defender\":{\"species\":\"Pidgey\",\"level\":2,\"ability\":\"(other)\","
+            "\"defender\":{\"species\":\"Pidgey\",\"level\":3,\"ability\":\"(other)\","
             "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]},"
-            "\"rawStats\":{\"attack\":7,\"defense\":7,\"speed\":7,\"spAttack\":6,\"spDefense\":6},"
+            "\"rawStats\":{\"attack\":8,\"defense\":7,\"speed\":8,\"spAttack\":7,\"spDefense\":7},"
             "\"statStages\":[0,0,0,0,0,0,0,0]},"
             "\"move\":{\"name\":\"Razor Leaf\",\"overrides\":{\"basePower\":55,\"type\":\"Grass\",\"category\":\"Physical\"}},"
             "\"field\":{\"gameType\":\"Singles\"}}";
@@ -2851,7 +2851,8 @@ static void check_gap_c4d_rom_damage_goldens(void) {
 
     /* Golden E — critical hit, observed INDIRECTLY because the hit fainted the target.
      *
-     * ROM record: scenarios/golden-a; on the second Tackle of the same battle the wild Pidgey went
+     * ROM record: the preserved original Golden A capture (`evidence/golden-e-crit-indirect.log`);
+     * on the second Tackle of that battle the wild Pidgey went
      * from 10 HP to 0. The non-critical maximum for that exact request is 7 (Golden A above), so a
      * non-critical hit cannot account for a full 10-HP drop: the critical modifier (x2 before the
      * roll in H&S) must have applied. The exact critical roll (11..14) is unknowable because the
@@ -2881,6 +2882,10 @@ static void check_gap_c4d_rom_damage_goldens(void) {
             /* Non-crit max was 7 (Golden A); the observed 10-HP drop therefore excludes non-crit. */
             check_condition("Golden E observed 10 exceeds the non-critical maximum 7", 10 > 7);
             check_condition("Golden E crit range can account for the observed 10", 10 <= oracle[15]);
+            /* Stronger faint-cap relation: the remaining HP (10) is itself no more than the minimum
+             * critical roll (11), so the faint could not have come from a below-range critical. */
+            check_condition("Golden E remaining HP 10 is no more than the minimum crit roll 11",
+                            10 <= oracle[0]);
         } else {
             check_condition("Golden E request produced a response", 0);
         }
@@ -2889,7 +2894,7 @@ static void check_gap_c4d_rom_damage_goldens(void) {
     /* Golden C — live non-neutral stat stage.
      *
      * ROM record: scenarios/golden-c; starter Totodile L5 (Atk 12) used Leer (Defense -1) and then
-     * Scratch (Normal, 40 BP, physical) on a wild Pidgey L3 (Def 6, stage -1). The golden-state
+     * Scratch (Normal, 40 BP, physical) on a wild Pidgey L2 (Def 6, stage -1). The golden-state
      * probe record shows the defender's live Defense stage at -1 when Scratch landed.
      * Observed non-fainting hit: 10 damage (13 -> 3 HP).
      *
@@ -2904,9 +2909,9 @@ static void check_gap_c4d_rom_damage_goldens(void) {
             "\"attacker\":{\"species\":\"Totodile\",\"level\":5,\"ability\":\"(other)\","
             "\"rawStats\":{\"attack\":12,\"defense\":13,\"speed\":9,\"spAttack\":9,\"spDefense\":10},"
             "\"statStages\":[0,0,0,0,0,0,0,0]},"
-            "\"defender\":{\"species\":\"Pidgey\",\"level\":3,\"ability\":\"(other)\","
+            "\"defender\":{\"species\":\"Pidgey\",\"level\":2,\"ability\":\"(other)\","
             "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]},"
-            "\"rawStats\":{\"attack\":7,\"defense\":6,\"speed\":6,\"spAttack\":6,\"spDefense\":7},"
+            "\"rawStats\":{\"attack\":7,\"defense\":6,\"speed\":7,\"spAttack\":5,\"spDefense\":6},"
             "\"statStages\":[0,0,-1,0,0,0,0,0]},"
             "\"move\":{\"name\":\"Scratch\",\"overrides\":{\"basePower\":40,\"type\":\"Normal\",\"category\":\"Physical\"}},"
             "\"field\":{\"gameType\":\"Singles\"}}";

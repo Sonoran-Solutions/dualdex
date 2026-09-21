@@ -6,8 +6,8 @@ This is the authoritative source-check for the runtime readers added in C4e:
   * `struct BattlePokemon` HP / maxHP / status1 offsets and widths;
   * the byte offset of `struct BattlePokemon.volatiles` and the exact bit
     position of the damage-relevant volatile booleans the ordinary subset
-    needs (`electrified`, `glaiveRush`) plus the two excluded by the move
-    allow-list (`minimize`, `semiInvulnerable`);
+    needs (`electrified`, `glaiveRush`, `chargeTimer`, `tarShot`) plus the two
+    excluded by the move allow-list (`minimize`, `semiInvulnerable`);
   * the offset of `struct BattleStruct.gimmick` and of
     `struct BattleGimmickData.activeGimmick`, plus its side/party strides.
 
@@ -113,6 +113,8 @@ def build_probe_c() -> str:
             "const struct Volatiles ddx_v_glaive_rush = { .glaiveRush = 1 };",
             "const struct Volatiles ddx_v_minimize = { .minimize = 1 };",
             "const struct Volatiles ddx_v_semi_invulnerable = { .semiInvulnerable = SEMI_INVULNERABLE_COUNT };",
+            "const struct Volatiles ddx_v_charge_timer = { .chargeTimer = 7 };",
+            "const struct Volatiles ddx_v_tar_shot = { .tarShot = 1 };",
             "",
         ]
     )
@@ -287,6 +289,11 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         " *   volatile semiInvulnerable    = "
         f"bit {compiled['volatile_semi_invulnerable_bit']} width "
         f"{compiled['volatile_semi_invulnerable_width']}",
+        " *   volatile chargeTimer         = "
+        f"bit {compiled['volatile_charge_timer_bit']} width "
+        f"{compiled['volatile_charge_timer_width']}",
+        f" *   volatile tarShot bit         = {compiled['volatile_tar_shot_bit']}",
+        f" *   volatile read window         = {compiled['volatile_window_bytes']} bytes",
         f" *   BattleStruct.gimmick         = {compiled['gimmick_offset']}",
         f" *   BattleGimmickData.activeGimmick = {compiled['active_gimmick_offset']}",
         "",
@@ -318,6 +325,10 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_BP_VOLATILE_MINIMIZE_BIT {compiled['volatile_minimize_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT {compiled['volatile_semi_invulnerable_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH {compiled['volatile_semi_invulnerable_width']}",
+        f"#define HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT {compiled['volatile_charge_timer_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH {compiled['volatile_charge_timer_width']}",
+        f"#define HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT {compiled['volatile_tar_shot_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_WINDOW_BYTES {compiled['volatile_window_bytes']}",
         f"#define HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET {compiled['gimmick_offset']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET {compiled['active_gimmick_offset']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT {compiled['gimmick_side_count']}",
@@ -342,11 +353,18 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         "#if HNS_LIVE_BP_STATUS_OFFSET + HNS_LIVE_BP_STATUS_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
         "#error \"BattlePokemon status1 field exceeds the compiled struct size\"",
         "#endif",
-        "#if HNS_LIVE_BP_VOLATILES_OFFSET + 1 > HNS_BATTLE_POKEMON_SIZEOF",
-        "#error \"BattlePokemon volatiles field exceeds the compiled struct size\"",
+        "#if HNS_LIVE_BP_VOLATILES_OFFSET + HNS_LIVE_BP_VOLATILE_WINDOW_BYTES > HNS_BATTLE_POKEMON_SIZEOF",
+        "#error \"BattlePokemon volatiles read window exceeds the compiled struct size\"",
         "#endif",
-        "#if HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT >= 8 * 12 || HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT >= 8 * 12",
-        "#error \"volatile bits exceed the first 12 volatile bytes\"",
+        "#if HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_MINIMIZE_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT + HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH "
+        ">= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT + HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH "
+        ">= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES",
+        "#error \"an exported volatile bit exceeds the generated read window\"",
         "#endif",
         "#if HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET + HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT * HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT > 64",
         "#error \"BattleGimmickData.activeGimmick implausibly large\"",
@@ -443,6 +461,7 @@ def main() -> None:
             "volatile_electrified_bit": single_bit(blob, base_addr, syms, "ddx_v_electrified"),
             "volatile_glaive_rush_bit": single_bit(blob, base_addr, syms, "ddx_v_glaive_rush"),
             "volatile_minimize_bit": single_bit(blob, base_addr, syms, "ddx_v_minimize"),
+            "volatile_tar_shot_bit": single_bit(blob, base_addr, syms, "ddx_v_tar_shot"),
             "gimmick_offset": scalar(blob, base_addr, syms, "ddx_gimmick_offset"),
             "active_gimmick_offset": scalar(blob, base_addr, syms, "ddx_active_gimmick_offset"),
             "gimmick_side_count": scalar(blob, base_addr, syms, "ddx_gimmick_side_count"),
@@ -452,6 +471,22 @@ def main() -> None:
         semibit, semiwidth = multi_bit(blob, base_addr, syms, "ddx_v_semi_invulnerable")
         compiled["volatile_semi_invulnerable_bit"] = semibit
         compiled["volatile_semi_invulnerable_width"] = semiwidth
+        chargebit, chargewidth = multi_bit(blob, base_addr, syms, "ddx_v_charge_timer")
+        compiled["volatile_charge_timer_bit"] = chargebit
+        compiled["volatile_charge_timer_width"] = chargewidth
+        # Read window: enough bytes to cover the highest exported volatile bit. Reading only
+        # the first 10 bytes was sufficient for the original four bits but silently truncated
+        # `tarShot` (and any later damage-relevant volatile), so the window is derived from the
+        # bit positions the reader actually consumes rather than hand-maintained.
+        volatile_last_bits = [
+            compiled["volatile_electrified_bit"],
+            compiled["volatile_glaive_rush_bit"],
+            compiled["volatile_minimize_bit"],
+            compiled["volatile_semi_invulnerable_bit"] + compiled["volatile_semi_invulnerable_width"] - 1,
+            compiled["volatile_charge_timer_bit"] + compiled["volatile_charge_timer_width"] - 1,
+            compiled["volatile_tar_shot_bit"],
+        ]
+        compiled["volatile_window_bytes"] = max(volatile_last_bits) // 8 + 1
 
     generated = render_header(arm_gcc, compiled, pins, None)
     out_path = Path(args.output) if args.output else (repo_root / OUTPUT_HEADER)

@@ -3135,9 +3135,18 @@ fail-closed gate. The evidence levels below use the same vocabulary as §§1-13.
   two relevant retype writers are `STATUS_FIELD_ION_DELUGE` (Normal-only) and
   `gBattleMons[battler].volatiles.electrified` (any type); every other branch needs a non-`EFFECT_HIT`
   effect or an ability the ability gate refuses.
-- **Transient state.** `GetGlaiveRushModifier` (`src/battle_util.c:7481`) is the only unexcluded
-  transient for the ordinary subset. Minimize/underground/underwater/airborne are excluded by the
-  move-mechanics generator's `STATE_DEPENDENT_FLAGS` allow-list.
+- **Transient state.** Three generic ordinary-damage transients are read: `GetGlaiveRushModifier`
+  (`src/battle_util.c:7481`), `chargeTimer` on an Electric move (`src/battle_util.c:6635`) and
+  `tarShot` on a Fire move against the holder (`src/battle_util.c:8365`).
+  Minimize/underground/underwater/airborne are excluded by the move-mechanics generator's
+  `STATE_DEPENDENT_FLAGS` allow-list.
+- **Field statuses.** The only `gFieldStatuses` bit the ordinary subset models is Ion Deluge; the
+  explicit supported mask makes Wonder Room (Defense/Sp.Def swap), Gravity, the four terrains and
+  Mud/Water Sport fail closed with `HNS_FIELD_STATUS_NOT_MODELLED` instead of silently clearing the
+  Ion Deluge check.
+- **Weather variants.** `B_WEATHER_RAIN` (0x7) and `B_WEATHER_SUN` (0x18) are narrowed to the ordinary
+  bits (0x1 / 0x8); the primal `Primordial Sea` / `Desolate Land` bits refuse with
+  `HNS_LIVE_WEATHER_NOT_MODELLED` instead of collapsing to the ordinary modifier.
 - **Conditional pinch abilities.** `CalcAttackStat` (`src/battle_util.c:7023`) applies the x1.5
   Attack-stat pinch modifier for `Overgrow`/`Blaze`/`Torrent`/`Swarm` when the move type matches and
   `hp <= maxHP/3`.
@@ -3153,19 +3162,22 @@ fail-closed gate. The evidence levels below use the same vocabulary as §§1-13.
 the pinned ARM toolchain and emits `native/src/hns_live_battle_layout_gen.h`; `./ci.sh source-check`
 regenerates and byte-compares it. Values for the pinned commit: `hp` 42, `maxHP` 46, `status1` 80,
 `volatiles` 84; volatile bits `electrified` 54, `glaiveRush` 64, `minimize` 72, `semiInvulnerable`
-51/width 3; `BattleStruct.gimmick` 668, `BattleGimmickData.activeGimmick` 11. The EWRAM globals
+51/width 3, `chargeTimer` 73/width 2, `tarShot` 299 (hence the generated 38-byte read window);
+`BattleStruct.gimmick` 668, `BattleGimmickData.activeGimmick` 11. The EWRAM globals
 `gFieldStatuses` (`0x2F4`) and the `gBattleStruct` pointer (`0xB4`) are shared with the already-pinned
 battle globals and are runtime-verified below.
 
 ### Runtime reader semantics (HOST VERIFIED)
 
-`pokemon_read_battler_runtime_state_gba` decodes HP/maxHP, `status1`, the volatile bits and the
-gimmick byte per OBSERVED battler, plus the battle-global field-status word and the battle-global
-weather word, and the observed battler's own `gSideStatuses[side]` word. Every new `*_observed` /
-`*_readable` bit separates an observed neutral value from an unread field; `gBattleStruct` is read
-afresh and must point inside EWRAM before the gimmick byte is dereferenced. The JNI tuple grew from 42
-to 60 ints; the Kotlin decoder keeps the pre-C4e 42-int contract for the older fields, decodes the
-C4e operands from a 56-int tuple, and treats a short tuple's later fields as unobserved.
+`pokemon_read_battler_runtime_state_gba` decodes HP/maxHP, `status1`, the volatile bits
+(`electrified`, `glaiveRush`, `chargeTimer`, `tarShot`) and the gimmick byte per OBSERVED battler,
+plus the battle-global field-status word and the battle-global weather word, and the observed
+battler's own `gSideStatuses[side]` word. Every new `*_observed` / `*_readable` bit separates an
+observed neutral value from an unread field; `gBattleStruct` is read afresh and must point inside
+EWRAM before the gimmick byte is dereferenced. The JNI tuple grew from 42 to 62 ints; the Kotlin
+decoder keeps the pre-C4e 42-int contract for the older fields, decodes the C4e operands from a
+56-int tuple, the live weather / side-status words from a 60-int tuple, and the correction-pass
+`chargeTimer` / `tarShot` from a 62-int tuple; a short tuple's later fields stay unobserved.
 
 ### Official-ROM runtime observation (RUNTIME VERIFIED, neutral state)
 
@@ -3182,9 +3194,11 @@ Golden A hit frame the production reader reported:
 
 The `[GOLDEN-HIT] PASS` line records the same `damage=6` Golden A hit. This proves the neutral values
 the first production subset depends on, including the observed clear-weather and screenless
-defender-side words. A **positive transition** (an active Electrify / Glaive Rush / Tera / Rain /
-Reflect frame) was deliberately not manufactured, so the active cases remain refused at runtime and
-are SOURCE + HOST reasoned only.
+defender-side words. A **positive transition** (an active Electrify / Glaive Rush / Charge / Tar
+Shot / Tera / Rain / Reflect frame) was deliberately not manufactured, so the active cases remain
+refused at runtime and are SOURCE + HOST reasoned only. The correction pass extends the same volatile
+read window to cover `chargeTimer` (bit 73) and `tarShot` (bit 299); this golden log predates that
+reader-only change and does not print the two operands, so they are HOST VERIFIED only.
 
 ### Host oracle (HOST VERIFIED)
 
@@ -3192,8 +3206,9 @@ are SOURCE + HOST reasoned only.
 independent H&S oracle: inactive (11/23) unboosted, active-at-threshold (7/23) boosted to
 `floor(13*1.5)=19`, one-HP-above-threshold (8/23) unboosted, and wrong-type (Normal) unboosted even at
 1 HP. `test_pokemon_reader.c` `test_hns_battler_state_c4e_live_operands` asserts the reader
-observation, positive bit transitions, null/out-of-EWRAM `gBattleStruct` failing closed, and teardown
-leaving no C4e operand.
+observation, positive bit transitions (including the width-2 `chargeTimer` and `tarShot`), the 38-byte
+volatile window, null/out-of-EWRAM `gBattleStruct` failing closed, and teardown leaving no C4e
+operand. The Kotlin decoder tests pin the 62-int tuple and the short-tuple unobserved cases.
 
 ### Production-boundary evidence (HOST VERIFIED)
 
@@ -3201,19 +3216,22 @@ leaving no C4e operand.
 (Golden-A-equivalent live state) returns `Ready` with a non-null request and `ESTIMATED`; the emitted
 JSON carries the live HP/maxHP and the pinned move override. Adjacent negatives remove exactly one
 authority each and refuse with the precise limitation (wrong hash, unreadable volatile, unreadable
-field status, unreadable/active gimmick, active Electrify, active Ion Deluge, active Glaive Rush,
-unsupported ability, unverified pinch HP, stale slot, unobserved badge, unsupported move, active live
-status). Anti-spoofing tests prove the boundary strips a caller-crafted `hnsLiveBattleState` and
-`curHP` and rebinds from runtime observations, and that a spoofed ability is overridden by the
-authoritative numeric ID.
+extended transient volatiles, unreadable/unmodelled field status incl. Wonder Room and terrain,
+unreadable/active gimmick, active Electrify, active Ion Deluge, active Glaive Rush, active Charge with
+an Electric move, active Tar Shot with a Fire move, primal Rain/Sun, unsupported ability, unverified
+pinch HP, stale slot, unobserved badge, unsupported move, active live status), while an irrelevant
+Charge / Tar Shot type stays `Ready`. Anti-spoofing tests prove the boundary strips a caller-crafted
+`hnsLiveBattleState` and `curHP` and rebinds from runtime observations, and that a spoofed ability is
+overridden by the authoritative numeric ID.
 
 ### Mutation control
 
-Two meaningful mutations were applied, the targeted suites run, and both reverted. Exact results:
+Two meaningful mutations were applied, the targeted suites run, and both reverted. Exact results
+(correction pass, after the new field-status / primal-weather / Charge / Tar Shot tests were added):
 
 | Mutation | Change | Before | Mutated | After revert |
 |---|---|---|---|---|
-| M1 — new live-state authority | `dynamicMoveTypeObserved = false` in `CalcRequestBoundary.bindHnsLiveBattleState` (suppresses the field-status + electrified authority) | `CalcHnsC4eProductionBoundaryTest`: 19 passed, 0 failed | 3 failed (`exact trusted ... Ready`, `pinch ... inactive`, `caller-crafted HP ...`), 16 passed | 19 passed, 0 failed |
+| M1 — new live-state authority | `dynamicMoveTypeObserved = false` in `CalcRequestBoundary.bindHnsLiveBattleState` (suppresses the field-status + electrified authority) | boundary `CalcHnsC4eProductionBoundaryTest`: 40 passed, 0 failed; full Kotlin 684 passed, 0 failed | boundary 31 passed, 9 failed; full Kotlin 684 tests, 9 failed (`exact trusted ... Ready`, `observed Rain`, `observed defender Reflect`, `observed defender Light Screen`, `pinch ... inactive`, `caller-crafted HP`, `caller-supplied weather and screens`, `active Charge with an irrelevant move type`, `active Tar Shot with an irrelevant move type`) | boundary 40 passed, 0 failed; full Kotlin 684 passed, 0 failed |
 | M2 — conditional ability | `calculateHnsDamage`: `pinchHp <= floor(maxHP/3)` → `pinchHp < floor(maxHP/3)` (threshold) | QuickJS suite `2012 passed, 0 failed` | `2011 passed, 1 failed` (`gap_c4e_overgrow_active_at_threshold`) | `2012 passed, 0 failed` |
 
 Both mutations were confirmed reverted (`git diff` clean of the mutation markers) before the final
@@ -3239,8 +3257,10 @@ runtime transition is claimed.
 
 ### CI status (C4e)
 
-- Native reader suite: `88 passed, 0 failed` (87 before C4e; 1 new C4e test).
+- Native reader suite: `89 passed, 0 failed` (unchanged count; the existing C4e test now also asserts
+  the width-2 `chargeTimer`, `tarShot` and the 38-byte volatile window).
 - Pure tracker selftests: `75 passed, 0 failed`.
-- QuickJS calculator suite: `2012 passed, 0 failed` (2005 before C4e; 7 new pinch/host checks).
-- Kotlin unit tests: `656 passed, 0 failed` (634 before C4e; 22 new boundary/trust tests).
+- QuickJS calculator suite: `2012 passed, 0 failed`.
+- Kotlin unit tests: `684 passed, 0 failed` (670 before the correction pass; 14 new
+  boundary/decoder tests).
 - `./ci.sh all` and `git diff --check` pass; exact-head GitHub Actions green (see the PR).

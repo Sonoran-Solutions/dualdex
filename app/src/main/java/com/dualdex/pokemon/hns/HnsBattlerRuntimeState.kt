@@ -100,17 +100,41 @@ object HnsBattlerRuntimeStateIds {
 
     /**
      * Pinned `gBattleWeather` flags (`enum BattleWeather` bits). The modelled ordinary-damage
-     * subset covers clear weather, Rain and Sun; every other bit (Sandstorm/Hail/Snow/Fog/Strong
-     * Winds) is observed but refused by the policy rather than silently treated as clear.
+     * subset covers clear weather and **ordinary** Rain / Sun only; the primal variants
+     * (`Primordial Sea` / `Desolate Land`) are part of the aggregate `B_WEATHER_RAIN` /
+     * `B_WEATHER_SUN` masks but must never be collapsed onto the ordinary names, and every
+     * other bit (Sandstorm/Hail/Snow/Fog/Strong Winds) is observed but refused by the policy
+     * rather than silently treated as clear.
      */
+    const val B_WEATHER_RAIN_NORMAL = 1 shl 0 // B_WEATHER_RAIN_NORMAL
+    const val B_WEATHER_SUN_NORMAL = 1 shl 3  // B_WEATHER_SUN_NORMAL
+    /** Aggregate pinned mask: includes the primal and downpour rain bits (0x7). */
     const val B_WEATHER_RAIN = 0x7 // (1<<0)|(1<<1)|(1<<2)
+    /** Aggregate pinned mask: includes the primal sun bit (0x18). */
     const val B_WEATHER_SUN = 0x18 // (1<<3)|(1<<4)
-    const val B_WEATHER_MODELLED = B_WEATHER_RAIN or B_WEATHER_SUN
+    /** Only ordinary Rain and ordinary Sun are modelled; the primal bits are refused. */
+    const val B_WEATHER_MODELLED = B_WEATHER_RAIN_NORMAL or B_WEATHER_SUN_NORMAL
 
     /** Pinned `gSideStatuses` bits. Only Reflect and Light Screen are modelled for the subset. */
     const val SIDE_STATUS_REFLECT = 1 shl 0
     const val SIDE_STATUS_LIGHTSCREEN = 1 shl 1
     const val SIDE_STATUS_MODELLED = SIDE_STATUS_REFLECT or SIDE_STATUS_LIGHTSCREEN
+
+    /**
+     * Pinned `STATUS_FIELD_ION_DELUGE` bit (`include/constants/battle.h`). It forces a Normal
+     * move to Electric. The explicit supported field-status mask is exactly this bit: every
+     * other `gFieldStatuses` bit (Wonder Room, Gravity, the four terrains, Mud/Water Sport,
+     * Trick/Magic Room, Fairy Lock) changes damage or the defensive stat and is not modelled,
+     * so it must fail closed rather than clear the Ion Deluge check.
+     */
+    const val STATUS_FIELD_ION_DELUGE = 1 shl 10
+    const val FIELD_STATUS_SUPPORTED_MASK = STATUS_FIELD_ION_DELUGE
+
+    /**
+     * Pinned `volatiles.chargeTimer` width is 2 bits, so its raw domain is `0..3`; any
+     * non-zero value doubles an Electric move (`src/battle_util.c`).
+     */
+    const val VOLATILE_CHARGE_TIMER_MAX = 3
 }
 
 /**
@@ -230,6 +254,23 @@ data class HnsBattlerRuntimeState(
     val volatileMinimize: Boolean = false,
     /** `enum SemiInvulnerableState` (recorded; only relevant to move-flagged effects). */
     val volatileSemiInvulnerable: Int = 0,
+    /**
+     * true when the extended volatile window (`chargeTimer`, `tarShot`) was decoded. Only a
+     * tuple at least [C4E_TRANSIENT_TUPLE_LEN] ints long can carry it; a shorter tuple leaves
+     * both values unobserved rather than defaulting them to neutral. Always false unless
+     * [volatilesObserved] is also true (they are decoded from the same read window).
+     */
+    val transientVolatilesObserved: Boolean = false,
+    /**
+     * `volatiles.chargeTimer` raw value (pinned width 2, so `0..3`). Charge doubles an
+     * Electric move while it is non-zero. Only meaningful when [transientVolatilesObserved].
+     */
+    val volatileChargeTimer: Int = 0,
+    /**
+     * `volatiles.tarShot`: the defender takes double damage from Fire moves. Only meaningful
+     * when [transientVolatilesObserved].
+     */
+    val volatileTarShot: Boolean = false,
     /** true when `gBattleStruct->gimmick.activeGimmick[side][slot]` was decoded. */
     val gimmickObserved: Boolean = false,
     /** `enum Gimmick` active for this battler's party slot; 0 = GIMMICK_NONE. */
@@ -314,17 +355,20 @@ data class HnsBattlerRuntimeState(
          * [52] gimmickObserved, [53] activeGimmick,
          * [54] fieldStatusesReadable, [55] fieldStatuses,
          * [56] weatherReadable, [57] battleWeather,
-         * [58] sideStatusesReadable, [59] sideStatuses.
+         * [58] sideStatusesReadable, [59] sideStatuses,
+         * [60] volatileChargeTimer, [61] volatileTarShot.
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
          * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is
          * the pre-C4e contract (still honored for existing tests); [C4E_TUPLE_LEN]
-         * additionally carries the Gap C4e live operands, and [C4E_FIELD_TUPLE_LEN]
-         * the live weather / defender-side status operands.
+         * additionally carries the Gap C4e live operands, [C4E_FIELD_TUPLE_LEN]
+         * the live weather / defender-side status operands, and
+         * [C4E_TRANSIENT_TUPLE_LEN] the Charge / Tar Shot volatile operands.
          */
         private const val TUPLE_LEN = 42
         private const val C4E_TUPLE_LEN = 56
         private const val C4E_FIELD_TUPLE_LEN = 60
+        private const val C4E_TRANSIENT_TUPLE_LEN = 62
 
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -387,6 +431,11 @@ data class HnsBattlerRuntimeState(
             val c4eField = raw.size >= C4E_FIELD_TUPLE_LEN
             val weatherReadable = c4eField && raw[56] != 0
             val sideStatusesReadable = c4eField && raw[58] != 0
+            // Gap C4e correction: chargeTimer / tarShot are decoded from the same volatile
+            // window as electrified / glaiveRush, so they are only authoritative when the
+            // window was read AND the tuple is long enough to carry them.
+            val c4eTransient = raw.size >= C4E_TRANSIENT_TUPLE_LEN
+            val transientVolatilesObserved = volatilesObserved && c4eTransient
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
@@ -425,6 +474,13 @@ data class HnsBattlerRuntimeState(
                 volatileGlaiveRush = volatilesObserved && raw[49] != 0,
                 volatileMinimize = volatilesObserved && raw[50] != 0,
                 volatileSemiInvulnerable = if (volatilesObserved) raw[51].coerceIn(0, 6) else 0,
+                transientVolatilesObserved = transientVolatilesObserved,
+                volatileChargeTimer = if (transientVolatilesObserved) {
+                    raw[60].coerceIn(0, HnsBattlerRuntimeStateIds.VOLATILE_CHARGE_TIMER_MAX)
+                } else {
+                    0
+                },
+                volatileTarShot = transientVolatilesObserved && raw[61] != 0,
                 gimmickObserved = gimmickObserved,
                 activeGimmick = if (gimmickObserved) raw[53].coerceIn(0, 5) else 0,
                 fieldStatusesReadable = fieldStatusesReadable,

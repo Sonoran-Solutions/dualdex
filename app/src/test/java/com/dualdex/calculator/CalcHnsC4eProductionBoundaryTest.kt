@@ -92,8 +92,11 @@ class CalcHnsC4eProductionBoundaryTest {
         status1: Int = 0,
         statusObserved: Boolean = true,
         volatilesObserved: Boolean = true,
+        transientVolatilesObserved: Boolean = volatilesObserved,
         electrified: Boolean = false,
         glaiveRush: Boolean = false,
+        chargeTimer: Int = 0,
+        tarShot: Boolean = false,
         gimmickObserved: Boolean = true,
         gimmick: Int = 0,
         fieldStatusesReadable: Boolean = true,
@@ -142,6 +145,9 @@ class CalcHnsC4eProductionBoundaryTest {
             volatileGlaiveRush = glaiveRush,
             volatileMinimize = false,
             volatileSemiInvulnerable = 0,
+            transientVolatilesObserved = transientVolatilesObserved,
+            volatileChargeTimer = chargeTimer,
+            volatileTarShot = tarShot,
             gimmickObserved = gimmickObserved,
             activeGimmick = gimmick,
             fieldStatusesReadable = fieldStatusesReadable,
@@ -160,7 +166,9 @@ class CalcHnsC4eProductionBoundaryTest {
         abilityName: String = "Tangled Feet",
         types: List<Int> = listOf(1, 3), // Normal, Flying (Pidgey)
         volatilesObserved: Boolean = true,
+        transientVolatilesObserved: Boolean = volatilesObserved,
         glaiveRush: Boolean = false,
+        tarShot: Boolean = false,
         gimmickObserved: Boolean = true,
         gimmick: Int = 0,
         fieldStatusesReadable: Boolean = true,
@@ -204,6 +212,9 @@ class CalcHnsC4eProductionBoundaryTest {
             volatileGlaiveRush = glaiveRush,
             volatileMinimize = false,
             volatileSemiInvulnerable = 0,
+            transientVolatilesObserved = transientVolatilesObserved,
+            volatileChargeTimer = 0,
+            volatileTarShot = tarShot,
             gimmickObserved = gimmickObserved,
             activeGimmick = gimmick,
             fieldStatusesReadable = fieldStatusesReadable,
@@ -401,6 +412,38 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `observed primal rain refuses instead of collapsing to ordinary Rain`() {
+        // B_WEATHER_RAIN = 0x7 includes the Primal (Primordial Sea) bit 1. The engine blocks
+        // Water moves under it, so it must never be treated as the ordinary Rain modifier.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_WEATHER_NOT_MODELLED,
+            player = playerObservation(battleWeather = 1 shl 1),
+            enemy = enemyObservation(battleWeather = 1 shl 1)
+        )
+    }
+
+    @Test
+    fun `observed primal sun refuses instead of collapsing to ordinary Sun`() {
+        // B_WEATHER_SUN = 0x18 includes the Primal (Desolate Land) bit 4. The engine blocks Fire
+        // moves under it, so it must never be treated as the ordinary Sun modifier.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_WEATHER_NOT_MODELLED,
+            player = playerObservation(battleWeather = 1 shl 4),
+            enemy = enemyObservation(battleWeather = 1 shl 4)
+        )
+    }
+
+    @Test
+    fun `ordinary rain combined with a primal bit still refuses`() {
+        // The ordinary bit must not launder the primal bit past the mask.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_WEATHER_NOT_MODELLED,
+            player = playerObservation(battleWeather = (1 shl 0) or (1 shl 1)),
+            enemy = enemyObservation(battleWeather = (1 shl 0) or (1 shl 1))
+        )
+    }
+
+    @Test
     fun `observed unmodelled defender side status refuses`() {
         // Aurora Veil (bit 5) halves damage and is not modelled by this subset.
         refusedWith(
@@ -508,6 +551,100 @@ class CalcHnsC4eProductionBoundaryTest {
             player = playerObservation(fieldStatuses = 1 shl 10),
             enemy = enemyObservation(fieldStatuses = 1 shl 10)
         )
+    }
+
+    @Test
+    fun `active Wonder Room field status is refused`() {
+        // STATUS_FIELD_WONDER_ROOM (bit 2) swaps Defense/Sp.Def inside CalcDefenseStat. It must
+        // fail closed instead of clearing the Ion Deluge check and using the unswapped stat.
+        refusedWith(
+            expected = CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED,
+            player = playerObservation(fieldStatuses = 1 shl 2),
+            enemy = enemyObservation(fieldStatuses = 1 shl 2)
+        )
+    }
+
+    @Test
+    fun `active terrain field status is refused`() {
+        // Grassy Terrain (bit 6) applies a x1.3 Grass modifier; the ordinary arithmetic does not
+        // model terrain, so it must fail closed.
+        refusedWith(
+            expected = CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED,
+            player = playerObservation(fieldStatuses = 1 shl 6),
+            enemy = enemyObservation(fieldStatuses = 1 shl 6)
+        )
+    }
+
+    @Test
+    fun `an unmodelled field status does not launder the Ion Deluge bit`() {
+        // Both Ion Deluge and Gravity (bit 5) set: the unsupported-bit gate must still refuse,
+        // even though Ion Deluge on a Normal move is handled separately.
+        refusedWith(
+            expected = CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED,
+            player = playerObservation(fieldStatuses = (1 shl 10) or (1 shl 5)),
+            enemy = enemyObservation(fieldStatuses = (1 shl 10) or (1 shl 5))
+        )
+    }
+
+    @Test
+    fun `unreadable extended transient volatiles are refused`() {
+        // The volatile window was read but the tuple does not carry chargeTimer/tarShot, so the
+        // "transient state complete" claim cannot be made and the request fails closed.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
+            player = playerObservation(transientVolatilesObserved = false),
+            enemy = enemyObservation(transientVolatilesObserved = false)
+        )
+    }
+
+    @Test
+    fun `active Charge with an Electric move is refused`() {
+        // chargeTimer > 0 doubles Thunder Shock (an ordinary EFFECT_HIT Electric move).
+        refusedWith(
+            expected = CalcLimitation.HNS_CHARGE_ACTIVE_NOT_MODELLED,
+            request = goldenARequest(move = "Thunder Shock"),
+            player = playerObservation(chargeTimer = 2)
+        )
+    }
+
+    @Test
+    fun `active Charge with an irrelevant move type is not refused`() {
+        // Charge only doubles Electric moves; a Normal move is unaffected and stays Ready.
+        val trust = trustFor(exactSha)
+        val outcome = build(
+            trust = trust,
+            request = goldenARequest(move = "Tackle"),
+            player = playerObservation(chargeTimer = 2),
+            enemy = enemyObservation()
+        )
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("an irrelevant Charge must not refuse, got $outcome")
+        assertEquals(CalcSupport.ESTIMATED, ready.verdict.support)
+    }
+
+    @Test
+    fun `active Tar Shot with a Fire move is refused`() {
+        // The defender's tarShot doubles Ember (an ordinary EFFECT_HIT Fire move).
+        refusedWith(
+            expected = CalcLimitation.HNS_TAR_SHOT_ACTIVE_NOT_MODELLED,
+            request = goldenARequest(move = "Ember"),
+            enemy = enemyObservation(tarShot = true)
+        )
+    }
+
+    @Test
+    fun `active Tar Shot with an irrelevant move type is not refused`() {
+        // Tar Shot only doubles Fire moves; a Normal move is unaffected and stays Ready.
+        val trust = trustFor(exactSha)
+        val outcome = build(
+            trust = trust,
+            request = goldenARequest(move = "Tackle"),
+            player = playerObservation(),
+            enemy = enemyObservation(tarShot = true)
+        )
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("an irrelevant Tar Shot must not refuse, got $outcome")
+        assertEquals(CalcSupport.ESTIMATED, ready.verdict.support)
     }
 
     @Test

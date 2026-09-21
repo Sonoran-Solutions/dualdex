@@ -4508,7 +4508,8 @@ static void expect_battler_unavailable(const BattlerRuntimeState* st, const char
                 "an unavailable observation must not carry a status");
     TEST_ASSERT(!st->volatiles_observed && !st->volatile_electrified &&
                 !st->volatile_glaive_rush && !st->volatile_minimize &&
-                st->volatile_semi_invulnerable == 0,
+                st->volatile_semi_invulnerable == 0 &&
+                st->volatile_charge_timer == 0 && !st->volatile_tar_shot,
                 "an unavailable observation must not carry volatile state");
     TEST_ASSERT(!st->gimmick_observed && st->active_gimmick == 0,
                 "an unavailable observation must not carry a gimmick");
@@ -5469,6 +5470,14 @@ static void hns_battle_set_volatile_bit(HnsBattleFixture* fx, uint8_t battler,
     if (value) *byte |= mask; else *byte &= (uint8_t)~mask;
 }
 
+/** Write a multi-bit volatile field at its compiled position within `volatiles`. */
+static void hns_battle_set_volatile_field(HnsBattleFixture* fx, uint8_t battler,
+                                          uint32_t bit, uint32_t width, uint32_t value) {
+    for (uint32_t i = 0; i < width; i++) {
+        hns_battle_set_volatile_bit(fx, battler, bit + i, ((value >> i) & 1u) != 0);
+    }
+}
+
 /** Point gBattleStruct at an in-EWRAM buffer and write one active gimmick byte. */
 static void hns_battle_set_gimmick(HnsBattleFixture* fx, uint8_t battler, uint8_t gimmick) {
     const uint32_t bs_base = 0x02030000u; /* inside the fake EWRAM window */
@@ -5506,6 +5515,8 @@ static void test_hns_battler_state_c4e_live_operands(void) {
                 "player live status must be observed neutral");
     TEST_ASSERT(st.volatiles_observed && !st.volatile_electrified,
                 "player electrified must be observed false");
+    TEST_ASSERT(st.volatile_charge_timer == 0 && !st.volatile_tar_shot,
+                "player chargeTimer/tarShot must be observed neutral");
     TEST_ASSERT(st.gimmick_observed && st.active_gimmick == 0,
                 "player gimmick must be observed NONE");
     TEST_ASSERT(st.field_statuses_readable && st.field_statuses == 0,
@@ -5519,14 +5530,20 @@ static void test_hns_battler_state_c4e_live_operands(void) {
     /* Positive transitions: each bit is independently readable. */
     hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT, true);
     hns_battle_set_volatile_bit(&fx, 1, HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT, true);
+    hns_battle_set_volatile_field(&fx, 0, HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT,
+                                  HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH, 3);
+    hns_battle_set_volatile_bit(&fx, 1, HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT, true);
     hns_battle_set_gimmick(&fx, 0, 5 /* GIMMICK_TERA */);
     write32_le_t(gba.ewram + cfg->field_statuses_offset, 1u << 10 /* ION_DELUGE */);
     TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "player transition read");
     TEST_ASSERT(st.volatile_electrified, "player electrified must be observed true");
+    TEST_ASSERT(st.volatile_charge_timer == 3,
+                "player chargeTimer must be observed at its width-2 maximum");
     TEST_ASSERT(st.active_gimmick == 5, "player gimmick must be observed TERA");
     TEST_ASSERT(st.field_statuses == (1u << 10), "Ion Deluge bit must be observed");
     TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st), "enemy transition read");
     TEST_ASSERT(st.volatile_glaive_rush, "enemy Glaive Rush must be observed true");
+    TEST_ASSERT(st.volatile_tar_shot, "enemy Tar Shot must be observed true");
 
     /* A null/zero gBattleStruct pointer means the gimmick is unobserved, never NONE. */
     write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0);

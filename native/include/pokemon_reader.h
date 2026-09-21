@@ -189,6 +189,9 @@ typedef struct {
     uint32_t battle_mons_volatile_minimize_bit;          // 0-based bit within volatiles
     uint32_t battle_mons_volatile_semi_invulnerable_bit; // 0-based bit within volatiles
     uint32_t battle_mons_volatile_semi_invulnerable_width;
+    uint32_t battle_mons_volatile_charge_timer_bit;      // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_charge_timer_width;    // bit width of the charge-timer field
+    uint32_t battle_mons_volatile_tar_shot_bit;          // 0-based bit within volatiles
     uint32_t save_block1_flags_offset;       // struct-relative offset of SaveBlock1.flags
     uint32_t save_block1_badges_offset;      // struct-relative offset of SaveBlock1 badge byte (flags[272])
 
@@ -765,6 +768,8 @@ typedef struct {
     bool     volatile_glaive_rush; // VOLATILE_GLAIVE_RUSH (defender takes x2 from any incoming move)
     bool     volatile_minimize;    // VOLATILE_MINIMIZE (only relevant to flagged moves; recorded)
     uint8_t  volatile_semi_invulnerable; // enum SemiInvulnerableState (only relevant to flagged moves)
+    uint8_t  volatile_charge_timer; // VOLATILE_CHARGE_TIMER raw value (0 = not charging)
+    bool     volatile_tar_shot;     // VOLATILE_TAR_SHOT (defender takes x2 from Fire moves)
     bool     gimmick_observed;     // gBattleStruct->gimmick.activeGimmick was decoded
     uint8_t  active_gimmick;       // enum Gimmick for this battler's party slot
     bool     field_statuses_readable; // gFieldStatuses was actually read

@@ -197,6 +197,9 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_mons_volatile_minimize_bit = HNS_LIVE_BP_VOLATILE_MINIMIZE_BIT,
     .battle_mons_volatile_semi_invulnerable_bit = HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT,
     .battle_mons_volatile_semi_invulnerable_width = HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH,
+    .battle_mons_volatile_charge_timer_bit = HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT,
+    .battle_mons_volatile_charge_timer_width = HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH,
+    .battle_mons_volatile_tar_shot_bit = HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT,
     .battler_party_indexes_offset = 0x144,
     .battlers_count_offset = 0xB0,
     .battle_type_flags_offset = 0xAC,
@@ -2404,6 +2407,9 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
            config->battle_mons_volatile_minimize_bit == HNS_LIVE_BP_VOLATILE_MINIMIZE_BIT &&
            config->battle_mons_volatile_semi_invulnerable_bit == HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT &&
            config->battle_mons_volatile_semi_invulnerable_width == HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH &&
+           config->battle_mons_volatile_charge_timer_bit == HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT &&
+           config->battle_mons_volatile_charge_timer_width == HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH &&
+           config->battle_mons_volatile_tar_shot_bit == HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT &&
            config->battle_struct_gimmick_offset == HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET &&
            config->battle_gimmick_active_offset == HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET &&
            config->battle_gimmick_side_stride == HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT &&
@@ -2645,25 +2651,39 @@ bool pokemon_read_battler_runtime_state_gba(
                              ((uint32_t)live_status_bytes[3] << 24);
     }
 
-    /* The four volatile booleans live in the first 10 bytes of `volatiles`; read only that
-     * window so a partial struct read cannot mislocate a bit. */
-    uint8_t volatile_bytes[10];
+    /* The damage-relevant volatile bits live in a generated window of `volatiles` (now 38
+     * bytes: the ordinary subset needs electrified, glaiveRush, chargeTimer and tarShot, and
+     * tarShot sits at bit 299). Read exactly the generated window so a bit can never be
+     * located outside the bytes that were actually read. */
+    uint8_t volatile_bytes[HNS_LIVE_BP_VOLATILE_WINDOW_BYTES];
     if (HNS_LIVE_BP_VOLATILES_OFFSET + sizeof(volatile_bytes) <= HNS_BATTLE_POKEMON_SIZEOF &&
+        HNS_LIVE_BP_VOLATILE_WINDOW_BYTES > 0 &&
+        HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH <= 8 &&
+        HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH <= 8 &&
         read(user, mon_base + HNS_LIVE_BP_VOLATILES_OFFSET, volatile_bytes, sizeof(volatile_bytes))) {
         out_state->volatiles_observed = true;
         #define HNS_LIVE_VOLATILE_BIT(bytes, bit) \
             (((bytes)[(bit) / 8] >> ((bit) % 8)) & 1u)
+        #define HNS_LIVE_VOLATILE_FIELD(bytes, bit, width) \
+            (uint8_t)(((bytes)[(bit) / 8] >> ((bit) % 8)) & ((1u << (width)) - 1u))
         out_state->volatile_electrified =
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT) != 0;
         out_state->volatile_glaive_rush =
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT) != 0;
         out_state->volatile_minimize =
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_MINIMIZE_BIT) != 0;
-        out_state->volatile_semi_invulnerable = (uint8_t)(
-            (volatile_bytes[HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT / 8] >>
-             (HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT % 8)) &
-            ((1u << HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH) - 1u));
+        out_state->volatile_semi_invulnerable =
+            HNS_LIVE_VOLATILE_FIELD(volatile_bytes,
+                                    HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT,
+                                    HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH);
+        out_state->volatile_charge_timer =
+            HNS_LIVE_VOLATILE_FIELD(volatile_bytes,
+                                    HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT,
+                                    HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH);
+        out_state->volatile_tar_shot =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT) != 0;
         #undef HNS_LIVE_VOLATILE_BIT
+        #undef HNS_LIVE_VOLATILE_FIELD
     }
 
     out_state->battler_index = battler;

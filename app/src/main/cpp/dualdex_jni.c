@@ -800,7 +800,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * never silently drift apart.  Every public surface that touches this tuple
  * references BATTLER_RUNTIME_STATE_TUPLE_LEN instead of a local literal.
  */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 60
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 62
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -829,9 +829,11 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * [52] gimmickObserved, [53] activeGimmick,
  * [54] fieldStatusesReadable, [55] fieldStatuses,
  * [56] weatherReadable, [57] battleWeather,
- * [58] sideStatusesReadable, [59] sideStatuses.
+ * [58] sideStatusesReadable, [59] sideStatuses,
+ * [60] volatileChargeTimer, [61] volatileTarShot.
  *         Every Gap C4e `*Observed` bit separates an observed neutral value
- *         (bit 1, payload 0) from a field that was never read (bit 0).
+ *         (bit 1, payload 0) from a field that was never read (bit 0). Slots
+ *         [60]/[61] are only meaningful while [47] volatilesObserved is 1.
  *
  * A failed/unauthorized read returns status 0 (UNAVAILABLE) with everything else
  * zeroed: the caller must not substitute a declared ability, a party slot or a
@@ -940,6 +942,12 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     values[57] = (jint)state.battle_weather;
     values[58] = (state.side_statuses_readable) ? 1 : 0;
     values[59] = (jint)state.side_statuses;
+    /* [60]/[61] Gap C4e correction: the two generic ordinary-damage volatile modifiers
+     * (Charge's Electric x2 via chargeTimer, Tar Shot's Fire x2 via tarShot). They are
+     * only meaningful while [47] volatilesObserved is 1; the reader's fail-closed window
+     * guarantees both were decoded in the same read. */
+    values[60] = (jint)state.volatile_charge_timer;
+    values[61] = (state.volatile_tar_shot) ? 1 : 0;
 
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;

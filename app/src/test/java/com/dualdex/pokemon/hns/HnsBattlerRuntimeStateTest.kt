@@ -194,6 +194,50 @@ class HnsBattlerRuntimeStateTest {
         return t
     }
 
+    /**
+     * The correction-pass 62-int tuple: the accepted 60-int C4e layout extended with
+     * `[60] chargeTimer` and `[61] tarShot`. Kept separate from [c4eObservedTuple] so the
+     * accepted 60-slot decoder tests stay byte-for-byte unchanged.
+     */
+    private fun c4eTransientTuple(
+        chargeTimer: Int = 0,
+        tarShot: Int = 0,
+        volatilesObserved: Int = 1
+    ): IntArray = c4eObservedTuple(volatilesObserved = volatilesObserved) +
+        intArrayOf(chargeTimer, tarShot)
+
+    @Test
+    fun `62-element tuple decodes the charge timer and tar shot`() {
+        val st = HnsBattlerRuntimeState.fromNativeArray(c4eTransientTuple(chargeTimer = 2, tarShot = 1))
+        assertEquals(HnsBattlerRuntimeStatus.OBSERVED, st.status)
+        assertTrue(st.transientVolatilesObserved)
+        assertEquals(2, st.volatileChargeTimer)
+        assertTrue(st.volatileTarShot)
+    }
+
+    @Test
+    fun `60-element tuple leaves charge timer and tar shot explicitly unobserved`() {
+        // The accepted 60-int contract still decodes, but the correction-pass operands are
+        // absent rather than defaulted to a neutral charge/tar-shot observation.
+        val st = HnsBattlerRuntimeState.fromNativeArray(c4eObservedTuple())
+        assertEquals(HnsBattlerRuntimeStatus.OBSERVED, st.status)
+        assertFalse(st.transientVolatilesObserved)
+        assertEquals(0, st.volatileChargeTimer)
+        assertFalse(st.volatileTarShot)
+    }
+
+    @Test
+    fun `unread volatile window keeps charge timer and tar shot unobserved`() {
+        // Payload slots hold tempting values, but the shared volatile window was not read, so
+        // neither operand may be promoted to an observation.
+        val st = HnsBattlerRuntimeState.fromNativeArray(
+            c4eTransientTuple(chargeTimer = 3, tarShot = 1, volatilesObserved = 0)
+        )
+        assertFalse(st.transientVolatilesObserved)
+        assertEquals(0, st.volatileChargeTimer)
+        assertFalse(st.volatileTarShot)
+    }
+
     @Test
     fun `full observed tuple decodes every C4e live operand`() {
         val st = HnsBattlerRuntimeState.fromNativeArray(

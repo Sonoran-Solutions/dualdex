@@ -620,6 +620,16 @@ object CalcRequestBoundary {
             observation = enemyBattlerState,
             isExactVerified = isExactVerified
         )
+        val attackerChargeTimer = authoritativeObservedChargeTimer(
+            participantPartySlot = request.attacker.partySlot,
+            observation = playerBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val defenderTarShot = authoritativeObservedTarShot(
+            participantPartySlot = request.defender.partySlot,
+            observation = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
         val attackerGimmick = authoritativeObservedGimmick(
             participantPartySlot = request.attacker.partySlot,
             observation = playerBattlerState,
@@ -650,11 +660,14 @@ object CalcRequestBoundary {
             // values are preserved on the state, so the policy can refuse an active retype.
             dynamicMoveTypeObserved = fieldStatuses != null && attackerElectrified != null,
             // Transient damage state. Glaive Rush (`GetGlaiveRushModifier`) doubles any incoming
-            // move and is the only unexcluded transient for the ordinary subset; Minimize and the
-            // semi-invulnerable states are reachable only through move flags the ordinary
-            // allow-list excludes (tools/hns-move-mechanics STATE_DEPENDENT_FLAGS). The boolean is
-            // true only when the defender volatile was read.
-            transientStateObserved = defenderGlaiveRush != null,
+            // move; Charge's non-zero `chargeTimer` doubles an Electric move and Tar Shot doubles
+            // a Fire move (`src/battle_util.c`). Minimize and the semi-invulnerable states are
+            // reachable only through move flags the ordinary allow-list excludes
+            // (tools/hns-move-mechanics STATE_DEPENDENT_FLAGS), so no reader is needed for them.
+            // The boolean is true only when all three damage-relevant volatiles were read from the
+            // same window; a positive value is refused precisely by the policy.
+            transientStateObserved = defenderGlaiveRush != null &&
+                attackerChargeTimer != null && defenderTarShot != null,
             attackerRawStats = attackerRaw,
             defenderRawStats = defenderRaw,
             attackerStatStages = attackerStages,
@@ -673,6 +686,8 @@ object CalcRequestBoundary {
             fieldStatuses = fieldStatuses,
             attackerElectrified = attackerElectrified,
             defenderGlaiveRush = defenderGlaiveRush,
+            attackerChargeTimer = attackerChargeTimer,
+            defenderTarShot = defenderTarShot,
             attackerGimmick = attackerGimmick,
             defenderGimmick = defenderGimmick,
             attackerHp = attackerHpPair?.first,
@@ -690,33 +705,33 @@ object CalcRequestBoundary {
      *
      * In an active exact-H&S battle the field conditions are live state, not user input: a
      * caller-supplied "clear weather / no screens" (or any other value) must not stand in for a
-     * word the reader did not deliver. Observed Rain / Sun map to the engine's exact weather names
-     * and the observed defender-side Reflect / Light Screen bits map to [SideConditions]; an
-     * unobserved word clears the field and the policy refuses via
-     * [CalcHnsLiveBattleState.weatherObserved] / [CalcHnsLiveBattleState.defenderScreensObserved].
-     * A word carrying an unmodelled bit (Sand/Hail/Snow/Fog/Strong Winds, or Aurora Veil and other
-     * side statuses) is preserved on the live state so the policy refuses it precisely.
+     * word the reader did not deliver. Only the engine's **ordinary** Rain / Sun bits map to the
+     * engine's exact weather names; the primal Rain/Sun bits (Primordial Sea / Desolate Land)
+     * are deliberately left unmapped so the policy refuses them, and an unobserved word clears
+     * the field and refuses via [CalcHnsLiveBattleState.weatherObserved] /
+     * [CalcHnsLiveBattleState.defenderScreensObserved]. A word carrying an unmodelled bit
+     * (Sand/Hail/Snow/Fog/Strong Winds, the primal weathers, or Aurora Veil and other side
+     * statuses) is preserved on the live state so the policy refuses it precisely.
      */
     private fun reconcileLiveFieldConditions(
         request: DamageCalculationRequest,
         live: CalcHnsLiveBattleState?
     ): DamageCalculationRequest {
         if (live == null) return request
+        val ids = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
         val weatherName = when {
             !live.weatherObserved || live.weatherWord == 0 -> null
-            live.weatherWord and com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_RAIN != 0 -> "Rain"
-            live.weatherWord and com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN != 0 -> "Sun"
+            live.weatherWord and ids.B_WEATHER_RAIN_NORMAL != 0 -> "Rain"
+            live.weatherWord and ids.B_WEATHER_SUN_NORMAL != 0 -> "Sun"
             else -> null
         }
         val defenderSide = if (live.defenderScreensObserved &&
             live.defenderSideStatuses and
-            com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.SIDE_STATUS_MODELLED != 0
+            ids.SIDE_STATUS_MODELLED != 0
         ) {
             SideConditions(
-                isReflect = live.defenderSideStatuses and
-                    com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.SIDE_STATUS_REFLECT != 0,
-                isLightScreen = live.defenderSideStatuses and
-                    com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.SIDE_STATUS_LIGHTSCREEN != 0
+                isReflect = live.defenderSideStatuses and ids.SIDE_STATUS_REFLECT != 0,
+                isLightScreen = live.defenderSideStatuses and ids.SIDE_STATUS_LIGHTSCREEN != 0
             )
         } else {
             null
@@ -1051,6 +1066,40 @@ object CalcRequestBoundary {
         if (!slotMatches(participantPartySlot, state)) return null
         if (!state.volatilesObserved) return null
         return state.volatileGlaiveRush
+    }
+
+    /**
+     * `gBattleMons[battler].volatiles.chargeTimer`, or null when the extended volatile window
+     * was not read. `0` is an observed "not charging"; a positive value doubles an Electric move.
+     */
+    private fun authoritativeObservedChargeTimer(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Int? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        if (!state.transientVolatilesObserved) return null
+        return state.volatileChargeTimer
+    }
+
+    /**
+     * `gBattleMons[battler].volatiles.tarShot`, or null when the extended volatile window was not
+     * read. True doubles a Fire move against this battler.
+     */
+    private fun authoritativeObservedTarShot(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Boolean? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        if (!state.transientVolatilesObserved) return null
+        return state.volatileTarShot
     }
 
     /** `gBattleStruct->gimmick.activeGimmick[side][slot]`, or null when the slot-matched value was not read. */

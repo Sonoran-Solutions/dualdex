@@ -280,6 +280,33 @@ enum class CalcLimitation(val blocks: Boolean) {
     HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED(true),
 
     /**
+     * The battle-global `gFieldStatuses` word was authoritatively observed to carry a bit outside
+     * the explicitly supported Ion Deluge mask. Every other field status alters ordinary damage or
+     * the defensive stat for the supported subset: Wonder Room swaps Defense / Sp.Def inside
+     * `CalcDefenseStat`, the four terrains apply a x1.3 / x0.5 type modifier, Mud/Water Sport
+     * reduce their type, Gravity changes Ground immunity / groundedness, and Trick/Magic Room /
+     * Fairy Lock gate abilities and items. None of those is modelled here, so the request fails
+     * closed rather than silently computing without the modifier (issue #9, Gap C4e correction).
+     */
+    HNS_FIELD_STATUS_NOT_MODELLED(true),
+
+    /**
+     * The attacker's `volatiles.chargeTimer` was authoritatively observed non-zero and the
+     * effective move type is Electric. `src/battle_util.c` doubles an Electric move while the
+     * timer is positive, and that x2 is not part of the ordinary-subset arithmetic, so the
+     * request fails closed (issue #9, Gap C4e correction).
+     */
+    HNS_CHARGE_ACTIVE_NOT_MODELLED(true),
+
+    /**
+     * The defender's `volatiles.tarShot` was authoritatively observed true and the effective move
+     * type is Fire. `src/battle_util.c` doubles a Fire move against a tar-shotted defender, and
+     * that x2 is not part of the ordinary-subset arithmetic, so the request fails closed
+     * (issue #9, Gap C4e correction).
+     */
+    HNS_TAR_SHOT_ACTIVE_NOT_MODELLED(true),
+
+    /**
      * An active H&S battle's gimmick state (`gBattleStruct->gimmick.activeGimmick`) could not be
      * read, so Tera/Dynamax/Z/Mega could be silently active and change STAB, stats or type
      * semantics. Unreadable fails closed (issue #9, Gap C4e).
@@ -569,6 +596,12 @@ data class CalcCapabilityVerdict(
                 "the current move's type is being rewritten to Electric by Ion Deluge or Electrify, which this calculation does not model"
             CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED ->
                 "the defender has the Glaive Rush volatile, which doubles incoming damage and is not modelled"
+            CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED ->
+                "the battle's live field status (Wonder Room, terrain, Gravity, Mud/Water Sport or another unmodelled field effect) is not modelled by this calculation"
+            CalcLimitation.HNS_CHARGE_ACTIVE_NOT_MODELLED ->
+                "the attacker is charging, which doubles its Electric moves and is not modelled by this calculation"
+            CalcLimitation.HNS_TAR_SHOT_ACTIVE_NOT_MODELLED ->
+                "the defender is tar-shotted, which doubles incoming Fire damage and is not modelled by this calculation"
             CalcLimitation.HNS_GIMMICK_STATE_UNREADABLE ->
                 "the battle's gimmick state (Tera/Dynamax/Z) could not be read"
             CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED ->
@@ -737,7 +770,18 @@ object CalcCapabilityPolicy {
     )
 
     /** `STATUS_FIELD_ION_DELUGE` from the pinned `include/constants/battle.h`. */
-    const val HNS_STATUS_FIELD_ION_DELUGE: Int = 1 shl 10
+    const val HNS_STATUS_FIELD_ION_DELUGE: Int =
+        com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.STATUS_FIELD_ION_DELUGE
+
+    /**
+     * The only `gFieldStatuses` bit the ordinary subset models. Ion Deluge can force a Normal
+     * move to Electric, which the policy handles explicitly; every other bit (Wonder Room,
+     * Gravity, the four terrains, Mud/Water Sport, Trick/Magic Room, Fairy Lock) changes ordinary
+     * damage, the type chart or the defensive stat and must fail closed with
+     * [CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED].
+     */
+    const val HNS_SUPPORTED_FIELD_STATUS_MASK: Int =
+        com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.FIELD_STATUS_SUPPORTED_MASK
 
     /**
      * The pinch abilities and the move type each boosts, keyed by the pinned numeric ability ID.
@@ -1499,6 +1543,16 @@ object CalcCapabilityPolicy {
         val staticType = request.moveOverride?.type
         val fieldStatuses = live.fieldStatuses
         val electrified = live.attackerElectrified
+        // Explicit supported field-status mask. Only Ion Deluge is modelled; ANY other bit
+        // (Wonder Room, Gravity, terrain, Mud/Water Sport, Trick/Magic Room, Fairy Lock) changes
+        // ordinary damage or the defensive stat and must fail closed rather than clear the Ion
+        // Deluge check. This is independent of the move type: the mere presence of an unmodelled
+        // field status is disqualifying for the ordinary subset.
+        if (fieldStatuses != null &&
+            (fieldStatuses and HNS_SUPPORTED_FIELD_STATUS_MASK.inv()) != 0
+        ) {
+            limitations.add(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED)
+        }
         if (fieldStatuses != null && electrified != null && staticType != null) {
             val ionDelugeActive = (fieldStatuses and HNS_STATUS_FIELD_ION_DELUGE) != 0 &&
                 staticType.equals("Normal", ignoreCase = true)
@@ -1508,6 +1562,21 @@ object CalcCapabilityPolicy {
         }
         if (live.defenderGlaiveRush == true) {
             limitations.add(CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED)
+        }
+        // Charge doubles an Electric move; only a positive timer on a relevant type is refused.
+        // A zero timer is the observed neutral the first Ready subset requires.
+        val chargeTimer = live.attackerChargeTimer
+        if (chargeTimer != null && chargeTimer > 0 &&
+            staticType != null && staticType.equals("Electric", ignoreCase = true)
+        ) {
+            limitations.add(CalcLimitation.HNS_CHARGE_ACTIVE_NOT_MODELLED)
+        }
+        // Tar Shot doubles a Fire move against the observed defender; an irrelevant move type
+        // cannot be affected, so only the relevant positive case is refused.
+        if (live.defenderTarShot == true &&
+            staticType != null && staticType.equals("Fire", ignoreCase = true)
+        ) {
+            limitations.add(CalcLimitation.HNS_TAR_SHOT_ACTIVE_NOT_MODELLED)
         }
         val attackerGimmick = live.attackerGimmick
         val defenderGimmick = live.defenderGimmick

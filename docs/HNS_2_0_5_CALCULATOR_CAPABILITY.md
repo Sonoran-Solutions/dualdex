@@ -73,7 +73,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; strict per-ability capability gating (`PROVEN_NO_DAMAGE_EFFECT`, `MODELLED_EQUIVALENT`, `UNSUPPORTED_DAMAGE_RELEVANT`) in `HnsAbilityRegistry`. Engine default ability substitution prevented via `'(other)'`. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — live read and manual abilities are verified or fail-closed. Supported abilities (None, Keen Eye, Insomnia, Thick Fat, Guts, Huge Power) and the conditional pinch abilities (Overgrow/Blaze/Torrent/Swarm, §14.6) execute in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C2/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **identity yes; damage effects no** — exact item identity and the current battle item are consumed; no damage item is modelled; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — no item blocker only for `ITEM_NONE`/proven no-*ordinary*-damage items **and** a move that does not read item state; damage items fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`, and item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) fail closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
-| 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word; an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
+| 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 10 | Snow | Ice Defense ×1.5 `[src/battle_util.c:7389]`; Snow never chips, Hail chips 1/16 `[src/battle_end_turn.c:155]` | **no** | **REFUSED** when asked for — fails closed |
 | 11 | Terrain | Implemented; ×1.3 (`B_TERRAIN_TYPE_BOOST GEN_LATEST`) `[src/battle_util.c:6640]` | accepted but dead | **REFUSED** when asked for — fails closed |
 | 12 | Reflect / Light Screen | ×0.5 singles, ×0.667 doubles `[src/battle_util.c:7544]` | yes — the defender-side status word is boundary-owned via the `gSideStatuses[side]` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — singles (2048) / doubles (2732) evaluated post-roll via UQ4.12 `halfDown` in `calculateHnsDamage`. Pinned in `test_js_calc.c`. For the §14 subset `CalcRequestBoundary` rebinds `field.defenderSide` from the observed defender-side `gSideStatuses[side]` word; an unread word refuses with `HNS_LIVE_SCREENS_UNKNOWN` and an unmodelled bit refuses with `HNS_LIVE_SIDE_STATUS_NOT_MODELLED`, so screenless can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
@@ -1472,18 +1472,40 @@ three classes it left open:
    Both are now read. Every other non-`TYPE_NONE` return of `GetDynamicMoveType` requires either a
    non-`EFFECT_HIT` effect (refused by `ordinaryMoveIds`) or an unclassified ability
    (`Liquid Voice`, `Normalize`, the ate abilities) that the ability gate refuses.
-2. **Transient damage state.** `GetGlaiveRushModifier` (`src/battle_util.c:7481`) doubles any incoming
-   move and is not excluded by the move allow-list, so the defender's `volatiles.glaiveRush` is read.
+2. **Transient damage state.** Three generic modifiers apply to ordinary `EFFECT_HIT` moves
+   independently of the move allow-list and are now all read:
+   * `GetGlaiveRushModifier` (`src/battle_util.c:7481`) doubles any incoming move from the
+     defender's `volatiles.glaiveRush`;
+   * `moveType == TYPE_ELECTRIC && gBattleMons[attacker].volatiles.chargeTimer > 0` doubles the
+     move in `CalcDamagePerHit` (`src/battle_util.c:6635`);
+   * `ctx->moveType == TYPE_FIRE && gBattleMons[defender].volatiles.tarShot` doubles the move in
+     `CalcTypeEffectivenessMultiplierInternal` (`src/battle_util.c:8365`).
    `GetMinimizeModifier`, `GetUndergroundModifier`, `GetDiveModifier` and `GetAirborneModifier` are
    gated by move flags that `tools/hns-move-mechanics` already excludes from `ordinaryMoveIds`
    (`minimizeDoubleDamage`, `damagesUnderground`, `damagesUnderwater`, `damagesAirborne`,
    `damagesAirborneDoubleDamage`), so no reader is added for those.
-3. **Conditional pinch abilities.** `CalcAttackStat` (`src/battle_util.c:7023`) applies x1.5 as an
+3. **Field statuses.** The battle-global `gFieldStatuses` word carries far more than Ion Deluge.
+   Pinned source proves the other bits change ordinary damage or the defensive stat independent of
+   `EFFECT_HIT`: `STATUS_FIELD_WONDER_ROOM` swaps Defense / Sp.Def inside `CalcDefenseStat`, the four
+   terrains apply a x1.3 / x0.5 type modifier, `STATUS_FIELD_MUDSPORT` / `STATUS_FIELD_WATERSPORT`
+   reduce their type, `STATUS_FIELD_GRAVITY` changes Ground immunity / groundedness, and the
+   Trick/Magic Room / Fairy Lock bits gate abilities and items. C4e therefore defines an **explicit
+   supported field-status mask** equal to `STATUS_FIELD_ION_DELUGE` only: `fieldStatuses == 0` is
+   eligible, the Ion Deluge bit keeps its existing Normal-only logic, and **any other bit** refuses
+   with `HNS_FIELD_STATUS_NOT_MODELLED` rather than silently clearing the Ion Deluge check (Gap C4e
+   correction).
+4. **Weather variants.** Pinned `B_WEATHER_RAIN` (0x7) and `B_WEATHER_SUN` (0x18) are aggregate
+   masks that include the Primal variants (`Primordial Sea` / `Desolate Land`). The engine treats
+   those specially (Water blocked under extreme sun, Fire blocked under heavy rain), so the modelled
+   mask is narrowed to the ordinary bits only (`B_WEATHER_RAIN_NORMAL` 0x1, `B_WEATHER_SUN_NORMAL`
+   0x8); a primal bit refuses with `HNS_LIVE_WEATHER_NOT_MODELLED` instead of collapsing onto the
+   ordinary name (Gap C4e correction).
+5. **Conditional pinch abilities.** `CalcAttackStat` (`src/battle_util.c:7023`) applies x1.5 as an
    **Attack-stat** modifier when `moveType == TYPE_X && hp <= maxHP/3` for `Overgrow` (Grass),
    `Blaze` (Fire), `Torrent` (Water) and `Swarm` (Bug). The modifier is composed with
    `uq4_12_multiply_half_down` after the stat stage, which is exactly where
    `calculateHnsDamage` already applies its ability modifiers.
-4. **Gimmick.** `GetActiveGimmick(battler)` (`src/battle_gimmick.c:60`) is
+6. **Gimmick.** `GetActiveGimmick(battler)` (`src/battle_gimmick.c:60`) is
    `gBattleStruct->gimmick.activeGimmick[GetBattlerSide(battler)][gBattlerPartyIndexes[battler]]`.
    The pinned config sets `P_MEGA_EVOLUTIONS FALSE`, `P_PRIMAL_REVERSIONS FALSE`,
    `P_ULTRA_BURST_FORMS FALSE`, `P_GIGANTAMAX_FORMS FALSE` and `B_FLAG_DYNAMAX_BATTLE 0`
@@ -1508,6 +1530,9 @@ commit:
 | volatile `glaiveRush` bit | 64 |
 | volatile `minimize` bit | 72 |
 | volatile `semiInvulnerable` | bit 51, width 3 |
+| volatile `chargeTimer` | bit 73, width 2 |
+| volatile `tarShot` bit | 299 |
+| volatile read window | 38 bytes (covers `tarShot`; a shorter read would silently miss it) |
 | `struct BattleStruct.gimmick` | 668 |
 | `struct BattleGimmickData.activeGimmick` | 11 (side stride 6) |
 
@@ -1532,7 +1557,10 @@ pointer leaves the gimmick **unobserved** (never `NONE`).
 * `hp` / `maxHP` (`hp_observed`, `max_hp`);
 * `status1` (`status_observed`; the raw word, `0` is an observed neutral);
 * the damage-relevant volatile bits (`volatiles_observed`, `volatile_electrified`,
-  `volatile_glaive_rush`, plus the recorded `volatile_minimize` / `volatile_semi_invulnerable`);
+  `volatile_glaive_rush`, `volatile_charge_timer`, `volatile_tar_shot`, plus the recorded
+  `volatile_minimize` / `volatile_semi_invulnerable`); the reader now reads the generated 38-byte
+  volatile window, because `tarShot` sits at bit 299 and the previous 10-byte window silently
+  truncated it;
 * the gimmick byte (`gimmick_observed`, `active_gimmick`);
 * the battle-global `gFieldStatuses` word (`field_statuses_readable`, `field_statuses`);
 * the battle-global `gBattleWeather` flags word (`weather_readable`, `battle_weather`; 0 is an
@@ -1543,10 +1571,11 @@ pointer leaves the gimmick **unobserved** (never `NONE`).
 
 Every `*_observed` / `*_readable` bit separates **observed neutral** (bit set, payload zero) from
 **never read** (bit clear), so `false` is never collapsed with `unreadable`. The tuple grew from 42 to
-60 ints (`BATTLER_RUNTIME_STATE_TUPLE_LEN`): the pre-C4e 42-int contract still decodes the older
-fields, a 56-int tuple additionally decodes the C4e live operands, and only a 60-int tuple carries
-the live weather / side-status words - a short tuple leaves the later fields unobserved rather than
-defaulted. All new reads share the existing fail-closed lifecycle
+62 ints (`BATTLER_RUNTIME_STATE_TUPLE_LEN`): the pre-C4e 42-int contract still decodes the older
+fields, a 56-int tuple additionally decodes the C4e live operands, a 60-int tuple carries the live
+weather / side-status words, and only a 62-int tuple carries the correction-pass `chargeTimer` /
+`tarShot` operands - a short tuple leaves the later fields unobserved rather than defaulted, and the
+policy then fails closed. All new reads share the existing fail-closed lifecycle
 (ACTIVE only), battler resolution, party-slot binding, teardown clearing and profile-switch clearing;
 nothing is cached across battles.
 
@@ -1566,10 +1595,33 @@ type. This closes the C4d blocker "dynamic move type no longer uses a blanket un
 
 ### 14.5 Transient-state resolution
 
-`glaiveRush` is bound from the defender's slot-matched volatile word; `transientStateObserved` becomes
-true when it was read. `glaiveRush == true` → `HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED` (x2 not modelled);
-`false` clears. Minimize and the semi-invulnerable states are proven unreachable for the ordinary
-subset by the move-flag allow-list (§14.1.2), so no live reader is needed for them.
+All three generic ordinary-damage transients are bound from the slot-matched volatile window and
+`transientStateObserved` becomes true only when **all** of them were read:
+
+* `glaiveRush` (defender) - `true` → `HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED` (x2 not modelled);
+* `chargeTimer` (attacker) - a positive value **and** an Electric effective move type →
+  `HNS_CHARGE_ACTIVE_NOT_MODELLED`; a positive value on an irrelevant type is provably inert and
+  does not block, and `0` is the observed neutral;
+* `tarShot` (defender) - `true` **and** a Fire effective move type → `HNS_TAR_SHOT_ACTIVE_NOT_MODELLED`;
+  an irrelevant type is provably inert, and `false` is the observed neutral.
+
+A short tuple that does not carry `chargeTimer` / `tarShot` leaves `transientStateObserved` false, so
+the request fails closed with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` rather than assuming the volatiles
+were zero. Minimize and the semi-invulnerable states are proven unreachable for the ordinary subset by
+the move-flag allow-list (§14.1.2), so no live reader is needed for them.
+
+### 14.5.1 Field-status resolution
+
+The boundary binds the battle-global `gFieldStatuses` word (both battle-level observations must read
+it and agree). The policy then applies the explicit supported mask from §14.1.3:
+
+* `fieldStatuses == 0` - eligible;
+* Ion Deluge bit set - the existing Normal-only retype logic in §14.4 applies;
+* any other bit set - `HNS_FIELD_STATUS_NOT_MODELLED`, regardless of the move type.
+
+This preserves the Golden-A Ready path unchanged (`fieldStatuses == 0`) while making Wonder Room,
+Gravity, all four terrains and Mud/Water Sport fail closed instead of silently computing with the
+unmodified defensive stat or type.
 
 ### 14.6 Conditional pinch ability support
 
@@ -1608,14 +1660,15 @@ computed as clear / screenless. That unknown-to-neutral conversion is removed.
 * The native reader now decodes the battle-global `gBattleWeather` word and the observed battler's
   own `gSideStatuses[side]` word, each with its own readability bit (0 is an observed neutral,
   never "unread").
-* `CalcRequestBoundary` rebinds `field.weather` (clear / `Rain` / `Sun`) and `field.defenderSide`
-  (Reflect / Light Screen bits) from the observed words for an active exact-H&S battle; any
-  caller-supplied value is discarded, so a crafted neutral cannot stand in for an unobserved live
-  state.
+* `CalcRequestBoundary` rebinds `field.weather` (clear / ordinary `Rain` / ordinary `Sun`) and
+  `field.defenderSide` (Reflect / Light Screen bits) from the observed words for an active exact-H&S
+  battle; any caller-supplied value is discarded, so a crafted neutral cannot stand in for an
+  unobserved live state. The aggregate `B_WEATHER_RAIN` / `B_WEATHER_SUN` primal bits are deliberately
+  not mapped to the ordinary names.
 * `CalcCapabilityPolicy` refuses an unread word (`HNS_LIVE_WEATHER_UNKNOWN`,
   `HNS_LIVE_SCREENS_UNKNOWN`) or an observed word carrying a bit the ordinary arithmetic does not
-  model (`HNS_LIVE_WEATHER_NOT_MODELLED` for Sand/Hail/Snow/Fog/Strong Winds,
-  `HNS_LIVE_SIDE_STATUS_NOT_MODELLED` for Aurora Veil and every other side status).
+  model (`HNS_LIVE_WEATHER_NOT_MODELLED` for Sand/Hail/Snow/Fog/Strong Winds **and the primal
+  Rain/Sun bits**, `HNS_LIVE_SIDE_STATUS_NOT_MODELLED` for Aurora Veil and every other side status).
 * Out of battle the controls remain manual hypotheticals (the screen labels them as such), which is
   why the manual/out-of-battle path keeps the request's field values.
 
@@ -1655,11 +1708,16 @@ A request reaches `Ready` / `ESTIMATED` only when **all** of the following hold:
   Effectiveness observed **off**, Base Stat Equalizer observed **off**, Random Moves observed **off**;
 * supported/none held items and supported attacks (attacker pinch ability handled per §14.6);
 * effective move type fully resolved (no active Electrify / Ion Deluge);
-* defender Glaive Rush observed false;
+* defender Glaive Rush, attacker `chargeTimer` and defender `tarShot` observed neutral (`false` /
+  `0` / `false`); a positive relevant Charge / Tar Shot refuses with its precise limitation and a
+  short tuple that does not carry them refuses with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`;
 * gimmick state observed `GIMMICK_NONE` for both participants;
 * attacker live `status1` observed `0`;
-* the battle-global `gBattleWeather` word observed (clear, Rain or Sun; any other word refuses with
-  `HNS_LIVE_WEATHER_NOT_MODELLED`, and an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN`);
+* the battle-global `gFieldStatuses` word observed with at most the Ion Deluge bit (0 is the neutral
+  word; any other bit refuses with `HNS_FIELD_STATUS_NOT_MODELLED`);
+* the battle-global `gBattleWeather` word observed (clear, ordinary Rain or ordinary Sun; any other
+  word - including the primal Rain/Sun bits - refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, and an
+  unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN`);
 * the defender-side `gSideStatuses[side]` word observed with only the Reflect / Light Screen bits
   (an unread word refuses with `HNS_LIVE_SCREENS_UNKNOWN`, any other bit with
   `HNS_LIVE_SIDE_STATUS_NOT_MODELLED`);
@@ -1683,14 +1741,14 @@ value; "source-proven" means the pinned source/data proves it cannot vary for th
 | current HP / max HP | boundary-owned `gBattleMons.hp` / `.maxHP`; required for a relevant pinch ability |
 | badge applicability | boundary-owned player-side badge state; enemy badges source-proven irrelevant |
 | move type / effective type | pinned pack override + observed Ion Deluge field word and Electrify volatile |
-| weather | boundary-owned battle-global `gBattleWeather` (both observations must agree); only clear/Rain/Sun accepted |
+| weather | boundary-owned battle-global `gBattleWeather` (both observations must agree); only clear / ordinary Rain / ordinary Sun accepted; the primal Rain/Sun bits refuse |
 | screens | boundary-owned defender-side `gSideStatuses[side]`; only Reflect/Light Screen bits |
 | burn / status | boundary-owned live `status1` must be 0; non-neutral refuses |
 | crit flag | request `isCrit`; C4d indirect observation |
 | game format | request `Singles`; Doubles refuses |
-| field statuses | boundary-owned battle-global `gFieldStatuses` (both observations must agree) |
-| attacker volatiles | boundary-owned `electrified` (and recorded minimize/semi-invuln) |
-| defender volatiles | boundary-owned `glaiveRush` must be false |
+| field statuses | boundary-owned battle-global `gFieldStatuses` (both observations must agree); only the Ion Deluge bit is modelled, any other bit refuses |
+| attacker volatiles | boundary-owned `electrified` must be false (and recorded minimize/semi-invuln); boundary-owned `chargeTimer` must be 0 for the Ready subset |
+| defender volatiles | boundary-owned `glaiveRush` must be false; boundary-owned `tarShot` must be false |
 | gimmick / Tera | boundary-owned `gBattleStruct->gimmick.activeGimmick` must be `GIMMICK_NONE` |
 
 Every caller-supplied field on `hnsLiveBattleState` (and `curHP`) is discarded and rebound, so no
@@ -1704,12 +1762,15 @@ caller value can independently authorize an H&S live calculation.
   HP 14/20, Overgrow irrelevant to a Normal move) returns `Ready`, a non-null request and
   `ESTIMATED`; the emitted JSON carries the live HP/maxHP and the pinned move override.
 * **Adjacent negatives** — removing exactly one authority refuses with a precise limitation: wrong
-  ROM hash, unreadable volatile, unreadable field status, unreadable weather word (`HNS_LIVE_WEATHER_UNKNOWN`),
-  unreadable defender-side status word (`HNS_LIVE_SCREENS_UNKNOWN`), an observed unmodelled weather word
+  ROM hash, unreadable volatile, unreadable extended transient volatiles (`chargeTimer`/`tarShot`),
+  unreadable field status, an observed unmodelled field status (Wonder Room, terrain), unreadable
+  weather word (`HNS_LIVE_WEATHER_UNKNOWN`), unreadable defender-side status word
+  (`HNS_LIVE_SCREENS_UNKNOWN`), an observed unmodelled weather word including a primal Rain/Sun bit
   (`HNS_LIVE_WEATHER_NOT_MODELLED`), an observed unmodelled side-status bit
   (`HNS_LIVE_SIDE_STATUS_NOT_MODELLED`), unreadable/active gimmick, active Electrify, active Ion Deluge
-  on a Normal move, active Glaive Rush, unsupported ability, unverified pinch HP, stale participant
-  slot, unobserved badge state, unsupported move, active live status.
+  on a Normal move, active Glaive Rush, active Charge with an Electric move, active Tar Shot with a
+  Fire move, unsupported ability, unverified pinch HP, stale participant slot, unobserved badge state,
+  unsupported move, active live status. Charge / Tar Shot on an irrelevant move type stay Ready.
 * **Observed field conditions** — observed Rain and observed defender Reflect / Light Screen are bound
   into the request and reach the engine JSON; observed clear / no screens binds no weather / no
   defender side.
@@ -1730,6 +1791,12 @@ neutral case is **RUNTIME VERIFIED**. No positive transition (an actually-active
 an active Rain / Reflect frame) was manufactured, so the active cases stay SOURCE + HOST reasoned and
 are refused at runtime rather than claimed verified.
 
+The correction pass extends the same volatile read window to cover `chargeTimer` and `tarShot` (a
+reader-only change); `golden-c4e-live-operands.log` was produced before that extension and does not
+print the two new operands, so they are **HOST VERIFIED only** (decoder, native reader and
+production-boundary negative tests). The production path requires them observed and fails closed on a
+short tuple, so no unverified positive value can be published.
+
 ### 14.12 Reuse of the C4d goldens
 
 The positive control is a Golden-A-equivalent live request (Chikorita + ordinary Normal move vs
@@ -1748,9 +1815,11 @@ still green; C4e adds the pinch-ability fixtures alongside it.
   RUNTIME VERIFIED. The C4b host oracle coverage remains HOST VERIFIED.
 * **Golden F** is partially satisfied: the new readers have a neutral-state runtime observation
   (§14.11) but no positive transition.
-* Active dynamic-type retypes, active Glaive Rush, active gimmicks, non-neutral live status, unread
-  or unmodelled live weather / defender-side screens, and unsupported abilities/items/moves remain
-  refused so a confident wrong number is never published.
+* Active dynamic-type retypes, active Glaive Rush, active Charge on an Electric move, active Tar
+  Shot on a Fire move, unmodelled field statuses (Wonder Room, Gravity, terrain, Mud/Water Sport),
+  active gimmicks, non-neutral live status, unread or unmodelled live weather (including the primal
+  bits) / defender-side screens, and unsupported abilities/items/moves remain refused so a confident
+  wrong number is never published.
 
 ### 14.14 Issues #9 and #40
 

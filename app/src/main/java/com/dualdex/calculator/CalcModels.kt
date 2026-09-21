@@ -173,8 +173,10 @@ data class CalcHnsRuntimeRules(
  *    produces this yet (Gap C4b), so it is false in production.
  *  - [dynamicMoveTypeObserved]: true only when the current move's effective type was authoritatively
  *    observed. No runtime reader produces this yet (Gap C4b).
- *  - [transientStateObserved]: true only when other transient damage state reachable by the
- *    supported ordinary subset was authoritatively observed. No runtime reader produces this yet.
+ *  - [transientStateObserved]: true only when every transient damage-state operand reachable by
+ *    the supported ordinary subset was authoritatively observed: the defender's Glaive Rush
+ *    volatile, the attacker's Charge timer and the defender's Tar Shot volatile. A short tuple
+ *    that does not carry the latter two leaves this false, and the policy fails closed.
  *  - [moveTargetCount]: the authoritative number of currently present targets
  *    (`GetMoveTargetCount(ctx)`), or null when unobserved. H&S halves a spread move only when this
  *    is exactly 2, so a Doubles spread move without an observed count fails closed rather than
@@ -241,6 +243,18 @@ data class CalcHnsLiveBattleState(
      * damage of any incoming move regardless of type, so it must be observed false.
      */
     val defenderGlaiveRush: Boolean? = null,
+    /**
+     * `gBattleMons[attacker].volatiles.chargeTimer`, or null when unread. A non-zero value
+     * doubles the damage of an Electric move. `0` is an observed "not charging"; the ordinary
+     * subset refuses a positive value rather than publishing the unmodelled x2.
+     */
+    val attackerChargeTimer: Int? = null,
+    /**
+     * `gBattleMons[defender].volatiles.tarShot`, or null when unread. Tar Shot doubles the
+     * damage of a Fire move against the holder. The ordinary subset requires it observed false
+     * and refuses a positive value.
+     */
+    val defenderTarShot: Boolean? = null,
     /**
      * `gBattleStruct->gimmick.activeGimmick[side][partySlot]` for the attacker, or null when
      * unread. 0 is `GIMMICK_NONE`; any other value is a live gimmick (Tera/Dynamax/Z/...).

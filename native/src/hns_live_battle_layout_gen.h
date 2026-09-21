@@ -28,6 +28,9 @@
  *   volatile glaiveRush bit      = 64
  *   volatile minimize bit        = 72
  *   volatile semiInvulnerable    = bit 51 width 3
+ *   volatile chargeTimer         = bit 73 width 2
+ *   volatile tarShot bit         = 299
+ *   volatile read window         = 38 bytes
  *   BattleStruct.gimmick         = 668
  *   BattleGimmickData.activeGimmick = 11
 
@@ -55,6 +58,10 @@
 #define HNS_LIVE_BP_VOLATILE_MINIMIZE_BIT 72
 #define HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT 51
 #define HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH 3
+#define HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT 73
+#define HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH 2
+#define HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT 299
+#define HNS_LIVE_BP_VOLATILE_WINDOW_BYTES 38
 #define HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET 668
 #define HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET 11
 #define HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT 2
@@ -79,11 +86,11 @@
 #if HNS_LIVE_BP_STATUS_OFFSET + HNS_LIVE_BP_STATUS_SIZE > HNS_BATTLE_POKEMON_SIZEOF
 #error "BattlePokemon status1 field exceeds the compiled struct size"
 #endif
-#if HNS_LIVE_BP_VOLATILES_OFFSET + 1 > HNS_BATTLE_POKEMON_SIZEOF
-#error "BattlePokemon volatiles field exceeds the compiled struct size"
+#if HNS_LIVE_BP_VOLATILES_OFFSET + HNS_LIVE_BP_VOLATILE_WINDOW_BYTES > HNS_BATTLE_POKEMON_SIZEOF
+#error "BattlePokemon volatiles read window exceeds the compiled struct size"
 #endif
-#if HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT >= 8 * 12 || HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT >= 8 * 12
-#error "volatile bits exceed the first 12 volatile bytes"
+#if HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || HNS_LIVE_BP_VOLATILE_MINIMIZE_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT + HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT + HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES
+#error "an exported volatile bit exceeds the generated read window"
 #endif
 #if HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET + HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT * HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT > 64
 #error "BattleGimmickData.activeGimmick implausibly large"

@@ -717,7 +717,9 @@ typedef struct {
     bool     badge_boost_spd;      // Badge 7 (SpD) active for this battler in this battle
     uint8_t  raw_badges_byte;      // verbatim flags[0x10C] byte (SaveBlock1+0x1A98, Attack badge bit 7)
     uint8_t  absent_battler_flags;  // gAbsentBattlerFlags (0 when not readable)
+    bool     absent_flags_readable; // true when gAbsentBattlerFlags was actually read; false for both 'none absent' and 'unreadable'
     uint8_t  battlers_count;        // gBattlersCount (0 when not readable)
+    bool     battlers_count_readable; // true when gBattlersCount was actually read
 } BattlerRuntimeState;
 
 /**

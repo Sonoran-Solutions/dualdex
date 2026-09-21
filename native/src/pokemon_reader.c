@@ -2622,9 +2622,11 @@ bool pokemon_read_battler_runtime_state_gba(
     /* Populate battle-level state for target-count computation (Gap C4c). */
     if (battle.absent_flags_readable) {
         out_state->absent_battler_flags = battle.absent_battler_flags;
+        out_state->absent_flags_readable = true;
     }
     if (battle.counters_readable) {
         out_state->battlers_count = battle.battlers_count;
+        out_state->battlers_count_readable = true;
     }
 
     out_state->status = (out_state->ability_invalid || out_state->types_invalid ||

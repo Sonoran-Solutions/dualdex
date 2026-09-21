@@ -28,12 +28,12 @@ library source). *NOT FOUND* means the evidence does not exist and is never trea
 DualDex supports **exact verified FireRed**, **exact verified Emerald**, and **exact H&S 2.0.5**.
 Vanilla FireRed/Emerald requests that stay inside the verified input set are presented as **Verified**
 using `@smogon/calc`'s ADV pipeline (`gen: 3`). H&S 2.0.5 calculator support is a **partial, fail-closed
-slice (Gap C4b PARTIAL / OPEN)**: the UQ4.12 roll-first damage arithmetic is implemented in QuickJS
+slice (Gap C4b/PARTIAL, Gap C4c/OPEN)**: the UQ4.12 roll-first damage arithmetic is implemented in QuickJS
 (`calculateHnsDamage`, §11) and host-verified against the native C oracle, but the live operands it
 depends on — current effective types, battle stat words, the dynamic move type, transient damage
-state, the runtime `GetMoveTargetCount` count, and manual badge applicability — are not all readable,
-so **production H&S requests are refused** (`CalcSupport.UNSUPPORTED`) rather than published as an
-estimate. H&S lets the player change rules (category split, Fairy type, randomizers), applies modern
+state, the runtime `GetMoveTargetCount` count, and manual badge applicability — are fundamentally
+unobservable without runtime volatile state readers, so **production H&S requests are refused**
+(`CalcSupport.UNSUPPORTED`) rather than published as an estimate. H&S lets the player change rules (category split, Fairy type, randomizers), applies modern
 base data and type matchups, and executes a distinct UQ4.12 pipeline with Gen III badge boosts; DualDex
 consumes challenge settings at runtime via `CalcRequestBoundary` (§4.1), executes the exact 19x19 H&S
 type chart (Gap C1, §3.1), and audits authoritative abilities (Gap C2, §6) and held items (Gap C3, §7).

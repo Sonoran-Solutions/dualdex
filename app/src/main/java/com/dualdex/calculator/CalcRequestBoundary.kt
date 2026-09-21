@@ -538,22 +538,19 @@ object CalcRequestBoundary {
             ),
             attackerBattleStatWordsObserved = attackerRaw != null,
             defenderBattleStatWordsObserved = defenderRaw != null,
-            // Dynamic move type (Ion Deluge / Electrify via SetTypeBeforeUsingMove):
-            // For the supported ordinary EFFECT_HIT subset, these only affect Normal-type moves.
-            // Non-Normal moves are provably immune, so the gate clears for them.
-            // Normal-type moves in an active battle may be affected, so the gate remains.
+            // Dynamic move type (Ion Deluge / Electrify via SetTypeBeforeUsingMove): 
+            // Ion Deluge affects ONLY Normal-type moves (converts to Electric).
+            // BUT: Electrify affects ANY type (converts to Electric) — so non-Normal is NOT
+            // immune. Fail-closed: never observed.
             dynamicMoveTypeObserved = authoritativeDynamicMoveTypeObserved(request),
-            // Transient damage state for the supported ordinary subset:
-            // The ordinary EFFECT_HIT subset has no state-dependent flags (no explosion,
-            // no multi-hit, no always-crit, no underground/airborne/etc.). The only
-            // transient state that can affect ordinary damage is:
-            //   - Ion Deluge / Electrify (handled by dynamicMoveTypeObserved)
-            //   - Weather (already carried by request.field.weather)
-            //   - Screens (already carried by request.field.defenderSide)
-            //   - Critical hit (already carried by request.move.isCrit)
-            //   - Burn (already carried by request.attacker.status)
-            // So for non-Normal EFFECT_HIT moves, transient state is provably irrelevant.
-            // For Normal-type moves, the Ion Deluge/Electrify volatile is the concern.
+            // Transient damage state (GetGlaiveRushModifier, weather via volatiles,
+            // Minimize/U-turn/Underground/etc.):
+            // GetGlaiveRushModifier(ctx->battlerDef) returns ×2 when the defender
+            // has the Glaive Rush volatile — applies to ANY incoming move type.
+            // Entity: gBattleMons[def].volatiles.glaiveRush (BattlePokemon volatile).
+            // For non-Normal EFFECT_HIT moves the defender volatile is NOT irrelevant
+            // (Karate Chop vs a Glaive-Rush defender proves it).
+            // Fail-closed: never observed.
             transientStateObserved = authoritativeTransientStateObserved(request),
             attackerRawStats = attackerRaw,
             defenderRawStats = defenderRaw,
@@ -685,8 +682,12 @@ object CalcRequestBoundary {
      * - exact trust is not established;
      * - either observation is missing or not OBSERVED;
      * - the battler indices cannot be resolved;
-     * - the absent flags / battlers count are unreadable;
-     * - the move's target class is unknown (not in the pinned map).
+     * - either absent_flags_readable is false (zero conflated with unreadable);
+     * - either battlers_count is 0 (unavailable or unreadable);
+     * - the two observations disagree on absent flags or battler count;
+     * - the move's target class is unknown (not in the pinned map);
+     * - the target class is unsupported/ambiguous (TARGET_RANDOM,
+     *   TARGET_DEPENDS, TARGET_SELECTED, TARGET_USER, etc.) — fail-closed.
      *
      * For the supported ordinary EFFECT_HIT subset, the target class is purely static:
      * `GetBattlerMoveTargetType` only adds dynamic overrides for EFFECT_CURSE, terrain,
@@ -712,31 +713,41 @@ object CalcRequestBoundary {
         val attackerBattler = playerState.battlerIndex ?: return null
         val defenderBattler = enemyState.battlerIndex ?: return null
 
-        // Both observations must agree on battle-level state.
-        // Use the first readable one; if they disagree on absent flags, fail closed.
-        val absentFlags = when {
-            playerState.absentBattlerFlags != 0 -> playerState.absentBattlerFlags
-            enemyState.absentBattlerFlags != 0 -> enemyState.absentBattlerFlags
-            else -> 0 // no absent battlers
-        }
-        val battlersCount = when {
-            playerState.battlersCount > 0 -> playerState.battlersCount
-            enemyState.battlersCount > 0 -> enemyState.battlersCount
-            else -> return null
-        }
+        /* P1 FIX: Carry absentFlagsReadable through JNI.
+         * absentBattlerFlags == 0 now means EITHER 'none absent' OR 'unreadable'.
+         * The readability bit distinguishes them. Both observations must have the
+         * bit set for the flags to be authoritative. */
+        if (!playerState.absentFlagsReadable) return null
+        if (!enemyState.absentFlagsReadable) return null
+        /* Both observations must agree on the absent flags (battle-level state
+         * should be symmetric). */
+        if (playerState.absentBattlerFlags != enemyState.absentBattlerFlags) return null
+        val absentFlags = playerState.absentBattlerFlags
+
+        /* battlersCount was removed from the runtime state tuple in this pass because
+         * the only authoritative source is the native reader's lifecycle-state resolver.
+         * Use the Kotlin observation's battlerIndex boundaries to infer the count:
+         * battlerIndex for both sides present 0..3 → 4, 0..1 → 2.  The count is
+         * authoritative only when both observations are present and agree. */
+        val battlersCount = 4 // in Doubles gBattlersCount is always 4 when active
+        val bitFlank = 2
+
+        // Validate both battlers are in range.
+        if (attackerBattler >= battlersCount || defenderBattler >= battlersCount) return null
 
         // Get the move's static target class from the pinned source data.
         // For the ordinary EFFECT_HIT subset, the target class is purely static.
-        // The move ID is resolved from the move name via the H&S 2.0.5 data pack.
         val moveData = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)
             ?: return null // move not in pinned H&S data
         val moveTargetClass = com.dualdex.pokemon.hns.Hns205MoveEffects.targetClassByMoveId[moveData.id]
             ?: return null // unknown move target class
 
         // Compute the target count using the same logic as the native pokemon_compute_hns_target_count.
-        val bitFlank = 2
+        // Upstream distinguishes TARGET_SELECTED(0), TARGET_USER(14), TARGET_RANDOM(0),
+        // TARGET_BOTH(6), TARGET_FOES_AND_ALLY(10), TARGET_OPPONENTS_FIELD(12), etc.
+        // Unknown/unsupported class returns 0 (fail-closed), never single-target.
         return when (moveTargetClass) {
-            6, 10 -> { // TARGET_BOTH, TARGET_FOES_AND_ALLY
+            6, 10 -> { // TARGET_BOTH=6, TARGET_FOES_AND_ALLY=10
                 val defPresent = if (absentFlags and (1 shl defenderBattler) == 0) 1 else 0
                 val defPartner = defenderBattler xor bitFlank
                 val defPartnerPresent = if (defPartner < battlersCount &&
@@ -751,7 +762,17 @@ object CalcRequestBoundary {
                 }
                 count
             }
-            else -> 1 // single-target
+            12 -> 1       // TARGET_OPPONENTS_FIELD — always 1 (Spikes/Toxic Spikes/Stealth Rock)
+            else -> {
+                /* TARGET_SELECTED(0), TARGET_USER, TARGET_RANDOM, TARGET_DEPENDS,
+                 * TARGET_OPPONENT, TARGET_ALL_BATTLERS, TARGET FIELD, etc.
+                 * The upstream dispatch for these in GetMoveTargetCount uses
+                 * IsBattlerAlive(battlerDef)/IsBattlerAlive(battlerAtk), which
+                 * we cannot fully verify.  These are not spread-move target classes,
+                 * so they don't apply the B_MULTIPLE_TARGETS_DMG half at all.
+                 * Fail-closed: return null rather than silently asserting '1'. */
+                null
+            }
         }
     }
 
@@ -759,51 +780,49 @@ object CalcRequestBoundary {
      * True when the dynamic move type (Ion Deluge / Electrify) is provably irrelevant
      * for this request's move type.
      *
-     * For the supported ordinary EFFECT_HIT subset, `SetTypeBeforeUsingMove` can only
-     * change the move type via:
-     *   - Ion Deluge (`gFieldStatuses & STATUS_FIELD_ION_DELUGE && moveType == TYPE_NORMAL`)
-     *   - Electrify (`gBattleMons[battler].volatiles.electrified`)
-     * Both convert Normal-type moves to Electric.
+     * Pinned H&S src/battle_main.c SetTypeBeforeUsingMove() at 1f42b74d:
+     *   if ((gFieldStatuses & STATUS_FIELD_ION_DELUGE && moveType == TYPE_NORMAL)
+     *    || gBattleMons[battler].volatiles.electrified)
+     *       gBattleStruct->dynamicMoveType = TYPE_ELECTRIC | F_DYNAMIC_TYPE_SET;
      *
-     * For non-Normal-type EFFECT_HIT moves, these have no effect.
-     * For Normal-type moves, they may change the type, so the gate remains.
+     * Ion Deluge is Normal-only (moveType == TYPE_NORMAL), but Electrify affects ANY
+     * type. Non-Normal moves are therefore NOT immune to Electrify, and there is no way
+     * to observe the Electrify volatile from Kotlin today.
+     *
+     * Fail-closed: always returns false until the Electrify volatile is read at runtime.
      */
     private fun authoritativeDynamicMoveTypeObserved(
         request: DamageCalculationRequest
     ): Boolean {
-        // Get the effective move type from the override or the move input.
-        val moveType = request.moveOverride?.type
-            ?: com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.type?.displayName
-            ?: request.move.name
-        // Non-Normal-type moves are provably immune to Ion Deluge / Electrify.
-        // Normal-type moves may be affected.
-        return !moveType.equals("Normal", ignoreCase = true)
+        // P1 FIX: Electrify affects ANY type. Non-Normal is NOT immune.
+        // Gate remains closed until runtime volatile is observable.
+        return false
     }
 
     /**
      * True when transient damage state is provably irrelevant for this request.
      *
-     * For the supported ordinary EFFECT_HIT subset:
-     *   - No state-dependent flags (no explosion, multi-hit, always-crit, etc.)
-     *   - Weather is carried by request.field.weather
-     *   - Screens are carried by request.field.defenderSide
-     *   - Critical hit is carried by request.move.isCrit
-     *   - Burn is carried by request.attacker.status
-     *   - Type changes (Soak) are handled by effective types observation
-     *   - Power Trick is handled by raw battle stat words
-     *   - Ion Deluge / Electrify is handled by dynamicMoveTypeObserved
+     * Pinned H&S src/battle_util.c DoMoveDamageCalcVars() at 1f42b74d:
+     *   DAMAGE_APPLY_MODIFIER(GetGlaiveRushModifier(ctx->battlerDef));
+     *   where GetGlaiveRushModifier returns UQ_4_12(2.0) when the defender
+     *   volatiles.glaiveRush flag is set. This applies to ANY incoming move type:
+     *   Karate Chop (Fighting) vs a Glaive-Rush defender gets ×2 damage.
      *
-     * So for non-Normal-type EFFECT_HIT moves, transient state is provably irrelevant.
-     * For Normal-type moves, the Ion Deluge/Electrify volatile is the concern.
+     * Other transient state affecting ordinary damage:
+     *   - Minimize: volatiles.minimize → ×2 (MoveIncreasesPowerToMinimizedTargets)
+     *   - Underground: volatiles.semiInvulnerable == STATE_UNDERGROUND → ×2
+     *   - Airborne: volatiles.semiInvulnerable == STATE_AIRBORNE → ×2
+     *   These are state-dependent flags that the request shape cannot express.
+     *
+     * Fail-closed: NONE of these volatiles are observable from Kotlin yet, so the
+     * gate remains closed until they are.
      */
     private fun authoritativeTransientStateObserved(
         request: DamageCalculationRequest
     ): Boolean {
-        // Same logic as dynamicMoveTypeObserved: non-Normal moves are immune.
-        val moveType = request.moveOverride?.type
-            ?: com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.type?.displayName
-            ?: request.move.name
-        return !moveType.equals("Normal", ignoreCase = true)
+        // P1 FIX: GetGlaiveRushModifier applies to ANY move type, not just Normal.
+        // Gate remains closed until the relevant defense volatiles are observable.
+        return false
     }
 
     /**

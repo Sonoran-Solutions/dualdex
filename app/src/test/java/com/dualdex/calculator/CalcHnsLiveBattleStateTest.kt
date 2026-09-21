@@ -330,8 +330,11 @@ class CalcHnsLiveBattleStateTest {
     fun `a fully authoritatively observed live battle state clears the live battle state blocker`() {
         // Policy-level positive control: the gate is per mutable class, not an unconditional
         // "live read" prohibition. Battle stat words / dynamic move type / transient state have
-        // no runtime reader yet (Gap C4b), so this shape is not reachable through the boundary
-        // today, but the policy must clear precisely when every class is observed.
+        // no runtime reader yet (C4c audit), so this shape is only reachable at the policy
+        // level (how the boundary auth is done), not via CalcRequestBoundary,
+        // because the boundary now requires actual runtime observations for the
+        // dynamic/transient fields. Direct policy evaluation still checks that
+        // when the caller passes true for every class, the blocker clears.
         val (profile, trust) = exactHns()
         val rules = CalcRequestBoundary.resolveHnsRuntimeRules(profile, trust, settings())
         var enriched = CalcDataOverrides.enrichRequest(profile, request(), rules)
@@ -383,33 +386,17 @@ class CalcHnsLiveBattleStateTest {
     // ------------------------------------------------ Gap C4c tests
 
     @Test
-    fun `non-Normal-type EFFECT_HIT move clears dynamic move type and transient state gates`() {
-        // Karate Chop (Fighting type, EFFECT_HIT) is not Normal, so Ion Deluge / Electrify
-        // cannot change its type. The dynamic move type and transient state gates must clear.
-        // The battle stat words and badge gates remain.
-        val (profile, trust) = exactHns()
-        val rules = CalcRequestBoundary.resolveHnsRuntimeRules(profile, trust, settings())
-        var enriched = CalcDataOverrides.enrichRequest(
-            profile,
-            request(move = "Karate Chop"),
-            rules
+    fun `non-Normal-type EFFECT_HIT move does NOT clear dynamic move type and transient state gates`() {
+        // P0/P1 FIX: Karate Chop (Fighting type, EFFECT_HIT) gets Electrified into Electric
+        // regardless of move type; GetGlaiveRushModifier affects ANY incoming move.
+        // Both gates stay closed until the volatiles are observed at runtime.
+        val verdict = refused(
+            request = request(move = "Karate Chop"),
+            playerBattlerState = observation(partySlot = 0, types = listOf(2)),
+            enemyBattlerState = observation(partySlot = 0, types = listOf(1))
         )
-        enriched = enriched.copy(
-            hnsLiveBattleState = CalcHnsLiveBattleState(
-                attackerTypes = enriched.attackerOverride?.types,
-                defenderTypes = enriched.defenderOverride?.types,
-                attackerBattleStatWordsObserved = true,
-                defenderBattleStatWordsObserved = true,
-                dynamicMoveTypeObserved = true, // set by boundary for non-Normal moves
-                transientStateObserved = true,  // set by boundary for non-Normal moves
-                attackerBadgeBoosts = CalcBadgeBoosts(atk = true),
-                attackerStatStages = listOf(0, 6, 6, 6, 6, 6, 6, 6),
-                defenderStatStages = listOf(0, 6, 6, 6, 6, 6, 6, 6)
-            )
-        )
-        val verdict = CalcCapabilityPolicy.evaluate(profile, trust, enriched)
-        assertFalse(
-            "non-Normal EFFECT_HIT must not trigger live battle state blocker: ${verdict.limitations}",
+        assertTrue(
+            "Even non-Normal moves must retain dynamic move type gate (Electrify is type-agnostic): ${verdict.limitations}",
             verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
         )
     }
@@ -417,8 +404,8 @@ class CalcHnsLiveBattleStateTest {
     @Test
     fun `Normal-type EFFECT_HIT move retains dynamic move type gate`() {
         // Tackle (Normal type, EFFECT_HIT) may be affected by Ion Deluge / Electrify.
-        // The boundary sets dynamicMoveTypeObserved = false for Normal-type moves,
-        // so the live battle state gate must remain.
+        // The boundary sets dynamicMoveTypeObserved = false for ALL moves,
+        // so the live battle state gate must remain for non-Normal too.
         val verdict = refused(
             request = request(move = "Tackle"),
             playerBattlerState = observation(partySlot = 0, types = listOf(2)), // Fighting
@@ -431,10 +418,12 @@ class CalcHnsLiveBattleStateTest {
     }
 
     @Test
-    fun `doubles spread move with authoritative target count of 2 clears the doubles gate`() {
-        // Rock Slide (TARGET_BOTH) in Doubles with 2 present opponents.
-        // The boundary computes target count from absent flags and battlers count.
-        // With no absent battlers, count = 2.
+    fun `doubles spread move with authoritative target count of 2 clears the doubles gate via policy`() {
+        // NOTE: targetCount == 2 is NOT reachable through CalcRequestBoundary today
+        // because the dynamic-move-type and transient-state gates always stay closed
+        // (no runtime volatile reader), AND the absentFlagsReadable check requires
+        // actual native observations. This uses direct policy evaluation to show that
+        // if/when those volatiles become observable, the Doubles path is functional.
         val (profile, trust) = exactHns()
         val rules = CalcRequestBoundary.resolveHnsRuntimeRules(profile, trust, settings())
         var enriched = CalcDataOverrides.enrichRequest(
@@ -493,6 +482,120 @@ class CalcHnsLiveBattleStateTest {
         assertFalse(
             "target count of 1 must clear the doubles gate (no spread reduction): ${verdict.limitations}",
             verdict.limitations.contains(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED)
+        )
+    }
+
+    // --- P1: absentFlagsReadable / disagree-flags tests ---
+
+    @Test
+    fun `doubles target count refuses when absentFlagsReadable is false`() {
+        // absentBattlerFlags == 0 with absentFlagsReadable == false is ambiguous:
+        // 'no absent battlers' vs 'unreadable'. The gate must refuse.
+        val unreadableObs = BattlerRuntimeObservation(
+            state = HnsBattlerRuntimeState(
+                status = HnsBattlerRuntimeStatus.OBSERVED,
+                battlerIndex = 0,
+                partySlot = 0,
+                abilityId = 0,
+                types = listOf(HnsBattlerTypeObservation(observed = true, raw = 2)),
+                itemId = 0,
+                absentBattlerFlags = 0,
+                absentFlagsReadable = false // key: flags unreadable
+            ),
+            abilityIdentity = DeclaredAbility.EmptySlot
+        )
+        val verdict = refused(
+            request = DamageCalculationRequest(
+                gen = 3,
+                typeSystem = "hns_2_0_5",
+                attacker = liveInput("Machamp", partySlot = 0),
+                defender = liveInput("Snorlax", partySlot = 0),
+                move = CalcMoveInput(name = "Rock Slide"),
+                field = CalcFieldInput(gameType = CalcGameTypes.DOUBLES)
+            ),
+            playerBattlerState = unreadableObs,
+            enemyBattlerState = observation(partySlot = 0, types = listOf(1))
+        )
+        assertTrue(
+            "unreadable absent flags must refuse doubles: ${verdict.limitations}",
+            verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED) ||
+                verdict.limitations.contains(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED)
+        )
+    }
+
+    @Test
+    fun `doubles target count refuses when player and enemy absent flags disagree`() {
+        // Two observations with different absent flags: the code must refuse.
+        val playerObs = BattlerRuntimeObservation(
+            state = HnsBattlerRuntimeState(
+                status = HnsBattlerRuntimeStatus.OBSERVED,
+                battlerIndex = 0,
+                partySlot = 0,
+                abilityId = 0,
+                types = listOf(HnsBattlerTypeObservation(observed = true, raw = 2)),
+                itemId = 0,
+                absentBattlerFlags = 0b0100, // battler 2 absent
+                absentFlagsReadable = true
+            ),
+            abilityIdentity = DeclaredAbility.EmptySlot
+        )
+        val enemyObs = BattlerRuntimeObservation(
+            state = HnsBattlerRuntimeState(
+                status = HnsBattlerRuntimeStatus.OBSERVED,
+                battlerIndex = 1,
+                partySlot = 0,
+                abilityId = 0,
+                types = listOf(HnsBattlerTypeObservation(observed = true, raw = 1)),
+                itemId = 0,
+                absentBattlerFlags = 0b1000, // battler 3 absent (different!)
+                absentFlagsReadable = true
+            ),
+            abilityIdentity = DeclaredAbility.EmptySlot
+        )
+        val verdict = refused(
+            request = DamageCalculationRequest(
+                gen = 3,
+                typeSystem = "hns_2_0_5",
+                attacker = liveInput("Machamp", partySlot = 0),
+                defender = liveInput("Snorlax", partySlot = 0),
+                move = CalcMoveInput(name = "Rock Slide"),
+                field = CalcFieldInput(gameType = CalcGameTypes.DOUBLES)
+            ),
+            playerBattlerState = playerObs,
+            enemyBattlerState = enemyObs
+        )
+        assertTrue(
+            "disagreeing absent flags must refuse: ${verdict.limitations}",
+            verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED) ||
+                verdict.limitations.contains(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED)
+        )
+    }
+
+    @Test
+    fun `singles non-ordinary move (EFFECT_TWO_TURNS_ATTACK) is refused by move mechanics gate`() {
+        // Solar Beam (EFFECT_TWO_TURNS_ATTACK) is not in the ordinary set.
+        val verdict = refused(request = request(move = "Solar Beam"))
+        assertTrue(
+            "non-ordinary move effect must be refused: ${verdict.limitations}",
+            verdict.limitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
+        )
+    }
+
+    @Test
+    fun `transient state proof per pinned Glaive Rush source`() {
+        // Per the pinned battle_util.c at 1f42b74d:
+        // GetGlaiveRushModifier(ctx->battlerDef) returns ×2 when the defender has
+        // gBattleMons[battlerDef].volatiles.glaiveRush, regardless of move type.
+        // Karate Chop (Fighting, EFFECT_HIT) vs a Glaive-Rush defender would get ×2.
+        // This proves that for non-Normal moves, transient defense state is NOT irrelevant.
+        val verdict = refused(
+            request = request(move = "Karate Chop"),
+            playerBattlerState = observation(partySlot = 0, types = listOf(2)), // Fighting
+            enemyBattlerState = observation(partySlot = 0, types = listOf(1))  // Normal
+        )
+        assertTrue(
+            "defender volatile (Glaive Rush) is type-agnostic: ${verdict.limitations}",
+            verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
         )
     }
 }

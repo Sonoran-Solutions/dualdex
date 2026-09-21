@@ -2853,7 +2853,9 @@ Pinned source: `pokehns-expansion` commit `1f42b74dff0e9fe942419845d040663dd829a
      - Ineligible in link battles, Frontier, e-Reader, recorded link (`HNS_BATTLE_TYPE_BADGE_EXCLUSIONS`), or secret base battles (`TRAINER_BATTLE_PARAM.opponentA == TRAINER_SECRET_BASE`).
    - Populated into `HnsBattlerRuntimeState.badgeBoostAttack`, `.badgeBoostDefense`, etc. for player battlers only.
    - In active battles (`request.hnsLiveBattleState != null`), if the player's badge state is unobserved, `BADGE_BOOST_NOT_MODELLED` blocks fail-closed. The enemy defender's badge state is never required.
-   - In manual / hypothetical requests, badge state is optionally modelled or neutral.
+   - In manual / hypothetical requests, badge state does not exist, and missing badge state is **not**
+     interpreted as "badges off": badge applicability is boundary-owned live state, so a manual
+     request fails closed with `BADGE_BOOST_NOT_MODELLED` (commit `c87d80a`, R7).
 
 ### 19.3 Dedicated H&S QuickJS calculation engine (`calculateHnsDamage`)
 
@@ -2862,7 +2864,7 @@ In `tools/calc-bundler/entry.js`, `calculateHnsDamage` implements the exact poke
 - Stat resolution: uses live `rawStats` if present; otherwise standard formula.
 - Stat stages: applies `HNS_STAT_STAGE_RATIOS` (-6..+6) with crit drop-ignore rules.
 - Badge boost: applies UQ4.12 `halfDown(4506, stat)` ($\times 1.1$) when badge boost flag is set.
-- Pre-roll modifiers: Doubles spread (`halfDown(2048, dmg)` applied only when `move.target === 'allAdjacentFoes'`; single-target moves in doubles are NOT reduced), Weather (`halfDown(6144/2048, dmg)`), Crit (`halfDown(8192, dmg)`).
+- Pre-roll modifiers: Doubles spread (`halfDown(2048, dmg)` applied only when the request carries an explicit boundary-owned `field.targetCount == 2` from the live `GetMoveTargetCount(ctx)` observation; a count of 1 is NOT reduced, and a missing/unobserved count fails closed with `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`), Weather (`halfDown(6144/2048, dmg)`), Crit (`halfDown(8192, dmg)`).
 - 16 damage rolls: for $r = 85..100$, $x = \lfloor dmg \times r / 100 \rfloor$.
 - Post-roll modifiers: STAB (`halfDown(6144, x)`), Type effectiveness (`halfDown(Math.round(eff \times 4096), x)`), Burn (`halfDown(2048, x)`), Screens (`halfDown(2048/2732, x)`).
 - Minimum floor: $x = 1$ if damage is 0 and effectiveness $> 0$.
@@ -2880,8 +2882,11 @@ In `tools/calc-bundler/entry.js`, `calculateHnsDamage` implements the exact poke
      - Weather boost (Sun on Fire): exact match across all 16 rolls.
      - Screens (Reflect): exact match across all 16 rolls.
      - Explicit raw stats (`rawStats`): exact match across all 16 rolls.
-2. **Policy Promotion to `ESTIMATED`:**
-   - Supported ordinary requests now reach `CalcRequestOutcome.Ready` with `CalcSupport.ESTIMATED`.
+2. **Fail-Closed Policy (no `ESTIMATED` promotion):**
+   - No production H&S request is promoted to `CalcRequestOutcome.Ready` with `CalcSupport.ESTIMATED` today.
+     Badge applicability is boundary-owned live state (missing state → `BADGE_BOOST_NOT_MODELLED`, R7), and the
+     Doubles spread requires an observed runtime `GetMoveTargetCount` (missing count → `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`, R2);
+     since no reader supplies those live operands yet, the arithmetic remains host-verified and Gap C4b stays PARTIAL / OPEN.
    - Non-ordinary move effects, unsupported abilities/items, out-of-range stat stages, unmodelled weather, active randomizers, and unobserved active-battle state remain strictly fail-closed (`CalcSupport.UNSUPPORTED`).
 3. **Continuous Integration:**
    - All 85 native reader/tracker tests pass.

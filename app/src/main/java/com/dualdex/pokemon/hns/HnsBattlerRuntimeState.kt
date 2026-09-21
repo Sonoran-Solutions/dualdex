@@ -97,6 +97,20 @@ object HnsBattlerRuntimeStateIds {
      * catalogue can never drift apart silently.
      */
     val ITEM_ID_MAX: Int get() = Hns205ItemCatalogue.ITEM_ID_MAX
+
+    /**
+     * Pinned `gBattleWeather` flags (`enum BattleWeather` bits). The modelled ordinary-damage
+     * subset covers clear weather, Rain and Sun; every other bit (Sandstorm/Hail/Snow/Fog/Strong
+     * Winds) is observed but refused by the policy rather than silently treated as clear.
+     */
+    const val B_WEATHER_RAIN = 0x7 // (1<<0)|(1<<1)|(1<<2)
+    const val B_WEATHER_SUN = 0x18 // (1<<3)|(1<<4)
+    const val B_WEATHER_MODELLED = B_WEATHER_RAIN or B_WEATHER_SUN
+
+    /** Pinned `gSideStatuses` bits. Only Reflect and Light Screen are modelled for the subset. */
+    const val SIDE_STATUS_REFLECT = 1 shl 0
+    const val SIDE_STATUS_LIGHTSCREEN = 1 shl 1
+    const val SIDE_STATUS_MODELLED = SIDE_STATUS_REFLECT or SIDE_STATUS_LIGHTSCREEN
 }
 
 /**
@@ -223,7 +237,22 @@ data class HnsBattlerRuntimeState(
     /** true when the battle-global `gFieldStatuses` word was actually read. */
     val fieldStatusesReadable: Boolean = false,
     /** Battle-global status word (Ion Deluge is one bit). Only meaningful when readable. */
-    val fieldStatuses: Int = 0
+    val fieldStatuses: Int = 0,
+    // --- Gap C4e correction: live field conditions -----------------------------------------
+    /**
+     * true when the battle-global `gBattleWeather` flags word was actually read. A readable word
+     * of 0 is an observed clear weather, distinct from "never read".
+     */
+    val weatherReadable: Boolean = false,
+    /** Engine's current weather flags word. Only meaningful when [weatherReadable]. */
+    val battleWeather: Int = 0,
+    /**
+     * true when this battler's own `gSideStatuses[side]` word was actually read. The boundary
+     * uses the defender observation's word for Reflect / Light Screen.
+     */
+    val sideStatusesReadable: Boolean = false,
+    /** Engine's current status word for the observed battler's side. Only meaningful when readable. */
+    val sideStatuses: Int = 0
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
@@ -283,15 +312,19 @@ data class HnsBattlerRuntimeState(
          * [47] volatilesObserved, [48] volatileElectrified, [49] volatileGlaiveRush,
          * [50] volatileMinimize, [51] volatileSemiInvulnerable,
          * [52] gimmickObserved, [53] activeGimmick,
-         * [54] fieldStatusesReadable, [55] fieldStatuses.
+         * [54] fieldStatusesReadable, [55] fieldStatuses,
+         * [56] weatherReadable, [57] battleWeather,
+         * [58] sideStatusesReadable, [59] sideStatuses.
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
          * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is
          * the pre-C4e contract (still honored for existing tests); [C4E_TUPLE_LEN]
-         * additionally carries the Gap C4e live operands.
+         * additionally carries the Gap C4e live operands, and [C4E_FIELD_TUPLE_LEN]
+         * the live weather / defender-side status operands.
          */
         private const val TUPLE_LEN = 42
         private const val C4E_TUPLE_LEN = 56
+        private const val C4E_FIELD_TUPLE_LEN = 60
 
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -349,6 +382,11 @@ data class HnsBattlerRuntimeState(
             val volatilesObserved = c4e && raw[47] != 0
             val gimmickObserved = c4e && raw[52] != 0
             val fieldStatusesReadable = c4e && raw[54] != 0
+            // Gap C4e correction: weather / defender-side status operands. Decoded only from the
+            // longer tuple; a 56-element tuple leaves them unobserved rather than defaulted.
+            val c4eField = raw.size >= C4E_FIELD_TUPLE_LEN
+            val weatherReadable = c4eField && raw[56] != 0
+            val sideStatusesReadable = c4eField && raw[58] != 0
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
@@ -390,7 +428,11 @@ data class HnsBattlerRuntimeState(
                 gimmickObserved = gimmickObserved,
                 activeGimmick = if (gimmickObserved) raw[53].coerceIn(0, 5) else 0,
                 fieldStatusesReadable = fieldStatusesReadable,
-                fieldStatuses = if (fieldStatusesReadable) raw[55] else 0
+                fieldStatuses = if (fieldStatusesReadable) raw[55] else 0,
+                weatherReadable = weatherReadable,
+                battleWeather = if (weatherReadable) raw[57] else 0,
+                sideStatusesReadable = sideStatusesReadable,
+                sideStatuses = if (sideStatusesReadable) raw[59] else 0
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for
             // out-of-domain observations, but a tuple whose flags claim an out-of-domain

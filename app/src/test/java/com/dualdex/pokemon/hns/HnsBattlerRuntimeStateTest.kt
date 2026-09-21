@@ -102,6 +102,237 @@ class HnsBattlerRuntimeStateTest {
     }
 
     // ------------------------------------------------------------------
+    // Gap C4e live-operand tuple decode (slots 42-59)
+    // ------------------------------------------------------------------
+
+    /**
+     * A full 60-int native tuple with every Gap C4e operand independently settable. The
+     * production JNI emits this layout; constructing it here (rather than building the Kotlin
+     * object directly) is what exercises the exact decoder production depends on.
+     */
+    private fun c4eObservedTuple(
+        hpObserved: Int = 1,
+        hp: Int = 14,
+        maxHp: Int = 20,
+        statusObserved: Int = 1,
+        status1: Int = 0,
+        volatilesObserved: Int = 1,
+        electrified: Int = 0,
+        glaiveRush: Int = 0,
+        minimize: Int = 0,
+        semiInvulnerable: Int = 0,
+        gimmickObserved: Int = 1,
+        activeGimmick: Int = 0,
+        fieldStatusesReadable: Int = 1,
+        fieldStatuses: Int = 0,
+        weatherReadable: Int = 1,
+        battleWeather: Int = 0,
+        sideStatusesReadable: Int = 1,
+        sideStatuses: Int = 0
+    ): IntArray {
+        val t = IntArray(60)
+        /* [0..15] identity / ability / types / item */
+        t[0] = 2 // OBSERVED
+        t[1] = 0
+        t[2] = 0
+        t[3] = 1
+        t[4] = 1
+        t[5] = 0
+        t[6] = 66
+        t[7] = 1
+        t[8] = 0
+        t[9] = 3
+        t[10] = 11
+        t[11] = 0
+        t[12] = 0
+        t[13] = 1
+        t[14] = 0
+        t[15] = 426
+        /* [16..21] raw battle stats */
+        t[16] = 1
+        t[17] = 100
+        t[18] = 80
+        t[19] = 70
+        t[20] = 90
+        t[21] = 85
+        /* [22..30] stat stages (hp..eva) */
+        t[22] = 1
+        for (s in 0 until 8) t[23 + s] = s - 4
+        /* [31..37] badge state */
+        t[31] = 1
+        t[32] = 1
+        t[33] = 0
+        t[34] = 1
+        t[35] = 0
+        t[36] = 1
+        t[37] = 0x91
+        /* [38..41] battle-level topology */
+        t[38] = 0b0010
+        t[39] = 1
+        t[40] = 2
+        t[41] = 1
+        /* [42..55] Gap C4e live operands */
+        t[42] = hpObserved
+        t[43] = hp
+        t[44] = maxHp
+        t[45] = statusObserved
+        t[46] = status1
+        t[47] = volatilesObserved
+        t[48] = electrified
+        t[49] = glaiveRush
+        t[50] = minimize
+        t[51] = semiInvulnerable
+        t[52] = gimmickObserved
+        t[53] = activeGimmick
+        t[54] = fieldStatusesReadable
+        t[55] = fieldStatuses
+        /* [56..59] live field conditions */
+        t[56] = weatherReadable
+        t[57] = battleWeather
+        t[58] = sideStatusesReadable
+        t[59] = sideStatuses
+        return t
+    }
+
+    @Test
+    fun `full observed tuple decodes every C4e live operand`() {
+        val st = HnsBattlerRuntimeState.fromNativeArray(
+            c4eObservedTuple(
+                hp = 14,
+                maxHp = 20,
+                status1 = 0x10,
+                electrified = 1,
+                glaiveRush = 1,
+                minimize = 1,
+                semiInvulnerable = 3,
+                activeGimmick = 5,
+                fieldStatuses = 0x400,
+                battleWeather = 0x7,
+                sideStatuses = 0x3
+            )
+        )
+        assertEquals(HnsBattlerRuntimeStatus.OBSERVED, st.status)
+        // Older fields decode unchanged alongside the new ones.
+        assertEquals(66, st.abilityId)
+        assertEquals(426, st.itemId)
+        assertEquals(100, st.rawAttack)
+        assertEquals(listOf(-4, -3, -2, -1, 0, 1, 2, 3), st.statStages)
+        // [42..46]
+        assertTrue(st.hpObserved)
+        assertEquals(14, st.hp)
+        assertEquals(20, st.maxHp)
+        assertTrue(st.statusObserved)
+        assertEquals(0x10, st.status1)
+        // [47..51]
+        assertTrue(st.volatilesObserved)
+        assertTrue(st.volatileElectrified)
+        assertTrue(st.volatileGlaiveRush)
+        assertTrue(st.volatileMinimize)
+        assertEquals(3, st.volatileSemiInvulnerable)
+        // [52..55]
+        assertTrue(st.gimmickObserved)
+        assertEquals(5, st.activeGimmick)
+        assertTrue(st.fieldStatusesReadable)
+        assertEquals(0x400, st.fieldStatuses)
+        // [56..59]
+        assertTrue(st.weatherReadable)
+        assertEquals(0x7, st.battleWeather)
+        assertTrue(st.sideStatusesReadable)
+        assertEquals(0x3, st.sideStatuses)
+    }
+
+    @Test
+    fun `observed bit false keeps a nonzero payload non-authoritative`() {
+        // Every readability bit clear while the payload slots hold tempting nonzero values: the
+        // decoder must report the field unobserved and must NOT promote the payload.
+        val st = HnsBattlerRuntimeState.fromNativeArray(
+            c4eObservedTuple(
+                hpObserved = 0,
+                hp = 999,
+                maxHp = 999,
+                statusObserved = 0,
+                status1 = 0x10,
+                volatilesObserved = 0,
+                electrified = 1,
+                glaiveRush = 1,
+                minimize = 1,
+                semiInvulnerable = 3,
+                gimmickObserved = 0,
+                activeGimmick = 5,
+                fieldStatusesReadable = 0,
+                fieldStatuses = 0x400,
+                weatherReadable = 0,
+                battleWeather = 0x7,
+                sideStatusesReadable = 0,
+                sideStatuses = 0x3
+            )
+        )
+        assertFalse(st.hpObserved)
+        assertEquals(0, st.hp)
+        assertEquals(0, st.maxHp)
+        assertFalse(st.statusObserved)
+        assertEquals(0, st.status1)
+        assertFalse(st.volatilesObserved)
+        assertFalse(st.volatileElectrified)
+        assertFalse(st.volatileGlaiveRush)
+        assertFalse(st.volatileMinimize)
+        assertEquals(0, st.volatileSemiInvulnerable)
+        assertFalse(st.gimmickObserved)
+        assertEquals(0, st.activeGimmick)
+        assertFalse(st.fieldStatusesReadable)
+        assertEquals(0, st.fieldStatuses)
+        assertFalse(st.weatherReadable)
+        assertEquals(0, st.battleWeather)
+        assertFalse(st.sideStatusesReadable)
+        assertEquals(0, st.sideStatuses)
+    }
+
+    @Test
+    fun `legacy 42-element tuple leaves every C4e operand explicitly unobserved`() {
+        val legacy = c4eObservedTuple().copyOfRange(0, 42)
+        val st = HnsBattlerRuntimeState.fromNativeArray(legacy)
+        assertEquals(HnsBattlerRuntimeStatus.OBSERVED, st.status)
+        // The pre-C4e contract still decodes.
+        assertEquals(66, st.abilityId)
+        assertEquals(426, st.itemId)
+        assertEquals(100, st.rawAttack)
+        // Every C4e field is unobserved, not defaulted to a neutral-looking observation.
+        assertFalse(st.hpObserved)
+        assertEquals(0, st.hp)
+        assertEquals(0, st.maxHp)
+        assertFalse(st.statusObserved)
+        assertEquals(0, st.status1)
+        assertFalse(st.volatilesObserved)
+        assertFalse(st.volatileElectrified)
+        assertFalse(st.volatileGlaiveRush)
+        assertFalse(st.gimmickObserved)
+        assertEquals(0, st.activeGimmick)
+        assertFalse(st.fieldStatusesReadable)
+        assertEquals(0, st.fieldStatuses)
+        assertFalse(st.weatherReadable)
+        assertEquals(0, st.battleWeather)
+        assertFalse(st.sideStatusesReadable)
+        assertEquals(0, st.sideStatuses)
+    }
+
+    @Test
+    fun `56-element tuple decodes the C4e operands but leaves weather and screens unobserved`() {
+        val shorter = c4eObservedTuple(hp = 14, maxHp = 20, battleWeather = 0x7, sideStatuses = 0x3)
+            .copyOfRange(0, 56)
+        val st = HnsBattlerRuntimeState.fromNativeArray(shorter)
+        assertEquals(HnsBattlerRuntimeStatus.OBSERVED, st.status)
+        assertTrue(st.hpObserved)
+        assertEquals(14, st.hp)
+        assertEquals(20, st.maxHp)
+        assertTrue(st.fieldStatusesReadable)
+        // The live field-condition operands are only decoded from the 60-int tuple.
+        assertFalse(st.weatherReadable)
+        assertEquals(0, st.battleWeather)
+        assertFalse(st.sideStatusesReadable)
+        assertEquals(0, st.sideStatuses)
+    }
+
+    // ------------------------------------------------------------------
     // Ability identity resolution (naming only)
     // ------------------------------------------------------------------
 

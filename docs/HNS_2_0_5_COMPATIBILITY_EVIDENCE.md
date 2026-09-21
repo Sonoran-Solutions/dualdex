@@ -3160,11 +3160,12 @@ battle globals and are runtime-verified below.
 ### Runtime reader semantics (HOST VERIFIED)
 
 `pokemon_read_battler_runtime_state_gba` decodes HP/maxHP, `status1`, the volatile bits and the
-gimmick byte per OBSERVED battler, plus the battle-global field-status word. Every new `*_observed` /
+gimmick byte per OBSERVED battler, plus the battle-global field-status word and the battle-global
+weather word, and the observed battler's own `gSideStatuses[side]` word. Every new `*_observed` /
 `*_readable` bit separates an observed neutral value from an unread field; `gBattleStruct` is read
 afresh and must point inside EWRAM before the gimmick byte is dereferenced. The JNI tuple grew from 42
-to 56 ints; the Kotlin decoder keeps the pre-C4e 42-int contract for the older fields and treats a
-short tuple's new fields as unobserved.
+to 60 ints; the Kotlin decoder keeps the pre-C4e 42-int contract for the older fields, decodes the
+C4e operands from a 56-int tuple, and treats a short tuple's later fields as unobserved.
 
 ### Official-ROM runtime observation (RUNTIME VERIFIED, neutral state)
 
@@ -3173,14 +3174,17 @@ short tuple's new fields as unobserved.
 (`edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`, printed by the harness). At the
 Golden A hit frame the production reader reported:
 
-- player (Chikorita): `hp=14 maxHP=20 status1=0x00000000 volatiles_observed=1 electrified=0
-  glaiveRush=0 minimize=0 gimmick_observed=1 gimmick=0 fieldStatuses=0x00000000`;
-- enemy (Pidgey): `hp=15 maxHP=15 status1=0` and the same neutral volatile/gimmick/field state.
+- player (Chikorita): `hp=20 maxHP=20 status1=0x00000000 volatiles_observed=1 electrified=0
+  glaiveRush=0 minimize=0 gimmick_observed=1 gimmick=0 fieldStatuses=0x00000000
+  weatherReadable=1 weather=0x0000 sideStatusesReadable=1 sideStatuses=0x00000000`;
+- enemy (Pidgey): `hp=16 maxHP=16 status1=0` and the same neutral volatile/gimmick/field/weather/
+  side-status state.
 
 The `[GOLDEN-HIT] PASS` line records the same `damage=6` Golden A hit. This proves the neutral values
-the first production subset depends on. A **positive transition** (an active Electrify / Glaive Rush /
-Tera frame) was deliberately not manufactured, so the active cases remain refused at runtime and are
-SOURCE + HOST reasoned only.
+the first production subset depends on, including the observed clear-weather and screenless
+defender-side words. A **positive transition** (an active Electrify / Glaive Rush / Tera / Rain /
+Reflect frame) was deliberately not manufactured, so the active cases remain refused at runtime and
+are SOURCE + HOST reasoned only.
 
 ### Host oracle (HOST VERIFIED)
 

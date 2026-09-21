@@ -259,7 +259,23 @@ data class CalcHnsLiveBattleState(
      * The attacker's authoritative `status1` word, or null when unread. 0 is an observed
      * "no status"; the ordinary subset requires that (a non-zero live status is not modelled here).
      */
-    val attackerStatus1: Int? = null
+    val attackerStatus1: Int? = null,
+    // --- Gap C4e correction: live field conditions -------------------------------------------
+    /**
+     * The battle-global `gBattleWeather` flags word, or null when it was not read. The boundary
+     * binds `field.weather` from this (0 = observed clear, Rain/Sun map to their names); the
+     * policy refuses when it is unread, or when it carries a bit outside Rain/Sun. Caller-supplied
+     * neutral weather can therefore never stand in for an unobserved live word.
+     */
+    val weatherObserved: Boolean = false,
+    val weatherWord: Int = 0,
+    /**
+     * The defender's authoritative `gSideStatuses[side]` word, or null when it was not read. The
+     * boundary binds `field.defenderSide` from this (Reflect / Light Screen bits); the policy
+     * refuses when it is unread, or when it carries an unmodelled side-status bit.
+     */
+    val defenderScreensObserved: Boolean = false,
+    val defenderSideStatuses: Int = 0
 )
 
 data class DamageCalculationRequest(

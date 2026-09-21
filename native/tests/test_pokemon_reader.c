@@ -4514,6 +4514,10 @@ static void expect_battler_unavailable(const BattlerRuntimeState* st, const char
                 "an unavailable observation must not carry a gimmick");
     TEST_ASSERT(!st->field_statuses_readable && st->field_statuses == 0,
                 "an unavailable observation must not carry field statuses");
+    TEST_ASSERT(!st->weather_readable && st->battle_weather == 0,
+                "an unavailable observation must not carry weather");
+    TEST_ASSERT(!st->side_statuses_readable && st->side_statuses == 0,
+                "an unavailable observation must not carry side statuses");
 }
 
 /**
@@ -5544,6 +5548,59 @@ static void test_hns_battler_state_c4e_live_operands(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_battler_state_c4e_live_operands" ANSI_RESET "\n");
 }
 
+/**
+ * Gap C4e correction: the live Ready path must observe the battle-global weather word and the
+ * defender-side status word, distinguishing an observed neutral (0) from never-read so an active
+ * Rain / Reflect battle can never be calculated as clear / screenless.
+ */
+static void test_hns_battler_state_c4e_field_conditions(void) {
+    printf("Running test_hns_battler_state_c4e_field_conditions...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    write16_le_t(gba.ewram + cfg->battle_weather_offset, 0);
+    write32_le_t(gba.ewram + cfg->side_statuses_offset + 0 * cfg->side_statuses_stride, 0);
+    write32_le_t(gba.ewram + cfg->side_statuses_offset + 1 * cfg->side_statuses_stride, 0);
+
+    BattlerRuntimeState st;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "player read must succeed");
+    TEST_ASSERT(st.weather_readable && st.battle_weather == 0,
+                "clear weather must be observed neutral");
+    TEST_ASSERT(st.side_statuses_readable && st.side_statuses == 0,
+                "the player side status word must be observed neutral");
+
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st), "enemy read must succeed");
+    TEST_ASSERT(st.weather_readable && st.battle_weather == 0,
+                "the opponent observation must carry the same battle-global weather word");
+    TEST_ASSERT(st.side_statuses_readable && st.side_statuses == 0,
+                "the opponent side status word must be observed neutral");
+
+    /* Positive transitions: weather and the defender-side status word are independently read. */
+    write16_le_t(gba.ewram + cfg->battle_weather_offset, 1u << 0 /* BATTLE_WEATHER_RAIN */);
+    write32_le_t(gba.ewram + cfg->side_statuses_offset + 1 * cfg->side_statuses_stride,
+                 cfg->side_status_reflect_mask);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st), "transition read");
+    TEST_ASSERT(st.weather_readable && st.battle_weather == (1u << 0),
+                "observed Rain must be decoded verbatim");
+    TEST_ASSERT(st.side_statuses_readable &&
+                (st.side_statuses & cfg->side_status_reflect_mask) != 0,
+                "observed defender-side Reflect must be decoded");
+    /* The player side word is a DIFFERENT array element: the enemy Reflect must not leak to it. */
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "player isolation read");
+    TEST_ASSERT(st.side_statuses_readable && st.side_statuses == 0,
+                "the player side status word must not carry the opponent's Reflect bit");
+
+    /* Teardown must not retain the new operands. */
+    hns_battle_set_in_battle(&fx, false);
+    read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st);
+    expect_battler_unavailable(&st, "post-teardown observation must carry no field condition");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_c4e_field_conditions" ANSI_RESET "\n");
+}
+
 /* ---- Gap C4c: runtime target count computation ---- */
 
 static void test_hns_target_count_computation(void) {
@@ -5900,6 +5957,7 @@ int main(void) {
     test_hns_badge_state_reading();
     test_hns_battler_state_stats_stages_badges();
     test_hns_battler_state_c4e_live_operands();
+    test_hns_battler_state_c4e_field_conditions();
     test_hns_target_count_computation();
     test_hns_target_count_anti_spoof();
 

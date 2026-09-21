@@ -190,6 +190,20 @@ class CalcTabScreenView(
             }
             addView(fieldLabel)
 
+            // In an active H&S battle the live weather and defender-side screens are read from the
+            // running game and override these controls; the controls are the manual/hypothetical
+            // inputs for an out-of-battle calculation. This note exists so a manual "None" is
+            // never mistaken for an observed clear battle.
+            val fieldNote = TextView(context).apply {
+                text = "Weather and screens below are manual assumptions. In a live battle the " +
+                        "calculator uses the game's observed weather and screens instead."
+                setTextColor(0xFF94A3B8.toInt())
+                textSize = 11f
+                setLineSpacing(3f, 1f)
+                setPadding(0, 0, 0, 8)
+            }
+            addView(fieldNote)
+
             val row1 = LinearLayout(context).apply {
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -555,6 +569,11 @@ class CalcTabScreenView(
         // carry. A live read is never shortened to "neutral": an unobserved status or stat stage is
         // reported and the boundary refuses to label the result verified. The benchmark fallbacks
         // stay MANUAL, because there the user is asserting a hypothetical rather than reading one.
+        //
+        // The weather/screen controls above are likewise manual assumptions. In an active battle
+        // the boundary rebinds field.weather and field.defenderSide from the observed
+        // gBattleWeather and defender-side gSideStatuses words, so a user "None" can never stand in
+        // for a live Rain or Reflect; when those words were not observed the request fails closed.
         val isExpansionItems = activeProfile.hasPhysSpecSplit
         val isExactHns = CalcCapabilityPolicy.capabilityFor(activeProfile)?.ruleset == CalcRuleset.HNS_2_0_5
         val attackerState = CalcParticipantPresenter.attacker(

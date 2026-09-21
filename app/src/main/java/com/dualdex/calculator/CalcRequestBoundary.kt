@@ -600,6 +600,16 @@ object CalcRequestBoundary {
             enemyBattlerState = enemyBattlerState,
             isExactVerified = isExactVerified
         )
+        val weather = authoritativeObservedWeather(
+            playerBattlerState = playerBattlerState,
+            enemyBattlerState = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val defenderSideStatuses = authoritativeObservedDefenderSideStatuses(
+            participantPartySlot = request.defender.partySlot,
+            observation = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
         val attackerElectrified = authoritativeObservedElectrified(
             participantPartySlot = request.attacker.partySlot,
             observation = playerBattlerState,
@@ -667,7 +677,52 @@ object CalcRequestBoundary {
             defenderGimmick = defenderGimmick,
             attackerHp = attackerHpPair?.first,
             attackerMaxHp = attackerHpPair?.second,
-            attackerStatus1 = attackerStatus1
+            attackerStatus1 = attackerStatus1,
+            weatherObserved = weather != null,
+            weatherWord = weather ?: 0,
+            defenderScreensObserved = defenderSideStatuses != null,
+            defenderSideStatuses = defenderSideStatuses ?: 0
+        )
+    }
+
+    /**
+     * Rebinds `field.weather` and `field.defenderSide` from the boundary-owned live observation.
+     *
+     * In an active exact-H&S battle the field conditions are live state, not user input: a
+     * caller-supplied "clear weather / no screens" (or any other value) must not stand in for a
+     * word the reader did not deliver. Observed Rain / Sun map to the engine's exact weather names
+     * and the observed defender-side Reflect / Light Screen bits map to [SideConditions]; an
+     * unobserved word clears the field and the policy refuses via
+     * [CalcHnsLiveBattleState.weatherObserved] / [CalcHnsLiveBattleState.defenderScreensObserved].
+     * A word carrying an unmodelled bit (Sand/Hail/Snow/Fog/Strong Winds, or Aurora Veil and other
+     * side statuses) is preserved on the live state so the policy refuses it precisely.
+     */
+    private fun reconcileLiveFieldConditions(
+        request: DamageCalculationRequest,
+        live: CalcHnsLiveBattleState?
+    ): DamageCalculationRequest {
+        if (live == null) return request
+        val weatherName = when {
+            !live.weatherObserved || live.weatherWord == 0 -> null
+            live.weatherWord and com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_RAIN != 0 -> "Rain"
+            live.weatherWord and com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN != 0 -> "Sun"
+            else -> null
+        }
+        val defenderSide = if (live.defenderScreensObserved &&
+            live.defenderSideStatuses and
+            com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.SIDE_STATUS_MODELLED != 0
+        ) {
+            SideConditions(
+                isReflect = live.defenderSideStatuses and
+                    com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.SIDE_STATUS_REFLECT != 0,
+                isLightScreen = live.defenderSideStatuses and
+                    com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.SIDE_STATUS_LIGHTSCREEN != 0
+            )
+        } else {
+            null
+        }
+        return request.copy(
+            field = request.field.copy(weather = weatherName, defenderSide = defenderSide)
         )
     }
 
@@ -925,6 +980,51 @@ object CalcRequestBoundary {
         return player.fieldStatuses
     }
 
+    /**
+     * The battle-global `gBattleWeather` flags word, or null unless BOTH authoritative
+     * battle-level observations read it and agree.
+     *
+     * Weather is battle-global, so a one-sided read is a torn read and must fail closed rather
+     * than pick a side. A read that produced 0 is an observed clear weather, distinct from `null`
+     * (never read). The boundary maps the word to `field.weather`; the policy refuses an unread
+     * word or a bit the ordinary arithmetic does not model.
+     */
+    private fun authoritativeObservedWeather(
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Int? {
+        if (!isExactVerified) return null
+        val player = playerBattlerState?.state ?: return null
+        val enemy = enemyBattlerState?.state ?: return null
+        if (player.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (enemy.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!player.weatherReadable || !enemy.weatherReadable) return null
+        if (player.battleWeather != enemy.battleWeather) return null
+        return player.battleWeather
+    }
+
+    /**
+     * The defensive side's `gSideStatuses[side]` word, or null when the slot-matched enemy
+     * observation did not read it.
+     *
+     * The enemy observation is the single authoritative opponent, i.e. the defender in the
+     * supported Singles subset, so its own side word is the defender side. Reflect / Light Screen
+     * are the only bits the ordinary arithmetic models; the policy refuses any unmodelled bit.
+     */
+    private fun authoritativeObservedDefenderSideStatuses(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Int? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        if (!state.sideStatusesReadable) return null
+        return state.sideStatuses
+    }
+
     /** `gBattleMons[battler].volatiles.electrified`, or null when the slot-matched dev word was not read. */
     private fun authoritativeObservedElectrified(
         participantPartySlot: Int?,
@@ -1068,10 +1168,17 @@ object CalcRequestBoundary {
                 null
             }
         )
+        // The live field conditions (weather, defender-side screens) are boundary-owned too: in an
+        // active battle they are rebound from the observed words so a caller's clear/no-screens
+        // default can never stand in for an unobserved live state.
+        val liveBound = reconcileLiveFieldConditions(
+            request = withLiveState,
+            live = withLiveState.hnsLiveBattleState
+        )
         // Live provenance is a property of the request. The hint may add it, never remove it.
-        val isLiveRead = liveReadHint || withLiveState.isFromLiveRead()
+        val isLiveRead = liveReadHint || liveBound.isFromLiveRead()
 
-        val base = CalcCapabilityPolicy.evaluate(profile, trust, withLiveState)
+        val base = CalcCapabilityPolicy.evaluate(profile, trust, liveBound)
 
         if (!isLiveRead) {
             val authorised = base.request ?: return CalcRequestOutcome.Refused(base)
@@ -1085,9 +1192,9 @@ object CalcRequestBoundary {
 
         // (2) Is the evidence complete? Independent of (1): a trusted ROM does not fill a field the
         // reader never carried, and an untrusted ROM does not make an unknown field less unknown.
-        val evidenceIncomplete = withLiveState.preparationLimitations.contains(
+        val evidenceIncomplete = liveBound.preparationLimitations.contains(
             CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN
-        ) || withLiveState.unknownLiveFields().isNotEmpty()
+        ) || liveBound.unknownLiveFields().isNotEmpty()
         if (evidenceIncomplete) reasons.add(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
 
         return when (val authorised = base.request) {

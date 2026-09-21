@@ -169,27 +169,31 @@
     "scenario": "scenarios/60-golden-a-neutral.txt",
     "log": "evidence/golden-c4e-live-operands.log",
     "rom_sha256": "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b",
-    "observed_at_frame": 2392,
+    "observed_at_frame": 3283,
     "reader": "production pokemon_read_battler_runtime_state_gba (Gap C4e fields)",
     "observed": {
       "attacker": {
         "species": "Chikorita (152)",
-        "hp": 14, "max_hp": 20, "hp_observed": true,
+        "hp": 20, "max_hp": 20, "hp_observed": true,
         "status1": "0x00000000", "status_observed": true,
         "volatiles_observed": true, "electrified": false,
         "glaive_rush": false, "minimize": false, "semi_invulnerable": 0,
         "gimmick_observed": true, "active_gimmick": "GIMMICK_NONE (0)",
-        "field_statuses": "0x00000000", "field_statuses_readable": true
+        "field_statuses": "0x00000000", "field_statuses_readable": true,
+        "weather": "0x0000 (clear)", "weather_readable": true,
+        "side_statuses": "0x00000000", "side_statuses_readable": true
       },
       "defender": {
         "species": "Pidgey (16)",
-        "hp": 15, "max_hp": 15,
+        "hp": 16, "max_hp": 16,
         "volatiles_observed": true, "glaive_rush": false,
         "gimmick_observed": true, "active_gimmick": "GIMMICK_NONE (0)",
-        "field_statuses": "0x00000000"
+        "field_statuses": "0x00000000",
+        "weather": "0x0000 (clear)", "weather_readable": true,
+        "side_statuses": "0x00000000", "side_statuses_readable": true
       }
     },
-    "why": "The first production-authorized ordinary Singles subset needs the neutral value of every mutable operand added in C4e: no Ion Deluge / Electrify retype, no Glaive Rush, no active gimmick, no live status, and an authoritative HP/maxHP pair for the pinch-ability threshold. All of those are observed on the exact official ROM at the Golden A hit frame.",
+    "why": "The first production-authorized ordinary Singles subset needs the neutral value of every mutable operand added in C4e: no Ion Deluge / Electrify retype, no Glaive Rush, no active gimmick, no live status, an authoritative HP/maxHP pair for the pinch-ability threshold, and observed neutral field conditions (clear weather, no defender-side Reflect / Light Screen). All of those are observed on the exact official ROM at the Golden A hit frame.",
     "positive_transition": false,
     "positive_transition_note": "A positive transition (e.g. an active Electrify, Glaive Rush or Tera frame) was not produced, so the active/positive behavior remains SOURCE + HOST reasoned and runtime-refused, not runtime-verified. The source-derived ABI plus an observed neutral zero is the evidence the neutral subset is authorized on."
   },

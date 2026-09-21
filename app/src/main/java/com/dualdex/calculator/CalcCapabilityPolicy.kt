@@ -309,6 +309,35 @@ enum class CalcLimitation(val blocks: Boolean) {
     HNS_ABILITY_CONDITION_UNVERIFIED(true),
 
     /**
+     * An active H&S battle's battle-global weather word (`gBattleWeather`) was not authoritatively
+     * read. The ordinary arithmetic applies Rain/Sun modifiers, so an unread word cannot be
+     * assumed clear: a live Rain or Sun battle would otherwise compute as neutral (Gap C4e
+     * correction).
+     */
+    HNS_LIVE_WEATHER_UNKNOWN(true),
+
+    /**
+     * The battle-global weather word was observed, but it carries a condition the ordinary
+     * arithmetic does not model (Sandstorm, Hail, Snow, Fog, Strong Winds). The request fails
+     * closed instead of silently computing it as clear (Gap C4e correction).
+     */
+    HNS_LIVE_WEATHER_NOT_MODELLED(true),
+
+    /**
+     * An active H&S battle's defender-side status word (`gSideStatuses[side]`) was not
+     * authoritatively read, so Reflect / Light Screen could be active and halve the incoming move.
+     * An unread word cannot be assumed screenless (Gap C4e correction).
+     */
+    HNS_LIVE_SCREENS_UNKNOWN(true),
+
+    /**
+     * The defender-side status word was observed, but it carries a bit the ordinary arithmetic
+     * does not model (Aurora Veil or any other side status). The request fails closed rather than
+     * silently computing it without that modifier (Gap C4e correction).
+     */
+    HNS_LIVE_SIDE_STATUS_NOT_MODELLED(true),
+
+    /**
      * The build scales type-boost held items to a later-generation percentage than the generation
      * III pipeline applies.
      */
@@ -548,6 +577,14 @@ data class CalcCapabilityVerdict(
                 "the attacker's live status condition is not modelled by this ordinary-damage calculation"
             CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED ->
                 "a pinch ability applies to this move but its live HP condition could not be verified"
+            CalcLimitation.HNS_LIVE_WEATHER_UNKNOWN ->
+                "the battle's live weather could not be read, so it cannot be assumed clear"
+            CalcLimitation.HNS_LIVE_WEATHER_NOT_MODELLED ->
+                "the battle's live weather is not modelled by this ordinary-damage calculation"
+            CalcLimitation.HNS_LIVE_SCREENS_UNKNOWN ->
+                "the defender's live Reflect / Light Screen state could not be read, so it cannot be assumed screenless"
+            CalcLimitation.HNS_LIVE_SIDE_STATUS_NOT_MODELLED ->
+                "the defender's live side status (for example Aurora Veil) is not modelled by this calculation"
             CalcLimitation.ITEM_BOOST_PERCENTAGE_DIFFERS ->
                 "this build scales type-boost items differently from the generation III pipeline"
             CalcLimitation.LIVE_INPUTS_NOT_VERIFIED ->
@@ -1482,6 +1519,23 @@ object CalcCapabilityPolicy {
         val status1 = live.attackerStatus1
         if (status1 == null || status1 != 0) {
             limitations.add(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED)
+        }
+        // Live field conditions (Gap C4e correction). The boundary binds these from the observed
+        // battle-global weather word and defender-side status word; an unread word must never be
+        // treated as an observed neutral one.
+        if (!live.weatherObserved) {
+            limitations.add(CalcLimitation.HNS_LIVE_WEATHER_UNKNOWN)
+        } else if (live.weatherWord and
+            com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_MODELLED.inv() != 0
+        ) {
+            limitations.add(CalcLimitation.HNS_LIVE_WEATHER_NOT_MODELLED)
+        }
+        if (!live.defenderScreensObserved) {
+            limitations.add(CalcLimitation.HNS_LIVE_SCREENS_UNKNOWN)
+        } else if (live.defenderSideStatuses and
+            com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.SIDE_STATUS_MODELLED.inv() != 0
+        ) {
+            limitations.add(CalcLimitation.HNS_LIVE_SIDE_STATUS_NOT_MODELLED)
         }
     }
 

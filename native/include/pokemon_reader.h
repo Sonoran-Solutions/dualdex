@@ -204,6 +204,16 @@ typedef struct {
     // class is then reported unobserved rather than guessed.
     uint32_t field_statuses_offset;          // EWRAM-relative gFieldStatuses, 0 = unavailable
     uint32_t field_status_ion_deluge_mask;   // pinned STATUS_FIELD_ION_DELUGE bit
+    // Gap C4e correction: the live Ready path must not read an unobserved weather word or
+    // defender-side status word as "neutral". `gBattleWeather` is the battle-global u16 weather
+    // flags word; `gSideStatuses[NUM_BATTLE_SIDES]` holds the per-side status words (Reflect /
+    // Light Screen). Both are EWRAM globals (like gFieldStatuses), 0 means "this layout does not
+    // declare the symbol" and the corresponding class is reported unobserved rather than guessed.
+    uint32_t battle_weather_offset;          // EWRAM-relative gBattleWeather, 0 = unavailable
+    uint32_t side_statuses_offset;           // EWRAM-relative gSideStatuses[], 0 = unavailable
+    uint32_t side_statuses_stride;           // bytes per side in gSideStatuses[]
+    uint32_t side_status_reflect_mask;       // pinned SIDE_STATUS_REFLECT bit
+    uint32_t side_status_light_screen_mask;  // pinned SIDE_STATUS_LIGHTSCREEN bit
     uint32_t battle_struct_ptr_offset;       // EWRAM-relative gBattleStruct pointer, 0 = unavailable
     uint32_t battle_struct_gimmick_offset;   // struct BattleStruct-relative gimmick offset
     uint32_t battle_gimmick_active_offset;   // struct BattleGimmickData-relative activeGimmick
@@ -759,6 +769,12 @@ typedef struct {
     uint8_t  active_gimmick;       // enum Gimmick for this battler's party slot
     bool     field_statuses_readable; // gFieldStatuses was actually read
     uint32_t field_statuses;       // battle-global status word (Ion Deluge and terrain bits)
+
+    // Gap C4e correction: live field conditions the ordinary Ready path depends on.
+    bool     weather_readable;     // gBattleWeather was actually read (0 is an observed clear)
+    uint16_t battle_weather;       // engine's current weather flags word (0 = clear)
+    bool     side_statuses_readable; // the observed battler's gSideStatuses[side] was read
+    uint32_t side_statuses;        // engine's current status word for the observed battler's side
 } BattlerRuntimeState;
 
 /**

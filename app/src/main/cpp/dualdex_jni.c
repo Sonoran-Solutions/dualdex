@@ -800,7 +800,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * never silently drift apart.  Every public surface that touches this tuple
  * references BATTLER_RUNTIME_STATE_TUPLE_LEN instead of a local literal.
  */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 56
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 60
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -827,7 +827,9 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * [47] volatilesObserved, [48] volatileElectrified, [49] volatileGlaiveRush,
  * [50] volatileMinimize, [51] volatileSemiInvulnerable,
  * [52] gimmickObserved, [53] activeGimmick,
- * [54] fieldStatusesReadable, [55] fieldStatuses.
+ * [54] fieldStatusesReadable, [55] fieldStatuses,
+ * [56] weatherReadable, [57] battleWeather,
+ * [58] sideStatusesReadable, [59] sideStatuses.
  *         Every Gap C4e `*Observed` bit separates an observed neutral value
  *         (bit 1, payload 0) from a field that was never read (bit 0).
  *
@@ -932,6 +934,12 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     values[53] = (jint)state.active_gimmick;
     values[54] = (state.field_statuses_readable) ? 1 : 0;
     values[55] = (jint)state.field_statuses;
+    /* [56..59] Gap C4e correction: the live field conditions the ordinary Ready path depends on.
+     * A missing readability bit leaves the value unobserved, never neutral. */
+    values[56] = (state.weather_readable) ? 1 : 0;
+    values[57] = (jint)state.battle_weather;
+    values[58] = (state.side_statuses_readable) ? 1 : 0;
+    values[59] = (jint)state.side_statuses;
 
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;

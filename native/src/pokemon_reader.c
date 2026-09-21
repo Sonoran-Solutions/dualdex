@@ -211,6 +211,16 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     // to point inside EWRAM before any byte is dereferenced.
     .field_statuses_offset = 0x2F4,
     .field_status_ion_deluge_mask = (1u << 10), // STATUS_FIELD_ION_DELUGE
+    // Gap C4e correction: gBattleWeather (u16) and gSideStatuses[NUM_BATTLE_SIDES] (u32 each) are
+    // EWRAM globals shared with gBattlersCount/gBattlerPartyIndexes (release ELF, same EWRAM
+    // image). The release ROM's `pokehns-release.elf` places gBattleWeather at 0x02000390 and
+    // gSideStatuses at 0x02000324; the from-source build agrees on both (0x390 / 0x324). The
+    // probe runtime run verifies the reads (see the compatibility evidence §14).
+    .battle_weather_offset = 0x390,
+    .side_statuses_offset = 0x324,
+    .side_statuses_stride = 4,                  // sizeof(u32)
+    .side_status_reflect_mask = (1u << 0),      // SIDE_STATUS_REFLECT
+    .side_status_light_screen_mask = (1u << 1), // SIDE_STATUS_LIGHTSCREEN
     .battle_struct_ptr_offset = 0xB4,
     .battle_struct_gimmick_offset = HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET,
     .battle_gimmick_active_offset = HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET,
@@ -2355,6 +2365,9 @@ static bool battle_pokemon_layout_declared(const GameMemoryConfig* config) {
            config->battle_mons_status_offset != 0 &&
            config->battle_mons_volatiles_offset != 0 &&
            config->field_statuses_offset != 0 &&
+           config->battle_weather_offset != 0 &&
+           config->side_statuses_offset != 0 &&
+           config->side_statuses_stride != 0 &&
            config->battle_struct_ptr_offset != 0;
 }
 
@@ -2733,6 +2746,41 @@ bool pokemon_read_battler_runtime_state_gba(
                                         ((uint32_t)fs_bytes[1] << 8) |
                                         ((uint32_t)fs_bytes[2] << 16) |
                                         ((uint32_t)fs_bytes[3] << 24);
+        }
+    }
+
+    /* Battle-global `gBattleWeather` (u16 flags word). Like field statuses it is the same word
+     * for every battler, so the boundary cross-checks the two observations agree; 0 is an
+     * observed clear weather, distinct from never-read. */
+    if (config->battle_weather_offset != 0) {
+        uint8_t weather_bytes[2];
+        if (read(user, DUALDEX_GBA_EWRAM_BASE + config->battle_weather_offset,
+                 weather_bytes, sizeof(weather_bytes))) {
+            out_state->weather_readable = true;
+            out_state->battle_weather = (uint16_t)(weather_bytes[0] |
+                                                   (weather_bytes[1] << 8));
+        }
+    }
+
+    /*
+     * Per-side status word `gSideStatuses[side]` for THIS battler's side. Reflect and Light
+     * Screen are the only bits the ordinary subset models; the word is read for the observed
+     * battler's own side (derived from the authoritative gBattlerPositions side bit, never from
+     * the request's attacker/defender role). A failed read leaves it unobserved, never zero.
+     */
+    if (config->side_statuses_offset != 0 &&
+        config->side_statuses_stride != 0 &&
+        battle.positions_readable) {
+        const uint32_t side = (uint32_t)(battle.position[battler] & 0x1u);
+        const uint32_t side_addr = DUALDEX_GBA_EWRAM_BASE + config->side_statuses_offset +
+                                   side * config->side_statuses_stride;
+        uint8_t side_bytes[4];
+        if (read(user, side_addr, side_bytes, sizeof(side_bytes))) {
+            out_state->side_statuses_readable = true;
+            out_state->side_statuses = (uint32_t)side_bytes[0] |
+                                       ((uint32_t)side_bytes[1] << 8) |
+                                       ((uint32_t)side_bytes[2] << 16) |
+                                       ((uint32_t)side_bytes[3] << 24);
         }
     }
 

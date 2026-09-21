@@ -98,6 +98,10 @@ class CalcHnsC4eProductionBoundaryTest {
         gimmick: Int = 0,
         fieldStatusesReadable: Boolean = true,
         fieldStatuses: Int = 0,
+        weatherReadable: Boolean = true,
+        battleWeather: Int = 0,
+        sideStatusesReadable: Boolean = true,
+        sideStatuses: Int = 0,
         badgesObserved: Boolean = true
     ): BattlerRuntimeObservation = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
@@ -141,7 +145,11 @@ class CalcHnsC4eProductionBoundaryTest {
             gimmickObserved = gimmickObserved,
             activeGimmick = gimmick,
             fieldStatusesReadable = fieldStatusesReadable,
-            fieldStatuses = fieldStatuses
+            fieldStatuses = fieldStatuses,
+            weatherReadable = weatherReadable,
+            battleWeather = battleWeather,
+            sideStatusesReadable = sideStatusesReadable,
+            sideStatuses = sideStatuses
         ),
         abilityIdentity = DeclaredAbility.Declared(abilityId, abilityName)
     )
@@ -157,6 +165,10 @@ class CalcHnsC4eProductionBoundaryTest {
         gimmick: Int = 0,
         fieldStatusesReadable: Boolean = true,
         fieldStatuses: Int = 0,
+        weatherReadable: Boolean = true,
+        battleWeather: Int = 0,
+        sideStatusesReadable: Boolean = true,
+        sideStatuses: Int = 0,
         statusObserved: Boolean = true,
         status1: Int = 0
     ): BattlerRuntimeObservation = BattlerRuntimeObservation(
@@ -195,7 +207,11 @@ class CalcHnsC4eProductionBoundaryTest {
             gimmickObserved = gimmickObserved,
             activeGimmick = gimmick,
             fieldStatusesReadable = fieldStatusesReadable,
-            fieldStatuses = fieldStatuses
+            fieldStatuses = fieldStatuses,
+            weatherReadable = weatherReadable,
+            battleWeather = battleWeather,
+            sideStatusesReadable = sideStatusesReadable,
+            sideStatuses = sideStatuses
         ),
         abilityIdentity = DeclaredAbility.Declared(abilityId, abilityName)
     )
@@ -268,6 +284,14 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals(false, live.defenderGlaiveRush)
         assertEquals(0, live.attackerGimmick)
         assertEquals(0, live.defenderGimmick)
+        // The live field conditions are observed neutral and the request's field carries exactly
+        // that observed neutral state (not a caller default that merely looks neutral).
+        assertTrue(live.weatherObserved)
+        assertEquals(0, live.weatherWord)
+        assertTrue(live.defenderScreensObserved)
+        assertEquals(0, live.defenderSideStatuses)
+        assertNull("observed clear weather must bind to no weather", ready.request.field.weather)
+        assertNull("observed no screens must bind to no defender side", ready.request.field.defenderSide)
         assertEquals("Overgrow", ready.request.attacker.ability)
         assertEquals(65, ready.request.attacker.abilityId)
 
@@ -275,6 +299,115 @@ class CalcHnsC4eProductionBoundaryTest {
         assertTrue("live HP must reach the engine: $json", json.contains("\"hp\":14"))
         assertTrue("live maxHP must reach the engine: $json", json.contains("\"maxHP\":20"))
         assertTrue("the effective move override must be the pinned Tackle: $json", json.contains("\"basePower\":40"))
+        assertFalse("observed clear weather must not put a weather key in the engine JSON: $json", json.contains("\"weather\""))
+        assertFalse("observed no screens must not put a defenderSide key in the engine JSON: $json", json.contains("\"defenderSide\""))
+    }
+
+    // ------------------------------------------------- live field conditions (weather / screens)
+
+    @Test
+    fun `live weather unknown refuses - clear cannot be assumed`() {
+        // The reader could not deliver gBattleWeather: a live Rain battle must not compute as
+        // clear, so the request fails closed with the precise weather-limit limitation.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_WEATHER_UNKNOWN,
+            player = playerObservation(weatherReadable = false),
+            enemy = enemyObservation(weatherReadable = false)
+        )
+    }
+
+    @Test
+    fun `live screens unknown refuses - screenless cannot be assumed`() {
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_SCREENS_UNKNOWN,
+            player = playerObservation(sideStatusesReadable = false),
+            enemy = enemyObservation(sideStatusesReadable = false)
+        )
+    }
+
+    @Test
+    fun `live weather that disagrees between the two observations refuses`() {
+        // Weather is battle-global: a torn/one-sided read is not authoritative.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_WEATHER_UNKNOWN,
+            player = playerObservation(battleWeather = 1 shl 0),
+            enemy = enemyObservation(battleWeather = 1 shl 3)
+        )
+    }
+
+    @Test
+    fun `observed Rain is bound into the request`() {
+        val trust = trustFor(exactSha)
+        val rain = 1 shl 0
+        val outcome = build(
+            trust = trust,
+            request = goldenARequest(),
+            player = playerObservation(battleWeather = rain),
+            enemy = enemyObservation(battleWeather = rain)
+        )
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("observed Rain must be calculable, got $outcome")
+        assertEquals("Rain", ready.request.field.weather)
+        assertEquals(rain, ready.request.hnsLiveBattleState?.weatherWord)
+        val json = buildCalcRequestJson(ready.request)
+        assertTrue("observed Rain must reach the engine: $json", json.contains("\"weather\":\"Rain\""))
+    }
+
+    @Test
+    fun `observed defender Reflect is bound into the request`() {
+        val trust = trustFor(exactSha)
+        val reflect = 1 shl 0
+        val outcome = build(
+            trust = trust,
+            request = goldenARequest(),
+            player = playerObservation(),
+            enemy = enemyObservation(sideStatuses = reflect)
+        )
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("observed defender Reflect must be calculable, got $outcome")
+        assertEquals(true, ready.request.field.defenderSide?.isReflect)
+        assertEquals(false, ready.request.field.defenderSide?.isLightScreen)
+        val json = buildCalcRequestJson(ready.request)
+        assertTrue("observed Reflect must reach the engine: $json", json.contains("\"isReflect\":true"))
+        assertFalse("only Reflect was observed: $json", json.contains("\"isLightScreen\""))
+    }
+
+    @Test
+    fun `observed defender Light Screen is bound into the request`() {
+        val trust = trustFor(exactSha)
+        val lightScreen = 1 shl 1
+        val outcome = build(
+            trust = trust,
+            request = goldenARequest(),
+            player = playerObservation(),
+            enemy = enemyObservation(sideStatuses = lightScreen)
+        )
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("observed defender Light Screen must be calculable, got $outcome")
+        assertEquals(false, ready.request.field.defenderSide?.isReflect)
+        assertEquals(true, ready.request.field.defenderSide?.isLightScreen)
+        val json = buildCalcRequestJson(ready.request)
+        assertTrue("observed Light Screen must reach the engine: $json", json.contains("\"isLightScreen\":true"))
+    }
+
+    @Test
+    fun `observed unmodelled weather refuses`() {
+        // Sandstorm is observed, but the ordinary arithmetic models only Rain/Sun.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_WEATHER_NOT_MODELLED,
+            player = playerObservation(battleWeather = 1 shl 5),
+            enemy = enemyObservation(battleWeather = 1 shl 5)
+        )
+    }
+
+    @Test
+    fun `observed unmodelled defender side status refuses`() {
+        // Aurora Veil (bit 5) halves damage and is not modelled by this subset.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_SIDE_STATUS_NOT_MODELLED,
+            player = playerObservation(),
+            enemy = enemyObservation(sideStatuses = 1 shl 5)
+        )
     }
 
     @Test
@@ -497,6 +630,67 @@ class CalcHnsC4eProductionBoundaryTest {
         assertFalse("the caller's crafted HP must not be sent: $json", json.contains("\"hp\":1,"))
         // curHP is likewise rebound to the live value.
         assertEquals(14, ready.request.attacker.curHP)
+    }
+
+    @Test
+    fun `caller-supplied neutral weather and screens cannot spoof an unobserved live state`() {
+        // The caller supplies a neutral field (no weather / no screens) AND a crafted live state
+        // that claims the words were observed neutral. The runtime observations did not read
+        // either word, so the boundary must strip both crafts and refuse with the precise
+        // unknown-field limitations - a caller default must never stand in for a live read.
+        val trust = trustFor(exactSha)
+        val crafted = goldenARequest().copy(
+            field = CalcFieldInput(weather = null, defenderSide = null),
+            hnsLiveBattleState = CalcHnsLiveBattleState(
+                weatherObserved = true,
+                weatherWord = 0,
+                defenderScreensObserved = true,
+                defenderSideStatuses = 0
+            )
+        )
+        val outcome = build(
+            trust = trust,
+            request = crafted,
+            player = playerObservation(weatherReadable = false, sideStatusesReadable = false),
+            enemy = enemyObservation(weatherReadable = false, sideStatusesReadable = false)
+        )
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("a crafted neutral live field condition must not authorize, got $outcome")
+        assertNull(refused.verdict.request)
+        assertTrue(
+            "an unread live weather word must refuse: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.HNS_LIVE_WEATHER_UNKNOWN)
+        )
+        assertTrue(
+            "an unread live side-status word must refuse: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.HNS_LIVE_SCREENS_UNKNOWN)
+        )
+    }
+
+    @Test
+    fun `caller-supplied weather and screens are rebound from the observed words`() {
+        // The caller asserts Rain + both screens; the engine reports clear weather and no screens.
+        // The engine JSON must carry the observed neutral state, never the caller's assertion.
+        val trust = trustFor(exactSha)
+        val crafted = goldenARequest().copy(
+            field = CalcFieldInput(
+                weather = "Rain",
+                defenderSide = SideConditions(isReflect = true, isLightScreen = true)
+            )
+        )
+        val outcome = build(
+            trust = trust,
+            request = crafted,
+            player = playerObservation(battleWeather = 0, sideStatuses = 0),
+            enemy = enemyObservation(battleWeather = 0, sideStatuses = 0)
+        )
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("observed neutral weather/screens must be calculable, got $outcome")
+        assertNull("the caller's Rain must be stripped", ready.request.field.weather)
+        assertNull("the caller's screens must be stripped", ready.request.field.defenderSide)
+        val json = buildCalcRequestJson(ready.request)
+        assertFalse("the caller's Rain must not reach the engine: $json", json.contains("\"weather\""))
+        assertFalse("the caller's screens must not reach the engine: $json", json.contains("\"defenderSide\""))
     }
 
     @Test

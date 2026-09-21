@@ -2727,6 +2727,216 @@ static void check_gap_c4b_arithmetic_coverage(void) {
     }
 }
 
+/* ------------------------------------------------------------------ */
+/* Gap C4d — official H&S 2.0.5 ROM damage goldens                     */
+/* ------------------------------------------------------------------ */
+
+/*
+ * These fixtures are the HOST half of the Gap C4d official-ROM goldens. Each one reproduces the
+ * authoritative operands captured by `tools/hns-runtime-probe` (`golden-state` + `party-stats`)
+ * immediately before a real attack in the official H&S 2.0.5 release ROM, and asserts that the
+ * observed ROM damage is one of the 16 rolls `calculateHnsDamage` produces for those operands.
+ *
+ * Evidence chain, stated precisely:
+ *   - the operands (species, level, raw battle stat words, stat stages, types) are RUNTIME
+ *     OBSERVED from the exact H&S 2.0.5 release ROM by the production native readers;
+ *   - the expected roll vector is recomputed here by an INDEPENDENT oracle that shares no code
+ *     with `entry.js`, so a change in either the engine or the oracle alone fails the fixture;
+ *   - the observed ROM damage must be a member of the engine's rolls.
+ *
+ * The raw probe records live in tools/hns-runtime-probe/evidence/; the scenarios that produced them
+ * are committed next to them. Scenarios whose hit fainted the defender are deliberately excluded,
+ * because a faint caps the observed delta at the remaining HP and no longer measures the roll.
+ */
+static int hns_request_rolls(const char* req, double out[ROLL_COUNT]) {
+    char* raw = js_calc_calculate(req);
+    if (raw == NULL) return 0;
+    jl_value* doc = jl_parse(raw);
+    int ok = (doc != NULL && response_rolls(doc, out) == ROLL_COUNT);
+    jl_free(doc);
+    free(raw);
+    return ok;
+}
+
+static int rolls_contain(const double* rolls, int observed) {
+    for (int i = 0; i < ROLL_COUNT; i++) {
+        if ((int)rolls[i] == observed) return 1;
+    }
+    return 0;
+}
+
+static void check_gap_c4d_rom_damage_goldens(void) {
+    printf("-- Gap C4d: official H&S 2.0.5 ROM damage goldens --\n");
+
+    long oracle[ROLL_COUNT];
+
+    /* Golden A — neutral ordinary damage.
+     *
+     * ROM record: scenarios/golden-a; starter Chikorita L5 (Atk 12) used Tackle (Normal, 40 BP,
+     * physical) on a wild Pidgey L3 (Def 7, Normal/Flying). No STAB (Grass attacker), no type
+     * modifier (Normal vs Normal/Flying = 1.0), no stages, no badges, no weather/screen/burn.
+     * Observed non-fainting hit: 6 damage (15 -> 9 HP). A hit that faints the target is excluded.
+     *
+     * base = floor(floor(floor(2*5/5+2) * 40 * 12 / 7) / 50) + 2 = floor(274/50) + 2 = 7
+     * rolls(85..100) = floor(7*r/100) -> 5..7; the observed 6 is roll 86-99.
+     */
+    g_fixture = "gap_c4d_rom_golden_a_neutral_tackle";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Chikorita\",\"level\":5,\"ability\":\"(other)\","
+            "\"rawStats\":{\"attack\":12,\"defense\":12,\"speed\":8,\"spAttack\":11,\"spDefense\":11},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Pidgey\",\"level\":3,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]},"
+            "\"rawStats\":{\"attack\":8,\"defense\":7,\"speed\":9,\"spAttack\":7,\"spDefense\":7},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Tackle\",\"overrides\":{\"basePower\":40,\"type\":\"Normal\",\"category\":\"Physical\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+        double engine[ROLL_COUNT];
+        if (hns_request_rolls(req, engine)) {
+            hns_ordinary_rolls(5, 40, 12, 7, 0, 1.0, 0, 0, oracle);
+            check_condition("Golden A engine matches the independent oracle", rolls_equal(engine, oracle));
+            check_condition("Golden A oracle range is exactly 5..7", oracle[0] == 5 && oracle[15] == 7);
+            check_condition("Golden A ROM damage 6 is a valid H&S roll", rolls_contain(engine, 6));
+        } else {
+            check_condition("Golden A request produced a response", 0);
+        }
+    }
+
+    /* Golden B — STAB and type effectiveness in the same hit.
+     *
+     * ROM record: scenarios/golden-b; Chikorita L6 (Atk 13, Grass; 11/23 HP, so Overgrow is above
+     * its 1/3-HP pinch threshold and is neutral) used Razor Leaf (Grass, 55 BP, physical) on a wild
+     * Pidgey (Def 7, Normal/Flying). Grass is super-effective on nothing here and RESISTED by
+     * Flying, so the post-roll chain is STAB x1.5 then type x0.5. Observed non-fainting hit: 6
+     * damage (15 -> 9 HP).
+     *
+     * base = floor(floor(4 * 55 * 13 / 7) / 50) + 2 = floor(408/50) + 2 = 10
+     * rolls = 8..10; STAB -> 12..15; type x0.5 -> 6..7. The observed 6 is the low roll.
+     * A non-STAB or non-resisted reading is excluded: without STAB the range would be 4..5 and
+     * without the resistance it would be 12..15.
+     */
+    g_fixture = "gap_c4d_rom_golden_b_stab_and_effectiveness";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Chikorita\",\"level\":6,\"ability\":\"(other)\","
+            "\"rawStats\":{\"attack\":13,\"defense\":13,\"speed\":9,\"spAttack\":12,\"spDefense\":12},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Pidgey\",\"level\":3,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]},"
+            "\"rawStats\":{\"attack\":8,\"defense\":7,\"speed\":8,\"spAttack\":7,\"spDefense\":7},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Razor Leaf\",\"overrides\":{\"basePower\":55,\"type\":\"Grass\",\"category\":\"Physical\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+        double engine[ROLL_COUNT];
+        if (hns_request_rolls(req, engine)) {
+            hns_ordinary_rolls(6, 55, 13, 7, 1, 0.5, 0, 0, oracle);
+            check_condition("Golden B engine matches the independent oracle", rolls_equal(engine, oracle));
+            check_condition("Golden B oracle range is exactly 6..7", oracle[0] == 6 && oracle[15] == 7);
+            check_condition("Golden B ROM damage 6 is a valid H&S roll", rolls_contain(engine, 6));
+            /* The two modifiers are both material: neither the no-STAB nor the no-resist reading
+             * contains 6. */
+            hns_ordinary_rolls(6, 55, 13, 7, 0, 0.5, 0, 0, oracle);
+            check_condition("Golden B without STAB would be 4..5 (excludes 6)",
+                            oracle[0] == 4 && oracle[15] == 5);
+            hns_ordinary_rolls(6, 55, 13, 7, 1, 1.0, 0, 0, oracle);
+            check_condition("Golden B without the type resistance would be 12..15 (excludes 6)",
+                            oracle[0] == 12 && oracle[15] == 15);
+        } else {
+            check_condition("Golden B request produced a response", 0);
+        }
+    }
+
+    /* Golden E — critical hit, observed INDIRECTLY because the hit fainted the target.
+     *
+     * ROM record: the preserved original Golden A capture (`evidence/golden-e-crit-indirect.log`);
+     * on the second Tackle of that battle the wild Pidgey went
+     * from 10 HP to 0. The non-critical maximum for that exact request is 7 (Golden A above), so a
+     * non-critical hit cannot account for a full 10-HP drop: the critical modifier (x2 before the
+     * roll in H&S) must have applied. The exact critical roll (11..14) is unknowable because the
+     * faint caps the observable delta at the target's remaining HP, so this fixture is recorded as
+     * RUNTIME OBSERVED (indirect) rather than a clean roll match; it asserts the exclusion of the
+     * non-critical range and that the critical range can produce the observed magnitude.
+     */
+    g_fixture = "gap_c4d_rom_golden_e_crit_indirect";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Chikorita\",\"level\":5,\"ability\":\"(other)\","
+            "\"rawStats\":{\"attack\":12,\"defense\":12,\"speed\":8,\"spAttack\":11,\"spDefense\":11},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Pidgey\",\"level\":3,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]},"
+            "\"rawStats\":{\"attack\":8,\"defense\":7,\"speed\":8,\"spAttack\":8,\"spDefense\":7},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Tackle\",\"isCrit\":true,"
+            "\"overrides\":{\"basePower\":40,\"type\":\"Normal\",\"category\":\"Physical\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+        double engine[ROLL_COUNT];
+        if (hns_request_rolls(req, engine)) {
+            hns_calc_rolls(5, 40, 12, 7, 0, 1.0, 1, 0, 0, 0, oracle);
+            check_condition("Golden E engine matches the independent crit oracle", rolls_equal(engine, oracle));
+            check_condition("Golden E crit range is exactly 11..14", oracle[0] == 11 && oracle[15] == 14);
+            /* Non-crit max was 7 (Golden A); the observed 10-HP drop therefore excludes non-crit. */
+            check_condition("Golden E observed 10 exceeds the non-critical maximum 7", 10 > 7);
+            check_condition("Golden E crit range can account for the observed 10", 10 <= oracle[15]);
+            /* Stronger faint-cap relation: the remaining HP (10) is itself no more than the minimum
+             * critical roll (11), so the faint could not have come from a below-range critical. */
+            check_condition("Golden E remaining HP 10 is no more than the minimum crit roll 11",
+                            10 <= oracle[0]);
+        } else {
+            check_condition("Golden E request produced a response", 0);
+        }
+    }
+
+    /* Golden C — live non-neutral stat stage.
+     *
+     * ROM record: scenarios/golden-c; starter Totodile L5 (Atk 12) used Leer (Defense -1) and then
+     * Scratch (Normal, 40 BP, physical) on a wild Pidgey L2 (Def 6, stage -1). The golden-state
+     * probe record shows the defender's live Defense stage at -1 when Scratch landed.
+     * Observed non-fainting hit: 10 damage (13 -> 3 HP).
+     *
+     * The -1 stage is material: raw Def 6 -> floor(6 * 10/15) = 4, base = 11 -> rolls 9..11. With
+     * stage 0 (Def 6) the base is 8 and the rolls are 6..8, which EXCLUDES the observed 10. That
+     * exclusion is asserted below, so a regression that ignored the live stage would fail.
+     */
+    g_fixture = "gap_c4d_rom_golden_c_stat_stage";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Totodile\",\"level\":5,\"ability\":\"(other)\","
+            "\"rawStats\":{\"attack\":12,\"defense\":13,\"speed\":9,\"spAttack\":9,\"spDefense\":10},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Pidgey\",\"level\":2,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]},"
+            "\"rawStats\":{\"attack\":7,\"defense\":6,\"speed\":7,\"spAttack\":5,\"spDefense\":6},"
+            "\"statStages\":[0,0,-1,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Scratch\",\"overrides\":{\"basePower\":40,\"type\":\"Normal\",\"category\":\"Physical\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+        double engine[ROLL_COUNT];
+        if (hns_request_rolls(req, engine)) {
+            /* stage -1: raw Def 6 -> 4 */
+            hns_ordinary_rolls(5, 40, 12, 4, 0, 1.0, 0, 0, oracle);
+            check_condition("Golden C engine matches the independent oracle", rolls_equal(engine, oracle));
+            check_condition("Golden C oracle range is exactly 9..11", oracle[0] == 9 && oracle[15] == 11);
+            check_condition("Golden C ROM damage 10 is a valid H&S roll", rolls_contain(engine, 10));
+            /* The same hit at stage 0 must NOT contain the observed damage: the stage is required. */
+            hns_ordinary_rolls(5, 40, 12, 6, 0, 1.0, 0, 0, oracle);
+            check_condition("Golden C stage-0 rolls are 6..8", oracle[0] == 6 && oracle[15] == 8);
+            int stage0_excludes_10 = 1;
+            for (int i = 0; i < ROLL_COUNT; i++) {
+                if (oracle[i] == 10) stage0_excludes_10 = 0;
+            }
+            check_condition("Golden C observed 10 is excluded without the live -1 stage",
+                            stage0_excludes_10);
+        } else {
+            check_condition("Golden C request produced a response", 0);
+        }
+    }
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -2762,6 +2972,9 @@ int main(void) {
 
     printf("-- Gap C4b: arithmetic coverage (stat stages, crit ignores, badges, weather, screens, rawStats, target count) --\n");
     check_gap_c4b_arithmetic_coverage();
+
+    printf("-- Gap C4d: official H&S 2.0.5 ROM damage goldens --\n");
+    check_gap_c4d_rom_damage_goldens();
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
     check_oracle_self_tests();

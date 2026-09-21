@@ -123,6 +123,9 @@ publishes through `RETRO_MEMORY_SAVE_RAM` for this ROM. Any emulator that writes
 | `scenarios/44-opponent-voluntary-switch.txt` | **PASSES.** Bug Catcher Don (Route 30) voluntary opponent switch: Ledyba stays alive at 3/15 HP while the engine moves the opponent to party slot 1 and the production reader follows it |
 | `scenarios/34-route30-don-ready.txt` | Route 30 → Youngster Mikey → Don's approach → in-game save |
 | `scenarios/47-don-damage-probe.txt` | **PASSES.** Diagnostic that asserts nothing about switching: bounded Razor Leaf damage trajectory against Don's Ledyba Lv3 (measured 4 HP per hit). It is the evidence behind the withdrawn one-shot rejection |
+| `scenarios/60-golden-a-neutral.txt` | **PASSES.** Gap C4d official-ROM golden A: neutral ordinary Tackle damage (see `evidence/`). Uses `golden-grind` to assert the operands and the exact damage (6, a wild Pidgey with live Def 7), exiting 0 only on that hit |
+| `scenarios/61-golden-c-stat-stage.txt` | **PASSES.** Gap C4d official-ROM golden C: Leer (Def -1) then Scratch on a wild Pidgey with live Def 6; `golden-grind` asserts the stage and the exact damage (10), exiting 0 only on that hit |
+| `scenarios/62-golden-b-stab-grind.txt` | **PASSES.** Gap C4d official-ROM golden B: grinds Chikorita to level 6 (Razor Leaf), then `golden-grind` asserts the exact Razor Leaf damage (6, a wild Pidgey with live Def 7) and exits 0. It is permissive about the RNG grind (it retries encounters and flees non-matching ones) but fails closed if it never lands the asserted hit |
 | `deferred/46-sprout-tower-3f.txt` | **DEFERRED, does not pass.** Kept out of `scenarios/` on purpose: it localises an unresolved field-state lock after the Sprout Tower 2F trainer battle. Not run by any gate; see §11.10.7 of the compatibility evidence |
 
 ## Overworld navigation: what the source gets right and what it does not
@@ -200,6 +203,8 @@ generated into a temporary directory and are not committed.
 | `walkto <x> <y> [<maxIterations>]` | move the player to a named tile on the current map, planning on a 4-connected grid and re-reading the player's tile after every step so the engine is the authority on whether a step was legal. A failed step is only believed after several spaced attempts (NPCs wander); a destination that survives them is recorded per map and routed around |
 | `await-enemy-voluntary-switch <oldSlot> <newSlot> <oldSpecies> <maxFrames>` | drive turns until an AI **voluntary** switch is observed: one opponent battler active at `oldSlot` with HP > 0, then the authoritative `gBattlerPartyIndexes[opponent]` rewrite to `newSlot` resolving through the production reader with the outgoing mon **still alive**. Fails if the outgoing mon ever reaches HP 0 (that is the faint path, Scenario 41). `gChosenActionByBattler` / `B_ACTION_SWITCH` are **not** read and **not** claimed — see the compatibility evidence §11.10.8 |
 | `matrix <label>` | print the full runtime tuple for the current frame |
+| `golden-state <label>` | Gap C4d diagnostic: print one machine-readable `[GOLDEN]` snapshot through the production reader for BOTH sides — battler/party slot, status, ability, current types, current item, raw battle stat words, stat stages, badge eligibility, HP/max HP, readability bits and live moves. Unlike `matrix` it includes the opponent's stat stages, so a Leer/Tail Whip/Defense Curl golden can be reconstructed. Asserts nothing |
+| `golden-grind <setupMoveId\|0> <moveId> <fallbackMoveId> <targetSpeciesId> <targetDefense\|0> <minDamage> <maxDamage> <fleeWhenMoveKnown> <targetAttackerLevel\|0> <maxEncounters>` | Gap C4d golden driver. Permissive about the RNG grind (it wanders and retries, and flees or fights non-matching encounters) but strict about the golden: it stops with exit 0 only on ONE non-fainting hit that satisfies the live species, live raw Defense, attacker level and damage range, and prints the pre-hit `[GOLDEN]` snapshot plus a single `[GOLDEN-HIT] PASS ...` line. No acceptable hit within `<maxEncounters>` is a script ERROR. Ordinary controller input only |
 | `challenge-settings <label>` | print SaveBlock3.challengeSettings decoded by the **production** reader (`pokemon_read_challenge_settings_gba`) for the current frame; a declined read is a script error (fail-closed), never a default. Used by the challenge-settings runtime verification (scenario 50) |
 | `shot <path.ppm>` | dump the current video frame |
 | `savsave <path>` / `savload <path>` | flush / load battery save RAM |
@@ -215,6 +220,10 @@ The probe deliberately runs **outside** DualDex's trust model: it does not add t
 `heart_and_soul.json` and it does not unlock live memory for the product. It only reads emulated
 memory from a throwaway host process. `sha256Hashes` stays empty, `battleUiVerified` stays false
 and `interactiveControlsVerified` stays false (see issue #40).
+
+For **evidence bookkeeping**, every run prints the SHA-256 of the ROM file it actually loaded
+(`rom sha256 : ...` and `[ROM] path=... sha256=... loaded=1`) so a committed log is bound to the
+exact ROM bytes. That emission is not wired into `RuntimeRomTrust` and is not a trust promotion.
 
 ## Address provenance
 

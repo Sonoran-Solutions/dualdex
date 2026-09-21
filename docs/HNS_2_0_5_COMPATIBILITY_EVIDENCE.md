@@ -3003,3 +3003,119 @@ battle-observation shape above. C4c remains **PARTIAL / OPEN** as a foundation s
   unreadable/observed-singles count, non-spread class, and AMBIGUOUS production block).
 - `./ci.sh all` passes.
 - `git diff --check` passes.
+
+---
+
+## Gap C4d — Official-ROM damage goldens + live volatile audit
+
+**Status: PARTIAL / OPEN (runtime goldens landed; production still fail-closed)**
+
+### What C4d added (SOURCE VERIFIED)
+
+1. **Full dynamic-move-type path audit** (`src/battle_main.c:6418` `SetTypeBeforeUsingMove`,
+   `src/battle_main.c:6176` `GetDynamicMoveType`, `src/battle_util.c:9907` `GetBattleMoveType`).
+   Every mechanism that can set `gBattleStruct->dynamicMoveType` is dispositioned: the
+   non-`EFFECT_HIT` move effects are refused by the move allow-list, the type-changing abilities
+   (`Pixilate`/`Refrigerate`/`Aerilate`/`Galvanize`/`Normalize`/`Liquid Voice`) are refused by the
+   ability gate, and the two mechanisms that remain relevant to an otherwise-supported move — Ion
+   Deluge (`gFieldStatuses & STATUS_FIELD_ION_DELUGE && moveType == TYPE_NORMAL`) and the
+   `volatiles.electrified` volatile (type-agnostic) — are unread and stay fail-closed.
+   `gBattleStruct->dynamicMoveType` is explicitly **not** used as an authority because it describes
+   the last executed move, not the hypothetical request.
+2. **Full ordinary-damage transient-state audit** (`src/battle_util.c:7754`
+   `DoMoveDamageCalcVars`, `:7794` `ApplyModifiersAfterDmgRoll`, `:7714` `GetOtherModifiers`).
+   Every modifier in the supported path is dispositioned in
+   `docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md` §13.3. The classes that remain relevant to an
+   otherwise-supported request (Glaive Rush, Minimize, semi-invulnerable, gimmick/Tera) are unread
+   and stay fail-closed.
+
+### New runtime observation semantics (RUNTIME VERIFIED)
+
+`tools/hns-runtime-probe` gained a `golden-state <label>` command. It prints one machine-readable
+`[GOLDEN]` snapshot through the **production** reader for each side, carrying: battler index, party
+slot, status, ability, current types, current item, raw battle stat words, stat stages, badge
+eligibility, HP and max HP, absent-flags/battlers-count readability, and the live move list. It
+asserts nothing and writes nothing. Unlike the existing `matrix` output it reports the **opponent's**
+stat stages, which is what made a live stat-stage golden possible.
+
+The existing `damage-probe` command was also corrected: it used to dead-reckon the move-menu cursor
+from slot 0, so after a first turn the menu reopened on the last-used move and the probe could
+confirm the wrong move. It now grounds the cursor on the engine-reported value (`ewram[0x3A8]`),
+the same way `await-enemy-voluntary-switch` already did. The committed Golden C log is the
+before/after evidence of that fix: the first run silently re-used Leer, the fixed run selected
+Scratch.
+
+No new JNI tuple field, layout offset, or Kotlin boundary field was added. The C4c authority
+contract is unchanged.
+
+### Official-ROM goldens (RUNTIME VERIFIED)
+
+Full reproduction steps and the machine-readable record are in
+`tools/hns-runtime-probe/evidence/` (`rom-damage-goldens.json`, `README.md`, and four probe logs).
+All runs used ordinary controller input only; no RAM writes, no save states, no cheats. The direct
+goldens are captured by the `golden-grind` command, which is permissive about the RNG grind but
+stops with exit 0 only on one machine-asserted `[GOLDEN-HIT] PASS` hit (live species, live raw
+Defense, attacker level and exact damage; never a fainting target). Each run prints the SHA-256 of
+the ROM file it actually loaded, so raw log -> exact SHA -> evidence JSON -> host oracle is closed;
+that is evidence bookkeeping only and does not promote the product trust hash.
+
+| Golden | Scenario | Observed ROM damage | DualDex rolls | Verdict |
+|---|---|---|---|---|
+| A neutral ordinary | `scenarios/60-golden-a-neutral.txt` | Chikorita L5 Tackle vs Pidgey L3 (Def 7) → **6** (15→9) | 5..7 | RUNTIME VERIFIED (direct roll golden) |
+| B STAB + resistance | `scenarios/62-golden-b-stab-grind.txt` | Chikorita L6 Razor Leaf vs Pidgey L3 (Def 7, Normal/Flying) → **6** (15→9) | 6..7 | RUNTIME VERIFIED (direct roll golden) |
+| C live stat stage | `scenarios/61-golden-c-stat-stage.txt` | Totodile L5 Leer (Def −1) then Scratch vs Pidgey L2 (Def 6) → **10** (13→3) | 9..11 | RUNTIME VERIFIED (direct roll golden) |
+| E critical (indirect) | `evidence/golden-e-crit-indirect.log` (preserved original A capture) | second Tackle took 10 HP → 0; non-crit max is 7 | non-crit 5..7; crit 11..14 | RUNTIME OBSERVED (indirect) — **not** one of the A/B/C direct roll goldens |
+| D badge boost | — | — | — | NOT VALIDATED (no badge reachable from the fresh-starter progression) |
+| F new volatile reader | — | — | — | NOT CLAIMED (no reader added) |
+| G Doubles | — | — | — | DEFERRED (production still BLOCKED) |
+
+### Host-side oracle (HOST VERIFIED)
+
+`native/tests/test_js_calc.c` gained `check_gap_c4d_rom_damage_goldens`. For each golden it:
+
+1. runs the exact observed operands through the shipped bundle (`typeSystem: hns_2_0_5`);
+2. recomputes the 16-roll vector with the independent in-repo oracle (no shared code with
+   `entry.js`) and requires an exact match;
+3. requires the observed ROM damage to be a member of the engine's rolls.
+
+Golden C additionally requires the stage-0 oracle (6..8) to exclude the observed 10, so a
+regression that ignored the live Defense stage fails. Golden B additionally asserts that neither the
+no-STAB reading (4..5) nor the no-resistance reading (12..15) contains the observed 6. Golden E
+asserts the non-critical maximum (7) is below the observed 10-HP drop, that the critical range
+(11..14) can account for it, and the stronger faint-cap relation: the 10 HP remaining is no more
+than the minimum critical roll (11), so the faint cannot have come from a below-range critical.
+
+### Mutation control
+
+The highest-risk new assertion is "the live stat stage is material". Mutating the Golden C request's
+defender stage from `-1` to `0` (leaving everything else identical) produced exactly two failures —
+`Golden C engine matches the independent oracle` and `Golden C ROM damage 10 is a valid H&S roll` —
+and the suite dropped from `2005 passed, 0 failed` to `2003 passed, 2 failed`. The mutation was
+reverted and the suite returned to `2005 passed, 0 failed`.
+
+### Trust / hash decision
+
+The exact H&S 2.0.5 ROM SHA-256 observed during these runs was **not** added to
+`app/src/main/assets/profiles/heart_and_soul.json`. `sha256Hashes` stays empty,
+`battleUiVerified` and `interactiveControlsVerified` stay `false`, and `mayReadLiveMemory` stays
+false. The goldens were produced by a developer-only probe that runs outside the product trust
+model. The probe does print the loaded ROM's SHA-256 into each run log (`[ROM] ... sha256=...`),
+and `rom-damage-goldens.json` records it per golden, but that is evidence bookkeeping only: it
+does not touch `RuntimeRomTrust` and is not a trust promotion. Hash promotion remains an issue-#40
+closure decision.
+
+### Production promotion status
+
+**No production H&S request reaches `Ready`/`ESTIMATED` after C4d.** The effective-move-type and
+transient-state gates are closed for every active battle; Doubles is additionally blocked; the
+profile has no verified hash; and the observed attackers' abilities (`Overgrow`, `Torrent`) are
+classified `UNSUPPORTED_DAMAGE_RELEVANT`. C4d is an evidence slice, and C4 remains **PARTIAL /
+OPEN**.
+
+### CI status (C4d)
+
+- Native reader suite: `87 passed, 0 failed` (unchanged).
+- Pure tracker selftests: `75 passed, 0 failed` (unchanged).
+- QuickJS calculator suite: `2005 passed, 0 failed` (1987 before C4d; 18 new golden checks).
+- Kotlin unit tests: unchanged and green.
+- `./ci.sh all` passes; `git diff --check` passes.

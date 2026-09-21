@@ -44,6 +44,144 @@
 #include <stdarg.h>
 #include <sys/stat.h>
 
+/* ------------------------------------------------------------------------------------------- */
+/* SHA-256 (FIPS 180-4)                                                                        */
+/*                                                                                             */
+/* The probe runs outside DualDex's product trust model, but every evidence run must still be   */
+/* cryptographically bound to the exact ROM bytes that were loaded: a log that names only a     */
+/* local pathname cannot prove which bytes produced it. This self-contained implementation (no  */
+/* OpenSSL/libcrypto dependency, so the pure `--selftest` build keeps linking) hashes the ROM   */
+/* file and prints the digest in the run header, so the chain is                              */
+/*     raw log -> exact SHA-256 -> evidence JSON -> host oracle.                              */
+/* It is evidence bookkeeping ONLY: it does NOT promote the product trust hash and does NOT     */
+/* touch RuntimeRomTrust / heart_and_soul.json.                                               */
+/* ------------------------------------------------------------------------------------------- */
+
+typedef struct {
+    uint8_t data[64];
+    uint32_t datalen;
+    uint64_t bitlen;
+    uint32_t state[8];
+} Sha256Ctx;
+
+#define SHA_ROTRIGHT(a, b) (((a) >> (b)) | ((a) << (32 - (b))))
+#define SHA_CH(x, y, z) (((x) & (y)) ^ (~(x) & (z)))
+#define SHA_MAJ(x, y, z) (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
+#define SHA_EP0(x) (SHA_ROTRIGHT(x, 2) ^ SHA_ROTRIGHT(x, 13) ^ SHA_ROTRIGHT(x, 22))
+#define SHA_EP1(x) (SHA_ROTRIGHT(x, 6) ^ SHA_ROTRIGHT(x, 11) ^ SHA_ROTRIGHT(x, 25))
+#define SHA_SIG0(x) (SHA_ROTRIGHT(x, 7) ^ SHA_ROTRIGHT(x, 18) ^ ((x) >> 3))
+#define SHA_SIG1(x) (SHA_ROTRIGHT(x, 17) ^ SHA_ROTRIGHT(x, 19) ^ ((x) >> 10))
+
+static const uint32_t sha256_k[64] = {
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+};
+
+static void sha256_transform(Sha256Ctx* ctx, const uint8_t data[64]) {
+    uint32_t a, b, c, d, e, f, g, h, i, j, t1, t2, m[64];
+    for (i = 0, j = 0; i < 16; ++i, j += 4) {
+        m[i] = ((uint32_t)data[j] << 24) | ((uint32_t)data[j + 1] << 16) |
+               ((uint32_t)data[j + 2] << 8) | ((uint32_t)data[j + 3]);
+    }
+    for (; i < 64; ++i) {
+        m[i] = SHA_SIG1(m[i - 2]) + m[i - 7] + SHA_SIG0(m[i - 15]) + m[i - 16];
+    }
+    a = ctx->state[0]; b = ctx->state[1]; c = ctx->state[2]; d = ctx->state[3];
+    e = ctx->state[4]; f = ctx->state[5]; g = ctx->state[6]; h = ctx->state[7];
+    for (i = 0; i < 64; ++i) {
+        t1 = h + SHA_EP1(e) + SHA_CH(e, f, g) + sha256_k[i] + m[i];
+        t2 = SHA_EP0(a) + SHA_MAJ(a, b, c);
+        h = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+    }
+    ctx->state[0] += a; ctx->state[1] += b; ctx->state[2] += c; ctx->state[3] += d;
+    ctx->state[4] += e; ctx->state[5] += f; ctx->state[6] += g; ctx->state[7] += h;
+}
+
+static void sha256_init(Sha256Ctx* ctx) {
+    ctx->datalen = 0;
+    ctx->bitlen = 0;
+    ctx->state[0] = 0x6a09e667; ctx->state[1] = 0xbb67ae85;
+    ctx->state[2] = 0x3c6ef372; ctx->state[3] = 0xa54ff53a;
+    ctx->state[4] = 0x510e527f; ctx->state[5] = 0x9b05688c;
+    ctx->state[6] = 0x1f83d9ab; ctx->state[7] = 0x5be0cd19;
+}
+
+static void sha256_update(Sha256Ctx* ctx, const uint8_t* data, size_t len) {
+    for (size_t i = 0; i < len; ++i) {
+        ctx->data[ctx->datalen++] = data[i];
+        if (ctx->datalen == 64) {
+            sha256_transform(ctx, ctx->data);
+            ctx->bitlen += 512;
+            ctx->datalen = 0;
+        }
+    }
+}
+
+static void sha256_final(Sha256Ctx* ctx, uint8_t hash[32]) {
+    uint32_t i = ctx->datalen;
+    if (ctx->datalen < 56) {
+        ctx->data[i++] = 0x80;
+        while (i < 56) ctx->data[i++] = 0x00;
+    } else {
+        ctx->data[i++] = 0x80;
+        while (i < 64) ctx->data[i++] = 0x00;
+        sha256_transform(ctx, ctx->data);
+        memset(ctx->data, 0, 56);
+    }
+    ctx->bitlen += (uint64_t)ctx->datalen * 8;
+    ctx->data[63] = (uint8_t)(ctx->bitlen);
+    ctx->data[62] = (uint8_t)(ctx->bitlen >> 8);
+    ctx->data[61] = (uint8_t)(ctx->bitlen >> 16);
+    ctx->data[60] = (uint8_t)(ctx->bitlen >> 24);
+    ctx->data[59] = (uint8_t)(ctx->bitlen >> 32);
+    ctx->data[58] = (uint8_t)(ctx->bitlen >> 40);
+    ctx->data[57] = (uint8_t)(ctx->bitlen >> 48);
+    ctx->data[56] = (uint8_t)(ctx->bitlen >> 56);
+    sha256_transform(ctx, ctx->data);
+    for (i = 0; i < 4; ++i) {
+        hash[i]      = (uint8_t)((ctx->state[0] >> (24 - i * 8)) & 0xff);
+        hash[i + 4]  = (uint8_t)((ctx->state[1] >> (24 - i * 8)) & 0xff);
+        hash[i + 8]  = (uint8_t)((ctx->state[2] >> (24 - i * 8)) & 0xff);
+        hash[i + 12] = (uint8_t)((ctx->state[3] >> (24 - i * 8)) & 0xff);
+        hash[i + 16] = (uint8_t)((ctx->state[4] >> (24 - i * 8)) & 0xff);
+        hash[i + 20] = (uint8_t)((ctx->state[5] >> (24 - i * 8)) & 0xff);
+        hash[i + 24] = (uint8_t)((ctx->state[6] >> (24 - i * 8)) & 0xff);
+        hash[i + 28] = (uint8_t)((ctx->state[7] >> (24 - i * 8)) & 0xff);
+    }
+}
+
+/** Hash a file's raw bytes into lowercase hex. Returns false if the file cannot be read. */
+static bool sha256_file_hex(const char* path, char out_hex[65]) {
+    if (!path || !out_hex) return false;
+    FILE* f = fopen(path, "rb");
+    if (!f) return false;
+    Sha256Ctx ctx;
+    sha256_init(&ctx);
+    uint8_t buf[65536];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+        sha256_update(&ctx, buf, n);
+    }
+    const bool ok = (ferror(f) == 0);
+    fclose(f);
+    if (!ok) return false;
+    uint8_t digest[32];
+    sha256_final(&ctx, digest);
+    static const char hex[] = "0123456789abcdef";
+    for (int i = 0; i < 32; ++i) {
+        out_hex[i * 2] = hex[digest[i] >> 4];
+        out_hex[i * 2 + 1] = hex[digest[i] & 0x0F];
+    }
+    out_hex[64] = '\0';
+    return true;
+}
+
 /* Runtime-proven IWRAM address of gMain on the official release ROM. `gMain` is the authority for
  * `inBattle`; the compiled symbol address from a local build is 0x18 lower and must not be used. */
 #define HNS_RELEASE_GMAIN_BASE 0x03005BD8u
@@ -2321,6 +2459,15 @@ static void write_ppm(const char* path) {
  *                                  ERROR.
  *   savload <path>                 load a .sav file into the core's battery save RAM. A missing
  *                                  file, a size mismatch or a load failure is an ERROR.
+ *   golden-grind <setupMoveId|0> <moveId> <fallbackMoveId> <targetSpeciesId> <targetDefense|0>
+ *                <minDamage> <maxDamage> <fleeWhenMoveKnown> <targetAttackerLevel|0>
+ *                <maxEncounters>
+ *                                  permissive RNG grind for the Gap C4d goldens: wanders until a
+ *                                  wild encounter, optionally flees or fights it, and stops with
+ *                                  exit 0 on the first non-fainting <moveId> hit whose live
+ *                                  species/Defense/attacker-level/damage all match the asserted
+ *                                  operands, printing ONE [GOLDEN-HIT] PASS line. No usable hit
+ *                                  within <maxEncounters> is a script ERROR.
  *   reject-encounter               unexpected encounter: fail the run
  *
  * Assertions (each records a script ERROR when the condition does not hold):
@@ -2743,6 +2890,319 @@ static bool player_switch_step(Driver* d, int target_slot, int* phase, int* atte
     return false;
 }
 
+/* ------------------------------------------------------------------------------------------- */
+/* Golden B permissive grind                                                                   */
+/* ------------------------------------------------------------------------------------------- */
+
+static bool probe_in_battle(const GameMemoryConfig* cfg) {
+    uint8_t ib = 0;
+    if (!read_u8(cfg->main_struct_gba_address + cfg->main_in_battle_byte_offset, &ib)) return false;
+    return ((ib >> cfg->main_in_battle_bit) & 1) != 0;
+}
+
+/** Level of the active player party member through the PRODUCTION party reader; -1 if unknown. */
+static int probe_active_player_level(const GameMemoryConfig* cfg) {
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+    if (!ewram || ewram_sz == 0) return -1;
+    PartySnapshot snap;
+    memset(&snap, 0, sizeof(snap));
+    const uint8_t n = pokemon_read_player_party_gba(probe_read, NULL, ewram, ewram_sz, cfg, &snap);
+    const int slot = snap.active_battler_slot;
+    if (!snap.active_battler_known || slot < 0 || slot >= (int)n) return -1;
+    return (int)snap.members[slot].level;
+}
+
+/** Level of the active enemy party member through the PRODUCTION party reader; -1 if unknown. */
+static int probe_active_enemy_level(const GameMemoryConfig* cfg) {
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+    if (!ewram || ewram_sz == 0) return -1;
+    PartySnapshot snap;
+    memset(&snap, 0, sizeof(snap));
+    const uint8_t n = pokemon_read_enemy_party_gba(probe_read, NULL, ewram, ewram_sz, cfg, &snap);
+    const int slot = snap.active_battler_slot;
+    if (!snap.active_battler_known || slot < 0 || slot >= (int)n) return -1;
+    return (int)snap.members[slot].level;
+}
+
+/** Print one machine-readable [GOLDEN] snapshot through the PRODUCTION reader for both sides, so a
+ * golden log alone carries every operand the JSON record needs (raw battle stat words, stat stages
+ * -- including the opponent's -- badges, types, item, HP and max HP, readability bits, moves).
+ * Shared by the `golden-state` command and the `golden-grind` asserted hit. Reads only. */
+static void print_golden_state(const Sample* s, const char* label) {
+    printf("[GOLDEN] label=%s frame=%d lifecycle=%s kind=%s battlers=%u absent=0x%02X "
+           "presence=%s playerParty=%u enemyParty=%u\n",
+           label, s->frame, lifecycle_name(s->lifecycle), kind_name(s->kind), s->battlers,
+           s->absent_flags, presence_name(s->presence), s->player_party_count,
+           s->enemy_party_count);
+    const char* gsides[2] = {"player", "enemy"};
+    const BattlerRuntimeState* gst[2] = {&s->player_battler_state, &s->enemy_battler_state};
+    for (int role = 0; role < 2; role++) {
+        const BattlerRuntimeState* b = gst[role];
+        printf("[GOLDEN] side=%s battler=%d partySlot=%d status=%d ability=%u abilityObs=%d "
+               "types=%u,%u,%u typesObs=%d item=%u itemObs=%d statsObs=%d "
+               "atk=%u def=%u spe=%u spa=%u spd=%u stagesObs=%d "
+               "stages=%d,%d,%d,%d,%d,%d,%d,%d badgesObs=%d badges=%d,%d,%d,%d,%d "
+               "rawBadges=0x%02X absentReadable=%d battlersCountReadable=%d\n",
+               gsides[role], (int)b->battler_index, (int)b->party_slot, (int)b->status,
+               (unsigned)b->ability_id, b->ability_observed ? 1 : 0,
+               (unsigned)b->types[0], (unsigned)b->types[1], (unsigned)b->types[2],
+               b->types_observed ? 1 : 0, (unsigned)b->item_id, b->item_observed ? 1 : 0,
+               b->stats_observed ? 1 : 0,
+               (unsigned)b->raw_attack, (unsigned)b->raw_defense, (unsigned)b->raw_speed,
+               (unsigned)b->raw_sp_attack, (unsigned)b->raw_sp_defense,
+               b->stages_observed ? 1 : 0,
+               (int)b->stat_stages[0], (int)b->stat_stages[1], (int)b->stat_stages[2],
+               (int)b->stat_stages[3], (int)b->stat_stages[4], (int)b->stat_stages[5],
+               (int)b->stat_stages[6], (int)b->stat_stages[7],
+               b->badges_observed ? 1 : 0,
+               b->badge_boost_atk ? 1 : 0, b->badge_boost_def ? 1 : 0,
+               b->badge_boost_spe ? 1 : 0, b->badge_boost_spa ? 1 : 0,
+               b->badge_boost_spd ? 1 : 0, (unsigned)b->raw_badges_byte,
+               b->absent_flags_readable ? 1 : 0, b->battlers_count_readable ? 1 : 0);
+        const int bi = b->battler_index;
+        if (bi >= 0 && bi < DUALDEX_MAX_BATTLERS) {
+            printf("[GOLDEN] side=%s species=%u hp=%u maxHP=%u moves=%u,%u,%u,%u "
+                   "partyIndex=%u\n",
+                   gsides[role], (unsigned)s->mon_species[bi], (unsigned)s->mon_hp[bi],
+                   (unsigned)s->mon_max_hp[bi],
+                   (unsigned)s->mon_moves[bi][0], (unsigned)s->mon_moves[bi][1],
+                   (unsigned)s->mon_moves[bi][2], (unsigned)s->mon_moves[bi][3],
+                   (unsigned)s->party_index[bi]);
+        }
+    }
+}
+
+/** Navigate the 2x2 battle action menu (FIGHT=0, BAG=1, POKEMON=2, RUN=3) toward `target` and
+ * confirm it when the engine reports the cursor on it. Returns true once the A press was sent. */
+static bool select_action_menu_index(Driver* d, uint8_t* ewram, size_t ewram_sz, int target,
+                                     Sample* previous, bool* have_previous) {
+    const uint8_t cur = (ewram_sz > 0x3A4) ? ewram[0x3A4] : 0xFF;
+    if (cur > 3) return false;
+    if ((int)cur == target) {
+        hold(d, DUALDEX_BTN_A, 4, previous, have_previous);
+        hold(d, 0, 8, previous, have_previous);
+        return true;
+    }
+    const int cr = cur / 2, cc = cur % 2;
+    const int tr = target / 2, tc = target % 2;
+    const uint32_t btn = (cr != tr) ? ((tr > cr) ? DUALDEX_BTN_DOWN : DUALDEX_BTN_UP)
+                                    : ((tc > cc) ? DUALDEX_BTN_RIGHT : DUALDEX_BTN_LEFT);
+    hold(d, btn, 4, previous, have_previous);
+    hold(d, 0, 8, previous, have_previous);
+    return false;
+}
+
+/*
+ * golden-grind <setupMoveId|0> <moveId> <fallbackMoveId> <targetSpeciesId> <targetDefense|0>
+ *              <minDamage> <maxDamage> <fleeWhenMoveKnown> <targetAttackerLevel|0> <maxEncounters>
+ *
+ * Purpose-built Gap C4d golden driver. The wild encounters (species, stats), the starter's
+ * level-up timing and the damage roll are RNG, so a fixed linear scenario cannot name the
+ * encounter that carries a golden and must not pretend to. This command grinds PERMISSIVELY -- a
+ * wander that does not reach an encounter is retried, never a script error -- but it stops the
+ * moment it lands ONE usable golden hit, which must satisfy ALL of these live-frame conditions:
+ *
+ *   * the opponent's live species is <targetSpeciesId>;
+ *   * if <targetDefense> != 0, the opponent's live raw Defense word equals it (a damage operand);
+ *   * the attacker's live party level equals <targetAttackerLevel> (0 skips; this pins the raw
+ *     Attack stat the host oracle uses);
+ *   * if <setupMoveId> != 0, it was used once first (Golden C's Leer -> Def -1);
+ *   * the selected move was <moveId> (re-checked against the live move list every turn);
+ *   * the target did not faint (a faint caps the delta at the remaining HP); and
+ *   * the observed HP drop is within [<minDamage>, <maxDamage>] (this excludes a critical hit from
+ *     a golden whose documented roll range is the non-critical range).
+ *
+ * Encounters that are not the golden are either finished with <fallbackMoveId> or fled with the
+ * RUN action when <fleeWhenMoveKnown> is non-zero and <moveId> is already known. Fleeing is what
+ * keeps the attacker's level (and therefore its Attack operand) pinned while the command searches:
+ * Golden B instead fights until Razor Leaf is learned, then flees.
+ *
+ * The hit is printed as a single [GOLDEN-HIT] PASS line carrying the asserted operands, the live
+ * Defense stage and the observed damage; the run then exits 0. A run that never lands one is a
+ * script error, so the command still fails closed. Ordinary controller input only; no writes.
+ */
+static bool do_golden_grind(Driver* d, int setup_move_id, int move_id, int fallback_move_id,
+                            int target_species, int target_defense, int min_damage, int max_damage,
+                            int flee_when_move_known, int target_attacker_level, int max_encounters,
+                            Sample* previous, bool* have_previous) {
+    for (int enc = 0; enc < max_encounters; enc++) {
+        bool in_battle = false;
+        for (int w = 0; w < 5000 && !in_battle; w++) {
+            hold(d, (w & 1) ? DUALDEX_BTN_LEFT : DUALDEX_BTN_RIGHT, 20, previous, have_previous);
+            hold(d, 0, 8, previous, have_previous);
+            in_battle = probe_in_battle(d->cfg);
+        }
+        if (!in_battle) {
+            printf("  [golden-grind] encounter %d: no wild battle within the wander budget; "
+                   "retrying\n", enc);
+            continue;
+        }
+
+        /* Species/HP are zero for a few frames after gMain.inBattle asserts; wait until the
+         * production reader can resolve a live opponent before reading the encounter. */
+        Sample s0;
+        int opp_battler = -1;
+        for (int settle = 0; settle < 600; settle++) {
+            sample_state(d->cfg, d->frame, 0, &s0);
+            opp_battler = probe_resolve_opponent_battler(&s0);
+            if (opp_battler >= 0 && s0.mon_species[opp_battler] != 0 && s0.mon_hp[opp_battler] > 0 &&
+                s0.enemy_battler_state.stats_observed) {
+                break;
+            }
+            hold(d, 0, 1, previous, have_previous);
+        }
+        const int player_battler = opp_battler >= 0 ? 1 - opp_battler : 1;
+        const int encounter_species = (opp_battler >= 0) ? (int)s0.mon_species[opp_battler] : -1;
+        const int encounter_defense =
+            (opp_battler >= 0 && s0.enemy_battler_state.stats_observed)
+                ? (int)s0.enemy_battler_state.raw_defense : -1;
+        const bool golden_encounter =
+            (opp_battler >= 0) && (encounter_species == target_species) &&
+            (target_defense == 0 || encounter_defense == target_defense);
+        printf("  [golden-grind] encounter %d frame=%d kind=%s species=%d def=%d golden=%d\n",
+               enc, s0.frame, kind_name(s0.kind), encounter_species, encounter_defense,
+               golden_encounter ? 1 : 0);
+
+        int last_hp = -1;
+        int selected_move = 0;
+        int move_cursor = 0;
+        bool move_cursor_trusted = false;
+        bool in_action_menu = false;
+        bool setup_done = (setup_move_id == 0);
+        Sample before;
+        bool have_before = false;
+        const int budget = 40000;
+        for (int f = 0; f < budget; f++) {
+            if (!probe_in_battle(d->cfg)) break;
+            Sample s;
+            sample_state(d->cfg, d->frame, 0, &s);
+            const int ob = (opp_battler >= 0) ? opp_battler : probe_resolve_opponent_battler(&s);
+            if (ob >= 0) {
+                const int hp = (int)s.mon_hp[ob];
+                if (last_hp < 0) {
+                    last_hp = hp;
+                } else if (hp != last_hp) {
+                    const int delta = last_hp - hp;
+                    if (delta > 0) {
+                        const int live_level = probe_active_player_level(d->cfg);
+                        const bool live_match =
+                            ((int)s.mon_species[ob] == target_species) &&
+                            s.enemy_battler_state.stats_observed &&
+                            (target_defense == 0 ||
+                             (int)s.enemy_battler_state.raw_defense == target_defense) &&
+                            (target_attacker_level == 0 || live_level == target_attacker_level);
+                        if (selected_move == move_id && live_match && hp > 0 &&
+                            delta >= min_damage && delta <= max_damage) {
+                            const int hp_max = (int)s.mon_max_hp[ob];
+                            /* Machine assertion: the golden hit is exactly the observed HP drop,
+                             * on the constrained operands, and the target did not faint. The
+                             * pre-hit [GOLDEN] snapshot carries the full operand set (stats,
+                             * stages, types, ability, item, badges) the JSON record uses. */
+                            if (have_before) print_golden_state(&before, "grind-hit");
+                            printf("[GOLDEN-HIT] PASS setup=%d move=%d attackerSpecies=%u "
+                                   "attackerLevel=%d defenderSpecies=%d defenderLevel=%d "
+                                   "defenderHpMax=%d defenderDef=%d defenderDefStage=%d "
+                                   "hpBefore=%d hpAfter=%d damage=%d frame=%d\n",
+                                   setup_move_id, move_id,
+                                   (unsigned)s.mon_species[player_battler], live_level,
+                                   (int)s.mon_species[ob], probe_active_enemy_level(d->cfg),
+                                   hp_max, (int)s.enemy_battler_state.raw_defense,
+                                   (int)s.enemy_battler_state.stat_stages[2],
+                                   last_hp, hp, delta, s.frame);
+                            return true;
+                        }
+                        printf("  [golden-grind] hit move=%d species=%d def=%d lvl=%d delta=%d "
+                               "hp=%d/%d not usable; continuing\n",
+                               selected_move, (int)s.mon_species[ob],
+                               (int)s.enemy_battler_state.raw_defense, live_level, delta, hp,
+                               (int)s.mon_max_hp[ob]);
+                    }
+                    last_hp = hp;
+                }
+            }
+
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            const uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
+            const bool move_known =
+                probe_find_move_slot(&s, player_battler, (uint16_t)move_id) >= 0;
+            const bool want_flee =
+                !golden_encounter && flee_when_move_known && move_known;
+            int want_move = fallback_move_id;
+            if (golden_encounter) {
+                if (!setup_done) {
+                    want_move = setup_move_id;
+                } else if (move_known) {
+                    want_move = move_id;
+                }
+            }
+            if (bcmd == 17) {
+                if (!in_action_menu) in_action_menu = true;
+                if (want_flee) {
+                    select_action_menu_index(d, ewram, ewram_sz, 3, previous, have_previous);
+                } else {
+                    const uint8_t cur = (ewram_sz > 0x3A4) ? ewram[0x3A4] : 0;
+                    if (cur != 0) {
+                        hold(d, (cur & 1u) ? DUALDEX_BTN_LEFT : DUALDEX_BTN_UP, 4, previous,
+                             have_previous);
+                    }
+                    hold(d, DUALDEX_BTN_A, 4, previous, have_previous);
+                    hold(d, 0, 8, previous, have_previous);
+                }
+            } else if (bcmd == 19) {
+                in_action_menu = false;
+                const int want_slot =
+                    probe_find_move_slot(&s, player_battler, (uint16_t)want_move);
+                if (want_slot < 0) {
+                    script_error("golden-grind: move %d is not in the player battler %d live move "
+                                 "list (%u,%u,%u,%u); refusing to use a different move",
+                                 want_move, player_battler, s.mon_moves[player_battler][0],
+                                 s.mon_moves[player_battler][1], s.mon_moves[player_battler][2],
+                                 s.mon_moves[player_battler][3]);
+                    break;
+                }
+                const uint8_t observed_cursor = (ewram_sz > 0x3A8) ? ewram[0x3A8] : 0xFF;
+                if (observed_cursor <= 3) {
+                    move_cursor = (int)observed_cursor;
+                    move_cursor_trusted = true;
+                }
+                if (!move_cursor_trusted) { move_cursor = 0; move_cursor_trusted = true; }
+                if (move_cursor != want_slot) {
+                    const int cr = move_cursor / 2, cc = move_cursor % 2;
+                    const int tr = want_slot / 2, tc = want_slot % 2;
+                    const uint32_t btn =
+                        (cr != tr) ? ((tr > cr) ? DUALDEX_BTN_DOWN : DUALDEX_BTN_UP)
+                                   : ((tc > cc) ? DUALDEX_BTN_RIGHT : DUALDEX_BTN_LEFT);
+                    hold(d, btn, 4, previous, have_previous);
+                    hold(d, 0, 8, previous, have_previous);
+                    continue;
+                }
+                selected_move = want_move;
+                if (golden_encounter && !setup_done && want_move == setup_move_id) {
+                    setup_done = true;
+                }
+                hold(d, DUALDEX_BTN_A, 4, previous, have_previous);
+                hold(d, 0, 8, previous, have_previous);
+            } else if (bcmd == 18 || bcmd == 21) {
+                hold(d, DUALDEX_BTN_B, 4, previous, have_previous);
+                hold(d, 0, 12, previous, have_previous);
+            } else {
+                step_one(d, ((f % 6) < 3) ? DUALDEX_BTN_A : 0, previous, have_previous);
+            }
+            before = s;
+            have_before = true;
+        }
+        printf("  [golden-grind] encounter %d ended without a usable golden hit\n", enc);
+    }
+    script_error("golden-grind: no usable move %d hit on species %d (def %d) in [%d,%d] at level "
+                 "%d within %d encounters",
+                 move_id, target_species, target_defense, min_damage, max_damage,
+                 target_attacker_level, max_encounters);
+    return false;
+}
+
 static int run_script(Driver* d, const char* script_path) {
     FILE* f = script_path ? fopen(script_path, "r") : stdin;
     if (!f) {
@@ -2759,9 +3219,12 @@ static int run_script(Driver* d, const char* script_path) {
     char line[512];
 
     while (fgets(line, sizeof(line), f)) {
-        char cmd[64] = {0}, a1[256] = {0}, a2[256] = {0}, a3[256] = {0}, a4[256] = {0};
+        char cmd[64] = {0}, a1[256] = {0}, a2[256] = {0}, a3[256] = {0}, a4[256] = {0},
+             a5[128] = {0}, a6[128] = {0}, a7[128] = {0}, a8[128] = {0}, a9[128] = {0},
+             a10[128] = {0};
         g_script_line++;
-        int n = sscanf(line, "%63s %255s %255s %255s %255s", cmd, a1, a2, a3, a4);
+        int n = sscanf(line, "%63s %255s %255s %255s %255s %127s %127s %127s %127s %127s %127s",
+                       cmd, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
         if (n <= 0 || cmd[0] == '#') continue;
         /* Ignore a UTF-8 BOM / leading whitespace-only lines. */
         if (cmd[0] == '\n' || cmd[0] == '\r') continue;
@@ -3015,6 +3478,17 @@ static int run_script(Driver* d, const char* script_path) {
                        (unsigned)st[role].types[0], (unsigned)st[role].types[1],
                        (unsigned)st[role].types[2]);
             }
+        } else if (!strcmp(cmd, "golden-state")) {
+            /* golden-state <label>
+             *
+             * DIAGNOSTIC ONLY for the Gap C4d official-ROM damage goldens: prints one
+             * machine-readable [GOLDEN] snapshot of the live battle through the PRODUCTION reader
+             * (see print_golden_state) carrying every operand a golden comparison needs. Unlike
+             * `matrix` it reports the opponent's stat stages, which Leer/Tail Whip/Defense Curl
+             * change. Asserts nothing, writes nothing, reads only. */
+            Sample s;
+            sample_state(d->cfg, d->frame, 0, &s);
+            print_golden_state(&s, a1[0] ? a1 : "step");
         } else if (!strcmp(cmd, "shot")) {
             write_ppm(a1);
         } else if (!strcmp(cmd, "savsave")) {
@@ -3521,6 +3995,29 @@ static int run_script(Driver* d, const char* script_path) {
                     printf("  [engage] battle started after %d A presses\n", 1);
                 }
             }
+        } else if (!strcmp(cmd, "golden-grind")) {
+            /* golden-grind <setupMoveId|0> <moveId> <fallbackMoveId> <targetSpeciesId>
+             *              <targetDefense|0> <minDamage> <maxDamage> <fleeWhenMoveKnown>
+             *              <targetAttackerLevel|0> <maxEncounters>
+             *
+             * Gap C4d golden driver; see do_golden_grind(). Permissive about the RNG grind
+             * (species, stats, level-up timing), strict about the golden itself: it stops with
+             * exit 0 on the first usable hit and prints ONE [GOLDEN-HIT] PASS line with the
+             * asserted operands and damage. No usable hit within <maxEncounters> is a script
+             * error, never a silent pass. */
+            const int setup_move = a1[0] ? atoi(a1) : 0;
+            const int golden_move = a2[0] ? atoi(a2) : 0;
+            const int fallback_move = a3[0] ? atoi(a3) : 0;
+            const int target_species = a4[0] ? atoi(a4) : 0;
+            const int target_defense = a5[0] ? atoi(a5) : 0;
+            const int min_damage = a6[0] ? atoi(a6) : 1;
+            const int max_damage = a7[0] ? atoi(a7) : 9999;
+            const int flee_when_move_known = a8[0] ? atoi(a8) : 0;
+            const int target_attacker_level = a9[0] ? atoi(a9) : 0;
+            const int max_encounters = a10[0] ? atoi(a10) : 20;
+            do_golden_grind(d, setup_move, golden_move, fallback_move, target_species,
+                            target_defense, min_damage, max_damage, flee_when_move_known,
+                            target_attacker_level, max_encounters, &previous, &have_previous);
         } else if (!strcmp(cmd, "damage-probe")) {
             /* damage-probe <moveId> <maxTurns>
              *
@@ -3611,6 +4108,18 @@ static int run_script(Driver* d, const char* script_path) {
                                          s.mon_moves[pb][2], s.mon_moves[pb][3]);
                             break;
                         }
+                        /* Ground the model on the cursor the ENGINE reports (ewram[0x3A8]) rather
+                         * than dead-reckoning from slot 0. The menu does not reopen on slot 0:
+                         * after any turn it reopens on the last move used, so a pure model can
+                         * confirm the wrong move and silently measure a different attack. This is
+                         * the same grounding the other move-selecting commands use. The observed
+                         * value is only trusted when it is a real 2x2 slot index; otherwise the
+                         * last known model is kept. */
+                        uint8_t observed_cursor = (ewram_sz > 0x3A8) ? ewram[0x3A8] : 0xFF;
+                        if (observed_cursor <= 3) {
+                            move_cursor = (int)observed_cursor;
+                            move_cursor_trusted = true;
+                        }
                         if (!move_cursor_trusted) { move_cursor = 0; move_cursor_trusted = true; }
                         if (move_cursor != want_slot) {
                             const int cr = move_cursor / 2, cc = move_cursor % 2;
@@ -3619,10 +4128,6 @@ static int run_script(Driver* d, const char* script_path) {
                                                       : ((tc > cc) ? DUALDEX_BTN_RIGHT : DUALDEX_BTN_LEFT);
                             hold(d, btn, 4, &previous, &have_previous);
                             hold(d, 0, 8, &previous, &have_previous);
-                            if (btn == DUALDEX_BTN_DOWN) move_cursor += 2;
-                            else if (btn == DUALDEX_BTN_UP) move_cursor -= 2;
-                            else if (btn == DUALDEX_BTN_RIGHT) move_cursor += 1;
-                            else move_cursor -= 1;
                             continue;
                         }
                         hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);
@@ -4393,6 +4898,21 @@ int main(int argc, char** argv) {
         fprintf(stderr, "FAIL: libretro_host_load_rom(%s)\n", rom_path);
         libretro_host_cleanup();
         return 1;
+    }
+
+    /* Bind this run to the exact ROM bytes the emulator loaded. Evidence bookkeeping ONLY: this
+     * digest is printed into the run log so the chain raw log -> SHA-256 -> evidence JSON -> host
+     * oracle is closed. It does NOT promote the product trust hash and does NOT touch
+     * RuntimeRomTrust / heart_and_soul.json. */
+    {
+        char rom_sha256[65];
+        if (sha256_file_hex(rom_path, rom_sha256)) {
+            printf("rom sha256 : %s\n", rom_sha256);
+            printf("[ROM] path=%s sha256=%s loaded=1\n", rom_path, rom_sha256);
+        } else {
+            printf("rom sha256 : UNAVAILABLE (could not re-read '%s')\n", rom_path);
+            printf("[ROM] path=%s sha256=UNAVAILABLE loaded=1\n", rom_path);
+        }
     }
 
     printf("\n-- memory regions after load: %zu --\n", libretro_host_get_gba_region_count());

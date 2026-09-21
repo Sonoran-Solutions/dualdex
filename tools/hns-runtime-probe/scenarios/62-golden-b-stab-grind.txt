@@ -1,0 +1,14 @@
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-party-count player 1
+walk DOWN 2
+walk LEFT 14
+walk DOWN 3
+walk LEFT 1
+# Golden B: grind Chikorita to L6 (Razor Leaf = 75). Encounters before the move is known are
+# fought with Tackle (to level up); once Razor Leaf is known, non-matching encounters are fled so
+# the attacker stays L6 (Atk 13). Stops with exit 0 on the asserted non-fatal Razor Leaf hit in
+# 6..7 on a wild Pidgey with live Def 7.
+golden-grind 0 75 33 16 7 6 6 1 6 60

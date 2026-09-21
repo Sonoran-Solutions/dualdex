@@ -2619,6 +2619,14 @@ bool pokemon_read_battler_runtime_state_gba(
         }
     }
 
+    /* Populate battle-level state for target-count computation (Gap C4c). */
+    if (battle.absent_flags_readable) {
+        out_state->absent_battler_flags = battle.absent_battler_flags;
+    }
+    if (battle.counters_readable) {
+        out_state->battlers_count = battle.battlers_count;
+    }
+
     out_state->status = (out_state->ability_invalid || out_state->types_invalid ||
                          out_state->item_invalid || out_state->stages_invalid)
         ? BATTLER_RUNTIME_STATE_OBSERVED_INVALID
@@ -2761,4 +2769,83 @@ uint8_t pokemon_read_battle_presence_gba(
     }
 
     return read_legacy_battle_presence(ewram, ewram_size, config);
+}
+
+/* ---- H&S 2.0.5 runtime target count (Gap C4c) ---- */
+
+/*
+ * BATTLE_PARTNER(id) = (id) ^ BIT_FLANK, where BIT_FLANK = 2.
+ * Battler positions: 0=PlayerLeft, 1=OpponentLeft, 2=PlayerRight, 3=OpponentRight.
+ * Partner of PlayerLeft(0) is PlayerRight(2), and vice versa.
+ * Partner of OpponentLeft(1) is OpponentRight(3), and vice versa.
+ */
+#define HNS_BIT_FLANK 2
+#define HNS_BATTLE_PARTNER(id) ((uint8_t)((id) ^ HNS_BIT_FLANK))
+
+/*
+ * IsBattlerAlive: a battler is alive when it is not absent (gAbsentBattlerFlags)
+ * and has nonzero HP. We approximate "alive" as "not absent" because the absent
+ * flags already capture fainted/forced-out battlers in the authoritative lifecycle
+ * resolution. A battler that is present but at 0 HP is in a transition window
+ * and should not be counted as a live target.
+ *
+ * However, for the target-count function we only need the absent flags: the upstream
+ * GetMoveTargetCount uses IsBattlerAlive which checks HP > 0 AND not absent.
+ * Since we are computing the count for the ATTACKER's move (the attacker is alive),
+ * and the count is about how many targets are present on the opposing side, we
+ * check absent flags for the relevant opponents.
+ */
+uint8_t pokemon_compute_hns_target_count(
+    uint8_t absent_battler_flags,
+    uint8_t battlers_count,
+    uint8_t attacker_battler,
+    uint8_t defender_battler,
+    uint8_t move_target_class
+) {
+    /* Validate inputs: battlers must be in range, count must be 2 or 4 */
+    if (battlers_count != 2 && battlers_count != 4) return 0;
+    if (attacker_battler >= battlers_count) return 0;
+    if (defender_battler >= battlers_count) return 0;
+
+    switch (move_target_class) {
+    case HNS_MOVE_TARGET_BOTH:
+    case HNS_MOVE_TARGET_FOES_AND_ALLY: {
+        /*
+         * TARGET_BOTH: counts present opponents (defender + its partner).
+         * TARGET_FOES_AND_ALLY: counts present opponents + attacker's partner.
+         *
+         * Upstream code (battle_util.c:6122):
+         *   TARGET_BOTH:
+         *     return !(gAbsentBattlerFlags & (1u << battlerDef))
+         *          + !(gAbsentBattlerFlags & (1u << BATTLE_PARTNER(battlerDef)));
+         *   TARGET_FOES_AND_ALLY:
+         *     return !(gAbsentBattlerFlags & (1u << battlerDef))
+         *          + !(gAbsentBattlerFlags & (1u << BATTLE_PARTNER(battlerDef)))
+         *          + !(gAbsentBattlerFlags & (1u << BATTLE_PARTNER(battlerAtk)));
+         */
+        uint8_t def_present = !(absent_battler_flags & (1u << defender_battler));
+        uint8_t def_partner = HNS_BATTLE_PARTNER(defender_battler);
+        uint8_t def_partner_present = 0;
+        if (def_partner < battlers_count) {
+            def_partner_present = !(absent_battler_flags & (1u << def_partner));
+        }
+
+        uint8_t count = def_present + def_partner_present;
+
+        if (move_target_class == HNS_MOVE_TARGET_FOES_AND_ALLY) {
+            uint8_t atk_partner = HNS_BATTLE_PARTNER(attacker_battler);
+            if (atk_partner < battlers_count) {
+                count += !(absent_battler_flags & (1u << atk_partner));
+            }
+        }
+
+        return count;
+    }
+    case HNS_MOVE_TARGET_OPPONENTS_FIELD:
+        return 1;
+    case HNS_MOVE_TARGET_SELECTED:
+    default:
+        /* Single-target moves, user-targeting, etc.: always 1 target */
+        return 1;
+    }
 }

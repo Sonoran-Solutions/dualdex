@@ -110,36 +110,36 @@ class ParseMoveEnumTest(unittest.TestCase):
 
 class ParseMoveTableTest(unittest.TestCase):
     def test_plain_hit_is_ordinary(self):
-        effects, ordinary, unresolved = gen.parse_move_table(_table(PLAIN))
+        effects, targets, ordinary, unresolved = gen.parse_move_table(_table(PLAIN))
         self.assertEqual(effects["MOVE_POUND"], "EFFECT_HIT")
         self.assertIn("MOVE_POUND", ordinary)
         self.assertEqual(unresolved, set())
 
     def test_multihit_hit_is_not_ordinary(self):
-        _, ordinary, _ = gen.parse_move_table(_table(MULTI))
+        _, _, ordinary, _ = gen.parse_move_table(_table(MULTI))
         self.assertNotIn("MOVE_DOUBLE_SLAP", ordinary)
 
     def test_explosion_hit_is_not_ordinary(self):
-        _, ordinary, _ = gen.parse_move_table(_table(EXPLOSION))
+        _, _, ordinary, _ = gen.parse_move_table(_table(EXPLOSION))
         self.assertNotIn("MOVE_TACKLE", ordinary)
 
     def test_state_flag_hit_is_not_ordinary(self):
-        _, ordinary, _ = gen.parse_move_table(_table(STATE_FLAG))
+        _, _, ordinary, _ = gen.parse_move_table(_table(STATE_FLAG))
         self.assertNotIn("MOVE_ALIAS", ordinary)
 
     def test_conditional_effect_is_unresolved(self):
-        effects, ordinary, unresolved = gen.parse_move_table(_table(CONDITIONAL))
+        effects, targets, ordinary, unresolved = gen.parse_move_table(_table(CONDITIONAL))
         self.assertNotIn("MOVE_STRUGGLE", effects)
         self.assertIn("MOVE_STRUGGLE", unresolved)
         self.assertNotIn("MOVE_STRUGGLE", ordinary)
 
     def test_computed_effect_is_unresolved(self):
-        effects, _, unresolved = gen.parse_move_table(_table(TERNARY))
+        effects, _, _, unresolved = gen.parse_move_table(_table(TERNARY))
         self.assertNotIn("MOVE_GROWTH", effects)
         self.assertIn("MOVE_GROWTH", unresolved)
 
     def test_zmove_effect_is_ignored(self):
-        effects, ordinary, _ = gen.parse_move_table(_table(Z_MOVE))
+        effects, targets, ordinary, _ = gen.parse_move_table(_table(Z_MOVE))
         self.assertEqual(effects["MOVE_SWORDS_DANCE"], "EFFECT_ATTACK_UP_2")
         # A status move is never ordinary, and the nested zMove effect must not leak in.
         self.assertNotIn("MOVE_SWORDS_DANCE", ordinary)

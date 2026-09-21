@@ -182,7 +182,11 @@ data class HnsBattlerRuntimeState(
     val badgeBoostSpe: Boolean = false,
     val badgeBoostSpa: Boolean = false,
     val badgeBoostSpd: Boolean = false,
-    val rawBadgesByte: Int? = null
+    val rawBadgesByte: Int? = null,
+    /** `gAbsentBattlerFlags`: which battlers are currently absent (fainted/forced-out). 0 when not readable. */
+    val absentBattlerFlags: Int = 0,
+    /** `gBattlersCount`: 2 for singles, 4 for doubles. 0 when not readable. */
+    val battlersCount: Int = 0
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
@@ -233,7 +237,7 @@ data class HnsBattlerRuntimeState(
          * [16] statsObserved, [17..21] raw atk/def/spe/spa/spd,
          * [22] stagesObserved, [23..30] stat stages (hp..eva),
          * [31] badgesObserved, [32..36] badge boost atk/def/spe/spa/spd,
-         * [37] raw badges byte.
+         * [37] raw badges byte, [38] absentBattlerFlags, [39] battlersCount.
          */
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -272,6 +276,8 @@ data class HnsBattlerRuntimeState(
             val badgeBoostSpa = raw.size >= 38 && raw[35] != 0
             val badgeBoostSpd = raw.size >= 38 && raw[36] != 0
             val rawBadgesByte = if (badgesObserved && raw.size >= 38) raw[37] else null
+            val absentBattlerFlags = if (raw.size >= 40) raw[38] else 0
+            val battlersCount = if (raw.size >= 40) raw[39] else 0
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
@@ -295,7 +301,9 @@ data class HnsBattlerRuntimeState(
                 badgeBoostSpe = badgeBoostSpe,
                 badgeBoostSpa = badgeBoostSpa,
                 badgeBoostSpd = badgeBoostSpd,
-                rawBadgesByte = rawBadgesByte
+                rawBadgesByte = rawBadgesByte,
+                absentBattlerFlags = absentBattlerFlags,
+                battlersCount = battlersCount
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for
             // out-of-domain observations, but a tuple whose flags claim an out-of-domain

@@ -538,18 +538,38 @@ object CalcRequestBoundary {
             ),
             attackerBattleStatWordsObserved = attackerRaw != null,
             defenderBattleStatWordsObserved = defenderRaw != null,
-            dynamicMoveTypeObserved = false,
-            transientStateObserved = false,
+            // Dynamic move type (Ion Deluge / Electrify via SetTypeBeforeUsingMove):
+            // For the supported ordinary EFFECT_HIT subset, these only affect Normal-type moves.
+            // Non-Normal moves are provably immune, so the gate clears for them.
+            // Normal-type moves in an active battle may be affected, so the gate remains.
+            dynamicMoveTypeObserved = authoritativeDynamicMoveTypeObserved(request),
+            // Transient damage state for the supported ordinary subset:
+            // The ordinary EFFECT_HIT subset has no state-dependent flags (no explosion,
+            // no multi-hit, no always-crit, no underground/airborne/etc.). The only
+            // transient state that can affect ordinary damage is:
+            //   - Ion Deluge / Electrify (handled by dynamicMoveTypeObserved)
+            //   - Weather (already carried by request.field.weather)
+            //   - Screens (already carried by request.field.defenderSide)
+            //   - Critical hit (already carried by request.move.isCrit)
+            //   - Burn (already carried by request.attacker.status)
+            // So for non-Normal EFFECT_HIT moves, transient state is provably irrelevant.
+            // For Normal-type moves, the Ion Deluge/Electrify volatile is the concern.
+            transientStateObserved = authoritativeTransientStateObserved(request),
             attackerRawStats = attackerRaw,
             defenderRawStats = defenderRaw,
             attackerStatStages = attackerStages,
             defenderStatStages = defenderStages,
             attackerBadgeBoosts = attackerBadges,
             defenderBadgeBoosts = defenderBadges,
-            // `GetMoveTargetCount(ctx)` is live target-presence state that no reader provides yet.
-            // A boundary-owned null (never a caller value) makes the policy fail closed for H&S
-            // Doubles spread moves instead of guessing the target count from the move class.
-            moveTargetCount = null
+            // `GetMoveTargetCount(ctx)` computed from authoritative gAbsentBattlerFlags,
+            // gBattlersCount, and the move's static target class. Only available when both
+            // observations are present and the battler indices can be resolved.
+            moveTargetCount = authoritativeMoveTargetCount(
+                request = request,
+                playerBattlerState = playerBattlerState,
+                enemyBattlerState = enemyBattlerState,
+                isExactVerified = isExactVerified
+            )
         )
     }
 
@@ -655,6 +675,135 @@ object CalcRequestBoundary {
             .filter { it.observed && !it.outOfDomain && !it.isTypeNoneSentinel }
             .mapNotNull { it.name }
         return names.ifEmpty { null }
+    }
+
+    /**
+     * Compute the authoritative runtime target count for an H&S Doubles spread move,
+     * equivalent to `GetMoveTargetCount(ctx)` from the pinned source.
+     *
+     * Returns null when:
+     * - exact trust is not established;
+     * - either observation is missing or not OBSERVED;
+     * - the battler indices cannot be resolved;
+     * - the absent flags / battlers count are unreadable;
+     * - the move's target class is unknown (not in the pinned map).
+     *
+     * For the supported ordinary EFFECT_HIT subset, the target class is purely static:
+     * `GetBattlerMoveTargetType` only adds dynamic overrides for EFFECT_CURSE, terrain,
+     * and Tera Starstorm -- none of which apply to EFFECT_HIT.
+     */
+    private fun authoritativeMoveTargetCount(
+        request: DamageCalculationRequest,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Int? {
+        if (!isExactVerified) return null
+        if (!request.field.gameType.equals(CalcGameTypes.DOUBLES, ignoreCase = true)) {
+            // Singles: no spread reduction possible, count is irrelevant.
+            return null
+        }
+
+        val playerState = playerBattlerState?.state ?: return null
+        val enemyState = enemyBattlerState?.state ?: return null
+        if (playerState.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (enemyState.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+
+        val attackerBattler = playerState.battlerIndex ?: return null
+        val defenderBattler = enemyState.battlerIndex ?: return null
+
+        // Both observations must agree on battle-level state.
+        // Use the first readable one; if they disagree on absent flags, fail closed.
+        val absentFlags = when {
+            playerState.absentBattlerFlags != 0 -> playerState.absentBattlerFlags
+            enemyState.absentBattlerFlags != 0 -> enemyState.absentBattlerFlags
+            else -> 0 // no absent battlers
+        }
+        val battlersCount = when {
+            playerState.battlersCount > 0 -> playerState.battlersCount
+            enemyState.battlersCount > 0 -> enemyState.battlersCount
+            else -> return null
+        }
+
+        // Get the move's static target class from the pinned source data.
+        // For the ordinary EFFECT_HIT subset, the target class is purely static.
+        // The move ID is resolved from the move name via the H&S 2.0.5 data pack.
+        val moveData = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)
+            ?: return null // move not in pinned H&S data
+        val moveTargetClass = com.dualdex.pokemon.hns.Hns205MoveEffects.targetClassByMoveId[moveData.id]
+            ?: return null // unknown move target class
+
+        // Compute the target count using the same logic as the native pokemon_compute_hns_target_count.
+        val bitFlank = 2
+        return when (moveTargetClass) {
+            6, 10 -> { // TARGET_BOTH, TARGET_FOES_AND_ALLY
+                val defPresent = if (absentFlags and (1 shl defenderBattler) == 0) 1 else 0
+                val defPartner = defenderBattler xor bitFlank
+                val defPartnerPresent = if (defPartner < battlersCount &&
+                    absentFlags and (1 shl defPartner) == 0) 1 else 0
+                var count = defPresent + defPartnerPresent
+                if (moveTargetClass == 10) { // TARGET_FOES_AND_ALLY
+                    val atkPartner = attackerBattler xor bitFlank
+                    if (atkPartner < battlersCount &&
+                        absentFlags and (1 shl atkPartner) == 0) {
+                        count++
+                    }
+                }
+                count
+            }
+            else -> 1 // single-target
+        }
+    }
+
+    /**
+     * True when the dynamic move type (Ion Deluge / Electrify) is provably irrelevant
+     * for this request's move type.
+     *
+     * For the supported ordinary EFFECT_HIT subset, `SetTypeBeforeUsingMove` can only
+     * change the move type via:
+     *   - Ion Deluge (`gFieldStatuses & STATUS_FIELD_ION_DELUGE && moveType == TYPE_NORMAL`)
+     *   - Electrify (`gBattleMons[battler].volatiles.electrified`)
+     * Both convert Normal-type moves to Electric.
+     *
+     * For non-Normal-type EFFECT_HIT moves, these have no effect.
+     * For Normal-type moves, they may change the type, so the gate remains.
+     */
+    private fun authoritativeDynamicMoveTypeObserved(
+        request: DamageCalculationRequest
+    ): Boolean {
+        // Get the effective move type from the override or the move input.
+        val moveType = request.moveOverride?.type
+            ?: com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.type?.displayName
+            ?: request.move.name
+        // Non-Normal-type moves are provably immune to Ion Deluge / Electrify.
+        // Normal-type moves may be affected.
+        return !moveType.equals("Normal", ignoreCase = true)
+    }
+
+    /**
+     * True when transient damage state is provably irrelevant for this request.
+     *
+     * For the supported ordinary EFFECT_HIT subset:
+     *   - No state-dependent flags (no explosion, multi-hit, always-crit, etc.)
+     *   - Weather is carried by request.field.weather
+     *   - Screens are carried by request.field.defenderSide
+     *   - Critical hit is carried by request.move.isCrit
+     *   - Burn is carried by request.attacker.status
+     *   - Type changes (Soak) are handled by effective types observation
+     *   - Power Trick is handled by raw battle stat words
+     *   - Ion Deluge / Electrify is handled by dynamicMoveTypeObserved
+     *
+     * So for non-Normal-type EFFECT_HIT moves, transient state is provably irrelevant.
+     * For Normal-type moves, the Ion Deluge/Electrify volatile is the concern.
+     */
+    private fun authoritativeTransientStateObserved(
+        request: DamageCalculationRequest
+    ): Boolean {
+        // Same logic as dynamicMoveTypeObserved: non-Normal moves are immune.
+        val moveType = request.moveOverride?.type
+            ?: com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.type?.displayName
+            ?: request.move.name
+        return !moveType.equals("Normal", ignoreCase = true)
     }
 
     /**

@@ -716,6 +716,8 @@ typedef struct {
     bool     badge_boost_spa;      // Badge 7 (SpA) active for this battler in this battle
     bool     badge_boost_spd;      // Badge 7 (SpD) active for this battler in this battle
     uint8_t  raw_badges_byte;      // verbatim flags[0x10C] byte (SaveBlock1+0x1A98, Attack badge bit 7)
+    uint8_t  absent_battler_flags;  // gAbsentBattlerFlags (0 when not readable)
+    uint8_t  battlers_count;        // gBattlersCount (0 when not readable)
 } BattlerRuntimeState;
 
 /**
@@ -838,6 +840,52 @@ uint8_t pokemon_read_battle_presence_gba(
     const uint8_t* ewram,
     size_t ewram_size,
     const GameMemoryConfig* config
+);
+
+/**
+ * H&S 2.0.5 move target classes, matching the pinned `enum MoveTarget`.
+ *
+ * Used to compute `GetMoveTargetCount(ctx)` from battle state
+ * (`gAbsentBattlerFlags`, `gBattlersCount`, and `gBattlerPositions`).
+ * Only the classes that affect the spread-damage reduction are enumerated;
+ * unknown or unsupported classes return a count of 0 (fail-closed).
+ */
+typedef enum {
+    HNS_MOVE_TARGET_SELECTED = 0,
+    HNS_MOVE_TARGET_BOTH = 6,
+    HNS_MOVE_TARGET_FOES_AND_ALLY = 10,
+    HNS_MOVE_TARGET_OPPONENTS_FIELD = 12,
+} HnsMoveTargetClass;
+
+/**
+ * Compute the runtime target count for a move in the current H&S 2.0.5 battle,
+ * equivalent to the upstream `GetMoveTargetCount(ctx)` semantics.
+ *
+ * H&S halves a spread move only when the count of currently present targets is
+ * exactly 2 (`B_MULTIPLE_TARGETS_DMG GEN_3`). The count depends on:
+ *   - `gAbsentBattlerFlags`: which battlers are currently absent (fainted/forced-out);
+ *   - the move's static target class (`TARGET_BOTH`, `TARGET_FOES_AND_ALLY`, etc.);
+ *   - the attacker and defender battler indices.
+ *
+ * For the supported ordinary EFFECT_HIT subset, the target class is purely static:
+ * `GetBattlerMoveTargetType` only adds dynamic overrides for EFFECT_CURSE (non-Ghost
+ * -> TARGET_USER), CanBattlerHitBothFoesInTerrain, and EFFECT_TERA_STARSTORM -- none
+ * of which apply to EFFECT_HIT.
+ *
+ * @param absent_battler_flags  gAbsentBattlerFlags (1 byte from EWRAM)
+ * @param battlers_count        gBattlersCount (2 for singles, 4 for doubles)
+ * @param attacker_battler      the attacking battler's gBattleMons index
+ * @param defender_battler      the defending battler's gBattleMons index
+ * @param move_target_class     the move's static target class (from gMovesInfo[move].target)
+ * @return the number of present targets (1 or 2), or 0 when the inputs are
+ *         insufficient or the target class is unsupported (fail-closed).
+ */
+uint8_t pokemon_compute_hns_target_count(
+    uint8_t absent_battler_flags,
+    uint8_t battlers_count,
+    uint8_t attacker_battler,
+    uint8_t defender_battler,
+    uint8_t move_target_class
 );
 
 #ifdef __cplusplus

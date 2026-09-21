@@ -802,7 +802,8 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * [10..12] raw type values, [13] itemObserved, [14] itemInvalid, [15] item id,
  * [16] statsObserved, [17..21] raw atk, def, spe, spa, spd,
  * [22] stagesObserved, [23..30] stat stages, [31] badgesObserved,
- * [32..36] badge boost atk, def, spe, spa, spd, [37] raw badges byte.
+ * [32..36] badge boost atk, def, spe, spa, spd, [37] raw badges byte,
+ * [38] absentBattlerFlags (0 when not readable), [39] battlersCount (0 when not readable).
  *
  * A failed/unauthorized read returns status 0 (UNAVAILABLE) with everything else
  * zeroed: the caller must not substitute a declared ability, a party slot or a
@@ -876,10 +877,12 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     values[35] = state.badge_boost_spa ? 1 : 0;
     values[36] = state.badge_boost_spd ? 1 : 0;
     values[37] = (jint)state.raw_badges_byte;
+    values[38] = (jint)state.absent_battler_flags;
+    values[39] = (jint)state.battlers_count;
 
-    jintArray result = (*env)->NewIntArray(env, 38);
+    jintArray result = (*env)->NewIntArray(env, 40);
     if (!result) return NULL;
-    (*env)->SetIntArrayRegion(env, result, 0, 38, values);
+    (*env)->SetIntArrayRegion(env, result, 0, 40, values);
     return result;
 }
 

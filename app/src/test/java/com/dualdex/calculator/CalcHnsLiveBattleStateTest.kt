@@ -379,4 +379,120 @@ class CalcHnsLiveBattleStateTest {
             verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
         )
     }
+
+    // ------------------------------------------------ Gap C4c tests
+
+    @Test
+    fun `non-Normal-type EFFECT_HIT move clears dynamic move type and transient state gates`() {
+        // Karate Chop (Fighting type, EFFECT_HIT) is not Normal, so Ion Deluge / Electrify
+        // cannot change its type. The dynamic move type and transient state gates must clear.
+        // The battle stat words and badge gates remain.
+        val (profile, trust) = exactHns()
+        val rules = CalcRequestBoundary.resolveHnsRuntimeRules(profile, trust, settings())
+        var enriched = CalcDataOverrides.enrichRequest(
+            profile,
+            request(move = "Karate Chop"),
+            rules
+        )
+        enriched = enriched.copy(
+            hnsLiveBattleState = CalcHnsLiveBattleState(
+                attackerTypes = enriched.attackerOverride?.types,
+                defenderTypes = enriched.defenderOverride?.types,
+                attackerBattleStatWordsObserved = true,
+                defenderBattleStatWordsObserved = true,
+                dynamicMoveTypeObserved = true, // set by boundary for non-Normal moves
+                transientStateObserved = true,  // set by boundary for non-Normal moves
+                attackerBadgeBoosts = CalcBadgeBoosts(atk = true),
+                attackerStatStages = listOf(0, 6, 6, 6, 6, 6, 6, 6),
+                defenderStatStages = listOf(0, 6, 6, 6, 6, 6, 6, 6)
+            )
+        )
+        val verdict = CalcCapabilityPolicy.evaluate(profile, trust, enriched)
+        assertFalse(
+            "non-Normal EFFECT_HIT must not trigger live battle state blocker: ${verdict.limitations}",
+            verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
+        )
+    }
+
+    @Test
+    fun `Normal-type EFFECT_HIT move retains dynamic move type gate`() {
+        // Tackle (Normal type, EFFECT_HIT) may be affected by Ion Deluge / Electrify.
+        // The boundary sets dynamicMoveTypeObserved = false for Normal-type moves,
+        // so the live battle state gate must remain.
+        val verdict = refused(
+            request = request(move = "Tackle"),
+            playerBattlerState = observation(partySlot = 0, types = listOf(2)), // Fighting
+            enemyBattlerState = observation(partySlot = 0, types = listOf(1))  // Normal
+        )
+        assertTrue(
+            "Normal-type move must retain live battle state gate: ${verdict.limitations}",
+            verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
+        )
+    }
+
+    @Test
+    fun `doubles spread move with authoritative target count of 2 clears the doubles gate`() {
+        // Rock Slide (TARGET_BOTH) in Doubles with 2 present opponents.
+        // The boundary computes target count from absent flags and battlers count.
+        // With no absent battlers, count = 2.
+        val (profile, trust) = exactHns()
+        val rules = CalcRequestBoundary.resolveHnsRuntimeRules(profile, trust, settings())
+        var enriched = CalcDataOverrides.enrichRequest(
+            profile,
+            request(move = "Rock Slide"),
+            rules
+        )
+        enriched = enriched.copy(
+            field = enriched.field.copy(gameType = CalcGameTypes.DOUBLES),
+            hnsLiveBattleState = CalcHnsLiveBattleState(
+                attackerTypes = enriched.attackerOverride?.types,
+                defenderTypes = enriched.defenderOverride?.types,
+                attackerBattleStatWordsObserved = true,
+                defenderBattleStatWordsObserved = true,
+                dynamicMoveTypeObserved = true,
+                transientStateObserved = true,
+                moveTargetCount = 2,
+                attackerBadgeBoosts = CalcBadgeBoosts(atk = true),
+                attackerStatStages = listOf(0, 6, 6, 6, 6, 6, 6, 6),
+                defenderStatStages = listOf(0, 6, 6, 6, 6, 6, 6, 6)
+            )
+        )
+        val verdict = CalcCapabilityPolicy.evaluate(profile, trust, enriched)
+        assertFalse(
+            "target count of 2 must clear the doubles gate: ${verdict.limitations}",
+            verdict.limitations.contains(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED)
+        )
+    }
+
+    @Test
+    fun `doubles spread move with authoritative target count of 1 clears the doubles gate`() {
+        // Rock Slide in Doubles with only 1 remaining opponent.
+        val (profile, trust) = exactHns()
+        val rules = CalcRequestBoundary.resolveHnsRuntimeRules(profile, trust, settings())
+        var enriched = CalcDataOverrides.enrichRequest(
+            profile,
+            request(move = "Rock Slide"),
+            rules
+        )
+        enriched = enriched.copy(
+            field = enriched.field.copy(gameType = CalcGameTypes.DOUBLES),
+            hnsLiveBattleState = CalcHnsLiveBattleState(
+                attackerTypes = enriched.attackerOverride?.types,
+                defenderTypes = enriched.defenderOverride?.types,
+                attackerBattleStatWordsObserved = true,
+                defenderBattleStatWordsObserved = true,
+                dynamicMoveTypeObserved = true,
+                transientStateObserved = true,
+                moveTargetCount = 1,
+                attackerBadgeBoosts = CalcBadgeBoosts(atk = true),
+                attackerStatStages = listOf(0, 6, 6, 6, 6, 6, 6, 6),
+                defenderStatStages = listOf(0, 6, 6, 6, 6, 6, 6, 6)
+            )
+        )
+        val verdict = CalcCapabilityPolicy.evaluate(profile, trust, enriched)
+        assertFalse(
+            "target count of 1 must clear the doubles gate (no spread reduction): ${verdict.limitations}",
+            verdict.limitations.contains(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED)
+        )
+    }
 }

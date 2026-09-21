@@ -2893,3 +2893,62 @@ In `tools/calc-bundler/entry.js`, `calculateHnsDamage` implements the exact poke
    - QuickJS test suite passes with 0 failures.
    - All data pack, type system, item catalogue, and move effect generators pass `--verify`.
    - All 616 Gradle Kotlin unit tests pass with 0 failures.
+
+---
+
+## Gap C4c — Runtime Validation + Remaining Live Operand Authority
+
+**Status: PARTIAL / OPEN**
+
+### What C4c proved (SOURCE VERIFIED)
+
+1. **Target count computation from authoritative battle state:**
+   - `GetMoveTargetCount(ctx)` is computable from `gAbsentBattlerFlags` + `gBattlersCount` +
+     the move's static target class + attacker/defender battler indices.
+   - All input data is already read by the native reader (`BattleStateRaw`).
+   - The computation follows the upstream `battle_util.c:6122` logic exactly.
+   - Native function `pokemon_compute_hns_target_count()` pinned with 14 test cases covering:
+     - Singles (count always 1)
+     - Doubles both opponents present (count = 2)
+     - Doubles one opponent fainted (count = 1)
+     - TARGET_FOES_AND_ALLY with attacker partner (count = 3)
+     - Invalid inputs fail closed (return 0)
+
+2. **Dynamic move type irrelevance for non-Normal EFFECT_HIT moves:**
+   - `SetTypeBeforeUsingMove` can only change move type via Ion Deluge or Electrify.
+   - Both convert Normal-type moves to Electric.
+   - Non-Normal-type EFFECT_HIT moves are provably immune.
+   - Normal-type EFFECT_HIT moves retain the fail-closed gate.
+
+3. **Transient state irrelevance for the supported ordinary subset:**
+   - The ordinary EFFECT_HIT subset has no state-dependent flags.
+   - All relevant transient state is carried by existing request fields.
+   - Non-Normal moves: transient state is provably irrelevant.
+   - Normal moves: only Ion Deluge/Electrify volatile remains unobserved.
+
+### What C4c proved (HOST VERIFIED)
+
+1. **Target count native computation matches upstream semantics:**
+   - 14 test cases in `test_hns_target_count_computation` verify exact parity.
+   - Anti-spoof test `test_hns_target_count_anti_spoof` verifies fail-closed behavior.
+
+### What C4c did NOT prove (RUNTIME VERIFIED)
+
+1. No official H&S 2.0.5 battle result has been compared against DualDex output.
+2. Runtime golden fixtures are not yet implemented.
+3. The production H&S request path has not been validated end-to-end against the running ROM.
+
+### Remaining blockers for C4c completion
+
+1. **Runtime golden validation:** Official-ROM battle outcomes must be compared with DualDex predictions.
+2. **Normal-type dynamic move type:** Reading `gFieldStatuses` (Ion Deluge) and the electrified volatile
+   would close the Normal-type gap but is not implemented.
+3. **Badge boost manual support:** Manual/out-of-battle requests still lack authoritative badge applicability.
+
+### CI status (C4c)
+
+- All 87 native reader/tracker tests pass (including 2 new target count tests).
+- QuickJS test suite passes with 0 failures.
+- All 618 Gradle Kotlin unit tests pass with 0 failures (including 4 new C4c tests).
+- `./ci.sh all` passes.
+- `git diff --check` passes.

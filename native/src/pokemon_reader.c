@@ -200,6 +200,16 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_mons_volatile_charge_timer_bit = HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT,
     .battle_mons_volatile_charge_timer_width = HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH,
     .battle_mons_volatile_tar_shot_bit = HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT,
+    .battle_mons_volatile_foresight_bit = HNS_LIVE_BP_VOLATILE_FORESIGHT_BIT,
+    .battle_mons_volatile_miracle_eye_bit = HNS_LIVE_BP_VOLATILE_MIRACLE_EYE_BIT,
+    .battle_mons_volatile_root_bit = HNS_LIVE_BP_VOLATILE_ROOT_BIT,
+    .battle_mons_volatile_smack_down_bit = HNS_LIVE_BP_VOLATILE_SMACK_DOWN_BIT,
+    .battle_mons_volatile_telekinesis_bit = HNS_LIVE_BP_VOLATILE_TELEKINESIS_BIT,
+    .battle_mons_volatile_magnet_rise_bit = HNS_LIVE_BP_VOLATILE_MAGNET_RISE_BIT,
+    .battle_mons_volatile_gastro_acid_bit = HNS_LIVE_BP_VOLATILE_GASTRO_ACID_BIT,
+    .battle_mons_volatile_roost_active_bit = HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT,
+    .battle_mons_volatile_substitute_bit = HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT,
+    .battle_mons_volatile_endured_bit = HNS_LIVE_BP_VOLATILE_ENDURED_BIT,
     .battler_party_indexes_offset = 0x144,
     .battlers_count_offset = 0xB0,
     .battle_type_flags_offset = 0xAC,
@@ -2410,6 +2420,16 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
            config->battle_mons_volatile_charge_timer_bit == HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT &&
            config->battle_mons_volatile_charge_timer_width == HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH &&
            config->battle_mons_volatile_tar_shot_bit == HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT &&
+           config->battle_mons_volatile_foresight_bit == HNS_LIVE_BP_VOLATILE_FORESIGHT_BIT &&
+           config->battle_mons_volatile_miracle_eye_bit == HNS_LIVE_BP_VOLATILE_MIRACLE_EYE_BIT &&
+           config->battle_mons_volatile_root_bit == HNS_LIVE_BP_VOLATILE_ROOT_BIT &&
+           config->battle_mons_volatile_smack_down_bit == HNS_LIVE_BP_VOLATILE_SMACK_DOWN_BIT &&
+           config->battle_mons_volatile_telekinesis_bit == HNS_LIVE_BP_VOLATILE_TELEKINESIS_BIT &&
+           config->battle_mons_volatile_magnet_rise_bit == HNS_LIVE_BP_VOLATILE_MAGNET_RISE_BIT &&
+           config->battle_mons_volatile_gastro_acid_bit == HNS_LIVE_BP_VOLATILE_GASTRO_ACID_BIT &&
+           config->battle_mons_volatile_roost_active_bit == HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT &&
+           config->battle_mons_volatile_substitute_bit == HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT &&
+           config->battle_mons_volatile_endured_bit == HNS_LIVE_BP_VOLATILE_ENDURED_BIT &&
            config->battle_struct_gimmick_offset == HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET &&
            config->battle_gimmick_active_offset == HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET &&
            config->battle_gimmick_side_stride == HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT &&
@@ -2651,10 +2671,12 @@ bool pokemon_read_battler_runtime_state_gba(
                              ((uint32_t)live_status_bytes[3] << 24);
     }
 
-    /* The damage-relevant volatile bits live in a generated window of `volatiles` (now 38
-     * bytes: the ordinary subset needs electrified, glaiveRush, chargeTimer and tarShot, and
-     * tarShot sits at bit 299). Read exactly the generated window so a bit can never be
-     * located outside the bytes that were actually read. */
+    /* The damage-relevant volatile bits live in a generated window of `volatiles` (now 41
+     * bytes: the ordinary subset needs electrified, glaiveRush, chargeTimer and tarShot, the
+     * persistent states the pinned damage path reads — foresight, miracleEye, root,
+     * smackDown, telekinesis, magnetRise, gastroAcid — plus roostActive (bit 318), and the
+     * GetAdjustedDamage states substitute and endured (bit 322)). Read exactly the generated
+     * window so a bit can never be located outside the bytes that were actually read. */
     uint8_t volatile_bytes[HNS_LIVE_BP_VOLATILE_WINDOW_BYTES];
     if (HNS_LIVE_BP_VOLATILES_OFFSET + sizeof(volatile_bytes) <= HNS_BATTLE_POKEMON_SIZEOF &&
         HNS_LIVE_BP_VOLATILE_WINDOW_BYTES > 0 &&
@@ -2682,6 +2704,26 @@ bool pokemon_read_battler_runtime_state_gba(
                                     HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH);
         out_state->volatile_tar_shot =
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT) != 0;
+        out_state->volatile_foresight =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_FORESIGHT_BIT) != 0;
+        out_state->volatile_miracle_eye =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_MIRACLE_EYE_BIT) != 0;
+        out_state->volatile_root =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_ROOT_BIT) != 0;
+        out_state->volatile_smack_down =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_SMACK_DOWN_BIT) != 0;
+        out_state->volatile_telekinesis =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_TELEKINESIS_BIT) != 0;
+        out_state->volatile_magnet_rise =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_MAGNET_RISE_BIT) != 0;
+        out_state->volatile_gastro_acid =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_GASTRO_ACID_BIT) != 0;
+        out_state->volatile_roost_active =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT) != 0;
+        out_state->volatile_substitute =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT) != 0;
+        out_state->volatile_endured =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_ENDURED_BIT) != 0;
         #undef HNS_LIVE_VOLATILE_BIT
         #undef HNS_LIVE_VOLATILE_FIELD
     }

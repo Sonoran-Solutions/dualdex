@@ -239,11 +239,13 @@ object CalcRequestBoundary {
             state?.partySlot != null &&
             state.partySlot == participant.partySlot
 
-        // Direct range check on abilityId against pinned ability domain
+        // Direct range check on the engine's EFFECTIVE ability (raw id, or ABILITY_NONE when the
+        // observed volatiles.gastroAcid suppresses it) against the pinned ability domain.
+        val effectiveAbilityId = state?.effectiveAbilityId
         val isDomainValid = state != null &&
             !state.abilityOutOfDomain &&
-            state.abilityId != null &&
-            state.abilityId in 0..com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.ABILITY_ID_MAX
+            effectiveAbilityId != null &&
+            effectiveAbilityId in 0..com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.ABILITY_ID_MAX
 
         val isAuthoritativeValid = isExactVerified &&
             observation != null &&
@@ -263,8 +265,15 @@ object CalcRequestBoundary {
             return participant.copy(ability = null, abilityId = null, unknownFields = newUnknowns)
         }
 
-        // Defense-in-depth: verify identity abilityId matches state abilityId
-        val authoritativeName = if (state.abilityId == 0) {
+        // Defense-in-depth: verify identity abilityId matches the engine's effective ability.
+        // When gastroAcid was positively observed, GetBattlerAbility() is ABILITY_NONE regardless
+        // of the raw identity, so the authoritative name is "None" (the raw catalogue name would
+        // misrepresent the engine).
+        val abilitySuppressed = state.abilityId != null && state.abilityId != 0 &&
+            state.persistentVolatilesObserved && state.volatileGastroAcid
+        val authoritativeName = if (abilitySuppressed) {
+            "None"
+        } else if (effectiveAbilityId == 0) {
             val declared = identity as? com.dualdex.pokemon.DeclaredAbility.Declared
             if (declared != null && declared.abilityId != 0) {
                 null // ID mismatch: state is 0 but identity declares non-zero
@@ -273,7 +282,7 @@ object CalcRequestBoundary {
             }
         } else {
             val declared = identity as? com.dualdex.pokemon.DeclaredAbility.Declared
-            if (declared != null && declared.abilityId == state.abilityId && declared.name.isNotBlank()) {
+            if (declared != null && declared.abilityId == effectiveAbilityId && declared.name.isNotBlank()) {
                 com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(declared.name) ?: declared.name
             } else {
                 null // missing, blank, or ID mismatch
@@ -289,11 +298,13 @@ object CalcRequestBoundary {
             return participant.copy(ability = null, abilityId = null, unknownFields = newUnknowns)
         }
 
-        // Anti-spoofing: authoritative runtime observation wins over any caller-supplied value
+        // Anti-spoofing: authoritative runtime observation wins over any caller-supplied value.
+        // The published id is the engine's EFFECTIVE ability, so a suppressed identity can never
+        // be classed as its raw pinch ability downstream.
         val newUnknowns = participant.unknownFields - CalcInputField.ABILITY
         return participant.copy(
             ability = authoritativeName,
-            abilityId = state.abilityId,
+            abilityId = effectiveAbilityId,
             unknownFields = newUnknowns
         )
     }
@@ -630,6 +641,16 @@ object CalcRequestBoundary {
             observation = enemyBattlerState,
             isExactVerified = isExactVerified
         )
+        val attackerPersistentVolatiles = authoritativeObservedPersistentVolatiles(
+            participantPartySlot = request.attacker.partySlot,
+            observation = playerBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val defenderPersistentVolatiles = authoritativeObservedPersistentVolatiles(
+            participantPartySlot = request.defender.partySlot,
+            observation = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
         val attackerGimmick = authoritativeObservedGimmick(
             participantPartySlot = request.attacker.partySlot,
             observation = playerBattlerState,
@@ -688,6 +709,8 @@ object CalcRequestBoundary {
             defenderGlaiveRush = defenderGlaiveRush,
             attackerChargeTimer = attackerChargeTimer,
             defenderTarShot = defenderTarShot,
+            attackerPersistentVolatiles = attackerPersistentVolatiles,
+            defenderPersistentVolatiles = defenderPersistentVolatiles,
             attackerGimmick = attackerGimmick,
             defenderGimmick = defenderGimmick,
             attackerHp = attackerHpPair?.first,
@@ -1100,6 +1123,38 @@ object CalcRequestBoundary {
         if (!slotMatches(participantPartySlot, state)) return null
         if (!state.transientVolatilesObserved) return null
         return state.volatileTarShot
+    }
+
+    /**
+     * The slot-matched persistent volatile window, or null when it was not read (review round 4).
+     *
+     * A non-null value is authoritative for Foresight / Miracle Eye / Ingrain / Smack Down /
+     * Telekinesis / Magnet Rise / Gastro Acid / Roost; an observed `false` is a proven neutral,
+     * distinct from an unread window.
+     */
+    private fun authoritativeObservedPersistentVolatiles(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): CalcHnsPersistentVolatiles? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        if (!state.persistentVolatilesObserved) return null
+        return CalcHnsPersistentVolatiles(
+            observed = true,
+            foresight = state.volatileForesight,
+            miracleEye = state.volatileMiracleEye,
+            root = state.volatileRoot,
+            smackDown = state.volatileSmackDown,
+            telekinesis = state.volatileTelekinesis,
+            magnetRise = state.volatileMagnetRise,
+            gastroAcid = state.volatileGastroAcid,
+            roostActive = state.volatileRoostActive,
+            substitute = state.volatileSubstitute,
+            endured = state.volatileEndured
+        )
     }
 
     /** `gBattleStruct->gimmick.activeGimmick[side][slot]`, or null when the slot-matched value was not read. */

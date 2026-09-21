@@ -289,8 +289,56 @@ data class CalcHnsLiveBattleState(
      * refuses when it is unread, or when it carries an unmodelled side-status bit.
      */
     val defenderScreensObserved: Boolean = false,
-    val defenderSideStatuses: Int = 0
+    val defenderSideStatuses: Int = 0,
+    // --- Gap C4e correction (review round 4): persistent damage-path volatiles ----------------
+    /**
+     * The persistent `gBattleMons[attacker].volatiles` states the pinned ordinary-damage path
+     * reads (Foresight / Miracle Eye immunity bypass, Ingrain / Smack Down grounding, Telekinesis
+     * / Magnet Rise ungrounding, Gastro Acid ability suppression, Roost effective-type change),
+     * or null when the window was not observed. A non-null value is authoritative; every field is
+     * required neutral by the first production subset.
+     */
+    val attackerPersistentVolatiles: CalcHnsPersistentVolatiles? = null,
+    /** The defender's persistent volatile window, or null when unobserved. */
+    val defenderPersistentVolatiles: CalcHnsPersistentVolatiles? = null
 )
+
+/**
+ * The persistent volatile states, read from one battler's `gBattleMons[].volatiles` window,
+ * that the pinned H&S ordinary-damage path can read without a move-flag trigger (review round 4).
+ *
+ * [observed] is true only when the generated volatile window was actually decoded. Every field is
+ * then authoritative, so an observed `false` is a proven neutral, distinct from an unread window.
+ */
+data class CalcHnsPersistentVolatiles(
+    val observed: Boolean = false,
+    /** `volatiles.foresight`: Normal/Fighting bypasses this battler's Ghost immunity. */
+    val foresight: Boolean = false,
+    /** `volatiles.miracleEye`: Psychic bypasses this battler's Dark immunity. */
+    val miracleEye: Boolean = false,
+    /** `volatiles.root` (Ingrain): the engine treats this battler as grounded. */
+    val root: Boolean = false,
+    /** `volatiles.smackDown`: the engine treats this battler as grounded. */
+    val smackDown: Boolean = false,
+    /** `volatiles.telekinesis`: the engine treats this battler as ungrounded. */
+    val telekinesis: Boolean = false,
+    /** `volatiles.magnetRise`: the engine treats this battler as ungrounded. */
+    val magnetRise: Boolean = false,
+    /** `volatiles.gastroAcid`: `GetBattlerAbility()` returns `ABILITY_NONE` while set. */
+    val gastroAcid: Boolean = false,
+    /** `volatiles.roostActive`: `GetBattlerTypes()` drops this battler's Flying type. */
+    val roostActive: Boolean = false,
+    /** `volatiles.substitute`: `DoesSubstituteBlockMove` redirects the computed damage. */
+    val substitute: Boolean = false,
+    /** `volatiles.endured`: `GetAdjustedDamage` caps incoming damage at HP-1. */
+    val endured: Boolean = false
+) {
+    /** True when any persistent volatile the ordinary subset requires neutral is active. */
+    val anyActive: Boolean
+        get() = foresight || miracleEye || root || smackDown ||
+            telekinesis || magnetRise || gastroAcid || roostActive ||
+            substitute || endured
+}
 
 data class DamageCalculationRequest(
     val gen: Int = 3,

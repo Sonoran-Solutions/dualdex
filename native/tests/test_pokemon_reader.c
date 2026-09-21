@@ -4509,7 +4509,12 @@ static void expect_battler_unavailable(const BattlerRuntimeState* st, const char
     TEST_ASSERT(!st->volatiles_observed && !st->volatile_electrified &&
                 !st->volatile_glaive_rush && !st->volatile_minimize &&
                 st->volatile_semi_invulnerable == 0 &&
-                st->volatile_charge_timer == 0 && !st->volatile_tar_shot,
+                st->volatile_charge_timer == 0 && !st->volatile_tar_shot &&
+                !st->volatile_foresight && !st->volatile_miracle_eye &&
+                !st->volatile_root && !st->volatile_smack_down &&
+                !st->volatile_telekinesis && !st->volatile_magnet_rise &&
+                !st->volatile_gastro_acid && !st->volatile_roost_active &&
+                !st->volatile_substitute && !st->volatile_endured,
                 "an unavailable observation must not carry volatile state");
     TEST_ASSERT(!st->gimmick_observed && st->active_gimmick == 0,
                 "an unavailable observation must not carry a gimmick");
@@ -5544,6 +5549,47 @@ static void test_hns_battler_state_c4e_live_operands(void) {
     TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st), "enemy transition read");
     TEST_ASSERT(st.volatile_glaive_rush, "enemy Glaive Rush must be observed true");
     TEST_ASSERT(st.volatile_tar_shot, "enemy Tar Shot must be observed true");
+
+    /* Review round 4: each persistent damage-path volatile is independently readable at its
+     * generated bit. Player carries the type/grounding/ability/roost states; enemy carries the
+     * GetAdjustedDamage states. */
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_FORESIGHT_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_MIRACLE_EYE_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_ROOT_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_SMACK_DOWN_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_TELEKINESIS_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_MAGNET_RISE_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_GASTRO_ACID_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 1, HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 1, HNS_LIVE_BP_VOLATILE_ENDURED_BIT, true);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "player persistent read");
+    TEST_ASSERT(st.volatile_foresight && st.volatile_miracle_eye, "player foresight/miracleEye true");
+    TEST_ASSERT(st.volatile_root && st.volatile_smack_down, "player root/smackDown true");
+    TEST_ASSERT(st.volatile_telekinesis && st.volatile_magnet_rise, "player telekinesis/magnetRise true");
+    TEST_ASSERT(st.volatile_gastro_acid && st.volatile_roost_active, "player gastroAcid/roostActive true");
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st), "enemy persistent read");
+    TEST_ASSERT(st.volatile_substitute && st.volatile_endured, "enemy substitute/endured true");
+
+    /* A neutral window must report every persistent volatile observed false. */
+    for (int b = 0; b < 2; b++) {
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_FORESIGHT_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_MIRACLE_EYE_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_ROOT_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_SMACK_DOWN_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_TELEKINESIS_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_MAGNET_RISE_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_GASTRO_ACID_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_ENDURED_BIT, false);
+    }
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "player neutral persistent read");
+    TEST_ASSERT(st.volatiles_observed && !st.volatile_foresight && !st.volatile_miracle_eye &&
+                !st.volatile_root && !st.volatile_smack_down && !st.volatile_telekinesis &&
+                !st.volatile_magnet_rise && !st.volatile_gastro_acid && !st.volatile_roost_active &&
+                !st.volatile_substitute && !st.volatile_endured,
+                "a neutral persistent window must be observed false, not unobserved");
 
     /* A null/zero gBattleStruct pointer means the gimmick is unobserved, never NONE. */
     write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0);

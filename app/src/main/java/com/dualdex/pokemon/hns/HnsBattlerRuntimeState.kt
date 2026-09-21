@@ -85,6 +85,8 @@ object HnsBattlerRole {
 object HnsBattlerRuntimeStateIds {
     /** Empty-slot sentinel: a monotype's second/third slot. Never a real type. */
     const val TYPE_NONE = 0
+    /** Pinned `ABILITY_NONE`: the engine's effective "no ability" identity. */
+    const val ABILITY_NONE = 0
     /** Battle-only "typeless" value (Roost removal et al.). Real but not a species typing. */
     const val TYPE_MYSTERY = 10
     /** Highest ID the pinned `enum Type` assigns (NUMBER_OF_MON_TYPES - 1). */
@@ -271,6 +273,66 @@ data class HnsBattlerRuntimeState(
      * when [transientVolatilesObserved].
      */
     val volatileTarShot: Boolean = false,
+    /**
+     * true when the persistent volatile window (the review-round-4 states below) was decoded.
+     * Only a tuple at least [C4E_PERSISTENT_TUPLE_LEN] ints long can carry it; a shorter tuple
+     * leaves every persistent volatile unobserved rather than defaulting it to neutral. Always
+     * false unless [volatilesObserved] is also true (they are decoded from the same read window).
+     */
+    val persistentVolatilesObserved: Boolean = false,
+    /**
+     * `volatiles.foresight`: a Normal/Fighting move bypasses this battler's Ghost immunity.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileForesight: Boolean = false,
+    /**
+     * `volatiles.miracleEye`: a Psychic move bypasses this battler's Dark immunity.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileMiracleEye: Boolean = false,
+    /**
+     * `volatiles.root` (Ingrain): the engine treats this battler as grounded.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileRoot: Boolean = false,
+    /**
+     * `volatiles.smackDown`: the engine treats this battler as grounded.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileSmackDown: Boolean = false,
+    /**
+     * `volatiles.telekinesis`: the engine treats this battler as ungrounded.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileTelekinesis: Boolean = false,
+    /**
+     * `volatiles.magnetRise`: the engine treats this battler as ungrounded.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileMagnetRise: Boolean = false,
+    /**
+     * `volatiles.gastroAcid`: `GetBattlerAbility()` returns `ABILITY_NONE` while set, so the
+     * engine's effective ability differs from the raw `gBattleMons[].ability` identity.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileGastroAcid: Boolean = false,
+    /**
+     * `volatiles.roostActive`: `GetBattlerTypes()` removes this battler's Flying type for the
+     * turn, so the engine's effective types differ from the raw `gBattleMons[].types` bytes.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileRoostActive: Boolean = false,
+    /**
+     * `volatiles.substitute`: a substitute is present, so the pinned `DoesSubstituteBlockMove`
+     * redirects the computed damage away from this battler. Only meaningful when
+     * [persistentVolatilesObserved].
+     */
+    val volatileSubstitute: Boolean = false,
+    /**
+     * `volatiles.endured`: the pinned `GetAdjustedDamage` caps incoming damage at HP-1 for this
+     * battler. Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileEndured: Boolean = false,
     /** true when `gBattleStruct->gimmick.activeGimmick[side][slot]` was decoded. */
     val gimmickObserved: Boolean = false,
     /** `enum Gimmick` active for this battler's party slot; 0 = GIMMICK_NONE. */
@@ -297,6 +359,23 @@ data class HnsBattlerRuntimeState(
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
+
+    /**
+     * The engine's EFFECTIVE ability identity: `GetBattlerAbility()` returns `ABILITY_NONE`
+     * whenever `volatiles.gastroAcid` is set (pinned `GetBattlerAbilityInternal`,
+     * src/battle_util.c:4996-5027), so the raw `gBattleMons[].ability` word is not the identity
+     * the damage path uses. Returns the raw [abilityId] when suppression was not positively
+     * observed (the caller must still refuse an unread persistent volatile window separately),
+     * and [HnsBattlerRuntimeStateIds.ABILITY_NONE] when it was.
+     */
+    val effectiveAbilityId: Int?
+        get() = abilityId?.let {
+            if (persistentVolatilesObserved && volatileGastroAcid) {
+                HnsBattlerRuntimeStateIds.ABILITY_NONE
+            } else {
+                it
+            }
+        }
 
     /**
      * The canonical H&S ability identity for the observed ID, resolved through
@@ -356,19 +435,25 @@ data class HnsBattlerRuntimeState(
          * [54] fieldStatusesReadable, [55] fieldStatuses,
          * [56] weatherReadable, [57] battleWeather,
          * [58] sideStatusesReadable, [59] sideStatuses,
-         * [60] volatileChargeTimer, [61] volatileTarShot.
+         * [60] volatileChargeTimer, [61] volatileTarShot,
+         * [62] volatileForesight, [63] volatileMiracleEye, [64] volatileRoot,
+         * [65] volatileSmackDown, [66] volatileTelekinesis, [67] volatileMagnetRise,
+         * [68] volatileGastroAcid, [69] volatileRoostActive,
+         * [70] volatileSubstitute, [71] volatileEndured.
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
          * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is
          * the pre-C4e contract (still honored for existing tests); [C4E_TUPLE_LEN]
          * additionally carries the Gap C4e live operands, [C4E_FIELD_TUPLE_LEN]
-         * the live weather / defender-side status operands, and
-         * [C4E_TRANSIENT_TUPLE_LEN] the Charge / Tar Shot volatile operands.
+         * the live weather / defender-side status operands, [C4E_TRANSIENT_TUPLE_LEN]
+         * the Charge / Tar Shot volatile operands, and [C4E_PERSISTENT_TUPLE_LEN]
+         * the review-round-4 persistent volatile operands.
          */
         private const val TUPLE_LEN = 42
         private const val C4E_TUPLE_LEN = 56
         private const val C4E_FIELD_TUPLE_LEN = 60
         private const val C4E_TRANSIENT_TUPLE_LEN = 62
+        private const val C4E_PERSISTENT_TUPLE_LEN = 72
 
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -436,6 +521,11 @@ data class HnsBattlerRuntimeState(
             // window was read AND the tuple is long enough to carry them.
             val c4eTransient = raw.size >= C4E_TRANSIENT_TUPLE_LEN
             val transientVolatilesObserved = volatilesObserved && c4eTransient
+            // Gap C4e correction (review round 4): the persistent volatile operands share the
+            // same read window, so they are only authoritative when the window was read AND the
+            // tuple is long enough to carry them.
+            val c4ePersistent = raw.size >= C4E_PERSISTENT_TUPLE_LEN
+            val persistentVolatilesObserved = volatilesObserved && c4ePersistent
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
@@ -481,6 +571,17 @@ data class HnsBattlerRuntimeState(
                     0
                 },
                 volatileTarShot = transientVolatilesObserved && raw[61] != 0,
+                persistentVolatilesObserved = persistentVolatilesObserved,
+                volatileForesight = persistentVolatilesObserved && raw[62] != 0,
+                volatileMiracleEye = persistentVolatilesObserved && raw[63] != 0,
+                volatileRoot = persistentVolatilesObserved && raw[64] != 0,
+                volatileSmackDown = persistentVolatilesObserved && raw[65] != 0,
+                volatileTelekinesis = persistentVolatilesObserved && raw[66] != 0,
+                volatileMagnetRise = persistentVolatilesObserved && raw[67] != 0,
+                volatileGastroAcid = persistentVolatilesObserved && raw[68] != 0,
+                volatileRoostActive = persistentVolatilesObserved && raw[69] != 0,
+                volatileSubstitute = persistentVolatilesObserved && raw[70] != 0,
+                volatileEndured = persistentVolatilesObserved && raw[71] != 0,
                 gimmickObserved = gimmickObserved,
                 activeGimmick = if (gimmickObserved) raw[53].coerceIn(0, 5) else 0,
                 fieldStatusesReadable = fieldStatusesReadable,

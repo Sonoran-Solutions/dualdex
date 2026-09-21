@@ -1558,9 +1558,14 @@ pointer leaves the gimmick **unobserved** (never `NONE`).
 * `status1` (`status_observed`; the raw word, `0` is an observed neutral);
 * the damage-relevant volatile bits (`volatiles_observed`, `volatile_electrified`,
   `volatile_glaive_rush`, `volatile_charge_timer`, `volatile_tar_shot`, plus the recorded
-  `volatile_minimize` / `volatile_semi_invulnerable`); the reader now reads the generated 38-byte
-  volatile window, because `tarShot` sits at bit 299 and the previous 10-byte window silently
-  truncated it;
+  `volatile_minimize` / `volatile_semi_invulnerable`); the reader reads the generated 41-byte
+  volatile window, because `tarShot` sits at bit 299 (and review-round-4 `roostActive`/`endured` at
+  318/322) so the original 10-byte window silently truncated them;
+* the review-round-4 persistent volatile bits (`persistent_volatiles_observed`, `volatile_foresight`,
+  `volatile_miracle_eye`, `volatile_root`, `volatile_smack_down`, `volatile_telekinesis`,
+  `volatile_magnet_rise`, `volatile_gastro_acid`, `volatile_roost_active`, `volatile_substitute`,
+  `volatile_endured`); `roostActive` (318) and `endured` (322) extend the generated read window to
+  41 bytes;
 * the gimmick byte (`gimmick_observed`, `active_gimmick`);
 * the battle-global `gFieldStatuses` word (`field_statuses_readable`, `field_statuses`);
 * the battle-global `gBattleWeather` flags word (`weather_readable`, `battle_weather`; 0 is an
@@ -1571,11 +1576,12 @@ pointer leaves the gimmick **unobserved** (never `NONE`).
 
 Every `*_observed` / `*_readable` bit separates **observed neutral** (bit set, payload zero) from
 **never read** (bit clear), so `false` is never collapsed with `unreadable`. The tuple grew from 42 to
-62 ints (`BATTLER_RUNTIME_STATE_TUPLE_LEN`): the pre-C4e 42-int contract still decodes the older
+72 ints (`BATTLER_RUNTIME_STATE_TUPLE_LEN`): the pre-C4e 42-int contract still decodes the older
 fields, a 56-int tuple additionally decodes the C4e live operands, a 60-int tuple carries the live
-weather / side-status words, and only a 62-int tuple carries the correction-pass `chargeTimer` /
-`tarShot` operands - a short tuple leaves the later fields unobserved rather than defaulted, and the
-policy then fails closed. All new reads share the existing fail-closed lifecycle
+weather / side-status words, a 62-int tuple carries the correction-pass `chargeTimer` / `tarShot`
+operands, and only a 72-int tuple carries the review-round-4 persistent volatiles - a short tuple
+leaves the later fields unobserved rather than defaulted, and the policy then fails closed. All new
+reads share the existing fail-closed lifecycle
 (ACTIVE only), battler resolution, party-slot binding, teardown clearing and profile-switch clearing;
 nothing is cached across battles.
 
@@ -1595,8 +1601,10 @@ type. This closes the C4d blocker "dynamic move type no longer uses a blanket un
 
 ### 14.5 Transient-state resolution
 
-All three generic ordinary-damage transients are bound from the slot-matched volatile window and
-`transientStateObserved` becomes true only when **all** of them were read:
+`transientStateObserved` is bound from the slot-matched volatile window (the `chargeTimer`/`tarShot`
+extension) and is a conjunction over exactly the operands below; the pinned source has twice disproven
+any claim that the generic ordinary-damage transient set is only three fields, so the set is described
+exhaustively rather than counted:
 
 * `glaiveRush` (defender) - `true` → `HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED` (x2 not modelled);
 * `chargeTimer` (attacker) - a positive value **and** an Electric effective move type →
@@ -1609,6 +1617,38 @@ A short tuple that does not carry `chargeTimer` / `tarShot` leaves `transientSta
 the request fails closed with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` rather than assuming the volatiles
 were zero. Minimize and the semi-invulnerable states are proven unreachable for the ordinary subset by
 the move-flag allow-list (§14.1.2), so no live reader is needed for them.
+
+### 14.5.2 Persistent volatile resolution (review round 4)
+
+The review-round-4 source dependency audit (see the evidence doc's *Source dependency ledger*) found
+that the pinned ordinary `EFFECT_HIT` path also reads **persistent** volatiles that survive a prior
+status move: `GetBattlerTypes` drops Flying under `roostActive`; `MulByTypeEffectiveness` bypasses the
+Ghost / Dark immunities under `foresight` / `miracleEye`; `IsBattlerGrounded` reads `root`, `smackDown`,
+`telekinesis` and `magnetRise`; `GetBattlerAbilityInternal` returns `ABILITY_NONE` under `gastroAcid`;
+and `GetAdjustedDamage` reads `substitute` and `endured`. The generated volatile ABI now classifies all
+ten bits (`substitute` 39, `foresight` 45, `root` 75, `gastroAcid` 80, `smackDown` 82, `telekinesis`
+83, `miracleEye` 84, `magnetRise` 85, `roostActive` 318, `endured` 322; the derived read window is 41
+bytes).
+
+`persistentVolatilesObserved` is true only when both battlers' windows were read. The first production
+subset does **not** model any positive behavior of these states, so each observed-active class refuses
+with its own precise limitation:
+
+* `foresight` → `HNS_FORESIGHT_ACTIVE_NOT_MODELLED`;
+* `miracleEye` → `HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED`;
+* `root` / `smackDown` / `telekinesis` / `magnetRise` →
+  `HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED`;
+* `roostActive` → `HNS_ROOST_ACTIVE_NOT_MODELLED` (the raw `gBattleMons[].types` bytes are no longer
+  the engine's effective types, so the static-type comparison cannot prove the request neutral);
+* `gastroAcid` → `HNS_ABILITY_SUPPRESSED_NOT_MODELLED` (the boundary publishes the engine's
+  **effective** ability, `ABILITY_NONE` while suppressed, so the pinch logic can never apply the raw
+  identity's x1.5);
+* `substitute` → `HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED`;
+* `endured` → `HNS_ENDURED_ACTIVE_NOT_MODELLED`.
+
+A short tuple that does not carry the persistent window leaves `persistentVolatilesObserved` false and
+refuses with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`. Every field is observed-neutral on the Golden-A
+path, so the positive control is unchanged.
 
 ### 14.5.1 Field-status resolution
 
@@ -1711,6 +1751,10 @@ A request reaches `Ready` / `ESTIMATED` only when **all** of the following hold:
 * defender Glaive Rush, attacker `chargeTimer` and defender `tarShot` observed neutral (`false` /
   `0` / `false`); a positive relevant Charge / Tar Shot refuses with its precise limitation and a
   short tuple that does not carry them refuses with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`;
+* both battlers' **persistent** volatile windows observed neutral: `foresight`, `miracleEye`, `root`,
+  `smackDown`, `telekinesis`, `magnetRise`, `gastroAcid`, `roostActive`, `substitute` and `endured`
+  all false; each observed-active class refuses with its precise limitation (§14.5.2), and a short
+  tuple that does not carry them refuses with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`;
 * gimmick state observed `GIMMICK_NONE` for both participants;
 * attacker live `status1` observed `0`;
 * the battle-global `gFieldStatuses` word observed with at most the Ion Deluge bit (0 is the neutral
@@ -1737,7 +1781,7 @@ value; "source-proven" means the pinned source/data proves it cannot vary for th
 | raw battle stat words | boundary-owned `gBattleMons` attack/defense/speed/spA/spD |
 | stat stages | boundary-owned `gBattleMons.statStages` |
 | current item | boundary-owned `gBattleMons[battler].item`; supported/no item only |
-| effective ability | boundary-owned numeric `abilityId`; supported or conditionally supported |
+| effective ability | boundary-owned numeric `abilityId`; supported or conditionally supported. Under observed `gastroAcid` the boundary publishes `ABILITY_NONE` (the engine's `GetBattlerAbility()`), and the suppression is separately refused (§14.5.2) |
 | current HP / max HP | boundary-owned `gBattleMons.hp` / `.maxHP`; required for a relevant pinch ability |
 | badge applicability | boundary-owned player-side badge state; enemy badges source-proven irrelevant |
 | move type / effective type | pinned pack override + observed Ion Deluge field word and Electrify volatile |
@@ -1747,8 +1791,8 @@ value; "source-proven" means the pinned source/data proves it cannot vary for th
 | crit flag | request `isCrit`; C4d indirect observation |
 | game format | request `Singles`; Doubles refuses |
 | field statuses | boundary-owned battle-global `gFieldStatuses` (both observations must agree); only the Ion Deluge bit is modelled, any other bit refuses |
-| attacker volatiles | boundary-owned `electrified` must be false (and recorded minimize/semi-invuln); boundary-owned `chargeTimer` must be 0 for the Ready subset |
-| defender volatiles | boundary-owned `glaiveRush` must be false; boundary-owned `tarShot` must be false |
+| attacker volatiles | boundary-owned `electrified` must be false; boundary-owned `chargeTimer` must be 0; the persistent window (`foresight`/`miracleEye`/`root`/`smackDown`/`telekinesis`/`magnetRise`/`gastroAcid`/`roostActive`/`substitute`/`endured`) must be observed all-false |
+| defender volatiles | boundary-owned `glaiveRush` must be false; boundary-owned `tarShot` must be false; the persistent window must be observed all-false |
 | gimmick / Tera | boundary-owned `gBattleStruct->gimmick.activeGimmick` must be `GIMMICK_NONE` |
 
 Every caller-supplied field on `hnsLiveBattleState` (and `curHP`) is discarded and rebound, so no
@@ -1771,13 +1815,18 @@ caller value can independently authorize an H&S live calculation.
   on a Normal move, active Glaive Rush, active Charge with an Electric move, active Tar Shot with a
   Fire move, unsupported ability, unverified pinch HP, stale participant slot, unobserved badge state,
   unsupported move, active live status. Charge / Tar Shot on an irrelevant move type stay Ready.
+  Review round 4 adds one negative per persistent volatile (Foresight, Miracle Eye, each grounding
+  volatile, Roost, Gastro Acid suppression, Substitute, Endure) plus an unread-persistent-window
+  refusal; the all-neutral Golden-A path stays Ready.
 * **Observed field conditions** — observed Rain and observed defender Reflect / Light Screen are bound
   into the request and reach the engine JSON; observed clear / no screens binds no weather / no
   defender side.
 * **Anti-spoofing** — a caller-crafted `hnsLiveBattleState`, a caller-crafted `curHP`, and caller-supplied
   weather / screen values are stripped and rebound from the runtime observations; a caller-spoofed
-  ability is overridden by the authoritative numeric ID. No caller-provided `hnsLiveBattleState` field
-  can independently authorize an H&S live calculation.
+  ability is overridden by the authoritative numeric ID. Review round 4 adds an anti-spoof loop over
+  all ten persistent volatile bits (a crafted neutral window cannot clear an observed-active bit) and
+  the inverse (a crafted active bit cannot refuse a neutral runtime window). No caller-provided
+  `hnsLiveBattleState` field can independently authorize an H&S live calculation.
 
 ### 14.11 Runtime verification
 
@@ -1816,7 +1865,9 @@ still green; C4e adds the pinch-ability fixtures alongside it.
 * **Golden F** is partially satisfied: the new readers have a neutral-state runtime observation
   (§14.11) but no positive transition.
 * Active dynamic-type retypes, active Glaive Rush, active Charge on an Electric move, active Tar
-  Shot on a Fire move, unmodelled field statuses (Wonder Room, Gravity, terrain, Mud/Water Sport),
+  Shot on a Fire move, any active persistent volatile (Foresight, Miracle Eye, Ingrain/Smack
+  Down/Telekinesis/Magnet Rise, Roost, Gastro Acid suppression, Substitute, Endure), unmodelled
+  field statuses (Wonder Room, Gravity, terrain, Mud/Water Sport),
   active gimmicks, non-neutral live status, unread or unmodelled live weather (including the primal
   bits) / defender-side screens, and unsupported abilities/items/moves remain refused so a confident
   wrong number is never published.

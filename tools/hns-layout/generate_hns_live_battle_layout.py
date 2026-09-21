@@ -7,7 +7,11 @@ This is the authoritative source-check for the runtime readers added in C4e:
   * the byte offset of `struct BattlePokemon.volatiles` and the exact bit
     position of the damage-relevant volatile booleans the ordinary subset
     needs (`electrified`, `glaiveRush`, `chargeTimer`, `tarShot`) plus the two
-    excluded by the move allow-list (`minimize`, `semiInvulnerable`);
+    excluded by the move allow-list (`minimize`, `semiInvulnerable`), and the
+    persistent volatiles the pinned damage path reads on ordinary moves
+    (`roostActive`, `foresight`, `miracleEye`, `root`, `smackDown`,
+    `telekinesis`, `magnetRise`, `gastroAcid`) plus the `GetAdjustedDamage`
+    states (`substitute`, `endured`);
   * the offset of `struct BattleStruct.gimmick` and of
     `struct BattleGimmickData.activeGimmick`, plus its side/party strides.
 
@@ -115,6 +119,20 @@ def build_probe_c() -> str:
             "const struct Volatiles ddx_v_semi_invulnerable = { .semiInvulnerable = SEMI_INVULNERABLE_COUNT };",
             "const struct Volatiles ddx_v_charge_timer = { .chargeTimer = 7 };",
             "const struct Volatiles ddx_v_tar_shot = { .tarShot = 1 };",
+            # Gap C4e correction: persistent volatiles read by the pinned type-effectiveness,
+            # groundedness and effective-ability paths on ordinary EFFECT_HIT moves.
+            "const struct Volatiles ddx_v_foresight = { .foresight = 1 };",
+            "const struct Volatiles ddx_v_miracle_eye = { .miracleEye = 1 };",
+            "const struct Volatiles ddx_v_root = { .root = 1 };",
+            "const struct Volatiles ddx_v_smack_down = { .smackDown = 1 };",
+            "const struct Volatiles ddx_v_telekinesis = { .telekinesis = 1 };",
+            "const struct Volatiles ddx_v_magnet_rise = { .magnetRise = 1 };",
+            "const struct Volatiles ddx_v_gastro_acid = { .gastroAcid = 1 };",
+            "const struct Volatiles ddx_v_roost_active = { .roostActive = 1 };",
+            # GetAdjustedDamage reads these on the ordinary path: a substitute redirects the
+            # computed damage and `endured` caps it at HP-1.
+            "const struct Volatiles ddx_v_substitute = { .substitute = 1 };",
+            "const struct Volatiles ddx_v_endured = { .endured = 1 };",
             "",
         ]
     )
@@ -293,6 +311,16 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"bit {compiled['volatile_charge_timer_bit']} width "
         f"{compiled['volatile_charge_timer_width']}",
         f" *   volatile tarShot bit         = {compiled['volatile_tar_shot_bit']}",
+        f" *   volatile foresight bit       = {compiled['volatile_foresight_bit']}",
+        f" *   volatile miracleEye bit      = {compiled['volatile_miracle_eye_bit']}",
+        f" *   volatile root bit            = {compiled['volatile_root_bit']}",
+        f" *   volatile smackDown bit       = {compiled['volatile_smack_down_bit']}",
+        f" *   volatile telekinesis bit     = {compiled['volatile_telekinesis_bit']}",
+        f" *   volatile magnetRise bit      = {compiled['volatile_magnet_rise_bit']}",
+        f" *   volatile gastroAcid bit      = {compiled['volatile_gastro_acid_bit']}",
+        f" *   volatile roostActive bit     = {compiled['volatile_roost_active_bit']}",
+        f" *   volatile substitute bit       = {compiled['volatile_substitute_bit']}",
+        f" *   volatile endured bit         = {compiled['volatile_endured_bit']}",
         f" *   volatile read window         = {compiled['volatile_window_bytes']} bytes",
         f" *   BattleStruct.gimmick         = {compiled['gimmick_offset']}",
         f" *   BattleGimmickData.activeGimmick = {compiled['active_gimmick_offset']}",
@@ -328,6 +356,16 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT {compiled['volatile_charge_timer_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH {compiled['volatile_charge_timer_width']}",
         f"#define HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT {compiled['volatile_tar_shot_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_FORESIGHT_BIT {compiled['volatile_foresight_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_MIRACLE_EYE_BIT {compiled['volatile_miracle_eye_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_ROOT_BIT {compiled['volatile_root_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_SMACK_DOWN_BIT {compiled['volatile_smack_down_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_TELEKINESIS_BIT {compiled['volatile_telekinesis_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_MAGNET_RISE_BIT {compiled['volatile_magnet_rise_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_GASTRO_ACID_BIT {compiled['volatile_gastro_acid_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT {compiled['volatile_roost_active_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT {compiled['volatile_substitute_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_ENDURED_BIT {compiled['volatile_endured_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_WINDOW_BYTES {compiled['volatile_window_bytes']}",
         f"#define HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET {compiled['gimmick_offset']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET {compiled['active_gimmick_offset']}",
@@ -363,7 +401,17 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         ">= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
         "HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT + HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH "
         ">= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
-        "HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES",
+        "HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_FORESIGHT_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_MIRACLE_EYE_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_ROOT_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_SMACK_DOWN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_TELEKINESIS_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_MAGNET_RISE_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_GASTRO_ACID_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_ENDURED_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES",
         "#error \"an exported volatile bit exceeds the generated read window\"",
         "#endif",
         "#if HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET + HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT * HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT > 64",
@@ -462,6 +510,16 @@ def main() -> None:
             "volatile_glaive_rush_bit": single_bit(blob, base_addr, syms, "ddx_v_glaive_rush"),
             "volatile_minimize_bit": single_bit(blob, base_addr, syms, "ddx_v_minimize"),
             "volatile_tar_shot_bit": single_bit(blob, base_addr, syms, "ddx_v_tar_shot"),
+            "volatile_foresight_bit": single_bit(blob, base_addr, syms, "ddx_v_foresight"),
+            "volatile_miracle_eye_bit": single_bit(blob, base_addr, syms, "ddx_v_miracle_eye"),
+            "volatile_root_bit": single_bit(blob, base_addr, syms, "ddx_v_root"),
+            "volatile_smack_down_bit": single_bit(blob, base_addr, syms, "ddx_v_smack_down"),
+            "volatile_telekinesis_bit": single_bit(blob, base_addr, syms, "ddx_v_telekinesis"),
+            "volatile_magnet_rise_bit": single_bit(blob, base_addr, syms, "ddx_v_magnet_rise"),
+            "volatile_gastro_acid_bit": single_bit(blob, base_addr, syms, "ddx_v_gastro_acid"),
+            "volatile_roost_active_bit": single_bit(blob, base_addr, syms, "ddx_v_roost_active"),
+            "volatile_substitute_bit": single_bit(blob, base_addr, syms, "ddx_v_substitute"),
+            "volatile_endured_bit": single_bit(blob, base_addr, syms, "ddx_v_endured"),
             "gimmick_offset": scalar(blob, base_addr, syms, "ddx_gimmick_offset"),
             "active_gimmick_offset": scalar(blob, base_addr, syms, "ddx_active_gimmick_offset"),
             "gimmick_side_count": scalar(blob, base_addr, syms, "ddx_gimmick_side_count"),
@@ -485,6 +543,16 @@ def main() -> None:
             compiled["volatile_semi_invulnerable_bit"] + compiled["volatile_semi_invulnerable_width"] - 1,
             compiled["volatile_charge_timer_bit"] + compiled["volatile_charge_timer_width"] - 1,
             compiled["volatile_tar_shot_bit"],
+            compiled["volatile_foresight_bit"],
+            compiled["volatile_miracle_eye_bit"],
+            compiled["volatile_root_bit"],
+            compiled["volatile_smack_down_bit"],
+            compiled["volatile_telekinesis_bit"],
+            compiled["volatile_magnet_rise_bit"],
+            compiled["volatile_gastro_acid_bit"],
+            compiled["volatile_roost_active_bit"],
+            compiled["volatile_substitute_bit"],
+            compiled["volatile_endured_bit"],
         ]
         compiled["volatile_window_bytes"] = max(volatile_last_bits) // 8 + 1
 

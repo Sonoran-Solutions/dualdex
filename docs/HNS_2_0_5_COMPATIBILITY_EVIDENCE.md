@@ -3135,11 +3135,18 @@ fail-closed gate. The evidence levels below use the same vocabulary as §§1-13.
   two relevant retype writers are `STATUS_FIELD_ION_DELUGE` (Normal-only) and
   `gBattleMons[battler].volatiles.electrified` (any type); every other branch needs a non-`EFFECT_HIT`
   effect or an ability the ability gate refuses.
-- **Transient state.** Three generic ordinary-damage transients are read: `GetGlaiveRushModifier`
-  (`src/battle_util.c:7481`), `chargeTimer` on an Electric move (`src/battle_util.c:6635`) and
-  `tarShot` on a Fire move against the holder (`src/battle_util.c:8365`).
+- **Transient and persistent volatile state.** The ordinary-damage volatile set is described
+  exhaustively, not counted: `glaiveRush` (`GetGlaiveRushModifier`, `src/battle_util.c:7481`),
+  `chargeTimer` on an Electric move (`src/battle_util.c:6635`) and `tarShot` on a Fire move
+  (`src/battle_util.c:8365`); plus the persistent states the same ordinary path reads -
+  `roostActive` (`GetBattlerTypes`, `src/battle_util.c:9806`), `foresight`/`miracleEye`
+  (`MulByTypeEffectiveness`, `src/battle_util.c:8263`/`8276`), `root`/`smackDown`/`telekinesis`/
+  `magnetRise` (`IsBattlerGrounded`, `src/battle_util.c:6006-6038`), `gastroAcid`
+  (`GetBattlerAbilityInternal`, `src/battle_util.c:5015`), and `substitute`/`endured`
+  (`GetAdjustedDamage`, `src/battle_util.c:8165`/`8177`).
   Minimize/underground/underwater/airborne are excluded by the move-mechanics generator's
-  `STATE_DEPENDENT_FLAGS` allow-list.
+  `STATE_DEPENDENT_FLAGS` allow-list. The round-4 correction closes the persistent-state hole; see the
+  *Source dependency ledger* at the end of this document for the complete path audit.
 - **Field statuses.** The only `gFieldStatuses` bit the ordinary subset models is Ion Deluge; the
   explicit supported mask makes Wonder Room (Defense/Sp.Def swap), Gravity, the four terrains and
   Mud/Water Sport fail closed with `HNS_FIELD_STATUS_NOT_MODELLED` instead of silently clearing the
@@ -3162,7 +3169,9 @@ fail-closed gate. The evidence levels below use the same vocabulary as §§1-13.
 the pinned ARM toolchain and emits `native/src/hns_live_battle_layout_gen.h`; `./ci.sh source-check`
 regenerates and byte-compares it. Values for the pinned commit: `hp` 42, `maxHP` 46, `status1` 80,
 `volatiles` 84; volatile bits `electrified` 54, `glaiveRush` 64, `minimize` 72, `semiInvulnerable`
-51/width 3, `chargeTimer` 73/width 2, `tarShot` 299 (hence the generated 38-byte read window);
+51/width 3, `chargeTimer` 73/width 2, `tarShot` 299; review-round-4 persistent bits `substitute` 39,
+`foresight` 45, `root` 75, `gastroAcid` 80, `smackDown` 82, `telekinesis` 83, `miracleEye` 84,
+`magnetRise` 85, `roostActive` 318, `endured` 322 (hence the generated 41-byte read window);
 `BattleStruct.gimmick` 668, `BattleGimmickData.activeGimmick` 11. The EWRAM globals
 `gFieldStatuses` (`0x2F4`) and the `gBattleStruct` pointer (`0xB4`) are shared with the already-pinned
 battle globals and are runtime-verified below.
@@ -3170,14 +3179,17 @@ battle globals and are runtime-verified below.
 ### Runtime reader semantics (HOST VERIFIED)
 
 `pokemon_read_battler_runtime_state_gba` decodes HP/maxHP, `status1`, the volatile bits
-(`electrified`, `glaiveRush`, `chargeTimer`, `tarShot`) and the gimmick byte per OBSERVED battler,
+(`electrified`, `glaiveRush`, `chargeTimer`, `tarShot`, and the review-round-4 persistent states
+`foresight`, `miracleEye`, `root`, `smackDown`, `telekinesis`, `magnetRise`, `gastroAcid`,
+`roostActive`, `substitute`, `endured`) and the gimmick byte per OBSERVED battler,
 plus the battle-global field-status word and the battle-global weather word, and the observed
 battler's own `gSideStatuses[side]` word. Every new `*_observed` / `*_readable` bit separates an
 observed neutral value from an unread field; `gBattleStruct` is read afresh and must point inside
-EWRAM before the gimmick byte is dereferenced. The JNI tuple grew from 42 to 62 ints; the Kotlin
+EWRAM before the gimmick byte is dereferenced. The JNI tuple grew from 42 to 72 ints; the Kotlin
 decoder keeps the pre-C4e 42-int contract for the older fields, decodes the C4e operands from a
-56-int tuple, the live weather / side-status words from a 60-int tuple, and the correction-pass
-`chargeTimer` / `tarShot` from a 62-int tuple; a short tuple's later fields stay unobserved.
+56-int tuple, the live weather / side-status words from a 60-int tuple, the correction-pass
+`chargeTimer` / `tarShot` from a 62-int tuple, and the review-round-4 persistent volatiles from a
+72-int tuple; a short tuple's later fields stay unobserved.
 
 ### Official-ROM runtime observation (RUNTIME VERIFIED, neutral state)
 
@@ -3206,36 +3218,44 @@ reader-only change and does not print the two operands, so they are HOST VERIFIE
 independent H&S oracle: inactive (11/23) unboosted, active-at-threshold (7/23) boosted to
 `floor(13*1.5)=19`, one-HP-above-threshold (8/23) unboosted, and wrong-type (Normal) unboosted even at
 1 HP. `test_pokemon_reader.c` `test_hns_battler_state_c4e_live_operands` asserts the reader
-observation, positive bit transitions (including the width-2 `chargeTimer` and `tarShot`), the 38-byte
-volatile window, null/out-of-EWRAM `gBattleStruct` failing closed, and teardown leaving no C4e
-operand. The Kotlin decoder tests pin the 62-int tuple and the short-tuple unobserved cases.
+observation, positive bit transitions (including the width-2 `chargeTimer`, `tarShot`, and all ten
+review-round-4 persistent bits), the 41-byte volatile window, null/out-of-EWRAM `gBattleStruct`
+failing closed, and teardown leaving no C4e operand. The Kotlin decoder tests pin the 72-int tuple,
+the 62-int and 70-int short-tuple unobserved cases, the observed-false + garbage-payload case, and the
+`gastroAcid` effective-ability derivation.
 
 ### Production-boundary evidence (HOST VERIFIED)
 
 `CalcHnsC4eProductionBoundaryTest` drives the real `CalcRequestBoundary`: the positive control
 (Golden-A-equivalent live state) returns `Ready` with a non-null request and `ESTIMATED`; the emitted
-JSON carries the live HP/maxHP and the pinned move override. Adjacent negatives remove exactly one
+JSON carries the live HP/maxHP and the pinned move override; both persistent windows are observed
+neutral. Adjacent negatives remove exactly one
 authority each and refuse with the precise limitation (wrong hash, unreadable volatile, unreadable
 extended transient volatiles, unreadable/unmodelled field status incl. Wonder Room and terrain,
 unreadable/active gimmick, active Electrify, active Ion Deluge, active Glaive Rush, active Charge with
 an Electric move, active Tar Shot with a Fire move, primal Rain/Sun, unsupported ability, unverified
-pinch HP, stale slot, unobserved badge, unsupported move, active live status), while an irrelevant
+pinch HP, stale slot, unobserved badge, unsupported move, active live status, and the round-4
+persistent states Foresight / Miracle Eye / grounding / Roost / Gastro Acid / Substitute / Endure plus
+an unread persistent window), while an irrelevant
 Charge / Tar Shot type stays `Ready`. Anti-spoofing tests prove the boundary strips a caller-crafted
-`hnsLiveBattleState` and `curHP` and rebinds from runtime observations, and that a spoofed ability is
-overridden by the authoritative numeric ID.
+`hnsLiveBattleState` and `curHP` and rebinds from runtime observations; a loop over all ten persistent
+bits proves a crafted neutral window cannot clear an observed-active bit, the inverse craft cannot
+refuse a neutral window, and a spoofed ability is overridden by the authoritative numeric ID.
 
 ### Mutation control
 
-Two meaningful mutations were applied, the targeted suites run, and both reverted. Exact results
-(correction pass, after the new field-status / primal-weather / Charge / Tar Shot tests were added):
+The same two meaningful mutations from the previous correction pass were re-run at the round-4 head,
+plus one new persistent-gate mutation. Each was applied, the targeted suites run, and reverted; the
+exact results:
 
 | Mutation | Change | Before | Mutated | After revert |
 |---|---|---|---|---|
-| M1 — new live-state authority | `dynamicMoveTypeObserved = false` in `CalcRequestBoundary.bindHnsLiveBattleState` (suppresses the field-status + electrified authority) | boundary `CalcHnsC4eProductionBoundaryTest`: 40 passed, 0 failed; full Kotlin 684 passed, 0 failed | boundary 31 passed, 9 failed; full Kotlin 684 tests, 9 failed (`exact trusted ... Ready`, `observed Rain`, `observed defender Reflect`, `observed defender Light Screen`, `pinch ... inactive`, `caller-crafted HP`, `caller-supplied weather and screens`, `active Charge with an irrelevant move type`, `active Tar Shot with an irrelevant move type`) | boundary 40 passed, 0 failed; full Kotlin 684 passed, 0 failed |
+| M1 — new live-state authority | `dynamicMoveTypeObserved = false` in `CalcRequestBoundary.bindHnsLiveBattleState` (suppresses the field-status + electrified authority) | boundary `CalcHnsC4eProductionBoundaryTest`: 53 passed, 0 failed; full Kotlin 702 passed, 0 failed | boundary 43 passed, 10 failed; full Kotlin 692 passed, 10 failed (`exact trusted ... Ready`, `observed Rain`, `observed defender Reflect`, `observed defender Light Screen`, `pinch ... inactive`, `caller-crafted HP`, `caller-supplied weather and screens`, `anti-spoof crafted active persistent bit`, `active Charge with an irrelevant move type`, `active Tar Shot with an irrelevant move type`) | boundary 53 passed, 0 failed; full Kotlin 702 passed, 0 failed |
 | M2 — conditional ability | `calculateHnsDamage`: `pinchHp <= floor(maxHP/3)` → `pinchHp < floor(maxHP/3)` (threshold) | QuickJS suite `2012 passed, 0 failed` | `2011 passed, 1 failed` (`gap_c4e_overgrow_active_at_threshold`) | `2012 passed, 0 failed` |
+| M3 — persistent-volatile gate (new) | `gastroAcid` precise-limitation branch removed in `CalcCapabilityPolicy.collectHnsLiveOperandLimitations` (`if (false)`) | boundary 53 passed, 0 failed; full Kotlin 702 passed, 0 failed | boundary 51 passed, 2 failed; full Kotlin 700 passed, 2 failed (`gastro acid suppression on the attacker refuses`, `anti-spoof - a crafted neutral persistent window cannot clear any observed active bit`) | boundary 53 passed, 0 failed; full Kotlin 702 passed, 0 failed |
 
-Both mutations were confirmed reverted (`git diff` clean of the mutation markers) before the final
-runs.
+All mutations were confirmed reverted (`git diff` clean of the mutation markers; the bundle restored to
+its original SHA-256 `500af74a…db036`) before the final `./ci.sh all` run.
 
 ### Trust / hash decision
 
@@ -3255,12 +3275,168 @@ H&S request remains refused. Doubles remains BLOCKED (AMBIGUOUS per-side observa
 arithmetic remains host-verified only (Golden D not validated), and no positive volatile/gimmick
 runtime transition is claimed.
 
-### CI status (C4e)
+### CI status (C4e, round-4 head)
 
-- Native reader suite: `89 passed, 0 failed` (unchanged count; the existing C4e test now also asserts
-  the width-2 `chargeTimer`, `tarShot` and the 38-byte volatile window).
+- Native reader suite: `89 passed, 0 failed` (the existing C4e reader test now also asserts all ten
+  review-round-4 persistent bits, the 41-byte volatile window, and teardown clearing).
 - Pure tracker selftests: `75 passed, 0 failed`.
 - QuickJS calculator suite: `2012 passed, 0 failed`.
-- Kotlin unit tests: `684 passed, 0 failed` (670 before the correction pass; 14 new
-  boundary/decoder tests).
+- Kotlin unit tests: `702 passed, 0 failed` (684 before the round-4 correction; 18 new
+  boundary/decoder tests: boundary 53, decoder 30).
 - `./ci.sh all` and `git diff --check` pass; exact-head GitHub Actions green (see the PR).
+
+---
+
+## Source dependency ledger — Gap C4e review round 4
+
+This is the exhaustive source dependency audit required by the round-4 review. It walks the complete
+pinned ordinary-damage path and records, for every mutable state read, whether it can change an
+ordinary `EFFECT_HIT` result, whether an existing DualDex gate/reader already covers it, which live
+reader owns it, and the production disposition. Its purpose is to show that no reachable
+"unknown → silently neutral" state family remains for the authorized subset.
+
+**Pinned source:** `PokemonHnS-Development/pokehns-expansion` commit
+`1f42b74dff0e9fe942419845d040663dd829a973` (tag `Release-v2.0.5`), `src/battle_util.c` and
+`src/battle_script_commands.c`. **Path entry:** `Cmd_damagecalc` builds `struct BattleContext` from the
+live globals and `CalculateMoveDamage` (`src/battle_util.c:8227`) runs
+`CalcAttackStat` → `CalcDefenseStat` → `CalcMoveBasePower*` → `GetTargetDamageModifier` /
+`GetWeatherDamageModifier` / `GetCriticalModifier` / `GetGlaiveRushModifier` / `GetOtherModifiers` →
+`ApplyModifiersAfterDmgRoll` → `GetAdjustedDamage`.
+
+Disposition vocabulary: **OK-neutral** (observed, neutral required), **refuse-active** (observed and a
+positive value refuses), **refuse-unread** (must be observed; unread refuses), **constant-equal**
+(config constant / battle-type invariant), **unreachable-for-subset** (only a move effect or format the
+allow-list/format gate excludes), **excluded by ability/item gate** (the triggering ability/item is
+unsupported and already refuses).
+
+### 1. `CalcAttackStat` (`src/battle_util.c:6912`) and `CalcDefenseStat` (`:7211`)
+
+| Source read | State owner | Affects ordinary hit? | Covered by | Live reader | Disposition |
+|---|---|---|---|---|---|
+| `gBattleMons[atk].attack` / `.spAttack` + `statStages` (`:6960`, `:6965`) | gBattleMons | yes (base offensive stat) | raw stat words + stat stages reader | stats | OK-neutral |
+| `gBattleMons[def].defense` / `.spDefense` + `statStages` (`:7221`, `:7222`, `:7236`, `:7250`) | gBattleMons | yes (base defensive stat) | raw stat words + stat stages reader | stats | OK-neutral |
+| Foul Play / Body Press alternate stat sources (`:6930`, `:6943`) | gBattleMons | only those effects | move allow-list | stats | unreachable-for-subset |
+| `ctx->fieldStatuses & WONDER_ROOM` (`:6945`, `:7226`, `:7240`) | gFieldStatuses | yes (stat swap) | field-status mask | field | refuse-active |
+| `ctx->isCrit` (`:6971`, `:7258`) | crit roll | yes (stage ignore + x1.5/x2) | `move.isCrit` request input | none | constant-equal for a fixed crit state; crit probability is not modelled |
+| `ctx->abilityAtk` / `abilityDef` switch (Huge/Pure Power, Slow Start, Solar Power, Defeatist, Flash Fire, pinch abilities, Guts, Marvel Scale, Fur Coat, Grass Pelt, Flower Gift, Protosynthesis, Quark Drive, …) | abilities | yes | ability registry gate | ability | excluded by ability gate; pinch = OK-neutral on effective ability |
+| `gBattleMons[atk].volatiles.slowStartTimer` / `flashFireBoosted` / `transformed` / `boosterEnergyActivated` / `paradoxBoostedStat` (`:6995`, `:7007`, `:7084`, `:7087`) | volatiles | yes (ability payloads) | ability gate (Slow Start / Flash Fire / Protosynthesis / Quark Drive unsupported) | ability | excluded by ability gate |
+| `gBattleMons[atk].hp` / `.maxHP` threshold (`:7003`, `:7011`-`:7023`) | gBattleMons | yes (Defeatist / pinch) | HP reader | stats | OK-neutral |
+| `gBattleMons[atk].status1` (`:7057`) | gBattleMons | yes (Guts) | status reader | status1 | OK-neutral (Guts is ability-gated) |
+| `gBattleMons[def].status1` (`:7280`) | gBattleMons | yes (Marvel Scale) | defender status is not read | none | excluded by ability gate (Marvel Scale unsupported) |
+| `gFieldStatuses & ELECTRIC/GRASSY_TERRAIN` (`:7098`, `:7296`, `:7319`) | gFieldStatuses | yes (terrain abilities) | field-status mask | field | refuse-active |
+| `gBattleWeather` / `IsBattlerWeatherAffected` (`:6999`, `:7304`, `:7386`) | gBattleWeather | yes (Solar Power / Flower Gift / sand-snow) | weather reader (Rain/Sun only) | weather | OK-neutral for Rain/Sun; other bits refuse-active |
+| Ruin volatiles (`vesselOfRuin` `:7156`, `tabletsOfRuin` `:7159`, `swordOfRuin` `:7344`, `beadsOfRuin` `:7347`) | volatiles | yes (x0.75) | ability gate (Ruin abilities unsupported) | none | excluded by ability gate |
+| item hold effects (Thick Club, Deep-Sea Tooth, Light Ball, Choice, Eviolite, Assault Vest, Soul Dew …) and `transformedMonSpecies` (`:7165`, `:7353`, `:7364`) | item / volatiles | yes | item registry gate | item | excluded by item gate |
+| badge boosts (`:6894`, `:6903`) | SaveBlock1 | yes | badge reader | none | OK-neutral |
+| `ctx->isSelfInflicted` (`:6983`, `:7273`) | ctx | no for a normal move | — | none | unreachable-for-subset |
+
+### 2. Base power, target count, weather, crit, screens, post-roll
+
+| Function / source read | State owner | Affects? | Covered by | Live reader | Disposition |
+|---|---|---|---|---|---|
+| `CalcMoveBasePower*` move data / effect / strike count / classifiers (`:6321`, `:6573`) | move data | yes | move allow-list | none | constant-equal |
+| `volatiles.chargeTimer` base-power payload (`:6635`) | volatiles | yes (Electric x2) | chargeTimer observed | volatiles | OK-neutral |
+| `IsFieldMudSportAffected` / `IsFieldWaterSportAffected` (`:6281`, `:6301`) | `gFieldStatuses`; the volatile loop is behind `B_SPORT_TURNS < GEN_6` | no: `B_SPORT_TURNS == GEN_9` | field-status mask refuses the Sport bits | field | constant-equal (volatile route compiled out) |
+| `gProtectStructs[atk].helpingHand` (`:6630`) | gProtectStructs | yes (x1.5/stack) | Doubles-only; Doubles format gate | none | unreachable-for-subset (Singles only) |
+| `gBattleStruct->battlerState[].ateBoost`, `gSpecialStatuses[].gemBoost` (`:6633`, `:6715`) | gBattleStruct / gSpecialStatuses | yes (-ate / Gem) | ability/item gates | none | excluded by ability/item gate |
+| `GetTargetDamageModifier` / `GetMoveTargetCount` (`:7403`, `:6122`) | `gBattleTypeFlags`, `gAbsentBattlerFlags`, `gBattleMons.hp`, `gBattlersCount` | yes (spread reduction) | target-count reader + Doubles gate | none | OK-neutral / Doubles refuse |
+| `GetWeatherDamageModifier` (`:7434`) | gBattleWeather + Utility Umbrella item | yes (x0.5/x1.5) | weather reader; item gate | weather | OK-neutral Rain/Sun; other bits refuse-active |
+| `GetBurnOrFrostBiteModifier` (`:7458`) | `gBattleMons[atk].status1` | yes (burn x0.5) | status reader + Guts ability gate | status1 | OK-neutral |
+| `GetCriticalModifier` (`:7474`) | `ctx->isCrit` + `B_CRIT_MULTIPLIER` | yes | request `isCrit`; config | none | constant-equal |
+| `GetGlaiveRushModifier` (`:7481`) | `volatiles.glaiveRush` | yes (x2) | glaiveRush observed | volatiles | OK-neutral |
+| `GetMinimize` / underground / dive / airborne (`:7499`-`:7525`) | `volatiles.minimize`, `semiInvulnerable` | yes (x2) | recorded; move-flag allow-list excludes | volatiles | unreachable-for-subset |
+| `GetScreensModifier` (`:7527`) | `gSideStatuses` | yes (x0.5/0.667) | Reflect/Light Screen modelled; others refused | side | OK-neutral / refuse-active (Aurora Veil) |
+| `GetParentalBondModifier` (`:7415`) | `gSpecialStatuses[].parentalBondState` | yes | ability gate (Parental Bond) | none | excluded by ability gate |
+| `GetAttacker/DefenderAbilitiesModifier` (Neuroforce, Sniper, Tinted Lens, Filter, Multiscale, Fluffy, Friend Guard …) | abilities | yes | ability registry gate | ability | excluded by ability gate |
+| `GetAttacker/DefenderItemsModifier` (`:7656`, `:7682`) | items; `volatiles.metronomeItemCounter` (`:7664`) | yes | item registry gate | item | excluded by item gate |
+| `GetOtherModifiers` speed ordering (`:7714`) | `gBattleMons.speed` | yes (chain order) | raw stat words reader | stats | OK-neutral |
+| `ApplyModifiersAfterDmgRoll` / `GetTeraMultiplier` (`:7794`, `battle_terastal.c`) | gimmick / Tera type / `stellarBoostFlags` | yes | gimmick reader | gimmick | OK-neutral; Stellar flag unreachable (Tera gated) |
+
+### 3. Type effectiveness (`CalcTypeEffectivenessMultiplierInternal` `:8354`, `MulByTypeEffectiveness` `:8253`, `GetBattlerTypes` `:9787`)
+
+| Source read | State owner | Affects? | Covered by | Live reader | Disposition |
+|---|---|---|---|---|---|
+| `GetBattlerTypes(def)` = raw `types[0..2]` then `roostActive` removes Flying (`:9801`-`:9814`) | `gBattleMons.types` + `volatiles.roostActive` | **yes** (defensive types) | types reader + roostActive observed; static-set comparison | types/volatiles | OK-neutral; **roostActive positive refuses** |
+| `GetTypeModifier` static chart + `B_FLAG_INVERSE_BATTLE` (`:8255`) | static chart / SaveBlock1 flag 0 | yes | type-system reader | none | constant-equal |
+| `holdEffectDef == RING_TARGET` (`:8257`, `:8382`) | item | yes (immunity bypass) | item registry gate | item | excluded by item gate |
+| `volatiles.foresight` (Normal/Fighting vs Ghost) (`:8263`) | volatiles | **yes** | foresight observed | volatiles | OK-neutral; positive refuses |
+| `abilityAtk == SCRAPPY / MINDS_EYE` (`:8268`) | ability | yes | ability gate | ability | excluded by ability gate |
+| `volatiles.miracleEye` (Psychic vs Dark) (`:8276`) | volatiles | **yes** | miracleEye observed | volatiles | OK-neutral; positive refuses |
+| Ground/Flying `IsBattlerGrounded(def, abilityDef, holdEffectDef)` (`:8280`, `:8379`-`:8416`) | `gFieldStatuses`, `volatiles.root/smackDown/telekinesis/magnetRise`, Levitate, Air Balloon/Iron Ball/Ring Target | **yes** (0 damage or immunity bypass) | field mask; volatile observation; ability/item gates | field/volatiles/ability/item | OK-neutral; positive grounding volatile refuses |
+| `volatiles.tarShot` (Fire x2) (`:8365`) | volatiles | yes | tarShot observed | volatiles | OK-neutral |
+| `gSpecialStatuses[def].distortedTypeMatchups` / Tera Shell (`:8292`) | gSpecialStatuses / ability | yes (x0.5) | ability gate (Tera Shell) | none | excluded by ability gate |
+| `GetIllusionMonSpecies` (`:8368`) | gBattleStruct illusion | no (flag-only) | — | none | refuse-unread (no damage-number effect) |
+| `gBattleStruct->presentBasePower`, `categoryOverride`, `optionStyle` (`:8371`) | gBattleStruct / SaveBlock3 | no for a damaging move | move allow-list | none | unreachable-for-subset |
+| 2-typed move branch (Flying Press) (`:8448`) | move data | only that move | move allow-list | none | unreachable-for-subset |
+
+### 4. `GetAdjustedDamage` (`:8163`)
+
+| Source read | State owner | Affects? | Covered by | Live reader | Disposition |
+|---|---|---|---|---|---|
+| `DoesSubstituteBlockMove` → `volatiles.substitute` (`:8165`; `battle_script_commands.c:10404`) | volatiles | **yes** (damage redirected) | substitute observed | volatiles | OK-neutral; positive refuses |
+| `DoesDisguiseBlockMove` / `DoesIceFaceBlockMove` → `transformed`, Disguise/Ice Face | volatiles / abilities | yes | ability gate (Disguise / Ice Face) | ability | excluded by ability gate |
+| `volatiles.endured` (`:8177`) | volatiles | **yes** (caps at HP-1) | endured observed | volatiles | OK-neutral; positive refuses |
+| `GetBattlerAffectionHearts` (`:8175`) | party / `B_AFFECTION_MECHANICS` | yes | `B_AFFECTION_MECHANICS == FALSE` | none | constant-equal (disabled) |
+| `B_STURDY` + `tx_Mode_Sturdy` + `abilityDef == STURDY` (`:8186`) | SaveBlock3 / ability / hp | yes (endure at full HP) | ability gate (Sturdy unsupported); mode observed | ability | excluded by ability gate |
+| Focus Band / Focus Sash (`:8193`, `:8200`) | item | yes | item registry gate | item | excluded by item gate |
+| `gBattleMons[def].hp` (`:8170`, `:8220`) | gBattleMons | yes (overkill cap) | HP reader | stats | OK-neutral |
+
+### 5. Complete volatile census on the ordinary path
+
+| Volatile | Read at | Covered? | Disposition |
+|---|---|---|---|
+| `electrified` | dynamic type | yes | OK-neutral |
+| `glaiveRush` | `:7483` | yes | OK-neutral |
+| `minimize` / `semiInvulnerable` | `:7501`-`:7522` | recorded | unreachable-for-subset |
+| `chargeTimer` | `:6635` | yes | OK-neutral |
+| `tarShot` | `:8365` | yes | OK-neutral |
+| `foresight` | `:8263` | yes (round 4) | OK-neutral |
+| `miracleEye` | `:8276` | yes (round 4) | OK-neutral |
+| `root` / `smackDown` / `telekinesis` / `magnetRise` | `:6006`-`:6038` | yes (round 4) | OK-neutral |
+| `gastroAcid` | `:5015` | yes (round 4) | OK-neutral |
+| `roostActive` | `:9806` | yes (round 4) | OK-neutral |
+| `substitute` | `:8165` | yes (round 4) | OK-neutral |
+| `endured` | `:8177` | yes (round 4) | OK-neutral |
+| `slowStartTimer`, `flashFireBoosted`, `boosterEnergyActivated`, `paradoxBoostedStat`, Ruin volatiles, `neutralizingGas`, `embargo`, `metronomeItemCounter`, `transformed`, `transformedMonSpecies` | ability/item payloads | ability/item gates refuse the triggering ability/item | excluded by ability/item gate |
+| `mudSport` / `waterSport` | `:6647`-`:6650` | volatile loop compiled out (`B_SPORT_TURNS == GEN_9 >= GEN_6`); field bits refused | constant-equal / refuse-active |
+| `focusEnergy` / `laserFocus` / `dragonCheer` / `bonusCritStages` | crit-chance stage only (`IsCriticalHit`, `:8044`-`:8096`) | not read by the calculator; `move.isCrit` is a request input | constant-equal for a fixed crit state |
+| `stockpileCounter` | Spit Up base power | move allow-list | unreachable-for-subset |
+| `substitute`/`endured` listed above; `unburdenActive`, `unnerveActivated`, etc. | no damage read on the ordinary path | — | no-effect |
+
+### 6. Coverage conclusion
+
+Every mutable read on the pinned ordinary-damage path is either (a) observed and required neutral /
+refused when active, (b) refused when unread, (c) a compile-time config or battle-type invariant, (d)
+unreachable for the authorized Singles ordinary-move subset, or (e) excluded because its triggering
+ability/item is unsupported and already refuses. The round-4 persistent volatiles (Foresight, Miracle
+Eye, Ingrain/Smack Down/Telekinesis/Magnet Rise, Roost, Gastro Acid, Substitute, Endure) were the
+remaining reachable volatile families and are now observed and refused when active. Crit-source
+volatiles affect crit probability only; the calculator consumes an explicit `isCrit` flag, so they do
+not change the computed damage for a fixed crit state. `B_AFFECTION_MECHANICS == FALSE` and
+`B_SPORT_TURNS >= GEN_6` remove the affection and Sport-volatile reads entirely. No reachable
+unknown → neutral family remains for the authorized subset.
+
+### 7. Round-4 implementation and evidence
+
+- The generated volatile ABI adds `foresight`, `miracleEye`, `root`, `smackDown`, `telekinesis`,
+  `magnetRise`, `gastroAcid`, `roostActive`, `substitute` and `endured` (bits 45, 84, 75, 82, 83, 85,
+  80, 318, 39, 322; read window 41 bytes), regenerated with `--verify` coverage.
+- The native reader decodes all ten bits into `BattlerRuntimeState`; the JNI tuple grew to 72 ints; the
+  Kotlin decoder gates the new slots behind `persistentVolatilesObserved` (requires both the shared
+  volatile-window read and the 72-int tuple).
+- `CalcRequestBoundary` binds both battlers' persistent windows from the exact-trusted observation and
+  publishes the engine's **effective** ability (`ABILITY_NONE` under `gastroAcid`) so the pinch logic
+  is keyed on the engine identity, not the raw `gBattleMons[].ability`.
+- `CalcCapabilityPolicy` refuses each observed-active class with its own precise limitation and refuses
+  an unread window with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`; the all-neutral Golden-A path stays
+  `Ready`.
+- Tests: native reader positive/negative/teardown coverage for all ten bits; Kotlin decoder coverage for
+  the 72-int full tuple, observed-false + garbage payload, 62-int and 70-int legacy tuples, and the
+  `gastroAcid` effective-ability derivation; real-boundary negatives for each state and an anti-spoof
+  loop over every new bit.
+
+### Mutation control (round 4)
+
+The rerun of M1/M2 and the new M3 persistent-gate mutation are recorded in the *Mutation control*
+table in the C4e section above (bounds: boundary 53 / full Kotlin 702 / QuickJS 2012 before and after;
+M1 mutates 10 Kotlin tests, M2 mutates 1 QuickJS test, M3 mutates 2 boundary tests).

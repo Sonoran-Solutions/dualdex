@@ -238,6 +238,118 @@ class HnsBattlerRuntimeStateTest {
         assertFalse(st.volatileTarShot)
     }
 
+    /**
+     * The review-round-4 72-int tuple: the 62-int correction-pass layout extended with the
+     * persistent volatile operands [62..71] (type-immunity bypass, grounding, ability suppression,
+     * Roost, and the GetAdjustedDamage substitute/endured states).
+     */
+    private fun c4ePersistentTuple(
+        volatilesObserved: Int = 1,
+        foresight: Int = 0,
+        miracleEye: Int = 0,
+        root: Int = 0,
+        smackDown: Int = 0,
+        telekinesis: Int = 0,
+        magnetRise: Int = 0,
+        gastroAcid: Int = 0,
+        roostActive: Int = 0,
+        substitute: Int = 0,
+        endured: Int = 0
+    ): IntArray = c4eTransientTuple(volatilesObserved = volatilesObserved) +
+        intArrayOf(
+            foresight, miracleEye, root, smackDown, telekinesis,
+            magnetRise, gastroAcid, roostActive, substitute, endured
+        )
+
+    @Test
+    fun `72-element tuple decodes every persistent volatile`() {
+        val st = HnsBattlerRuntimeState.fromNativeArray(
+            c4ePersistentTuple(
+                foresight = 1, miracleEye = 1, root = 1, smackDown = 1, telekinesis = 1,
+                magnetRise = 1, gastroAcid = 1, roostActive = 1, substitute = 1, endured = 1
+            )
+        )
+        assertEquals(HnsBattlerRuntimeStatus.OBSERVED, st.status)
+        assertTrue(st.persistentVolatilesObserved)
+        assertTrue(st.volatileForesight)
+        assertTrue(st.volatileMiracleEye)
+        assertTrue(st.volatileRoot)
+        assertTrue(st.volatileSmackDown)
+        assertTrue(st.volatileTelekinesis)
+        assertTrue(st.volatileMagnetRise)
+        assertTrue(st.volatileGastroAcid)
+        assertTrue(st.volatileRoostActive)
+        assertTrue(st.volatileSubstitute)
+        assertTrue(st.volatileEndured)
+    }
+
+    @Test
+    fun `observed-false volatile window keeps every persistent bit non-authoritative`() {
+        // The window was not read, but every persistent payload slot holds a tempting 1: no bit
+        // may be promoted to an observation.
+        val st = HnsBattlerRuntimeState.fromNativeArray(
+            c4ePersistentTuple(
+                volatilesObserved = 0,
+                foresight = 1, miracleEye = 1, root = 1, smackDown = 1, telekinesis = 1,
+                magnetRise = 1, gastroAcid = 1, roostActive = 1, substitute = 1, endured = 1
+            )
+        )
+        assertEquals(HnsBattlerRuntimeStatus.OBSERVED, st.status)
+        assertFalse(st.volatilesObserved)
+        assertFalse(st.persistentVolatilesObserved)
+        assertFalse(st.volatileForesight)
+        assertFalse(st.volatileMiracleEye)
+        assertFalse(st.volatileRoot)
+        assertFalse(st.volatileSmackDown)
+        assertFalse(st.volatileTelekinesis)
+        assertFalse(st.volatileMagnetRise)
+        assertFalse(st.volatileGastroAcid)
+        assertFalse(st.volatileRoostActive)
+        assertFalse(st.volatileSubstitute)
+        assertFalse(st.volatileEndured)
+    }
+
+    @Test
+    fun `legacy 62-element tuple leaves every persistent volatile unobserved`() {
+        // The accepted transient tuple still decodes; the review-round-4 operands are absent
+        // rather than defaulted to a neutral-looking observation.
+        val st = HnsBattlerRuntimeState.fromNativeArray(c4eTransientTuple(chargeTimer = 2, tarShot = 1))
+        assertTrue(st.transientVolatilesObserved)
+        assertFalse(st.persistentVolatilesObserved)
+        assertFalse(st.volatileForesight)
+        assertFalse(st.volatileMiracleEye)
+        assertFalse(st.volatileRoot)
+        assertFalse(st.volatileSmackDown)
+        assertFalse(st.volatileTelekinesis)
+        assertFalse(st.volatileMagnetRise)
+        assertFalse(st.volatileGastroAcid)
+        assertFalse(st.volatileRoostActive)
+        assertFalse(st.volatileSubstitute)
+        assertFalse(st.volatileEndured)
+        // A 70-int tuple (the previous correction length) also stops short of the new slots.
+        val preRound4 = c4ePersistentTuple(foresight = 1, endured = 1).copyOfRange(0, 70)
+        val st2 = HnsBattlerRuntimeState.fromNativeArray(preRound4)
+        assertFalse(st2.persistentVolatilesObserved)
+        assertFalse(st2.volatileForesight)
+        assertFalse(st2.volatileEndured)
+    }
+
+    @Test
+    fun `gastroAcid observed suppresses the effective ability while the raw id is preserved`() {
+        val st = HnsBattlerRuntimeState.fromNativeArray(c4ePersistentTuple(gastroAcid = 1))
+        assertEquals(66, st.abilityId)
+        assertTrue(st.persistentVolatilesObserved)
+        assertEquals(0, st.effectiveAbilityId)
+    }
+
+    @Test
+    fun `unobserved persistent window leaves the effective ability at the raw id`() {
+        val st = HnsBattlerRuntimeState.fromNativeArray(c4eTransientTuple())
+        assertFalse(st.persistentVolatilesObserved)
+        assertEquals(66, st.abilityId)
+        assertEquals(66, st.effectiveAbilityId)
+    }
+
     @Test
     fun `full observed tuple decodes every C4e live operand`() {
         val st = HnsBattlerRuntimeState.fromNativeArray(

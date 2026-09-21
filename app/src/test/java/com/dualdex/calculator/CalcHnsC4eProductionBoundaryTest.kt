@@ -97,6 +97,17 @@ class CalcHnsC4eProductionBoundaryTest {
         glaiveRush: Boolean = false,
         chargeTimer: Int = 0,
         tarShot: Boolean = false,
+        persistentVolatilesObserved: Boolean = volatilesObserved,
+        foresight: Boolean = false,
+        miracleEye: Boolean = false,
+        root: Boolean = false,
+        smackDown: Boolean = false,
+        telekinesis: Boolean = false,
+        magnetRise: Boolean = false,
+        gastroAcid: Boolean = false,
+        roostActive: Boolean = false,
+        substitute: Boolean = false,
+        endured: Boolean = false,
         gimmickObserved: Boolean = true,
         gimmick: Int = 0,
         fieldStatusesReadable: Boolean = true,
@@ -148,6 +159,17 @@ class CalcHnsC4eProductionBoundaryTest {
             transientVolatilesObserved = transientVolatilesObserved,
             volatileChargeTimer = chargeTimer,
             volatileTarShot = tarShot,
+            persistentVolatilesObserved = persistentVolatilesObserved,
+            volatileForesight = foresight,
+            volatileMiracleEye = miracleEye,
+            volatileRoot = root,
+            volatileSmackDown = smackDown,
+            volatileTelekinesis = telekinesis,
+            volatileMagnetRise = magnetRise,
+            volatileGastroAcid = gastroAcid,
+            volatileRoostActive = roostActive,
+            volatileSubstitute = substitute,
+            volatileEndured = endured,
             gimmickObserved = gimmickObserved,
             activeGimmick = gimmick,
             fieldStatusesReadable = fieldStatusesReadable,
@@ -169,6 +191,17 @@ class CalcHnsC4eProductionBoundaryTest {
         transientVolatilesObserved: Boolean = volatilesObserved,
         glaiveRush: Boolean = false,
         tarShot: Boolean = false,
+        persistentVolatilesObserved: Boolean = volatilesObserved,
+        foresight: Boolean = false,
+        miracleEye: Boolean = false,
+        root: Boolean = false,
+        smackDown: Boolean = false,
+        telekinesis: Boolean = false,
+        magnetRise: Boolean = false,
+        gastroAcid: Boolean = false,
+        roostActive: Boolean = false,
+        substitute: Boolean = false,
+        endured: Boolean = false,
         gimmickObserved: Boolean = true,
         gimmick: Int = 0,
         fieldStatusesReadable: Boolean = true,
@@ -215,6 +248,17 @@ class CalcHnsC4eProductionBoundaryTest {
             transientVolatilesObserved = transientVolatilesObserved,
             volatileChargeTimer = 0,
             volatileTarShot = tarShot,
+            persistentVolatilesObserved = persistentVolatilesObserved,
+            volatileForesight = foresight,
+            volatileMiracleEye = miracleEye,
+            volatileRoot = root,
+            volatileSmackDown = smackDown,
+            volatileTelekinesis = telekinesis,
+            volatileMagnetRise = magnetRise,
+            volatileGastroAcid = gastroAcid,
+            volatileRoostActive = roostActive,
+            volatileSubstitute = substitute,
+            volatileEndured = endured,
             gimmickObserved = gimmickObserved,
             activeGimmick = gimmick,
             fieldStatusesReadable = fieldStatusesReadable,
@@ -247,6 +291,18 @@ class CalcHnsC4eProductionBoundaryTest {
         typeSystem = "hns_2_0_5",
         attacker = liveInput("Chikorita", 5, 65, "Overgrow"),
         defender = liveInput("Pidgey", 3, 77, "Tangled Feet"),
+        move = CalcMoveInput(name = move)
+    )
+
+    /**
+     * The Golden-A attacker with a chosen defender species and move, for the round-4 type-immunity
+     * matchups (the observed types still have to match the pinned static record).
+     */
+    private fun matchupRequest(move: String, defenderSpecies: String) = DamageCalculationRequest(
+        gen = 3,
+        typeSystem = "hns_2_0_5",
+        attacker = liveInput("Chikorita", 5, 65, "Overgrow"),
+        defender = liveInput(defenderSpecies, 3, 77, "Tangled Feet"),
         move = CalcMoveInput(name = move)
     )
 
@@ -295,6 +351,11 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals(false, live.defenderGlaiveRush)
         assertEquals(0, live.attackerGimmick)
         assertEquals(0, live.defenderGimmick)
+        // The persistent volatile window is observed and neutral on both battlers (review round 4).
+        assertEquals(true, live.attackerPersistentVolatiles?.observed)
+        assertEquals(true, live.defenderPersistentVolatiles?.observed)
+        assertEquals(false, live.attackerPersistentVolatiles?.anyActive)
+        assertEquals(false, live.defenderPersistentVolatiles?.anyActive)
         // The live field conditions are observed neutral and the request's field carries exactly
         // that observed neutral state (not a caller default that merely looks neutral).
         assertTrue(live.weatherObserved)
@@ -653,6 +714,203 @@ class CalcHnsC4eProductionBoundaryTest {
             expected = CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED,
             enemy = enemyObservation(glaiveRush = true)
         )
+    }
+
+    // ---------------------------------------- persistent volatile state (review round 4)
+
+    /**
+     * Review round 4: the pinned ordinary-damage path reads persistent volatiles on ordinary
+     * EFFECT_HIT moves. The first production subset does not model their positive behavior, so an
+     * observed-active bit on either battler refuses with the precise limitation, while the
+     * all-neutral Golden-A-equivalent path stays Ready (the positive control above).
+     */
+    @Test
+    fun `foresight active on the defender refuses`() {
+        // Real wrong-Ready: a Normal move vs a Ghost defender is static 0, but the pinned
+        // MulByTypeEffectiveness returns 1.0 under volatiles.foresight.
+        refusedWith(
+            expected = CalcLimitation.HNS_FORESIGHT_ACTIVE_NOT_MODELLED,
+            request = matchupRequest("Tackle", "Misdreavus"),
+            enemy = enemyObservation(types = listOf(8), foresight = true)
+        )
+    }
+
+    @Test
+    fun `miracle eye active on the defender refuses`() {
+        // Real wrong-Ready: a Psychic move vs a Dark defender is static 0, but the pinned
+        // MulByTypeEffectiveness returns 1.0 under volatiles.miracleEye.
+        refusedWith(
+            expected = CalcLimitation.HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED,
+            request = matchupRequest("Confusion", "Poochyena"),
+            enemy = enemyObservation(types = listOf(18), miracleEye = true)
+        )
+    }
+
+    @Test
+    fun `smack down active on the defender refuses`() {
+        // Real wrong-Ready: a Ground move vs a Flying defender is static 0, but IsBattlerGrounded
+        // returns true under volatiles.smackDown.
+        refusedWith(
+            expected = CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED,
+            request = matchupRequest("Earth Power", "Pidgey"),
+            enemy = enemyObservation(smackDown = true)
+        )
+    }
+
+    @Test
+    fun `ingrain root active on the defender refuses`() {
+        // Real wrong-Ready: Ingrain grounds the Flying defender, so a Ground move hits.
+        refusedWith(
+            expected = CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED,
+            request = matchupRequest("Mud Shot", "Pidgey"),
+            enemy = enemyObservation(root = true)
+        )
+    }
+
+    @Test
+    fun `telekinesis active on the defender refuses`() {
+        // volatiles.telekinesis ungrounds the defender, changing Ground immunity.
+        refusedWith(
+            expected = CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED,
+            request = matchupRequest("Earth Power", "Pidgey"),
+            enemy = enemyObservation(telekinesis = true)
+        )
+    }
+
+    @Test
+    fun `magnet rise active on the defender refuses`() {
+        // volatiles.magnetRise ungrounds the defender, changing Ground immunity.
+        refusedWith(
+            expected = CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED,
+            request = matchupRequest("Earth Power", "Pidgey"),
+            enemy = enemyObservation(magnetRise = true)
+        )
+    }
+
+    @Test
+    fun `roost active on the defender refuses`() {
+        refusedWith(
+            expected = CalcLimitation.HNS_ROOST_ACTIVE_NOT_MODELLED,
+            enemy = enemyObservation(roostActive = true)
+        )
+    }
+
+    @Test
+    fun `gastro acid suppression on the attacker refuses`() {
+        // Chikorita raw ability=Overgrow, Gastro Acid active, HP <= 1/3, Razor Leaf. The engine's
+        // effective ability is ABILITY_NONE, so the x1.5 pinch boost must not apply; the request
+        // fails closed precisely rather than computing the boost.
+        val request = DamageCalculationRequest(
+            gen = 3,
+            typeSystem = "hns_2_0_5",
+            attacker = liveInput("Chikorita", 6, 65, "Overgrow"),
+            defender = liveInput("Pidgey", 3, 77, "Tangled Feet"),
+            move = CalcMoveInput(name = "Razor Leaf")
+        )
+        refusedWith(
+            expected = CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED,
+            request = request,
+            player = playerObservation(hp = 5, maxHp = 20, gastroAcid = true)
+        )
+    }
+
+    @Test
+    fun `substitute on the defender refuses`() {
+        refusedWith(
+            expected = CalcLimitation.HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED,
+            enemy = enemyObservation(substitute = true)
+        )
+    }
+
+    @Test
+    fun `endure active on the defender refuses`() {
+        refusedWith(
+            expected = CalcLimitation.HNS_ENDURED_ACTIVE_NOT_MODELLED,
+            enemy = enemyObservation(endured = true)
+        )
+    }
+
+    @Test
+    fun `unread persistent volatile window is refused`() {
+        // The volatile window was read but the tuple cannot carry the review-round-4 operands, so
+        // the completeness claim cannot be made and the request fails closed.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
+            player = playerObservation(persistentVolatilesObserved = false),
+            enemy = enemyObservation(persistentVolatilesObserved = false)
+        )
+    }
+
+    @Test
+    fun `anti-spoof - a crafted neutral persistent window cannot clear any observed active bit`() {
+        // The caller crafts a live state asserting every persistent volatile observed neutral. The
+        // boundary strips it and rebinds from the runtime observations, each of which carries one
+        // active bit, so every craft is refused with the bit's precise limitation.
+        data class BitCase(
+            val name: String,
+            val player: BattlerRuntimeObservation,
+            val enemy: BattlerRuntimeObservation,
+            val expected: CalcLimitation
+        )
+        val cases = listOf(
+            BitCase("foresight", playerObservation(), enemyObservation(foresight = true),
+                CalcLimitation.HNS_FORESIGHT_ACTIVE_NOT_MODELLED),
+            BitCase("miracleEye", playerObservation(), enemyObservation(miracleEye = true),
+                CalcLimitation.HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED),
+            BitCase("root", playerObservation(), enemyObservation(root = true),
+                CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED),
+            BitCase("smackDown", playerObservation(), enemyObservation(smackDown = true),
+                CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED),
+            BitCase("telekinesis", playerObservation(), enemyObservation(telekinesis = true),
+                CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED),
+            BitCase("magnetRise", playerObservation(), enemyObservation(magnetRise = true),
+                CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED),
+            BitCase("roostActive", playerObservation(), enemyObservation(roostActive = true),
+                CalcLimitation.HNS_ROOST_ACTIVE_NOT_MODELLED),
+            BitCase("gastroAcid", playerObservation(gastroAcid = true), enemyObservation(),
+                CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED),
+            BitCase("substitute", playerObservation(), enemyObservation(substitute = true),
+                CalcLimitation.HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED),
+            BitCase("endured", playerObservation(), enemyObservation(endured = true),
+                CalcLimitation.HNS_ENDURED_ACTIVE_NOT_MODELLED)
+        )
+        val crafted = goldenARequest().copy(
+            hnsLiveBattleState = CalcHnsLiveBattleState(
+                attackerPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true),
+                defenderPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true)
+            )
+        )
+        for (case in cases) {
+            refusedWith(
+                expected = case.expected,
+                request = crafted,
+                player = case.player,
+                enemy = case.enemy
+            )
+        }
+    }
+
+    @Test
+    fun `anti-spoof - a crafted active persistent bit cannot refuse when the runtime window is neutral`() {
+        // The inverse craft: the caller asserts an active bit to force a refusal, but the runtime
+        // observations are all neutral, so the request must stay Ready.
+        val crafted = goldenARequest().copy(
+            hnsLiveBattleState = CalcHnsLiveBattleState(
+                attackerPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true, endured = true),
+                defenderPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true, substitute = true)
+            )
+        )
+        val outcome = build(
+            trust = trustFor(exactSha),
+            request = crafted,
+            player = playerObservation(),
+            enemy = enemyObservation()
+        )
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("a crafted active persistent bit must be stripped, got $outcome")
+        assertEquals(CalcSupport.ESTIMATED, ready.verdict.support)
+        assertEquals(false, ready.request.hnsLiveBattleState?.attackerPersistentVolatiles?.endured)
+        assertEquals(false, ready.request.hnsLiveBattleState?.defenderPersistentVolatiles?.substitute)
     }
 
     @Test

@@ -307,6 +307,60 @@ enum class CalcLimitation(val blocks: Boolean) {
     HNS_TAR_SHOT_ACTIVE_NOT_MODELLED(true),
 
     /**
+     * The persistent `volatiles.foresight` was authoritatively observed true on a participant. The
+     * pinned `MulByTypeEffectiveness` bypasses a Ghost immunity for Normal/Fighting moves while it
+     * is set, which the static type chart cannot express, so the request fails closed rather than
+     * compute the static immunity (review round 4).
+     */
+    HNS_FORESIGHT_ACTIVE_NOT_MODELLED(true),
+
+    /**
+     * The persistent `volatiles.miracleEye` was authoritatively observed true on a participant. The
+     * pinned `MulByTypeEffectiveness` bypasses a Dark immunity for Psychic moves while it is set,
+     * which the static type chart cannot express, so the request fails closed (review round 4).
+     */
+    HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED(true),
+
+    /**
+     * One of the persistent grounding volatiles (`root` / `smackDown` ground the holder;
+     * `telekinesis` / `magnetRise` unground it) was authoritatively observed true on a participant.
+     * The pinned `IsBattlerGrounded` reads them, so a Ground-type immunity can depend on live
+     * volatile state the static chart does not carry; the request fails closed (review round 4).
+     */
+    HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED(true),
+
+    /**
+     * The persistent `volatiles.roostActive` was authoritatively observed true on a participant.
+     * The pinned `GetBattlerTypes` removes that battler's Flying type for the turn, so the raw
+     * `gBattleMons[].types` bytes are no longer the engine's effective types and the static-type
+     * comparison cannot prove the request neutral. The request fails closed (review round 4).
+     */
+    HNS_ROOST_ACTIVE_NOT_MODELLED(true),
+
+    /**
+     * The persistent `volatiles.gastroAcid` was authoritatively observed true, so the pinned
+     * `GetBattlerAbility()` returns `ABILITY_NONE` and the engine's effective ability is not the
+     * raw `gBattleMons[].ability` identity (for example a suppressed Overgrow pinch boost). The
+     * request fails closed rather than classify the suppressed identity (review round 4).
+     */
+    HNS_ABILITY_SUPPRESSED_NOT_MODELLED(true),
+
+    /**
+     * The persistent `volatiles.substitute` was authoritatively observed true on a participant.
+     * The pinned `GetAdjustedDamage` redirects the computed damage away from the battler, an
+     * outcome this ordinary-damage calculation does not model, so the request fails closed
+     * (review round 4).
+     */
+    HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED(true),
+
+    /**
+     * The persistent `volatiles.endured` was authoritatively observed true on a participant. The
+     * pinned `GetAdjustedDamage` caps incoming damage at HP-1, an outcome this ordinary-damage
+     * calculation does not model, so the request fails closed (review round 4).
+     */
+    HNS_ENDURED_ACTIVE_NOT_MODELLED(true),
+
+    /**
      * An active H&S battle's gimmick state (`gBattleStruct->gimmick.activeGimmick`) could not be
      * read, so Tera/Dynamax/Z/Mega could be silently active and change STAB, stats or type
      * semantics. Unreadable fails closed (issue #9, Gap C4e).
@@ -602,6 +656,20 @@ data class CalcCapabilityVerdict(
                 "the attacker is charging, which doubles its Electric moves and is not modelled by this calculation"
             CalcLimitation.HNS_TAR_SHOT_ACTIVE_NOT_MODELLED ->
                 "the defender is tar-shotted, which doubles incoming Fire damage and is not modelled by this calculation"
+            CalcLimitation.HNS_FORESIGHT_ACTIVE_NOT_MODELLED ->
+                "a participant has the Foresight volatile, which bypasses Ghost immunity and is not modelled by this calculation"
+            CalcLimitation.HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED ->
+                "a participant has the Miracle Eye volatile, which bypasses Dark immunity and is not modelled by this calculation"
+            CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED ->
+                "a participant's grounding volatile (Ingrain, Smack Down, Telekinesis or Magnet Rise) changes Ground immunity and is not modelled by this calculation"
+            CalcLimitation.HNS_ROOST_ACTIVE_NOT_MODELLED ->
+                "a participant has the Roost volatile, so the engine's effective types differ from the raw types and are not modelled by this calculation"
+            CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED ->
+                "a participant's ability is suppressed by Gastro Acid, so the engine's effective ability is not the raw ability identity"
+            CalcLimitation.HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED ->
+                "a participant has a substitute, which redirects the computed damage and is not modelled by this calculation"
+            CalcLimitation.HNS_ENDURED_ACTIVE_NOT_MODELLED ->
+                "a participant has the Endure volatile, which caps incoming damage at 1 HP and is not modelled by this calculation"
             CalcLimitation.HNS_GIMMICK_STATE_UNREADABLE ->
                 "the battle's gimmick state (Tera/Dynamax/Z) could not be read"
             CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED ->
@@ -1297,6 +1365,16 @@ object CalcCapabilityPolicy {
         // 4. Other transient damage state reachable by the supported ordinary subset. C4b.
         if (!live.transientStateObserved) return true
 
+        // 5. Persistent volatile state the pinned ordinary-damage path reads (Foresight / Miracle
+        //    Eye immunity bypass, Ingrain / Smack Down / Telekinesis / Magnet Rise grounding,
+        //    Gastro Acid ability suppression, Roost effective-type change, and the
+        //    GetAdjustedDamage substitute / endured states). An unread window cannot be assumed
+        //    neutral, so it blocks here (review round 4).
+        val attackerPersistent = live.attackerPersistentVolatiles
+        val defenderPersistent = live.defenderPersistentVolatiles
+        if (attackerPersistent == null || !attackerPersistent.observed) return true
+        if (defenderPersistent == null || !defenderPersistent.observed) return true
+
         return false
     }
 
@@ -1605,6 +1683,40 @@ object CalcCapabilityPolicy {
             com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.SIDE_STATUS_MODELLED.inv() != 0
         ) {
             limitations.add(CalcLimitation.HNS_LIVE_SIDE_STATUS_NOT_MODELLED)
+        }
+        // Persistent volatile state (review round 4). The first production subset does not model
+        // any positive behavior of these states, so each observed-active class refuses with its own
+        // precise limitation. Both battlers are checked: Foresight / Miracle Eye / grounding are
+        // read on the defender, Gastro Acid suppresses either battler's effective ability, and
+        // Roost changes either battler's effective types.
+        val attackerPersistent = live.attackerPersistentVolatiles
+        val defenderPersistent = live.defenderPersistentVolatiles
+        if (attackerPersistent != null && defenderPersistent != null) {
+            if (attackerPersistent.foresight || defenderPersistent.foresight) {
+                limitations.add(CalcLimitation.HNS_FORESIGHT_ACTIVE_NOT_MODELLED)
+            }
+            if (attackerPersistent.miracleEye || defenderPersistent.miracleEye) {
+                limitations.add(CalcLimitation.HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED)
+            }
+            if (attackerPersistent.root || defenderPersistent.root ||
+                attackerPersistent.smackDown || defenderPersistent.smackDown ||
+                attackerPersistent.telekinesis || defenderPersistent.telekinesis ||
+                attackerPersistent.magnetRise || defenderPersistent.magnetRise
+            ) {
+                limitations.add(CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED)
+            }
+            if (attackerPersistent.roostActive || defenderPersistent.roostActive) {
+                limitations.add(CalcLimitation.HNS_ROOST_ACTIVE_NOT_MODELLED)
+            }
+            if (attackerPersistent.gastroAcid || defenderPersistent.gastroAcid) {
+                limitations.add(CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED)
+            }
+            if (attackerPersistent.substitute || defenderPersistent.substitute) {
+                limitations.add(CalcLimitation.HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED)
+            }
+            if (attackerPersistent.endured || defenderPersistent.endured) {
+                limitations.add(CalcLimitation.HNS_ENDURED_ACTIVE_NOT_MODELLED)
+            }
         }
     }
 

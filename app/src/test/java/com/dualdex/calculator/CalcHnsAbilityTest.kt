@@ -16,7 +16,6 @@ import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -408,7 +407,7 @@ class CalcHnsAbilityTest {
     // ---------------------------------------------------------------------
 
     @Test
-    fun `supported abilities clear ability blockers and leave the next mechanics blocker`() {
+    fun `supported abilities clear ability blockers and leave the badge gate closed`() {
         val trust = exactTrust(heartAndSoul)
         val snapshot = hnsSettingsSnapshot()
 
@@ -426,20 +425,23 @@ class CalcHnsAbilityTest {
             request = keenEyeReq,
             challengeSettings = snapshot
         )
-        val refused = outcome as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("H&S must remain refused via the next mechanics blocker")
+        val verdict = when (outcome) {
+            is CalcRequestOutcome.Ready -> outcome.verdict
+            is CalcRequestOutcome.Refused -> outcome.verdict
+        }
 
-        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
-        assertNull(refused.verdict.request)
         // No ability blockers present
-        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
-        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
         // Gap C3: no held item supplied here, so no item-specific blocker is present ...
-        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
-        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
-        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
-        // ... and the next production mechanics blocker keeps H&S refused.
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
+        // Modifier order is modelled ...
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+        // ... but a manual request has no authoritative badge applicability, so the badge gate is
+        // independently closed (Gap C4b R7): missing badge state is not "badges off".
+        assertTrue(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
     }
 
     @Test

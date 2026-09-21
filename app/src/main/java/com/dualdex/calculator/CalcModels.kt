@@ -175,14 +175,47 @@ data class CalcHnsRuntimeRules(
  *    observed. No runtime reader produces this yet (Gap C4b).
  *  - [transientStateObserved]: true only when other transient damage state reachable by the
  *    supported ordinary subset was authoritatively observed. No runtime reader produces this yet.
+ *  - [moveTargetCount]: the authoritative number of currently present targets
+ *    (`GetMoveTargetCount(ctx)`), or null when unobserved. H&S halves a spread move only when this
+ *    is exactly 2, so a Doubles spread move without an observed count fails closed rather than
+ *    guessing from `field.gameType`. No runtime reader produces this yet (Gap C4b).
  */
+data class CalcRawStats(
+    val attack: Int,
+    val defense: Int,
+    val speed: Int,
+    val spAttack: Int,
+    val spDefense: Int
+)
+
+data class CalcBadgeBoosts(
+    val atk: Boolean = false,
+    val def: Boolean = false,
+    val spe: Boolean = false,
+    val spa: Boolean = false,
+    val spd: Boolean = false
+)
+
 data class CalcHnsLiveBattleState(
     val attackerTypes: List<String>? = null,
     val defenderTypes: List<String>? = null,
     val attackerBattleStatWordsObserved: Boolean = false,
     val defenderBattleStatWordsObserved: Boolean = false,
     val dynamicMoveTypeObserved: Boolean = false,
-    val transientStateObserved: Boolean = false
+    val transientStateObserved: Boolean = false,
+    val attackerRawStats: CalcRawStats? = null,
+    val defenderRawStats: CalcRawStats? = null,
+    val attackerStatStages: List<Int>? = null,
+    val defenderStatStages: List<Int>? = null,
+    val attackerBadgeBoosts: CalcBadgeBoosts? = null,
+    val defenderBadgeBoosts: CalcBadgeBoosts? = null,
+    /**
+     * The authoritative number of currently present targets for the selected move
+     * (`GetMoveTargetCount(ctx)`), or null when unobserved. Only H&S Doubles spread moves read
+     * this: the Gen-III reduction applies when the count is exactly 2. No runtime reader supplies
+     * it yet, so the production boundary always leaves it null and the policy fails closed.
+     */
+    val moveTargetCount: Int? = null
 )
 
 data class DamageCalculationRequest(

@@ -159,6 +159,27 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     })
                 })
             }
+            request.hnsLiveBattleState?.attackerRawStats?.let { raw ->
+                put("rawStats", JSONObject().apply {
+                    put("attack", raw.attack)
+                    put("defense", raw.defense)
+                    put("speed", raw.speed)
+                    put("spAttack", raw.spAttack)
+                    put("spDefense", raw.spDefense)
+                })
+            }
+            request.hnsLiveBattleState?.attackerStatStages?.let { stages ->
+                put("statStages", JSONArray(stages))
+            }
+            request.hnsLiveBattleState?.attackerBadgeBoosts?.let { b ->
+                put("badgeBoosts", JSONObject().apply {
+                    put("atk", b.atk)
+                    put("def", b.def)
+                    put("spe", b.spe)
+                    put("spa", b.spa)
+                    put("spd", b.spd)
+                })
+            }
         }
         put("attacker", atkObj)
 
@@ -213,6 +234,27 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     })
                 })
             }
+            request.hnsLiveBattleState?.defenderRawStats?.let { raw ->
+                put("rawStats", JSONObject().apply {
+                    put("attack", raw.attack)
+                    put("defense", raw.defense)
+                    put("speed", raw.speed)
+                    put("spAttack", raw.spAttack)
+                    put("spDefense", raw.spDefense)
+                })
+            }
+            request.hnsLiveBattleState?.defenderStatStages?.let { stages ->
+                put("statStages", JSONArray(stages))
+            }
+            request.hnsLiveBattleState?.defenderBadgeBoosts?.let { b ->
+                put("badgeBoosts", JSONObject().apply {
+                    put("atk", b.atk)
+                    put("def", b.def)
+                    put("spe", b.spe)
+                    put("spa", b.spa)
+                    put("spd", b.spd)
+                })
+            }
         }
         put("defender", defObj)
 
@@ -235,6 +277,9 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             put("gameType", request.field.gameType)
             request.field.weather?.let { put("weather", it) }
             request.field.terrain?.let { put("terrain", it) }
+            // Boundary-owned live target count (GetMoveTargetCount). Absent today because no reader
+            // supplies it; when absent the H&S engine fails closed for Doubles spread moves.
+            request.hnsLiveBattleState?.moveTargetCount?.let { put("targetCount", it) }
             request.field.defenderSide?.let { side ->
                 put("defenderSide", JSONObject().apply {
                     if (side.isReflect) put("isReflect", true)

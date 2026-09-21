@@ -1584,7 +1584,7 @@ static void check_gap_c1_type_system(void) {
      * Attacker: Gengar (level 50, SpA 150), Move: Shadow Ball (overrides: category: Special).
      * Defender: Registeel (level 50, SpD 170).
      * Vanilla ADV: 20..24 dmg (eff 0.5).
-     * H&S 2.0.5:  41..49 dmg (eff 1.0).
+     * H&S 2.0.5:  42..49 dmg (eff 1.0, exact UQ4.12 roll-first pipeline).
      */
     g_fixture = "gap_c1_ghost_steel_matchup";
     {
@@ -1616,7 +1616,7 @@ static void check_gap_c1_type_system(void) {
                 check_number("ADV maxDamage is 24", 24, jl_get(doc_adv, "maxDamage"));
 
                 check_double("H&S effectiveness is 1.0", 1.0, jl_get(doc_hns, "effectiveness"));
-                check_number("H&S minDamage is 41", 41, jl_get(doc_hns, "minDamage"));
+                check_number("H&S minDamage is 42", 42, jl_get(doc_hns, "minDamage"));
                 check_number("H&S maxDamage is 49", 49, jl_get(doc_hns, "maxDamage"));
             }
             jl_free(doc_adv);
@@ -1633,7 +1633,7 @@ static void check_gap_c1_type_system(void) {
      * Attacker: Houndoom (level 50, SpA 130), Move: Crunch (80 BP, Special in Gen 3).
      * Defender: Registeel (level 50, SpD 170).
      * Vanilla ADV: 17..21 dmg (eff 0.5).
-     * H&S 2.0.5:  35..42 dmg (eff 1.0).
+     * H&S 2.0.5:  34..42 dmg (eff 1.0, exact UQ4.12 roll-first pipeline).
      */
     g_fixture = "gap_c1_dark_steel_matchup";
     {
@@ -1665,7 +1665,7 @@ static void check_gap_c1_type_system(void) {
                 check_number("ADV maxDamage is 21", 21, jl_get(doc_adv, "maxDamage"));
 
                 check_double("H&S effectiveness is 1.0", 1.0, jl_get(doc_hns, "effectiveness"));
-                check_number("H&S minDamage is 35", 35, jl_get(doc_hns, "minDamage"));
+                check_number("H&S minDamage is 34", 34, jl_get(doc_hns, "minDamage"));
                 check_number("H&S maxDamage is 42", 42, jl_get(doc_hns, "maxDamage"));
             }
             jl_free(doc_adv);
@@ -1681,7 +1681,7 @@ static void check_gap_c1_type_system(void) {
      * Defender: Dragonite (level 50, Dragon/Flying, Def 115, SpD 120).
      * Move: Moonblast (overrides: type: "Fairy", basePower: 95; category omitted).
      * In H&S, Moonblast is Fairy (Special). Fairy vs Dragon/Flying is 2.0x (2.0 x 1.0).
-     * Expected: minDamage 107, maxDamage 126, eff 2.0, category "Special".
+     * Expected: minDamage 104, maxDamage 126, eff 2.0, category "Special".
      */
     g_fixture = "gap_c1_fairy_offensive_matchup";
     {
@@ -1699,7 +1699,7 @@ static void check_gap_c1_type_system(void) {
             if (doc) {
                 check_str("category defaulted to Special", "Special", jl_str(jl_get(doc, "moveCategory")));
                 check_double("effectiveness is 2.0", 2.0, jl_get(doc, "effectiveness"));
-                check_number("minDamage is 107", 107, jl_get(doc, "minDamage"));
+                check_number("minDamage is 104", 104, jl_get(doc, "minDamage"));
                 check_number("maxDamage is 126", 126, jl_get(doc, "maxDamage"));
             }
             jl_free(doc);
@@ -1778,7 +1778,7 @@ static void check_gap_c1_type_system(void) {
                 check_number("split maxDamage is 57", 57, jl_get(doc_split, "maxDamage"));
 
                 check_str("type-based category is Physical", "Physical", jl_str(jl_get(doc_tb, "moveCategory")));
-                check_number("type-based minDamage is 38", 38, jl_get(doc_tb, "minDamage"));
+                check_number("type-based minDamage is 37", 37, jl_get(doc_tb, "minDamage"));
                 check_number("type-based maxDamage is 45", 45, jl_get(doc_tb, "maxDamage"));
             }
             jl_free(doc_split);
@@ -1824,9 +1824,9 @@ static void check_gap_c1_type_system(void) {
             jl_value* d4 = jl_parse(out4);
 
             if (d1 && d2 && d3 && d4) {
-                check_number("run 1 H&S minDamage", 41, jl_get(d1, "minDamage"));
+                check_number("run 1 H&S minDamage", 42, jl_get(d1, "minDamage"));
                 check_number("run 2 ADV minDamage", 20, jl_get(d2, "minDamage"));
-                check_number("run 3 H&S minDamage", 41, jl_get(d3, "minDamage"));
+                check_number("run 3 H&S minDamage", 42, jl_get(d3, "minDamage"));
                 check_number("run 4 ADV minDamage", 20, jl_get(d4, "minDamage"));
             }
             jl_free(d1);
@@ -1984,7 +1984,7 @@ static void check_gap_c2_abilities(void) {
             jl_value* d1 = jl_parse(out1);
             jl_value* d2 = jl_parse(out2);
             if (d1 && d2) {
-                check_number("Swellow unboosted minDamage", 34, jl_get(d1, "minDamage"));
+                check_number("Swellow unboosted minDamage", 33, jl_get(d1, "minDamage"));
                 check_number("Swellow unboosted maxDamage", 40, jl_get(d1, "maxDamage"));
 
                 check_number("Swellow Guts+brn minDamage", 49, jl_get(d2, "minDamage"));
@@ -2002,7 +2002,7 @@ static void check_gap_c2_abilities(void) {
      * Machamp's 0th ability in Gen 3 is Guts.
      * When Machamp has status "brn" and NO ability is specified (or ability is "None"):
      * Under H&S 2.0.5: ability defaults to '(other)', so Guts is NOT substituted.
-     * Burn halves physical attack -> Cross Chop deals 40-48 damage.
+     * Burn halves physical attack -> Cross Chop deals 39-46 damage in H&S UQ4.12.
      * Under Vanilla Gen 3 control: @smogon/calc substitutes Guts -> Cross Chop deals 117-138 damage.
      */
     g_fixture = "gap_c2_default_ability_substitution_prevention";
@@ -2038,11 +2038,11 @@ static void check_gap_c2_abilities(void) {
             jl_value* d2 = jl_parse(out2);
             jl_value* d3 = jl_parse(out3);
             if (d1 && d2 && d3) {
-                check_number("Machamp H&S omitted minDamage is halved by burn", 40, jl_get(d1, "minDamage"));
-                check_number("Machamp H&S omitted maxDamage is halved by burn", 48, jl_get(d1, "maxDamage"));
+                check_number("Machamp H&S omitted minDamage is halved by burn", 39, jl_get(d1, "minDamage"));
+                check_number("Machamp H&S omitted maxDamage is halved by burn", 46, jl_get(d1, "maxDamage"));
 
-                check_number("Machamp H&S None minDamage matches omitted", 40, jl_get(d2, "minDamage"));
-                check_number("Machamp H&S None maxDamage matches omitted", 48, jl_get(d2, "maxDamage"));
+                check_number("Machamp H&S None minDamage matches omitted", 39, jl_get(d2, "minDamage"));
+                check_number("Machamp H&S None maxDamage matches omitted", 46, jl_get(d2, "maxDamage"));
 
                 check_number("Machamp Vanilla omitted minDamage gets Guts boost", 117, jl_get(d3, "minDamage"));
                 check_number("Machamp Vanilla omitted maxDamage gets Guts boost", 138, jl_get(d3, "maxDamage"));
@@ -2060,11 +2060,11 @@ static void check_gap_c2_abilities(void) {
      * Test C: Thick Fat halves incoming Fire and Ice moves; unaffected for other types.
      * Attacker: Charizard L50 Hardy. Defender: Snorlax L50 Hardy.
      * Move 1: Flamethrower (Fire, Special, 95 BP).
-     * Thick Fat Snorlax: damage 28-33 (50% reduction).
+     * Thick Fat Snorlax: damage 27-33 (50% reduction in H&S UQ4.12).
      * Immunity Snorlax: damage 54-64.
      * Move 2: Wing Attack (Flying, Physical, 60 BP).
-     * Thick Fat Snorlax: damage 43-51.
-     * Immunity Snorlax: damage 43-51 (identical, control).
+     * Thick Fat Snorlax: damage 42-51.
+     * Immunity Snorlax: damage 42-51 (identical, control).
      */
     g_fixture = "gap_c2_thick_fat_fire_ice";
     {
@@ -2108,16 +2108,16 @@ static void check_gap_c2_abilities(void) {
             jl_value* d3 = jl_parse(out3);
             jl_value* d4 = jl_parse(out4);
             if (d1 && d2 && d3 && d4) {
-                check_number("Thick Fat Fire minDamage", 28, jl_get(d1, "minDamage"));
+                check_number("Thick Fat Fire minDamage", 27, jl_get(d1, "minDamage"));
                 check_number("Thick Fat Fire maxDamage", 33, jl_get(d1, "maxDamage"));
 
                 check_number("Immunity Fire minDamage", 54, jl_get(d2, "minDamage"));
                 check_number("Immunity Fire maxDamage", 64, jl_get(d2, "maxDamage"));
 
-                check_number("Thick Fat Flying minDamage", 43, jl_get(d3, "minDamage"));
+                check_number("Thick Fat Flying minDamage", 42, jl_get(d3, "minDamage"));
                 check_number("Thick Fat Flying maxDamage", 51, jl_get(d3, "maxDamage"));
 
-                check_number("Immunity Flying minDamage", 43, jl_get(d4, "minDamage"));
+                check_number("Immunity Flying minDamage", 42, jl_get(d4, "minDamage"));
                 check_number("Immunity Flying maxDamage", 51, jl_get(d4, "maxDamage"));
             }
             jl_free(d1);
@@ -2302,19 +2302,28 @@ static long hns_base_damage(int level, int bp, int atk, int def) {
     return (long)bp * atk * ((2 * level) / 5 + 2) / def / 50 + 2;
 }
 
-static void hns_ordinary_rolls(int level, int bp, int atk, int def,
-                               int stab, double type_eff, int crit, int burn,
-                               long out[ROLL_COUNT]) {
+static void hns_calc_rolls(int level, int bp, int atk, int def,
+                           int stab, double type_eff, int crit, int burn,
+                           long weather_mod, long screen_mod,
+                           long out[ROLL_COUNT]) {
     long dmg = hns_base_damage(level, bp, atk, def);
+    if (weather_mod != 0) dmg = hns_int_half_down(weather_mod, dmg);
     if (crit) dmg = hns_int_half_down(hns_uq12(2.0), dmg);
     for (int i = 0; i < ROLL_COUNT; i++) {
         long x = (dmg * (85 + i)) / 100;
         if (stab) x = hns_int_half_down(hns_uq12(1.5), x);
         if (type_eff != 1.0) x = hns_int_half_down(hns_uq12(type_eff), x);
         if (burn) x = hns_int_half_down(hns_uq12(0.5), x);
-        if (x == 0) x = 1;
+        if (screen_mod != 0) x = hns_int_half_down(screen_mod, x);
+        if (x == 0 && type_eff > 0.0) x = 1;
         out[i] = x;
     }
+}
+
+static void hns_ordinary_rolls(int level, int bp, int atk, int def,
+                               int stab, double type_eff, int crit, int burn,
+                               long out[ROLL_COUNT]) {
+    hns_calc_rolls(level, bp, atk, def, stab, type_eff, crit, burn, 0, 0, out);
 }
 
 static int rolls_equal(const double* engine, const long* oracle) {
@@ -2326,7 +2335,7 @@ static int rolls_equal(const double* engine, const long* oracle) {
 
 /* Machamp (Atk 150) vs Snorlax (Def 85), Hardy L50 31 IV / 0 EV, ability ignored. */
 #define C4A_MACHAMP_SNORLAX_HEAD \
-    "\"gen\":3," \
+    "\"gen\":3,\"typeSystem\":\"hns_2_0_5\"," \
     "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "}," \
     "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
 
@@ -2362,8 +2371,7 @@ static void check_gap_c4a_arithmetic_parity(void) {
      *   SpA = floor((2*135 + 31 + 0)*50/100) + 5 = 155
      *   SpD = floor((2*110 + 31 + 0)*50/100) + 5 = 130
      *   base = floor(95*155*22/130/50) + 2 = 51
-     * This broadens the positive parity proof beyond the physical case; non-neutral stat stages
-     * are instead blocked by the policy until C4b proves the staged-stat rounding. */
+     * This broadens the positive parity proof beyond the physical case. */
     g_fixture = "gap_c4a_parity_neutral_special_matches";
     {
         const char* req =
@@ -2390,8 +2398,8 @@ static void check_gap_c4a_arithmetic_parity(void) {
         }
     }
 
-    /* STAB + 2x: H&S and ADV apply the roll and the multipliers in a different order. */
-    g_fixture = "gap_c4a_divergence_stab_detected";
+    /* STAB + 2x: In H&S 2.0.5, STAB and type effectiveness are applied after the roll in UQ4.12. */
+    g_fixture = "gap_c4a_parity_stab_matches";
     {
         const char* req =
             "{" C4A_MACHAMP_SNORLAX_HEAD "\"move\":{\"name\":\"Karate Chop\"}}";
@@ -2402,13 +2410,10 @@ static void check_gap_c4a_arithmetic_parity(void) {
             if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
                 hns_ordinary_rolls(50, 50, 150, 85, 1, 2.0, 0, 0, oracle);
                 check_condition(
-                    "STAB/type divergence is detected (the gate is warranted)",
-                    !rolls_equal(engine, oracle));
-                /* The H&S oracle's minimum matches the real engine's minimum by
-                 * coincidence here, but the interiors differ. */
+                    "STAB/type damage matches the independent H&S oracle exactly",
+                    rolls_equal(engine, oracle));
                 check_int("STAB engine min", 102, (long)engine[0]);
                 check_int("STAB oracle min", 102, oracle[0]);
-                check_condition("STAB interiors differ", (long)engine[1] != oracle[1]);
             } else {
                 check_condition("STAB response carried 16 rolls", 0);
             }
@@ -2417,11 +2422,8 @@ static void check_gap_c4a_arithmetic_parity(void) {
         }
     }
 
-    /* Critical hit combined with STAB/type: H&S doubles before the roll and
-     * applies STAB/type after it, ADV applies both before its own roll, so the
-     * rounding points diverge. (A crit alone on a neutral integer base happens
-     * to agree; the divergence needs a non-identity multiplier alongside it.) */
-    g_fixture = "gap_c4a_divergence_crit_stab_detected";
+    /* Critical hit combined with STAB/type: H&S doubles before the roll and applies STAB/type after. */
+    g_fixture = "gap_c4a_parity_crit_stab_matches";
     {
         const char* req =
             "{" C4A_MACHAMP_SNORLAX_HEAD "\"move\":{\"name\":\"Karate Chop\",\"isCrit\":true}}";
@@ -2432,11 +2434,293 @@ static void check_gap_c4a_arithmetic_parity(void) {
             if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
                 hns_ordinary_rolls(50, 50, 150, 85, 1, 2.0, 1, 0, oracle);
                 check_condition(
-                    "critical-hit + STAB/type divergence is detected (the gate is warranted)",
-                    !rolls_equal(engine, oracle));
+                    "critical-hit + STAB/type damage matches the independent H&S oracle exactly",
+                    rolls_equal(engine, oracle));
             } else {
                 check_condition("crit response carried 16 rolls", 0);
             }
+            jl_free(doc);
+            free(out);
+        }
+    }
+}
+
+static void check_gap_c4b_arithmetic_coverage(void) {
+    double engine[ROLL_COUNT];
+    long oracle[ROLL_COUNT];
+
+    /* 1. Stat stages: +2 Atk on Machamp, -1 Def on Snorlax.
+     * Atk 150 * (20/10) = 300
+     * Def 85 * (10/15) = 56
+     * Rock Slide (75 BP, neutral). */
+    g_fixture = "gap_c4b_stat_stages_boosted";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO ",\"statStages\":[0,2,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO ",\"statStages\":[0,0,-1,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Rock Slide\"}}";
+        char* out = js_calc_calculate(req);
+        check_condition("boosted stages request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_ordinary_rolls(50, 75, 300, 56, 0, 1.0, 0, 0, oracle);
+                check_condition(
+                    "boosted stat stages (+2 Atk, -1 Def) match the H&S oracle exactly",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("boosted stages response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 2. Crit stage-drop ignore: Atk -2, Def +2 with isCrit: true.
+     * In H&S, a critical hit ignores attacker's negative stat stages and defender's positive stat stages.
+     * Effective Atk is 150, effective Def is 85. Crit doubles base damage before roll. */
+    g_fixture = "gap_c4b_crit_ignores_negative_stages";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO ",\"statStages\":[0,-2,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO ",\"statStages\":[0,0,2,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Rock Slide\",\"isCrit\":true}}";
+        char* out = js_calc_calculate(req);
+        check_condition("crit ignore stages request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_ordinary_rolls(50, 75, 150, 85, 0, 1.0, 1, 0, oracle);
+                check_condition(
+                    "crit correctly ignores attacker penalty and defender boost",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("crit ignore stages response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 3. Badge boosts: Atk badge boost on attacker, Def badge boost on defender.
+     * Atk: halfDown(4506, 150) = 165
+     * Def: halfDown(4506, 85) = 94
+     * Rock Slide (75 BP). */
+    g_fixture = "gap_c4b_badge_boosts";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO ",\"badgeBoosts\":{\"atk\":true}},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO ",\"badgeBoosts\":{\"def\":true}},"
+            "\"move\":{\"name\":\"Rock Slide\"}}";
+        char* out = js_calc_calculate(req);
+        check_condition("badge boosts request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_ordinary_rolls(50, 75, 165, 94, 0, 1.0, 0, 0, oracle);
+                check_condition(
+                    "badge boosts (Atk + Def) match the H&S oracle exactly",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("badge boosts response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 4. Weather: Sun boost (1.5x, 6144) on Fire move.
+     * Attacker: Charizard (SpA 129 L50 Hardy 31 IV / 0 EV).
+     * Defender: Snorlax (SpD 130 L50 Hardy 31 IV / 0 EV).
+     * Move: Flamethrower (95 BP, Fire, Special). */
+    g_fixture = "gap_c4b_weather_sun";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Charizard\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Flamethrower\",\"overrides\":{\"basePower\":95,\"type\":\"Fire\",\"category\":\"Special\"}},"
+            "\"field\":{\"weather\":\"Sun\"}}";
+        char* out = js_calc_calculate(req);
+        check_condition("weather request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_calc_rolls(50, 95, 129, 130, 1, 1.0, 0, 0, 6144, 0, oracle);
+                check_condition(
+                    "weather sun boost matches the H&S oracle exactly",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("weather response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 5. Screens: Reflect on defender (singles: 0.5x, 2048 after roll).
+     * Attacker: Machamp (Atk 150), Defender: Snorlax (Def 85).
+     * Move: Rock Slide (75 BP, neutral). */
+    g_fixture = "gap_c4b_screen_reflect";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Rock Slide\"},"
+            "\"field\":{\"defenderSide\":{\"isReflect\":true}}}";
+        char* out = js_calc_calculate(req);
+        check_condition("reflect screen request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_calc_rolls(50, 75, 150, 85, 0, 1.0, 0, 0, 0, 2048, oracle);
+                check_condition(
+                    "reflect screen reduction matches the H&S oracle exactly",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("reflect screen response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 6. Explicit rawStats: Overriding computed stats directly from memory words.
+     * Attacker Atk: 200, Defender Def: 100.
+     * Move: Rock Slide (75 BP, neutral). */
+    g_fixture = "gap_c4b_explicit_raw_stats";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO ",\"rawStats\":{\"attack\":200,\"defense\":100,\"speed\":100,\"spAttack\":100,\"spDefense\":100}},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO ",\"rawStats\":{\"attack\":100,\"defense\":100,\"speed\":100,\"spAttack\":100,\"spDefense\":100}},"
+            "\"move\":{\"name\":\"Rock Slide\"}}";
+        char* out = js_calc_calculate(req);
+        check_condition("rawStats request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_calc_rolls(50, 75, 200, 100, 0, 1.0, 0, 0, 0, 0, oracle);
+                check_condition(
+                    "explicit rawStats match the H&S oracle exactly",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("rawStats response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 7. Doubles single-target move: Strength (80 BP, single-target).
+     * Upstream H&S only halves damage when GetMoveTargetCount(ctx) == 2.
+     * A single-target move in Doubles must NOT be halved. */
+    g_fixture = "gap_c4b_doubles_single_target_not_halved";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Strength\"},"
+            "\"field\":{\"gameType\":\"Doubles\"}}";
+        char* out = js_calc_calculate(req);
+        check_condition("doubles single-target request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                /* Same damage as singles (not halved) */
+                hns_ordinary_rolls(50, 80, 150, 85, 0, 1.0, 0, 0, oracle);
+                check_condition(
+                    "single-target move in doubles is not halved",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("doubles single-target response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 8. Doubles spread move: Rock Slide (75 BP, multi-target allAdjacentFoes) with an explicit
+     * GetMoveTargetCount of 2. H&S halves the move via halfDown(2048, dmg) only for count 2. */
+    g_fixture = "gap_c4b_doubles_spread_two_targets_halved";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Rock Slide\"},"
+            "\"field\":{\"gameType\":\"Doubles\",\"targetCount\":2}}";
+        char* out = js_calc_calculate(req);
+        check_condition("doubles spread move request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                long base_dmg = hns_base_damage(50, 75, 150, 85);
+                long spread_dmg = hns_int_half_down(2048, base_dmg);
+                for (int i = 0; i < ROLL_COUNT; i++) {
+                    oracle[i] = (spread_dmg * (85 + i)) / 100;
+                }
+                check_condition(
+                    "spread move with two present targets is halved",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("doubles two-target response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 9. Doubles spread move against only ONE remaining foe. GetMoveTargetCount == 1, so H&S
+     * does NOT apply the x0.5 spread reduction; the damage must equal the singles value. */
+    g_fixture = "gap_c4b_doubles_spread_one_target_not_halved";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Rock Slide\"},"
+            "\"field\":{\"gameType\":\"Doubles\",\"targetCount\":1}}";
+        char* out = js_calc_calculate(req);
+        check_condition("doubles one-target request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_ordinary_rolls(50, 75, 150, 85, 0, 1.0, 0, 0, oracle);
+                check_condition(
+                    "spread move with one present target is NOT halved",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("doubles one-target response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 10. Doubles spread move with no target count at all must fail closed: the engine must not
+     * infer the spread modifier from gameType + move class. */
+    g_fixture = "gap_c4b_doubles_spread_missing_target_count_refused";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Rock Slide\"},"
+            "\"field\":{\"gameType\":\"Doubles\"}}";
+        char* out = js_calc_calculate(req);
+        check_condition("doubles spread move without target count produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            check_condition(
+                "missing target count must refuse rather than guess the spread modifier",
+                doc != NULL && jl_is_bool(jl_get(doc, "success")) &&
+                    !jl_bool(jl_get(doc, "success")) && jl_get(doc, "error") != NULL);
             jl_free(doc);
             free(out);
         }
@@ -2475,6 +2759,9 @@ int main(void) {
 
     printf("-- Gap C4a: ordinary-damage arithmetic parity vs an independent H&S oracle --\n");
     check_gap_c4a_arithmetic_parity();
+
+    printf("-- Gap C4b: arithmetic coverage (stat stages, crit ignores, badges, weather, screens, rawStats, target count) --\n");
+    check_gap_c4b_arithmetic_coverage();
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
     check_oracle_self_tests();

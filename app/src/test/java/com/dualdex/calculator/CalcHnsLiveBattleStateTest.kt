@@ -175,8 +175,8 @@ class CalcHnsLiveBattleStateTest {
             "a live type that differs from the static record must block: ${verdict.limitations}",
             verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
         )
-        assertTrue(
-            "the detector must use the live Water typing (2x), not the static Normal 1x: ${verdict.limitations}",
+        assertFalse(
+            "under C4b, 2x type effectiveness is modeled by calculateHnsDamage: ${verdict.limitations}",
             verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
         )
     }
@@ -225,10 +225,102 @@ class CalcHnsLiveBattleStateTest {
             challengeSettings = settings(),
             activeBattle = false
         )
-        val verdict = (outcome as CalcRequestOutcome.Refused).verdict
+        val verdict = when (outcome) {
+            is CalcRequestOutcome.Ready -> outcome.verdict
+            is CalcRequestOutcome.Refused -> outcome.verdict
+        }
         assertFalse(
             "a manual hypothetical is not an active battle: ${verdict.limitations}",
             verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
+        )
+    }
+
+    // ------------------------------------------------- authority anti-spoof gate
+
+    @Test
+    fun `caller-crafted live battle state is stripped and cannot clear the authority gates`() {
+        // A caller supplies a fully favourable, all-authority live battle state (types, raw stat
+        // words, dynamic move type, transient state, stat stages, badge boosts, target count)
+        // directly on the request. The boundary owns this field: it must ignore every crafted value
+        // and rebind the live state from actual runtime observations only, none of which observe the
+        // mutable classes today. If the crafted state survived it would clear both
+        // HNS_LIVE_BATTLE_STATE_NOT_MODELLED and BADGE_BOOST_NOT_MODELLED, so those gates must
+        // still be present in the refusal below.
+        val (profile, trust) = exactHns()
+        val craftedLive = CalcHnsLiveBattleState(
+            attackerTypes = listOf("Fighting"),
+            defenderTypes = listOf("Normal"),
+            attackerBattleStatWordsObserved = true,
+            defenderBattleStatWordsObserved = true,
+            dynamicMoveTypeObserved = true,
+            transientStateObserved = true,
+            attackerRawStats = CalcRawStats(999, 999, 999, 999, 999),
+            defenderRawStats = CalcRawStats(1, 1, 1, 1, 1),
+            attackerStatStages = listOf(0, 6, 0, 0, 0, 0, 0, 0),
+            defenderStatStages = listOf(0, 0, -6, 0, 0, 0, 0, 0),
+            attackerBadgeBoosts = CalcBadgeBoosts(atk = true, def = true, spe = true, spa = true, spd = true),
+            defenderBadgeBoosts = CalcBadgeBoosts(),
+            moveTargetCount = 2
+        )
+        val crafted = DamageCalculationRequest(
+            gen = 3,
+            typeSystem = "hns_2_0_5",
+            attacker = liveInput("Machamp", partySlot = 0),
+            defender = liveInput("Snorlax", partySlot = 0),
+            move = CalcMoveInput(name = "Tackle"),
+            hnsLiveBattleState = craftedLive
+        )
+
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = crafted,
+            challengeSettings = settings(),
+            activeBattle = true
+        )
+
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("a caller-crafted live state must not authorise a calculation, got $outcome")
+        assertNull("refused verdict must never expose an executable request", refused.verdict.request)
+        assertTrue(
+            "the crafted all-observed live state must be stripped and rebound to unobserved runtime state: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
+        )
+        assertTrue(
+            "the crafted badge boosts must not satisfy the badge-state gate: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED)
+        )
+    }
+
+    @Test
+    fun `caller-crafted live state cannot bypass the doubles target-count gate`() {
+        // Same anti-spoof boundary for the Doubles operand added by R2: a caller cannot assert a
+        // favourable GetMoveTargetCount through the request. The boundary rebinds the field to the
+        // unobserved runtime value, so a Doubles request fails closed even with a crafted count.
+        val (profile, trust) = exactHns()
+        val crafted = DamageCalculationRequest(
+            gen = 3,
+            typeSystem = "hns_2_0_5",
+            attacker = liveInput("Machamp", partySlot = 0),
+            defender = liveInput("Snorlax", partySlot = 0),
+            move = CalcMoveInput(name = "Rock Slide"),
+            field = CalcFieldInput(gameType = CalcGameTypes.DOUBLES),
+            hnsLiveBattleState = CalcHnsLiveBattleState(moveTargetCount = 2)
+        )
+
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = crafted,
+            challengeSettings = settings(),
+            activeBattle = true
+        )
+
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("a caller-crafted target count must not authorise a Doubles calculation, got $outcome")
+        assertTrue(
+            "the crafted target count must be stripped, leaving the Doubles gate closed: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED)
         )
     }
 

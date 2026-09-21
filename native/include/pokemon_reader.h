@@ -168,6 +168,18 @@ typedef struct {
     uint32_t battle_mons_type_width;         // compiled byte width of one `types` element
     uint32_t battle_mons_item_offset;        // offset of `item` within struct BattlePokemon
     uint32_t battle_mons_item_size;          // compiled byte width of `item`
+    uint32_t battle_mons_attack_offset;      // offset of attack within struct BattlePokemon
+    uint32_t battle_mons_attack_size;        // compiled byte width of attack
+    uint32_t battle_mons_defense_offset;     // offset of defense within struct BattlePokemon
+    uint32_t battle_mons_defense_size;       // compiled byte width of defense
+    uint32_t battle_mons_speed_offset;       // offset of speed within struct BattlePokemon
+    uint32_t battle_mons_speed_size;         // compiled byte width of speed
+    uint32_t battle_mons_spattack_offset;    // offset of spAttack within struct BattlePokemon
+    uint32_t battle_mons_spattack_size;      // compiled byte width of spAttack
+    uint32_t battle_mons_spdefense_offset;   // offset of spDefense within struct BattlePokemon
+    uint32_t battle_mons_spdefense_size;     // compiled byte width of spDefense
+    uint32_t save_block1_flags_offset;       // struct-relative offset of SaveBlock1.flags
+    uint32_t save_block1_badges_offset;      // struct-relative offset of SaveBlock1 badge byte (flags[272])
 
     uint32_t battler_party_indexes_offset;   // EWRAM-relative gBattlerPartyIndexes, 0 = unavailable
     uint32_t battlers_count_offset;          // EWRAM-relative gBattlersCount, 0 = unavailable
@@ -688,11 +700,52 @@ typedef struct {
     bool     item_observed;        // the item word was decoded from live memory
     bool     item_invalid;         // outside the pinned ITEMS_COUNT domain (still reported raw)
     uint16_t item_id;              // the engine's current held-item identity (ITEM_NONE = 0)
+    bool     stats_observed;       // the raw battle stat words were decoded from live memory
+    uint16_t raw_attack;           // engine's current attack word
+    uint16_t raw_defense;          // engine's current defense word
+    uint16_t raw_speed;            // engine's current speed word
+    uint16_t raw_sp_attack;        // engine's current spAttack word
+    uint16_t raw_sp_defense;       // engine's current spDefense word
+    bool     stages_observed;      // statStages was decoded from live memory
+    bool     stages_invalid;       // any stage byte was outside the valid 0..12 range (out-of-domain)
+    int8_t   stat_stages[8];       // stat stages decoded as offset from neutral (-6..+6): [0]=HP, [1]=Atk, [2]=Def, [3]=Spe, [4]=SpA, [5]=SpD, [6]=Acc, [7]=Eva
+    bool     badges_observed;      // SaveBlock1 badge byte was decoded
+    bool     badge_boost_atk;      // Badge 1 (Atk) active for this battler in this battle
+    bool     badge_boost_def;      // Badge 6 (Def) active for this battler in this battle
+    bool     badge_boost_spe;      // Badge 3 (Spe) active for this battler in this battle
+    bool     badge_boost_spa;      // Badge 7 (SpA) active for this battler in this battle
+    bool     badge_boost_spd;      // Badge 7 (SpD) active for this battler in this battle
+    uint8_t  raw_badges_byte;      // verbatim flags[0x10C] byte (SaveBlock1+0x1A98, Attack badge bit 7)
 } BattlerRuntimeState;
 
 /**
- * Read the effective ability, current types and current held item of the active battler for
- * @p role, straight from the running H&S 2.0.5 battle engine.
+ * Authoritative H&S badge possession state, read from SaveBlock1.flags[272].
+ */
+typedef struct {
+    bool    observed;
+    bool    badge_atk;      // Badge 1: Falkner / Zephyr -> Attack
+    bool    badge_spe;      // Badge 3: Whitney / Plain -> Speed
+    bool    badge_def;      // Badge 6: Jasmine / Mineral -> Defense
+    bool    badge_spa;      // Badge 7: Pryce / Glacier -> SpAtk
+    bool    badge_spd;      // Badge 7: Pryce / Glacier -> SpDef
+    uint8_t raw_badges_byte;// flags[272] verbatim
+} HnsBadgeState;
+
+/**
+ * Read the player's authoritative badge possession state from SaveBlock1.flags[272].
+ * Returns false when SaveBlock1 or the badge flags are unreadable or unverified.
+ */
+bool pokemon_read_hns_badge_state_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const GameMemoryConfig* config,
+    HnsBadgeState* out_badges
+);
+
+/**
+ * Read the effective ability, current types, current held item, raw battle stat words,
+ * stat stages, and badge boost eligibility of the active battler for @p role,
+ * straight from the running H&S 2.0.5 battle engine.
  *
  * Fail-closed contract. An OBSERVED/AMBIGUOUS verdict requires, in order:
  *   1. @p config declares the live BattlePokemon layout (only the exact H&S 2.0.5 layout does;
@@ -708,7 +761,7 @@ typedef struct {
  *      pokemon_resolve_active_enemy's battler, which is AMBIGUOUS in doubles, never "the first
  *      enemy", and rejected while at 0 HP);
  *   5. the battler index is inside the compiled battler count and the battler is not absent;
- *   6. the complete ability, types and item bytes are readable through the bounds-checked reader.
+ *   6. the complete ability, types, item, stat, and stage bytes are readable through the bounds-checked reader.
  *
  * Observed values outside the pinned enum domains (ability > HNS_BATTLE_POKEMON_ABILITY_ID_MAX,
  * a type byte > HNS_BATTLE_POKEMON_TYPE_ID_MAX, an item > HNS_BATTLE_POKEMON_ITEM_ID_MAX) are

@@ -116,6 +116,12 @@ class CalcHnsMechanicsTest {
         return value.verdict
     }
 
+    /** The verdict whether or not the boundary exposed an executable request. */
+    private fun verdictOf(outcome: CalcRequestOutcome): CalcCapabilityVerdict = when (outcome) {
+        is CalcRequestOutcome.Ready -> outcome.verdict
+        is CalcRequestOutcome.Refused -> outcome.verdict
+    }
+
     @Test
     fun `base stat equalizer active adds its own blocker`() {
         val (profile, trust) = exactHns()
@@ -130,14 +136,18 @@ class CalcHnsMechanicsTest {
     }
 
     @Test
-    fun `base stat equalizer unreadable fails closed`() {
+    fun `base stat equalizer unreadable records CHALLENGE_SETTINGS_UNREADABLE`() {
         val (profile, trust) = exactHns()
-        val verdict = refused(
-            profile,
-            trust,
-            "Tackle",
-            settings(baseStatEqualizer = HnsChallengeField(observed = true, outOfDomain = true))
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request("Tackle"),
+            challengeSettings = settings(baseStatEqualizer = HnsChallengeField(observed = true, outOfDomain = true))
         )
+        val verdict = when (outcome) {
+            is CalcRequestOutcome.Ready -> outcome.verdict
+            is CalcRequestOutcome.Refused -> outcome.verdict
+        }
         assertTrue(verdict.limitations.contains(CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE))
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_BASE_STAT_EQUALIZER_NOT_MODELLED))
     }
@@ -155,10 +165,19 @@ class CalcHnsMechanicsTest {
     }
 
     @Test
-    fun `ordinary Tackle clears the move mechanics gate`() {
+    fun `ordinary Tackle clears the move mechanics gate under C4b`() {
         val (profile, trust) = exactHns()
-        val verdict = refused(profile, trust, "Tackle")
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request("Tackle"),
+            challengeSettings = settings()
+        )
+        val verdict = verdictOf(outcome)
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED))
+        // R7: a manual request has no authoritative badge applicability, so it fails closed on the
+        // badge gate instead of silently calculating with every badge boost false.
+        assertTrue(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
     }
 
     @Test
@@ -185,36 +204,56 @@ class CalcHnsMechanicsTest {
     fun `neutral non-STAB ordinary move clears the modifier-order gate`() {
         val (profile, trust) = exactHns()
         // Machamp (Fighting) Tackle (Normal) vs Snorlax (Normal): no STAB, 1x, no modifier.
-        val verdict = refused(profile, trust, "Tackle")
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request("Tackle"),
+            challengeSettings = settings()
+        )
+        val verdict = verdictOf(outcome)
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
     }
 
     @Test
-    fun `STAB and type effectiveness diverge and are refused`() {
+    fun `STAB and type effectiveness clear the modifier-order gate under C4b`() {
         val (profile, trust) = exactHns()
         // Charizard (Fire/Flying) Flamethrower (Fire) is STAB.
-        val stab = refused(profile, trust, "Flamethrower", attackerSpecies = "Charizard")
-        assertTrue(stab.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+        val stabOutcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request("Flamethrower", attackerSpecies = "Charizard"),
+            challengeSettings = settings()
+        )
+        val stabVerdict = verdictOf(stabOutcome)
+        assertFalse(stabVerdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
 
         // Machamp (Fighting) Karate Chop (Fighting) is STAB and 2x vs Snorlax.
-        val superEffective = refused(profile, trust, "Karate Chop")
-        assertTrue(superEffective.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+        val seOutcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request("Karate Chop"),
+            challengeSettings = settings()
+        )
+        val seVerdict = verdictOf(seOutcome)
+        assertFalse(seVerdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
     }
 
     @Test
-    fun `critical hit diverges and is refused`() {
+    fun `critical hit clears the modifier-order gate under C4b`() {
         val (profile, trust) = exactHns()
-        val verdict = refused(profile, trust, "Tackle", isCrit = true)
-        assertTrue(verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request("Tackle", isCrit = true),
+            challengeSettings = settings()
+        )
+        val verdict = verdictOf(outcome)
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
     }
 
     @Test
-    fun `non-neutral stat stages are refused by the modifier-order gate`() {
+    fun `valid stat stages clear the modifier-order gate under C4b`() {
         val (profile, trust) = exactHns()
-        // R2: the independent oracle's positive equality proof is neutral-stage only. H&S applies
-        // stat stages before its ability/item fixed-point composition while ADV applies ability
-        // modifiers before stages, and the staged-stat rounding is not independently proven, so a
-        // staged request cannot clear the ordinary-safe path until C4b proves it.
         val cases = linkedMapOf(
             "attacker Atk +1" to request("Tackle", attackerBoosts = StatBlock(atk = 1)),
             "attacker Atk -1" to request("Tackle", attackerBoosts = StatBlock(atk = -1)),
@@ -227,23 +266,51 @@ class CalcHnsMechanicsTest {
             "speed stage" to request("Tackle", attackerBoosts = StatBlock(spe = 1))
         )
         cases.forEach { (label, req) ->
-            val verdict = (CalcRequestBoundary.build(
-                profile = profile,
-                trust = trust,
-                request = req,
-                challengeSettings = settings()
-            ) as CalcRequestOutcome.Refused).verdict
-            assertTrue(
-                "$label must be refused while staged-stat rounding is unproven: ${verdict.limitations}",
+            val verdict = verdictOf(
+                CalcRequestBoundary.build(
+                    profile = profile,
+                    trust = trust,
+                    request = req,
+                    challengeSettings = settings()
+                )
+            )
+            assertFalse(
+                "$label must clear modifier order gate: ${verdict.limitations}",
                 verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
             )
         }
     }
 
     @Test
+    fun `unsupported modifier order fails closed with HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`() {
+        val (profile, trust) = exactHns()
+        // Out-of-range stage (+7)
+        val outOfRangeOutcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request("Tackle", attackerBoosts = StatBlock(atk = 7)),
+            challengeSettings = settings()
+        )
+        val outOfRangeRefused = outOfRangeOutcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("expected refusal for out-of-range stage")
+        assertTrue(outOfRangeRefused.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+
+        // Unsupported weather (Hail)
+        val hailOutcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request("Tackle").copy(field = CalcFieldInput(weather = "Hail")),
+            challengeSettings = settings()
+        )
+        val hailRefused = hailOutcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("expected refusal for unsupported weather")
+        assertTrue(hailRefused.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+    }
+
+    @Test
     fun `neutral stat stages clear the modifier-order gate`() {
         val (profile, trust) = exactHns()
-        val verdict = (CalcRequestBoundary.build(
+        val outcome = CalcRequestBoundary.build(
             profile = profile,
             trust = trust,
             request = request(
@@ -252,7 +319,8 @@ class CalcHnsMechanicsTest {
                 defenderBoosts = StatBlock()
             ),
             challengeSettings = settings()
-        ) as CalcRequestOutcome.Refused).verdict
+        )
+        val verdict = verdictOf(outcome)
         assertFalse(
             "an explicitly neutral stage block is not a divergence: ${verdict.limitations}",
             verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
@@ -260,10 +328,17 @@ class CalcHnsMechanicsTest {
     }
 
     @Test
-    fun `most-covered request still refuses on the badge blocker`() {
+    fun `most-covered request clears every modelled gate but fails closed on unspecified badge state`() {
         val (profile, trust) = exactHns()
-        val verdict = refused(profile, trust, "Tackle")
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = request("Tackle"),
+            challengeSettings = settings()
+        )
+        val verdict = verdictOf(outcome)
 
+        // Every arithmetic/mechanics gate in the supported ordinary subset is cleared ...
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED))
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
@@ -272,8 +347,9 @@ class CalcHnsMechanicsTest {
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_BASE_STAT_EQUALIZER_NOT_MODELLED))
-
-        // C4a deliberately leaves the badge blocker in place; H&S is still not published.
+        // ... but a manual/out-of-battle request has no authoritative badge applicability, and
+        // missing badge state must not be read as "badges off" (Gap C4b R7). The request fails
+        // closed rather than being published as an ESTIMATED number.
         assertTrue(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
         assertEquals(CalcSupport.UNSUPPORTED, verdict.support)
         assertNull(verdict.request)

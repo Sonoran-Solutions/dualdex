@@ -94,6 +94,31 @@ def build_probe_c() -> str:
             "   not part of any build. */",
             "#include \"global.h\"",
             "const unsigned long ddx_sizeof_bp = sizeof(struct BattlePokemon);",
+            "const unsigned long ddx_attack_offset =",
+            "    __builtin_offsetof(struct BattlePokemon, attack);",
+            "const unsigned long ddx_attack_size =",
+            "    sizeof(((struct BattlePokemon *)0)->attack);",
+            "const unsigned long ddx_defense_offset =",
+            "    __builtin_offsetof(struct BattlePokemon, defense);",
+            "const unsigned long ddx_defense_size =",
+            "    sizeof(((struct BattlePokemon *)0)->defense);",
+            "const unsigned long ddx_speed_offset =",
+            "    __builtin_offsetof(struct BattlePokemon, speed);",
+            "const unsigned long ddx_speed_size =",
+            "    sizeof(((struct BattlePokemon *)0)->speed);",
+            "const unsigned long ddx_spattack_offset =",
+            "    __builtin_offsetof(struct BattlePokemon, spAttack);",
+            "const unsigned long ddx_spattack_size =",
+            "    sizeof(((struct BattlePokemon *)0)->spAttack);",
+            "const unsigned long ddx_spdefense_offset =",
+            "    __builtin_offsetof(struct BattlePokemon, spDefense);",
+            "const unsigned long ddx_spdefense_size =",
+            "    sizeof(((struct BattlePokemon *)0)->spDefense);",
+            "const unsigned long ddx_stat_stages_offset =",
+            "    __builtin_offsetof(struct BattlePokemon, statStages);",
+            "const unsigned long ddx_stat_stages_size =",
+            "    sizeof(((struct BattlePokemon *)0)->statStages);",
+            "const unsigned long ddx_stat_stage_count = NUM_BATTLE_STATS;",
             "const unsigned long ddx_ability_offset =",
             "    __builtin_offsetof(struct BattlePokemon, ability);",
             "const unsigned long ddx_ability_size =",
@@ -196,12 +221,24 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
 
     # Source-comment offsets: the pinned source labels every member with a
     # /*0xNN*/ byte offset comment. Extract the ones DualDex reads.
+    attack_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*u16 attack;", body)
+    defense_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*u16 defense;", body)
+    speed_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*u16 speed;", body)
+    spattack_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*u16 spAttack;", body)
+    spdefense_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*u16 spDefense;", body)
+    stat_stages_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*s8 statStages\[NUM_BATTLE_STATS\];", body)
     ability_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*enum Ability ability;", body)
     types_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*enum Type types\[(\d+)\];", body)
     item_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*enum Item item;", body)
-    if not ability_m or not types_m or not item_m:
-        fail("could not parse the labelled ability/types/item members from "
+    if not attack_m or not defense_m or not speed_m or not spattack_m or not spdefense_m or not stat_stages_m or not ability_m or not types_m or not item_m:
+        fail("could not parse the labelled member offsets from "
              "include/pokemon.h; the pinned source shape changed")
+    pins["source_attack_offset"] = int(attack_m.group(1), 16)
+    pins["source_defense_offset"] = int(defense_m.group(1), 16)
+    pins["source_speed_offset"] = int(speed_m.group(1), 16)
+    pins["source_spattack_offset"] = int(spattack_m.group(1), 16)
+    pins["source_spdefense_offset"] = int(spdefense_m.group(1), 16)
+    pins["source_stat_stages_offset"] = int(stat_stages_m.group(1), 16)
     pins["source_ability_offset"] = int(ability_m.group(1), 16)
     pins["source_types_offset"] = int(types_m.group(1), 16)
     pins["source_type_count"] = int(types_m.group(2))
@@ -230,6 +267,19 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
 
 def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int]) -> str:
     sizeof_bp = compiled["ddx_sizeof_bp"]
+    attack_offset = compiled["ddx_attack_offset"]
+    attack_size = compiled["ddx_attack_size"]
+    defense_offset = compiled["ddx_defense_offset"]
+    defense_size = compiled["ddx_defense_size"]
+    speed_offset = compiled["ddx_speed_offset"]
+    speed_size = compiled["ddx_speed_size"]
+    spattack_offset = compiled["ddx_spattack_offset"]
+    spattack_size = compiled["ddx_spattack_size"]
+    spdefense_offset = compiled["ddx_spdefense_offset"]
+    spdefense_size = compiled["ddx_spdefense_size"]
+    stat_stages_offset = compiled["ddx_stat_stages_offset"]
+    stat_stages_size = compiled["ddx_stat_stages_size"]
+    stat_stage_count = compiled["ddx_stat_stage_count"]
     ability_offset = compiled["ddx_ability_offset"]
     ability_size = compiled["ddx_ability_size"]
     types_offset = compiled["ddx_types_offset"]
@@ -244,6 +294,12 @@ def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int
     agreements = []
     disagreements = []
     checks = [
+        ("attack byte offset", attack_offset, pins["source_attack_offset"]),
+        ("defense byte offset", defense_offset, pins["source_defense_offset"]),
+        ("speed byte offset", speed_offset, pins["source_speed_offset"]),
+        ("spAttack byte offset", spattack_offset, pins["source_spattack_offset"]),
+        ("spDefense byte offset", spdefense_offset, pins["source_spdefense_offset"]),
+        ("statStages byte offset", stat_stages_offset, pins["source_stat_stages_offset"]),
         ("ability byte offset", ability_offset, pins["source_ability_offset"]),
         ("types byte offset", types_offset, pins["source_types_offset"]),
         ("type slot count", type_count, pins["source_type_count"]),
@@ -307,6 +363,18 @@ def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int
         "#define DUALDEX_HNS_BATTLE_POKEMON_LAYOUT_GEN_H",
         "",
         "#define HNS_BATTLE_POKEMON_SIZEOF " + str(sizeof_bp),
+        "#define HNS_BATTLE_POKEMON_ATTACK_OFFSET " + str(attack_offset),
+        "#define HNS_BATTLE_POKEMON_ATTACK_SIZE " + str(attack_size),
+        "#define HNS_BATTLE_POKEMON_DEFENSE_OFFSET " + str(defense_offset),
+        "#define HNS_BATTLE_POKEMON_DEFENSE_SIZE " + str(defense_size),
+        "#define HNS_BATTLE_POKEMON_SPEED_OFFSET " + str(speed_offset),
+        "#define HNS_BATTLE_POKEMON_SPEED_SIZE " + str(speed_size),
+        "#define HNS_BATTLE_POKEMON_SPATTACK_OFFSET " + str(spattack_offset),
+        "#define HNS_BATTLE_POKEMON_SPATTACK_SIZE " + str(spattack_size),
+        "#define HNS_BATTLE_POKEMON_SPDEFENSE_OFFSET " + str(spdefense_offset),
+        "#define HNS_BATTLE_POKEMON_SPDEFENSE_SIZE " + str(spdefense_size),
+        "#define HNS_BATTLE_POKEMON_STAT_STAGES_OFFSET " + str(stat_stages_offset),
+        "#define HNS_BATTLE_POKEMON_STAT_STAGES_COUNT " + str(stat_stage_count),
         "#define HNS_BATTLE_POKEMON_ABILITY_OFFSET " + str(ability_offset),
         "#define HNS_BATTLE_POKEMON_ABILITY_SIZE " + str(ability_size),
         "#define HNS_BATTLE_POKEMON_ABILITY_ID_MAX " + str(ability_id_max),
@@ -318,6 +386,24 @@ def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int
         "#define HNS_BATTLE_POKEMON_ITEM_SIZE " + str(item_size),
         "#define HNS_BATTLE_POKEMON_ITEM_ID_MAX " + str(item_id_max),
         "",
+        "#if HNS_BATTLE_POKEMON_ATTACK_OFFSET + HNS_BATTLE_POKEMON_ATTACK_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
+        "#error \"BattlePokemon attack field exceeds the compiled struct size\"",
+        "#endif",
+        "#if HNS_BATTLE_POKEMON_DEFENSE_OFFSET + HNS_BATTLE_POKEMON_DEFENSE_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
+        "#error \"BattlePokemon defense field exceeds the compiled struct size\"",
+        "#endif",
+        "#if HNS_BATTLE_POKEMON_SPEED_OFFSET + HNS_BATTLE_POKEMON_SPEED_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
+        "#error \"BattlePokemon speed field exceeds the compiled struct size\"",
+        "#endif",
+        "#if HNS_BATTLE_POKEMON_SPATTACK_OFFSET + HNS_BATTLE_POKEMON_SPATTACK_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
+        "#error \"BattlePokemon spAttack field exceeds the compiled struct size\"",
+        "#endif",
+        "#if HNS_BATTLE_POKEMON_SPDEFENSE_OFFSET + HNS_BATTLE_POKEMON_SPDEFENSE_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
+        "#error \"BattlePokemon spDefense field exceeds the compiled struct size\"",
+        "#endif",
+        "#if HNS_BATTLE_POKEMON_STAT_STAGES_OFFSET + HNS_BATTLE_POKEMON_STAT_STAGES_COUNT > HNS_BATTLE_POKEMON_SIZEOF",
+        "#error \"BattlePokemon statStages field exceeds the compiled struct size\"",
+        "#endif",
         "#if HNS_BATTLE_POKEMON_ABILITY_OFFSET + HNS_BATTLE_POKEMON_ABILITY_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
         "#error \"BattlePokemon ability field exceeds the compiled struct size\"",
         "#endif",
@@ -414,7 +500,14 @@ def main() -> None:
         compiled = read_constant_symbols(arm_gcc, obj)
 
     required_symbols = [
-        "ddx_sizeof_bp", "ddx_ability_offset", "ddx_ability_size",
+        "ddx_sizeof_bp",
+        "ddx_attack_offset", "ddx_attack_size",
+        "ddx_defense_offset", "ddx_defense_size",
+        "ddx_speed_offset", "ddx_speed_size",
+        "ddx_spattack_offset", "ddx_spattack_size",
+        "ddx_spdefense_offset", "ddx_spdefense_size",
+        "ddx_stat_stages_offset", "ddx_stat_stages_size", "ddx_stat_stage_count",
+        "ddx_ability_offset", "ddx_ability_size",
         "ddx_types_offset", "ddx_types_size", "ddx_type_element_size",
         "ddx_abilities_count", "ddx_mon_types_count",
         "ddx_item_offset", "ddx_item_size", "ddx_items_count",

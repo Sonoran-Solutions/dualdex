@@ -21,9 +21,8 @@ A compiled symbol is **not** automatically runtime proof of a DualDex reader, an
 
 ## 0. Current status (read this first)
 
-**Last updated by:** the Gap C2 slice (issue #9), branched
-from `adec33da36e412a9618dd425e026d78d9316bfd8` (the PR
-[#62](https://github.com/Sonoran-Solutions/dualdex/pull/62) merge).
+**Last updated by:** the Gap C4b slice (issues #9, #40), branched
+from `17a2b0476bc25d996266e85ac30cfc84b966f709` (the PR #65 merge).
 
 | Area | State |
 |---|---|
@@ -34,7 +33,7 @@ from `adec33da36e412a9618dd425e026d78d9316bfd8` (the PR
 | Live battler effective ability + effective types (**#9 slice**) | **RUNTIME VERIFIED (Scenarios 20 and 42, §14)** through the production reader; wired into calculator participant preparation with active-slot validation (§16) |
 | Maps / multi-region location routing (**#11**) | **SOURCE VERIFIED + unit tested**; 3 Johto runtime checkpoints RUNTIME VERIFIED; cross-region transitions and app/UI NOT YET VERIFIED (§12) |
 | Map screen presentation | NOT YET APP/UI VERIFIED (§12.8) |
-| Calculator correctness (#9) | **SOURCE VERIFIED + unit tested** for ability and held-item capability policy and arithmetic: H&S 2.0.5 calculations consume authoritative runtime abilities and current held items with active-slot validation, proven arithmetic parity for the modelled ability subset, conditional item capability, and fail-closed gating; calculations remain **refused** pending the Gap C4 badge boost. See [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md) |
+| Calculator correctness (#9, #40 Gap C4b) | **SOURCE VERIFIED + HOST VERIFIED + unit tested (partial C4b slice, PARTIAL / OPEN; no official-ROM result validation)** for damage arithmetic, stat stages, badge reader, ability, and held-item capability: H&S 2.0.5 calculations consume authoritative runtime abilities, current held items, live battle stats (`0x02..0x0A`), stat stages (`0x18`), and SaveBlock1 badge boosts (`0x1A98`, `0x1A99`) with active-slot validation; dedicated `calculateHnsDamage` QuickJS engine achieves 100% arithmetic parity across all 16 rolls with the native C oracle for neutral, STAB, crits, stages, badge boosts, weather, screens, raw stats, and explicit doubles target counts. Production H&S requests remain fail-closed: manual / out-of-battle badge applicability is unspecified (`BADGE_BOOST_NOT_MODELLED`), Doubles runtime target count is unobserved (`HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`), and dynamic move type / transient state / battle stat words are unobserved (`HNS_LIVE_BATTLE_STATE_NOT_MODELLED`). Unsupported mechanics, unmodelled items/moves, out-of-range stages, unmodelled weather, and active randomizers remain strictly fail-closed. See [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md) |
 | `battleUiVerified` / `interactiveControlsVerified` | still `false`, unchanged |
 
 Sections 1-11 are the historical record of the memory/layout phase and the battle-lifecycle phase,
@@ -2799,13 +2798,98 @@ Evidence:
   `hnsModifierOrderDiverges`. `CalcHnsMechanicsTest` failed
   `non-neutral stat stages are refused by the modifier-order gate`. Reverted.
 
-### 18.7 What this slice does not verify
+### 18.7 What this slice did not verify
 
-No official H&S 2.0.5 ROM battle result has been compared with any value here. The ordinary base
-arithmetic is **SOURCE/HOST VERIFIED**, not runtime verified. H&S production remains
+No official H&S 2.0.5 ROM battle result had been compared with any value in C4a. The ordinary base
+arithmetic was **SOURCE/HOST VERIFIED**, not runtime verified. C4a kept H&S production
 `CalcSupport.UNSUPPORTED` with `request == null`; `BADGE_BOOST_NOT_MODELLED`,
-`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` (now including non-neutral stat stages), and
-`HNS_LIVE_BATTLE_STATE_NOT_MODELLED` keep it refused. `BUILDS_NOT_HASH_VERIFIED` and
-`battleUiVerified` are unchanged. Gap C4b owns the runtime validation, the modifier-order/staged-stat
-fix, and the authoritative consumption of effective battler types, battle stat words, the dynamic
-move type, and transient damage state.
+`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`, and `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` kept it refused.
+Gap C4b below addresses the ABI-backed readers, the modifier-order/staged-stat fix, and the QuickJS arithmetic engine.
+
+---
+
+## 19. Gap C4b: runtime battle-stat, stat-stage, badge-boost reading and exact H&S 2.0.5 calculator arithmetic parity (issues #9, #40)
+
+Pinned source: `pokehns-expansion` commit `1f42b74dff0e9fe942419845d040663dd829a973` (tag `Release-v2.0.5`).
+
+### 19.1 Battle Mons ABI layout probing (raw stats and stat stages)
+
+1. **Layout probing (`tools/hns-layout/generate_hns_battle_pokemon_layout.py`):**
+   - Probed `struct BattlePokemon` member offsets in pinned pokeemerald-expansion
+     (relative to the start of `struct BattlePokemon`, generated in `native/src/hns_battle_pokemon_layout_gen.h`):
+     - `attack`: offset `0x02`, width 2
+     - `defense`: offset `0x04`, width 2
+     - `speed`: offset `0x06`, width 2
+     - `spAttack`: offset `0x08`, width 2
+     - `spDefense`: offset `0x0A`, width 2
+     - `statStages`: offset `0x18`, width 8 (array of 8 `u8` bytes for hp, atk, def, speed, spAtk, spDef, acc, evasion)
+   - Neutral stat stage is 6 (`DEFAULT_STAT_STAGE`), domain is 0..12 corresponding to -6..+6.
+   - Pinned layout header `native/src/hns_battle_pokemon_layout_gen.h` regenerated and confirmed with `--verify`.
+
+2. **Native reader & JNI integration:**
+   - In `native/src/pokemon_reader.c`, `pokemon_read_battler_runtime_state_gba` extracts raw battle stats (10 bytes)
+     and stat stages (8 bytes) from `gBattleMons[battler]`.
+   - Bounds checking validates stat stages (0..12); values outside the domain are rejected as out-of-domain
+     (`stages_invalid`, producing `BATTLER_RUNTIME_STATE_OBSERVED_INVALID` so the observation fails closed without coercion).
+   - `dualdex_jni.c` expands the battler runtime array from 16 to 38 integers, carrying all 5 battle stats,
+     8 stat stages, and badge boost flags.
+   - Decoded into Kotlin data classes `HnsBattlerRuntimeState`, `CalcRawStats`, and `CalcHnsLiveBattleState`.
+
+### 19.2 SaveBlock1 badge state reading and eligibility
+
+1. **Badge flag addresses and reader:**
+   - Derived from the pinned upstream source (`pokehns-expansion` commit `1f42b74`,
+     `include/constants/flags.h` and `include/config/battle.h`):
+     - `SYSTEM_FLAGS = 0x860` (`SaveBlock1.flags` starts at offset `0x198C` from SaveBlock1 base)
+     - `FLAG_BADGE01_GET` (Atk)     = `0x867` -> `flags[0x10C]`, byte `0x1A98`, bit 7
+     - `FLAG_BADGE03_GET` (Spe)     = `0x869` -> `flags[0x10D]`, byte `0x1A99`, bit 1
+     - `FLAG_BADGE06_GET` (Def)     = `0x86C` -> `flags[0x10D]`, byte `0x1A99`, bit 4
+     - `FLAG_BADGE07_GET` (SpA+SpD) = `0x86D` -> `flags[0x10D]`, byte `0x1A99`, bit 5
+   - The reader (`pokemon_read_hns_badge_state_gba` in `native/src/pokemon_reader.c`) reads two bytes
+     at `sb1_base + 0x1A98` and `sb1_base + 0x1A99` and extracts the authoritative bit per flag.
+2. **Battle eligibility rules:**
+   - Per upstream `ShouldGetStatBadgeBoost` (`src/battle_util.c:9143`):
+     - Only applies to player-side battlers (`IsOnPlayerSide(battler)`). The enemy defender never receives badge boosts.
+     - Ineligible in link battles, Frontier, e-Reader, recorded link (`HNS_BATTLE_TYPE_BADGE_EXCLUSIONS`), or secret base battles (`TRAINER_BATTLE_PARAM.opponentA == TRAINER_SECRET_BASE`).
+   - Populated into `HnsBattlerRuntimeState.badgeBoostAttack`, `.badgeBoostDefense`, etc. for player battlers only.
+   - In active battles (`request.hnsLiveBattleState != null`), if the player's badge state is unobserved, `BADGE_BOOST_NOT_MODELLED` blocks fail-closed. The enemy defender's badge state is never required.
+   - In manual / hypothetical requests, badge state does not exist, and missing badge state is **not**
+     interpreted as "badges off": badge applicability is boundary-owned live state, so a manual
+     request fails closed with `BADGE_BOOST_NOT_MODELLED` (commit `c87d80a`, R7).
+
+### 19.3 Dedicated H&S QuickJS calculation engine (`calculateHnsDamage`)
+
+In `tools/calc-bundler/entry.js`, `calculateHnsDamage` implements the exact pokeemerald-expansion damage pipeline:
+- Base damage: $\lfloor \lfloor \lfloor bp \times Atk_{final} \times (\lfloor 2L/5 \rfloor + 2) \rfloor / Def_{final} \rfloor / 50 \rfloor + 2$.
+- Stat resolution: uses live `rawStats` if present; otherwise standard formula.
+- Stat stages: applies `HNS_STAT_STAGE_RATIOS` (-6..+6) with crit drop-ignore rules.
+- Badge boost: applies UQ4.12 `halfDown(4506, stat)` ($\times 1.1$) when badge boost flag is set.
+- Pre-roll modifiers: Doubles spread (`halfDown(2048, dmg)` applied only when the request carries an explicit boundary-owned `field.targetCount == 2` from the live `GetMoveTargetCount(ctx)` observation; a count of 1 is NOT reduced, and a missing/unobserved count fails closed with `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`), Weather (`halfDown(6144/2048, dmg)`), Crit (`halfDown(8192, dmg)`).
+- 16 damage rolls: for $r = 85..100$, $x = \lfloor dmg \times r / 100 \rfloor$.
+- Post-roll modifiers: STAB (`halfDown(6144, x)`), Type effectiveness (`halfDown(Math.round(eff \times 4096), x)`), Burn (`halfDown(2048, x)`), Screens (`halfDown(2048/2732, x)`).
+- Minimum floor: $x = 1$ if damage is 0 and effectiveness $> 0$.
+
+### 19.4 Host test suite and parity evidence
+
+1. **Exact Parity with Independent C Oracle (`native/tests/test_js_calc.c`):**
+   - Neutral physical & special base damage: 100% exact parity across all 16 rolls.
+   - Karate Chop STAB: 100% exact parity (`rolls_equal(engine, oracle) == 1`).
+   - Karate Chop Crit STAB: 100% exact parity (`rolls_equal(engine, oracle) == 1`).
+   - `check_gap_c4b_arithmetic_coverage`:
+     - Stat stages (+2 Atk, -1 Def): exact match across all 16 rolls.
+     - Crit drop-ignore: exact match across all 16 rolls.
+     - Badge boosts (Atk + Def): exact match across all 16 rolls.
+     - Weather boost (Sun on Fire): exact match across all 16 rolls.
+     - Screens (Reflect): exact match across all 16 rolls.
+     - Explicit raw stats (`rawStats`): exact match across all 16 rolls.
+2. **Fail-Closed Policy (no `ESTIMATED` promotion):**
+   - No production H&S request is promoted to `CalcRequestOutcome.Ready` with `CalcSupport.ESTIMATED` today.
+     Badge applicability is boundary-owned live state (missing state → `BADGE_BOOST_NOT_MODELLED`, R7), and the
+     Doubles spread requires an observed runtime `GetMoveTargetCount` (missing count → `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`, R2);
+     since no reader supplies those live operands yet, the arithmetic remains host-verified and Gap C4b stays PARTIAL / OPEN.
+   - Non-ordinary move effects, unsupported abilities/items, out-of-range stat stages, unmodelled weather, active randomizers, and unobserved active-battle state remain strictly fail-closed (`CalcSupport.UNSUPPORTED`).
+3. **Continuous Integration:**
+   - All 85 native reader/tracker tests pass.
+   - QuickJS test suite passes with 0 failures.
+   - All data pack, type system, item catalogue, and move effect generators pass `--verify`.
+   - All 616 Gradle Kotlin unit tests pass with 0 failures.

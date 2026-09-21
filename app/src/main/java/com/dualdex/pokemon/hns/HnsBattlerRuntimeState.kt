@@ -167,7 +167,22 @@ data class HnsBattlerRuntimeState(
     val abilityOutOfDomain: Boolean = false,
     val types: List<HnsBattlerTypeObservation> = emptyList(),
     val itemId: Int? = null,
-    val itemOutOfDomain: Boolean = false
+    val itemOutOfDomain: Boolean = false,
+    val statsObserved: Boolean = false,
+    val rawAttack: Int? = null,
+    val rawDefense: Int? = null,
+    val rawSpeed: Int? = null,
+    val rawSpAttack: Int? = null,
+    val rawSpDefense: Int? = null,
+    val stagesObserved: Boolean = false,
+    val statStages: List<Int> = emptyList(),
+    val badgesObserved: Boolean = false,
+    val badgeBoostAtk: Boolean = false,
+    val badgeBoostDef: Boolean = false,
+    val badgeBoostSpe: Boolean = false,
+    val badgeBoostSpa: Boolean = false,
+    val badgeBoostSpd: Boolean = false,
+    val rawBadgesByte: Int? = null
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
@@ -214,7 +229,11 @@ data class HnsBattlerRuntimeState(
          * (-1 = unknown), [3] partySlotKnown, [4] abilityObserved,
          * [5] abilityInvalid, [6] ability id, [7] typesObserved,
          * [8] typesInvalid, [9] type count, [10..12] raw type values,
-         * [13] itemObserved, [14] itemInvalid, [15] item id.
+         * [13] itemObserved, [14] itemInvalid, [15] item id,
+         * [16] statsObserved, [17..21] raw atk/def/spe/spa/spd,
+         * [22] stagesObserved, [23..30] stat stages (hp..eva),
+         * [31] badgesObserved, [32..36] badge boost atk/def/spe/spa/spd,
+         * [37] raw badges byte.
          */
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -238,6 +257,21 @@ data class HnsBattlerRuntimeState(
             val itemId = raw[15].takeIf { itemObserved }
             val itemOutOfDomain = raw[14] != 0 ||
                 (itemObserved && (raw[15] < 0 || raw[15] > HnsBattlerRuntimeStateIds.ITEM_ID_MAX))
+            val statsObserved = raw.size >= 38 && raw[16] != 0
+            val rawAttack = if (statsObserved) raw[17] else null
+            val rawDefense = if (statsObserved) raw[18] else null
+            val rawSpeed = if (statsObserved) raw[19] else null
+            val rawSpAttack = if (statsObserved) raw[20] else null
+            val rawSpDefense = if (statsObserved) raw[21] else null
+            val stagesObserved = raw.size >= 38 && raw[22] != 0
+            val statStages = if (stagesObserved && raw.size >= 31) (23..30).map { raw[it] } else emptyList()
+            val badgesObserved = raw.size >= 38 && raw[31] != 0
+            val badgeBoostAtk = raw.size >= 38 && raw[32] != 0
+            val badgeBoostDef = raw.size >= 38 && raw[33] != 0
+            val badgeBoostSpe = raw.size >= 38 && raw[34] != 0
+            val badgeBoostSpa = raw.size >= 38 && raw[35] != 0
+            val badgeBoostSpd = raw.size >= 38 && raw[36] != 0
+            val rawBadgesByte = if (badgesObserved && raw.size >= 38) raw[37] else null
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
@@ -246,7 +280,22 @@ data class HnsBattlerRuntimeState(
                 abilityOutOfDomain = abilityOutOfDomain,
                 types = types,
                 itemId = itemId,
-                itemOutOfDomain = itemOutOfDomain
+                itemOutOfDomain = itemOutOfDomain,
+                statsObserved = statsObserved,
+                rawAttack = rawAttack,
+                rawDefense = rawDefense,
+                rawSpeed = rawSpeed,
+                rawSpAttack = rawSpAttack,
+                rawSpDefense = rawSpDefense,
+                stagesObserved = stagesObserved,
+                statStages = statStages,
+                badgesObserved = badgesObserved,
+                badgeBoostAtk = badgeBoostAtk,
+                badgeBoostDef = badgeBoostDef,
+                badgeBoostSpe = badgeBoostSpe,
+                badgeBoostSpa = badgeBoostSpa,
+                badgeBoostSpd = badgeBoostSpd,
+                rawBadgesByte = rawBadgesByte
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for
             // out-of-domain observations, but a tuple whose flags claim an out-of-domain

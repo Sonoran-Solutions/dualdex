@@ -799,7 +799,10 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * Layout: [0] BattlerRuntimeStateStatus, [1] battler index (-1 = none), [2] party slot
  * (-1 = unknown), [3] partySlotKnown, [4] abilityObserved, [5] abilityInvalid,
  * [6] ability id, [7] typesObserved, [8] typesInvalid, [9] type count,
- * [10..12] raw type values, [13] itemObserved, [14] itemInvalid, [15] item id.
+ * [10..12] raw type values, [13] itemObserved, [14] itemInvalid, [15] item id,
+ * [16] statsObserved, [17..21] raw atk, def, spe, spa, spd,
+ * [22] stagesObserved, [23..30] stat stages, [31] badgesObserved,
+ * [32..36] badge boost atk, def, spe, spa, spd, [37] raw badges byte.
  *
  * A failed/unauthorized read returns status 0 (UNAVAILABLE) with everything else
  * zeroed: the caller must not substitute a declared ability, a party slot or a
@@ -839,7 +842,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
         state.party_slot = -1;
     }
 
-    jint values[16] = {0};
+    jint values[38] = {0};
     values[0] = (jint)state.status;
     values[1] = (jint)state.battler_index;
     values[2] = (jint)state.party_slot;
@@ -856,10 +859,27 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     values[13] = state.item_observed ? 1 : 0;
     values[14] = state.item_invalid ? 1 : 0;
     values[15] = (jint)state.item_id;
+    values[16] = state.stats_observed ? 1 : 0;
+    values[17] = (jint)state.raw_attack;
+    values[18] = (jint)state.raw_defense;
+    values[19] = (jint)state.raw_speed;
+    values[20] = (jint)state.raw_sp_attack;
+    values[21] = (jint)state.raw_sp_defense;
+    values[22] = state.stages_observed ? 1 : 0;
+    for (int s = 0; s < 8; s++) {
+        values[23 + s] = (jint)state.stat_stages[s];
+    }
+    values[31] = state.badges_observed ? 1 : 0;
+    values[32] = state.badge_boost_atk ? 1 : 0;
+    values[33] = state.badge_boost_def ? 1 : 0;
+    values[34] = state.badge_boost_spe ? 1 : 0;
+    values[35] = state.badge_boost_spa ? 1 : 0;
+    values[36] = state.badge_boost_spd ? 1 : 0;
+    values[37] = (jint)state.raw_badges_byte;
 
-    jintArray result = (*env)->NewIntArray(env, 16);
+    jintArray result = (*env)->NewIntArray(env, 38);
     if (!result) return NULL;
-    (*env)->SetIntArrayRegion(env, result, 0, 16, values);
+    (*env)->SetIntArrayRegion(env, result, 0, 38, values);
     return result;
 }
 

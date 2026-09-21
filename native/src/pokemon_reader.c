@@ -204,7 +204,7 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .save_block1_location_offset = 0x08,
     .save_block1_escape_warp_offset = 0x28,
     .save_block1_flags_offset = 0x198C,
-    .save_block1_badges_offset = 0x1A9C,
+    .save_block1_badges_offset = 0x1A98,
     // SaveBlock3 (ChallengeSettings): gSaveBlock3Ptr lives in IWRAM (.iwram init area) and the
     // compiled gSaveblock3 is in EWRAM. The release ROM's gSaveBlock3Ptr is runtime-verified at
     // 0x03000178 and its value is runtime-verified 0x02009218 (pokehns-release.elf's gSaveblock3
@@ -2368,17 +2368,41 @@ bool pokemon_read_hns_badge_state_gba(
     if (config->save_block1_badges_offset == 0) return false;
     uint32_t sb1_base = 0;
     if (!resolve_save_block1_base(read, user, config, &sb1_base)) return false;
-    uint8_t raw_byte = 0;
-    if (!read(user, sb1_base + config->save_block1_badges_offset, &raw_byte, 1)) return false;
+
+    /*
+     * H&S 2.0.5 badge flags, derived from the pinned upstream source
+     * (pokehns-expansion commit 1f42b74, include/constants/flags.h and
+     *  include/config/battle.h):
+     *
+     *   SYSTEM_FLAGS             = 0x860
+     *   FLAG_BADGE01_GET (Atk)   = 0x867  -> flags[0x867/8]=flags[0x10C], bit 7
+     *   FLAG_BADGE03_GET (Spe)   = 0x869  -> flags[0x869/8]=flags[0x10D], bit 1
+     *   FLAG_BADGE06_GET (Def)   = 0x86C  -> flags[0x86C/8]=flags[0x10D], bit 4
+     *   FLAG_BADGE07_GET (SpA+SpD)= 0x86D -> flags[0x86D/8]=flags[0x10D], bit 5
+     *
+     *   SaveBlock1.flags starts at save_block1_flags_offset (0x198C from sb1).
+     *   flags[0x10C] is at sb1+0x198C+0x10C = sb1+0x1A98.
+     *   flags[0x10D] is at sb1+0x198C+0x10D = sb1+0x1A99.
+     *
+     *   save_block1_badges_offset is pinned to 0x1A98 (the offset of flags[0x10C]
+     *   from the start of SaveBlock1). The second badge byte (flags[0x10D]) is
+     *   at offset save_block1_badges_offset + 1.
+     */
+    uint8_t byte0 = 0; /* flags[0x10C]: FLAG_BADGE01_GET (Atk, bit 7) */
+    uint8_t byte1 = 0; /* flags[0x10D]: FLAG_BADGE03/06/07_GET (Spe/Def/SpA+SpD) */
+    if (!read(user, sb1_base + config->save_block1_badges_offset,     &byte0, 1)) return false;
+    if (!read(user, sb1_base + config->save_block1_badges_offset + 1, &byte1, 1)) return false;
+
     out_badges->observed = true;
-    out_badges->raw_badges_byte = raw_byte;
-    out_badges->badge_atk = (raw_byte & (1u << 0)) != 0;
-    out_badges->badge_spe = (raw_byte & (1u << 2)) != 0;
-    out_badges->badge_def = (raw_byte & (1u << 5)) != 0;
-    out_badges->badge_spa = (raw_byte & (1u << 6)) != 0;
-    out_badges->badge_spd = (raw_byte & (1u << 6)) != 0;
+    out_badges->raw_badges_byte = byte0;
+    out_badges->badge_atk = (byte0 & (1u << 7)) != 0; /* FLAG_BADGE01_GET: 0x867 % 8 = 7 */
+    out_badges->badge_spe = (byte1 & (1u << 1)) != 0; /* FLAG_BADGE03_GET: 0x869 % 8 = 1 */
+    out_badges->badge_def = (byte1 & (1u << 4)) != 0; /* FLAG_BADGE06_GET: 0x86C % 8 = 4 */
+    out_badges->badge_spa = (byte1 & (1u << 5)) != 0; /* FLAG_BADGE07_GET: 0x86D % 8 = 5 */
+    out_badges->badge_spd = (byte1 & (1u << 5)) != 0; /* FLAG_BADGE07_GET: same flag */
     return true;
 }
+
 
 bool pokemon_read_battler_runtime_state_gba(
     DualDexGbaReadFn read,
@@ -2564,12 +2588,20 @@ bool pokemon_read_battler_runtime_state_gba(
     out_state->raw_sp_defense = raw_spd;
 
     out_state->stages_observed = true;
+    bool any_stage_invalid = false;
     for (int s = 0; s < 8; s++) {
-        int stage = (int)stage_bytes[s] - 6;
-        if (stage < -6) stage = -6;
-        if (stage > 6) stage = 6;
-        out_state->stat_stages[s] = (int8_t)stage;
+        int raw_stage = (int)stage_bytes[s];
+        /* Upstream H&S only produces stages 0..12 (neutral=6, range -6..+6).
+         * A raw byte outside 0..12 indicates memory corruption or a profile
+         * mismatch. Coercing an out-of-range value would silently pass a
+         * corrupted stage into the calculator; reject it as out-of-domain
+         * so the observation fails closed instead. */
+        if (raw_stage < 0 || raw_stage > 12) {
+            any_stage_invalid = true;
+        }
+        out_state->stat_stages[s] = (int8_t)(raw_stage - 6);
     }
+    out_state->stages_invalid = any_stage_invalid;
 
     if (role == BATTLER_ROLE_PLAYER) {
         HnsBadgeState badges;
@@ -2588,7 +2620,7 @@ bool pokemon_read_battler_runtime_state_gba(
     }
 
     out_state->status = (out_state->ability_invalid || out_state->types_invalid ||
-                         out_state->item_invalid)
+                         out_state->item_invalid || out_state->stages_invalid)
         ? BATTLER_RUNTIME_STATE_OBSERVED_INVALID
         : BATTLER_RUNTIME_STATE_OBSERVED;
     return true;

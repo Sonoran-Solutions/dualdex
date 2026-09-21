@@ -33,7 +33,7 @@ from `17a2b0476bc25d996266e85ac30cfc84b966f709` (the PR #65 merge).
 | Live battler effective ability + effective types (**#9 slice**) | **RUNTIME VERIFIED (Scenarios 20 and 42, §14)** through the production reader; wired into calculator participant preparation with active-slot validation (§16) |
 | Maps / multi-region location routing (**#11**) | **SOURCE VERIFIED + unit tested**; 3 Johto runtime checkpoints RUNTIME VERIFIED; cross-region transitions and app/UI NOT YET VERIFIED (§12) |
 | Map screen presentation | NOT YET APP/UI VERIFIED (§12.8) |
-| Calculator correctness (#9, #40 Gap C4b) | **SOURCE VERIFIED + HOST VERIFIED + unit tested** for damage arithmetic, stat stages, badge boosts, ability, and held-item capability: H&S 2.0.5 calculations consume authoritative runtime abilities, current held items, live battle stats (`0x18`), stat stages (`0x28`), and SaveBlock1 badge boosts (`0x1A9C`) with active-slot validation; dedicated `calculateHnsDamage` QuickJS engine achieves 100% arithmetic parity across all 16 rolls with the native C oracle for neutral, STAB, crits, stages, badge boosts, weather, screens, and raw stats; supported ordinary calculations promoted to `ESTIMATED`; unsupported mechanics, unmodelled items/moves, out-of-range stages, unmodelled weather, active randomizers, and unobserved active-battle state remain strictly fail-closed. See [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md) |
+| Calculator correctness (#9, #40 Gap C4b) | **SOURCE VERIFIED + HOST VERIFIED + unit tested (partial C4b slice)** for damage arithmetic, stat stages, badge boosts, ability, and held-item capability: H&S 2.0.5 calculations consume authoritative runtime abilities, current held items, live battle stats (`0x02..0x0A`), stat stages (`0x18`), and SaveBlock1 badge boosts (`0x1A98`, `0x1A99`) with active-slot validation; dedicated `calculateHnsDamage` QuickJS engine achieves 100% arithmetic parity across all 16 rolls with the native C oracle for neutral, STAB, crits, stages, badge boosts, weather, screens, raw stats, and doubles spread; supported ordinary calculations promoted to `ESTIMATED`; unsupported mechanics, unmodelled items/moves, out-of-range stages, unmodelled weather, active randomizers, and unobserved active-battle state remain strictly fail-closed. Real active battles without proven live-type/transient observers fail closed. See [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md) |
 | `battleUiVerified` / `interactiveControlsVerified` | still `false`, unchanged |
 
 Sections 1-11 are the historical record of the memory/layout phase and the battle-lifecycle phase,
@@ -2815,20 +2815,22 @@ Pinned source: `pokehns-expansion` commit `1f42b74dff0e9fe942419845d040663dd829a
 ### 19.1 Battle Mons ABI layout probing (raw stats and stat stages)
 
 1. **Layout probing (`tools/hns-layout/generate_hns_battle_pokemon_layout.py`):**
-   - Probed `struct BattlePokemon` members in pinned pokeemerald-expansion:
-     - `attack`: offset `0x18`, width 2
-     - `defense`: offset `0x1A`, width 2
-     - `speed`: offset `0x1C`, width 2
-     - `spAttack`: offset `0x1E`, width 2
-     - `spDefense`: offset `0x20`, width 2
-     - `statStages`: offset `0x28`, width 8 (array of 8 `u8` bytes for hp, atk, def, speed, spAtk, spDef, acc, evasion)
+   - Probed `struct BattlePokemon` member offsets in pinned pokeemerald-expansion
+     (relative to the start of `struct BattlePokemon`, generated in `native/src/hns_battle_pokemon_layout_gen.h`):
+     - `attack`: offset `0x02`, width 2
+     - `defense`: offset `0x04`, width 2
+     - `speed`: offset `0x06`, width 2
+     - `spAttack`: offset `0x08`, width 2
+     - `spDefense`: offset `0x0A`, width 2
+     - `statStages`: offset `0x18`, width 8 (array of 8 `u8` bytes for hp, atk, def, speed, spAtk, spDef, acc, evasion)
    - Neutral stat stage is 6 (`DEFAULT_STAT_STAGE`), domain is 0..12 corresponding to -6..+6.
    - Pinned layout header `native/src/hns_battle_pokemon_layout_gen.h` regenerated and confirmed with `--verify`.
 
 2. **Native reader & JNI integration:**
    - In `native/src/pokemon_reader.c`, `pokemon_read_battler_runtime_state_gba` extracts raw battle stats (10 bytes)
      and stat stages (8 bytes) from `gBattleMons[battler]`.
-   - Bounds checking validates stat stages (0..12); values outside the domain flag `stat_stages_out_of_domain`.
+   - Bounds checking validates stat stages (0..12); values outside the domain are rejected as out-of-domain
+     (`stages_invalid`, producing `BATTLER_RUNTIME_STATE_OBSERVED_INVALID` so the observation fails closed without coercion).
    - `dualdex_jni.c` expands the battler runtime array from 16 to 38 integers, carrying all 5 battle stats,
      8 stat stages, and badge boost flags.
    - Decoded into Kotlin data classes `HnsBattlerRuntimeState`, `CalcRawStats`, and `CalcHnsLiveBattleState`.
@@ -2836,19 +2838,21 @@ Pinned source: `pokehns-expansion` commit `1f42b74dff0e9fe942419845d040663dd829a
 ### 19.2 SaveBlock1 badge state reading and eligibility
 
 1. **Badge flag addresses and reader:**
-   - In H&S 2.0.5 (`include/constants/flags.h`), badge flags are:
-     - `FLAG_BADGE01_GET = 0x553` (1363): Attack boost
-     - `FLAG_BADGE06_GET = 0x558` (1368): Defense boost
-     - `FLAG_BADGE07_GET = 0x559` (1369): Special Attack and Special Defense boost
-   - SaveBlock1 flags array is at offset `0x198C`. Flag byte offset: `0x198C + (flag_id / 8)`.
-     All three badge flags reside in bytes `0x1A9C` and `0x1A9D`.
-   - Implemented in `pokemon_read_hns_badge_state_gba` in `native/src/pokemon_reader.c`.
+   - Derived from the pinned upstream source (`pokehns-expansion` commit `1f42b74`,
+     `include/constants/flags.h` and `include/config/battle.h`):
+     - `SYSTEM_FLAGS = 0x860` (`SaveBlock1.flags` starts at offset `0x198C` from SaveBlock1 base)
+     - `FLAG_BADGE01_GET` (Atk)     = `0x867` -> `flags[0x10C]`, byte `0x1A98`, bit 7
+     - `FLAG_BADGE03_GET` (Spe)     = `0x869` -> `flags[0x10D]`, byte `0x1A99`, bit 1
+     - `FLAG_BADGE06_GET` (Def)     = `0x86C` -> `flags[0x10D]`, byte `0x1A99`, bit 4
+     - `FLAG_BADGE07_GET` (SpA+SpD) = `0x86D` -> `flags[0x10D]`, byte `0x1A99`, bit 5
+   - The reader (`pokemon_read_hns_badge_state_gba` in `native/src/pokemon_reader.c`) reads two bytes
+     at `sb1_base + 0x1A98` and `sb1_base + 0x1A99` and extracts the authoritative bit per flag.
 2. **Battle eligibility rules:**
    - Per upstream `ShouldGetStatBadgeBoost` (`src/battle_util.c:9143`):
-     - Only applies to player battler (`battler == 0` or `battler == 2`).
-     - Ineligible in link battles, Frontier, Trainer Hill, secret base, etc. (`HNS_BATTLE_TYPE_BADGE_EXCLUSIONS`).
-   - Populated into `HnsBattlerRuntimeState.badgeBoostAttack`, `.badgeBoostDefense`, `.badgeBoostSpAttack`, `.badgeBoostSpDefense`.
-   - In active battles (`request.hnsLiveBattleState != null`), if the player's badge state is unobserved, `BADGE_BOOST_NOT_MODELLED` blocks fail-closed.
+     - Only applies to player-side battlers (`IsOnPlayerSide(battler)`). The enemy defender never receives badge boosts.
+     - Ineligible in link battles, Frontier, e-Reader, recorded link (`HNS_BATTLE_TYPE_BADGE_EXCLUSIONS`), or secret base battles (`TRAINER_BATTLE_PARAM.opponentA == TRAINER_SECRET_BASE`).
+   - Populated into `HnsBattlerRuntimeState.badgeBoostAttack`, `.badgeBoostDefense`, etc. for player battlers only.
+   - In active battles (`request.hnsLiveBattleState != null`), if the player's badge state is unobserved, `BADGE_BOOST_NOT_MODELLED` blocks fail-closed. The enemy defender's badge state is never required.
    - In manual / hypothetical requests, badge state is optionally modelled or neutral.
 
 ### 19.3 Dedicated H&S QuickJS calculation engine (`calculateHnsDamage`)
@@ -2858,7 +2862,7 @@ In `tools/calc-bundler/entry.js`, `calculateHnsDamage` implements the exact poke
 - Stat resolution: uses live `rawStats` if present; otherwise standard formula.
 - Stat stages: applies `HNS_STAT_STAGE_RATIOS` (-6..+6) with crit drop-ignore rules.
 - Badge boost: applies UQ4.12 `halfDown(4506, stat)` ($\times 1.1$) when badge boost flag is set.
-- Pre-roll modifiers: Doubles spread (`halfDown(2048, dmg)`), Weather (`halfDown(6144/2048, dmg)`), Crit (`halfDown(8192, dmg)`).
+- Pre-roll modifiers: Doubles spread (`halfDown(2048, dmg)` applied only when `move.target === 'allAdjacentFoes'`; single-target moves in doubles are NOT reduced), Weather (`halfDown(6144/2048, dmg)`), Crit (`halfDown(8192, dmg)`).
 - 16 damage rolls: for $r = 85..100$, $x = \lfloor dmg \times r / 100 \rfloor$.
 - Post-roll modifiers: STAB (`halfDown(6144, x)`), Type effectiveness (`halfDown(Math.round(eff \times 4096), x)`), Burn (`halfDown(2048, x)`), Screens (`halfDown(2048/2732, x)`).
 - Minimum floor: $x = 1$ if damage is 0 and effectiveness $> 0$.

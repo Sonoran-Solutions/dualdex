@@ -707,6 +707,7 @@ typedef struct {
     uint16_t raw_sp_attack;        // engine's current spAttack word
     uint16_t raw_sp_defense;       // engine's current spDefense word
     bool     stages_observed;      // statStages was decoded from live memory
+    bool     stages_invalid;       // any stage byte was outside the valid 0..12 range (out-of-domain)
     int8_t   stat_stages[8];       // stat stages decoded as offset from neutral (-6..+6): [0]=HP, [1]=Atk, [2]=Def, [3]=Spe, [4]=SpA, [5]=SpD, [6]=Acc, [7]=Eva
     bool     badges_observed;      // SaveBlock1 badge byte was decoded
     bool     badge_boost_atk;      // Badge 1 (Atk) active for this battler in this battle
@@ -714,7 +715,7 @@ typedef struct {
     bool     badge_boost_spe;      // Badge 3 (Spe) active for this battler in this battle
     bool     badge_boost_spa;      // Badge 7 (SpA) active for this battler in this battle
     bool     badge_boost_spd;      // Badge 7 (SpD) active for this battler in this battle
-    uint8_t  raw_badges_byte;      // verbatim flags[272] byte
+    uint8_t  raw_badges_byte;      // verbatim flags[0x10C] byte (SaveBlock1+0x1A98, Attack badge bit 7)
 } BattlerRuntimeState;
 
 /**

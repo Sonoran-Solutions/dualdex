@@ -4458,7 +4458,7 @@ static void test_hns_challenge_settings_no_stale_across_games(void) {
 #define PIN_BATTLE_POKEMON_STAT_STAGES_OFFSET 0x18
 #define PIN_BATTLE_POKEMON_STAT_STAGES_COUNT 8
 #define PIN_SAVE_BLOCK1_FLAGS_OFFSET 0x198C
-#define PIN_SAVE_BLOCK1_BADGES_OFFSET 0x1A9C
+#define PIN_SAVE_BLOCK1_BADGES_OFFSET 0x1A98
 
 // Pinned H&S item identities used by the observation tests, taken from the pinned
 // enum Item (independently of the generated Kotlin catalogue).
@@ -4547,11 +4547,33 @@ static void hns_battle_set_battler_stat_stages(HnsBattleFixture* fx, uint8_t bat
     }
 }
 
-/** Write the player's Johto badges byte into SaveBlock1. */
-static void hns_battle_set_badges(HnsBattleFixture* fx, uint8_t badges) {
+/** Write the player's Johto badge state into the two SaveBlock1.flags bytes used by H&S.
+ *
+ * H&S badge flag layout (derived from pinned upstream source):
+ *   byte0 (save_block1_badges_offset + 0, SaveBlock1+0x1A98):
+ *     bit 7 = FLAG_BADGE01_GET (Falkner/Zephyr -> Atk)
+ *   byte1 (save_block1_badges_offset + 1, SaveBlock1+0x1A99):
+ *     bit 1 = FLAG_BADGE03_GET (Whitney/Plain  -> Spe)
+ *     bit 4 = FLAG_BADGE06_GET (Jasmine/Mineral-> Def)
+ *     bit 5 = FLAG_BADGE07_GET (Pryce/Glacier  -> SpA+SpD)
+ *
+ * @param badge_atk  Falkner badge (Atk boost)
+ * @param badge_spe  Whitney badge (Spe boost)
+ * @param badge_def  Jasmine badge (Def boost)
+ * @param badge_spa  Pryce badge (SpA+SpD boost)
+ */
+static void hns_battle_set_badges(HnsBattleFixture* fx,
+                                  bool badge_atk, bool badge_spe,
+                                  bool badge_def, bool badge_spa) {
     uint32_t sb1_addr = fx->cfg->save_block1_base_gba_address + 88u;
-    uint32_t badges_addr = sb1_addr + fx->cfg->save_block1_badges_offset;
-    fx->gba->ewram[badges_addr - 0x02000000u] = badges;
+    uint32_t byte0_addr = sb1_addr + fx->cfg->save_block1_badges_offset;
+    uint32_t byte1_addr = byte0_addr + 1u;
+    uint8_t byte0 = badge_atk ? (1u << 7) : 0u;
+    uint8_t byte1 = (badge_spe ? (1u << 1) : 0u)
+                  | (badge_def ? (1u << 4) : 0u)
+                  | (badge_spa ? (1u << 5) : 0u);
+    fx->gba->ewram[byte0_addr - 0x02000000u] = byte0;
+    fx->gba->ewram[byte1_addr - 0x02000000u] = byte1;
 }
 
 static bool read_battler_state(const HnsBattleFixture* fx, BattlerRole role,
@@ -5255,25 +5277,56 @@ static void test_hns_badge_state_reading(void) {
     TEST_ASSERT(!pokemon_read_hns_badge_state_gba(fake_gba_read, &gba.table, fr, &badges),
                 "non-H&S config must fail");
 
-    // Valid reading: set bits 0, 2, 5, 6
-    // bit 0: Falkner (Zephyr) -> atk
-    // bit 1: Bugsy (Hive)
-    // bit 2: Whitney (Plain) -> spe
-    // bit 3: Morty (Fog)
-    // bit 4: Chuck (Storm)
-    // bit 5: Jasmine (Mineral) -> def
-    // bit 6: Pryce (Glacier) -> spa & spd
-    // bit 7: Clair (Rising)
-    // 0b01100101 = 0x65 = 101
-    hns_battle_set_badges(&fx, 0x65);
+    /*
+     * Valid reading: set all four badge classes via the corrected H&S bit layout.
+     *
+     * Pinned upstream source (pokehns-expansion commit 1f42b74):
+     *   SYSTEM_FLAGS = 0x860
+     *   FLAG_BADGE01_GET (Atk)    = 0x867 -> byte0 (SaveBlock1+0x1A98), bit 7
+     *   FLAG_BADGE03_GET (Spe)    = 0x869 -> byte1 (SaveBlock1+0x1A99), bit 1
+     *   FLAG_BADGE06_GET (Def)    = 0x86C -> byte1 (SaveBlock1+0x1A99), bit 4
+     *   FLAG_BADGE07_GET (SpA+SpD)= 0x86D -> byte1 (SaveBlock1+0x1A99), bit 5
+     *
+     * hns_battle_set_badges writes:
+     *   byte0 = 0x80  (bit 7 = Atk)
+     *   byte1 = 0x32  (bit 1 = Spe, bit 4 = Def, bit 5 = SpA/SpD)
+     */
+    hns_battle_set_badges(&fx, /*atk*/true, /*spe*/true, /*def*/true, /*spa*/true);
     TEST_ASSERT(pokemon_read_hns_badge_state_gba(fake_gba_read, &gba.table, cfg, &badges),
                 "valid badge read must succeed");
-    TEST_ASSERT(badges.raw_badges_byte == 0x65, "raw badges byte must match 0x65");
+    TEST_ASSERT(badges.raw_badges_byte == 0x80, "raw_badges_byte must be byte0 = 0x80 (Atk bit 7)");
     TEST_ASSERT(badges.badge_atk, "Falkner Zephyr badge must boost Atk");
     TEST_ASSERT(badges.badge_spe, "Whitney Plain badge must boost Spe");
     TEST_ASSERT(badges.badge_def, "Jasmine Mineral badge must boost Def");
     TEST_ASSERT(badges.badge_spa, "Pryce Glacier badge must boost SpA");
     TEST_ASSERT(badges.badge_spd, "Pryce Glacier badge must boost SpD");
+
+    /* Partial: only Atk badge (byte0 only) */
+    hns_battle_set_badges(&fx, /*atk*/true, /*spe*/false, /*def*/false, /*spa*/false);
+    TEST_ASSERT(pokemon_read_hns_badge_state_gba(fake_gba_read, &gba.table, cfg, &badges),
+                "partial badge read (Atk only) must succeed");
+    TEST_ASSERT(badges.badge_atk,  "Atk badge set, must be true");
+    TEST_ASSERT(!badges.badge_spe, "Spe badge not set, must be false");
+    TEST_ASSERT(!badges.badge_def, "Def badge not set, must be false");
+    TEST_ASSERT(!badges.badge_spa, "SpA badge not set, must be false");
+    TEST_ASSERT(!badges.badge_spd, "SpD badge not set, must be false");
+
+    /* Partial: only Def+Spe badges (byte1 only) */
+    hns_battle_set_badges(&fx, /*atk*/false, /*spe*/true, /*def*/true, /*spa*/false);
+    TEST_ASSERT(pokemon_read_hns_badge_state_gba(fake_gba_read, &gba.table, cfg, &badges),
+                "partial badge read (Spe+Def) must succeed");
+    TEST_ASSERT(!badges.badge_atk, "Atk badge not set, must be false");
+    TEST_ASSERT(badges.badge_spe,  "Spe badge set, must be true");
+    TEST_ASSERT(badges.badge_def,  "Def badge set, must be true");
+    TEST_ASSERT(!badges.badge_spa, "SpA badge not set, must be false");
+
+    /* No badges: both bytes zeroed */
+    hns_battle_set_badges(&fx, /*atk*/false, /*spe*/false, /*def*/false, /*spa*/false);
+    TEST_ASSERT(pokemon_read_hns_badge_state_gba(fake_gba_read, &gba.table, cfg, &badges),
+                "no-badge read must succeed");
+    TEST_ASSERT(!badges.badge_atk && !badges.badge_spe && !badges.badge_def &&
+                !badges.badge_spa && !badges.badge_spd,
+                "no badges set: all boost flags must be false");
 
     // Invalid pointer fails closed
     write32_le_t(gba.iwram + (cfg->save_block1_ptr_gba_address - 0x03000000u), 0x02000000u); // below sb1 base
@@ -5295,7 +5348,7 @@ static void test_hns_battler_state_stats_stages_badges(void) {
     hns_battle_set_battler_stats(&fx, 0, 120, 95, 110, 85, 90);
     uint8_t stages_player[8] = {6, 8, 5, 6, 7, 4, 6, 6}; // atk +2, def -1, spa +1, spd -2
     hns_battle_set_battler_stat_stages(&fx, 0, stages_player);
-    hns_battle_set_badges(&fx, 0x65); // Atk, Spe, Def, SpA, SpD badges active
+    hns_battle_set_badges(&fx, /*atk*/true, /*spe*/true, /*def*/true, /*spa*/true); // all boost badges active
 
     // Opponent (battler 1) stats and stages:
     hns_battle_set_battler_stats(&fx, 1, 80, 70, 90, 60, 65);
@@ -5312,6 +5365,7 @@ static void test_hns_battler_state_stats_stages_badges(void) {
     TEST_ASSERT(st_player.raw_sp_defense == 90, "player raw sp_defense must be 90");
 
     TEST_ASSERT(st_player.stages_observed, "player stages must be observed");
+    TEST_ASSERT(!st_player.stages_invalid, "player stages must all be in-domain");
     TEST_ASSERT(st_player.stat_stages[1] == 2, "player atk stage must be +2");
     TEST_ASSERT(st_player.stat_stages[2] == -1, "player def stage must be -1");
     TEST_ASSERT(st_player.stat_stages[3] == 0, "player spe stage must be 0");
@@ -5319,7 +5373,8 @@ static void test_hns_battler_state_stats_stages_badges(void) {
     TEST_ASSERT(st_player.stat_stages[5] == -2, "player spd stage must be -2");
 
     TEST_ASSERT(st_player.badges_observed, "player badges must be observed");
-    TEST_ASSERT(st_player.raw_badges_byte == 0x65, "player raw badges byte must be 0x65");
+    /* raw_badges_byte is byte0 (SaveBlock1+0x1A98): bit 7 = Atk = 0x80 */
+    TEST_ASSERT(st_player.raw_badges_byte == 0x80, "player raw badges byte (byte0) must be 0x80");
     TEST_ASSERT(st_player.badge_boost_atk, "player atk badge boost must be active");
     TEST_ASSERT(st_player.badge_boost_def, "player def badge boost must be active");
     TEST_ASSERT(st_player.badge_boost_spe, "player spe badge boost must be active");
@@ -5349,10 +5404,20 @@ static void test_hns_battler_state_stats_stages_badges(void) {
     hns_battle_set_counters(&fx, 2, 0x02u, 0); // BATTLE_TYPE_LINK
     TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st_player), "player read in link battle");
     TEST_ASSERT(st_player.badges_observed, "badges are still read from save block");
-    TEST_ASSERT(st_player.raw_badges_byte == 0x65, "raw badges byte still observed");
+    TEST_ASSERT(st_player.raw_badges_byte == 0x80, "raw badges byte (byte0) still observed as 0x80");
     TEST_ASSERT(!st_player.badge_boost_atk && !st_player.badge_boost_def && !st_player.badge_boost_spe &&
                 !st_player.badge_boost_spa && !st_player.badge_boost_spd,
                 "badge boosts must be disabled in link battle");
+
+    /* Out-of-domain stat stage: raw stage byte 255 (> 12) must set stages_invalid and
+     * produce OBSERVED_INVALID. The reader must not coerce it to +6. */
+    hns_battle_set_counters(&fx, 2, 0x00u, 0); // back to non-link
+    uint8_t stages_oob[8] = {6, 255, 5, 6, 7, 4, 6, 6}; /* atk stage = 255: out of domain */
+    hns_battle_set_battler_stat_stages(&fx, 0, stages_oob);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st_player), "OOB stage read must not crash");
+    TEST_ASSERT(st_player.stages_invalid, "OOB stage byte 255 must set stages_invalid");
+    TEST_ASSERT(st_player.status == BATTLER_RUNTIME_STATE_OBSERVED_INVALID,
+                "OOB stage must produce OBSERVED_INVALID status");
 
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_hns_battler_state_stats_stages_badges" ANSI_RESET "\n");

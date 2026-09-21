@@ -431,7 +431,12 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   let dmg = Math.floor(Math.floor(Math.floor(bp * userFinalAttack * (Math.floor((2 * level) / 5) + 2)) / targetFinalDefense) / 50) + 2;
 
   const gameType = normalizeGameType(field.gameType || input.field?.gameType);
-  if (gameType === 'Doubles') {
+  // H&S applies the Gen-III spread halving only when GetMoveTargetCount(ctx) == 2,
+  // i.e. the move actually targets all adjacent foes (Rock Slide, Earthquake, etc.).
+  // A single-target move (Tackle, Flamethrower) in a doubles battle must NOT be halved.
+  // The @smogon/calc Move object exposes move.target; 'allAdjacentFoes' is the Gen-III
+  // multi-target value, matching the upstream mechanic exactly (gen3.js:333).
+  if (gameType === 'Doubles' && move.target === 'allAdjacentFoes') {
     dmg = halfDown(2048, dmg);
   }
 

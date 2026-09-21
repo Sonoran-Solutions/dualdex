@@ -2615,6 +2615,66 @@ static void check_gap_c4b_arithmetic_coverage(void) {
             free(out);
         }
     }
+
+    /* 7. Doubles single-target move: Strength (80 BP, single-target).
+     * Upstream H&S only halves damage when GetMoveTargetCount(ctx) == 2.
+     * A single-target move in Doubles must NOT be halved. */
+    g_fixture = "gap_c4b_doubles_single_target_not_halved";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Strength\"},"
+            "\"field\":{\"gameType\":\"Doubles\"}}";
+        char* out = js_calc_calculate(req);
+        check_condition("doubles single-target request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                /* Same damage as singles (not halved) */
+                hns_ordinary_rolls(50, 80, 150, 85, 0, 1.0, 0, 0, oracle);
+                check_condition(
+                    "single-target move in doubles is not halved",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("doubles single-target response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 8. Doubles spread move: Rock Slide (75 BP, multi-target allAdjacentFoes).
+     * In Doubles, multi-target move IS halved via halfDown(2048, dmg). */
+    g_fixture = "gap_c4b_doubles_spread_halved";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Rock Slide\"},"
+            "\"field\":{\"gameType\":\"Doubles\"}}";
+        char* out = js_calc_calculate(req);
+        check_condition("doubles spread move request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                long base_dmg = hns_base_damage(50, 75, 150, 85);
+                long spread_dmg = hns_int_half_down(2048, base_dmg);
+                for (int i = 0; i < ROLL_COUNT; i++) {
+                    oracle[i] = (spread_dmg * (85 + i)) / 100;
+                }
+                check_condition(
+                    "spread move in doubles is halved",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("doubles spread response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
 }
 
 int main(void) {

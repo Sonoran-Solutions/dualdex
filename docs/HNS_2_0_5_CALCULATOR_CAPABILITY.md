@@ -66,8 +66,8 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 10 | Snow | Ice Defense ×1.5 `[src/battle_util.c:7389]`; Snow never chips, Hail chips 1/16 `[src/battle_end_turn.c:155]` | **no** | **REFUSED** when asked for — fails closed |
 | 11 | Terrain | Implemented; ×1.3 (`B_TERRAIN_TYPE_BOOST GEN_LATEST`) `[src/battle_util.c:6640]` | accepted but dead | **REFUSED** when asked for — fails closed |
 | 12 | Reflect / Light Screen | ×0.5 singles, ×0.667 doubles `[src/battle_util.c:7544]` | yes | **MODELLED / ESTIMATED (GAP C4b)** — singles (2048) / doubles (2732) evaluated post-roll via UQ4.12 `halfDown` in `calculateHnsDamage`. Pinned in `test_js_calc.c` |
-| 13 | Multi-target reduction | Generation III value: ×0.5 for two targets (`B_MULTIPLE_TARGETS_DMG GEN_3`) `[include/config/battle.h:47]`, `[src/battle_util.c:7403]` | yes (`Doubles`) | **MODELLED / ESTIMATED (GAP C4b)** — evaluated pre-roll via UQ4.12 `halfDown(2048, dmg)` in `calculateHnsDamage` |
-| 14 | Badge boost | Active: player-side ×1.1 Atk/SpA/Def/SpD/Speed (`B_BADGE_BOOST GEN_3`) `[include/config/battle.h:30]`, `[src/battle_util.c:9135]`, eligibility-gated `[src/battle_util.c:9143]` | **yes** — read from SaveBlock1 (`0x1A9C`), eligibility-gated (`HNS_BATTLE_TYPE_BADGE_EXCLUSIONS`), forwarded via JNI | **MODELLED / ESTIMATED (GAP C4b)** — player-side badge boost flags read from SaveBlock1 and evaluated via UQ4.12 `halfDown(4506, stat)` in QuickJS. If in active battle and unobserved, fails closed with `BADGE_BOOST_NOT_MODELLED` (§11) |
+| 13 | Multi-target reduction | Generation III value: ×0.5 for two targets (`B_MULTIPLE_TARGETS_DMG GEN_3`) `[include/config/battle.h:47]`, `[src/battle_util.c:7403]` — applies only when `move.target === 'allAdjacentFoes'` (e.g. Rock Slide, Earthquake); single-target moves in doubles are NOT reduced | yes (spread moves in `Doubles`) | **MODELLED / ESTIMATED (GAP C4b)** — evaluated pre-roll via UQ4.12 `halfDown(2048, dmg)` only for `allAdjacentFoes` moves in `calculateHnsDamage` |
+| 14 | Badge boost | Active: player-side ×1.1 Atk/SpA/Def/SpD/Speed (`B_BADGE_BOOST GEN_3`) `[include/config/battle.h:253]`, eligibility-gated `[src/battle_util.c:9143]` — player battler only (`IsOnPlayerSide`); enemy never boosted | **yes** — read from SaveBlock1 bytes `0x1A98`+`0x1A99` (two bytes), eligibility-gated (`HNS_BATTLE_TYPE_BADGE_EXCLUSIONS`), forwarded via JNI | **MODELLED / ESTIMATED (GAP C4b)** — player-side badge boost flags read from SaveBlock1 and evaluated via UQ4.12 `halfDown(4506, stat)` in QuickJS. Attacker badge state required; defender badge state never required. If attacker badge unobserved in active battle, fails closed with `BADGE_BOOST_NOT_MODELLED` (§11) |
 | 15 | Move-specific mechanics (multi-hit, weight, fixed damage, Hidden Power, Return) | Modern | **gated by effect ID** | **CONDITIONALLY GATED (Gap C4a)** — `HnsMoveMechanicsRegistry` allows only the source-proven ordinary `EFFECT_HIT` subset; every other effect fails closed with `HNS_MOVE_MECHANICS_NOT_MODELLED` (§10.3) |
 | 16 | Challenge settings that change stats | No EVs `[include/global.h:309]`, Base Stat Equalizer `[:304]`, trainer IV/EV scaling `[:312]`, Max Party IVs `[:314]`, Mirror `[:307]` | partly | **CLASSIFIED (Gap C4a)** — value-changing fields that only alter stored values are captured downstream; Base Stat Equalizer and Random Moves block precisely (§10.1) |
 | 17 | Challenge settings that change the rule | `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness` | **yes** — `CalcRequestBoundary` consumes exact-trusted runtime snapshot into `CalcHnsRuntimeRules`; exact type chart and Fairy toggle modelled (Gap C1); active randomizers block | **CONSUMED / ESTIMATED (GAP A/C1/C4b)** — runtime rules are known and unreadable blockers cleared when observed; active unsupported rules block fail-closed; supported ordinary subset executes in `calculateHnsDamage` (§4.1, §11) |
@@ -133,7 +133,7 @@ Only these individual behaviours are source-and-test demonstrated:
 | Abilities (supported subset) | Keen Eye, Insomnia, None, Thick Fat, Guts, Huge Power | H&S UQ4.12 pipeline in `calculateHnsDamage` | **MATCHES (Gap C2/C4b closed)** — exact formula and stage interaction executed; unmodelled/divergent abilities fail-closed via `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
 | Abilities (unsupported) | starter pinch abilities, modern abilities | not modelled | **does not match** — blocked fail-closed by `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
 | Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items | identity consumed; no damage item modelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — `ITEM_NONE` and a small source-proven no-ordinary-damage set clear the item blockers only for an item-independent move; every damage-relevant item fails closed with `HNS_ITEM_EFFECT_NOT_MODELLED`; every item-dependent move fails closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`; unreadable current item is `HNS_EFFECTIVE_ITEM_UNREADABLE` (§7) |
-| Badge boost | player-side ×1.1 stats | SaveBlock1 reader (`0x1A9C`), UQ4.12 `halfDown(4506, stat)` in QuickJS | **MATCHES (Gap C4b closed)** — see §11 |
+| Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS | **MATCHES (Gap C4b closed)** — see §11 |
 
 ### 3.3 Three different claims that must not be conflated
 
@@ -523,7 +523,7 @@ Recorded so they are not mistaken for oversights. Each is a deliberate scope bou
 
 1. **Badge boost (audited in §10.2, resolved in §11).** Active in H&S (`B_BADGE_BOOST GEN_3`), worth
    ×1.1 to the player's attacking and defensive stats through an eligibility-gated, UQ4.12-composed
-   modifier. DualDex now reads the authoritative badge flag state from SaveBlock1 (`0x1A9C`) at runtime
+   modifier. DualDex now reads the authoritative badge flag state from SaveBlock1 (bytes `0x1A98` and `0x1A99`) at runtime
    (`pokemon_read_hns_badge_state_gba`), binds player badge boosts when eligible, and evaluates them
    via UQ4.12 `halfDown(4506, stat)` in `calculateHnsDamage`. If in an active battle and the player's
    badge flags are unobserved, `BADGE_BOOST_NOT_MODELLED` blocks fail-closed.
@@ -546,7 +546,7 @@ Recorded so they are not mistaken for oversights. Each is a deliberate scope bou
 4a. **Mutable live battle state (gated in §10.5, expanded in §11).** H&S rewrites operands the request shape
    does not carry — current effective types (`SET_BATTLER_TYPE`), raw battle stat words (Power Trick),
    the dynamic move type (`SetTypeBeforeUsingMove`), and transient damage state. In Gap C4b, live battler
-   effective types, raw battle stats (`0x18`), and stat stages (`0x28`) are read live from `gBattleMons`.
+    effective types, raw battle stats (`0x02..0x0A`), and stat stages (`0x18`) are read live from `gBattleMons`.
    An active battle whose mutable classes are not authoritatively observed is refused with
    `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`.
 5. **No H&S golden damage fixtures against the running ROM.** Gap C4a/C4b provide **source/host goldens**
@@ -752,14 +752,14 @@ the request shape, so `BADGE_BOOST_NOT_MODELLED` (Gap C4) keeps H&S strictly ref
    non-neutral stat stages plus unobserved mutable live battle state fail closed. H&S is still
    refused by `BADGE_BOOST_NOT_MODELLED`, `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`, **and**
    `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` (§10).
-7. Gap C4b is CLOSED for the supported ordinary subset:
+7. Gap C4b is CLOSED for the supported ordinary subset (partial C4b slice: source+host verified arithmetic, stat stages, badge boosts):
    - Dedicated QuickJS calculation engine (`calculateHnsDamage`) implements the exact H&S 2.0.5 UQ4.12
      roll-first arithmetic sequence with half-down rounding.
    - Exact parity across all 16 damage rolls demonstrated against the native C oracle in `test_js_calc.c`.
-   - SaveBlock1 badge boost flags (`0x1A9C`) read live and evaluated via UQ4.12 `halfDown(4506, stat)`
+   - SaveBlock1 badge boost flags (bytes `0x1A98` and `0x1A99`) read live and evaluated via UQ4.12 `halfDown(4506, stat)`
      (active battles without observed player badge flags fail closed with `BADGE_BOOST_NOT_MODELLED`).
-   - Live raw battle stats (`0x18`) and stat stages (`0x28`) read live from `gBattleMons[battler]` and
-     evaluated with critical-hit drop-ignore rules.
+   - Live raw battle stats (`0x02..0x0A`) and stat stages (`0x18`) read live from `gBattleMons[battler]` and
+     evaluated with critical-hit drop-ignore rules (out-of-domain stages reject fail-closed).
    - Requests within the supported ordinary subset are promoted to `CalcSupport.ESTIMATED`. Unmodelled
      mechanics, unsupported abilities/items, out-of-range stages, unmodelled weather, active randomizers,
      and unobserved active battle states remain strictly fail-closed (`CalcSupport.UNSUPPORTED`). (§11)
@@ -931,26 +931,38 @@ with `request == null`, and `BUILDS_NOT_HASH_VERIFIED` is untouched: no ROM hash
 ## 11. Gap C4b — Runtime Parity, ABI-Backed Readers, and the H&S Arithmetic Engine
 
 This section documents the Gap C4b implementation (issues #9 and #40), advancing H&S 2.0.5 calculator
-support from source-audited but refused to **runtime-proven, source-faithful calculation** for the
-supported ordinary mechanics subset.
+support from source-audited but refused to **source-verified + host-verified calculation** for the
+supported ordinary mechanics subset. The arithmetic, stat stages, and badge boost operands are source-
+and host-verified. Active battle observations (`dynamicMoveTypeObserved`, `transientStateObserved`)
+remain unproven in a real runtime battle (partial C4b slice).
 
 ### 11.1 ABI-backed Battle Mons layout and SaveBlock1 badge state reader
 
 1. **Battle Mons Layout (`gBattleMons[battler]`):**
-   - Derived and verified via `tools/hns-layout/generate_hns_battle_pokemon_layout.py`:
-     - Raw battle stats: `attack` (0x18), `defense` (0x1A), `speed` (0x1C), `spAttack` (0x1E), `spDefense` (0x20) (10 bytes total).
-     - Stat stages: `statStages[NUM_BATTLE_STATS]` at offset 0x28 (8 bytes: hp, atk, def, speed, spAtk, spDef, acc, evasion).
+   - Derived and verified via `tools/hns-layout/generate_hns_battle_pokemon_layout.py`.
+   - The probe generates `native/src/hns_battle_pokemon_layout_gen.h` with the following
+     **`BattlePokemon` struct member offsets** (relative to the start of the `BattlePokemon` struct):
+     - Raw battle stats: `attack` **0x02**, `defense` **0x04**, `speed` **0x06**, `spAttack` **0x08**, `spDefense` **0x0A** (10 bytes total).
+     - Stat stages: `statStages[NUM_BATTLE_STATS]` at offset **0x18** (8 bytes: hp, atk, def, speed, spAtk, spDef, acc, evasion).
        Default neutral stage is 6 (`DEFAULT_STAT_STAGE`), valid range 0..12 corresponding to -6..+6.
+       Any byte outside 0..12 is rejected as out-of-domain (not coerced).
    - Pinned in `native/src/hns_battle_pokemon_layout_gen.h` and verified with `--verify`.
 
 2. **SaveBlock1 Badge State Reader:**
-   - Badge flags live in SaveBlock1 flags at `0x198C + (1363 >> 3)`:
-     - `FLAG_BADGE01_GET` (bit 3 of 1363, byte `0x1A9C` bit 0)
-     - `FLAG_BADGE06_GET` (bit 0 of 1368, byte `0x1A9C` bit 5)
-     - `FLAG_BADGE07_GET` (bit 1 of 1369, byte `0x1A9C` bit 6)
-   - Implemented in `pokemon_read_hns_badge_state_gba` in `native/src/pokemon_reader.c`.
-   - Populated into `HnsBattlerRuntimeState` for the player battler only, respecting `HNS_BATTLE_TYPE_BADGE_EXCLUSIONS`.
-   - JNI array expanded to 38 elements in `dualdex_jni.c` and unpacked in `HnsBattlerRuntimeState.kt`.
+   - Badge flags are derived from the pinned upstream source (`pokehns-expansion` commit `1f42b74`,
+     `include/constants/flags.h` and `include/config/battle.h`):
+     - `SYSTEM_FLAGS = 0x860`; `SaveBlock1.flags` starts at offset `0x198C` from sb1 base.
+     - `FLAG_BADGE01_GET` (Atk)     = `0x867` → `flags[0x10C]`, byte **`0x1A98`**, bit **7**
+     - `FLAG_BADGE03_GET` (Spe)     = `0x869` → `flags[0x10D]`, byte **`0x1A99`**, bit **1**
+     - `FLAG_BADGE06_GET` (Def)     = `0x86C` → `flags[0x10D]`, byte **`0x1A99`**, bit **4**
+     - `FLAG_BADGE07_GET` (SpA+SpD) = `0x86D` → `flags[0x10D]`, byte **`0x1A99`**, bit **5**
+   - The reader (`pokemon_read_hns_badge_state_gba` in `native/src/pokemon_reader.c`) reads **two bytes**
+     at `sb1_base + 0x1A98` and `sb1_base + 0x1A99` and extracts the correct bit per flag.
+   - Badge boosts apply to the **player battler only** (`ShouldGetStatBadgeBoost` returns FALSE for
+     `!IsOnPlayerSide(battler)`). The enemy defender never receives badge boosts.
+   - Eligible battle types are gated by `HNS_BATTLE_TYPE_BADGE_EXCLUSIONS`.
+   - Populated into `HnsBattlerRuntimeState` and forwarded via JNI (38-element array) and unpacked
+     in `HnsBattlerRuntimeState.kt`.
 
 ### 11.2 The H&S QuickJS calculation engine (`calculateHnsDamage`)
 

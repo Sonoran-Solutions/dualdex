@@ -1039,13 +1039,18 @@ object CalcCapabilityPolicy {
     /**
      * True when badge boost state is unmodelled or unobserved (Gap C4b).
      *
-     * In an active battle, the player battler's badge boosts must be authoritatively observed from
-     * save memory. If the player battler's badge boosts were not observed, this returns true.
+     * Badge boosts in H&S are player-side only: upstream `ShouldGetStatBadgeBoost` always returns
+     * FALSE for non-player-side battlers (`!IsOnPlayerSide(battler)`). The enemy defender never
+     * receives a badge boost, so only the attacker's badge state needs to be observed.
+     *
+     * In an active battle, if the attacker is a player battler (partySlot != null) the badge
+     * boost state must be authoritatively observed from save memory; otherwise returns false.
      */
     private fun hnsBadgeBoostNotModelled(request: DamageCalculationRequest): Boolean {
         val live = request.hnsLiveBattleState ?: return false
+        // Only gate on attacker badge boosts: badges are player-side only. The defender
+        // never has badge boosts regardless of battle position.
         if (request.attacker.partySlot != null && live.attackerBadgeBoosts == null) return true
-        if (request.defender.partySlot != null && live.defenderBadgeBoosts == null) return true
         if (request.attacker.partySlot == null && request.defender.partySlot == null) return true
         return false
     }

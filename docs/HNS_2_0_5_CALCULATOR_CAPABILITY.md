@@ -1064,89 +1064,122 @@ In `app/src/main/java/com/dualdex/calculator/CalcCapabilityPolicy.kt`:
 ## 12. Gap C4c — Runtime Validation + Remaining Live Operand Authority (PARTIAL / OPEN)
 
 This section documents the Gap C4c slice (issues #9 and #40), advancing H&S 2.0.5 calculator support
-toward **runtime verification** against the official H&S 2.0.5 ROM. C4c closes the remaining live
-operand authority gaps for the supported ordinary subset and narrows the dynamic move type and
-transient state gates.
+toward **runtime verification** against the official H&S 2.0.5 ROM. C4c is a **foundation slice**:
+the authority *plumbing* for the remaining live operands is in place (target-count computation,
+readability-carrying JNI tuple, fail-closed gates), but no production H&S request can reach
+`Ready` / `ESTIMATED` yet. Runtime golden validation against the official ROM is explicitly
+deferred to the next slice.
 
-### 12.1 Target Count Authority (`GetMoveTargetCount`)
+### 12.1 Target Count Authority (`GetMoveTargetCount`) — BLOCKED in production
 
 **C4b status:** The runtime `GetMoveTargetCount(ctx)` operand had no reader. Every H&S Doubles spread
 move failed closed with `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`.
 
-**C4c resolution:** The target count is now computable from authoritative battle state already read
-by the native reader:
+**C4c resolution (foundation):** The target count is now *computable* from authoritative battle
+state:
 
 1. **`gAbsentBattlerFlags`** (EWRAM 0x0200030A): marks battlers that are absent (fainted/forced-out).
-   Already read by `pokemon_read_battle_lifecycle` and exposed via `BattleStateRaw.absent_battler_flags`.
-2. **`gBattlersCount`** (EWRAM 0x020000B0): 2 for singles, 4 for doubles.
-   Already read and exposed via `BattleStateRaw.battlers_count`.
-3. **Attacker/defender battler indices**: resolved from `gBattlerPositions` and `gBattlerPartyIndexes`
-   by `resolve_single_player_battler` and `pokemon_resolve_active_enemy`.
+   Read by `pokemon_read_battle_lifecycle`, carried through the JNI tuple with an explicit
+   readability bit (slot 39) so "the read produced 0" is never conflated with "the read never
+   happened".
+2. **`gBattlersCount`** (EWRAM 0x020000B0): the observed topological count (2 singles / 4 doubles).
+   Carried through the JNI tuple (slots 40–41) with its own readability bit. It is **battle-level
+   state carried with the observation, never inferred from `field.gameType`** — topology inference
+   from the request shape is exactly what the C4c authority rule forbids.
+3. **Attacker/defender battler indices**: resolved from `gBattlerPositions` and
+   `gBattlerPartyIndexes` by `resolve_single_player_battler` and `pokemon_resolve_active_enemy`.
 4. **Move target class**: from `gMovesInfo[move].target` (static move data), extracted by
-   `generate_hns_move_effects.py` into `Hns205MoveEffects.targetClassByMoveId`.
+   `generate_hns_move_effects.py` into `Hns205MoveEffects.targetClassByMoveId` as the internal
+   `SpreadTargetClass` values — the EXACT values of the pinned `enum MoveTarget`
+   (`TARGET_BOTH=6`, `TARGET_FOES_AND_ALLY=11`, `TARGET_OPPONENTS_FIELD=13`, ...). They are not a
+   renumbered enum and must never be.
 
-The computation follows the upstream `GetMoveTargetCount` logic exactly:
-- `TARGET_BOTH`: `!(absent & (1<<def)) + !(absent & (1<<partner(def)))`
-- `TARGET_FOES_AND_ALLY`: adds `!(absent & (1<<partner(atk)))`
-- `TARGET_OPPONENTS_FIELD`: always 1
-- `TARGET_SELECTED` / `TARGET_RANDOM` / `TARGET_OPPONENT`: always 1
+The computation follows the upstream `GetMoveTargetCount` logic for the spread classes:
+- `TARGET_BOTH` (6): `!(absent & (1<<def)) + !(absent & (1<<partner(def)))`
+- `TARGET_FOES_AND_ALLY` (11): adds `!(absent & (1<<partner(atk)))`
+- `TARGET_OPPONENTS_FIELD` (13): always 1
+- **every other class fails closed** — `TARGET_SELECTED` (1), `TARGET_RANDOM` (5),
+  `TARGET_USER` (7) and friends dispatch to `IsBattlerAlive(...)` upstream, which requires
+  per-battler HP state the pure function and the boundary do not read. Native
+  `pokemon_compute_hns_target_count()` returns 0 for them and the Kotlin boundary returns
+  null; neither fabricates a "1". This is the single agreed rule, pinned by tests on both sides.
 
 **Implementation:**
-- Native: `pokemon_compute_hns_target_count()` in `native/src/pokemon_reader.c`
-- JNI: `absentBattlerFlags` and `battlersCount` appended to the battler runtime state array (indices 38, 39)
-- Kotlin: `HnsBattlerRuntimeState.fromNativeArray` decodes the new fields
-- Boundary: `CalcRequestBoundary.authoritativeMoveTargetCount()` computes the count from authoritative observations
+- Native: `pokemon_compute_hns_target_count()` in `native/src/pokemon_reader.c` (fail-closed for
+  all non-spread classes).
+- JNI: `BATTLER_RUNTIME_STATE_TUPLE_LEN == 42`; slots 38–41 carry `absentBattlerFlags`,
+  `absentFlagsReadable`, `battlersCount`, `battlersCountReadable`.
+- Kotlin: `HnsBattlerRuntimeState.fromNativeArray` decodes the new fields; the decoder refuses
+  a count when its readability bit is clear.
+- Boundary: `CalcRequestBoundary.authoritativeMoveTargetCount()` computes the count from the
+  two battle-level observations and requires **both** to be OBSERVED, both to have read the
+  absent flags AND the battler count, the two observations to **agree** on both battle-level
+  words, and the agreed observed count to be exactly **4** (the observed Doubles value).
 
-**Anti-spoofing:** The boundary overwrites `moveTargetCount` from the exact-trusted runtime observation.
-A caller-supplied value is stripped. Only the authoritative `gAbsentBattlerFlags` and `gBattlersCount`
-can authorize the count.
+**Anti-spoofing:** The boundary overwrites `moveTargetCount` from the exact-trusted runtime
+observation. A caller-supplied value is stripped. Only the observed `gAbsentBattlerFlags` and
+`gBattlersCount` from both battle-level observations can authorize the count; a disagreement
+between the two sides, an unreadable word, or an observed count of 2 (singles) fails closed —
+the request's `gameType` label never substitutes for the observed state.
 
-**Limitation:** The target count is only available when both player and enemy battler observations are
-present and OBSERVED. Singles requests return null (irrelevant). Doubles requests without observations
-fail closed.
+**Production status: BLOCKED.** The real boundary's per-side observations are
+`BATTLER_RUNTIME_STATE_AMBIGUOUS` whenever two battlers are present on a side — which is
+precisely the Doubles shape that has a count to compute — and an AMBIGUOUS observation
+publishes no field at all. `authoritativeMoveTargetCount` therefore requires two OBSERVED
+single-active-battler observations, which a genuine four-battler doubles battle cannot
+produce. The two-target Doubles case cannot get through the real boundary today, so
+**production target-count authority is BLOCKED by the Doubles battler observation** and stays
+fail-closed: every production H&S Doubles request is refused with
+`HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`. The authority path itself is fully tested at the
+boundary level with observed four-battler observation pairs (count bound for the count-2 and
+count-1 shapes; fail-closed for count disagreement, unreadable count, observed-singles count,
+non-spread classes, and AMBIGUOUS side observations). Unblocking requires a battle-level
+target-count observation that the native reader publishes from the AMBIGUOUS doubles shape
+(deferred, along with the runtime goldens, to the next slice).
 
-### 12.2 Dynamic Move Type — Proven Irrelevance for Non-Normal Moves
+### 12.2 Dynamic Move Type — Fails Closed for ALL Moves
 
 **C4b status:** `dynamicMoveTypeObserved` was always false. Every active battle failed closed.
 
-**C4c analysis:** For the supported ordinary `EFFECT_HIT` subset, `SetTypeBeforeUsingMove` can only
-change the move type via:
-- **Ion Deluge** (`gFieldStatuses & STATUS_FIELD_ION_DELUGE && moveType == TYPE_NORMAL`): converts Normal → Electric
-- **Electrify** (`gBattleMons[battler].volatiles.electrified`): converts move to Electric
+**C4c analysis (corrected in the round-two review):** Pinned
+`src/battle_main.c SetTypeBeforeUsingMove()` at 1f42b74d:
 
-Both only affect **Normal-type** moves. For non-Normal-type `EFFECT_HIT` moves, these have no effect.
+```c
+if ((gFieldStatuses & STATUS_FIELD_ION_DELUGE && moveType == TYPE_NORMAL)
+ || gBattleMons[battler].volatiles.electrified)
+    gBattleStruct->dynamicMoveType = TYPE_ELECTRIC | F_DYNAMIC_TYPE_SET;
+```
 
-**C4c resolution:**
-- `CalcRequestBoundary.authoritativeDynamicMoveTypeObserved()` returns `true` for non-Normal-type moves
-  (provably immune to Ion Deluge/Electrify) and `false` for Normal-type moves (may be affected).
-- The move type is resolved from the move override, the H&S data pack, or the move name.
+Ion Deluge is Normal-only, but **Electrify affects ANY move type** — there is no type check on
+the volatile. A Fighting-type Karate Chop against an Electrified attacker becomes Electric.
+The earlier claim that non-Normal moves are immune to Electrify was **withdrawn**.
 
-**Remaining limitation:** Normal-type `EFFECT_HIT` moves (e.g., Tackle, Body Slam, Hyper Voice) in
-an active battle retain the `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` gate because Ion Deluge / Electrify
-may change their type. Reading `gFieldStatuses` and the electrified volatile would close this gap
-but is not implemented in C4c.
+**C4c resolution:** `CalcRequestBoundary.authoritativeDynamicMoveTypeObserved()` **always
+returns false** — the gate fails closed for **ALL** moves until a runtime volatile reader
+(`gBattleMons[battler].volatiles.electrified` + `gFieldStatuses`) exists. No move type, static
+or live, may claim provable immunity.
 
-### 12.3 Transient State — Narrowed to Normal-Type Moves
+### 12.3 Transient State — Fails Closed for ALL Moves
 
 **C4b status:** `transientStateObserved` was always false. Every active battle failed closed.
 
-**C4c analysis:** For the supported ordinary `EFFECT_HIT` subset:
-- No state-dependent flags (no explosion, multi-hit, always-crit, underground/airborne/etc.)
-- Weather is carried by `request.field.weather`
-- Screens (Reflect / Light Screen) are carried by `request.field.defenderSide`
-- Critical hit is carried by `request.move.isCrit`
-- Burn is carried by `request.attacker.status`
-- Type changes (Soak) are handled by effective types observation
-- Power Trick is handled by raw battle stat words observation
-- Ion Deluge / Electrify is handled by dynamic move type observation
+**C4c analysis (corrected in the round-two review):** Pinned
+`src/battle_util.c DoMoveDamageCalcVars()` at 1f42b74d:
 
-For non-Normal-type `EFFECT_HIT` moves, transient damage state is **provably irrelevant** to the
-supported ordinary subset. For Normal-type moves, the Ion Deluge/Electrify volatile is the only
-remaining concern (same as dynamic move type).
+```c
+DAMAGE_APPLY_MODIFIER(GetGlaiveRushModifier(ctx->battlerDef));
+```
 
-**C4c resolution:**
-- `CalcRequestBoundary.authoritativeTransientStateObserved()` returns `true` for non-Normal-type moves
-  and `false` for Normal-type moves.
+where `GetGlaiveRushModifier` returns ×2 when the defender has the Glaive Rush volatile —
+**for ANY incoming move type**. The earlier claim that transient state is irrelevant for
+non-Normal `EFFECT_HIT` moves was **withdrawn**.
+
+Other transient state the request shape cannot express: Minimize (×2), Underground/Airborne
+(×2), and the defense-side volatile bytes generally. None are observable from Kotlin yet.
+
+**C4c resolution:** `CalcRequestBoundary.authoritativeTransientStateObserved()` **always
+returns false** — the gate fails closed for **ALL** moves until the relevant defense volatiles
+are read at runtime.
 
 ### 12.4 Transient State Classification
 
@@ -1154,40 +1187,38 @@ remaining concern (same as dynamic move type).
 |---|---|---|
 | Current effective types | Soak changes typing | **Handled**: authoritative types observation matches static record or blocks |
 | Raw battle stat words | Power Trick swaps Atk/Def | **Handled**: authoritative raw stats observation |
-| Dynamic move type | Ion Deluge / Electrify | **Narrowed**: non-Normal moves provably immune; Normal moves retain gate |
+| Dynamic move type | Ion Deluge / Electrify | **FAILS CLOSED FOR ALL MOVES**: Electrify is type-agnostic (round-two correction) |
+| Glaive Rush / Minimize / semi-invulnerable | ×2 damage on ANY incoming move | **FAILS CLOSED FOR ALL MOVES**: defense volatiles are type-agnostic and unreadable (round-two correction) |
 | Weather | Rain/Sun multiplier | **Handled**: `request.field.weather` carries the value |
 | Screens | Reflect / Light Screen | **Handled**: `request.field.defenderSide` carries the value |
 | Critical hit | ×2 multiplier | **Handled**: `request.move.isCrit` carries the value |
 | Burn | ×0.5 physical | **Handled**: `request.attacker.status` carries the value |
-| Other volatiles | Not in supported subset | **Provably irrelevant**: ordinary EFFECT_HIT has no state-dependent flags |
 
 ### 12.5 Production Promotion Status
 
-After C4c, a **non-Normal-type EFFECT_HIT Singles request** with:
-- Exact-trusted H&S 2.0.5 ROM
-- Observed challenge settings (randomizers OFF)
-- Authoritative effective abilities (supported subset)
-- Authoritative held items (ITEM_NONE or proven no-damage)
-- Authoritative effective types (matching static record)
-- Authoritative raw battle stats
-- Authoritative stat stages
-- Authoritative badge boosts
+**No production H&S request reaches `Ready` or `ESTIMATED` today.** The fail-closed dynamic-move-
+type and transient-state gates (12.2 / 12.3) apply to every move in every active battle, and
+Doubles spread moves are additionally blocked by the target-count authority (12.1) because the
+real boundary cannot observe the four-battler doubles shape. Even a fully observed Singles
+battle cannot clear `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`, because the volatile readers do not
+exist. The authority plumbing is in place and unit-tested at the boundary level, but the
+production operand path is BLOCKED, and C4c therefore remains **PARTIAL / OPEN** as a
+foundation slice.
 
-**may clear all blocking limitations** and reach `CalcSupport.ESTIMATED` with `request != null`.
-
-However, **runtime golden validation against the official ROM is not yet complete**. The C4b
-host-oracle goldens prove arithmetic parity, but no official H&S 2.0.5 battle result has been
-compared against the DualDex output. C4c therefore remains **PARTIAL / OPEN** until runtime
-goldens exist.
-
-**Normal-type moves** and **Doubles spread moves** remain partially blocked:
-- Normal-type moves: Ion Deluge / Electrify volatile is not observed
-- Doubles: target count requires both observations to be present and OBSERVED
+Specifically BLOCKED, with the blocking cause named:
+- **All moves, active battle:** dynamic move type gate (Electrify volatile unreadable) and
+  transient state gate (Glaive Rush et al. unreadable) — fail-closed by policy.
+- **Doubles spread moves:** target-count authority — the native battle contract degrades to
+  AMBIGUOUS for two-battler sides, so the two OBSERVED single-active-battler observations the
+  boundary requires cannot be produced in a genuine doubles battle (BLOCKED by Doubles
+  battler observation; fail-closed).
+- **Manual / out-of-battle requests:** badge applicability and live-state gates still apply
+  per the boundary-owned live-state contract.
 
 ### 12.6 Evidence Status
 
 | Evidence level | What it means | C4c status |
 |---|---|---|
-| SOURCE VERIFIED | Behavior established from pinned H&S 2.0.5 source | ✅ Target count logic, dynamic move type analysis, transient state classification |
-| HOST VERIFIED | DualDex/QuickJS behavior matches native oracle | ✅ Target count native computation, arithmetic parity |
-| RUNTIME VERIFIED | Compared with official H&S 2.0.5 ROM behavior | ❌ Not yet complete |
+| SOURCE VERIFIED | Behavior established from pinned H&S 2.0.5 source | ✅ Target count spread logic, fail-closed class rule, dynamic move type / transient state analysis (round-two corrected) |
+| HOST VERIFIED | DualDex/QuickJS behavior matches native oracle | ✅ Target count native computation (fail-closed rule pinned), arithmetic parity |
+| RUNTIME VERIFIED | Compared with official H&S 2.0.5 ROM behavior | ❌ Not yet complete — the runtime golden matrix is explicitly OUT OF SCOPE for this pass and deferred to the next slice |

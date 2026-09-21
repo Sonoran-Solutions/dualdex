@@ -2845,9 +2845,14 @@ uint8_t pokemon_compute_hns_target_count(
     }
     case HNS_MOVE_TARGET_OPPONENTS_FIELD:
         return 1;
-    case HNS_MOVE_TARGET_SELECTED:
     default:
-        /* Single-target moves, user-targeting, etc.: always 1 target */
-        return 1;
+        /* Every other class fails closed. Single-target classes
+         * (TARGET_SELECTED=1, TARGET_OPPONENT=4, TARGET_RANDOM=5, ...),
+         * user-targeting classes and any unknown value must NOT yield a
+         * fabricated count of 1: upstream returns IsBattlerAlive(...), which
+         * requires authoritative per-battler HP state this pure function does
+         * not have. Return 0 so the boundary fails closed, matching the
+         * Kotlin rule (Hns205MoveEffects target classes 6/11/13 only). */
+        return 0;
     }
 }

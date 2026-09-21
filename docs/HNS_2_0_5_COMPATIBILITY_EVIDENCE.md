@@ -21,7 +21,10 @@ A compiled symbol is **not** automatically runtime proof of a DualDex reader, an
 
 ## 0. Current status (read this first)
 
-**Last updated by:** the Gap C4c correction pass (issues #9, #40), correcting senior review on PR #67.
+**Last updated by:** the Gap C4c round-two correction pass (issues #9, #40), correcting senior review on PR #67.
+**Slice status:** C4c remains **PARTIAL / OPEN** as a foundation slice. The runtime golden matrix is
+explicitly OUT OF SCOPE for this pass and is deferred to the next slice. No production H&S request
+reaches `Ready`/`ESTIMATED`.
 
 | Area | State |
 |---|---|
@@ -32,7 +35,7 @@ A compiled symbol is **not** automatically runtime proof of a DualDex reader, an
 | Live battler effective ability + effective types (**#9 slice**) | **RUNTIME VERIFIED (Scenarios 20 and 42, §14)** through the production reader; wired into calculator participant preparation with active-slot validation (§16) |
 | Maps / multi-region location routing (**#11**) | **SOURCE VERIFIED + unit tested**; 3 Johto runtime checkpoints RUNTIME VERIFIED; cross-region transitions and app/UI NOT YET VERIFIED (§12) |
 | Map screen presentation | NOT YET APP/UI VERIFIED (§12.8) |
-| Calculator correctness (#9, #40 Gap C4b/C4c) | **SOURCE VERIFIED + HOST VERIFIED + unit tested (partial C4b/C4c slice, PARTIAL / OPEN; no official-ROM result validation)** for damage arithmetic, stat stages, badge reader, ability, and held-item capability: H&S 2.0.5 calculations consume authoritative runtime abilities, current held items, live battle stats (`0x02..0x0A`), stat stages (`0x18`), and SaveBlock1 badge boosts (`0x1A98`, `0x1A99`) with active-slot validation; dedicated `calculateHnsDamage` QuickJS engine achieves 100% arithmetic parity across all 16 rolls with the native C oracle for neutral, STAB, crits, stages, badge boosts, weather, screens, raw stats, and explicit doubles target counts. **C4c corrections (PR #67 correction pass):** (1) JNI tuple centralized to `BATTLER_RUNTIME_STATE_TUPLE_LEN == 40` constant; (2) `absentFlagsReadable` bit now carried through JNI to prevent zero/unreadable conflation; (3) `authoritativeDynamicMoveTypeObserved` always fails closed (Electrify is type-agnostic per `SetTypeBeforeUsingMove` at 1f42b74d); (4) `authoritativeTransientStateObserved` always fails closed (`GetGlaiveRushModifier` is type-agnostic per `DoMoveDamageCalcVars` at 1f42b74d); (5) `authoritativeMoveTargetCount` requires `absentFlagsReadable` on both observations and compares them (refuses on disagreement); (6) TARGET_SELECTED/TARGET_RANDOM/TARGET_USER etc. yield null (fail-closed) rather than silently 1; (7) all H&S production requests remain fail-closed; no production Ready path is opened without official-ROM evidence. Unsupported mechanics, unmodelled items/moves, out-of-range stages, unmodelled weather, and active randomizers remain strictly fail-closed. See [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md) |
+| Calculator correctness (#9, #40 Gap C4b/C4c) | **SOURCE VERIFIED + HOST VERIFIED + unit tested (partial C4b/C4c slice, PARTIAL / OPEN; no official-ROM result validation)** for damage arithmetic, stat stages, badge reader, ability, and held-item capability: H&S 2.0.5 calculations consume authoritative runtime abilities, current held items, live battle stats (`0x02..0x0A`), stat stages (`0x18`), and SaveBlock1 badge boosts (`0x1A98`, `0x1A99`) with active-slot validation; dedicated `calculateHnsDamage` QuickJS engine achieves 100% arithmetic parity across all 16 rolls with the native C oracle for neutral, STAB, crits, stages, badge boosts, weather, screens, raw stats, and explicit doubles target counts. **C4c round-two corrections (PR #67 round-two correction pass):** (1) JNI tuple centralized to `BATTLER_RUNTIME_STATE_TUPLE_LEN == 42` constant; (2) `absentFlagsReadable` bit carried through JNI to prevent zero/unreadable conflation, and `battlersCount`/`battlersCountReadable` (slots 40–41) now carry the observed `gBattlersCount` with its own readability bit; (3) `authoritativeDynamicMoveTypeObserved` always fails closed for ALL moves (Electrify is type-agnostic per `SetTypeBeforeUsingMove` at 1f42b74d — the earlier non-Normal immunity claim is withdrawn); (4) `authoritativeTransientStateObserved` always fails closed for ALL moves (`GetGlaiveRushModifier` is type-agnostic per `DoMoveDamageCalcVars` at 1f42b74d — the earlier non-Normal irrelevance claim is withdrawn); (5) `authoritativeMoveTargetCount` requires BOTH battle-level observations to be OBSERVED, to have read the absent flags AND the battler count, to AGREE on both words, and to agree on an OBSERVED count of exactly 4 — the hardcoded "4 from gameType" topology inference is removed; (6) the generated target classes are the internal `SpreadTargetClass` values carrying the EXACT pinned `enum MoveTarget` numbers (BOTH=6, FOES_AND_ALLY=11, OPPONENTS_FIELD=13); the earlier false renumbering (FOES_AND_ALLY=10, OPPONENTS_FIELD=12) is fixed; (7) the native/Kotlin target-count contract is reconciled to ONE rule: unsupported/ambiguous classes (TARGET_SELECTED=1, TARGET_RANDOM=5, TARGET_USER=7, …) fail closed on both sides (native returns 0, Kotlin returns null), pinned by tests on both; (8) production Doubles target-count authority is BLOCKED by the Doubles battler observation (the native battle contract degrades to AMBIGUOUS for two-battler sides, so the two OBSERVED single-active-battler observations the boundary requires cannot be produced in a genuine doubles battle) and is documented as such; (9) all H&S production requests remain fail-closed: no production Ready path is opened without official-ROM evidence. Unsupported mechanics, unmodelled items/moves, out-of-range stages, unmodelled weather, and active randomizers remain strictly fail-closed. See [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md) |
 | `battleUiVerified` / `interactiveControlsVerified` | still `false`, unchanged |
 
 Sections 1-11 are the historical record of the memory/layout phase and the battle-lifecycle phase,
@@ -2897,57 +2900,106 @@ In `tools/calc-bundler/entry.js`, `calculateHnsDamage` implements the exact poke
 
 ## Gap C4c — Runtime Validation + Remaining Live Operand Authority
 
-**Status: PARTIAL / OPEN**
+**Status: PARTIAL / OPEN (foundation slice; runtime goldens deferred to the next slice)**
 
 ### What C4c proved (SOURCE VERIFIED)
 
 1. **Target count computation from authoritative battle state:**
    - `GetMoveTargetCount(ctx)` is computable from `gAbsentBattlerFlags` + `gBattlersCount` +
      the move's static target class + attacker/defender battler indices.
-   - All input data is already read by the native reader (`BattleStateRaw`).
-   - The computation follows the upstream `battle_util.c:6122` logic exactly.
-   - Native function `pokemon_compute_hns_target_count()` pinned with 14 test cases covering:
-     - Singles (count always 1)
+   - All input data is read by the native reader (`BattleStateRaw`) and carried through the
+     JNI tuple (slots 38–41) with explicit readability bits, so a zero word is never
+     conflated with an unreadable one.
+   - `gBattlersCount` is battle-level state carried with each observation, never inferred
+     from `field.gameType`; both observations must agree on an OBSERVED value of 4.
+   - The computation follows the upstream `battle_util.c:6122` logic exactly for the spread
+     classes. The generated target classes are the internal `SpreadTargetClass` values
+     carrying the EXACT pinned `enum MoveTarget` numbers (`TARGET_BOTH=6`,
+     `TARGET_FOES_AND_ALLY=11`, `TARGET_OPPONENTS_FIELD=13`).
+   - **One agreed fail-closed rule on both sides:** unsupported/ambiguous classes
+     (`TARGET_SELECTED=1`, `TARGET_RANDOM=5`, `TARGET_USER=7`, `TARGET_DEPENDS=3`, any
+     unknown value) return 0 in the native reader and null at the Kotlin boundary. Neither
+     fabricates a "1"; the native function no longer special-cases TARGET_SELECTED.
+   - Native function `pokemon_compute_hns_target_count()` pinned with 17 test cases covering:
+     - Singles (count 1 for a present defender; 0 for an absent one)
      - Doubles both opponents present (count = 2)
      - Doubles one opponent fainted (count = 1)
-     - TARGET_FOES_AND_ALLY with attacker partner (count = 3)
+     - TARGET_FOES_AND_ALLY with attacker partner (count = 3 / 2)
+     - TARGET_OPPONENTS_FIELD (count = 1)
+     - TARGET_SELECTED / TARGET_NONE / out-of-domain class (count = 0, fail-closed)
      - Invalid inputs fail closed (return 0)
 
-2. **Dynamic move type irrelevance for non-Normal EFFECT_HIT moves:**
-   - `SetTypeBeforeUsingMove` can only change move type via Ion Deluge or Electrify.
-   - Both convert Normal-type moves to Electric.
-   - Non-Normal-type EFFECT_HIT moves are provably immune.
-   - Normal-type EFFECT_HIT moves retain the fail-closed gate.
+2. **Dynamic move type — fails closed for ALL moves:**
+   - `SetTypeBeforeUsingMove` at 1f42b74d can change the move type via Ion Deluge
+     (Normal-only) or the Electrify volatile.
+   - **Electrify affects ANY move type** (no type check on the volatile): the earlier claim
+     that non-Normal `EFFECT_HIT` moves are immune was withdrawn in the round-two review.
+   - The gate fails closed for every move until the electrified volatile and
+     `gFieldStatuses` are readable at runtime.
 
-3. **Transient state irrelevance for the supported ordinary subset:**
-   - The ordinary EFFECT_HIT subset has no state-dependent flags.
-   - All relevant transient state is carried by existing request fields.
-   - Non-Normal moves: transient state is provably irrelevant.
-   - Normal moves: only Ion Deluge/Electrify volatile remains unobserved.
+3. **Transient state — fails closed for ALL moves:**
+   - `GetGlaiveRushModifier(ctx->battlerDef)` at 1f42b74d returns ×2 on the defender's Glaive
+     Rush volatile for **any incoming move type** (Karate Chop vs a Glaive-Rush defender
+     proves it): the earlier claim that transient state is irrelevant for non-Normal
+     `EFFECT_HIT` moves was withdrawn.
+   - Minimize / Underground / Airborne volatiles are likewise unreadable and fail closed.
 
 ### What C4c proved (HOST VERIFIED)
 
 1. **Target count native computation matches upstream semantics:**
-   - 14 test cases in `test_hns_target_count_computation` verify exact parity.
+   - 17 test cases in `test_hns_target_count_computation` verify exact parity for the spread
+     classes and the fail-closed rule for every other class.
    - Anti-spoof test `test_hns_target_count_anti_spoof` verifies fail-closed behavior.
+   - Kotlin boundary tests (`CalcHnsLiveBattleStateTest`) pin the same rule: the boundary
+     binds a count only for the observed four-battler shape and fails closed for
+     count disagreement, unreadable count, observed-singles count, non-spread classes, and
+     AMBIGUOUS side observations.
+2. **Round-two corrections verified in-repo:** the generated `SpreadTargetClass` constants
+   match the pinned enum values bit-for-bit (`Hns205MoveEffects.kt` regenerated with
+   `--verify`), the JNI tuple length is centralized at 42, and the docs match current
+   behavior.
 
 ### What C4c did NOT prove (RUNTIME VERIFIED)
 
 1. No official H&S 2.0.5 battle result has been compared against DualDex output.
-2. Runtime golden fixtures are not yet implemented.
-3. The production H&S request path has not been validated end-to-end against the running ROM.
+2. Runtime golden fixtures are not yet implemented (explicitly OUT OF SCOPE for this pass;
+   deferred to the next slice).
+3. **The production Doubles target-count path is BLOCKED by the Doubles battler
+   observation:** the native battle contract degrades to `AMBIGUOUS` whenever two battlers
+   are present on a side — exactly the shape that has a count to compute — and an AMBIGUOUS
+   observation publishes no field at all. The boundary's authority path requires two
+   OBSERVED single-active-battler observations, which a genuine four-battler doubles battle
+   cannot produce. Every production H&S Doubles request is therefore refused with
+   `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`; unblocking requires a battle-level target-count
+   observation published from the AMBIGUOUS doubles shape.
+
+### Production promotion status
+
+**No production H&S request reaches `Ready`/`ESTIMATED`.** The dynamic-move-type and
+transient-state gates fail closed for ALL moves in every active battle (1f42b74d analysis,
+round-two corrected), and Doubles spread moves are additionally blocked by the
+battle-observation shape above. C4c remains **PARTIAL / OPEN** as a foundation slice.
 
 ### Remaining blockers for C4c completion
 
-1. **Runtime golden validation:** Official-ROM battle outcomes must be compared with DualDex predictions.
-2. **Normal-type dynamic move type:** Reading `gFieldStatuses` (Ion Deluge) and the electrified volatile
-   would close the Normal-type gap but is not implemented.
-3. **Badge boost manual support:** Manual/out-of-battle requests still lack authoritative badge applicability.
+1. **Runtime golden validation:** Official-ROM battle outcomes must be compared with DualDex
+   predictions (deferred to the next slice).
+2. **Dynamic move type / transient state readers:** Reading `gFieldStatuses` (Ion Deluge),
+   the electrified volatile, and the defense-side volatiles (Glaive Rush, Minimize,
+   semi-invulnerable) would close the all-moves fail-closed gates; not implemented.
+3. **Battle-level Doubles target-count observation:** the native reader must publish the
+   absent-flags/count words from the AMBIGUOUS doubles shape (or a dedicated battle-level
+   tuple) so the real boundary can authorize the spread count; not implemented.
+4. **Badge boost manual support:** Manual/out-of-battle requests still lack authoritative
+   badge applicability.
 
-### CI status (C4c)
+### CI status (C4c round-two)
 
-- All 87 native reader/tracker tests pass (including 2 new target count tests).
+- All native reader/tracker tests pass (including the extended target-count suite with the
+  fail-closed class rule and the anti-spoof suite).
 - QuickJS test suite passes with 0 failures.
-- All 618 Gradle Kotlin unit tests pass with 0 failures (including 4 new C4c tests).
+- All Kotlin unit tests pass with 0 failures (including the round-two boundary-level
+  Doubles authority tests: observed count binding, fail-closed count disagreement,
+  unreadable/observed-singles count, non-spread class, and AMBIGUOUS production block).
 - `./ci.sh all` passes.
 - `git diff --check` passes.

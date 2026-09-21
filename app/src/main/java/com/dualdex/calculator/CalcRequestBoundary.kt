@@ -678,16 +678,36 @@ object CalcRequestBoundary {
      * Compute the authoritative runtime target count for an H&S Doubles spread move,
      * equivalent to `GetMoveTargetCount(ctx)` from the pinned source.
      *
-     * Returns null when:
-     * - exact trust is not established;
-     * - either observation is missing or not OBSERVED;
-     * - the battler indices cannot be resolved;
-     * - either absent_flags_readable is false (zero conflated with unreadable);
-     * - either battlers_count is 0 (unavailable or unreadable);
-     * - the two observations disagree on absent flags or battler count;
-     * - the move's target class is unknown (not in the pinned map);
-     * - the target class is unsupported/ambiguous (TARGET_RANDOM,
-     *   TARGET_DEPENDS, TARGET_SELECTED, TARGET_USER, etc.) — fail-closed.
+     * Every operand is bound to an OBSERVED runtime value; nothing is inferred from
+     * the request shape:
+     *
+     * - exact trust is required;
+     * - the request field must be a Doubles battle (static context only — the
+     *   observed battler count is never substituted for it or vice versa);
+     * - BOTH battle-level observations (player side and enemy side) must be present
+     *   with the authoritative battle-level state readable:
+     *     * `absentFlagsReadable` on both — a flags value of 0 is only authoritative
+     *       when the read actually ran;
+     *     * `battlersCountReadable` on both — the observed gBattlersCount is battle
+     *       state carried with the observation, never topology inferred from
+     *       `field.gameType` (that inference is exactly what the C4c authority rule
+     *       forbids);
+     *     * the two observations must AGREE on both `absentBattlerFlags` and
+     *       `battlersCount` — a single-word disagreement is a torn read and fails
+     *       closed;
+     *     * the agreed observed count must be exactly 4 (the OBSERVED Doubles value).
+     *       A count of 2 means the live battle is not a four-battler doubles battle,
+     *       so no spread count can be computed from it — fail closed rather than
+     *       trusting the request's game type label.
+     *
+     * The move's static target class is consumed as the internal
+     * [com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass] values (exact pinned
+     * `enum MoveTarget` numbers): BOTH=6 and FOES_AND_ALLY=11 compute the spread
+     * count from the observed absent flags; OPPONENTS_FIELD=13 is always 1. Every
+     * other class — TARGET_SELECTED=1, TARGET_RANDOM=5, TARGET_USER=7, ... and any
+     * unknown value — fails closed with null: upstream `GetMoveTargetCount` returns
+     * `IsBattlerAlive(...)` for those, which requires per-battler HP state this
+     * boundary does not read, so it must not fabricate "1".
      *
      * For the supported ordinary EFFECT_HIT subset, the target class is purely static:
      * `GetBattlerMoveTargetType` only adds dynamic overrides for EFFECT_CURSE, terrain,
@@ -713,27 +733,26 @@ object CalcRequestBoundary {
         val attackerBattler = playerState.battlerIndex ?: return null
         val defenderBattler = enemyState.battlerIndex ?: return null
 
-        /* P1 FIX: Carry absentFlagsReadable through JNI.
-         * absentBattlerFlags == 0 now means EITHER 'none absent' OR 'unreadable'.
-         * The readability bit distinguishes them. Both observations must have the
-         * bit set for the flags to be authoritative. */
+        /* P1 (round 1 + round 2): absent_flags is only authoritative when the native
+         * reader actually read the field (absentFlagsReadable); 0 otherwise means
+         * 'unreadable', not 'none absent'. Both battle-level observations must agree. */
         if (!playerState.absentFlagsReadable) return null
         if (!enemyState.absentFlagsReadable) return null
-        /* Both observations must agree on the absent flags (battle-level state
-         * should be symmetric). */
         if (playerState.absentBattlerFlags != enemyState.absentBattlerFlags) return null
         val absentFlags = playerState.absentBattlerFlags
 
-        /* battlersCount was removed from the runtime state tuple in this pass because
-         * the only authoritative source is the native reader's lifecycle-state resolver.
-         * Use the Kotlin observation's battlerIndex boundaries to infer the count:
-         * battlerIndex for both sides present 0..3 → 4, 0..1 → 2.  The count is
-         * authoritative only when both observations are present and agree. */
-        val battlersCount = 4 // in Doubles gBattlersCount is always 4 when active
-        val bitFlank = 2
+        /* P1 (round 2): gBattlersCount is battle-level state carried with each
+         * observation, never inferred from field.gameType. Both observations must
+         * have READ the count, must agree on it, and the agreed OBSERVED value must
+         * be 4 (four-battler doubles). A 2-battler (singles) count or an unreadable
+         * count fails closed. */
+        if (!playerState.battlersCountReadable) return null
+        if (!enemyState.battlersCountReadable) return null
+        val battlersCount = playerState.battlersCount
+        if (battlersCount != enemyState.battlersCount) return null
+        if (battlersCount != 4) return null
 
-        // Validate both battlers are in range.
-        if (attackerBattler >= battlersCount || defenderBattler >= battlersCount) return null
+        if (attackerBattler !in 0..3 || defenderBattler !in 0..3) return null
 
         // Get the move's static target class from the pinned source data.
         // For the ordinary EFFECT_HIT subset, the target class is purely static.
@@ -742,18 +761,23 @@ object CalcRequestBoundary {
         val moveTargetClass = com.dualdex.pokemon.hns.Hns205MoveEffects.targetClassByMoveId[moveData.id]
             ?: return null // unknown move target class
 
-        // Compute the target count using the same logic as the native pokemon_compute_hns_target_count.
-        // Upstream distinguishes TARGET_SELECTED(0), TARGET_USER(14), TARGET_RANDOM(0),
-        // TARGET_BOTH(6), TARGET_FOES_AND_ALLY(10), TARGET_OPPONENTS_FIELD(12), etc.
-        // Unknown/unsupported class returns 0 (fail-closed), never single-target.
+        // Compute the target count using the same logic as the native
+        // pokemon_compute_hns_target_count. The classes are the internal
+        // SpreadTargetClass values, carried with the exact pinned `enum MoveTarget`
+        // numbers: BOTH=6, FOES_AND_ALLY=11, OPPONENTS_FIELD=13.
+        // Unknown/unsupported classes fail closed (null), never a fabricated count.
+        val bitFlank = 2
         return when (moveTargetClass) {
-            6, 10 -> { // TARGET_BOTH=6, TARGET_FOES_AND_ALLY=10
+            com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass.TARGET_BOTH,
+            com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass.TARGET_FOES_AND_ALLY -> {
                 val defPresent = if (absentFlags and (1 shl defenderBattler) == 0) 1 else 0
                 val defPartner = defenderBattler xor bitFlank
                 val defPartnerPresent = if (defPartner < battlersCount &&
                     absentFlags and (1 shl defPartner) == 0) 1 else 0
                 var count = defPresent + defPartnerPresent
-                if (moveTargetClass == 10) { // TARGET_FOES_AND_ALLY
+                if (moveTargetClass ==
+                    com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass.TARGET_FOES_AND_ALLY
+                ) {
                     val atkPartner = attackerBattler xor bitFlank
                     if (atkPartner < battlersCount &&
                         absentFlags and (1 shl atkPartner) == 0) {
@@ -762,15 +786,16 @@ object CalcRequestBoundary {
                 }
                 count
             }
-            12 -> 1       // TARGET_OPPONENTS_FIELD — always 1 (Spikes/Toxic Spikes/Stealth Rock)
+            com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass.TARGET_OPPONENTS_FIELD ->
+                1 // always 1 (Spikes/Toxic Spikes/Stealth Rock)
             else -> {
-                /* TARGET_SELECTED(0), TARGET_USER, TARGET_RANDOM, TARGET_DEPENDS,
-                 * TARGET_OPPONENT, TARGET_ALL_BATTLERS, TARGET FIELD, etc.
-                 * The upstream dispatch for these in GetMoveTargetCount uses
-                 * IsBattlerAlive(battlerDef)/IsBattlerAlive(battlerAtk), which
-                 * we cannot fully verify.  These are not spread-move target classes,
-                 * so they don't apply the B_MULTIPLE_TARGETS_DMG half at all.
-                 * Fail-closed: return null rather than silently asserting '1'. */
+                /* Every other class fails closed. TARGET_SELECTED (1),
+                 * TARGET_DEPENDS (3), TARGET_OPPONENT (4), TARGET_RANDOM (5),
+                 * TARGET_USER (7) and friends dispatch to IsBattlerAlive(...) in
+                 * upstream GetMoveTargetCount, which needs per-battler HP state this
+                 * boundary does not read. A missing HP read must not be papered over
+                 * with "1": null (unobserved) is the only honest answer. This
+                 * matches the native reader, whose same classes return 0. */
                 null
             }
         }

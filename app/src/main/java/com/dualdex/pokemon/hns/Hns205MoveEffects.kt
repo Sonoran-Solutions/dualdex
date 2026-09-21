@@ -19,9 +19,13 @@ package com.dualdex.pokemon.hns
  * to reproduce: `EFFECT_HIT` with no multi-hit, explosion, always-crit or
  * state-dependent damage flag. See generate_hns_move_effects.py for the exact rule.
  *
- * `targetClassByMoveId` maps move IDs to the pinned `enum MoveTarget` value.
- * Only spread-target classes (TARGET_BOTH=6, TARGET_FOES_AND_ALLY=10) affect
- * the damage formula's spread reduction. Other classes map to 0 (single-target).
+ * `targetClassByMoveId` maps move IDs to the INTERNAL `SpreadTargetClass`
+ * values (see Hns205MoveEffects.SpreadTargetClass below). Those are the EXACT
+ * values of the pinned H&S `enum MoveTarget` members, carried verbatim; the
+ * map is NOT the pinned enum itself and must never be renumbered.
+ * Only spread classes (BOTH=6, FOES_AND_ALLY=11) affect the damage formula's
+ * spread reduction. Other classes are preserved with their exact enum values;
+ * unsupported/ambiguous classes fail closed on the consumer side.
  *
  * DO NOT EDIT DIRECTLY. Regenerate using:
  *   python3 tools/hns-move-mechanics/generate_hns_move_effects.py
@@ -1321,931 +1325,956 @@ internal object Hns205MoveEffects {
     )
 
     /**
-     * Pinned move ID -> static target class from `gMovesInfo[move].target`.
-     * Values: 0=single-target/selected/user, 6=TARGET_BOTH, 10=TARGET_FOES_AND_ALLY,
-     * 12=TARGET_OPPONENTS_FIELD. Only spread classes (6, 10) affect the damage formula.
+     * Internal spread/target classes, carried with the EXACT values of the pinned
+     * H&S 2.0.5 `enum MoveTarget` (1f42b74d). This is not the pinned enum itself;
+     * it exists so the boundary can dispatch `GetMoveTargetCount` semantics without
+     * importing the game's full target vocabulary.
+     */
+    object SpreadTargetClass {
+        const val TARGET_ALLY = 8
+        const val TARGET_ALL_BATTLERS = 14
+        const val TARGET_BOTH = 6
+        const val TARGET_DEPENDS = 3
+        const val TARGET_FIELD = 12
+        const val TARGET_FOES_AND_ALLY = 11
+        const val TARGET_NONE = 0
+        const val TARGET_OPPONENT = 4
+        const val TARGET_OPPONENTS_FIELD = 13
+        const val TARGET_RANDOM = 5
+        const val TARGET_SELECTED = 1
+        const val TARGET_SMART = 2
+        const val TARGET_USER = 7
+        const val TARGET_USER_AND_ALLY = 9
+        const val TARGET_USER_OR_ALLY = 10
+    }
+
+    /**
+     * Pinned move ID -> the move's static target class from `gMovesInfo[move].target`,
+     * as a [SpreadTargetClass] value (exact pinned `enum MoveTarget` number).
+     * Only spread classes (BOTH=6, FOES_AND_ALLY=11) affect the damage formula;
+     * every other class fails closed on the consumer side.
      */
     val targetClassByMoveId: Map<Int, Int> = buildMap {
-        put(1, 0) // TARGET_SELECTED
-        put(2, 0) // TARGET_SELECTED
-        put(3, 0) // TARGET_SELECTED
-        put(4, 0) // TARGET_SELECTED
-        put(5, 0) // TARGET_SELECTED
-        put(6, 0) // TARGET_SELECTED
-        put(7, 0) // TARGET_SELECTED
-        put(8, 0) // TARGET_SELECTED
-        put(9, 0) // TARGET_SELECTED
-        put(10, 0) // TARGET_SELECTED
-        put(11, 0) // TARGET_SELECTED
-        put(12, 0) // TARGET_SELECTED
-        put(13, 6) // TARGET_BOTH
-        put(14, 0) // TARGET_USER
-        put(15, 0) // TARGET_SELECTED
-        put(16, 0) // TARGET_SELECTED
-        put(17, 0) // TARGET_SELECTED
-        put(18, 0) // TARGET_SELECTED
-        put(19, 0) // TARGET_SELECTED
-        put(20, 0) // TARGET_SELECTED
-        put(21, 0) // TARGET_SELECTED
-        put(22, 0) // TARGET_SELECTED
-        put(23, 0) // TARGET_SELECTED
-        put(24, 0) // TARGET_SELECTED
-        put(25, 0) // TARGET_SELECTED
-        put(26, 0) // TARGET_SELECTED
-        put(27, 0) // TARGET_SELECTED
-        put(28, 0) // TARGET_SELECTED
-        put(29, 0) // TARGET_SELECTED
-        put(30, 0) // TARGET_SELECTED
-        put(31, 0) // TARGET_SELECTED
-        put(32, 0) // TARGET_SELECTED
-        put(33, 0) // TARGET_SELECTED
-        put(34, 0) // TARGET_SELECTED
-        put(35, 0) // TARGET_SELECTED
-        put(36, 0) // TARGET_SELECTED
-        put(37, 0) // TARGET_RANDOM
-        put(38, 0) // TARGET_SELECTED
-        put(39, 6) // TARGET_BOTH
-        put(40, 0) // TARGET_SELECTED
-        put(41, 0) // TARGET_SELECTED
-        put(42, 0) // TARGET_SELECTED
-        put(43, 6) // TARGET_BOTH
-        put(44, 0) // TARGET_SELECTED
-        put(45, 6) // TARGET_BOTH
-        put(46, 0) // TARGET_SELECTED
-        put(47, 0) // TARGET_SELECTED
-        put(48, 0) // TARGET_SELECTED
-        put(49, 0) // TARGET_SELECTED
-        put(50, 0) // TARGET_SELECTED
-        put(51, 6) // TARGET_BOTH
-        put(52, 0) // TARGET_SELECTED
-        put(53, 0) // TARGET_SELECTED
-        put(54, 0) // TARGET_USER
-        put(55, 0) // TARGET_SELECTED
-        put(56, 0) // TARGET_SELECTED
-        put(58, 0) // TARGET_SELECTED
-        put(59, 6) // TARGET_BOTH
-        put(60, 0) // TARGET_SELECTED
-        put(61, 0) // TARGET_SELECTED
-        put(62, 0) // TARGET_SELECTED
-        put(63, 0) // TARGET_SELECTED
-        put(64, 0) // TARGET_SELECTED
-        put(65, 0) // TARGET_SELECTED
-        put(66, 0) // TARGET_SELECTED
-        put(68, 0) // TARGET_DEPENDS
-        put(69, 0) // TARGET_SELECTED
-        put(70, 0) // TARGET_SELECTED
-        put(71, 0) // TARGET_SELECTED
-        put(72, 0) // TARGET_SELECTED
-        put(73, 0) // TARGET_SELECTED
-        put(75, 6) // TARGET_BOTH
-        put(76, 0) // TARGET_SELECTED
-        put(77, 0) // TARGET_SELECTED
-        put(78, 0) // TARGET_SELECTED
-        put(79, 0) // TARGET_SELECTED
-        put(80, 0) // TARGET_RANDOM
-        put(82, 0) // TARGET_SELECTED
-        put(83, 0) // TARGET_SELECTED
-        put(84, 0) // TARGET_SELECTED
-        put(85, 0) // TARGET_SELECTED
-        put(86, 0) // TARGET_SELECTED
-        put(87, 0) // TARGET_SELECTED
-        put(88, 0) // TARGET_SELECTED
-        put(89, 10) // TARGET_FOES_AND_ALLY
-        put(90, 0) // TARGET_SELECTED
-        put(91, 0) // TARGET_SELECTED
-        put(92, 0) // TARGET_SELECTED
-        put(93, 0) // TARGET_SELECTED
-        put(94, 0) // TARGET_SELECTED
-        put(95, 0) // TARGET_SELECTED
-        put(96, 0) // TARGET_USER
-        put(97, 0) // TARGET_USER
-        put(98, 0) // TARGET_SELECTED
-        put(99, 0) // TARGET_SELECTED
-        put(100, 0) // TARGET_USER
-        put(101, 0) // TARGET_SELECTED
-        put(102, 0) // TARGET_SELECTED
-        put(103, 0) // TARGET_SELECTED
-        put(104, 0) // TARGET_USER
-        put(105, 0) // TARGET_USER
-        put(106, 0) // TARGET_USER
-        put(107, 0) // TARGET_USER
-        put(108, 0) // TARGET_SELECTED
-        put(109, 0) // TARGET_SELECTED
-        put(110, 0) // TARGET_USER
-        put(111, 0) // TARGET_USER
-        put(112, 0) // TARGET_USER
-        put(113, 0) // TARGET_USER
-        put(114, 0) // TARGET_FIELD
-        put(115, 0) // TARGET_USER
-        put(116, 0) // TARGET_USER
-        put(117, 0) // TARGET_USER
-        put(118, 0) // TARGET_DEPENDS
-        put(119, 0) // TARGET_DEPENDS
-        put(120, 10) // TARGET_FOES_AND_ALLY
-        put(121, 0) // TARGET_SELECTED
-        put(122, 0) // TARGET_SELECTED
-        put(123, 0) // TARGET_SELECTED
-        put(124, 0) // TARGET_SELECTED
-        put(125, 0) // TARGET_SELECTED
-        put(126, 0) // TARGET_SELECTED
-        put(127, 0) // TARGET_SELECTED
-        put(128, 0) // TARGET_SELECTED
-        put(129, 6) // TARGET_BOTH
-        put(130, 0) // TARGET_SELECTED
-        put(131, 0) // TARGET_SELECTED
-        put(132, 0) // TARGET_SELECTED
-        put(133, 0) // TARGET_USER
-        put(134, 0) // TARGET_SELECTED
-        put(135, 0) // TARGET_USER
-        put(136, 0) // TARGET_SELECTED
-        put(137, 0) // TARGET_SELECTED
-        put(138, 0) // TARGET_SELECTED
-        put(140, 0) // TARGET_SELECTED
-        put(141, 0) // TARGET_SELECTED
-        put(142, 0) // TARGET_SELECTED
-        put(143, 0) // TARGET_SELECTED
-        put(144, 0) // TARGET_SELECTED
-        put(145, 6) // TARGET_BOTH
-        put(146, 0) // TARGET_SELECTED
-        put(147, 0) // TARGET_SELECTED
-        put(148, 0) // TARGET_SELECTED
-        put(149, 0) // TARGET_SELECTED
-        put(150, 0) // TARGET_USER
-        put(151, 0) // TARGET_USER
-        put(152, 0) // TARGET_SELECTED
-        put(153, 10) // TARGET_FOES_AND_ALLY
-        put(154, 0) // TARGET_SELECTED
-        put(155, 0) // TARGET_SELECTED
-        put(156, 0) // TARGET_USER
-        put(157, 6) // TARGET_BOTH
-        put(158, 0) // TARGET_SELECTED
-        put(159, 0) // TARGET_USER
-        put(160, 0) // TARGET_USER
-        put(161, 0) // TARGET_SELECTED
-        put(162, 0) // TARGET_SELECTED
-        put(163, 0) // TARGET_SELECTED
-        put(164, 0) // TARGET_USER
-        put(166, 0) // TARGET_SELECTED
-        put(167, 0) // TARGET_SELECTED
-        put(168, 0) // TARGET_SELECTED
-        put(169, 0) // TARGET_SELECTED
-        put(170, 0) // TARGET_SELECTED
-        put(171, 0) // TARGET_SELECTED
-        put(172, 0) // TARGET_SELECTED
-        put(173, 0) // TARGET_SELECTED
-        put(174, 0) // TARGET_SELECTED
-        put(175, 0) // TARGET_SELECTED
-        put(177, 0) // TARGET_SELECTED
-        put(179, 0) // TARGET_SELECTED
-        put(180, 0) // TARGET_SELECTED
-        put(181, 6) // TARGET_BOTH
-        put(182, 0) // TARGET_USER
-        put(183, 0) // TARGET_SELECTED
-        put(184, 0) // TARGET_SELECTED
-        put(185, 0) // TARGET_SELECTED
-        put(186, 0) // TARGET_SELECTED
-        put(187, 0) // TARGET_USER
-        put(188, 0) // TARGET_SELECTED
-        put(189, 0) // TARGET_SELECTED
-        put(190, 0) // TARGET_SELECTED
-        put(191, 12) // TARGET_OPPONENTS_FIELD
-        put(192, 0) // TARGET_SELECTED
-        put(193, 0) // TARGET_SELECTED
-        put(194, 0) // TARGET_USER
-        put(195, 0) // TARGET_ALL_BATTLERS
-        put(196, 6) // TARGET_BOTH
-        put(197, 0) // TARGET_USER
-        put(198, 0) // TARGET_SELECTED
-        put(199, 0) // TARGET_SELECTED
-        put(200, 0) // TARGET_RANDOM
-        put(201, 0) // TARGET_FIELD
-        put(202, 0) // TARGET_SELECTED
-        put(203, 0) // TARGET_USER
-        put(204, 0) // TARGET_SELECTED
-        put(205, 0) // TARGET_SELECTED
-        put(206, 0) // TARGET_SELECTED
-        put(207, 0) // TARGET_SELECTED
-        put(208, 0) // TARGET_USER
-        put(209, 0) // TARGET_SELECTED
-        put(210, 0) // TARGET_SELECTED
-        put(211, 0) // TARGET_SELECTED
-        put(212, 0) // TARGET_SELECTED
-        put(213, 0) // TARGET_SELECTED
-        put(214, 0) // TARGET_DEPENDS
-        put(215, 0) // TARGET_USER
-        put(216, 0) // TARGET_SELECTED
-        put(217, 0) // TARGET_SELECTED
-        put(218, 0) // TARGET_SELECTED
-        put(219, 0) // TARGET_USER
-        put(220, 0) // TARGET_SELECTED
-        put(221, 0) // TARGET_SELECTED
-        put(222, 10) // TARGET_FOES_AND_ALLY
-        put(223, 0) // TARGET_SELECTED
-        put(224, 0) // TARGET_SELECTED
-        put(225, 0) // TARGET_SELECTED
-        put(226, 0) // TARGET_USER
-        put(227, 0) // TARGET_SELECTED
-        put(228, 0) // TARGET_SELECTED
-        put(229, 0) // TARGET_SELECTED
-        put(231, 0) // TARGET_SELECTED
-        put(232, 0) // TARGET_SELECTED
-        put(233, 0) // TARGET_SELECTED
-        put(234, 0) // TARGET_USER
-        put(235, 0) // TARGET_USER
-        put(236, 0) // TARGET_USER
-        put(237, 0) // TARGET_SELECTED
-        put(238, 0) // TARGET_SELECTED
-        put(239, 6) // TARGET_BOTH
-        put(240, 0) // TARGET_FIELD
-        put(241, 0) // TARGET_FIELD
-        put(242, 0) // TARGET_SELECTED
-        put(243, 0) // TARGET_DEPENDS
-        put(244, 0) // TARGET_SELECTED
-        put(245, 0) // TARGET_SELECTED
-        put(246, 0) // TARGET_SELECTED
-        put(247, 0) // TARGET_SELECTED
-        put(248, 0) // TARGET_SELECTED
-        put(249, 0) // TARGET_SELECTED
-        put(250, 0) // TARGET_SELECTED
-        put(251, 0) // TARGET_SELECTED
-        put(252, 0) // TARGET_SELECTED
-        put(253, 0) // TARGET_RANDOM
-        put(254, 0) // TARGET_USER
-        put(255, 0) // TARGET_SELECTED
-        put(256, 0) // TARGET_USER
-        put(257, 6) // TARGET_BOTH
-        put(258, 0) // TARGET_FIELD
-        put(259, 0) // TARGET_SELECTED
-        put(260, 0) // TARGET_SELECTED
-        put(261, 0) // TARGET_SELECTED
-        put(262, 0) // TARGET_SELECTED
-        put(263, 0) // TARGET_SELECTED
-        put(264, 0) // TARGET_SELECTED
-        put(265, 0) // TARGET_SELECTED
-        put(266, 0) // TARGET_USER
-        put(268, 0) // TARGET_USER
-        put(269, 0) // TARGET_SELECTED
-        put(271, 0) // TARGET_SELECTED
-        put(272, 0) // TARGET_SELECTED
-        put(273, 0) // TARGET_USER
-        put(274, 0) // TARGET_DEPENDS
-        put(275, 0) // TARGET_USER
-        put(276, 0) // TARGET_SELECTED
-        put(277, 0) // TARGET_DEPENDS
-        put(278, 0) // TARGET_USER
-        put(279, 0) // TARGET_SELECTED
-        put(280, 0) // TARGET_SELECTED
-        put(281, 0) // TARGET_SELECTED
-        put(282, 0) // TARGET_SELECTED
-        put(283, 0) // TARGET_SELECTED
-        put(284, 6) // TARGET_BOTH
-        put(285, 0) // TARGET_SELECTED
-        put(286, 0) // TARGET_USER
-        put(287, 0) // TARGET_USER
-        put(288, 0) // TARGET_USER
-        put(289, 0) // TARGET_DEPENDS
-        put(290, 0) // TARGET_SELECTED
-        put(291, 0) // TARGET_SELECTED
-        put(292, 0) // TARGET_SELECTED
-        put(293, 0) // TARGET_USER
-        put(295, 0) // TARGET_SELECTED
-        put(296, 0) // TARGET_SELECTED
-        put(297, 0) // TARGET_SELECTED
-        put(298, 10) // TARGET_FOES_AND_ALLY
-        put(299, 0) // TARGET_SELECTED
-        put(300, 0) // TARGET_FIELD
-        put(301, 0) // TARGET_SELECTED
-        put(302, 0) // TARGET_SELECTED
-        put(303, 0) // TARGET_USER
-        put(304, 6) // TARGET_BOTH
-        put(305, 0) // TARGET_SELECTED
-        put(306, 0) // TARGET_SELECTED
-        put(307, 0) // TARGET_SELECTED
-        put(308, 0) // TARGET_SELECTED
-        put(309, 0) // TARGET_SELECTED
-        put(310, 0) // TARGET_SELECTED
-        put(311, 0) // TARGET_SELECTED
-        put(312, 0) // TARGET_USER
-        put(313, 0) // TARGET_SELECTED
-        put(314, 6) // TARGET_BOTH
-        put(315, 0) // TARGET_SELECTED
-        put(316, 0) // TARGET_SELECTED
-        put(317, 0) // TARGET_SELECTED
-        put(318, 0) // TARGET_SELECTED
-        put(319, 0) // TARGET_SELECTED
-        put(320, 0) // TARGET_SELECTED
-        put(321, 0) // TARGET_SELECTED
-        put(322, 0) // TARGET_USER
-        put(323, 6) // TARGET_BOTH
-        put(324, 0) // TARGET_SELECTED
-        put(325, 0) // TARGET_SELECTED
-        put(326, 0) // TARGET_SELECTED
-        put(327, 0) // TARGET_SELECTED
-        put(328, 0) // TARGET_SELECTED
-        put(329, 0) // TARGET_SELECTED
-        put(330, 6) // TARGET_BOTH
-        put(331, 0) // TARGET_SELECTED
-        put(332, 0) // TARGET_SELECTED
-        put(333, 0) // TARGET_SELECTED
-        put(334, 0) // TARGET_USER
-        put(335, 0) // TARGET_SELECTED
-        put(337, 0) // TARGET_SELECTED
-        put(338, 0) // TARGET_SELECTED
-        put(339, 0) // TARGET_USER
-        put(340, 0) // TARGET_SELECTED
-        put(341, 0) // TARGET_SELECTED
-        put(342, 0) // TARGET_SELECTED
-        put(343, 0) // TARGET_SELECTED
-        put(344, 0) // TARGET_SELECTED
-        put(345, 0) // TARGET_SELECTED
-        put(346, 0) // TARGET_FIELD
-        put(347, 0) // TARGET_USER
-        put(348, 0) // TARGET_SELECTED
-        put(349, 0) // TARGET_USER
-        put(350, 0) // TARGET_SELECTED
-        put(351, 0) // TARGET_SELECTED
-        put(352, 0) // TARGET_SELECTED
-        put(353, 0) // TARGET_SELECTED
-        put(354, 0) // TARGET_SELECTED
-        put(355, 0) // TARGET_USER
-        put(356, 0) // TARGET_FIELD
-        put(357, 0) // TARGET_SELECTED
-        put(358, 0) // TARGET_SELECTED
-        put(359, 0) // TARGET_SELECTED
-        put(360, 0) // TARGET_SELECTED
-        put(361, 0) // TARGET_USER
-        put(362, 0) // TARGET_SELECTED
-        put(363, 0) // TARGET_SELECTED
-        put(364, 0) // TARGET_SELECTED
-        put(365, 0) // TARGET_SELECTED
-        put(366, 0) // TARGET_USER
-        put(367, 0) // TARGET_USER_OR_ALLY
-        put(368, 0) // TARGET_DEPENDS
-        put(369, 0) // TARGET_SELECTED
-        put(370, 0) // TARGET_SELECTED
-        put(371, 0) // TARGET_SELECTED
-        put(372, 0) // TARGET_SELECTED
-        put(373, 0) // TARGET_SELECTED
-        put(374, 0) // TARGET_SELECTED
-        put(375, 0) // TARGET_SELECTED
-        put(376, 0) // TARGET_SELECTED
-        put(377, 6) // TARGET_BOTH
-        put(378, 0) // TARGET_SELECTED
-        put(379, 0) // TARGET_USER
-        put(380, 0) // TARGET_SELECTED
-        put(381, 0) // TARGET_USER
-        put(382, 0) // TARGET_OPPONENT
-        put(383, 0) // TARGET_DEPENDS
-        put(384, 0) // TARGET_SELECTED
-        put(385, 0) // TARGET_SELECTED
-        put(386, 0) // TARGET_SELECTED
-        put(387, 0) // TARGET_SELECTED
-        put(388, 0) // TARGET_SELECTED
-        put(389, 0) // TARGET_SELECTED
-        put(390, 12) // TARGET_OPPONENTS_FIELD
-        put(391, 0) // TARGET_SELECTED
-        put(392, 0) // TARGET_USER
-        put(393, 0) // TARGET_USER
-        put(394, 0) // TARGET_SELECTED
-        put(395, 0) // TARGET_SELECTED
-        put(396, 0) // TARGET_SELECTED
-        put(397, 0) // TARGET_USER
-        put(398, 0) // TARGET_SELECTED
-        put(399, 0) // TARGET_SELECTED
-        put(400, 0) // TARGET_SELECTED
-        put(401, 0) // TARGET_SELECTED
-        put(402, 0) // TARGET_SELECTED
-        put(403, 0) // TARGET_SELECTED
-        put(404, 0) // TARGET_SELECTED
-        put(405, 0) // TARGET_SELECTED
-        put(406, 0) // TARGET_SELECTED
-        put(407, 0) // TARGET_SELECTED
-        put(408, 0) // TARGET_SELECTED
-        put(409, 0) // TARGET_SELECTED
-        put(410, 0) // TARGET_SELECTED
-        put(411, 0) // TARGET_SELECTED
-        put(412, 0) // TARGET_SELECTED
-        put(413, 0) // TARGET_SELECTED
-        put(414, 0) // TARGET_SELECTED
-        put(415, 0) // TARGET_SELECTED
-        put(416, 0) // TARGET_SELECTED
-        put(417, 0) // TARGET_USER
-        put(418, 0) // TARGET_SELECTED
-        put(419, 0) // TARGET_SELECTED
-        put(420, 0) // TARGET_SELECTED
-        put(421, 0) // TARGET_SELECTED
-        put(422, 0) // TARGET_SELECTED
-        put(423, 0) // TARGET_SELECTED
-        put(424, 0) // TARGET_SELECTED
-        put(425, 0) // TARGET_SELECTED
-        put(426, 0) // TARGET_SELECTED
-        put(427, 0) // TARGET_SELECTED
-        put(428, 0) // TARGET_SELECTED
-        put(429, 0) // TARGET_SELECTED
-        put(430, 0) // TARGET_SELECTED
-        put(431, 0) // TARGET_SELECTED
-        put(432, 0) // TARGET_SELECTED
-        put(433, 0) // TARGET_FIELD
-        put(434, 0) // TARGET_SELECTED
-        put(435, 10) // TARGET_FOES_AND_ALLY
-        put(436, 10) // TARGET_FOES_AND_ALLY
-        put(437, 0) // TARGET_SELECTED
-        put(438, 0) // TARGET_SELECTED
-        put(439, 0) // TARGET_SELECTED
-        put(440, 0) // TARGET_SELECTED
-        put(441, 0) // TARGET_SELECTED
-        put(442, 0) // TARGET_SELECTED
-        put(443, 0) // TARGET_SELECTED
-        put(444, 0) // TARGET_SELECTED
-        put(445, 6) // TARGET_BOTH
-        put(446, 12) // TARGET_OPPONENTS_FIELD
-        put(447, 0) // TARGET_SELECTED
-        put(448, 0) // TARGET_SELECTED
-        put(449, 0) // TARGET_SELECTED
-        put(450, 0) // TARGET_SELECTED
-        put(451, 0) // TARGET_SELECTED
-        put(452, 0) // TARGET_SELECTED
-        put(453, 0) // TARGET_SELECTED
-        put(454, 0) // TARGET_SELECTED
-        put(455, 0) // TARGET_USER
-        put(456, 0) // TARGET_USER
-        put(457, 0) // TARGET_SELECTED
-        put(458, 0) // TARGET_SELECTED
-        put(459, 0) // TARGET_SELECTED
-        put(460, 0) // TARGET_SELECTED
-        put(461, 0) // TARGET_USER
-        put(462, 0) // TARGET_SELECTED
-        put(463, 0) // TARGET_SELECTED
-        put(464, 6) // TARGET_BOTH
-        put(465, 0) // TARGET_SELECTED
-        put(466, 0) // TARGET_SELECTED
-        put(467, 0) // TARGET_SELECTED
-        put(468, 0) // TARGET_USER
-        put(469, 0) // TARGET_USER
-        put(470, 0) // TARGET_SELECTED
-        put(471, 0) // TARGET_SELECTED
-        put(472, 0) // TARGET_FIELD
-        put(473, 0) // TARGET_SELECTED
-        put(474, 0) // TARGET_SELECTED
-        put(475, 0) // TARGET_USER
-        put(476, 0) // TARGET_USER
-        put(477, 0) // TARGET_SELECTED
-        put(478, 0) // TARGET_FIELD
-        put(479, 0) // TARGET_SELECTED
-        put(480, 0) // TARGET_SELECTED
-        put(481, 0) // TARGET_SELECTED
-        put(482, 10) // TARGET_FOES_AND_ALLY
-        put(483, 0) // TARGET_USER
-        put(484, 0) // TARGET_SELECTED
-        put(485, 10) // TARGET_FOES_AND_ALLY
-        put(486, 0) // TARGET_SELECTED
-        put(487, 0) // TARGET_SELECTED
-        put(488, 0) // TARGET_SELECTED
-        put(489, 0) // TARGET_USER
-        put(490, 0) // TARGET_SELECTED
-        put(491, 0) // TARGET_SELECTED
-        put(492, 0) // TARGET_SELECTED
-        put(493, 0) // TARGET_SELECTED
-        put(494, 0) // TARGET_SELECTED
-        put(495, 0) // TARGET_SELECTED
-        put(496, 0) // TARGET_SELECTED
-        put(497, 0) // TARGET_SELECTED
-        put(498, 0) // TARGET_SELECTED
-        put(499, 0) // TARGET_SELECTED
-        put(500, 0) // TARGET_SELECTED
-        put(501, 0) // TARGET_USER
-        put(502, 0) // TARGET_USER
-        put(503, 0) // TARGET_SELECTED
-        put(504, 0) // TARGET_USER
-        put(505, 0) // TARGET_SELECTED
-        put(506, 0) // TARGET_SELECTED
-        put(507, 0) // TARGET_SELECTED
-        put(508, 0) // TARGET_USER
-        put(509, 0) // TARGET_SELECTED
-        put(510, 6) // TARGET_BOTH
-        put(511, 0) // TARGET_SELECTED
-        put(512, 0) // TARGET_SELECTED
-        put(513, 0) // TARGET_SELECTED
-        put(514, 0) // TARGET_SELECTED
-        put(515, 0) // TARGET_SELECTED
-        put(516, 0) // TARGET_SELECTED
-        put(517, 0) // TARGET_SELECTED
-        put(518, 0) // TARGET_SELECTED
-        put(519, 0) // TARGET_SELECTED
-        put(520, 0) // TARGET_SELECTED
-        put(521, 0) // TARGET_SELECTED
-        put(522, 6) // TARGET_BOTH
-        put(523, 10) // TARGET_FOES_AND_ALLY
-        put(524, 0) // TARGET_SELECTED
-        put(525, 0) // TARGET_SELECTED
-        put(526, 0) // TARGET_USER
-        put(527, 6) // TARGET_BOTH
-        put(528, 0) // TARGET_SELECTED
-        put(529, 0) // TARGET_SELECTED
-        put(530, 0) // TARGET_SELECTED
-        put(531, 0) // TARGET_SELECTED
-        put(532, 0) // TARGET_SELECTED
-        put(533, 0) // TARGET_SELECTED
-        put(534, 0) // TARGET_SELECTED
-        put(535, 0) // TARGET_SELECTED
-        put(536, 0) // TARGET_SELECTED
-        put(537, 0) // TARGET_SELECTED
-        put(538, 0) // TARGET_USER
-        put(539, 0) // TARGET_SELECTED
-        put(540, 0) // TARGET_SELECTED
-        put(541, 0) // TARGET_SELECTED
-        put(542, 0) // TARGET_SELECTED
-        put(543, 0) // TARGET_SELECTED
-        put(544, 0) // TARGET_SELECTED
-        put(545, 10) // TARGET_FOES_AND_ALLY
-        put(546, 0) // TARGET_SELECTED
-        put(547, 6) // TARGET_BOTH
-        put(548, 0) // TARGET_SELECTED
-        put(549, 6) // TARGET_BOTH
-        put(550, 0) // TARGET_SELECTED
-        put(551, 0) // TARGET_SELECTED
-        put(552, 0) // TARGET_SELECTED
-        put(553, 0) // TARGET_SELECTED
-        put(554, 0) // TARGET_SELECTED
-        put(555, 6) // TARGET_BOTH
-        put(556, 0) // TARGET_SELECTED
-        put(557, 0) // TARGET_SELECTED
-        put(558, 0) // TARGET_SELECTED
-        put(559, 0) // TARGET_SELECTED
-        put(560, 0) // TARGET_SELECTED
-        put(561, 0) // TARGET_USER
-        put(562, 0) // TARGET_SELECTED
-        put(563, 0) // TARGET_ALL_BATTLERS
-        put(564, 12) // TARGET_OPPONENTS_FIELD
-        put(565, 0) // TARGET_SELECTED
-        put(566, 0) // TARGET_SELECTED
-        put(567, 0) // TARGET_SELECTED
-        put(568, 0) // TARGET_SELECTED
-        put(569, 0) // TARGET_FIELD
-        put(570, 10) // TARGET_FOES_AND_ALLY
-        put(571, 0) // TARGET_SELECTED
-        put(572, 10) // TARGET_FOES_AND_ALLY
-        put(573, 0) // TARGET_SELECTED
-        put(574, 6) // TARGET_BOTH
-        put(575, 0) // TARGET_SELECTED
-        put(576, 0) // TARGET_SELECTED
-        put(577, 0) // TARGET_SELECTED
-        put(578, 0) // TARGET_USER
-        put(579, 0) // TARGET_ALL_BATTLERS
-        put(580, 0) // TARGET_FIELD
-        put(581, 0) // TARGET_FIELD
-        put(582, 0) // TARGET_SELECTED
-        put(583, 0) // TARGET_SELECTED
-        put(584, 0) // TARGET_SELECTED
-        put(585, 0) // TARGET_SELECTED
-        put(586, 10) // TARGET_FOES_AND_ALLY
-        put(587, 0) // TARGET_FIELD
-        put(588, 0) // TARGET_USER
-        put(589, 0) // TARGET_SELECTED
-        put(590, 0) // TARGET_SELECTED
-        put(591, 6) // TARGET_BOTH
-        put(592, 0) // TARGET_SELECTED
-        put(593, 0) // TARGET_SELECTED
-        put(594, 0) // TARGET_SELECTED
-        put(595, 0) // TARGET_SELECTED
-        put(596, 0) // TARGET_USER
-        put(597, 0) // TARGET_ALLY
-        put(598, 0) // TARGET_SELECTED
-        put(599, 6) // TARGET_BOTH
-        put(600, 0) // TARGET_SELECTED
-        put(601, 0) // TARGET_USER
-        put(602, 0) // TARGET_USER
-        put(603, 0) // TARGET_USER
-        put(604, 0) // TARGET_FIELD
-        put(605, 6) // TARGET_BOTH
-        put(606, 0) // TARGET_USER
-        put(607, 0) // TARGET_ALLY
-        put(608, 0) // TARGET_SELECTED
-        put(609, 0) // TARGET_SELECTED
-        put(610, 0) // TARGET_SELECTED
-        put(611, 0) // TARGET_SELECTED
-        put(612, 0) // TARGET_SELECTED
-        put(613, 0) // TARGET_SELECTED
-        put(614, 6) // TARGET_BOTH
-        put(615, 6) // TARGET_BOTH
-        put(616, 6) // TARGET_BOTH
-        put(617, 0) // TARGET_SELECTED
-        put(618, 6) // TARGET_BOTH
-        put(619, 6) // TARGET_BOTH
-        put(620, 0) // TARGET_SELECTED
-        put(621, 0) // TARGET_SELECTED
-        put(622, 0) // TARGET_USER
-        put(623, 0) // TARGET_SELECTED
-        put(624, 0) // TARGET_USER
-        put(625, 0) // TARGET_SELECTED
-        put(626, 0) // TARGET_SELECTED
-        put(627, 10) // TARGET_FOES_AND_ALLY
-        put(628, 0) // TARGET_SELECTED
-        put(629, 0) // TARGET_SELECTED
-        put(630, 0) // TARGET_SELECTED
-        put(631, 0) // TARGET_SELECTED
-        put(632, 0) // TARGET_SELECTED
-        put(633, 0) // TARGET_SELECTED
-        put(634, 0) // TARGET_SELECTED
-        put(635, 0) // TARGET_SELECTED
-        put(636, 0) // TARGET_USER
-        put(637, 0) // TARGET_USER
-        put(638, 0) // TARGET_SELECTED
-        put(639, 0) // TARGET_SELECTED
-        put(640, 0) // TARGET_SELECTED
-        put(641, 0) // TARGET_FIELD
-        put(642, 0) // TARGET_SELECTED
-        put(643, 0) // TARGET_SELECTED
-        put(644, 0) // TARGET_SELECTED
-        put(645, 0) // TARGET_SELECTED
-        put(646, 0) // TARGET_SELECTED
-        put(647, 0) // TARGET_SELECTED
-        put(648, 0) // TARGET_SELECTED
-        put(649, 0) // TARGET_SELECTED
-        put(650, 0) // TARGET_SELECTED
-        put(651, 0) // TARGET_SELECTED
-        put(652, 0) // TARGET_SELECTED
-        put(653, 0) // TARGET_SELECTED
-        put(654, 6) // TARGET_BOTH
-        put(655, 0) // TARGET_SELECTED
-        put(656, 10) // TARGET_FOES_AND_ALLY
-        put(657, 0) // TARGET_USER
-        put(658, 6) // TARGET_BOTH
-        put(659, 0) // TARGET_SELECTED
-        put(660, 0) // TARGET_SELECTED
-        put(661, 0) // TARGET_SELECTED
-        put(662, 0) // TARGET_SELECTED
-        put(663, 0) // TARGET_SELECTED
-        put(664, 0) // TARGET_SELECTED
-        put(665, 0) // TARGET_SELECTED
-        put(666, 0) // TARGET_SELECTED
-        put(667, 0) // TARGET_SELECTED
-        put(668, 0) // TARGET_SELECTED
-        put(669, 0) // TARGET_SELECTED
-        put(670, 0) // TARGET_SELECTED
-        put(671, 0) // TARGET_SELECTED
-        put(672, 0) // TARGET_SELECTED
-        put(673, 10) // TARGET_FOES_AND_ALLY
-        put(674, 0) // TARGET_SELECTED
-        put(675, 0) // TARGET_SELECTED
-        put(676, 0) // TARGET_SELECTED
-        put(677, 6) // TARGET_BOTH
-        put(678, 0) // TARGET_SELECTED
-        put(679, 0) // TARGET_SELECTED
-        put(680, 0) // TARGET_SELECTED
-        put(681, 0) // TARGET_SELECTED
-        put(682, 0) // TARGET_SELECTED
-        put(683, 0) // TARGET_SELECTED
-        put(684, 0) // TARGET_SELECTED
-        put(685, 0) // TARGET_SELECTED
-        put(686, 0) // TARGET_SELECTED
-        put(687, 0) // TARGET_SELECTED
-        put(688, 0) // TARGET_SELECTED
-        put(689, 0) // TARGET_SELECTED
-        put(690, 0) // TARGET_SELECTED
-        put(691, 0) // TARGET_SELECTED
-        put(692, 0) // TARGET_SELECTED
-        put(693, 0) // TARGET_USER
-        put(694, 0) // TARGET_USER
-        put(695, 0) // TARGET_SELECTED
-        put(696, 0) // TARGET_SELECTED
-        put(697, 0) // TARGET_SMART
-        put(698, 0) // TARGET_ALL_BATTLERS
-        put(699, 0) // TARGET_SELECTED
-        put(700, 0) // TARGET_SELECTED
-        put(701, 0) // TARGET_SELECTED
-        put(702, 0) // TARGET_FIELD
-        put(703, 0) // TARGET_USER
-        put(704, 0) // TARGET_SELECTED
-        put(705, 0) // TARGET_SELECTED
-        put(706, 0) // TARGET_SELECTED
-        put(707, 0) // TARGET_SELECTED
-        put(708, 0) // TARGET_SELECTED
-        put(709, 0) // TARGET_SELECTED
-        put(710, 0) // TARGET_SELECTED
-        put(711, 0) // TARGET_SELECTED
-        put(712, 6) // TARGET_BOTH
-        put(713, 0) // TARGET_SELECTED
-        put(714, 6) // TARGET_BOTH
-        put(715, 0) // TARGET_SELECTED
-        put(716, 0) // TARGET_SELECTED
-        put(717, 0) // TARGET_SELECTED
-        put(718, 0) // TARGET_SELECTED
-        put(719, 0) // TARGET_USER
-        put(720, 0) // TARGET_USER
-        put(721, 0) // TARGET_SELECTED
-        put(722, 0) // TARGET_SELECTED
-        put(723, 0) // TARGET_SELECTED
-        put(724, 0) // TARGET_SELECTED
-        put(725, 0) // TARGET_SELECTED
-        put(726, 0) // TARGET_SELECTED
-        put(727, 0) // TARGET_SELECTED
-        put(728, 0) // TARGET_SELECTED
-        put(729, 0) // TARGET_SELECTED
-        put(730, 10) // TARGET_FOES_AND_ALLY
-        put(731, 0) // TARGET_SELECTED
-        put(732, 0) // TARGET_SELECTED
-        put(733, 0) // TARGET_SELECTED
-        put(734, 0) // TARGET_SELECTED
-        put(735, 6) // TARGET_BOTH
-        put(736, 0) // TARGET_SELECTED
-        put(737, 0) // TARGET_SELECTED
-        put(738, 10) // TARGET_FOES_AND_ALLY
-        put(739, 0) // TARGET_ALLY
-        put(740, 0) // TARGET_SELECTED
-        put(741, 0) // TARGET_SELECTED
-        put(742, 0) // TARGET_SELECTED
-        put(743, 0) // TARGET_SELECTED
-        put(744, 0) // TARGET_USER
-        put(745, 0) // TARGET_SELECTED
-        put(746, 0) // TARGET_SELECTED
-        put(747, 0) // TARGET_SELECTED
-        put(748, 6) // TARGET_BOTH
-        put(749, 0) // TARGET_SELECTED
-        put(750, 6) // TARGET_BOTH
-        put(751, 0) // TARGET_SELECTED
-        put(752, 6) // TARGET_BOTH
-        put(753, 6) // TARGET_BOTH
-        put(754, 0) // TARGET_SELECTED
-        put(755, 0) // TARGET_SELECTED
-        put(756, 0) // TARGET_SELECTED
-        put(757, 0) // TARGET_USER
-        put(758, 0) // TARGET_SELECTED
-        put(759, 6) // TARGET_BOTH
-        put(760, 0) // TARGET_SELECTED
-        put(761, 0) // TARGET_RANDOM
-        put(762, 0) // TARGET_SELECTED
-        put(763, 0) // TARGET_SELECTED
-        put(764, 0) // TARGET_SELECTED
-        put(765, 0) // TARGET_USER
-        put(766, 0) // TARGET_SELECTED
-        put(767, 0) // TARGET_SELECTED
-        put(768, 0) // TARGET_SELECTED
-        put(769, 0) // TARGET_SELECTED
-        put(770, 0) // TARGET_USER
-        put(771, 0) // TARGET_SELECTED
-        put(772, 0) // TARGET_SELECTED
-        put(773, 0) // TARGET_SELECTED
-        put(774, 6) // TARGET_BOTH
-        put(775, 6) // TARGET_BOTH
-        put(776, 6) // TARGET_BOTH
-        put(777, 0) // TARGET_USER
-        put(778, 0) // TARGET_USER
-        put(779, 0) // TARGET_SELECTED
-        put(780, 0) // TARGET_USER
-        put(781, 0) // TARGET_SELECTED
-        put(782, 0) // TARGET_SELECTED
-        put(783, 0) // TARGET_SELECTED
-        put(784, 0) // TARGET_SELECTED
-        put(785, 0) // TARGET_SELECTED
-        put(786, 0) // TARGET_SELECTED
-        put(787, 0) // TARGET_SELECTED
-        put(788, 0) // TARGET_SELECTED
-        put(789, 0) // TARGET_SELECTED
-        put(790, 0) // TARGET_SELECTED
-        put(791, 0) // TARGET_USER
-        put(792, 0) // TARGET_SELECTED
-        put(793, 0) // TARGET_SELECTED
-        put(794, 6) // TARGET_BOTH
-        put(795, 0) // TARGET_SELECTED
-        put(796, 0) // TARGET_USER
-        put(797, 0) // TARGET_SELECTED
-        put(798, 0) // TARGET_SELECTED
-        put(799, 0) // TARGET_SELECTED
-        put(800, 0) // TARGET_SELECTED
-        put(801, 0) // TARGET_SELECTED
-        put(802, 6) // TARGET_BOTH
-        put(803, 0) // TARGET_SELECTED
-        put(804, 0) // TARGET_SELECTED
-        put(805, 0) // TARGET_SELECTED
-        put(806, 0) // TARGET_USER
-        put(807, 0) // TARGET_FIELD
-        put(808, 0) // TARGET_USER
-        put(809, 0) // TARGET_FIELD
-        put(810, 0) // TARGET_SELECTED
-        put(811, 0) // TARGET_SELECTED
-        put(812, 0) // TARGET_SELECTED
-        put(813, 0) // TARGET_SELECTED
-        put(814, 0) // TARGET_SELECTED
-        put(815, 0) // TARGET_SELECTED
-        put(816, 0) // TARGET_SELECTED
-        put(817, 0) // TARGET_SELECTED
-        put(818, 0) // TARGET_SELECTED
-        put(819, 0) // TARGET_SELECTED
-        put(820, 0) // TARGET_DEPENDS
-        put(821, 0) // TARGET_SELECTED
-        put(822, 0) // TARGET_SELECTED
-        put(823, 0) // TARGET_SELECTED
-        put(824, 0) // TARGET_SELECTED
-        put(825, 0) // TARGET_SELECTED
-        put(826, 0) // TARGET_SELECTED
-        put(827, 0) // TARGET_SELECTED
-        put(828, 0) // TARGET_SELECTED
-        put(829, 0) // TARGET_SELECTED
-        put(830, 6) // TARGET_BOTH
-        put(831, 0) // TARGET_SELECTED
-        put(832, 0) // TARGET_SELECTED
-        put(833, 0) // TARGET_SELECTED
-        put(834, 0) // TARGET_SELECTED
-        put(835, 0) // TARGET_SELECTED
-        put(836, 0) // TARGET_USER
-        put(837, 0) // TARGET_SELECTED
-        put(838, 0) // TARGET_SELECTED
-        put(839, 0) // TARGET_SELECTED
-        put(840, 0) // TARGET_SELECTED
-        put(841, 0) // TARGET_ALLY
-        put(842, 0) // TARGET_SELECTED
-        put(843, 0) // TARGET_SELECTED
-        put(844, 0) // TARGET_SELECTED
-        put(845, 0) // TARGET_SELECTED
-        put(846, 0) // TARGET_SELECTED
-        put(847, 0) // TARGET_SELECTED
-        put(848, 0) // TARGET_SELECTED
-        put(849, 0) // TARGET_SELECTED
-        put(850, 0) // TARGET_SELECTED
-        put(851, 0) // TARGET_SELECTED
-        put(852, 0) // TARGET_SELECTED
-        put(853, 0) // TARGET_SELECTED
-        put(854, 0) // TARGET_SELECTED
-        put(855, 0) // TARGET_SELECTED
-        put(856, 0) // TARGET_SELECTED
-        put(857, 0) // TARGET_SELECTED
-        put(858, 0) // TARGET_SELECTED
-        put(859, 0) // TARGET_SELECTED
-        put(860, 0) // TARGET_SELECTED
-        put(861, 0) // TARGET_SELECTED
-        put(862, 0) // TARGET_SELECTED
-        put(863, 0) // TARGET_SELECTED
-        put(864, 0) // TARGET_SELECTED
-        put(865, 0) // TARGET_SELECTED
-        put(866, 0) // TARGET_SELECTED
-        put(867, 0) // TARGET_SELECTED
-        put(868, 0) // TARGET_SELECTED
-        put(869, 0) // TARGET_USER
-        put(870, 0) // TARGET_SELECTED
-        put(871, 0) // TARGET_SELECTED
-        put(872, 0) // TARGET_SELECTED
-        put(873, 0) // TARGET_SELECTED
-        put(874, 0) // TARGET_SELECTED
-        put(875, 0) // TARGET_SELECTED
-        put(876, 0) // TARGET_SELECTED
-        put(877, 6) // TARGET_BOTH
-        put(878, 0) // TARGET_SELECTED
-        put(879, 0) // TARGET_SELECTED
-        put(880, 0) // TARGET_SELECTED
-        put(881, 0) // TARGET_SELECTED
-        put(882, 0) // TARGET_SELECTED
-        put(883, 0) // TARGET_USER
-        put(884, 0) // TARGET_SELECTED
-        put(885, 0) // TARGET_SELECTED
-        put(886, 0) // TARGET_SELECTED
-        put(887, 0) // TARGET_SELECTED
-        put(888, 0) // TARGET_SELECTED
-        put(889, 0) // TARGET_SELECTED
-        put(890, 0) // TARGET_SELECTED
-        put(891, 0) // TARGET_SELECTED
-        put(892, 0) // TARGET_SELECTED
-        put(893, 0) // TARGET_SELECTED
-        put(894, 0) // TARGET_SELECTED
-        put(895, 0) // TARGET_SELECTED
-        put(896, 0) // TARGET_SELECTED
-        put(897, 0) // TARGET_SELECTED
-        put(898, 0) // TARGET_SELECTED
-        put(899, 0) // TARGET_SELECTED
-        put(900, 0) // TARGET_SELECTED
-        put(901, 0) // TARGET_SELECTED
-        put(902, 0) // TARGET_SELECTED
-        put(903, 0) // TARGET_SELECTED
-        put(904, 0) // TARGET_SELECTED
-        put(905, 0) // TARGET_SELECTED
-        put(906, 0) // TARGET_SELECTED
-        put(907, 0) // TARGET_SELECTED
-        put(908, 0) // TARGET_SELECTED
-        put(909, 0) // TARGET_SELECTED
-        put(910, 0) // TARGET_SELECTED
-        put(911, 0) // TARGET_SELECTED
-        put(912, 0) // TARGET_SELECTED
-        put(913, 0) // TARGET_SELECTED
-        put(914, 0) // TARGET_SELECTED
-        put(915, 0) // TARGET_SELECTED
-        put(916, 0) // TARGET_SELECTED
-        put(917, 0) // TARGET_SELECTED
-        put(918, 0) // TARGET_SELECTED
-        put(919, 0) // TARGET_SELECTED
-        put(920, 0) // TARGET_SELECTED
-        put(921, 0) // TARGET_SELECTED
-        put(922, 0) // TARGET_SELECTED
-        put(923, 0) // TARGET_SELECTED
-        put(924, 0) // TARGET_SELECTED
-        put(925, 0) // TARGET_SELECTED
-        put(926, 0) // TARGET_SELECTED
-        put(927, 0) // TARGET_SELECTED
-        put(928, 0) // TARGET_SELECTED
-        put(929, 0) // TARGET_SELECTED
-        put(930, 0) // TARGET_SELECTED
-        put(931, 0) // TARGET_SELECTED
-        put(932, 0) // TARGET_SELECTED
-        put(933, 0) // TARGET_SELECTED
-        put(934, 0) // TARGET_SELECTED
+        put(1, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(2, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(3, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(4, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(5, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(6, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(7, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(8, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(9, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(10, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(11, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(12, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(13, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(14, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(15, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(16, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(17, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(18, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(19, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(20, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(21, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(22, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(23, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(24, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(25, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(26, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(27, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(28, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(29, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(30, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(31, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(32, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(33, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(34, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(35, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(36, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(37, SpreadTargetClass.TARGET_RANDOM) // pinned enum value 5
+        put(38, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(39, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(40, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(41, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(42, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(43, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(44, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(45, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(46, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(47, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(48, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(49, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(50, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(51, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(52, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(53, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(54, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(55, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(56, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(58, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(59, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(60, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(61, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(62, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(63, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(64, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(65, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(66, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(68, SpreadTargetClass.TARGET_DEPENDS) // pinned enum value 3
+        put(69, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(70, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(71, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(72, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(73, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(75, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(76, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(77, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(78, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(79, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(80, SpreadTargetClass.TARGET_RANDOM) // pinned enum value 5
+        put(82, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(83, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(84, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(85, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(86, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(87, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(88, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(89, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(90, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(91, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(92, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(93, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(94, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(95, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(96, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(97, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(98, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(99, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(100, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(101, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(102, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(103, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(104, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(105, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(106, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(107, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(108, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(109, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(110, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(111, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(112, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(113, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(114, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(115, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(116, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(117, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(118, SpreadTargetClass.TARGET_DEPENDS) // pinned enum value 3
+        put(119, SpreadTargetClass.TARGET_DEPENDS) // pinned enum value 3
+        put(120, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(121, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(122, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(123, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(124, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(125, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(126, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(127, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(128, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(129, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(130, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(131, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(132, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(133, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(134, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(135, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(136, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(137, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(138, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(140, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(141, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(142, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(143, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(144, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(145, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(146, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(147, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(148, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(149, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(150, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(151, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(152, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(153, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(154, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(155, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(156, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(157, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(158, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(159, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(160, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(161, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(162, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(163, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(164, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(166, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(167, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(168, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(169, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(170, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(171, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(172, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(173, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(174, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(175, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(177, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(179, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(180, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(181, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(182, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(183, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(184, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(185, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(186, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(187, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(188, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(189, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(190, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(191, SpreadTargetClass.TARGET_OPPONENTS_FIELD) // pinned enum value 13
+        put(192, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(193, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(194, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(195, SpreadTargetClass.TARGET_ALL_BATTLERS) // pinned enum value 14
+        put(196, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(197, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(198, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(199, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(200, SpreadTargetClass.TARGET_RANDOM) // pinned enum value 5
+        put(201, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(202, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(203, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(204, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(205, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(206, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(207, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(208, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(209, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(210, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(211, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(212, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(213, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(214, SpreadTargetClass.TARGET_DEPENDS) // pinned enum value 3
+        put(215, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(216, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(217, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(218, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(219, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(220, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(221, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(222, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(223, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(224, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(225, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(226, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(227, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(228, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(229, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(231, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(232, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(233, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(234, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(235, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(236, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(237, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(238, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(239, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(240, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(241, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(242, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(243, SpreadTargetClass.TARGET_DEPENDS) // pinned enum value 3
+        put(244, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(245, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(246, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(247, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(248, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(249, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(250, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(251, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(252, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(253, SpreadTargetClass.TARGET_RANDOM) // pinned enum value 5
+        put(254, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(255, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(256, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(257, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(258, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(259, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(260, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(261, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(262, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(263, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(264, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(265, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(266, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(268, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(269, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(271, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(272, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(273, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(274, SpreadTargetClass.TARGET_DEPENDS) // pinned enum value 3
+        put(275, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(276, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(277, SpreadTargetClass.TARGET_DEPENDS) // pinned enum value 3
+        put(278, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(279, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(280, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(281, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(282, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(283, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(284, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(285, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(286, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(287, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(288, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(289, SpreadTargetClass.TARGET_DEPENDS) // pinned enum value 3
+        put(290, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(291, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(292, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(293, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(295, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(296, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(297, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(298, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(299, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(300, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(301, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(302, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(303, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(304, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(305, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(306, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(307, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(308, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(309, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(310, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(311, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(312, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(313, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(314, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(315, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(316, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(317, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(318, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(319, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(320, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(321, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(322, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(323, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(324, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(325, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(326, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(327, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(328, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(329, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(330, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(331, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(332, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(333, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(334, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(335, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(337, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(338, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(339, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(340, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(341, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(342, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(343, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(344, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(345, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(346, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(347, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(348, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(349, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(350, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(351, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(352, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(353, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(354, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(355, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(356, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(357, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(358, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(359, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(360, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(361, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(362, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(363, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(364, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(365, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(366, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(367, SpreadTargetClass.TARGET_USER_OR_ALLY) // pinned enum value 10
+        put(368, SpreadTargetClass.TARGET_DEPENDS) // pinned enum value 3
+        put(369, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(370, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(371, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(372, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(373, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(374, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(375, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(376, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(377, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(378, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(379, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(380, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(381, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(382, SpreadTargetClass.TARGET_OPPONENT) // pinned enum value 4
+        put(383, SpreadTargetClass.TARGET_DEPENDS) // pinned enum value 3
+        put(384, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(385, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(386, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(387, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(388, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(389, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(390, SpreadTargetClass.TARGET_OPPONENTS_FIELD) // pinned enum value 13
+        put(391, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(392, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(393, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(394, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(395, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(396, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(397, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(398, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(399, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(400, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(401, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(402, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(403, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(404, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(405, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(406, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(407, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(408, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(409, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(410, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(411, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(412, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(413, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(414, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(415, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(416, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(417, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(418, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(419, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(420, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(421, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(422, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(423, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(424, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(425, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(426, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(427, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(428, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(429, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(430, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(431, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(432, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(433, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(434, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(435, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(436, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(437, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(438, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(439, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(440, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(441, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(442, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(443, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(444, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(445, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(446, SpreadTargetClass.TARGET_OPPONENTS_FIELD) // pinned enum value 13
+        put(447, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(448, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(449, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(450, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(451, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(452, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(453, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(454, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(455, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(456, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(457, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(458, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(459, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(460, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(461, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(462, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(463, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(464, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(465, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(466, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(467, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(468, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(469, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(470, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(471, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(472, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(473, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(474, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(475, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(476, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(477, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(478, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(479, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(480, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(481, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(482, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(483, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(484, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(485, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(486, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(487, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(488, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(489, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(490, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(491, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(492, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(493, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(494, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(495, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(496, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(497, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(498, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(499, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(500, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(501, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(502, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(503, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(504, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(505, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(506, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(507, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(508, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(509, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(510, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(511, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(512, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(513, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(514, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(515, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(516, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(517, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(518, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(519, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(520, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(521, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(522, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(523, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(524, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(525, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(526, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(527, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(528, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(529, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(530, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(531, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(532, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(533, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(534, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(535, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(536, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(537, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(538, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(539, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(540, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(541, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(542, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(543, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(544, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(545, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(546, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(547, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(548, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(549, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(550, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(551, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(552, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(553, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(554, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(555, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(556, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(557, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(558, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(559, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(560, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(561, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(562, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(563, SpreadTargetClass.TARGET_ALL_BATTLERS) // pinned enum value 14
+        put(564, SpreadTargetClass.TARGET_OPPONENTS_FIELD) // pinned enum value 13
+        put(565, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(566, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(567, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(568, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(569, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(570, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(571, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(572, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(573, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(574, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(575, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(576, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(577, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(578, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(579, SpreadTargetClass.TARGET_ALL_BATTLERS) // pinned enum value 14
+        put(580, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(581, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(582, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(583, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(584, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(585, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(586, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(587, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(588, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(589, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(590, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(591, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(592, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(593, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(594, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(595, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(596, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(597, SpreadTargetClass.TARGET_ALLY) // pinned enum value 8
+        put(598, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(599, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(600, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(601, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(602, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(603, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(604, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(605, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(606, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(607, SpreadTargetClass.TARGET_ALLY) // pinned enum value 8
+        put(608, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(609, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(610, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(611, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(612, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(613, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(614, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(615, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(616, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(617, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(618, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(619, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(620, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(621, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(622, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(623, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(624, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(625, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(626, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(627, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(628, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(629, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(630, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(631, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(632, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(633, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(634, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(635, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(636, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(637, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(638, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(639, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(640, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(641, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(642, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(643, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(644, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(645, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(646, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(647, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(648, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(649, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(650, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(651, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(652, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(653, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(654, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(655, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(656, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(657, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(658, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(659, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(660, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(661, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(662, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(663, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(664, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(665, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(666, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(667, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(668, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(669, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(670, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(671, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(672, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(673, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(674, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(675, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(676, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(677, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(678, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(679, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(680, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(681, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(682, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(683, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(684, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(685, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(686, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(687, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(688, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(689, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(690, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(691, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(692, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(693, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(694, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(695, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(696, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(697, SpreadTargetClass.TARGET_SMART) // pinned enum value 2
+        put(698, SpreadTargetClass.TARGET_ALL_BATTLERS) // pinned enum value 14
+        put(699, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(700, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(701, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(702, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(703, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(704, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(705, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(706, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(707, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(708, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(709, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(710, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(711, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(712, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(713, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(714, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(715, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(716, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(717, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(718, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(719, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(720, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(721, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(722, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(723, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(724, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(725, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(726, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(727, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(728, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(729, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(730, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(731, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(732, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(733, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(734, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(735, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(736, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(737, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(738, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
+        put(739, SpreadTargetClass.TARGET_ALLY) // pinned enum value 8
+        put(740, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(741, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(742, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(743, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(744, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(745, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(746, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(747, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(748, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(749, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(750, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(751, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(752, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(753, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(754, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(755, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(756, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(757, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(758, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(759, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(760, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(761, SpreadTargetClass.TARGET_RANDOM) // pinned enum value 5
+        put(762, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(763, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(764, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(765, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(766, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(767, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(768, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(769, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(770, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(771, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(772, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(773, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(774, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(775, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(776, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(777, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(778, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(779, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(780, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(781, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(782, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(783, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(784, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(785, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(786, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(787, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(788, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(789, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(790, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(791, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(792, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(793, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(794, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(795, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(796, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(797, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(798, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(799, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(800, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(801, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(802, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(803, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(804, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(805, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(806, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(807, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(808, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(809, SpreadTargetClass.TARGET_FIELD) // pinned enum value 12
+        put(810, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(811, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(812, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(813, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(814, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(815, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(816, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(817, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(818, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(819, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(820, SpreadTargetClass.TARGET_DEPENDS) // pinned enum value 3
+        put(821, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(822, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(823, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(824, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(825, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(826, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(827, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(828, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(829, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(830, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(831, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(832, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(833, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(834, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(835, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(836, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(837, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(838, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(839, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(840, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(841, SpreadTargetClass.TARGET_ALLY) // pinned enum value 8
+        put(842, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(843, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(844, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(845, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(846, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(847, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(848, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(849, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(850, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(851, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(852, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(853, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(854, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(855, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(856, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(857, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(858, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(859, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(860, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(861, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(862, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(863, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(864, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(865, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(866, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(867, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(868, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(869, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(870, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(871, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(872, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(873, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(874, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(875, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(876, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(877, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
+        put(878, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(879, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(880, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(881, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(882, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(883, SpreadTargetClass.TARGET_USER) // pinned enum value 7
+        put(884, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(885, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(886, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(887, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(888, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(889, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(890, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(891, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(892, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(893, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(894, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(895, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(896, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(897, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(898, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(899, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(900, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(901, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(902, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(903, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(904, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(905, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(906, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(907, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(908, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(909, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(910, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(911, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(912, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(913, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(914, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(915, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(916, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(917, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(918, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(919, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(920, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(921, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(922, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(923, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(924, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(925, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(926, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(927, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(928, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(929, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(930, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(931, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(932, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(933, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(934, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
     }
 }

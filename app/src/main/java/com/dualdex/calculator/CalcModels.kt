@@ -178,7 +178,12 @@ data class CalcHnsRuntimeRules(
  *  - [moveTargetCount]: the authoritative number of currently present targets
  *    (`GetMoveTargetCount(ctx)`), or null when unobserved. H&S halves a spread move only when this
  *    is exactly 2, so a Doubles spread move without an observed count fails closed rather than
- *    guessing from `field.gameType`. No runtime reader produces this yet (Gap C4b).
+ *    guessing from `field.gameType`. Computed at the boundary from the authoritative runtime
+ *    observations (`gAbsentBattlerFlags` + the observed `gBattlersCount` from both battle-level
+ *    observations + the move's static target class). It remains null in production today: the
+ *    real boundary's single-active-battler observations are AMBIGUOUS in genuine doubles
+ *    battles, so the count is not reachable through the real Doubles path (BLOCKED, Gap C4c;
+ *    see docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §12.1).
  */
 data class CalcRawStats(
     val attack: Int,
@@ -212,8 +217,11 @@ data class CalcHnsLiveBattleState(
     /**
      * The authoritative number of currently present targets for the selected move
      * (`GetMoveTargetCount(ctx)`), or null when unobserved. Only H&S Doubles spread moves read
-     * this: the Gen-III reduction applies when the count is exactly 2. No runtime reader supplies
-     * it yet, so the production boundary always leaves it null and the policy fails closed.
+     * this: the Gen-III reduction applies when the count is exactly 2. The boundary binds it
+     * from the exact-trusted runtime observations only; a caller-crafted value is stripped.
+     * It is null in production today because the real boundary cannot observe the
+     * four-battler Doubles battle shape (see §12.1 of the capability doc), and the policy
+     * fails closed rather than guessing.
      */
     val moveTargetCount: Int? = null
 )

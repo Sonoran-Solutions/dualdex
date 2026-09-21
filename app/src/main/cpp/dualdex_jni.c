@@ -800,7 +800,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * never silently drift apart.  Every public surface that touches this tuple
  * references BATTLER_RUNTIME_STATE_TUPLE_LEN instead of a local literal.
  */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 40
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 42
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -816,9 +816,13 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * [38] absentBattlerFlags flags (0 when not readable, possibly unreliable),
  * [39] absentFlagsReadable (1 when the absent_flags field was actually read,
  * 0 for both 'no absent battlers' and 'unreadable'),
+ * [40] battlersCount (gBattlersCount: 2 singles / 4 doubles; 0 when unreadable),
+ * [41] battlersCountReadable (1 when the battlers_count field was actually read,
+ * 0 when it was never read),
  *         NOTE: absent_flags_readable distinguishes "the read produced 0" from
  *         "the read never happened" so Kotlin can't conflate 'none absent' with
- *         'unreadable'.
+ *         'unreadable'. The same rule applies to battlers_count: 0 means
+ *         'unreadable', never 'zero battlers'.
  *
  * A failed/unauthorized read returns status 0 (UNAVAILABLE) with everything else
  * zeroed: the caller must not substitute a declared ability, a party slot or a
@@ -898,6 +902,12 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     /* [39] absentFlagsReadable: 1 when the native reader actually read gAbsentBattlerFlags,
      * 0 when the read never ran or the layout does not declare the field. */
     values[39] = (state.absent_flags_readable) ? 1 : 0;
+    /* [40]/[41] battlersCount + readability: battle-level gBattlersCount carried
+     * verbatim from the authoritative battle observation. 0 with the readable bit
+     * clear means 'never read'; the count must never be inferred from the game
+     * type (that is topology inference, forbidden by the C4c authority rule). */
+    values[40] = (jint)state.battlers_count;
+    values[41] = (state.battlers_count_readable) ? 1 : 0;
 
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;

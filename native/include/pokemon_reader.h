@@ -845,18 +845,29 @@ uint8_t pokemon_read_battle_presence_gba(
 );
 
 /**
- * H&S 2.0.5 move target classes, matching the pinned `enum MoveTarget`.
+ * H&S 2.0.5 spread-move target classes, carried with the EXACT values of the
+ * pinned `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
+ *
+ *   TARGET_NONE=0, TARGET_SELECTED=1, TARGET_SMART=2, TARGET_DEPENDS=3,
+ *   TARGET_OPPONENT=4, TARGET_RANDOM=5, TARGET_BOTH=6, TARGET_USER=7,
+ *   TARGET_ALLY=8, TARGET_USER_AND_ALLY=9, TARGET_USER_OR_ALLY=10,
+ *   TARGET_FOES_AND_ALLY=11, TARGET_FIELD=12, TARGET_OPPONENTS_FIELD=13,
+ *   TARGET_ALL_BATTLERS=14.
+ *
+ * These are the internal spread target classes relevant to
+ * `pokemon_compute_hns_target_count`, NOT a renumbered copy of the pinned enum;
+ * the values must stay bit-identical to the pinned enum members so generated
+ * data (Hns205MoveEffects.SpreadTargetClass) and this reader can never drift.
  *
  * Used to compute `GetMoveTargetCount(ctx)` from battle state
- * (`gAbsentBattlerFlags`, `gBattlersCount`, and `gBattlerPositions`).
- * Only the classes that affect the spread-damage reduction are enumerated;
- * unknown or unsupported classes return a count of 0 (fail-closed).
+ * (`gAbsentBattlerFlags`, `gBattlersCount`, and the attacker/defender battler
+ * indices). Only spread classes are enumerated here; every other class —
+ * including any unknown or unsupported value — fails closed with a count of 0.
  */
 typedef enum {
-    HNS_MOVE_TARGET_SELECTED = 0,
     HNS_MOVE_TARGET_BOTH = 6,
-    HNS_MOVE_TARGET_FOES_AND_ALLY = 10,
-    HNS_MOVE_TARGET_OPPONENTS_FIELD = 12,
+    HNS_MOVE_TARGET_FOES_AND_ALLY = 11,
+    HNS_MOVE_TARGET_OPPONENTS_FIELD = 13,
 } HnsMoveTargetClass;
 
 /**
@@ -878,9 +889,13 @@ typedef enum {
  * @param battlers_count        gBattlersCount (2 for singles, 4 for doubles)
  * @param attacker_battler      the attacking battler's gBattleMons index
  * @param defender_battler      the defending battler's gBattleMons index
- * @param move_target_class     the move's static target class (from gMovesInfo[move].target)
- * @return the number of present targets (1 or 2), or 0 when the inputs are
- *         insufficient or the target class is unsupported (fail-closed).
+ * @param move_target_class     the move's static target class (from gMovesInfo[move].target),
+ *                              as one of the HnsMoveTargetClass spread values
+ * @return the number of present targets, or 0 when the inputs are insufficient
+ *         (invalid battler count or out-of-range battler indices) or the target
+ *         class is not a supported spread class (fail-closed). In particular a
+ *         single-target class such as TARGET_SELECTED never yields a count here:
+ *         the boundary refuses to assert "1" without authoritative state.
  */
 uint8_t pokemon_compute_hns_target_count(
     uint8_t absent_battler_flags,

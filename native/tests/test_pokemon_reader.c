@@ -5549,14 +5549,38 @@ static void test_hns_target_count_computation(void) {
             "TARGET_OPPONENTS_FIELD must always return 1");
     }
 
-    /* --- TARGET_SELECTED always returns 1 (single target) --- */
+    /* --- TARGET_SELECTED fails closed (single-target, ambiguous) --- */
+    {
+        /* TARGET_SELECTED is NOT a supported spread class: upstream
+         * GetMoveTargetCount returns IsBattlerAlive(battlerDef), which this
+         * pure function cannot verify authoritatively. The agreed rule
+         * (native, header and Kotlin) is fail-closed: return 0, never a
+         * fabricated 1. */
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0, /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/1); /* TARGET_SELECTED == 1 in the pinned enum */
+        TEST_ASSERT(count == 0,
+            "TARGET_SELECTED must fail closed (return 0, not a fabricated 1)");
+    }
+
+    /* Unknown/unsupported target classes fail closed, exactly like
+     * TARGET_SELECTED: no fabricated count is ever returned. */
     {
         uint8_t count = pokemon_compute_hns_target_count(
             /*absent_flags=*/0, /*battlers_count=*/4,
             /*attacker=*/0, /*defender=*/1,
-            /*target_class=*/HNS_MOVE_TARGET_SELECTED);
-        TEST_ASSERT(count == 1,
-            "TARGET_SELECTED must always return 1");
+            /*target_class=*/0); /* TARGET_NONE == 0, not a spread class */
+        TEST_ASSERT(count == 0,
+            "TARGET_NONE (unsupported class) must fail closed (return 0)");
+    }
+    {
+        uint8_t count = pokemon_compute_hns_target_count(
+            /*absent_flags=*/0, /*battlers_count=*/4,
+            /*attacker=*/0, /*defender=*/1,
+            /*target_class=*/99); /* outside the pinned enum domain */
+        TEST_ASSERT(count == 0,
+            "Out-of-domain target class must fail closed (return 0)");
     }
 
     /* --- Invalid inputs fail closed --- */
@@ -5632,16 +5656,16 @@ static void test_hns_target_count_anti_spoof(void) {
             "Zero absent flags with TARGET_BOTH in doubles must return 2");
     }
 
-    /* Verify that TARGET_SELECTED (single-target move) always returns 1
-     * regardless of absent flags. This prevents a spread move from being
-     * misrepresented as single-target. */
+    /* Verify that an unsupported single-target class (TARGET_SELECTED = 1 in
+     * the pinned enum) fails closed regardless of absent flags: a caller cannot
+     * coax a fabricated "1" out of the native computation. */
     {
         uint8_t count = pokemon_compute_hns_target_count(
             /*absent_flags=*/0, /*battlers_count=*/4,
             /*attacker=*/0, /*defender=*/1,
-            /*target_class=*/HNS_MOVE_TARGET_SELECTED);
-        TEST_ASSERT(count == 1,
-            "TARGET_SELECTED must always return 1 regardless of absent flags");
+            /*target_class=*/1); /* TARGET_SELECTED */
+        TEST_ASSERT(count == 0,
+            "TARGET_SELECTED must fail closed (0) regardless of absent flags");
     }
 
     g_tests_passed++;

@@ -297,23 +297,31 @@ def build_maps(upstream_dir):
 
 def generate_kotlin(effect_by_id, target_by_id, ordinary):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
-    # Map from TARGET_* symbols to the HnsMoveTargetClass enum values used by the native reader.
+    # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
+    # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
+    #   TARGET_NONE=0, TARGET_SELECTED=1, TARGET_SMART=2, TARGET_DEPENDS=3,
+    #   TARGET_OPPONENT=4, TARGET_RANDOM=5, TARGET_BOTH=6, TARGET_USER=7,
+    #   TARGET_ALLY=8, TARGET_USER_AND_ALLY=9, TARGET_USER_OR_ALLY=10,
+    #   TARGET_FOES_AND_ALLY=11, TARGET_FIELD=12, TARGET_OPPONENTS_FIELD=13,
+    #   TARGET_ALL_BATTLERS=14.
+    # These are internal SpreadTargetClass values, NOT a renumbered MoveTarget
+    # enum; the Kotlin consumer must compare against these exact numbers.
     TARGET_CLASS_MAP = {
-        "TARGET_SELECTED": 0,
-        "TARGET_SMART": 0,
-        "TARGET_DEPENDS": 0,
-        "TARGET_OPPONENT": 0,
-        "TARGET_RANDOM": 0,
-        "TARGET_BOTH": 6,
-        "TARGET_USER": 0,
-        "TARGET_ALLY": 0,
-        "TARGET_USER_AND_ALLY": 0,
-        "TARGET_USER_OR_ALLY": 0,
-        "TARGET_FOES_AND_ALLY": 10,
-        "TARGET_FIELD": 0,
-        "TARGET_OPPONENTS_FIELD": 12,
-        "TARGET_ALL_BATTLERS": 0,
         "TARGET_NONE": 0,
+        "TARGET_SELECTED": 1,
+        "TARGET_SMART": 2,
+        "TARGET_DEPENDS": 3,
+        "TARGET_OPPONENT": 4,
+        "TARGET_RANDOM": 5,
+        "TARGET_BOTH": 6,
+        "TARGET_USER": 7,
+        "TARGET_ALLY": 8,
+        "TARGET_USER_AND_ALLY": 9,
+        "TARGET_USER_OR_ALLY": 10,
+        "TARGET_FOES_AND_ALLY": 11,
+        "TARGET_FIELD": 12,
+        "TARGET_OPPONENTS_FIELD": 13,
+        "TARGET_ALL_BATTLERS": 14,
     }
     lines = []
     lines.append("package com.dualdex.pokemon.hns")
@@ -337,9 +345,13 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary):
     lines.append(" * to reproduce: `EFFECT_HIT` with no multi-hit, explosion, always-crit or")
     lines.append(" * state-dependent damage flag. See generate_hns_move_effects.py for the exact rule.")
     lines.append(" *")
-    lines.append(" * `targetClassByMoveId` maps move IDs to the pinned `enum MoveTarget` value.")
-    lines.append(" * Only spread-target classes (TARGET_BOTH=6, TARGET_FOES_AND_ALLY=10) affect")
-    lines.append(" * the damage formula's spread reduction. Other classes map to 0 (single-target).")
+    lines.append(" * `targetClassByMoveId` maps move IDs to the INTERNAL `SpreadTargetClass`")
+    lines.append(" * values (see Hns205MoveEffects.SpreadTargetClass below). Those are the EXACT")
+    lines.append(" * values of the pinned H&S `enum MoveTarget` members, carried verbatim; the")
+    lines.append(" * map is NOT the pinned enum itself and must never be renumbered.")
+    lines.append(" * Only spread classes (BOTH=6, FOES_AND_ALLY=11) affect the damage formula's")
+    lines.append(" * spread reduction. Other classes are preserved with their exact enum values;")
+    lines.append(" * unsupported/ambiguous classes fail closed on the consumer side.")
     lines.append(" *")
     lines.append(" * DO NOT EDIT DIRECTLY. Regenerate using:")
     lines.append(" *   python3 tools/hns-move-mechanics/generate_hns_move_effects.py")
@@ -358,15 +370,27 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary):
     lines.append("    )")
     lines.append("")
     lines.append("    /**")
-    lines.append("     * Pinned move ID -> static target class from `gMovesInfo[move].target`.")
-    lines.append("     * Values: 0=single-target/selected/user, 6=TARGET_BOTH, 10=TARGET_FOES_AND_ALLY,")
-    lines.append("     * 12=TARGET_OPPONENTS_FIELD. Only spread classes (6, 10) affect the damage formula.")
+    lines.append("     * Internal spread/target classes, carried with the EXACT values of the pinned")
+    lines.append("     * H&S 2.0.5 `enum MoveTarget` (1f42b74d). This is not the pinned enum itself;")
+    lines.append("     * it exists so the boundary can dispatch `GetMoveTargetCount` semantics without")
+    lines.append("     * importing the game's full target vocabulary.")
+    lines.append("     */")
+    lines.append("    object SpreadTargetClass {")
+    for name in sorted(TARGET_CLASS_MAP):
+        lines.append(f"        const val {name} = {TARGET_CLASS_MAP[name]}")
+    lines.append("    }")
+    lines.append("")
+    lines.append("    /**")
+    lines.append("     * Pinned move ID -> the move's static target class from `gMovesInfo[move].target`,")
+    lines.append("     * as a [SpreadTargetClass] value (exact pinned `enum MoveTarget` number).")
+    lines.append("     * Only spread classes (BOTH=6, FOES_AND_ALLY=11) affect the damage formula;")
+    lines.append("     * every other class fails closed on the consumer side.")
     lines.append("     */")
     lines.append("    val targetClassByMoveId: Map<Int, Int> = buildMap {")
     for move_id in sorted(target_by_id):
         target_sym = target_by_id[move_id]
         target_val = TARGET_CLASS_MAP.get(target_sym, 0)
-        lines.append(f"        put({move_id}, {target_val}) // {target_sym}")
+        lines.append(f"        put({move_id}, SpreadTargetClass.{target_sym}) // pinned enum value {target_val}")
     lines.append("    }")
     lines.append("}")
     lines.append("")

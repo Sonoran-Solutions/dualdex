@@ -193,9 +193,30 @@ object CalcRequestBoundary {
             optionStyle = optionStyle,
             fairyTypesEnabled = fairy,
             randomTypesEnabled = randomTypes,
-            randomTypeEffectivenessEnabled = randomEffectiveness
+            randomTypeEffectivenessEnabled = randomEffectiveness,
+            randomAbilitiesEnabled = observedFlag(challengeSettings.txRandomAbilities),
+            randomMovesEnabled = observedFlag(challengeSettings.txRandomMoves),
+            noEvsEnabled = observedFlag(challengeSettings.txChallengesNoEvs),
+            baseStatEqualizerMode = observedRaw(challengeSettings.txChallengesBaseStatEqualizer),
+            mirrorEnabled = observedFlag(challengeSettings.txChallengesMirror),
+            mirrorThiefEnabled = observedFlag(challengeSettings.txChallengesMirrorThief),
+            trainerScalingIvsMode = observedRaw(challengeSettings.txChallengesTrainerScalingIvs),
+            trainerScalingEvsMode = observedRaw(challengeSettings.txChallengesTrainerScalingEvs),
+            maxPartyIvsMode = observedRaw(challengeSettings.txChallengesMaxPartyIvs),
+            sturdyEnabled = observedFlag(challengeSettings.txModeSturdy),
+            levelCapMode = observedRaw(challengeSettings.txChallengesLevelCap),
+            expMultiplierMode = observedRaw(challengeSettings.txChallengesExpMultiplier),
+            legendaryAbilitiesEnabled = observedFlag(challengeSettings.txModeLegendaryAbilities)
         )
     }
+
+    /** The boolean meaning of a 1-bit field, or null when it was unobserved / out of domain. */
+    private fun observedFlag(field: com.dualdex.pokemon.hns.HnsChallengeField): Boolean? =
+        if (field.observed && !field.outOfDomain) field.observedFlag else null
+
+    /** The raw value of a multi-bit field, or null when it was unobserved / out of domain. */
+    private fun observedRaw(field: com.dualdex.pokemon.hns.HnsChallengeField): Int? =
+        if (field.observed && !field.outOfDomain) field.raw else null
 
     private fun reconcileParticipantAbility(
         participant: CalcPokemonInput,
@@ -452,6 +473,72 @@ object CalcRequestBoundary {
     }
 
     /**
+     * Binds the authoritative live H&S battle state for [request], or null when this is not an
+     * active battle.
+     *
+     * Battle context is authoritative evidence, not a caller declaration: an explicit
+     * [activeBattle] hint, or any supplied runtime observation (which is itself evidence a battle
+     * is active). Out of battle there is no mutable battle state, so the live-state gate does not
+     * apply and null is correct.
+     *
+     * Only the current effective types have a runtime reader (PR #56); they are bound for a
+     * slot-matched, OBSERVED, in-domain observation. Battle stat words, the dynamic move type, and
+     * transient state have no reader yet, so the corresponding authority flags stay false and the
+     * policy fails closed until Gap C4b binds them.
+     */
+    private fun bindHnsLiveBattleState(
+        request: DamageCalculationRequest,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        activeBattle: Boolean,
+        isExactVerified: Boolean
+    ): CalcHnsLiveBattleState? {
+        val battleContext = activeBattle || playerBattlerState != null || enemyBattlerState != null
+        if (!battleContext) return null
+        return CalcHnsLiveBattleState(
+            attackerTypes = authoritativeObservedTypes(
+                participantPartySlot = request.attacker.partySlot,
+                observation = playerBattlerState,
+                isExactVerified = isExactVerified
+            ),
+            defenderTypes = authoritativeObservedTypes(
+                participantPartySlot = request.defender.partySlot,
+                observation = enemyBattlerState,
+                isExactVerified = isExactVerified
+            )
+        )
+    }
+
+    /**
+     * The engine's current effective types for one authoritative active battler, or null when they
+     * were not observed.
+     *
+     * The empty-slot sentinel (`TYPE_NONE`) is dropped, never named "Normal"; an out-of-domain
+     * value, a non-OBSERVED status, a failed exact-trust check, or a party-slot mismatch yields
+     * null (unobserved) rather than a static fallback or a coerced type. A third non-empty type is
+     * preserved here so the policy can reject it instead of truncating it.
+     */
+    private fun authoritativeObservedTypes(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): List<String>? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (participantPartySlot == null || state.partySlot == null ||
+            state.partySlot != participantPartySlot
+        ) {
+            return null
+        }
+        if (state.typesOutOfDomain) return null
+        val names = state.types
+            .filter { it.observed && !it.outOfDomain && !it.isTypeNoneSentinel }
+            .mapNotNull { it.name }
+        return names.ifEmpty { null }
+    }
+
+    /**
      * The single authorization decision every entrypoint above funnels into.
      *
      * Trust and completeness are evaluated separately because they are separate defects with
@@ -489,10 +576,28 @@ object CalcRequestBoundary {
         )
         val hnsRules = resolveHnsRuntimeRules(profile, trust, challengeSettings)
         val enriched = CalcDataOverrides.enrichRequest(profile, reconciled, hnsRules)
+        // Live battle state is boundary-owned exactly like the runtime rules: the caller cannot
+        // inject it, and it is re-bound here from the exact-trusted runtime observation. A request
+        // in an active H&S battle whose mutable operands (current types, battle stat words, dynamic
+        // move type, transient state) are not authoritatively observed gets
+        // HNS_LIVE_BATTLE_STATE_NOT_MODELLED rather than a static-operand answer.
+        val withLiveState = enriched.copy(
+            hnsLiveBattleState = if (isExactHns) {
+                bindHnsLiveBattleState(
+                    request = reconciled,
+                    playerBattlerState = playerBattlerState,
+                    enemyBattlerState = enemyBattlerState,
+                    activeBattle = activeBattle,
+                    isExactVerified = readIsTrusted
+                )
+            } else {
+                null
+            }
+        )
         // Live provenance is a property of the request. The hint may add it, never remove it.
-        val isLiveRead = liveReadHint || enriched.isFromLiveRead()
+        val isLiveRead = liveReadHint || withLiveState.isFromLiveRead()
 
-        val base = CalcCapabilityPolicy.evaluate(profile, trust, enriched)
+        val base = CalcCapabilityPolicy.evaluate(profile, trust, withLiveState)
 
         if (!isLiveRead) {
             val authorised = base.request ?: return CalcRequestOutcome.Refused(base)
@@ -506,9 +611,9 @@ object CalcRequestBoundary {
 
         // (2) Is the evidence complete? Independent of (1): a trusted ROM does not fill a field the
         // reader never carried, and an untrusted ROM does not make an unknown field less unknown.
-        val evidenceIncomplete = enriched.preparationLimitations.contains(
+        val evidenceIncomplete = withLiveState.preparationLimitations.contains(
             CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN
-        ) || enriched.unknownLiveFields().isNotEmpty()
+        ) || withLiveState.unknownLiveFields().isNotEmpty()
         if (evidenceIncomplete) reasons.add(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
 
         return when (val authorised = base.request) {

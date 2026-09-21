@@ -2267,6 +2267,182 @@ static void check_gap_c3_items(void) {
     }
 }
 
+/* ------------------------------------------------------------------ */
+/* Gap C4a: independent H&S ordinary-damage arithmetic oracle          */
+/* ------------------------------------------------------------------ */
+
+/* This is a deliberately independent reference, transcribed from the pinned
+ * H&S source and fpmath.h, NOT a second call into the QuickJS/ADV engine:
+ *
+ *   src/battle_util.c: CalculateBaseDamage
+ *     power * atk * (2*level/5 + 2) / def / 50 + 2
+ *   src/battle_util.c: DoMoveDamageCalcVars
+ *     base(already +2) -> spread -> weather -> critical -> random roll
+ *   src/battle_util.c: ApplyModifiersAfterDmgRoll
+ *     -> STAB -> type effectiveness -> burn/frostbite -> screens/other
+ *   include/fpmath.h: uq4_12_multiply_by_int_half_down(mod, v)
+ *     (mod * v + 2047) / 4096, integer division
+ *
+ * The audit result this pins: the bare base path matches the ADV host exactly
+ * for both the physical and special stat pairs (neutral stages), but H&S's
+ * roll-before-STAB/type/burn/screens placement and UQ4.12 half-down composition
+ * do NOT, so a request that exercises those modifiers is refused by
+ * HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED.
+ *
+ * Non-neutral stat stages are deliberately NOT given a positive fixture: H&S
+ * applies stages before its fixed-point ability/item composition while ADV
+ * applies ability modifiers before stages, and the staged-stat rounding has not
+ * been independently proven, so the policy blocks non-neutral stages (R2). */
+static long hns_uq12(double v) { return (long)(v * 4096.0 + 0.5); }
+static long hns_int_half_down(long modifier, long value) {
+    return (modifier * value + 2047) / 4096;
+}
+
+static long hns_base_damage(int level, int bp, int atk, int def) {
+    return (long)bp * atk * ((2 * level) / 5 + 2) / def / 50 + 2;
+}
+
+static void hns_ordinary_rolls(int level, int bp, int atk, int def,
+                               int stab, double type_eff, int crit, int burn,
+                               long out[ROLL_COUNT]) {
+    long dmg = hns_base_damage(level, bp, atk, def);
+    if (crit) dmg = hns_int_half_down(hns_uq12(2.0), dmg);
+    for (int i = 0; i < ROLL_COUNT; i++) {
+        long x = (dmg * (85 + i)) / 100;
+        if (stab) x = hns_int_half_down(hns_uq12(1.5), x);
+        if (type_eff != 1.0) x = hns_int_half_down(hns_uq12(type_eff), x);
+        if (burn) x = hns_int_half_down(hns_uq12(0.5), x);
+        if (x == 0) x = 1;
+        out[i] = x;
+    }
+}
+
+static int rolls_equal(const double* engine, const long* oracle) {
+    for (int i = 0; i < ROLL_COUNT; i++) {
+        if ((long)engine[i] != oracle[i]) return 0;
+    }
+    return 1;
+}
+
+/* Machamp (Atk 150) vs Snorlax (Def 85), Hardy L50 31 IV / 0 EV, ability ignored. */
+#define C4A_MACHAMP_SNORLAX_HEAD \
+    "\"gen\":3," \
+    "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "}," \
+    "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+
+static void check_gap_c4a_arithmetic_parity(void) {
+    double engine[ROLL_COUNT];
+    long oracle[ROLL_COUNT];
+
+    /* Neutral base: Rock Slide (Rock, 75) has no STAB vs Normal and is 1x. */
+    g_fixture = "gap_c4a_parity_neutral_base_matches";
+    {
+        const char* req =
+            "{" C4A_MACHAMP_SNORLAX_HEAD "\"move\":{\"name\":\"Rock Slide\"}}";
+        char* out = js_calc_calculate(req);
+        check_condition("neutral request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_ordinary_rolls(50, 75, 150, 85, 0, 1.0, 0, 0, oracle);
+                check_condition(
+                    "bare base damage matches the independent H&S oracle exactly",
+                    rolls_equal(engine, oracle));
+                check_int("neutral max roll", 60, (long)engine[ROLL_COUNT - 1]);
+            } else {
+                check_condition("neutral response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* Neutral special path (Gap C4a R2): Alakazam Thunderbolt vs Snorlax. Thunderbolt is special
+     * under H&S per-move split, has no STAB (Alakazam is Psychic) and is 1x vs Normal.
+     *   SpA = floor((2*135 + 31 + 0)*50/100) + 5 = 155
+     *   SpD = floor((2*110 + 31 + 0)*50/100) + 5 = 130
+     *   base = floor(95*155*22/130/50) + 2 = 51
+     * This broadens the positive parity proof beyond the physical case; non-neutral stat stages
+     * are instead blocked by the policy until C4b proves the staged-stat rounding. */
+    g_fixture = "gap_c4a_parity_neutral_special_matches";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Alakazam\",\"level\":50,\"nature\":\"Hardy\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Thunderbolt\",\"overrides\":{\"basePower\":95,\"type\":\"Electric\",\"category\":\"Special\"}}}";
+        char* out = js_calc_calculate(req);
+        check_condition("neutral special request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_ordinary_rolls(50, 95, 155, 130, 0, 1.0, 0, 0, oracle);
+                check_condition(
+                    "neutral special base damage matches the independent H&S oracle exactly",
+                    rolls_equal(engine, oracle));
+                check_int("neutral special min roll", 43, (long)engine[0]);
+                check_int("neutral special max roll", 51, (long)engine[ROLL_COUNT - 1]);
+            } else {
+                check_condition("neutral special response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* STAB + 2x: H&S and ADV apply the roll and the multipliers in a different order. */
+    g_fixture = "gap_c4a_divergence_stab_detected";
+    {
+        const char* req =
+            "{" C4A_MACHAMP_SNORLAX_HEAD "\"move\":{\"name\":\"Karate Chop\"}}";
+        char* out = js_calc_calculate(req);
+        check_condition("STAB request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_ordinary_rolls(50, 50, 150, 85, 1, 2.0, 0, 0, oracle);
+                check_condition(
+                    "STAB/type divergence is detected (the gate is warranted)",
+                    !rolls_equal(engine, oracle));
+                /* The H&S oracle's minimum matches the real engine's minimum by
+                 * coincidence here, but the interiors differ. */
+                check_int("STAB engine min", 102, (long)engine[0]);
+                check_int("STAB oracle min", 102, oracle[0]);
+                check_condition("STAB interiors differ", (long)engine[1] != oracle[1]);
+            } else {
+                check_condition("STAB response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* Critical hit combined with STAB/type: H&S doubles before the roll and
+     * applies STAB/type after it, ADV applies both before its own roll, so the
+     * rounding points diverge. (A crit alone on a neutral integer base happens
+     * to agree; the divergence needs a non-identity multiplier alongside it.) */
+    g_fixture = "gap_c4a_divergence_crit_stab_detected";
+    {
+        const char* req =
+            "{" C4A_MACHAMP_SNORLAX_HEAD "\"move\":{\"name\":\"Karate Chop\",\"isCrit\":true}}";
+        char* out = js_calc_calculate(req);
+        check_condition("crit request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_ordinary_rolls(50, 50, 150, 85, 1, 2.0, 1, 0, oracle);
+                check_condition(
+                    "critical-hit + STAB/type divergence is detected (the gate is warranted)",
+                    !rolls_equal(engine, oracle));
+            } else {
+                check_condition("crit response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -2296,6 +2472,9 @@ int main(void) {
 
     printf("-- Gap C3: held-item no-op / name-safety contract --\n");
     check_gap_c3_items();
+
+    printf("-- Gap C4a: ordinary-damage arithmetic parity vs an independent H&S oracle --\n");
+    check_gap_c4a_arithmetic_parity();
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
     check_oracle_self_tests();

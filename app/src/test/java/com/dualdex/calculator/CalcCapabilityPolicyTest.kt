@@ -96,13 +96,31 @@ class CalcCapabilityPolicyTest {
         randomTypes: Int = 0,
         randomTypesOutOfDomain: Boolean = false,
         randomEffectiveness: Int = 0,
-        randomEffectivenessOutOfDomain: Boolean = false
+        randomEffectivenessOutOfDomain: Boolean = false,
+        randomMoves: Int = 0,
+        baseStatEqualizer: Int = 0
     ): HnsChallengeSettingsSnapshot = HnsChallengeSettingsSnapshot(
         status = status,
         optionStyle = HnsChallengeField(observed = true, raw = optionStyle, outOfDomain = optionStyleOutOfDomain),
         txModeFairyTypes = HnsChallengeField(observed = true, raw = fairyTypes, outOfDomain = fairyTypesOutOfDomain),
         txRandomType = HnsChallengeField(observed = true, raw = randomTypes, outOfDomain = randomTypesOutOfDomain),
-        txRandomTypeEffectiveness = HnsChallengeField(observed = true, raw = randomEffectiveness, outOfDomain = randomEffectivenessOutOfDomain)
+        txRandomTypeEffectiveness = HnsChallengeField(observed = true, raw = randomEffectiveness, outOfDomain = randomEffectivenessOutOfDomain),
+        // The native reader decodes every field when the snapshot status is OBSERVED, so an
+        // OBSERVED fixture observes the remaining value-changing settings too (Gap C4a). Their
+        // default is "off / ordinary", matching the source's new-game defaults.
+        txRandomAbilities = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
+        txRandomMoves = HnsChallengeField(observed = true, raw = randomMoves, outOfDomain = false),
+        txChallengesNoEvs = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
+        txChallengesBaseStatEqualizer = HnsChallengeField(observed = true, raw = baseStatEqualizer, outOfDomain = false),
+        txChallengesMirror = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
+        txChallengesMirrorThief = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
+        txChallengesTrainerScalingIvs = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
+        txChallengesTrainerScalingEvs = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
+        txChallengesMaxPartyIvs = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
+        txModeSturdy = HnsChallengeField(observed = true, raw = 1, outOfDomain = false),
+        txChallengesLevelCap = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
+        txChallengesExpMultiplier = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
+        txModeLegendaryAbilities = HnsChallengeField(observed = true, raw = 1, outOfDomain = false)
     )
 
     private fun request(
@@ -1204,6 +1222,11 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED,
                 CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE,
                 CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED,
+                CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED,
+                CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED,
+                CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
+                CalcLimitation.HNS_BASE_STAT_EQUALIZER_NOT_MODELLED,
+                CalcLimitation.HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED,
                 CalcLimitation.BADGE_BOOST_NOT_MODELLED,
                 CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED,
                 CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED,

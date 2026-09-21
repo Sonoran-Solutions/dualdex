@@ -130,6 +130,8 @@ hns_generator_test() {
   (cd tools/hns-type-system && python3 -m unittest test_generate_hns_type_system -v)
   echo "== H&S item-catalogue generator tests =="
   (cd tools/hns-items && python3 -m unittest test_generate_hns_items -v)
+  echo "== H&S move-effect generator tests =="
+  (cd tools/hns-move-mechanics && python3 -m unittest test_generate_hns_move_effects -v)
 }
 
 # Locate the ARM preprocessor the data-pack generator drives. Fail-closed: the
@@ -370,6 +372,14 @@ source_check() {
   echo "== held-item catalogue verification (pinned upstream) =="
   python3 tools/hns-items/generate_hns_items.py \
     --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --verify
+
+  # 1f. The move-effect / ordinary-move map must regenerate byte-for-byte from the
+  #     pinned source. This is the source-check for the move-mechanics capability
+  #     gate (Gap C4a). It parses the raw designated initializers, so it needs no
+  #     preprocessor and no config macro expansion.
+  echo "== move-effect / ordinary-move map verification (pinned upstream) =="
+  python3 tools/hns-move-mechanics/generate_hns_move_effects.py \
+    --upstream-dir "$upstream" --verify
 
   # Regression for the bootstrap's error propagation itself (this is the
   # scenario the regeneration block must guard against: a dev checkout with

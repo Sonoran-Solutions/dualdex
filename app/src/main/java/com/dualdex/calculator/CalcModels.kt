@@ -118,7 +118,71 @@ data class CalcHnsRuntimeRules(
     val optionStyle: com.dualdex.pokemon.hns.HnsOptionStyle = com.dualdex.pokemon.hns.HnsOptionStyle.UNAVAILABLE,
     val fairyTypesEnabled: Boolean? = null,
     val randomTypesEnabled: Boolean? = null,
-    val randomTypeEffectivenessEnabled: Boolean? = null
+    val randomTypeEffectivenessEnabled: Boolean? = null,
+    // Remaining value-changing / behaviour-changing challenge settings (Gap C4a). Each is the
+    // directly observed raw source value (multi-bit fields) or boolean meaning (1-bit fields), or
+    // null when the field was unobserved / out of the pinned source's domain. Source defaults are
+    // never substituted: null means "not known", and the policy decides whether it must block.
+    /** `tx_Random_Abilities` (1-bit). Effect captured downstream by the observed effective ability. */
+    val randomAbilitiesEnabled: Boolean? = null,
+    /** `tx_Random_Moves` (1-bit). Active blocks: the current learned move is not authoritative. */
+    val randomMovesEnabled: Boolean? = null,
+    /** `tx_Challenges_NoEvs` (1-bit). Effect captured downstream by the observed EV values. */
+    val noEvsEnabled: Boolean? = null,
+    /** `tx_Challenges_BaseStatEqualizer` raw index into the 0/100/255/500 table. Nonzero blocks. */
+    val baseStatEqualizerMode: Int? = null,
+    /** `tx_Challenges_Mirror` (1-bit). Effect captured downstream by the observed party. */
+    val mirrorEnabled: Boolean? = null,
+    /** `tx_Challenges_Mirror_Thief` (1-bit). Effect captured downstream by the observed party. */
+    val mirrorThiefEnabled: Boolean? = null,
+    /** `tx_Challenges_TrainerScalingIVs` raw mode. Effect captured downstream by observed IVs. */
+    val trainerScalingIvsMode: Int? = null,
+    /** `tx_Challenges_TrainerScalingEVs` raw mode. Effect captured downstream by observed EVs. */
+    val trainerScalingEvsMode: Int? = null,
+    /** `tx_Challenges_MaxPartyIVs` raw mode. Effect captured downstream by observed IVs. */
+    val maxPartyIvsMode: Int? = null,
+    /** `tx_Mode_Sturdy` (1-bit). Only reachable through the Sturdy ability, which is blocked. */
+    val sturdyEnabled: Boolean? = null,
+    /** `tx_Challenges_LevelCap` raw mode. Effect captured downstream by the observed level. */
+    val levelCapMode: Int? = null,
+    /** `tx_Challenges_ExpMultiplier` raw mode. Effect captured downstream by the observed level. */
+    val expMultiplierMode: Int? = null,
+    /** `tx_Mode_Legendary_Abilities` (1-bit). Effect captured downstream by the observed ability. */
+    val legendaryAbilitiesEnabled: Boolean? = null
+)
+
+/**
+ * Authoritative live H&S battle state that can differ from the static request operands (Gap C4a R1).
+ *
+ * H&S mutates damage operands during battle: `SET_BATTLER_TYPE` rewrites current effective types
+ * (Soak), Power Trick swaps the raw `gBattleMons` battle stat words, and `SetTypeBeforeUsingMove`
+ * can force the current move's type to Electric (Ion Deluge / Electrify) without changing its
+ * static effect ID. The static species/move request is therefore not the live truth.
+ *
+ * Bound by [CalcRequestBoundary] from the exact-trusted runtime observation. A null
+ * [DamageCalculationRequest.hnsLiveBattleState] means the request does not claim to be an active
+ * battle (manual hypothetical, or a live read of stored party data), so the live-battle-state gate
+ * does not apply. When it is present, every mutable class must be authoritatively observed:
+ *
+ *  - [attackerTypes] / [defenderTypes]: the engine's current effective types for that participant,
+ *    or null when unobserved. A third non-empty type, an out-of-domain/typeless value, or a set
+ *    that differs from the static record cannot be represented by the two-type calculator, so it
+ *    blocks rather than silently using the static typing.
+ *  - [attackerBattleStatWordsObserved] / [defenderBattleStatWordsObserved]: true only when an
+ *    authoritative observation of the engine's current raw stat words exists. No runtime reader
+ *    produces this yet (Gap C4b), so it is false in production.
+ *  - [dynamicMoveTypeObserved]: true only when the current move's effective type was authoritatively
+ *    observed. No runtime reader produces this yet (Gap C4b).
+ *  - [transientStateObserved]: true only when other transient damage state reachable by the
+ *    supported ordinary subset was authoritatively observed. No runtime reader produces this yet.
+ */
+data class CalcHnsLiveBattleState(
+    val attackerTypes: List<String>? = null,
+    val defenderTypes: List<String>? = null,
+    val attackerBattleStatWordsObserved: Boolean = false,
+    val defenderBattleStatWordsObserved: Boolean = false,
+    val dynamicMoveTypeObserved: Boolean = false,
+    val transientStateObserved: Boolean = false
 )
 
 data class DamageCalculationRequest(
@@ -139,7 +203,13 @@ data class DamageCalculationRequest(
     val attackerOverride: CalcSpeciesOverride? = null,
     val defenderOverride: CalcSpeciesOverride? = null,
     val moveOverride: CalcMoveOverride? = null,
-    val hnsRuntimeRules: CalcHnsRuntimeRules? = null
+    val hnsRuntimeRules: CalcHnsRuntimeRules? = null,
+    /**
+     * Authoritative live battle state for an active exact-H&S battle, or null when the request is
+     * not an active battle (Gap C4a R1). Boundary-owned: [CalcRequestBoundary] overwrites any
+     * caller-supplied value from the exact-trusted runtime observation.
+     */
+    val hnsLiveBattleState: CalcHnsLiveBattleState? = null
 )
 
 data class DamageCalculationResponse(

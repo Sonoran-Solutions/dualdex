@@ -1,0 +1,342 @@
+script error line 12: damage-probe: move 75 is not in the player battler 0 live move list (33,45,0,0); refusing to use a different move
+== DualDex H&S 2.0.5 runtime battle-state probe ==
+core   : /home/dq/Projects/upstream-hns/mgba-host/mgba_libretro.so
+rom    : /home/dq/Downloads/Pokémon Heart and Soul (v2.0.5).gba
+save   : .scratch/hns205.sav
+script : .scratch/grind-b4.txt
+layout : playerParty=0x34764 playerPartyCount=0x342A4 enemyParty=0x342B4 enemyPartyCount=0x342A5 battleMons=0x420 battlersCount=0xB0 battleTypeFlags=0xAC outcome=0x12C partyIndexes=0x144 positions=0x238 absentFlags=0x30A gMain=0x03005BD8+0x439 bit 1
+
+-- memory regions after load: 0 --
+save RAM size: 131072 bytes
+battery save load: OK
+
+-- runtime table (a row appears on every observed state change) --
+     1  INACTIVE  NONE      ABSENT   inB=false bat=0 flags=0x00000000 idx=0,0,0,0 pos=0,0,0,0 sp=0,0,0,0 hp=0,0,0,0 eParty=0/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=0 pSlot=-1/0 st0=0,0,0,0
+   209  INACTIVE  NONE      ABSENT   inB=false bat=0 flags=0x00000000 idx=0,0,0,0 pos=0,0,0,0 sp=0,0,0,0 hp=0,0,0,0 eParty=0/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=0,0,0,0
+  [walk-to] reached (64,20) OK
+  1558  INITIALIZING UNKNOWN   UNKNOWN  inB=true  bat=0 flags=0x00000000 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=0,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=0,0,0,0
+  1560  INITIALIZING UNKNOWN   UNKNOWN  inB=true  bat=0 flags=0x00000004 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=0,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=0,0,0,0
+  1561  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=0,0,0,0 eParty=1/1 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=0,0,0,0
+  [hunt] ENCOUNTER after 4 iterations
+  1586  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=20,13,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+[GOLDEN] label=Btry-before frame=1863 lifecycle=ACTIVE kind=WILD_SINGLE battlers=2 absent=0x00 presence=PRESENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=0 partySlot=0 status=2 ability=65 abilityObs=1 types=13,13,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=12 def=12 spe=8 spa=11 spd=11 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=1 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=player species=152 hp=20 maxHP=20 moves=33,45,0,0 partyIndex=0
+[GOLDEN] side=enemy battler=1 partySlot=0 status=2 ability=77 abilityObs=1 types=1,3,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=7 def=6 spe=6 spa=6 spd=6 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=enemy species=16 hp=13 maxHP=13 moves=33,64,0,0 partyIndex=0
+  [damage-probe] move=75 maxTurns=1 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=SLOT slot=0 battler=1 at frame 1863
+  [damage-probe] opponent battler=1 species=16 hp=13/13
+[GOLDEN] label=Btry-after frame=2075 lifecycle=ACTIVE kind=WILD_SINGLE battlers=2 absent=0x00 presence=PRESENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=0 partySlot=0 status=2 ability=65 abilityObs=1 types=13,13,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=12 def=12 spe=8 spa=11 spd=11 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=1 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=player species=152 hp=20 maxHP=20 moves=33,45,0,0 partyIndex=0
+[GOLDEN] side=enemy battler=1 partySlot=0 status=2 ability=77 abilityObs=1 types=1,3,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=7 def=6 spe=6 spa=6 spd=6 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=enemy species=16 hp=13 maxHP=13 moves=33,64,0,0 partyIndex=0
+  [damage-probe] move=33 maxTurns=4 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=SLOT slot=0 battler=1 at frame 2375
+  [damage-probe] opponent battler=1 species=16 hp=13/13
+  2527  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,script error line 22: damage-probe: move 75 is not in the player battler 0 live move list (33,45,0,0); refusing to use a different move
+0,0 pos=0,1,255,255 sp=152,16,0,0 hp=20,6,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=0 battler=1 species=16 hp 13 -> 6 (delta 7 of maxHP 13) faint=no crit=UNKNOWN frame=2527
+  2671  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=19,6,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  2860  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=19,0,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=1 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=1 battler=1 species=16 hp 6 -> 0 (delta 6 of maxHP 13) faint=YES crit=UNKNOWN frame=2860
+  3038  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=19,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  3049  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=19,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  3087  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=19,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [damage-probe] battle ended after 1 turns (frame 3087)
+  [spama] 3 presses
+  [walk-to] reached (64,20) OK
+  4020  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000000 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=19,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4119  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000000 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=19,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4121  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=19,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4122  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=19,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [hunt] ENCOUNTER after 13 iterations
+  4140  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=19,0,0,0 eParty=1/1 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  4147  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=19,16,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+[GOLDEN] label=Btry-before frame=4435 lifecycle=ACTIVE kind=WILD_SINGLE battlers=2 absent=0x00 presence=PRESENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=0 partySlot=0 status=2 ability=65 abilityObs=1 types=13,13,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=12 def=12 spe=8 spa=11 spd=11 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=1 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=player species=152 hp=19 maxHP=20 moves=33,45,0,0 partyIndex=0
+[GOLDEN] side=enemy battler=1 partySlot=0 status=2 ability=51 abilityObs=1 types=1,3,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=7 def=6 spe=8 spa=7 spd=7 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=enemy species=16 hp=16 maxHP=16 moves=33,64,0,0 partyIndex=0
+  [damage-probe] move=75 maxTurns=1 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=SLOT slot=0 battler=1 at frame 4435
+  [damage-probe] opponent battler=1 species=16 hp=16/16
+[GOLDEN] label=Btry-after frame=4647 lifecycle=ACTIVE kind=WILD_SINGLE battlers=2 absent=0x00 presence=PRESENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=0 partySlot=0 status=2 ability=65 abilityObs=1 types=13,13,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=12 def=12 spe=8 spa=11 spd=11 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=1 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=player species=152 hp=19 maxHP=20 moves=33,45,0,0 partyIndex=0
+[GOLDEN] side=enemy battler=1 partySlot=0 status=2 ability=51 abilityObs=1 types=1,3,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=7 def=6 spe=8 spa=7 spd=7 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=enemy species=16 hp=16 maxHP=16 moves=33,64,0,0 partyIndex=0
+  [damage-probe] move=33 maxTurns=4 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=SLOT slot=0 battler=1 at frame 4947
+  [damage-probe] opponent battler=1 species=16 hp=16/16
+  5095  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=19,9,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=0 battler=1 species=16 hp 16 -> 9 (delta 7 of maxHP 16) faint=no crit=UNKNOWN frame=5095
+  5244  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=16,9,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  5420  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=10,9,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  5597  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=10,2,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=1 battler=1 species=16 hp 9 -> 2 (delta 7 of maxHP 16) faint=no crit=UNKNOWN frame=5597
+  5779  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=7,2,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  5919  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=7,0,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=1 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=2 battler=1 species=16 hp 2 -> 0 (delta 2 of maxHP 16) faint=YES crit=UNKNOWN frame=5919
+  6103  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=7,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  6113  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=7,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  6151  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=7,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [damage-probe] battle ended after 2 turns (frame 6151)
+  [spama] 3 presses
+  [walk-to] reached (64,20) OK
+  7073  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000000 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=7,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  7172  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000000 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=7,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  7174  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=7,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  7175  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=7,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [hunt] ENCOUNTER after 11 iterations
+  7193  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=7,0,0,0 eParty=1/1 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  7200  ACTIVE    WILD_SINGLE PRESENscript error line 32: damage-probe: move 75 is not in the player battler 0 live move list (33,45,0,0); refusing to use a different move
+T  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,187,0,0 hp=7,13,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+[GOLDEN] label=Btry-before frame=7476 lifecycle=ACTIVE kind=WILD_SINGLE battlers=2 absent=0x00 presence=PRESENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=0 partySlot=0 status=2 ability=65 abilityObs=1 types=13,13,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=12 def=12 spe=8 spa=11 spd=11 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=1 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=player species=152 hp=7 maxHP=20 moves=33,45,0,0 partyIndex=0
+[GOLDEN] side=enemy battler=1 partySlot=0 status=2 ability=34 abilityObs=1 types=13,3,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=6 def=6 spe=7 spa=5 spd=7 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=enemy species=187 hp=13 maxHP=13 moves=71,150,0,0 partyIndex=0
+  [damage-probe] move=75 maxTurns=1 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=SLOT slot=0 battler=1 at frame 7476
+  [damage-probe] opponent battler=1 species=187 hp=13/13
+[GOLDEN] label=Btry-after frame=7688 lifecycle=ACTIVE kind=WILD_SINGLE battlers=2 absent=0x00 presence=PRESENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=0 partySlot=0 status=2 ability=65 abilityObs=1 types=13,13,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=12 def=12 spe=8 spa=11 spd=11 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=1 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=player species=152 hp=7 maxHP=20 moves=33,45,0,0 partyIndex=0
+[GOLDEN] side=enemy battler=1 partySlot=0 status=2 ability=34 abilityObs=1 types=13,3,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=6 def=6 spe=7 spa=5 spd=7 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=enemy species=187 hp=13 maxHP=13 moves=71,150,0,0 partyIndex=0
+  [damage-probe] move=33 maxTurns=4 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=SLOT slot=0 battler=1 at frame 7988
+  [damage-probe] opponent battler=1 species=187 hp=13/13
+  8137  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,187,0,0 hp=7,7,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=0 battler=1 species=187 hp 13 -> 7 (delta 6 of maxHP 13) faint=no crit=UNKNOWN frame=8137
+  8516  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,187,0,0 hp=7,1,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=1 battler=1 species=187 hp 7 -> 1 (delta 6 of maxHP 13) faint=no crit=UNKNOWN frame=8516
+  8876  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,187,0,0 hp=7,0,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=1 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=2 battler=1 species=187 hp 1 -> 0 (delta 1 of maxHP 13) faint=YES crit=UNKNOWN frame=8876
+  9034  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,187,0,0 hp=7,0,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=1 pParty=1 pSlot=0/1 st0=6,6,6,6
+  9060  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,187,0,0 hp=10,0,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=1 pParty=1 pSlot=0/1 st0=6,6,6,6
+  9131  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,187,0,0 hp=10,0,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=1 pParty=1 pSlot=0/1 st0=6,6,6,6
+  9196  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,187,0,0 hp=10,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  9207  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0script error line 38: walk RIGHT blocked at (63,20)@0/11 after 30 attempts (use 'walk RIGHT <tiles> optional' to allow this)
+script error line 38: walk-to (64,20) failed: blocked while moving RIGHT
+script error line 38: walk-to (64,20) failed: reached (63,20) instead
+script error line 39: hunt timed out after 120 iterations without reaching a wild encounter
+script error line 42: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 45: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 48: walk RIGHT blocked at (63,20)@0/11 after 30 attempts (use 'walk RIGHT <tiles> optional' to allow this)
+script error line 48: walk-to (64,20) failed: blocked while moving RIGHT
+script error line 48: walk-to (64,20) failed: reached (63,20) instead
+script error line 49: hunt timed out after 120 iterations without reaching a wild encounter
+script error line 52: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 55: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 58: walk RIGHT blocked at (63,20)@0/11 after 30 attempts (use 'walk RIGHT <tiles> optional' to allow this)
+script error line 58: walk-to (64,20) failed: blocked while moving RIGHT
+script error line 58: walk-to (64,20) failed: reached (63,20) instead
+script error line 59: hunt timed out after 120 iterations without reaching a wild encounter
+,0 hp=10,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  9245  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=10,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [damage-probe] battle ended after 2 turns (frame 9245)
+  [spama] 3 presses
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=20469 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 20469)
+[GOLDEN] label=Btry-after frame=20469 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 20769)
+  [spama] 3 presses
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=31993 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 31993)
+[GOLDEN] label=Btry-after frame=31993 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 32293)
+  [spama] 3 presses
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=43517 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagscript error line 62: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 65: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 68: walk RIGHT blocked at (63,20)@0/11 after 30 attempts (use 'walk RIGHT <tiles> optional' to allow this)
+script error line 68: walk-to (64,20) failed: blocked while moving RIGHT
+script error line 68: walk-to (64,20) failed: reached (63,20) instead
+script error line 69: hunt timed out after 120 iterations without reaching a wild encounter
+script error line 72: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 75: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+esObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 43517)
+[GOLDEN] label=Btry-after frame=43517 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 43817)
+  [spama] 3 presses
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=55041 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 55041)
+[GOLDEN] label=Btry-after frame=55041 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 55341)
+  [spama] 3 presses
+  [walk-to] reached (64,20) OK
+ 56211  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000000 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=10,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+ 56310  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000000 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=10,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+ 56312  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=10,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+ 56313  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=10,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [hunt] ENCOUNTER after 10 iterations
+ 56331  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=10,0,0,0 eParty=1/1 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+ 56338  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=10,14,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+[GOLDEN] label=Btry-before frame=56614 lifecycle=ACTIVE kind=WILD_SINGLE battlers=2 absent=0x00 presence=PRESENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=0 partySlot=0 status=2 ability=65 abilityObs=1 types=13,13,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=13 def=13 spe=9 spascript error line 89: hunt timed out after 120 iterations without reaching a wild encounter
+=12 spd=12 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=1 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=player species=152 hp=10 maxHP=23 moves=33,45,75,0 partyIndex=0
+[GOLDEN] side=enemy battler=1 partySlot=0 status=2 ability=51 abilityObs=1 types=1,3,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=7 def=7 spe=7 spa=6 spd=6 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=enemy species=16 hp=14 maxHP=14 moves=33,64,0,0 partyIndex=0
+  [damage-probe] move=75 maxTurns=1 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=SLOT slot=0 battler=1 at frame 56614
+  [damage-probe] opponent battler=1 species=16 hp=14/14
+ 57119  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=10,8,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=1 battler=1 species=16 hp 14 -> 8 (delta 6 of maxHP 14) faint=no crit=UNKNOWN frame=57119
+ 57288  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=9,8,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+[GOLDEN] label=Btry-after frame=57316 lifecycle=ACTIVE kind=WILD_SINGLE battlers=2 absent=0x00 presence=PRESENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=0 partySlot=0 status=2 ability=65 abilityObs=1 types=13,13,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=13 def=13 spe=9 spa=12 spd=12 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=1 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=player species=152 hp=9 maxHP=23 moves=33,45,75,0 partyIndex=0
+[GOLDEN] side=enemy battler=1 partySlot=0 status=2 ability=51 abilityObs=1 types=1,3,10 typesObs=1 item=0 itemObs=1 statsObs=1 atk=7 def=7 spe=7 spa=6 spd=6 stagesObs=1 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=1 battlersCountReadable=1
+[GOLDEN] side=enemy species=16 hp=8 maxHP=14 moves=33,64,0,0 partyIndex=0
+  [damage-probe] move=33 maxTurns=4 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=SLOT slot=0 battler=1 at frame 57616
+  [damage-probe] opponent battler=1 species=16 hp=8/14
+ 57784  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=9,3,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=1 battler=1 species=16 hp 8 -> 3 (delta 5 of maxHP 14) faint=no crit=UNKNOWN frame=57784
+ 57917  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=7,3,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+ 58116  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=7,0,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=1 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=2 battler=1 species=16 hp 3 -> 0 (delta 3 of maxHP 14) faint=YES crit=UNKNOWN frame=58116
+ 58284  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,16,0,0 hp=7,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+ 58295  ENDING    UNKNOWN   UNKNOWN  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=7,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+ 58334  INACTIVE  NONE      ABSENT   inB=false bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=7,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=6,6,6,6
+  [damage-probe] battle ended after 2 turns (frame 58334)
+  [spama] 3 presses
+  [walk-to] reached (64,20) OK
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=62678 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0script error line 92: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 95: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 99: hunt timed out after 120 iterations without reaching a wild encounter
+script error line 102: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 105: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 109: hunt timed out after 120 iterations without reaching a wild encounter
+script error line 112: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 62678)
+[GOLDEN] label=Btry-after frame=62678 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 62978)
+  [spama] 3 presses
+  [walk-to] reached (64,20) OK
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=67322 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 67322)
+[GOLDEN] label=Btry-after frame=67322 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 67622)
+  [spama] 3 presses
+  [walk-to] reached (64,20) OK
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=71966 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 71966)
+[GOLDEN] label=Btry-after frame=71966 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadascript error line 115: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 119: hunt timed out after 120 iterations without reaching a wild encounter
+script error line 122: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 125: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 129: hunt timed out after 120 iterations without reaching a wild encounter
+script error line 132: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 135: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 139: hunt timed out after 120 iterations without reaching a wild encounter
+ble=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 72266)
+  [spama] 3 presses
+  [walk-to] reached (64,20) OK
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=76610 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 76610)
+[GOLDEN] label=Btry-after frame=76610 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 76910)
+  [spama] 3 presses
+  [walk-to] reached (64,20) OK
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=81254 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 81254)
+[GOLDEN] label=Btry-after frame=81254 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 81554)
+  [spama] 3 presses
+  [walk-to] reached (64,20) OK
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=85898 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 tyscript error line 142: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 145: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 149: hunt timed out after 120 iterations without reaching a wild encounter
+script error line 152: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 155: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+script error line 159: hunt timed out after 120 iterations without reaching a wild encounter
+script error line 162: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+pesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 85898)
+[GOLDEN] label=Btry-after frame=85898 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 86198)
+  [spama] 3 presses
+  [walk-to] reached (64,20) OK
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=90542 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 90542)
+[GOLDEN] label=Btry-after frame=90542 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 90842)
+  [spama] 3 presses
+  [walk-to] reached (64,20) OK
+  [hunt] TIMEOUT after 120 iterations
+[GOLDEN] label=Btry-before frame=95186 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+  [damage-probe] battle ended after 0 turns (frame 95186)
+[GOLDEN] label=Btry-after frame=95186 lifecycle=INACTIVE kind=NONE battlers=2 absent=0x00 presence=ABSENT playerParty=1 enemyParty=1
+[GOLDEN] side=player battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0
+[GOLDEN] side=enemy battler=-1 partySlot=-1 status=0 ability=0 abilityObs=0 types=0,0,0 typesObs=0 item=0 itemObs=0 statsObs=0 atk=0 def=0 spe=0 spa=0 spd=0 stagesObs=0 stages=0,0,0,0,0,0,0,0 badgesObs=0 badges=0,0,0,0,0 rawBadges=0x00 absentReadable=0 battlersCountReadable=0script error line 165: damage-probe: no battle is active; this command only measures a battle the scenario already entered
+
+  [damage-probe] battle ended after 0 turns (frame 95486)
+  [spama] 3 presses
+  [party-stats] side=player count=1 activeSlot=-1 activeKnown=0 activeBattler=-1 ambiguous=0 at frame 96170
+  [party-stats]   slot 0 species=152 lvl=6 hp=7/23 atk=13 def=13 spe=9 spa=12 spd=12 nature=2 hiddenNature=2(+0) ivs=27/24/19/4/29/2 evs=0/0/0/3/0/1 moves=33,45,75,0
+
+-- summary --
+frames run                    : 96170
+frames checked                : 96170
+runtime invariant violations  : 0
+script errors                 : 51
+script runner status          : ok
+result                        : FAIL
+-- regions after unload: 0 (must be 0) --
+-- read after unload must be rejected: rejected (correct) --

@@ -1,0 +1,2 @@
+# The committed probe logs are Golden C4d evidence; the repo-wide *.log ignore is for build logs.
+!*.log

@@ -1222,3 +1222,199 @@ Specifically BLOCKED, with the blocking cause named:
 | SOURCE VERIFIED | Behavior established from pinned H&S 2.0.5 source | ✅ Target count spread logic, fail-closed class rule, dynamic move type / transient state analysis (round-two corrected) |
 | HOST VERIFIED | DualDex/QuickJS behavior matches native oracle | ✅ Target count native computation (fail-closed rule pinned), arithmetic parity |
 | RUNTIME VERIFIED | Compared with official H&S 2.0.5 ROM behavior | ❌ Not yet complete — the runtime golden matrix is explicitly OUT OF SCOPE for this pass and deferred to the next slice |
+
+---
+
+## 13. Gap C4d — official-ROM damage goldens + full live-dependency audit (PARTIAL / OPEN)
+
+This section records the Gap C4d slice (issues #9 and #40). C4d does the part C4c deliberately did
+not: it produces **official H&S 2.0.5 ROM damage goldens** and re-audits the complete live damage
+dependency chain. It does **not** open any production `Ready` request; the production blockers named
+in §13.8 remain, so C4 remains **PARTIAL / OPEN**.
+
+### 13.0 Baseline (post-#67)
+
+* Starting `main`: `4fd4d33cf970174f9fda3814a720893bf7935f85` (merge of PR #67, which includes
+  `aa2b709`, `54e16c7`, `340c0b9`).
+* `./ci.sh all` green: native reader `87 passed`, pure tracker selftests `75 passed`, QuickJS
+  calculator `1987 passed, 0 failed`, Gradle unit tests green, `assembleDebug` green.
+  (`./ci.sh` itself leaves `GRADLE_USER_HOME` to the caller; the run used a writable workspace
+  Gradle cache. This is an environment detail, not a repository change.)
+* `git diff --check` clean.
+* Post-#67 state verified: `authoritativeDynamicMoveTypeObserved()` and
+  `authoritativeTransientStateObserved()` both return false; production Doubles target count is
+  blocked by the `AMBIGUOUS` battler-observation contract; a caller-supplied `hnsLiveBattleState`
+  is rebound by `CalcRequestBoundary`; no production H&S request reaches `Ready / ESTIMATED`; no
+  official-ROM golden was claimed.
+* Active H&S profile trust (`app/src/main/assets/profiles/heart_and_soul.json`): `sha256Hashes: []`,
+  `isVerified: true`, `memoryLayoutVerified: true`, `battleUiVerified: false`,
+  `interactiveControlsVerified: false`.
+* Issues #9 and #40 remain **open**.
+
+### 13.1 Evidence vocabulary
+
+* **SOURCE VERIFIED** — established from pinned H&S 2.0.5 source
+  (`1f42b74dff0e9fe942419845d040663dd829a973`).
+* **HOST VERIFIED** — DualDex calculator agrees with the independent host/native oracle.
+* **RUNTIME VERIFIED** — observed on the exact official H&S 2.0.5 release ROM.
+* **PRODUCTION AUTHORIZED** — all operands for the exact request are boundary-owned and proven
+  enough to expose an executable request. **No H&S request is production authorized after C4d.**
+
+### 13.2 Full dynamic-move-type path audit
+
+`SetTypeBeforeUsingMove(move, battler)` (`src/battle_main.c:6418`) is the only writer of
+`gBattleStruct->dynamicMoveType`. It:
+
+1. clears `dynamicMoveType`, `battlerState[battler].ateBoost` and `gemBoost`;
+2. calls `GetDynamicMoveType(GetBattlerMon(battler), move, battler, MON_IN_BATTLE)` and, when that
+   is not `TYPE_NONE`, stores `moveType | F_DYNAMIC_TYPE_SET`;
+3. independently forces `TYPE_ELECTRIC` when
+   `(gFieldStatuses & STATUS_FIELD_ION_DELUGE && GetBattleMoveType(move) == TYPE_NORMAL) ||
+   gBattleMons[battler].volatiles.electrified` (`src/battle_main.c:6436-6439`);
+4. arms the gem boost (`src/battle_main.c:6443-6449`).
+
+`GetBattleMoveType(move)` (`src/battle_util.c:9907`) returns the stored dynamic type in battle and
+otherwise the static `GetMoveType(move)`. So a dynamic override is active exactly when one of the
+two writers above fired.
+
+`GetDynamicMoveType` (`src/battle_main.c:6176`) can return non-`TYPE_NONE` only through the
+following mechanisms. Each is dispositioned for the already-supported ordinary `EFFECT_HIT` subset:
+
+| Mechanism (`GetDynamicMoveType`) | Trigger | Supported-subset disposition |
+|---|---|---|
+| `EFFECT_STRUGGLE` | Struggle | Non-`EFFECT_HIT`; the move-mechanics allow-list refuses it. |
+| `EFFECT_WEATHER_BALL`, `EFFECT_HIDDEN_POWER` | weather / IVs | Non-`EFFECT_HIT`; refused by the move allow-list. |
+| `EFFECT_CHANGE_TYPE_ON_ITEM` (Techno Blast/Judgment/etc.) | held item | Non-`EFFECT_HIT`; refused. |
+| `EFFECT_REVELATION_DANCE` | user type / Tera / Roost | Non-`EFFECT_HIT`; refused. |
+| `EFFECT_RAGING_BULL`, `EFFECT_IVY_CUDGEL` | species form | Non-`EFFECT_HIT`; refused. |
+| `EFFECT_NATURAL_GIFT`, `EFFECT_TERRAIN_PULSE`, `EFFECT_NATURE_POWER` | berry / terrain / map | Non-`EFFECT_HIT`; refused. |
+| `EFFECT_TERA_BLAST`, `EFFECT_TERA_STARSTORM` | Tera gimmick / species | Non-`EFFECT_HIT`; refused. |
+| `ABILITY_LIQUID_VOICE` (sound moves) | attacker ability | Ability unclassified in `HnsAbilityRegistry`; `HNS_ABILITY_EFFECT_NOT_MODELLED` refuses it before the type question. |
+| `EFFECT_AURA_WHEEL` + Morpeko-Hangry | species + ability | Non-`EFFECT_HIT`; refused. |
+| ate-type abilities (`Pixilate`, `Refrigerate`, `Aerilate`, `Galvanize` via `TrySetAteType`, `src/battle_main.c:6128`) | attacker ability | Abilities unclassified; ability gate refuses them. |
+| `ABILITY_NORMALIZE` | attacker ability | Unclassified; ability gate refuses it. |
+| **Ion Deluge (`gFieldStatuses & STATUS_FIELD_ION_DELUGE`)** | field status | **Relevant to an otherwise-supported Normal `EFFECT_HIT` move. The field word is not read → FAIL CLOSED.** |
+| **`gBattleMons[battler].volatiles.electrified`** (Electrify) | attacker volatile | **Relevant to ANY otherwise-supported move (the volatile has no type check) → FAIL CLOSED.** |
+| Tera/Dynamax/Z gimmick | `GetActiveGimmick` | Gimmick state is not carried by the request and not read → FAIL CLOSED. |
+
+The C4c conclusion is unchanged and is now proven mechanism-by-mechanism: the only dynamic-type
+mechanisms that remain relevant to an otherwise-supported ordinary request are Ion Deluge and the
+Electrify volatile, plus the gimmick gate. Because `gFieldStatuses` and
+`gBattleMons[battler].volatiles.electrified` are not read, `dynamicMoveTypeObserved` stays false and
+`HNS_LIVE_BATTLE_STATE_NOT_MODELLED` remains for every active battle.
+
+`gBattleStruct->dynamicMoveType` itself is **not** used as an authority: it survives from the last
+executed move (`SetTypeBeforeUsingMove` is what rewrites it), so it describes a past action, not the
+hypothetical request on screen.
+
+### 13.3 Ordinary-damage transient-state classification
+
+`DoMoveDamageCalcVars` (`src/battle_util.c:7754`) and `ApplyModifiersAfterDmgRoll`
+(`src/battle_util.c:7794`) reach the following modifiers. Each is dispositioned for the supported
+ordinary `EFFECT_HIT` subset:
+
+| Modifier | Pinned location | Disposition |
+|---|---|---|
+| `GetTargetDamageModifier` (spread reduction) | `battle_util.c:7403` | Depends on `GetMoveTargetCount(ctx)`; the target-count authority exists but production Doubles is blocked (§13.6). Singles is always 1.0. |
+| `GetParentalBondModifier` | `battle_util.c:7415` | Only reachable via the Parental Bond ability (unclassified); ability gate refuses it. |
+| `GetWeatherDamageModifier` | `battle_util.c:7434` | Rain/Sun carried by `request.field.weather`; any other weather is refused by `hnsModifierOrderDiverges`. |
+| `GetCriticalModifier` | `battle_util.c:7474` | Carried by `request.move.isCrit`; **runtime validated** (golden E). |
+| `GetGlaiveRushModifier` | `battle_util.c:7481` | Defender `volatiles.glaiveRush`, type-agnostic ×2. Unread → **FAIL CLOSED**. |
+| `GetSameTypeAttackBonusModifier` | `battle_util.c:7422` | Attacker types are observed; `Adaptability` is unclassified and refused. |
+| `ctx->typeEffectivenessModifier` | type chart | Handled by the exact H&S chart (Gap C1); **runtime validated** (golden B). |
+| `GetBurnOrFrostBiteModifier` | `battle_util.c:7458` | `brn` is carried by `request.attacker.status`; frostbite is not in `MODELLED_STATUSES` and is refused. |
+| `GetZMaxMoveAgainstProtectionModifier` | `battle_util.c:7488` | Only Z/Max moves; not ordinary `EFFECT_HIT`; gimmick unread. |
+| `GetMinimizeModifier` | `battle_util.c:7499` | Gated by `MoveIncreasesPowerToMinimizedTargets(move)`; the defender volatile is unread → **FAIL CLOSED**. |
+| `GetUndergroundModifier` / `GetDiveModifier` / `GetAirborneModifier` | `battle_util.c:7506-7525` | Gated by move flags; defender `volatiles.semiInvulnerable` unread → **FAIL CLOSED**. |
+| `GetScreensModifier` | `battle_util.c:7527` | Carried by `request.field.defenderSide` (singles); Doubles screens are blocked with the format. **Runtime not separately validated.** |
+| `GetCollisionCourseElectroDriftModifier` | `battle_util.c:7551` | Only `EFFECT_COLLISION_COURSE`; refused. |
+| `GetAttackerAbilitiesModifier` (`Neuroforce`/`Sniper`/`Tinted Lens`) | `battle_util.c:7558` | Abilities unclassified; refused. |
+| `GetDefenderAbilitiesModifier` (`Multiscale`, `Shadow Shield`, `Filter`, `Solid Rock`, `Prism Armor`, `Fluffy`, `Punk Rock`, `Ice Scales`) | `battle_util.c:7580` | Abilities unclassified; refused. |
+| `GetDefenderPartnerAbilitiesModifier` (`Friend Guard`) | `battle_util.c:7640` | Doubles-only; format blocked and ability unclassified. |
+| `GetAttackerItemsModifier` (`Metronome`, `Expert Belt`, `Life Orb`) | `battle_util.c:7656` | Item capability refuses unmodelled items. |
+| `GetDefenderItemsModifier` (resist berries) | `battle_util.c:7682` | Item capability refuses unmodelled items. |
+| `CalcMoveBasePowerAfterModifiers` state/power effects (`Facade`, `Brine`, …) | `battle_util.c:6573` | Non-`EFFECT_HIT` effects are refused by the move allow-list; ability/item/status base-power modifiers are refused by their gates. |
+| `CalcAttackStat` / `CalcDefenseStat` (stages, raw words, Power Trick, badge, ability stat mods) | `battle_util.c:6912`, `7211` | Stat stages and raw battle stat words are observed and **runtime validated** (golden C); badge state is read but player-side-only; the pinch/Huge Power/Guts/Thick Fat abilities are unsupported and refused. |
+| `GetActiveGimmick` / Tera multiplier | `battle_terastal.c:134` | Not carried and not read → **FAIL CLOSED**. |
+| Pledge state (`gBattleStruct->pledgeMove`) | `battle_util.c:7426` | Pledge moves are non-ordinary; refused. |
+
+**Conclusion.** For the supported ordinary subset the only relevant live-state classes that are not
+either observed or provably excluded by an existing capability gate are: dynamic move type (Ion
+Deluge / Electrify), the defense-side volatiles (Glaive Rush, Minimize, semi-invulnerable), and the
+gimmick/Tera state. All three stay unread, so the live-state gate correctly remains closed for every
+active battle.
+
+### 13.4 Official-ROM goldens
+
+The goldens were produced with `tools/hns-runtime-probe` on the official H&S 2.0.5 release ROM,
+using only ordinary controller input. The full records, operands and reproduction steps are in
+`tools/hns-runtime-probe/evidence/` (`rom-damage-goldens.json`, `README.md`, and the three probe
+logs). The host half lives in `native/tests/test_js_calc.c` (`check_gap_c4d_rom_damage_goldens`) and
+runs in `./ci.sh test`.
+
+| Golden | Move / setup | Observed ROM damage | DualDex rolls | Result |
+|---|---|---|---|---|
+| A — neutral ordinary | Chikorita L5 Tackle vs Pidgey L3 (Def 7) | 6 (16→10) | 5..7 | RUNTIME VERIFIED |
+| B — STAB + type resistance | Chikorita L6 Razor Leaf vs Pidgey (Def 7, Normal/Flying) | 6 (14→8) | 6..7 | RUNTIME VERIFIED |
+| C — live non-neutral stat stage | Totodile L5 Leer (Def −1) then Scratch vs Pidgey (Def 6) | 10 (13→3) | 9..11 | RUNTIME VERIFIED |
+| E — critical hit (indirect) | Chikorita L5 Tackle, critical | ≥10 (10→0) | non-crit max 7; crit 11..14 | RUNTIME OBSERVED (indirect; the faint caps the exact roll) |
+| D — badge boost | — | — | — | NOT VALIDATED: no badge is reachable from the fresh-starter progression used here. Retained as an explicit blocker; not overclaimed. |
+| F — new volatile reader | — | — | — | NOT CLAIMED: no new reader was added, so no positive runtime fixture exists. |
+| G — Doubles | — | — | — | DEFERRED: production Doubles remains blocked (§13.6). |
+
+The host test does not merely check membership: it recomputes the roll vector with an independent
+oracle and asserts the engine matches it exactly, then asserts the observed ROM damage is one of
+those rolls. For golden C it additionally asserts that the stage-0 rolls (6..8) **exclude** the
+observed 10, so a regression that ignored the live stage fails.
+
+### 13.5 Live volatile authority
+
+C4d does **not** add a reader for the electrified/Ion-Deluge or defense-volatile bytes. Per §8/§14 of
+the task, a reader whose positive state cannot be produced by a runtime fixture must not be labelled
+RUNTIME VERIFIED, and clearing the gate on the strength of a synthetic unit test alone would be
+exactly the fail-open pattern C4c corrected. The relevant live classes therefore remain fail-closed
+and are documented in §§13.2-13.3. No new JNI tuple fields were added, so the C4c tuple/decode
+contract is unchanged.
+
+### 13.6 Doubles
+
+Production Doubles remains **BLOCKED**, unchanged from C4c. C4d adds no battle-level observation, so
+the two `OBSERVED` single-active-battler observations that `authoritativeMoveTargetCount` requires
+still cannot be produced in a genuine four-battler battle. `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`
+continues to refuse every production Doubles request. No artificial two-battler representation was
+manufactured.
+
+### 13.7 Exact-ROM trust decision
+
+The exact H&S 2.0.5 ROM SHA-256 **is not added** to the profile. Doing so would set
+`RuntimeRomTrust.mayReadLiveMemory == true` and unlock every live-memory feature in the companion,
+which is an issue-#40 closure decision and not a calculator slice. It is also unnecessary for this
+slice: `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` and the challenge-settings gate already keep production
+H&S fail-closed, and the goldens were produced by a developer-only probe that runs outside the trust
+model. `battleUiVerified` and `interactiveControlsVerified` are unchanged (`false`).
+
+### 13.8 Production subset decision
+
+**No H&S request reaches `Ready` / `ESTIMATED` after C4d.** The candidate first subset named in the
+task (exact-trust Singles `EFFECT_HIT` with observed types/stats/badges/move type and every
+transient either observed or impossible) is not yet genuinely satisfied, for three independent
+reasons:
+
+1. **Effective move type** — Ion Deluge / Electrify / gimmick state is unread (§13.2).
+2. **Transient state** — Glaive Rush / Minimize / semi-invulnerable state is unread (§13.3).
+3. **Exact-ROM trust and challenge rules** — the profile has no hash, so the runtime rules resolve
+   to null and the challenge toggles read as unreadable; and the observed attackers' own abilities
+   (`Overgrow` 65, `Torrent` 67) are classified `UNSUPPORTED_DAMAGE_RELEVANT` because H&S modifies
+   the Attack stat where ADV modifies base power.
+
+The first two are the real live-authority blockers; the third means there is no honest subset to
+promote yet. C4d is therefore a successful **evidence** slice, not a production-promotion slice.
+
+### 13.9 Evidence status after C4d
+
+| Evidence level | What it means | C4d status |
+|---|---|---|
+| SOURCE VERIFIED | Established from pinned H&S 2.0.5 source | ✅ Full `SetTypeBeforeUsingMove` / `GetDynamicMoveType` / `DoMoveDamageCalcVars` / `GetOtherModifiers` audit (§§13.2-13.3). |
+| HOST VERIFIED | DualDex/QuickJS agrees with the independent oracle | ✅ C4a/C4b/C4c fixtures unchanged; **new** `check_gap_c4d_rom_damage_goldens` asserts engine == oracle for every golden operand. |
+| RUNTIME VERIFIED | Observed on the official H&S 2.0.5 release ROM | ✅ Golden A (neutral), Golden B (STAB + resistance), Golden C (live stat stage); Golden E critical observed indirectly. |
+| PRODUCTION AUTHORIZED | All operands boundary-owned and proven | ❌ None — see §13.8. |

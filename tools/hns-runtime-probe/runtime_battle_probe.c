@@ -3015,6 +3015,63 @@ static int run_script(Driver* d, const char* script_path) {
                        (unsigned)st[role].types[0], (unsigned)st[role].types[1],
                        (unsigned)st[role].types[2]);
             }
+        } else if (!strcmp(cmd, "golden-state")) {
+            /* golden-state <label>
+             *
+             * DIAGNOSTIC ONLY for the Gap C4d official-ROM damage goldens: prints one
+             * machine-readable snapshot of the live battle through the PRODUCTION reader, carrying
+             * EVERY operand a golden comparison needs -- both battlers' raw battle stat words, stat
+             * stages, badge eligibility, current types, ability, item, HP and max HP -- so the whole
+             * golden record can be reconstructed from the log alone. Unlike `matrix` it reports the
+             * opponent's stat stages, which Leer/Tail Whip/Defense Curl change.
+             *
+             * Asserts nothing, writes nothing, reads only. A line is emitted even when the
+             * production reader declines a side, so an unobserved operand is visible rather than
+             * silently absent. */
+            Sample s;
+            sample_state(d->cfg, d->frame, 0, &s);
+            const char* label = a1[0] ? a1 : "step";
+            printf("[GOLDEN] label=%s frame=%d lifecycle=%s kind=%s battlers=%u absent=0x%02X "
+                   "presence=%s playerParty=%u enemyParty=%u\n",
+                   label, s.frame, lifecycle_name(s.lifecycle), kind_name(s.kind), s.battlers,
+                   s.absent_flags, presence_name(s.presence), s.player_party_count,
+                   s.enemy_party_count);
+            const char* gsides[2] = {"player", "enemy"};
+            const BattlerRuntimeState* gst[2] = {&s.player_battler_state, &s.enemy_battler_state};
+            for (int role = 0; role < 2; role++) {
+                const BattlerRuntimeState* b = gst[role];
+                printf("[GOLDEN] side=%s battler=%d partySlot=%d status=%d ability=%u abilityObs=%d "
+                       "types=%u,%u,%u typesObs=%d item=%u itemObs=%d statsObs=%d "
+                       "atk=%u def=%u spe=%u spa=%u spd=%u stagesObs=%d "
+                       "stages=%d,%d,%d,%d,%d,%d,%d,%d badgesObs=%d badges=%d,%d,%d,%d,%d "
+                       "rawBadges=0x%02X absentReadable=%d battlersCountReadable=%d\n",
+                       gsides[role], (int)b->battler_index, (int)b->party_slot, (int)b->status,
+                       (unsigned)b->ability_id, b->ability_observed ? 1 : 0,
+                       (unsigned)b->types[0], (unsigned)b->types[1], (unsigned)b->types[2],
+                       b->types_observed ? 1 : 0, (unsigned)b->item_id, b->item_observed ? 1 : 0,
+                       b->stats_observed ? 1 : 0,
+                       (unsigned)b->raw_attack, (unsigned)b->raw_defense, (unsigned)b->raw_speed,
+                       (unsigned)b->raw_sp_attack, (unsigned)b->raw_sp_defense,
+                       b->stages_observed ? 1 : 0,
+                       (int)b->stat_stages[0], (int)b->stat_stages[1], (int)b->stat_stages[2],
+                       (int)b->stat_stages[3], (int)b->stat_stages[4], (int)b->stat_stages[5],
+                       (int)b->stat_stages[6], (int)b->stat_stages[7],
+                       b->badges_observed ? 1 : 0,
+                       b->badge_boost_atk ? 1 : 0, b->badge_boost_def ? 1 : 0,
+                       b->badge_boost_spe ? 1 : 0, b->badge_boost_spa ? 1 : 0,
+                       b->badge_boost_spd ? 1 : 0, (unsigned)b->raw_badges_byte,
+                       b->absent_flags_readable ? 1 : 0, b->battlers_count_readable ? 1 : 0);
+                const int bi = b->battler_index;
+                if (bi >= 0 && bi < DUALDEX_MAX_BATTLERS) {
+                    printf("[GOLDEN] side=%s species=%u hp=%u maxHP=%u moves=%u,%u,%u,%u "
+                           "partyIndex=%u\n",
+                           gsides[role], (unsigned)s.mon_species[bi], (unsigned)s.mon_hp[bi],
+                           (unsigned)s.mon_max_hp[bi],
+                           (unsigned)s.mon_moves[bi][0], (unsigned)s.mon_moves[bi][1],
+                           (unsigned)s.mon_moves[bi][2], (unsigned)s.mon_moves[bi][3],
+                           (unsigned)s.party_index[bi]);
+                }
+            }
         } else if (!strcmp(cmd, "shot")) {
             write_ppm(a1);
         } else if (!strcmp(cmd, "savsave")) {
@@ -3611,6 +3668,18 @@ static int run_script(Driver* d, const char* script_path) {
                                          s.mon_moves[pb][2], s.mon_moves[pb][3]);
                             break;
                         }
+                        /* Ground the model on the cursor the ENGINE reports (ewram[0x3A8]) rather
+                         * than dead-reckoning from slot 0. The menu does not reopen on slot 0:
+                         * after any turn it reopens on the last move used, so a pure model can
+                         * confirm the wrong move and silently measure a different attack. This is
+                         * the same grounding the other move-selecting commands use. The observed
+                         * value is only trusted when it is a real 2x2 slot index; otherwise the
+                         * last known model is kept. */
+                        uint8_t observed_cursor = (ewram_sz > 0x3A8) ? ewram[0x3A8] : 0xFF;
+                        if (observed_cursor <= 3) {
+                            move_cursor = (int)observed_cursor;
+                            move_cursor_trusted = true;
+                        }
                         if (!move_cursor_trusted) { move_cursor = 0; move_cursor_trusted = true; }
                         if (move_cursor != want_slot) {
                             const int cr = move_cursor / 2, cc = move_cursor % 2;
@@ -3619,10 +3688,6 @@ static int run_script(Driver* d, const char* script_path) {
                                                       : ((tc > cc) ? DUALDEX_BTN_RIGHT : DUALDEX_BTN_LEFT);
                             hold(d, btn, 4, &previous, &have_previous);
                             hold(d, 0, 8, &previous, &have_previous);
-                            if (btn == DUALDEX_BTN_DOWN) move_cursor += 2;
-                            else if (btn == DUALDEX_BTN_UP) move_cursor -= 2;
-                            else if (btn == DUALDEX_BTN_RIGHT) move_cursor += 1;
-                            else move_cursor -= 1;
                             continue;
                         }
                         hold(d, DUALDEX_BTN_A, 4, &previous, &have_previous);

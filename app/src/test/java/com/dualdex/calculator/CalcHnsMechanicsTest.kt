@@ -8,7 +8,6 @@ import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -117,6 +116,12 @@ class CalcHnsMechanicsTest {
         return value.verdict
     }
 
+    /** The verdict whether or not the boundary exposed an executable request. */
+    private fun verdictOf(outcome: CalcRequestOutcome): CalcCapabilityVerdict = when (outcome) {
+        is CalcRequestOutcome.Ready -> outcome.verdict
+        is CalcRequestOutcome.Refused -> outcome.verdict
+    }
+
     @Test
     fun `base stat equalizer active adds its own blocker`() {
         val (profile, trust) = exactHns()
@@ -160,7 +165,7 @@ class CalcHnsMechanicsTest {
     }
 
     @Test
-    fun `ordinary Tackle clears the move mechanics gate and reaches Ready under C4b`() {
+    fun `ordinary Tackle clears the move mechanics gate under C4b`() {
         val (profile, trust) = exactHns()
         val outcome = CalcRequestBoundary.build(
             profile = profile,
@@ -168,9 +173,11 @@ class CalcHnsMechanicsTest {
             request = request("Tackle"),
             challengeSettings = settings()
         )
-        val ready = outcome as? CalcRequestOutcome.Ready
-            ?: throw AssertionError("Tackle should reach Ready under C4b, got $outcome")
-        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED))
+        val verdict = verdictOf(outcome)
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED))
+        // R7: a manual request has no authoritative badge applicability, so it fails closed on the
+        // badge gate instead of silently calculating with every badge boost false.
+        assertTrue(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
     }
 
     @Test
@@ -203,9 +210,8 @@ class CalcHnsMechanicsTest {
             request = request("Tackle"),
             challengeSettings = settings()
         )
-        val ready = outcome as? CalcRequestOutcome.Ready
-            ?: throw AssertionError("Tackle should reach Ready under C4b, got $outcome")
-        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+        val verdict = verdictOf(outcome)
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
     }
 
     @Test
@@ -218,9 +224,8 @@ class CalcHnsMechanicsTest {
             request = request("Flamethrower", attackerSpecies = "Charizard"),
             challengeSettings = settings()
         )
-        val stabReady = stabOutcome as? CalcRequestOutcome.Ready
-            ?: throw AssertionError("expected Ready for STAB, got $stabOutcome")
-        assertFalse(stabReady.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+        val stabVerdict = verdictOf(stabOutcome)
+        assertFalse(stabVerdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
 
         // Machamp (Fighting) Karate Chop (Fighting) is STAB and 2x vs Snorlax.
         val seOutcome = CalcRequestBoundary.build(
@@ -229,9 +234,8 @@ class CalcHnsMechanicsTest {
             request = request("Karate Chop"),
             challengeSettings = settings()
         )
-        val seReady = seOutcome as? CalcRequestOutcome.Ready
-            ?: throw AssertionError("expected Ready for super effective, got $seOutcome")
-        assertFalse(seReady.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+        val seVerdict = verdictOf(seOutcome)
+        assertFalse(seVerdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
     }
 
     @Test
@@ -243,9 +247,8 @@ class CalcHnsMechanicsTest {
             request = request("Tackle", isCrit = true),
             challengeSettings = settings()
         )
-        val ready = outcome as? CalcRequestOutcome.Ready
-            ?: throw AssertionError("expected Ready for crit, got $outcome")
-        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+        val verdict = verdictOf(outcome)
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
     }
 
     @Test
@@ -263,16 +266,17 @@ class CalcHnsMechanicsTest {
             "speed stage" to request("Tackle", attackerBoosts = StatBlock(spe = 1))
         )
         cases.forEach { (label, req) ->
-            val ready = (CalcRequestBoundary.build(
-                profile = profile,
-                trust = trust,
-                request = req,
-                challengeSettings = settings()
-            ) as? CalcRequestOutcome.Ready)
-                ?: throw AssertionError("$label must reach Ready under C4b")
+            val verdict = verdictOf(
+                CalcRequestBoundary.build(
+                    profile = profile,
+                    trust = trust,
+                    request = req,
+                    challengeSettings = settings()
+                )
+            )
             assertFalse(
-                "$label must clear modifier order gate: ${ready.verdict.limitations}",
-                ready.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
+                "$label must clear modifier order gate: ${verdict.limitations}",
+                verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
             )
         }
     }
@@ -316,16 +320,15 @@ class CalcHnsMechanicsTest {
             ),
             challengeSettings = settings()
         )
-        val ready = outcome as? CalcRequestOutcome.Ready
-            ?: throw AssertionError("neutral stat stages should reach Ready")
+        val verdict = verdictOf(outcome)
         assertFalse(
-            "an explicitly neutral stage block is not a divergence: ${ready.verdict.limitations}",
-            ready.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
+            "an explicitly neutral stage block is not a divergence: ${verdict.limitations}",
+            verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED)
         )
     }
 
     @Test
-    fun `most-covered request reaches ESTIMATED under Gap C4b`() {
+    fun `most-covered request clears every modelled gate but fails closed on unspecified badge state`() {
         val (profile, trust) = exactHns()
         val outcome = CalcRequestBoundary.build(
             profile = profile,
@@ -333,10 +336,9 @@ class CalcHnsMechanicsTest {
             request = request("Tackle"),
             challengeSettings = settings()
         )
-        val ready = outcome as? CalcRequestOutcome.Ready
-            ?: throw AssertionError("most-covered request must reach Ready under C4b, got $outcome")
-        val verdict = ready.verdict
+        val verdict = verdictOf(outcome)
 
+        // Every arithmetic/mechanics gate in the supported ordinary subset is cleared ...
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED))
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
@@ -345,9 +347,12 @@ class CalcHnsMechanicsTest {
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED))
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_BASE_STAT_EQUALIZER_NOT_MODELLED))
-        assertFalse(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
-        assertEquals(CalcSupport.ESTIMATED, verdict.support)
-        assertNotNull(verdict.request)
+        // ... but a manual/out-of-battle request has no authoritative badge applicability, and
+        // missing badge state must not be read as "badges off" (Gap C4b R7). The request fails
+        // closed rather than being published as an ESTIMATED number.
+        assertTrue(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
+        assertEquals(CalcSupport.UNSUPPORTED, verdict.support)
+        assertNull(verdict.request)
     }
 
     @Test

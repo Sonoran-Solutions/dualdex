@@ -277,6 +277,9 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             put("gameType", request.field.gameType)
             request.field.weather?.let { put("weather", it) }
             request.field.terrain?.let { put("terrain", it) }
+            // Boundary-owned live target count (GetMoveTargetCount). Absent today because no reader
+            // supplies it; when absent the H&S engine fails closed for Doubles spread moves.
+            request.hnsLiveBattleState?.moveTargetCount?.let { put("targetCount", it) }
             request.field.defenderSide?.let { side ->
                 put("defenderSide", JSONObject().apply {
                     if (side.isReflect) put("isReflect", true)

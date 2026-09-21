@@ -431,13 +431,25 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   let dmg = Math.floor(Math.floor(Math.floor(bp * userFinalAttack * (Math.floor((2 * level) / 5) + 2)) / targetFinalDefense) / 50) + 2;
 
   const gameType = normalizeGameType(field.gameType || input.field?.gameType);
-  // H&S applies the Gen-III spread halving only when GetMoveTargetCount(ctx) == 2,
-  // i.e. the move actually targets all adjacent foes (Rock Slide, Earthquake, etc.).
-  // A single-target move (Tackle, Flamethrower) in a doubles battle must NOT be halved.
-  // The @smogon/calc Move object exposes move.target; 'allAdjacentFoes' is the Gen-III
-  // multi-target value, matching the upstream mechanic exactly (gen3.js:333).
+  // H&S applies the Gen-III spread reduction only when GetMoveTargetCount(ctx) == 2, i.e. when
+  // the move actually hits both present opposing battlers. The move's static target class alone
+  // is NOT sufficient: Rock Slide against a single remaining foe has target count 1 and is not
+  // halved, while the same move with both foes present has count 2 and is halved. That count is
+  // live battle state, so it must be supplied explicitly as `field.targetCount`; when it is
+  // absent this fails closed instead of guessing from gameType + target class.
   if (gameType === 'Doubles' && move.target === 'allAdjacentFoes') {
-    dmg = halfDown(2048, dmg);
+    const targetCount = input.field?.targetCount;
+    if (targetCount === undefined || targetCount === null) {
+      throw new Error(
+        'H&S Doubles spread move requires field.targetCount (GetMoveTargetCount); refusing to guess the spread modifier'
+      );
+    }
+    if (typeof targetCount !== 'number' || !Number.isInteger(targetCount) || targetCount < 1) {
+      throw new Error('field.targetCount must be a positive integer, got ' + JSON.stringify(targetCount));
+    }
+    if (targetCount === 2) {
+      dmg = halfDown(2048, dmg);
+    }
   }
 
   const weatherStr = (field.weather || input.field?.weather || '').toLowerCase();

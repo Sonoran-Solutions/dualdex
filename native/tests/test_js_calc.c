@@ -2645,16 +2645,16 @@ static void check_gap_c4b_arithmetic_coverage(void) {
         }
     }
 
-    /* 8. Doubles spread move: Rock Slide (75 BP, multi-target allAdjacentFoes).
-     * In Doubles, multi-target move IS halved via halfDown(2048, dmg). */
-    g_fixture = "gap_c4b_doubles_spread_halved";
+    /* 8. Doubles spread move: Rock Slide (75 BP, multi-target allAdjacentFoes) with an explicit
+     * GetMoveTargetCount of 2. H&S halves the move via halfDown(2048, dmg) only for count 2. */
+    g_fixture = "gap_c4b_doubles_spread_two_targets_halved";
     {
         const char* req =
             "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
             "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
             "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
             "\"move\":{\"name\":\"Rock Slide\"},"
-            "\"field\":{\"gameType\":\"Doubles\"}}";
+            "\"field\":{\"gameType\":\"Doubles\",\"targetCount\":2}}";
         char* out = js_calc_calculate(req);
         check_condition("doubles spread move request produced a response", out != NULL);
         if (out != NULL) {
@@ -2666,11 +2666,61 @@ static void check_gap_c4b_arithmetic_coverage(void) {
                     oracle[i] = (spread_dmg * (85 + i)) / 100;
                 }
                 check_condition(
-                    "spread move in doubles is halved",
+                    "spread move with two present targets is halved",
                     rolls_equal(engine, oracle));
             } else {
-                check_condition("doubles spread response carried 16 rolls", 0);
+                check_condition("doubles two-target response carried 16 rolls", 0);
             }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 9. Doubles spread move against only ONE remaining foe. GetMoveTargetCount == 1, so H&S
+     * does NOT apply the x0.5 spread reduction; the damage must equal the singles value. */
+    g_fixture = "gap_c4b_doubles_spread_one_target_not_halved";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Rock Slide\"},"
+            "\"field\":{\"gameType\":\"Doubles\",\"targetCount\":1}}";
+        char* out = js_calc_calculate(req);
+        check_condition("doubles one-target request produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            if (doc != NULL && response_rolls(doc, engine) == ROLL_COUNT) {
+                hns_ordinary_rolls(50, 75, 150, 85, 0, 1.0, 0, 0, oracle);
+                check_condition(
+                    "spread move with one present target is NOT halved",
+                    rolls_equal(engine, oracle));
+            } else {
+                check_condition("doubles one-target response carried 16 rolls", 0);
+            }
+            jl_free(doc);
+            free(out);
+        }
+    }
+
+    /* 10. Doubles spread move with no target count at all must fail closed: the engine must not
+     * infer the spread modifier from gameType + move class. */
+    g_fixture = "gap_c4b_doubles_spread_missing_target_count_refused";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+            "\"move\":{\"name\":\"Rock Slide\"},"
+            "\"field\":{\"gameType\":\"Doubles\"}}";
+        char* out = js_calc_calculate(req);
+        check_condition("doubles spread move without target count produced a response", out != NULL);
+        if (out != NULL) {
+            jl_value* doc = jl_parse(out);
+            check_condition(
+                "missing target count must refuse rather than guess the spread modifier",
+                doc != NULL && jl_is_bool(jl_get(doc, "success")) &&
+                    !jl_bool(jl_get(doc, "success")) && jl_get(doc, "error") != NULL);
             jl_free(doc);
             free(out);
         }
@@ -2710,7 +2760,7 @@ int main(void) {
     printf("-- Gap C4a: ordinary-damage arithmetic parity vs an independent H&S oracle --\n");
     check_gap_c4a_arithmetic_parity();
 
-    printf("-- Gap C4b: arithmetic coverage (stat stages, crit ignores, badges, weather, screens, rawStats) --\n");
+    printf("-- Gap C4b: arithmetic coverage (stat stages, crit ignores, badges, weather, screens, rawStats, target count) --\n");
     check_gap_c4b_arithmetic_coverage();
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");

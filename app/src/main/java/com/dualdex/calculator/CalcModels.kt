@@ -175,6 +175,10 @@ data class CalcHnsRuntimeRules(
  *    observed. No runtime reader produces this yet (Gap C4b).
  *  - [transientStateObserved]: true only when other transient damage state reachable by the
  *    supported ordinary subset was authoritatively observed. No runtime reader produces this yet.
+ *  - [moveTargetCount]: the authoritative number of currently present targets
+ *    (`GetMoveTargetCount(ctx)`), or null when unobserved. H&S halves a spread move only when this
+ *    is exactly 2, so a Doubles spread move without an observed count fails closed rather than
+ *    guessing from `field.gameType`. No runtime reader produces this yet (Gap C4b).
  */
 data class CalcRawStats(
     val attack: Int,
@@ -204,7 +208,14 @@ data class CalcHnsLiveBattleState(
     val attackerStatStages: List<Int>? = null,
     val defenderStatStages: List<Int>? = null,
     val attackerBadgeBoosts: CalcBadgeBoosts? = null,
-    val defenderBadgeBoosts: CalcBadgeBoosts? = null
+    val defenderBadgeBoosts: CalcBadgeBoosts? = null,
+    /**
+     * The authoritative number of currently present targets for the selected move
+     * (`GetMoveTargetCount(ctx)`), or null when unobserved. Only H&S Doubles spread moves read
+     * this: the Gen-III reduction applies when the count is exactly 2. No runtime reader supplies
+     * it yet, so the production boundary always leaves it null and the policy fails closed.
+     */
+    val moveTargetCount: Int? = null
 )
 
 data class DamageCalculationRequest(

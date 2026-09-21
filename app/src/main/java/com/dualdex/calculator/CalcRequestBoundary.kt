@@ -482,9 +482,9 @@ object CalcRequestBoundary {
      * apply and null is correct.
      *
      * Only the current effective types have a runtime reader (PR #56); they are bound for a
-     * slot-matched, OBSERVED, in-domain observation. Battle stat words, the dynamic move type, and
-     * transient state have no reader yet, so the corresponding authority flags stay false and the
-     * policy fails closed until Gap C4b binds them.
+     * slot-matched, OBSERVED, in-domain observation. Battle stat words, the dynamic move type,
+     * transient state, and the runtime move target count have no reader yet, so the corresponding
+     * authority flags/count stay unobserved and the policy fails closed until Gap C4b binds them.
      */
     private fun bindHnsLiveBattleState(
         request: DamageCalculationRequest,
@@ -545,7 +545,11 @@ object CalcRequestBoundary {
             attackerStatStages = attackerStages,
             defenderStatStages = defenderStages,
             attackerBadgeBoosts = attackerBadges,
-            defenderBadgeBoosts = defenderBadges
+            defenderBadgeBoosts = defenderBadges,
+            // `GetMoveTargetCount(ctx)` is live target-presence state that no reader provides yet.
+            // A boundary-owned null (never a caller value) makes the policy fail closed for H&S
+            // Doubles spread moves instead of guessing the target count from the move class.
+            moveTargetCount = null
         )
     }
 

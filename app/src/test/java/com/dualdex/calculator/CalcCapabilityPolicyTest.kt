@@ -1225,6 +1225,7 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED,
                 CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED,
                 CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
+                CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED,
                 CalcLimitation.HNS_BASE_STAT_EQUALIZER_NOT_MODELLED,
                 CalcLimitation.HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED,
                 CalcLimitation.BADGE_BOOST_NOT_MODELLED,
@@ -1553,14 +1554,15 @@ class CalcCapabilityPolicyTest {
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE))
-        // Gap C4b: blanket badge blocker is gone, but unsupplied abilities fail closed
-        assertFalse(refused.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
+        // Gap C4b R7: a manual request has no authoritative badge applicability, so the badge gate
+        // is closed (missing badge state is not "badges off"); unsupplied abilities also fail closed.
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
         assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED))
     }
 
     @Test
-    fun `2b Fully observed ordinary request with supported abilities reaches ESTIMATED under Gap C4b`() {
+    fun `2b Fully observed ordinary manual request fails closed on unspecified badge state under Gap C4b R7`() {
         val (profile, trust) = exactHnsProfile()
         val snapshot = hnsSettingsSnapshot(
             optionStyle = 0,
@@ -1579,15 +1581,18 @@ class CalcCapabilityPolicyTest {
             challengeSettings = snapshot
         )
 
-        val ready = outcome as? CalcRequestOutcome.Ready
-            ?: throw AssertionError("H&S ordinary calculation should reach Ready, got $outcome")
+        // A manual/out-of-battle request carries no authoritative badge applicability, which is
+        // NOT the same as "the player owns no badges". It must fail closed.
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("manual H&S without badge state must fail closed, got $outcome")
 
-        assertEquals(CalcSupport.ESTIMATED, ready.verdict.support)
-        assertNotNull("ready verdict must expose an executable request", ready.request)
+        assertEquals(CalcSupport.UNSUPPORTED, refused.verdict.support)
+        assertNull("refused verdict must never expose an executable request", refused.verdict.request)
 
-        assertFalse(ready.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
-        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
-        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
+        // The arithmetic itself is modelled; the refusal is specifically the unspecified badge state.
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
     }
 
     @Test
@@ -1848,7 +1853,9 @@ class CalcCapabilityPolicyTest {
         // Gap C3: the blanket held-item blocker is gone; no item-specific blocker applies to
         // these itemless participants, so the refusal rests on the unrepresentable type.
         assertFalse(verdict.limitations.contains(CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED))
-        assertFalse(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
+        // Gap C4b R7: this manual request has no authoritative badge applicability, so the badge
+        // gate is independently closed rather than silently treating badges as off.
+        assertTrue(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
     }
 
     @Test

@@ -248,6 +248,19 @@ enum class CalcLimitation(val blocks: Boolean) {
     HNS_LIVE_BATTLE_STATE_NOT_MODELLED(true),
 
     /**
+     * An H&S Doubles request cannot establish the runtime target count
+     * (`GetMoveTargetCount(ctx)`) that decides the Gen-III spread reduction.
+     *
+     * H&S halves a spread move only when the count of currently present targets is exactly 2, so
+     * Rock Slide against a single remaining foe in a Doubles battle must NOT be halved. The static
+     * request carries no target-presence state and no runtime reader supplies the count yet
+     * (Gap C4b), so a Doubles request fails closed here rather than inferring the modifier from
+     * `field.gameType` plus the move's static target class. This is deliberately coarse: the whole
+     * Doubles format stays blocked until the count is represented.
+     */
+    HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED(true),
+
+    /**
      * The build scales type-boost held items to a later-generation percentage than the generation
      * III pipeline applies.
      */
@@ -473,6 +486,8 @@ data class CalcCapabilityVerdict(
                 "the pinned H&S damage modifier order and fixed-point rounding differ from the generation III pipeline for this request"
             CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED ->
                 "this is an active battle whose current effective types, battle stat words, or dynamic move type are not authoritatively observed"
+            CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED ->
+                "this is a Doubles battle whose current target count is not authoritatively observed, so the spread-move reduction cannot be determined"
             CalcLimitation.ITEM_BOOST_PERCENTAGE_DIFFERS ->
                 "this build scales type-boost items differently from the generation III pipeline"
             CalcLimitation.LIVE_INPUTS_NOT_VERIFIED ->
@@ -835,11 +850,20 @@ object CalcCapabilityPolicy {
             }
 
             // 8. Badge boost observability (Gap C4b).
-            // In an active battle, the player battler's badge boosts must be authoritatively observed
-            // from save memory; an active battle where the player battler's badge boosts were not
-            // observed fails closed here.
+            // Badge possession is not a neutral default. When badge applicability is unspecified
+            // (manual / out-of-battle request with no boundary-owned live state) the request must
+            // fail closed, never silently compute with every badge boost false. In an active battle
+            // the player attacker's badge boosts must be authoritatively observed from save memory.
             if (hnsBadgeBoostNotModelled(request)) {
                 limitations.add(CalcLimitation.BADGE_BOOST_NOT_MODELLED)
+            }
+
+            // 8b. Doubles runtime target count (Gap C4b R2). H&S halves a spread move only when
+            // GetMoveTargetCount(ctx) == 2, which is live target-presence state the static request
+            // does not carry. Without an authoritative count, a Doubles request fails closed rather
+            // than halving every spread move.
+            if (hnsDoublesTargetCountNotModelled(request)) {
+                limitations.add(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED)
             }
 
             // 9. Live battle state (Gap C4a R1 / C4b). The request shape carries static species/move
@@ -1037,22 +1061,42 @@ object CalcCapabilityPolicy {
     }
 
     /**
-     * True when badge boost state is unmodelled or unobserved (Gap C4b).
+     * True when badge boost applicability/state is unmodelled or unobserved (Gap C4b R7).
      *
      * Badge boosts in H&S are player-side only: upstream `ShouldGetStatBadgeBoost` always returns
      * FALSE for non-player-side battlers (`!IsOnPlayerSide(battler)`). The enemy defender never
-     * receives a badge boost, so only the attacker's badge state needs to be observed.
+     * receives a badge boost, so only the attacker's badge state is relevant.
      *
-     * In an active battle, if the attacker is a player battler (partySlot != null) the badge
-     * boost state must be authoritatively observed from save memory; otherwise returns false.
+     * A manual / out-of-battle request has no boundary-owned live state, which means badge
+     * applicability is simply unspecified - it is NOT a neutral "the player owns no badges" state.
+     * That fails closed here rather than silently computing with every badge boost false. In an
+     * active battle the player attacker's badge state must be authoritatively observed from save
+     * memory.
      */
     private fun hnsBadgeBoostNotModelled(request: DamageCalculationRequest): Boolean {
-        val live = request.hnsLiveBattleState ?: return false
+        val live = request.hnsLiveBattleState ?: return true
         // Only gate on attacker badge boosts: badges are player-side only. The defender
         // never has badge boosts regardless of battle position.
         if (request.attacker.partySlot != null && live.attackerBadgeBoosts == null) return true
         if (request.attacker.partySlot == null && request.defender.partySlot == null) return true
         return false
+    }
+
+    /**
+     * True when an H&S Doubles request cannot establish the runtime target count (Gap C4b R2).
+     *
+     * H&S applies the Gen-III spread reduction only when `GetMoveTargetCount(ctx)` is exactly 2, so
+     * the modifier depends on how many opposing battlers are currently present - live state the
+     * static request does not carry. No runtime reader supplies it yet, so the boundary always
+     * binds null and every H&S Doubles request fails closed instead of halving spread moves
+     * unconditionally. This is deliberately coarse: the whole Doubles format stays blocked until
+     * the count is represented.
+     */
+    private fun hnsDoublesTargetCountNotModelled(request: DamageCalculationRequest): Boolean {
+        if (!request.field.gameType.equals(CalcGameTypes.DOUBLES, ignoreCase = true)) return false
+        val live = request.hnsLiveBattleState ?: return true
+        val count = live.moveTargetCount ?: return true
+        return count < 1
     }
 
     /**

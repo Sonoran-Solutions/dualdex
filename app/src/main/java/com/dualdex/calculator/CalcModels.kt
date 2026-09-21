@@ -186,6 +186,10 @@ data class CalcHnsRuntimeRules(
  *    real boundary's single-active-battler observations are AMBIGUOUS in genuine doubles
  *    battles, so the count is not reachable through the real Doubles path (BLOCKED, Gap C4c;
  *    see docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §12.1).
+ *  - [observedBattlersCount]: the battle-level topology (`gBattlersCount`) agreed by both
+ *    observations, or null when unread/disagreeing. The production subset models Singles only,
+ *    so the policy refuses the whole live calculation when the observed topology is not `2`
+ *    (review round 5; see docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §14.7.2).
  */
 data class CalcRawStats(
     val attack: Int,
@@ -300,7 +304,23 @@ data class CalcHnsLiveBattleState(
      */
     val attackerPersistentVolatiles: CalcHnsPersistentVolatiles? = null,
     /** The defender's persistent volatile window, or null when unobserved. */
-    val defenderPersistentVolatiles: CalcHnsPersistentVolatiles? = null
+    val defenderPersistentVolatiles: CalcHnsPersistentVolatiles? = null,
+    // --- Gap C4e correction (review round 5): boundary-owned live battle format --------------
+    /**
+     * The authoritative live battle topology read from `gBattlersCount`: exactly `2` for a Singles
+     * battle or `4` for a Doubles battle, or null when both battle-level observations did not read
+     * the word or did not agree on it.
+     *
+     * H&S selects different arithmetic by format: `GetScreensModifier` multiplies Reflect / Light
+     * Screen by `UQ_4_12(0.667)` in Doubles and `UQ_4_12(0.5)` in Singles, the spread reduction
+     * depends on the observed target count, and the partner-dependent branches are Doubles-only.
+     * The request's `field.gameType` is caller/UI-supplied, so it cannot be the authority: the
+     * boundary binds this value from the exact-trusted runtime observations only, strips any
+     * caller-crafted value, and the policy refuses a live request that cannot be established as
+     * the observed Singles topology (see
+     * [CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED]).
+     */
+    val observedBattlersCount: Int? = null
 )
 
 /**

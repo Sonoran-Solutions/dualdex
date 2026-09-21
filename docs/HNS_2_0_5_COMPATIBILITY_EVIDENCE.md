@@ -3337,17 +3337,18 @@ unsupported and already refuses).
 | `CalcMoveBasePower*` move data / effect / strike count / classifiers (`:6321`, `:6573`) | move data | yes | move allow-list | none | constant-equal |
 | `volatiles.chargeTimer` base-power payload (`:6635`) | volatiles | yes (Electric x2) | chargeTimer observed | volatiles | OK-neutral |
 | `IsFieldMudSportAffected` / `IsFieldWaterSportAffected` (`:6281`, `:6301`) | `gFieldStatuses`; the volatile loop is behind `B_SPORT_TURNS < GEN_6` | no: `B_SPORT_TURNS == GEN_9` | field-status mask refuses the Sport bits | field | constant-equal (volatile route compiled out) |
-| `gProtectStructs[atk].helpingHand` (`:6630`) | gProtectStructs | yes (x1.5/stack) | Doubles-only; Doubles format gate | none | unreachable-for-subset (Singles only) |
+| **`IsDoubleBattle()` / battle format** (`gBattleTypeFlags & BATTLE_TYPE_MORE_THAN_TWO_BATTLERS`; topological counterpart `gBattlersCount`) (`:6122`, `:7403`, `:7527`) | `gBattleTypeFlags` / `gBattlersCount` | **yes**: it selects the screens factor (`UQ_4_12(0.667)` Doubles vs `UQ_4_12(0.5)` Singles), gates the spread reduction, and gates every partner-dependent branch (Helping Hand, Friend Guard, `GetMoveTargetCount` partner terms) | `gBattlersCount` observed through the boundary's shared `authoritativeObservedBattlersCount()` + the review-round-5 live-format gate | battle-level topology | **OK-neutral (observed Singles `2`); refuse-active when unread, disagreeing, or observed non-Singles** |
+| `gProtectStructs[atk].helpingHand` (`:6630`) | gProtectStructs | yes (x1.5/stack) | Doubles-only; review-round-5 live-format gate | battle-level topology | unreachable-for-subset (Singles only) |
 | `gBattleStruct->battlerState[].ateBoost`, `gSpecialStatuses[].gemBoost` (`:6633`, `:6715`) | gBattleStruct / gSpecialStatuses | yes (-ate / Gem) | ability/item gates | none | excluded by ability/item gate |
-| `GetTargetDamageModifier` / `GetMoveTargetCount` (`:7403`, `:6122`) | `gBattleTypeFlags`, `gAbsentBattlerFlags`, `gBattleMons.hp`, `gBattlersCount` | yes (spread reduction) | target-count reader + Doubles gate | none | OK-neutral / Doubles refuse |
+| `GetTargetDamageModifier` / `GetMoveTargetCount` (`:7403`, `:6122`) | `gBattleTypeFlags`, `gAbsentBattlerFlags`, `gBattleMons.hp`, `gBattlersCount` | yes (spread reduction) | target-count reader + Doubles gate + review-round-5 live-format gate | battle-level topology | OK-neutral (observed Singles); Doubles refuse |
 | `GetWeatherDamageModifier` (`:7434`) | gBattleWeather + Utility Umbrella item | yes (x0.5/x1.5) | weather reader; item gate | weather | OK-neutral Rain/Sun; other bits refuse-active |
 | `GetBurnOrFrostBiteModifier` (`:7458`) | `gBattleMons[atk].status1` | yes (burn x0.5) | status reader + Guts ability gate | status1 | OK-neutral |
 | `GetCriticalModifier` (`:7474`) | `ctx->isCrit` + `B_CRIT_MULTIPLIER` | yes | request `isCrit`; config | none | constant-equal |
 | `GetGlaiveRushModifier` (`:7481`) | `volatiles.glaiveRush` | yes (x2) | glaiveRush observed | volatiles | OK-neutral |
 | `GetMinimize` / underground / dive / airborne (`:7499`-`:7525`) | `volatiles.minimize`, `semiInvulnerable` | yes (x2) | recorded; move-flag allow-list excludes | volatiles | unreachable-for-subset |
-| `GetScreensModifier` (`:7527`) | `gSideStatuses` | yes (x0.5/0.667) | Reflect/Light Screen modelled; others refused | side | OK-neutral / refuse-active (Aurora Veil) |
+| `GetScreensModifier` (`:7527`) | `gSideStatuses` + `IsDoubleBattle()` | yes (x0.5 Singles / x0.667 Doubles) | Reflect/Light Screen modelled only after the review-round-5 live-format gate confirms observed Singles; others refused | side + battle-level topology | OK-neutral (observed Singles) / refuse-active (Aurora Veil or non-Singles format) |
 | `GetParentalBondModifier` (`:7415`) | `gSpecialStatuses[].parentalBondState` | yes | ability gate (Parental Bond) | none | excluded by ability gate |
-| `GetAttacker/DefenderAbilitiesModifier` (Neuroforce, Sniper, Tinted Lens, Filter, Multiscale, Fluffy, Friend Guard …) | abilities | yes | ability registry gate | ability | excluded by ability gate |
+| `GetAttacker/DefenderAbilitiesModifier` (Neuroforce, Sniper, Tinted Lens, Filter, Multiscale, Fluffy, Friend Guard …) | abilities | yes | ability registry gate; the Friend Guard partner branch is additionally Doubles-only and excluded by the review-round-5 live-format gate | ability / battle-level topology | excluded by ability gate |
 | `GetAttacker/DefenderItemsModifier` (`:7656`, `:7682`) | items; `volatiles.metronomeItemCounter` (`:7664`) | yes | item registry gate | item | excluded by item gate |
 | `GetOtherModifiers` speed ordering (`:7714`) | `gBattleMons.speed` | yes (chain order) | raw stat words reader | stats | OK-neutral |
 | `ApplyModifiersAfterDmgRoll` / `GetTeraMultiplier` (`:7794`, `battle_terastal.c`) | gimmick / Tera type / `stellarBoostFlags` | yes | gimmick reader | gimmick | OK-neutral; Stellar flag unreachable (Tera gated) |
@@ -3379,7 +3380,7 @@ unsupported and already refuses).
 | `GetBattlerAffectionHearts` (`:8175`) | party / `B_AFFECTION_MECHANICS` | yes | `B_AFFECTION_MECHANICS == FALSE` | none | constant-equal (disabled) |
 | `B_STURDY` + `tx_Mode_Sturdy` + `abilityDef == STURDY` (`:8186`) | SaveBlock3 / ability / hp | yes (endure at full HP) | ability gate (Sturdy unsupported); mode observed | ability | excluded by ability gate |
 | Focus Band / Focus Sash (`:8193`, `:8200`) | item | yes | item registry gate | item | excluded by item gate |
-| `gBattleMons[def].hp` (`:8170`, `:8220`) | gBattleMons | yes (overkill cap) | HP reader | stats | OK-neutral |
+| `gBattleMons[def].hp` (`:8170`, `:8220`) | gBattleMons | yes: the read gates whether the survival branches (Sturdy, Focus Band/Sash, Endure, affection) are entered. With none of those active H&S returns the raw overkill damage, so the HP word is not itself an "overkill cap" on the published number | HP reader | stats | OK-neutral |
 
 ### 5. Complete volatile census on the ordinary path
 
@@ -3440,3 +3441,42 @@ unknown → neutral family remains for the authorized subset.
 The rerun of M1/M2 and the new M3 persistent-gate mutation are recorded in the *Mutation control*
 table in the C4e section above (bounds: boundary 53 / full Kotlin 702 / QuickJS 2012 before and after;
 M1 mutates 10 Kotlin tests, M2 mutates 1 QuickJS test, M3 mutates 2 boundary tests).
+
+### 8. Round-5 implementation and evidence
+
+- The review-round-5 correction makes the live battle **format** boundary-owned. `gBattlersCount`
+  was already carried by both battle-level observations (JNI tuple slots 40/41); the boundary now
+  binds the agreed readable value through `authoritativeObservedBattlersCount()` (shared with the
+  Doubles target-count path) onto `CalcHnsLiveBattleState.observedBattlersCount`, stripping any
+  caller-crafted value.
+- `CalcCapabilityPolicy.hnsLiveBattleFormatNotModelled()` refuses a live request whose observed
+  topology is not the Singles `2` the subset models, with the new precise limitation
+  `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED`. An unread word, a player/enemy disagreement, an observed
+  `4` (including the late-Doubles shape where each side has one present battler), or a request
+  label that contradicts the observed topology all fail closed. A correctly-observed four-battler
+  Doubles request is still refused by `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`; the two gates are
+  deliberately separate.
+- Tests: real-boundary coverage for the observed-Singles positive (still `Ready`), observed `4`
+  with a Singles label, observed `4` + Reflect, count disagreement, an unread count (both sides and
+  one side), a caller-crafted Singles label/live count against observed `4`, and a caller-crafted
+  Doubles label against observed `2`; plus a decoder test pinning the topology slots and the
+  readability bit.
+
+### Mutation control (round 5)
+
+The same M1/M2/M3 mutations were re-run at the round-5 head, plus a new M4 live-format-gate
+mutation. Each was applied to production code, the targeted suites run, and reverted. Counts are
+`passed / failed` (Kotlin full = whole `testDebugUnitTest`; boundary =
+`CalcHnsC4eProductionBoundaryTest`):
+
+| Mutation | Change | Before | Mutated | After revert |
+|---|---|---|---|---|
+| M1 — new live-state authority | `dynamicMoveTypeObserved = false` in `bindHnsLiveBattleState` | boundary `61/0`; full Kotlin `711/0` | boundary `61/11`; full Kotlin `711/11` (incl. the Ready positive control) | boundary `61/0`; full Kotlin `711/0` |
+| M2 — pinch threshold | `calculateHnsDamage` (`calc_bundle.js`): `pinchHp <= floor(maxHP/3)` → `<` | QuickJS `2012/0` | QuickJS `2011/1` (`gap_c4e_overgrow_active_at_threshold`) | QuickJS `2012/0` |
+| M3 — persistent-volatile gate | `gastroAcid` precise-limitation branch removed in `collectHnsLiveOperandLimitations` | boundary `61/0`; full Kotlin `711/0` | boundary `61/2`; full Kotlin `711/2` (`gastro acid suppression on the attacker refuses`, `anti-spoof — a crafted neutral persistent window cannot clear any observed active bit`) | boundary `61/0`; full Kotlin `711/0` |
+| **M4 — live-format gate (new)** | `hnsLiveBattleFormatNotModelled` suppressed | boundary `61/0`; full Kotlin `711/0` | boundary `61/7`; full Kotlin `711/7` (observed `4` Singles, observed `4` + Reflect, disagreement, unread both/one side, crafted Singles override, crafted Doubles label) | boundary `61/0`; full Kotlin `711/0` |
+
+The decisive M4 converts the observed-`4`-with-a-Singles-label, observed-`4`-with-Reflect,
+disagreement and unread cases from refused to incorrectly `Ready`, which is exactly the
+wrong-format arithmetic this gate exists to prevent. All mutations were reverted and `git diff` is
+clean of the mutation markers.

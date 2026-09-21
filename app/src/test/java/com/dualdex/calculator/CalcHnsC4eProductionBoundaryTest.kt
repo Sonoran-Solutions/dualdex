@@ -116,7 +116,8 @@ class CalcHnsC4eProductionBoundaryTest {
         battleWeather: Int = 0,
         sideStatusesReadable: Boolean = true,
         sideStatuses: Int = 0,
-        badgesObserved: Boolean = true
+        badgesObserved: Boolean = true,
+        observedBattlersCount: Int? = 2
     ): BattlerRuntimeObservation = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
             status = HnsBattlerRuntimeStatus.OBSERVED,
@@ -144,8 +145,8 @@ class CalcHnsC4eProductionBoundaryTest {
             rawBadgesByte = 0,
             absentBattlerFlags = 0,
             absentFlagsReadable = true,
-            battlersCount = 2,
-            battlersCountReadable = true,
+            battlersCount = observedBattlersCount ?: 0,
+            battlersCountReadable = observedBattlersCount != null,
             hpObserved = hpObserved,
             hp = hp,
             maxHp = maxHp,
@@ -211,7 +212,8 @@ class CalcHnsC4eProductionBoundaryTest {
         sideStatusesReadable: Boolean = true,
         sideStatuses: Int = 0,
         statusObserved: Boolean = true,
-        status1: Int = 0
+        status1: Int = 0,
+        observedBattlersCount: Int? = 2
     ): BattlerRuntimeObservation = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
             status = HnsBattlerRuntimeStatus.OBSERVED,
@@ -233,8 +235,8 @@ class CalcHnsC4eProductionBoundaryTest {
             badgesObserved = false,
             absentBattlerFlags = 0,
             absentFlagsReadable = true,
-            battlersCount = 2,
-            battlersCountReadable = true,
+            battlersCount = observedBattlersCount ?: 0,
+            battlersCountReadable = observedBattlersCount != null,
             hpObserved = true,
             hp = 15,
             maxHp = 15,
@@ -373,6 +375,124 @@ class CalcHnsC4eProductionBoundaryTest {
         assertTrue("the effective move override must be the pinned Tackle: $json", json.contains("\"basePower\":40"))
         assertFalse("observed clear weather must not put a weather key in the engine JSON: $json", json.contains("\"weather\""))
         assertFalse("observed no screens must not put a defenderSide key in the engine JSON: $json", json.contains("\"defenderSide\""))
+    }
+
+    // ------------------------------------------------- live battle format (review round 5)
+
+    /**
+     * The live battle format is boundary-owned. The native observation carries the real
+     * topology (`gBattlersCount`: 2 Singles / 4 Doubles); the caller/UI `field.gameType` label
+     * must agree with it or the whole live calculation refuses, because H&S selects different
+     * arithmetic by format (screens x0.5 vs x0.667, spread reduction, partner-dependent
+     * branches). These tests drive the REAL boundary, including the late-Doubles shape where
+     * both per-side observations resolve (one present battler each) while `gBattlersCount`
+     * stays 4.
+     */
+    @Test
+    fun `observed Singles topology keeps the Ready positive control Ready and binds the count`() {
+        val trust = trustFor(exactSha)
+        val outcome = build(
+            trust = trust,
+            request = goldenARequest(),
+            player = playerObservation(observedBattlersCount = 2),
+            enemy = enemyObservation(observedBattlersCount = 2)
+        )
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("observed Singles count 2 must stay Ready, got $outcome")
+        assertEquals(
+            "the observed topology must be bound on the ready request",
+            2, ready.request.hnsLiveBattleState?.observedBattlersCount
+        )
+    }
+
+    @Test
+    fun `observed four-battler Doubles topology with a caller Singles label is refused as wrong format`() {
+        // Late-Doubles: both per-side observations resolve (one present battler each) while
+        // gBattlersCount stays 4. A Singles label must not compute it with the Singles x0.5
+        // screen multiplier; the entire calculation is under the wrong format.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
+            player = playerObservation(observedBattlersCount = 4),
+            enemy = enemyObservation(observedBattlersCount = 4)
+        )
+    }
+
+    @Test
+    fun `observed four-battler Doubles topology with Reflect and a caller Singles label is refused`() {
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
+            player = playerObservation(observedBattlersCount = 4),
+            enemy = enemyObservation(observedBattlersCount = 4, sideStatuses = 1 shl 0)
+        )
+    }
+
+    @Test
+    fun `player and enemy topology disagreement is refused`() {
+        // A torn read: the player observation saw 4, the enemy observation saw 2. Neither side
+        // can be picked; the format is unobserved and the request fails closed.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
+            player = playerObservation(observedBattlersCount = 4),
+            enemy = enemyObservation(observedBattlersCount = 2)
+        )
+    }
+
+    @Test
+    fun `unreadable battle topology is refused`() {
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
+            player = playerObservation(observedBattlersCount = null),
+            enemy = enemyObservation(observedBattlersCount = null)
+        )
+    }
+
+    @Test
+    fun `topology unreadable on one side alone is refused`() {
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
+            player = playerObservation(observedBattlersCount = 2),
+            enemy = enemyObservation(observedBattlersCount = null)
+        )
+    }
+
+    @Test
+    fun `caller-crafted Singles cannot override an observed four-battler topology`() {
+        // The caller asserts Singles and crafts a favourable live count of 2. The boundary owns
+        // hnsLiveBattleState and strips the crafted value, so the runtime count 4 still refuses.
+        val trust = trustFor(exactSha)
+        val crafted = goldenARequest().copy(
+            field = CalcFieldInput(gameType = CalcGameTypes.SINGLES),
+            hnsLiveBattleState = CalcHnsLiveBattleState(
+                observedBattlersCount = 2,
+                moveTargetCount = 2
+            )
+        )
+        val outcome = build(
+            trust = trust,
+            request = crafted,
+            player = playerObservation(observedBattlersCount = 4),
+            enemy = enemyObservation(observedBattlersCount = 4)
+        )
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError(
+                "a caller-crafted Singles label/count must not override the runtime topology, got $outcome"
+            )
+        assertTrue(
+            "the runtime count 4 must win over the crafted Singles state: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED)
+        )
+    }
+
+    @Test
+    fun `caller-crafted Doubles against an observed Singles topology fails closed`() {
+        // The caller asserts Doubles while the runtime topology is Singles. The label must not
+        // redefine reality: the request fails closed instead of computing a Doubles spread.
+        refusedWith(
+            expected = CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
+            request = goldenARequest().copy(field = CalcFieldInput(gameType = CalcGameTypes.DOUBLES)),
+            player = playerObservation(observedBattlersCount = 2),
+            enemy = enemyObservation(observedBattlersCount = 2)
+        )
     }
 
     // ------------------------------------------------- live field conditions (weather / screens)

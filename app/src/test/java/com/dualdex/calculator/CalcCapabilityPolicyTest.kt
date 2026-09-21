@@ -1226,6 +1226,7 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED,
                 CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
                 CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED,
+                CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
                 CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED,
                 CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED,
                 CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED,

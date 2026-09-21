@@ -261,6 +261,31 @@ enum class CalcLimitation(val blocks: Boolean) {
     HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED(true),
 
     /**
+     * An active H&S battle's live format (`gBattlersCount`) was not authoritatively established
+     * as the Singles topology the production subset models, or the request's caller/UI-supplied
+     * `field.gameType` contradicts the observed topology.
+     *
+     * H&S selects different arithmetic by battle format: `GetScreensModifier` composes Reflect /
+     * Light Screen with `UQ_4_12(0.667)` in a Doubles battle and `UQ_4_12(0.5)` in Singles, the
+     * spread reduction depends on the observed target count, and the partner-dependent branches
+     * (`GetDefenderPartnerAbilitiesModifier`, Helping Hand) are Doubles-only. The request format
+     * label is caller/UI-owned, so a genuine Doubles battle could otherwise be computed with the
+     * Singles arithmetic. The native observation already carries the real topology; the boundary
+     * now binds the agreed `gBattlersCount` from both battle-level observations and this gate
+     * refuses the entire live calculation when that observed format is not the Singles `2` the
+     * subset models. An unread word, a player/enemy disagreement, an observed `4`, or a request
+     * label that contradicts the observed topology all fail closed.
+     *
+     * This is deliberately not [HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED]: the entire live
+     * calculation is under the wrong format, not just a spread move. A correctly-observed
+     * four-battler Doubles request remains blocked by [HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED]
+     * (production Doubles is not implemented); this gate is what stops a Doubles battle from
+     * being mislabelled Singles and computed with the wrong x0.5 screen multiplier (review
+     * round 5).
+     */
+    HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED(true),
+
+    /**
      * The move's effective type was authoritatively observed to be rewritten to Electric by an
      * active dynamic-type mechanism (`gFieldStatuses & STATUS_FIELD_ION_DELUGE` on a Normal move,
      * or the attacker's `volatiles.electrified` on any move).
@@ -646,6 +671,8 @@ data class CalcCapabilityVerdict(
                 "this is an active battle whose current effective types, battle stat words, or dynamic move type are not authoritatively observed"
             CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED ->
                 "this is a Doubles battle whose current target count is not authoritatively observed, so the spread-move reduction cannot be determined"
+            CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED ->
+                "the live battle format is not an authoritatively observed Singles battle, so the Singles damage arithmetic cannot be applied"
             CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED ->
                 "the current move's type is being rewritten to Electric by Ion Deluge or Electrify, which this calculation does not model"
             CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED ->
@@ -1093,6 +1120,15 @@ object CalcCapabilityPolicy {
                 limitations.add(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED)
             }
 
+            // 8c. Live battle format (Gap C4e review round 5). H&S selects format-dependent
+            // arithmetic (screens x0.667 vs x0.5, the spread target count, partner-dependent
+            // branches). The request's `field.gameType` is caller/UI-owned and cannot be the
+            // authority, so the boundary owns the observed `gBattlersCount` and this gate refuses
+            // the whole live calculation when that topology is not the Singles the subset models.
+            if (hnsLiveBattleFormatNotModelled(request)) {
+                limitations.add(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED)
+            }
+
             // 9. Live battle state (Gap C4a R1 / C4b). The request shape carries static species/move
             // operands, but H&S mutates them during battle (current effective types, raw battle
             // stat words, dynamic move type, transient state). An active battle whose mutable
@@ -1330,6 +1366,30 @@ object CalcCapabilityPolicy {
         val live = request.hnsLiveBattleState ?: return true
         val count = live.moveTargetCount ?: return true
         return count < 1
+    }
+
+    /**
+     * True when a live H&S request's battle format is not the authoritatively observed Singles
+     * topology the production subset models (review round 5).
+     *
+     * The live topology is boundary-owned [CalcHnsLiveBattleState.observedBattlersCount], never
+     * the request's caller/UI-supplied `field.gameType`. The gate returns false only when both
+     * battle-level observations read `gBattlersCount`, agreed on it, the agreed value is the
+     * Singles value `2`, and the request label agrees it is Singles. A count of `4`, a
+     * disagreement, an unread word, or a label that contradicts the observed topology refuses:
+     * letting the label win would compute a genuine Doubles battle with the Singles screen
+     * multiplier (`UQ_4_12(0.5)` instead of `UQ_4_12(0.667)`). Returns false when there is no
+     * live battle state: a manual/out-of-battle request has no active format to observe.
+     *
+     * A correctly-observed four-battler Doubles request also returns false here (its format is
+     * consistent) and is then refused by [hnsDoublesTargetCountNotModelled], because production
+     * Doubles is not implemented. The two gates are deliberately separate.
+     */
+    private fun hnsLiveBattleFormatNotModelled(request: DamageCalculationRequest): Boolean {
+        val live = request.hnsLiveBattleState ?: return false
+        val observed = live.observedBattlersCount ?: return true
+        val requestIsDoubles = request.field.gameType.equals(CalcGameTypes.DOUBLES, ignoreCase = true)
+        return if (requestIsDoubles) observed != 4 else observed != 2
     }
 
     /**

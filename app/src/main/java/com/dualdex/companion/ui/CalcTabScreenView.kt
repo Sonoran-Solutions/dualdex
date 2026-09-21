@@ -599,6 +599,11 @@ class CalcTabScreenView(
 
         val field = CalcFieldInput(
             weather = currentWeather,
+            // The production subset is Singles-only. This label is no longer the authority: the
+            // boundary now owns the live battle format and rebinds/validates it from the observed
+            // `gBattlersCount`, so a genuine Doubles battle cannot be computed with the Singles
+            // screen multiplier even though this default says Singles. A live topology that is
+            // not the observed Singles count refuses with HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED.
             gameType = CalcGameTypes.SINGLES,
             defenderSide = if (hasScreens) SideConditions(isReflect = true, isLightScreen = true) else null
         )

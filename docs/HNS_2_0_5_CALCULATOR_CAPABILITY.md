@@ -1130,6 +1130,14 @@ observation. A caller-supplied value is stripped. Only the observed `gAbsentBatt
 between the two sides, an unreadable word, or an observed count of 2 (singles) fails closed —
 the request's `gameType` label never substitutes for the observed state.
 
+**Review round 5:** the same agreed `gBattlersCount` is now also the boundary-owned live battle
+**format** for every live calculation, not only the Doubles spread count. It is bound through the
+shared `authoritativeObservedBattlersCount()` helper, and a live request whose observed topology is
+not the Singles `2` refuses with `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` (§14.7.2). This closes the
+late-Doubles hole where both per-side observations resolve (one present battler each) while
+`gBattlersCount` stays 4 and a caller Singles label would otherwise apply the Singles x0.5 screen
+multiplier instead of the engine's x0.667.
+
 **Production status: BLOCKED.** The real boundary's per-side observations are
 `BATTLER_RUNTIME_STATE_AMBIGUOUS` whenever two battlers are present on a side — which is
 precisely the Doubles shape that has a count to compute — and an AMBIGUOUS observation
@@ -1328,7 +1336,7 @@ ordinary `EFFECT_HIT` subset:
 
 | Modifier | Pinned location | Disposition |
 |---|---|---|
-| `GetTargetDamageModifier` (spread reduction) | `battle_util.c:7403` | Depends on `GetMoveTargetCount(ctx)`; the target-count authority exists but production Doubles is blocked (§13.6). Singles is always 1.0. |
+| `GetTargetDamageModifier` (spread reduction) | `battle_util.c:7403` | Depends on `GetMoveTargetCount(ctx)`; the target-count authority exists but production Doubles is blocked (§13.6). Singles is always 1.0. The live format itself is now boundary-owned from `gBattlersCount` (§14.7.2), so a Doubles battle mislabelled Singles refuses with `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED`. |
 | `GetParentalBondModifier` | `battle_util.c:7415` | Only reachable via the Parental Bond ability (unclassified); ability gate refuses it. |
 | `GetWeatherDamageModifier` | `battle_util.c:7434` | Rain/Sun carried by `request.field.weather`; any other weather is refused by `hnsModifierOrderDiverges`. |
 | `GetCriticalModifier` | `battle_util.c:7474` | Carried by `request.move.isCrit`; **runtime observed (indirect)** (golden E: the crit bit was not read directly and the faint caps the exact roll). |
@@ -1339,7 +1347,7 @@ ordinary `EFFECT_HIT` subset:
 | `GetZMaxMoveAgainstProtectionModifier` | `battle_util.c:7488` | Only Z/Max moves; not ordinary `EFFECT_HIT`; gimmick unread. |
 | `GetMinimizeModifier` | `battle_util.c:7499` | Gated by `MoveIncreasesPowerToMinimizedTargets(move)`; the defender volatile is unread → **FAIL CLOSED**. |
 | `GetUndergroundModifier` / `GetDiveModifier` / `GetAirborneModifier` | `battle_util.c:7506-7525` | Gated by move flags; defender `volatiles.semiInvulnerable` unread → **FAIL CLOSED**. |
-| `GetScreensModifier` | `battle_util.c:7527` | Carried by `request.field.defenderSide` (singles); Doubles screens are blocked with the format. **Runtime not separately validated.** |
+| `GetScreensModifier` | `battle_util.c:7527` | `IsDoubleBattle()` selects `UQ_4_12(0.667)` (Doubles) vs `UQ_4_12(0.5)` (Singles). Carried by `request.field.defenderSide` only after the live format gate confirms the observed Singles topology (§14.7.2); a Doubles battle refuses rather than applying the Singles multiplier. **Runtime not separately validated.** |
 | `GetCollisionCourseElectroDriftModifier` | `battle_util.c:7551` | Only `EFFECT_COLLISION_COURSE`; refused. |
 | `GetAttackerAbilitiesModifier` (`Neuroforce`/`Sniper`/`Tinted Lens`) | `battle_util.c:7558` | Abilities unclassified; refused. |
 | `GetDefenderAbilitiesModifier` (`Multiscale`, `Shadow Shield`, `Filter`, `Solid Rock`, `Prism Armor`, `Fluffy`, `Punk Rock`, `Ice Scales`) | `battle_util.c:7580` | Abilities unclassified; refused. |
@@ -1712,6 +1720,36 @@ computed as clear / screenless. That unknown-to-neutral conversion is removed.
 * Out of battle the controls remain manual hypotheticals (the screen labels them as such), which is
   why the manual/out-of-battle path keeps the request's field values.
 
+### 14.7.2 Live battle format resolution (review round 5)
+
+Battle format was previously caller/UI-owned: the calculator screen hardcoded
+`gameType = CalcGameTypes.SINGLES` and the boundary only consulted the observed topology inside
+`authoritativeMoveTargetCount` when the request *already* said Doubles. That is not sound, because
+H&S selects different arithmetic by format even for a non-spread ordinary hit:
+`GetScreensModifier` (`src/battle_util.c:7527`) composes Reflect / Light Screen with
+`UQ_4_12(0.667)` in a Doubles battle and `UQ_4_12(0.5)` in Singles, and the partner-dependent
+branches are Doubles-only. The native observation already carries the real topology
+(`gBattlersCount`: 2 Singles / 4 Doubles), so the boundary now owns it:
+
+* `CalcRequestBoundary` binds `observedBattlersCount` from **both** battle-level observations,
+  requiring the readability bit on each and agreement between them; a one-sided read or a
+  disagreement is null (unobserved), never a side picked.
+* `CalcCapabilityPolicy` refuses a live request whose observed format is not the Singles topology
+  the subset models, with the precise limitation `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED`. An unread
+  word, a player/enemy disagreement, an observed count of `4` (including the late-Doubles shape
+  where each side has only one present battler but `gBattlersCount` stays 4), or a request label
+  that contradicts the observed topology all fail closed.
+* A caller-crafted Singles label cannot override an observed four-battler topology, and a
+  caller-crafted Doubles label against an observed Singles topology fails closed rather than
+  redefining reality. The request's `field.gameType` is only a claim that must agree with the
+  observed count.
+* A correctly-observed four-battler Doubles request is not caught by this gate (its format is
+  consistent) and remains blocked by `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`, because production
+  Doubles is still not implemented.
+
+This is deliberately a separate limitation from the Doubles target-count gate: the whole live
+calculation would otherwise be under the wrong format, not just a spread move.
+
 ### 14.8 Exact-ROM trust audit and hash promotion
 
 Promoting the exact SHA makes `RuntimeRomTrust.mayReadLiveMemory == true`, which unlocks every
@@ -1765,6 +1803,10 @@ A request reaches `Ready` / `ESTIMATED` only when **all** of the following hold:
 * the defender-side `gSideStatuses[side]` word observed with only the Reflect / Light Screen bits
   (an unread word refuses with `HNS_LIVE_SCREENS_UNKNOWN`, any other bit with
   `HNS_LIVE_SIDE_STATUS_NOT_MODELLED`);
+* the live battle format observed as Singles: both battle-level observations read
+  `gBattlersCount` and agreed on `2`, and the request label agrees it is Singles. An unread word, a
+  disagreement, an observed `4`, or a contradictory label refuses with
+  `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` (§14.7.2);
 * no unmodelled weather/terrain/status/move mechanic.
 
 Everything else remains refused. This is a deliberately small capability class, not "H&S is
@@ -1789,7 +1831,7 @@ value; "source-proven" means the pinned source/data proves it cannot vary for th
 | screens | boundary-owned defender-side `gSideStatuses[side]`; only Reflect/Light Screen bits |
 | burn / status | boundary-owned live `status1` must be 0; non-neutral refuses |
 | crit flag | request `isCrit`; C4d indirect observation |
-| game format | request `Singles`; Doubles refuses |
+| game format | boundary-owned `gBattlersCount` agreed by both battle-level observations; must be the observed Singles `2`, and the request label must agree; an unread word, a disagreement, an observed `4`, or a contradictory label refuses with `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` (§14.7.2) |
 | field statuses | boundary-owned battle-global `gFieldStatuses` (both observations must agree); only the Ion Deluge bit is modelled, any other bit refuses |
 | attacker volatiles | boundary-owned `electrified` must be false; boundary-owned `chargeTimer` must be 0; the persistent window (`foresight`/`miracleEye`/`root`/`smackDown`/`telekinesis`/`magnetRise`/`gastroAcid`/`roostActive`/`substitute`/`endured`) must be observed all-false |
 | defender volatiles | boundary-owned `glaiveRush` must be false; boundary-owned `tarShot` must be false; the persistent window must be observed all-false |
@@ -1827,6 +1869,11 @@ caller value can independently authorize an H&S live calculation.
   all ten persistent volatile bits (a crafted neutral window cannot clear an observed-active bit) and
   the inverse (a crafted active bit cannot refuse a neutral runtime window). No caller-provided
   `hnsLiveBattleState` field can independently authorize an H&S live calculation.
+* **Live battle format (review round 5)** — the observed Singles `2` keeps the positive control
+  `Ready`; an observed `4` (including with Reflect), a player/enemy disagreement, an unread count
+  (either side or both), a caller-crafted Singles label against observed `4`, and a caller-crafted
+  Doubles label against observed `2` all refuse; the boundary strips a crafted
+  `observedBattlersCount`.
 
 ### 14.11 Runtime verification
 
@@ -1858,7 +1905,11 @@ still green; C4e adds the pinch-ability fixtures alongside it.
 ### 14.13 Doubles, badge Golden D, and remaining limitations
 
 * **Doubles** remains **BLOCKED** by the AMBIGUOUS per-side battler observation. C4e adds no
-  battle-level Doubles plumbing and does not make production Doubles an acceptance requirement.
+  battle-level Doubles plumbing and does not make production Doubles an acceptance requirement. The
+  review-round-5 format gate additionally refuses any live calculation whose observed `gBattlersCount`
+  is not the Singles `2`, so a Doubles battle (including the late-Doubles shape where each side has
+  one present battler) can never be computed with the Singles screen multiplier even though the UI
+  labels it Singles (§14.7.2).
 * **Badge Golden D** remains unvalidated: negative/neutral badge state is observed false and the
   request is correctly computed without a boost, but no positive badge-boost arithmetic is claimed
   RUNTIME VERIFIED. The C4b host oracle coverage remains HOST VERIFIED.
@@ -1869,8 +1920,9 @@ still green; C4e adds the pinch-ability fixtures alongside it.
   Down/Telekinesis/Magnet Rise, Roost, Gastro Acid suppression, Substitute, Endure), unmodelled
   field statuses (Wonder Room, Gravity, terrain, Mud/Water Sport),
   active gimmicks, non-neutral live status, unread or unmodelled live weather (including the primal
-  bits) / defender-side screens, and unsupported abilities/items/moves remain refused so a confident
-  wrong number is never published.
+  bits) / defender-side screens, a live topology that is not the observed Singles `2` (an unread or
+  disagreeing `gBattlersCount`, or an observed `4`), and unsupported abilities/items/moves remain
+  refused so a confident wrong number is never published.
 
 ### 14.14 Issues #9 and #40
 

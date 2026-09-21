@@ -552,10 +552,12 @@ object CalcRequestBoundary {
      * is active). Out of battle there is no mutable battle state, so the live-state gate does not
      * apply and null is correct.
      *
-     * Only the current effective types have a runtime reader (PR #56); they are bound for a
-     * slot-matched, OBSERVED, in-domain observation. Battle stat words, the dynamic move type,
-     * transient state, and the runtime move target count have no reader yet, so the corresponding
-     * authority flags/count stay unobserved and the policy fails closed until Gap C4b binds them.
+     * Every mutable operand is bound from the exact-trusted, slot-matched, OBSERVED runtime
+     * observation: effective types, raw battle stat words, stat stages, badge state, HP/status,
+     * the dynamic-move-type causes, the transient and persistent volatiles, the gimmick state,
+     * the runtime move target count, and (review round 5) the battle format (`gBattlersCount`
+     * agreed by both battle-level observations). An operand the reader did not carry stays
+     * unobserved and the policy fails closed.
      */
     private fun bindHnsLiveBattleState(
         request: DamageCalculationRequest,
@@ -700,6 +702,15 @@ object CalcRequestBoundary {
             // observations are present and the battler indices can be resolved.
             moveTargetCount = authoritativeMoveTargetCount(
                 request = request,
+                playerBattlerState = playerBattlerState,
+                enemyBattlerState = enemyBattlerState,
+                isExactVerified = isExactVerified
+            ),
+            // The live battle format is boundary-owned exactly like the other operands: the
+            // caller/UI `field.gameType` is never the authority. Only the agreed, readable
+            // `gBattlersCount` from both battle-level observations is published; an unread or
+            // disagreeing word is null and the policy refuses the whole live calculation.
+            observedBattlersCount = authoritativeObservedBattlersCount(
                 playerBattlerState = playerBattlerState,
                 enemyBattlerState = enemyBattlerState,
                 isExactVerified = isExactVerified
@@ -869,6 +880,31 @@ object CalcRequestBoundary {
     }
 
     /**
+     * The battle-global `gBattlersCount` topology, or null unless BOTH authoritative battle-level
+     * observations actually read it and agree.
+     *
+     * `2` is Singles and `4` is Doubles. The count is battle-level state carried with each
+     * observation, never inferred from `field.gameType` (that inference is exactly what the C4c
+     * authority rule forbids). A readability bit that is clear means the read never happened, and
+     * a single-word disagreement is a torn read: both fail closed to null rather than picking a
+     * side. An observed value other than 2/4 is returned as-is for the policy to refuse.
+     */
+    private fun authoritativeObservedBattlersCount(
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Int? {
+        if (!isExactVerified) return null
+        val player = playerBattlerState?.state ?: return null
+        val enemy = enemyBattlerState?.state ?: return null
+        if (player.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (enemy.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!player.battlersCountReadable || !enemy.battlersCountReadable) return null
+        if (player.battlersCount != enemy.battlersCount) return null
+        return player.battlersCount
+    }
+
+    /**
      * Compute the authoritative runtime target count for an H&S Doubles spread move,
      * equivalent to `GetMoveTargetCount(ctx)` from the pinned source.
      *
@@ -939,11 +975,13 @@ object CalcRequestBoundary {
          * observation, never inferred from field.gameType. Both observations must
          * have READ the count, must agree on it, and the agreed OBSERVED value must
          * be 4 (four-battler doubles). A 2-battler (singles) count or an unreadable
-         * count fails closed. */
-        if (!playerState.battlersCountReadable) return null
-        if (!enemyState.battlersCountReadable) return null
-        val battlersCount = playerState.battlersCount
-        if (battlersCount != enemyState.battlersCount) return null
+         * count fails closed. Shared with the review-round-5 format gate so the two
+         * consumers cannot disagree about the observed topology. */
+        val battlersCount = authoritativeObservedBattlersCount(
+            playerBattlerState = playerBattlerState,
+            enemyBattlerState = enemyBattlerState,
+            isExactVerified = isExactVerified
+        ) ?: return null
         if (battlersCount != 4) return null
 
         if (attackerBattler !in 0..3 || defenderBattler !in 0..3) return null

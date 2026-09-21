@@ -227,6 +227,24 @@ class HnsBattlerRuntimeStateTest {
     }
 
     @Test
+    fun `battle topology slots decode an observed count and keep an unread count unobserved`() {
+        // Review round 5: the boundary consumes the battle format from these slots, so the
+        // readability bit must distinguish an observed count from a payload that was never read.
+        val observed = HnsBattlerRuntimeState.fromNativeArray(c4eObservedTuple())
+        assertTrue(observed.battlersCountReadable)
+        assertEquals(2, observed.battlersCount)
+
+        val unreadable = HnsBattlerRuntimeState.fromNativeArray(
+            c4eObservedTuple().also { it[41] = 0 }
+        )
+        assertFalse(unreadable.battlersCountReadable)
+        assertEquals(
+            "a payload without the readability bit must never mean 'zero battlers'",
+            0, unreadable.battlersCount
+        )
+    }
+
+    @Test
     fun `unread volatile window keeps charge timer and tar shot unobserved`() {
         // Payload slots hold tempting values, but the shared volatile window was not read, so
         // neither operand may be promoted to an observation.

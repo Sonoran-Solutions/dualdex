@@ -1743,12 +1743,13 @@ branches are Doubles-only. The native observation already carries the real topol
   caller-crafted Doubles label against an observed Singles topology fails closed rather than
   redefining reality. The request's `field.gameType` is only a claim that must agree with the
   observed count.
-* A correctly-observed four-battler Doubles request is not caught by this gate (its format is
-  consistent) and remains blocked by `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`, because production
-  Doubles is still not implemented.
+* Any live Doubles request (observed count of `4`, or mislabelled Singles/Doubles, regardless of
+  whether a target count could be resolved) is refused by this gate with
+  `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` because the C4e production subset models Singles only.
+  Production Doubles carries unobserved live operands (e.g. Helping Hand) and remains blocked.
 
 This is deliberately a separate limitation from the Doubles target-count gate: the whole live
-calculation would otherwise be under the wrong format, not just a spread move.
+calculation is under an unmodelled format, not just a spread move.
 
 ### 14.8 Exact-ROM trust audit and hash promotion
 

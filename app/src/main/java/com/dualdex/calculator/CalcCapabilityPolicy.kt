@@ -277,11 +277,10 @@ enum class CalcLimitation(val blocks: Boolean) {
      * label that contradicts the observed topology all fail closed.
      *
      * This is deliberately not [HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED]: the entire live
-     * calculation is under the wrong format, not just a spread move. A correctly-observed
-     * four-battler Doubles request remains blocked by [HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED]
-     * (production Doubles is not implemented); this gate is what stops a Doubles battle from
-     * being mislabelled Singles and computed with the wrong x0.5 screen multiplier (review
-     * round 5).
+     * calculation is under an unmodelled format, not just a spread move. The C4e production
+     * subset models Singles only; all live Doubles requests (whether observed 4 or mislabelled,
+     * and regardless of target-count resolution) fail closed with this limitation because
+     * production Doubles is not implemented and carries unobserved live operands (e.g. Helping Hand).
      */
     HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED(true),
 
@@ -1373,23 +1372,28 @@ object CalcCapabilityPolicy {
      * topology the production subset models (review round 5).
      *
      * The live topology is boundary-owned [CalcHnsLiveBattleState.observedBattlersCount], never
-     * the request's caller/UI-supplied `field.gameType`. The gate returns false only when both
-     * battle-level observations read `gBattlersCount`, agreed on it, the agreed value is the
-     * Singles value `2`, and the request label agrees it is Singles. A count of `4`, a
-     * disagreement, an unread word, or a label that contradicts the observed topology refuses:
-     * letting the label win would compute a genuine Doubles battle with the Singles screen
-     * multiplier (`UQ_4_12(0.5)` instead of `UQ_4_12(0.667)`). Returns false when there is no
+     * the request's caller/UI-supplied `field.gameType`. The C4e production subset models
+     * Singles only: the gate returns false only when both battle-level observations read
+     * `gBattlersCount`, agreed on it, the agreed value is the Singles value `2`, and the request
+     * label agrees it is Singles. Any non-Singles live battle (observed `4`, disagreement, unread
+     * word, or a request label that is not Singles) fails closed here. Letting a Doubles request
+     * clear would expose unmodelled live operands (e.g. Helping Hand) and wrong-format screen
+     * multipliers (`UQ_4_12(0.5)` instead of `UQ_4_12(0.667)`). Returns false when there is no
      * live battle state: a manual/out-of-battle request has no active format to observe.
-     *
-     * A correctly-observed four-battler Doubles request also returns false here (its format is
-     * consistent) and is then refused by [hnsDoublesTargetCountNotModelled], because production
-     * Doubles is not implemented. The two gates are deliberately separate.
      */
-    private fun hnsLiveBattleFormatNotModelled(request: DamageCalculationRequest): Boolean {
+    private fun hnsLiveBattleFormatNotModelled(
+        request: DamageCalculationRequest
+    ): Boolean {
         val live = request.hnsLiveBattleState ?: return false
         val observed = live.observedBattlersCount ?: return true
-        val requestIsDoubles = request.field.gameType.equals(CalcGameTypes.DOUBLES, ignoreCase = true)
-        return if (requestIsDoubles) observed != 4 else observed != 2
+
+        val requestIsSingles =
+            request.field.gameType.equals(
+                CalcGameTypes.SINGLES,
+                ignoreCase = true
+            )
+
+        return observed != 2 || !requestIsSingles
     }
 
     /**

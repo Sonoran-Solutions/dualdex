@@ -117,7 +117,8 @@ class CalcHnsC4eProductionBoundaryTest {
         sideStatusesReadable: Boolean = true,
         sideStatuses: Int = 0,
         badgesObserved: Boolean = true,
-        observedBattlersCount: Int? = 2
+        observedBattlersCount: Int? = 2,
+        absentBattlerFlags: Int = 0
     ): BattlerRuntimeObservation = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
             status = HnsBattlerRuntimeStatus.OBSERVED,
@@ -143,7 +144,7 @@ class CalcHnsC4eProductionBoundaryTest {
             badgeBoostSpa = false,
             badgeBoostSpd = false,
             rawBadgesByte = 0,
-            absentBattlerFlags = 0,
+            absentBattlerFlags = absentBattlerFlags,
             absentFlagsReadable = true,
             battlersCount = observedBattlersCount ?: 0,
             battlersCountReadable = observedBattlersCount != null,
@@ -213,7 +214,8 @@ class CalcHnsC4eProductionBoundaryTest {
         sideStatuses: Int = 0,
         statusObserved: Boolean = true,
         status1: Int = 0,
-        observedBattlersCount: Int? = 2
+        observedBattlersCount: Int? = 2,
+        absentBattlerFlags: Int = 0
     ): BattlerRuntimeObservation = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
             status = HnsBattlerRuntimeStatus.OBSERVED,
@@ -233,7 +235,7 @@ class CalcHnsC4eProductionBoundaryTest {
             stagesObserved = true,
             statStages = listOf(0, 0, 0, 0, 0, 0, 0, 0),
             badgesObserved = false,
-            absentBattlerFlags = 0,
+            absentBattlerFlags = absentBattlerFlags,
             absentFlagsReadable = true,
             battlersCount = observedBattlersCount ?: 0,
             battlersCountReadable = observedBattlersCount != null,
@@ -492,6 +494,76 @@ class CalcHnsC4eProductionBoundaryTest {
             request = goldenARequest().copy(field = CalcFieldInput(gameType = CalcGameTypes.DOUBLES)),
             player = playerObservation(observedBattlersCount = 2),
             enemy = enemyObservation(observedBattlersCount = 2)
+        )
+    }
+
+    @Test
+    fun `observed four-battler Doubles with late-Doubles absent flags and TARGET_BOTH move is refused as wrong format`() {
+        // Decisive regression: battlers count is 4, but partner battlers are absent (0b1100),
+        // so authoritativeMoveTargetCount resolves count = 1 for a TARGET_BOTH ordinary move
+        // (Razor Leaf). The Doubles target-count gate clears, but the format gate must refuse:
+        // C4e production authorization is Singles-only and does not observe Doubles-only live
+        // operands (e.g. Helping Hand).
+        val trust = trustFor(exactSha)
+        val request = goldenARequest(move = "Razor Leaf").copy(
+            field = CalcFieldInput(gameType = CalcGameTypes.DOUBLES)
+        )
+        val outcome = build(
+            trust = trust,
+            request = request,
+            player = playerObservation(
+                observedBattlersCount = 4,
+                absentBattlerFlags = 0b1100
+            ),
+            enemy = enemyObservation(
+                observedBattlersCount = 4,
+                absentBattlerFlags = 0b1100
+            )
+        )
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("late-Doubles with target count 1 must never reach Ready, got $outcome")
+        assertNull("a refusal must never expose a request", refused.verdict.request)
+        assertTrue(
+            "late-Doubles must be refused by HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED)
+        )
+        assertFalse(
+            "target count was authorized (= 1), so HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED should not block: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED)
+        )
+    }
+
+    @Test
+    fun `observed four-battler Doubles with full presence and TARGET_BOTH move is refused as wrong format`() {
+        // Full four-battler Doubles: absentBattlerFlags = 0, so authoritativeMoveTargetCount
+        // resolves count = 2 for TARGET_BOTH (Razor Leaf). Even with an authoritative target
+        // count of 2, all live Doubles remain outside C4e and refuse with HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED.
+        val trust = trustFor(exactSha)
+        val request = goldenARequest(move = "Razor Leaf").copy(
+            field = CalcFieldInput(gameType = CalcGameTypes.DOUBLES)
+        )
+        val outcome = build(
+            trust = trust,
+            request = request,
+            player = playerObservation(
+                observedBattlersCount = 4,
+                absentBattlerFlags = 0
+            ),
+            enemy = enemyObservation(
+                observedBattlersCount = 4,
+                absentBattlerFlags = 0
+            )
+        )
+        val refused = outcome as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("Doubles with target count 2 must never reach Ready, got $outcome")
+        assertNull("a refusal must never expose a request", refused.verdict.request)
+        assertTrue(
+            "Doubles must be refused by HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED)
+        )
+        assertFalse(
+            "target count was authorized (= 2), so HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED should not block: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED)
         )
     }
 

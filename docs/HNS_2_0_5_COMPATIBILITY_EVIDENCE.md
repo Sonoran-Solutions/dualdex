@@ -3452,14 +3452,17 @@ M1 mutates 10 Kotlin tests, M2 mutates 1 QuickJS test, M3 mutates 2 boundary tes
 - `CalcCapabilityPolicy.hnsLiveBattleFormatNotModelled()` refuses a live request whose observed
   topology is not the Singles `2` the subset models, with the new precise limitation
   `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED`. An unread word, a player/enemy disagreement, an observed
-  `4` (including the late-Doubles shape where each side has one present battler), or a request
-  label that contradicts the observed topology all fail closed. A correctly-observed four-battler
-  Doubles request is still refused by `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`; the two gates are
-  deliberately separate.
+  `4` (including the late-Doubles shape where each side has one present battler), or any request
+  label that is not Singles all fail closed. The C4e production subset models Singles only; any
+  live Doubles request (even with an authoritative target count of 1 or 2) fails closed with
+  `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` because production Doubles carries unobserved live
+  operands (e.g. Helping Hand).
 - Tests: real-boundary coverage for the observed-Singles positive (still `Ready`), observed `4`
   with a Singles label, observed `4` + Reflect, count disagreement, an unread count (both sides and
-  one side), a caller-crafted Singles label/live count against observed `4`, and a caller-crafted
-  Doubles label against observed `2`; plus a decoder test pinning the topology slots and the
+  one side), a caller-crafted Singles label/live count against observed `4`, a caller-crafted
+  Doubles label against observed `2`, an observed `4` late-Doubles with TARGET_BOTH move and
+  authoritative target count `1`, and an observed `4` full Doubles with TARGET_BOTH move and
+  authoritative target count `2`; plus a decoder test pinning the topology slots and the
   readability bit.
 
 ### Mutation control (round 5)
@@ -3471,12 +3474,12 @@ mutation. Each was applied to production code, the targeted suites run, and reve
 
 | Mutation | Change | Before | Mutated | After revert |
 |---|---|---|---|---|
-| M1 — new live-state authority | `dynamicMoveTypeObserved = false` in `bindHnsLiveBattleState` | boundary `61/0`; full Kotlin `711/0` | boundary `61/11`; full Kotlin `711/11` (incl. the Ready positive control) | boundary `61/0`; full Kotlin `711/0` |
+| M1 — new live-state authority | `dynamicMoveTypeObserved = false` in `bindHnsLiveBattleState` | boundary `63/0`; full Kotlin `713/0` | boundary `63/11`; full Kotlin `713/11` (incl. the Ready positive control) | boundary `63/0`; full Kotlin `713/0` |
 | M2 — pinch threshold | `calculateHnsDamage` (`calc_bundle.js`): `pinchHp <= floor(maxHP/3)` → `<` | QuickJS `2012/0` | QuickJS `2011/1` (`gap_c4e_overgrow_active_at_threshold`) | QuickJS `2012/0` |
-| M3 — persistent-volatile gate | `gastroAcid` precise-limitation branch removed in `collectHnsLiveOperandLimitations` | boundary `61/0`; full Kotlin `711/0` | boundary `61/2`; full Kotlin `711/2` (`gastro acid suppression on the attacker refuses`, `anti-spoof — a crafted neutral persistent window cannot clear any observed active bit`) | boundary `61/0`; full Kotlin `711/0` |
-| **M4 — live-format gate (new)** | `hnsLiveBattleFormatNotModelled` suppressed | boundary `61/0`; full Kotlin `711/0` | boundary `61/7`; full Kotlin `711/7` (observed `4` Singles, observed `4` + Reflect, disagreement, unread both/one side, crafted Singles override, crafted Doubles label) | boundary `61/0`; full Kotlin `711/0` |
+| M3 — persistent-volatile gate | `gastroAcid` precise-limitation branch removed in `collectHnsLiveOperandLimitations` | boundary `63/0`; full Kotlin `713/0` | boundary `63/2`; full Kotlin `713/2` (`gastro acid suppression on the attacker refuses`, `anti-spoof — a crafted neutral persistent window cannot clear any observed active bit`) | boundary `63/0`; full Kotlin `713/0` |
+| **M4 — live-format gate (new)** | `hnsLiveBattleFormatNotModelled` suppressed | boundary `63/0`; full Kotlin `713/0` | boundary `63/9`; full Kotlin `713/9` (observed `4` Singles, observed `4` + Reflect, disagreement, unread both/one side, crafted Singles override, crafted Doubles label, observed `4` late-Doubles with target count 1, observed `4` full Doubles with target count 2) | boundary `63/0`; full Kotlin `713/0` |
 
 The decisive M4 converts the observed-`4`-with-a-Singles-label, observed-`4`-with-Reflect,
-disagreement and unread cases from refused to incorrectly `Ready`, which is exactly the
-wrong-format arithmetic this gate exists to prevent. All mutations were reverted and `git diff` is
-clean of the mutation markers.
+disagreement, unread, and both observed-`4`-Doubles cases (with target count 1 and 2) from refused
+to incorrectly `Ready`, which is exactly the wrong-format arithmetic this gate exists to prevent.
+All mutations were reverted and `git diff` is clean of the mutation markers.

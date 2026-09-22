@@ -2,10 +2,13 @@ package com.dualdex.calculator
 
 import com.dualdex.pokemon.GameDataPack
 import com.dualdex.pokemon.GameDataPackRegistry
+import com.dualdex.pokemon.MoveCategory
+import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.hasMoveByName
 import com.dualdex.pokemon.hasSpeciesByName
 import com.dualdex.pokemon.hns.HeartAndSoul205DataPack
 import com.dualdex.pokemon.hns.HnsFairyTypeMappings
+import com.dualdex.pokemon.hns.HnsOptionStyle
 import com.dualdex.romhack.RomHackProfile
 
 /**
@@ -104,6 +107,62 @@ object CalcDataOverrides {
     }
 
     /**
+     * The boundary-owned H&S move override used for both authorization and presentation.
+     * Under TYPE_BASED the category is intentionally omitted so the calculator derives it from
+     * the effective move type, matching H&S `GetBattleMoveCategory`.
+     */
+    fun buildHnsMoveOverride(
+        moveName: String,
+        profile: RomHackProfile,
+        hnsRuntimeRules: CalcHnsRuntimeRules?
+    ): CalcMoveOverride? {
+        val pack = GameDataPackRegistry.getForProfile(profile) as? HeartAndSoul205DataPack ?: return null
+        val raw = buildMoveOverride(moveName, pack, hnsRuntimeRules?.fairyTypesEnabled) ?: return null
+        val move = pack.getMoveByName(moveName) ?: return null
+        return when {
+            move.category == MoveCategory.STATUS -> raw
+            hnsRuntimeRules?.optionStyle == HnsOptionStyle.TYPE_BASED ->
+                raw.copy(category = null)
+            else -> raw
+        }
+    }
+
+    /** Resolve the presentation category from the same pinned override and runtime rule. */
+    fun resolveHnsMoveCategory(
+        moveName: String,
+        profile: RomHackProfile,
+        hnsRuntimeRules: CalcHnsRuntimeRules?
+    ): MoveCategory? {
+        val pack = GameDataPackRegistry.getForProfile(profile) as? HeartAndSoul205DataPack ?: return null
+        val move = pack.getMoveByName(moveName) ?: return null
+        if (move.category == MoveCategory.STATUS) return MoveCategory.STATUS
+        val override = buildHnsMoveOverride(moveName, profile, hnsRuntimeRules) ?: return null
+        return when (hnsRuntimeRules?.optionStyle) {
+            HnsOptionStyle.PER_MOVE_SPLIT -> when (override.category?.lowercase()) {
+                "physical" -> MoveCategory.PHYSICAL
+                "special" -> MoveCategory.SPECIAL
+                else -> null
+            }
+            HnsOptionStyle.TYPE_BASED ->
+                PokemonType.fromString(override.type)?.let { type ->
+                    when (type) {
+                        PokemonType.NORMAL,
+                        PokemonType.FIGHTING,
+                        PokemonType.FLYING,
+                        PokemonType.POISON,
+                        PokemonType.GROUND,
+                        PokemonType.ROCK,
+                        PokemonType.BUG,
+                        PokemonType.GHOST,
+                        PokemonType.STEEL -> MoveCategory.PHYSICAL
+                        else -> MoveCategory.SPECIAL
+                    }
+                }
+            else -> null
+        }
+    }
+
+    /**
      * Enriches [request] with authoritative species and move overrides for [profile], taking into
      * account boundary-resolved [hnsRuntimeRules].
      *
@@ -147,24 +206,7 @@ object CalcDataOverrides {
         val fairyEnabled = hnsRuntimeRules?.fairyTypesEnabled
         val attackerOverride = buildSpeciesOverride(request.attacker.species, pack, fairyEnabled)
         val defenderOverride = buildSpeciesOverride(request.defender.species, pack, fairyEnabled)
-        val rawMoveOverride = buildMoveOverride(request.move.name, pack, fairyEnabled)
-
-        // optionStyle semantics:
-        // - PER_MOVE_SPLIT (raw 0): move's own category decides Physical/Special (category retained from pack).
-        // - TYPE_BASED (raw 1):
-        //   - Status moves ALWAYS retain Status (Status wins before optionStyle in GetBattleMoveCategory).
-        //   - Non-status moves omit category (null) so the engine derives Physical/Special from the effective move type.
-        // - UNAVAILABLE / unknown: category split is unreadable; calculation remains refused.
-        val moveOverride = if (hnsRuntimeRules?.optionStyle == com.dualdex.pokemon.hns.HnsOptionStyle.TYPE_BASED) {
-            val isStatus = rawMoveOverride?.category.equals("Status", ignoreCase = true)
-            if (isStatus) {
-                rawMoveOverride
-            } else {
-                rawMoveOverride?.copy(category = null)
-            }
-        } else {
-            rawMoveOverride
-        }
+        val moveOverride = buildHnsMoveOverride(request.move.name, profile, hnsRuntimeRules)
 
         return request.copy(
             typeSystem = "hns_2_0_5",

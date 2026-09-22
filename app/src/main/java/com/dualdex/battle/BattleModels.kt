@@ -1,9 +1,13 @@
 package com.dualdex.battle
 
 import com.dualdex.calculator.CalcFieldInput
+import com.dualdex.calculator.CalcCapabilityPolicy
 import com.dualdex.calculator.CalcGameTypes
+import com.dualdex.calculator.CalcLimitation
 import com.dualdex.calculator.CalcMoveInput
 import com.dualdex.calculator.CalcPokemonInput
+import com.dualdex.calculator.CalcRuleset
+import com.dualdex.calculator.CalcSupport
 import com.dualdex.calculator.DamageCalculationRequest
 import com.dualdex.calculator.DamageCalculationResponse
 import com.dualdex.calculator.DamageCalculator
@@ -20,6 +24,7 @@ import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.SpeciesDatabase
 import com.dualdex.pokemon.TypeChart
 import com.dualdex.romhack.RomHackProfile
+import com.dualdex.romhack.RuntimeRomTrust
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -442,8 +447,8 @@ class CachingBattleDamageCalculator(
 }
 
 enum class EffectivenessLabel(val displayName: String) {
-    SUBSTANTIAL("Substantial (2x)"),
-    SUPER_EFFECTIVE("Super Effective (4x)"),
+    SUPER_EFFECTIVE("Super Effective (2x)"),
+    EXTREMELY_EFFECTIVE("Extremely Effective (4x)"),
     NOT_VERY_EFFECTIVE("Not Very Effective (0.5x)"),
     EXTREMELY_NOT_EFFECTIVE("Extremely Not Effective (0.25x)"),
     NO_EFFECT("No Effect (0x)"),
@@ -561,8 +566,8 @@ object MoveEffectiveness {
 
     private fun labelFromMultiplier(mult: Double): EffectivenessLabel = when {
         mult <= 0.0 -> EffectivenessLabel.NO_EFFECT
-        mult >= 4.0 -> EffectivenessLabel.SUPER_EFFECTIVE
-        mult >= 2.0 -> EffectivenessLabel.SUBSTANTIAL
+        mult >= 4.0 -> EffectivenessLabel.EXTREMELY_EFFECTIVE
+        mult >= 2.0 -> EffectivenessLabel.SUPER_EFFECTIVE
         mult >= 1.0 -> EffectivenessLabel.NEUTRAL
         mult >= 0.5 -> EffectivenessLabel.NOT_VERY_EFFECTIVE
         else -> EffectivenessLabel.EXTREMELY_NOT_EFFECTIVE
@@ -609,7 +614,12 @@ data class MovePresentation(
     val maxDamage: Int,
     val damageRange: List<Int>,
     val koChanceText: String,
-    val isKnown: Boolean = true
+    val isKnown: Boolean = true,
+    /** Exact production-boundary refusal reasons, retained for inspection and regression tests. */
+    val damageLimitations: List<CalcLimitation> = emptyList(),
+    /** Short human-readable reason shown after the generic unavailable label when available. */
+    val damageUnavailableReason: String? = null,
+    val calculatorSupport: CalcSupport? = null
 ) {
     val isStatMove: Boolean get() = category == MoveCategory.STATUS
     val hasDamage: Boolean get() = damageConfidence == DamageConfidence.VERIFIED && maxDamage > 0
@@ -866,7 +876,8 @@ object BattlePresentationBuilder {
         attackerStages: StatStages = StatStages(),
         defenderStages: StatStages = StatStages(),
         weather: WeatherType = WeatherType.NONE,
-        defenderSide: SideEffects = SideEffects()
+        defenderSide: SideEffects = SideEffects(),
+        hnsCalculationContext: BattleHnsCalculationContext? = null
     ): MovePresentation {
         val pack = GameDataPackRegistry.getForProfile(profile.engine, profile.hasPhysSpecSplit, profile.gameDataPackId)
         val moveKnown = MoveDatabase.isKnown(moveInfo.id)
@@ -874,11 +885,23 @@ object BattlePresentationBuilder {
         val attackerLevel = attacker.level.coerceAtLeast(1)
         val defenderLevel = defender?.level ?: attackerLevel
 
-        val category = if (moveKnown) {
-            MoveEffectiveness.resolveMoveCategory(resolvedMoveInfo, profile)
+        val hnsDamage = if (moveKnown && CalcCapabilityPolicy.capabilityFor(profile)?.ruleset == CalcRuleset.HNS_2_0_5) {
+            BattleHnsDamagePresenter.build(
+                moveInfo = resolvedMoveInfo,
+                defender = defender,
+                profile = profile,
+                runtimeTrust = runtimeTrust,
+                context = hnsCalculationContext,
+                calculator = calculator,
+                attackerStages = attackerStages,
+                defenderStages = defenderStages
+            )
         } else {
             null
         }
+        val category = if (moveKnown) {
+            if (hnsDamage != null) hnsDamage.category else MoveEffectiveness.resolveMoveCategory(resolvedMoveInfo, profile)
+        } else null
 
         val description = MovePresentationFactory.descriptionFor(
             isKnown = moveKnown,
@@ -915,7 +938,13 @@ object BattlePresentationBuilder {
                 defender != null &&
                 profile.isSupportedVanillaGen3()
 
-        if (canCalculate) {
+        if (hnsDamage != null) {
+            damageConfidence = hnsDamage.confidence
+            minDamage = hnsDamage.minDamage
+            maxDamage = hnsDamage.maxDamage
+            range = hnsDamage.range
+            koChance = hnsDamage.koChanceText
+        } else if (canCalculate) {
             val request = buildDamageRequest(
                 attacker = attacker,
                 defender = defender,
@@ -956,7 +985,10 @@ object BattlePresentationBuilder {
             maxDamage = maxDamage,
             damageRange = range,
             koChanceText = koChance,
-            isKnown = moveKnown
+            isKnown = moveKnown,
+            damageLimitations = hnsDamage?.limitations.orEmpty(),
+            damageUnavailableReason = hnsDamage?.unavailableReason,
+            calculatorSupport = hnsDamage?.support
         )
     }
 }

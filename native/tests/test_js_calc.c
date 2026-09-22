@@ -2937,6 +2937,109 @@ static void check_gap_c4d_rom_damage_goldens(void) {
     }
 }
 
+static void check_gap_c4e_pinch_abilities(void) {
+    printf("-- Gap C4e: pinch ability (Overgrow) condition uses live HP --\n");
+
+    long oracle[ROLL_COUNT];
+    double engine[ROLL_COUNT];
+
+    /* Chikorita L6, Atk 13, Overgrow, Razor Leaf (Grass, 55) vs Pidgey Def 7 (Normal/Flying).
+     * Pinned H&S CalcAttackStat applies x1.5 to the Attack stat when hp <= maxHP/3. */
+
+    /* Inactive: 11/23 HP -> floor(23/3)=7, 11 > 7, so no boost. Golden B's 6..7. */
+    g_fixture = "gap_c4e_overgrow_inactive_above_threshold";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Chikorita\",\"level\":6,\"ability\":\"Overgrow\",\"hp\":11,\"maxHP\":23,"
+            "\"rawStats\":{\"attack\":13,\"defense\":13,\"speed\":9,\"spAttack\":12,\"spDefense\":12},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Pidgey\",\"level\":3,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]},"
+            "\"rawStats\":{\"attack\":8,\"defense\":7,\"speed\":8,\"spAttack\":7,\"spDefense\":7},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Razor Leaf\",\"overrides\":{\"basePower\":55,\"type\":\"Grass\",\"category\":\"Physical\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+        if (hns_request_rolls(req, engine)) {
+            hns_ordinary_rolls(6, 55, 13, 7, 1, 0.5, 0, 0, oracle);
+            check_condition("C4e inactive Overgrow matches the unboosted oracle", rolls_equal(engine, oracle));
+            check_condition("C4e inactive Overgrow range is 6..7", oracle[0] == 6 && oracle[15] == 7);
+        } else {
+            check_condition("C4e inactive Overgrow request produced a response", 0);
+        }
+    }
+
+    /* Active at the threshold edge: 7/23 HP -> 7 <= 7 -> x1.5 on Atk 13 -> 19. */
+    g_fixture = "gap_c4e_overgrow_active_at_threshold";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Chikorita\",\"level\":6,\"ability\":\"Overgrow\",\"hp\":7,\"maxHP\":23,"
+            "\"rawStats\":{\"attack\":13,\"defense\":13,\"speed\":9,\"spAttack\":12,\"spDefense\":12},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Pidgey\",\"level\":3,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]},"
+            "\"rawStats\":{\"attack\":8,\"defense\":7,\"speed\":8,\"spAttack\":7,\"spDefense\":7},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Razor Leaf\",\"overrides\":{\"basePower\":55,\"type\":\"Grass\",\"category\":\"Physical\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+        if (hns_request_rolls(req, engine)) {
+            hns_ordinary_rolls(6, 55, 19, 7, 1, 0.5, 0, 0, oracle); /* floor(13*1.5)=19 */
+            check_condition("C4e active Overgrow matches the boosted oracle", rolls_equal(engine, oracle));
+            check_condition("C4e active Overgrow range is 8..9", oracle[0] == 8 && oracle[15] == 9);
+            /* The unboosted reading (6..7) excludes the active range: the boost is material. */
+            hns_ordinary_rolls(6, 55, 13, 7, 1, 0.5, 0, 0, oracle);
+            check_condition("C4e unboosted range 6..7 excludes the active minimum 8", oracle[15] == 7);
+        } else {
+            check_condition("C4e active Overgrow request produced a response", 0);
+        }
+    }
+
+    /* Just above the threshold: 8/23 HP -> inactive, so no boost even though HP is low. */
+    g_fixture = "gap_c4e_overgrow_threshold_edge_inactive";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Chikorita\",\"level\":6,\"ability\":\"Overgrow\",\"hp\":8,\"maxHP\":23,"
+            "\"rawStats\":{\"attack\":13,\"defense\":13,\"speed\":9,\"spAttack\":12,\"spDefense\":12},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Pidgey\",\"level\":3,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]},"
+            "\"rawStats\":{\"attack\":8,\"defense\":7,\"speed\":8,\"spAttack\":7,\"spDefense\":7},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Razor Leaf\",\"overrides\":{\"basePower\":55,\"type\":\"Grass\",\"category\":\"Physical\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+        if (hns_request_rolls(req, engine)) {
+            hns_ordinary_rolls(6, 55, 13, 7, 1, 0.5, 0, 0, oracle);
+            check_condition("C4e one-HP-above-threshold Overgrow is unboosted", rolls_equal(engine, oracle));
+        } else {
+            check_condition("C4e threshold-edge Overgrow request produced a response", 0);
+        }
+    }
+
+    /* Wrong type: Overgrow must not boost a Normal move even at 1 HP. */
+    g_fixture = "gap_c4e_overgrow_wrong_type_no_boost";
+    {
+        const char* req =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Chikorita\",\"level\":6,\"ability\":\"Overgrow\",\"hp\":1,\"maxHP\":23,"
+            "\"rawStats\":{\"attack\":13,\"defense\":13,\"speed\":9,\"spAttack\":12,\"spDefense\":12},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Pidgey\",\"level\":3,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]},"
+            "\"rawStats\":{\"attack\":8,\"defense\":7,\"speed\":8,\"spAttack\":7,\"spDefense\":7},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Tackle\",\"overrides\":{\"basePower\":40,\"type\":\"Normal\",\"category\":\"Physical\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+        if (hns_request_rolls(req, engine)) {
+            hns_ordinary_rolls(6, 40, 13, 7, 0, 1.0, 0, 0, oracle);
+            check_condition("C4e wrong-type Overgrow does not boost a Normal move", rolls_equal(engine, oracle));
+        } else {
+            check_condition("C4e wrong-type Overgrow request produced a response", 0);
+        }
+    }
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -2975,6 +3078,9 @@ int main(void) {
 
     printf("-- Gap C4d: official H&S 2.0.5 ROM damage goldens --\n");
     check_gap_c4d_rom_damage_goldens();
+
+    printf("-- Gap C4e: pinch ability (Overgrow) condition uses live HP --\n");
+    check_gap_c4e_pinch_abilities();
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
     check_oracle_self_tests();

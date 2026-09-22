@@ -544,6 +544,82 @@ class RomCompatibilityTest {
         assertEquals(RomCompatibilityStatus.UNSUPPORTED, trust.status)
     }
 
+    // ------------------------------------------------------------------
+    // Gap C4e: the bundled H&S profile now carries the exact 2.0.5 SHA that C4d /
+    // C4e runtime evidence established. Trust is pinned to that exact bit string:
+    // a single flipped bit stays RECOGNIZED_UNVERIFIED and never unlocks live memory.
+    // ------------------------------------------------------------------
+
+    private val c4eExactHnsSha = "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b"
+
+    private fun bundledHeartAndSoul(): RomHackProfile {
+        val dir = generateSequence(java.io.File(System.getProperty("user.dir") ?: ".")) { it.parentFile }
+            .map { java.io.File(it, "app/src/main/assets/profiles") }
+            .firstOrNull { it.isDirectory }
+            ?: throw AssertionError("Unable to locate bundled ROM profiles")
+        val file = java.io.File(dir, "heart_and_soul.json")
+        assertTrue("bundled heart_and_soul.json is missing", file.isFile)
+        return ProfileLoader.parseProfile(file.readText())
+    }
+
+    @Test
+    fun bundledHeartAndSoulExactPromotedHashUnlocksLiveMemory() {
+        val profile = bundledHeartAndSoul()
+        assertEquals(listOf(c4eExactHnsSha), profile.sha256Hashes)
+        val result = RomHackDetector.detectCompatibilityFromBytes(
+            headerBytes = makeHeader("POKEMON HNS", "BPEE"),
+            sha256 = c4eExactHnsSha,
+            profiles = listOf(profile)
+        )
+        assertEquals("heart_and_soul", result.profile.id)
+        assertEquals(ProfileMatchMethod.EXACT_SHA256, result.matchMethod)
+        assertEquals(RomCompatibilityStatus.VERIFIED, result.status)
+        assertTrue("the exact promoted SHA must unlock live memory", result.mayReadLiveMemory)
+
+        val trust = RuntimeRomTrust.from(result, c4eExactHnsSha)
+        assertTrue(trust.exactRuntimeVerified)
+        assertTrue(trust.mayReadLiveMemory)
+        // The independent capability flags are unchanged by the hash promotion.
+        assertFalse(profile.battleUiVerified)
+        assertFalse(profile.interactiveControlsVerified)
+    }
+
+    @Test
+    fun bundledHeartAndSoulOneBitDifferentHashStaysUnverified() {
+        val profile = bundledHeartAndSoul()
+        // Flip the final hex digit only.
+        val oneBitOff = c4eExactHnsSha.dropLast(1) + if (c4eExactHnsSha.last() == 'b') "c" else "b"
+        assertNotEquals(c4eExactHnsSha, oneBitOff)
+        val result = RomHackDetector.detectCompatibilityFromBytes(
+            headerBytes = makeHeader("POKEMON HNS", "BPEE"),
+            sha256 = oneBitOff,
+            profiles = listOf(profile)
+        )
+        assertEquals(ProfileMatchMethod.HEADER_TITLE, result.matchMethod)
+        assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, result.status)
+        assertFalse(result.mayReadLiveMemory)
+
+        val trust = RuntimeRomTrust.from(result, oneBitOff)
+        assertFalse(trust.exactRuntimeVerified)
+        assertFalse("a near-miss hash must never unlock live memory", trust.mayReadLiveMemory)
+    }
+
+    @Test
+    fun bundledHeartAndSoulRecognizedHeaderWithoutExactHashStaysUnverified() {
+        val profile = bundledHeartAndSoul()
+        val unknown = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+        val result = RomHackDetector.detectCompatibilityFromBytes(
+            headerBytes = makeHeader("POKEMON HNS", "BPEE"),
+            sha256 = unknown,
+            profiles = listOf(profile)
+        )
+        assertEquals("heart_and_soul", result.profile.id)
+        assertEquals(ProfileMatchMethod.HEADER_TITLE, result.matchMethod)
+        assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, result.status)
+        assertFalse(result.mayReadLiveMemory)
+        assertFalse(RuntimeRomTrust.from(result, unknown).mayReadLiveMemory)
+    }
+
     @Test
     fun heartAndSoulOffsetsAreCompiledEvidenceValues() {
         // Guards against the stale 0x340F4 / 0x345A4 pair returning: those were scan-derived for an

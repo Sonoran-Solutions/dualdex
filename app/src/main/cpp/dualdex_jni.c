@@ -800,7 +800,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * never silently drift apart.  Every public surface that touches this tuple
  * references BATTLER_RUNTIME_STATE_TUPLE_LEN instead of a local literal.
  */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 42
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 72
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -823,6 +823,23 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  *         "the read never happened" so Kotlin can't conflate 'none absent' with
  *         'unreadable'. The same rule applies to battlers_count: 0 means
  *         'unreadable', never 'zero battlers'.
+ * [42] hpObserved, [43] hp, [44] maxHp, [45] statusObserved, [46] status1,
+ * [47] volatilesObserved, [48] volatileElectrified, [49] volatileGlaiveRush,
+ * [50] volatileMinimize, [51] volatileSemiInvulnerable,
+ * [52] gimmickObserved, [53] activeGimmick,
+ * [54] fieldStatusesReadable, [55] fieldStatuses,
+ * [56] weatherReadable, [57] battleWeather,
+ * [58] sideStatusesReadable, [59] sideStatuses,
+ * [60] volatileChargeTimer, [61] volatileTarShot,
+ * [62] volatileForesight, [63] volatileMiracleEye, [64] volatileRoot,
+ * [65] volatileSmackDown, [66] volatileTelekinesis, [67] volatileMagnetRise,
+ * [68] volatileGastroAcid, [69] volatileRoostActive,
+ * [70] volatileSubstitute, [71] volatileEndured.
+ *         Every Gap C4e `*Observed` bit separates an observed neutral value
+ *         (bit 1, payload 0) from a field that was never read (bit 0). Slots
+ *         [60]/[61] are only meaningful while [47] volatilesObserved is 1;
+ *         [62..71] are the review-round-4 persistent volatiles and are only
+ *         meaningful while [47] volatilesObserved is 1.
  *
  * A failed/unauthorized read returns status 0 (UNAVAILABLE) with everything else
  * zeroed: the caller must not substitute a declared ability, a party slot or a
@@ -908,6 +925,52 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
      * type (that is topology inference, forbidden by the C4c authority rule). */
     values[40] = (jint)state.battlers_count;
     values[41] = (state.battlers_count_readable) ? 1 : 0;
+    /* [42..55] Gap C4e live damage operands. Each `*Observed` bit distinguishes "the read
+     * produced a neutral value" (1 with a zero payload) from "the field was never read"
+     * (0), so Kotlin can never conflate a real zero with an unobserved one. */
+    values[42] = (state.hp_observed) ? 1 : 0;
+    values[43] = (jint)state.hp;
+    values[44] = (jint)state.max_hp;
+    values[45] = (state.status_observed) ? 1 : 0;
+    values[46] = (jint)state.status1;
+    values[47] = (state.volatiles_observed) ? 1 : 0;
+    values[48] = (state.volatile_electrified) ? 1 : 0;
+    values[49] = (state.volatile_glaive_rush) ? 1 : 0;
+    values[50] = (state.volatile_minimize) ? 1 : 0;
+    values[51] = (jint)state.volatile_semi_invulnerable;
+    values[52] = (state.gimmick_observed) ? 1 : 0;
+    values[53] = (jint)state.active_gimmick;
+    values[54] = (state.field_statuses_readable) ? 1 : 0;
+    values[55] = (jint)state.field_statuses;
+    /* [56..59] Gap C4e correction: the live field conditions the ordinary Ready path depends on.
+     * A missing readability bit leaves the value unobserved, never neutral. */
+    values[56] = (state.weather_readable) ? 1 : 0;
+    values[57] = (jint)state.battle_weather;
+    values[58] = (state.side_statuses_readable) ? 1 : 0;
+    values[59] = (jint)state.side_statuses;
+    /* [60]/[61] Gap C4e correction: the two generic ordinary-damage volatile modifiers
+     * (Charge's Electric x2 via chargeTimer, Tar Shot's Fire x2 via tarShot). They are
+     * only meaningful while [47] volatilesObserved is 1; the reader's fail-closed window
+     * guarantees both were decoded in the same read. */
+    values[60] = (jint)state.volatile_charge_timer;
+    values[61] = (state.volatile_tar_shot) ? 1 : 0;
+    /* [62..69] Gap C4e correction (review round 4): persistent volatiles the pinned ordinary
+     * damage path reads (Foresight / Miracle Eye type-immunity bypass, Ingrain / Smack Down
+     * grounding, Telekinesis / Magnet Rise ungrounding, Gastro Acid ability suppression,
+     * Roost effective-type change). They are decoded from the same window as [48..51] and
+     * are only meaningful while [47] volatilesObserved is 1. */
+    values[62] = (state.volatile_foresight) ? 1 : 0;
+    values[63] = (state.volatile_miracle_eye) ? 1 : 0;
+    values[64] = (state.volatile_root) ? 1 : 0;
+    values[65] = (state.volatile_smack_down) ? 1 : 0;
+    values[66] = (state.volatile_telekinesis) ? 1 : 0;
+    values[67] = (state.volatile_magnet_rise) ? 1 : 0;
+    values[68] = (state.volatile_gastro_acid) ? 1 : 0;
+    values[69] = (state.volatile_roost_active) ? 1 : 0;
+    /* [70]/[71] GetAdjustedDamage states: a substitute redirects the computed damage and
+     * `endured` caps it at HP-1. Same window, same [47] authority. */
+    values[70] = (state.volatile_substitute) ? 1 : 0;
+    values[71] = (state.volatile_endured) ? 1 : 0;
 
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;

@@ -18,6 +18,12 @@ It is derived from the pinned upstream source, not from behaviour observed in th
 No upstream source is vendored into DualDex. No ROM bytes are committed, copied, or reproduced.
 Line references below are `file:line` into that pinned checkout.
 
+> **Gap C4e status (current).** The exact official H&S 2.0.5 ROM SHA-256 is now promoted into
+> `heart_and_soul.json`, and a **narrow ordinary Singles subset reaches `Ready` / `ESTIMATED`**
+> through the real `CalcRequestBoundary`. Everything outside that subset still fails closed. See
+> §14 for the authorized subset, the new live readers and the exact hash decision; §13 is the
+> historical C4d record, which deliberately did not promote.
+
 **Vocabulary.** *SOURCE VERIFIED* means read directly from the pinned source (or from the vendored
 library source). *NOT FOUND* means the evidence does not exist and is never treated as true.
 
@@ -29,11 +35,13 @@ DualDex supports **exact verified FireRed**, **exact verified Emerald**, and **e
 Vanilla FireRed/Emerald requests that stay inside the verified input set are presented as **Verified**
 using `@smogon/calc`'s ADV pipeline (`gen: 3`). H&S 2.0.5 calculator support is a **partial, fail-closed
 slice (Gap C4b/PARTIAL, Gap C4c/OPEN)**: the UQ4.12 roll-first damage arithmetic is implemented in QuickJS
-(`calculateHnsDamage`, §11) and host-verified against the native C oracle, but the live operands it
-depends on — current effective types, battle stat words, the dynamic move type, transient damage
-state, the runtime `GetMoveTargetCount` count, and manual badge applicability — are fundamentally
-unobservable without runtime volatile state readers, so **production H&S requests are refused**
-(`CalcSupport.UNSUPPORTED`) rather than published as an estimate. H&S lets the player change rules (category split, Fairy type, randomizers), applies modern
+(`calculateHnsDamage`, §11) and host-verified against the native C oracle. After Gap C4e the live
+operands it depends on — current effective types, battle stat words, the dynamic move type, transient
+damage state, the runtime `GetMoveTargetCount` count, the gimmick state, and the attacker's live
+HP/status — are observed from exact-trusted runtime state for the ordinary Singles subset, so that
+subset is published as **Estimated** (§14). Everything outside it — Doubles, active dynamic-type
+retypes, Glaive Rush, active gimmicks, non-neutral live status, unsupported abilities/items/moves,
+randomizers — is still **refused** (`CalcSupport.UNSUPPORTED`) rather than published as an estimate. H&S lets the player change rules (category split, Fairy type, randomizers), applies modern
 base data and type matchups, and executes a distinct UQ4.12 pipeline with Gen III badge boosts; DualDex
 consumes challenge settings at runtime via `CalcRequestBoundary` (§4.1), executes the exact 19x19 H&S
 type chart (Gap C1, §3.1), and audits authoritative abilities (Gap C2, §6) and held items (Gap C3, §7).
@@ -57,23 +65,23 @@ existing request field reproduces this build's rule, not whether the current UI 
 
 | # | Mechanic / state | H&S 2.0.5 (pinned) | Bridge can express | Verdict |
 |---|---|---|---|---|
-| 1 | Damage formula | Generation III arithmetic with modern data; UQ4.12 roll-first order | **yes** — dedicated `calculateHnsDamage` pipeline in `entry.js` implements exact UQ4.12 arithmetic, stat stages, badge boosts, pre-roll modifiers, roll step, and post-roll modifiers | **ARITHMETIC MODELLED / HOST VERIFIED, GAP C4b PARTIAL / OPEN** — full parity across all 16 damage rolls with native C oracle (§11); no official-ROM result validation yet, and live-operand classes remain unobserved |
-| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for damaging moves in TYPE_BASED to trigger Gen 3 type derivation; Status moves retain Status in both); `optionStyle` is consumed by `CalcRequestBoundary` | **MODELLED / HOST VERIFIED; production refused (GAP A/B/C4b)** — `optionStyle` selects category behavior with Status prioritized; supported ordinary subset executes in `calculateHnsDamage`, but no production H&S request is promoted today (§11.4) |
-| 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / HOST VERIFIED; production refused (GAP C1/C4b)** — type chart is exact and verified in QuickJS. Used by `calculateHnsDamage` for post-roll type effectiveness; no production H&S request is promoted today (§11.4) |
-| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; production refused (GAP B/C4b)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; no production H&S request is promoted today (§11.4) |
-| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; production refused (GAP B/C4b)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; no production H&S request is promoted today (§11.4) |
-| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; strict per-ability capability gating (`PROVEN_NO_DAMAGE_EFFECT`, `MODELLED_EQUIVALENT`, `UNSUPPORTED_DAMAGE_RELEVANT`) in `HnsAbilityRegistry`. Engine default ability substitution prevented via `'(other)'`. | **CONDITIONALLY MODELLED / HOST VERIFIED; production refused (GAP C2/C4b)** — live read and manual abilities are verified or fail-closed. Supported abilities (None, Keen Eye, Insomnia, Thick Fat, Guts, Huge Power) execute in `calculateHnsDamage`; no production H&S request is promoted today (§11.4) |
+| 1 | Damage formula | Generation III arithmetic with modern data; UQ4.12 roll-first order | **yes** — dedicated `calculateHnsDamage` pipeline in `entry.js` implements exact UQ4.12 arithmetic, stat stages, badge boosts, pre-roll modifiers, roll step, and post-roll modifiers | **ARITHMETIC MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — full parity across all 16 damage rolls with native C oracle (§11), direct C4d official-ROM goldens A/B/C bind the arithmetic, and the exact-trusted live Singles ordinary subset defined in §14 is exposed as `Ready` / `CalcSupport.ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b PARTIAL / OPEN` verdict and "live-operand classes remain unobserved" were the historical pre-C4e state.) |
+| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for damaging moves in TYPE_BASED to trigger Gen 3 type derivation; Status moves retain Status in both); `optionStyle` is consumed by `CalcRequestBoundary` | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — `optionStyle` selects category behavior with Status prioritized; the supported ordinary subset executes in `calculateHnsDamage` and is exposed as `Ready` / `ESTIMATED` for the exact-trusted live Singles ordinary subset defined in §14; all other requests remain fail-closed. (The `GAP A/B/C4b` "production refused" verdict was the historical pre-C4e state.) |
+| 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — type chart is exact and verified in QuickJS. Used by `calculateHnsDamage` for post-roll type effectiveness; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C1/C4b` "production refused" verdict was the historical pre-C4e state.) |
+| 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
+| 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
+| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; strict per-ability capability gating (`PROVEN_NO_DAMAGE_EFFECT`, `MODELLED_EQUIVALENT`, `UNSUPPORTED_DAMAGE_RELEVANT`) in `HnsAbilityRegistry`. Engine default ability substitution prevented via `'(other)'`. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — live read and manual abilities are verified or fail-closed. Supported abilities (None, Keen Eye, Insomnia, Thick Fat, Guts, Huge Power) and the conditional pinch abilities (Overgrow/Blaze/Torrent/Swarm, §14.6) execute in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C2/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **identity yes; damage effects no** — exact item identity and the current battle item are consumed; no damage item is modelled; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — no item blocker only for `ITEM_NONE`/proven no-*ordinary*-damage items **and** a move that does not read item state; damage items fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`, and item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) fail closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
-| 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; production refused (GAP C4b)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. No production H&S request is promoted today (§11.4) |
-| 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes | **MODELLED / HOST VERIFIED; production refused (GAP C4b)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. Unmodelled weather fails closed. No production H&S request is promoted today (§11.4) |
+| 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
+| 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 10 | Snow | Ice Defense ×1.5 `[src/battle_util.c:7389]`; Snow never chips, Hail chips 1/16 `[src/battle_end_turn.c:155]` | **no** | **REFUSED** when asked for — fails closed |
 | 11 | Terrain | Implemented; ×1.3 (`B_TERRAIN_TYPE_BOOST GEN_LATEST`) `[src/battle_util.c:6640]` | accepted but dead | **REFUSED** when asked for — fails closed |
-| 12 | Reflect / Light Screen | ×0.5 singles, ×0.667 doubles `[src/battle_util.c:7544]` | yes | **MODELLED / HOST VERIFIED; production refused (GAP C4b)** — singles (2048) / doubles (2732) evaluated post-roll via UQ4.12 `halfDown` in `calculateHnsDamage`. Pinned in `test_js_calc.c`. No production H&S request is promoted today (§11.4) |
+| 12 | Reflect / Light Screen | ×0.5 singles, ×0.667 doubles `[src/battle_util.c:7544]` | yes — the defender-side status word is boundary-owned via the `gSideStatuses[side]` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — singles (2048) / doubles (2732) evaluated post-roll via UQ4.12 `halfDown` in `calculateHnsDamage`. Pinned in `test_js_calc.c`. For the §14 subset `CalcRequestBoundary` rebinds `field.defenderSide` from the observed defender-side `gSideStatuses[side]` word; an unread word refuses with `HNS_LIVE_SCREENS_UNKNOWN` and an unmodelled bit refuses with `HNS_LIVE_SIDE_STATUS_NOT_MODELLED`, so screenless can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 13 | Multi-target reduction | Generation III value: ×0.5 when `GetMoveTargetCount(ctx) == 2` (`B_MULTIPLE_TARGETS_DMG GEN_3`) `[include/config/battle.h:47]`, `[src/battle_util.c:7403]` — the runtime count, not the static move class | **only with an authoritative runtime target count** (no reader supplies it yet) | **BLOCKED / GAP C4b PARTIAL / OPEN** — `calculateHnsDamage` applies `halfDown(2048, dmg)` only for an explicit `field.targetCount == 2`; a Doubles request without an observed count is refused with `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED` rather than halving every spread move |
 | 14 | Badge boost | Active: player-side ×1.1 Atk/SpA/Def/SpD/Speed (`B_BADGE_BOOST GEN_3`) `[include/config/battle.h:253]`, eligibility-gated `[src/battle_util.c:9143]` — player battler only (`IsOnPlayerSide`); enemy never boosted | **only in an active battle with authoritative SaveBlock1 badge state** | **CONDITIONALLY MODELLED / GAP C4b PARTIAL / OPEN** — player-side badge boost flags are read from SaveBlock1 bytes `0x1A98`+`0x1A99` and evaluated via UQ4.12 `halfDown(4506, stat)` in QuickJS. A manual/out-of-battle request has no authoritative applicability, so missing badge state is **not** read as "badges off": it fails closed with `BADGE_BOOST_NOT_MODELLED` (§11) |
 | 15 | Move-specific mechanics (multi-hit, weight, fixed damage, Hidden Power, Return) | Modern | **gated by effect ID** | **CONDITIONALLY GATED (Gap C4a)** — `HnsMoveMechanicsRegistry` allows only the source-proven ordinary `EFFECT_HIT` subset; every other effect fails closed with `HNS_MOVE_MECHANICS_NOT_MODELLED` (§10.3) |
 | 16 | Challenge settings that change stats | No EVs `[include/global.h:309]`, Base Stat Equalizer `[:304]`, trainer IV/EV scaling `[:312]`, Max Party IVs `[:314]`, Mirror `[:307]` | partly | **CLASSIFIED (Gap C4a)** — value-changing fields that only alter stored values are captured downstream; Base Stat Equalizer and Random Moves block precisely (§10.1) |
-| 17 | Challenge settings that change the rule | `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness` | **yes** — `CalcRequestBoundary` consumes exact-trusted runtime snapshot into `CalcHnsRuntimeRules`; exact type chart and Fairy toggle modelled (Gap C1); active randomizers block | **CONSUMED / HOST VERIFIED; production refused (GAP A/C1/C4b)** — runtime rules are known and unreadable blockers cleared when observed; active unsupported rules block fail-closed; supported ordinary subset executes in `calculateHnsDamage` (§4.1, §11); no production H&S request is promoted today (§11.4) |
+| 17 | Challenge settings that change the rule | `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type`, `tx_Random_TypeEffectiveness` | **yes** — `CalcRequestBoundary` consumes exact-trusted runtime snapshot into `CalcHnsRuntimeRules`; exact type chart and Fairy toggle modelled (Gap C1); active randomizers block | **CONSUMED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — runtime rules are known and unreadable blockers cleared when observed; active unsupported rules block fail-closed; the supported ordinary subset executes in `calculateHnsDamage` (§4.1, §11) and is exposed as `Ready` / `ESTIMATED` for the exact-trusted live Singles subset defined in §14; all other requests remain fail-closed. (The `GAP A/C1/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 18 | Legendary ability overrides | `tx_Mode_Legendary_Abilities` default **ON**, substitutes abilities for slot 0 `[src/pokemon.c:5551]`, `[src/new_game.c:147]` | no | folds into row 6 |
 
 ---
@@ -1122,6 +1130,14 @@ observation. A caller-supplied value is stripped. Only the observed `gAbsentBatt
 between the two sides, an unreadable word, or an observed count of 2 (singles) fails closed —
 the request's `gameType` label never substitutes for the observed state.
 
+**Review round 5:** the same agreed `gBattlersCount` is now also the boundary-owned live battle
+**format** for every live calculation, not only the Doubles spread count. It is bound through the
+shared `authoritativeObservedBattlersCount()` helper, and a live request whose observed topology is
+not the Singles `2` refuses with `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` (§14.7.2). This closes the
+late-Doubles hole where both per-side observations resolve (one present battler each) while
+`gBattlersCount` stays 4 and a caller Singles label would otherwise apply the Singles x0.5 screen
+multiplier instead of the engine's x0.667.
+
 **Production status: BLOCKED.** The real boundary's per-side observations are
 `BATTLER_RUNTIME_STATE_AMBIGUOUS` whenever two battlers are present on a side — which is
 precisely the Doubles shape that has a count to compute — and an AMBIGUOUS observation
@@ -1196,7 +1212,12 @@ are read at runtime.
 
 ### 12.5 Production Promotion Status
 
-**No production H&S request reaches `Ready` or `ESTIMATED` today.** The fail-closed dynamic-move-
+> **Historical (Gap C4c, pre-C4e).** The paragraph below records the state *at C4c*. It was
+> superseded by Gap C4d (official-ROM goldens) and then by **Gap C4e**, which opens a narrow
+> production `Ready` / `ESTIMATED` path for the exact-trusted live Singles ordinary subset defined
+> in §14. Read "today" below as "at C4c".
+
+**No production H&S request reaches `Ready` or `ESTIMATED` at C4c.** The fail-closed dynamic-move-
 type and transient-state gates (12.2 / 12.3) apply to every move in every active battle, and
 Doubles spread moves are additionally blocked by the target-count authority (12.1) because the
 real boundary cannot observe the four-battler doubles shape. Even a fully observed Singles
@@ -1315,7 +1336,7 @@ ordinary `EFFECT_HIT` subset:
 
 | Modifier | Pinned location | Disposition |
 |---|---|---|
-| `GetTargetDamageModifier` (spread reduction) | `battle_util.c:7403` | Depends on `GetMoveTargetCount(ctx)`; the target-count authority exists but production Doubles is blocked (§13.6). Singles is always 1.0. |
+| `GetTargetDamageModifier` (spread reduction) | `battle_util.c:7403` | Depends on `GetMoveTargetCount(ctx)`; the target-count authority exists but production Doubles is blocked (§13.6). Singles is always 1.0. The live format itself is now boundary-owned from `gBattlersCount` (§14.7.2), so a Doubles battle mislabelled Singles refuses with `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED`. |
 | `GetParentalBondModifier` | `battle_util.c:7415` | Only reachable via the Parental Bond ability (unclassified); ability gate refuses it. |
 | `GetWeatherDamageModifier` | `battle_util.c:7434` | Rain/Sun carried by `request.field.weather`; any other weather is refused by `hnsModifierOrderDiverges`. |
 | `GetCriticalModifier` | `battle_util.c:7474` | Carried by `request.move.isCrit`; **runtime observed (indirect)** (golden E: the crit bit was not read directly and the faint caps the exact roll). |
@@ -1326,7 +1347,7 @@ ordinary `EFFECT_HIT` subset:
 | `GetZMaxMoveAgainstProtectionModifier` | `battle_util.c:7488` | Only Z/Max moves; not ordinary `EFFECT_HIT`; gimmick unread. |
 | `GetMinimizeModifier` | `battle_util.c:7499` | Gated by `MoveIncreasesPowerToMinimizedTargets(move)`; the defender volatile is unread → **FAIL CLOSED**. |
 | `GetUndergroundModifier` / `GetDiveModifier` / `GetAirborneModifier` | `battle_util.c:7506-7525` | Gated by move flags; defender `volatiles.semiInvulnerable` unread → **FAIL CLOSED**. |
-| `GetScreensModifier` | `battle_util.c:7527` | Carried by `request.field.defenderSide` (singles); Doubles screens are blocked with the format. **Runtime not separately validated.** |
+| `GetScreensModifier` | `battle_util.c:7527` | `IsDoubleBattle()` selects `UQ_4_12(0.667)` (Doubles) vs `UQ_4_12(0.5)` (Singles). Carried by `request.field.defenderSide` only after the live format gate confirms the observed Singles topology (§14.7.2); a Doubles battle refuses rather than applying the Singles multiplier. **Runtime not separately validated.** |
 | `GetCollisionCourseElectroDriftModifier` | `battle_util.c:7551` | Only `EFFECT_COLLISION_COURSE`; refused. |
 | `GetAttackerAbilitiesModifier` (`Neuroforce`/`Sniper`/`Tinted Lens`) | `battle_util.c:7558` | Abilities unclassified; refused. |
 | `GetDefenderAbilitiesModifier` (`Multiscale`, `Shadow Shield`, `Filter`, `Solid Rock`, `Prism Armor`, `Fluffy`, `Punk Rock`, `Ice Scales`) | `battle_util.c:7580` | Abilities unclassified; refused. |
@@ -1423,4 +1444,492 @@ promote yet. C4d is therefore a successful **evidence** slice, not a production-
 | SOURCE VERIFIED | Established from pinned H&S 2.0.5 source | ✅ Full `SetTypeBeforeUsingMove` / `GetDynamicMoveType` / `DoMoveDamageCalcVars` / `GetOtherModifiers` audit (§§13.2-13.3). |
 | HOST VERIFIED | DualDex/QuickJS agrees with the independent oracle | ✅ C4a/C4b/C4c fixtures unchanged; **new** `check_gap_c4d_rom_damage_goldens` asserts engine == oracle for every golden operand. |
 | RUNTIME VERIFIED | Observed on the official H&S 2.0.5 release ROM | ✅ Direct roll goldens A (neutral), B (STAB + resistance), C (live stat stage). Golden E is RUNTIME OBSERVED (indirect) only and is **not** counted with the direct roll goldens. |
-| PRODUCTION AUTHORIZED | All operands boundary-owned and proven | ❌ None — see §13.8. |
+| PRODUCTION AUTHORIZED | All operands boundary-owned and proven | ❌ None **at C4d** — see §13.8. (Superseded by Gap C4e §14: the exact-trusted live Singles ordinary subset is now conditionally production authorized.) |
+
+---
+
+## 14. Gap C4e — first production-authorized exact H&S 2.0.5 live Singles subset
+
+C4e is the first slice that **opens** a production `Ready` path for H&S. It follows the required
+order — source proof, authoritative runtime observation, runtime verification, trust audit, boundary
+authorization — and it does **not** weaken any fail-closed gate. The strongest honest claim is:
+
+> Exact H&S 2.0.5 live **Singles** ordinary-damage requests satisfying every condition in §14.9 are
+> production-authorized as `Ready` / `CalcSupport.ESTIMATED`. Every request outside that subset still
+> fails closed with a precise limitation, and no H&S request is ever presented as `VERIFIED`.
+
+### 14.0 Baseline (post-#68)
+
+* Starting `main`: `9b769cebf8b4c3c76042fc9d126d31786b64859a` (merge of PR #68).
+* `./ci.sh all` green after the changes in this slice (see the PR for exact-head Actions).
+* Post-#68 state verified before C4e: dynamic move type and transient state were fail-closed; Doubles
+  remained blocked; `sha256Hashes` was empty; no H&S request reached `Ready` / `ESTIMATED`.
+* The C4d official-ROM evidence SHA is `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`,
+  re-verified from `tools/hns-runtime-probe/evidence/rom-damage-goldens.json` and the raw probe logs.
+
+### 14.1 Source audit
+
+The C4d mechanism-by-mechanism audit (§§13.2-13.3) is reused rather than re-derived. C4e closes the
+three classes it left open:
+
+1. **Effective move type.** `SetTypeBeforeUsingMove` (`src/battle_main.c:6418`) has exactly two
+   writers that can retype an otherwise-supported ordinary `EFFECT_HIT` move, both independent of the
+   move-mechanics allow-list:
+   * `gFieldStatuses & STATUS_FIELD_ION_DELUGE && GetBattleMoveType(move) == TYPE_NORMAL` (Normal-only);
+   * `gBattleMons[battler].volatiles.electrified` (any type).
+   Both are now read. Every other non-`TYPE_NONE` return of `GetDynamicMoveType` requires either a
+   non-`EFFECT_HIT` effect (refused by `ordinaryMoveIds`) or an unclassified ability
+   (`Liquid Voice`, `Normalize`, the ate abilities) that the ability gate refuses.
+2. **Transient damage state.** Three generic modifiers apply to ordinary `EFFECT_HIT` moves
+   independently of the move allow-list and are now all read:
+   * `GetGlaiveRushModifier` (`src/battle_util.c:7481`) doubles any incoming move from the
+     defender's `volatiles.glaiveRush`;
+   * `moveType == TYPE_ELECTRIC && gBattleMons[attacker].volatiles.chargeTimer > 0` doubles the
+     move in `CalcDamagePerHit` (`src/battle_util.c:6635`);
+   * `ctx->moveType == TYPE_FIRE && gBattleMons[defender].volatiles.tarShot` doubles the move in
+     `CalcTypeEffectivenessMultiplierInternal` (`src/battle_util.c:8365`).
+   `GetMinimizeModifier`, `GetUndergroundModifier`, `GetDiveModifier` and `GetAirborneModifier` are
+   gated by move flags that `tools/hns-move-mechanics` already excludes from `ordinaryMoveIds`
+   (`minimizeDoubleDamage`, `damagesUnderground`, `damagesUnderwater`, `damagesAirborne`,
+   `damagesAirborneDoubleDamage`), so no reader is added for those.
+3. **Field statuses.** The battle-global `gFieldStatuses` word carries far more than Ion Deluge.
+   Pinned source proves the other bits change ordinary damage or the defensive stat independent of
+   `EFFECT_HIT`: `STATUS_FIELD_WONDER_ROOM` swaps Defense / Sp.Def inside `CalcDefenseStat`, the four
+   terrains apply a x1.3 / x0.5 type modifier, `STATUS_FIELD_MUDSPORT` / `STATUS_FIELD_WATERSPORT`
+   reduce their type, `STATUS_FIELD_GRAVITY` changes Ground immunity / groundedness, and the
+   Trick/Magic Room / Fairy Lock bits gate abilities and items. C4e therefore defines an **explicit
+   supported field-status mask** equal to `STATUS_FIELD_ION_DELUGE` only: `fieldStatuses == 0` is
+   eligible, the Ion Deluge bit keeps its existing Normal-only logic, and **any other bit** refuses
+   with `HNS_FIELD_STATUS_NOT_MODELLED` rather than silently clearing the Ion Deluge check (Gap C4e
+   correction).
+4. **Weather variants.** Pinned `B_WEATHER_RAIN` (0x7) and `B_WEATHER_SUN` (0x18) are aggregate
+   masks that include the Primal variants (`Primordial Sea` / `Desolate Land`). The engine treats
+   those specially (Water blocked under extreme sun, Fire blocked under heavy rain), so the modelled
+   mask is narrowed to the ordinary bits only (`B_WEATHER_RAIN_NORMAL` 0x1, `B_WEATHER_SUN_NORMAL`
+   0x8); a primal bit refuses with `HNS_LIVE_WEATHER_NOT_MODELLED` instead of collapsing onto the
+   ordinary name (Gap C4e correction).
+5. **Conditional pinch abilities.** `CalcAttackStat` (`src/battle_util.c:7023`) applies x1.5 as an
+   **Attack-stat** modifier when `moveType == TYPE_X && hp <= maxHP/3` for `Overgrow` (Grass),
+   `Blaze` (Fire), `Torrent` (Water) and `Swarm` (Bug). The modifier is composed with
+   `uq4_12_multiply_half_down` after the stat stage, which is exactly where
+   `calculateHnsDamage` already applies its ability modifiers.
+6. **Gimmick.** `GetActiveGimmick(battler)` (`src/battle_gimmick.c:60`) is
+   `gBattleStruct->gimmick.activeGimmick[GetBattlerSide(battler)][gBattlerPartyIndexes[battler]]`.
+   The pinned config sets `P_MEGA_EVOLUTIONS FALSE`, `P_PRIMAL_REVERSIONS FALSE`,
+   `P_ULTRA_BURST_FORMS FALSE`, `P_GIGANTAMAX_FORMS FALSE` and `B_FLAG_DYNAMAX_BATTLE 0`
+   (Dynamax unreachable), but Tera and Z-Moves remain reachable through the Tera Orb / Z-Power Ring.
+   Because the state is reachable, it is **observed** rather than declared unreachable.
+
+### 14.2 New ABI members (generated, not hand-maintained)
+
+`tools/hns-layout/generate_hns_live_battle_layout.py` compiles a probe against the pinned headers with
+the pinned ARM toolchain and emits `native/src/hns_live_battle_layout_gen.h`. Ordinary members are
+`offsetof`/`sizeof` scalars; bitfield members are located by compiling one designated-initializer
+object per bit and reading back the set bit (the `semiInvulnerable` probe uses
+`SEMI_INVULNERABLE_COUNT` so both the base bit and the width are recovered). Values for the pinned
+commit:
+
+| Member | Value |
+|---|---|
+| `struct BattlePokemon.hp` / `.maxHP` | 42 / 46 |
+| `struct BattlePokemon.status1` | 80 |
+| `struct BattlePokemon.volatiles` | 84 |
+| volatile `electrified` bit | 54 |
+| volatile `glaiveRush` bit | 64 |
+| volatile `minimize` bit | 72 |
+| volatile `semiInvulnerable` | bit 51, width 3 |
+| volatile `chargeTimer` | bit 73, width 2 |
+| volatile `tarShot` bit | 299 |
+| volatile read window | 38 bytes (covers `tarShot`; a shorter read would silently miss it) |
+| `struct BattleStruct.gimmick` | 668 |
+| `struct BattleGimmickData.activeGimmick` | 11 (side stride 6) |
+
+`./ci.sh source-check` regenerates the header and fails on any drift. The EWRAM global addresses
+(shared by the already-pinned battle globals) are:
+
+| Global | EWRAM offset |
+|---|---|
+| `gFieldStatuses` | `0x2F4` |
+| `gBattleWeather` | `0x390` |
+| `gSideStatuses[NUM_BATTLE_SIDES]` | `0x324` (4-byte stride) |
+| `gBattleStruct` pointer | `0xB4` |
+
+`gBattleStruct` is a heap pointer: the reader reads the pointer afresh, requires it to fall inside the
+EWRAM window it was handed, and only then dereferences `activeGimmick`. A null, stale or out-of-EWRAM
+pointer leaves the gimmick **unobserved** (never `NONE`).
+
+### 14.3 Runtime reader semantics
+
+`pokemon_read_battler_runtime_state_gba` now also decodes, per OBSERVED authoritative battler:
+
+* `hp` / `maxHP` (`hp_observed`, `max_hp`);
+* `status1` (`status_observed`; the raw word, `0` is an observed neutral);
+* the damage-relevant volatile bits (`volatiles_observed`, `volatile_electrified`,
+  `volatile_glaive_rush`, `volatile_charge_timer`, `volatile_tar_shot`, plus the recorded
+  `volatile_minimize` / `volatile_semi_invulnerable`); the reader reads the generated 41-byte
+  volatile window, because `tarShot` sits at bit 299 (and review-round-4 `roostActive`/`endured` at
+  318/322) so the original 10-byte window silently truncated them;
+* the review-round-4 persistent volatile bits (`persistent_volatiles_observed`, `volatile_foresight`,
+  `volatile_miracle_eye`, `volatile_root`, `volatile_smack_down`, `volatile_telekinesis`,
+  `volatile_magnet_rise`, `volatile_gastro_acid`, `volatile_roost_active`, `volatile_substitute`,
+  `volatile_endured`); `roostActive` (318) and `endured` (322) extend the generated read window to
+  41 bytes;
+* the gimmick byte (`gimmick_observed`, `active_gimmick`);
+* the battle-global `gFieldStatuses` word (`field_statuses_readable`, `field_statuses`);
+* the battle-global `gBattleWeather` flags word (`weather_readable`, `battle_weather`; 0 is an
+  observed clear weather);
+* this battler's own side status word `gSideStatuses[side]` (`side_statuses_readable`,
+  `side_statuses`; the side comes from the authoritative `gBattlerPositions` bit, not from the
+  caller's role, and 0 is an observed screenless side).
+
+Every `*_observed` / `*_readable` bit separates **observed neutral** (bit set, payload zero) from
+**never read** (bit clear), so `false` is never collapsed with `unreadable`. The tuple grew from 42 to
+72 ints (`BATTLER_RUNTIME_STATE_TUPLE_LEN`): the pre-C4e 42-int contract still decodes the older
+fields, a 56-int tuple additionally decodes the C4e live operands, a 60-int tuple carries the live
+weather / side-status words, a 62-int tuple carries the correction-pass `chargeTimer` / `tarShot`
+operands, and only a 72-int tuple carries the review-round-4 persistent volatiles - a short tuple
+leaves the later fields unobserved rather than defaulted, and the policy then fails closed. All new
+reads share the existing fail-closed lifecycle
+(ACTIVE only), battler resolution, party-slot binding, teardown clearing and profile-switch clearing;
+nothing is cached across battles.
+
+### 14.4 Effective move-type resolution
+
+For the supported subset the boundary binds `fieldStatuses` (both battle-level observations must read
+it and agree) and the attacker's `electrified` bit. `dynamicMoveTypeObserved` becomes true only when
+both were read. The policy then decides:
+
+* `electrified == true` → `HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED` (any type);
+* Ion Deluge set **and** the move's effective type is Normal → the same limitation;
+* otherwise static type is source-proven unchanged and the ordinary arithmetic applies.
+
+The active Electric retype is deliberately **not** published: the ordinary-subset arithmetic/type
+evidence does not cover the forced typing, so it stays refused rather than computed with the static
+type. This closes the C4d blocker "dynamic move type no longer uses a blanket unobserved blocker".
+
+### 14.5 Transient-state resolution
+
+`transientStateObserved` is bound from the slot-matched volatile window (the `chargeTimer`/`tarShot`
+extension) and is a conjunction over exactly the operands below; the pinned source has twice disproven
+any claim that the generic ordinary-damage transient set is only three fields, so the set is described
+exhaustively rather than counted:
+
+* `glaiveRush` (defender) - `true` → `HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED` (x2 not modelled);
+* `chargeTimer` (attacker) - a positive value **and** an Electric effective move type →
+  `HNS_CHARGE_ACTIVE_NOT_MODELLED`; a positive value on an irrelevant type is provably inert and
+  does not block, and `0` is the observed neutral;
+* `tarShot` (defender) - `true` **and** a Fire effective move type → `HNS_TAR_SHOT_ACTIVE_NOT_MODELLED`;
+  an irrelevant type is provably inert, and `false` is the observed neutral.
+
+A short tuple that does not carry `chargeTimer` / `tarShot` leaves `transientStateObserved` false, so
+the request fails closed with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` rather than assuming the volatiles
+were zero. Minimize and the semi-invulnerable states are proven unreachable for the ordinary subset by
+the move-flag allow-list (§14.1.2), so no live reader is needed for them.
+
+### 14.5.2 Persistent volatile resolution (review round 4)
+
+The review-round-4 source dependency audit (see the evidence doc's *Source dependency ledger*) found
+that the pinned ordinary `EFFECT_HIT` path also reads **persistent** volatiles that survive a prior
+status move: `GetBattlerTypes` drops Flying under `roostActive`; `MulByTypeEffectiveness` bypasses the
+Ghost / Dark immunities under `foresight` / `miracleEye`; `IsBattlerGrounded` reads `root`, `smackDown`,
+`telekinesis` and `magnetRise`; `GetBattlerAbilityInternal` returns `ABILITY_NONE` under `gastroAcid`;
+and `GetAdjustedDamage` reads `substitute` and `endured`. The generated volatile ABI now classifies all
+ten bits (`substitute` 39, `foresight` 45, `root` 75, `gastroAcid` 80, `smackDown` 82, `telekinesis`
+83, `miracleEye` 84, `magnetRise` 85, `roostActive` 318, `endured` 322; the derived read window is 41
+bytes).
+
+`persistentVolatilesObserved` is true only when both battlers' windows were read. The first production
+subset does **not** model any positive behavior of these states, so each observed-active class refuses
+with its own precise limitation:
+
+* `foresight` → `HNS_FORESIGHT_ACTIVE_NOT_MODELLED`;
+* `miracleEye` → `HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED`;
+* `root` / `smackDown` / `telekinesis` / `magnetRise` →
+  `HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED`;
+* `roostActive` → `HNS_ROOST_ACTIVE_NOT_MODELLED` (the raw `gBattleMons[].types` bytes are no longer
+  the engine's effective types, so the static-type comparison cannot prove the request neutral);
+* `gastroAcid` → `HNS_ABILITY_SUPPRESSED_NOT_MODELLED` (the boundary publishes the engine's
+  **effective** ability, `ABILITY_NONE` while suppressed, so the pinch logic can never apply the raw
+  identity's x1.5);
+* `substitute` → `HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED`;
+* `endured` → `HNS_ENDURED_ACTIVE_NOT_MODELLED`.
+
+A short tuple that does not carry the persistent window leaves `persistentVolatilesObserved` false and
+refuses with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`. Every field is observed-neutral on the Golden-A
+path, so the positive control is unchanged.
+
+### 14.5.1 Field-status resolution
+
+The boundary binds the battle-global `gFieldStatuses` word (both battle-level observations must read
+it and agree). The policy then applies the explicit supported mask from §14.1.3:
+
+* `fieldStatuses == 0` - eligible;
+* Ion Deluge bit set - the existing Normal-only retype logic in §14.4 applies;
+* any other bit set - `HNS_FIELD_STATUS_NOT_MODELLED`, regardless of the move type.
+
+This preserves the Golden-A Ready path unchanged (`fieldStatuses == 0`) while making Wonder Room,
+Gravity, all four terrains and Mud/Water Sport fail closed instead of silently computing with the
+unmodified defensive stat or type.
+
+### 14.6 Conditional pinch ability support
+
+`Overgrow` (65), `Blaze` (66), `Torrent` (67) and `Swarm` (68) are now
+`HnsAbilityCategory.MODELLED_HNS_CONDITIONAL`. `calculateHnsDamage` applies
+`halfDown(6144, userFinalAttack)` when the effective move type matches the boosted type **and**
+`input.attacker.hp <= floor(input.attacker.maxHP / 3)`, mirroring `CalcAttackStat`. The capability
+policy:
+
+* for the defender, treats a pinch ability as irrelevant (pinch abilities do not affect incoming
+  damage);
+* for the attacker, proves irrelevance when the effective move type differs;
+* otherwise requires the authoritative live HP/maxHP pair and refuses with
+  `HNS_ABILITY_CONDITION_UNVERIFIED` when it was not read — it never assumes the condition inactive.
+
+Live HP is boundary-reconciled: a caller-crafted `curHP` is overwritten from
+`gBattleMons[battler].hp` whenever the engine HP was read, and the engine JSON receives both `hp` and
+`maxHP`. Host tests (`check_gap_c4e_pinch_abilities`) cover inactive, active-at-threshold, one-HP-above
+threshold and wrong-type cases against the independent H&S oracle.
+
+### 14.7 Gimmick decision
+
+Gimmick state is **observed**, not declared `NONE`. `attackerGimmick` / `defenderGimmick` are bound
+from the exact-trusted observation; unreadable → `HNS_GIMMICK_STATE_UNREADABLE`; any non-`NONE` value
+→ `HNS_GIMMICK_ACTIVE_NOT_MODELLED`. Tera/Dynamax/Z/Mega/Ultra Burst damage semantics stay
+unmodelled and fail closed. The neutral `GIMMICK_NONE` case is runtime-verified on the official ROM
+(§14.11).
+
+### 14.7.1 Live field-condition resolution (Gap C4e correction)
+
+Weather and defender-side screens were previously caller-supplied request fields: the calculator
+screen defaulted to `weather = null` / `hasScreens = false` and the policy only rejected explicitly
+unsupported values, so a live Rain or Reflect battle in which the user touched nothing silently
+computed as clear / screenless. That unknown-to-neutral conversion is removed.
+
+* The native reader now decodes the battle-global `gBattleWeather` word and the observed battler's
+  own `gSideStatuses[side]` word, each with its own readability bit (0 is an observed neutral,
+  never "unread").
+* `CalcRequestBoundary` rebinds `field.weather` (clear / ordinary `Rain` / ordinary `Sun`) and
+  `field.defenderSide` (Reflect / Light Screen bits) from the observed words for an active exact-H&S
+  battle; any caller-supplied value is discarded, so a crafted neutral cannot stand in for an
+  unobserved live state. The aggregate `B_WEATHER_RAIN` / `B_WEATHER_SUN` primal bits are deliberately
+  not mapped to the ordinary names.
+* `CalcCapabilityPolicy` refuses an unread word (`HNS_LIVE_WEATHER_UNKNOWN`,
+  `HNS_LIVE_SCREENS_UNKNOWN`) or an observed word carrying a bit the ordinary arithmetic does not
+  model (`HNS_LIVE_WEATHER_NOT_MODELLED` for Sand/Hail/Snow/Fog/Strong Winds **and the primal
+  Rain/Sun bits**, `HNS_LIVE_SIDE_STATUS_NOT_MODELLED` for Aurora Veil and every other side status).
+* Out of battle the controls remain manual hypotheticals (the screen labels them as such), which is
+  why the manual/out-of-battle path keeps the request's field values.
+
+### 14.7.2 Live battle format resolution (review round 5)
+
+Battle format was previously caller/UI-owned: the calculator screen hardcoded
+`gameType = CalcGameTypes.SINGLES` and the boundary only consulted the observed topology inside
+`authoritativeMoveTargetCount` when the request *already* said Doubles. That is not sound, because
+H&S selects different arithmetic by format even for a non-spread ordinary hit:
+`GetScreensModifier` (`src/battle_util.c:7527`) composes Reflect / Light Screen with
+`UQ_4_12(0.667)` in a Doubles battle and `UQ_4_12(0.5)` in Singles, and the partner-dependent
+branches are Doubles-only. The native observation already carries the real topology
+(`gBattlersCount`: 2 Singles / 4 Doubles), so the boundary now owns it:
+
+* `CalcRequestBoundary` binds `observedBattlersCount` from **both** battle-level observations,
+  requiring the readability bit on each and agreement between them; a one-sided read or a
+  disagreement is null (unobserved), never a side picked.
+* `CalcCapabilityPolicy` refuses a live request whose observed format is not the Singles topology
+  the subset models, with the precise limitation `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED`. An unread
+  word, a player/enemy disagreement, an observed count of `4` (including the late-Doubles shape
+  where each side has only one present battler but `gBattlersCount` stays 4), or a request label
+  that contradicts the observed topology all fail closed.
+* A caller-crafted Singles label cannot override an observed four-battler topology, and a
+  caller-crafted Doubles label against an observed Singles topology fails closed rather than
+  redefining reality. The request's `field.gameType` is only a claim that must agree with the
+  observed count.
+* Any live Doubles request (observed count of `4`, or mislabelled Singles/Doubles, regardless of
+  whether a target count could be resolved) is refused by this gate with
+  `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` because the C4e production subset models Singles only.
+  Production Doubles carries unobserved live operands (e.g. Helping Hand) and remains blocked.
+
+This is deliberately a separate limitation from the Doubles target-count gate: the whole live
+calculation is under an unmodelled format, not just a spread move.
+
+### 14.8 Exact-ROM trust audit and hash promotion
+
+Promoting the exact SHA makes `RuntimeRomTrust.mayReadLiveMemory == true`, which unlocks every
+live-memory feature in the companion. The C4e audit dispositions each unlocked surface:
+
+| Unlocked surface | Disposition |
+|---|---|
+| Player/enemy party reads | Exact H&S 2.0.5 layout evidence already exists (`memoryLayoutVerified`, C1-C4 dossiers); no new claim. |
+| Location / map reads | Exact layout evidence exists (H&S SaveBlock1 handling); fail closed on unknown IDs. |
+| Battle lifecycle / active battler | Runtime-validated in the C4d probe run and native tests. |
+| Calculator live observations | Have their own per-capability gates (§§4-13 plus §14.9); the hash does not bypass any of them. |
+| Badge state | Read from SaveBlock1; player-side only; the calculator gate is independent. |
+| Assistant / cheats / interactive controls | `battleUiVerified` and `interactiveControlsVerified` remain `false`; interactive controls are gated by `BattleInteractionPolicy`, not by the hash. |
+
+No unlocked surface becomes unsafe or overclaimed, so C4e **promotes only the exact C4d SHA** into
+`app/src/main/assets/profiles/heart_and_soul.json`. No broader hash, no header-based trust, and
+`battleUiVerified` / `interactiveControlsVerified` are unchanged. Regression tests pin: exact hash →
+exact trust; one-bit-different hash → `RECOGNIZED_UNVERIFIED` and no live memory; recognized header
+without the exact hash → unverified.
+
+### 14.9 Authorized production subset
+
+A request reaches `Ready` / `ESTIMATED` only when **all** of the following hold:
+
+* the running ROM is the exact promoted H&S 2.0.5 SHA and the profile is exact-verified;
+* an active **Singles** battle with both battler observations OBSERVED and party-slot-matched;
+* an ordinary `EFFECT_HIT` move from `Hns205MoveEffects.ordinaryMoveIds` that does not read item
+  state (`HnsMoveItemInteractionRegistry`);
+* attacker and defender effective types observed and equal to the pinned static record, at most two
+  represenable types;
+* raw battle stat words and stat stages observed (`-6..+6`);
+* attacker badge boosts observed (defender badge state is irrelevant);
+* supported challenge settings: optionStyle / Fairy observed, Random Types and Random Type
+  Effectiveness observed **off**, Base Stat Equalizer observed **off**, Random Moves observed **off**;
+* supported/none held items and supported attacks (attacker pinch ability handled per §14.6);
+* effective move type fully resolved (no active Electrify / Ion Deluge);
+* defender Glaive Rush, attacker `chargeTimer` and defender `tarShot` observed neutral (`false` /
+  `0` / `false`); a positive relevant Charge / Tar Shot refuses with its precise limitation and a
+  short tuple that does not carry them refuses with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`;
+* both battlers' **persistent** volatile windows observed neutral: `foresight`, `miracleEye`, `root`,
+  `smackDown`, `telekinesis`, `magnetRise`, `gastroAcid`, `roostActive`, `substitute` and `endured`
+  all false; each observed-active class refuses with its precise limitation (§14.5.2), and a short
+  tuple that does not carry them refuses with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`;
+* gimmick state observed `GIMMICK_NONE` for both participants;
+* attacker live `status1` observed `0`;
+* the battle-global `gFieldStatuses` word observed with at most the Ion Deluge bit (0 is the neutral
+  word; any other bit refuses with `HNS_FIELD_STATUS_NOT_MODELLED`);
+* the battle-global `gBattleWeather` word observed (clear, ordinary Rain or ordinary Sun; any other
+  word - including the primal Rain/Sun bits - refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, and an
+  unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN`);
+* the defender-side `gSideStatuses[side]` word observed with only the Reflect / Light Screen bits
+  (an unread word refuses with `HNS_LIVE_SCREENS_UNKNOWN`, any other bit with
+  `HNS_LIVE_SIDE_STATUS_NOT_MODELLED`);
+* the live battle format observed as Singles: both battle-level observations read
+  `gBattlersCount` and agreed on `2`, and the request label agrees it is Singles. An unread word, a
+  disagreement, an observed `4`, or a contradictory label refuses with
+  `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` (§14.7.2);
+* no unmodelled weather/terrain/status/move mechanic.
+
+Everything else remains refused. This is a deliberately small capability class, not "H&S is
+supported".
+
+**Provenance of every mutable operand for that subset** (task §3 audit). "Boundary-owned" means
+`CalcRequestBoundary` rebinds it from the exact-trusted runtime observation and strips any caller
+value; "source-proven" means the pinned source/data proves it cannot vary for this request.
+
+| Operand | Provenance |
+|---|---|
+| attacker effective types | boundary-owned `gBattleMons[a].types`; must equal the pinned static record |
+| defender effective types | boundary-owned `gBattleMons[d].types`; must equal the pinned static record |
+| raw battle stat words | boundary-owned `gBattleMons` attack/defense/speed/spA/spD |
+| stat stages | boundary-owned `gBattleMons.statStages` |
+| current item | boundary-owned `gBattleMons[battler].item`; supported/no item only |
+| effective ability | boundary-owned numeric `abilityId`; supported or conditionally supported. Under observed `gastroAcid` the boundary publishes `ABILITY_NONE` (the engine's `GetBattlerAbility()`), and the suppression is separately refused (§14.5.2) |
+| current HP / max HP | boundary-owned `gBattleMons.hp` / `.maxHP`; required for a relevant pinch ability |
+| badge applicability | boundary-owned player-side badge state; enemy badges source-proven irrelevant |
+| move type / effective type | pinned pack override + observed Ion Deluge field word and Electrify volatile |
+| weather | boundary-owned battle-global `gBattleWeather` (both observations must agree); only clear / ordinary Rain / ordinary Sun accepted; the primal Rain/Sun bits refuse |
+| screens | boundary-owned defender-side `gSideStatuses[side]`; only Reflect/Light Screen bits |
+| burn / status | boundary-owned live `status1` must be 0; non-neutral refuses |
+| crit flag | request `isCrit`; C4d indirect observation |
+| game format | boundary-owned `gBattlersCount` agreed by both battle-level observations; must be the observed Singles `2`, and the request label must agree; an unread word, a disagreement, an observed `4`, or a contradictory label refuses with `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` (§14.7.2) |
+| field statuses | boundary-owned battle-global `gFieldStatuses` (both observations must agree); only the Ion Deluge bit is modelled, any other bit refuses |
+| attacker volatiles | boundary-owned `electrified` must be false; boundary-owned `chargeTimer` must be 0; the persistent window (`foresight`/`miracleEye`/`root`/`smackDown`/`telekinesis`/`magnetRise`/`gastroAcid`/`roostActive`/`substitute`/`endured`) must be observed all-false |
+| defender volatiles | boundary-owned `glaiveRush` must be false; boundary-owned `tarShot` must be false; the persistent window must be observed all-false |
+| gimmick / Tera | boundary-owned `gBattleStruct->gimmick.activeGimmick` must be `GIMMICK_NONE` |
+
+Every caller-supplied field on `hnsLiveBattleState` (and `curHP`) is discarded and rebound, so no
+caller value can independently authorize an H&S live calculation.
+
+### 14.10 Production-boundary evidence
+
+`CalcHnsC4eProductionBoundaryTest` drives the real `CalcRequestBoundary`:
+
+* **Positive control** — a C4d Golden-A-equivalent live state (Chikorita + Tackle vs Pidgey, live
+  HP 14/20, Overgrow irrelevant to a Normal move) returns `Ready`, a non-null request and
+  `ESTIMATED`; the emitted JSON carries the live HP/maxHP and the pinned move override.
+* **Adjacent negatives** — removing exactly one authority refuses with a precise limitation: wrong
+  ROM hash, unreadable volatile, unreadable extended transient volatiles (`chargeTimer`/`tarShot`),
+  unreadable field status, an observed unmodelled field status (Wonder Room, terrain), unreadable
+  weather word (`HNS_LIVE_WEATHER_UNKNOWN`), unreadable defender-side status word
+  (`HNS_LIVE_SCREENS_UNKNOWN`), an observed unmodelled weather word including a primal Rain/Sun bit
+  (`HNS_LIVE_WEATHER_NOT_MODELLED`), an observed unmodelled side-status bit
+  (`HNS_LIVE_SIDE_STATUS_NOT_MODELLED`), unreadable/active gimmick, active Electrify, active Ion Deluge
+  on a Normal move, active Glaive Rush, active Charge with an Electric move, active Tar Shot with a
+  Fire move, unsupported ability, unverified pinch HP, stale participant slot, unobserved badge state,
+  unsupported move, active live status. Charge / Tar Shot on an irrelevant move type stay Ready.
+  Review round 4 adds one negative per persistent volatile (Foresight, Miracle Eye, each grounding
+  volatile, Roost, Gastro Acid suppression, Substitute, Endure) plus an unread-persistent-window
+  refusal; the all-neutral Golden-A path stays Ready.
+* **Observed field conditions** — observed Rain and observed defender Reflect / Light Screen are bound
+  into the request and reach the engine JSON; observed clear / no screens binds no weather / no
+  defender side.
+* **Anti-spoofing** — a caller-crafted `hnsLiveBattleState`, a caller-crafted `curHP`, and caller-supplied
+  weather / screen values are stripped and rebound from the runtime observations; a caller-spoofed
+  ability is overridden by the authoritative numeric ID. Review round 4 adds an anti-spoof loop over
+  all ten persistent volatile bits (a crafted neutral window cannot clear an observed-active bit) and
+  the inverse (a crafted active bit cannot refuse a neutral runtime window). No caller-provided
+  `hnsLiveBattleState` field can independently authorize an H&S live calculation.
+* **Live battle format (review round 5)** — the observed Singles `2` keeps the positive control
+  `Ready`; an observed `4` (including with Reflect), a player/enemy disagreement, an unread count
+  (either side or both), a caller-crafted Singles label against observed `4`, and a caller-crafted
+  Doubles label against observed `2` all refuse; the boundary strips a crafted
+  `observedBattlersCount`.
+
+### 14.11 Runtime verification
+
+`tools/hns-runtime-probe/evidence/golden-c4e-live-operands.log` is a raw official-ROM run (ROM SHA
+`edf76ec...7679b`) that prints the new fields through the production reader at the Golden A hit frame:
+HP/maxHP observed (20/20 and 16/16), `status1 == 0`, volatiles observed with `electrified` and
+`glaiveRush` false, `activeGimmick == GIMMICK_NONE`, `gFieldStatuses == 0`, `weatherReadable=1
+weather=0x0000` (observed clear) and `sideStatusesReadable=1 sideStatuses=0x00000000` (observed
+screenless defender side). That is the neutral state the first production subset depends on, so the
+neutral case is **RUNTIME VERIFIED**. No positive transition (an actually-active volatile/gimmick, or
+an active Rain / Reflect frame) was manufactured, so the active cases stay SOURCE + HOST reasoned and
+are refused at runtime rather than claimed verified.
+
+The correction pass extends the same volatile read window to cover `chargeTimer` and `tarShot` (a
+reader-only change); `golden-c4e-live-operands.log` was produced before that extension and does not
+print the two new operands, so they are **HOST VERIFIED only** (decoder, native reader and
+production-boundary negative tests). The production path requires them observed and fails closed on a
+short tuple, so no unverified positive value can be published.
+
+### 14.12 Reuse of the C4d goldens
+
+The positive control is a Golden-A-equivalent live request (Chikorita + ordinary Normal move vs
+Pidgey) constructed through normal product authority; the engine's independent host oracle still
+produces the 5..7 range and the observed ROM damage 6 remains a valid roll. Golden B's Overgrow is
+conditionally supported and inactive at 11/23 HP, and Golden C's Torrent is irrelevant to a Normal
+move, so both shapes are compatible with the new subset. The C4d native golden test is unchanged and
+still green; C4e adds the pinch-ability fixtures alongside it.
+
+### 14.13 Doubles, badge Golden D, and remaining limitations
+
+* **Doubles** remains **BLOCKED** by the AMBIGUOUS per-side battler observation. C4e adds no
+  battle-level Doubles plumbing and does not make production Doubles an acceptance requirement. The
+  review-round-5 format gate additionally refuses any live calculation whose observed `gBattlersCount`
+  is not the Singles `2`, so a Doubles battle (including the late-Doubles shape where each side has
+  one present battler) can never be computed with the Singles screen multiplier even though the UI
+  labels it Singles (§14.7.2).
+* **Badge Golden D** remains unvalidated: negative/neutral badge state is observed false and the
+  request is correctly computed without a boost, but no positive badge-boost arithmetic is claimed
+  RUNTIME VERIFIED. The C4b host oracle coverage remains HOST VERIFIED.
+* **Golden F** is partially satisfied: the new readers have a neutral-state runtime observation
+  (§14.11) but no positive transition.
+* Active dynamic-type retypes, active Glaive Rush, active Charge on an Electric move, active Tar
+  Shot on a Fire move, any active persistent volatile (Foresight, Miracle Eye, Ingrain/Smack
+  Down/Telekinesis/Magnet Rise, Roost, Gastro Acid suppression, Substitute, Endure), unmodelled
+  field statuses (Wonder Room, Gravity, terrain, Mud/Water Sport),
+  active gimmicks, non-neutral live status, unread or unmodelled live weather (including the primal
+  bits) / defender-side screens, a live topology that is not the observed Singles `2` (an unread or
+  disagreeing `gBattlersCount`, or an observed `4`), and unsupported abilities/items/moves remain
+  refused so a confident wrong number is never published.
+
+### 14.14 Issues #9 and #40
+
+#9 is **not closed by this document alone**: it still requires exact FireRed/Emerald goldens (owned
+elsewhere), broader H&S mechanic coverage (Doubles, items, more abilities, modern behaviour), and the
+umbrella evidence wiring. C4e satisfies the bounded "supported H&S calculations have golden fixtures"
+and "unsupported mechanics fail honestly" criteria for the ordinary Singles subset; the remainder
+stays open. #40 is far broader (hardware, maps, lifecycle, cheats, Assistant, release) and remains
+open.

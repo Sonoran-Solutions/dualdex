@@ -159,6 +159,10 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     })
                 })
             }
+            request.hnsLiveBattleState?.let { live ->
+                live.attackerHp?.let { put("hp", it) }
+                live.attackerMaxHp?.let { put("maxHP", it) }
+            }
             request.hnsLiveBattleState?.attackerRawStats?.let { raw ->
                 put("rawStats", JSONObject().apply {
                     put("attack", raw.attack)

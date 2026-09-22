@@ -27,6 +27,16 @@ enum class HnsAbilityCategory {
     MODELLED_HNS_SPECIFIC,
 
     /**
+     * Pinned H&S implements an ability-specific modifier that is modelled for H&S, but only when
+     * its live condition is authoritatively observed (Gap C4e). The pinch abilities
+     * (`Overgrow`/`Blaze`/`Torrent`/`Swarm`) are the current members: H&S applies their x1.5 as an
+     * Attack-stat modifier when `hp <= maxHP/3` and the move type matches, so the policy must
+     * either read the live HP or prove the ability irrelevant (wrong move type) before the
+     * request may proceed.
+     */
+    MODELLED_HNS_CONDITIONAL,
+
+    /**
      * Known damage-relevant ability in H&S whose mechanics are not faithfully modelled by
      * the current calculation engine (e.g. modern generation arithmetic divergence, unmodelled
      * type alteration, stat modification, etc.).
@@ -39,7 +49,8 @@ enum class HnsAbilityCategory {
     UNCLASSIFIED;
 
     val isSupportedForDamage: Boolean
-        get() = this == PROVEN_NO_DAMAGE_EFFECT || this == MODELLED_EQUIVALENT || this == MODELLED_HNS_SPECIFIC
+        get() = this == PROVEN_NO_DAMAGE_EFFECT || this == MODELLED_EQUIVALENT ||
+            this == MODELLED_HNS_SPECIFIC || this == MODELLED_HNS_CONDITIONAL
 }
 
 /**
@@ -131,6 +142,15 @@ object HnsAbilityRegistry {
             rationale = "battle_script_commands.c:7711 (prevents acc drop), battle_util.c:10451 (ignores evasion). Zero damage modifier."
         )
 
+        // 77: TANGLED FEET
+        register(
+            id = 77,
+            canonicalName = "TANGLED FEET",
+            titleCaseName = "Tangled Feet",
+            category = HnsAbilityCategory.PROVEN_NO_DAMAGE_EFFECT,
+            rationale = "battle_util.c:10508 lowers the attacker's accuracy by 20% while the holder is confused (GetTotalAccuracy), never the damage. Zero damage modifier."
+        )
+
         // 62: GUTS
         register(
             id = 62,
@@ -145,8 +165,8 @@ object HnsAbilityRegistry {
             id = 65,
             canonicalName = "OVERGROW",
             titleCaseName = "Overgrow",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "battle_util.c:7023 modifies Attack Stat in CalcAttackStat, whereas ADV gen3.js:232 modifies Base Power. Two integer divisions cause arithmetic divergence in 17,750 spreads."
+            category = HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            rationale = "battle_util.c:7023 CalcAttackStat applies x1.5 as an Attack-stat modifier when moveType == TYPE_GRASS and hp <= maxHP/3. Modelled in calculateHnsDamage's post-stat-stage ability block; the policy requires authoritative live HP (or proves the ability irrelevant by move type) before authorizing (Gap C4e)."
         )
 
         // 66: BLAZE
@@ -154,8 +174,8 @@ object HnsAbilityRegistry {
             id = 66,
             canonicalName = "BLAZE",
             titleCaseName = "Blaze",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Same Attack Stat vs Base Power divergence as Overgrow."
+            category = HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            rationale = "Same Attack-stat pinch modifier as Overgrow for TYPE_FIRE, condition hp <= maxHP/3. Modelled conditionally on authoritative live HP (Gap C4e)."
         )
 
         // 67: TORRENT
@@ -163,8 +183,8 @@ object HnsAbilityRegistry {
             id = 67,
             canonicalName = "TORRENT",
             titleCaseName = "Torrent",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Same Attack Stat vs Base Power divergence as Overgrow."
+            category = HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            rationale = "Same Attack-stat pinch modifier as Overgrow for TYPE_WATER, condition hp <= maxHP/3. Modelled conditionally on authoritative live HP (Gap C4e)."
         )
 
         // 68: SWARM
@@ -172,8 +192,8 @@ object HnsAbilityRegistry {
             id = 68,
             canonicalName = "SWARM",
             titleCaseName = "Swarm",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Same Attack Stat vs Base Power divergence as Overgrow."
+            category = HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            rationale = "Same Attack-stat pinch modifier as Overgrow for TYPE_BUG, condition hp <= maxHP/3. Modelled conditionally on authoritative live HP (Gap C4e)."
         )
 
         // 74: PURE POWER

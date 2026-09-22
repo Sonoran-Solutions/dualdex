@@ -2961,6 +2961,20 @@ static void print_golden_state(const Sample* s, const char* label) {
                b->badge_boost_spe ? 1 : 0, b->badge_boost_spa ? 1 : 0,
                b->badge_boost_spd ? 1 : 0, (unsigned)b->raw_badges_byte,
                b->absent_flags_readable ? 1 : 0, b->battlers_count_readable ? 1 : 0);
+        /* Gap C4e live operands, through the same production reader. */
+        printf("[GOLDEN] side=%s c4e hpObs=%d hp=%u maxHP=%u statusObs=%d status1=0x%08X "
+               "volObs=%d electrified=%d glaiveRush=%d minimize=%d semiInvuln=%u "
+               "gimmickObs=%d gimmick=%u fieldStatusesReadable=%d fieldStatuses=0x%08X "
+               "weatherReadable=%d weather=0x%04X sideStatusesReadable=%d sideStatuses=0x%08X\n",
+               gsides[role], b->hp_observed ? 1 : 0, (unsigned)b->hp, (unsigned)b->max_hp,
+               b->status_observed ? 1 : 0, (unsigned)b->status1,
+               b->volatiles_observed ? 1 : 0, b->volatile_electrified ? 1 : 0,
+               b->volatile_glaive_rush ? 1 : 0, b->volatile_minimize ? 1 : 0,
+               (unsigned)b->volatile_semi_invulnerable,
+               b->gimmick_observed ? 1 : 0, (unsigned)b->active_gimmick,
+               b->field_statuses_readable ? 1 : 0, (unsigned)b->field_statuses,
+               b->weather_readable ? 1 : 0, (unsigned)b->battle_weather,
+               b->side_statuses_readable ? 1 : 0, (unsigned)b->side_statuses);
         const int bi = b->battler_index;
         if (bi >= 0 && bi < DUALDEX_MAX_BATTLERS) {
             printf("[GOLDEN] side=%s species=%u hp=%u maxHP=%u moves=%u,%u,%u,%u "

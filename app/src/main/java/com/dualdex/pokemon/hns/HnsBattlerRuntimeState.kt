@@ -85,6 +85,8 @@ object HnsBattlerRole {
 object HnsBattlerRuntimeStateIds {
     /** Empty-slot sentinel: a monotype's second/third slot. Never a real type. */
     const val TYPE_NONE = 0
+    /** Pinned `ABILITY_NONE`: the engine's effective "no ability" identity. */
+    const val ABILITY_NONE = 0
     /** Battle-only "typeless" value (Roost removal et al.). Real but not a species typing. */
     const val TYPE_MYSTERY = 10
     /** Highest ID the pinned `enum Type` assigns (NUMBER_OF_MON_TYPES - 1). */
@@ -97,6 +99,44 @@ object HnsBattlerRuntimeStateIds {
      * catalogue can never drift apart silently.
      */
     val ITEM_ID_MAX: Int get() = Hns205ItemCatalogue.ITEM_ID_MAX
+
+    /**
+     * Pinned `gBattleWeather` flags (`enum BattleWeather` bits). The modelled ordinary-damage
+     * subset covers clear weather and **ordinary** Rain / Sun only; the primal variants
+     * (`Primordial Sea` / `Desolate Land`) are part of the aggregate `B_WEATHER_RAIN` /
+     * `B_WEATHER_SUN` masks but must never be collapsed onto the ordinary names, and every
+     * other bit (Sandstorm/Hail/Snow/Fog/Strong Winds) is observed but refused by the policy
+     * rather than silently treated as clear.
+     */
+    const val B_WEATHER_RAIN_NORMAL = 1 shl 0 // B_WEATHER_RAIN_NORMAL
+    const val B_WEATHER_SUN_NORMAL = 1 shl 3  // B_WEATHER_SUN_NORMAL
+    /** Aggregate pinned mask: includes the primal and downpour rain bits (0x7). */
+    const val B_WEATHER_RAIN = 0x7 // (1<<0)|(1<<1)|(1<<2)
+    /** Aggregate pinned mask: includes the primal sun bit (0x18). */
+    const val B_WEATHER_SUN = 0x18 // (1<<3)|(1<<4)
+    /** Only ordinary Rain and ordinary Sun are modelled; the primal bits are refused. */
+    const val B_WEATHER_MODELLED = B_WEATHER_RAIN_NORMAL or B_WEATHER_SUN_NORMAL
+
+    /** Pinned `gSideStatuses` bits. Only Reflect and Light Screen are modelled for the subset. */
+    const val SIDE_STATUS_REFLECT = 1 shl 0
+    const val SIDE_STATUS_LIGHTSCREEN = 1 shl 1
+    const val SIDE_STATUS_MODELLED = SIDE_STATUS_REFLECT or SIDE_STATUS_LIGHTSCREEN
+
+    /**
+     * Pinned `STATUS_FIELD_ION_DELUGE` bit (`include/constants/battle.h`). It forces a Normal
+     * move to Electric. The explicit supported field-status mask is exactly this bit: every
+     * other `gFieldStatuses` bit (Wonder Room, Gravity, the four terrains, Mud/Water Sport,
+     * Trick/Magic Room, Fairy Lock) changes damage or the defensive stat and is not modelled,
+     * so it must fail closed rather than clear the Ion Deluge check.
+     */
+    const val STATUS_FIELD_ION_DELUGE = 1 shl 10
+    const val FIELD_STATUS_SUPPORTED_MASK = STATUS_FIELD_ION_DELUGE
+
+    /**
+     * Pinned `volatiles.chargeTimer` width is 2 bits, so its raw domain is `0..3`; any
+     * non-zero value doubles an Electric move (`src/battle_util.c`).
+     */
+    const val VOLATILE_CHARGE_TIMER_MAX = 3
 }
 
 /**
@@ -194,10 +234,148 @@ data class HnsBattlerRuntimeState(
     val battlersCount: Int = 0,
     /** true when battlersCount was actually read from live memory; distinguish
      *  'the read produced 0' from 'the read never happened' or 'unreadable'. */
-    val battlersCountReadable: Boolean = false
+    val battlersCountReadable: Boolean = false,
+    // --- Gap C4e live damage operands -------------------------------------------------------
+    /** true when the current HP / max HP pair was decoded from live `gBattleMons`. */
+    val hpObserved: Boolean = false,
+    /** Engine's current HP (`gBattleMons[battler].hp`). Only meaningful when [hpObserved]. */
+    val hp: Int = 0,
+    /** Engine's current max HP (`gBattleMons[battler].maxHP`). Only meaningful when [hpObserved]. */
+    val maxHp: Int = 0,
+    /** true when the current status word was decoded from live `gBattleMons`. */
+    val statusObserved: Boolean = false,
+    /** Engine's current status word; 0 is an observed 'no status'. */
+    val status1: Int = 0,
+    /** true when the damage-relevant volatile bits were decoded from live memory. */
+    val volatilesObserved: Boolean = false,
+    /** VOLATILE_ELECTRIFIED: Electrify forces the current move to Electric (any type). */
+    val volatileElectrified: Boolean = false,
+    /** VOLATILE_GLAIVE_RUSH: the defender takes double damage from any incoming move. */
+    val volatileGlaiveRush: Boolean = false,
+    /** VOLATILE_MINIMIZE (recorded; only relevant to move-flagged effects, excluded by the allow-list). */
+    val volatileMinimize: Boolean = false,
+    /** `enum SemiInvulnerableState` (recorded; only relevant to move-flagged effects). */
+    val volatileSemiInvulnerable: Int = 0,
+    /**
+     * true when the extended volatile window (`chargeTimer`, `tarShot`) was decoded. Only a
+     * tuple at least [C4E_TRANSIENT_TUPLE_LEN] ints long can carry it; a shorter tuple leaves
+     * both values unobserved rather than defaulting them to neutral. Always false unless
+     * [volatilesObserved] is also true (they are decoded from the same read window).
+     */
+    val transientVolatilesObserved: Boolean = false,
+    /**
+     * `volatiles.chargeTimer` raw value (pinned width 2, so `0..3`). Charge doubles an
+     * Electric move while it is non-zero. Only meaningful when [transientVolatilesObserved].
+     */
+    val volatileChargeTimer: Int = 0,
+    /**
+     * `volatiles.tarShot`: the defender takes double damage from Fire moves. Only meaningful
+     * when [transientVolatilesObserved].
+     */
+    val volatileTarShot: Boolean = false,
+    /**
+     * true when the persistent volatile window (the review-round-4 states below) was decoded.
+     * Only a tuple at least [C4E_PERSISTENT_TUPLE_LEN] ints long can carry it; a shorter tuple
+     * leaves every persistent volatile unobserved rather than defaulting it to neutral. Always
+     * false unless [volatilesObserved] is also true (they are decoded from the same read window).
+     */
+    val persistentVolatilesObserved: Boolean = false,
+    /**
+     * `volatiles.foresight`: a Normal/Fighting move bypasses this battler's Ghost immunity.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileForesight: Boolean = false,
+    /**
+     * `volatiles.miracleEye`: a Psychic move bypasses this battler's Dark immunity.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileMiracleEye: Boolean = false,
+    /**
+     * `volatiles.root` (Ingrain): the engine treats this battler as grounded.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileRoot: Boolean = false,
+    /**
+     * `volatiles.smackDown`: the engine treats this battler as grounded.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileSmackDown: Boolean = false,
+    /**
+     * `volatiles.telekinesis`: the engine treats this battler as ungrounded.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileTelekinesis: Boolean = false,
+    /**
+     * `volatiles.magnetRise`: the engine treats this battler as ungrounded.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileMagnetRise: Boolean = false,
+    /**
+     * `volatiles.gastroAcid`: `GetBattlerAbility()` returns `ABILITY_NONE` while set, so the
+     * engine's effective ability differs from the raw `gBattleMons[].ability` identity.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileGastroAcid: Boolean = false,
+    /**
+     * `volatiles.roostActive`: `GetBattlerTypes()` removes this battler's Flying type for the
+     * turn, so the engine's effective types differ from the raw `gBattleMons[].types` bytes.
+     * Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileRoostActive: Boolean = false,
+    /**
+     * `volatiles.substitute`: a substitute is present, so the pinned `DoesSubstituteBlockMove`
+     * redirects the computed damage away from this battler. Only meaningful when
+     * [persistentVolatilesObserved].
+     */
+    val volatileSubstitute: Boolean = false,
+    /**
+     * `volatiles.endured`: the pinned `GetAdjustedDamage` caps incoming damage at HP-1 for this
+     * battler. Only meaningful when [persistentVolatilesObserved].
+     */
+    val volatileEndured: Boolean = false,
+    /** true when `gBattleStruct->gimmick.activeGimmick[side][slot]` was decoded. */
+    val gimmickObserved: Boolean = false,
+    /** `enum Gimmick` active for this battler's party slot; 0 = GIMMICK_NONE. */
+    val activeGimmick: Int = 0,
+    /** true when the battle-global `gFieldStatuses` word was actually read. */
+    val fieldStatusesReadable: Boolean = false,
+    /** Battle-global status word (Ion Deluge is one bit). Only meaningful when readable. */
+    val fieldStatuses: Int = 0,
+    // --- Gap C4e correction: live field conditions -----------------------------------------
+    /**
+     * true when the battle-global `gBattleWeather` flags word was actually read. A readable word
+     * of 0 is an observed clear weather, distinct from "never read".
+     */
+    val weatherReadable: Boolean = false,
+    /** Engine's current weather flags word. Only meaningful when [weatherReadable]. */
+    val battleWeather: Int = 0,
+    /**
+     * true when this battler's own `gSideStatuses[side]` word was actually read. The boundary
+     * uses the defender observation's word for Reflect / Light Screen.
+     */
+    val sideStatusesReadable: Boolean = false,
+    /** Engine's current status word for the observed battler's side. Only meaningful when readable. */
+    val sideStatuses: Int = 0
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
+
+    /**
+     * The engine's EFFECTIVE ability identity: `GetBattlerAbility()` returns `ABILITY_NONE`
+     * whenever `volatiles.gastroAcid` is set (pinned `GetBattlerAbilityInternal`,
+     * src/battle_util.c:4996-5027), so the raw `gBattleMons[].ability` word is not the identity
+     * the damage path uses. Returns the raw [abilityId] when suppression was not positively
+     * observed (the caller must still refuse an unread persistent volatile window separately),
+     * and [HnsBattlerRuntimeStateIds.ABILITY_NONE] when it was.
+     */
+    val effectiveAbilityId: Int?
+        get() = abilityId?.let {
+            if (persistentVolatilesObserved && volatileGastroAcid) {
+                HnsBattlerRuntimeStateIds.ABILITY_NONE
+            } else {
+                it
+            }
+        }
 
     /**
      * The canonical H&S ability identity for the observed ID, resolved through
@@ -249,12 +427,33 @@ data class HnsBattlerRuntimeState(
          * [37] raw badges byte, [38] absentBattlerFlags (possibly unreliable),
          * [39] absentFlagsReadable (1 = flags was actually read, 0 = unreadable),
          * [40] battlersCount (gBattlersCount; 0 = unreadable),
-         * [41] battlersCountReadable (1 = count was actually read, 0 = unreadable).
+         * [41] battlersCountReadable (1 = count was actually read, 0 = unreadable),
+         * [42] hpObserved, [43] hp, [44] maxHp, [45] statusObserved, [46] status1,
+         * [47] volatilesObserved, [48] volatileElectrified, [49] volatileGlaiveRush,
+         * [50] volatileMinimize, [51] volatileSemiInvulnerable,
+         * [52] gimmickObserved, [53] activeGimmick,
+         * [54] fieldStatusesReadable, [55] fieldStatuses,
+         * [56] weatherReadable, [57] battleWeather,
+         * [58] sideStatusesReadable, [59] sideStatuses,
+         * [60] volatileChargeTimer, [61] volatileTarShot,
+         * [62] volatileForesight, [63] volatileMiracleEye, [64] volatileRoot,
+         * [65] volatileSmackDown, [66] volatileTelekinesis, [67] volatileMagnetRise,
+         * [68] volatileGastroAcid, [69] volatileRoostActive,
+         * [70] volatileSubstitute, [71] volatileEndured.
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
-         * the JNI, native reader, and this decoder can never drift.
+         * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is
+         * the pre-C4e contract (still honored for existing tests); [C4E_TUPLE_LEN]
+         * additionally carries the Gap C4e live operands, [C4E_FIELD_TUPLE_LEN]
+         * the live weather / defender-side status operands, [C4E_TRANSIENT_TUPLE_LEN]
+         * the Charge / Tar Shot volatile operands, and [C4E_PERSISTENT_TUPLE_LEN]
+         * the review-round-4 persistent volatile operands.
          */
         private const val TUPLE_LEN = 42
+        private const val C4E_TUPLE_LEN = 56
+        private const val C4E_FIELD_TUPLE_LEN = 60
+        private const val C4E_TRANSIENT_TUPLE_LEN = 62
+        private const val C4E_PERSISTENT_TUPLE_LEN = 72
 
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -304,6 +503,29 @@ data class HnsBattlerRuntimeState(
              * battlers'). */
             val battlersCountReadable = raw.size >= TUPLE_LEN && raw[41] != 0
             val battlersCount = if (battlersCountReadable && raw.size >= TUPLE_LEN) raw[40] else 0
+            // Gap C4e live operands. A field is only decoded when the tuple is long enough;
+            // a short (pre-C4e) tuple leaves every new field unobserved rather than defaulting.
+            val c4e = raw.size >= C4E_TUPLE_LEN
+            val hpObserved = c4e && raw[42] != 0
+            val statusObserved = c4e && raw[45] != 0
+            val volatilesObserved = c4e && raw[47] != 0
+            val gimmickObserved = c4e && raw[52] != 0
+            val fieldStatusesReadable = c4e && raw[54] != 0
+            // Gap C4e correction: weather / defender-side status operands. Decoded only from the
+            // longer tuple; a 56-element tuple leaves them unobserved rather than defaulted.
+            val c4eField = raw.size >= C4E_FIELD_TUPLE_LEN
+            val weatherReadable = c4eField && raw[56] != 0
+            val sideStatusesReadable = c4eField && raw[58] != 0
+            // Gap C4e correction: chargeTimer / tarShot are decoded from the same volatile
+            // window as electrified / glaiveRush, so they are only authoritative when the
+            // window was read AND the tuple is long enough to carry them.
+            val c4eTransient = raw.size >= C4E_TRANSIENT_TUPLE_LEN
+            val transientVolatilesObserved = volatilesObserved && c4eTransient
+            // Gap C4e correction (review round 4): the persistent volatile operands share the
+            // same read window, so they are only authoritative when the window was read AND the
+            // tuple is long enough to carry them.
+            val c4ePersistent = raw.size >= C4E_PERSISTENT_TUPLE_LEN
+            val persistentVolatilesObserved = volatilesObserved && c4ePersistent
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
@@ -331,7 +553,43 @@ data class HnsBattlerRuntimeState(
                 absentBattlerFlags = absentBattlerFlags,
                 absentFlagsReadable = absentFlagsReadable,
                 battlersCount = battlersCount,
-                battlersCountReadable = battlersCountReadable
+                battlersCountReadable = battlersCountReadable,
+                hpObserved = hpObserved,
+                hp = if (hpObserved) raw[43].coerceAtLeast(0) else 0,
+                maxHp = if (hpObserved) raw[44].coerceAtLeast(0) else 0,
+                statusObserved = statusObserved,
+                status1 = if (statusObserved) raw[46] else 0,
+                volatilesObserved = volatilesObserved,
+                volatileElectrified = volatilesObserved && raw[48] != 0,
+                volatileGlaiveRush = volatilesObserved && raw[49] != 0,
+                volatileMinimize = volatilesObserved && raw[50] != 0,
+                volatileSemiInvulnerable = if (volatilesObserved) raw[51].coerceIn(0, 6) else 0,
+                transientVolatilesObserved = transientVolatilesObserved,
+                volatileChargeTimer = if (transientVolatilesObserved) {
+                    raw[60].coerceIn(0, HnsBattlerRuntimeStateIds.VOLATILE_CHARGE_TIMER_MAX)
+                } else {
+                    0
+                },
+                volatileTarShot = transientVolatilesObserved && raw[61] != 0,
+                persistentVolatilesObserved = persistentVolatilesObserved,
+                volatileForesight = persistentVolatilesObserved && raw[62] != 0,
+                volatileMiracleEye = persistentVolatilesObserved && raw[63] != 0,
+                volatileRoot = persistentVolatilesObserved && raw[64] != 0,
+                volatileSmackDown = persistentVolatilesObserved && raw[65] != 0,
+                volatileTelekinesis = persistentVolatilesObserved && raw[66] != 0,
+                volatileMagnetRise = persistentVolatilesObserved && raw[67] != 0,
+                volatileGastroAcid = persistentVolatilesObserved && raw[68] != 0,
+                volatileRoostActive = persistentVolatilesObserved && raw[69] != 0,
+                volatileSubstitute = persistentVolatilesObserved && raw[70] != 0,
+                volatileEndured = persistentVolatilesObserved && raw[71] != 0,
+                gimmickObserved = gimmickObserved,
+                activeGimmick = if (gimmickObserved) raw[53].coerceIn(0, 5) else 0,
+                fieldStatusesReadable = fieldStatusesReadable,
+                fieldStatuses = if (fieldStatusesReadable) raw[55] else 0,
+                weatherReadable = weatherReadable,
+                battleWeather = if (weatherReadable) raw[57] else 0,
+                sideStatusesReadable = sideStatusesReadable,
+                sideStatuses = if (sideStatusesReadable) raw[59] else 0
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for
             // out-of-domain observations, but a tuple whose flags claim an out-of-domain

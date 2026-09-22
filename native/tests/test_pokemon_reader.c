@@ -2,6 +2,7 @@
 #include "pokemon_text.h"
 #include "gba_memory_map.h"
 #include "../src/hns_battle_pokemon_layout_gen.h"
+#include "../src/hns_live_battle_layout_gen.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -4500,6 +4501,29 @@ static void expect_battler_unavailable(const BattlerRuntimeState* st, const char
                 !st->badge_boost_spe && !st->badge_boost_spa && !st->badge_boost_spd &&
                 st->raw_badges_byte == 0,
                 "an unavailable observation must not carry badges");
+    /* Gap C4e operands: no stale HP/status/volatile/gimmick value may survive. */
+    TEST_ASSERT(!st->hp_observed && st->hp == 0 && st->max_hp == 0,
+                "an unavailable observation must not carry HP");
+    TEST_ASSERT(!st->status_observed && st->status1 == 0,
+                "an unavailable observation must not carry a status");
+    TEST_ASSERT(!st->volatiles_observed && !st->volatile_electrified &&
+                !st->volatile_glaive_rush && !st->volatile_minimize &&
+                st->volatile_semi_invulnerable == 0 &&
+                st->volatile_charge_timer == 0 && !st->volatile_tar_shot &&
+                !st->volatile_foresight && !st->volatile_miracle_eye &&
+                !st->volatile_root && !st->volatile_smack_down &&
+                !st->volatile_telekinesis && !st->volatile_magnet_rise &&
+                !st->volatile_gastro_acid && !st->volatile_roost_active &&
+                !st->volatile_substitute && !st->volatile_endured,
+                "an unavailable observation must not carry volatile state");
+    TEST_ASSERT(!st->gimmick_observed && st->active_gimmick == 0,
+                "an unavailable observation must not carry a gimmick");
+    TEST_ASSERT(!st->field_statuses_readable && st->field_statuses == 0,
+                "an unavailable observation must not carry field statuses");
+    TEST_ASSERT(!st->weather_readable && st->battle_weather == 0,
+                "an unavailable observation must not carry weather");
+    TEST_ASSERT(!st->side_statuses_readable && st->side_statuses == 0,
+                "an unavailable observation must not carry side statuses");
 }
 
 /**
@@ -5423,6 +5447,223 @@ static void test_hns_battler_state_stats_stages_badges(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_battler_state_stats_stages_badges" ANSI_RESET "\n");
 }
 
+/* ---- Gap C4e: live HP/status/volatile/gimmick operands ---- */
+
+/** Write the live HP / maxHP pair for one battler. */
+static void hns_battle_set_battler_hp(HnsBattleFixture* fx, uint8_t battler,
+                                      uint16_t hp, uint16_t max_hp) {
+    uint8_t* mon = fx->gba->ewram + fx->cfg->battle_mons_offset +
+                   ((size_t)battler * fx->cfg->battle_mons_size);
+    write16_le_t(mon + fx->cfg->battle_mons_hp_offset, hp);
+    write16_le_t(mon + fx->cfg->battle_mons_max_hp_offset, max_hp);
+}
+
+/** Write the live status1 word for one battler. */
+static void hns_battle_set_battler_status(HnsBattleFixture* fx, uint8_t battler, uint32_t status1) {
+    uint8_t* mon = fx->gba->ewram + fx->cfg->battle_mons_offset +
+                   ((size_t)battler * fx->cfg->battle_mons_size);
+    write32_le_t(mon + fx->cfg->battle_mons_status_offset, status1);
+}
+
+/** Set one volatile bit at its compiled position within `volatiles`. */
+static void hns_battle_set_volatile_bit(HnsBattleFixture* fx, uint8_t battler,
+                                        uint32_t bit, bool value) {
+    uint8_t* mon = fx->gba->ewram + fx->cfg->battle_mons_offset +
+                   ((size_t)battler * fx->cfg->battle_mons_size);
+    uint8_t* byte = mon + fx->cfg->battle_mons_volatiles_offset + (bit / 8);
+    uint8_t mask = (uint8_t)(1u << (bit % 8));
+    if (value) *byte |= mask; else *byte &= (uint8_t)~mask;
+}
+
+/** Write a multi-bit volatile field at its compiled position within `volatiles`. */
+static void hns_battle_set_volatile_field(HnsBattleFixture* fx, uint8_t battler,
+                                          uint32_t bit, uint32_t width, uint32_t value) {
+    for (uint32_t i = 0; i < width; i++) {
+        hns_battle_set_volatile_bit(fx, battler, bit + i, ((value >> i) & 1u) != 0);
+    }
+}
+
+/** Point gBattleStruct at an in-EWRAM buffer and write one active gimmick byte. */
+static void hns_battle_set_gimmick(HnsBattleFixture* fx, uint8_t battler, uint8_t gimmick) {
+    const uint32_t bs_base = 0x02030000u; /* inside the fake EWRAM window */
+    write32_le_t(fx->gba->ewram + fx->cfg->battle_struct_ptr_offset, bs_base);
+    const uint32_t side = (battler == 0) ? 0u : 1u; /* player side 0, opponent side 1 */
+    const uint16_t party_slot = 0;
+    uint32_t off = fx->cfg->battle_struct_gimmick_offset +
+                   fx->cfg->battle_gimmick_active_offset +
+                   side * fx->cfg->battle_gimmick_side_stride + party_slot;
+    fx->gba->ewram[(bs_base - 0x02000000u) + off] = gimmick;
+}
+
+static void test_hns_battler_state_c4e_live_operands(void) {
+    printf("Running test_hns_battler_state_c4e_live_operands...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    hns_battle_set_battler_hp(&fx, 0, 14, 20);
+    hns_battle_set_battler_status(&fx, 0, 0);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT, false);
+    hns_battle_set_volatile_bit(&fx, 1, HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT, false);
+    hns_battle_set_battler_hp(&fx, 1, 15, 15);
+    hns_battle_set_battler_status(&fx, 1, 0);
+    hns_battle_set_gimmick(&fx, 0, 0);
+    hns_battle_set_gimmick(&fx, 1, 0);
+    write32_le_t(gba.ewram + cfg->field_statuses_offset, 0);
+
+    BattlerRuntimeState st;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "player read must succeed");
+    TEST_ASSERT(st.hp_observed && st.hp == 14 && st.max_hp == 20,
+                "player live HP/maxHP must be observed");
+    TEST_ASSERT(st.status_observed && st.status1 == 0,
+                "player live status must be observed neutral");
+    TEST_ASSERT(st.volatiles_observed && !st.volatile_electrified,
+                "player electrified must be observed false");
+    TEST_ASSERT(st.volatile_charge_timer == 0 && !st.volatile_tar_shot,
+                "player chargeTimer/tarShot must be observed neutral");
+    TEST_ASSERT(st.gimmick_observed && st.active_gimmick == 0,
+                "player gimmick must be observed NONE");
+    TEST_ASSERT(st.field_statuses_readable && st.field_statuses == 0,
+                "field statuses must be observed neutral");
+
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st), "enemy read must succeed");
+    TEST_ASSERT(st.hp_observed && st.hp == 15 && st.max_hp == 15, "enemy HP/maxHP observed");
+    TEST_ASSERT(st.volatiles_observed && !st.volatile_glaive_rush, "enemy Glaive Rush false");
+    TEST_ASSERT(st.gimmick_observed && st.active_gimmick == 0, "enemy gimmick NONE");
+
+    /* Positive transitions: each bit is independently readable. */
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 1, HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT, true);
+    hns_battle_set_volatile_field(&fx, 0, HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_BIT,
+                                  HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH, 3);
+    hns_battle_set_volatile_bit(&fx, 1, HNS_LIVE_BP_VOLATILE_TAR_SHOT_BIT, true);
+    hns_battle_set_gimmick(&fx, 0, 5 /* GIMMICK_TERA */);
+    write32_le_t(gba.ewram + cfg->field_statuses_offset, 1u << 10 /* ION_DELUGE */);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "player transition read");
+    TEST_ASSERT(st.volatile_electrified, "player electrified must be observed true");
+    TEST_ASSERT(st.volatile_charge_timer == 3,
+                "player chargeTimer must be observed at its width-2 maximum");
+    TEST_ASSERT(st.active_gimmick == 5, "player gimmick must be observed TERA");
+    TEST_ASSERT(st.field_statuses == (1u << 10), "Ion Deluge bit must be observed");
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st), "enemy transition read");
+    TEST_ASSERT(st.volatile_glaive_rush, "enemy Glaive Rush must be observed true");
+    TEST_ASSERT(st.volatile_tar_shot, "enemy Tar Shot must be observed true");
+
+    /* Review round 4: each persistent damage-path volatile is independently readable at its
+     * generated bit. Player carries the type/grounding/ability/roost states; enemy carries the
+     * GetAdjustedDamage states. */
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_FORESIGHT_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_MIRACLE_EYE_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_ROOT_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_SMACK_DOWN_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_TELEKINESIS_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_MAGNET_RISE_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_GASTRO_ACID_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 1, HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT, true);
+    hns_battle_set_volatile_bit(&fx, 1, HNS_LIVE_BP_VOLATILE_ENDURED_BIT, true);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "player persistent read");
+    TEST_ASSERT(st.volatile_foresight && st.volatile_miracle_eye, "player foresight/miracleEye true");
+    TEST_ASSERT(st.volatile_root && st.volatile_smack_down, "player root/smackDown true");
+    TEST_ASSERT(st.volatile_telekinesis && st.volatile_magnet_rise, "player telekinesis/magnetRise true");
+    TEST_ASSERT(st.volatile_gastro_acid && st.volatile_roost_active, "player gastroAcid/roostActive true");
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st), "enemy persistent read");
+    TEST_ASSERT(st.volatile_substitute && st.volatile_endured, "enemy substitute/endured true");
+
+    /* A neutral window must report every persistent volatile observed false. */
+    for (int b = 0; b < 2; b++) {
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_FORESIGHT_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_MIRACLE_EYE_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_ROOT_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_SMACK_DOWN_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_TELEKINESIS_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_MAGNET_RISE_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_GASTRO_ACID_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT, false);
+        hns_battle_set_volatile_bit(&fx, (uint8_t)b, HNS_LIVE_BP_VOLATILE_ENDURED_BIT, false);
+    }
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "player neutral persistent read");
+    TEST_ASSERT(st.volatiles_observed && !st.volatile_foresight && !st.volatile_miracle_eye &&
+                !st.volatile_root && !st.volatile_smack_down && !st.volatile_telekinesis &&
+                !st.volatile_magnet_rise && !st.volatile_gastro_acid && !st.volatile_roost_active &&
+                !st.volatile_substitute && !st.volatile_endured,
+                "a neutral persistent window must be observed false, not unobserved");
+
+    /* A null/zero gBattleStruct pointer means the gimmick is unobserved, never NONE. */
+    write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "read with null gBattleStruct");
+    TEST_ASSERT(!st.gimmick_observed && st.active_gimmick == 0,
+                "a null gBattleStruct must leave the gimmick unobserved");
+    /* An out-of-EWRAM pointer is also unobserved (never dereferenced into another region). */
+    write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0x08000000u);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "read with ROM pointer");
+    TEST_ASSERT(!st.gimmick_observed && st.active_gimmick == 0,
+                "an out-of-EWRAM gBattleStruct must leave the gimmick unobserved");
+
+    /* Teardown must not retain any C4e operand. */
+    hns_battle_set_in_battle(&fx, false);
+    read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st);
+    expect_battler_unavailable(&st, "post-teardown observation must carry no C4e operand");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_c4e_live_operands" ANSI_RESET "\n");
+}
+
+/**
+ * Gap C4e correction: the live Ready path must observe the battle-global weather word and the
+ * defender-side status word, distinguishing an observed neutral (0) from never-read so an active
+ * Rain / Reflect battle can never be calculated as clear / screenless.
+ */
+static void test_hns_battler_state_c4e_field_conditions(void) {
+    printf("Running test_hns_battler_state_c4e_field_conditions...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    write16_le_t(gba.ewram + cfg->battle_weather_offset, 0);
+    write32_le_t(gba.ewram + cfg->side_statuses_offset + 0 * cfg->side_statuses_stride, 0);
+    write32_le_t(gba.ewram + cfg->side_statuses_offset + 1 * cfg->side_statuses_stride, 0);
+
+    BattlerRuntimeState st;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "player read must succeed");
+    TEST_ASSERT(st.weather_readable && st.battle_weather == 0,
+                "clear weather must be observed neutral");
+    TEST_ASSERT(st.side_statuses_readable && st.side_statuses == 0,
+                "the player side status word must be observed neutral");
+
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st), "enemy read must succeed");
+    TEST_ASSERT(st.weather_readable && st.battle_weather == 0,
+                "the opponent observation must carry the same battle-global weather word");
+    TEST_ASSERT(st.side_statuses_readable && st.side_statuses == 0,
+                "the opponent side status word must be observed neutral");
+
+    /* Positive transitions: weather and the defender-side status word are independently read. */
+    write16_le_t(gba.ewram + cfg->battle_weather_offset, 1u << 0 /* BATTLE_WEATHER_RAIN */);
+    write32_le_t(gba.ewram + cfg->side_statuses_offset + 1 * cfg->side_statuses_stride,
+                 cfg->side_status_reflect_mask);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st), "transition read");
+    TEST_ASSERT(st.weather_readable && st.battle_weather == (1u << 0),
+                "observed Rain must be decoded verbatim");
+    TEST_ASSERT(st.side_statuses_readable &&
+                (st.side_statuses & cfg->side_status_reflect_mask) != 0,
+                "observed defender-side Reflect must be decoded");
+    /* The player side word is a DIFFERENT array element: the enemy Reflect must not leak to it. */
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "player isolation read");
+    TEST_ASSERT(st.side_statuses_readable && st.side_statuses == 0,
+                "the player side status word must not carry the opponent's Reflect bit");
+
+    /* Teardown must not retain the new operands. */
+    hns_battle_set_in_battle(&fx, false);
+    read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st);
+    expect_battler_unavailable(&st, "post-teardown observation must carry no field condition");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_state_c4e_field_conditions" ANSI_RESET "\n");
+}
+
 /* ---- Gap C4c: runtime target count computation ---- */
 
 static void test_hns_target_count_computation(void) {
@@ -5778,6 +6019,8 @@ int main(void) {
     test_hns_battler_state_teardown_and_profile_switch();
     test_hns_badge_state_reading();
     test_hns_battler_state_stats_stages_badges();
+    test_hns_battler_state_c4e_live_operands();
+    test_hns_battler_state_c4e_field_conditions();
     test_hns_target_count_computation();
     test_hns_target_count_anti_spoof();
 

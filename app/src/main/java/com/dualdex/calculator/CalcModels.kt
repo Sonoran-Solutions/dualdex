@@ -173,8 +173,10 @@ data class CalcHnsRuntimeRules(
  *    produces this yet (Gap C4b), so it is false in production.
  *  - [dynamicMoveTypeObserved]: true only when the current move's effective type was authoritatively
  *    observed. No runtime reader produces this yet (Gap C4b).
- *  - [transientStateObserved]: true only when other transient damage state reachable by the
- *    supported ordinary subset was authoritatively observed. No runtime reader produces this yet.
+ *  - [transientStateObserved]: true only when every transient damage-state operand reachable by
+ *    the supported ordinary subset was authoritatively observed: the defender's Glaive Rush
+ *    volatile, the attacker's Charge timer and the defender's Tar Shot volatile. A short tuple
+ *    that does not carry the latter two leaves this false, and the policy fails closed.
  *  - [moveTargetCount]: the authoritative number of currently present targets
  *    (`GetMoveTargetCount(ctx)`), or null when unobserved. H&S halves a spread move only when this
  *    is exactly 2, so a Doubles spread move without an observed count fails closed rather than
@@ -184,6 +186,10 @@ data class CalcHnsRuntimeRules(
  *    real boundary's single-active-battler observations are AMBIGUOUS in genuine doubles
  *    battles, so the count is not reachable through the real Doubles path (BLOCKED, Gap C4c;
  *    see docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §12.1).
+ *  - [observedBattlersCount]: the battle-level topology (`gBattlersCount`) agreed by both
+ *    observations, or null when unread/disagreeing. The production subset models Singles only,
+ *    so the policy refuses the whole live calculation when the observed topology is not `2`
+ *    (review round 5; see docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §14.7.2).
  */
 data class CalcRawStats(
     val attack: Int,
@@ -223,8 +229,136 @@ data class CalcHnsLiveBattleState(
      * four-battler Doubles battle shape (see §12.1 of the capability doc), and the policy
      * fails closed rather than guessing.
      */
-    val moveTargetCount: Int? = null
+    val moveTargetCount: Int? = null,
+    // --- Gap C4e live operand authority ------------------------------------------------------
+    /**
+     * The battle-global `gFieldStatuses` word, or null when it was not read. Ion Deluge is the
+     * only bit that can retype an otherwise-supported ordinary move: it forces a Normal move to
+     * Electric. A non-null value is an authoritative observation; 0 is an observed neutral word.
+     */
+    val fieldStatuses: Int? = null,
+    /**
+     * `gBattleMons[attacker].volatiles.electrified` (Electrify), or null when unread. Electrify
+     * retypes any move to Electric, so it must be observed false for the ordinary subset.
+     */
+    val attackerElectrified: Boolean? = null,
+    /**
+     * `gBattleMons[defender].volatiles.glaiveRush`, or null when unread. Glaive Rush doubles the
+     * damage of any incoming move regardless of type, so it must be observed false.
+     */
+    val defenderGlaiveRush: Boolean? = null,
+    /**
+     * `gBattleMons[attacker].volatiles.chargeTimer`, or null when unread. A non-zero value
+     * doubles the damage of an Electric move. `0` is an observed "not charging"; the ordinary
+     * subset refuses a positive value rather than publishing the unmodelled x2.
+     */
+    val attackerChargeTimer: Int? = null,
+    /**
+     * `gBattleMons[defender].volatiles.tarShot`, or null when unread. Tar Shot doubles the
+     * damage of a Fire move against the holder. The ordinary subset requires it observed false
+     * and refuses a positive value.
+     */
+    val defenderTarShot: Boolean? = null,
+    /**
+     * `gBattleStruct->gimmick.activeGimmick[side][partySlot]` for the attacker, or null when
+     * unread. 0 is `GIMMICK_NONE`; any other value is a live gimmick (Tera/Dynamax/Z/...).
+     */
+    val attackerGimmick: Int? = null,
+    /** The defender's active gimmick, or null when unread. */
+    val defenderGimmick: Int? = null,
+    /**
+     * The attacker's authoritative current HP and max HP (`gBattleMons[attacker].hp` / `.maxHP`),
+     * or null when unread. Required to decide a pinch ability's 1/3-HP condition from live state,
+     * never from a stale party snapshot.
+     */
+    val attackerHp: Int? = null,
+    val attackerMaxHp: Int? = null,
+    /**
+     * The attacker's authoritative `status1` word, or null when unread. 0 is an observed
+     * "no status"; the ordinary subset requires that (a non-zero live status is not modelled here).
+     */
+    val attackerStatus1: Int? = null,
+    // --- Gap C4e correction: live field conditions -------------------------------------------
+    /**
+     * The battle-global `gBattleWeather` flags word, or null when it was not read. The boundary
+     * binds `field.weather` from this (0 = observed clear, Rain/Sun map to their names); the
+     * policy refuses when it is unread, or when it carries a bit outside Rain/Sun. Caller-supplied
+     * neutral weather can therefore never stand in for an unobserved live word.
+     */
+    val weatherObserved: Boolean = false,
+    val weatherWord: Int = 0,
+    /**
+     * The defender's authoritative `gSideStatuses[side]` word, or null when it was not read. The
+     * boundary binds `field.defenderSide` from this (Reflect / Light Screen bits); the policy
+     * refuses when it is unread, or when it carries an unmodelled side-status bit.
+     */
+    val defenderScreensObserved: Boolean = false,
+    val defenderSideStatuses: Int = 0,
+    // --- Gap C4e correction (review round 4): persistent damage-path volatiles ----------------
+    /**
+     * The persistent `gBattleMons[attacker].volatiles` states the pinned ordinary-damage path
+     * reads (Foresight / Miracle Eye immunity bypass, Ingrain / Smack Down grounding, Telekinesis
+     * / Magnet Rise ungrounding, Gastro Acid ability suppression, Roost effective-type change),
+     * or null when the window was not observed. A non-null value is authoritative; every field is
+     * required neutral by the first production subset.
+     */
+    val attackerPersistentVolatiles: CalcHnsPersistentVolatiles? = null,
+    /** The defender's persistent volatile window, or null when unobserved. */
+    val defenderPersistentVolatiles: CalcHnsPersistentVolatiles? = null,
+    // --- Gap C4e correction (review round 5): boundary-owned live battle format --------------
+    /**
+     * The authoritative live battle topology read from `gBattlersCount`: exactly `2` for a Singles
+     * battle or `4` for a Doubles battle, or null when both battle-level observations did not read
+     * the word or did not agree on it.
+     *
+     * H&S selects different arithmetic by format: `GetScreensModifier` multiplies Reflect / Light
+     * Screen by `UQ_4_12(0.667)` in Doubles and `UQ_4_12(0.5)` in Singles, the spread reduction
+     * depends on the observed target count, and the partner-dependent branches are Doubles-only.
+     * The request's `field.gameType` is caller/UI-supplied, so it cannot be the authority: the
+     * boundary binds this value from the exact-trusted runtime observations only, strips any
+     * caller-crafted value, and the policy refuses a live request that cannot be established as
+     * the observed Singles topology (see
+     * [CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED]).
+     */
+    val observedBattlersCount: Int? = null
 )
+
+/**
+ * The persistent volatile states, read from one battler's `gBattleMons[].volatiles` window,
+ * that the pinned H&S ordinary-damage path can read without a move-flag trigger (review round 4).
+ *
+ * [observed] is true only when the generated volatile window was actually decoded. Every field is
+ * then authoritative, so an observed `false` is a proven neutral, distinct from an unread window.
+ */
+data class CalcHnsPersistentVolatiles(
+    val observed: Boolean = false,
+    /** `volatiles.foresight`: Normal/Fighting bypasses this battler's Ghost immunity. */
+    val foresight: Boolean = false,
+    /** `volatiles.miracleEye`: Psychic bypasses this battler's Dark immunity. */
+    val miracleEye: Boolean = false,
+    /** `volatiles.root` (Ingrain): the engine treats this battler as grounded. */
+    val root: Boolean = false,
+    /** `volatiles.smackDown`: the engine treats this battler as grounded. */
+    val smackDown: Boolean = false,
+    /** `volatiles.telekinesis`: the engine treats this battler as ungrounded. */
+    val telekinesis: Boolean = false,
+    /** `volatiles.magnetRise`: the engine treats this battler as ungrounded. */
+    val magnetRise: Boolean = false,
+    /** `volatiles.gastroAcid`: `GetBattlerAbility()` returns `ABILITY_NONE` while set. */
+    val gastroAcid: Boolean = false,
+    /** `volatiles.roostActive`: `GetBattlerTypes()` drops this battler's Flying type. */
+    val roostActive: Boolean = false,
+    /** `volatiles.substitute`: `DoesSubstituteBlockMove` redirects the computed damage. */
+    val substitute: Boolean = false,
+    /** `volatiles.endured`: `GetAdjustedDamage` caps incoming damage at HP-1. */
+    val endured: Boolean = false
+) {
+    /** True when any persistent volatile the ordinary subset requires neutral is active. */
+    val anyActive: Boolean
+        get() = foresight || miracleEye || root || smackDown ||
+            telekinesis || magnetRise || gastroAcid || roostActive ||
+            substitute || endured
+}
 
 data class DamageCalculationRequest(
     val gen: Int = 3,

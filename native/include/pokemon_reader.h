@@ -178,6 +178,37 @@ typedef struct {
     uint32_t battle_mons_spattack_size;      // compiled byte width of spAttack
     uint32_t battle_mons_spdefense_offset;   // offset of spDefense within struct BattlePokemon
     uint32_t battle_mons_spdefense_size;     // compiled byte width of spDefense
+    // Gap C4e live-state fields (Heart & Soul 2.0.5 only). Every other layout leaves them zero,
+    // and the reader requires them to equal the generated live-battle ABI table, so a vanilla
+    // BattlePokemon is never reinterpreted through this structure.
+    uint32_t battle_mons_max_hp_offset;      // offset of maxHP within struct BattlePokemon
+    uint32_t battle_mons_status_offset;      // offset of status1 within struct BattlePokemon
+    uint32_t battle_mons_volatiles_offset;   // offset of `volatiles` within struct BattlePokemon
+    uint32_t battle_mons_volatile_electrified_bit;       // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_glaive_rush_bit;       // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_minimize_bit;          // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_semi_invulnerable_bit; // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_semi_invulnerable_width;
+    uint32_t battle_mons_volatile_charge_timer_bit;      // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_charge_timer_width;    // bit width of the charge-timer field
+    uint32_t battle_mons_volatile_tar_shot_bit;          // 0-based bit within volatiles
+    // Gap C4e correction (review round 4): persistent volatiles the pinned ordinary-damage
+    // path reads. `foresight` / `miracleEye` bypass Ghost / Dark type immunities;
+    // `root` / `smackDown` ground the holder while `telekinesis` / `magnetRise` unground it;
+    // `gastroAcid` makes GetBattlerAbility() return ABILITY_NONE; `roostActive` makes
+    // GetBattlerTypes() drop the Flying type. Every other layout leaves these zero.
+    uint32_t battle_mons_volatile_foresight_bit;         // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_miracle_eye_bit;       // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_root_bit;              // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_smack_down_bit;        // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_telekinesis_bit;       // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_magnet_rise_bit;       // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_gastro_acid_bit;       // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_roost_active_bit;      // 0-based bit within volatiles
+    // `substitute` redirects the computed damage and `endured` caps it at HP-1
+    // (pinned GetAdjustedDamage); both are read on the ordinary path.
+    uint32_t battle_mons_volatile_substitute_bit;        // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_endured_bit;           // 0-based bit within volatiles
     uint32_t save_block1_flags_offset;       // struct-relative offset of SaveBlock1.flags
     uint32_t save_block1_badges_offset;      // struct-relative offset of SaveBlock1 badge byte (flags[272])
 
@@ -187,6 +218,28 @@ typedef struct {
     uint32_t battle_outcome_offset;          // EWRAM-relative gBattleOutcome, 0 = unavailable
     uint32_t battler_positions_offset;       // EWRAM-relative gBattlerPositions, 0 = unavailable
     uint32_t absent_battler_flags_offset;    // EWRAM-relative gAbsentBattlerFlags, 0 = unavailable
+    // Gap C4e battle-global live state. `gFieldStatuses` is a battle-global word (Ion Deluge is
+    // one bit); `gBattleStruct` is a pointer to the heap-allocated battle struct, read afresh on
+    // every observation. 0 means "this layout does not declare the symbol" and the corresponding
+    // class is then reported unobserved rather than guessed.
+    uint32_t field_statuses_offset;          // EWRAM-relative gFieldStatuses, 0 = unavailable
+    uint32_t field_status_ion_deluge_mask;   // pinned STATUS_FIELD_ION_DELUGE bit
+    // Gap C4e correction: the live Ready path must not read an unobserved weather word or
+    // defender-side status word as "neutral". `gBattleWeather` is the battle-global u16 weather
+    // flags word; `gSideStatuses[NUM_BATTLE_SIDES]` holds the per-side status words (Reflect /
+    // Light Screen). Both are EWRAM globals (like gFieldStatuses), 0 means "this layout does not
+    // declare the symbol" and the corresponding class is reported unobserved rather than guessed.
+    uint32_t battle_weather_offset;          // EWRAM-relative gBattleWeather, 0 = unavailable
+    uint32_t side_statuses_offset;           // EWRAM-relative gSideStatuses[], 0 = unavailable
+    uint32_t side_statuses_stride;           // bytes per side in gSideStatuses[]
+    uint32_t side_status_reflect_mask;       // pinned SIDE_STATUS_REFLECT bit
+    uint32_t side_status_light_screen_mask;  // pinned SIDE_STATUS_LIGHTSCREEN bit
+    uint32_t battle_struct_ptr_offset;       // EWRAM-relative gBattleStruct pointer, 0 = unavailable
+    uint32_t battle_struct_gimmick_offset;   // struct BattleStruct-relative gimmick offset
+    uint32_t battle_gimmick_active_offset;   // struct BattleGimmickData-relative activeGimmick
+    uint32_t battle_gimmick_side_stride;     // activeGimmick bytes per side (PARTY_SIZE)
+    uint32_t battle_gimmick_party_count;     // PARTY_SIZE
+    uint32_t battle_gimmick_count;           // GIMMICKS_COUNT domain bound
 
     // Battle lifecycle gate. `gMain.inBattle` is the upstream flag the battle engine itself sets
     // on entering a battle and clears when returning to the overworld, so it distinguishes
@@ -720,6 +773,43 @@ typedef struct {
     bool     absent_flags_readable; // true when gAbsentBattlerFlags was actually read; false for both 'none absent' and 'unreadable'
     uint8_t  battlers_count;        // gBattlersCount (0 when not readable)
     bool     battlers_count_readable; // true when gBattlersCount was actually read
+
+    // Gap C4e live damage operands.
+    bool     hp_observed;          // hp and max_hp were decoded from live memory
+    uint16_t hp;                   // engine's current HP (gBattleMons[battler].hp)
+    uint16_t max_hp;               // engine's current max HP (gBattleMons[battler].maxHP)
+    bool     status_observed;      // status1 was decoded from live memory
+    uint32_t status1;              // engine's current status word (0 = no status)
+    bool     volatiles_observed;   // the damage-relevant volatile bits were decoded
+    bool     volatile_electrified; // VOLATILE_ELECTRIFIED (Electrify: forces the move Electric)
+    bool     volatile_glaive_rush; // VOLATILE_GLAIVE_RUSH (defender takes x2 from any incoming move)
+    bool     volatile_minimize;    // VOLATILE_MINIMIZE (only relevant to flagged moves; recorded)
+    uint8_t  volatile_semi_invulnerable; // enum SemiInvulnerableState (only relevant to flagged moves)
+    uint8_t  volatile_charge_timer; // VOLATILE_CHARGE_TIMER raw value (0 = not charging)
+    bool     volatile_tar_shot;     // VOLATILE_TAR_SHOT (defender takes x2 from Fire moves)
+    // Gap C4e correction (review round 4): persistent volatiles read by the pinned damage
+    // path on ordinary EFFECT_HIT moves. All are decoded from the same generated volatile
+    // window, so [volatiles_observed] gates them all; an observed `false` is authoritative.
+    bool     volatile_foresight;    // VOLATILE_FORESIGHT (Normal/Fighting bypasses Ghost immunity)
+    bool     volatile_miracle_eye;  // VOLATILE_MIRACLE_EYE (Psychic bypasses Dark immunity)
+    bool     volatile_root;         // VOLATILE_ROOT (Ingrain grounds the holder)
+    bool     volatile_smack_down;   // VOLATILE_SMACK_DOWN (grounds the holder)
+    bool     volatile_telekinesis;  // VOLATILE_TELEKINESIS (ungrounds the holder)
+    bool     volatile_magnet_rise;  // VOLATILE_MAGNET_RISE (ungrounds the holder)
+    bool     volatile_gastro_acid;  // VOLATILE_GASTRO_ACID (suppresses the effective ability)
+    bool     volatile_roost_active; // VOLATILE_ROOST_ACTIVE (GetBattlerTypes drops Flying)
+    bool     volatile_substitute;   // VOLATILE_SUBSTITUTE (GetAdjustedDamage redirects the hit)
+    bool     volatile_endured;      // VOLATILE_ENDURED (GetAdjustedDamage caps damage at HP-1)
+    bool     gimmick_observed;     // gBattleStruct->gimmick.activeGimmick was decoded
+    uint8_t  active_gimmick;       // enum Gimmick for this battler's party slot
+    bool     field_statuses_readable; // gFieldStatuses was actually read
+    uint32_t field_statuses;       // battle-global status word (Ion Deluge and terrain bits)
+
+    // Gap C4e correction: live field conditions the ordinary Ready path depends on.
+    bool     weather_readable;     // gBattleWeather was actually read (0 is an observed clear)
+    uint16_t battle_weather;       // engine's current weather flags word (0 = clear)
+    bool     side_statuses_readable; // the observed battler's gSideStatuses[side] was read
+    uint32_t side_statuses;        // engine's current status word for the observed battler's side
 } BattlerRuntimeState;
 
 /**

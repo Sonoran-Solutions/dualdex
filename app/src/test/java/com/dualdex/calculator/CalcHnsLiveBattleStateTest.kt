@@ -441,7 +441,9 @@ class CalcHnsLiveBattleStateTest {
                 attackerBattleStatWordsObserved = true,
                 defenderBattleStatWordsObserved = true,
                 dynamicMoveTypeObserved = true,
-                transientStateObserved = true
+                transientStateObserved = true,
+                attackerPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true),
+                defenderPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true)
             )
         )
         val verdict = CalcCapabilityPolicy.evaluate(profile, trust, enriched)
@@ -536,6 +538,8 @@ class CalcHnsLiveBattleStateTest {
                 defenderBattleStatWordsObserved = true,
                 dynamicMoveTypeObserved = true,
                 transientStateObserved = true,
+                attackerPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true),
+                defenderPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true),
                 moveTargetCount = 2,
                 attackerBadgeBoosts = CalcBadgeBoosts(atk = true),
                 attackerStatStages = listOf(0, 6, 6, 6, 6, 6, 6, 6),
@@ -568,6 +572,8 @@ class CalcHnsLiveBattleStateTest {
                 defenderBattleStatWordsObserved = true,
                 dynamicMoveTypeObserved = true,
                 transientStateObserved = true,
+                attackerPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true),
+                defenderPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true),
                 moveTargetCount = 1,
                 attackerBadgeBoosts = CalcBadgeBoosts(atk = true),
                 attackerStatStages = listOf(0, 6, 6, 6, 6, 6, 6, 6),

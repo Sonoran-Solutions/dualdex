@@ -446,7 +446,7 @@ class CalcCapabilityPolicyTest {
                 refused.verdict.limitations.contains(limitation)
             )
         }
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.BUILDS_NOT_HASH_VERIFIED))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.ROM_NOT_EXACT_VERIFIED))
     }
 
     @Test
@@ -1226,6 +1226,27 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED,
                 CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
                 CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED,
+                CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
+                CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED,
+                CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED,
+                CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED,
+                CalcLimitation.HNS_CHARGE_ACTIVE_NOT_MODELLED,
+                CalcLimitation.HNS_TAR_SHOT_ACTIVE_NOT_MODELLED,
+                CalcLimitation.HNS_FORESIGHT_ACTIVE_NOT_MODELLED,
+                CalcLimitation.HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED,
+                CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED,
+                CalcLimitation.HNS_ROOST_ACTIVE_NOT_MODELLED,
+                CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED,
+                CalcLimitation.HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED,
+                CalcLimitation.HNS_ENDURED_ACTIVE_NOT_MODELLED,
+                CalcLimitation.HNS_GIMMICK_STATE_UNREADABLE,
+                CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED,
+                CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED,
+                CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED,
+                CalcLimitation.HNS_LIVE_WEATHER_UNKNOWN,
+                CalcLimitation.HNS_LIVE_WEATHER_NOT_MODELLED,
+                CalcLimitation.HNS_LIVE_SCREENS_UNKNOWN,
+                CalcLimitation.HNS_LIVE_SIDE_STATUS_NOT_MODELLED,
                 CalcLimitation.HNS_BASE_STAT_EQUALIZER_NOT_MODELLED,
                 CalcLimitation.HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED,
                 CalcLimitation.BADGE_BOOST_NOT_MODELLED,
@@ -1267,7 +1288,10 @@ class CalcCapabilityPolicyTest {
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "None"))
         assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Thick Fat"))
         assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Guts"))
-        assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Overgrow"))
+        // Gap C4e: the pinch abilities are conditionally modelled (their live HP condition is
+        // enforced by the policy before a request may proceed).
+        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Overgrow"))
+        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Torrent"))
         assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Adaptability"))
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.VANILLA_GEN3, "Thick Fat"))
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.VANILLA_GEN3, "thick fat"))

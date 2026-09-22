@@ -25,7 +25,10 @@ import subprocess
 import tempfile
 import unittest
 
+import re
+
 import hns_route
+from hns_route import BehaviourSource, Source
 
 # The pinned SHA cannot be synthesised offline (that is the point of a commit hash), so the tests
 # patch the module constant to a SHA this process CAN create and assert the same contract against
@@ -172,6 +175,176 @@ class ProvenanceTest(unittest.TestCase):
     def test_accepts_the_pinned_commit_with_clean_sources(self):
         pinned = self.setUpPinnedRepo()
         self.assertEqual(pinned, hns_route.verify_provenance(self.repo))
+
+
+class BehaviourModelTest(unittest.TestCase):
+    """The metatile/activation model must match the pinned engine, not a plausible reading of it.
+
+    This class exists because an earlier revision of this analyzer split primary and secondary
+    metatiles at 512. H&S layouts use 640, so every tile in the 512..639 range resolved to the wrong
+    tileset and a real `MB_SOUTH_ARROW_WARP` was read as ordinary floor -- which silently inverted a
+    cross-region reachability conclusion. These tests read the same constants out of the pinned
+    checkout the analyzer reads, so the two cannot drift.
+
+    They need the pinned checkout and are therefore skipped without one; `source-check` always has
+    it, and CI's source-validation job runs that gate.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        # Prefer an explicitly configured checkout, then the tool's own search paths.
+        candidates = [os.environ.get("HNS_UPSTREAM_DIR")] + list(hns_route.UPSTREAM_SEARCH_PATHS)
+        for candidate in candidates:
+            if candidate and os.path.isfile(
+                os.path.join(candidate, "include/fieldmap.h")
+            ):
+                cls.root = candidate
+                return
+        raise unittest.SkipTest("no pinned upstream checkout available")
+
+    def header(self, relative):
+        with open(os.path.join(self.root, relative), encoding="utf-8") as handle:
+            return handle.read()
+
+    def function_body(self, source, signature):
+        """Text of a C function DEFINITION, by brace matching.
+
+        The signature must include the parameter list: matching a bare name would find the forward
+        declaration at the top of the file, whose "body" is a semicolon and the declarations after it.
+        """
+        start = source.index(signature)
+        open_brace = source.index("{", start)
+        depth = 0
+        for index in range(open_brace, len(source)):
+            if source[index] == "{":
+                depth += 1
+            elif source[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    return source[start:index + 1]
+        raise AssertionError("unbalanced braces after %s" % signature)
+
+    def test_primary_boundary_matches_the_pinned_header(self):
+        header = self.header("include/fieldmap.h")
+        match = re.search(r"^#define NUM_METATILES_IN_PRIMARY (\d+)$", header, re.M)
+        self.assertIsNotNone(match, "NUM_METATILES_IN_PRIMARY must be defined in include/fieldmap.h")
+        self.assertEqual(
+            int(match.group(1)),
+            hns_route.NUM_METATILES_IN_PRIMARY,
+            "the analyzer must split primary/secondary metatiles where the pinned build does",
+        )
+
+    def test_the_boundary_is_the_one_hns_layouts_use(self):
+        # `GetNumMetatilesInPrimary` returns NUM_METATILES_IN_PRIMARY for LAYOUT_VERSION_HNS and
+        # LAYOUT_VERSION_FRLG, and the Emerald constant only as the default arm.
+        source = self.header("src/fieldmap.c")
+        body = source[source.index("u32 GetNumMetatilesInPrimary("):]
+        body = body[:body.index("\n}")]
+        self.assertIn("case LAYOUT_VERSION_HNS:", body)
+        self.assertIn("return NUM_METATILES_IN_PRIMARY;", body)
+        self.assertEqual(640, hns_route.NUM_METATILES_IN_PRIMARY)
+
+    def test_behaviour_enum_anchors_resolve(self):
+        source = BehaviourSource(self.root)
+        self.assertEqual(0, source.values.get("MB_NORMAL"))
+        self.assertEqual(2, source.values.get("MB_TALL_GRASS"))
+        # MB_NORMAL is the zero-fill of every attribute array, so it must be part of no warp path.
+        self.assertFalse(source.is_warp_behaviour(source.values["MB_NORMAL"]))
+        self.assertFalse(source.is_arrow_behaviour(source.values["MB_NORMAL"]))
+        self.assertFalse(source.is_door_behaviour(source.values["MB_NORMAL"]))
+
+    def test_warp_behaviour_sets_are_derived_from_the_pinned_predicates(self):
+        """The analyzer's sets must equal what the pinned predicates actually accept.
+
+        This is the test that would have caught the hardcoded-list bug: the first list in this
+        analyzer was transcribed from the predicate helper NAMES, and `MetatileBehavior_IsNonAnimDoor`
+        also accepts `MB_DEEP_SOUTH_WARP` while `MetatileBehavior_IsUnionRoomWarp` actually tests
+        `MB_BRIDGE_OVER_OCEAN`. Deriving the sets from the source removes the transcription step, and
+        this asserts the derivation agrees with an independent read of the same predicates.
+        """
+        behaviours_source = self.header("src/metatile_behavior.c")
+        controller = self.header("src/field_control_avatar.c")
+        behaviours = BehaviourSource(self.root)
+
+        def accepted(gate_signature):
+            found = set()
+            body = self.function_body(controller, gate_signature)
+            helpers = re.findall(r"MetatileBehavior_Is(\w+)\(", body)
+            self.assertTrue(helpers, "%s must call behaviour predicates" % gate_signature)
+            for helper in helpers:
+                found.update(
+                    re.findall(
+                        r"==\s*(MB_[A-Z0-9_]+)",
+                        self.function_body(
+                            behaviours_source, "MetatileBehavior_Is%s(u8 metatileBehavior)" % helper
+                        ),
+                    )
+                )
+            return found
+
+        step = accepted("static bool8 IsWarpMetatileBehavior(u16 metatileBehavior)")
+        arrow = accepted(
+            "static bool8 IsArrowWarpMetatileBehavior(u16 metatileBehavior, "
+            "enum Direction direction)"
+        )
+        door = set(re.findall(
+            r"==\s*(MB_[A-Z0-9_]+)",
+            self.function_body(behaviours_source, "MetatileBehavior_IsWarpDoor(u8 metatileBehavior)"),
+        ))
+
+        self.assertEqual(step, set(behaviours.paths["step"]))
+        self.assertEqual(arrow, set(behaviours.paths["arrow"]))
+        self.assertEqual(door, set(behaviours.paths["door"]))
+        # Spot-check the two entries a name-based transcription gets wrong.
+        self.assertIn("MB_DEEP_SOUTH_WARP", behaviours.paths["step"])
+        self.assertIn("MB_BRIDGE_OVER_OCEAN", behaviours.paths["step"])
+        # And MB_NORMAL must be in none of them, since it is the zero-fill of every attribute array.
+        for path in ("step", "arrow", "door"):
+            self.assertNotIn("MB_NORMAL", behaviours.paths[path])
+
+    def test_step_on_warps_require_the_warp_predicate_not_just_a_warp_def(self):
+        """A warp_def on ordinary floor must not be reported reachable.
+
+        `TryStartWarpEventScript` is the step-on path and it checks `IsWarpMetatileBehavior` before
+        `DoWarp`. This asserts the analyzer honours that, using the pinned predicate set rather than
+        the analyzer's own view of it.
+        """
+        source = Source(self.root)
+        behaviours = source.behaviours
+        # Cinnabar (surfable deep water) and Fuchsia (ordinary floor, unwalkable) both declare a
+        # warp_def and neither tile satisfies any warp predicate.
+        for name, x, y in (("CinnabarIsland_hns", 41, 1), ("FuchsiaCity_hns", 19, 30)):
+            activation = source.warp_activation(name, x, y)
+            self.assertIsNotNone(activation)
+            self.assertTrue(activation["warp_event_present"], "%s must declare a warp" % name)
+            self.assertFalse(activation["reachable"], "%s must not be reachable" % name)
+            self.assertNotIn(activation["behaviour"], behaviours.paths["step"])
+            self.assertNotIn(activation["behaviour"], behaviours.paths["arrow"])
+            self.assertNotIn(activation["behaviour"], behaviours.paths["door"])
+
+    def test_the_real_cross_region_tiles_classify_as_the_engine_requires(self):
+        """The four cross-region transitions this build actually has, checked tile by tile.
+
+        If the boundary or the predicate set regresses, at least one of these flips, so a wrong
+        model cannot quietly reproduce the same committed inventory.
+        """
+        source = Source(self.root)
+        expected = {
+            ("ReceptionGate_hns", 20, 9): ("MB_SOUTH_ARROW_WARP", "arrow", True),
+            ("Route22_hns", 12, 9): ("MB_ANIMATED_DOOR", "step", True),
+            ("MtSilver_1F_WaterfallRoom_hns", 43, 7): ("MB_NON_ANIMATED_DOOR", "step", True),
+            ("SnowsweptCavern_hns", 50, 68): ("MB_SOUTH_ARROW_WARP", "arrow", True),
+            ("CinnabarIsland_hns", 41, 1): ("MB_OCEAN_WATER", None, False),
+            ("FuchsiaCity_hns", 19, 30): ("MB_NORMAL", None, False),
+        }
+        for (name, x, y), (behaviour, path, reachable) in expected.items():
+            with self.subTest(map=name, tile=(x, y)):
+                activation = source.warp_activation(name, x, y)
+                self.assertIsNotNone(activation, "behaviour must resolve")
+                self.assertEqual(behaviour, activation["behaviour"])
+                self.assertEqual(reachable, activation["reachable"])
+                if path is not None:
+                    self.assertEqual(path, activation["path"])
 
 
 class MetaTest(unittest.TestCase):

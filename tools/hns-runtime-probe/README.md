@@ -327,10 +327,23 @@ python3 tools/hns-map-data/hns_route.py inventory --check \
 python3 -m unittest discover -s tools/hns-map-data -p 'test_hns_route.py' -t tools/hns-map-data
 ```
 
-What the analyzer will **not** claim: whether a warp on an ordinary-floor metatile fires (1719 of
-this build's 3608 warp tiles are in that position), or whether a script `warp` command is reachable.
-Those are reported as `undecided_from_map_data` and as candidates respectively, and their verdicts
-live in the manual half.
+**The warp-activation model.** A `warp_def` in map data is not by itself an executable transition.
+`src/field_control_avatar.c` reaches a warp through three field-input paths, each needing a metatile
+behaviour: `TryArrowWarp` (standing on the tile, holding the direction, `IsArrowWarpMetatileBehavior`),
+`TryDoorWarp` (facing north into a warp-door tile) and `TryStartWarpEventScript` (stepping onto a tile
+where `IsWarpMetatileBehavior` is TRUE). A `warp_def` on a tile with none of those is an **inert
+anchor** — typically the destination half of a scripted `warp`, which calls `DoWarp` directly.
+
+The analyzer derives the behaviour sets for those three paths from the pinned predicates at runtime
+rather than transcribing them, because the helper names disagree with the constants they test
+(`MetatileBehavior_IsNonAnimDoor` also accepts `MB_DEEP_SOUTH_WARP`;
+`MetatileBehavior_IsUnionRoomWarp` tests `MB_BRIDGE_OVER_OCEAN`). It also splits primary from
+secondary metatiles at **640**, which is what `GetNumMetatilesInPrimary` returns for H&S layouts —
+512 mis-resolves every tile in the 512..639 range.
+
+What the analyzer will **not** claim: whether a script `warp` command is reachable. That needs the
+script call graph, so those are reported as candidates with file and line and their verdicts live in
+the manual half.
 
 ## Route planning for runtime scenarios
 

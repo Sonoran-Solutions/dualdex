@@ -285,6 +285,72 @@
       "functional_edges": [
         {
           "kind": "warp",
+          "from_map": "ReceptionGate_hns",
+          "from_group_num": [
+            22,
+            22
+          ],
+          "from_region": "JOHTO",
+          "from_section": "MAPSEC_VICTORY_ROAD_HNS",
+          "to_map": "Route22_hns",
+          "to_group_num": [
+            0,
+            62
+          ],
+          "to_region": "KANTO",
+          "to_section": "MAPSEC_ROUTE_22",
+          "at": [
+            20,
+            9
+          ],
+          "behaviour": "MB_SOUTH_ARROW_WARP",
+          "activation_path": "arrow",
+          "tile_walkable": true,
+          "warp_event_present": true,
+          "engine_predicate": "TryArrowWarp (src/field_control_avatar.c) -- player standing on the tile, holding the facing direction, IsArrowWarpMetatileBehavior(tile) is TRUE",
+          "gate": [
+            "requires != VAR_RESULT FALSE",
+            "requires == VAR_ROUTE22_GIOVANNI_STATE 0"
+          ],
+          "from_gate": [
+            "requires >= VAR_ECRUTEAK_CITY_THEATER 8",
+            "requires unset FLAG_BADGE08_GET ReceptionGate_EventScript_NotEnough"
+          ]
+        },
+        {
+          "kind": "warp",
+          "from_map": "MtSilver_1F_WaterfallRoom_hns",
+          "from_group_num": [
+            24,
+            73
+          ],
+          "from_region": "JOHTO",
+          "from_section": "MAPSEC_MT_SILVER",
+          "to_map": "SnowsweptCavern_hns",
+          "to_group_num": [
+            28,
+            0
+          ],
+          "to_region": "SINJOH",
+          "to_section": "MAPSEC_SNOWSWEPT_CAVERN",
+          "at": [
+            43,
+            7
+          ],
+          "behaviour": "MB_NON_ANIMATED_DOOR",
+          "activation_path": "step",
+          "tile_walkable": true,
+          "warp_event_present": true,
+          "engine_predicate": "TryStartWarpEventScript (src/field_control_avatar.c) -- player steps onto the tile and IsWarpMetatileBehavior(tile) is TRUE",
+          "gate": [
+            "requires != VAR_RESULT B_OUTCOME_RAN",
+            "requires != VAR_RESULT FALSE",
+            "requires < VAR_SINJOH_STORYLINE 3"
+          ],
+          "from_gate": []
+        },
+        {
+          "kind": "warp",
           "from_map": "Route22_hns",
           "from_group_num": [
             0,
@@ -304,6 +370,10 @@
             9
           ],
           "behaviour": "MB_ANIMATED_DOOR",
+          "activation_path": "step",
+          "tile_walkable": false,
+          "warp_event_present": true,
+          "engine_predicate": "TryStartWarpEventScript (src/field_control_avatar.c) -- player steps onto the tile and IsWarpMetatileBehavior(tile) is TRUE",
           "gate": [
             "requires >= VAR_ECRUTEAK_CITY_THEATER 8",
             "requires unset FLAG_BADGE08_GET ReceptionGate_EventScript_NotEnough"
@@ -312,38 +382,41 @@
             "requires != VAR_RESULT FALSE",
             "requires == VAR_ROUTE22_GIOVANNI_STATE 0"
           ]
+        },
+        {
+          "kind": "warp",
+          "from_map": "SnowsweptCavern_hns",
+          "from_group_num": [
+            28,
+            0
+          ],
+          "from_region": "SINJOH",
+          "from_section": "MAPSEC_SNOWSWEPT_CAVERN",
+          "to_map": "MtSilver_1F_WaterfallRoom_hns",
+          "to_group_num": [
+            24,
+            73
+          ],
+          "to_region": "JOHTO",
+          "to_section": "MAPSEC_MT_SILVER",
+          "at": [
+            50,
+            68
+          ],
+          "behaviour": "MB_SOUTH_ARROW_WARP",
+          "activation_path": "arrow",
+          "tile_walkable": true,
+          "warp_event_present": true,
+          "engine_predicate": "TryArrowWarp (src/field_control_avatar.c) -- player standing on the tile, holding the facing direction, IsArrowWarpMetatileBehavior(tile) is TRUE",
+          "gate": [],
+          "from_gate": [
+            "requires != VAR_RESULT B_OUTCOME_RAN",
+            "requires != VAR_RESULT FALSE",
+            "requires < VAR_SINJOH_STORYLINE 3"
+          ]
         }
       ],
       "undecided_from_map_data": [
-        {
-          "from_map": "ReceptionGate_hns",
-          "from_group_num": [
-            22,
-            22
-          ],
-          "from_region": "JOHTO",
-          "from_section": "MAPSEC_VICTORY_ROAD_HNS",
-          "to_map": "Route22_hns",
-          "to_group_num": [
-            0,
-            62
-          ],
-          "to_region": "KANTO",
-          "to_section": "MAPSEC_ROUTE_22",
-          "at": [
-            20,
-            9
-          ],
-          "reason_class": "unproven warp (trigger metatile carries MB_NORMAL, which is not one of the engine's metatile warp behaviours; a step-on warp is decided by engine code, not by map data)",
-          "reason": "unproven warp (trigger metatile carries MB_NORMAL, which is not one of the engine's metatile warp behaviours; a step-on warp is decided by engine code, not by map data)",
-          "trigger_behaviour": "MB_NORMAL",
-          "trigger_tile_walkable": true,
-          "arrival_tile": [
-            12,
-            9
-          ],
-          "arrival_tile_walkable": false
-        },
         {
           "from_map": "Route26North_hns",
           "from_group_num": [
@@ -389,35 +462,6 @@
           "reason": "dead down connection (empty crossing window)"
         },
         {
-          "from_map": "MtSilver_1F_WaterfallRoom_hns",
-          "from_group_num": [
-            24,
-            73
-          ],
-          "from_region": "JOHTO",
-          "from_section": "MAPSEC_MT_SILVER",
-          "to_map": "SnowsweptCavern_hns",
-          "to_group_num": [
-            28,
-            0
-          ],
-          "to_region": "SINJOH",
-          "to_section": "MAPSEC_SNOWSWEPT_CAVERN",
-          "at": [
-            43,
-            7
-          ],
-          "reason_class": "unproven warp (trigger metatile carries MB_NORMAL, which is not one of the engine's metatile warp behaviours; a step-on warp is decided by engine code, not by map data)",
-          "reason": "unproven warp (trigger metatile carries MB_NORMAL, which is not one of the engine's metatile warp behaviours; a step-on warp is decided by engine code, not by map data)",
-          "trigger_behaviour": "MB_NORMAL",
-          "trigger_tile_walkable": true,
-          "arrival_tile": [
-            50,
-            68
-          ],
-          "arrival_tile_walkable": true
-        },
-        {
           "from_map": "CinnabarIsland_hns",
           "from_group_num": [
             0,
@@ -436,10 +480,11 @@
             41,
             1
           ],
-          "reason_class": "unproven warp (trigger metatile carries MB_OCEAN_WATER, which is not one of the engine's metatile warp behaviours; a step-on warp is decided by engine code, not by map data)",
-          "reason": "unproven warp (trigger metatile carries MB_OCEAN_WATER, which is not one of the engine's metatile warp behaviours; a step-on warp is decided by engine code, not by map data)",
+          "reason_class": "dead warp (MB_OCEAN_WATER is neither IsWarpMetatileBehavior, IsArrowWarpMetatileBehavior nor a warp door, so no field-input warp predicate fires here; a warp_def on this tile is an inert anchor (its destination is normally reached by a scripted warp instead))",
+          "reason": "no field-input warp predicate fires here. src/field_control_avatar.c reaches a warp through TryArrowWarp (player on the tile, holding the direction, IsArrowWarpMetatileBehavior), TryDoorWarp (facing north into a warp-door tile) or TryStartWarpEventScript (stepping onto a tile where IsWarpMetatileBehavior is TRUE), and this tile's metatile satisfies none of them, so its warp_def is an inert anchor: the destination is normally reached by a scripted `warp`, which calls DoWarp without consulting a metatile behaviour",
           "trigger_behaviour": "MB_OCEAN_WATER",
           "trigger_tile_walkable": true,
+          "warp_event_present": true,
           "arrival_tile": [
             10,
             9
@@ -465,10 +510,11 @@
             19,
             30
           ],
-          "reason_class": "unproven warp (trigger metatile carries MB_NORMAL, which is not one of the engine's metatile warp behaviours; a step-on warp is decided by engine code, not by map data)",
-          "reason": "unproven warp (trigger metatile carries MB_NORMAL, which is not one of the engine's metatile warp behaviours; a step-on warp is decided by engine code, not by map data)",
+          "reason_class": "dead warp (MB_NORMAL is neither IsWarpMetatileBehavior, IsArrowWarpMetatileBehavior nor a warp door, so no field-input warp predicate fires here; a warp_def on this tile is an inert anchor (its destination is normally reached by a scripted warp instead))",
+          "reason": "no field-input warp predicate fires here. src/field_control_avatar.c reaches a warp through TryArrowWarp (player on the tile, holding the direction, IsArrowWarpMetatileBehavior), TryDoorWarp (facing north into a warp-door tile) or TryStartWarpEventScript (stepping onto a tile where IsWarpMetatileBehavior is TRUE), and this tile's metatile satisfies none of them, so its warp_def is an inert anchor: the destination is normally reached by a scripted `warp`, which calls DoWarp without consulting a metatile behaviour",
           "trigger_behaviour": "MB_NORMAL",
           "trigger_tile_walkable": false,
+          "warp_event_present": true,
           "arrival_tile": [
             10,
             9
@@ -496,35 +542,6 @@
           ],
           "reason_class": "dead left connection (empty crossing window)",
           "reason": "dead left connection (empty crossing window)"
-        },
-        {
-          "from_map": "SnowsweptCavern_hns",
-          "from_group_num": [
-            28,
-            0
-          ],
-          "from_region": "SINJOH",
-          "from_section": "MAPSEC_SNOWSWEPT_CAVERN",
-          "to_map": "MtSilver_1F_WaterfallRoom_hns",
-          "to_group_num": [
-            24,
-            73
-          ],
-          "to_region": "JOHTO",
-          "to_section": "MAPSEC_MT_SILVER",
-          "at": [
-            50,
-            68
-          ],
-          "reason_class": "unproven warp (trigger metatile carries MB_NORMAL, which is not one of the engine's metatile warp behaviours; a step-on warp is decided by engine code, not by map data)",
-          "reason": "unproven warp (trigger metatile carries MB_NORMAL, which is not one of the engine's metatile warp behaviours; a step-on warp is decided by engine code, not by map data)",
-          "trigger_behaviour": "MB_NORMAL",
-          "trigger_tile_walkable": true,
-          "arrival_tile": [
-            43,
-            7
-          ],
-          "arrival_tile_walkable": true
         }
       ],
       "script_warp_candidates": [
@@ -657,7 +674,18 @@
       ],
       "script_warp_candidate_count": 14,
       "any_edge_runtime_verified": false,
-      "check_runs_in": "./ci.sh source-check step 1b, against the pinned checkout it already exports"
+      "check_runs_in": "./ci.sh source-check step 1b, against the pinned checkout it already exports",
+      "warp_activation_model": {
+        "source": "src/field_control_avatar.c, the three field-input warp paths",
+        "paths": {
+          "arrow": "TryArrowWarp (line 972): the player STANDS on the tile, holds the facing direction, and its metatile satisfies IsArrowWarpMetatileBehavior for that direction. An arrow warp event on ordinary floor never fires.",
+          "door": "TryDoorWarp (line 1139): the player faces north and the tile IN FRONT carries a warp-door metatile (MB_ANIMATED_DOOR / MB_NON_ANIMATED_DOOR) with a warp event on that front tile.",
+          "step": "TryStartWarpEventScript (line 1002): the player STEPS ONTO the tile and its metatile satisfies IsWarpMetatileBehavior."
+        },
+        "common_requirement": "all three also need GetWarpEventAtPosition to match, i.e. the warp event's elevation equals the tile's or is ELEVATION_TRANSITION (0)",
+        "primary_boundary": "NUM_METATILES_IN_PRIMARY is 640 for LAYOUT_VERSION_FRLG and LAYOUT_VERSION_HNS (include/fieldmap.h, src/fieldmap.c:GetNumMetatilesInPrimary); only Emerald layouts use 512. Decoding the H&S layouts with 512 mis-resolves every tile in the 512..639 range, which is how an earlier revision of this record mis-read a real arrow warp as ordinary floor.",
+        "inert_anchors": "a warp_def on a tile with none of those behaviours is an inert anchor: many entries in this build exist only as the destination half of a scripted `warp`, and the scripted form calls DoWarp directly without consulting a metatile behaviour."
+      }
     },
     "manual_engine_source_verified": {
       "note": "MANUALLY ENGINE-SOURCE-VERIFIED. This half is NOT produced by hns_route.py and is not claimed to be. It decides the edges the analyzer reports as undecided from map data, and it records the script-command transitions an analyzer without a call graph cannot resolve. Every verdict carries the exact source that supports it. It is machine-checked in two ways: `hns_route.py inventory --check` fails if any undecided edge has no verdict here or if a verdict contradicts the tool-derived half, and `HnsLocationRuntimeEvidenceTest` asserts the same partition from the Kotlin suite.",
@@ -667,34 +695,23 @@
           "to_map": "Route22_hns",
           "verdict": "functional",
           "edge_id": "W1",
+          "activation_path": "arrow",
           "evidence": [
-            "data/maps/ReceptionGate_hns/events.inc:18 -- `warp_def 20, 9, 0, 0, MAP_ROUTE22_HNS` names Route 22 and depth 0, so it is a warp event and not a placeholder",
-            "data/maps/ReceptionGate_hns/scripts.inc:34-49 -- `ReceptionGate_Trigger` is the coord event at (11,14); it checks VAR_ECRUTEAK_CITY_THEATER >= 8 and FLAG_BADGE08_GET and pushes the player back with Common_Movement_WalkDown1 on either failure",
-            "data/maps/ReceptionGate_hns/events.inc:21 -- the trigger is a coord_event at (11,14), which is the only tile connecting the arrival corridor to (20,9)",
-            "hns_route.py records the trigger tile's metatile as MB_NORMAL. 1719 of the build's 3608 warp tiles sit on MB_NORMAL floor, so this is the normal shape for a step-on warp and does not make the edge dead"
+            "data/maps/ReceptionGate_hns/events.inc:18 -- `warp_def 20, 9, 0, 0, MAP_ROUTE22_HNS`: a real warp event naming Route 22",
+            "the tile (20,9) carries MB_SOUTH_ARROW_WARP, decoded from data/tilesets/secondary/pokemon_center_white_hns/metatile_attributes.bin through include/global.fieldmap.h (METATILE_ATTR_BEHAVIOR_MASK 0x00FF). TryArrowWarp therefore fires when the player stands there and holds south",
+            "tile is walkable (collision 0) and its elevation matches the warp event",
+            "data/maps/ReceptionGate_hns/scripts.inc:34-49 -- ReceptionGate_Trigger is the coord event at (11,14) and checks VAR_ECRUTEAK_CITY_THEATER >= 8 plus FLAG_BADGE08_GET, pushing the player back with Common_Movement_WalkDown1 on either failure; (11,14) is a cut vertex joining the arrival corridor to (20,9)"
           ]
         },
         {
-          "from_map": "CinnabarIsland_hns",
-          "to_map": "NewBarkTown_hns",
+          "from_map": "Route22_hns",
+          "to_map": "ReceptionGate_hns",
           "verdict": "functional",
-          "edge_id": "W5",
+          "edge_id": "W2",
+          "activation_path": "step",
           "evidence": [
-            "data/maps/CinnabarIsland_hns/events.inc:22 -- canonical warp_def for the Kanto -> Johto whiteout/teleport destination; its coordinate is the one this hardcoded accessor returns, so the warp event and the destination agree",
-            "the trigger tile (41,1) carries MB_OCEAN_WATER with collision 0, so the player can be standing on it while surfing, and the arrival tile (20,12) in New Bark Town has collision 0 with elevation 3",
-            "hns_route.py reports it as undecided because the trigger metatile is not a metatile warp behaviour; that is a limit of the analyzer, not evidence against the warp",
-            "behaviour confirmed independently by decoding data/tilesets/primary/general/metatile_attributes.bin through include/global.fieldmap.h's METATILE_ATTR_BEHAVIOR_MASK"
-          ]
-        },
-        {
-          "from_map": "FuchsiaCity_hns",
-          "to_map": "NewBarkTown_hns",
-          "verdict": "functional",
-          "edge_id": "W6",
-          "evidence": [
-            "data/maps/FuchsiaCity_hns/events.inc:33 -- canonical warp_def for the Kanto -> Johto whiteout/teleport destination, the same shape as Cinnabar",
-            "the trigger tile (19,30) carries MB_NORMAL with collision 1, so the engine fires it as a door warp from the tile in front (src/field_control_avatar.c:1134-1159 TryDoorWarp tests the metatile AHEAD of the player). hns_route.py cannot see that because the approach is not part of the warp_def",
-            "arrival tile (20,12) in New Bark Town has collision 0"
+            "data/maps/Route22_hns/events.inc:21 -- `warp_def 12, 9, 0, 4, MAP_RECEPTION_GATE_HNS`",
+            "the tile (12,9) carries MB_ANIMATED_DOOR, which satisfies IsWarpMetatileBehavior, so TryStartWarpEventScript fires when the player steps onto it"
           ]
         },
         {
@@ -702,11 +719,11 @@
           "to_map": "SnowsweptCavern_hns",
           "verdict": "functional",
           "edge_id": "W7",
+          "activation_path": "step",
           "evidence": [
-            "data/maps/MtSilver_1F_WaterfallRoom_hns/events.inc:36 -- warp_def at (43,7) to SnowsweptCavern_hns",
-            "the trigger tile (43,7) carries MB_NORMAL and is the ONLY walkable tile in its 3x3 neighbourhood: (42,6),(44,6),(42,7),(44,7) are MB_EAST_ARROW_WARP with collision 1 and (43,6) is impassable, so the warp_def tile is the warp, reached from (43,8) or (44,8) which are walkable MB_NORMAL",
-            "the landing tile SnowsweptCavern_hns (50,68) is walkable, and its own reverse warp (50,68) -> Mt Silver is the same shape",
-            "unreachable in play without the Meara NPC scripted warp; see reachability below"
+            "data/maps/MtSilver_1F_WaterfallRoom_hns/events.inc:36 -- `warp_def 43, 7, 0, 7, MAP_SNOWSWEPT_CAVERN_HNS`",
+            "the tile (43,7) carries MB_NON_ANIMATED_DOOR, which satisfies IsWarpMetatileBehavior",
+            "in play it is entered by an NPC scripted warp, not by walking: data/maps/MtSilver_PokemonCenter_hns/scripts.inc:10-44 has Meara require checkitem ITEM_AZURE_FLUTE and then issue `warp MAP_MT_SILVER_1F_WATERFALL_ROOM_HNS, 43, 9`, landing on (43,9) inside a 9-tile pocket that MB_JUMP_SOUTH ledges make one-way. A scripted warp calls DoWarp directly and ignores the warp_def tile, so the warp_def at (43,7) is the outbound half"
           ]
         },
         {
@@ -714,20 +731,31 @@
           "to_map": "MtSilver_1F_WaterfallRoom_hns",
           "verdict": "functional",
           "edge_id": "W8",
+          "activation_path": "arrow",
           "evidence": [
-            "data/maps/SnowsweptCavern_hns/events.inc:48 -- the reverse warp_def",
-            "trigger tile (50,68) carries MB_NORMAL, walkable, with walkable neighbours; landing tile (43,7) in Mt Silver is walkable"
+            "data/maps/SnowsweptCavern_hns/events.inc:48 -- the reverse `warp_def` at (50,68)",
+            "the tile carries MB_SOUTH_ARROW_WARP, so TryArrowWarp fires from it"
           ]
         },
         {
-          "from_map": "Route22_hns",
-          "to_map": "Route26North_hns",
+          "from_map": "CinnabarIsland_hns",
+          "to_map": "NewBarkTown_hns",
           "verdict": "dead",
-          "edge_id": "C2",
+          "edge_id": "W5",
           "evidence": [
-            "src/fieldmap.c:869-886 IsCoordInIncomingConnectingMap -- the engine's rule is dest = src - offset, and Route22's left connection carries offset +28, which permits only row 28 on a 28-row map (rows 0..27): an empty crossing window",
-            "Route22_hns has no walkable tile in column x=0, and Route26North_hns has none in column x=0 or x=38",
-            "hns_route.py derives the same empty-window result from the pinned data alone"
+            "data/maps/CinnabarIsland_hns/events.inc:22 declares the warp_def, but the trigger tile (41,1) carries MB_OCEAN_WATER: it satisfies none of IsWarpMetatileBehavior, IsArrowWarpMetatileBehavior and the warp-door requirement, so no field-input predicate fires",
+            "surfing is not a warp path in this revision -- TryStartWarpEventScript is reached from TryStartStepBasedScript on `tookStep`, and it still requires IsWarpMetatileBehavior",
+            "the warp_def is an inert anchor; the Kanto -> Johto whiteout destination is normally reached through a scripted warp or a healing spot"
+          ]
+        },
+        {
+          "from_map": "FuchsiaCity_hns",
+          "to_map": "NewBarkTown_hns",
+          "verdict": "dead",
+          "edge_id": "W6",
+          "evidence": [
+            "data/maps/FuchsiaCity_hns/events.inc:33 declares the warp_def at (19,30), but the tile carries MB_NORMAL and so does the tile in front at (19,29): the warp-door path needs the tile the player walks INTO to be MB_ANIMATED_DOOR or MB_NON_ANIMATED_DOOR, and the step-on path needs IsWarpMetatileBehavior",
+            "collision is 1 on the warp tile, so the player cannot stand on it either"
           ]
         },
         {
@@ -736,9 +764,18 @@
           "verdict": "dead",
           "edge_id": "C1",
           "evidence": [
-            "the reciprocal of C2: offset -28 permits only Route26North row 0, which lands at Route22 row 28 on a 28-row map",
-            "only 4 of the build's 219 H&S connections have an empty window, and C1/C2 are two of them",
-            "hns_route.py derives the same result from the pinned data alone"
+            "src/fieldmap.c:869-886 IsCoordInIncomingConnectingMap -- the engine's rule is dest = src - offset and the offset -28 permits only Route26North row 0, which lands at Route22 row 28 on a 28-row map: an empty crossing window",
+            "Route26North has no walkable tile in column x=0 or x=38 and Route22 has none in column x=0, so the border is walled on both sides",
+            "only 4 of the build's 219 H&S connections have an empty window, and C1/C2 are two of them"
+          ]
+        },
+        {
+          "from_map": "Route22_hns",
+          "to_map": "Route26North_hns",
+          "verdict": "dead",
+          "edge_id": "C2",
+          "evidence": [
+            "the reciprocal of C1: offset +28 permits only Route22 row 28, which does not exist on a 28-row map"
           ]
         },
         {
@@ -746,9 +783,8 @@
           "to_map": "VermilionCity_hns",
           "verdict": "dead",
           "evidence": [
-            "data/maps/Trees_hns/map.json declares one connection, down to MAP_VERMILION_CITY_HNS with offset -46",
-            "VermilionCity_hns is 56x50, so the permitted source row window is empty and no tile crosses: hns_route.py reports the empty crossing window from the pinned data",
-            "Trees_hns is an unused area reachable only from dead test/map-editor warps"
+            "data/maps/Trees_hns/map.json declares one connection, down to MAP_VERMILION_CITY_HNS with offset -46; the permitted source-row window is empty against Vermilion City's 56x50 layout",
+            "Trees_hns is an unused area whose only entrances are dead test/map-editor warps"
           ]
         }
       ],
@@ -929,7 +965,11 @@
           "Alola links only to Kanto: MelemeleIsle_hns -> Route13_hns with no gate, and the reverse gated by checkitem ITEM_STRANGE_SOUVENIR, an item sold in the Kanto shop MtMoon_Shop_hns"
         ]
       },
-      "any_edge_runtime_verified": false
+      "any_edge_runtime_verified": false,
+      "region_model_correction": {
+        "note": "MAPSEC_VICTORY_ROAD_HNS is REGION_JOHTO, so ReceptionGate_hns, VictoryRoadKanto_1F/B1F/B2F_hns and the whole Kanto Victory Road classify as JOHTO, not Kanto. Likewise MAPSEC_INDIGO_PLATEAU is JOHTO, so Route23_hns does too. That makes the ReceptionGate (20,9) arrow warp the single Johto -> Kanto crossing into the overworld: the actual region change happens on Route 22's east connection into Viridian City.",
+        "consequence": "the earlier claim that VictoryRoadKanto_1F_hns -> Route23_hns was a second Johto/Kanto pair is withdrawn; it is a Johto-to-Johto crossing on the way to Indigo Plateau"
+      }
     },
     "provenance_files": {
       "tool_inventory": "tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json",

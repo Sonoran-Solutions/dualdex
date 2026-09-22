@@ -246,6 +246,58 @@ edge["to_region"] = "KANTO" if edge["to_region"] != "KANTO" else "JOHTO"
 json.dump(d, open(p, "w"), indent=2)
 '
 
+# 12. Restore the wrong primary/secondary metatile boundary (512 instead of the 640 H&S layouts use),
+#     which mis-reads every tile in the 512..639 range and turned a real arrow warp into ordinary
+#     floor in an earlier revision of this work.
+mutate "wrong-metatile-boundary-512" \
+  "tools/hns-map-data/hns_route.py" '
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = "NUM_METATILES_IN_PRIMARY = 640"
+new = "NUM_METATILES_IN_PRIMARY = 512"
+assert old in s, "anchor not found"
+open(p, "w").write(s.replace(old, new))
+'
+
+# 13. Re-introduce a transcribed behaviour list: accept MB_NORMAL as a step-on warp behaviour, which
+#     is exactly the shape of the original name-based transcription error.
+mutate "normal-floor-accepted-as-warp" \
+  "tools/hns-map-data/hns_route.py" '
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = "        return self.name_of(behaviour) in self.paths[\"step\"]"
+new = "        return self.name_of(behaviour) in self.paths[\"step\"] | {\"MB_NORMAL\"}"
+assert old in s, "anchor not found"
+open(p, "w").write(s.replace(old, new))
+'
+
+# 14. Let a warp be classified without checking the predicate at all, i.e. treat a warp_def as an
+#     executable transition on its own.
+mutate "warp-def-alone-is-functional" \
+  "tools/hns-map-data/hns_route.py" '
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = """        behaviour = self.behaviour_at(name, x, y)
+        if behaviour is None:
+            return None
+        name_of = self.behaviours.name_of(behaviour)
+        hit = self.warp_at(name, x, y)"""
+new = """        behaviour = self.behaviour_at(name, x, y)
+        if behaviour is None:
+            return None
+        name_of = self.behaviours.name_of(behaviour)
+        hit = self.warp_at(name, x, y)
+        if hit is not None:
+            return {"behaviour": name_of, "warp_event_present": True,
+                    "tile_walkable": self.walkable(name, x, y), "reachable": True,
+                    "path": "step", "reason": None}"""
+assert old in s, "anchor not found"
+open(p, "w").write(s.replace(old, new))
+'
+
 echo
 restore_failed=0
 if [ "$(sha256sum "${MUTATED_FILES[@]}")" != "$BEFORE" ]; then
@@ -264,6 +316,9 @@ if [ "$restore_failed" -ne 0 ]; then
   exit 1
 fi
 echo "every mutated file was restored byte-identically to the content this run started from"
+# `cp` moves the mtime forward, so git's cached stat info would report the restored files as
+# modified even though their content matches. Refresh it, or a clean restore would look dirty.
+git update-index --refresh > /dev/null 2>&1 || true
 echo "== mutation summary: $CASES mutations, $FAILURES not caught =="
 [ "$FAILURES" -eq 0 ] || exit 1
 echo "every mutation was caught by the suite"

@@ -224,26 +224,132 @@ def verify_provenance(upstream_dir):
 # engine's warp predicates accept. `src/field_control_avatar.c`:
 #   IsWarpMetatileBehavior   -- doors, ladders, cracked floors, escalators, water doors
 #   TryArrowWarp             -- the four arrow warps plus their water/deep variants
-WARP_METATILE_BEHAVIORS = (
-    "MB_ANIMATED_DOOR",
-    "MB_NON_ANIMATED_DOOR",
-    "MB_LADDER",
-    "MB_CRACKED_FLOOR_HOLE",
-    "MB_LAVARIDGE_GYM_1F_WARP",
-    "MB_UP_ESCALATOR",
-    "MB_DOWN_ESCALATOR",
-    "MB_WATER_DOOR",
-)
-ARROW_WARP_METATILE_BEHAVIORS = (
-    "MB_EAST_ARROW_WARP",
-    "MB_WEST_ARROW_WARP",
-    "MB_NORTH_ARROW_WARP",
-    "MB_SOUTH_ARROW_WARP",
-    "MB_WATER_SOUTH_ARROW_WARP",
-    "MB_DEEP_SOUTH_WARP",
-)
 
-NUM_TILES_IN_PRIMARY = 512
+# The primary/secondary metatile boundary the running engine uses.
+#
+# `include/fieldmap.h` defines NUM_METATILES_IN_PRIMARY 640 and NUM_METATILES_IN_PRIMARY_EMERALD 512,
+# and `src/fieldmap.c:GetNumMetatilesInPrimary` returns 640 for both LAYOUT_VERSION_FRLG and
+# LAYOUT_VERSION_HNS. Every H&S layout is one of those two, so 640 is the split the engine applies:
+# 512 mis-resolves every tile in the 512..639 range to the wrong tileset, which is enough to turn a
+# real arrow warp or door into ordinary floor and invert a reachability conclusion.
+NUM_METATILES_IN_PRIMARY = 640
+
+# `ELEVATION_TRANSITION` (`include/global.fieldmap.h`): a warp event with this elevation matches the
+# player at any elevation, so it is a wildcard in `GetWarpEventAtPosition`.
+ELEVATION_TRANSITION = 0
+
+# The behaviour lists below are DERIVED from the pinned engine source, not transcribed from it.
+#
+# An earlier revision hardcoded them from the predicate helper NAMES, which was wrong in both
+# directions: `MetatileBehavior_IsNonAnimDoor` also accepts `MB_DEEP_SOUTH_WARP`, and
+# `MetatileBehavior_IsUnionRoomWarp` actually tests `MB_BRIDGE_OVER_OCEAN` (the helper names in this
+# revision do not always match the constant they test). A transcription error there is invisible
+# until it inverts a reachability conclusion, so the analyzer reads the predicates instead.
+CONTROLLER_SOURCE = "src/field_control_avatar.c"
+BEHAVIOUR_SOURCE = "src/metatile_behavior.c"
+
+# Function name in `field_control_avatar.c` -> (warp path, definition signature). The signature is
+# required because these functions are forward-declared at the top of the file.
+# The two gate predicates, with the signatures their definitions use.
+WARP_GATE_SIGNATURES = {
+    "IsWarpMetatileBehavior": "static bool8 IsWarpMetatileBehavior(u16 metatileBehavior)",
+    "IsArrowWarpMetatileBehavior": (
+        "static bool8 IsArrowWarpMetatileBehavior(u16 metatileBehavior, enum Direction direction)"
+    ),
+}
+
+ACTIVATION_FUNCTIONS = {
+    "TryArrowWarp": (
+        "arrow",
+        "static bool8 TryArrowWarp(struct MapPosition *position, u16 metatileBehavior, "
+        "enum Direction direction)",
+    ),
+    "TryDoorWarp": (
+        "door",
+        "static bool8 TryDoorWarp(struct MapPosition *position, u16 metatileBehavior, "
+        "enum Direction direction)",
+    ),
+    "TryStartWarpEventScript": (
+        "step",
+        "static bool8 TryStartWarpEventScript(struct MapPosition *position, u16 metatileBehavior)",
+    ),
+}
+
+
+def _c_function_body(source, signature):
+    """Text of a C function DEFINITION, by brace matching.
+
+    Callers must pass a signature that includes the parameter list. Matching a bare name would find
+    the forward declaration at the top of the file, whose "body" is a semicolon and the unrelated
+    declarations that follow it, which silently yields an empty behaviour set.
+    """
+    start = source.index(signature)
+    open_brace = source.index("{", start)
+    depth = 0
+    for index in range(open_brace, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[start:index + 1]
+    raise SystemExit("error: unbalanced braces after %r" % signature)
+
+
+def _behaviours_a_predicate_accepts(controller_source, behaviour_source, predicate):
+    """Behaviour constants a predicate reaches, resolving its helper calls to their comparisons.
+
+    A predicate in this revision is a chain of `MetatileBehavior_Is<Name>(...)` calls, and each
+    helper is a small function comparing against one or more `MB_*` constants. Resolving the chain is
+    what makes the derived lists correct where the names alone are misleading.
+    """
+    body = _c_function_body(controller_source, WARP_GATE_SIGNATURES[predicate])
+    found = set()
+    for helper in re.findall(r"MetatileBehavior_Is(\w+)\(", body):
+        inner = _c_function_body(
+            behaviour_source, "MetatileBehavior_Is%s(u8 metatileBehavior)" % helper
+        )
+        found.update(re.findall(r"==\s*(MB_[A-Z0-9_]+)", inner))
+    return found
+
+
+def _extract_warp_behaviours(root, behaviours):
+    """`{path: frozenset(behaviour names)}` for the three field-input warp paths."""
+    with open(os.path.join(root, CONTROLLER_SOURCE), encoding="utf-8") as handle:
+        controller = handle.read()
+    with open(os.path.join(root, BEHAVIOUR_SOURCE), encoding="utf-8") as handle:
+        behaviour_source = handle.read()
+
+    arrow = _behaviours_a_predicate_accepts(
+        controller, behaviour_source, "IsArrowWarpMetatileBehavior"
+    )
+    # The step-on path is gated by IsWarpMetatileBehavior; TryDoorWarp adds the DIR_NORTH
+    # warp-door requirement and is checked separately, so `step` is exactly the predicate's set.
+    step = _behaviours_a_predicate_accepts(controller, behaviour_source, "IsWarpMetatileBehavior")
+    # `TryDoorWarp` requires `MetatileBehavior_IsWarpDoor` on the tile the player walks into, which
+    # resolves to MB_ANIMATED_DOOR in this revision.
+    door_body = _c_function_body(controller, ACTIVATION_FUNCTIONS["TryDoorWarp"][1])
+    door = set()
+    for helper in re.findall(r"MetatileBehavior_IsWarpDoor\(", door_body):
+        inner = _c_function_body(
+            behaviour_source, "MetatileBehavior_IsWarpDoor(u8 metatileBehavior)"
+        )
+        door.update(re.findall(r"==\s*(MB_[A-Z0-9_]+)", inner))
+
+    resolved = {}
+    for path, constants in (("arrow", arrow), ("step", step), ("door", door or set())):
+        names = set()
+        for constant in constants:
+            if constant not in behaviours.values:
+                raise SystemExit(
+                    "error: %s names %s, which is not in the pinned behaviour enum"
+                    % (CONTROLLER_SOURCE, constant)
+                )
+            names.add(constant)
+        resolved[path] = frozenset(names)
+    if not resolved["arrow"] or not resolved["step"] or not resolved["door"]:
+        raise SystemExit("error: could not derive the warp-behaviour sets from the pinned source")
+    return resolved
 
 
 def verified_source(upstream_dir=None):
@@ -274,6 +380,7 @@ class BehaviourSource:
         self._attribute_paths = self._parse_attribute_paths()
         self._tileset_attribute_constant = self._parse_tileset_headers()
         self._arrays = {}
+        self.paths = _extract_warp_behaviours(root, self)
 
     def _parse_behaviour_enum(self):
         path = os.path.join(self.root, "include/constants/metatile_behaviors.h")
@@ -294,6 +401,20 @@ class BehaviourSource:
                 names[line] = value
         if not names:
             raise SystemExit("error: could not parse the metatile behaviour enum")
+        # Anchor the parse instead of trusting it: `MB_NORMAL` is the enum's first member and the
+        # zero-fill of every attribute array, so if it did not resolve to 0 then either the enum or
+        # the low-8-bit behaviour decode is wrong, and every classification downstream would be
+        # built on a mis-read tile.
+        if names.get("MB_NORMAL") != 0:
+            raise SystemExit(
+                "error: unexpected metatile behaviour enum shape (MB_NORMAL is %r, expected 0)"
+                % names.get("MB_NORMAL")
+            )
+        if names.get("MB_TALL_GRASS") != 2:
+            raise SystemExit(
+                "error: unexpected metatile behaviour enum shape (MB_TALL_GRASS is %r, expected 2)"
+                % names.get("MB_TALL_GRASS")
+            )
         return names
 
     def _parse_attribute_paths(self):
@@ -344,12 +465,13 @@ class BehaviourSource:
                 if not os.path.isfile(path):
                     self._arrays[constant] = None
                 else:
-                    self._arrays[constant] = open(path, "rb").read()
+                    with open(path, "rb") as handle:
+                        self._arrays[constant] = handle.read()
         data = self._arrays[constant]
         if data is None:
             return None
-        if metatile_id >= NUM_TILES_IN_PRIMARY:
-            metatile_id -= NUM_TILES_IN_PRIMARY
+        if metatile_id >= NUM_METATILES_IN_PRIMARY:
+            metatile_id -= NUM_METATILES_IN_PRIMARY
         offset = metatile_id * 2
         if offset + 2 > len(data):
             return None
@@ -362,11 +484,16 @@ class BehaviourSource:
         return None
 
     def is_warp_behaviour(self, behaviour):
-        name = self.name_of(behaviour)
-        return name in WARP_METATILE_BEHAVIORS or name in ARROW_WARP_METATILE_BEHAVIORS
+        """`IsWarpMetatileBehavior` -- the step-on path."""
+        return self.name_of(behaviour) in self.paths["step"]
 
     def is_arrow_behaviour(self, behaviour):
-        return self.name_of(behaviour) in ARROW_WARP_METATILE_BEHAVIORS
+        """`IsArrowWarpMetatileBehavior` -- the held-direction path."""
+        return self.name_of(behaviour) in self.paths["arrow"]
+
+    def is_door_behaviour(self, behaviour):
+        """`TryDoorWarp`'s warp-door requirement for the tile the player walks into."""
+        return self.name_of(behaviour) in self.paths["door"]
 
 
 # --- script-command warps ---------------------------------------------------------------------
@@ -568,10 +695,40 @@ class Source:
         metatile_id = value & 0x03FF
         tileset = (
             layout["primary_tileset"]
-            if metatile_id < NUM_TILES_IN_PRIMARY
+            if metatile_id < NUM_METATILES_IN_PRIMARY
             else layout["secondary_tileset"]
         )
         return self.behaviours.behaviour_of(tileset, metatile_id)
+
+    def elevation_at(self, name, x, y):
+        """The elevation nibble of a tile, for the warp event's elevation match."""
+        info = self.collision(name)
+        meta = self.meta(name)
+        if not info or not meta:
+            return None
+        width, height, _ = info
+        if not (0 <= x < width and 0 <= y < height):
+            return None
+        value = self._block_values(meta["layout"])[y * width + x]
+        return (value >> 12) & 0x0F
+
+    def warp_at(self, name, x, y):
+        """The map's own warp event at a tile, or None.
+
+        `GetWarpEventAtPosition` matches map coordinates and an elevation that is either the tile's
+        own or `ELEVATION_TRANSITION`, so a warp whose elevation does not match is inert.
+        """
+        meta = self.meta(name)
+        if not meta:
+            return None
+        elevation = self.elevation_at(name, x, y)
+        for index, warp in enumerate(meta.get("warp_events") or []):
+            if warp["x"] != x or warp["y"] != y:
+                continue
+            declared = warp.get("elevation", 0)
+            if declared == elevation or declared == ELEVATION_TRANSITION:
+                return index, warp
+        return None
 
     def behaviour_name_at(self, name, x, y):
         behaviour = self.behaviour_at(name, x, y)
@@ -601,6 +758,86 @@ class Source:
         if index >= len(warps):
             return (0, 0)
         return (warps[index]["x"], warps[index]["y"])
+
+    def warp_activation(self, name, x, y):
+        """How, if at all, the running engine would fire the warp event at this tile.
+
+        `src/field_control_avatar.c` has three field-input paths, and each needs a metatile behaviour
+        the plain "does a warp_def exist here" question does not capture:
+
+          `TryArrowWarp` (line 972)       player STANDS on the tile, holds the facing direction, and
+                                          the tile carries `IsArrowWarpMetatileBehavior` for it;
+          `TryDoorWarp` (line 1139)       player faces north and the tile IN FRONT is a warp door
+                                          (`MB_ANIMATED_DOOR` / `MB_NON_ANIMATED_DOOR`) with a warp
+                                          event on that front tile;
+          `TryStartWarpEventScript` (1002) player STEPS ONTO the tile and the tile carries
+                                          `IsWarpMetatileBehavior`.
+
+        Every one of them also needs `GetWarpEventAtPosition` to match, which requires the warp
+        event's elevation to equal the tile's or be `ELEVATION_TRANSITION`.
+
+        A `warp_def` on a tile with none of those behaviours is an inert anchor: many entries in this
+        build exist only as the destination half of a scripted `warp`, and the scripted form calls
+        `DoWarp` directly without consulting any metatile behaviour.
+
+        Returns None when the behaviour could not be resolved (the analyzer then says UNPROVEN rather
+        than guessing), else a dict with `reachable`, `path`, `reason` and the observed evidence.
+        """
+        behaviour = self.behaviour_at(name, x, y)
+        if behaviour is None:
+            return None
+        name_of = self.behaviours.name_of(behaviour)
+        hit = self.warp_at(name, x, y)
+        evidence = {
+            "behaviour": name_of,
+            "warp_event_present": hit is not None,
+            "tile_walkable": self.walkable(name, x, y),
+        }
+
+        # Arrow warp: the player stands here and holds the direction. The behaviour has to be the
+        # arrow warp for that direction, so an arrow warp event on ordinary floor is inert.
+        if self.behaviours.is_arrow_behaviour(behaviour):
+            if hit is None:
+                return dict(evidence, reachable=False, path=None,
+                            reason="the only arrow-warp behaviour here has no matching warp event")
+            return dict(evidence, reachable=True, path="arrow", reason=None)
+
+        # Step-on warp: the player steps onto this tile and it carries a warp behaviour.
+        if self.behaviours.is_warp_behaviour(behaviour):
+            if hit is None:
+                return dict(evidence, reachable=False, path=None,
+                            reason="the only warp behaviour here has no matching warp event")
+            return dict(evidence, reachable=True, path="step", reason=None)
+
+        # Door warp: the warp event lives on THIS tile and the player walks into it from the front,
+        # which is the one path where the trigger tile's behaviour can be a door and the player is
+        # never standing on it.
+        if self.behaviours.is_door_behaviour(behaviour):
+            if hit is not None and self._walkable_in_front(name, x, y):
+                return dict(evidence, reachable=True, path="door", reason=None)
+            if hit is None:
+                return dict(evidence, reachable=False, path=None,
+                            reason="a warp-door tile with no warp event on it")
+            return dict(evidence, reachable=False, path=None,
+                        reason="a warp door with no walkable tile in front to trigger it from")
+
+        return dict(
+            evidence,
+            reachable=False,
+            path=None,
+            reason=(
+                "%s is neither IsWarpMetatileBehavior, IsArrowWarpMetatileBehavior nor a warp door, "
+                "so no field-input warp predicate fires here; a warp_def on this tile is an inert "
+                "anchor (its destination is normally reached by a scripted warp instead)"
+                % name_of
+            ),
+        )
+
+    def _walkable_in_front(self, name, x, y):
+        """True when any orthogonal neighbour is walkable, i.e. a door could be walked into."""
+        return any(
+            self.walkable(name, x + dx, y + dy) for dx, dy in ((0, 1), (0, -1), (-1, 0), (1, 0))
+        )
 
     def _warp_is_functional(self, name, x, y):
         """Whether the engine's warp predicates can fire at this tile or the one in front of it.
@@ -656,14 +893,31 @@ class Source:
             index = self._warp_index(door)
             if index is None:
                 continue
-            target_warp = (self.meta(destination).get("warp_events") or [])[index]
-            arrival = (destination, target_warp["x"], target_warp["y"])
+            target_warps = self.meta(destination).get("warp_events") or []
+            if index >= len(target_warps):
+                continue
+            arrival = (destination, target_warps[index]["x"], target_warps[index]["y"])
             if not self.walkable(*arrival):
                 continue
-            for direction, (dx, dy) in DIRECTIONS_TO_DELTA.items():
-                approach = (x + dx, y + dy)
-                if approach == (door["x"], door["y"]) and self.walkable(name, x, y):
-                    yield ("warp", direction, arrival[0], arrival[1], arrival[2])
+            door_x, door_y = door["x"], door["y"]
+            # Standing ON an arrow warp or a step-on warp, holding the direction it responds to.
+            activation = self.warp_activation(name, x, y)
+            if activation and activation["reachable"] and (x, y) == (door_x, door_y):
+                if activation["path"] == "arrow":
+                    for direction, (dx, dy) in DIRECTIONS_TO_DELTA.items():
+                        yield ("warp", direction, arrival[0], arrival[1], arrival[2])
+                    continue
+                if activation["path"] == "step":
+                    yield ("warp", "UP", arrival[0], arrival[1], arrival[2])
+                    continue
+            # Walking INTO a warp door from directly below it (TryDoorWarp requires DIR_NORTH), so
+            # the trigger tile is (door_x, door_y + 1) and the door itself need not be walkable.
+            if x == door_x and y == door_y + 1:
+                front = self.behaviour_at(name, door_x, door_y)
+                if front is not None and self.behaviours.is_door_behaviour(front):
+                    activation = self.warp_activation(name, door_x, door_y)
+                    if activation and activation["reachable"]:
+                        yield ("warp", "UP", arrival[0], arrival[1], arrival[2])
 
         on = set()
         if x == width - 1:
@@ -789,26 +1043,15 @@ class Source:
                 if not in_bounds:
                     yield name, (x, y), target, "dead warp outside the layout"
                     continue
-                observed = self.behaviour_at(name, x, y)
-                if observed is None:
-                    yield name, (x, y), target, "unproven warp (metatile behaviour unresolved)"
-                elif self.behaviours.is_warp_behaviour(observed):
-                    # The engine's own warp predicate accepts this metatile, so the edge is
-                    # FUNCTIONAL by construction from the pinned metatile data.
-                    yield name, (x, y), target, "warp"
-                else:
-                    # 1719 of this build's 3608 warp tiles sit on ordinary floor metatiles that the
-                    # engine accepts as step-on warps, so "not a warp behaviour" is NOT evidence of
-                    # death: whether a given warp_def fires from a floor tile is decided by engine
-                    # code (`TryStartWarpEventScript` / `TryDoorWarp`) against the elevation and the
-                    # player's approach, which map data alone does not settle. Report it as unproven
-                    # rather than asserting either way.
+                activation = self.warp_activation(name, x, y)
+                if activation is None:
+                    yield name, (x, y), target, "unproven warp"
+                elif not activation["reachable"]:
                     yield name, (x, y), target, (
-                        "unproven warp (trigger metatile carries %s, which is not one of the "
-                        "engine's metatile warp behaviours; a step-on warp is decided by engine "
-                        "code, not by map data)" % self.behaviours.name_of(observed)
+                        "dead warp (%s)" % activation["reason"]
                     )
-
+                else:
+                    yield name, (x, y), target, "warp"
             for conn in meta.get("connections") or []:
                 target = self.name_by_id.get(conn["map"])
                 if not target or not self.collision(target):
@@ -918,6 +1161,7 @@ def build_inventory(source):
             })
         elif mechanism == "warp":
             x, y = at
+            activation = source.warp_activation(name, x, y) or {}
             functional.append({
                 "kind": "warp",
                 "from_map": name,
@@ -929,7 +1173,11 @@ def build_inventory(source):
                 "to_region": to_region,
                 "to_section": source.section_of.get(target),
                 "at": [x, y],
-                "behaviour": source.behaviours.name_of(source.behaviour_at(name, x, y)),
+                "behaviour": activation.get("behaviour"),
+                "activation_path": activation.get("path"),
+                "tile_walkable": activation.get("tile_walkable"),
+                "warp_event_present": activation.get("warp_event_present"),
+                "engine_predicate": ACTIVATION_PREDICATES.get(activation.get("path")),
                 "gate": sorted({"%s %s %s" % g for g in source.story_gates(target)}),
                 "from_gate": sorted({"%s %s %s" % g for g in source.story_gates(name)}),
             })
@@ -947,9 +1195,11 @@ def build_inventory(source):
                 "reason_class": mechanism,
                 "reason": DEAD_REASONS.get(mechanism.split(" (")[0], mechanism),
             }
-            if mechanism.startswith("unproven warp"):
-                record["trigger_behaviour"] = source.behaviour_name_at(name, at[0], at[1])
-                record["trigger_tile_walkable"] = source.walkable(name, at[0], at[1])
+            if "warp" in mechanism:
+                activation = source.warp_activation(name, at[0], at[1]) or {}
+                record["trigger_behaviour"] = activation.get("behaviour")
+                record["trigger_tile_walkable"] = activation.get("tile_walkable")
+                record["warp_event_present"] = activation.get("warp_event_present")
                 for door in source.meta(name).get("warp_events") or []:
                     if (door["x"], door["y"]) == tuple(at):
                         arrival = source._arrival_tile(target, door)
@@ -993,13 +1243,27 @@ def build_inventory(source):
     }
 
 
+# Which `src/field_control_avatar.c` predicate makes each activation path fire. Recorded per edge so
+# a reader can check the classification against the engine without re-deriving the model.
+ACTIVATION_PREDICATES = {
+    "arrow": "TryArrowWarp (src/field_control_avatar.c) -- player standing on the tile, holding the "
+             "facing direction, IsArrowWarpMetatileBehavior(tile) is TRUE",
+    "door": "TryDoorWarp (src/field_control_avatar.c) -- player facing north (DIR_NORTH) with "
+            "MetatileBehavior_IsWarpDoor on the tile in front",
+    "step": "TryStartWarpEventScript (src/field_control_avatar.c) -- player steps onto the tile and "
+            "IsWarpMetatileBehavior(tile) is TRUE",
+}
+
 DEAD_REASONS = {
     "dead warp outside the layout":
         "the warp_def sits outside the map's own dimensions, so no tile can trigger it",
     "dead warp":
-        "the metatile behaviour at and around the warp tile is not one the engine's warp "
-        "predicates accept (src/field_control_avatar.c IsWarpMetatileBehavior / TryArrowWarp), so "
-        "the warp never fires",
+        "no field-input warp predicate fires here. src/field_control_avatar.c reaches a warp through "
+        "TryArrowWarp (player on the tile, holding the direction, IsArrowWarpMetatileBehavior), "
+        "TryDoorWarp (facing north into a warp-door tile) or TryStartWarpEventScript (stepping onto "
+        "a tile where IsWarpMetatileBehavior is TRUE), and this tile's metatile satisfies none of "
+        "them, so its warp_def is an inert anchor: the destination is normally reached by a "
+        "scripted `warp`, which calls DoWarp without consulting a metatile behaviour",
     "dead connection":
         "no crossing tile satisfies the engine's dest = src - offset window, or a border column is "
         "entirely impassable, so the connection never fires (src/fieldmap.c)",

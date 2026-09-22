@@ -2177,35 +2177,76 @@ included because they *are* reachability evidence here. `tools/hns-map-data/test
 that boundary against synthetic git repositories, with no upstream checkout, ROM or network, and runs
 in the canonical gate.
 
+**The warp-activation model (the correction that made this section right).** A `warp_def` in map
+data is not by itself an executable transition. `src/field_control_avatar.c` reaches a warp through
+exactly three field-input paths, and each needs a metatile behaviour:
+
+| Path | Predicate | Requirement |
+|---|---|---|
+| arrow | `TryArrowWarp` | the player **stands on** the tile, holds the facing direction, and the tile satisfies `IsArrowWarpMetatileBehavior` for it |
+| door | `TryDoorWarp` | the player faces **north** and the tile **in front** is a warp door (`MetatileBehavior_IsWarpDoor`) carrying the warp event |
+| step | `TryStartWarpEventScript` | the player **steps onto** the tile and it satisfies `IsWarpMetatileBehavior` |
+
+All three additionally need `GetWarpEventAtPosition` to match, i.e. the warp event's elevation equals
+the tile's or is `ELEVATION_TRANSITION`. A `warp_def` on a tile with none of those behaviours is an
+**inert anchor**: many entries in this build exist only as the *destination* half of a scripted
+`warp`, and the scripted form calls `DoWarp` directly without consulting any metatile behaviour.
+
+Two errors had to be corrected to get this right, and both had pointed the same way — a real warp
+read as ordinary floor, which would have made a dead transition look functional:
+
+1. **The primary/secondary metatile boundary is 640, not 512.** `include/fieldmap.h` defines
+   `NUM_METATILES_IN_PRIMARY 640` and `NUM_METATILES_IN_PRIMARY_EMERALD 512`, and
+   `src/fieldmap.c:GetNumMetatilesInPrimary` returns 640 for `LAYOUT_VERSION_FRLG` and
+   `LAYOUT_VERSION_HNS`. Splitting H&S layouts at 512 mis-resolves every tile in the 512..639 range
+   to the wrong tileset.
+2. **The behaviour sets are now derived from the pinned predicates, not transcribed from their
+   names.** The helper names in this revision disagree with the constants they test:
+   `MetatileBehavior_IsNonAnimDoor` also accepts `MB_DEEP_SOUTH_WARP`, and
+   `MetatileBehavior_IsUnionRoomWarp` actually tests `MB_BRIDGE_OVER_OCEAN`. The analyzer resolves
+   each predicate's helper calls to their `MB_*` comparisons at runtime, and
+   `test_hns_route.py` re-derives the same sets independently and asserts they match.
+
 **What the analyzer proves (FUNCTIONAL / DEAD).**
 
-* A warp whose trigger metatile carries a behaviour the engine's warp predicates accept is FUNCTIONAL.
-  `src/field_control_avatar.c`: `IsWarpMetatileBehavior` accepts `MB_ANIMATED_DOOR`,
-  `MB_NON_ANIMATED_DOOR`, `MB_LADDER`, `MB_CRACKED_FLOOR_HOLE`, `MB_LAVARIDGE_GYM_1F_WARP`,
-  `MB_UP_ESCALATOR`, `MB_DOWN_ESCALATOR`, `MB_WATER_DOOR`; `TryArrowWarp` accepts the four arrow warps
-  plus `MB_WATER_SOUTH_ARROW_WARP` and `MB_DEEP_SOUTH_WARP`. The behaviour is decoded from
-  `data/tilesets/*/*/metatile_attributes.bin` per `include/global.fieldmap.h`
-  (`METATILE_ATTR_BEHAVIOR_MASK 0x00FF`).
+* A warp whose trigger tile satisfies the relevant predicate — arrow behaviour for the arrow path,
+  `MetatileBehavior_IsWarpDoor` on the front tile for the door path, `IsWarpMetatileBehavior` for the
+  step path — is FUNCTIONAL, and the recorded edge carries the observed behaviour, the activation
+  path and the predicate it depends on.
 * A `connections` entry whose `dest = src - offset` window is empty, or whose border column is
   entirely impassable, is DEAD (`src/fieldmap.c`).
+* A warp whose trigger tile satisfies no warp predicate is DEAD, with the observed behaviour and the
+  reason recorded.
 
-**What the analyzer refuses to claim (UNPROVEN).** This is the honest core of the record:
+**What the analyzer refuses to claim (UNPROVEN):** whether a script command is reachable. That needs
+the script call graph, so every script command is a **candidate** with file and line, and the known
+shared include is recorded as a rejected false positive.
 
-* whether a warp on an ordinary-floor metatile fires. **1719 of this build's 3608 warp tiles sit on
-  non-warp metatiles**, which the engine still accepts as step-on warps, so "not a warp behaviour" is
-  *not* evidence of death. Each such edge carries the observed metatile behaviour, the arrival tile
-  and both tiles' walkability;
-* whether a script command is reachable. That needs the script call graph, which is far larger than
-  this analyzer, so every script command is a **candidate** with file and line, and the known shared
-  include is recorded as a rejected false positive.
+**The verified cross-region set.** Combining both halves, the pinned build has exactly **four**
+functional cross-region field transitions:
 
-**The verified cross-region set.** Combining both halves, the pinned build has these functional
-cross-region transitions: `ReceptionGate_hns` → `Route22_hns` and `VictoryRoadKanto_1F_hns` →
-`Route23_hns` (Johto → Kanto), their two reverses, the two Sinjoh pairs
-(`MtSilver_1F_WaterfallRoom_hns` ↔ `SnowsweptCavern_hns`), and nine script-command transitions (the
-S.S. Aqua pair, the Magnet Train pair, and the Alola ↔ Kanto pair through Route 13). Dead: the
-`Route26North_hns` ↔ `Route22_hns` connection (empty crossing window, both border columns impassable)
-and the `Trees_hns` → `VermilionCity_hns` connection.
+| From | To | Behaviour | Path |
+|---|---|---|---|
+| `ReceptionGate_hns` `(20,9)` | `Route22_hns` **Kanto** | `MB_SOUTH_ARROW_WARP` | arrow |
+| `Route22_hns` `(12,9)` | `ReceptionGate_hns` | `MB_ANIMATED_DOOR` | step |
+| `MtSilver_1F_WaterfallRoom_hns` `(43,7)` | `SnowsweptCavern_hns` **Sinjoh** | `MB_NON_ANIMATED_DOOR` | step |
+| `SnowsweptCavern_hns` `(50,68)` | `MtSilver_1F_WaterfallRoom_hns` | `MB_SOUTH_ARROW_WARP` | arrow |
+
+Plus nine script-command transitions (the S.S. Aqua pair, the Magnet Train pair, and the Alola ↔
+Kanto pair through Route 13).
+
+Dead, each with its reason recorded: the `Route26North_hns` ↔ `Route22_hns` connection (empty
+crossing window, both border columns impassable), `Trees_hns` → `VermilionCity_hns` (empty window),
+and the two Kanto → Johto whiteout warps `CinnabarIsland_hns` → `NewBarkTown_hns` (`MB_OCEAN_WATER`)
+and `FuchsiaCity_hns` → `NewBarkTown_hns` (`MB_NORMAL`, unwalkable) — both declare a `warp_def` that
+no field-input predicate can fire.
+
+**A second region correction.** `MAPSEC_VICTORY_ROAD_HNS` is `REGION_JOHTO` and
+`MAPSEC_INDIGO_PLATEAU` is `REGION_JOHTO`, so `ReceptionGate_hns`, the whole Kanto Victory Road and
+`Route23_hns` all classify as **Johto**, not Kanto. An earlier revision of this record counted
+`VictoryRoadKanto_1F_hns` → `Route23_hns` as a second Johto/Kanto pair; that claim is withdrawn. The
+actual region change happens on Route 22's east connection into Viridian City, which makes the
+ReceptionGate `(20,9)` arrow warp the **single** Johto → Kanto crossing into the overworld.
 
 **The Johto → Kanto gate is a cut vertex.** From the Route 26 North arrival tile `(11,19)` the
 walkable component is 101 tiles and contains `(20,9)` → Route 22, `(1,9)` → Route 28 and `(11,1)` /
@@ -2281,7 +2322,7 @@ Both defects are covered by `MapScreenBrowsingIsolationTest` and by the mutation
 | `tools/hns-runtime-probe/capture-location-evidence.sh` | Boots each legal checkpoint, asserts the raw pair and emits one machine-readable `[LOCATION]` record per checkpoint; aborts on the first failure. Deterministic across repeat runs |
 | `tools/hns-runtime-probe/evidence/location-runtime-evidence.json` | The captured identities, the expected production interpretation, the unknown-map controls, and the cross-region record split into its `tool_derived` and `manual_engine_source_verified` halves |
 | `tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json` | The standalone analyzer output that `inventory --check` verifies in `source-check` and that the Kotlin suite reads directly |
-| `tools/hns-map-data/test_hns_route.py` | The analyzer's provenance regression: wrong revision, modified read source, deleted read source, untracked-but-irrelevant file, non-git directory. Runs in `test` and `all` with no upstream checkout, ROM or network |
+| `tools/hns-map-data/test_hns_route.py` | The analyzer's provenance regression (wrong revision, modified read source, deleted read source, untracked-but-irrelevant file, non-git directory — no upstream checkout, ROM or network needed, runs in `test` and `all`) plus the **warp-activation model** regression: the metatile boundary against `include/fieldmap.h`, the derived behaviour sets against an independent re-derivation from `src/metatile_behavior.c`, and the six real cross-region tiles classified tile by tile |
 | `tools/hns-map-data/hns_route.py` | Offline route planning (`route`), cross-region classification (`edges --gates`), script-warp candidates (`warps`), gate provenance (`blockers`) and the machine-checked inventory (`inventory [--write/--check]`) |
 | `HnsLocationRuntimeEvidenceTest` | Drives the production `LocationResolver`, `RegionMapDatabase` and `MapScreenPresenter` against the captured raw pairs; binds the evidence to the exact ROM and the pinned commit; fail-closed and Sinjoh/Alola assertions; mutation controls |
 | `MapScreenBrowsingIsolationTest` | The full phase C browsing sequence, plus a structural guard that `MapScreenState` has no path to the strategy |
@@ -2297,8 +2338,8 @@ accepted the second case would be evidence of nothing. It is fatal when no round
 
 `tools/hns-layout/mutation-check.sh` applies each of these and requires a gate to fail: the
 canonical Kotlin suite for the production and evidence behaviour, and the analyzer's own
-`inventory --check` plus `test_hns_route.py` for the provenance and reproducibility contract. **11
-mutations, 0 not caught**, and every mutated file was restored byte-identically:
+`inventory --check` plus `test_hns_route.py` for the provenance, reproducibility and
+warp-activation contract. **14 mutations, 0 not caught**, and every mutated file was restored byte-identically:
 
 | Mutation | Caught by |
 |---|---|
@@ -2313,8 +2354,11 @@ mutations, 0 not caught**, and every mutated file was restored byte-identically:
 | Drop an undecided edge so a missing manual verdict would go unnoticed | `inventory --check` |
 | Edit the copy embedded in the runtime evidence record | `inventory --check-embedded` |
 | Neuter the provenance regression itself | `test_hns_route.py` |
+| Restore the 512 primary/secondary metatile boundary | `inventory --check`, `test_hns_route.py` |
+| Accept `MB_NORMAL` as a step-on warp behaviour | `inventory --check`, `test_hns_route.py`, `HnsLocationRuntimeEvidenceTest` |
+| Treat a `warp_def` as functional without checking the predicate | `inventory --check`, `test_hns_route.py`, `HnsLocationRuntimeEvidenceTest` |
 
-The last five are why the mutation runner drives **two** gates per mutation: the Kotlin suite
+The last eight are why the mutation runner drives **two** gates per mutation: the Kotlin suite
 cannot express a git-revision check, and the analyzer cannot express the production resolver's behaviour. The runner also refuses to trust a bare hash of its starting tree: it copies each mutated file before the first edit and compares the content byte-for-byte afterwards, because a run that died mid-mutation would otherwise poison the next run's baseline and report a clean restore for an already-tampered file.
 
 The same pattern was used to confirm the probe's own strictness: `selftest.sh` now requires the

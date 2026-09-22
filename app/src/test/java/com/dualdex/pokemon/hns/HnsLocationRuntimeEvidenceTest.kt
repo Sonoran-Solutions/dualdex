@@ -384,6 +384,76 @@ class HnsLocationRuntimeEvidenceTest {
         }
     }
 
+    /**
+     * The warp-activation model must be the engine's, not a plausible reading of it.
+     *
+     * An earlier revision hardcoded the behaviour lists from the predicate helper *names* and split
+     * primary/secondary metatiles at 512 instead of the 640 H&S layouts use. Both errors pointed the
+     * same way: a real arrow warp read as ordinary floor, which would have made a dead transition
+     * look functional. This asserts the recorded model, the recorded edges and the analyzer source
+     * agree on the engine's rules.
+     */
+    @Test
+    fun theWarpActivationModelMatchesTheEngine() {
+        val model = toolDerived().getJSONObject("warp_activation_model")
+        val paths = model.getJSONObject("paths")
+
+        assertEquals(3, paths.length())
+        assertTrue(paths.getString("arrow").contains("TryArrowWarp"))
+        assertTrue(paths.getString("door").contains("TryDoorWarp"))
+        assertTrue(paths.getString("step").contains("TryStartWarpEventScript"))
+        assertTrue(
+            "the model must record the elevation requirement",
+            model.getString("common_requirement").contains("ELEVATION_TRANSITION")
+        )
+        assertTrue(
+            "the model must record the primary/secondary boundary",
+            model.getString("primary_boundary").contains("640")
+        )
+        assertTrue(
+            "the model must record that a warp_def on a non-warp tile is an inert anchor",
+            model.getString("inert_anchors").contains("inert anchor")
+        )
+
+        // Every functional warp edge must carry the activation path and the predicate that fires it.
+        for (edge in toolFunctionalEdges()) {
+            if (edge.getString("kind") != "warp") continue
+            val path = edge.getString("activation_path")
+            assertTrue("$path must be a known activation path", path in setOf("arrow", "door", "step"))
+            assertTrue(
+                "${edgeKey(edge)} must cite the engine predicate for its path",
+                edge.getString("engine_predicate").contains(
+                    when (path) {
+                        "arrow" -> "TryArrowWarp"
+                        "door" -> "TryDoorWarp"
+                        else -> "TryStartWarpEventScript"
+                    }
+                )
+            )
+            assertTrue(
+                "${edgeKey(edge)} must record the behaviour it observed",
+                edge.getString("behaviour").isNotBlank()
+            )
+            assertTrue(
+                "${edgeKey(edge)} must have a matching warp event",
+                edge.getBoolean("warp_event_present")
+            )
+        }
+
+        // The analyzer must derive its behaviour sets from the pinned predicates rather than
+        // transcribing them, because the helper names and the constants they test disagree.
+        val analyzer = repoFile("tools/hns-map-data/hns_route.py").readText()
+        assertTrue(
+            "the analyzer must derive the warp-behaviour sets from the engine source",
+            analyzer.contains("_extract_warp_behaviours") &&
+                analyzer.contains("_behaviours_a_predicate_accepts")
+        )
+        assertFalse(
+            "the behaviour sets must not be hardcoded lists any more",
+            analyzer.contains("WARP_METATILE_BEHAVIORS = (")
+        )
+    }
+
     @Test
     fun theInventoryCannotDriftFromThePinnedSource() {
         val inventory = toolInventory()
@@ -432,26 +502,28 @@ class HnsLocationRuntimeEvidenceTest {
         val block = crossRegionBlock()
         val manual = block.getJSONObject("manual_engine_source_verified")
 
-        // The one Johto -> Kanto crossing into the overworld must be the ReceptionGate warp, and the
-        // evidence must name the exact badges/Tin Tower gate that keeps it out of a bounded slice.
-        val kanto = manualVerdicts().single {
+        // The one Johto -> Kanto crossing into the overworld must be the ReceptionGate warp, it must
+        // be functional because the engine's own predicate fires there, and the manual verdict must
+        // name the exact badge/Tin Tower gate that keeps it out of a bounded slice.
+        val kanto = toolFunctionalEdges().single {
             it.getString("from_map") == "ReceptionGate_hns" &&
                 it.getString("to_map") == "Route22_hns"
         }
-        assertEquals("functional", kanto.getString("verdict"))
-
-        val kantoEdges = toolUndecidedEdges().single {
-            it.getString("from_map") == "ReceptionGate_hns" &&
-                it.getString("to_map") == "Route22_hns"
-        }
-        assertTrue(
-            "the analyzer must record the trigger metatile it actually observed",
-            kantoEdges.getString("trigger_behaviour").isNotBlank() &&
-                kantoEdges.getBoolean("trigger_tile_walkable")
+        assertEquals("MB_SOUTH_ARROW_WARP", kanto.getString("behaviour"))
+        assertEquals("arrow", kanto.getString("activation_path"))
+        assertEquals(
+            "the arrow path must cite TryArrowWarp",
+            true,
+            kanto.getString("engine_predicate").contains("TryArrowWarp")
         )
+        val kantoVerdict = manualVerdicts().single {
+            it.getString("from_map") == "ReceptionGate_hns" &&
+                it.getString("to_map") == "Route22_hns"
+        }
+        assertEquals("functional", kantoVerdict.getString("verdict"))
         // The gate itself is a manual verdict, because the tool only reports what it observed. The
         // verdict must therefore name the exact badge and story variable, and cite the script lines.
-        val gateEvidence = kanto.getJSONArray("evidence").joinToString("\n") { it.toString() }
+        val gateEvidence = kantoVerdict.getJSONArray("evidence").joinToString("\n") { it.toString() }
         assertTrue(
             "the Kanto gate must name the eighth badge",
             gateEvidence.contains("FLAG_BADGE08_GET")
@@ -483,9 +555,9 @@ class HnsLocationRuntimeEvidenceTest {
                 .contains("ZERO")
         )
 
-        // A cross-region audit that ignored the build's dead borders would overstate how many ways
-        // into Kanto exist, so the dead ones must be recorded with a reason.
-        val dead = toolUndecidedEdges().filter { it.getString("reason_class").startsWith("dead ") }
+        // A cross-region audit that ignored the build's inert warp_defs and dead borders would
+        // overstate how many ways into Kanto exist, so each must be recorded with a reason.
+        val dead = toolUndecidedEdges()
         assertTrue("the build declares dead cross-region borders", dead.isNotEmpty())
         for (edge in dead) {
             assertTrue(
@@ -497,6 +569,23 @@ class HnsLocationRuntimeEvidenceTest {
             "the Route26North/Route22 connection is declared but cannot fire",
             dead.any { edgeKey(it) == "Route26North_hns -> Route22_hns" }
         )
+        // The Kanto -> Johto whiteout warps declare a warp_def but sit on tiles no field-input warp
+        // predicate accepts, so they are inert anchors rather than usable transitions.
+        for (key in listOf(
+            "CinnabarIsland_hns -> NewBarkTown_hns",
+            "FuchsiaCity_hns -> NewBarkTown_hns",
+        )) {
+            val edge = dead.single { edgeKey(it) == key }
+            assertTrue(
+                "${key} must be dead because no warp predicate fires on its trigger tile",
+                edge.getString("reason").contains("no field-input warp predicate")
+            )
+            assertTrue("${key} must declare a warp event", edge.getBoolean("warp_event_present"))
+            assertTrue(
+                "${key} must record the behaviour it observed",
+                edge.getString("trigger_behaviour").isNotBlank()
+            )
+        }
 
         // Script-command transitions are recorded separately, with their file and line, because the
         // analyzer can only report them as candidates.

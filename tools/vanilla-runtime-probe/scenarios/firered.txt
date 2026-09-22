@@ -1,0 +1,77 @@
+# Fresh boot -> Oak lab -> Bulbasaur -> rival -> first Fight menu.
+# run FRAMES BUTTON_MASK; mash COUNT (one A frame then 90 neutral frames).
+run 400 0
+run 1 8
+run 150 0
+run 1 256
+run 200 0
+run 1 8
+run 180 0
+mash 20
+mash 25
+run 1 8
+run 100 0
+mash 16
+run 1 8
+run 100 0
+mash 20
+run 1 256
+run 150 0
+run 48 128
+run 48 16
+run 120 0
+run 16 128
+run 32 16
+run 150 0
+run 16 32
+run 90 0
+run 16 16
+run 16 64
+run 120 0
+run 80 32
+run 48 64
+run 48 32
+run 150 0
+run 48 64
+run 32 32
+run 150 0
+run 64 128
+run 160 16
+mash 30
+run 32 128
+run 64 16
+mash 45
+mash 12
+run 32 128
+run 16 16
+mash 12
+mash 10
+run 16 32
+run 32 128
+run 1 16
+run 20 0
+mash 12
+run 8 16
+run 30 0
+mash 12
+run 120 0
+run 8 32
+run 20 0
+run 1 256
+run 200 0
+mash 10
+run 48 32
+mash 18
+run 48 32
+mash 20
+run 1 256
+run 100 0
+run 32 64
+run 64 32
+mash 18
+mash 10
+mash 8
+run 1 256
+run 160 0
+run 1 256
+run 160 0

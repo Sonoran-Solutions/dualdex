@@ -1945,11 +1945,20 @@ still green; C4e adds the pinch-ability fixtures alongside it.
 
 ### 14.14 Issues #9 and #40
 
-#9 is **not closed by this document alone**: the exact FireRed/Emerald golden fixtures now exist and
-are recorded in [VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md) (independent Gen III
-oracle + shipped-engine host suite + production-boundary tests), while broader H&S mechanic coverage
-(Doubles, items, more abilities, modern behaviour) and the umbrella evidence wiring remain outside
-this document. C4e satisfies the bounded "supported H&S calculations have golden fixtures"
-and "unsupported mechanics fail honestly" criteria for the ordinary Singles subset; the remainder
-stays open. #40 is far broader (hardware, maps, lifecycle, cheats, Assistant, release) and remains
-open.
+The accepted #9 closure scope is now the **bounded exact H&S 2.0.5 ordinary live Singles subset**
+defined in §14.9, capped at **`ESTIMATED`**, together with the exact vanilla FireRed/Emerald
+calculator evidence. This does not promote H&S calculations to `VERIFIED` or expand the admitted
+mechanics. The supported H&S subset has the pinned data, upstream/host fixtures and direct A/B/C
+runtime observations documented here; unsupported mechanics and states remain refused.
+
+[VANILLA_CALCULATOR_EVIDENCE.md §11](VANILLA_CALCULATOR_EVIDENCE.md#11-issue-9-acceptance-audit-current-main)
+audits all nine #9 criteria across both targets, including the controlled vanilla runtime
+observations in §5. With that cross-target audit, the recommendation is to **close #9 after senior
+review and merge of PR #71**. The earlier statement that broader H&S support leaves a remainder
+open under #9 is superseded by this accepted bounded scope. Until review/merge, #9 stays open.
+
+The limits in §14.13 remain unchanged: H&S Doubles, damage items and other unsupported mechanics
+are not newly supported; positive badge runtime Golden D and positive transient transitions are
+not newly proven, and crit Golden E remains indirect. These are follow-up evidence/support work,
+not additional requirements for the accepted #9 closure. #40 is a separate, broader gate
+(hardware, maps, lifecycle, cheats, Assistant, release) and remains open.

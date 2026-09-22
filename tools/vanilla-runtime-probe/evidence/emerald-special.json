@@ -1,0 +1,209 @@
+{
+  "schema": "dualdex.vanilla_runtime.v1",
+  "verdict": "PASS",
+  "profile": "vanilla_emerald",
+  "romSHA256": "a9dec84dfe7f62ab2220bafaef7479da0929d066ece16a6885f6226db19085af",
+  "coreSHA256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+  "scenarioSHA256": "285d62a1b2a7d42c8463e3bcbe9c0c7e8fcd87f728d97cf93daffa4d088e38cd",
+  "fixture": "vg3_b_neutral_special_type_split",
+  "probeSHA256": "1ebdc7eb18f975e834b4d9c37c93c64a5aeb49f064589187be2ba744f9bcc736",
+  "hostSHA256": "137192cfcb93f0c93d7b45d3eccc054c5fbdf6a4d315bf7bb095b46711eda164",
+  "goldensSHA256": "a6d8d9031bf02c2269a0490444e4fefe43fc72350d154ebe87a719e2fa2f5138",
+  "request": {
+    "gen": 3,
+    "attacker": {
+      "species": "Machamp",
+      "level": 50,
+      "nature": "Hardy",
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spa": 0,
+        "spd": 0,
+        "spe": 0
+      }
+    },
+    "defender": {
+      "species": "Snorlax",
+      "level": 50,
+      "nature": "Hardy",
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spa": 0,
+        "spd": 0,
+        "spe": 0
+      }
+    },
+    "move": {
+      "name": "Crunch",
+      "isCrit": false
+    },
+    "field": {
+      "gameType": "Singles"
+    }
+  },
+  "expectedDamage": [
+    21,
+    21,
+    21,
+    22,
+    22,
+    22,
+    22,
+    23,
+    23,
+    23,
+    23,
+    24,
+    24,
+    24,
+    24,
+    25
+  ],
+  "checkpoint": {
+    "frame": 45553,
+    "menuSHA256": "e526e0e99587b6649121300167110a355e8593f740800a01e48be8a936e3273b",
+    "originalParties": [
+      [
+        280,
+        11,
+        11,
+        8,
+        13,
+        10,
+        10,
+        45,
+        0,
+        0,
+        20,
+        5,
+        20
+      ],
+      [
+        288,
+        6,
+        7,
+        7,
+        6,
+        6,
+        33,
+        45,
+        0,
+        0,
+        14,
+        2,
+        14
+      ]
+    ]
+  },
+  "diagnosticBattleMonsAddress": "0x2024084",
+  "setup": "controlled BattlePokemon RAM operands in an input-driven opening battle; writes sealed before move",
+  "combatants": [
+    {
+      "speciesId": 68,
+      "stats": {
+        "atk": 150,
+        "defense": 100,
+        "speed": 75,
+        "spa": 85,
+        "spd": 105
+      },
+      "moves": [
+        242,
+        0,
+        0,
+        0
+      ],
+      "stages": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "abilityId": 62,
+      "types": [
+        1,
+        1
+      ],
+      "hp": 165,
+      "level": 50,
+      "maxHP": 165,
+      "item": 0,
+      "personality": 0,
+      "status1": 0,
+      "status2": 0
+    },
+    {
+      "speciesId": 143,
+      "stats": {
+        "atk": 130,
+        "defense": 85,
+        "speed": 50,
+        "spa": 85,
+        "spd": 130
+      },
+      "moves": [
+        150,
+        0,
+        0,
+        0
+      ],
+      "stages": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "abilityId": 17,
+      "types": [
+        0,
+        0
+      ],
+      "hp": 235,
+      "level": 50,
+      "maxHP": 235,
+      "item": 0,
+      "personality": 0,
+      "status1": 0,
+      "status2": 0
+    }
+  ],
+  "hit": {
+    "frame": 45976,
+    "preHP": 235,
+    "postHP": 214,
+    "damage": 21,
+    "engineDamage": 21,
+    "move": 242,
+    "attacker": 0,
+    "target": 1,
+    "critMultiplier": 1
+  }
+}

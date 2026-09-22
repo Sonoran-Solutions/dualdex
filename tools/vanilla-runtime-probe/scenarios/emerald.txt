@@ -1,0 +1,109 @@
+# Fresh boot -> clock -> visit May -> Birch rescue -> Torchic -> Fight menu.
+run 400 0
+run 1 8
+run 180 0
+run 1 256
+run 200 0
+mash 20
+mash 20
+mash 20
+mash 18
+run 48 128
+run 180 0
+mash 25
+run 1 256
+run 100 0
+run 32 32
+run 64 128
+run 180 0
+mash 25
+run 16 16
+run 48 128
+run 150 0
+mash 20
+mash 20
+run 112 16
+run 32 128
+run 120 0
+run 32 64
+run 8 16
+run 30 0
+mash 6
+run 8 16
+run 30 0
+mash 5
+run 8 16
+run 30 0
+mash 18
+run 32 128
+run 16 16
+run 120 0
+mash 22
+mash 8
+run 48 128
+run 64 32
+run 32 64
+run 48 32
+run 120 0
+run 48 128
+run 32 32
+run 120 0
+run 128 128
+run 32 16
+run 120 0
+mash 20
+run 16 128
+run 32 16
+run 120 0
+mash 20
+mash 10
+run 112 16
+run 32 64
+run 120 0
+mash 15
+run 112 16
+run 32 64
+run 120 0
+run 48 32
+run 64 128
+run 30 0
+run 8 16
+run 30 0
+mash 24
+mash 20
+run 48 16
+run 64 64
+run 16 16
+run 120 0
+run 64 16
+run 120 0
+run 112 32
+run 120 0
+run 80 64
+run 160 16
+mash 18
+run 16 128
+run 112 16
+mash 15
+mash 8
+run 16 128
+run 96 16
+mash 18
+mash 12 1
+run 16 128
+run 30 0
+run 128 16
+run 120 0
+mash 15 1
+run 64 64
+run 30 0
+run 8 16
+run 30 0
+run 1 256
+run 150 0
+run 1 256
+run 180 0
+run 1 256
+run 800 0
+run 1 256
+run 600 0

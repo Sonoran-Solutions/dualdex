@@ -831,6 +831,111 @@ static void check_singles_equivalence(void) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Vanilla Gen III golden matrix (FireRed + Emerald)                    */
+/*                                                                     */
+/* The committed fixture file is the single source of truth shared by   */
+/* the independent oracle (tools/calc-goldens/gen3_reference.py), the   */
+/* production-boundary test (CalcVanillaGoldenBoundaryTest.kt) and this */
+/* harness. Each fixture carries the EXACT request the production       */
+/* boundary serialises, so executing it here checks the shipped engine  */
+/* against the same matrix the boundary and the oracle use.             */
+/* ------------------------------------------------------------------ */
+#define VANILLA_GOLDEN_PATH "tools/calc-goldens/vanilla_gen3_goldens.json"
+
+static void run_vanilla_golden_matrix(void) {
+    g_fixture = "vanilla_gen3_golden_matrix";
+    char* text = read_file_to_string(VANILLA_GOLDEN_PATH);
+    if (!text) {
+        g_checks_failed++;
+        printf(ANSI_RED "  [FAIL] vanilla golden matrix: cannot read %s (run from the repo root)"
+               ANSI_RESET "\n", VANILLA_GOLDEN_PATH);
+        return;
+    }
+    jl_value* doc = jl_parse(text);
+    free(text);
+    if (!doc) {
+        g_checks_failed++;
+        printf(ANSI_RED "  [FAIL] vanilla golden matrix: fixture file is not valid JSON" ANSI_RESET "\n");
+        return;
+    }
+    const jl_value* fixtures = jl_get(doc, "fixtures");
+    if (!jl_is_arr(fixtures) || jl_len(fixtures) == 0) {
+        g_checks_failed++;
+        printf(ANSI_RED "  [FAIL] vanilla golden matrix: missing 'fixtures' array" ANSI_RESET "\n");
+        jl_free(doc);
+        return;
+    }
+    g_checks_passed++;
+
+    int fixture_count = jl_len(fixtures);
+    for (int i = 0; i < fixture_count; i++) {
+        const jl_value* fx = jl_at(fixtures, i);
+        const char* id = jl_str(jl_get(fx, "id"));
+        g_fixture = id ? id : "(unnamed fixture)";
+
+        const jl_value* request = jl_get(fx, "request");
+        const jl_value* expected = jl_get(fx, "expected");
+        const jl_value* expected_damage = expected ? jl_get(expected, "damage") : NULL;
+        if (!jl_is_str(request) || !jl_is_arr(expected_damage) ||
+            jl_len(expected_damage) != ROLL_COUNT ||
+            !jl_is_str(jl_get(expected, "moveType")) ||
+            !jl_is_str(jl_get(expected, "moveCategory")) ||
+            !jl_is_num(jl_get(expected, "movePower")) ||
+            !jl_is_num(jl_get(expected, "minDamage")) ||
+            !jl_is_num(jl_get(expected, "maxDamage"))) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: malformed fixture (request/expected fields)" ANSI_RESET "\n", g_fixture);
+            continue;
+        }
+
+        char* raw = js_calc_calculate(jl_str(request));
+        jl_value* resp = raw ? jl_parse(raw) : NULL;
+        if (!resp) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: engine returned no/invalid JSON" ANSI_RESET "\n", g_fixture);
+            free(raw);
+            continue;
+        }
+        const jl_value* success = jl_get(resp, "success");
+        if (!jl_is_bool(success) || !jl_bool(success)) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: engine refused a golden request: %s" ANSI_RESET "\n",
+                   g_fixture,
+                   jl_is_str(jl_get(resp, "error")) ? jl_str(jl_get(resp, "error")) : "(no error)");
+            jl_free(resp);
+            free(raw);
+            continue;
+        }
+
+        check_str("moveType", jl_str(jl_get(expected, "moveType")), jl_str(jl_get(resp, "moveType")));
+        check_str("moveCategory", jl_str(jl_get(expected, "moveCategory")),
+                  jl_str(jl_get(resp, "moveCategory")));
+        check_number("movePower", (long)jl_num(jl_get(expected, "movePower")), jl_get(resp, "movePower"));
+
+        const jl_value* damage = damage_array(resp);
+        if (!damage || jl_len(damage) != ROLL_COUNT) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: response has no 16-roll vector" ANSI_RESET "\n", g_fixture);
+            jl_free(resp);
+            free(raw);
+            continue;
+        }
+        for (int r = 0; r < ROLL_COUNT; r++) {
+            char field[32];
+            snprintf(field, sizeof(field), "damage[%d]", r);
+            check_number(field, (long)jl_num(jl_at(expected_damage, r)), jl_at(damage, r));
+        }
+        check_number("minDamage", (long)jl_num(jl_get(expected, "minDamage")), jl_get(resp, "minDamage"));
+        check_number("maxDamage", (long)jl_num(jl_get(expected, "maxDamage")), jl_get(resp, "maxDamage"));
+
+        if (!g_quiet_checks) printf("  [PASS] %s\n", g_fixture);
+        jl_free(resp);
+        free(raw);
+    }
+    jl_free(doc);
+}
+
+/* ------------------------------------------------------------------ */
 /* Checker and parser self-tests                                       */
 /*                                                                     */
 /* The assertion helpers and the test-only JSON reader are part of the  */
@@ -3057,6 +3162,9 @@ int main(void) {
 
     printf("-- equivalent singles inputs --\n");
     check_singles_equivalence();
+
+    printf("-- vanilla Gen III golden matrix (FireRed + Emerald, independent oracle) --\n");
+    run_vanilla_golden_matrix();
 
     printf("-- Gap B: authoritative species/move overrides, category, isolation, malformed --\n");
     check_gap_b_data_overrides();

@@ -33,7 +33,10 @@ library source). *NOT FOUND* means the evidence does not exist and is never trea
 
 DualDex supports **exact verified FireRed**, **exact verified Emerald**, and **exact H&S 2.0.5**.
 Vanilla FireRed/Emerald requests that stay inside the verified input set are presented as **Verified**
-using `@smogon/calc`'s ADV pipeline (`gen: 3`). H&S 2.0.5 calculator support is a **partial, fail-closed
+using `@smogon/calc`'s ADV pipeline (`gen: 3`). The exact supported SHA-256s, the independent
+Generation III oracle, the shared golden fixture matrix, the production-boundary evidence and the
+corrected vanilla profile hashes are recorded in
+[VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md). H&S 2.0.5 calculator support is a **partial, fail-closed
 slice (Gap C4b/PARTIAL, Gap C4c/OPEN)**: the UQ4.12 roll-first damage arithmetic is implemented in QuickJS
 (`calculateHnsDamage`, §11) and host-verified against the native C oracle. After Gap C4e the live
 operands it depends on — current effective types, battle stat words, the dynamic move type, transient
@@ -184,6 +187,10 @@ Two exclusions are enforced or disclosed rather than merely documented:
 * The generation III **badge boost** is unmodelled for every build and the request shape cannot
   express it. It is not enforced in code, so the verified headline states the scope explicitly
   (`CalcResultPresentation.BADGE_BOOST_NOTE`) instead of leaving it to this document.
+
+The exact supported vanilla SHA-256s, the independent Generation III oracle, the golden damage
+matrix, and the correction of the previously non-genuine vanilla profile hashes are recorded in
+[VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md).
 
 ---
 
@@ -1927,9 +1934,11 @@ still green; C4e adds the pinch-ability fixtures alongside it.
 
 ### 14.14 Issues #9 and #40
 
-#9 is **not closed by this document alone**: it still requires exact FireRed/Emerald goldens (owned
-elsewhere), broader H&S mechanic coverage (Doubles, items, more abilities, modern behaviour), and the
-umbrella evidence wiring. C4e satisfies the bounded "supported H&S calculations have golden fixtures"
+#9 is **not closed by this document alone**: the exact FireRed/Emerald golden fixtures now exist and
+are recorded in [VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md) (independent Gen III
+oracle + shipped-engine host suite + production-boundary tests), while broader H&S mechanic coverage
+(Doubles, items, more abilities, modern behaviour) and the umbrella evidence wiring remain outside
+this document. C4e satisfies the bounded "supported H&S calculations have golden fixtures"
 and "unsupported mechanics fail honestly" criteria for the ordinary Singles subset; the remainder
 stays open. #40 is far broader (hardware, maps, lifecycle, cheats, Assistant, release) and remains
 open.

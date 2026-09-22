@@ -106,6 +106,27 @@ hide behind a matching min/max pair.
 These numbers were computed independently and then cross-checked against the
 engine; they were not produced by running the engine and copying its output.
 
+### Vanilla FireRed / Emerald golden matrix
+
+`run_vanilla_golden_matrix()` in this suite reads
+`tools/calc-goldens/vanilla_gen3_goldens.json`, executes each fixture's **exact**
+production-serialised request against the shipped bundle, and asserts the full 16-roll
+vector for the neutral physical, neutral special (Gen III type split), STAB + type
+effectiveness, critical hit (and crit stage-ignore), Singles Reflect / Light Screen,
+format-sensitive Doubles spread, Rain/Sun, burn + Guts, and stat-stage branches.
+
+The same fixture file is used by two other checks, so none of the three can drift:
+
+* `tools/calc-goldens/verify_goldens.py` re-derives every expected roll from the
+  independent Generation III oracle `tools/calc-goldens/gen3_reference.py` and checks that
+  the bundled FireRed/Emerald profile SHA-256s match the golden provenance;
+* `app/src/test/java/com/dualdex/calculator/CalcVanillaGoldenBoundaryTest.kt` drives the
+  real `CalcRequestBoundary` for both exact profiles, proves `Ready` / `VERIFIED`, and
+  asserts the production serialisation is identical to the executed request.
+
+The matrix, its pinned pret commits, and the exact supported ROM hashes are documented in
+[VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md).
+
 ### The numeric oracle and the parser are tested too
 
 The assertion helpers, the response-validation path, and the test-only reader

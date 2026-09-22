@@ -1,0 +1,43 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage51_falkner_won.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-map 3 5
+assert-pos 9 5
+walk LEFT 1
+walk DOWN 4
+walk LEFT 1
+walk DOWN 2
+walk RIGHT 4
+walk DOWN 2
+walk LEFT 2
+walk DOWN 7
+wait 90
+assert-map 0 2
+assert-pos 23 37
+walk RIGHT 13
+walk DOWN 9
+walk RIGHT 3
+walk UP 2
+wait 90
+assert-map 3 0
+walk UP 4
+spama 15
+wait 200
+spama 15
+wait 200
+walk DOWN 1
+walk RIGHT 2
+press UP 4
+spama 35
+wait 300
+spamb 12
+party-stats player
+matrix egg-received
+assert-battle inactive
+assert-map 3 0
+assert-pos 9 5
+menusave
+savsave /tmp/hns_baseline/stage52_pre_egg.sav

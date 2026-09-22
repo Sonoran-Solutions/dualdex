@@ -240,6 +240,7 @@ static bool sha256_file_hex(const char* path, char out_hex[65]) {
 #define HNS_RELEASE_PARTY_MENU_SLOT_ID 0x02034205u
 
 static bool g_quiet = false;
+static char g_rom_sha256[65];
 
 static bool probe_read(void* user, uint32_t address, uint8_t* out, size_t length) {
     (void)user;
@@ -326,9 +327,10 @@ typedef struct {
     uint32_t type_flags;
     uint8_t  outcome;
     bool     counters_readable;
-    uint8_t  party_index[DUALDEX_MAX_BATTLERS];
+    uint16_t party_index[DUALDEX_MAX_BATTLERS];
     uint8_t  position[DUALDEX_MAX_BATTLERS];
     uint8_t  absent_flags;
+    bool     absent_readable;
     uint16_t mon_species[DUALDEX_MAX_BATTLERS];
     uint16_t mon_hp[DUALDEX_MAX_BATTLERS];
     uint16_t mon_max_hp[DUALDEX_MAX_BATTLERS];
@@ -407,6 +409,7 @@ static void sample_state(const GameMemoryConfig* cfg, int frame, uint32_t input,
         out->outcome = ewram[cfg->battle_outcome_offset];
     }
     if (cfg->absent_battler_flags_offset < ewram_sz) {
+        out->absent_readable = true;
         out->absent_flags = ewram[cfg->absent_battler_flags_offset];
     }
     if (cfg->player_party_count_offset < ewram_sz) {
@@ -425,7 +428,8 @@ static void sample_state(const GameMemoryConfig* cfg, int frame, uint32_t input,
         }
         if (cfg->battler_party_indexes_offset != 0 &&
             cfg->battler_party_indexes_offset + (b * 2) + 1 < ewram_sz) {
-            out->party_index[b] = ewram[cfg->battler_party_indexes_offset + (b * 2)];
+            out->party_index[b] = (uint16_t)(ewram[cfg->battler_party_indexes_offset + (b * 2)] |
+                (ewram[cfg->battler_party_indexes_offset + (b * 2) + 1] << 8));
         }
         size_t mon_off = (size_t)cfg->battle_mons_offset + ((size_t)b * cfg->battle_mons_size);
         if (cfg->battle_mons_offset != 0 && mon_off + cfg->battle_mons_size <= ewram_sz) {
@@ -1399,6 +1403,40 @@ static void player_repl_test_sample(Sample* s, int frame, int player_slot, uint1
     s->active_player_battler = known ? 0 : -1;
 }
 
+/* Strict encounter contract: cannot pass in overworld, Singles, or intro before all four
+ * live BattlePokemon exist. Raw topology is checked independently of production resolution. */
+static bool four_battler_contract(const Sample* s, BattleKind kind) {
+    const uint32_t multi_mask = (1u << 1) | (1u << 6) | (1u << 15) | (1u << 22);
+    if (kind != BATTLE_KIND_DOUBLES && kind != BATTLE_KIND_MULTI_OR_PARTNER) return false;
+    if (!s->in_battle_readable || !s->in_battle || !s->counters_readable ||
+        !s->absent_readable || s->absent_flags != 0 || s->outcome != 0 ||
+        s->battlers != 4 || !(s->type_flags & 1u) ||
+        ((s->type_flags & multi_mask) != 0) != (kind == BATTLE_KIND_MULTI_OR_PARTNER) ||
+        s->lifecycle != BATTLE_LIFECYCLE_ACTIVE || s->kind != kind || s->presence != 1 ||
+        s->active_enemy != ACTIVE_ENEMY_AMBIGUOUS || s->enemy_slot != -1 ||
+        s->enemy_battler != -1 || s->opponent_battlers != 2 ||
+        s->active_player_known || s->active_player_slot != -1 || s->active_player_battler != -1 ||
+        s->player_battler_state.status != BATTLER_RUNTIME_STATE_AMBIGUOUS ||
+        s->enemy_battler_state.status != BATTLER_RUNTIME_STATE_AMBIGUOUS ||
+        s->player_party_count < 2 || s->player_party_count > 6 ||
+        s->enemy_party_count < 2 || s->enemy_party_count > 6 ||
+        s->player_party_count_prod != s->player_party_count ||
+        s->enemy_party_count_prod != s->enemy_party_count) return false;
+    unsigned seen = 0;
+    for (int b = 0; b < 4; b++) {
+        const unsigned pos = s->position[b];
+        if (pos > 3 || (seen & (1u << pos))) return false;
+        seen |= 1u << pos;
+        const unsigned count = (pos & 1) ? s->enemy_party_count : s->player_party_count;
+        if (s->party_index[b] >= count || s->mon_species[b] == 0 || s->mon_species[b] >= 2000 ||
+            s->mon_hp[b] == 0 || s->mon_hp[b] > s->mon_max_hp[b]) return false;
+        for (int j = 0; j < b; j++)
+            if ((s->position[j] & 1) == (pos & 1) && s->party_index[j] == s->party_index[b])
+                return false;
+    }
+    return seen == 15;
+}
+
 static int run_pure_tracker_selftests(void) {
     int passed = 0;
     int failed = 0;
@@ -2160,6 +2198,45 @@ static int run_pure_tracker_selftests(void) {
                     "player_replacement_latched_violation_survives_later_commit");
     }
 
+    {
+        Sample good = {0};
+        good.in_battle_readable = good.in_battle = good.counters_readable = good.absent_readable = true;
+        good.battlers = 4; good.type_flags = 9; good.lifecycle = BATTLE_LIFECYCLE_ACTIVE;
+        good.kind = BATTLE_KIND_DOUBLES; good.presence = 1;
+        good.active_enemy = ACTIVE_ENEMY_AMBIGUOUS; good.enemy_slot = good.enemy_battler = -1;
+        good.opponent_battlers = 2; good.active_player_slot = good.active_player_battler = -1;
+        good.player_battler_state.status = good.enemy_battler_state.status = BATTLER_RUNTIME_STATE_AMBIGUOUS;
+        good.player_party_count = good.player_party_count_prod = 2;
+        good.enemy_party_count = good.enemy_party_count_prod = 2;
+        for (int b = 0; b < 4; b++) {
+            good.position[b] = b; good.party_index[b] = b / 2;
+            good.mon_species[b] = 19; good.mon_hp[b] = good.mon_max_hp[b] = 20;
+        }
+        ASSERT_TEST(four_battler_contract(&good, BATTLE_KIND_DOUBLES), "four_battler_positive");
+        Sample bad = good;
+        #define REJECT_FOUR(change, name) do { bad = good; change; \
+            ASSERT_TEST(!four_battler_contract(&bad, BATTLE_KIND_DOUBLES), name); } while (0)
+        REJECT_FOUR(bad.battlers = 2, "four_battler_reject_singles");
+        REJECT_FOUR(bad.in_battle = false, "four_battler_reject_overworld");
+        REJECT_FOUR(bad.in_battle_readable = false, "four_battler_reject_unread_gate");
+        REJECT_FOUR(bad.absent_readable = false, "four_battler_reject_unread_absent");
+        REJECT_FOUR(bad.absent_flags = 8, "four_battler_reject_absent");
+        REJECT_FOUR(bad.position[3] = 1, "four_battler_reject_duplicate_position");
+        REJECT_FOUR(bad.party_index[3] = 256, "four_battler_reject_full_u16_index");
+        REJECT_FOUR(bad.party_index[3] = 0, "four_battler_reject_duplicate_slot");
+        REJECT_FOUR(bad.mon_hp[3] = 0, "four_battler_reject_unpopulated_mon");
+        REJECT_FOUR(bad.enemy_slot = 0, "four_battler_reject_invented_enemy");
+        REJECT_FOUR(bad.active_player_slot = 0, "four_battler_reject_invented_player");
+        REJECT_FOUR(bad.opponent_battlers = 1, "four_battler_reject_wrong_opponent_count");
+        REJECT_FOUR(bad.presence = 0, "four_battler_reject_wrong_presence");
+        REJECT_FOUR(bad.enemy_party_count_prod = 0, "four_battler_reject_unread_party");
+        REJECT_FOUR(bad.type_flags = 0, "four_battler_reject_wrong_flags");
+        #undef REJECT_FOUR
+        good.kind = BATTLE_KIND_MULTI_OR_PARTNER; good.type_flags |= 1u << 15;
+        ASSERT_TEST(four_battler_contract(&good, BATTLE_KIND_MULTI_OR_PARTNER), "four_battler_multi_positive");
+        ASSERT_TEST(!four_battler_contract(&good, BATTLE_KIND_DOUBLES), "four_battler_wrong_kind");
+    }
+
     #undef ASSERT_TEST
 
     printf("Pure tracker selftests: %d passed, %d failed\n", passed, failed);
@@ -2578,7 +2655,8 @@ static void clear_wild_battle(Driver* d, Sample* previous, bool* have_previous) 
             }
         } else {
             /* Text, intro, or waiting: press B to advance text safely without selecting Fight */
-            uint32_t btn = ((it % 4) < 2) ? DUALDEX_BTN_B : 0;
+            uint32_t btn = ((it % 4) < 2) ?
+                (cmd == 16 ? DUALDEX_BTN_A : DUALDEX_BTN_B) : 0;
             step_one(d, btn, previous, have_previous);
         }
     }
@@ -2654,24 +2732,51 @@ static void do_menusave(Driver* d, Sample* previous, bool* have_previous) {
     printf("  [menusave] in-game save completed via controller input\n");
 }
 
-/* Drive an ALREADY-ACTIVE battle to completion with ordinary controller input: Fight + move slot 0
- * every turn, declining every modal prompt. Uses the documented battle-controller states (bcmd 17
+/* Drive an ALREADY-ACTIVE progression battle to victory with ordinary controller input, selecting
+ * available progression moves and replacing a fainted lead. Uses documented controller states (bcmd 17
  * action selection, 19 move selection, 18 Yes/No, 21 party menu) rather than blind A-mashing.
  *
- * Returns false when the battle has not ended within @p max_f frames; the caller decides whether
+ * Returns false on a non-victory outcome or the @p max_f deadline; the caller decides whether
  * that is fatal. This never starts a battle and never writes to the machine. */
 static bool drive_battle_to_end(Driver* d, int max_f, Sample* previous, bool* have_previous) {
     size_t ewram_sz = 0;
     uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
     uint8_t ib = 0;
+    const int start_frame = d->frame;
     int f = 0;
     bool ended = false;
-    for (; f < max_f; f++) {
+    int enemy_slot = -1, setup_phase = 0, selected_setup = -1;
+    bool move_confirmed = false;
+    for (; d->frame - start_frame < max_f; f++) {
         read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
         if (!((ib >> d->cfg->main_in_battle_bit) & 1)) { ended = true; break; }
 
         uint8_t bcmd = get_battler0_command(ewram, ewram_sz);
-        if (bcmd == 17) {          /* action selection: cursor to Fight */
+        Sample live;
+        sample_state(d->cfg, d->frame, 0, &live);
+        const int pb = probe_resolve_player_battler(&live);
+        if (live.enemy_slot >= 0 && live.enemy_slot != enemy_slot) {
+            enemy_slot = live.enemy_slot; setup_phase = 0; selected_setup = -1; move_confirmed = false;
+        }
+        if (bcmd == 17 && move_confirmed) {
+            if (selected_setup >= 0) setup_phase = selected_setup + 1;
+            move_confirmed = false;
+        }
+        uint32_t cb2 = 0;
+        read_u32(HNS_RELEASE_GMAIN_BASE + 4, &cb2);
+        const bool party_menu = (cb2 >= 0x0819379Cu && cb2 < 0x0819F548u) || bcmd == 21;
+        if (pb >= 0 && live.mon_hp[pb] == 0 && party_menu) {
+            int target = -1;
+            for (int i = 0; i < live.player_party_count_prod; i++)
+                if (i != live.party_index[pb] && live.party_hp[i] > 0) { target = i; break; }
+            if (target < 0) return false;
+            PartyMenuProbeState menu;
+            if (!read_party_menu_probe_candidate_b(&menu)) return false;
+            uint32_t button = menu.slot_id == target ? DUALDEX_BTN_A :
+                menu.slot_id < target ? DUALDEX_BTN_DOWN : DUALDEX_BTN_UP;
+            hold(d, button, 6, previous, have_previous);
+            hold(d, 0, menu.slot_id == target ? 300 : 20, previous, have_previous);
+        } else if (bcmd == 17) {          /* action selection: cursor to Fight */
             uint8_t cur = (ewram_sz > 0x3A4) ? ewram[0x3A4] : 0;
             if (cur != 0) {
                 hold(d, DUALDEX_BTN_UP, 4, previous, have_previous);
@@ -2679,8 +2784,59 @@ static bool drive_battle_to_end(Driver* d, int max_f, Sample* previous, bool* ha
             }
             hold(d, DUALDEX_BTN_A, 4, previous, have_previous);
             hold(d, 0, 8, previous, have_previous);
-        } else if (bcmd == 19) {   /* move selection: first move */
-            hold(d, DUALDEX_BTN_A, 4, previous, have_previous);
+        } else if (bcmd == 19) {
+            /* Progression can learn Leech Seed over slot 0. Select a known damaging move
+             * with remaining PP, using the same live cursor as damage-probe. */
+            const uint16_t moves[] = {33, 98, 10, 72, 75, 22, 16, 64};
+            int wanted = -1;
+            for (unsigned k = 0; k < sizeof(moves) / sizeof(moves[0]) && wanted < 0; k++)
+                for (int m = 0; pb >= 0 && m < 4; m++) {
+                    uint8_t pp = 0;
+                    if (live.mon_moves[pb][m] == moves[k] &&
+                        read_u8(0x02000000u + d->cfg->battle_mons_offset +
+                            pb * d->cfg->battle_mons_size + 0x25u + m, &pp) && pp > 0)
+                        wanted = m;
+                }
+            selected_setup = -1;
+            const uint16_t setup_moves[] = {73, 77}; /* Leech Seed, Poison Powder */
+            for (int k = setup_phase; k < 2 && selected_setup < 0; k++) {
+                bool immune = false;
+                for (int t = 0; t < 3; t++) {
+                    const int type = live.enemy_battler_state.types[t];
+                    if (type == 13 || (k == 1 && (type == 4 || type == 9))) immune = true;
+                }
+                if (immune) continue;
+                for (int m = 0; pb >= 0 && m < 4; m++) {
+                    uint8_t pp = 0;
+                    if (live.mon_moves[pb][m] == setup_moves[k] &&
+                        read_u8(0x02000000u + d->cfg->battle_mons_offset +
+                            pb * d->cfg->battle_mons_size + 0x25u + m, &pp) && pp > 0) {
+                        wanted = m; selected_setup = k; break;
+                    }
+                }
+            }
+            /* The ordinary Chikorita chain learns Synthesis before Route 32. */
+            for (int m = 0; pb >= 0 && m < 4; m++) {
+                uint8_t pp = 0;
+                if (live.mon_moves[pb][m] == 235 && live.mon_hp[pb] * 2 < live.mon_max_hp[pb] &&
+                    read_u8(0x02000000u + d->cfg->battle_mons_offset +
+                        pb * d->cfg->battle_mons_size + 0x25u + m, &pp) && pp > 0) {
+                    wanted = m; selected_setup = -1; break;
+                }
+            }
+            if (wanted < 0) return false;
+            const uint8_t cursor = ewram_sz > 0x3A8 ? ewram[0x3A8] : 255;
+            if (cursor > 3) return false;
+            uint32_t button = DUALDEX_BTN_A;
+            if ((cursor & 1) != (wanted & 1)) button = (wanted & 1) ? DUALDEX_BTN_RIGHT : DUALDEX_BTN_LEFT;
+            else if ((cursor & 2) != (wanted & 2)) button = (wanted & 2) ? DUALDEX_BTN_DOWN : DUALDEX_BTN_UP;
+            if (button == DUALDEX_BTN_A && !move_confirmed) {
+                printf("  [battle] choose move=%u setup=%d playerHP=%u enemyHP=%u enemySlot=%d\n",
+                    live.mon_moves[pb][wanted], selected_setup, live.mon_hp[pb],
+                    live.enemy_battler >= 0 ? live.mon_hp[live.enemy_battler] : 0, live.enemy_slot);
+                move_confirmed = true;
+            }
+            hold(d, button, 4, previous, have_previous);
             hold(d, 0, 8, previous, have_previous);
         } else if (bcmd == 18 || bcmd == 21) {
             /* Yes/No box (shift prompt) or an accidental party menu: decline/cancel. */
@@ -2691,18 +2847,20 @@ static bool drive_battle_to_end(Driver* d, int max_f, Sample* previous, bool* ha
         }
     }
     if (ended) {
-        printf("  [battle] finished after %d frames\n", f);
-        /* Clear the remaining post-battle text so the caller resumes on the overworld, and make
-         * sure the field is really unlocked again: a trainer battle ends inside the NPC's own
-         * post-battle script, and a walk that starts before that script releases the player sees
-         * every direction as blocked. B cancels a stray menu, A advances the message. */
+        printf("  [battle] finished after %d frames\n", d->frame - start_frame);
+        /* B advances/closes post-battle text without A talking to the trainer again.
+         * Leave enough release time for each page; a six-frame tap alone can merely finish
+         * printing the page. Reopening that dialogue stranded the old Sprout Tower route. */
         for (int k = 0; k < 8; k++) {
-            hold(d, DUALDEX_BTN_B, 6, previous, have_previous);
-            hold(d, 0, 20, previous, have_previous);
-            hold(d, DUALDEX_BTN_A, 6, previous, have_previous);
-            hold(d, 0, 24, previous, have_previous);
+            hold(d, DUALDEX_BTN_B, 8, previous, have_previous);
+            hold(d, 0, 80, previous, have_previous);
         }
         hold(d, 0, 60, previous, have_previous);
+    }
+    uint8_t outcome = 0;
+    if (ended && (!read_u8(0x02000000u + d->cfg->battle_outcome_offset, &outcome) || outcome != 1)) {
+        printf("  [battle] progression requires victory; observed outcome=%u\n", outcome);
+        return false;
     }
     return ended;
 }
@@ -2771,8 +2929,8 @@ static bool do_walk_tiles(Driver* d, uint32_t btn, const char* dir_name, int til
             if (!((ib >> d->cfg->main_in_battle_bit) & 1)) {
                 if (attempt >= 2) {
                     for (int k = 0; k < 5 && !moved; k++) {
-                        hold(d, DUALDEX_BTN_A, 8, previous, have_previous);
-                        hold(d, 0, 30, previous, have_previous);
+                        hold(d, DUALDEX_BTN_B, 8, previous, have_previous);
+                        hold(d, 0, 80, previous, have_previous);
                         uint16_t x1 = 0, y1 = 0; uint8_t g1 = 0, m1 = 0;
                         read_map_position(&x1, &y1, &g1, &m1);
                         if (x1 != x0 || y1 != y0 || g1 != g0 || m1 != m0) moved = true;
@@ -3253,15 +3411,16 @@ static int run_script(Driver* d, const char* script_path) {
             for (int i = 0; i < total; i++) {
                 step_one(d, ((i % 10) < 4) ? DUALDEX_BTN_A : 0, &previous, &have_previous);
             }
-        } else if (!strcmp(cmd, "spama")) {
-            /* Press A a bounded number of times with a long gap. Unlike `mash`, the count is
+        } else if (!strcmp(cmd, "spama") || !strcmp(cmd, "spamb")) {
+            /* Press A/B a bounded number of times with a long gap. Unlike `mash`, the count is
              * explicit: an unbounded A mash on a re-triggerable NPC dialogue never returns. */
             int cnt = a1[0] ? atoi(a1) : 10;
+            const bool dismiss = !strcmp(cmd, "spamb");
             for (int i = 0; i < cnt; i++) {
-                hold(d, DUALDEX_BTN_A, 8, &previous, &have_previous);
-                hold(d, 0, 120, &previous, &have_previous);
+                hold(d, dismiss ? DUALDEX_BTN_B : DUALDEX_BTN_A, 8, &previous, &have_previous);
+                hold(d, 0, dismiss ? 80 : 120, &previous, &have_previous);
             }
-            printf("  [spama] %d presses\n", cnt);
+            printf("  [%s] %d presses\n", cmd, cnt);
         } else if (!strcmp(cmd, "walk")) {
             uint32_t btn = parse_buttons(a1);
             int tiles = a2[0] ? atoi(a2) : 1;
@@ -3292,7 +3451,7 @@ static int run_script(Driver* d, const char* script_path) {
                 else if (x > target_x) { btn = DUALDEX_BTN_LEFT; dir_name = "LEFT"; }
                 else if (y < target_y) { btn = DUALDEX_BTN_DOWN; dir_name = "DOWN"; }
                 else if (y > target_y) { btn = DUALDEX_BTN_UP; dir_name = "UP"; }
-                if (!do_walk_tiles(d, btn, dir_name, 1, false, false, &previous, &have_previous)) {
+                if (!do_walk_tiles(d, btn, dir_name, 1, false, !strcmp(a3, "battle"), &previous, &have_previous)) {
                     script_error("walk-to (%u,%u) failed: blocked while moving %s", target_x, target_y, dir_name);
                     break;
                 }
@@ -3530,6 +3689,19 @@ static int run_script(Driver* d, const char* script_path) {
                     }
                 }
             }
+        } else if (!strcmp(cmd, "assert-rom-sha256")) {
+            if (!g_rom_sha256[0] || strcmp(a1, g_rom_sha256))
+                script_error("assert-rom-sha256: expected %s, loaded %s", a1, g_rom_sha256);
+            else printf("  [assert] ROM SHA-256=%s OK\n", g_rom_sha256);
+        } else if (!strcmp(cmd, "assert-four-battler")) {
+            Sample s;
+            sample_state(d->cfg, d->frame, 0, &s);
+            BattleKind kind = !strcmp(a1, "DOUBLES") ? BATTLE_KIND_DOUBLES :
+                !strcmp(a1, "MULTI_OR_PARTNER") ? BATTLE_KIND_MULTI_OR_PARTNER : BATTLE_KIND_UNKNOWN;
+            print_matrix(&s, "four-battler-contract");
+            if (!four_battler_contract(&s, kind))
+                script_error("assert-four-battler %s: live topology/production contract not reached", a1);
+            else printf("  [assert] four present battlers / %s / both active roles ambiguous OK\n", a1);
         } else if (!strcmp(cmd, "assert-battle")) {
             Sample s;
             sample_state(d->cfg, d->frame, 0, &s);
@@ -3604,7 +3776,7 @@ static int run_script(Driver* d, const char* script_path) {
              * Drive an ALREADY-ACTIVE battle to completion with ordinary controller input (see
              * drive_battle_to_end). This does NOT start a battle: it is for a battle the scenario
              * deliberately entered by walking into a trainer's sight line. It fails closed if the
-             * battle never ends, and it refuses to run when no battle is active. */
+             * battle never ends or ends without victory, and refuses to run when no battle is active. */
             int max_f = a1[0] ? atoi(a1) : 30000;
             uint8_t ib = 0;
             read_u8(d->cfg->main_struct_gba_address + d->cfg->main_in_battle_byte_offset, &ib);
@@ -3617,9 +3789,9 @@ static int run_script(Driver* d, const char* script_path) {
                 printf("  [battle-win] finishing %s battle (enemy party %u, battlers %u)\n",
                        kind_name(s0.kind), s0.enemy_party_count_prod, s0.battlers);
                 if (!drive_battle_to_end(d, max_f, &previous, &have_previous)) {
-                    script_error("battle-win: battle did not finish within %d frames", max_f);
+                    script_error("battle-win: no verified victory within %d frames", max_f);
                 } else {
-                    printf("  [battle-win] battle ended\n");
+                    printf("  [battle-win] victory verified\n");
                 }
             }
         } else if (!strcmp(cmd, "await-enemy-replacement")) {
@@ -4919,7 +5091,7 @@ int main(int argc, char** argv) {
      * oracle is closed. It does NOT promote the product trust hash and does NOT touch
      * RuntimeRomTrust / heart_and_soul.json. */
     {
-        char rom_sha256[65];
+        char* rom_sha256 = g_rom_sha256;
         if (sha256_file_hex(rom_path, rom_sha256)) {
             printf("rom sha256 : %s\n", rom_sha256);
             printf("[ROM] path=%s sha256=%s loaded=1\n", rom_path, rom_sha256);

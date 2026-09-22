@@ -1,0 +1,50 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage65_proton_won.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-map 4 2
+assert-pos 15 4
+walk LEFT 1
+walk DOWN 3
+walk LEFT 10
+walk DOWN 2
+wait 90
+assert-map 0 3
+assert-pos 19 12
+# AzaleaTown_hns (19, 12) -> (31, 15)
+walk DOWN 2 battle
+walk RIGHT 3 battle
+walk DOWN 1 battle
+walk RIGHT 1 battle
+walk DOWN 1 battle
+walk RIGHT 8 battle
+walk UP 1 battle
+wait 90
+matrix route-AzaleaTown_hns
+wait 200
+assert-map 4 0
+walk UP 4
+spama 30
+wait 200
+spamb 8
+walk DOWN 5
+wait 90
+# AzaleaTown_hns (31, 16) -> (23, 24)
+walk LEFT 1 battle
+walk DOWN 10 battle
+walk LEFT 4 battle
+walk UP 1 battle
+walk LEFT 3 battle
+walk UP 1 battle
+wait 90
+matrix route-AzaleaTown_hns
+wait 200
+matrix gym-entry
+party-stats player
+assert-battle inactive
+assert-map 4 4
+assert-pos 11 44
+menusave
+savsave /tmp/hns_baseline/stage66_azalea_gym.sav

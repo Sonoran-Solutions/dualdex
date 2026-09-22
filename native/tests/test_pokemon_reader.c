@@ -3272,6 +3272,64 @@ static void test_hns_doubles_degrades_instead_of_guessing(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_doubles_degrades_instead_of_guessing" ANSI_RESET "\n");
 }
 
+/** Reuse a resolved snapshot across Singles -> permuted four-battler -> Singles. */
+static void test_hns_single_to_multi_clears_prior_enemy(void) {
+    printf("Running test_hns_single_to_multi_clears_prior_enemy...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    PartySnapshot snap;
+    ActiveEnemyInfo info;
+    pokemon_reader_reset();
+    hns_battle_fixture_init(&fx, &gba, cfg);
+    hns_battle_fill_player_party(&fx, 2);
+    hns_battle_fill_enemy_party(&fx, 2);
+    for (int a = 0; a < 4; a++) for (int b = 0; b < 4; b++)
+    for (int c = 0; c < 4; c++) for (int d = 0; d < 4; d++) {
+        if (a == b || a == c || a == d || b == c || b == d || c == d) continue;
+        const int positions[4] = {a, b, c, d};
+        for (int multi = 0; multi < 2; multi++) {
+            hns_battle_begin_single_wild(&fx, 1, 19);
+            TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram,
+                sizeof(gba.ewram), cfg, &snap, &info) == ACTIVE_ENEMY_SLOT && info.party_slot == 1,
+                "Singles must resolve before each ambiguous transition (including recovery)");
+            hns_battle_set_counters(&fx, 4, 1u | (multi ? (1u << 15) : 0u), 0);
+            gba.ewram[cfg->absent_battler_flags_offset] = 0;
+            for (int i = 0; i < 4; i++) {
+                hns_battle_set_battler(&fx, i, positions[i], positions[i] / 2);
+                hns_battle_set_mon(&fx, i, (positions[i] & 1) ? 19 : 155, 20);
+            }
+            BattleStateRaw state;
+            TEST_ASSERT(pokemon_read_battle_lifecycle(fake_gba_read, &gba.table, gba.ewram,
+                sizeof(gba.ewram), cfg, &state) == BATTLE_LIFECYCLE_ACTIVE,
+                "all position permutations retain authoritative ACTIVE lifecycle");
+            TEST_ASSERT(state.kind == (multi ? BATTLE_KIND_MULTI_OR_PARTNER : BATTLE_KIND_DOUBLES),
+                "two-opponent flag distinguishes MULTI_OR_PARTNER from ordinary DOUBLES");
+            TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram,
+                sizeof(gba.ewram), cfg, &snap, &info) == ACTIVE_ENEMY_AMBIGUOUS,
+                "two opponents must stay ambiguous regardless of battler order or prior Singles");
+            TEST_ASSERT(info.party_slot == -1 && info.battler_index == -1 && info.opponent_battlers == 2,
+                "prior Singles slot/battler must be erased, both opponents counted");
+            TEST_ASSERT(!snap.active_battler_known && snap.active_battler_slot == -1 &&
+                snap.active_battler_index == -1 && snap.active_enemy_ambiguous,
+                "reused snapshot must not retain a single live enemy selection");
+            int remaining_enemy = -1;
+            for (int i = 0; i < 4; i++) {
+                if (positions[i] == 3) gba.ewram[cfg->absent_battler_flags_offset] = (uint8_t)(1u << i);
+                if (positions[i] == 1) remaining_enemy = i;
+            }
+            TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram,
+                sizeof(gba.ewram), cfg, &snap, &info) == ACTIVE_ENEMY_SLOT,
+                "one present opponent after absence must resolve by position, not index parity");
+            TEST_ASSERT(info.opponent_battlers == 1 && info.party_slot == 0 &&
+                info.battler_index == remaining_enemy && !snap.active_enemy_ambiguous,
+                "permuted late-Doubles resolves the correct remaining opponent and clears ambiguity");
+        }
+    }
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_single_to_multi_clears_prior_enemy" ANSI_RESET "\n");
+}
+
 /**
  * Invalid battler state must fail closed, not invent a slot.
  */
@@ -6030,6 +6088,7 @@ int main(void) {
     test_hns_battle_lifecycle_gates_enemy_state();
     test_hns_stale_battle_mon_cannot_invent_opponent();
     test_hns_doubles_degrades_instead_of_guessing();
+    test_hns_single_to_multi_clears_prior_enemy();
     test_hns_invalid_battler_indexes_fail_closed();
     test_hns_authoritative_enemy_count_requires_reader_gate();
     test_hns_production_battle_presence_uses_lifecycle();

@@ -1,0 +1,38 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage60_well_entry.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-pos 26 29
+# SlowpokeWell_B1F_hns (26, 29) -> (14, 4)
+wait 90
+walk-to 26 15 battle
+wait 90
+walk-to 25 15 battle
+wait 90
+walk-to 25 9 battle
+wait 90
+walk-to 26 9 battle
+wait 90
+walk-to 26 2 battle
+wait 90
+walk-to 20 2 battle
+wait 90
+walk-to 20 8 battle
+wait 90
+walk-to 15 8 battle
+wait 90
+walk-to 15 4 battle
+wait 90
+walk-to 14 4 battle
+wait 90
+matrix route-SlowpokeWell_B1F_hns
+wait 200
+party-stats player
+matrix proton-ready
+assert-battle inactive
+assert-map 24 11
+assert-pos 14 4
+menusave
+savsave /tmp/hns_baseline/stage61_proton_ready.sav

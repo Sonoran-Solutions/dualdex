@@ -1,0 +1,147 @@
+# Issue #1: smallest extension of Scenario 45 to the Sprout Tower 3F approach.
+# Input: stage44a_violet_city.sav; output: stage46_tower3f.sav (developer-local only).
+# Reuses the source-derived route from deferred/46-sprout-tower-3f.txt.
+# B pulses at Nico finish the approach/text without repeatedly reopening his dialogue.
+# No RAM writes, cheats, save structures, or battle operand modifications.
+wait 120
+mash 800
+wait 200
+assert-battle inactive
+assert-map 0 2
+assert-pos 39 46
+matrix leg-boot
+walk LEFT 7
+wait 75
+assert-map 0 2
+assert-pos 32 46
+matrix leg-VioletCity_hns
+walk UP 7
+wait 75
+assert-map 0 2
+assert-pos 32 39
+walk LEFT 2
+wait 75
+assert-map 0 2
+assert-pos 30 39
+walk UP 24
+wait 75
+assert-map 0 2
+assert-pos 30 15
+walk UP 1
+wait 75
+assert-map 0 2
+assert-pos 30 14
+walk UP 1
+wait 75
+assert-map 24 2
+assert-pos 10 16
+matrix leg-SproutTower_1F_hns
+walk LEFT 1 battle
+wait 75
+assert-map 24 2
+assert-pos 9 16
+walk UP 3 battle
+wait 75
+assert-map 24 2
+assert-pos 9 13
+walk LEFT 4 battle
+wait 75
+assert-map 24 2
+assert-pos 5 13
+walk UP 6 battle
+wait 75
+assert-map 24 2
+assert-pos 5 7
+walk RIGHT 1 battle
+wait 75
+assert-map 24 2
+assert-pos 6 7
+walk UP 1 battle
+wait 75
+assert-map 24 2
+assert-pos 6 6
+walk UP 1 battle
+wait 75
+assert-map 24 3
+assert-pos 6 4
+matrix leg-SproutTower_2F_hns
+walk RIGHT 1 battle
+wait 75
+assert-map 24 3
+assert-pos 7 4
+walk UP 1 battle
+wait 75
+assert-map 24 3
+assert-pos 7 3
+walk RIGHT 7 battle
+wait 75
+assert-map 24 3
+assert-pos 14 3
+# Settle Nico's approach with ordinary cancel/advance input.
+spamb 12
+walk DOWN 1 battle
+wait 75
+assert-map 24 3
+assert-pos 14 4
+walk RIGHT 3 battle
+wait 75
+assert-map 24 3
+assert-pos 17 4
+walk RIGHT 1 battle
+wait 75
+assert-map 24 3
+assert-pos 18 4
+walk RIGHT 1 battle
+wait 75
+assert-map 24 2
+assert-pos 19 4
+matrix leg-SproutTower_1F_hns
+walk LEFT 1 battle
+wait 75
+assert-map 24 2
+assert-pos 18 4
+walk UP 2 battle
+wait 75
+assert-map 24 2
+assert-pos 18 2
+walk LEFT 16 battle
+wait 75
+assert-map 24 2
+assert-pos 2 2
+walk DOWN 3 battle
+wait 75
+assert-map 24 2
+assert-pos 2 5
+walk DOWN 1 battle
+wait 75
+assert-map 24 2
+assert-pos 2 6
+walk DOWN 1 battle
+wait 75
+assert-map 24 3
+assert-pos 1 6
+matrix leg-SproutTower_2F_hns
+walk RIGHT 1 battle
+wait 75
+assert-map 24 3
+assert-pos 2 6
+walk DOWN 9 battle
+wait 75
+assert-map 24 3
+assert-pos 2 15
+walk RIGHT 7 battle
+wait 75
+assert-map 24 3
+assert-pos 9 15
+walk RIGHT 1 battle
+wait 75
+assert-map 24 3
+assert-pos 10 15
+walk DOWN 1 battle
+wait 75
+assert-map 24 4
+assert-pos 11 16
+matrix leg-SproutTower_3F_hns
+party-stats player
+menusave
+savsave /tmp/hns_baseline/stage46_tower3f.sav

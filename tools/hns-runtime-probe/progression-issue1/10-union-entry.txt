@@ -1,0 +1,35 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage55_route32_center.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-map 22 27
+assert-pos 7 8
+walk UP 4
+spama 30
+wait 200
+spamb 8
+party-stats player
+walk DOWN 5
+wait 90
+assert-map 0 14
+assert-pos 25 85
+# Route32_hns (25, 85) -> (17, 91)
+walk LEFT 4 battle
+walk DOWN 9 battle
+walk LEFT 3 battle
+walk UP 2 battle
+walk LEFT 1 battle
+walk UP 1 battle
+wait 90
+matrix route-Route32_hns
+wait 300
+assert-map 24 8
+assert-pos 32 7
+matrix union-entry
+assert-battle inactive
+assert-map 24 8
+assert-pos 32 7
+menusave
+savsave /tmp/hns_baseline/stage56_union_entry.sav

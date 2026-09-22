@@ -1,0 +1,30 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage52_egg_healed.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-party-count player 3
+walk LEFT 2
+walk DOWN 4
+wait 90
+assert-map 0 2
+# VioletCity_hns (39, 46) -> (17, 54)
+walk LEFT 3 battle
+walk UP 7 battle
+walk LEFT 22 battle
+walk DOWN 8 battle
+walk RIGHT 1 battle
+walk DOWN 1 battle
+walk RIGHT 2 battle
+walk DOWN 6 battle
+wait 90
+matrix route-VioletCity_hns
+walk DOWN 1
+wait 90
+matrix route32-entry
+assert-battle inactive
+assert-map 0 14
+assert-pos 21 0
+menusave
+savsave /tmp/hns_baseline/stage53_route32.sav

@@ -1,0 +1,35 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage49_rod_healed.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-map 3 0
+walk DOWN 5
+wait 90
+# VioletCity_hns (39, 46) -> (23, 36)
+walk LEFT 3 battle
+walk UP 9 battle
+walk LEFT 13 battle
+walk UP 1 battle
+wait 90
+matrix route-VioletCity_hns
+# VioletCity_Gym_hns (9, 19) -> (9, 5)
+walk UP 6 battle
+walk RIGHT 2 battle
+walk UP 2 battle
+walk LEFT 4 battle
+walk UP 2 battle
+walk RIGHT 1 battle
+walk UP 4 battle
+walk RIGHT 1 battle
+wait 90
+matrix route-VioletCity_Gym_hns
+assert-map 3 5
+assert-pos 9 5
+party-stats player
+assert-battle inactive
+assert-map 3 5
+assert-pos 9 5
+menusave
+savsave /tmp/hns_baseline/stage50_falkner_ready.sav

@@ -41,9 +41,8 @@ spama 6
 spama 6
 battle-win 30000
 assert-battle inactive
-spama 10
-spama 10
-spama 10
+# Dismiss all post-battle text without A re-opening the NPC dialogue.
+spamb 8
 matrix s34-post-mikey
 assert-battle inactive
 assert-map 0 12

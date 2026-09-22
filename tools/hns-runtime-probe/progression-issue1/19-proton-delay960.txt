@@ -1,0 +1,23 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage64_proton_healed.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-map 24 11
+assert-pos 14 4
+party-stats player
+wait 960
+engage UP 400
+wait 800
+matrix proton-entry
+battle-win 25000
+spamb 45
+matrix proton-won
+party-stats player
+assert-map 4 2
+assert-battle inactive
+assert-map 4 2
+assert-pos 15 4
+menusave
+savsave /tmp/hns_baseline/stage65_proton_won.sav

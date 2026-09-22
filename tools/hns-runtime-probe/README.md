@@ -192,7 +192,9 @@ generated into a temporary directory and are not committed.
 | `wait <frames>` | hold nothing |
 | `mash <frames>` | hold A on a 4-on / 6-off cycle |
 | `spama <count>` | press A a bounded number of times with long gaps |
-| `walk <DIR> <tiles> [optional] [battle]` | walk tile by tile; presses A when a script lock blocks progress; a blocked step is fatal unless `optional` is given; a wild encounter is cleared automatically, and a **trainer** battle intercepted by the step is fatal unless `battle` is given, in which case it is reported and finished with ordinary input |
+| `spamb <count>` | dismiss story text with B (8 frames held, 80 released), repeated a bounded number of times |
+| `walk-to <x> <y> [battle]` | reach an asserted coordinate within 30 steps; `battle` explicitly authorizes intercepted trainer battles |
+| `walk <DIR> <tiles> [optional] [battle]` | walk tile by tile; presses B with release gaps when a script lock blocks progress; a blocked step is fatal unless `optional` is given; a wild encounter is cleared automatically, and a **trainer** battle intercepted by the step is fatal unless `battle` is given, in which case it is reported and finished with ordinary input |
 | `engage <DIR> <n>` | make a trainer start a battle without polluting its first action menu: turns to face `DIR`, then presses A until `gMain.inBattle` asserts — and presses **nothing** if a battle is already active, so a sight-line trigger and a talk both lead to a clean menu |
 | `damage-probe <moveId> <turns>` | DIAGNOSTIC, asserts nothing: drives `turns` turns of an already-active single battle with one named move (found in the live move list) and prints the opponent's HP trajectory after every change. Critical status is reported UNKNOWN — detecting it would need a speculative address |
 | `party-stats player\|enemy` | print every party member exactly as the **production** reader parsed it — species, level, live HP, atk/def/**speed**/spa/spd, nature, IVs, EVs and the live move list. Used to MEASURE facts a scenario must not assume (turn order depends on the Speed stat) |
@@ -208,6 +210,8 @@ generated into a temporary directory and are not committed.
 | `challenge-settings <label>` | print SaveBlock3.challengeSettings decoded by the **production** reader (`pokemon_read_challenge_settings_gba`) for the current frame; a declined read is a script error (fail-closed), never a default. Used by the challenge-settings runtime verification (scenario 50) |
 | `shot <path.ppm>` | dump the current video frame |
 | `savsave <path>` / `savload <path>` | flush / load battery save RAM |
+| `assert-rom-sha256 <sha256>` | fail unless the loaded ROM file digest equals the required exact identity |
+| `assert-four-battler DOUBLES\|MULTI_OR_PARTNER` | require ACTIVE/PRESENT, four populated present battlers, consistent raw positions/indexes/counts/flags, two opponents, and production ambiguity for both active roles; fail nonzero if the encounter was never reached |
 | `assert-battle inactive\|active` | assert the authoritative lifecycle state |
 | `assert-in-battle-flag true\|false` | assert `gMain.inBattle` |
 | `assert-party-count player <n>` | assert `gPlayerPartyCount` |
@@ -216,10 +220,11 @@ generated into a temporary directory and are not committed.
 
 ## Trust boundary
 
-The probe deliberately runs **outside** DualDex's trust model: it does not add the H&S SHA-256 to
-`heart_and_soul.json` and it does not unlock live memory for the product. It only reads emulated
-memory from a throwaway host process. `sha256Hashes` stays empty, `battleUiVerified` stays false
-and `interactiveControlsVerified` stays false (see issue #40).
+The probe runs in a developer-only host process and reads live memory through production reader
+functions. Current `heart_and_soul.json` already allowlists the exact H&S 2.0.5 SHA-256 and sets
+`battleStateReadVerified=true` (the C4e promotion); the former empty-allowlist description is
+historical. `battleUiVerified=false` and `interactiveControlsVerified=false` remain unchanged.
+Running a diagnostic does not itself promote any product trust capability.
 
 For **evidence bookkeeping**, every run prints the SHA-256 of the ROM file it actually loaded
 (`rom sha256 : ...` and `[ROM] path=... sha256=... loaded=1`) so a committed log is bound to the
@@ -237,3 +242,17 @@ key-register words track live input. If a future ROM or build moves it again, th
 > constantly zero across 20,000 boot frames" as confirmation. That reasoning is **superseded**: any
 > unused zero-filled IWRAM byte passes the same test. Symbol identity here rests on semantic
 > correlation with game behaviour, not on readability.
+
+## Issue #1: natural four-battler evidence
+
+Scenario [70](scenarios/70-amy-may-doubles.txt) runtime-proves ordinary Amy & May Doubles in
+Azalea Gym using the supported release hash and production readers. See the
+[legal progression checkpoints](progression-issue1/README.md),
+[capture log](evidence/issue1-amy-may-2026-09-22.txt), and
+[criterion audit](../../docs/HNS_ISSUE_1_CLOSURE_AUDIT.md). Both active roles are ambiguous,
+with enemy slot/battler -1 and two present opponents. Partner/multi is still source + synthetic
+evidence only. These developer input controls do not promote app UI/control verification.
+
+The progression driver uses available early-game damaging moves and bounded status/healing moves,
+replaces fainted leads through the ordinary party menu, and rejects non-victory outcomes. A failed
+checkpoint is not an accepted save; use the progression wrapper to preserve that distinction.

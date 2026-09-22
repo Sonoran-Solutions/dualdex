@@ -1,0 +1,18 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage46_tower3f.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-map 24 4
+assert-pos 11 16
+walk RIGHT 2 battle
+walk UP 9 battle
+assert-pos 13 7
+spamb 25
+matrix silver-scene
+assert-battle inactive
+assert-map 24 4
+assert-pos 13 7
+menusave
+savsave /tmp/hns_baseline/stage47_silver.sav

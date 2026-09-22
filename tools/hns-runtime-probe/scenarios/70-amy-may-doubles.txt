@@ -1,0 +1,23 @@
+# Issue #1: natural Amy & May trainer Doubles, Azalea Gym.
+# Input: /tmp/hns_baseline/stage66_azalea_gym.sav (see ../progression-issue1/README.md).
+# Right-hand spider ride (source Trigger_3) lands beside May at (6,27).
+# No attacks or RAM writes: inspect the live four-battler action menu twice.
+wait 120
+mash 800
+wait 200
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+assert-map 4 4
+assert-pos 11 44
+assert-battle inactive
+matrix gym-before
+walk UP 4
+walk RIGHT 5
+walk UP 1
+wait 1000
+matrix after-spider
+engage UP 400
+wait 900
+matrix amy-may-live
+assert-four-battler DOUBLES
+wait 180
+assert-four-battler DOUBLES

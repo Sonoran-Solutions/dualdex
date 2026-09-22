@@ -1,0 +1,35 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage61_proton_ready.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-map 24 11
+assert-pos 14 4
+wait 90
+walk-to 15 4 battle
+wait 90
+walk-to 15 8 battle
+wait 90
+walk-to 20 8 battle
+wait 90
+walk-to 20 2 battle
+wait 90
+walk-to 26 2 battle
+wait 90
+walk-to 26 9 battle
+wait 90
+walk-to 25 9 battle
+wait 90
+walk-to 25 15 battle
+wait 90
+walk-to 26 15 battle
+wait 90
+walk-to 26 29 battle
+wait 300
+matrix well-return
+assert-battle inactive
+assert-map 0 3
+assert-pos 52 7
+menusave
+savsave /tmp/hns_baseline/stage62_well_return.sav

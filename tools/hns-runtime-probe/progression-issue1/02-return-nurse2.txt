@@ -1,0 +1,68 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage47_silver.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-map 24 4
+assert-pos 13 7
+# SproutTower_3F_hns (13, 7) -> (11, 16)
+walk DOWN 4 battle
+walk LEFT 1 battle
+walk DOWN 1 battle
+walk LEFT 1 battle
+walk DOWN 4 battle
+wait 90
+matrix route-SproutTower_3F_hns
+# SproutTower_2F_hns (10, 16) -> (1, 6)
+walk UP 1 battle
+walk LEFT 8 battle
+walk UP 9 battle
+walk LEFT 1 battle
+wait 90
+matrix route-SproutTower_2F_hns
+# SproutTower_1F_hns (2, 7) -> (19, 4)
+walk UP 5 battle
+walk RIGHT 17 battle
+walk DOWN 2 battle
+wait 90
+matrix route-SproutTower_1F_hns
+# SproutTower_2F_hns (19, 4) -> (6, 4)
+walk LEFT 5 battle
+walk UP 1 battle
+walk LEFT 8 battle
+walk DOWN 1 battle
+wait 90
+matrix route-SproutTower_2F_hns
+# SproutTower_1F_hns (6, 5) -> (10, 16)
+walk LEFT 1 battle
+walk DOWN 4 battle
+walk RIGHT 1 battle
+walk DOWN 3 battle
+walk RIGHT 4 battle
+walk DOWN 4 battle
+wait 90
+matrix route-SproutTower_1F_hns
+walk DOWN 1
+wait 90
+assert-map 0 2
+matrix tower-exit
+walk DOWN 25
+walk RIGHT 2
+walk DOWN 7
+walk RIGHT 7
+assert-pos 39 46
+walk UP 2
+wait 90
+assert-map 3 0
+walk UP 4
+spama 15
+wait 200
+spama 15
+wait 200
+party-stats player
+assert-battle inactive
+assert-map 3 0
+assert-pos 7 4
+menusave
+savsave /tmp/hns_baseline/stage48_healed.sav

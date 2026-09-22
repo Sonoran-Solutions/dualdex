@@ -270,6 +270,34 @@ class ActiveEnemyResolutionTest {
     }
 
     @Test
+    fun singlesToAmbiguous_clearsPriorLiveDefenderAndRecovers() {
+        val single = ActiveEnemyResolution(
+            state = ActiveEnemyState.SLOT, partySlot = 1, battlerIndex = 1, opponentBattlers = 1
+        )
+        val coordinator = EnemyResolutionCoordinator(single, arrayOf(mon(150), mon(151)), true)
+        val vm = verifiedViewModel(coordinator)
+        vm.pollTick()
+        vm.pollTick()
+        assertEquals(1, vm.activeEnemyMemberIndex.value)
+        assertTrue(vm.enemyParty.value.getOrNull(vm.activeEnemyMemberIndex.value) != null)
+
+        coordinator.resolution = ActiveEnemyResolution(
+            state = ActiveEnemyState.AMBIGUOUS, opponentBattlers = 2
+        )
+        vm.pollTick()
+        assertTrue(vm.isInBattle.value)
+        assertEquals(ActiveEnemyState.AMBIGUOUS, vm.activeEnemyResolution.value.state)
+        assertEquals(-1, vm.activeEnemyMemberIndex.value)
+        assertNull(vm.enemyParty.value.getOrNull(vm.activeEnemyMemberIndex.value))
+        assertNull(vm.activeEnemyResolution.value.partySlot)
+
+        coordinator.resolution = single
+        vm.pollTick()
+        assertEquals(1, vm.activeEnemyMemberIndex.value)
+        assertEquals(ActiveEnemyState.SLOT, vm.activeEnemyResolution.value.state)
+    }
+
+    @Test
     fun resolvedSlot_isSurfacedWithItsState() {
         val coordinator = EnemyResolutionCoordinator(
             resolution = ActiveEnemyResolution(

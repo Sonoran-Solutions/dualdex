@@ -41,18 +41,46 @@ FAILURES=0
 CASES=0
 
 # expect_nonzero <name> <extra probe args...>
+# expect_nonzero <name> <extra probe args...>
+#
+# A non-zero exit alone is NOT proof that the intended failure happened: a mistyped path or a
+# missing save also exits non-zero, and a case that "passed" for that reason would be evidence of
+# nothing. When the log contains a `script error`, the case additionally requires that the error
+# text names the condition under test -- pass the expected fragment as the last argument with
+# `--expect-reason <fragment>`. Infrastructure failures (an unreadable save, a missing core) can
+# never satisfy a case that names a reason.
 expect_nonzero() {
   local name="$1"; shift
+  local reason=""
+  local args=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --expect-reason) reason="${2:-}"; shift 2 ;;
+      *) args+=("$1"); shift ;;
+    esac
+  done
   CASES=$((CASES + 1))
-  "$BIN" "$CORE" "$ROM" "$@" --quiet > "$WORK/$name.log" 2>&1
+  "$BIN" "$CORE" "$ROM" "${args[@]}" --quiet > "$WORK/$name.log" 2>&1
   local rc=$?
-  if [ "$rc" -ne 0 ]; then
-    printf '  [PASS] %-24s exited %s\n' "$name" "$rc"
-    grep -m1 'script error\|error:' "$WORK/$name.log" | sed 's/^/         /' || true
-  else
+  if [ "$rc" -eq 0 ]; then
     printf '  [FAIL] %-24s exited 0 but must fail\n' "$name"
     FAILURES=$((FAILURES + 1))
+    return
   fi
+  if [ -n "$reason" ]; then
+    if grep -q 'script error' "$WORK/$name.log" && grep -q -- "$reason" "$WORK/$name.log"; then
+      printf '  [PASS] %-24s exited %s for the asserted reason\n' "$name" "$rc"
+      grep -m1 -- "$reason" "$WORK/$name.log" | sed 's/^/         /' || true
+    else
+      printf '  [FAIL] %-24s exited %s but NOT for %s (an infrastructure failure is not proof)\n' \
+        "$name" "$rc" "$reason"
+      grep -m1 'script error\|error:' "$WORK/$name.log" | sed 's/^/         /' || true
+      FAILURES=$((FAILURES + 1))
+    fi
+    return
+  fi
+  printf '  [PASS] %-24s exited %s\n' "$name" "$rc"
+  grep -m1 'script error\|error:' "$WORK/$name.log" | sed 's/^/         /' || true
 }
 
 # expect_zero <name> <extra probe args...>
@@ -239,13 +267,76 @@ wait 200
 hunt 25
 EOF
 
+# Issue #11 location assertions. Each of these MUST fail: an assertion harness that cannot fail is
+# not evidence, and every one of them is a condition the runtime location evidence depends on.
+cat > "$WORK/loc_wrong_pair.txt" <<'EOF'
+bootstrap 16 START/A
+wait 120
+assert-location 0 99
+EOF
+cat > "$WORK/loc_wrong_group.txt" <<'EOF'
+bootstrap 16 START/A
+wait 120
+assert-location 42 0
+EOF
+cat > "$WORK/loc_never_in_window.txt" <<'EOF'
+bootstrap 16 START/A
+wait 120
+assert-location 0 99 within 60
+EOF
+cat > "$WORK/loc_wrong_xy.txt" <<'EOF'
+bootstrap 16 START/A
+wait 120
+assert-location 0 0 at local 9 9
+EOF
+# NOTE: `assert-location-region-section` deliberately does NOT validate the MAPSEC_* name. The
+# probe holds no map table and never synthesizes one, and a second copy of the section table inside
+# the developer tool would be a drift risk with no evidential value. The probe records the raw pair
+# and echoes the section it was told to expect; the section-to-pair binding is asserted against the
+# pinned table by `HnsLocationRuntimeEvidenceTest`. There is therefore no negative case for it here.
+cat > "$WORK/loc_bad_token.txt" <<'EOF'
+bootstrap 16 START/A
+assert-location 0 0 sideways 3
+EOF
+# `bootstrap 0` performs no round at all, so the fatal "never loaded" path is exercised
+# deterministically instead of depending on how long that particular save takes to load.
+cat > "$WORK/bootstrap_stalls.txt" <<'EOF'
+bootstrap 0 NONE
+EOF
+
 if [ -n "$SAV" ]; then
   expect_nonzero walk-blocked --sav "$SAV" --script "$WORK/walk_blocked.txt"
   expect_zero    walk-blocked-optional --sav "$SAV" --script "$WORK/walk_blocked_optional.txt"
   expect_nonzero escape-timeout --sav "$SAV" --script "$WORK/escape_timeout.txt"
   expect_nonzero hunt-timeout --sav "$SAV" --script "$WORK/hunt_timeout.txt"
+
+  expect_nonzero loc-wrong-pair --sav "$SAV" --script "$WORK/loc_wrong_pair.txt" \
+    --expect-reason 'assert-location 0 99 failed'
+  expect_nonzero loc-wrong-group --sav "$SAV" --script "$WORK/loc_wrong_group.txt" \
+    --expect-reason 'assert-location 42 0 failed'
+  expect_nonzero loc-never-in-window --sav "$SAV" --script "$WORK/loc_never_in_window.txt" \
+    --expect-reason 'assert-location 0 99 within 60 failed'
+  expect_nonzero loc-wrong-local-xy --sav "$SAV" --script "$WORK/loc_wrong_xy.txt" \
+    --expect-reason 'at local 9 9 failed'
+  expect_nonzero loc-unknown-token --sav "$SAV" --script "$WORK/loc_bad_token.txt" \
+    --expect-reason "unexpected token 'sideways'"
+  expect_nonzero bootstrap-stalls-fatal --sav "$SAV" --script "$WORK/bootstrap_stalls.txt" \
+    --expect-reason 'bootstrap: the battery save was never loaded'
+
+  # Controls: the same harness must still succeed when the assertions are true.
+  cat > "$WORK/loc_control.txt" <<'EOF'
+bootstrap 16 START/A
+assert-rom-sha256 __ROM_SHA__
+assert-location 0 0
+assert-location 0 0 within 60
+assert-location 0 0 at local 10 10
+assert-location-region-section 0 0 MAPSEC_NEW_BARK_TOWN
+assert-location-unmapped within 30
+EOF
+  sed -i "s|__ROM_SHA__|$(sha256sum "$ROM" | cut -d' ' -f1)|" "$WORK/loc_control.txt"
+  expect_zero    loc-control-passes --sav "$SAV" --script "$WORK/loc_control.txt"
 else
-  echo "  [skip] navigation cases need --sav"
+  echo "  [skip] navigation and location cases need --sav"
 fi
 
 echo

@@ -109,7 +109,11 @@ object MapScreenPresenter {
         liveSection: RegionMapSection?,
         current: MapCanvasSelection,
     ): MapCanvasSelection {
-        if (browseOverride != null) {
+        // A browsing override is honoured only when the strategy can actually draw that region.
+        // An override the strategy has no canvas for would leave the screen rendering an empty grid
+        // with no section to tap, which is a dead end the user cannot back out of: Sinjoh and Alola
+        // are region ids the H&S table produces and DualDex draws nothing for.
+        if (browseOverride != null && canvasRegions(strategy).contains(browseOverride)) {
             return MapCanvasSelection(browseOverride, followsLiveRegion = false)
         }
 
@@ -302,10 +306,17 @@ object MapScreenPresenter {
      * canvas being drawn, and a real canvas anchor. Browsing a Kanto canvas can
      * therefore never draw the player's Johto position over it, and a section DualDex
      * cannot place (Sinjoh, Alola, a dynamic area) never gets one at all.
+     *
+     * [resolved] must be the resolution of [playerLocation] itself under [strategy]. That is
+     * re-derived here rather than trusted, because the two reach this gate as independent
+     * parameters: a browsed section handed in beside the player's real location satisfied every
+     * other condition, so a map the player was not standing on could receive the position marker.
+     * A `null` [resolved] still fails closed, and a resolver that refuses the pair yields no marker.
      */
     fun markerSection(
         resolved: RegionMapSection?,
         playerLocation: PlayerLocation?,
+        strategy: LocationStrategy,
         canvasRegion: RegionId,
     ): RegionMapSection? {
         if (playerLocation?.isValid != true) return null
@@ -314,6 +325,11 @@ object MapScreenPresenter {
         if (section.region != canvasRegion) return null
         if (section.gridX < 0 || section.gridY < 0) return null
         if (section.width < 1 || section.height < 1) return null
+
+        // The supplied section has to be what the active strategy resolves this exact raw read to.
+        val authoritative = RegionMapDatabase.resolveLocationDetailed(strategy, playerLocation)
+        if (authoritative.section?.id != section.id) return null
+
         return section
     }
 }
@@ -400,9 +416,14 @@ class MapScreenState(
     /**
      * The user chose a region canvas explicitly, which clears the detail sheet: the
      * new canvas is a browsing choice, not a claim about where the player is.
+     *
+     * Only a region the active strategy can draw becomes the browsing override. Sinjoh and Alola
+     * are real H&S regions with no DualDex canvas, so accepting one would pin the screen to an
+     * empty grid; the canvas keeps following the live region instead.
      */
     fun onRegionSelected(region: RegionId, liveSection: RegionMapSection?, hasLiveLocation: Boolean) {
-        browseOverride = region
+        val drawable = MapScreenPresenter.canvasRegions(strategy).contains(region)
+        browseOverride = region.takeIf { drawable }
         selection = MapSelection.None
         recomputeCanvasOnly(liveSection, hasLiveLocation)
         publish()

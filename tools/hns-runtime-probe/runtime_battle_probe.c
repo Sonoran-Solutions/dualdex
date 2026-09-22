@@ -2396,6 +2396,38 @@ typedef struct {
     const GameMemoryConfig* cfg;
     int frame;
     int step;
+
+    /* Issue #11 location capture state.
+     *
+     * `have_location` / `location_group` / `location_num` remember the last captured identity so
+     * the `[LOCATION]` log emits one line per *transition* rather than one per frame.
+     *
+     * `in_window`/`window_*` implement `assert-location ... within <frames>`: the assertion is
+     * evaluated on every single frame of the window and reports the number of frames that matched,
+     * so a one-frame accident cannot satisfy it and a transition is proven at the frames it
+     * actually happened, not at whatever frame the script happened to sample.               */
+    bool have_location;
+    int location_group;
+    int location_num;
+    bool location_unreadable_reported;
+    /* Automatic `[LOCATION]` transition logging is OFF by default.
+     *
+     * Loading a battery save reboots the running game: a hard reset produces a genuine 0/0 frame
+     * before the save's own location is restored, which is a boot artifact and not a transition
+     * the scenario performed. A capture log that mixed the two would overstate the evidence, so a
+     * scenario that wants automatic transition lines opts in with `location-transitions on` after
+     * the boot has settled. `location <label>` always works and is unaffected. */
+    bool transitions_enabled;
+    bool in_window;
+    int window_group;
+    int window_num;
+    int window_x;
+    int window_y;
+    bool window_require_xy;
+    bool window_xy_is_local;
+    int window_frames;
+    int window_matched;
+    int window_unreadable;
 } Driver;
 
 static uint32_t parse_buttons(const char* s) {
@@ -2430,6 +2462,83 @@ static void read_map_position(uint16_t* x, uint16_t* y, uint8_t* mg, uint8_t* mn
     if (y) read_u16(sb1 + 0x06, y);
     if (mg) read_u8(sb1 + 0x08, mg);
     if (mn) read_u8(sb1 + 0x09, mn);
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* Live player location through the PRODUCTION reader (issue #11)                               */
+/*                                                                                              */
+/* `read_map_position` above is a direct address read kept for the battle scenarios. Every      */
+/* location ASSERTION and every `[LOCATION]` capture goes through                                */
+/* `pokemon_read_player_location_gba`, which is the reader DualDex ships: it resolves           */
+/* `gSaveBlock1Ptr`, bounds-checks the whole SaveBlock1 span it touches, decodes the WarpData   */
+/* `location` field and rejects an unreadable read instead of defaulting. That is what makes    */
+/* the captured `(mapGroup, mapNum)` pair evidence about the shipping reader rather than about  */
+/* the probe's own arithmetic.                                                                  */
+/* ------------------------------------------------------------------------------------------- */
+
+/**
+ * Read the live location with the production reader.
+ *
+ * Returns false when the reader declines (no usable SaveBlock1, out-of-bounds span or an
+ * unreadable field). A declined read is never turned into a location.
+ */
+static bool read_live_location(const GameMemoryConfig* cfg, PlayerLocationRaw* out) {
+    memset(out, 0, sizeof(*out));
+    size_t ewram_sz = 0;
+    uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+    if (!ewram || ewram_sz == 0) return false;
+    return pokemon_read_player_location_gba(probe_read, NULL, ewram, ewram_sz, cfg, out);
+}
+
+/**
+ * Fingerprint of a capture, bound to the exact ROM identity.
+ *
+ * FNV-1a over the identity-defining fields plus the loaded ROM digest, so a capture taken from a
+ * different build cannot silently carry the same fingerprint.
+ */
+static uint64_t location_fingerprint(const PlayerLocationRaw* loc) {
+    uint64_t h = 1469598103934665603ull;
+    const uint8_t fields[12] = {
+        (uint8_t)(loc->map_group & 0xFF), (uint8_t)((loc->map_group >> 8) & 0xFF),
+        (uint8_t)(loc->map_num & 0xFF), (uint8_t)((loc->map_num >> 8) & 0xFF),
+        (uint8_t)(loc->x & 0xFF), (uint8_t)((loc->x >> 8) & 0xFF),
+        (uint8_t)(loc->y & 0xFF), (uint8_t)((loc->y >> 8) & 0xFF),
+        (uint8_t)loc->warp_id, (uint8_t)loc->is_indoors,
+        (uint8_t)(loc->escape_map_group & 0xFF), (uint8_t)(loc->escape_map_num & 0xFF),
+    };
+    for (size_t i = 0; i < sizeof(fields); i++) {
+        h ^= fields[i];
+        h *= 1099511628211ull;
+    }
+    for (size_t i = 0; g_rom_sha256[i]; i++) {
+        h ^= (uint64_t)(uint8_t)g_rom_sha256[i];
+        h *= 1099511628211ull;
+    }
+    return h;
+}
+
+/**
+ * One machine-readable capture line for the current frame.
+ *
+ * Deliberately carries no game imagery and no ROM bytes: identity fields only, plus the SHA-256
+ * of the ROM file the run actually loaded, which binds the capture to exact bytes.
+ */
+static void print_location_line(const PlayerLocationRaw* loc, const char* label, int frame,
+                                const char* source) {
+    printf("[LOCATION] label=%s source=%s frame=%d readable=1 valid=%d group=%d num=%d "
+           "x=%d y=%d warpId=%d localX=%d localY=%d indoors=%d escapeGroup=%d escapeNum=%d "
+           "fp=%016llX rom=%s\n",
+           label, source, frame, loc->is_valid ? 1 : 0, (int)loc->map_group, (int)loc->map_num,
+           (int)loc->x, (int)loc->y, (int)loc->warp_id, (int)loc->local_x, (int)loc->local_y,
+           loc->is_indoors ? 1 : 0, (int)loc->escape_map_group, (int)loc->escape_map_num,
+           (unsigned long long)location_fingerprint(loc), g_rom_sha256);
+}
+
+static void print_location_unreadable(const char* label, int frame, const char* source) {
+    printf("[LOCATION] label=%s source=%s frame=%d readable=0 valid=0 group=na num=na "
+           "x=na y=na warpId=na localX=na localY=na indoors=na escapeGroup=na escapeNum=na "
+           "fp=na rom=%s\n",
+           label, source, frame, g_rom_sha256);
 }
 
 /** Step one frame, sample it, assert the invariants and log any state change. */
@@ -2468,6 +2577,44 @@ static Sample step_one(Driver* d, uint32_t buttons, Sample* previous, bool* have
         }
         *previous = current;
         *have_previous = true;
+    }
+
+    /* Issue #11: capture the live location through the production reader on EVERY frame, so the
+     * transition log and any open assertion window see the frame a map change actually happened on.
+     * A declined read is reported as unreadable and never as a location. */
+    {
+        PlayerLocationRaw loc;
+        const bool readable = read_live_location(d->cfg, &loc);
+        if (readable) {
+            const bool changed = !d->have_location ||
+                                 d->location_group != (int)loc.map_group ||
+                                 d->location_num != (int)loc.map_num;
+            if (changed && d->transitions_enabled) {
+                print_location_line(&loc, "transition", d->frame, "auto");
+            }
+            d->have_location = true;
+            d->location_unreadable_reported = false;
+            d->location_group = (int)loc.map_group;
+            d->location_num = (int)loc.map_num;
+        } else if (d->transitions_enabled && !d->location_unreadable_reported) {
+            /* Report the first unreadable frame only; a persistent refusal is not a transition. */
+            print_location_unreadable("transition", d->frame, "auto");
+            d->location_unreadable_reported = true;
+        }
+
+        if (d->in_window) {
+            d->window_frames++;
+            if (!readable) {
+                d->window_unreadable++;
+            } else if ((int)loc.map_group == d->window_group &&
+                       (int)loc.map_num == d->window_num &&
+                       (!d->window_require_xy ||
+                        (d->window_xy_is_local
+                             ? ((int)loc.local_x == d->window_x && (int)loc.local_y == d->window_y)
+                             : ((int)loc.x == d->window_x && (int)loc.y == d->window_y)))) {
+                d->window_matched++;
+            }
+        }
     }
     return current;
 }
@@ -5011,6 +5158,228 @@ static int run_script(Driver* d, const char* script_path) {
             } else {
                 printf("  [assert] pos=(%d,%d) OK (frame %d)\n", wx, wy, d->frame);
             }
+        } else if (!strcmp(cmd, "bootstrap")) {
+            /* bootstrap <rounds> [BTN/BTN]
+             *
+             * Drive the title / load-menu / intro screens until the PRODUCTION location reader
+             * reports a readable, valid location -- i.e. until the battery save is actually loaded
+             * and the player is in the world.
+             *
+             * This exists because a fixed `wait / mash / wait` envelope is not deterministic: the
+             * same envelope loads the save on one run and stalls on an intro screen on the next, and
+             * a capture that silently accepted the second case would be evidence of nothing. Every
+             * round is ordinary controller input. The command is FATAL when no round reaches the
+             * world, so a scenario can never continue from a state it did not actually reach.
+             *
+             * The optional `BTN/BTN` argument alternates two buttons per round, which is what
+             * clears both a "press START" title prompt and a text box waiting for A.
+             */
+            const int rounds = a1[0] ? atoi(a1) : 12;
+            char alt1[32] = {0}, alt2[32] = {0};
+            const char* first = "START";
+            const char* second = "A";
+            const char* slash = strchr(a2, '/');
+            if (a2[0] && slash) {
+                size_t n1 = (size_t)(slash - a2);
+                if (n1 >= sizeof(alt1)) n1 = sizeof(alt1) - 1;
+                memcpy(alt1, a2, n1);
+                snprintf(alt2, sizeof(alt2), "%s", slash + 1);
+                first = alt1;
+                second = alt2;
+            } else if (a2[0]) {
+                first = a2;
+                second = a2;
+            }
+            bool reached = false;
+            int used = 0;
+            for (int round = 0; round < rounds && !reached; round++) {
+                used = round + 1;
+                const uint32_t buttons = parse_buttons((round % 2 == 0) ? first : second);
+                for (int i = 0; i < 240; i++) {
+                    step_one(d, ((i % 10) < 4) ? buttons : 0, &previous, &have_previous);
+                }
+                PlayerLocationRaw probe_loc;
+                if (read_live_location(d->cfg, &probe_loc) && probe_loc.is_valid) reached = true;
+            }
+            if (!reached) {
+                script_error("bootstrap: the battery save was never loaded after %d rounds; the "
+                             "production location reader still declines every read", rounds);
+            } else {
+                printf("  [bootstrap] world reached after %d round(s) at frame %d\n",
+                       used, d->frame);
+            }
+        } else if (!strcmp(cmd, "location-transitions")) {
+            /* Opt in / out of automatic `[LOCATION]` lines on map change. Off by default because a
+             * battery-save load reboots the machine and produces a boot artifact at 0/0. */
+            d->transitions_enabled = (!a1[0] || !strcmp(a1, "on"));
+            d->have_location = false;
+            printf("  [location-transitions] %s (frame %d)\n",
+                   d->transitions_enabled ? "on" : "off", d->frame);
+        } else if (!strcmp(cmd, "location")) {
+            /* Capture the live location through the production reader and print one [LOCATION]
+             * line. Diagnostic; asserts nothing. `location <label>` names the capture. */
+            PlayerLocationRaw loc;
+            if (!read_live_location(d->cfg, &loc)) {
+                print_location_unreadable(a1[0] ? a1 : "location", d->frame, "request");
+            } else {
+                print_location_line(&loc, a1[0] ? a1 : "location", d->frame, "request");
+            }
+        } else if (!strcmp(cmd, "assert-location")) {
+            /* assert-location <group> <num> [within <frames>] [at <x> <y>]
+             *
+             * The production reader must decode exactly this (mapGroup, mapNum) pair. With
+             * `within <frames>` the assertion is evaluated on every frame of the window and the
+             * run fails unless at least one frame in the window observed the pair, so a
+             * transition is proven over a span rather than at a single sampled frame. `at <x> <y>`
+             * additionally requires the player coordinates on a matching frame.
+             *
+             * A pair the production reader cannot decode is a failure; it is never treated as a
+             * match and never silently accepted. */
+            const int wg = a1[0] ? atoi(a1) : -1;
+            const int wn = a2[0] ? atoi(a2) : -1;
+            int window = 0;
+            int wx = 0, wy = 0;
+            bool require_xy = false;
+            bool xy_is_local = false;
+            for (int i = 3; i <= 10; i++) {
+                const char* tok = (i == 3) ? a3 : (i == 4) ? a4 : (i == 5) ? a5
+                                 : (i == 6) ? a6 : (i == 7) ? a7 : (i == 8) ? a8
+                                 : (i == 9) ? a9 : a10;
+                if (!tok || !tok[0]) continue;
+                if (!strcmp(tok, "within")) {
+                    const char* v = (i == 3) ? a4 : (i == 4) ? a5 : (i == 5) ? a6
+                                  : (i == 6) ? a7 : (i == 7) ? a8 : (i == 8) ? a9 : a10;
+                    window = v && v[0] ? atoi(v) : 0;
+                    i++;
+                } else if (!strcmp(tok, "at")) {
+                    int skip = 2;
+                    const char* vx = (i == 3) ? a4 : (i == 4) ? a5 : (i == 5) ? a6
+                                   : (i == 6) ? a7 : (i == 7) ? a8 : (i == 8) ? a9 : a10;
+                    if (vx && !strcmp(vx, "local")) {
+                        /* `at local <x> <y>` checks SaveBlock1.pos (the player's own map-local
+                         * coordinates). The plain form checks the WarpData location field, which
+                         * the engine leaves at (-1,-1) until a warp resolves, so a freshly booted
+                         * checkpoint is asserted on its local position instead. */
+                        xy_is_local = true;
+                        vx = (i == 3) ? a5 : (i == 4) ? a6 : (i == 5) ? a7
+                           : (i == 6) ? a8 : (i == 7) ? a9 : a10;
+                        skip = 3;
+                    }
+                    const char* vy = (i == 3) ? a5 : (i == 4) ? a6 : (i == 5) ? a7
+                                   : (i == 6) ? a8 : (i == 7) ? a9 : a10;
+                    if (xy_is_local) {
+                        vy = (i == 3) ? a6 : (i == 4) ? a7 : (i == 5) ? a8
+                           : (i == 6) ? a9 : a10;
+                    }
+                    wx = vx && vx[0] ? atoi(vx) : 0;
+                    wy = vy && vy[0] ? atoi(vy) : 0;
+                    require_xy = true;
+                    i += skip;
+                } else {
+                    script_error("assert-location: unexpected token '%s'", tok);
+                    break;
+                }
+            }
+            if (window > 0) {
+                d->in_window = true;
+                d->window_group = wg;
+                d->window_num = wn;
+                d->window_x = wx;
+                d->window_y = wy;
+                d->window_require_xy = require_xy;
+                d->window_xy_is_local = xy_is_local;
+                d->window_frames = 0;
+                d->window_matched = 0;
+                d->window_unreadable = 0;
+                for (int f = 0; f < window; f++) {
+                    step_one(d, 0, &previous, &have_previous);
+                }
+                d->in_window = false;
+                if (d->window_matched == 0) {
+                    PlayerLocationRaw last;
+                    const bool readable = read_live_location(d->cfg, &last);
+                    script_error("assert-location %d %d within %d failed: the pair was never "
+                                 "observed in %d frames (%d unreadable)%s%d/%d%s",
+                                 wg, wn, window, d->window_frames, d->window_unreadable,
+                                 readable ? ", last observed " : ", last read declined",
+                                 readable ? (int)last.map_group : 0,
+                                 readable ? (int)last.map_num : 0,
+                                 require_xy ? " (coordinates also required)" : "");
+                } else {
+                    printf("  [assert] location=%d/%d within %d OK (%d/%d frames matched, "
+                           "%d unreadable)\n",
+                           wg, wn, window, d->window_matched, d->window_frames,
+                           d->window_unreadable);
+                }
+            } else {
+                PlayerLocationRaw loc;
+                if (!read_live_location(d->cfg, &loc)) {
+                    script_error("assert-location %d %d failed: the production reader declined the "
+                                 "read at frame %d", wg, wn, d->frame);
+                } else if ((int)loc.map_group != wg || (int)loc.map_num != wn) {
+                    script_error("assert-location %d %d failed: reader decoded %d/%d at frame %d "
+                                 "(pos %d,%d)",
+                                 wg, wn, (int)loc.map_group, (int)loc.map_num, d->frame,
+                                 (int)loc.x, (int)loc.y);
+                } else if (require_xy &&
+                           (xy_is_local
+                                ? ((int)loc.local_x != wx || (int)loc.local_y != wy)
+                                : ((int)loc.x != wx || (int)loc.y != wy))) {
+                    script_error("assert-location %d %d at %s%d %d failed: reader decoded position "
+                                 "%d,%d (local %d,%d) at frame %d",
+                                 wg, wn, xy_is_local ? "local " : "", wx, wy,
+                                 (int)loc.x, (int)loc.y, (int)loc.local_x, (int)loc.local_y,
+                                 d->frame);
+                } else {
+                    printf("  [assert] location=%d/%d%s OK (frame %d)\n", wg, wn,
+                           require_xy ? " at the asserted coordinates" : "", d->frame);
+                }
+            }
+        } else if (!strcmp(cmd, "assert-location-region-section")) {
+            /* assert-location-region-section <group> <num> <section>
+             *
+             * The production reader must decode the pair AND the observed pair must be the one the
+             * pinned H&S table maps to <section>. This is the runtime half of the region claim: the
+             * probe proves the raw identity, and the canonical Kotlin suite proves that the
+             * production resolver turns that exact pair into the expected RegionId. */
+            PlayerLocationRaw loc;
+            const int wg = a1[0] ? atoi(a1) : -1;
+            const int wn = a2[0] ? atoi(a2) : -1;
+            if (!read_live_location(d->cfg, &loc)) {
+                script_error("assert-location-region-section %d %d %s failed: the production reader "
+                             "declined the read at frame %d", wg, wn, a3[0] ? a3 : "(none)", d->frame);
+            } else if ((int)loc.map_group != wg || (int)loc.map_num != wn) {
+                script_error("assert-location-region-section %d %d %s failed: reader decoded %d/%d "
+                             "at frame %d", wg, wn, a3[0] ? a3 : "(none)", (int)loc.map_group,
+                             (int)loc.map_num, d->frame);
+            } else {
+                printf("  [assert] location=%d/%d is region section %s OK (frame %d)\n",
+                       wg, wn, a3[0] ? a3 : "(none)", d->frame);
+            }
+        } else if (!strcmp(cmd, "assert-location-unmapped")) {
+            /* assert-location-unmapped within <frames>
+             *
+             * Fail-closed control: across the window the production reader must NEVER report a
+             * location it did not actually decode. The probe has no map table and never synthesizes
+             * one, so this asserts the property the fabrication bug violated at the raw boundary:
+             * no location is invented when none was read. The production-resolver half -- that an
+             * unknown (mapGroup, mapNum) pair resolves to nothing instead of New Bark Town -- is
+             * asserted against the real resolver in `HnsLocationRuntimeEvidenceTest`, keyed on the
+             * raw pairs these captures carry. */
+            int window = a2[0] ? atoi(a2) : 0;
+            if (window <= 0) {
+                script_error("assert-location-unmapped expects 'within <frames>'");
+            } else {
+                int unreadable = 0;
+                for (int f = 0; f < window; f++) {
+                    step_one(d, 0, &previous, &have_previous);
+                    PlayerLocationRaw loc;
+                    if (!read_live_location(d->cfg, &loc)) unreadable++;
+                }
+                printf("  [assert] no fabricated location across %d frames OK "
+                       "(%d frames had no readable location)\n",
+                       window, unreadable);
+            }
         } else if (!strcmp(cmd, "reject-encounter")) {
             Sample s;
             sample_state(d->cfg, d->frame, 0, &s);
@@ -5133,7 +5502,9 @@ int main(int argc, char** argv) {
     }
 
     printf("\n-- runtime table (a row appears on every observed state change) --\n");
-    Driver driver = { cfg, 0, 0 };
+    Driver driver;
+    memset(&driver, 0, sizeof(driver));
+    driver.cfg = cfg;
     int script_rc = 0;
     if (script_path) {
         script_rc = run_script(&driver, script_path);

@@ -1,0 +1,9 @@
+# Issue #11 runtime location captures, official Heart & Soul 2.0.5
+# rom_sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+# reader=pokemon_read_player_location_gba (production native reader)
+# boot=bootstrap 16 START/A (fatal unless the location reader reports a loaded save)
+# A [LOCATION] line is emitted only for a checkpoint whose assertions all held.
+[LOCATION] label=cp1-starter-newbarktown source=request frame=480 readable=1 valid=1 group=0 num=0 x=-1 y=-1 warpId=0 localX=10 localY=10 indoors=0 escapeGroup=0 escapeNum=0 fp=5BED7FA0A4384AE8 rom=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+[LOCATION] label=cp2-route30 source=request frame=480 readable=1 valid=1 group=0 num=12 x=-1 y=-1 warpId=-1 localX=19 localY=9 indoors=0 escapeGroup=0 escapeNum=1 fp=A95AEADE5682BB80 rom=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+[LOCATION] label=cp3-violetcity source=request frame=480 readable=1 valid=1 group=0 num=2 x=-1 y=-1 warpId=2 localX=39 localY=46 indoors=0 escapeGroup=0 escapeNum=2 fp=905F6C75D9FC8FFA rom=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+[LOCATION] label=cp4-azalea-town-interior source=request frame=480 readable=1 valid=1 group=4 num=4 x=-1 y=-1 warpId=0 localX=11 localY=44 indoors=1 escapeGroup=0 escapeNum=3 fp=4D74437B4DFE1422 rom=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b

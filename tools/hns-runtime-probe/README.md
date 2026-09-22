@@ -126,6 +126,7 @@ publishes through `RETRO_MEMORY_SAVE_RAM` for this ROM. Any emulator that writes
 | `scenarios/60-golden-a-neutral.txt` | **PASSES.** Gap C4d official-ROM golden A: neutral ordinary Tackle damage (see `evidence/`). Uses `golden-grind` to assert the operands and the exact damage (6, a wild Pidgey with live Def 7), exiting 0 only on that hit |
 | `scenarios/61-golden-c-stat-stage.txt` | **PASSES.** Gap C4d official-ROM golden C: Leer (Def -1) then Scratch on a wild Pidgey with live Def 6; `golden-grind` asserts the stage and the exact damage (10), exiting 0 only on that hit |
 | `scenarios/62-golden-b-stab-grind.txt` | **PASSES.** Gap C4d official-ROM golden B: grinds Chikorita to level 6 (Razor Leaf), then `golden-grind` asserts the exact Razor Leaf damage (6, a wild Pidgey with live Def 7) and exits 0. It is permissive about the RNG grind (it retries encounters and flees non-matching ones) but fails closed if it never lands the asserted hit |
+| `scenarios/80-location-map-transition.txt` | **PASSES.** Issue #11: New Bark Town `0/0` → Route 29 `0/11` → New Bark Town `0/0`, both crossings asserted through the production location reader over 240-frame windows (see `evidence/`). Read-only |
 | `deferred/46-sprout-tower-3f.txt` | **DEFERRED, does not pass.** Kept out of `scenarios/` on purpose: it localises an unresolved field-state lock after the Sprout Tower 2F trainer battle. Not run by any gate; see §11.10.7 of the compatibility evidence |
 
 ## Overworld navigation: what the source gets right and what it does not
@@ -168,7 +169,7 @@ merely run past it.
 which stands the player in New Bark Town at `(10, 10)` on map `0/0`. Four of its cases are
 position-dependent and walk into Elm's lab or hit its interior walls, so running it against a
 mid-progression save makes them fail for the wrong reason. With the correct baseline the suite is
-**20 cases, 0 failures**.
+**32 cases, 0 failures**.
 
 ## Self-test: proving the harness can fail
 
@@ -215,7 +216,13 @@ generated into a temporary directory and are not committed.
 | `assert-battle inactive\|active` | assert the authoritative lifecycle state |
 | `assert-in-battle-flag true\|false` | assert `gMain.inBattle` |
 | `assert-party-count player <n>` | assert `gPlayerPartyCount` |
-| `assert-map <group> <number>` | assert the map the player is standing on |
+| `assert-map <group> <number>` | assert the map the player is standing on, using the probe's own direct address read |
+| `location <label>` | capture the live location through the **production** reader (`pokemon_read_player_location_gba`) and print one machine-readable `[LOCATION]` line carrying the raw identity, the identity fingerprint and the loaded ROM's SHA-256. Asserts nothing |
+| `location-transitions on/off` | opt in to automatic `[LOCATION]` lines on every map change. **Off by default**, because loading a battery save reboots the machine and produces a boot artifact at `0/0` that is not a transition the scenario performed |
+| `assert-location <group> <num> [within <frames>] [at [local] <x> <y>]` | the **production** reader must decode exactly this `(mapGroup, mapNum)` pair. `within <frames>` evaluates the assertion on every frame of the window and fails unless at least one matched, and reports how many matched and how many were unreadable; `at <x> <y>` also requires the `location` WarpData position, `at local <x> <y>` the map-local `SaveBlock1.pos`. A read the reader declines is a **failure**, never a match |
+| `assert-location-region-section <group> <num> <MAPSEC_…>` | the production reader must decode this pair **and** the pair must be the identity the pinned table maps to that section. The Kotlin suite then proves the production resolver turns that exact pair into the expected `RegionId` |
+| `assert-location-unmapped within <frames>` | fail-closed control: across the window the production reader must never report a location it did not decode. The probe has no map table and never synthesizes one, so this asserts the property the old fabricated-default bug violated at the raw boundary; the resolver half is asserted in `HnsLocationRuntimeEvidenceTest` |
+| `bootstrap <rounds> [BTN/BTN]` | drive title / load-menu / intro screens until the production reader reports a readable, valid location, i.e. until the battery save is actually loaded. **Fatal** if no round reaches the world. A fixed `wait`/`mash` envelope is not deterministic, so a capture that accepted a stalled intro as success would be evidence of nothing |
 | `reject-encounter` | fail the run if a battle started in a scenario that must stay out of battle |
 
 ## Trust boundary
@@ -256,3 +263,60 @@ evidence only. These developer input controls do not promote app UI/control veri
 The progression driver uses available early-game damaging moves and bounded status/healing moves,
 replaces fainted leads through the ordinary party menu, and rejects non-victory outcomes. A failed
 checkpoint is not an accepted save; use the progression wrapper to preserve that distinction.
+
+## Issue #11: runtime location and map-transition evidence
+
+`scenarios/80-location-map-transition.txt` and `capture-location-evidence.sh` produce the runtime half
+of the multi-region map evidence. Both read the live location through the **production** reader
+(`pokemon_read_player_location_gba`), not through the probe's own address arithmetic, and both assert
+the exact `(mapGroup, mapNum)` pair the pinned 2.0.5 table keys on before recording anything.
+
+```bash
+./build.sh
+
+# One real overworld transition in each direction, from the legal starter save.
+./runtime_battle_probe <mgba_libretro.so> <hns-2.0.5.gba> \
+    --sav /tmp/hns_baseline/starter.sav \
+    --script scenarios/80-location-map-transition.txt
+
+# One boot capture per accepted legal checkpoint of the issue #1 progression chain.
+./capture-location-evidence.sh <mgba_libretro.so> <hns-2.0.5.gba> /tmp/hns_baseline \
+    evidence/location-captures-$(date +%Y%m%d).txt
+```
+
+The captured identities, the production interpretation asserted against them, the unknown-map
+controls and the source-derived cross-region inventory live in
+[`evidence/location-runtime-evidence.json`](evidence/location-runtime-evidence.json); the Kotlin half
+is `HnsLocationRuntimeEvidenceTest`, which drives the real `LocationResolver`, `RegionMapDatabase`
+and `MapScreenPresenter`.
+
+**What is RUNTIME VERIFIED:** the raw identity of six legal checkpoints on the official ROM (five
+Johto outdoor/interior maps spanning map groups 0 and 4) and one real map transition in each
+direction, plus the production interpretation of exactly those identities.
+
+**What is NOT runtime verified:** any Kanto, Sinjoh or Alola *transition*. Every cross-region
+transition in the pinned build is gated behind the whole Johto story — the one Johto → Kanto warp
+needs `FLAG_BADGE08_GET` plus `VAR_ECRUTEAK_CITY_THEATER >= 8` (set by the Tin Tower Ho-Oh event),
+and Sinjoh opens from Mt. Silver's interior. `tools/hns-map-data/hns_route.py edges --gates` and
+`… blockers` print that inventory from the pinned source, and the runtime blocker is recorded per
+edge in the evidence JSON rather than being described as verified.
+
+## Route planning for runtime scenarios
+
+`tools/hns-map-data/hns_route.py` derives tile-exact routes from the pinned source instead of
+hand-guessing them, which is what makes a crossing script possible to write without playing the game
+first:
+
+```bash
+python3 tools/hns-map-data/hns_route.py route NewBarkTown_hns 10 10 map Route29_hns
+python3 tools/hns-map-data/hns_route.py edges --gates
+python3 tools/hns-map-data/hns_route.py blockers
+```
+
+Two measured facts it encodes, both of which silently break a naive route:
+
+* **A connection is edge-triggered.** The crossing fires while the player stands on the source map's
+  edge tile, so the emitted script asserts that edge tile and *then* presses the direction.
+* **The crossing direction is not the coordinate delta.** New Bark Town's edge `(0,11)` arrives on
+  Route 29 at `(69,16)`, so moving LEFT lands on a much larger x. The direction comes from the
+  `connections` entry, never from comparing two different map spaces.

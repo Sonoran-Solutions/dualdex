@@ -113,6 +113,11 @@ tracker_selftest() {
 hns_map_data_check() {
   echo "== H&S 2.0.5 generated map data integrity =="
   python3 tools/hns-map-data/generate_hns_map_data.py --verify-digests
+  # The route analyzer is cited as evidence about the pinned 2.0.5 build, so its provenance boundary
+  # is part of the canonical gate: these tests drive the real `verify_provenance` against synthetic
+  # git repositories and pin the fail-closed contract (wrong revision, modified or deleted read
+  # source, non-git directory) with no upstream checkout, ROM or network.
+  python3 -m unittest discover -s tools/hns-map-data -p 'test_hns_route.py' -t tools/hns-map-data -v
 }
 
 # Vanilla Gen III golden-fixture verification. Mandatory and self-contained:
@@ -313,6 +318,17 @@ source_check() {
   # 1. The generated table must regenerate byte-for-byte from the pinned source.
   python3 tools/hns-map-data/generate_hns_map_data.py \
     --upstream-dir "$upstream" --check
+
+  # 1b. The committed cross-region inventory must match what the analyzer derives from the pinned
+  #     source -- the functional/dead classification, and the script-warp candidate list with its
+  #     file and line references. The analyzer verifies the checkout revision and the cleanliness of
+  #     every path it reads before producing any of it, and this check also fails when an edge it
+  #     could not decide has no verdict in the manual audit section. Without this, the committed
+  #     table could drift from the source it claims to describe while the tool kept working.
+  python3 tools/hns-map-data/hns_route.py \
+    --upstream-dir "$upstream" inventory \
+    --check tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json \
+    --check-embedded tools/hns-runtime-probe/evidence/location-runtime-evidence.json
 
   # 2. The committed Kotlin data pack (species, moves, AND the ability catalogue
   #    with its per-species slot declarations) must regenerate byte-for-byte from

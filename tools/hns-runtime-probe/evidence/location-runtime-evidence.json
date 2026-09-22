@@ -1,0 +1,1029 @@
+{
+  "schema": "dualdex.hns.location-runtime-evidence/1",
+  "issue": 11,
+  "provenance": {
+    "repository": "PokemonHnS-Development/pokehns-expansion",
+    "tag": "Release-v2.0.5",
+    "commit": "1f42b74dff0e9fe942419845d040663dd829a973",
+    "rom_sha256": "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b",
+    "reader": "pokemon_read_player_location_gba",
+    "probe": "tools/hns-runtime-probe",
+    "scenario": "tools/hns-runtime-probe/scenarios/80-location-map-transition.txt",
+    "capture_script": "tools/hns-runtime-probe/capture-location-evidence.sh",
+    "log": "tools/hns-runtime-probe/evidence/location-transition-20260922.log",
+    "captures": "tools/hns-runtime-probe/evidence/location-captures-20260922.txt",
+    "write_policy": "read-only: ordinary controller input, no RAM writes, no cheats, no save editing, no save-state injection, no in-game save written",
+    "artifact_policy": "no ROM bytes, save file, save state, executable or game imagery is stored here"
+  },
+  "checkpoints": [
+    {
+      "label": "cp1-newbarktown",
+      "source": "scenarios/80-location-map-transition.txt",
+      "kind": "boot",
+      "frame": 1180,
+      "raw": {
+        "map_group": 0,
+        "map_num": 0,
+        "x": -1,
+        "y": -1,
+        "local_x": 10,
+        "local_y": 10,
+        "warp_id": 0,
+        "indoors": false
+      },
+      "expected": {
+        "section_id": "MAPSEC_NEW_BARK_TOWN",
+        "display_name": "New Bark Town",
+        "region": "JOHTO",
+        "presentable": true
+      },
+      "observed_windows": [
+        {
+          "assertion": "assert-location 0 0 within 60",
+          "matched_frames": 60,
+          "total_frames": 60,
+          "unreadable_frames": 0
+        }
+      ]
+    },
+    {
+      "label": "cp2-route29",
+      "source": "scenarios/80-location-map-transition.txt",
+      "kind": "transition-destination",
+      "frame": 1703,
+      "raw": {
+        "map_group": 0,
+        "map_num": 11,
+        "x": -1,
+        "y": -1,
+        "local_x": 69,
+        "local_y": 16,
+        "warp_id": -1,
+        "indoors": false
+      },
+      "expected": {
+        "section_id": "MAPSEC_ROUTE_29",
+        "display_name": "Route 29",
+        "region": "JOHTO",
+        "presentable": true
+      },
+      "transition": {
+        "from_section_id": "MAPSEC_NEW_BARK_TOWN",
+        "from_edge_tile": [
+          0,
+          11
+        ],
+        "direction": "LEFT",
+        "mechanism": "connection left (edge-triggered)"
+      },
+      "observed_windows": [
+        {
+          "assertion": "assert-location 0 11 within 240",
+          "matched_frames": 240,
+          "total_frames": 240,
+          "unreadable_frames": 0
+        }
+      ]
+    },
+    {
+      "label": "cp3-newbarktown-return",
+      "source": "scenarios/80-location-map-transition.txt",
+      "kind": "transition-destination",
+      "frame": 2050,
+      "raw": {
+        "map_group": 0,
+        "map_num": 0,
+        "x": -1,
+        "y": -1,
+        "local_x": 0,
+        "local_y": 11,
+        "warp_id": -1,
+        "indoors": false
+      },
+      "expected": {
+        "section_id": "MAPSEC_NEW_BARK_TOWN",
+        "display_name": "New Bark Town",
+        "region": "JOHTO",
+        "presentable": true
+      },
+      "transition": {
+        "from_section_id": "MAPSEC_ROUTE_29",
+        "from_edge_tile": [
+          69,
+          16
+        ],
+        "direction": "RIGHT",
+        "mechanism": "connection left (edge-triggered, reversed)"
+      },
+      "observed_windows": [
+        {
+          "assertion": "assert-location 0 0 within 240",
+          "matched_frames": 240,
+          "total_frames": 240,
+          "unreadable_frames": 0
+        }
+      ]
+    },
+    {
+      "label": "cp4-route30",
+      "source": "capture-location-evidence.sh / progression-issue1 stage34",
+      "kind": "boot",
+      "frame": 480,
+      "raw": {
+        "map_group": 0,
+        "map_num": 12,
+        "x": -1,
+        "y": -1,
+        "local_x": 19,
+        "local_y": 9,
+        "warp_id": -1,
+        "indoors": false
+      },
+      "expected": {
+        "section_id": "MAPSEC_ROUTE_30",
+        "display_name": "Route 30",
+        "region": "JOHTO",
+        "presentable": true
+      },
+      "observed_windows": [
+        {
+          "assertion": "assert-location 0 12 within 120 at local 19 9",
+          "matched_frames": 120,
+          "total_frames": 120,
+          "unreadable_frames": 0
+        }
+      ]
+    },
+    {
+      "label": "cp5-violetcity",
+      "source": "capture-location-evidence.sh / progression-issue1 stage44a",
+      "kind": "boot",
+      "frame": 480,
+      "raw": {
+        "map_group": 0,
+        "map_num": 2,
+        "x": -1,
+        "y": -1,
+        "local_x": 39,
+        "local_y": 46,
+        "warp_id": 2,
+        "indoors": false
+      },
+      "expected": {
+        "section_id": "MAPSEC_VIOLET_CITY",
+        "display_name": "Violet City",
+        "region": "JOHTO",
+        "presentable": true
+      },
+      "observed_windows": [
+        {
+          "assertion": "assert-location 0 2 within 120 at local 39 46",
+          "matched_frames": 120,
+          "total_frames": 120,
+          "unreadable_frames": 0
+        }
+      ]
+    },
+    {
+      "label": "cp6-azalea-town-interior",
+      "source": "capture-location-evidence.sh / progression-issue1 stage66",
+      "kind": "boot",
+      "frame": 480,
+      "raw": {
+        "map_group": 4,
+        "map_num": 4,
+        "x": -1,
+        "y": -1,
+        "local_x": 11,
+        "local_y": 44,
+        "warp_id": 0,
+        "indoors": true
+      },
+      "expected": {
+        "section_id": "MAPSEC_AZALEA_TOWN",
+        "display_name": "Azalea Town",
+        "region": "JOHTO",
+        "presentable": true
+      },
+      "interior": true,
+      "observed_windows": [
+        {
+          "assertion": "assert-location 4 4 within 120 at local 11 44",
+          "matched_frames": 120,
+          "total_frames": 120,
+          "unreadable_frames": 0
+        }
+      ]
+    }
+  ],
+  "unknown_map_controls": [
+    {
+      "name": "unmapped-group",
+      "raw": {
+        "map_group": 57,
+        "map_num": 0
+      },
+      "why": "beyond the highest H&S location group (56) but inside the pinned group_order, where Emerald's group 57 lives",
+      "expected_resolution": null
+    },
+    {
+      "name": "unmapped-group-68",
+      "raw": {
+        "map_group": 68,
+        "map_num": 1
+      },
+      "why": "a FireRed group in the same ROM; the H&S table must not interpret it",
+      "expected_resolution": null
+    },
+    {
+      "name": "unmapped-map-number",
+      "raw": {
+        "map_group": 0,
+        "map_num": 200
+      },
+      "why": "inside the H&S towns-and-routes group but past its 71 defined maps",
+      "expected_resolution": null
+    },
+    {
+      "name": "unmapped-indoor-number",
+      "raw": {
+        "map_group": 1,
+        "map_num": 99
+      },
+      "why": "an invalid map number inside a valid indoor group must not inherit the group's town",
+      "expected_resolution": null
+    }
+  ],
+  "cross_region_transitions": {
+    "note": "Cross-region transitions in the pinned 2.0.5 build, split by WHO derived each claim. `tool_derived` is reproduced from the pinned checkout by hns_route.py and verified in `source-check`; `manual_engine_source_verified` decides the edges the analyzer reports as undecided from map data and records what an analyzer without a script call graph cannot resolve, each with the exact source that supports it. Neither half is presented as the other's work. Authored by: PR #73.",
+    "producer": "python3 tools/hns-map-data/hns_route.py edges --gates",
+    "regions_without_any_transition": [
+      {
+        "region": "ALOLA",
+        "evidence": "exhaustive enumeration finds ZERO edges between any Alola map (groups 25-26) and any Johto or Kanto map. Alola links only to Kanto, via MelemeleIsle_hns <-> Route13_hns script commands",
+        "runtime_verified": false
+      }
+    ],
+    "debug_transportation": {
+      "present_in_release": "SOURCE VERIFIED: include/config/debug.h sets DEBUG_OVERWORLD_MENU TRUE with held key R and trigger START, the only disabling line (include/constants/global.h) is commented out, src/debug.c has no top-level #if guard, and the Makefile compiles src/**/*.c unconditionally. A preprocessor probe against the real include tree returns identical results with and without -DRELEASE.",
+      "runtime_verified": false,
+      "runtime_note": "NOT RUNTIME VERIFIED: driving R+START through the emulator did not observably open the menu. No debug transportation is used as evidence anywhere in this record, and it would not be a natural transition in any case"
+    },
+    "tool_derived": {
+      "note": "TOOL-DERIVED and machine-checked. Every field here is reproduced from the pinned checkout by `python3 tools/hns-map-data/hns_route.py inventory`, and `hns_route.py inventory --check tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json` fails when this block drifts from that source. The analyzer verifies the checkout revision and the cleanliness of everything it reads before producing any of it.",
+      "producer": "python3 tools/hns-map-data/hns_route.py inventory",
+      "check_command": "python3 tools/hns-map-data/hns_route.py --upstream-dir <pinned checkout> inventory --check tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json --check-embedded tools/hns-runtime-probe/evidence/location-runtime-evidence.json",
+      "what_it_can_prove": [
+        "a warp whose trigger metatile carries a behaviour the engine's warp predicates accept (src/field_control_avatar.c IsWarpMetatileBehavior / TryArrowWarp) is FUNCTIONAL",
+        "a `connections` entry with an empty `dest = src - offset` window, or an impassable border column, is DEAD (src/fieldmap.c)",
+        "every `warp`/`warpsilent`/`warpteleport` script command whose target is an H&S map in another region, with the exact file and line that contains it"
+      ],
+      "what_it_cannot_prove": [
+        "whether a warp whose trigger metatile is ordinary floor actually fires: 1719 of this build's 3608 warp tiles sit on non-warp metatiles that the engine still accepts as step-on warps, so map data alone does not settle it. Those edges are reported as `unproven` with the observed metatile behaviour rather than asserted either way",
+        "whether a script command is reachable: deciding that needs the script call graph, which weighs 28902 labels in this revision. Script commands are therefore reported as CANDIDATES with their file and line, and `shared_include` marks the ones living in a file that holds more than one map's script set"
+      ],
+      "functional_edges": [
+        {
+          "kind": "warp",
+          "from_map": "ReceptionGate_hns",
+          "from_group_num": [
+            22,
+            22
+          ],
+          "from_region": "JOHTO",
+          "from_section": "MAPSEC_VICTORY_ROAD_HNS",
+          "to_map": "Route22_hns",
+          "to_group_num": [
+            0,
+            62
+          ],
+          "to_region": "KANTO",
+          "to_section": "MAPSEC_ROUTE_22",
+          "at": [
+            20,
+            9
+          ],
+          "behaviour": "MB_SOUTH_ARROW_WARP",
+          "activation_path": "arrow",
+          "directions": [
+            "DOWN"
+          ],
+          "trigger_tile": [
+            20,
+            9
+          ],
+          "tile_walkable": true,
+          "warp_event_present": true,
+          "engine_predicate": "TryArrowWarp (src/field_control_avatar.c) -- player standing on the tile, holding the facing direction, IsArrowWarpMetatileBehavior(tile) is TRUE",
+          "gate": [
+            "requires != VAR_RESULT FALSE",
+            "requires == VAR_ROUTE22_GIOVANNI_STATE 0"
+          ],
+          "from_gate": [
+            "requires >= VAR_ECRUTEAK_CITY_THEATER 8",
+            "requires unset FLAG_BADGE08_GET ReceptionGate_EventScript_NotEnough"
+          ]
+        },
+        {
+          "kind": "warp",
+          "from_map": "MtSilver_1F_WaterfallRoom_hns",
+          "from_group_num": [
+            24,
+            73
+          ],
+          "from_region": "JOHTO",
+          "from_section": "MAPSEC_MT_SILVER",
+          "to_map": "SnowsweptCavern_hns",
+          "to_group_num": [
+            28,
+            0
+          ],
+          "to_region": "SINJOH",
+          "to_section": "MAPSEC_SNOWSWEPT_CAVERN",
+          "at": [
+            43,
+            7
+          ],
+          "behaviour": "MB_NON_ANIMATED_DOOR",
+          "activation_path": "step",
+          "directions": [
+            "UP"
+          ],
+          "trigger_tile": [
+            43,
+            7
+          ],
+          "tile_walkable": true,
+          "warp_event_present": true,
+          "engine_predicate": "TryStartWarpEventScript (src/field_control_avatar.c) -- player steps onto the tile and IsWarpMetatileBehavior(tile) is TRUE",
+          "gate": [
+            "requires != VAR_RESULT B_OUTCOME_RAN",
+            "requires != VAR_RESULT FALSE",
+            "requires < VAR_SINJOH_STORYLINE 3"
+          ],
+          "from_gate": []
+        },
+        {
+          "kind": "warp",
+          "from_map": "Route22_hns",
+          "from_group_num": [
+            0,
+            62
+          ],
+          "from_region": "KANTO",
+          "from_section": "MAPSEC_ROUTE_22",
+          "to_map": "ReceptionGate_hns",
+          "to_group_num": [
+            22,
+            22
+          ],
+          "to_region": "JOHTO",
+          "to_section": "MAPSEC_VICTORY_ROAD_HNS",
+          "at": [
+            12,
+            9
+          ],
+          "behaviour": "MB_ANIMATED_DOOR",
+          "activation_path": "door",
+          "directions": [
+            "UP"
+          ],
+          "trigger_tile": [
+            12,
+            10
+          ],
+          "tile_walkable": false,
+          "warp_event_present": true,
+          "engine_predicate": "TryDoorWarp (src/field_control_avatar.c) -- player facing north (DIR_NORTH) with MetatileBehavior_IsWarpDoor on the tile in front",
+          "gate": [
+            "requires >= VAR_ECRUTEAK_CITY_THEATER 8",
+            "requires unset FLAG_BADGE08_GET ReceptionGate_EventScript_NotEnough"
+          ],
+          "from_gate": [
+            "requires != VAR_RESULT FALSE",
+            "requires == VAR_ROUTE22_GIOVANNI_STATE 0"
+          ]
+        },
+        {
+          "kind": "warp",
+          "from_map": "SnowsweptCavern_hns",
+          "from_group_num": [
+            28,
+            0
+          ],
+          "from_region": "SINJOH",
+          "from_section": "MAPSEC_SNOWSWEPT_CAVERN",
+          "to_map": "MtSilver_1F_WaterfallRoom_hns",
+          "to_group_num": [
+            24,
+            73
+          ],
+          "to_region": "JOHTO",
+          "to_section": "MAPSEC_MT_SILVER",
+          "at": [
+            50,
+            68
+          ],
+          "behaviour": "MB_SOUTH_ARROW_WARP",
+          "activation_path": "arrow",
+          "directions": [
+            "DOWN"
+          ],
+          "trigger_tile": [
+            50,
+            68
+          ],
+          "tile_walkable": true,
+          "warp_event_present": true,
+          "engine_predicate": "TryArrowWarp (src/field_control_avatar.c) -- player standing on the tile, holding the facing direction, IsArrowWarpMetatileBehavior(tile) is TRUE",
+          "gate": [],
+          "from_gate": [
+            "requires != VAR_RESULT B_OUTCOME_RAN",
+            "requires != VAR_RESULT FALSE",
+            "requires < VAR_SINJOH_STORYLINE 3"
+          ]
+        }
+      ],
+      "undecided_from_map_data": [
+        {
+          "from_map": "Route26North_hns",
+          "from_group_num": [
+            0,
+            68
+          ],
+          "from_region": "JOHTO",
+          "from_section": "MAPSEC_ROUTE_26",
+          "to_map": "Route22_hns",
+          "to_group_num": [
+            0,
+            62
+          ],
+          "to_region": "KANTO",
+          "to_section": "MAPSEC_ROUTE_22",
+          "at": [
+            0,
+            0
+          ],
+          "reason_class": "dead right connection (empty crossing window)",
+          "reason": "dead right connection (empty crossing window)"
+        },
+        {
+          "from_map": "Trees_hns",
+          "from_group_num": [
+            30,
+            26
+          ],
+          "from_region": "JOHTO",
+          "from_section": "MAPSEC_ABANDONED_SHIP",
+          "to_map": "VermilionCity_hns",
+          "to_group_num": [
+            0,
+            35
+          ],
+          "to_region": "KANTO",
+          "to_section": "MAPSEC_VERMILION_CITY",
+          "at": [
+            0,
+            0
+          ],
+          "reason_class": "dead down connection (empty crossing window)",
+          "reason": "dead down connection (empty crossing window)"
+        },
+        {
+          "from_map": "CinnabarIsland_hns",
+          "from_group_num": [
+            0,
+            40
+          ],
+          "from_region": "KANTO",
+          "from_section": "MAPSEC_CINNABAR_ISLAND",
+          "to_map": "NewBarkTown_hns",
+          "to_group_num": [
+            0,
+            0
+          ],
+          "to_region": "JOHTO",
+          "to_section": "MAPSEC_NEW_BARK_TOWN",
+          "at": [
+            41,
+            1
+          ],
+          "reason_class": "dead warp (MB_OCEAN_WATER is neither IsWarpMetatileBehavior, IsArrowWarpMetatileBehavior nor a warp door, so no field-input warp predicate fires here; a warp_def on this tile is an inert anchor (its destination is normally reached by a scripted warp instead))",
+          "reason": "no field-input warp predicate fires here. src/field_control_avatar.c reaches a warp through TryArrowWarp (player on the tile, holding the direction, IsArrowWarpMetatileBehavior), TryDoorWarp (facing north into a warp-door tile) or TryStartWarpEventScript (stepping onto a tile where IsWarpMetatileBehavior is TRUE), and this tile's metatile satisfies none of them, so its warp_def is an inert anchor: the destination is normally reached by a scripted `warp`, which calls DoWarp without consulting a metatile behaviour",
+          "trigger_behaviour": "MB_OCEAN_WATER",
+          "trigger_tile_walkable": true,
+          "warp_event_present": true,
+          "arrival_tile": [
+            10,
+            9
+          ],
+          "arrival_tile_walkable": false
+        },
+        {
+          "from_map": "FuchsiaCity_hns",
+          "from_group_num": [
+            0,
+            39
+          ],
+          "from_region": "KANTO",
+          "from_section": "MAPSEC_FUCHSIA_CITY",
+          "to_map": "NewBarkTown_hns",
+          "to_group_num": [
+            0,
+            0
+          ],
+          "to_region": "JOHTO",
+          "to_section": "MAPSEC_NEW_BARK_TOWN",
+          "at": [
+            19,
+            30
+          ],
+          "reason_class": "dead warp (MB_NORMAL is neither IsWarpMetatileBehavior, IsArrowWarpMetatileBehavior nor a warp door, so no field-input warp predicate fires here; a warp_def on this tile is an inert anchor (its destination is normally reached by a scripted warp instead))",
+          "reason": "no field-input warp predicate fires here. src/field_control_avatar.c reaches a warp through TryArrowWarp (player on the tile, holding the direction, IsArrowWarpMetatileBehavior), TryDoorWarp (facing north into a warp-door tile) or TryStartWarpEventScript (stepping onto a tile where IsWarpMetatileBehavior is TRUE), and this tile's metatile satisfies none of them, so its warp_def is an inert anchor: the destination is normally reached by a scripted `warp`, which calls DoWarp without consulting a metatile behaviour",
+          "trigger_behaviour": "MB_NORMAL",
+          "trigger_tile_walkable": false,
+          "warp_event_present": true,
+          "arrival_tile": [
+            10,
+            9
+          ],
+          "arrival_tile_walkable": false
+        },
+        {
+          "from_map": "Route22_hns",
+          "from_group_num": [
+            0,
+            62
+          ],
+          "from_region": "KANTO",
+          "from_section": "MAPSEC_ROUTE_22",
+          "to_map": "Route26North_hns",
+          "to_group_num": [
+            0,
+            68
+          ],
+          "to_region": "JOHTO",
+          "to_section": "MAPSEC_ROUTE_26",
+          "at": [
+            0,
+            0
+          ],
+          "reason_class": "dead left connection (empty crossing window)",
+          "reason": "dead left connection (empty crossing window)"
+        }
+      ],
+      "script_warp_candidates": [
+        {
+          "file": "data/maps/GoldenrodCity_DepartmentStoreElevator_hns/scripts.inc",
+          "line": 195,
+          "command": "warp",
+          "to_map": "CeladonCity_DepartmentStore_1F_hns",
+          "from_region": "JOHTO",
+          "to_region": "KANTO",
+          "owner_map": "GoldenrodCity_DepartmentStoreElevator_hns"
+        },
+        {
+          "file": "data/maps/GoldenrodCity_DepartmentStoreElevator_hns/scripts.inc",
+          "line": 203,
+          "command": "warp",
+          "to_map": "CeladonCity_DepartmentStore_2F_hns",
+          "from_region": "JOHTO",
+          "to_region": "KANTO",
+          "owner_map": "GoldenrodCity_DepartmentStoreElevator_hns"
+        },
+        {
+          "file": "data/maps/GoldenrodCity_DepartmentStoreElevator_hns/scripts.inc",
+          "line": 211,
+          "command": "warp",
+          "to_map": "CeladonCity_DepartmentStore_3F_hns",
+          "from_region": "JOHTO",
+          "to_region": "KANTO",
+          "owner_map": "GoldenrodCity_DepartmentStoreElevator_hns"
+        },
+        {
+          "file": "data/maps/GoldenrodCity_DepartmentStoreElevator_hns/scripts.inc",
+          "line": 219,
+          "command": "warp",
+          "to_map": "CeladonCity_DepartmentStore_4F_hns",
+          "from_region": "JOHTO",
+          "to_region": "KANTO",
+          "owner_map": "GoldenrodCity_DepartmentStoreElevator_hns"
+        },
+        {
+          "file": "data/maps/GoldenrodCity_DepartmentStoreElevator_hns/scripts.inc",
+          "line": 227,
+          "command": "warp",
+          "to_map": "CeladonCity_DepartmentStore_5F_hns",
+          "from_region": "JOHTO",
+          "to_region": "KANTO",
+          "owner_map": "GoldenrodCity_DepartmentStoreElevator_hns"
+        },
+        {
+          "file": "data/maps/GoldenrodCity_TrainStation_hns/scripts.inc",
+          "line": 61,
+          "command": "warp",
+          "to_map": "SaffronCity_TrainStation_hns",
+          "from_region": "JOHTO",
+          "to_region": "KANTO",
+          "owner_map": "GoldenrodCity_TrainStation_hns"
+        },
+        {
+          "file": "data/maps/MelemeleIsle_hns/scripts.inc",
+          "line": 118,
+          "command": "warp",
+          "to_map": "Route13_hns",
+          "from_region": "ALOLA",
+          "to_region": "KANTO",
+          "owner_map": "MelemeleIsle_hns"
+        },
+        {
+          "file": "data/maps/OlivineCity_PortInside_hns/scripts.inc",
+          "line": 141,
+          "command": "warpsilent",
+          "to_map": "VermilionCity_PortInside_hns",
+          "from_region": "JOHTO",
+          "to_region": "KANTO",
+          "owner_map": "OlivineCity_PortInside_hns"
+        },
+        {
+          "file": "data/maps/Route13_hns/scripts.inc",
+          "line": 326,
+          "command": "warp",
+          "to_map": "MelemeleIsle_hns",
+          "from_region": "KANTO",
+          "to_region": "ALOLA",
+          "owner_map": "Route13_hns"
+        },
+        {
+          "file": "data/maps/Route13_hns/scripts.inc",
+          "line": 361,
+          "command": "warp",
+          "to_map": "MelemeleIsle_hns",
+          "from_region": "KANTO",
+          "to_region": "ALOLA",
+          "owner_map": "Route13_hns"
+        },
+        {
+          "file": "data/maps/SSAqua_1F_hns/scripts.inc",
+          "line": 157,
+          "command": "warp",
+          "to_map": "VermilionCity_PortInside_hns",
+          "from_region": "JOHTO",
+          "to_region": "KANTO",
+          "owner_map": "SSAqua_1F_hns"
+        },
+        {
+          "file": "data/maps/SaffronCity_TrainStation_hns/scripts.inc",
+          "line": 81,
+          "command": "warp",
+          "to_map": "GoldenrodCity_TrainStation_hns",
+          "from_region": "KANTO",
+          "to_region": "JOHTO",
+          "owner_map": "SaffronCity_TrainStation_hns"
+        },
+        {
+          "file": "data/maps/VermilionCity_PortInside_hns/scripts.inc",
+          "line": 60,
+          "command": "warpsilent",
+          "to_map": "OlivineCity_PortInside_hns",
+          "from_region": "KANTO",
+          "to_region": "JOHTO",
+          "owner_map": "VermilionCity_PortInside_hns"
+        },
+        {
+          "file": "data/maps/VermilionCity_PortInside_hns/scripts.inc",
+          "line": 114,
+          "command": "warpsilent",
+          "to_map": "SSAqua_1F_hns",
+          "from_region": "KANTO",
+          "to_region": "JOHTO",
+          "owner_map": "VermilionCity_PortInside_hns"
+        }
+      ],
+      "script_warp_candidate_count": 14,
+      "any_edge_runtime_verified": false,
+      "check_runs_in": "./ci.sh source-check step 1b, against the pinned checkout it already exports",
+      "warp_activation_model": {
+        "source": "src/field_control_avatar.c, the three field-input warp paths",
+        "paths": {
+          "arrow": "TryArrowWarp (src/field_control_avatar.c): the player STANDS on the tile, holds the facing direction, and the tile satisfies IsArrowWarpMetatileBehavior for that direction. The accepted presses are derived per behaviour from the predicate's own DIR_* dispatch, so a MB_SOUTH_ARROW_WARP tile is offered a south press only. An arrow warp event on a tile without an arrow behaviour never fires.",
+          "door": "TryDoorWarp (src/field_control_avatar.c): the player faces NORTH and walks INTO a warp door, so the warp event lives on the (usually impassable) door tile and the trigger is the walkable tile directly SOUTH of it. This is the one path where the trigger tile is not the warp tile, and it is why an impassable MB_ANIMATED_DOOR cannot be a step-on warp.",
+          "step": "TryStartWarpEventScript (line 1002): the player STEPS ONTO the tile and its metatile satisfies IsWarpMetatileBehavior."
+        },
+        "common_requirement": "all three also need GetWarpEventAtPosition to match, i.e. the warp event's elevation equals the tile's or is ELEVATION_TRANSITION (0)",
+        "primary_boundary": "NUM_METATILES_IN_PRIMARY is 640 for LAYOUT_VERSION_FRLG and LAYOUT_VERSION_HNS (include/fieldmap.h, src/fieldmap.c:GetNumMetatilesInPrimary); only Emerald layouts use 512. Decoding the H&S layouts with 512 mis-resolves every tile in the 512..639 range, which is how an earlier revision of this record mis-read a real arrow warp as ordinary floor.",
+        "inert_anchors": "a warp_def on a tile with none of those behaviours is an inert anchor: many entries in this build exist only as the destination half of a scripted `warp`, and the scripted form calls DoWarp directly without consulting a metatile behaviour."
+      }
+    },
+    "manual_engine_source_verified": {
+      "note": "MANUALLY ENGINE-SOURCE-VERIFIED. This half is NOT produced by hns_route.py and is not claimed to be. It decides the edges the analyzer reports as undecided from map data, and it records the script-command transitions an analyzer without a call graph cannot resolve. Every verdict carries the exact source that supports it. It is machine-checked in two ways: `hns_route.py inventory --check` fails if any undecided edge has no verdict here or if a verdict contradicts the tool-derived half, and `HnsLocationRuntimeEvidenceTest` asserts the same partition from the Kotlin suite.",
+      "edges": [
+        {
+          "from_map": "ReceptionGate_hns",
+          "to_map": "Route22_hns",
+          "verdict": "functional",
+          "edge_id": "W1",
+          "activation_path": "arrow",
+          "evidence": [
+            "data/maps/ReceptionGate_hns/events.inc:18 -- `warp_def 20, 9, 0, 0, MAP_ROUTE22_HNS`: a real warp event naming Route 22",
+            "the tile (20,9) carries MB_SOUTH_ARROW_WARP, decoded from data/tilesets/secondary/pokemon_center_white_hns/metatile_attributes.bin through include/global.fieldmap.h (METATILE_ATTR_BEHAVIOR_MASK 0x00FF). TryArrowWarp therefore fires when the player stands there and holds south",
+            "tile is walkable (collision 0) and its elevation matches the warp event",
+            "data/maps/ReceptionGate_hns/scripts.inc:34-49 -- ReceptionGate_Trigger is the coord event at (11,14) and checks VAR_ECRUTEAK_CITY_THEATER >= 8 plus FLAG_BADGE08_GET, pushing the player back with Common_Movement_WalkDown1 on either failure; (11,14) is a cut vertex joining the arrival corridor to (20,9)"
+          ]
+        },
+        {
+          "from_map": "Route22_hns",
+          "to_map": "ReceptionGate_hns",
+          "verdict": "functional",
+          "edge_id": "W2",
+          "activation_path": "door",
+          "evidence": [
+            "data/maps/Route22_hns/events.inc:21 -- `warp_def 12, 9, 0, 4, MAP_RECEPTION_GATE_HNS`",
+            "the tile (12,9) carries MB_ANIMATED_DOOR, which satisfies MetatileBehavior_IsWarpDoor, so TryDoorWarp applies. It is ALSO a step-on warp behaviour, but the tile is impassable (collision 1), so the player can never step onto it and TryStartWarpEventScript cannot fire there",
+            "TryDoorWarp requires DIR_NORTH and tests the tile the player walks INTO, so the trigger is the walkable tile directly south, (12,10), and the press is UP"
+          ]
+        },
+        {
+          "from_map": "MtSilver_1F_WaterfallRoom_hns",
+          "to_map": "SnowsweptCavern_hns",
+          "verdict": "functional",
+          "edge_id": "W7",
+          "activation_path": "step",
+          "evidence": [
+            "data/maps/MtSilver_1F_WaterfallRoom_hns/events.inc:36 -- `warp_def 43, 7, 0, 7, MAP_SNOWSWEPT_CAVERN_HNS`",
+            "the tile (43,7) carries MB_NON_ANIMATED_DOOR, which satisfies IsWarpMetatileBehavior",
+            "in play it is entered by an NPC scripted warp, not by walking: data/maps/MtSilver_PokemonCenter_hns/scripts.inc:10-44 has Meara require checkitem ITEM_AZURE_FLUTE and then issue `warp MAP_MT_SILVER_1F_WATERFALL_ROOM_HNS, 43, 9`, landing on (43,9) inside a 9-tile pocket that MB_JUMP_SOUTH ledges make one-way. A scripted warp calls DoWarp directly and ignores the warp_def tile, so the warp_def at (43,7) is the outbound half"
+          ]
+        },
+        {
+          "from_map": "SnowsweptCavern_hns",
+          "to_map": "MtSilver_1F_WaterfallRoom_hns",
+          "verdict": "functional",
+          "edge_id": "W8",
+          "activation_path": "arrow",
+          "evidence": [
+            "data/maps/SnowsweptCavern_hns/events.inc:48 -- the reverse `warp_def` at (50,68)",
+            "the tile carries MB_SOUTH_ARROW_WARP, so TryArrowWarp fires from it"
+          ]
+        },
+        {
+          "from_map": "CinnabarIsland_hns",
+          "to_map": "NewBarkTown_hns",
+          "verdict": "dead",
+          "edge_id": "W5",
+          "evidence": [
+            "data/maps/CinnabarIsland_hns/events.inc:22 declares the warp_def, but the trigger tile (41,1) carries MB_OCEAN_WATER: it satisfies none of IsWarpMetatileBehavior, IsArrowWarpMetatileBehavior and the warp-door requirement, so no field-input predicate fires",
+            "surfing is not a warp path in this revision -- TryStartWarpEventScript is reached from TryStartStepBasedScript on `tookStep`, and it still requires IsWarpMetatileBehavior",
+            "the warp_def is an inert anchor; the Kanto -> Johto whiteout destination is normally reached through a scripted warp or a healing spot"
+          ]
+        },
+        {
+          "from_map": "FuchsiaCity_hns",
+          "to_map": "NewBarkTown_hns",
+          "verdict": "dead",
+          "edge_id": "W6",
+          "evidence": [
+            "data/maps/FuchsiaCity_hns/events.inc:33 declares the warp_def at (19,30), but the tile carries MB_NORMAL and so does the tile in front at (19,29): the warp-door path needs the tile the player walks INTO to be MB_ANIMATED_DOOR or MB_NON_ANIMATED_DOOR, and the step-on path needs IsWarpMetatileBehavior",
+            "collision is 1 on the warp tile, so the player cannot stand on it either"
+          ]
+        },
+        {
+          "from_map": "Route26North_hns",
+          "to_map": "Route22_hns",
+          "verdict": "dead",
+          "edge_id": "C1",
+          "evidence": [
+            "src/fieldmap.c:869-886 IsCoordInIncomingConnectingMap -- the engine's rule is dest = src - offset and the offset -28 permits only Route26North row 0, which lands at Route22 row 28 on a 28-row map: an empty crossing window",
+            "Route26North has no walkable tile in column x=0 or x=38 and Route22 has none in column x=0, so the border is walled on both sides",
+            "only 4 of the build's 219 H&S connections have an empty window, and C1/C2 are two of them"
+          ]
+        },
+        {
+          "from_map": "Route22_hns",
+          "to_map": "Route26North_hns",
+          "verdict": "dead",
+          "edge_id": "C2",
+          "evidence": [
+            "the reciprocal of C1: offset +28 permits only Route22 row 28, which does not exist on a 28-row map"
+          ]
+        },
+        {
+          "from_map": "Trees_hns",
+          "to_map": "VermilionCity_hns",
+          "verdict": "dead",
+          "evidence": [
+            "data/maps/Trees_hns/map.json declares one connection, down to MAP_VERMILION_CITY_HNS with offset -46; the permitted source-row window is empty against Vermilion City's 56x50 layout",
+            "Trees_hns is an unused area whose only entrances are dead test/map-editor warps"
+          ]
+        }
+      ],
+      "script_command_transitions": [
+        {
+          "file": "data/maps/OlivineCity_PortInside_hns/scripts.inc",
+          "line": 141,
+          "command": "warpsilent",
+          "from_map": "OlivineCity_PortInside_hns",
+          "to_map": "VermilionCity_PortInside_hns",
+          "from_region": "JOHTO",
+          "to_region": "KANTO",
+          "verdict": "functional",
+          "gate": [
+            "VAR_SSAQUA_STATE >= 7",
+            "ITEM_SS_TICKET"
+          ]
+        },
+        {
+          "file": "data/maps/VermilionCity_PortInside_hns/scripts.inc",
+          "line": 60,
+          "command": "warpsilent",
+          "from_map": "VermilionCity_PortInside_hns",
+          "to_map": "OlivineCity_PortInside_hns",
+          "from_region": "KANTO",
+          "to_region": "JOHTO",
+          "verdict": "functional",
+          "gate": [
+            "FLAG_RETURNED_MACHINE_PART",
+            "VAR_SSAQUA_STATE >= 7",
+            "ITEM_SS_TICKET"
+          ]
+        },
+        {
+          "file": "data/maps/VermilionCity_PortInside_hns/scripts.inc",
+          "line": 114,
+          "command": "warpsilent",
+          "from_map": "VermilionCity_PortInside_hns",
+          "to_map": "SSAqua_1F_hns",
+          "from_region": "KANTO",
+          "to_region": "JOHTO",
+          "verdict": "functional",
+          "gate": [
+            "FLAG_RETURNED_MACHINE_PART",
+            "ITEM_SS_TICKET"
+          ]
+        },
+        {
+          "file": "data/maps/SSAqua_1F_hns/scripts.inc",
+          "line": 157,
+          "command": "warp",
+          "from_map": "SSAqua_1F_hns",
+          "to_map": "VermilionCity_PortInside_hns",
+          "from_region": "JOHTO",
+          "to_region": "KANTO",
+          "verdict": "functional",
+          "gate": [
+            "VAR_SSAQUA_STATE >= 5"
+          ]
+        },
+        {
+          "file": "data/maps/GoldenrodCity_TrainStation_hns/scripts.inc",
+          "line": 61,
+          "command": "warp",
+          "from_map": "GoldenrodCity_TrainStation_hns",
+          "to_map": "SaffronCity_TrainStation_hns",
+          "from_region": "JOHTO",
+          "to_region": "KANTO",
+          "verdict": "functional",
+          "gate": [
+            "checkitem ITEM_PASS"
+          ]
+        },
+        {
+          "file": "data/maps/SaffronCity_TrainStation_hns/scripts.inc",
+          "line": 81,
+          "command": "warp",
+          "from_map": "SaffronCity_TrainStation_hns",
+          "to_map": "GoldenrodCity_TrainStation_hns",
+          "from_region": "KANTO",
+          "to_region": "JOHTO",
+          "verdict": "functional",
+          "gate": [
+            "FLAG_RETURNED_MACHINE_PART",
+            "checkitem ITEM_PASS"
+          ]
+        },
+        {
+          "file": "data/maps/MelemeleIsle_hns/scripts.inc",
+          "line": 118,
+          "command": "warp",
+          "from_map": "MelemeleIsle_hns",
+          "to_map": "Route13_hns",
+          "from_region": "ALOLA",
+          "to_region": "KANTO",
+          "verdict": "functional",
+          "gate": []
+        },
+        {
+          "file": "data/maps/Route13_hns/scripts.inc",
+          "line": 326,
+          "command": "warp",
+          "from_map": "Route13_hns",
+          "to_map": "MelemeleIsle_hns",
+          "from_region": "KANTO",
+          "to_region": "ALOLA",
+          "verdict": "functional",
+          "gate": [
+            "checkitem ITEM_STRANGE_SOUVENIR"
+          ]
+        },
+        {
+          "file": "data/maps/Route13_hns/scripts.inc",
+          "line": 361,
+          "command": "warp",
+          "from_map": "Route13_hns",
+          "to_map": "MelemeleIsle_hns",
+          "from_region": "KANTO",
+          "to_region": "ALOLA",
+          "verdict": "functional",
+          "gate": [
+            "checkitem ITEM_STRANGE_SOUVENIR"
+          ]
+        }
+      ],
+      "rejected_candidates": [
+        {
+          "candidates": [
+            "data/maps/GoldenrodCity_DepartmentStoreElevator_hns/scripts.inc:195",
+            "data/maps/GoldenrodCity_DepartmentStoreElevator_hns/scripts.inc:203",
+            "data/maps/GoldenrodCity_DepartmentStoreElevator_hns/scripts.inc:211",
+            "data/maps/GoldenrodCity_DepartmentStoreElevator_hns/scripts.inc:219",
+            "data/maps/GoldenrodCity_DepartmentStoreElevator_hns/scripts.inc:227"
+          ],
+          "verdict": "rejected: shared script file, not a reachable transition",
+          "reason": "the file holds two independent script sets. CeladonDeptElevator_EventScript_Elevator is referenced only by CeladonCity_DepartmentStore_1F..4F_hns, and the Goldenrod floors reference only GoldenrodDeptElevator_EventScript_Elevator (for example data/maps/GoldenrodCity_DepartmentStore_6F_hns/events.inc:19). Without a call graph the analyzer cannot tell them apart, which is exactly why every script-warp entry is reported as a candidate"
+        },
+        {
+          "candidates": [
+            "data/maps/IndigoPlateau_PokemonCenter_hns/scripts.inc (warpteleport to NewBarkTown_hns)"
+          ],
+          "verdict": "functional but not a route into Kanto",
+          "reason": "it is a Kanto -> Johto return teleport, and reaching Indigo Plateau is itself behind the ReceptionGate gate"
+        },
+        {
+          "candidates": [
+            "data/maps/RocketHideout_Elevator_Frlg (setdynamicwarp)"
+          ],
+          "verdict": "rejected: not in the ROM",
+          "reason": "a non-H&S map; data/maps/headers.inc contains only the 560 game_version==hns maps"
+        },
+        {
+          "candidates": [
+            "the Safari Zone exit script"
+          ],
+          "verdict": "rejected: routed by a flag, not a fixed cross-region warp",
+          "reason": "it branches on FLAG_IN_KANTO_SAFARI_ZONE rather than naming a destination"
+        }
+      ],
+      "reachability_from_an_early_legal_save": {
+        "start": "the issue #1 progression chain's furthest accepted checkpoint (Azalea Town area, two Johto badges, three party members)",
+        "conclusion": "NO cross-region transition is reachable",
+        "method": "flood fill over all 560 H&S maps using the engine's warp and connection predicates (surf/waterfall HM gates read from src/field_move.c IsFieldMoveUnlocked_Surf / _Waterfall), at three assumption levels",
+        "evidence": [
+          "no Surf and no Waterfall: 161 maps reached, ZERO cross-region edges",
+          "Surf without Waterfall: 169 maps reached, ZERO cross-region edges",
+          "Surf and Waterfall: 342 maps reached, which is where the first cross-region edges appear",
+          "Surf is mandatory and needs FLAG_BADGE04_GET: both the New Bark Town east edge (x=29, rows 11-14) and the Route 27 west edge (x=0, rows 22-25) are MB_OCEAN_WATER",
+          "Waterfall is mandatory and needs FLAG_BADGE08_GET: Tohjo Falls Cavern's west component joins its centre and east rooms only through the MB_WATERFALL column x=29-34, rows 12-17, and Route 27's east half is reachable no other way",
+          "even with Surf and Waterfall, ReceptionGate's (11,14) trigger requires VAR_ECRUTEAK_CITY_THEATER >= 8, set only by TinTower_RoofDay_hns (Ho-Oh) or WhirlIslands_LugiaChamber_hns (Lugia)",
+          "Fly is not a shortcut: of every sMapHealLocations entry exactly one is cross-region (MAPSEC_ROCKET_HIDEOUT_HNS -> Pallet Town with HEAL_LOCATION_NONE, hence unusable), and every CANFLY city is gated by its own FLAG_VISITED_*, set only by physically entering"
+        ]
+      },
+      "alola_has_no_transition_to_johto": {
+        "verdict": "ZERO Johto <-> Alola edges",
+        "evidence": [
+          "neither the tool-derived inventory nor the manual script audit finds any Alola <-> Johto transition",
+          "Alola links only to Kanto: MelemeleIsle_hns -> Route13_hns with no gate, and the reverse gated by checkitem ITEM_STRANGE_SOUVENIR, an item sold in the Kanto shop MtMoon_Shop_hns"
+        ]
+      },
+      "any_edge_runtime_verified": false,
+      "region_model_correction": {
+        "note": "MAPSEC_VICTORY_ROAD_HNS is REGION_JOHTO, so ReceptionGate_hns, VictoryRoadKanto_1F/B1F/B2F_hns and the whole Kanto Victory Road classify as JOHTO, not Kanto. Likewise MAPSEC_INDIGO_PLATEAU is JOHTO, so Route23_hns does too. That makes the ReceptionGate (20,9) arrow warp the single Johto -> Kanto crossing into the overworld: the actual region change happens on Route 22's east connection into Viridian City.",
+        "consequence": "the earlier claim that VictoryRoadKanto_1F_hns -> Route23_hns was a second Johto/Kanto pair is withdrawn; it is a Johto-to-Johto crossing on the way to Indigo Plateau"
+      }
+    },
+    "provenance_files": {
+      "tool_inventory": "tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json",
+      "tool_check": "python3 tools/hns-map-data/hns_route.py inventory --check tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json",
+      "tool_check_runs_in": "./ci.sh source-check (step 1b), against the pinned checkout",
+      "tool_provenance_tests": "tools/hns-map-data/test_hns_route.py, run by ./ci.sh test and ./ci.sh all"
+    },
+    "region_model": {
+      "source": "include/regions.h GetRegionForSectionId (#if IS_HNS), resolved over include/constants/region_map_sections.h",
+      "ranges": {
+        "KANTO": "MAPSEC_PALLET_TOWN=20 .. MAPSEC_POWER_PLANT=62",
+        "JOHTO": "MAPSEC_NEW_BARK_TOWN=63 .. MAPSEC_WHIRL_ISLANDS=124",
+        "ALOLA": "MAPSEC_MELEMELE_ISLAND=9 .. MAPSEC_ULAULA_CAVE_2=18",
+        "SINJOH": "MAPSEC_SNOWSWEPT_CAVERN=109 .. MAPSEC_SINJOH_RUINS=113"
+      },
+      "consequences": [
+        "MAPSEC_VICTORY_ROAD_HNS=106 is JOHTO, so ReceptionGate_hns and the whole Kanto Victory Road classify as Johto",
+        "MAPSEC_SINJOH=108 is JOHTO, not Sinjoh",
+        "MAPSEC_ROUTE_22=52 is KANTO and MAPSEC_INDIGO_PLATEAU=40 is KANTO"
+      ]
+    }
+  },
+  "device_verification": {
+    "performed": false,
+    "why": "no Android device, emulator or AYN Thor is reachable from the agent environment (no emulator package and no AVD are installed, and no device is attached to adb)",
+    "remaining_human_check": "install the debug APK on the AYN Thor, load the exact 2.0.5 ROM, and walk the Map tab through: a live Johto location, the Kanto canvas after browsing to it, a Sinjoh/Alola region-known capture, and an unresolved location"
+  }
+}

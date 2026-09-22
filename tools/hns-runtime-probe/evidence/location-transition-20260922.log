@@ -1,0 +1,19 @@
+rom sha256 : edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+[ROM] path=<developer-local-ROM>.gba sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b loaded=1
+battery save load: OK
+  [assert] location=0/0 within 60 OK (60/60 frames matched, 0 unreadable)
+  [assert] location=0/0 is region section MAPSEC_NEW_BARK_TOWN OK (frame 1180)
+  [assert] battle=inactive OK (frame 1180)
+[LOCATION] label=cp1-newbarktown source=request frame=1180 readable=1 valid=1 group=0 num=0 x=-1 y=-1 warpId=0 localX=10 localY=10 indoors=0 escapeGroup=0 escapeNum=0 fp=5BED7FA0A4384AE8 rom=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+  [assert] pos=(0,11) OK (frame 1357)
+  [assert] location=0/11 within 240 OK (240/240 frames matched, 0 unreadable)
+  [assert] location=0/11 is region section MAPSEC_ROUTE_29 OK (frame 1703)
+[LOCATION] label=cp2-route29 source=request frame=1703 readable=1 valid=1 group=0 num=11 x=-1 y=-1 warpId=-1 localX=69 localY=16 indoors=0 escapeGroup=0 escapeNum=0 fp=CA6F0D322CBBA394 rom=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+  [assert] location=0/0 within 240 OK (240/240 frames matched, 0 unreadable)
+  [assert] location=0/0 is region section MAPSEC_NEW_BARK_TOWN OK (frame 2050)
+[LOCATION] label=cp3-newbarktown-return source=request frame=2050 readable=1 valid=1 group=0 num=0 x=-1 y=-1 warpId=-1 localX=0 localY=11 indoors=0 escapeGroup=0 escapeNum=0 fp=19D750C48006D44B rom=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+  [assert] ROM SHA-256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b OK
+frames run                    : 2050
+runtime invariant violations  : 0
+script errors                 : 0
+result                        : PASS

@@ -1,0 +1,57 @@
+# Issue #11: runtime map transition through the PRODUCTION location reader.
+#
+# Boots the legal starter save (New Bark Town, map 0/0 at (10,10)) and drives one genuine
+# overworld map transition in each direction, asserting the destination with the reader DualDex
+# ships (`pokemon_read_player_location_gba`) rather than with a probe-local address read.
+#
+# The route is generated offline from the pinned 2.0.5 source, not hand-guessed:
+#
+#   python3 ../../../hns-map-data/hns_route.py route NewBarkTown_hns 10 10 map Route29_hns
+#   python3 ../../../hns-map-data/hns_route.py route Route29_hns 69 16 map NewBarkTown_hns
+#
+# `assert-pos` is emitted BEFORE each crossing press: the press is itself the step that moves the
+# player onto the destination map, so an assertion after it would check the arrival tile instead of
+# the edge the crossing fired from.
+#
+# `New Bark Town -> Route 29` is an EDGE-TRIGGERED connection: the crossing fires while the player
+# stands on the New Bark Town edge tile (0,11) and arrives on Route 29 at (69,16). The reverse
+# crossing fires from Route 29 (69,16) and arrives back on New Bark Town (10,10), which is why the
+# return step is RIGHT even though the player is heading west; the direction is the one the map
+# connection declares, not the coordinate delta between two different map spaces.
+#
+# `assert-location ... within <n>` evaluates the assertion on every frame of the window, so the
+# transition has to hold across a span rather than at one sampled frame. Each `location <label>`
+# capture is a [LOCATION] line carrying the raw identity plus the loaded ROM's SHA-256.
+#
+# Read-only. No RAM writes, no cheats, no save editing, no save-state injection: ordinary
+# controller input, and no in-game save is written by this scenario.
+
+wait 120
+mash 800
+wait 200
+
+# ------------------------------------------------------------------ Johto: New Bark Town (0/0)
+assert-location 0 0 within 60
+assert-location-region-section 0 0 MAPSEC_NEW_BARK_TOWN
+assert-battle inactive
+location cp1-newbarktown
+
+# ------------------------------------------------------------------ cross into Route 29 (0/11)
+walk LEFT 6
+walk DOWN 1
+walk LEFT 4
+assert-pos 0 11
+walk LEFT 1 optional
+wait 90
+assert-location 0 11 within 240
+assert-location-region-section 0 11 MAPSEC_ROUTE_29
+location cp2-route29
+
+# ------------------------------------------------------------------ back into New Bark Town (0/0)
+walk RIGHT 1 optional
+wait 90
+assert-location 0 0 within 240
+assert-location-region-section 0 0 MAPSEC_NEW_BARK_TOWN
+location cp3-newbarktown-return
+
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b

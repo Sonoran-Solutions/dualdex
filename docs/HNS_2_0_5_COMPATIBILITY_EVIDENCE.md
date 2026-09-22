@@ -32,7 +32,7 @@ was superseded by the C4d/C4e evidence later in this document. See
 | Wild + trainer lifecycle, switches, faints, HP and representative stat stages | RUNTIME VERIFIED (§11.3, Scenarios 20 and 40–44) |
 | Opponent voluntary switch without faint | RUNTIME VERIFIED (Scenario 44, §11.10); §14.5 records a later replay limitation |
 | Doubles / partner / multi lifecycle | Natural Amy & May Doubles RUNTIME VERIFIED (Scenario 70); both active roles honestly AMBIGUOUS. Partner/multi remain source + synthetic only; see the issue #1 audit |
-| Maps / multi-region location routing (#11) | §12 remains authoritative; cross-region transitions and app/UI remain unverified |
+| Maps / multi-region location routing (#11) | §12 remains authoritative; **§12.9 adds the runtime half**. H&S location reads are now RUNTIME VERIFIED at six legal checkpoints and across a real map transition in both directions; Kanto/Sinjoh/Alola *transitions* remain NOT RUNTIME VERIFIED with a source-derived blocker per edge; the Map tab remains NOT DEVICE VERIFIED |
 | Calculator (#9) | Closed for the accepted bounded scope after PR #71: exact H&S ordinary live Singles is capped at ESTIMATED; unsupported mechanics are refused. See [capability §14.14](HNS_2_0_5_CALCULATOR_CAPABILITY.md) and the C4e section below |
 | `battleUiVerified` / `interactiveControlsVerified` | Both remain `false` |
 
@@ -914,8 +914,8 @@ No broad architecture rewrite was performed (issue #8 is untouched).
 | Battle UI / interactive controls | NOT YET VERIFIED — `battleUiVerified` and `interactiveControlsVerified` remain `false` (unchanged by this PR) |
 | H&S maps / regions (#11) | **SOURCE VERIFIED** — mapGroup/mapNum identity and region for the exact 2.0.5 build are generated from the pinned upstream checkout (560 locations, 120 sections) and cross-checked against upstream source by an independent oracle test; location routing is fail-closed and unit tested (§12) |
 | H&S Johto/Kanto region-map canvas | **SOURCE VERIFIED** — canvas geometry is generated from the pinned H&S `sRegionMapSections_Johto` / `_Kanto` layout grids; the legacy hand-written canvas shipped 61 coordinates that match no H&S layout (§12.2) |
-| H&S location reads at runtime | **RUNTIME VERIFIED (3 checkpoints)** — New Bark Town `0/0`, Route 30 `0/12`, Violet City `0/2`, decoded by the production reader on the official ROM and matching the pinned table (§12.6). Johto/Kanto/Sinjoh/Alola *transitions* are still NOT RUNTIME VERIFIED |
-| H&S Map screen presentation | **NOT YET APP/UI VERIFIED** — no on-device run of the Map tab against 2.0.5 was performed for this PR |
+| H&S location reads at runtime | **RUNTIME VERIFIED (6 checkpoints + 2 real transitions)** — New Bark Town `0/0`, Route 30 `0/12`, Violet City `0/2`, Azalea Gym interior `4/4`, plus New Bark Town `0/0` -> Route 29 `0/11` -> New Bark Town `0/0` driven by ordinary controller input and asserted through the production reader over 240-frame windows (§12.6, §12.9). Johto/Kanto/Sinjoh/Alola *transitions* remain NOT RUNTIME VERIFIED, each with a named source gate (§12.9) |
+| H&S Map screen presentation | **NOT YET DEVICE VERIFIED** — no on-device run of the Map tab against 2.0.5 exists. The presentation decisions for real observed locations, the Sinjoh/Alola no-canvas policy and the browsing isolation are UNIT/PRESENTATION VERIFIED and ROM-evidence-driven (§12.9); no emulator package or AVD is installed in the agent environment and no device is attached to `adb` |
 | H&S calculator correctness | **SOURCE VERIFIED + unit tested** for the capability policy (#9). The mechanics inventory and provenance are in [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md). H&S calculations are **refused**, not approximated: `optionStyle`, `tx_Mode_Fairy_Types`, `tx_Random_Type` and `tx_Random_TypeEffectiveness` can change the damage rule itself and DualDex reads none of `SaveBlock3.challengeSettings`. H&S golden damage fixtures therefore do not exist yet, and no H&S number is presented. This also holds the empty `sha256Hashes` line below: adding the exact 2.0.5 hash would still not make an H&S damage result verified |
 
 ---
@@ -929,7 +929,8 @@ memory-region reader paths did survive runtime checks. It is nonetheless **not**
 * party and battle capabilities that H&S support advertises are still NOT YET VERIFIED, so adding
   the hash would unlock authoritative live-memory reads for a ROM whose party and battle
   interpretation has not been validated against real game state everywhere it matters. The
-  *location* reader is now runtime-checked at three Johto points (§12.6), but cross-region
+  *location* reader is now runtime-checked at six Johto points and across one real map transition
+  (§12.6, §12.9), but cross-region
   transitions, Sinjoh/Alola and the Map screen itself are not (§12.8);
 * `battleUiVerified` and `interactiveControlsVerified` are false and #1/#11/#9 are unresolved;
 * the battle lifecycle work in §6 could not be driven through a live battle at runtime (no legal
@@ -2095,6 +2096,314 @@ to `null` and not to the New Bark Town section the old code returned.
   rendered the corrected map for this PR.
 * **The 30 named-without-canvas sections.** Each is region-known and unmarked; if any should be
   drawn, that is new presentation work (explicitly out of scope for #11).
+
+> **Partly resolved / re-scoped by §12.9** (added after this list was written). The first bullet's
+> "no runtime checkpoint does" is superseded for Johto and for the map-crossing mechanism itself:
+> §12.9.2 records a real two-way transition. Kanto/Sinjoh/Alola transitions and the on-device Map tab
+> remain open, and §12.9.3 and §12.9.7 name the exact blocker for each.
+
+---
+
+### 12.9 Runtime location and map-transition evidence (#11 runtime slice)
+
+This section is the runtime half that §12.8 listed as missing. It was added by the bounded #11
+runtime slice; §12.6 remains the record of the three original checkpoints and is not rewritten.
+
+#### 12.9.1 What is RUNTIME VERIFIED now
+
+Read-only, on the official release ROM
+(`sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`, §1.2), through the
+**production** native location reader (`pokemon_read_player_location_gba`), with ordinary controller
+input only. Saves were copied to a temporary directory first and the copies were discarded; no
+in-game save was written by any capture; no RAM write, cheat, save edit or save-state injection
+occurred.
+
+| Checkpoint | Raw read (production reader) | Pinned table identity | Region |
+|---|---|---|---|
+| `cp1-newbarktown` | `0/0`, local `(10,10)` | `MAPSEC_NEW_BARK_TOWN` -> New Bark Town | Johto |
+| `cp2-route29` (transition destination) | `0/11`, local `(69,16)` | `MAPSEC_ROUTE_29` -> Route 29 | Johto |
+| `cp3-newbarktown-return` (transition destination) | `0/0`, local `(0,11)` | `MAPSEC_NEW_BARK_TOWN` -> New Bark Town | Johto |
+| `cp4-route30` | `0/12`, local `(19,9)` | `MAPSEC_ROUTE_30` -> Route 30 | Johto |
+| `cp5-violetcity` | `0/2`, local `(39,46)` | `MAPSEC_VIOLET_CITY` -> Violet City | Johto |
+| `cp6-azalea-town-interior` | `4/4`, local `(11,44)`, indoors | `MAPSEC_AZALEA_TOWN` -> Azalea Town | Johto |
+
+Every row also asserted the raw pair over a **window of frames**, not at one sampled frame: the
+`assert-location … within <n>` command evaluates the assertion on every frame of the window and
+fails unless at least one frame matched (`240/240` and `120/120` matched with `0` unreadable in every
+recorded run). A read the reader declines can never satisfy the assertion.
+
+Six checkpoints is a superset of §12.6's three: `0/11` and `4/4` are new identities, and `4/4` is the
+first runtime observation of an **interior** map group (`gMapGroup_IndoorAzalea_Hns`), so the group
+dimension of the identity is now runtime exercised in more than one group.
+
+#### 12.9.2 The real map transition
+
+`scenarios/80-location-map-transition.txt` drives a genuine overworld map transition in each
+direction from the legal starter save, generated offline rather than guessed:
+
+```bash
+python3 tools/hns-map-data/hns_route.py route NewBarkTown_hns 10 10 map Route29_hns
+python3 tools/hns-map-data/hns_route.py route Route29_hns 69 16 map NewBarkTown_hns
+```
+
+| Step | Edge tile | Direction | Reader after the crossing |
+|---|---|---|---|
+| New Bark Town -> Route 29 | `(0,11)` | LEFT | `0/11` at `(69,16)` |
+| Route 29 -> New Bark Town | `(69,16)` | RIGHT | `0/0` at `(10,10)` |
+
+Two measured facts the generator encodes, both of which silently break a naive route: a `connections`
+entry is **edge-triggered** (the crossing fires while the player stands on the source map's edge
+tile, so the script asserts that tile and *then* presses), and the crossing direction is **not** the
+coordinate delta between the two maps (New Bark Town's `x=0` arrives on Route 29 at `x=69`, so moving
+LEFT lands on a much larger x).
+
+Both crossings pass with `0` runtime invariant violations and `0` script errors.
+
+#### 12.9.3 Kanto, Sinjoh and Alola: how the cross-region inventory is evidenced
+
+The cross-region claims are split by **who derived them**, so reproducibility is distinguishable from
+an audit. The split is machine-checked end to end.
+
+| Half | Produced by | Verified by |
+|---|---|---|
+| `tool_derived` | `tools/hns-map-data/hns_route.py inventory`, reading the pinned checkout: metatile behaviours decoded from the layout's tileset attribute arrays, connection windows, and every cross-region `warp` script command with its file and line | `./ci.sh source-check` step 1b runs `inventory --check evidence/hns-cross-region-inventory.json`; `./ci.sh test` and `./ci.sh all` run `test_hns_route.py` |
+| `manual_engine_source_verified` | a manual engine-source audit, every verdict carrying the exact file and line that supports it | the same `inventory --check` fails when an edge the analyzer could not decide has no verdict, or when a verdict contradicts a derived one; `HnsLocationRuntimeEvidenceTest` asserts the same partition |
+
+**The analyzer's provenance boundary.** `hns_route.py` refuses to analyse anything but the pinned
+revision with clean inputs: it checks `HEAD` against `1f42b74d…` and refuses a modified or deleted
+file under any path it reads — `data/maps/`, `data/layouts/`, `data/tilesets/`, `data/scripts/`,
+`include/` and `src/`. The whole of `include/` and `src/` are guarded because the warp-activation
+model is **derived** from them: the predicate sets come from `src/field_control_avatar.c` and
+`src/metatile_behavior.c`, and the primary/secondary boundary from `include/fieldmap.h` and
+`src/fieldmap.c`. A tampered predicate source would otherwise change the classification while the
+provenance check still accepted the tree. `tools/hns-map-data/test_hns_route.py` drives
+that boundary against synthetic git repositories, with no upstream checkout, ROM or network, and runs
+in the canonical gate.
+
+**The warp-activation model (the correction that made this section right).** A `warp_def` in map
+data is not by itself an executable transition. `src/field_control_avatar.c` reaches a warp through
+exactly three field-input paths, and each needs a metatile behaviour:
+
+| Path | Predicate | Requirement |
+|---|---|---|
+| arrow | `TryArrowWarp` | the player **stands on** the tile, holds the facing direction, and the tile satisfies `IsArrowWarpMetatileBehavior` **for that direction**. The accepted press is derived per behaviour, so `MB_SOUTH_ARROW_WARP` takes a south press only |
+| door | `TryDoorWarp` | the player faces **north** and walks **into** a warp door (`MetatileBehavior_IsWarpDoor`), so the warp event lives on the (usually impassable) door tile and the trigger is the walkable tile directly **south** of it |
+| step | `TryStartWarpEventScript` | the player **steps onto** the tile, which must therefore be **walkable**, and it satisfies `IsWarpMetatileBehavior` |
+
+All three additionally need `GetWarpEventAtPosition` to match, i.e. the warp event's elevation equals
+the tile's or is `ELEVATION_TRANSITION`. A `warp_def` on a tile with none of those behaviours is an
+**inert anchor**: many entries in this build exist only as the *destination* half of a scripted
+`warp`, and the scripted form calls `DoWarp` directly without consulting any metatile behaviour.
+
+Two errors had to be corrected to get this right, and both had pointed the same way — a real warp
+read as ordinary floor, which would have made a dead transition look functional:
+
+1. **The primary/secondary metatile boundary is 640, not 512.** `include/fieldmap.h` defines
+   `NUM_METATILES_IN_PRIMARY 640` and `NUM_METATILES_IN_PRIMARY_EMERALD 512`, and
+   `src/fieldmap.c:GetNumMetatilesInPrimary` returns 640 for `LAYOUT_VERSION_FRLG` and
+   `LAYOUT_VERSION_HNS`. Splitting H&S layouts at 512 mis-resolves every tile in the 512..639 range
+   to the wrong tileset.
+2. **The behaviour sets are now derived from the pinned predicates, not transcribed from their
+   names.** The helper names in this revision disagree with the constants they test:
+   `MetatileBehavior_IsNonAnimDoor` also accepts `MB_DEEP_SOUTH_WARP`, and
+   `MetatileBehavior_IsUnionRoomWarp` actually tests `MB_BRIDGE_OVER_OCEAN`. The analyzer resolves
+   each predicate's helper calls to their `MB_*` comparisons at runtime, and
+   `test_hns_route.py` re-derives the same sets independently and asserts they match.
+
+**What the analyzer proves (FUNCTIONAL / DEAD).**
+
+* A warp whose trigger tile satisfies the relevant predicate — an arrow behaviour matching the press
+  for the arrow path, `MetatileBehavior_IsWarpDoor` on an impassable tile with a walkable tile south
+  of it for the door path, `IsWarpMetatileBehavior` on a **walkable** tile for the step path — is
+  FUNCTIONAL, and the recorded edge carries the observed behaviour, the activation path, the press to
+  emit, the trigger tile and the predicate it depends on.
+* A `connections` entry whose `dest = src - offset` window is empty, or whose border column is
+  entirely impassable, is DEAD (`src/fieldmap.c`).
+* A warp whose trigger tile satisfies no warp predicate is DEAD, with the observed behaviour and the
+  reason recorded.
+
+**What the analyzer refuses to claim (UNPROVEN):** whether a script command is reachable. That needs
+the script call graph, so every script command is a **candidate** with file and line, and the known
+shared include is recorded as a rejected false positive.
+
+**The verified cross-region set.** Combining both halves, the pinned build has exactly **four**
+functional cross-region field transitions:
+
+| From | To | Behaviour | Path |
+|---|---|---|---|
+| `ReceptionGate_hns` `(20,9)`, press DOWN | `Route22_hns` **Kanto** | `MB_SOUTH_ARROW_WARP` | arrow |
+| `Route22_hns` `(12,9)`, triggered from `(12,10)` | `ReceptionGate_hns` | `MB_ANIMATED_DOOR` | door |
+| `MtSilver_1F_WaterfallRoom_hns` `(43,7)` | `SnowsweptCavern_hns` **Sinjoh** | `MB_NON_ANIMATED_DOOR` | step |
+| `SnowsweptCavern_hns` `(50,68)`, press DOWN | `MtSilver_1F_WaterfallRoom_hns` | `MB_SOUTH_ARROW_WARP` | arrow |
+
+Plus nine script-command transitions (the S.S. Aqua pair, the Magnet Train pair, and the Alola ↔
+Kanto pair through Route 13).
+
+Dead, each with its reason recorded: the `Route26North_hns` ↔ `Route22_hns` connection (empty
+crossing window, both border columns impassable), `Trees_hns` → `VermilionCity_hns` (empty window),
+and the two Kanto → Johto whiteout warps `CinnabarIsland_hns` → `NewBarkTown_hns` (`MB_OCEAN_WATER`)
+and `FuchsiaCity_hns` → `NewBarkTown_hns` (`MB_NORMAL`, unwalkable) — both declare a `warp_def` that
+no field-input predicate can fire.
+
+**A second region correction.** `MAPSEC_VICTORY_ROAD_HNS` is `REGION_JOHTO` and
+`MAPSEC_INDIGO_PLATEAU` is `REGION_JOHTO`, so `ReceptionGate_hns`, the whole Kanto Victory Road and
+`Route23_hns` all classify as **Johto**, not Kanto. An earlier revision of this record counted
+`VictoryRoadKanto_1F_hns` → `Route23_hns` as a second Johto/Kanto pair; that claim is withdrawn. The
+actual region change happens on Route 22's east connection into Viridian City, which makes the
+ReceptionGate `(20,9)` arrow warp the **single** Johto → Kanto crossing into the overworld.
+
+**The Johto → Kanto gate is a cut vertex.** From the Route 26 North arrival tile `(11,19)` the
+walkable component is 101 tiles and contains `(20,9)` → Route 22, `(1,9)` → Route 28 and `(11,1)` /
+`(10,1)` → Victory Road. Deleting the single trigger tile `(11,14)` leaves **17** tiles and severs all
+three. The coord event there requires `VAR_ROUTE27_STATE == 1` and its script then checks
+`VAR_ECRUTEAK_CITY_THEATER >= 8` and `FLAG_BADGE08_GET`, pushing the player back with
+`Common_Movement_WalkDown1` on either failure. `VAR_ECRUTEAK_CITY_THEATER` reaches 8 only through
+`TinTower_RoofDay_hns` (Ho-Oh) or `WhirlIslands_LugiaChamber_hns` (Lugia).
+
+**Correction to §12.6's parenthetical.** §12.6 said no save was past Johto and that "manufacturing one
+would require either long progression or a RAM write". That is right, and the mechanism is now exact:
+`Route26North_hns`'s warp at `(12,5)` is a **door warp**, not a blocked tile — the engine tests the
+tile *in front* of the player, so standing at `(12,6)` and holding Up fires it even though `(12,5)`
+has collision. `(12,6)` is in the same 211-tile component as the southern connection, so the warp
+**is** reachable; the `(11,14)` trigger beyond it is the gate.
+`tools/hns-map-data/hns_route.py route Route26_hns 20 60 map ReceptionGate_hns` derives that route,
+door warp included.
+
+**Why no bounded slice can reach a cross-region transition.** From the issue #1 chain's furthest
+checkpoint (Azalea Town, two Johto badges), a flood fill over all 560 H&S maps using the engine's
+warp and connection predicates reaches **161 maps and zero cross-region edges** without Surf,
+**169 and zero** with Surf but no Waterfall, and only **342** — where the first cross-region edges
+appear — with both. Surf requires `FLAG_BADGE04_GET` and is mandatory because the New Bark Town east
+edge and the Route 27 west edge are `MB_OCEAN_WATER`; Waterfall requires `FLAG_BADGE08_GET` and is
+mandatory because Tohjo Falls Cavern's west component joins the rest only through an `MB_WATERFALL`
+column. Fly is not a shortcut: of every `sMapHealLocations` entry exactly one is cross-region
+(`MAPSEC_ROCKET_HIDEOUT_HNS` → Pallet Town, with `HEAL_LOCATION_NONE`, hence unusable), and every
+CANFLY city is gated by its own `FLAG_VISITED_*` set only by physically entering.
+
+**Debug transportation.** The build does ship one: `include/config/debug.h` sets
+`DEBUG_OVERWORLD_MENU TRUE` with held key `R` and trigger `START`, the only line that would disable it
+(`include/constants/global.h`) is **commented out**, `src/debug.c` has no top-level `#if` guard, and
+the Makefile compiles `src/**/*.c` unconditionally — confirmed by preprocessing the real include tree
+with and without `-DRELEASE`, which gives identical results. **It is not used as evidence anywhere in
+this record**: it is not a natural transition, and an attempt to open it by driving `R+START` through
+the emulator did not observably succeed, so it is recorded as SOURCE VERIFIED and NOT RUNTIME
+VERIFIED.
+
+##### 12.9.3.1 Sinjoh and Alola closure rule, stated as product behaviour
+
+The issue does not require map artwork for Sinjoh or Alola. The accepted behaviour is: region
+identified correctly, canonical section name resolved, `RegionId.SINJOH` / `RegionId.ALOLA`, **no
+drawable canvas**, **no fabricated player marker**, and never a fallback to Johto or a bogus
+coordinate. That behaviour is asserted in `HnsLocationRuntimeEvidenceTest`, including the stronger
+form that a Sinjoh/Alola section is not drawable on **any** canvas and is reconciled away rather than
+relocated when one is selected.
+
+#### 12.9.4 Two production defects found by this slice
+
+Both were found by asserting the invariant against the production API rather than the view's current
+call pattern.
+
+1. **The live-marker gate trusted its two inputs to agree.** `markerSection(resolved,
+   playerLocation, canvasRegion)` took the resolved section and the raw read as independent
+   parameters and never checked that the section was the resolution *of* that read. A browsed section
+   handed in beside the player's real location satisfied every other condition, so a map the player
+   was not standing on could receive the position marker. The gate now re-derives the resolution from
+   `(strategy, playerLocation)` and requires the owner of the supplied section to match; a `null`
+   resolved section and a refused pair both still fail closed.
+2. **An undrawable browsing region produced a blank canvas.** `onRegionSelected` stored any
+   `RegionId` as the browsing override, and `canvasSelection` honoured any non-null override, so
+   selecting Sinjoh or Alola pinned the screen to a canvas DualDex does not draw — an empty grid with
+   no section to tap. Both now require the strategy to be able to draw the region, and an override it
+   cannot draw leaves the canvas following the live region.
+
+Both defects are covered by `MapScreenBrowsingIsolationTest` and by the mutation controls in §12.9.6.
+
+#### 12.9.5 Test and tooling surface
+
+| Artefact | Role |
+|---|---|
+| `tools/hns-runtime-probe/scenarios/80-location-map-transition.txt` | **PASSES.** The two-way map transition at runtime |
+| `tools/hns-runtime-probe/capture-location-evidence.sh` | Boots each legal checkpoint, asserts the raw pair and emits one machine-readable `[LOCATION]` record per checkpoint; aborts on the first failure. Deterministic across repeat runs |
+| `tools/hns-runtime-probe/evidence/location-runtime-evidence.json` | The captured identities, the expected production interpretation, the unknown-map controls, and the cross-region record split into its `tool_derived` and `manual_engine_source_verified` halves |
+| `tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json` | The standalone analyzer output that `inventory --check` verifies in `source-check` and that the Kotlin suite reads directly |
+| `tools/hns-map-data/test_hns_route.py` | The analyzer's provenance regression (wrong revision, modified read source, deleted read source, untracked-but-irrelevant file, non-git directory — no upstream checkout, ROM or network needed, runs in `test` and `all`) plus the **warp-activation model** regression: the metatile boundary against `include/fieldmap.h`, the derived behaviour sets against an independent re-derivation from `src/metatile_behavior.c`, and the six real cross-region tiles classified tile by tile |
+| `tools/hns-map-data/hns_route.py` | Offline route planning (`route`), cross-region classification (`edges --gates`), script-warp candidates (`warps`), gate provenance (`blockers`) and the machine-checked inventory (`inventory [--write/--check]`) |
+| `HnsLocationRuntimeEvidenceTest` | Drives the production `LocationResolver`, `RegionMapDatabase` and `MapScreenPresenter` against the captured raw pairs; binds the evidence to the exact ROM and the pinned commit; fail-closed and Sinjoh/Alola assertions; mutation controls |
+| `MapScreenBrowsingIsolationTest` | The full phase C browsing sequence, plus a structural guard that `MapScreenState` has no path to the strategy |
+| `tools/hns-layout/mutation-check.sh` | Developer-only mutation controls (§12.9.6) |
+
+The probe gained `bootstrap`, `location`, `location-transitions`, `assert-location` (with
+`within`/`at`/`at local`), `assert-location-region-section` and `assert-location-unmapped`. The
+`bootstrap` command exists because a fixed `wait`/`mash` envelope is **not** deterministic — the same
+envelope loaded the save on one run and stalled on an intro screen on the next, and a capture that
+accepted the second case would be evidence of nothing. It is fatal when no round reaches the world.
+
+#### 12.9.6 Mutation controls
+
+`tools/hns-layout/mutation-check.sh` applies each of these and requires a gate to fail: the
+canonical Kotlin suite for the production and evidence behaviour, and the analyzer's own
+`inventory --check` plus `test_hns_route.py` for the provenance, reproducibility and
+warp-activation contract. **17 mutations, 0 not caught**, and every mutated file was restored byte-identically:
+
+| Mutation | Caught by |
+|---|---|
+| Restore the legacy fabricated default (unknown H&S pair -> New Bark Town) | `HnsLocationRuntimeEvidenceTest`, `RegionMapDatabaseTest` |
+| Map one Alola group to Johto | `HnsLocationRuntimeEvidenceTest`, `HnsLocationRoutingTest` |
+| Make browsing change the active location strategy | `MapScreenBrowsingIsolationTest`, `MapScreenPresentationTest` |
+| Give Sinjoh/Alola fabricated coordinates so a marker can be placed | `HnsLocationRuntimeEvidenceTest` |
+| Let an unknown pair inherit a valid indoor group's town | `HnsLocationRoutingTest` |
+| Publish an authoritative location for an unverified ROM | `HnsLocationTrustBoundaryTest` |
+| Weaken the analyzer's provenance boundary (`if head != PINNED_COMMIT_SHA` -> `if False`) | `test_hns_route.py` |
+| Hand-edit the committed inventory's region claim | `inventory --check` **and** `HnsLocationRuntimeEvidenceTest` |
+| Drop an undecided edge so a missing manual verdict would go unnoticed | `inventory --check` |
+| Edit the copy embedded in the runtime evidence record | `inventory --check-embedded` |
+| Neuter the provenance regression itself | `test_hns_route.py` |
+| Restore the 512 primary/secondary metatile boundary | `inventory --check`, `test_hns_route.py` |
+| Accept `MB_NORMAL` as a step-on warp behaviour | `inventory --check`, `test_hns_route.py`, `HnsLocationRuntimeEvidenceTest` |
+| Treat a `warp_def` as functional without checking the predicate | `inventory --check`, `test_hns_route.py`, `HnsLocationRuntimeEvidenceTest` |
+| Let the step-on path apply to an impassable tile | `inventory --check`, `test_hns_route.py`, `HnsLocationRuntimeEvidenceTest` |
+| Offer every direction for an arrow warp | `inventory --check`, `test_hns_route.py`, `HnsLocationRuntimeEvidenceTest` |
+| Drop the engine sources from the clean boundary | `inventory --check`, `test_hns_route.py` |
+
+The last eleven are why the mutation runner drives **two** gates per mutation: the Kotlin suite
+cannot express a git-revision check, and the analyzer cannot express the production resolver's behaviour. The runner also refuses to trust a bare hash of its starting tree: it copies each mutated file before the first edit and compares the content byte-for-byte afterwards, because a run that died mid-mutation would otherwise poison the next run's baseline and report a clean restore for an already-tampered file.
+
+The same pattern was used to confirm the probe's own strictness: `selftest.sh` now requires the
+**asserted failure reason** to appear in the log, not merely a non-zero exit. Previously a mistyped
+save path satisfied the location cases — the harness "passed" for a reason unrelated to the condition
+under test. `selftest.sh` is **32 cases, 0 failures**.
+
+#### 12.9.7 Honest limits
+
+
+* **No cross-region transition is runtime verified.** Kanto, Sinjoh and Alola are SOURCE VERIFIED
+  (identity, region, gate) and, for their presentation policy, UNIT/PRESENTATION VERIFIED. They are
+  **not** runtime verified, and §12.9.3 names the exact gate for each. This is preserved deliberately
+  rather than relabelled.
+* **The cross-region record states which half derived which claim.** §12.9.3's `tool_derived` half is
+  reproducible and machine-checked by `inventory --check`; the
+  `manual_engine_source_verified` half is an audit whose verdicts each cite their source. The record
+  is not a table the named producer cannot reproduce: the analyzer reports UNPROVEN where map data
+  does not settle an edge, and the checker fails when such an edge has no manual verdict or when a
+  verdict contradicts a derived one. Four mutations cover that boundary — weakening the provenance
+  check, hand-editing the inventory, dropping an undecided edge, and neutering the regression itself.
+* **The Map tab is NOT DEVICE VERIFIED.** No Android device, emulator or AYN Thor is reachable from
+  the agent environment: the SDK has no `emulator` package, no AVD exists, and no device is attached
+  to `adb`. The evidence for the screen is therefore ROM-evidence-driven presentation assertions, not
+  a hardware run. The remaining human check is: install the debug APK on the AYN Thor, load the exact
+  2.0.5 ROM, and walk the Map tab through a live Johto location, the Kanto canvas after browsing to
+  it, a Sinjoh/Alola region-known capture, and an unresolved location.
+* **`assert-location-region-section` does not validate the MAPSEC_* name.** The probe holds no map
+  table and never synthesizes one; it records the raw pair and echoes the section it was told to
+  expect. The section-to-pair binding is asserted by `HnsLocationRuntimeEvidenceTest` against the
+  pinned table, and that table is validated against upstream source by
+  `Hns205MapDataIntegrityTest` under `./ci.sh source-check`. The task list in §12.9.5 states this
+  split rather than implying the probe checks it.
+* **Runtime coverage is Johto-only.** `runtimeCoverageSpansMoreThanOneMapGroupAndIsJohtoOnly` asserts
+  that as a ratio, so a Kanto/Sinjoh/Alola checkpoint cannot be added without a runtime-verified
+  transition behind it.
+* **`sha256Hashes`, `memoryLayoutVerified`, `battleUiVerified` and `interactiveControlsVerified` are
+  unchanged** by this slice, and no native offset was modified.
 
 ---
 

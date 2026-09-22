@@ -80,6 +80,7 @@ class RegionMapView @JvmOverloads constructor(
         get() = MapScreenPresenter.markerSection(
             resolved = resolvedLocation,
             playerLocation = playerLocation,
+            strategy = strategy,
             canvasRegion = currentRegion,
         )
 

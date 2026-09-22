@@ -448,26 +448,41 @@ class MapScreenPresentationTest {
     fun liveMarkerIsDrawnOnlyOnItsOwnRegionCanvas() {
         val johtoLive = newBarkTown()
         assertNotNull(
-            MapScreenPresenter.markerSection(johtoLive, location(0, 0), RegionId.JOHTO)
+            MapScreenPresenter.markerSection(
+                johtoLive, location(0, 0), LocationStrategy.HEART_AND_SOUL_205, RegionId.JOHTO
+            )
         )
         assertNull(
             "browsing Kanto must not draw the Johto position on it",
-            MapScreenPresenter.markerSection(johtoLive, location(0, 0), RegionId.KANTO)
+            MapScreenPresenter.markerSection(
+                johtoLive, location(0, 0), LocationStrategy.HEART_AND_SOUL_205, RegionId.KANTO
+            )
         )
         assertNull(
-            MapScreenPresenter.markerSection(johtoLive, location(0, 0), RegionId.HOENN)
+            MapScreenPresenter.markerSection(
+                johtoLive, location(0, 0), LocationStrategy.HEART_AND_SOUL_205, RegionId.HOENN
+            )
         )
     }
 
     @Test
     fun noLiveMarkerWithoutAValidReadOrSection() {
-        assertNull(MapScreenPresenter.markerSection(newBarkTown(), null, RegionId.JOHTO))
         assertNull(
             MapScreenPresenter.markerSection(
-                newBarkTown(), location(0, 0, valid = false), RegionId.JOHTO
+                newBarkTown(), null, LocationStrategy.HEART_AND_SOUL_205, RegionId.JOHTO
             )
         )
-        assertNull(MapScreenPresenter.markerSection(null, location(0, 0), RegionId.JOHTO))
+        assertNull(
+            MapScreenPresenter.markerSection(
+                newBarkTown(), location(0, 0, valid = false),
+                LocationStrategy.HEART_AND_SOUL_205, RegionId.JOHTO
+            )
+        )
+        assertNull(
+            MapScreenPresenter.markerSection(
+                null, location(0, 0), LocationStrategy.HEART_AND_SOUL_205, RegionId.JOHTO
+            )
+        )
     }
 
     @Test
@@ -480,7 +495,9 @@ class MapScreenPresentationTest {
             val section = live(LocationStrategy.HEART_AND_SOUL_205, group, num)!!
             assertFalse(section.presentable)
             assertNull(
-                MapScreenPresenter.markerSection(section, location(group, num), region)
+                MapScreenPresenter.markerSection(
+                    section, location(group, num), LocationStrategy.HEART_AND_SOUL_205, region
+                )
             )
         }
     }

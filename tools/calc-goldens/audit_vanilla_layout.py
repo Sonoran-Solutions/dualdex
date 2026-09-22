@@ -178,8 +178,17 @@ def read_symbols(elf: str) -> dict[str, tuple[int, str, int]]:
 #   * it runs against the ROM the profile's own SHA-256 accepts, so the bytes are the exact build;
 #   * the same scan is run over addresses the party-group checks have ALREADY proven structurally
 #     (gPlayerParty, gEnemyParty), so the method is validated on known-good inputs in the same run;
-#   * the hit count is reported, and a single hit in a multi-megabyte image is what a real literal
-#     reference looks like - a scan that matched hundreds of places would not be evidence at all.
+#   * the hit count is reported. What the method concludes from it is one-sided, and the count's
+#     magnitude is not part of that conclusion:
+#       - ZERO hits means the scan did NOT prove the address. That is the only thing zero establishes
+#         (see the caveat at the report site: a symbol can be reached through an offset from a nearby
+#         base, so absence of its own literal is not proof that the configured value is wrong).
+#       - ONE OR MORE hits means the retail program does reference the address. A large count is
+#         expected, not suspicious: these are heavily used engine globals, so the same base word is
+#         loaded from many functions and pools. On the two accepted retail dumps the positive
+#         controls alone report 745 and 392 for FireRed (gPlayerParty, gEnemyParty) and 1091 and 532
+#         for Emerald, and those controls passing is what makes the same scan's verdict on the battle
+#         offsets meaningful.
 # ---------------------------------------------------------------------------
 ROM_BODY_START = 0x000000C0  # first byte after the 192-byte cartridge header
 

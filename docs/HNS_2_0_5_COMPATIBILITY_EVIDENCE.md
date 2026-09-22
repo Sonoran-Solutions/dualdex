@@ -21,9 +21,12 @@ A compiled symbol is **not** automatically runtime proof of a DualDex reader, an
 
 ## 0. Current status (read this first)
 
-**Current-main audit:** issue #1 lifecycle slice, 2026-09-22. The earlier C4c opening summary
-was superseded by the C4d/C4e evidence later in this document. See
-[the issue #1 criterion audit](HNS_ISSUE_1_CLOSURE_AUDIT.md) for current lifecycle disposition.
+**Current-main audit:** issue #40 closure audit, 2026-09-22. This document is the **evidence
+record**; it is not the disposition. The criterion-by-criterion disposition for #40 sections A-H
+lives in [the #40 closure audit](HNS_ISSUE_40_CLOSURE_AUDIT.md), which reconciles this document,
+[the issue #1 audit](HNS_ISSUE_1_CLOSURE_AUDIT.md) and
+[the calculator capability document](HNS_2_0_5_CALCULATOR_CAPABILITY.md) against current `main`.
+The earlier C4c opening summary was superseded by the C4d/C4e evidence later in this document.
 
 | Area | State |
 |---|---|
@@ -32,14 +35,15 @@ was superseded by the C4d/C4e evidence later in this document. See
 | Wild + trainer lifecycle, switches, faints, HP and representative stat stages | RUNTIME VERIFIED (§11.3, Scenarios 20 and 40–44) |
 | Opponent voluntary switch without faint | RUNTIME VERIFIED (Scenario 44, §11.10); §14.5 records a later replay limitation |
 | Doubles / partner / multi lifecycle | Natural Amy & May Doubles RUNTIME VERIFIED (Scenario 70); both active roles honestly AMBIGUOUS. Partner/multi remain source + synthetic only; see the issue #1 audit |
-| Maps / multi-region location routing (#11) | §12 remains authoritative; **§12.9 adds the runtime half**. H&S location reads are now RUNTIME VERIFIED at six legal checkpoints and across a real map transition in both directions; Kanto/Sinjoh/Alola *transitions* remain NOT RUNTIME VERIFIED with a source-derived blocker per edge; the Map tab remains NOT DEVICE VERIFIED |
+| Maps / multi-region location routing (#11) | §12 remains authoritative; **§12.9 adds the runtime half**. H&S location reads are now RUNTIME VERIFIED at six legal checkpoints and across a real map transition in both directions; Kanto/Sinjoh/Alola *transitions* remain NOT RUNTIME VERIFIED with a source-derived blocker per edge (Kanto routing is source-backed only); the Map tab remains NOT DEVICE VERIFIED |
 | Calculator (#9) | Closed for the accepted bounded scope after PR #71: exact H&S ordinary live Singles is capped at ESTIMATED; unsupported mechanics are refused. See [capability §14.14](HNS_2_0_5_CALCULATOR_CAPABILITY.md) and the C4e section below |
-| `battleUiVerified` / `interactiveControlsVerified` | Both remain `false` |
+| `battleUiVerified` / `interactiveControlsVerified` | Both remain `false` — deliberately, and unrelated to the hash |
 
 Sections 1-11 are the historical record of the memory/layout phase and the battle-lifecycle phase,
 and are preserved as historical evidence. The issue #1 audit and Scenario 70 supersede older statements that no Doubles battle was reached; partner/multi remains unobserved. Earlier empty-allowlist and no-production-Ready statements
-are superseded by C4e, not current product behavior. **§12 is the authority for maps and locations**; where an earlier map
-statement conflicts with §12, §12 wins. §7 now carries the updated map rows.
+are superseded by C4e, not current product behavior — the stale section-level instances carry their own
+correction banners (§7, §8, §11.1, §11.7, §14.5). **§12 is the authority for maps and locations**; where an earlier map
+statement conflicts with §12, §12 wins. §7's table is historical; its own banner says so.
 
 ---
 
@@ -890,10 +894,20 @@ No broad architecture rewrite was performed (issue #8 is untouched).
 
 ## 7. Capability verification status
 
+> **HISTORICAL — SUPERSEDED IN PART BY §11-§14 AND §0.**
+> This table is the record of the memory/layout phase. Its `sha256Hashes` row, its `battleUiVerified`
+> / `interactiveControlsVerified` row, its map rows, its H&S calculator row and its
+> "opponent voluntary switch … NOT RUNTIME VERIFIED" row were all written before the later slices
+> landed and are **not** current product behaviour. Current state is §0 (including its updated map
+> rows); the authority for maps is §12, for the battle lifecycle §11/§11.10 and
+> [the issue #1 audit](HNS_ISSUE_1_CLOSURE_AUDIT.md), and for the calculator
+> [§14.14 of the capability document](HNS_2_0_5_CALCULATOR_CAPABILITY.md). The table is retained
+> unedited below as history.
+
 | Capability | Status |
 |---|---|
 | H&S 2.0.5 ROM identity | RUNTIME VERIFIED (hash + UPS footer lineage) |
-| `heart_and_soul.json` `sha256Hashes` | **intentionally empty** — see §7 |
+| `heart_and_soul.json` `sha256Hashes` | ~~**intentionally empty**~~ — **superseded**: the exact 2.0.5 hash is allowlisted with `battleStateReadVerified=true` (C4e, §14.8); see §8's correction banner |
 | GBA memory-region capture (IWRAM/EWRAM) | RUNTIME VERIFIED |
 | Bounds-checked absolute-address reads | RUNTIME VERIFIED (incl. rejection after unload) + unit tested |
 | SaveBlock1 ASLR resolution | RUNTIME VERIFIED |
@@ -921,6 +935,16 @@ No broad architecture rewrite was performed (issue #8 is untouched).
 ---
 
 ## 8. Why `sha256Hashes` stays empty
+
+> **HISTORICAL — SUPERSEDED BY C4e. Do not read this section as current behaviour.**
+> The exact 2.0.5 hash **is** allowlisted today. The promotion decision was taken in the C4e slice
+> (Gap C4e "Trust / hash decision" below and §14.8 of
+> [the calculator capability document](HNS_2_0_5_CALCULATOR_CAPABILITY.md)): the profile carries
+> `sha256Hashes = ["edf76ecf…7679b"]`, `isVerified = true`, `memoryLayoutVerified = true` and
+> `battleStateReadVerified = true`, so the exact release ROM does reach `VERIFIED` and
+> `mayReadLiveMemory == true`. `battleUiVerified` and `interactiveControlsVerified` remain `false`,
+> which is unrelated to the hash. The reasoning below is retained unedited because it is the record of
+> the pre-C4e decision and of the evidence bar that was actually met before promotion.
 
 The exact 2.0.5 ROM is present locally and its SHA-256 is recorded above, and the SaveBlock1 /
 memory-region reader paths did survive runtime checks. It is nonetheless **not** added to
@@ -1057,8 +1081,9 @@ Phase 1 of issue #1 — "no save with a party and reachable battles" — is reso
 | Tool | `tools/hns-runtime-probe` (production readers compiled unchanged into the host harness) |
 | Save format | plain 128 KiB (`0x20000`) GBA battery save via `RETRO_MEMORY_SAVE_RAM` |
 
-`sha256Hashes` in `heart_and_soul.json` is **still empty**; the hash above is used only as a local
-precondition for this evidence.
+~~`sha256Hashes` in `heart_and_soul.json` is **still empty**; the hash above is used only as a local
+precondition for this evidence.~~ **Superseded:** the hash was promoted in the C4e slice (§14.8); at
+the time of this run it was used only as a local precondition.
 
 ### 11.2 Save provenance (issue #1 phase 1)
 
@@ -1246,18 +1271,28 @@ Pokémon. No UI surface displayed a fabricated opponent at any point.
 
 ### 11.7 What is still not runtime verified
 
+> **PARTIALLY SUPERSEDED — the Doubles bullet below is stale.** Natural four-battler (Amy & May,
+> Azalea Gym) Doubles is RUNTIME VERIFIED by Scenario 70 and
+> [the issue #1 audit](HNS_ISSUE_1_CLOSURE_AUDIT.md); partner/multi flag variants
+> (`MULTI`, `INGAME_PARTNER`, `TWO_OPPONENTS`) remain source + synthetic only and are honestly
+> degraded in production. Also stale in this section: "`sha256Hashes` remains empty" (the exact hash
+> is allowlisted — see the correction banner in §8) and the "62 native tests" count in §11.7.1
+> (the suite is 91 tests today).
+
 The following rows in §11.3 remain `NOT RUNTIME VERIFIED` and must not be read as passing live on the official ROM:
 
-* doubles and partner/multi battles.
+* ~~doubles and partner/multi battles.~~ (**superseded**: natural Doubles is runtime-verified by
+  Scenario 70; partner/multi flag variants remain source + synthetic only)
 
 Multi-party trainer battles (`BATTLE_TYPE_TRAINER`), opponent faint with replacement by a subsequent party member, in-battle player party switching, the player's own faint with the ROM's forced replacement (§11.9), and — since §11.10 — the opponent's own **voluntary** switch without a faint are now fully **RUNTIME VERIFIED** against the official release ROM. Notably, Scenario 41 executably enforces the complete 4-phase opponent replacement state machine (`await-enemy-replacement 0 1 3500`), proving strict sequential progression through Phase A (old mon active), Phase B (old mon fainted), Phase C (absent battler window with `NONE_ACTIVE`), and Phase D (replacement mon active with new party slot, species, and HP); Scenario 43 enforces the equivalent 4-phase player-side transition (`await-player-forced-replacement 0 1 40000`).
 
-`battleUiVerified` and `interactiveControlsVerified` remain `false`, and `sha256Hashes` remains
-empty, because the trust promotion is a separate #40 step.
+`battleUiVerified` and `interactiveControlsVerified` remain `false` (still true today), and
+~~`sha256Hashes` remains empty~~ (**superseded**: the trust promotion happened later, in the C4e
+slice — see the correction banner on §8), because the trust promotion is a separate #40 step.
 
 #### 11.7.1 Synthetic unit verification of reader contracts
 
-All reader contracts remain rigorously guarded by synthetic unit tests in `native/tests/test_pokemon_reader.c` (62 passing tests), running under AddressSanitizer and UndefinedBehaviorSanitizer.
+All reader contracts remain rigorously guarded by synthetic unit tests in `native/tests/test_pokemon_reader.c` (62 passing tests at the time of this section; the suite is 91 today), running under AddressSanitizer and UndefinedBehaviorSanitizer.
 
 The opponent-side slot remapping that a voluntary opponent switch depends on — a rewritten
 `gBattlerPartyIndexes[battler]` becoming the authoritative slot with no residue of the previous one —
@@ -1933,10 +1968,17 @@ Two further defects were in the resolver rather than the assets:
   inside a valid indoor group inherited a real town. A map number is now only valid if the pinned
   table defines it.
 
-`RegionMapDatabase.JOHTO_DEFAULT` is removed, and the legacy `JOHTO_SECTIONS`/`KANTO_SECTIONS` tables
-are retained only as optional narrative metadata (description, landmarks, gym leader). Identity,
-region and canvas geometry always come from the generated table, so hand-written data can no longer
-override pinned source evidence.
+Both call paths that produced the fabricated town are gone, so nothing resolves an unknown H&S map
+number to a default section any more. The legacy constant `RegionMapDatabase.JOHTO_DEFAULT` and the
+`JOHTO_SECTIONS`/`KANTO_SECTIONS` tables are **retained** only as optional narrative metadata
+(description, landmarks, gym leader); `JOHTO_DEFAULT` has no production caller and a source-guard test
+asserts no production path can name it. Identity, region and canvas geometry always come from the
+generated table, so hand-written data can no longer override pinned source evidence.
+
+*(Correction, #40 closure audit: an earlier revision of this section claimed
+`RegionMapDatabase.JOHTO_DEFAULT` was removed. It was not; it still exists as an unreferenced
+metadata lookup. Only its use as a resolution default was removed, which is what the fail-closed
+contract actually requires.)*
 
 ### 12.3 Canvas geometry: which coordinate source is authoritative
 
@@ -1946,8 +1988,14 @@ what the player marker's cursor position is derived from, so the grids are the a
 source for Johto and Kanto.
 
 `region_map_entries.h` was deliberately **not** used for positions. Its `#if IS_HNS` table carries
-the FireRed/Johto map canvas, and its Sinjoh/Alola entries are unresolved `(0, 0)` placeholders. It
-is used only for display names.
+the FireRed/Johto map canvas, and its Sinjoh/Alola entries are unresolved `(0, 0)` placeholders.
+
+*(Correction, #40 closure audit: an earlier revision of this section ended "It is used only for
+display names." That was wrong and contradicted §12.1. The generator reads **no** part of
+`region_map_entries.h` — not even names. Display names come from the tracked Inja input
+`src/data/region_map/region_map_sections.json`, and the generator's `--check` digest covers only the
+five tracked inputs listed in §12.1. See the corrected provenance header in the committed artifact
+`app/src/main/java/com/dualdex/pokemon/hns/Hns205MapData.kt`.)*
 
 Verification of the legacy coordinate defect (grid bbox centre, which is how the legacy values for
 Johto towns were evidently derived): Pallet Town `4,11`, Viridian City `4,8`, Pewter City `4,4`,
@@ -2380,6 +2428,13 @@ under test. `selftest.sh` is **32 cases, 0 failures**.
   (identity, region, gate) and, for their presentation policy, UNIT/PRESENTATION VERIFIED. They are
   **not** runtime verified, and §12.9.3 names the exact gate for each. This is preserved deliberately
   rather than relabelled.
+* **"Source-backed Kanto routing" is literally source-backed — there is no runtime Kanto
+  observation.** Every committed runtime checkpoint and every committed raw pair in
+  `evidence/location-runtime-evidence.json` is Johto (the coverage limit is machine-asserted; see the
+  next bullet). Kanto identity, its canvas rectangles and the ReceptionGate↔Route 22 edges come from
+  the pinned source plus the engine-predicate inventory, and from nothing else. A reader who requires
+  runtime cross-region evidence must treat this row as an open gap, not as a met criterion; the
+  smallest such run is the ReceptionGate `(11,14)` trigger named in §12.9.3.
 * **The cross-region record states which half derived which claim.** §12.9.3's `tool_derived` half is
   reproducible and machine-checked by `inventory --check`; the
   `manual_engine_source_verified` half is an audit whose verdicts each cite their source. The record
@@ -2622,6 +2677,12 @@ and the suite returned to **78/78 PASS**.
 
 ### 14.5 What this slice could not verify
 
+> **TWO BULLETS BELOW ARE STALE — see the corrections after them.** The Scenario 34 walk was fixed
+> after this slice (`7b64c5e`, Scenario 34 now uses `spamb 8` at
+> `tools/hns-runtime-probe/scenarios/34-route30-don-ready.txt:45`), and Doubles **were** exercised on
+> the ROM by Scenario 70 / [the issue #1 audit](HNS_ISSUE_1_CLOSURE_AUDIT.md). The bullets are
+> retained as the record of this slice's own limits.
+
 * **Scenario 44 (opponent voluntary switch) was not re-run here.** Its fixture chain requires a
   `stage34_don_ready.sav` produced by Scenario 34, and Scenario 34 currently fails deterministically
   in this environment at its own overworld step (`walk LEFT 1` out of (23,24) after Mikey's battle
@@ -2631,7 +2692,10 @@ and the suite returned to **78/78 PASS**.
   native tests (`test_hns_battler_state_opponent_switch_follows_authority`) and by §11.10's
   Scenario 44 evidence for the underlying battler-resolution machinery. Fixing Scenario 34's walk
   is out of this slice's scope.
-* **Doubles** were not exercised on the ROM; the AMBIGUOUS verdict is synthetic-suite verified.
+* ~~**Doubles** were not exercised on the ROM; the AMBIGUOUS verdict is synthetic-suite verified.~~
+  **(superseded)** Natural four-battler Doubles *was* exercised on the ROM by Scenario 70
+  (`evidence/issue1-amy-may-2026-09-22.txt`); the AMBIGUOUS degradation is now also runtime-observed,
+  while partner/multi flag variants remain source + synthetic.
 * Nothing here establishes engine **compatibility**: the observations say what the engine holds,
   not that DualDex can model the mechanics that depend on them.
 

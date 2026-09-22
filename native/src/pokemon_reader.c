@@ -459,8 +459,10 @@ bool pokemon_parse_single(const uint8_t* raw_bytes, bool is_party_mon, ParsedPok
  *
  * H&S 2.0.5 computes `(shinyValue < shinyOdds) ^ shinyModifier`, and `shinyOdds` is read from
  * the player's `SaveBlock3.challengeSettings.tx_Features_ShinyChance`, selecting from
- * {8, 16, 32, 64, 128}. DualDex does not read SaveBlock3 challenge settings in this phase, so
- * the verdict is only reported when every possible odds value agrees:
+ * {8, 16, 32, 64, 128}. The SaveBlock3 challenge-settings reader (`pokemon_read_challenge_settings_gba`)
+ * does observe `tx_Features_ShinyChance`, but this per-Pokemon verdict is derived from the party slot
+ * alone and is not handed the challenge-settings snapshot, so it stays independent of that read and
+ * is only reported when every possible odds value agrees:
  *   - shinyValue < 8    -> shiny for all odds;
  *   - shinyValue >= 128 -> not shiny for all odds;
  *   - otherwise the odds decide, and DualDex reports UNKNOWN rather than inventing a value.

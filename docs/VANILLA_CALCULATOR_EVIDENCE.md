@@ -3,7 +3,7 @@
 This document is the evidence record for the **exact vanilla FireRed and Emerald** half of
 [issue #9](https://github.com/Sonoran-Solutions/dualdex/issues/9): the exact supported builds, the
 independent Generation III oracle, the golden damage matrix, the production trust/boundary path,
-and the precise scope of the `VERIFIED` claim.
+direct controlled retail-ROM observations, and the precise scope of the `VERIFIED` claim.
 
 It is deliberately separate from
 [HNS_2_0_5_CALCULATOR_CAPABILITY.md](HNS_2_0_5_CALCULATOR_CAPABILITY.md), which owns the Heart &
@@ -348,8 +348,9 @@ Evidence level per fixture:
 * **HOST VERIFIED** — the shipped `calc_bundle.js` engine produces the exact vector:
   `native/tests/test_js_calc.c :: run_vanilla_golden_matrix()` reads the same fixture file, executes
   the exact request, and asserts all 16 rolls plus move type/category/power.
-* **RUNTIME VERIFIED** — not obtained for *damage* in this slice; see §5. The read-only memory
-  layout does carry a RUNTIME VERIFIED classification, from the pinned builds, in §7.
+* **RUNTIME OBSERVED (controlled operands)** — fixtures A and B now have direct retail-ROM
+  HP-delta observations for FireRed Rev 0 and Emerald (§5). The other fixtures and FireRed Rev 1
+  retain SOURCE + HOST evidence; no full-vector runtime sweep or lifecycle promotion is claimed.
 * The committed `cartridgeReferences` block carries the same SOURCE VERIFIED evidence level but is
   deliberately **outside** the engine matrix: it records what the cartridge does for the shape
   production refuses (§2.2).
@@ -358,24 +359,81 @@ Evidence level per fixture:
 
 ## 5. Direct exact-ROM runtime evidence
 
-Not obtained. The exact FireRed Rev 0 and Emerald dumps are present in the development environment
-and now hash-match the corrected profiles, but there is **no vanilla runtime battle harness**:
-`tools/hns-runtime-probe/` is entirely Heart & Soul-specific (its invariants, scripts and save
-creation target the H&S map/battle layout), and no vanilla battery save or battle-entry scenario
-exists. Building a vanilla equivalent is a separate, bounded developer-tool slice; it was not
-faked or approximated here.
+Obtained on 2026-09-22 with the developer-only
+[`tools/vanilla-runtime-probe/`](../tools/vanilla-runtime-probe/README.md), starting from merged
+PR #70 / `origin/main` **`aeace0300355895279b016f3bf3c9824183e7e5a`**. Both legally available local
+inputs were SHA-256 checked against the bundled exact profiles **before** initializing the core.
+No ROM was downloaded or committed. FireRed Rev 1 has no legal local dump and remains
+**runtime-unobserved**; its source/host fixtures remain in place.
 
-This is called out for senior review because the profiles advertise `VERIFIED`: the existing
-`VERIFIED` claim rests on SOURCE + HOST evidence plus the production trust gate, not on an
-in-emulator damage observation. The `native/tests/test_js_calc.c` host suite is the same engine the
-APK ships, and the production boundary test proves the exact request it executes, but that is not
-the same as observing a hit on the exact ROM.
+This is a **controlled RAM-operand experiment in a real retail-ROM battle**. Fixed controller
+movies start with blank save RAM and reach FireRed's first rival battle or Emerald's Birch rescue.
+The probe verifies the exact battle-menu framebuffer hash and matches both original battle
+records against the production party decrypt/checksum reader. It then stages the existing
+Machamp/Snorlax fixture in the two BattlePokemon records. It does not patch the cartridge or
+write damage, RNG, critical, weather, badge, screen, callback or lifecycle variables. Once staging
+ends, writes are sealed. Ordinary input selects the move; the retail engine computes damage and
+updates HP. Thus this is not an organic progression/party-legality demonstration.
 
-Next bounded slice (if runtime evidence is required): a `tools/vanilla-runtime-probe/` modelled on
-the H&S probe that (a) verifies the supplied ROM's SHA-256 against the bundled profile, (b) drives a
-deterministic wild battle on a locally produced battery save, (c) reads `gBattleMons[].hp` through
-the production vanilla reader offsets, and (d) asserts the observed damage is one of the golden
-rolls with a PASS/FAIL exit.
+Both sides are Hardy level 50, all 31 IV / 0 EV intent, neutral stages, no held item or status.
+Machamp has Atk/Def/Speed/SpA/SpD **150/100/75/85/105**, HP **165**, Fighting typing and inactive
+Guts; Snorlax has **130/85/50/85/130**, HP **235**, Normal typing and Immunity. These are the
+committed requests' default Gen III abilities. The fresh opening scene supplies unbadged Singles,
+clear weather, no screens and no prior-turn effects. The defender has Splash; the first player
+attack lands before it acts. These setup-derived conditions are not a new general live-state
+reader. The exact staged state and original party checkpoint are in each JSON record.
+
+| Build / fixture | Frame | Observed HP | Damage | Committed vector | Result / record |
+|---|---:|---|---:|---|---|
+| FireRed Rev 0 / A Rock Slide | 31828 | 235 → 176 | 59 | 51,51,52,52,53,54,54,55,55,56,57,57,58,58,59,60 | [PASS](../tools/vanilla-runtime-probe/evidence/firered-physical.json) |
+| FireRed Rev 0 / B Crunch | 31828 | 235 → 211 | 24 | 21,21,21,22,22,22,22,23,23,23,23,24,24,24,24,25 | [PASS](../tools/vanilla-runtime-probe/evidence/firered-special.json) |
+| Emerald / A Rock Slide | 45987 | 235 → 177 | 58 | same A vector | [PASS](../tools/vanilla-runtime-probe/evidence/emerald-physical.json) |
+| Emerald / B Crunch | 45976 | 235 → 214 | 21 | same B vector | [PASS](../tools/vanilla-runtime-probe/evidence/emerald-special.json) |
+
+The ROM SHA values are exactly §1's Rev 0 and Emerald hashes. The recorded mGBA core is
+`e31759b24e7a4e3899285ff720d7b573ac328ae7`, binary SHA-256
+`fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e`.
+Each JSON pins the core, probe, input movie and unchanged golden-file hashes. Each case was
+replayed in a second fresh process and produced byte-identical JSON. Reproduction commands and
+framebuffer checkpoints are in the tool README; no private battery save is needed.
+
+The verdict uses the **first** defender HP transition, requires a non-fainting positive delta,
+requires that delta to equal the engine's damage word, and checks move ID, attacker=0, target=1,
+crit multiplier=1 and unchanged relevant operands. It checks membership in the committed vector,
+never a vector generated from the observed damage. Before emulation, the independent oracle must
+also reproduce the entire committed vector. No retries discard an inconvenient roll. Crunch's
+Dark typing exercises Gen III's special category despite Machamp's much higher Attack.
+
+**Failure evidence.** The ROM-free suite tests wrong identity, removal from the profile hash list,
+a wrong expected vector, a changed golden roll even when the actual hit remains in range, an oracle
+shifted by +1, wrong request operands, corrupted HP/damage/attribution/crit/move, a no-hit timeout,
+unknown script commands and writes after sealing. It validates all four committed records too.
+An actual Emerald dump supplied to the FireRed scenario with a nonexistent core returned
+`FAIL ROM identity mismatch`, exit 1 before core loading, and a FAIL output. Failed runs cannot
+leave a stale PASS artifact. These controls are maintained under `./ci.sh test` and `all`.
+
+### 5.1 Runtime addresses are diagnostic evidence, not product authorization
+
+The runtime battle records are at **FireRed `0x02023BE4`** and **Emerald `0x02024084`**. Both
+were corroborated against full original combatant records parsed from the production party
+addresses, then by move-attributed HP deltas. The shared 88-byte stride, HP `+0x28` and stages
+`+0x18` are checked against the production configs; the remaining struct members and neighboring
+globals follow the pinned upstream declarations listed in the probe README. Bounds-checked
+production libretro memory reads are reused. The probe does not call a presence/lifecycle reader.
+
+These bases differ from the shipped `0x02023F90` / `0x02024064` constants. In particular, the
+previous §7.3 literal scan **overstated** what its Emerald positive result established: the ROM
+references `0x02024064`, but that does not identify the symbol at that address as `gBattleMons`.
+The old statement that it proved Emerald's battle base is withdrawn. No production offset is
+changed here: finding these records in one opening scene is not a general lifecycle validation.
+
+Both bundled profiles keep **`battleStateReadVerified=false`**. The legacy
+`gBattleMons[0].species` presence heuristic is neither consulted nor promoted. This evidence
+supports two calculator arithmetic cases per exact build only: it does not authorize battle
+presence, active-slot selection, enemy-party polling, battle UI, live autofill, or arbitrary
+post-battle reads. FireRed's opening tutorial suppresses critical hits; none are claimed here.
+There is no physical-hardware comparison, runtime field-modifier sweep, complete 16-roll runtime
+sweep, or Rev 1 observation.
 
 ---
 
@@ -427,7 +485,7 @@ $ python3 tools/calc-goldens/audit_vanilla_layout.py \
 | Emerald player/enemy party addresses | **RUNTIME VERIFIED** (build-level) | `0x020244EC` / `0x02024744` from the pinned build, matching the profile |
 | `sizeof(struct BattlePokemon)`, `hp`, `statStages` | **SOURCE VERIFIED** | `include/pokemon.h` field offsets (`0x28`, `0x18`, 88 bytes) equal the reader's compiled values, and `gBattleMons` is 88 x 4 bytes in both games |
 | SaveBlock1 base and `pos`/`location`/`escapeWarp` for the legacy location path | **SOURCE + build VERIFIED** | `struct SaveBlock1` places `playerParty` at `+0x38` (FireRed, `include/global.h:773`) and `+0x238` (Emerald); the audited `0x00`/`0x04`/`0x24` fields match, and the derived base is inside EWRAM in both builds |
-| `battle_mons_offset`, the battle-lifecycle offsets, and the Battle UI offsets | **UNPROVEN** (FireRed) / **proved by the retail probe** (Emerald), both left unauthorized — §7.4 | These are linker-ordered EWRAM placements inside the section that also holds stubbed asset arrays, so a build with stubbed graphics cannot confirm them; §7.3 probes the retail images and reports per build. Their consumption is gated by `battleStateReadVerified`, not by the hash, and §7.4 explains why Emerald's proof is not enough to open the block |
+| `battle_mons_offset`, the battle-lifecycle offsets, and the Battle UI offsets | **UNPROVEN by build audit**, both left unauthorized — §§5.1, 7.4 | These are linker-ordered EWRAM placements inside the section that also holds stubbed asset arrays, so a build with stubbed graphics cannot confirm them; §7.3 probes the retail images and reports per build. Their consumption is gated by `battleStateReadVerified`, not by the hash, and §§5.1/7.4 explain why neither literal occurrence nor a diagnostic battle record authorizes the block |
 
 ### 7.3 The battle-state addresses: probed against the retail images, and not assumed
 
@@ -441,7 +499,8 @@ the shared constant is the retail address.
 The audit therefore probes the retail images directly, with
 `--firered-rom` / `--emerald-rom`. A GBA program reaches an EWRAM global by loading a literal word
 holding its address, and those literal pools are in the cartridge, so finding the configured address
-as a little-endian word in the accepted dump is direct evidence that the retail program uses it. The
+as a little-endian word in the accepted dump is evidence that the retail program uses that address.
+It does **not** establish which symbol it names; the runtime experiment in §5.1 demonstrates why. The
 method is validated in the same run against the party addresses §7.1 already proved.
 
 **What the negative case does and does not establish.** An address that does *not* appear as a whole
@@ -460,10 +519,11 @@ and a guessed replacement never enters production.
 | FireRed Rev 0 (retail) | `gEnemyParty` `0x0202402C` (control) | referenced at 392 ROM offsets |
 | FireRed Rev 0 (retail) | `battle_mons_offset` `0x02023F90` | **not proved**: no literal in the image holds it, while 51 addresses within ±0x200 of it are referenced |
 | Emerald (retail) | `gPlayerParty` `0x020244EC` / `gEnemyParty` `0x02024744` (controls) | referenced at 1091 / 532 ROM offsets |
-| Emerald (retail) | `battle_mons_offset` `0x02024064` | proved: referenced at 1147 ROM offsets, first at `0x00033214` |
+| Emerald (retail) | `battle_mons_offset` `0x02024064` | address referenced at 1147 ROM offsets, first at `0x00033214`; **symbol identity not proved**, and runtime records are at `0x02024084` (§5.1) |
 
-So the two builds are **not** in the same position: Emerald's configured battle base is proved by
-this scan, FireRed's is not. Both stay closed (§7.4).
+The literal results differ, but neither establishes that the configured address names the live
+BattlePokemon records. §5.1 supersedes the earlier Emerald 'proved' classification. Both stay
+closed (§7.4).
 
 **The authorization is therefore decoupled, which is the reviewer's stated alternative.**
 `RomHackProfile.battleStateReadVerified` (and `RuntimeRomTrust.mayReadBattleState`) is a gate
@@ -490,8 +550,8 @@ published.
 
 ### 7.4 Why Emerald stays closed too
 
-Emerald's `battle_mons_offset` being proved is **not** sufficient to enable the block, and flipping
-that one bit for Emerald alone would not do what it looks like it does:
+Emerald's literal-address result never established symbol identity (§5.1). Even a proven battle
+record address would be **insufficient** to enable the block:
 
 * the whole battle-state block opens together, not just `gBattleMons`. Vanilla would still run
   `read_legacy_battle_presence()`, whose own contract records that `gBattleMons[0].species` can remain
@@ -569,9 +629,10 @@ unbuilt ROM hacks would be a guess.
 
 ## 8. Trust and boundary behaviour
 
-The trust and calculator path is unchanged except for the corrected hashes and the new Doubles
-screen gate. The only other production change is the enemy party **count** offset correction in
-`native/src/pokemon_reader.c` (§7.2), which the existing guard makes behaviour-preserving:
+The preceding PR #70 corrected hashes and added the Doubles screen gate. Its other production
+change was the enemy party **count** offset correction in
+`native/src/pokemon_reader.c` (§7.2), which the existing guard makes behaviour-preserving.
+The runtime-probe slice changes **no production code, profiles, or golden vectors**:
 
 * `RomHackDetector.detectCompatibility` — only a real exact SHA-256 match to a verified, layout-
   verified profile yields `VERIFIED`; filename, header and base-game heuristics yield
@@ -631,13 +692,13 @@ how §7.3's `UNPROVEN` finding is reproducible rather than asserted.
 
 ## 10. Remaining limitations
 
-* Direct exact-ROM runtime damage goldens are not obtained (§5). Both local dumps cover FireRed
-  Rev 0 and Emerald; no FireRed Rev 1 dump is present, so even a future runtime harness would leave
-  Rev 1 runtime-untested.
+* Two controlled-operand runtime observations per exact FireRed Rev 0 / Emerald build now pass
+  (§5). This is not an unmodified-playthrough, full-vector or all-modifier runtime sweep. No legal
+  FireRed Rev 1 dump is present; Rev 1 remains runtime-untested.
 * The **damage** arithmetic is re-derived per revision; the read-only memory layout is audited at
   build level for FireRed Rev 0, FireRed Rev 1 and Emerald (§7), and the battle-state addresses are
-  probed against the retail images (§7.3). FireRed Rev 0's configured `battle_mons_offset` was not
-  proved, and Emerald's was — but the battle-state read surface stays unauthorized for **both**
+  probed against the retail images (§7.3). That literal scan does not prove symbol identity; §5.1
+  observes different diagnostic bases in both games. The battle-state read surface stays unauthorized for **both**
   vanilla profiles (`battleStateReadVerified = false`), because opening it for Emerald would switch
   on the legacy presence heuristic without giving the enemy-party path the lifecycle authority it
   requires (§7.4).
@@ -654,3 +715,38 @@ how §7.3's `UNPROVEN` finding is reproducible rather than asserted.
   here.
 * A manual request that omits a damage-relevant ability/item/status field relies on the pipeline's
   documented default semantics, not on an observation of the running game (§2.1).
+
+
+## 11. Issue #9 acceptance audit (current main)
+
+Audit baseline: `origin/main` **`aeace0300355895279b016f3bf3c9824183e7e5a`**, PR #70 confirmed
+merged before starting, and origin/main rechecked unchanged after validation. This table separates
+what is already on main from the new, unmerged runtime observations in §5. It does not equate
+H&S exact-ROM recognition with a verified calculation. H&S remains capped at `ESTIMATED`.
+
+| #9 acceptance criterion | Current-main evidence / disposition |
+|---|---|
+| Exact verified FireRed has golden damage fixtures covering Gen 3 behavior | **Met (source + host + boundary).** Twelve committed fixtures in `tools/calc-goldens/vanilla_gen3_goldens.json`; `run_vanilla_golden_matrix` in `native/tests/test_js_calc.c`; `CalcVanillaGoldenBoundaryTest` covers both exact revisions. Type-based split, STAB/type, crit, stage, screens, weather, burn/Guts are covered. This PR adds direct controlled runtime A/B observations for Rev 0 only. |
+| Exact verified Emerald has golden damage fixtures | **Met (source + host + boundary).** The same matrix executes and crosses the production boundary for the exact Emerald hash. This PR adds direct controlled runtime A/B observations. |
+| H&S 2.0.5 has a documented calculator capability matrix derived from upstream 2.0.5 evidence | **Met.** `HNS_2_0_5_CALCULATOR_CAPABILITY.md` §2, backed by pinned `Release-v2.0.5 @ 1f42b74d` source/configuration; §§3, 6–7, 10–14 classify type/category, data/forms, ability/item, weather/terrain/screen/crit and challenge settings. |
+| Supported H&S calculations have golden fixtures against known in-game/upstream results | **Met for the authorized subset.** `tools/hns-runtime-probe/evidence/rom-damage-goldens.json` and A/B/C raw logs; `check_gap_c4d_rom_damage_goldens` binds direct observed neutral, STAB/resistance and stage hits to the engine/oracle. `check_gap_c4b_arithmetic_coverage` and `check_gap_c4e_pinch_abilities` cover additional upstream-derived arithmetic. Capability §§14.9, 14.12 define/reuse these for the supported ordinary Singles subset. |
+| H&S species/moves/items/abilities used by verified calculations resolve to correct 2.0.5 data | **Met for admitted data, with an explicit trust ceiling.** No H&S result is called `VERIFIED`. `CalcDataOverrides` consumes pinned species/move records, while effective abilities and items resolve through the H&S registries and live numeric IDs. `CalcDataOverridesTest`, `CalcHnsAbilityTest`, `CalcHnsItemTest`, native calculator and generator suites test consumption, ambiguity and refusal. This is positive data-path evidence for admitted `ESTIMATED` requests, not a vacuous claim based on zero verified H&S requests. Unsupported/ambiguous forms and damage items remain refused. |
+| Recognized/unverified and unsupported ROMs never receive a confident verified result from default Gen 3 assumptions | **Met.** `RuntimeRomTrust`, `CalcCapabilityPolicy`, `CalcRequestBoundary`; `RomCompatibilityTest`, `CalcCapabilityPolicyTest`, `CalcVanillaGoldenBoundaryTest`, `CalcHnsC4eProductionBoundaryTest` cover hash near-misses, header-only recognition, wrong runtime bytes, missing data and the H&S ceiling. |
+| Unsupported H&S mechanics/states fail honestly or are clearly labeled approximate/manual | **Met for the audited boundary.** Capability §§14.9–14.13; `CalcHnsMechanicsTest`, `CalcHnsLiveBattleStateTest` and `CalcHnsC4eProductionBoundaryTest` enforce ordinary moves, exact live operands, Singles, unsupported items/abilities, type/gimmick/volatile/status/field/weather/screen/format refusal and caller-state rebinding. Accepted H&S requests are labeled `ESTIMATED`, never `VERIFIED`. |
+| Calculator support capability is tied to the active exact ROM/ruleset, not filename/profile-name heuristics | **Met.** `RuntimeRomTrust.exactRuntimeVerified` checks runtime/detection/profile hashes; capability rows bind engine, data pack and mechanics; the production request boundary owns the verdict and request. Exact vanilla and exact H&S boundary/trust tests cover positive and forged/near-miss cases. |
+| #29 runs the maintained QuickJS/native calculator suite under canonical `./ci.sh test` | **Met.** `ci.sh` calls `calc_test`, checks the pinned QuickJS submodule and fails closed. This slice's `./ci.sh all` passed 2,505 calculator assertions plus native readers, 75 H&S tracker checks, 12 new probe checks, generator suites, 738 Kotlin tests and the debug build. |
+
+**Closure recommendation:** all nine criteria as written have evidence for the bounded surface;
+close #9 after senior review and merge of this runtime-evidence PR. Until then leave #9 and the PR
+open. The smallest remaining action for this slice is review/merge and acceptance bookkeeping,
+not implementation of broader H&S mechanics. H&S's existing §14.14 warning that its document alone
+does not close #9 is respected by this cross-target audit; its broader exclusions are not silently
+promoted into support or new closure requirements.
+
+Unchanged limits remain visible: H&S Doubles, damage items, many abilities/moves and active
+unmodelled states are refused; positive badge runtime Golden D and positive transient transitions
+are not runtime-proven, and crit Golden E is indirect. Those states retain their documented
+source/host evidence or refusal and the `ESTIMATED` ceiling. If a follow-up runtime-evidence slice
+is desired, positive H&S badge Golden D is narrower than opening more mechanics; it is not
+claimed complete here. #40 remains a separate umbrella gate. Vanilla lifecycle support and
+FireRed Rev 1 runtime observation are also separate from this closure recommendation.

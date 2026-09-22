@@ -1,0 +1,209 @@
+{
+  "schema": "dualdex.vanilla_runtime.v1",
+  "verdict": "PASS",
+  "profile": "vanilla_firered",
+  "romSHA256": "3d0c79f1627022e18765766f6cb5ea067f6b5bf7dca115552189ad65a5c3a8ac",
+  "coreSHA256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+  "scenarioSHA256": "94435cf1fd01ca9cd726026006f0816c0d7c014b075cb7c367883d15c2716323",
+  "fixture": "vg3_a_neutral_physical",
+  "probeSHA256": "1ebdc7eb18f975e834b4d9c37c93c64a5aeb49f064589187be2ba744f9bcc736",
+  "hostSHA256": "137192cfcb93f0c93d7b45d3eccc054c5fbdf6a4d315bf7bb095b46711eda164",
+  "goldensSHA256": "a6d8d9031bf02c2269a0490444e4fefe43fc72350d154ebe87a719e2fa2f5138",
+  "request": {
+    "gen": 3,
+    "attacker": {
+      "species": "Machamp",
+      "level": 50,
+      "nature": "Hardy",
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spa": 0,
+        "spd": 0,
+        "spe": 0
+      }
+    },
+    "defender": {
+      "species": "Snorlax",
+      "level": 50,
+      "nature": "Hardy",
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spa": 0,
+        "spd": 0,
+        "spe": 0
+      }
+    },
+    "move": {
+      "name": "Rock Slide",
+      "isCrit": false
+    },
+    "field": {
+      "gameType": "Singles"
+    }
+  },
+  "expectedDamage": [
+    51,
+    51,
+    52,
+    52,
+    53,
+    54,
+    54,
+    55,
+    55,
+    56,
+    57,
+    57,
+    58,
+    58,
+    59,
+    60
+  ],
+  "checkpoint": {
+    "frame": 31071,
+    "menuSHA256": "6c51db711cb6427e8f73bc1349656f9443eca1083552a798648f87a55e6d0728",
+    "originalParties": [
+      [
+        1,
+        11,
+        10,
+        10,
+        11,
+        13,
+        33,
+        45,
+        0,
+        0,
+        19,
+        5,
+        19
+      ],
+      [
+        4,
+        11,
+        9,
+        9,
+        11,
+        10,
+        10,
+        45,
+        0,
+        0,
+        18,
+        5,
+        18
+      ]
+    ]
+  },
+  "diagnosticBattleMonsAddress": "0x2023be4",
+  "setup": "controlled BattlePokemon RAM operands in an input-driven opening battle; writes sealed before move",
+  "combatants": [
+    {
+      "speciesId": 68,
+      "stats": {
+        "atk": 150,
+        "defense": 100,
+        "speed": 75,
+        "spa": 85,
+        "spd": 105
+      },
+      "moves": [
+        157,
+        0,
+        0,
+        0
+      ],
+      "stages": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "abilityId": 62,
+      "types": [
+        1,
+        1
+      ],
+      "hp": 165,
+      "level": 50,
+      "maxHP": 165,
+      "item": 0,
+      "personality": 0,
+      "status1": 0,
+      "status2": 0
+    },
+    {
+      "speciesId": 143,
+      "stats": {
+        "atk": 130,
+        "defense": 85,
+        "speed": 50,
+        "spa": 85,
+        "spd": 130
+      },
+      "moves": [
+        150,
+        0,
+        0,
+        0
+      ],
+      "stages": [
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "abilityId": 17,
+      "types": [
+        0,
+        0
+      ],
+      "hp": 235,
+      "level": 50,
+      "maxHP": 235,
+      "item": 0,
+      "personality": 0,
+      "status1": 0,
+      "status2": 0
+    }
+  ],
+  "hit": {
+    "frame": 31828,
+    "preHP": 235,
+    "postHP": 176,
+    "damage": 59,
+    "engineDamage": 59,
+    "move": 157,
+    "attacker": 0,
+    "target": 1,
+    "critMultiplier": 1
+  }
+}

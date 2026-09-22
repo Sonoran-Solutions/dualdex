@@ -301,6 +301,37 @@ and Sinjoh opens from Mt. Silver's interior. `tools/hns-map-data/hns_route.py ed
 `… blockers` print that inventory from the pinned source, and the runtime blocker is recorded per
 edge in the evidence JSON rather than being described as verified.
 
+## Cross-region evidence: which half derived which claim
+
+`evidence/location-runtime-evidence.json` splits its cross-region claims by who derived them, so a
+reader can tell reproducibility from an audit:
+
+| Half | Produced by | Verified by |
+|---|---|---|
+| `cross_region_transitions.tool_derived` | `tools/hns-map-data/hns_route.py inventory` reading the pinned checkout (metatile behaviours, connection windows, script-warp candidates with file and line) | `./ci.sh source-check` step 1b runs `hns_route.py inventory --check evidence/hns-cross-region-inventory.json --check-embedded evidence/location-runtime-evidence.json`, which also fails when the record's embedded copy disagrees with the verified inventory; `./ci.sh test` runs the analyzer's provenance regression |
+| `cross_region_transitions.manual_engine_source_verified` | a manual engine-source audit, every verdict carrying the exact file and line that supports it | the same `inventory --check` fails if any edge the analyzer could not decide has no verdict, or if a verdict contradicts a derived one; `HnsLocationRuntimeEvidenceTest` asserts the same partition |
+
+`evidence/hns-cross-region-inventory.json` is the standalone artifact `--check` verifies, and the
+Kotlin suite reads that same file rather than a copy, so the two gates cannot drift apart.
+
+The analyzer refuses to run against anything but the pinned revision with clean inputs: it checks
+`HEAD` against `1f42b74d…` and refuses a modified or deleted file under `data/maps/`,
+`data/layouts/`, `data/tilesets/`, `data/scripts/`, `include/constants/` or `src/data/tilesets/`.
+`tools/hns-map-data/test_hns_route.py` drives that boundary against synthetic git repositories with
+no upstream checkout, ROM or network, and runs in the canonical gate.
+
+```bash
+python3 tools/hns-map-data/hns_route.py inventory --check \
+    tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json \
+    --check-embedded tools/hns-runtime-probe/evidence/location-runtime-evidence.json
+python3 -m unittest discover -s tools/hns-map-data -p 'test_hns_route.py' -t tools/hns-map-data
+```
+
+What the analyzer will **not** claim: whether a warp on an ordinary-floor metatile fires (1719 of
+this build's 3608 warp tiles are in that position), or whether a script `warp` command is reachable.
+Those are reported as `undecided_from_map_data` and as candidates respectively, and their verdicts
+live in the manual half.
+
 ## Route planning for runtime scenarios
 
 `tools/hns-map-data/hns_route.py` derives tile-exact routes from the pinned source instead of

@@ -2159,88 +2159,90 @@ LEFT lands on a much larger x).
 
 Both crossings pass with `0` runtime invariant violations and `0` script errors.
 
-#### 12.9.3 Kanto, Sinjoh and Alola: every cross-region transition, and its gate
+#### 12.9.3 Kanto, Sinjoh and Alola: how the cross-region inventory is evidenced
 
-A full enumeration of the pinned build's cross-region transitions was run against the engine's own
-predicates (`src/fieldmap.c` connection windows, `src/field_control_avatar.c` warp/door/arrow
-triggers, `src/metatile_behavior.c` behaviours) rather than against the map data alone. The region of
-a section comes from `include/regions.h` `GetRegionForSectionId` (`#if IS_HNS`): Kanto is
-`MAPSEC_PALLET_TOWN=20 .. MAPSEC_POWER_PLANT=62`, Johto `MAPSEC_NEW_BARK_TOWN=63 ..
-MAPSEC_WHIRL_ISLANDS=124`, Alola `9..18`, Sinjoh `MAPSEC_SNOWSWEPT_CAVERN=109 ..
-MAPSEC_SINJOH_RUINS=113`. Two consequences are easy to get wrong: `MAPSEC_VICTORY_ROAD_HNS=106` is
-**Johto**, so `ReceptionGate_hns` and the whole Kanto Victory Road classify as Johto, and
-`MAPSEC_SINJOH=108` is **Johto**, not Sinjoh.
+The cross-region claims are split by **who derived them**, so reproducibility is distinguishable from
+an audit. The split is machine-checked end to end.
 
-**Functional cross-region transitions (six).** `tools/hns-map-data/hns_route.py edges --gates`
-reproduces this list from the pinned checkout.
+| Half | Produced by | Verified by |
+|---|---|---|
+| `tool_derived` | `tools/hns-map-data/hns_route.py inventory`, reading the pinned checkout: metatile behaviours decoded from the layout's tileset attribute arrays, connection windows, and every cross-region `warp` script command with its file and line | `./ci.sh source-check` step 1b runs `inventory --check evidence/hns-cross-region-inventory.json`; `./ci.sh test` and `./ci.sh all` run `test_hns_route.py` |
+| `manual_engine_source_verified` | a manual engine-source audit, every verdict carrying the exact file and line that supports it | the same `inventory --check` fails when an edge the analyzer could not decide has no verdict, or when a verdict contradicts a derived one; `HnsLocationRuntimeEvidenceTest` asserts the same partition |
 
-| # | From | To | Mechanism | Gate | Runtime |
-|---|---|---|---|---|---|
-| W1 | `ReceptionGate_hns` `22/22` (Johto) | `Route22_hns` `0/62` (Kanto) | warp `(20,9)`, `MB_SOUTH_ARROW_WARP`, walkable | `FLAG_BADGE08_GET` **and** `VAR_ECRUTEAK_CITY_THEATER >= 8` | NOT RUNTIME VERIFIED |
-| W3 | `VictoryRoadKanto_1F_hns` `24/55` (Johto) | `Route23_hns` `0/63` (Kanto) | warp `(28,2)`, step-on, walkable | behind W1 (entered from ReceptionGate's north warps) | NOT RUNTIME VERIFIED |
-| W2 | `Route22_hns` (Kanto) | `ReceptionGate_hns` (Johto) | warp `(12,9)`, `MB_ANIMATED_DOOR`, approach `(12,10)` | none | NOT RUNTIME VERIFIED |
-| W4 | `Route23_hns` (Kanto) | `VictoryRoadKanto_1F_hns` (Johto) | warp `(18,20)`, step-on | none | NOT RUNTIME VERIFIED |
-| W7 | `MtSilver_1F_WaterfallRoom_hns` `24/73` (Johto) | `SnowsweptCavern_hns` `28/0` (Sinjoh) | warp `(43,7)`, step-on | `VAR_SINJOH_STORYLINE < 3` | NOT RUNTIME VERIFIED |
-| W8 | `SnowsweptCavern_hns` (Sinjoh) | `MtSilver_1F_WaterfallRoom_hns` (Johto) | warp `(50,68)`, arrow warp | none | NOT RUNTIME VERIFIED |
+**The analyzer's provenance boundary.** `hns_route.py` refuses to analyse anything but the pinned
+revision with clean inputs: it checks `HEAD` against `1f42b74d…` and refuses a modified or deleted
+file under any path it reads — `data/maps/`, `data/layouts/`, `data/tilesets/`, `data/scripts/`,
+`include/constants/`, `src/data/tilesets/`. Layout dimensions, block data and metatile attributes are
+included because they *are* reachability evidence here. `tools/hns-map-data/test_hns_route.py` drives
+that boundary against synthetic git repositories, with no upstream checkout, ROM or network, and runs
+in the canonical gate.
 
-Ten further transitions exist as `warp`/`warpsilent`/`warpteleport` **script commands** rather than
-map data: the S.S. Aqua pair (`ITEM_SS_TICKET`, which Elm gives only after the Johto Hall of Fame),
-the Magnet Train pair (`ITEM_PASS`, from the Saffron Copycat), a `warpteleport` from Indigo Plateau's
-Pokémon Center back to New Bark Town, and the Alola ↔ Kanto pair through Route 13
-(`ITEM_STRANGE_SOUVENIR`, sold in the Kanto Mt Moon shop). None is reachable early.
+**What the analyzer proves (FUNCTIONAL / DEAD).**
 
-**Declared but dead (four).** Counting these as working crossings would overstate how many ways into
-Kanto exist, so they are recorded as dead with their reason:
+* A warp whose trigger metatile carries a behaviour the engine's warp predicates accept is FUNCTIONAL.
+  `src/field_control_avatar.c`: `IsWarpMetatileBehavior` accepts `MB_ANIMATED_DOOR`,
+  `MB_NON_ANIMATED_DOOR`, `MB_LADDER`, `MB_CRACKED_FLOOR_HOLE`, `MB_LAVARIDGE_GYM_1F_WARP`,
+  `MB_UP_ESCALATOR`, `MB_DOWN_ESCALATOR`, `MB_WATER_DOOR`; `TryArrowWarp` accepts the four arrow warps
+  plus `MB_WATER_SOUTH_ARROW_WARP` and `MB_DEEP_SOUTH_WARP`. The behaviour is decoded from
+  `data/tilesets/*/*/metatile_attributes.bin` per `include/global.fieldmap.h`
+  (`METATILE_ATTR_BEHAVIOR_MASK 0x00FF`).
+* A `connections` entry whose `dest = src - offset` window is empty, or whose border column is
+  entirely impassable, is DEAD (`src/fieldmap.c`).
 
-* `Route26North_hns` --right/-28--> `Route22_hns`, and its reciprocal. The engine's rule is
-  `dest = src - offset`, so the only permitted source row is `y=0`, which lands at Route 22 `y=28` on
-  a 28-row map: an **empty crossing window**. Independently, Route 26 North has no walkable tile in
-  column `x=0` or `x=38` and Route 22 has none in `x=0`. Only 4 of 219 H&S connections in the build
-  have an empty window, and these two are among them.
-* `CinnabarIsland_hns` `(41,1)` -> New Bark Town: the metatile behaviour is `MB_OCEAN_WATER`, which
-  matches neither `IsWarpMetatileBehavior` nor `MetatileBehavior_IsWarpDoor`.
-* `FuchsiaCity_hns` `(19,30)` -> New Bark Town: collision 1 with `MB_NORMAL`.
-* `Route26North_hns` --left/-29--> `Route28_hns`: both border columns are entirely impassable.
+**What the analyzer refuses to claim (UNPROVEN).** This is the honest core of the record:
 
-**The gate is a cut vertex, verified.** `ReceptionGate_hns` is 22x21. From the Route 26 North arrival
-tile `(11,19)` the walkable component is 101 tiles and contains `(20,9)` -> Route 22, `(1,9)` ->
-Route 28 and `(11,1)`/`(10,1)` -> Victory Road. Deleting the single trigger tile `(11,14)` leaves
-**17** tiles and severs all three. The coord event `(11,14)` requires `VAR_ROUTE27_STATE == 1` and its
-script then checks `VAR_ECRUTEAK_CITY_THEATER >= 8` and `FLAG_BADGE08_GET`, pushing the player back
-with `Common_Movement_WalkDown1` on either failure. `VAR_ECRUTEAK_CITY_THEATER` reaches 8 only through
-`TinTower_RoofDay_hns` (Ho-Oh) or `WhirlIslands_LugiaChamber_hns` (Lugia) — the end of the Johto
-story.
+* whether a warp on an ordinary-floor metatile fires. **1719 of this build's 3608 warp tiles sit on
+  non-warp metatiles**, which the engine still accepts as step-on warps, so "not a warp behaviour" is
+  *not* evidence of death. Each such edge carries the observed metatile behaviour, the arrival tile
+  and both tiles' walkability;
+* whether a script command is reachable. That needs the script call graph, which is far larger than
+  this analyzer, so every script command is a **candidate** with file and line, and the known shared
+  include is recorded as a rejected false positive.
+
+**The verified cross-region set.** Combining both halves, the pinned build has these functional
+cross-region transitions: `ReceptionGate_hns` → `Route22_hns` and `VictoryRoadKanto_1F_hns` →
+`Route23_hns` (Johto → Kanto), their two reverses, the two Sinjoh pairs
+(`MtSilver_1F_WaterfallRoom_hns` ↔ `SnowsweptCavern_hns`), and nine script-command transitions (the
+S.S. Aqua pair, the Magnet Train pair, and the Alola ↔ Kanto pair through Route 13). Dead: the
+`Route26North_hns` ↔ `Route22_hns` connection (empty crossing window, both border columns impassable)
+and the `Trees_hns` → `VermilionCity_hns` connection.
+
+**The Johto → Kanto gate is a cut vertex.** From the Route 26 North arrival tile `(11,19)` the
+walkable component is 101 tiles and contains `(20,9)` → Route 22, `(1,9)` → Route 28 and `(11,1)` /
+`(10,1)` → Victory Road. Deleting the single trigger tile `(11,14)` leaves **17** tiles and severs all
+three. The coord event there requires `VAR_ROUTE27_STATE == 1` and its script then checks
+`VAR_ECRUTEAK_CITY_THEATER >= 8` and `FLAG_BADGE08_GET`, pushing the player back with
+`Common_Movement_WalkDown1` on either failure. `VAR_ECRUTEAK_CITY_THEATER` reaches 8 only through
+`TinTower_RoofDay_hns` (Ho-Oh) or `WhirlIslands_LugiaChamber_hns` (Lugia).
 
 **Correction to §12.6's parenthetical.** §12.6 said no save was past Johto and that "manufacturing one
 would require either long progression or a RAM write". That is right, and the mechanism is now exact:
 `Route26North_hns`'s warp at `(12,5)` is a **door warp**, not a blocked tile — the engine tests the
 tile *in front* of the player, so standing at `(12,6)` and holding Up fires it even though `(12,5)`
 has collision. `(12,6)` is in the same 211-tile component as the southern connection, so the warp
-**is** reachable; it is the `(11,14)` trigger beyond it that is the gate.
-`tools/hns-map-data/hns_route.py route Route26_hns 20 60 map ReceptionGate_hns` now derives that
-route, door warp included.
+**is** reachable; the `(11,14)` trigger beyond it is the gate.
+`tools/hns-map-data/hns_route.py route Route26_hns 20 60 map ReceptionGate_hns` derives that route,
+door warp included.
 
 **Why no bounded slice can reach a cross-region transition.** From the issue #1 chain's furthest
 checkpoint (Azalea Town, two Johto badges), a flood fill over all 560 H&S maps using the engine's
 warp and connection predicates reaches **161 maps and zero cross-region edges** without Surf,
-**169 and zero** with Surf but no Waterfall, and only **342** — where W1 and W3 first appear — with
-both. Surf requires `FLAG_BADGE04_GET` and is mandatory because the New Bark Town east edge and the
-Route 27 west edge are `MB_OCEAN_WATER`; Waterfall requires `FLAG_BADGE08_GET` and is mandatory
-because Tohjo Falls Cavern's west component joins the rest only through an `MB_WATERFALL` column.
-Fly is not a shortcut: of every `sMapHealLocations` entry exactly one is cross-region
-(`MAPSEC_ROCKET_HIDEOUT_HNS` -> Pallet Town, with `HEAL_LOCATION_NONE`, hence unusable), and every
+**169 and zero** with Surf but no Waterfall, and only **342** — where the first cross-region edges
+appear — with both. Surf requires `FLAG_BADGE04_GET` and is mandatory because the New Bark Town east
+edge and the Route 27 west edge are `MB_OCEAN_WATER`; Waterfall requires `FLAG_BADGE08_GET` and is
+mandatory because Tohjo Falls Cavern's west component joins the rest only through an `MB_WATERFALL`
+column. Fly is not a shortcut: of every `sMapHealLocations` entry exactly one is cross-region
+(`MAPSEC_ROCKET_HIDEOUT_HNS` → Pallet Town, with `HEAL_LOCATION_NONE`, hence unusable), and every
 CANFLY city is gated by its own `FLAG_VISITED_*` set only by physically entering.
 
 **Debug transportation.** The build does ship one: `include/config/debug.h` sets
 `DEBUG_OVERWORLD_MENU TRUE` with held key `R` and trigger `START`, the only line that would disable it
 (`include/constants/global.h`) is **commented out**, `src/debug.c` has no top-level `#if` guard, and
-the Makefile compiles `src/**/*.c` unconditionally — confirmed by preprocesssing the real include tree
-with and without `-DRELEASE`, which gives identical results. Its `Utilities -> Warp to map warp…`
-entry would reach any map group. **It is not used as evidence anywhere in this record**: it is not a
-natural transition, and an attempt to open it by driving `R+START` through the emulator did not
-observably succeed, so it is recorded as SOURCE VERIFIED and NOT RUNTIME VERIFIED. The nearest dead
-relatives are left over test warps (`NewBarkTown_hns` `(16,7)`, `(3,7)`, `(15,7)`, `(12,7)`;
-`EcruteakCity_hns` `(39,46)`) whose tiles are all collision 1 with `MB_NORMAL`, so none fires.
+the Makefile compiles `src/**/*.c` unconditionally — confirmed by preprocessing the real include tree
+with and without `-DRELEASE`, which gives identical results. **It is not used as evidence anywhere in
+this record**: it is not a natural transition, and an attempt to open it by driving `R+START` through
+the emulator did not observably succeed, so it is recorded as SOURCE VERIFIED and NOT RUNTIME
+VERIFIED.
 
 ##### 12.9.3.1 Sinjoh and Alola closure rule, stated as product behaviour
 
@@ -2277,8 +2279,10 @@ Both defects are covered by `MapScreenBrowsingIsolationTest` and by the mutation
 |---|---|
 | `tools/hns-runtime-probe/scenarios/80-location-map-transition.txt` | **PASSES.** The two-way map transition at runtime |
 | `tools/hns-runtime-probe/capture-location-evidence.sh` | Boots each legal checkpoint, asserts the raw pair and emits one machine-readable `[LOCATION]` record per checkpoint; aborts on the first failure. Deterministic across repeat runs |
-| `tools/hns-runtime-probe/evidence/location-runtime-evidence.json` | The captured identities, the expected production interpretation, the unknown-map controls and the source-derived cross-region inventory |
-| `tools/hns-map-data/hns_route.py` | Offline route planning (`route`), cross-region inventory (`edges --gates`) and gate provenance (`blockers`) from the pinned source |
+| `tools/hns-runtime-probe/evidence/location-runtime-evidence.json` | The captured identities, the expected production interpretation, the unknown-map controls, and the cross-region record split into its `tool_derived` and `manual_engine_source_verified` halves |
+| `tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json` | The standalone analyzer output that `inventory --check` verifies in `source-check` and that the Kotlin suite reads directly |
+| `tools/hns-map-data/test_hns_route.py` | The analyzer's provenance regression: wrong revision, modified read source, deleted read source, untracked-but-irrelevant file, non-git directory. Runs in `test` and `all` with no upstream checkout, ROM or network |
+| `tools/hns-map-data/hns_route.py` | Offline route planning (`route`), cross-region classification (`edges --gates`), script-warp candidates (`warps`), gate provenance (`blockers`) and the machine-checked inventory (`inventory [--write/--check]`) |
 | `HnsLocationRuntimeEvidenceTest` | Drives the production `LocationResolver`, `RegionMapDatabase` and `MapScreenPresenter` against the captured raw pairs; binds the evidence to the exact ROM and the pinned commit; fail-closed and Sinjoh/Alola assertions; mutation controls |
 | `MapScreenBrowsingIsolationTest` | The full phase C browsing sequence, plus a structural guard that `MapScreenState` has no path to the strategy |
 | `tools/hns-layout/mutation-check.sh` | Developer-only mutation controls (§12.9.6) |
@@ -2291,9 +2295,10 @@ accepted the second case would be evidence of nothing. It is fatal when no round
 
 #### 12.9.6 Mutation controls
 
-`tools/hns-layout/mutation-check.sh` applies each of these to production code and requires the
-canonical Kotlin suite to fail. **6 mutations, 0 not caught**, and every mutated file was restored
-byte-identically:
+`tools/hns-layout/mutation-check.sh` applies each of these and requires a gate to fail: the
+canonical Kotlin suite for the production and evidence behaviour, and the analyzer's own
+`inventory --check` plus `test_hns_route.py` for the provenance and reproducibility contract. **11
+mutations, 0 not caught**, and every mutated file was restored byte-identically:
 
 | Mutation | Caught by |
 |---|---|
@@ -2303,6 +2308,14 @@ byte-identically:
 | Give Sinjoh/Alola fabricated coordinates so a marker can be placed | `HnsLocationRuntimeEvidenceTest` |
 | Let an unknown pair inherit a valid indoor group's town | `HnsLocationRoutingTest` |
 | Publish an authoritative location for an unverified ROM | `HnsLocationTrustBoundaryTest` |
+| Weaken the analyzer's provenance boundary (`if head != PINNED_COMMIT_SHA` -> `if False`) | `test_hns_route.py` |
+| Hand-edit the committed inventory's region claim | `inventory --check` **and** `HnsLocationRuntimeEvidenceTest` |
+| Drop an undecided edge so a missing manual verdict would go unnoticed | `inventory --check` |
+| Edit the copy embedded in the runtime evidence record | `inventory --check-embedded` |
+| Neuter the provenance regression itself | `test_hns_route.py` |
+
+The last five are why the mutation runner drives **two** gates per mutation: the Kotlin suite
+cannot express a git-revision check, and the analyzer cannot express the production resolver's behaviour. The runner also refuses to trust a bare hash of its starting tree: it copies each mutated file before the first edit and compares the content byte-for-byte afterwards, because a run that died mid-mutation would otherwise poison the next run's baseline and report a clean restore for an already-tampered file.
 
 The same pattern was used to confirm the probe's own strictness: `selftest.sh` now requires the
 **asserted failure reason** to appear in the log, not merely a non-zero exit. Previously a mistyped
@@ -2316,6 +2329,13 @@ under test. `selftest.sh` is **32 cases, 0 failures**.
   (identity, region, gate) and, for their presentation policy, UNIT/PRESENTATION VERIFIED. They are
   **not** runtime verified, and §12.9.3 names the exact gate for each. This is preserved deliberately
   rather than relabelled.
+* **The cross-region record states which half derived which claim.** §12.9.3's `tool_derived` half is
+  reproducible and machine-checked by `inventory --check`; the
+  `manual_engine_source_verified` half is an audit whose verdicts each cite their source. The record
+  is not a table the named producer cannot reproduce: the analyzer reports UNPROVEN where map data
+  does not settle an edge, and the checker fails when such an edge has no manual verdict or when a
+  verdict contradicts a derived one. Four mutations cover that boundary — weakening the provenance
+  check, hand-editing the inventory, dropping an undecided edge, and neutering the regression itself.
 * **The Map tab is NOT DEVICE VERIFIED.** No Android device, emulator or AYN Thor is reachable from
   the agent environment: the SDK has no `emulator` package, no AVD exists, and no device is attached
   to `adb`. The evidence for the screen is therefore ROM-evidence-driven presentation assertions, not

@@ -74,15 +74,45 @@ class HnsLocationRuntimeEvidenceTest {
 
     private fun crossRegionBlock(): JSONObject = evidence().getJSONObject("cross_region_transitions")
 
-    private fun crossRegionEdges(): List<JSONObject> =
-        crossRegionBlock().getJSONArray("functional_edges").let { array ->
-            (0 until array.length()).map { array.getJSONObject(it) }
-        }
+    private fun toolDerived(): JSONObject = crossRegionBlock().getJSONObject("tool_derived")
 
-    private fun deadCrossRegionEdges(): List<JSONObject> =
-        crossRegionBlock().getJSONArray("dead_edges").let { array ->
-            (0 until array.length()).map { array.getJSONObject(it) }
-        }
+    /**
+     * The standalone, verbatim analyzer output.
+     *
+     * This is the artefact `hns_route.py inventory --check` verifies in `./ci.sh source-check`, so
+     * reading it here means the Kotlin suite and the source gate agree on the same tool-produced
+     * document rather than on a copy of it.
+     */
+    private fun toolInventory(): JSONObject =
+        JSONObject(
+            repoFile("tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json").readText()
+        )
+
+    private fun objects(array: org.json.JSONArray): List<JSONObject> =
+        (0 until array.length()).map { array.getJSONObject(it) }
+
+    /** Edges the analyzer could prove FUNCTIONAL from metatile behaviours and connection windows. */
+    private fun toolFunctionalEdges(): List<JSONObject> =
+        objects(toolInventory().getJSONArray("functional_edges"))
+
+    /** Edges the analyzer could NOT decide from map data, reported with what it observed. */
+    private fun toolUndecidedEdges(): List<JSONObject> =
+        objects(toolInventory().getJSONArray("undecided_from_map_data"))
+
+    private fun toolScriptCandidates(): List<JSONObject> =
+        objects(toolInventory().getJSONArray("script_warp_candidates"))
+
+    private fun manualVerdicts(): List<JSONObject> =
+        objects(crossRegionBlock().getJSONObject("manual_engine_source_verified").getJSONArray("edges"))
+
+    private fun manualScriptTransitions(): List<JSONObject> =
+        objects(
+            crossRegionBlock().getJSONObject("manual_engine_source_verified")
+                .getJSONArray("script_command_transitions")
+        )
+
+    private fun edgeKey(edge: JSONObject): String =
+        "${edge.getString("from_map")} -> ${edge.getString("to_map")}"
 
     private val exactRomSha256 = "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b"
 
@@ -301,77 +331,194 @@ class HnsLocationRuntimeEvidenceTest {
      * to the rest of the world at all.
      */
     @Test
-    fun crossRegionInventoryIsExplicitAboutWhatIsNotRuntimeVerified() {
+    fun crossRegionEvidenceIsSplitByWhoDerivedIt() {
         val block = crossRegionBlock()
-        val edges = crossRegionEdges()
-        assertTrue("the build must define at least one cross-region transition", edges.isNotEmpty())
+        val tool = toolDerived()
+        val manual = block.getJSONObject("manual_engine_source_verified")
 
-        for (edge in edges) {
-            assertFalse(
-                "${edge.getString("from_map")} -> ${edge.getString("to_map")} must not claim " +
-                    "runtime verification",
-                edge.getBoolean("runtime_verified")
+        // The tool-derived half must name its producer and say what it can and cannot prove, so a
+        // reader can tell which claims are reproducible and which are an audit.
+        assertTrue(tool.getString("producer").contains("hns_route.py"))
+        assertTrue(tool.getString("check_command").contains("inventory --check"))
+        assertTrue("the tool must state its own limits", tool.getJSONArray("what_it_cannot_prove").length() > 0)
+        assertTrue("the tool must state what it does prove", tool.getJSONArray("what_it_can_prove").length() > 0)
+        assertTrue(
+            "the manual half must state that it is not tool-produced",
+            manual.getString("note").contains("NOT produced by hns_route.py")
+        )
+
+        // The quoted checker must be the one the repository actually runs, or the claim of
+        // reproducibility would point at a command nobody executes.
+        val ci = repoFile("ci.sh").readText()
+        assertTrue(
+            "ci.sh must run the inventory check the evidence names",
+            ci.contains("hns_route.py") && ci.contains("inventory") && ci.contains("--check")
+        )
+
+        // Every edge the tool could not decide must have a manual verdict, and a manual verdict may
+        // not contradict what the tool did prove. This is the partition that stops "no bounded route
+        // reaches Kanto" from resting on an unchecked table.
+        val undecided = toolUndecidedEdges()
+        assertTrue("the inventory must contain undecided edges", undecided.isNotEmpty())
+        val verdicts = manualVerdicts().associateBy { edgeKey(it) }
+        for (edge in undecided) {
+            val key = edgeKey(edge)
+            val verdict = verdicts[key]
+            assertNotNull("$key was undecided from map data and has no manual verdict", verdict)
+            assertTrue(
+                "$key has an invalid manual verdict ${verdict!!.getString("verdict")}",
+                verdict.getString("verdict") in setOf("functional", "dead")
             )
-            assertNotNull(
-                "${edge.getString("from_map")} -> ${edge.getString("to_map")} must state its blocker",
-                edge.optString("runtime_blocker", null)
+            assertTrue(
+                "$key must cite the source that supports its verdict",
+                verdict.getJSONArray("evidence").length() > 0
             )
         }
+        for (edge in toolFunctionalEdges()) {
+            val verdict = verdicts[edgeKey(edge)]
+            assertFalse(
+                "${edgeKey(edge)} is functional from its own metatile behaviour, so a manual " +
+                    "'dead' verdict contradicts the tool",
+                verdict?.optString("verdict") == "dead"
+            )
+        }
+    }
+
+    @Test
+    fun theInventoryCannotDriftFromThePinnedSource() {
+        val inventory = toolInventory()
+
+        // The artefact the source gate verifies must be bound to the same pinned revision as the
+        // map table, and must be produced by the tool rather than hand-shaped.
+        assertEquals(Hns205MapData.UPSTREAM_COMMIT_SHA, inventory.getString("upstream_commit"))
+        assertEquals(Hns205MapData.UPSTREAM_TAG, inventory.getString("upstream_tag"))
+        assertTrue(
+            "the inventory must name the analyzer as its producer",
+            inventory.getString("producer").contains("hns_route.py inventory")
+        )
+        assertEquals(
+            "the evidence record must embed the same functional edges as the verified inventory",
+            toolFunctionalEdges().toString(),
+            objects(toolDerived().getJSONArray("functional_edges")).toString()
+        )
+        assertEquals(
+            "the evidence record must embed the same undecided edges as the verified inventory",
+            toolUndecidedEdges().toString(),
+            objects(toolDerived().getJSONArray("undecided_from_map_data")).toString()
+        )
+        assertEquals(
+            "the evidence record must embed the same script-warp candidates as the verified inventory",
+            toolScriptCandidates().toString(),
+            objects(toolDerived().getJSONArray("script_warp_candidates")).toString()
+        )
+
+        // The provenance boundary itself must be pinned: the analyzer refuses anything but this
+        // revision with clean inputs, and the canonical gate runs its regression.
+        val analyzer = repoFile("tools/hns-map-data/hns_route.py").readText()
+        assertTrue(analyzer.contains(Hns205MapData.UPSTREAM_COMMIT_SHA))
+        assertTrue(
+            "the analyzer must verify provenance",
+            analyzer.contains("verify_provenance")
+        )
+        assertTrue(
+            "the provenance regression must exist and be run by the canonical gate",
+            repoFile("tools/hns-map-data/test_hns_route.py").isFile &&
+                repoFile("ci.sh").readText().contains("test_hns_route")
+        )
+    }
+
+    @Test
+    fun crossRegionInventoryIsExplicitAboutWhatIsNotRuntimeVerified() {
+        val block = crossRegionBlock()
+        val manual = block.getJSONObject("manual_engine_source_verified")
 
         // The one Johto -> Kanto crossing into the overworld must be the ReceptionGate warp, and the
         // evidence must name the exact badges/Tin Tower gate that keeps it out of a bounded slice.
-        val johtoToKanto = edges.single {
-            it.getString("from_region") == "JOHTO" &&
-                it.getString("to_region") == "KANTO" &&
+        val kanto = manualVerdicts().single {
+            it.getString("from_map") == "ReceptionGate_hns" &&
                 it.getString("to_map") == "Route22_hns"
         }
-        assertEquals("ReceptionGate_hns", johtoToKanto.getString("from_map"))
-        assertEquals("W1", johtoToKanto.getString("id"))
+        assertEquals("functional", kanto.getString("verdict"))
+
+        val kantoEdges = toolUndecidedEdges().single {
+            it.getString("from_map") == "ReceptionGate_hns" &&
+                it.getString("to_map") == "Route22_hns"
+        }
+        assertTrue(
+            "the analyzer must record the trigger metatile it actually observed",
+            kantoEdges.getString("trigger_behaviour").isNotBlank() &&
+                kantoEdges.getBoolean("trigger_tile_walkable")
+        )
+        // The gate itself is a manual verdict, because the tool only reports what it observed. The
+        // verdict must therefore name the exact badge and story variable, and cite the script lines.
+        val gateEvidence = kanto.getJSONArray("evidence").joinToString("\n") { it.toString() }
         assertTrue(
             "the Kanto gate must name the eighth badge",
-            johtoToKanto.getJSONArray("gate").any { it.toString().contains("FLAG_BADGE08_GET") }
+            gateEvidence.contains("FLAG_BADGE08_GET")
         )
         assertTrue(
             "the Kanto gate must name the Tin Tower story variable",
-            johtoToKanto.getJSONArray("gate").any {
-                it.toString().contains("VAR_ECRUTEAK_CITY_THEATER")
-            }
+            gateEvidence.contains("VAR_ECRUTEAK_CITY_THEATER")
         )
         assertTrue(
-            "the blocker must record that the gate is a cut vertex, not merely a checkpoint",
-            johtoToKanto.getString("runtime_blocker").contains("cut vertex")
+            "the Kanto gate must cite the trigger script and the warp_def",
+            gateEvidence.contains("ReceptionGate_hns/scripts.inc") &&
+                gateEvidence.contains("ReceptionGate_hns/events.inc")
+        )
+        assertTrue(
+            "the cut-vertex argument must cite its evidence",
+            gateEvidence.contains("(11,14)")
         )
 
-        val alola = block.getJSONArray("regions_without_any_transition")
-            .let { array -> (0 until array.length()).map { array.getJSONObject(it) } }
+        // Alola is unreachable from Johto by every means the two halves examined.
+        val alola = objects(block.getJSONArray("regions_without_any_transition"))
             .single { it.getString("region") == "ALOLA" }
         assertTrue(
             "Alola's absence of a transition must be recorded as source evidence",
             alola.getString("evidence").contains("ZERO edges")
         )
+        assertTrue(
+            "the manual half must record zero Johto <-> Alola edges",
+            manual.getJSONObject("alola_has_no_transition_to_johto").getString("verdict")
+                .contains("ZERO")
+        )
 
-        // A cross-region audit that counted the build's dead borders as working crossings would
-        // overstate how many ways into Kanto exist, so the dead ones must be recorded too.
-        val dead = deadCrossRegionEdges()
-        assertTrue("the build declares dead cross-region borders that must be recorded", dead.isNotEmpty())
+        // A cross-region audit that ignored the build's dead borders would overstate how many ways
+        // into Kanto exist, so the dead ones must be recorded with a reason.
+        val dead = toolUndecidedEdges().filter { it.getString("reason_class").startsWith("dead ") }
+        assertTrue("the build declares dead cross-region borders", dead.isNotEmpty())
         for (edge in dead) {
-            assertFalse(
-                "${edge.getString("from_map")} -> ${edge.getString("to_map")} is dead and must " +
-                    "never be reported as runtime verified",
-                edge.getBoolean("runtime_verified")
-            )
             assertTrue(
-                "${edge.getString("from_map")} -> ${edge.getString("to_map")} must state why it " +
-                    "cannot fire",
+                "${edgeKey(edge)} must state why it cannot fire",
                 edge.getString("reason").isNotBlank()
             )
         }
         assertTrue(
             "the Route26North/Route22 connection is declared but cannot fire",
-            dead.any {
-                it.getString("from_map") == "Route26North_hns" &&
-                    it.getString("to_map") == "Route22_hns"
-            }
+            dead.any { edgeKey(it) == "Route26North_hns -> Route22_hns" }
+        )
+
+        // Script-command transitions are recorded separately, with their file and line, because the
+        // analyzer can only report them as candidates.
+        val scriptTransitions = manualScriptTransitions()
+        assertTrue("script-command transitions must be recorded", scriptTransitions.isNotEmpty())
+        for (entry in scriptTransitions) {
+            assertTrue(
+                "${entry.getString("from_map")} script transition must cite a file and line",
+                entry.getString("file").endsWith(".inc") && entry.getInt("line") > 0
+            )
+            assertEquals("functional", entry.getString("verdict"))
+        }
+        for (candidate in toolScriptCandidates()) {
+            assertTrue(
+                "every script-warp candidate must carry its file and line",
+                candidate.getString("file").endsWith(".inc") && candidate.getInt("line") > 0
+            )
+        }
+        assertTrue(
+            "the shared-include false positive must be recorded as rejected",
+            manual.getJSONArray("rejected_candidates").length() > 0 &&
+                manual.getJSONArray("rejected_candidates").toString().contains("shared script file")
         )
     }
 
@@ -635,9 +782,15 @@ class HnsLocationRuntimeEvidenceTest {
             regions
         )
 
-        assertTrue(
-            "every cross-region edge must be recorded as not runtime verified",
-            crossRegionEdges().none { it.getBoolean("runtime_verified") }
+        // The record states the limitation explicitly rather than merely omitting a field.
+        assertFalse(
+            "the tool-derived half must state that no cross-region edge is runtime verified",
+            toolDerived().getBoolean("any_edge_runtime_verified")
+        )
+        assertFalse(
+            "the manual half must state that no cross-region edge is runtime verified",
+            crossRegionBlock().getJSONObject("manual_engine_source_verified")
+                .getBoolean("any_edge_runtime_verified")
         )
         assertFalse(
             "the build's own debug transportation must not be recorded as runtime verified either",

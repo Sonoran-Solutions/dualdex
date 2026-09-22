@@ -7,37 +7,97 @@ Heart & Soul 2.0.5 source checkout (issue #11).
 
 It exists because the runtime half of #11 needs a *natural* map transition whose
 exact destination tile is known before a controller script is written, and because
-"safely reachable?" has to be answered from the pinned build rather than from
-memory of the retail games.
+"is a cross-region route reachable?" has to be answered from the pinned build rather
+than from memory of the retail games.
+
+Provenance boundary
+-------------------
+The checkout is verified before anything is read, exactly as
+`generate_hns_map_data.py` does, because this tool's output is used to justify a
+claim about the pinned build:
+
+  * `HEAD` must equal `PINNED_COMMIT_SHA` (`Release-v2.0.5`);
+  * the tracked inputs this tool reads must be clean -- `data/maps/`,
+    `data/layouts/`, `data/tilesets/`, `data/scripts/` and `include/constants/`.
+    `data/layouts/` and `data/tilesets/` are included because layout dimensions,
+    block data and metatile attributes are reachability evidence here.
+
+A checkout at another revision, or with any of those paths modified or deleted, is
+refused rather than silently analysed. Untracked files elsewhere are tolerated: a CI
+sparse checkout leaves plenty of them and they cannot affect the analysis.
 
 What it reads (tracked files only, from the pinned checkout):
 
   data/maps/map_groups.json          group_order (mapGroup) and member order (mapNum)
   data/maps/<map>/map.json           connections, warp_events, object_events,
                                      coord_events, region_map_section, game_version
-  data/layouts/layouts.json          layout dimensions and blockdata path
+  data/maps/<map>/scripts.inc        the map's own script conditionals
+  data/layouts/layouts.json          layout dimensions, tilesets and blockdata path
   data/layouts/<dir>/map.bin         GBA block data; collision is bits 10-11
+  data/tilesets/*/*/metatile_attributes.bin
+                                     metatile behaviour, low 8 bits (global.fieldmap.h)
+  src/data/tilesets/{headers,metatiles}.h
+                                     tileset -> attribute-file resolution
+  include/constants/metatile_behaviors.h
+                                     behaviour enum values
+  include/regions.h                  region ranges (documentation of the model)
+  data/maps/*/scripts.inc, data/scripts/*.inc
+                                     `warp`/`warpsilent`/`warpteleport` commands
 
 What it does:
 
-  route    Dijkstra over (map, x, y) tiles using collision 0 as walkable, the
-           `connections` table for map crossings (edge-triggered: a connection fires
-           while the player stands on the source map's edge tile) and area objects as
-           obstacles. Emits probe `walk`/`assert-pos` lines.
-  edges    Every DECLARED map-transition edge whose two sides sit in different regions, with
-           the story gate its scripts declare.
+  route     Dijkstra over (map, x, y) tiles using collision 0 as walkable, the
+            `connections` table for map crossings (edge-triggered: a connection fires
+            while the player stands on the source map's edge tile), warp events for
+            doors/arrows/stairs, and area objects as obstacles. Emits probe
+            `walk`/`assert-pos` lines.
+  edges     Every map-transition edge whose two sides sit in different regions, with the
+            story gate its scripts declare.
+  warps     Cross-region transitions implemented as `warp`/`warpsilent`/`warpteleport`
+            script commands, with the file and line that contains each.
+  blockers  Resolves each gate's FLAG_/VAR_ conditions back to the scripts that set them.
+  inventory Emits the machine-checkable cross-region inventory as JSON. `--check`
+            compares it against the committed record, so the committed classification
+            cannot drift from the pinned source without a gate failing. It also fails when
+            an edge the analyzer could not decide has no verdict in the record's manual
+            audit section, and when a manual verdict contradicts a derived one.
 
-           Scope limit, stated because it matters for a cross-region audit: this tool reads tile
-           geometry and script conditionals only. It does not decode metatile BEHAVIOURS, so it
-           cannot decide whether a declared warp's metatile is one the engine's warp predicates
-           accept, and it cannot see an NPC-driven `warp` script command. Two consequences:
+How an edge is classified, and what the analyzer refuses to claim
+---------------------------------------------------------------
+Three outcomes, and the third exists because honesty matters more than coverage:
 
-             * a warp whose tile is `MB_OCEAN_WATER` or `MB_NORMAL` on non-zero collision is
-               reported as a `dead warp`, but a warp on a walkable tile with a non-warp behaviour is
-               reported as live when the engine would never fire it;
-             * the authoritative classification for the pinned build lives in the issue #11 evidence
-               record (`tools/hns-runtime-probe/evidence/location-runtime-evidence.json`), which
-               names each edge functional or dead from the engine's own predicates.
+  FUNCTIONAL -- proven from the pinned data:
+
+    * a warp whose trigger metatile carries a behaviour the engine's warp predicates
+      accept. `src/field_control_avatar.c`: `IsWarpMetatileBehavior` accepts
+      `MB_ANIMATED_DOOR`, `MB_NON_ANIMATED_DOOR`, `MB_LADDER`, `MB_CRACKED_FLOOR_HOLE`,
+      `MB_LAVARIDGE_GYM_1F_WARP`, `MB_UP_ESCALATOR`, `MB_DOWN_ESCALATOR`,
+      `MB_WATER_DOOR`; `TryArrowWarp` accepts the four arrow warps plus
+      `MB_WATER_SOUTH_ARROW_WARP` and `MB_DEEP_SOUTH_WARP`. The behaviour is decoded
+      from the layout's tileset attribute arrays per `include/global.fieldmap.h`;
+    * a `connections` entry with at least one crossing tile inside the engine's
+      `dest = src - offset` window and both sides walkable.
+
+  DEAD -- proven from the pinned data: a connection whose window is empty, or whose
+    border column is entirely impassable.
+
+  UNPROVEN -- reported, not asserted:
+
+    * a warp on a trigger metatile that is NOT one of the behaviours above. 1719 of this
+      build's 3608 warp tiles sit on ordinary floor and the engine still accepts many of
+      them as step-on warps, so "not a warp behaviour" is NOT evidence of death. The
+      record carries the observed behaviour, the arrival tile and both tiles'
+      walkability so a reader can see exactly what was measured;
+    * every script-command transition. Deciding reachability needs the script call
+      graph, which is far larger than this analyzer; the commands are reported as
+      CANDIDATES with file and line, and `shared_include` marks the ones in a file that
+      holds more than one map's script set (the department-store elevators are the known
+      example, and a manual audit must reject them).
+
+The committed evidence record therefore splits its claims in two: a `tool_derived` half
+this analyzer reproduces and `--check` verifies, and a `manual_engine_source_verified`
+half that decides the UNPROVEN edges and records what an analyzer without a call graph
+cannot. Neither half is presented as the other's work.
 
 No ROM, save file, save state or emulator is involved, and nothing is downloaded.
 The mode of a section's region follows DualDex: REGION_JOHTO -> Johto,
@@ -47,12 +107,23 @@ Usage:
 
   python3 tools/hns-map-data/hns_route.py route <map> <x> <y> map <dest-map>
   python3 tools/hns-map-data/hns_route.py route <map> <x> <y> tile <x,y>
-  python3 tools/hns-map-data/hns_route.py edges [--cross-only]
+  python3 tools/hns-map-data/hns_route.py edges [--gates]
+  python3 tools/hns-map-data/hns_route.py warps
+  python3 tools/hns-map-data/hns_route.py blockers
+  python3 tools/hns-map-data/hns_route.py inventory [--write <path> | --check <path>]
 
 The upstream checkout is located through HNS_UPSTREAM_DIR, then the repo-relative
 `upstream-hns/pokehns-expansion`, then the conventional sibling layout.
 """
 
+import argparse
+import json
+import os
+import re
+import struct
+import subprocess
+import sys
+from collections import deque
 import argparse
 import json
 import os
@@ -67,6 +138,20 @@ UPSTREAM_SEARCH_PATHS = [
     os.path.join(DEFAULT_REPO_ROOT, "upstream-hns/pokehns-expansion"),
     os.path.join(os.path.dirname(DEFAULT_REPO_ROOT), "upstream-hns/pokehns-expansion"),
 ]
+
+PINNED_COMMIT_SHA = "1f42b74dff0e9fe942419845d040663dd829a973"
+PINNED_TAG = "Release-v2.0.5"
+
+# Tracked input paths this tool reads. A modified or deleted entry under any of these refuses the
+# run: layout dimensions, block data and metatile attributes are all reachability evidence here.
+REQUIRED_CLEAN_SOURCES = (
+    "data/maps/",
+    "data/layouts/",
+    "data/tilesets/",
+    "data/scripts/",
+    "include/constants/",
+    "src/data/tilesets/",
+)
 
 REGION_BY_SECTION_PREFIX = {
     "REGION_JOHTO": "JOHTO",
@@ -88,8 +173,210 @@ def find_upstream(explicit=None):
     raise SystemExit(
         "error: no pinned H&S upstream checkout found. Set HNS_UPSTREAM_DIR to a checkout of "
         "PokemonHnS-Development/pokehns-expansion at "
-        "1f42b74dff0e9fe942419845d040663dd829a973 (Release-v2.0.5)."
+        f"{PINNED_COMMIT_SHA} ({PINNED_TAG})."
     )
+
+
+def verify_provenance(upstream_dir):
+    """Fail closed unless the checkout is the exact pinned revision with clean inputs.
+
+    This tool's output is cited as evidence about the pinned 2.0.5 build, so it may not read an
+    arbitrary or locally edited tree: a different revision could have different map groups, and a
+    hand-edited `map.bin` or `metatile_attributes.bin` could manufacture a reachable route. The
+    check mirrors `generate_hns_map_data.py`, widened to the paths this tool consumes.
+    """
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=upstream_dir, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        raise SystemExit(f"error: could not read the upstream git revision: {exc}")
+
+    if head != PINNED_COMMIT_SHA:
+        raise SystemExit(
+            f"error: upstream checkout is at {head}, but this tool is pinned to "
+            f"{PINNED_COMMIT_SHA} ({PINNED_TAG}). Refusing to analyse an unpinned revision."
+        )
+
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=upstream_dir, capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    # An untracked file outside the read set cannot affect the analysis; CI's sparse checkout
+    # produces plenty of them. A tracked file that is modified or deleted inside the read set can.
+    blocking = [
+        line for line in status.splitlines()
+        if not line.startswith("??")
+        and any(entry in line for entry in REQUIRED_CLEAN_SOURCES)
+    ]
+    if blocking:
+        raise SystemExit(
+            "error: upstream checkout has uncommitted changes in the files this tool reads; "
+            "refusing to analyse a modified tree:\n  " + "\n  ".join(blocking)
+        )
+    return head
+
+
+
+# --- metatile behaviours ---------------------------------------------------------------------
+# A warp is only functional when the metatile the player triggers it from carries a behaviour the
+# engine's warp predicates accept. `src/field_control_avatar.c`:
+#   IsWarpMetatileBehavior   -- doors, ladders, cracked floors, escalators, water doors
+#   TryArrowWarp             -- the four arrow warps plus their water/deep variants
+WARP_METATILE_BEHAVIORS = (
+    "MB_ANIMATED_DOOR",
+    "MB_NON_ANIMATED_DOOR",
+    "MB_LADDER",
+    "MB_CRACKED_FLOOR_HOLE",
+    "MB_LAVARIDGE_GYM_1F_WARP",
+    "MB_UP_ESCALATOR",
+    "MB_DOWN_ESCALATOR",
+    "MB_WATER_DOOR",
+)
+ARROW_WARP_METATILE_BEHAVIORS = (
+    "MB_EAST_ARROW_WARP",
+    "MB_WEST_ARROW_WARP",
+    "MB_NORTH_ARROW_WARP",
+    "MB_SOUTH_ARROW_WARP",
+    "MB_WATER_SOUTH_ARROW_WARP",
+    "MB_DEEP_SOUTH_WARP",
+)
+
+NUM_TILES_IN_PRIMARY = 512
+
+
+def verified_source(upstream_dir=None):
+    """Locate, verify and open the pinned checkout.
+
+    Every command goes through here, so there is exactly one place that can decide what counts as
+    the pinned build. Returning a `Source` without verifying would defeat the purpose, which is why
+    the constructor is not called anywhere else in this module.
+    """
+    root = find_upstream(upstream_dir)
+    verify_provenance(root)
+    return Source(root)
+
+
+class BehaviourSource:
+    """The pinned build's metatile-behaviour tables.
+
+    Metatile attributes are a per-tileset array; `include/global.fieldmap.h` fixes the layout as an
+    8-bit behaviour in the low bits of a 16-bit word, so `attributes[id] & 0xFF` is the behaviour.
+    Resolving a map tile to a behaviour therefore needs three things this class caches: the
+    behaviour enum values, the tileset -> attribute-file mapping, and the decoded arrays.
+    """
+
+    def __init__(self, root):
+        self.root = root
+        self.names = self._parse_behaviour_enum()
+        self.values = {name: value for name, value in self.names.items()}
+        self._attribute_paths = self._parse_attribute_paths()
+        self._tileset_attribute_constant = self._parse_tileset_headers()
+        self._arrays = {}
+
+    def _parse_behaviour_enum(self):
+        path = os.path.join(self.root, "include/constants/metatile_behaviors.h")
+        source = open(path, encoding="utf-8").read()
+        body = source[source.index("{") + 1:source.index("};")]
+        names = {}
+        value = -1
+        for line in body.splitlines():
+            line = re.sub(r"//.*", "", line).strip().rstrip(",")
+            if not line:
+                continue
+            if "=" in line:
+                name, raw = line.split("=", 1)
+                value = int(raw.strip(), 0)
+                names[name.strip()] = value
+            else:
+                value += 1
+                names[line] = value
+        if not names:
+            raise SystemExit("error: could not parse the metatile behaviour enum")
+        return names
+
+    def _parse_attribute_paths(self):
+        path = os.path.join(self.root, "src/data/tilesets/metatiles.h")
+        source = open(path, encoding="utf-8").read()
+        found = {}
+        pattern = (
+            r"gMetatileAttributes_([A-Za-z0-9_]+)"
+            + r"\["
+            + r"\]"
+            + r"[^;]*?INCBIN_U16\(\"([^\"]+)\"\)"
+        )
+        for match in re.finditer(pattern, source):
+            found[match.group(1)] = match.group(2)
+        return found
+
+    def _parse_tileset_headers(self):
+        path = os.path.join(self.root, "src/data/tilesets/headers.h")
+        source = open(path, encoding="utf-8").read()
+        found = {}
+        pattern = (
+            r"const struct Tileset (gTileset_[A-Za-z0-9_]+) =\s*\{"
+            + r"(.*?)\n\};"
+        )
+        for match in re.finditer(pattern, source, re.S):
+            body = match.group(2)
+            attributes = re.search(r"\.metatileAttributes\s*=\s*(\w+)", body)
+            if attributes:
+                found[match.group(1)] = attributes.group(1).replace(
+                    "gMetatileAttributes_", ""
+                )
+        return found
+
+    def behaviour_of(self, tileset, metatile_id):
+        """Behaviour of a metatile in a map's tileset pair, or None when it cannot be resolved.
+
+        `metatile_id < 512` selects the primary tileset; anything above it indexes the secondary.
+        """
+        constant = self._tileset_attribute_constant.get(tileset)
+        if constant is None:
+            return None
+        if constant not in self._arrays:
+            relative = self._attribute_paths.get(constant)
+            if relative is None:
+                self._arrays[constant] = None
+            else:
+                path = os.path.join(self.root, relative)
+                if not os.path.isfile(path):
+                    self._arrays[constant] = None
+                else:
+                    self._arrays[constant] = open(path, "rb").read()
+        data = self._arrays[constant]
+        if data is None:
+            return None
+        if metatile_id >= NUM_TILES_IN_PRIMARY:
+            metatile_id -= NUM_TILES_IN_PRIMARY
+        offset = metatile_id * 2
+        if offset + 2 > len(data):
+            return None
+        return struct.unpack("<H", data[offset:offset + 2])[0] & 0x00FF
+
+    def name_of(self, behaviour):
+        for name, value in self.names.items():
+            if value == behaviour:
+                return name
+        return None
+
+    def is_warp_behaviour(self, behaviour):
+        name = self.name_of(behaviour)
+        return name in WARP_METATILE_BEHAVIORS or name in ARROW_WARP_METATILE_BEHAVIORS
+
+    def is_arrow_behaviour(self, behaviour):
+        return self.name_of(behaviour) in ARROW_WARP_METATILE_BEHAVIORS
+
+
+# --- script-command warps ---------------------------------------------------------------------
+# Some cross-region transitions are `warp`/`warpsilent`/`warpteleport` script commands rather than
+# map data. They are found by scanning the pinned `.inc` files; the source file is the attribution,
+# and a warp inside `data/scripts/` (a shared include) is reported as shared rather than attributed
+# to one map, because a shared file holds more than one script set.
+WARP_COMMAND_RE = re.compile(
+    r"^\s*(warp|warpsilent|warpteleport)\s+([A-Za-z0-9_]+)\s*,", re.M
+)
 
 
 class Source:
@@ -97,6 +384,7 @@ class Source:
 
     def __init__(self, root):
         self.root = root
+        self.behaviours = BehaviourSource(root)
         self.maps_dir = os.path.join(root, "data/maps")
         with open(os.path.join(root, "data/layouts/layouts.json"), encoding="utf-8") as handle:
             self.layouts = {entry["id"]: entry for entry in json.load(handle)["layouts"]}
@@ -162,6 +450,47 @@ class Source:
             return None
         return REGION_BY_SECTION_PREFIX.get(meta.get("region"))
 
+    def script_warps(self):
+        """Cross-region `warp`/`warpsilent`/`warpteleport` commands in the pinned scripts.
+
+        Returns `(from_file, line, command, target_map, from_region, to_region)` for every command
+        whose target is a known H&S map in a different region than the file's own map. A command in
+        `data/scripts/` (a shared include) is attributed to the shared file rather than to one map,
+        because one shared file can hold several independent script sets and attributing it to a map
+        would invent a source that the call graph does not support.
+        """
+        results = []
+        roots = [self.maps_dir, os.path.join(self.root, "data/scripts")]
+        for root in roots:
+            for dirpath, _dirnames, filenames in os.walk(root):
+                for filename in sorted(filenames):
+                    if not filename.endswith(".inc"):
+                        continue
+                    path = os.path.join(dirpath, filename)
+                    owner = os.path.basename(dirpath) if dirpath.startswith(self.maps_dir) else None
+                    from_region = self.region(owner) if owner else None
+                    with open(path, encoding="utf-8", errors="replace") as handle:
+                        for number, line in enumerate(handle, start=1):
+                            match = WARP_COMMAND_RE.match(line)
+                            if not match:
+                                continue
+                            target = self.name_by_id.get(match.group(2))
+                            if not target:
+                                continue
+                            to_region = self.region(target)
+                            if not from_region or not to_region or to_region == from_region:
+                                continue
+                            results.append((
+                                os.path.relpath(path, self.root),
+                                number,
+                                match.group(1),
+                                target,
+                                from_region,
+                                to_region,
+                                owner,
+                            ))
+        return sorted(results)
+
     def story_gates(self, name):
         """Story conditions the destination map's own scripts require before it lets you through.
 
@@ -219,6 +548,87 @@ class Source:
         if grid[y][x] != 0:
             return False
         return not (respect_objects and self.blocked_by_object(name, x, y))
+
+    def behaviour_at(self, name, x, y):
+        """The metatile behaviour of a tile, or None when it cannot be resolved.
+
+        `map.bin` carries only collision and elevation; the behaviour lives in the layout's
+        tileset attribute arrays, which is why an honest warp classification has to read them.
+        """
+        info = self.collision(name)
+        meta = self.meta(name)
+        if not info or not meta:
+            return None
+        width, height, grid = info
+        if not (0 <= x < width and 0 <= y < height):
+            return None
+        layout = self.layouts[meta["layout"]]
+        raw = self._block_values(meta["layout"])
+        value = raw[y * width + x]
+        metatile_id = value & 0x03FF
+        tileset = (
+            layout["primary_tileset"]
+            if metatile_id < NUM_TILES_IN_PRIMARY
+            else layout["secondary_tileset"]
+        )
+        return self.behaviours.behaviour_of(tileset, metatile_id)
+
+    def behaviour_name_at(self, name, x, y):
+        behaviour = self.behaviour_at(name, x, y)
+        if behaviour is None:
+            return None
+        return self.behaviours.name_of(behaviour)
+
+    def _block_values(self, layout_id):
+        if not hasattr(self, "_blocks"):
+            self._blocks = {}
+        if layout_id not in self._blocks:
+            layout = self.layouts[layout_id]
+            width, height = layout["width"], layout["height"]
+            with open(os.path.join(self.root, layout["blockdata_filepath"]), "rb") as handle:
+                raw = handle.read()
+            self._blocks[layout_id] = struct.unpack(
+                "<%dH" % (width * height), raw[: width * height * 2]
+            )
+        return self._blocks[layout_id]
+
+    def _arrival_tile(self, destination, door):
+        """The tile the player lands on: the destination map's own `dest_warp_id` entry."""
+        index = self._warp_index(door)
+        if index is None:
+            return (0, 0)
+        warps = self.meta(destination).get("warp_events") or []
+        if index >= len(warps):
+            return (0, 0)
+        return (warps[index]["x"], warps[index]["y"])
+
+    def _warp_is_functional(self, name, x, y):
+        """Whether the engine's warp predicates can fire at this tile or the one in front of it.
+
+        `TryDoorWarp` tests the metatile AHEAD of the player, and `TryArrowWarp` tests the tile the
+        player stands on, so both are checked. A tile whose behaviour is missing cannot be proven
+        functional, so it is reported as unproven rather than assumed live.
+        """
+        info = self.collision(name)
+        if not info:
+            return None
+        width, height, grid = info
+        candidates = [(x, y)]
+        for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
+            candidates.append((x + dx, y + dy))
+        seen_any = False
+        for cx, cy in candidates:
+            if not (0 <= cx < width and 0 <= cy < height):
+                continue
+            behaviour = self.behaviour_at(name, cx, cy)
+            if behaviour is None:
+                continue
+            seen_any = True
+            if self.behaviours.is_warp_behaviour(behaviour):
+                return True
+        # A tile that is not walkable is only reachable as a door target from the tile in front,
+        # so an unproven behaviour on an impassable tile must not be reported as live.
+        return False if seen_any else None
 
     def connection_steps(self, name, x, y):
         """Crossings available from the exact edge tile (x, y), as `(kind, direction, map, x, y)`.
@@ -379,18 +789,25 @@ class Source:
                 if not in_bounds:
                     yield name, (x, y), target, "dead warp outside the layout"
                     continue
-                # A door/arrow warp needs a walkable approach tile or a walkable warp tile, and the
-                # metatile behaviour must be one the engine's warp predicates accept. Without the
-                # behaviours table this tool can only check the tile geometry, so a warp whose tile
-                # and approach are both impassable is reported dead and anything else as a warp.
-                approachable = any(
-                    self.walkable(name, x + dx, y + dy)
-                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))
-                )
-                if grid[y][x] != 0 and not approachable:
-                    yield name, (x, y), target, "dead warp (no walkable approach)"
-                else:
+                observed = self.behaviour_at(name, x, y)
+                if observed is None:
+                    yield name, (x, y), target, "unproven warp (metatile behaviour unresolved)"
+                elif self.behaviours.is_warp_behaviour(observed):
+                    # The engine's own warp predicate accepts this metatile, so the edge is
+                    # FUNCTIONAL by construction from the pinned metatile data.
                     yield name, (x, y), target, "warp"
+                else:
+                    # 1719 of this build's 3608 warp tiles sit on ordinary floor metatiles that the
+                    # engine accepts as step-on warps, so "not a warp behaviour" is NOT evidence of
+                    # death: whether a given warp_def fires from a floor tile is decided by engine
+                    # code (`TryStartWarpEventScript` / `TryDoorWarp`) against the elevation and the
+                    # player's approach, which map data alone does not settle. Report it as unproven
+                    # rather than asserting either way.
+                    yield name, (x, y), target, (
+                        "unproven warp (trigger metatile carries %s, which is not one of the "
+                        "engine's metatile warp behaviours; a step-on warp is decided by engine "
+                        "code, not by map data)" % self.behaviours.name_of(observed)
+                    )
 
             for conn in meta.get("connections") or []:
                 target = self.name_by_id.get(conn["map"])
@@ -468,6 +885,236 @@ def emit(path):
     flush()
     lines.append("assert-pos %d %d" % (path[-1][1], path[-1][2]))
     return lines
+
+
+
+# --- machine-checkable cross-region inventory --------------------------------------------------
+# `inventory` emits exactly the claims the analyzer can reproduce from the pinned tree, and
+# `--check` compares them against the committed record. That is what stops the committed
+# classification from drifting away from the source it claims to describe.
+EVIDENCE_SCHEMA = "dualdex.hns.cross-region-inventory/1"
+
+
+def build_inventory(source):
+    """The analyzer's own cross-region claims, as a JSON-serialisable document."""
+    functional = []
+    dead = []
+    for name, at, target, mechanism in source.all_edges():
+        from_region, to_region = source.region(name), source.region(target)
+        if not from_region or not to_region or from_region == to_region:
+            continue
+        if mechanism.startswith("connection "):
+            functional.append({
+                "kind": "connection",
+                "direction": mechanism.split(" ", 1)[1],
+                "from_map": name,
+                "from_group_num": [source.group_of.get(name), source.num_of.get(name)],
+                "from_region": from_region,
+                "from_section": source.section_of.get(name),
+                "to_map": target,
+                "to_group_num": [source.group_of.get(target), source.num_of.get(target)],
+                "to_region": to_region,
+                "to_section": source.section_of.get(target),
+            })
+        elif mechanism == "warp":
+            x, y = at
+            functional.append({
+                "kind": "warp",
+                "from_map": name,
+                "from_group_num": [source.group_of.get(name), source.num_of.get(name)],
+                "from_region": from_region,
+                "from_section": source.section_of.get(name),
+                "to_map": target,
+                "to_group_num": [source.group_of.get(target), source.num_of.get(target)],
+                "to_region": to_region,
+                "to_section": source.section_of.get(target),
+                "at": [x, y],
+                "behaviour": source.behaviours.name_of(source.behaviour_at(name, x, y)),
+                "gate": sorted({"%s %s %s" % g for g in source.story_gates(target)}),
+                "from_gate": sorted({"%s %s %s" % g for g in source.story_gates(name)}),
+            })
+        elif mechanism.startswith("dead ") or mechanism.startswith("unproven "):
+            record = {
+                "from_map": name,
+                "from_group_num": [source.group_of.get(name), source.num_of.get(name)],
+                "from_region": from_region,
+                "from_section": source.section_of.get(name),
+                "to_map": target,
+                "to_group_num": [source.group_of.get(target), source.num_of.get(target)],
+                "to_region": to_region,
+                "to_section": source.section_of.get(target),
+                "at": list(at),
+                "reason_class": mechanism,
+                "reason": DEAD_REASONS.get(mechanism.split(" (")[0], mechanism),
+            }
+            if mechanism.startswith("unproven warp"):
+                record["trigger_behaviour"] = source.behaviour_name_at(name, at[0], at[1])
+                record["trigger_tile_walkable"] = source.walkable(name, at[0], at[1])
+                for door in source.meta(name).get("warp_events") or []:
+                    if (door["x"], door["y"]) == tuple(at):
+                        arrival = source._arrival_tile(target, door)
+                        record["arrival_tile"] = list(arrival)
+                        record["arrival_tile_walkable"] = source.walkable(target, *arrival)
+                        break
+            dead.append(record)
+
+    def sort_key(entry):
+        return (entry["from_region"], entry["to_region"], entry["from_map"], entry["to_map"])
+
+    return {
+        "schema": EVIDENCE_SCHEMA,
+        "upstream_commit": PINNED_COMMIT_SHA,
+        "upstream_tag": PINNED_TAG,
+        "producer": "python3 tools/hns-map-data/hns_route.py inventory",
+        "region_ranges": {
+            "KANTO": "MAPSEC_PALLET_TOWN=20 .. MAPSEC_POWER_PLANT=62",
+            "JOHTO": "MAPSEC_NEW_BARK_TOWN=63 .. MAPSEC_WHIRL_ISLANDS=124",
+            "ALOLA": "MAPSEC_MELEMELE_ISLAND=9 .. MAPSEC_ULAULA_CAVE_2=18",
+            "SINJOH": "MAPSEC_SNOWSWEPT_CAVERN=109 .. MAPSEC_SINJOH_RUINS=113",
+        },
+        "functional_edges": sorted(functional, key=sort_key),
+        # Named for what it is: each entry is either a DEAD edge the analyzer derived, or an edge it
+        # could not decide from map data. Calling the list "dead_edges" would claim more than the
+        # entries support.
+        "undecided_from_map_data": sorted(dead, key=sort_key),
+        "script_warp_candidates": [
+            {
+                "file": relative,
+                "line": number,
+                "command": command,
+                "to_map": target,
+                "from_region": from_region,
+                "to_region": to_region,
+                "owner_map": owner,
+            }
+            for (relative, number, command, target, from_region, to_region, owner)
+            in source.script_warps()
+        ],
+    }
+
+
+DEAD_REASONS = {
+    "dead warp outside the layout":
+        "the warp_def sits outside the map's own dimensions, so no tile can trigger it",
+    "dead warp":
+        "the metatile behaviour at and around the warp tile is not one the engine's warp "
+        "predicates accept (src/field_control_avatar.c IsWarpMetatileBehavior / TryArrowWarp), so "
+        "the warp never fires",
+    "dead connection":
+        "no crossing tile satisfies the engine's dest = src - offset window, or a border column is "
+        "entirely impassable, so the connection never fires (src/fieldmap.c)",
+}
+
+
+def load_json(path):
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def command_inventory(source, args):
+    document = build_inventory(source)
+    if args.write:
+        with open(args.write, "w", encoding="utf-8") as handle:
+            json.dump(document, handle, indent=2, sort_keys=False)
+            handle.write("\n")
+        print("wrote %s" % args.write)
+        return 0
+
+    if args.check:
+        committed = load_json(args.check)
+        problems = []
+        if committed.get("upstream_commit") != document["upstream_commit"]:
+            problems.append(
+                "upstream_commit is %r, expected %r"
+                % (committed.get("upstream_commit"), document["upstream_commit"])
+            )
+        for key in ("functional_edges", "undecided_from_map_data", "script_warp_candidates"):
+            want = document[key]
+            got = committed.get(key)
+            if got != want:
+                problems.append(
+                    "%s differs: committed %s entries, regenerated %s"
+                    % (key, len(got) if got is not None else "no", len(want))
+                )
+                for entry in want:
+                    if entry not in (got or []):
+                        problems.append("  missing from the committed record: %s" % json.dumps(entry))
+                for entry in (got or []):
+                    if entry not in want:
+                        problems.append("  stale in the committed record: %s" % json.dumps(entry))
+
+        # The manually engine-source-verified half may not contradict the tool-derived half. Each
+        # class the tool could not decide must appear in the manual audit with a verdict, so the
+        # committed record is a partition of the edge set rather than a table the tool cannot check.
+        manual = committed.get("manual_engine_source_verified", {})
+        decided = {}
+        for entry in manual.get("edges", []):
+            key = (entry.get("from_map"), entry.get("to_map"))
+            decided[key] = entry.get("verdict")
+            if entry.get("verdict") not in ("functional", "dead"):
+                problems.append("manual edge %s has no verdict" % (key,))
+            if not entry.get("evidence"):
+                problems.append("manual edge %s cites no evidence" % (key,))
+
+        for entry in document["undecided_from_map_data"]:
+            key = (entry["from_map"], entry["to_map"])
+            if key not in decided:
+                problems.append(
+                    "edge %s was not decidable from map data and has no manual verdict" % (key,)
+                )
+        for entry in document["functional_edges"]:
+            key = (entry["from_map"], entry["to_map"])
+            verdict = decided.get(key)
+            if verdict == "dead":
+                problems.append(
+                    "edge %s is functional from its metatile behaviour but the manual audit calls "
+                    "it dead" % (key,)
+                )
+
+        if args.check_embedded:
+            record = load_json(args.check_embedded)
+            embedded = (
+                record.get("cross_region_transitions", {}).get("tool_derived", {})
+            )
+            for key in ("functional_edges", "undecided_from_map_data", "script_warp_candidates"):
+                if embedded.get(key) != document[key]:
+                    problems.append(
+                        "the record at %s embeds a %s list that differs from the verified "
+                        "inventory" % (args.check_embedded, key)
+                    )
+
+        if problems:
+            print("inventory --check FAILED:")
+            for problem in problems:
+                print("  %s" % problem)
+            return 1
+        print(
+            "inventory --check OK (%d functional, %d undecided-from-map-data with manual verdicts, "
+            "%d script-warp candidates match the pinned source)"
+            % (
+                len(document["functional_edges"]),
+                len(document["undecided_from_map_data"]),
+                len(document["script_warp_candidates"]),
+            )
+        )
+        return 0
+
+    print(json.dumps(document, indent=2))
+    return 0
+
+def command_warps(source, args):
+    """Cross-region `warp` script commands, with the exact file and line that contains each."""
+    rows = source.script_warps()
+    print("cross-region warp script commands in the pinned build: %d" % len(rows))
+    print()
+    print("%-58s %-6s %-12s %-30s %-7s %-7s %s" % (
+        "file", "line", "command", "target map", "from", "to", "attributed to",
+    ))
+    for relative, number, command, target, from_region, to_region, owner in rows:
+        print("%-58s %-6d %-12s %-30s %-7s %-7s %s" % (
+            relative, number, command, target, from_region, to_region, owner or "(shared include)",
+        ))
+    return 0
 
 
 def command_blockers(source, args):
@@ -640,13 +1287,33 @@ def main():
     )
     edges.set_defaults(func=command_edges)
 
+    warps = sub.add_parser(
+        "warps", help="cross-region warp script commands with their file and line"
+    )
+    warps.set_defaults(func=command_warps)
+
+    inventory = sub.add_parser(
+        "inventory", help="emit or verify the machine-checkable cross-region inventory"
+    )
+    inventory.add_argument("--write", default=None, help="write the inventory to this path")
+    inventory.add_argument("--check", default=None, help="verify this committed inventory")
+    inventory.add_argument(
+        "--check-embedded",
+        default=None,
+        help=(
+            "also verify the copy embedded in this runtime evidence record, so the record and the "
+            "verified inventory cannot drift apart"
+        ),
+    )
+    inventory.set_defaults(func=command_inventory)
+
     blockers = sub.add_parser(
         "blockers", help="resolve the FLAG_/VAR_ conditions gating each cross-region transition"
     )
     blockers.set_defaults(func=command_blockers)
 
     args = parser.parse_args()
-    return args.func(Source(find_upstream(args.upstream_dir)), args)
+    return args.func(verified_source(args.upstream_dir), args)
 
 
 if __name__ == "__main__":

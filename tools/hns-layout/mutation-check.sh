@@ -37,8 +37,20 @@ MUTATED_FILES=(
   "app/src/main/java/com/dualdex/pokemon/LocationResolver.kt"
   "app/src/main/java/com/dualdex/pokemon/hns/Hns205MapData.kt"
   "app/src/main/java/com/dualdex/companion/ui/MapScreenPresenter.kt"
+  "tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json"
+  "tools/hns-map-data/hns_route.py"
+  "tools/hns-map-data/test_hns_route.py"
+  "tools/hns-runtime-probe/evidence/location-runtime-evidence.json"
 )
+for file in "${MUTATED_FILES[@]}"; do
+  [ -f "$file" ] || { echo "error: mutated file $file does not exist" >&2; exit 2; }
+done
 BEFORE="$(sha256sum "${MUTATED_FILES[@]}")"
+# A per-file copy of the exact pre-run content, so restoration can be proven against what this run
+# actually started from rather than against a hash that a previous failed run could have poisoned.
+for file in "${MUTATED_FILES[@]}"; do
+  cp -- "$file" "$BACKUP_DIR/pristine-$(echo "$file" | tr '/' '_')"
+done
 
 # mutate <name> <file> <python-replacement-script>
 mutate() {
@@ -54,12 +66,29 @@ mutate() {
     return
   fi
 
-  if ./gradlew --offline -q :app:testDebugUnitTest --tests "$FILTER" > /tmp/dualdex-mutation.log 2>&1; then
-    printf '  [FAIL] %-38s suite still PASSED under the mutation\n' "$name"
+  # Two independent gates, because they catch different halves of the contract:
+  #   * the Kotlin suite owns the production map/location behaviour and the embedded evidence table;
+  #   * the analyzer owns its own provenance boundary and its agreement with the pinned source,
+  #     which a JVM test cannot express.
+  local kotlin_rc=0 tool_rc=0
+  ./gradlew --offline -q :app:testDebugUnitTest --tests "$FILTER" > /tmp/dualdex-mutation.log 2>&1 || kotlin_rc=1
+  python3 tools/hns-map-data/hns_route.py inventory \
+    --check tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json \
+    --check-embedded tools/hns-runtime-probe/evidence/location-runtime-evidence.json \
+    > /tmp/dualdex-mutation-tool.log 2>&1 || tool_rc=1
+  python3 -m unittest discover -s tools/hns-map-data -p 'test_hns_route.py' -t tools/hns-map-data \
+    >> /tmp/dualdex-mutation-tool.log 2>&1 || tool_rc=1
+
+  if [ "$kotlin_rc" -eq 0 ] && [ "$tool_rc" -eq 0 ]; then
+    printf '  [FAIL] %-38s every gate still PASSED under the mutation\n' "$name"
     FAILURES=$((FAILURES + 1))
   else
-    printf '  [PASS] %-38s suite failed as required\n' "$name"
-    grep -m2 -E 'FAILED$|tests completed' /tmp/dualdex-mutation.log | sed 's/^/         /'
+    printf '  [PASS] %-38s caught (kotlin=%s tool=%s)\n' \
+      "$name" "$([ "$kotlin_rc" -ne 0 ] && echo fail || echo pass)" \
+      "$([ "$tool_rc" -ne 0 ] && echo fail || echo pass)"
+    grep -m2 -E 'FAILED$|tests completed' /tmp/dualdex-mutation.log | sed 's/^/         /' || true
+    grep -m2 -E 'FAILED|failed|Refusing|refusing|error:' /tmp/dualdex-mutation-tool.log \
+      | sed 's/^/         /' || true
   fi
 
   cp -- "$backup" "$file"
@@ -150,12 +179,91 @@ assert old in s, "anchor not found"
 open(p, "w").write(s.replace(old, new))
 '
 
+# 7. Weaken the analyzer's provenance boundary so it would accept an unpinned or modified checkout.
+#    Only the analyzer's own gate can catch this: a JVM test cannot express a git-revision check.
+mutate "provenance-boundary-weakened" \
+  "tools/hns-map-data/hns_route.py" '
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = "    if head != PINNED_COMMIT_SHA:"
+new = "    if False:"
+assert old in s, "anchor not found"
+open(p, "w").write(s.replace(old, new))
+'
+
+# 8. Hand-edit the committed cross-region inventory so a region claim disagrees with the pinned
+#    source. Both gates catch it: the analyzer re-derives the file, and the Kotlin suite embeds the
+#    same table, so the "no bounded legal route reaches Kanto" claim cannot rest on a table nobody
+#    re-derives.
+mutate "committed-inventory-region-edited" \
+  "tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json" '
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+assert d["functional_edges"], "no functional edges to edit"
+edge = d["functional_edges"][0]
+edge["to_region"] = "KANTO" if edge["to_region"] != "KANTO" else "JOHTO"
+json.dump(d, open(p, "w"), indent=2)
+'
+
+# 9. Drop an undecided edge from the record so an edge with no manual verdict would go unnoticed --
+#    exactly the "hand-edited table" failure the tool/manual split exists to prevent.
+mutate "undecided-edge-dropped" \
+  "tools/hns-runtime-probe/evidence/hns-cross-region-inventory.json" '
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+assert d["undecided_from_map_data"], "no undecided edges to drop"
+d["undecided_from_map_data"].pop()
+json.dump(d, open(p, "w"), indent=2)
+'
+
+# 10. Weaken the provenance regression itself so it stops asserting anything, which would let the
+#     boundary rot while the gate stayed green.
+mutate "provenance-test-neutered" \
+  "tools/hns-map-data/test_hns_route.py" '
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = "        with self.assertRaises(SystemExit) as raised:\n            hns_route.verify_provenance(self.repo)\n        message = str(raised.exception)"
+new = "        hns_route.verify_provenance(self.repo)\n        message = \"\""
+assert old in s, "anchor not found"
+open(p, "w").write(s.replace(old, new))
+'
+
+# 11. Edit the copy embedded in the runtime evidence record so the record and the verified inventory
+#     disagree. The Kotlin suite reads the inventory file directly, so this is the tool's invariant.
+mutate "evidence-record-embedded-edit" \
+  "tools/hns-runtime-probe/evidence/location-runtime-evidence.json" '
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+edges = d["cross_region_transitions"]["tool_derived"]["functional_edges"]
+assert edges, "no embedded functional edges"
+edge = edges[0]
+edge["to_region"] = "KANTO" if edge["to_region"] != "KANTO" else "JOHTO"
+json.dump(d, open(p, "w"), indent=2)
+'
+
 echo
+restore_failed=0
 if [ "$(sha256sum "${MUTATED_FILES[@]}")" != "$BEFORE" ]; then
+  restore_failed=1
+fi
+for file in "${MUTATED_FILES[@]}"; do
+  pristine="$BACKUP_DIR/pristine-$(echo "$file" | tr '/' '_')"
+  if ! cmp -s -- "$pristine" "$file"; then
+    echo "error: $file does not match the content this run started from" >&2
+    diff -u -- "$pristine" "$file" | head -20 >&2 || true
+    restore_failed=1
+  fi
+done
+if [ "$restore_failed" -ne 0 ]; then
   echo "error: a mutated file was not restored; the working tree is NOT as it was found" >&2
   exit 1
 fi
-echo "every mutated file was restored byte-identically"
+echo "every mutated file was restored byte-identically to the content this run started from"
 echo "== mutation summary: $CASES mutations, $FAILURES not caught =="
 [ "$FAILURES" -eq 0 ] || exit 1
 echo "every mutation was caught by the suite"

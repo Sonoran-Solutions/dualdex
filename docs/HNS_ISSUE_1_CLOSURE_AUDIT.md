@@ -69,7 +69,7 @@ final Scenario 70 replay.
 | Player / enemy party counts, raw and production | `3 / 2`; player count includes the Togepi egg, which is not a battler |
 | BattlePokemon species, battler order | `152,165,161,167` (Chikorita, Ledyba, Sentret, Spinarak) |
 | Live HP / max HP, battler order | `42/42,31/31,27/27,31/31` |
-| `pokemon_read_battle_lifecycle_gba` | `ACTIVE`, kind `DOUBLES` |
+| `pokemon_read_battle_lifecycle` | `ACTIVE`, kind `DOUBLES` |
 | Production battle presence | `PRESENT` |
 | Production enemy resolution | `AMBIGUOUS`, 2 present opponents, enemy slot `-1`, enemy battler `-1` |
 | Production player resolution | known=false, player slot `-1`, player battler `-1` |

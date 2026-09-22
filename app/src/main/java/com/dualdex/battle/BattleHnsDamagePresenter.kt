@@ -1,6 +1,7 @@
 package com.dualdex.battle
 
 import com.dualdex.calculator.CalcDataOverrides
+import com.dualdex.calculator.CalcCapabilityPolicy
 import com.dualdex.calculator.CalcFieldInput
 import com.dualdex.calculator.CalcGameTypes
 import com.dualdex.calculator.CalcHnsRuntimeRules
@@ -20,6 +21,7 @@ import com.dualdex.pokemon.hns.BattlerRuntimeObservation
 import com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
 import com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus
 import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
+import com.dualdex.pokemon.hns.HnsFairyTypeMappings
 import com.dualdex.pokemon.hns.HnsOptionStyle
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
@@ -112,6 +114,9 @@ data class BattleMovePresentationCacheKey(
 /** A boundary-authorized result or refusal, ready for the move-card model. */
 data class BattleHnsDamagePresentation(
     val category: MoveCategory?,
+    val moveType: PokemonType? = null,
+    val effectiveness: EffectivenessLabel? = null,
+    val effectivenessConfidence: DataConfidence = DataConfidence.UNAVAILABLE,
     val confidence: DamageConfidence = DamageConfidence.UNAVAILABLE,
     val minDamage: Int = 0,
     val maxDamage: Int = 0,
@@ -129,6 +134,12 @@ data class BattleHnsDamagePresentation(
  */
 object BattleHnsDamagePresenter {
 
+    private data class HnsMoveTypePresentation(
+        val moveType: PokemonType?,
+        val effectiveness: EffectivenessLabel? = null,
+        val effectivenessConfidence: DataConfidence = DataConfidence.UNAVAILABLE
+    )
+
     fun build(
         moveInfo: MoveInfo,
         defender: ParsedPokemon?,
@@ -144,11 +155,17 @@ object BattleHnsDamagePresenter {
             trust = runtimeTrust,
             challengeSettings = context?.challengeSettings
         )
-        val category = resolveCategory(moveInfo, profile, rules, context)
+        val typePresentation = resolveTypePresentation(
+            moveInfo, defender, profile, runtimeTrust, rules, context
+        )
+        val category = resolveCategory(moveInfo, profile, rules, typePresentation.moveType)
 
         if (context == null || defender == null || !context.activeBattle) {
             return BattleHnsDamagePresentation(
                 category = category,
+                moveType = typePresentation.moveType,
+                effectiveness = typePresentation.effectiveness,
+                effectivenessConfidence = typePresentation.effectivenessConfidence,
                 unavailableReason = "Live battle state incomplete",
                 limitations = listOf(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
             )
@@ -195,18 +212,34 @@ object BattleHnsDamagePresenter {
         return when (outcome) {
             is CalcRequestOutcome.Refused -> BattleHnsDamagePresentation(
                 category = category,
+                moveType = typePresentation.moveType,
+                effectiveness = typePresentation.effectiveness,
+                effectivenessConfidence = typePresentation.effectivenessConfidence,
                 support = outcome.verdict.support,
                 limitations = outcome.verdict.limitations,
                 unavailableReason = refusalReason(outcome.verdict, context)
             )
             is CalcRequestOutcome.Ready -> {
+                val requestTypePresentation = resolveTypePresentation(
+                    moveInfo = moveInfo,
+                    defender = defender,
+                    profile = profile,
+                    runtimeTrust = runtimeTrust,
+                    rules = rules,
+                    context = context,
+                    request = outcome.request
+                )
                 val authorizedCategory = categoryFromRequest(outcome.request)
+                    ?: resolveCategory(moveInfo, profile, rules, requestTypePresentation.moveType)
                 if (outcome.verdict.support != CalcSupport.ESTIMATED ||
                     authorizedCategory == MoveCategory.STATUS ||
                     (outcome.request.moveOverride?.basePower ?: moveInfo.power) <= 0
                 ) {
                     BattleHnsDamagePresentation(
                         category = authorizedCategory ?: category,
+                        moveType = requestTypePresentation.moveType,
+                        effectiveness = requestTypePresentation.effectiveness,
+                        effectivenessConfidence = requestTypePresentation.effectivenessConfidence,
                         support = outcome.verdict.support,
                         limitations = outcome.verdict.limitations,
                         unavailableReason = if (outcome.verdict.support == CalcSupport.ESTIMATED) null else "Calculation not supported"
@@ -216,6 +249,9 @@ object BattleHnsDamagePresenter {
                     if (response.success && response.maxDamage > 0) {
                         BattleHnsDamagePresentation(
                             category = parseCategory(response.moveCategory) ?: authorizedCategory ?: category,
+                            moveType = requestTypePresentation.moveType,
+                            effectiveness = requestTypePresentation.effectiveness,
+                            effectivenessConfidence = requestTypePresentation.effectivenessConfidence,
                             confidence = DamageConfidence.ESTIMATE,
                             minDamage = response.minDamage,
                             maxDamage = response.maxDamage,
@@ -226,6 +262,9 @@ object BattleHnsDamagePresenter {
                     } else {
                         BattleHnsDamagePresentation(
                             category = parseCategory(response.moveCategory) ?: authorizedCategory ?: category,
+                            moveType = requestTypePresentation.moveType,
+                            effectiveness = requestTypePresentation.effectiveness,
+                            effectivenessConfidence = requestTypePresentation.effectivenessConfidence,
                             support = outcome.verdict.support,
                             unavailableReason = "Calculation unavailable"
                         )
@@ -247,42 +286,118 @@ object BattleHnsDamagePresenter {
         moveInfo: MoveInfo,
         profile: RomHackProfile,
         rules: CalcHnsRuntimeRules?,
-        context: BattleHnsCalculationContext?
+        effectiveMoveType: PokemonType?
     ): MoveCategory? {
-        val category = CalcDataOverrides.resolveHnsMoveCategory(moveInfo.name, profile, rules)
-        if (category == MoveCategory.STATUS || rules?.optionStyle != HnsOptionStyle.TYPE_BASED) {
-            return category
+        val pack = GameDataPackRegistry.getForProfile(profile)
+        val pinnedMove = pack.getMoveByName(moveInfo.name) ?: return null
+        if (pinnedMove.category == MoveCategory.STATUS) return MoveCategory.STATUS
+        return when (rules?.optionStyle) {
+            HnsOptionStyle.PER_MOVE_SPLIT -> CalcDataOverrides.resolveHnsMoveCategory(moveInfo.name, profile, rules)
+            HnsOptionStyle.TYPE_BASED -> effectiveMoveType?.let(MoveEffectiveness::categoryForType)
+            else -> null
+        }
+    }
+
+    private fun resolveTypePresentation(
+        moveInfo: MoveInfo,
+        defender: ParsedPokemon?,
+        profile: RomHackProfile,
+        runtimeTrust: RuntimeRomTrust?,
+        rules: CalcHnsRuntimeRules?,
+        context: BattleHnsCalculationContext?,
+        request: com.dualdex.calculator.DamageCalculationRequest? = null
+    ): HnsMoveTypePresentation {
+        val pack = GameDataPackRegistry.getForProfile(profile)
+        val pinnedMove = pack.getMoveByName(moveInfo.name) ?: return HnsMoveTypePresentation(null)
+        val moveOverride = request?.moveOverride
+            ?: CalcDataOverrides.buildHnsMoveOverride(moveInfo.name, profile, rules)
+            ?: return HnsMoveTypePresentation(null)
+        if (pinnedMove.type == PokemonType.FAIRY && rules?.fairyTypesEnabled == null) {
+            return HnsMoveTypePresentation(null)
+        }
+        var effectiveMoveType = PokemonType.fromString(moveOverride.type)
+            ?: return HnsMoveTypePresentation(null)
+
+        if (context?.activeBattle == true) {
+            val observations = matchingLiveObservations(profile, runtimeTrust, context)
+                ?: return HnsMoveTypePresentation(null)
+            val player = observations.first
+            if (player.volatileElectrified ||
+                (effectiveMoveType == PokemonType.NORMAL &&
+                    (player.fieldStatuses and HnsBattlerRuntimeStateIds.STATUS_FIELD_ION_DELUGE) != 0)
+            ) {
+                effectiveMoveType = PokemonType.ELECTRIC
+            }
         }
 
-        val move = CalcDataOverrides.buildHnsMoveOverride(moveInfo.name, profile, rules) ?: return null
-        val pinnedMove = GameDataPackRegistry.getForProfile(profile).getMoveByName(moveInfo.name) ?: return null
-        if (pinnedMove.type == PokemonType.FAIRY && rules.fairyTypesEnabled == null) return null
+        if (pinnedMove.category == MoveCategory.STATUS || defender == null || defender.isEmpty || !defender.isValid) {
+            return HnsMoveTypePresentation(effectiveMoveType)
+        }
 
-        // Type-based category follows the live effective move type. The same exact observations
-        // the boundary uses distinguish a static type from Electrify / Ion Deluge; an unreadable
-        // operand cannot be replaced with the static type just for the card label.
-        if (context?.activeBattle != true) return category
+        val defenderName = pack.getSpecies(defender.species)?.name
+            ?: return HnsMoveTypePresentation(effectiveMoveType)
+        if (rules == null || rules.randomTypesEnabled != false || rules.randomTypeEffectivenessEnabled != false) {
+            return HnsMoveTypePresentation(effectiveMoveType)
+        }
+        if (rules.fairyTypesEnabled == null &&
+            HnsFairyTypeMappings.getPreFairyTypes(defenderName) != null
+        ) {
+            return HnsMoveTypePresentation(effectiveMoveType)
+        }
+
+        val defenderTypeNames = request?.defenderOverride?.types
+            ?: CalcDataOverrides.buildSpeciesOverride(defenderName, pack, rules.fairyTypesEnabled)?.types
+            ?: return HnsMoveTypePresentation(effectiveMoveType)
+        val defenderTypes = defenderTypeNames.map { PokemonType.fromString(it) ?: return HnsMoveTypePresentation(effectiveMoveType) }
+        if (defenderTypes.isEmpty() || defenderTypes.size > 2) return HnsMoveTypePresentation(effectiveMoveType)
+
+        if (context?.activeBattle == true) {
+            val observations = matchingLiveObservations(profile, runtimeTrust, context)
+                ?: return HnsMoveTypePresentation(effectiveMoveType)
+            val enemy = observations.second
+            if (!enemy.persistentVolatilesObserved || enemy.volatileRoostActive) {
+                return HnsMoveTypePresentation(effectiveMoveType)
+            }
+            val observedTypes = enemy.types.mapNotNull { observedType ->
+                if (!observedType.observed || observedType.outOfDomain) return HnsMoveTypePresentation(effectiveMoveType)
+                if (observedType.isTypeNoneSentinel) null
+                else observedType.name?.let(PokemonType::fromString)
+                    ?: return HnsMoveTypePresentation(effectiveMoveType)
+            }
+            if (observedTypes.isEmpty() || observedTypes.size > 2 || observedTypes.toSet() != defenderTypes.toSet()) {
+                return HnsMoveTypePresentation(effectiveMoveType)
+            }
+        }
+
+        val label = MoveEffectiveness.confidence(
+            moveType = effectiveMoveType,
+            defenderType1 = defenderTypes[0],
+            defenderType2 = defenderTypes.getOrNull(1),
+            steelResistsGhostDark = profile.steelResistsGhostDark,
+            dataPack = pack
+        ) ?: return HnsMoveTypePresentation(effectiveMoveType)
+        val confidence = if (CalcCapabilityPolicy.isExactRuntimeVerified(profile, runtimeTrust) &&
+            pack.isMoveAuthoritative(moveInfo.id) && pack.isSpeciesAuthoritative(defender.species)
+        ) DataConfidence.VERIFIED else DataConfidence.ESTIMATE
+        return HnsMoveTypePresentation(effectiveMoveType, label, confidence)
+    }
+
+    private fun matchingLiveObservations(
+        profile: RomHackProfile,
+        runtimeTrust: RuntimeRomTrust?,
+        context: BattleHnsCalculationContext
+    ): Pair<com.dualdex.pokemon.hns.HnsBattlerRuntimeState, com.dualdex.pokemon.hns.HnsBattlerRuntimeState>? {
+        if (!CalcCapabilityPolicy.isExactRuntimeVerified(profile, runtimeTrust)) return null
         val player = context.playerBattlerState?.state ?: return null
         val enemy = context.enemyBattlerState?.state ?: return null
-        val livePairMatches = player.status == HnsBattlerRuntimeStatus.OBSERVED &&
+        val pairMatches = player.status == HnsBattlerRuntimeStatus.OBSERVED &&
             enemy.status == HnsBattlerRuntimeStatus.OBSERVED &&
             player.partySlot == context.activePlayerSlot &&
-            enemy.partySlot == context.activeEnemySlot &&
+            context.activeEnemySlot != null && enemy.partySlot == context.activeEnemySlot &&
             player.volatilesObserved &&
             player.fieldStatusesReadable && enemy.fieldStatusesReadable &&
             player.fieldStatuses == enemy.fieldStatuses
-        if (!livePairMatches) return null
-
-        val staticType = PokemonType.fromString(move.type) ?: return null
-        val effectiveType = if (player.volatileElectrified ||
-            (staticType == PokemonType.NORMAL &&
-                (player.fieldStatuses and HnsBattlerRuntimeStateIds.STATUS_FIELD_ION_DELUGE) != 0)
-        ) {
-            PokemonType.ELECTRIC
-        } else {
-            staticType
-        }
-        return MoveEffectiveness.categoryForType(effectiveType)
+        return if (pairMatches) player to enemy else null
     }
 
     private fun parseCategory(category: String?): MoveCategory? = when (category?.lowercase()) {

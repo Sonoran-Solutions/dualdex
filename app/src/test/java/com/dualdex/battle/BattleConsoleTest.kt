@@ -107,15 +107,20 @@ class BattleConsoleTest {
     )
 
     private val exactHash = "c".repeat(64)
+    private val bundledHnsHash = "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b"
 
     private fun exactProfile(profile: RomHackProfile = RomHackProfile.DEFAULT_FIRERED): RomHackProfile =
         profile.copy(sha256Hashes = listOf(exactHash))
 
-    private fun exactTrust(profile: RomHackProfile, method: ProfileMatchMethod = ProfileMatchMethod.EXACT_SHA256): RuntimeRomTrust =
+    private fun exactTrust(
+        profile: RomHackProfile,
+        method: ProfileMatchMethod = ProfileMatchMethod.EXACT_SHA256,
+        romHash: String = exactHash
+    ): RuntimeRomTrust =
         RuntimeRomTrust(
             matchMethod = method,
-            detectedSha256 = exactHash,
-            activeRomSha256 = exactHash,
+            detectedSha256 = romHash,
+            activeRomSha256 = romHash,
             profileVerified = profile.isVerified,
             memoryLayoutVerified = profile.memoryLayoutVerified,
             profileSha256Hashes = profile.sha256Hashes
@@ -123,25 +128,37 @@ class BattleConsoleTest {
 
     private val hnsProfile by lazy {
         RomHackProfile(
-            id = "pokemon_heart_and_soul",
-            name = "Pokemon Heart & Soul 2.0.5",
+            id = "heart_and_soul",
+            name = "Pokemon Heart & Soul",
             baseGame = "Emerald",
-            gameId = 3,
+            gameId = 8,
+            developer = "Lil Dill / PokemonHnS-Development",
             engine = "pokeemerald-expansion",
-            gameDataPackId = "hns_2_0_5",
-            sha256Hashes = listOf(exactHash),
+            hasEvs = true,
+            hasIvs = true,
+            hasPhysSpecSplit = true,
+            steelResistsGhostDark = false,
+            cfruOffsets = false,
+            playerPartyOffset = 33769316,
+            enemyPartyOffset = 33768116,
+            docsUrl = "https://pokemonhns-development.github.io/pokehns-expansion-documentation/",
+            headerTitles = listOf("HEARTSOUL", "HNS", "POKEHNS", "HEART", "SOUL"),
+            sha256Hashes = listOf(bundledHnsHash),
             isVerified = true,
+            interactiveControlsVerified = false,
             memoryLayoutVerified = true,
-            hasPhysSpecSplit = true
+            battleStateReadVerified = true,
+            battleUiVerified = false,
+            gameDataPackId = "hns_2_0_5",
         )
     }
 
-    private val hnsTrust by lazy { exactTrust(hnsProfile) }
+    private val hnsTrust by lazy { exactTrust(hnsProfile, romHash = bundledHnsHash) }
 
-    private fun hnsSettings(optionStyle: Int = 0) = HnsChallengeSettingsSnapshot(
+    private fun hnsSettings(optionStyle: Int = 0, fairyTypesEnabled: Boolean = true) = HnsChallengeSettingsSnapshot(
         status = HnsChallengeSettingsStatus.OBSERVED,
         optionStyle = HnsChallengeField(true, optionStyle, false),
-        txModeFairyTypes = HnsChallengeField(true, 1, false),
+        txModeFairyTypes = HnsChallengeField(true, if (fairyTypesEnabled) 1 else 0, false),
         txRandomType = HnsChallengeField(true, 0, false),
         txRandomTypeEffectiveness = HnsChallengeField(true, 0, false),
         txRandomAbilities = HnsChallengeField(true, 0, false),
@@ -223,6 +240,7 @@ class BattleConsoleTest {
         playerAbilityId: Int = 0,
         playerAbilityName: String = "None",
         playerItemId: Int = 0,
+        fairyTypesEnabled: Boolean = true,
         battlersCount: Int = 2,
         playerObservation: BattlerRuntimeObservation? = null,
         enemyObservation: BattlerRuntimeObservation? = null
@@ -232,7 +250,7 @@ class BattleConsoleTest {
             playerParty = party,
             activePlayerSlot = 0,
             activeEnemySlot = 0,
-            challengeSettings = hnsSettings(optionStyle),
+            challengeSettings = hnsSettings(optionStyle, fairyTypesEnabled),
             playerBattlerState = playerObservation ?: hnsBattler(
                 partySlot = 0,
                 battlerIndex = 0,
@@ -263,10 +281,10 @@ class BattleConsoleTest {
                 range = listOf(8, 10, 12),
                 moveCategory = request.moveOverride?.category ?: "Physical"
             )
-        }
+        },
+        defender: ParsedPokemon = createTestPokemon(species = 16, nickname = "Pidgey")
     ): MovePresentation {
         val attacker = context.playerParty[context.activePlayerSlot]
-        val defender = createTestPokemon(species = 16, nickname = "Pidgey")
         val pack = GameDataPackRegistry.getForProfile(
             hnsProfile.engine,
             hnsProfile.hasPhysSpecSplit,
@@ -717,6 +735,68 @@ class BattleConsoleTest {
         val statusMove = buildHnsPresentation(14, hnsContext(optionStyle = 1), calculator)
         assertEquals(MoveCategory.STATUS, statusMove.category)
         assertEquals(DamageConfidence.UNAVAILABLE, statusMove.damageConfidence)
+    }
+
+    @Test
+    fun fairyOffHnsBattleCardUsesTheEffectiveMoveAndDefenderTypes() {
+        val pack = GameDataPackRegistry.getForProfile(
+            hnsProfile.engine,
+            hnsProfile.hasPhysSpecSplit,
+            hnsProfile.gameDataPackId
+        )
+        val dazzlingGleam = requireNotNull(pack.getMoveByName("Dazzling Gleam"))
+        val gengar = requireNotNull(pack.getSpeciesByName("Gengar"))
+        val dazzlingRequests = mutableListOf<DamageCalculationRequest>()
+        val fairyOffMoveContext = hnsContext(optionStyle = 1, fairyTypesEnabled = false).copy(
+            playerParty = listOf(createTestPokemon(
+                species = 152,
+                moves = intArrayOf(dazzlingGleam.id, 0, 0, 0),
+                pp = intArrayOf(10, 0, 0, 0)
+            )),
+            enemyBattlerState = hnsBattler(partySlot = 0, battlerIndex = 1, typeIds = listOf(8, 4))
+        )
+        val dazzlingPresentation = buildHnsPresentation(
+            moveId = dazzlingGleam.id,
+            context = fairyOffMoveContext,
+            calculator = BattleDamageCalculator { request ->
+                dazzlingRequests += request
+                DamageCalculationResponse(success = false, error = "fixture response")
+            },
+            defender = createTestPokemon(species = gengar.id, nickname = "Gengar")
+        )
+
+        assertEquals("Normal", dazzlingPresentation.typeName)
+        assertEquals("No Effect (0x)", dazzlingPresentation.effectiveness)
+        assertEquals(MoveCategory.PHYSICAL, dazzlingPresentation.category)
+        assertEquals(1, dazzlingRequests.size)
+        assertEquals("Normal", dazzlingRequests.single().moveOverride?.type)
+        assertNull(dazzlingRequests.single().moveOverride?.category)
+        assertEquals(listOf("Ghost", "Poison"), dazzlingRequests.single().defenderOverride?.types)
+
+        val darkPulse = requireNotNull(pack.getMoveByName("Dark Pulse"))
+        val clefable = requireNotNull(pack.getSpeciesByName("Clefable"))
+        val defenderRequests = mutableListOf<DamageCalculationRequest>()
+        val fairyOffDefenderContext = hnsContext(optionStyle = 0, fairyTypesEnabled = false).copy(
+            playerParty = listOf(createTestPokemon(
+                species = 152,
+                moves = intArrayOf(darkPulse.id, 0, 0, 0),
+                pp = intArrayOf(15, 0, 0, 0)
+            )),
+            enemyBattlerState = hnsBattler(partySlot = 0, battlerIndex = 1, typeIds = listOf(1))
+        )
+        val defenderPresentation = buildHnsPresentation(
+            moveId = darkPulse.id,
+            context = fairyOffDefenderContext,
+            calculator = BattleDamageCalculator { request ->
+                defenderRequests += request
+                DamageCalculationResponse(success = false, error = "fixture response")
+            },
+            defender = createTestPokemon(species = clefable.id, nickname = "Clefable")
+        )
+
+        assertEquals("Dark", defenderPresentation.typeName)
+        assertEquals("Neutral (1x)", defenderPresentation.effectiveness)
+        assertEquals(listOf("Normal"), defenderRequests.single().defenderOverride?.types)
     }
 
     // 6. Battle false while party remains populated

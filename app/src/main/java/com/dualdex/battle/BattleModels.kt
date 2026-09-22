@@ -912,7 +912,9 @@ object BattlePresentationBuilder {
         )
 
         // Evaluate effectiveness
-        val (effLabel, effConfidence) = if (moveKnown) {
+        val (effLabel, effConfidence) = if (moveKnown && hnsDamage != null) {
+            hnsDamage.effectiveness to hnsDamage.effectivenessConfidence
+        } else if (moveKnown) {
             MoveEffectiveness.evaluate(resolvedMoveInfo.id, category, defender, profile, runtimeTrust)
         } else {
             null to DataConfidence.UNAVAILABLE
@@ -971,7 +973,11 @@ object BattlePresentationBuilder {
         return MovePresentation(
             moveId = resolvedMoveInfo.id,
             name = if (moveKnown) resolvedMoveInfo.name else "Unknown Move (#${resolvedMoveInfo.id})",
-            typeName = if (moveKnown) resolvedMoveInfo.type.displayName else MoveEffectiveness.UNAVAILABLE,
+            typeName = when {
+                !moveKnown -> MoveEffectiveness.UNAVAILABLE
+                hnsDamage != null -> hnsDamage.moveType?.displayName ?: MoveEffectiveness.UNAVAILABLE
+                else -> resolvedMoveInfo.type.displayName
+            },
             category = category,
             basePower = if (moveKnown) resolvedMoveInfo.power else null,
             accuracy = if (moveKnown) resolvedMoveInfo.accuracy else null,

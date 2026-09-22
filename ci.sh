@@ -115,6 +115,23 @@ hns_map_data_check() {
   python3 tools/hns-map-data/generate_hns_map_data.py --verify-digests
 }
 
+# Vanilla Gen III golden-fixture verification. Mandatory and self-contained:
+# it re-derives every committed expected roll from the independent Generation III
+# oracle (tools/calc-goldens/gen3_reference.py) and fails closed when a committed
+# golden, the exact engine request, or a bundled FireRed/Emerald profile hash
+# drifts. It needs no ROM, no network, and no emulator. The SAME fixture file is
+# executed by the shipped engine in calc_test() and driven through the production
+# boundary by the Kotlin suite.
+calc_goldens_check() {
+  echo "== vanilla FireRed/Emerald golden matrix (independent oracle) =="
+  python3 tools/calc-goldens/verify_goldens.py
+  # The Generation III move table the vanilla Doubles spread gate rests on. Self-contained: it
+  # re-parses the committed artifact and checks it is internally consistent with the pinned source's
+  # schema, and the host calculator suite proves it against the engine over the whole move list.
+  echo "== Generation III move-target table =="
+  python3 tools/calc-goldens/verify_move_targets.py
+}
+
 # H&S data-pack generator tests. Mandatory and self-contained: they drive the
 # real extraction code (extract_abilities incl. run_cpp and the table
 # cross-checks) against tiny synthetic fixtures through a stub preprocessor, so
@@ -452,10 +469,10 @@ gradle_release() {
 # regen_upstream_headers directly), the command vocabulary must not run.
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 case "${1:-all}" in
-  test)         native_test; tracker_selftest; calc_test; hns_map_data_check; hns_generator_test; gradle_test ;;
+  test)         native_test; tracker_selftest; calc_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test ;;
   source-check) source_check ;;
   build)        gradle_build ;;
-  all)          native_test; tracker_selftest; calc_test; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
+  all)          native_test; tracker_selftest; calc_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
   release)      gradle_release ;;
   *)            echo "usage: $0 [test|source-check|build|all|release]" >&2; exit 2 ;;
 esac

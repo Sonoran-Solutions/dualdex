@@ -65,13 +65,25 @@ static const uint8_t SUBSTRUCT_BLOCK_INDEX[24][4] = {
 //   at 0x24284), not padding.
 // Both games therefore have authoritative player party symbol addresses.
 // Other vanilla titles and unverified hacks retain PARTY_DISCOVERY_HEURISTIC.
+//
+// Enemy count symbols (PR #70 layout audit; see docs/VANILLA_CALCULATOR_EVIDENCE.md §7):
+// `gPlayerPartyCount` and `gEnemyPartyCount` are declared as the FIRST two EWRAM objects of
+// `src/pokemon.c` (`pokefirered src/pokemon.c:59-60`, `pokeemerald src/pokemon.c:76-77`), so the
+// enemy count is always the byte immediately after the player count and never a separate
+// `gEnemyParty - 4`. The previous values (FireRed 0x24028, Emerald 0x24740) named the linker's
+// .ALIGN(4) padding byte and the byte after the enemy party array respectively, not the symbol.
+// They were latent rather than wrong numbers because `pokemon_read_enemy_party_gba` currently
+// returns before reading a count for any layout whose config does not declare the full battle
+// lifecycle gate - which today is every vanilla title - so no enemy party is published from them.
+// The corrected values are therefore behaviour-preserving, and they match the exact addresses the
+// pinned builds resolve (see tools/calc-goldens/audit_vanilla_layout.py).
 static const GameMemoryConfig CONFIG_EMERALD = {
     .game_id = GAME_EMERALD,
     .game_name = "Pokemon Emerald",
     .player_party_offset = 0x244EC,
     .player_party_count_offset = 0x244E9,
     .enemy_party_offset = 0x24744,
-    .enemy_party_count_offset = 0x24740,
+    .enemy_party_count_offset = 0x244EA,
     .battle_mons_offset = 0x24064,
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 40,
@@ -273,7 +285,9 @@ static const GameMemoryConfig CONFIG_FIRERED = {
     .player_party_offset = 0x24284,
     .player_party_count_offset = 0x24029,
     .enemy_party_offset = 0x2402C,
-    .enemy_party_count_offset = 0x24028,
+    // gEnemyPartyCount is the byte immediately after gPlayerPartyCount (src/pokemon.c:59-60).
+    // 0x24028 is the linker's .ALIGN(4) padding byte; see the policy audit above.
+    .enemy_party_count_offset = 0x2402A,
     .battle_mons_offset = 0x23F90,
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 40,
@@ -289,7 +303,8 @@ static const GameMemoryConfig CONFIG_LEAFGREEN = {
     .player_party_offset = 0x24284,
     .player_party_count_offset = 0x24029,
     .enemy_party_offset = 0x2402C,
-    .enemy_party_count_offset = 0x24028,
+    // Same FireRed/LeafGreen engine layout as CONFIG_FIRERED (src/pokemon.c:59-60).
+    .enemy_party_count_offset = 0x2402A,
     .battle_mons_offset = 0x23F90,
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 40,

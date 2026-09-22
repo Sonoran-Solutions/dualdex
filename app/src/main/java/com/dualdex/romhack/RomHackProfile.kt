@@ -33,6 +33,28 @@ data class RomHackProfile(
     val isVerified: Boolean = false,
     val interactiveControlsVerified: Boolean = false,
     val memoryLayoutVerified: Boolean = false,
+    /**
+     * True only when this build's **live battle-state** addresses are proven for the retail image:
+     * the `gBattleMons` base that everything battle-derived is read through, and the companion
+     * `gBattlersCount` / `gBattleTypeFlags` / `gBattleOutcome` globals.
+     *
+     * This is deliberately separate from [memoryLayoutVerified], which covers the whole profile.
+     * Repairing a profile's SHA-256 values makes `RuntimeRomTrust.exactRuntimeVerified` true, and
+     * that flag is the universal live-memory gate — so a corrected hash can silently promote reads
+     * whose absolute addresses were never proven for the retail build. The party group and the
+     * location fields are proven structurally (their offsets are declared relative to a
+     * `SaveBlock1` whose base is derived from `gPlayerParty`, and the pinned builds reproduce the
+     * declared addresses exactly); the battle globals are linker-ordered EWRAM placements inside a
+     * section that also holds asset arrays, so only the retail image can prove them.
+     *
+     * Defaults to false: a new profile may not read battle state until someone proves its
+     * addresses. Proving the `gBattleMons` base is necessary but not sufficient — for vanilla it is
+     * also the legacy presence heuristic that would run, and the enemy-party path additionally needs
+     * the authoritative lifecycle gate this group of offsets carries, which no vanilla layout
+     * declares. See `docs/VANILLA_CALCULATOR_EVIDENCE.md` §7.3-§7.4 and
+     * `tools/calc-goldens/audit_vanilla_layout.py --firered-rom/--emerald-rom`.
+     */
+    val battleStateReadVerified: Boolean = false,
     val battleUiVerified: Boolean = false,
     val commandCursorVerified: Boolean = false,
     val moveCursorVerified: Boolean = false,

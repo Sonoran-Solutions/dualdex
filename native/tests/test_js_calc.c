@@ -17,8 +17,8 @@
  *   A/D stats (IV 31, EV 0 unless stated, nature applied then floored)
  *     -> base damage = floor(floor(floor(2*L/5 + 2) * BP * A / D) / 50)
  *     -> attack-form modifiers routed through the damage value: burn x1/2,
- *        Reflect/Light Screen x1/2 in singles (x2/3 in doubles),
- *        spread move x1/2 when the field is not singles
+ *        Reflect/Light Screen x1/2 in singles, spread move x1/2 when the field
+ *        is not singles
  *     -> +2
  *     -> critical hit x2
  *     -> STAB x1.5
@@ -275,8 +275,7 @@ static const jl_value* damage_array(const jl_value* doc) {
  * (target allAdjacentFoes), which is what makes the field format observable.
  *   Singles: floor(22*75*150/85) = 2911 -> floor(2911/50) + 2 = 60; type x1
  *   Doubles: the same move is halved (floor(60/2)... applied to the pre-+2
- *            damage: floor(58/2) = 29 -> +2 = 31)
- */
+ *            damage: floor(58/2) = 29 -> +2 = 31) */
 #define ROCK_SLIDE_BODY "\"move\":{\"name\":\"Rock Slide\"}"
 
 static const int ROLLS_MACHAMP_ROCK_SLIDE_SINGLES[ROLL_COUNT] =
@@ -288,12 +287,54 @@ static const int ROLLS_MACHAMP_ROCK_SLIDE_DOUBLES[ROLL_COUNT] =
  * floor(3105/50) + 2 = 64.
  * With Reflect in singles the attack form is halved before +2:
  * floor(62/2) = 31 -> +2 = 33.
- * With Reflect in doubles the library (and the games) use 2/3:
- * floor(62*2/3) = 41 -> +2 = 43. */
+ *
+ * Doubles Reflect is NOT the same arithmetic as singles, and the difference is
+ * an integer operation order, not a different multiplier fraction:
+ *
+ *     pret/pokefirered src/pokemon.c CalculateBaseDamage (and the identical
+ *     text in pret/pokeemerald src/pokemon.c):
+ *
+ *         if ((sideStatus & SIDE_STATUS_REFLECT) && gCritMultiplier == 1)
+ *         {
+ *             if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE)
+ *              && CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2)
+ *                 damage = 2 * (damage / 3);
+ *             else
+ *                 damage /= 2;
+ *         }
+ *
+ * The division by 3 is INTEGER division applied to the pre-roll damage, so the
+ * two steps floor separately: 2 * floor(62/3) = 2 * 20 = 40 -> +2 = 42, and the
+ * roll vector is 35-42. Writing the same intent as the single expression
+ * floor(damage * 2 / 3) yields floor(124/3) = 41 -> +2 = 43 and the vector
+ * 36-43, which is ONE POINT HIGHER on fourteen of the sixteen rolls. The shipped
+ * @smogon/calc 0.11.0 ADV pipeline applies the screen to the ROLLED value as
+ * floor(rolled * 2/3), so for the same fixture it produces
+ * {36,36,37,37,38,38,39,39,39,40,40,41,41,42,42,43} - the vector this fixture
+ * used to assert as "what the games do".
+ *
+ * That vector is NOT the cartridge's. Because the vanilla ruleset advertises
+ * CalcSupport.VERIFIED, the production gate refuses the whole shape instead of
+ * publishing a wrong number under a verified label:
+ * CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED, asserted by
+ * CalcVanillaGoldenBoundaryTest. The values below therefore pin the shipped
+ * library's documented pipeline order - the branch production cannot reach -
+ * so a bundle change cannot alter it silently while the gate is in place.
+ * The checked-in SRC_EXACT_CARTRIDGE vector is the source-derived expectation
+ * this branch would have to reproduce before the gate could be lifted, and
+ * check_vanilla_doubles_cartridge_divergence() below asserts the
+ * two genuinely differ (i.e. that the gate is still necessary). */
 static const int ROLLS_STRENGTH_REFLECT_SINGLES[ROLL_COUNT] =
     {28, 28, 28, 29, 29, 29, 30, 30, 30, 31, 31, 31, 32, 32, 32, 33};
 static const int ROLLS_STRENGTH_REFLECT_DOUBLES[ROLL_COUNT] =
     {36, 36, 37, 37, 38, 38, 39, 39, 39, 40, 40, 41, 41, 42, 42, 43};
+
+/* The source-exact cartridge vector for the same fixture - 2 * (damage / 3) = 2 * floor(62/3) = 40,
+ * +2 = 42, so rolls 35-42 - is NOT restated here. It lives in
+ * tools/calc-goldens/vanilla_gen3_goldens.json under `cartridgeReferences`, derived there by
+ * gen3_reference.doubles_cartridge_rolls() (the same independent oracle that derives every golden
+ * fixture), and check_vanilla_doubles_cartridge_divergence() below asserts that the shipped
+ * engine does not produce it. Keeping one copy keeps the two from drifting apart. */
 
 /* Machamp Crunch (Dark 80) vs Snorlax: Dark is a SPECIAL type in Gen III, so
  * the SpA/SpD pair is used even though Machamp is a physical attacker.
@@ -528,11 +569,15 @@ static const calc_fixture FIXTURES[] = {
         "Gen III singles Reflect halves the physical attack form (x1/2)"
     },
     {
-        "gen3_reflect_doubles_uses_two_thirds",
+        "gen3_reflect_doubles_pipeline_arithmetic",
         "{" MACHAMP_VS_SNORLAX_HEAD "\"move\":{\"name\":\"Strength\"},"
         "\"field\":{\"gameType\":\"Doubles\",\"defenderSide\":{\"isReflect\":true}}}",
         1, NULL, "Normal", "Physical", 80, 235, ROLLS_STRENGTH_REFLECT_DOUBLES,
-        "the same screen is weaker in doubles (x2/3): proof the screen path is format-dependent"
+        "the shipped @smogon/calc pipeline applies the Doubles screen to the ROLLED value; the "
+        "cartridge instead uses 2 * (damage / 3) on the pre-roll value (36-43 here vs 35-42), so "
+        "this row pins the pipeline branch that production REFUSES for exact-trusted vanilla "
+        "(CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED, asserted by "
+        "CalcVanillaGoldenBoundaryTest and by check_vanilla_doubles_cartridge_divergence)"
     },
     {
         "gen3_light_screen_special_singles",
@@ -828,6 +873,470 @@ static void check_singles_equivalence(void) {
         jl_free(doc);
         free(raw);
     }
+}
+
+/* ------------------------------------------------------------------ */
+/* Vanilla Gen III golden matrix (FireRed + Emerald)                    */
+/*                                                                     */
+/* The committed fixture file is the single source of truth shared by   */
+/* the independent oracle (tools/calc-goldens/gen3_reference.py), the   */
+/* production-boundary test (CalcVanillaGoldenBoundaryTest.kt) and this */
+/* harness. Each fixture carries the EXACT request the production       */
+/* boundary serialises, so executing it here checks the shipped engine  */
+/* against the same matrix the boundary and the oracle use.             */
+/* ------------------------------------------------------------------ */
+#define VANILLA_GOLDEN_PATH "tools/calc-goldens/vanilla_gen3_goldens.json"
+
+static void run_vanilla_golden_matrix(void) {
+    g_fixture = "vanilla_gen3_golden_matrix";
+    char* text = read_file_to_string(VANILLA_GOLDEN_PATH);
+    if (!text) {
+        g_checks_failed++;
+        printf(ANSI_RED "  [FAIL] vanilla golden matrix: cannot read %s (run from the repo root)"
+               ANSI_RESET "\n", VANILLA_GOLDEN_PATH);
+        return;
+    }
+    jl_value* doc = jl_parse(text);
+    free(text);
+    if (!doc) {
+        g_checks_failed++;
+        printf(ANSI_RED "  [FAIL] vanilla golden matrix: fixture file is not valid JSON" ANSI_RESET "\n");
+        return;
+    }
+    const jl_value* fixtures = jl_get(doc, "fixtures");
+    if (!jl_is_arr(fixtures) || jl_len(fixtures) == 0) {
+        g_checks_failed++;
+        printf(ANSI_RED "  [FAIL] vanilla golden matrix: missing 'fixtures' array" ANSI_RESET "\n");
+        jl_free(doc);
+        return;
+    }
+    g_checks_passed++;
+
+    int fixture_count = jl_len(fixtures);
+    for (int i = 0; i < fixture_count; i++) {
+        const jl_value* fx = jl_at(fixtures, i);
+        const char* id = jl_str(jl_get(fx, "id"));
+        g_fixture = id ? id : "(unnamed fixture)";
+
+        const jl_value* request = jl_get(fx, "request");
+        const jl_value* expected = jl_get(fx, "expected");
+        const jl_value* expected_damage = expected ? jl_get(expected, "damage") : NULL;
+        if (!jl_is_str(request) || !jl_is_arr(expected_damage) ||
+            jl_len(expected_damage) != ROLL_COUNT ||
+            !jl_is_str(jl_get(expected, "moveType")) ||
+            !jl_is_str(jl_get(expected, "moveCategory")) ||
+            !jl_is_num(jl_get(expected, "movePower")) ||
+            !jl_is_num(jl_get(expected, "minDamage")) ||
+            !jl_is_num(jl_get(expected, "maxDamage"))) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: malformed fixture (request/expected fields)" ANSI_RESET "\n", g_fixture);
+            continue;
+        }
+
+        char* raw = js_calc_calculate(jl_str(request));
+        jl_value* resp = raw ? jl_parse(raw) : NULL;
+        if (!resp) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: engine returned no/invalid JSON" ANSI_RESET "\n", g_fixture);
+            free(raw);
+            continue;
+        }
+        const jl_value* success = jl_get(resp, "success");
+        if (!jl_is_bool(success) || !jl_bool(success)) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: engine refused a golden request: %s" ANSI_RESET "\n",
+                   g_fixture,
+                   jl_is_str(jl_get(resp, "error")) ? jl_str(jl_get(resp, "error")) : "(no error)");
+            jl_free(resp);
+            free(raw);
+            continue;
+        }
+
+        check_str("moveType", jl_str(jl_get(expected, "moveType")), jl_str(jl_get(resp, "moveType")));
+        check_str("moveCategory", jl_str(jl_get(expected, "moveCategory")),
+                  jl_str(jl_get(resp, "moveCategory")));
+        check_number("movePower", (long)jl_num(jl_get(expected, "movePower")), jl_get(resp, "movePower"));
+
+        const jl_value* damage = damage_array(resp);
+        if (!damage || jl_len(damage) != ROLL_COUNT) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: response has no 16-roll vector" ANSI_RESET "\n", g_fixture);
+            jl_free(resp);
+            free(raw);
+            continue;
+        }
+        for (int r = 0; r < ROLL_COUNT; r++) {
+            char field[32];
+            snprintf(field, sizeof(field), "damage[%d]", r);
+            check_number(field, (long)jl_num(jl_at(expected_damage, r)), jl_at(damage, r));
+        }
+        check_number("minDamage", (long)jl_num(jl_get(expected, "minDamage")), jl_get(resp, "minDamage"));
+        check_number("maxDamage", (long)jl_num(jl_get(expected, "maxDamage")), jl_get(resp, "maxDamage"));
+
+        if (!g_quiet_checks) printf("  [PASS] %s\n", g_fixture);
+        jl_free(resp);
+        free(raw);
+    }
+    jl_free(doc);
+}
+
+/* ------------------------------------------------------------------ */
+/* Doubles format branches: cartridge arithmetic vs the shipped engine  */
+/*                                                                     */
+/* `gen3_reflect_doubles_pipeline_arithmetic` above pins what the        */
+/* @smogon/calc 0.11.0 ADV pipeline computes for a Doubles Reflect, and   */
+/* the pipeline also reduces every Doubles spread move. NEITHER is the    */
+/* cartridge's number. The pinned engines apply the screen with INTEGER  */
+/* division on the pre-roll value                                        */
+/*                                                                     */
+/*     damage = 2 * (damage / 3);      (both defending battlers alive)   */
+/*     damage /= 2;                    (otherwise)                       */
+/*                                                                     */
+/* so `2 * floor(62/3) = 40` and the post-+2 value is 42, while the      */
+/* pipeline's `floor(rolled * 2/3)` reaches 43. They halve a spread move  */
+/* only while both opposing battlers are present, so Rock Slide against   */
+/* one remaining foe is NOT reduced (58 -> +2 = 60, not 29 -> +2 = 31).   */
+/* The production gates refuse both shapes                                */
+/* (VANILLA_DOUBLES_SCREEN_NOT_MODELLED and                               */
+/* VANILLA_DOUBLES_SPREAD_NOT_MODELLED), so no user can receive a         */
+/* pipeline number under a Verified label.                                */
+/*                                                                     */
+/* This check reads the same fixture file the oracle and the Kotlin      */
+/* boundary test read, and asserts BOTH halves of that statement: the    */
+/* engine really is off the cartridge vector in every state where the     */
+/* pipeline and the cartridge disagree (three of the four committed       */
+/* states - the both-defenders spread state agrees, which is why the gate */
+/* rests on the other three), and the committed vectors really differ     */
+/* from each other. If a future bundle ever reproduces the cartridge      */
+/* arithmetic, this fails and the gate (not this test) is what changes.   */
+/* ------------------------------------------------------------------ */
+static void check_vanilla_doubles_cartridge_divergence(void) {
+    g_fixture = "vanilla_doubles_cartridge_divergence";
+    char* text = read_file_to_string(VANILLA_GOLDEN_PATH);
+    if (!text) {
+        g_checks_failed++;
+        printf(ANSI_RED "  [FAIL] cartridge references: cannot read %s" ANSI_RESET "\n",
+               VANILLA_GOLDEN_PATH);
+        return;
+    }
+    jl_value* doc = jl_parse(text);
+    free(text);
+    const jl_value* refs = doc ? jl_get(doc, "cartridgeReferences") : NULL;
+    if (!jl_is_arr(refs) || jl_len(refs) < 2) {
+        g_checks_failed++;
+        printf(ANSI_RED "  [FAIL] cartridge references: missing 'cartridgeReferences' array"
+               ANSI_RESET "\n");
+        jl_free(doc);
+        return;
+    }
+    g_checks_passed++;
+
+    int engine_vector_seen = 0;
+    int distinct_vectors = 0;
+    double first_vector[ROLL_COUNT];
+    int have_first = 0;
+
+    for (int i = 0; i < jl_len(refs); i++) {
+        const jl_value* ref = jl_at(refs, i);
+        const char* id = jl_str(jl_get(ref, "id"));
+        const jl_value* request = jl_get(ref, "request");
+        const jl_value* expected = jl_get(ref, "expected");
+        const jl_value* expected_damage = expected ? jl_get(expected, "damage") : NULL;
+        const char* refused_by = jl_str(jl_get(ref, "refusedBy"));
+        g_fixture = id ? id : "(unnamed cartridge reference)";
+
+        if (!jl_is_str(request) || !jl_is_arr(expected_damage) ||
+            jl_len(expected_damage) != ROLL_COUNT) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: malformed cartridge reference" ANSI_RESET "\n", g_fixture);
+            continue;
+        }
+        if (!refused_by ||
+            (strstr(refused_by, "VANILLA_DOUBLES_SCREEN_NOT_MODELLED") == NULL &&
+             strstr(refused_by, "VANILLA_DOUBLES_SPREAD_NOT_MODELLED") == NULL)) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: cartridge reference must name a limitation that refuses "
+                   "it (got %s)" ANSI_RESET "\n", g_fixture, refused_by ? refused_by : "(none)");
+        }
+        check_condition("cartridge reference names the cartridge operation order",
+                        jl_is_str(jl_get(ref, "screenOperation")));
+
+        /* The engine must still accept the request (it is the engine's own pipeline path) and
+         * must NOT produce the cartridge vector. */
+        char* raw = js_calc_calculate(jl_str(request));
+        jl_value* resp = raw ? jl_parse(raw) : NULL;
+        const jl_value* success = resp ? jl_get(resp, "success") : NULL;
+        if (!jl_is_bool(success) || !jl_bool(success)) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: engine refused the request outright" ANSI_RESET "\n",
+                   g_fixture);
+            jl_free(resp);
+            free(raw);
+            continue;
+        }
+        const jl_value* damage = damage_array(resp);
+        if (!damage || jl_len(damage) != ROLL_COUNT) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: engine response has no 16-roll vector" ANSI_RESET "\n",
+                   g_fixture);
+            jl_free(resp);
+            free(raw);
+            continue;
+        }
+
+        double cartridge[ROLL_COUNT];
+        int matches_cartridge = 1;
+        for (int r = 0; r < ROLL_COUNT; r++) {
+            cartridge[r] = jl_num(jl_at(expected_damage, r));
+            if ((long)jl_num(jl_at(damage, r)) != (long)cartridge[r]) {
+                matches_cartridge = 0;
+            }
+        }
+
+        if (have_first) {
+            int same = 1;
+            for (int r = 0; r < ROLL_COUNT; r++) {
+                if ((long)cartridge[r] != (long)first_vector[r]) same = 0;
+            }
+            if (!same) distinct_vectors++;
+        } else {
+            for (int r = 0; r < ROLL_COUNT; r++) first_vector[r] = cartridge[r];
+            have_first = 1;
+        }
+
+        /* With BOTH defending battlers present the cartridge and the pipeline agree on the spread
+         * branch: both halve the pre-roll value, so that state cannot be the reason the gate
+         * exists. Every state where only one defending battler is present must diverge, on both
+         * branches: the pipeline still reduces (spread) or still applies a screen, while the
+         * cartridge does not. Scoring the two states against the wrong expectation would have
+         * hidden exactly the divergence the gate is for. */
+        const jl_value* both = jl_get(ref, "bothDefendersPresent");
+        const int both_present = jl_is_bool(both) && jl_bool(both);
+        const jl_value* is_spread = jl_get(ref, "isSpread");
+        const int spread_reference = jl_is_bool(is_spread) && jl_bool(is_spread);
+
+        if (both_present && spread_reference) {
+            if (!matches_cartridge) {
+                g_checks_failed++;
+                printf(ANSI_RED "  [FAIL] %s: with both defenders present the cartridge and the "
+                       "pipeline both halve a spread move, so the engine must match here"
+                       ANSI_RESET "\n", g_fixture);
+            }
+        } else if (matches_cartridge) {
+            g_checks_failed++;
+            printf(ANSI_RED "  [FAIL] %s: the shipped engine now matches the cartridge vector; the "
+                   "production gate for this Doubles branch must be reviewed" ANSI_RESET "\n",
+                   g_fixture);
+        } else {
+            engine_vector_seen++;
+        }
+
+        if (!g_quiet_checks) {
+            printf("  [PASS] %s (engine %s the cartridge vector)\n", g_fixture,
+                   matches_cartridge ? "matches" : "differs from");
+        }
+        jl_free(resp);
+        free(raw);
+    }
+
+    g_fixture = "vanilla_doubles_cartridge_divergence";
+    /* The references whose target-presence state the pipeline gets wrong: both single-defender
+     * screen states and the single-defender spread state. The both-defenders spread state is
+     * deliberately excluded - there the pipeline happens to agree, which is why the gate rests on
+     * the other three. Each committed pair must also differ from each other, which is what makes
+     * the missing operand observable. */
+    check_condition("every cartridge state the pipeline gets wrong diverges from the shipped engine",
+                    engine_vector_seen >= 3);
+    check_condition("the target-presence operand changes each committed cartridge branch",
+                    distinct_vectors >= 2);
+    jl_free(doc);
+}
+
+/* ------------------------------------------------------------------ */
+/* Gen III spread-move table vs the shipped engine                      */
+/*                                                                     */
+/* `CalcCapabilityPolicy` refuses a vanilla Doubles request whenever the */
+/* move is one the shipped pipeline reduces, using the table in         */
+/* `Gen3DoublesSpreadMoves` (derived from the pinned decompilation).     */
+/* That table is only safe while it covers EVERY move the pipeline       */
+/* actually reduces: a name it omits would be published as VERIFIED      */
+/* with a reduction the cartridge does not apply to a lone opponent.     */
+/*                                                                     */
+/* This check closes that gap against the engine itself rather than      */
+/* against another copy of the same list. For every Generation III move  */
+/* in the committed `gen3_move_targets.json` it recovers the pre-roll    */
+/* damage from a Singles and a Doubles calculation and requires:         */
+/*                                                                     */
+/*   * engine-halved  ==  (target class MOVE_TARGET_BOTH && power > 0)   */
+/*                                                                     */
+/* i.e. the engine reduces exactly the moves the pinned source says hit  */
+/* both opposing battlers for damage, and nothing else. The pre-roll     */
+/* recovery is what makes this exact: the pipeline halves the pre-roll   */
+/* value, so `doublesBase == singlesBase / 2` identifies the branch      */
+/* independently of how the rolls and the `+2` compose.                  */
+/* ------------------------------------------------------------------ */
+#define GEN3_MOVE_TARGETS_PATH "tools/calc-goldens/gen3_move_targets.json"
+#define SPREAD_PROBE_MAX_MOVES 512
+
+/* Recover the pre-roll damage `base` such that every roll equals
+ * floor(base * r / 100) for r = 85..100. Returns 0 when no such base exists. */
+static int recover_pre_roll_roll(const long* rolls, long* out_base) {
+    for (long base = 1; base <= 8000; base++) {
+        int matches = 1;
+        for (int r = 0; r < ROLL_COUNT; r++) {
+            long expected = (long)((double)base * (85 + r) / 100.0);
+            if (expected < 1) expected = 1;
+            if (rolls[r] != expected) {
+                matches = 0;
+                break;
+            }
+        }
+        if (matches) {
+            *out_base = base;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* One Singles and one Doubles calculation for `move`; returns 0 when either
+ * side does not produce a 16-roll damage vector (status moves and immunities). */
+static int probe_move_rolls(const char* move, long singles[ROLL_COUNT], long doubles[ROLL_COUNT]) {
+    static const char* HEAD =
+        "{\"gen\":3,"
+        "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\","
+        "\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},"
+        "\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},"
+        "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\","
+        "\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},"
+        "\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},";
+    const char* game_types[2] = {"Singles", "Doubles"};
+    long* out[2] = {singles, doubles};
+
+    for (int side = 0; side < 2; side++) {
+        char request[2048];
+        snprintf(request, sizeof(request), "%s\"move\":{\"name\":\"%s\"},\"field\":{\"gameType\":\"%s\"}}",
+                 HEAD, move, game_types[side]);
+        char* raw = js_calc_calculate(request);
+        jl_value* doc = raw ? jl_parse(raw) : NULL;
+        const jl_value* success = doc ? jl_get(doc, "success") : NULL;
+        int ok = 0;
+        if (jl_is_bool(success) && jl_bool(success)) {
+            const jl_value* damage = damage_array(doc);
+            if (damage && jl_len(damage) == ROLL_COUNT) {
+                for (int r = 0; r < ROLL_COUNT; r++) out[side][r] = (long)jl_num(jl_at(damage, r));
+                ok = 1;
+            }
+        }
+        jl_free(doc);
+        free(raw);
+        if (!ok) return 0;
+    }
+    return 1;
+}
+
+static void check_gen3_spread_move_table_matches_engine(void) {
+    g_fixture = "gen3_spread_move_table_matches_engine";
+
+    char* text = read_file_to_string(GEN3_MOVE_TARGETS_PATH);
+    if (!text) {
+        g_checks_failed++;
+        printf(ANSI_RED "  [FAIL] spread table: cannot read %s (run from the repo root)"
+               ANSI_RESET "\n", GEN3_MOVE_TARGETS_PATH);
+        return;
+    }
+    jl_value* doc = jl_parse(text);
+    free(text);
+    const jl_value* moves = doc ? jl_get(doc, "moves") : NULL;
+    if (!jl_is_arr(moves) || jl_len(moves) == 0) {
+        g_checks_failed++;
+        printf(ANSI_RED "  [FAIL] spread table: missing 'moves' array" ANSI_RESET "\n");
+        jl_free(doc);
+        return;
+    }
+    g_checks_passed++;
+
+    int examined = 0;
+    int engine_halved = 0;
+    int source_halved = 0;
+    int mismatches = 0;
+    /* Accounting so the probe can prove it looked at the whole list rather than a subset that
+     * happened to agree: every entry lands in exactly one of these buckets. */
+    int zero_power = 0;
+    int no_roll_vector = 0;
+    char first_mismatch[256];
+    first_mismatch[0] = '\0';
+
+    const int count = jl_len(moves);
+    for (int i = 0; i < count; i++) {
+        const jl_value* entry = jl_at(moves, i);
+        const char* name = jl_str(jl_get(entry, "name"));
+        const char* target = jl_str(jl_get(entry, "target"));
+        const jl_value* power_value = jl_get(entry, "power");
+        if (!name || !target || !jl_is_num(power_value)) continue;
+        if ((long)jl_num(power_value) <= 0) {
+            zero_power++; /* status/zero-power moves deal no damage and never take the branch */
+            continue;
+        }
+
+        long singles[ROLL_COUNT];
+        long doubles[ROLL_COUNT];
+        if (!probe_move_rolls(name, singles, doubles)) {
+            no_roll_vector++; /* multi-hit and fixed-damage moves do not emit 16 rolls */
+            continue;
+        }
+
+        long singles_base = 0;
+        long doubles_base = 0;
+        if (!recover_pre_roll_roll(singles, &singles_base) ||
+            !recover_pre_roll_roll(doubles, &doubles_base)) {
+            mismatches++;
+            if (!first_mismatch[0]) {
+                snprintf(first_mismatch, sizeof(first_mismatch),
+                         "%s: could not recover a pre-roll damage value (singles %ld-%ld, doubles %ld-%ld)",
+                         name, singles[0], singles[15], doubles[0], doubles[15]);
+            }
+            continue;
+        }
+
+        examined++;
+        /* The pipeline halves the pre-roll damage and adds the `+2` afterwards, so a reduced
+         * Doubles pre-roll value is `floor(singlesBase / 2) + 1`: exactly one more than the naive
+         * halving whenever that halving has to round down. */
+        const int reduced = (doubles_base < singles_base) &&
+                            (doubles_base >= singles_base / 2) &&
+                            (doubles_base <= singles_base / 2 + 1);
+        const int expected = strcmp(target, "MOVE_TARGET_BOTH") == 0;
+        if (expected) source_halved++;
+        if (reduced) engine_halved++;
+
+        if (reduced != expected) {
+            mismatches++;
+            if (!first_mismatch[0]) {
+                snprintf(first_mismatch, sizeof(first_mismatch),
+                         "%s (%s): engine %s reduce, pinned source says %s",
+                         name, target, reduced ? "DOES" : "does NOT",
+                         expected ? "it should" : "it should not");
+            }
+        }
+    }
+
+    g_fixture = "gen3_spread_move_table_matches_engine";
+    check_condition("the probe examined every move that emits a single-hit roll vector",
+                    examined + zero_power + no_roll_vector == count);
+    check_condition("the probe examined a plausible share of the move list", examined >= 170);
+    check_condition("the engine reduces a non-trivial number of moves in Doubles", engine_halved >= 10);
+    check_condition("the engine reduces exactly the pinned MOVE_TARGET_BOTH damaging moves",
+                    mismatches == 0 && engine_halved == source_halved);
+    if (mismatches != 0) {
+        printf(ANSI_RED "  [FAIL] spread table: %d move(s) disagree with the engine; first: %s"
+               ANSI_RESET "\n", mismatches, first_mismatch);
+    } else if (!g_quiet_checks) {
+        printf("  [PASS] %d moves probed (%d zero-power, %d without a 16-roll vector): engine "
+               "reduces %d, pinned source marks %d, no disagreement\n",
+               examined, zero_power, no_roll_vector, engine_halved, source_halved);
+    }
+    jl_free(doc);
 }
 
 /* ------------------------------------------------------------------ */
@@ -3057,6 +3566,15 @@ int main(void) {
 
     printf("-- equivalent singles inputs --\n");
     check_singles_equivalence();
+
+    printf("-- vanilla Gen III golden matrix (FireRed + Emerald, independent oracle) --\n");
+    run_vanilla_golden_matrix();
+
+    printf("-- Doubles format branches: cartridge arithmetic vs the shipped engine --\n");
+    check_vanilla_doubles_cartridge_divergence();
+
+    printf("-- Gen III spread-move table vs the shipped engine (vanilla Doubles gate) --\n");
+    check_gen3_spread_move_table_matches_engine();
 
     printf("-- Gap B: authoritative species/move overrides, category, isolation, malformed --\n");
     check_gap_b_data_overrides();

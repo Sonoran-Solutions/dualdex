@@ -15,6 +15,13 @@ data class RuntimeRomTrust(
     val activeRomSha256: String? = null,
     val profileVerified: Boolean = false,
     val memoryLayoutVerified: Boolean = false,
+    /**
+     * True only when the profile's live **battle-state** addresses are proven for the retail image
+     * (see [RomHackProfile.battleStateReadVerified]). Deliberately independent of
+     * [exactRuntimeVerified]: repairing a profile's hashes must not be able to promote reads whose
+     * absolute addresses were never proven.
+     */
+    val battleStateReadVerified: Boolean = false,
     val profileSha256Hashes: List<String> = emptyList(),
     val reason: String = "",
     val explicitStatus: RomCompatibilityStatus? = null
@@ -27,13 +34,15 @@ data class RuntimeRomTrust(
         profileVerified: Boolean = false,
         memoryLayoutVerified: Boolean = false,
         profileSha256Hashes: List<String> = emptyList(),
-        reason: String = ""
+        reason: String = "",
+        battleStateReadVerified: Boolean = false
     ) : this(
         matchMethod = matchMethod,
         detectedSha256 = detectedSha256,
         activeRomSha256 = activeRomSha256,
         profileVerified = profileVerified,
         memoryLayoutVerified = memoryLayoutVerified,
+        battleStateReadVerified = battleStateReadVerified,
         profileSha256Hashes = profileSha256Hashes,
         reason = reason,
         explicitStatus = status
@@ -73,6 +82,19 @@ data class RuntimeRomTrust(
     val mayReadLiveMemory: Boolean
         get() = exactRuntimeVerified
 
+    /**
+     * Whether the profile-dependent readers that dereference the **battle globals** may run.
+     *
+     * Strictly narrower than [mayReadLiveMemory]: it also requires the profile to assert that its
+     * `battle_mons_offset` and battle-lifecycle offsets are proven for the retail image. An exact
+     * hash establishes *which* build is running; it does not establish that a configured address is
+     * that build's address. Party and location reads do not depend on this flag because they are
+     * proven structurally, so a vanilla profile still shows the player's party and map position
+     * while its battle-state reads stay closed.
+     */
+    val mayReadBattleState: Boolean
+        get() = mayReadLiveMemory && battleStateReadVerified
+
     /** True once a ROM identity has been published for the running session. */
     val hasActiveRom: Boolean
         get() = !activeRomSha256.isNullOrBlank()
@@ -95,6 +117,7 @@ data class RuntimeRomTrust(
             activeRomSha256 = activeRomSha256,
             profileVerified = compatibility.profile.isVerified,
             memoryLayoutVerified = compatibility.profile.memoryLayoutVerified,
+            battleStateReadVerified = compatibility.profile.battleStateReadVerified,
             profileSha256Hashes = compatibility.profile.sha256Hashes,
             reason = compatibility.reason
         )

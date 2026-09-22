@@ -1,0 +1,1452 @@
+{
+  "schema": "dualdex.vanilla_gen3_goldens.v1",
+  "ruleset": "VANILLA_GEN3",
+  "mechanicsGeneration": 3,
+  "cartridgeReferences": [
+    {
+      "id": "cartridge_doubles_reflect_both_defenders_present",
+      "covers": [
+        "Doubles Reflect cartridge arithmetic (outside the VERIFIED surface)"
+      ],
+      "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
+      "sourceAnchor": "pret/pokefirered src/pokemon.c:2547 (CalculateBaseDamage, Reflect branch) and :2598 (Light Screen branch); identical text at pret/pokeemerald src/pokemon.c:3270 and :3321",
+      "refusedBy": "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED",
+      "provenance": "Reflect in a Doubles battle with both defending battlers present: CalculateBaseDamage runs `damage = 2 * (damage / 3)` on the pre-roll value, so 2 * floor(62/3) = 40 and the post-+2 value is 42. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)",
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Strength\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\",\"defenderSide\":{\"isReflect\":true}}}",
+      "bothDefendersPresent": true,
+      "hasScreen": true,
+      "isSpread": false,
+      "screenOperation": "2 * (damage / 3)",
+      "preRollDamage": 62,
+      "screenedPreRollDamage": 42,
+      "expected": {
+        "damage": [
+          35,
+          36,
+          36,
+          36,
+          37,
+          37,
+          38,
+          38,
+          39,
+          39,
+          39,
+          40,
+          40,
+          41,
+          41,
+          42
+        ],
+        "minDamage": 35,
+        "maxDamage": 42,
+        "moveType": "Normal",
+        "moveCategory": "Physical",
+        "movePower": 80
+      }
+    },
+    {
+      "id": "cartridge_doubles_reflect_one_defender_present",
+      "covers": [
+        "Doubles Reflect cartridge arithmetic (outside the VERIFIED surface)"
+      ],
+      "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
+      "sourceAnchor": "pret/pokefirered src/pokemon.c:2547 (CalculateBaseDamage, Reflect branch) and :2598 (Light Screen branch); identical text at pret/pokeemerald src/pokemon.c:3270 and :3321",
+      "refusedBy": "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED",
+      "provenance": "The same Reflect with only one defending battler present falls back to `damage /= 2`, so floor(62/2) = 31 and the post-+2 value is 33: the format label alone cannot select the branch. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)",
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Strength\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\",\"defenderSide\":{\"isReflect\":true}}}",
+      "bothDefendersPresent": false,
+      "hasScreen": true,
+      "isSpread": false,
+      "screenOperation": "damage / 2",
+      "preRollDamage": 62,
+      "screenedPreRollDamage": 33,
+      "expected": {
+        "damage": [
+          28,
+          28,
+          28,
+          29,
+          29,
+          29,
+          30,
+          30,
+          30,
+          31,
+          31,
+          31,
+          32,
+          32,
+          32,
+          33
+        ],
+        "minDamage": 28,
+        "maxDamage": 33,
+        "moveType": "Normal",
+        "moveCategory": "Physical",
+        "movePower": 80
+      }
+    },
+    {
+      "id": "cartridge_doubles_spread_both_defenders_present",
+      "covers": [
+        "Doubles spread reduction cartridge arithmetic (outside the VERIFIED surface)"
+      ],
+      "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
+      "sourceAnchor": "pret/pokefirered src/pokemon.c:2553 (physical) and :2604 (special): `if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE) && gBattleMoves[move].target == MOVE_TARGET_BOTH && CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2) damage /= 2;`; identical text at pret/pokeemerald src/pokemon.c:3276 and :3327",
+      "refusedBy": "CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED",
+      "provenance": "Rock Slide targets both opposing battlers, and with both of them present the cartridge halves the pre-roll damage (floor(58/2) = 29 -> +2 = 31) before the 85-100 roll. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)",
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Rock Slide\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\"}}",
+      "bothDefendersPresent": true,
+      "hasScreen": false,
+      "isSpread": true,
+      "screenOperation": "damage / 2 (spread)",
+      "preRollDamage": 58,
+      "screenedPreRollDamage": 31,
+      "expected": {
+        "damage": [
+          26,
+          26,
+          26,
+          27,
+          27,
+          27,
+          28,
+          28,
+          28,
+          29,
+          29,
+          29,
+          30,
+          30,
+          30,
+          31
+        ],
+        "minDamage": 26,
+        "maxDamage": 31,
+        "moveType": "Rock",
+        "moveCategory": "Physical",
+        "movePower": 75
+      }
+    },
+    {
+      "id": "cartridge_doubles_spread_one_defender_present",
+      "covers": [
+        "Doubles spread reduction cartridge arithmetic (outside the VERIFIED surface)"
+      ],
+      "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
+      "sourceAnchor": "pret/pokefirered src/pokemon.c:2553 (physical) and :2604 (special): `if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE) && gBattleMoves[move].target == MOVE_TARGET_BOTH && CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2) damage /= 2;`; identical text at pret/pokeemerald src/pokemon.c:3276 and :3327",
+      "refusedBy": "CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED",
+      "provenance": "The same Rock Slide in a Doubles battle with only one opposing battler remaining is NOT reduced at all: the cartridge vector equals the Singles vector (58 -> +2 = 60), while the shipped pipeline halves it whenever the format label says Doubles. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)",
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Rock Slide\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\"}}",
+      "bothDefendersPresent": false,
+      "hasScreen": false,
+      "isSpread": true,
+      "screenOperation": "no reduction (single target)",
+      "preRollDamage": 58,
+      "screenedPreRollDamage": 60,
+      "expected": {
+        "damage": [
+          51,
+          51,
+          52,
+          52,
+          53,
+          54,
+          54,
+          55,
+          55,
+          56,
+          57,
+          57,
+          58,
+          58,
+          59,
+          60
+        ],
+        "minDamage": 51,
+        "maxDamage": 60,
+        "moveType": "Rock",
+        "moveCategory": "Physical",
+        "movePower": 75
+      }
+    }
+  ],
+  "provenance": {
+    "oracle": {
+      "kind": "independent Generation III reference implementation",
+      "path": "tools/calc-goldens/gen3_reference.py",
+      "verified_by": "tools/calc-goldens/verify_goldens.py",
+      "sources": [
+        {
+          "project": "pret/pokeemerald",
+          "commit": "5eff78649e7170a877b961ef0b3da13b81a16038",
+          "use": "CalculateBaseDamage, gStatStageRatios, ApplyRandomDmgMultiplier, critical hits and STAB"
+        },
+        {
+          "project": "pret/pokefirered",
+          "commit": "c75f352304d529f6ba92d4f74b9cf8b5c3810788",
+          "use": "same Generation III arithmetic and constants as Emerald for every fixture"
+        }
+      ]
+    },
+    "engine": {
+      "bundle": "app/src/main/assets/calc_bundle.js",
+      "library": "@smogon/calc 0.11.0",
+      "hostSuite": "native/tests/test_js_calc.c"
+    },
+    "profiles": {
+      "vanilla_firered": {
+        "sha256": [
+          "3d0c79f1627022e18765766f6cb5ea067f6b5bf7dca115552189ad65a5c3a8ac",
+          "729041b940afe031302d630fdbe57c0c145f3f7b6d9b8eca5e98678d0ca4d059"
+        ],
+        "dataPackId": "gen3_vanilla"
+      },
+      "vanilla_emerald": {
+        "sha256": [
+          "a9dec84dfe7f62ab2220bafaef7479da0929d066ece16a6885f6226db19085af"
+        ],
+        "dataPackId": "gen3_vanilla"
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "id": "vg3_a_neutral_physical",
+      "covers": [
+        "A neutral physical (no STAB, no field)"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "Gen III base damage; Rock is physical by type; Rock vs Normal is 1.0; Machamp is not a Rock type, so there is no STAB. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Rock Slide",
+          "isCrit": false
+        },
+        "field": {
+          "gameType": "Singles",
+          "weather": null,
+          "defenderSide": null
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Rock Slide\",\"isCrit\":false},\"field\":{\"gameType\":\"Singles\"}}",
+      "expected": {
+        "damage": [
+          51,
+          51,
+          52,
+          52,
+          53,
+          54,
+          54,
+          55,
+          55,
+          56,
+          57,
+          57,
+          58,
+          58,
+          59,
+          60
+        ],
+        "minDamage": 51,
+        "maxDamage": 60,
+        "moveType": "Rock",
+        "moveCategory": "Physical",
+        "movePower": 75
+      }
+    },
+    {
+      "id": "vg3_b_neutral_special_type_split",
+      "covers": [
+        "B neutral special (Gen III type-based category)"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "Dark is a SPECIAL type in Gen III, so SpA/SpD are used even though Machamp is a physical attacker. This fails if the pipeline reads a modern per-move category instead of the generation's partition. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Crunch",
+          "isCrit": false
+        },
+        "field": {
+          "gameType": "Singles",
+          "weather": null,
+          "defenderSide": null
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Crunch\",\"isCrit\":false},\"field\":{\"gameType\":\"Singles\"}}",
+      "expected": {
+        "damage": [
+          21,
+          21,
+          21,
+          22,
+          22,
+          22,
+          22,
+          23,
+          23,
+          23,
+          23,
+          24,
+          24,
+          24,
+          24,
+          25
+        ],
+        "minDamage": 21,
+        "maxDamage": 25,
+        "moveType": "Dark",
+        "moveCategory": "Special",
+        "movePower": 80
+      }
+    },
+    {
+      "id": "vg3_c_stab_and_type_effectiveness",
+      "covers": [
+        "C STAB + type effectiveness"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "Fighting is physical; Machamp's Fighting STAB is x1.5 floored, then Fighting vs Normal x2 floored. Both materially change the result. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Karate Chop",
+          "isCrit": false
+        },
+        "field": {
+          "gameType": "Singles",
+          "weather": null,
+          "defenderSide": null
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Karate Chop\",\"isCrit\":false},\"field\":{\"gameType\":\"Singles\"}}",
+      "expected": {
+        "damage": [
+          102,
+          103,
+          104,
+          105,
+          106,
+          108,
+          109,
+          110,
+          111,
+          112,
+          114,
+          115,
+          116,
+          117,
+          118,
+          120
+        ],
+        "minDamage": 102,
+        "maxDamage": 120,
+        "moveType": "Fighting",
+        "moveCategory": "Physical",
+        "movePower": 50
+      }
+    },
+    {
+      "id": "vg3_d_critical_hit",
+      "covers": [
+        "D critical hit x2"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "Gen III critical multiplier is x2 (gCritMultiplier == 2). A drift to the modern x1.5 would understate the vector. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Rock Slide",
+          "isCrit": true
+        },
+        "field": {
+          "gameType": "Singles",
+          "weather": null,
+          "defenderSide": null
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Rock Slide\",\"isCrit\":true},\"field\":{\"gameType\":\"Singles\"}}",
+      "expected": {
+        "damage": [
+          102,
+          103,
+          104,
+          105,
+          106,
+          108,
+          109,
+          110,
+          111,
+          112,
+          114,
+          115,
+          116,
+          117,
+          118,
+          120
+        ],
+        "minDamage": 102,
+        "maxDamage": 120,
+        "moveType": "Rock",
+        "moveCategory": "Physical",
+        "movePower": 75
+      }
+    },
+    {
+      "id": "vg3_d_crit_ignores_negative_attack_and_positive_defense",
+      "covers": [
+        "D critical hit ignores unfavourable stat stages"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "On a critical hit the engine ignores the attacker's NEGATIVE stages and the defender's POSITIVE stages, so the vector equals the neutral critical fixture. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": {
+            "atk": -2,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          },
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": {
+            "atk": 0,
+            "def": 2,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          },
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Rock Slide",
+          "isCrit": true
+        },
+        "field": {
+          "gameType": "Singles",
+          "weather": null,
+          "defenderSide": null
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0},\"boosts\":{\"atk\":-2,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0},\"boosts\":{\"atk\":0,\"def\":2,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Rock Slide\",\"isCrit\":true},\"field\":{\"gameType\":\"Singles\"}}",
+      "expected": {
+        "damage": [
+          102,
+          103,
+          104,
+          105,
+          106,
+          108,
+          109,
+          110,
+          111,
+          112,
+          114,
+          115,
+          116,
+          117,
+          118,
+          120
+        ],
+        "minDamage": 102,
+        "maxDamage": 120,
+        "moveType": "Rock",
+        "moveCategory": "Physical",
+        "movePower": 75
+      }
+    },
+    {
+      "id": "vg3_e_screen_reflect_singles",
+      "covers": [
+        "E Reflect (Singles x1/2)"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "Singles Reflect halves the physical base damage before +2. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Strength",
+          "isCrit": false
+        },
+        "field": {
+          "gameType": "Singles",
+          "weather": null,
+          "defenderSide": {
+            "isReflect": true,
+            "isLightScreen": false
+          }
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Strength\",\"isCrit\":false},\"field\":{\"gameType\":\"Singles\",\"defenderSide\":{\"isReflect\":true}}}",
+      "expected": {
+        "damage": [
+          28,
+          28,
+          28,
+          29,
+          29,
+          29,
+          30,
+          30,
+          30,
+          31,
+          31,
+          31,
+          32,
+          32,
+          32,
+          33
+        ],
+        "minDamage": 28,
+        "maxDamage": 33,
+        "moveType": "Normal",
+        "moveCategory": "Physical",
+        "movePower": 80
+      }
+    },
+    {
+      "id": "vg3_e_screen_light_screen_singles",
+      "covers": [
+        "E Light Screen (Singles x1/2)"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "Singles Light Screen halves the special base damage before +2. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Hydro Pump",
+          "isCrit": false
+        },
+        "field": {
+          "gameType": "Singles",
+          "weather": null,
+          "defenderSide": {
+            "isReflect": false,
+            "isLightScreen": true
+          }
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Hydro Pump\",\"isCrit\":false},\"field\":{\"gameType\":\"Singles\",\"defenderSide\":{\"isLightScreen\":true}}}",
+      "expected": {
+        "damage": [
+          16,
+          16,
+          16,
+          16,
+          16,
+          17,
+          17,
+          17,
+          17,
+          17,
+          18,
+          18,
+          18,
+          18,
+          18,
+          19
+        ],
+        "minDamage": 16,
+        "maxDamage": 19,
+        "moveType": "Water",
+        "moveCategory": "Special",
+        "movePower": 120
+      }
+    },
+    {
+      "id": "vg3_e_doubles_single_target_unreduced",
+      "covers": [
+        "E Doubles single-target move is NOT reduced (the reachable Doubles geometry)"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "The only Doubles geometry left on the verified surface: a single-target move with no screen. Strength is not a spread move, so the format does not change its damage and the vector equals the Singles one (62 -> +2 = 64); this fixture fails if a future change ever starts applying a format-based reduction to a move the games never reduce. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Strength",
+          "isCrit": false
+        },
+        "field": {
+          "gameType": "Doubles",
+          "weather": null,
+          "defenderSide": null
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Strength\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\"}}",
+      "expected": {
+        "damage": [
+          54,
+          55,
+          55,
+          56,
+          56,
+          57,
+          58,
+          58,
+          59,
+          60,
+          60,
+          61,
+          62,
+          62,
+          63,
+          64
+        ],
+        "minDamage": 54,
+        "maxDamage": 64,
+        "moveType": "Normal",
+        "moveCategory": "Physical",
+        "movePower": 80
+      }
+    },
+    {
+      "id": "vg3_f_weather_rain_halves_fire",
+      "covers": [
+        "F Rain x1/2 on Fire"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "Rain halves a Fire move's base damage before +2. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Flamethrower",
+          "isCrit": false
+        },
+        "field": {
+          "gameType": "Singles",
+          "weather": "Rain",
+          "defenderSide": null
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Flamethrower\",\"isCrit\":false},\"field\":{\"gameType\":\"Singles\",\"weather\":\"Rain\"}}",
+      "expected": {
+        "damage": [
+          12,
+          12,
+          13,
+          13,
+          13,
+          13,
+          13,
+          13,
+          13,
+          14,
+          14,
+          14,
+          14,
+          14,
+          14,
+          15
+        ],
+        "minDamage": 12,
+        "maxDamage": 15,
+        "moveType": "Fire",
+        "moveCategory": "Special",
+        "movePower": 95
+      }
+    },
+    {
+      "id": "vg3_f_weather_sun_boosts_fire",
+      "covers": [
+        "F Sun x1.5 on Fire"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "Sun multiplies a Fire move's base damage by 1.5 (floored) before +2. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Flamethrower",
+          "isCrit": false
+        },
+        "field": {
+          "gameType": "Singles",
+          "weather": "Sun",
+          "defenderSide": null
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Flamethrower\",\"isCrit\":false},\"field\":{\"gameType\":\"Singles\",\"weather\":\"Sun\"}}",
+      "expected": {
+        "damage": [
+          35,
+          36,
+          36,
+          36,
+          37,
+          37,
+          38,
+          38,
+          39,
+          39,
+          39,
+          40,
+          40,
+          41,
+          41,
+          42
+        ],
+        "minDamage": 35,
+        "maxDamage": 42,
+        "moveType": "Fire",
+        "moveCategory": "Special",
+        "movePower": 95
+      }
+    },
+    {
+      "id": "vg3_g_burn_guts_boosts_attack",
+      "covers": [
+        "G burn + Guts x1.5 attack, no burn halving"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "Guts skips the burn halving and multiplies attack by 1.5 (floored) in the stat step, so the vector is higher than the unburned neutral case. The ability is explicit: an omitted ability is the engine's species default (Machamp's is Guts), so a burn fixture must state it. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": "Guts",
+          "curHP": null,
+          "status": "brn",
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Rock Slide",
+          "isCrit": false
+        },
+        "field": {
+          "gameType": "Singles",
+          "weather": null,
+          "defenderSide": null
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Guts\",\"status\":\"brn\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Rock Slide\",\"isCrit\":false},\"field\":{\"gameType\":\"Singles\"}}",
+      "expected": {
+        "damage": [
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89
+        ],
+        "minDamage": 75,
+        "maxDamage": 89,
+        "moveType": "Rock",
+        "moveCategory": "Physical",
+        "movePower": 75
+      }
+    },
+    {
+      "id": "vg3_h_stat_stage_attack_plus_two",
+      "covers": [
+        "H non-neutral stat stage (+2 Atk)"
+      ],
+      "games": [
+        "vanilla_firered",
+        "vanilla_emerald"
+      ],
+      "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
+      "provenance": "Gen III +2 Attack uses gStatStageRatios {20,10}, i.e. x2 floored, before the base formula. This is the positive-stage branch. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "input": {
+        "attacker": {
+          "species": "Machamp",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": {
+            "atk": 2,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          },
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "defender": {
+          "species": "Snorlax",
+          "level": 50,
+          "nature": "Hardy",
+          "item": null,
+          "ability": null,
+          "curHP": null,
+          "status": null,
+          "boosts": null,
+          "ivs": {
+            "hp": 31,
+            "atk": 31,
+            "def": 31,
+            "spa": 31,
+            "spd": 31,
+            "spe": 31
+          },
+          "evs": {
+            "hp": 0,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0
+          }
+        },
+        "move": {
+          "name": "Rock Slide",
+          "isCrit": false
+        },
+        "field": {
+          "gameType": "Singles",
+          "weather": null,
+          "defenderSide": null
+        }
+      },
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0},\"boosts\":{\"atk\":2,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Rock Slide\",\"isCrit\":false},\"field\":{\"gameType\":\"Singles\"}}",
+      "expected": {
+        "damage": [
+          100,
+          101,
+          102,
+          103,
+          105,
+          106,
+          107,
+          108,
+          109,
+          110,
+          112,
+          113,
+          114,
+          115,
+          116,
+          118
+        ],
+        "minDamage": 100,
+        "maxDamage": 118,
+        "moveType": "Rock",
+        "moveCategory": "Physical",
+        "movePower": 75
+      }
+    }
+  ]
+}

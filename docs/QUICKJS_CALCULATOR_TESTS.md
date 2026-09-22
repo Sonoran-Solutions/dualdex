@@ -72,7 +72,7 @@ partially accepting it, and it is what lets the suite assert typed values
 | `gen3_ability_thick_fat_fire` | control case: no ability specified |
 | `gen3_ability_thick_fat_halves_fire` | Thick Fat halves the Fire attack form |
 | `gen3_reflect_physical_singles` | singles Reflect is ×1/2 |
-| `gen3_reflect_doubles_uses_two_thirds` | doubles screens are ×2/3: format-dependent |
+| `gen3_reflect_doubles_pipeline_arithmetic` | the shipped `@smogon/calc` Doubles screen arithmetic (post-roll `×2/3`) — deliberately NOT the cartridge's `2 * (damage / 3)`, which is why production refuses this shape for exact vanilla (`VANILLA_DOUBLES_SCREEN_NOT_MODELLED`) |
 | `gen3_light_screen_special_singles` | singles Light Screen is ×1/2 |
 | `gen3_crit_doubles_the_attack_form` | the Crit checkbox path: Generation III crits are ×2 |
 | `gen3_explicit_guts_boosts_a_statused_attacker` | a whitelisted ability must reach the pipeline |
@@ -105,6 +105,35 @@ hide behind a matching min/max pair.
 
 These numbers were computed independently and then cross-checked against the
 engine; they were not produced by running the engine and copying its output.
+
+### Vanilla FireRed / Emerald golden matrix
+
+`run_vanilla_golden_matrix()` in this suite reads
+`tools/calc-goldens/vanilla_gen3_goldens.json`, executes each fixture's **exact**
+production-serialised request against the shipped bundle, and asserts the full 16-roll
+vector for the neutral physical, neutral special (Gen III type split), STAB + type
+effectiveness, critical hit (and crit stage-ignore), Singles Reflect / Light Screen,
+a Doubles single-target (unreduced) control, Rain/Sun, burn + Guts, and stat-stage branches.
+
+Doubles **screens** and Doubles **spread** moves are deliberately absent from this matrix: the
+cartridge conditions both on how many opposing battlers are actually present, which the request shape
+cannot carry, so production refuses them
+(`CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED`, `CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED`)
+and their source-exact vectors live in the fixture file's `cartridgeReferences` block instead. The
+same suite also proves the move table the spread gate rests on, over the whole Generation III move
+list, and asserts that the shipped engine does not produce either committed cartridge vector.
+
+The same fixture file is used by two other checks, so none of the three can drift:
+
+* `tools/calc-goldens/verify_goldens.py` re-derives every expected roll from the
+  independent Generation III oracle `tools/calc-goldens/gen3_reference.py` and checks that
+  the bundled FireRed/Emerald profile SHA-256s match the golden provenance;
+* `app/src/test/java/com/dualdex/calculator/CalcVanillaGoldenBoundaryTest.kt` drives the
+  real `CalcRequestBoundary` for both exact profiles, proves `Ready` / `VERIFIED`, and
+  asserts the production serialisation is identical to the executed request.
+
+The matrix, its pinned pret commits, and the exact supported ROM hashes are documented in
+[VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md).
 
 ### The numeric oracle and the parser are tested too
 

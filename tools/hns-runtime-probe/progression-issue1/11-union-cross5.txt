@@ -1,0 +1,64 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage56_union_entry.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-map 24 8
+assert-pos 32 7
+# UnionCave_1F_hns (32, 7) -> (32, 45)
+wait 90
+walk-to 32 5 battle
+wait 90
+walk-to 12 5 battle
+wait 90
+walk-to 12 10 battle
+wait 90
+walk-to 21 10 battle
+wait 90
+walk-to 21 11 battle
+wait 90
+walk-to 25 11 battle
+wait 90
+walk-to 25 12 battle
+wait 90
+walk-to 27 12 battle
+wait 90
+walk-to 27 13 battle
+wait 90
+walk-to 29 13 battle
+wait 90
+walk-to 29 21 battle
+wait 90
+walk-to 26 21 battle
+wait 90
+walk-to 26 22 battle
+wait 90
+walk-to 22 22 battle
+wait 90
+walk-to 22 23 battle
+wait 90
+walk-to 16 23 battle
+wait 90
+walk-to 16 36 battle
+wait 90
+walk-to 17 36 battle
+wait 90
+walk-to 17 37 battle
+wait 90
+walk-to 21 38 battle
+walk-to 24 38 battle
+wait 90
+walk-to 24 38 battle
+wait 90
+walk-to 32 38 battle
+walk DOWN 7 battle
+wait 90
+matrix route-UnionCave_1F_hns
+wait 300
+matrix union-exit
+assert-battle inactive
+assert-map 24 8
+assert-pos 32 45
+menusave
+savsave /tmp/hns_baseline/stage57_route33.sav

@@ -1,0 +1,18 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage52_pre_egg.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+matrix check
+press UP 12
+spama 50
+wait 400
+party-stats player
+spamb 25
+assert-party-count player 3
+assert-battle inactive
+assert-map 3 0
+assert-pos 9 5
+menusave
+savsave /tmp/hns_baseline/stage52_egg_healed.sav

@@ -1,0 +1,36 @@
+== DualDex H&S 2.0.5 runtime battle-state probe ==
+core   : /home/dq/Projects/upstream-hns/mgba-host/mgba_libretro.so
+rom    : /home/dq/Downloads/Pokémon Heart and Soul (v2.0.5).gba
+save   : /tmp/hns_baseline/stage66_azalea_gym.sav
+script : tools/hns-runtime-probe/scenarios/70-amy-may-doubles.txt
+layout : playerParty=0x34764 playerPartyCount=0x342A4 enemyParty=0x342B4 enemyPartyCount=0x342A5 battleMons=0x420 battlersCount=0xB0 battleTypeFlags=0xAC outcome=0x12C partyIndexes=0x144 positions=0x238 absentFlags=0x30A gMain=0x03005BD8+0x439 bit 1
+rom sha256 : edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+[ROM] path=/home/dq/Downloads/Pokémon Heart and Soul (v2.0.5).gba sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b loaded=1
+
+-- memory regions after load: 0 --
+save RAM size: 131072 bytes
+battery save load: OK
+
+-- runtime table (a row appears on every observed state change) --
+  [assert] ROM SHA-256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b OK
+  [assert] map=4/4 OK (frame 1120)
+  [assert] pos=(11,44) OK (frame 1120)
+  [assert] battle=inactive OK (frame 1120)
+[MATRIX] gym-before pos=11,44@4/4 frame=1120 inBattle=false lifecycle=INACTIVE kind=NONE presence=ABSENT battlers=0 typeFlags=0x00000000 outcome=0 absent=0x00 positions=0,0,0,0 indexes=0,0,0,0 enemyPartyCount=0 playerPartyCount=3 species=0,0,0,0 hp=0,0,0,0 maxHP=0,0,0,0 statStages0=0,0,0,0,0,0,0,0 activeEnemy=NONE_ACTIVE resolvedBattler=-1 resolvedEnemySlot=-1 opponentBattlers=0 fainted=0 activePlayerSlot=-1 playerKnown=0 playerBattler=-1 playerAbility=0 playerTypes=0,0,0 playerBStatus=0 enemyBattler=-1 enemyAbility=0 enemyTypes=0,0,0 enemyBStatus=0
+[MATRIX] after-spider pos=6,27@4/4 frame=2273 inBattle=false lifecycle=INACTIVE kind=NONE presence=ABSENT battlers=0 typeFlags=0x00000000 outcome=0 absent=0x00 positions=0,0,0,0 indexes=0,0,0,0 enemyPartyCount=0 playerPartyCount=3 species=0,0,0,0 hp=0,0,0,0 maxHP=0,0,0,0 statStages0=0,0,0,0,0,0,0,0 activeEnemy=NONE_ACTIVE resolvedBattler=-1 resolvedEnemySlot=-1 opponentBattlers=0 fainted=0 activePlayerSlot=-1 playerKnown=0 playerBattler=-1 playerAbility=0 playerTypes=0,0,0 playerBStatus=0 enemyBattler=-1 enemyAbility=0 enemyTypes=0,0,0 enemyBStatus=0
+  [engage] battle started after 1 A presses
+[MATRIX] amy-may-live pos=6,27@4/4 frame=3475 inBattle=true lifecycle=ACTIVE kind=DOUBLES presence=PRESENT battlers=4 typeFlags=0x0000000D outcome=0 absent=0x00 positions=0,1,2,3 indexes=0,0,1,1 enemyPartyCount=2 playerPartyCount=3 species=152,165,161,167 hp=42,31,27,31 maxHP=42,31,27,31 statStages0=6,6,6,6,6,6,6,6 activeEnemy=AMBIGUOUS resolvedBattler=-1 resolvedEnemySlot=-1 opponentBattlers=2 fainted=0 activePlayerSlot=-1 playerKnown=0 playerBattler=-1 playerAbility=0 playerTypes=0,0,0 playerBStatus=1 enemyBattler=-1 enemyAbility=0 enemyTypes=0,0,0 enemyBStatus=1
+[MATRIX] four-battler-contract pos=6,27@4/4 frame=3475 inBattle=true lifecycle=ACTIVE kind=DOUBLES presence=PRESENT battlers=4 typeFlags=0x0000000D outcome=0 absent=0x00 positions=0,1,2,3 indexes=0,0,1,1 enemyPartyCount=2 playerPartyCount=3 species=152,165,161,167 hp=42,31,27,31 maxHP=42,31,27,31 statStages0=6,6,6,6,6,6,6,6 activeEnemy=AMBIGUOUS resolvedBattler=-1 resolvedEnemySlot=-1 opponentBattlers=2 fainted=0 activePlayerSlot=-1 playerKnown=0 playerBattler=-1 playerAbility=0 playerTypes=0,0,0 playerBStatus=1 enemyBattler=-1 enemyAbility=0 enemyTypes=0,0,0 enemyBStatus=1
+  [assert] four present battlers / DOUBLES / both active roles ambiguous OK
+[MATRIX] four-battler-contract pos=6,27@4/4 frame=3655 inBattle=true lifecycle=ACTIVE kind=DOUBLES presence=PRESENT battlers=4 typeFlags=0x0000000D outcome=0 absent=0x00 positions=0,1,2,3 indexes=0,0,1,1 enemyPartyCount=2 playerPartyCount=3 species=152,165,161,167 hp=42,31,27,31 maxHP=42,31,27,31 statStages0=6,6,6,6,6,6,6,6 activeEnemy=AMBIGUOUS resolvedBattler=-1 resolvedEnemySlot=-1 opponentBattlers=2 fainted=0 activePlayerSlot=-1 playerKnown=0 playerBattler=-1 playerAbility=0 playerTypes=0,0,0 playerBStatus=1 enemyBattler=-1 enemyAbility=0 enemyTypes=0,0,0 enemyBStatus=1
+  [assert] four present battlers / DOUBLES / both active roles ambiguous OK
+
+-- summary --
+frames run                    : 3655
+frames checked                : 3655
+runtime invariant violations  : 0
+script errors                 : 0
+script runner status          : ok
+result                        : PASS
+-- regions after unload: 0 (must be 0) --
+-- read after unload must be rejected: rejected (correct) --

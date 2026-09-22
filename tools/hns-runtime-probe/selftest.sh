@@ -89,6 +89,16 @@ expect_zero() {
 
 echo "== parser / save handling =="
 
+# The four-battler evidence command must reject a missing encounter and misspelled kind.
+printf 'wait 30\nassert-four-battler DOUBLES\n' > "$WORK/no_four_battlers.txt"
+expect_nonzero four-battler-not-reached --script "$WORK/no_four_battlers.txt"
+printf 'assert-four-battler DOUBLE\n' > "$WORK/bad_four_kind.txt"
+expect_nonzero four-battler-invalid-kind --script "$WORK/bad_four_kind.txt"
+printf 'assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b\n' > "$WORK/rom_match.txt"
+expect_zero supported-rom-sha --script "$WORK/rom_match.txt"
+printf 'assert-rom-sha256 0000000000000000000000000000000000000000000000000000000000000000\n' > "$WORK/rom_mismatch.txt"
+expect_nonzero wrong-rom-sha --script "$WORK/rom_mismatch.txt"
+
 printf 'wait 30\nthis-command-does-not-exist 1 2\n' > "$WORK/unknown_command.txt"
 expect_nonzero unknown-command --script "$WORK/unknown_command.txt"
 

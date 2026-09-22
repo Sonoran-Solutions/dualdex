@@ -1,0 +1,40 @@
+# Issue #1 legal controller progression. Input: /tmp/hns_baseline/stage58_azalea.sav
+# Only accept output after process exit 0. No RAM/save editing.
+assert-rom-sha256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+wait 120
+mash 800
+wait 200
+assert-map 4 0
+assert-pos 7 8
+walk UP 4
+spama 30
+wait 200
+spamb 8
+party-stats player
+walk DOWN 5
+wait 90
+assert-map 0 3
+assert-pos 31 16
+# AzaleaTown_hns (31, 16) -> (19, 11)
+walk LEFT 8 battle
+walk UP 1 battle
+walk LEFT 1 battle
+walk UP 1 battle
+walk LEFT 3 battle
+walk UP 3 battle
+wait 90
+matrix route-AzaleaTown_hns
+wait 200
+matrix kurt-entry
+walk UP 4
+walk LEFT 1
+walk UP 1
+press RIGHT 12
+spama 35
+spamb 20
+matrix kurt-cleared
+assert-battle inactive
+assert-map 4 2
+assert-pos 3 3
+menusave
+savsave /tmp/hns_baseline/stage59_kurt.sav

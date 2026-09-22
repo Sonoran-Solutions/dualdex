@@ -2172,8 +2172,11 @@ an audit. The split is machine-checked end to end.
 **The analyzer's provenance boundary.** `hns_route.py` refuses to analyse anything but the pinned
 revision with clean inputs: it checks `HEAD` against `1f42b74d…` and refuses a modified or deleted
 file under any path it reads — `data/maps/`, `data/layouts/`, `data/tilesets/`, `data/scripts/`,
-`include/constants/`, `src/data/tilesets/`. Layout dimensions, block data and metatile attributes are
-included because they *are* reachability evidence here. `tools/hns-map-data/test_hns_route.py` drives
+`include/` and `src/`. The whole of `include/` and `src/` are guarded because the warp-activation
+model is **derived** from them: the predicate sets come from `src/field_control_avatar.c` and
+`src/metatile_behavior.c`, and the primary/secondary boundary from `include/fieldmap.h` and
+`src/fieldmap.c`. A tampered predicate source would otherwise change the classification while the
+provenance check still accepted the tree. `tools/hns-map-data/test_hns_route.py` drives
 that boundary against synthetic git repositories, with no upstream checkout, ROM or network, and runs
 in the canonical gate.
 
@@ -2183,9 +2186,9 @@ exactly three field-input paths, and each needs a metatile behaviour:
 
 | Path | Predicate | Requirement |
 |---|---|---|
-| arrow | `TryArrowWarp` | the player **stands on** the tile, holds the facing direction, and the tile satisfies `IsArrowWarpMetatileBehavior` for it |
-| door | `TryDoorWarp` | the player faces **north** and the tile **in front** is a warp door (`MetatileBehavior_IsWarpDoor`) carrying the warp event |
-| step | `TryStartWarpEventScript` | the player **steps onto** the tile and it satisfies `IsWarpMetatileBehavior` |
+| arrow | `TryArrowWarp` | the player **stands on** the tile, holds the facing direction, and the tile satisfies `IsArrowWarpMetatileBehavior` **for that direction**. The accepted press is derived per behaviour, so `MB_SOUTH_ARROW_WARP` takes a south press only |
+| door | `TryDoorWarp` | the player faces **north** and walks **into** a warp door (`MetatileBehavior_IsWarpDoor`), so the warp event lives on the (usually impassable) door tile and the trigger is the walkable tile directly **south** of it |
+| step | `TryStartWarpEventScript` | the player **steps onto** the tile, which must therefore be **walkable**, and it satisfies `IsWarpMetatileBehavior` |
 
 All three additionally need `GetWarpEventAtPosition` to match, i.e. the warp event's elevation equals
 the tile's or is `ELEVATION_TRANSITION`. A `warp_def` on a tile with none of those behaviours is an
@@ -2209,10 +2212,11 @@ read as ordinary floor, which would have made a dead transition look functional:
 
 **What the analyzer proves (FUNCTIONAL / DEAD).**
 
-* A warp whose trigger tile satisfies the relevant predicate — arrow behaviour for the arrow path,
-  `MetatileBehavior_IsWarpDoor` on the front tile for the door path, `IsWarpMetatileBehavior` for the
-  step path — is FUNCTIONAL, and the recorded edge carries the observed behaviour, the activation
-  path and the predicate it depends on.
+* A warp whose trigger tile satisfies the relevant predicate — an arrow behaviour matching the press
+  for the arrow path, `MetatileBehavior_IsWarpDoor` on an impassable tile with a walkable tile south
+  of it for the door path, `IsWarpMetatileBehavior` on a **walkable** tile for the step path — is
+  FUNCTIONAL, and the recorded edge carries the observed behaviour, the activation path, the press to
+  emit, the trigger tile and the predicate it depends on.
 * A `connections` entry whose `dest = src - offset` window is empty, or whose border column is
   entirely impassable, is DEAD (`src/fieldmap.c`).
 * A warp whose trigger tile satisfies no warp predicate is DEAD, with the observed behaviour and the
@@ -2227,10 +2231,10 @@ functional cross-region field transitions:
 
 | From | To | Behaviour | Path |
 |---|---|---|---|
-| `ReceptionGate_hns` `(20,9)` | `Route22_hns` **Kanto** | `MB_SOUTH_ARROW_WARP` | arrow |
-| `Route22_hns` `(12,9)` | `ReceptionGate_hns` | `MB_ANIMATED_DOOR` | step |
+| `ReceptionGate_hns` `(20,9)`, press DOWN | `Route22_hns` **Kanto** | `MB_SOUTH_ARROW_WARP` | arrow |
+| `Route22_hns` `(12,9)`, triggered from `(12,10)` | `ReceptionGate_hns` | `MB_ANIMATED_DOOR` | door |
 | `MtSilver_1F_WaterfallRoom_hns` `(43,7)` | `SnowsweptCavern_hns` **Sinjoh** | `MB_NON_ANIMATED_DOOR` | step |
-| `SnowsweptCavern_hns` `(50,68)` | `MtSilver_1F_WaterfallRoom_hns` | `MB_SOUTH_ARROW_WARP` | arrow |
+| `SnowsweptCavern_hns` `(50,68)`, press DOWN | `MtSilver_1F_WaterfallRoom_hns` | `MB_SOUTH_ARROW_WARP` | arrow |
 
 Plus nine script-command transitions (the S.S. Aqua pair, the Magnet Train pair, and the Alola ↔
 Kanto pair through Route 13).
@@ -2339,7 +2343,7 @@ accepted the second case would be evidence of nothing. It is fatal when no round
 `tools/hns-layout/mutation-check.sh` applies each of these and requires a gate to fail: the
 canonical Kotlin suite for the production and evidence behaviour, and the analyzer's own
 `inventory --check` plus `test_hns_route.py` for the provenance, reproducibility and
-warp-activation contract. **14 mutations, 0 not caught**, and every mutated file was restored byte-identically:
+warp-activation contract. **17 mutations, 0 not caught**, and every mutated file was restored byte-identically:
 
 | Mutation | Caught by |
 |---|---|
@@ -2357,8 +2361,11 @@ warp-activation contract. **14 mutations, 0 not caught**, and every mutated file
 | Restore the 512 primary/secondary metatile boundary | `inventory --check`, `test_hns_route.py` |
 | Accept `MB_NORMAL` as a step-on warp behaviour | `inventory --check`, `test_hns_route.py`, `HnsLocationRuntimeEvidenceTest` |
 | Treat a `warp_def` as functional without checking the predicate | `inventory --check`, `test_hns_route.py`, `HnsLocationRuntimeEvidenceTest` |
+| Let the step-on path apply to an impassable tile | `inventory --check`, `test_hns_route.py`, `HnsLocationRuntimeEvidenceTest` |
+| Offer every direction for an arrow warp | `inventory --check`, `test_hns_route.py`, `HnsLocationRuntimeEvidenceTest` |
+| Drop the engine sources from the clean boundary | `inventory --check`, `test_hns_route.py` |
 
-The last eight are why the mutation runner drives **two** gates per mutation: the Kotlin suite
+The last eleven are why the mutation runner drives **two** gates per mutation: the Kotlin suite
 cannot express a git-revision check, and the analyzer cannot express the production resolver's behaviour. The runner also refuses to trust a bare hash of its starting tree: it copies each mutated file before the first edit and compares the content byte-for-byte afterwards, because a run that died mid-mutation would otherwise poison the next run's baseline and report a clean restore for an already-tampered file.
 
 The same pattern was used to confirm the probe's own strictness: `selftest.sh` now requires the

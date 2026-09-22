@@ -44,6 +44,12 @@ SYNTHETIC_FILES = (
     "data/tilesets/primary/general/metatile_attributes.bin",
     "data/scripts/new_game.inc",
     "include/constants/metatile_behaviors.h",
+    # The engine sources the warp-activation model is derived from, and the boundary check, all have
+    # to be present so the dirty-source cases actually exercise the paths this tool reads.
+    "include/fieldmap.h",
+    "src/fieldmap.c",
+    "src/field_control_avatar.c",
+    "src/metatile_behavior.c",
     "src/data/tilesets/headers.h",
 )
 
@@ -160,6 +166,49 @@ class ProvenanceTest(unittest.TestCase):
         with open(os.path.join(self.repo, "README.md"), "w", encoding="utf-8") as handle:
             handle.write("untracked\n")
         self.assertEqual(pinned, hns_route.verify_provenance(self.repo))
+
+    def test_the_engine_sources_the_model_reads_are_inside_the_clean_boundary(self):
+        """The derived model reads engine C sources, so those must be protected too.
+
+        `BehaviourSource` reads `src/field_control_avatar.c` and `src/metatile_behavior.c`, and the
+        boundary regression reads `include/fieldmap.h` and `src/fieldmap.c`. A dirty copy of any of
+        them can change the classification, so each must be inside `REQUIRED_CLEAN_SOURCES`; guarding
+        only the map data would let a tampered predicate source through.
+        """
+        for relative in (
+            "src/field_control_avatar.c",
+            "src/metatile_behavior.c",
+            "src/fieldmap.c",
+            "include/fieldmap.h",
+        ):
+            with self.subTest(source=relative):
+                self.assertTrue(
+                    os.path.isfile(os.path.join(self.repo, relative)),
+                    "the synthetic checkout must contain %s" % relative,
+                )
+                self.assertTrue(
+                    any(relative.startswith(prefix) for prefix in hns_route.REQUIRED_CLEAN_SOURCES),
+                    "%s must be guarded by REQUIRED_CLEAN_SOURCES" % relative,
+                )
+
+    def test_a_dirty_engine_source_is_refused(self):
+        """A modified predicate source must refuse the run, not silently change the model."""
+        pinned = self.setUpPinnedRepo()
+        for relative in ("src/field_control_avatar.c", "src/metatile_behavior.c", "include/fieldmap.h"):
+            with self.subTest(modified=relative):
+                path = os.path.join(self.repo, relative)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as handle:
+                    handle.write("synthetic\n")
+                _git(["add", "-A"], self.repo)
+                pinned = self.commit("add %s" % relative)
+                self.pin_to(pinned)
+                with open(path, "a", encoding="utf-8") as handle:
+                    handle.write("tampered\n")
+                with self.assertRaises(SystemExit) as raised:
+                    hns_route.verify_provenance(self.repo)
+                self.assertIn("uncommitted changes", str(raised.exception))
+                _git(["checkout", "--", relative], self.repo)
 
     def test_a_non_git_directory_is_refused(self):
         plain = os.path.join(self.root, "not-a-repo")
@@ -329,22 +378,43 @@ class BehaviourModelTest(unittest.TestCase):
         model cannot quietly reproduce the same committed inventory.
         """
         source = Source(self.root)
+        # (behaviour, path, reachable, trigger tile, presses)
         expected = {
-            ("ReceptionGate_hns", 20, 9): ("MB_SOUTH_ARROW_WARP", "arrow", True),
-            ("Route22_hns", 12, 9): ("MB_ANIMATED_DOOR", "step", True),
-            ("MtSilver_1F_WaterfallRoom_hns", 43, 7): ("MB_NON_ANIMATED_DOOR", "step", True),
-            ("SnowsweptCavern_hns", 50, 68): ("MB_SOUTH_ARROW_WARP", "arrow", True),
-            ("CinnabarIsland_hns", 41, 1): ("MB_OCEAN_WATER", None, False),
-            ("FuchsiaCity_hns", 19, 30): ("MB_NORMAL", None, False),
+            # An arrow warp is direction-specific: this one takes a south press only.
+            ("ReceptionGate_hns", 20, 9): (
+                "MB_SOUTH_ARROW_WARP", "arrow", True, (20, 9), ["DOWN"],
+            ),
+            # An animated door is IMPASSABLE, so the step-on path cannot apply: it is entered by
+            # walking north into it from the tile directly south.
+            ("Route22_hns", 12, 9): (
+                "MB_ANIMATED_DOOR", "door", True, (12, 10), ["UP"],
+            ),
+            # A non-animated door IS walkable, so the step-on path applies to the tile itself.
+            ("MtSilver_1F_WaterfallRoom_hns", 43, 7): (
+                "MB_NON_ANIMATED_DOOR", "step", True, (43, 7), ["UP"],
+            ),
+            ("SnowsweptCavern_hns", 50, 68): (
+                "MB_SOUTH_ARROW_WARP", "arrow", True, (50, 68), ["DOWN"],
+            ),
+            ("CinnabarIsland_hns", 41, 1): ("MB_OCEAN_WATER", None, False, None, []),
+            ("FuchsiaCity_hns", 19, 30): ("MB_NORMAL", None, False, None, []),
         }
-        for (name, x, y), (behaviour, path, reachable) in expected.items():
+        for (name, x, y), (behaviour, path, reachable, trigger, presses) in expected.items():
             with self.subTest(map=name, tile=(x, y)):
                 activation = source.warp_activation(name, x, y)
                 self.assertIsNotNone(activation, "behaviour must resolve")
                 self.assertEqual(behaviour, activation["behaviour"])
                 self.assertEqual(reachable, activation["reachable"])
-                if path is not None:
-                    self.assertEqual(path, activation["path"])
+                self.assertEqual(path, activation["path"])
+                self.assertEqual(presses, list(activation.get("directions") or []))
+                if trigger is not None:
+                    self.assertEqual(trigger, tuple(activation["trigger_tile"]))
+                # A door path must never claim the player stands on the door, and a step path must
+                # never be reported for an impassable tile.
+                if path == "door":
+                    self.assertFalse(activation["tile_walkable"])
+                if path == "step":
+                    self.assertTrue(activation["tile_walkable"])
 
 
 class MetaTest(unittest.TestCase):

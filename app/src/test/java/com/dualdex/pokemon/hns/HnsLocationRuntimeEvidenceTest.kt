@@ -19,6 +19,7 @@ import com.dualdex.romhack.RuntimeRomTrust
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -438,7 +439,77 @@ class HnsLocationRuntimeEvidenceTest {
                 "${edgeKey(edge)} must have a matching warp event",
                 edge.getBoolean("warp_event_present")
             )
+            // An arrow warp is direction-specific, so the recorded presses must be the ones its
+            // behaviour responds to and must never be all four.
+            val directions = edge.getJSONArray("directions").map { it.toString() }
+            when (path) {
+                "arrow" -> {
+                    assertTrue("${edgeKey(edge)} must record its matching press", directions.isNotEmpty())
+                    assertTrue(
+                        "${edgeKey(edge)} must not offer every direction",
+                        directions.size < 4
+                    )
+                }
+                else -> assertEquals(listOf("UP"), directions)
+            }
+            // The trigger tile is where the player must stand. For a door that is NOT the door tile,
+            // because TryDoorWarp tests the tile the player walks into.
+            val trigger = edge.getJSONArray("trigger_tile").let { listOf(it.getInt(0), it.getInt(1)) }
+            if (path == "door") {
+                assertFalse(
+                    "${edgeKey(edge)} is a door, so its tile must be impassable and the trigger south of it",
+                    edge.getBoolean("tile_walkable")
+                )
+                assertNotEquals(
+                    "a door's trigger tile must not be the door itself",
+                    edge.getJSONArray("at").let { listOf(it.getInt(0), it.getInt(1)) },
+                    trigger
+                )
+            }
+            if (path == "step") {
+                assertTrue(
+                    "${edgeKey(edge)} is a step-on warp, so its tile must be walkable",
+                    edge.getBoolean("tile_walkable")
+                )
+                assertEquals(
+                    "a step-on warp's trigger tile is the warp tile itself",
+                    edge.getJSONArray("at").let { listOf(it.getInt(0), it.getInt(1)) },
+                    trigger
+                )
+            }
         }
+    }
+
+    /**
+     * The recorded activation of the Route22 door edge specifically.
+     *
+     * This pins the correction the second senior review asked for: an impassable `MB_ANIMATED_DOOR`
+     * cannot be stepped onto, so it must be the `TryDoorWarp` path from the walkable tile directly
+     * south, not `TryStartWarpEventScript`.
+     */
+    @Test
+    fun theImpassableAnimatedDoorResolvesThroughTheDoorPath() {
+        val door = toolFunctionalEdges().single {
+            it.getString("from_map") == "Route22_hns" &&
+                it.getString("to_map") == "ReceptionGate_hns"
+        }
+        assertEquals("MB_ANIMATED_DOOR", door.getString("behaviour"))
+        assertEquals("door", door.getString("activation_path"))
+        assertFalse("an animated door is impassable", door.getBoolean("tile_walkable"))
+        assertEquals(
+            "TryDoorWarp tests the tile the player walks into, so the trigger is south of the door",
+            listOf(12, 10),
+            door.getJSONArray("trigger_tile").let { listOf(it.getInt(0), it.getInt(1)) }
+        )
+        assertEquals(
+            "TryDoorWarp requires DIR_NORTH",
+            listOf("UP"),
+            door.getJSONArray("directions").map { it.toString() }
+        )
+        assertTrue(
+            "the door path must cite TryDoorWarp",
+            door.getString("engine_predicate").contains("TryDoorWarp")
+        )
 
         // The analyzer must derive its behaviour sets from the pinned predicates rather than
         // transcribing them, because the helper names and the constants they test disagree.
@@ -447,6 +518,16 @@ class HnsLocationRuntimeEvidenceTest {
             "the analyzer must derive the warp-behaviour sets from the engine source",
             analyzer.contains("_extract_warp_behaviours") &&
                 analyzer.contains("_behaviours_a_predicate_accepts")
+        )
+        assertTrue(
+            "the analyzer must derive the per-direction arrow mapping from the predicate",
+            analyzer.contains("_extract_arrow_directions")
+        )
+        // The engine sources the model is derived from are inside the clean boundary, or a dirty
+        // predicate source could change the classification while provenance still accepted the tree.
+        assertTrue(
+            "the engine sources must be guarded by the provenance check",
+            analyzer.contains("\"include/\",") && analyzer.contains("\"src/\",")
         )
         assertFalse(
             "the behaviour sets must not be hardcoded lists any more",

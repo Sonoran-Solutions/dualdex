@@ -298,6 +298,50 @@ assert old in s, "anchor not found"
 open(p, "w").write(s.replace(old, new))
 '
 
+# 15. Let the step-on path apply to an impassable tile, which is the impossible label the second
+#     senior review found: an animated door is impassable and can only be entered through
+#     TryDoorWarp from the tile south of it.
+mutate "step-path-allows-impassable-tile" \
+  "tools/hns-map-data/hns_route.py" '
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = """        if self.behaviours.is_door_behaviour(behaviour) and not self.walkable(name, x, y):"""
+new = """        if False:"""
+assert old in s, "anchor not found"
+open(p, "w").write(s.replace(old, new))
+'
+
+# 16. Offer every direction for an arrow warp, which is how `route` would emit a controller step
+#     that can never fire.
+mutate "arrow-warp-offers-all-directions" \
+  "tools/hns-map-data/hns_route.py" '
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = """            return dict(evidence, reachable=True, path="arrow",
+                        directions=sorted(arrow_directions), reason=None)"""
+new = """            return dict(evidence, reachable=True, path="arrow",
+                        directions=["UP", "DOWN", "LEFT", "RIGHT"], reason=None)"""
+assert old in s, "anchor not found"
+open(p, "w").write(s.replace(old, new))
+'
+
+# 17. Drop the engine sources from the clean boundary, re-opening the hole where a tampered
+#     predicate source could change the classification while provenance still accepted the tree.
+mutate "engine-sources-unprotected" \
+  "tools/hns-map-data/hns_route.py" '
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = """    "include/",
+    "src/",
+)"""
+new = """)"""
+assert old in s, "anchor not found"
+open(p, "w").write(s.replace(old, new))
+'
+
 echo
 restore_failed=0
 if [ "$(sha256sum "${MUTATED_FILES[@]}")" != "$BEFORE" ]; then

@@ -305,6 +305,13 @@
           ],
           "behaviour": "MB_SOUTH_ARROW_WARP",
           "activation_path": "arrow",
+          "directions": [
+            "DOWN"
+          ],
+          "trigger_tile": [
+            20,
+            9
+          ],
           "tile_walkable": true,
           "warp_event_present": true,
           "engine_predicate": "TryArrowWarp (src/field_control_avatar.c) -- player standing on the tile, holding the facing direction, IsArrowWarpMetatileBehavior(tile) is TRUE",
@@ -339,6 +346,13 @@
           ],
           "behaviour": "MB_NON_ANIMATED_DOOR",
           "activation_path": "step",
+          "directions": [
+            "UP"
+          ],
+          "trigger_tile": [
+            43,
+            7
+          ],
           "tile_walkable": true,
           "warp_event_present": true,
           "engine_predicate": "TryStartWarpEventScript (src/field_control_avatar.c) -- player steps onto the tile and IsWarpMetatileBehavior(tile) is TRUE",
@@ -370,10 +384,17 @@
             9
           ],
           "behaviour": "MB_ANIMATED_DOOR",
-          "activation_path": "step",
+          "activation_path": "door",
+          "directions": [
+            "UP"
+          ],
+          "trigger_tile": [
+            12,
+            10
+          ],
           "tile_walkable": false,
           "warp_event_present": true,
-          "engine_predicate": "TryStartWarpEventScript (src/field_control_avatar.c) -- player steps onto the tile and IsWarpMetatileBehavior(tile) is TRUE",
+          "engine_predicate": "TryDoorWarp (src/field_control_avatar.c) -- player facing north (DIR_NORTH) with MetatileBehavior_IsWarpDoor on the tile in front",
           "gate": [
             "requires >= VAR_ECRUTEAK_CITY_THEATER 8",
             "requires unset FLAG_BADGE08_GET ReceptionGate_EventScript_NotEnough"
@@ -405,6 +426,13 @@
           ],
           "behaviour": "MB_SOUTH_ARROW_WARP",
           "activation_path": "arrow",
+          "directions": [
+            "DOWN"
+          ],
+          "trigger_tile": [
+            50,
+            68
+          ],
           "tile_walkable": true,
           "warp_event_present": true,
           "engine_predicate": "TryArrowWarp (src/field_control_avatar.c) -- player standing on the tile, holding the facing direction, IsArrowWarpMetatileBehavior(tile) is TRUE",
@@ -678,8 +706,8 @@
       "warp_activation_model": {
         "source": "src/field_control_avatar.c, the three field-input warp paths",
         "paths": {
-          "arrow": "TryArrowWarp (line 972): the player STANDS on the tile, holds the facing direction, and its metatile satisfies IsArrowWarpMetatileBehavior for that direction. An arrow warp event on ordinary floor never fires.",
-          "door": "TryDoorWarp (line 1139): the player faces north and the tile IN FRONT carries a warp-door metatile (MB_ANIMATED_DOOR / MB_NON_ANIMATED_DOOR) with a warp event on that front tile.",
+          "arrow": "TryArrowWarp (src/field_control_avatar.c): the player STANDS on the tile, holds the facing direction, and the tile satisfies IsArrowWarpMetatileBehavior for that direction. The accepted presses are derived per behaviour from the predicate's own DIR_* dispatch, so a MB_SOUTH_ARROW_WARP tile is offered a south press only. An arrow warp event on a tile without an arrow behaviour never fires.",
+          "door": "TryDoorWarp (src/field_control_avatar.c): the player faces NORTH and walks INTO a warp door, so the warp event lives on the (usually impassable) door tile and the trigger is the walkable tile directly SOUTH of it. This is the one path where the trigger tile is not the warp tile, and it is why an impassable MB_ANIMATED_DOOR cannot be a step-on warp.",
           "step": "TryStartWarpEventScript (line 1002): the player STEPS ONTO the tile and its metatile satisfies IsWarpMetatileBehavior."
         },
         "common_requirement": "all three also need GetWarpEventAtPosition to match, i.e. the warp event's elevation equals the tile's or is ELEVATION_TRANSITION (0)",
@@ -708,10 +736,11 @@
           "to_map": "ReceptionGate_hns",
           "verdict": "functional",
           "edge_id": "W2",
-          "activation_path": "step",
+          "activation_path": "door",
           "evidence": [
             "data/maps/Route22_hns/events.inc:21 -- `warp_def 12, 9, 0, 4, MAP_RECEPTION_GATE_HNS`",
-            "the tile (12,9) carries MB_ANIMATED_DOOR, which satisfies IsWarpMetatileBehavior, so TryStartWarpEventScript fires when the player steps onto it"
+            "the tile (12,9) carries MB_ANIMATED_DOOR, which satisfies MetatileBehavior_IsWarpDoor, so TryDoorWarp applies. It is ALSO a step-on warp behaviour, but the tile is impassable (collision 1), so the player can never step onto it and TryStartWarpEventScript cannot fire there",
+            "TryDoorWarp requires DIR_NORTH and tests the tile the player walks INTO, so the trigger is the walkable tile directly south, (12,10), and the press is UP"
           ]
         },
         {

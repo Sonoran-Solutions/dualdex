@@ -145,12 +145,18 @@ PINNED_TAG = "Release-v2.0.5"
 # Tracked input paths this tool reads. A modified or deleted entry under any of these refuses the
 # run: layout dimensions, block data and metatile attributes are all reachability evidence here.
 REQUIRED_CLEAN_SOURCES = (
+    # Map data and the layout/tileset data the reachability analysis is built from.
     "data/maps/",
     "data/layouts/",
     "data/tilesets/",
     "data/scripts/",
-    "include/constants/",
-    "src/data/tilesets/",
+    # The behaviour enum, the tileset headers that resolve an attribute file, and the engine sources
+    # the warp-activation model is DERIVED from. These matter as much as the map data: the predicate
+    # sets come from `field_control_avatar.c` / `metatile_behavior.c`, and the primary/secondary
+    # boundary comes from `fieldmap.h` / `fieldmap.c`. A tampered predicate source would otherwise
+    # change the classification while `verify_provenance` still accepted the tree.
+    "include/",
+    "src/",
 )
 
 REGION_BY_SECTION_PREFIX = {
@@ -313,6 +319,51 @@ def _behaviours_a_predicate_accepts(controller_source, behaviour_source, predica
     return found
 
 
+DIRECTION_CONSTANTS = {
+    "DIR_NORTH": "UP",
+    "DIR_SOUTH": "DOWN",
+    "DIR_WEST": "LEFT",
+    "DIR_EAST": "RIGHT",
+}
+
+
+def _extract_arrow_directions(root, behaviours):
+    """`{behaviour name: (press, ...)}` from `IsArrowWarpMetatileBehavior`'s own dispatch.
+
+    The predicate is a `switch (direction)` whose arms call one helper each, so the arm names the
+    direction and the helper names the behaviours. Reading the mapping rather than transcribing it is
+    what keeps a direction-specific arrow warp from being offered every direction.
+    """
+    with open(os.path.join(root, CONTROLLER_SOURCE), encoding="utf-8") as handle:
+        controller = handle.read()
+    with open(os.path.join(root, BEHAVIOUR_SOURCE), encoding="utf-8") as handle:
+        behaviour_source = handle.read()
+
+    body = _c_function_body(controller, WARP_GATE_SIGNATURES["IsArrowWarpMetatileBehavior"])
+    mapping = {}
+    for arm, helper in re.findall(
+        r"case (DIR_[A-Z]+):\s*return MetatileBehavior_Is(\w+)\(", body
+    ):
+        press = DIRECTION_CONSTANTS.get(arm)
+        if press is None:
+            raise SystemExit("error: unknown direction constant %s" % arm)
+        inner = _c_function_body(
+            behaviour_source, "MetatileBehavior_Is%s(u8 metatileBehavior)" % helper
+        )
+        for constant in re.findall(r"==\s*(MB_[A-Z0-9_]+)", inner):
+            if constant not in behaviours.values:
+                raise SystemExit(
+                    "error: %s names %s, which is not in the pinned behaviour enum"
+                    % (helper, constant)
+                )
+            mapping.setdefault(constant, set()).add(press)
+
+    # `default: return FALSE` means any arm not listed accepts nothing, which is the point.
+    if not mapping:
+        raise SystemExit("error: could not derive the arrow-warp direction mapping")
+    return {name: tuple(sorted(presses)) for name, presses in mapping.items()}
+
+
 def _extract_warp_behaviours(root, behaviours):
     """`{path: frozenset(behaviour names)}` for the three field-input warp paths."""
     with open(os.path.join(root, CONTROLLER_SOURCE), encoding="utf-8") as handle:
@@ -381,10 +432,12 @@ class BehaviourSource:
         self._tileset_attribute_constant = self._parse_tileset_headers()
         self._arrays = {}
         self.paths = _extract_warp_behaviours(root, self)
+        self._arrow_direction_map = None
 
     def _parse_behaviour_enum(self):
         path = os.path.join(self.root, "include/constants/metatile_behaviors.h")
-        source = open(path, encoding="utf-8").read()
+        with open(path, encoding="utf-8") as handle:
+            source = handle.read()
         body = source[source.index("{") + 1:source.index("};")]
         names = {}
         value = -1
@@ -419,7 +472,8 @@ class BehaviourSource:
 
     def _parse_attribute_paths(self):
         path = os.path.join(self.root, "src/data/tilesets/metatiles.h")
-        source = open(path, encoding="utf-8").read()
+        with open(path, encoding="utf-8") as handle:
+            source = handle.read()
         found = {}
         pattern = (
             r"gMetatileAttributes_([A-Za-z0-9_]+)"
@@ -433,7 +487,8 @@ class BehaviourSource:
 
     def _parse_tileset_headers(self):
         path = os.path.join(self.root, "src/data/tilesets/headers.h")
-        source = open(path, encoding="utf-8").read()
+        with open(path, encoding="utf-8") as handle:
+            source = handle.read()
         found = {}
         pattern = (
             r"const struct Tileset (gTileset_[A-Za-z0-9_]+) =\s*\{"
@@ -451,7 +506,10 @@ class BehaviourSource:
     def behaviour_of(self, tileset, metatile_id):
         """Behaviour of a metatile in a map's tileset pair, or None when it cannot be resolved.
 
-        `metatile_id < 512` selects the primary tileset; anything above it indexes the secondary.
+        `metatile_id < NUM_METATILES_IN_PRIMARY` selects the primary tileset; anything above it
+        indexes the secondary. That boundary is 640 for the H&S and FRLG layout versions this build
+        uses (see `NUM_METATILES_IN_PRIMARY`); 512 is the Emerald value and using it here mis-reads
+        every tile in the 512..639 range.
         """
         constant = self._tileset_attribute_constant.get(tileset)
         if constant is None:
@@ -492,6 +550,20 @@ class BehaviourSource:
         return self.name_of(behaviour) in self.paths["arrow"]
 
     def is_door_behaviour(self, behaviour):
+        """`TryDoorWarp`'s warp-door requirement for the tile the player walks into."""
+        return self.name_of(behaviour) in self.paths["door"]
+
+    def arrow_directions(self, behaviour):
+        """Which presses `IsArrowWarpMetatileBehavior(tile, direction)` accepts for this behaviour.
+
+        The predicate switches on the direction and calls a different helper per arm, so the mapping
+        is read from the pinned source once and cached. An arrow warp is direction-specific: a
+        `MB_SOUTH_ARROW_WARP` tile responds to a south press and to nothing else, so a route that
+        offered every direction could emit a controller step that never fires.
+        """
+        if self._arrow_direction_map is None:
+            self._arrow_direction_map = _extract_arrow_directions(self.root, self)
+        return self._arrow_direction_map.get(self.name_of(behaviour), ())
         """`TryDoorWarp`'s warp-door requirement for the tile the player walks into."""
         return self.name_of(behaviour) in self.paths["door"]
 
@@ -765,13 +837,13 @@ class Source:
         `src/field_control_avatar.c` has three field-input paths, and each needs a metatile behaviour
         the plain "does a warp_def exist here" question does not capture:
 
-          `TryArrowWarp` (line 972)       player STANDS on the tile, holds the facing direction, and
-                                          the tile carries `IsArrowWarpMetatileBehavior` for it;
-          `TryDoorWarp` (line 1139)       player faces north and the tile IN FRONT is a warp door
-                                          (`MB_ANIMATED_DOOR` / `MB_NON_ANIMATED_DOOR`) with a warp
-                                          event on that front tile;
-          `TryStartWarpEventScript` (1002) player STEPS ONTO the tile and the tile carries
-                                          `IsWarpMetatileBehavior`.
+          `TryArrowWarp`               player STANDS on the tile, holds the facing direction, and
+                                       the tile carries `IsArrowWarpMetatileBehavior` for it;
+          `TryDoorWarp`                player faces NORTH and walks INTO a warp door, so the trigger
+                                       is the walkable tile directly south of the door and the warp
+                                       event lives on the (usually impassable) door tile itself;
+          `TryStartWarpEventScript`    player STEPS ONTO the tile and the tile carries
+                                       `IsWarpMetatileBehavior`.
 
         Every one of them also needs `GetWarpEventAtPosition` to match, which requires the warp
         event's elevation to equal the tile's or be `ELEVATION_TRANSITION`.
@@ -792,39 +864,72 @@ class Source:
             "behaviour": name_of,
             "warp_event_present": hit is not None,
             "tile_walkable": self.walkable(name, x, y),
+            # The tile the player must be standing on for a press to fire. It is this tile for the
+            # arrow and step paths, and the tile directly south for a door.
+            "trigger_tile": (x, y),
         }
 
         # Arrow warp: the player stands here and holds the direction. The behaviour has to be the
-        # arrow warp for that direction, so an arrow warp event on ordinary floor is inert.
-        if self.behaviours.is_arrow_behaviour(behaviour):
+        # arrow warp for the direction actually held, so this also yields the press to emit.
+        arrow_directions = self.behaviours.arrow_directions(behaviour)
+        if arrow_directions:
             if hit is None:
-                return dict(evidence, reachable=False, path=None,
+                return dict(evidence, reachable=False, path=None, directions=[],
                             reason="the only arrow-warp behaviour here has no matching warp event")
-            return dict(evidence, reachable=True, path="arrow", reason=None)
+            return dict(evidence, reachable=True, path="arrow",
+                        directions=sorted(arrow_directions), reason=None)
 
-        # Step-on warp: the player steps onto this tile and it carries a warp behaviour.
-        if self.behaviours.is_warp_behaviour(behaviour):
+        # Door warp. Checked BEFORE the step path, because a warp door is ALSO a step-on warp
+        # behaviour and an animated door is normally impassable: the player cannot step onto it, so
+        # `TryStartWarpEventScript` can never fire there and only `TryDoorWarp` applies. That path
+        # requires DIR_NORTH and tests the tile the player walks INTO, so the warp event lives on this
+        # tile and the trigger is the walkable tile directly SOUTH of it.
+        if self.behaviours.is_door_behaviour(behaviour) and not self.walkable(name, x, y):
             if hit is None:
-                return dict(evidence, reachable=False, path=None,
-                            reason="the only warp behaviour here has no matching warp event")
-            return dict(evidence, reachable=True, path="step", reason=None)
-
-        # Door warp: the warp event lives on THIS tile and the player walks into it from the front,
-        # which is the one path where the trigger tile's behaviour can be a door and the player is
-        # never standing on it.
-        if self.behaviours.is_door_behaviour(behaviour):
-            if hit is not None and self._walkable_in_front(name, x, y):
-                return dict(evidence, reachable=True, path="door", reason=None)
-            if hit is None:
-                return dict(evidence, reachable=False, path=None,
+                return dict(evidence, reachable=False, path=None, directions=[], approach=None,
                             reason="a warp-door tile with no warp event on it")
-            return dict(evidence, reachable=False, path=None,
-                        reason="a warp door with no walkable tile in front to trigger it from")
+            if not self.walkable(name, x, y + 1):
+                return dict(evidence, reachable=False, path=None, directions=[], approach=None,
+                            reason="a warp door with no walkable tile directly south to walk into "
+                                   "it from (TryDoorWarp requires DIR_NORTH)")
+            evidence = dict(evidence, approach=(x, y + 1), trigger_tile=(x, y + 1))
+            return dict(evidence, reachable=True, path="door", directions=["UP"],
+                        approach=(x, y + 1), trigger_tile=(x, y + 1), reason=None)
+
+        # Step-on warp: the player steps ONTO this tile, which requires a warp behaviour AND a
+        # walkable tile.
+        if self.behaviours.is_warp_behaviour(behaviour):
+            if not self.walkable(name, x, y):
+                return dict(evidence, reachable=False, path=None, directions=[],
+                            reason="the warp behaviour is on an impassable tile, which the player "
+                                   "cannot step onto and which no door predicate accepts")
+            if hit is None:
+                return dict(evidence, reachable=False, path=None, directions=[],
+                            reason="the only warp behaviour here has no matching warp event")
+            return dict(evidence, reachable=True, path="step", directions=["UP"], reason=None)
+
+        # Door warp: `TryDoorWarp` requires DIR_NORTH and tests the tile the player walks INTO, so
+        # the warp event lives on THIS (possibly impassable) tile and the trigger is the walkable
+        # tile directly SOUTH of it. This is the one path where the trigger tile is not the warp
+        # tile.
+        if self.behaviours.is_door_behaviour(behaviour):
+            if hit is None:
+                return dict(evidence, reachable=False, path=None, directions=[], approach=None,
+                            reason="a warp-door tile with no warp event on it")
+            if not self.walkable(name, x, y + 1):
+                return dict(evidence, reachable=False, path=None, directions=[], approach=None,
+                            reason="a warp door with no walkable tile directly south to walk into "
+                                   "it from (TryDoorWarp requires DIR_NORTH)")
+            approach = (x, y + 1)
+            evidence["approach"] = list(approach)
+            return dict(evidence, reachable=True, path="door", directions=["UP"],
+                        approach=approach, reason=None)
 
         return dict(
             evidence,
             reachable=False,
             path=None,
+            directions=[],
             reason=(
                 "%s is neither IsWarpMetatileBehavior, IsArrowWarpMetatileBehavior nor a warp door, "
                 "so no field-input warp predicate fires here; a warp_def on this tile is an inert "
@@ -833,39 +938,15 @@ class Source:
             ),
         )
 
-    def _walkable_in_front(self, name, x, y):
-        """True when any orthogonal neighbour is walkable, i.e. a door could be walked into."""
-        return any(
-            self.walkable(name, x + dx, y + dy) for dx, dy in ((0, 1), (0, -1), (-1, 0), (1, 0))
-        )
-
-    def _warp_is_functional(self, name, x, y):
-        """Whether the engine's warp predicates can fire at this tile or the one in front of it.
-
-        `TryDoorWarp` tests the metatile AHEAD of the player, and `TryArrowWarp` tests the tile the
-        player stands on, so both are checked. A tile whose behaviour is missing cannot be proven
-        functional, so it is reported as unproven rather than assumed live.
-        """
-        info = self.collision(name)
-        if not info:
-            return None
-        width, height, grid = info
-        candidates = [(x, y)]
-        for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
-            candidates.append((x + dx, y + dy))
-        seen_any = False
-        for cx, cy in candidates:
-            if not (0 <= cx < width and 0 <= cy < height):
-                continue
-            behaviour = self.behaviour_at(name, cx, cy)
-            if behaviour is None:
-                continue
-            seen_any = True
-            if self.behaviours.is_warp_behaviour(behaviour):
-                return True
-        # A tile that is not walkable is only reachable as a door target from the tile in front,
-        # so an unproven behaviour on an impassable tile must not be reported as live.
-        return False if seen_any else None
+    def _arrival_tile(self, destination, door):
+        """The tile the player lands on: the destination map's own `dest_warp_id` entry."""
+        index = self._warp_index(door)
+        if index is None:
+            return (0, 0)
+        warps = self.meta(destination).get("warp_events") or []
+        if index >= len(warps):
+            return (0, 0)
+        return (warps[index]["x"], warps[index]["y"])
 
     def connection_steps(self, name, x, y):
         """Crossings available from the exact edge tile (x, y), as `(kind, direction, map, x, y)`.
@@ -904,20 +985,21 @@ class Source:
             activation = self.warp_activation(name, x, y)
             if activation and activation["reachable"] and (x, y) == (door_x, door_y):
                 if activation["path"] == "arrow":
-                    for direction, (dx, dy) in DIRECTIONS_TO_DELTA.items():
-                        yield ("warp", direction, arrival[0], arrival[1], arrival[2])
+                    # An arrow warp is direction-specific, so only the presses the predicate accepts
+                    # are offered. Yielding all four would let `route` emit a step that never fires.
+                    for press in activation.get("directions", ()):
+                        yield ("warp", press, arrival[0], arrival[1], arrival[2])
                     continue
                 if activation["path"] == "step":
                     yield ("warp", "UP", arrival[0], arrival[1], arrival[2])
                     continue
-            # Walking INTO a warp door from directly below it (TryDoorWarp requires DIR_NORTH), so
-            # the trigger tile is (door_x, door_y + 1) and the door itself need not be walkable.
+            # Walking INTO a warp door from directly south (TryDoorWarp requires DIR_NORTH): the
+            # trigger position is (door_x, door_y + 1) and the door tile itself is normally
+            # impassable. The step is offered from the trigger tile, not from the door.
             if x == door_x and y == door_y + 1:
-                front = self.behaviour_at(name, door_x, door_y)
-                if front is not None and self.behaviours.is_door_behaviour(front):
-                    activation = self.warp_activation(name, door_x, door_y)
-                    if activation and activation["reachable"]:
-                        yield ("warp", "UP", arrival[0], arrival[1], arrival[2])
+                activation = self.warp_activation(name, door_x, door_y)
+                if activation and activation["reachable"] and activation["path"] == "door":
+                    yield ("warp", "UP", arrival[0], arrival[1], arrival[2])
 
         on = set()
         if x == width - 1:
@@ -1175,6 +1257,11 @@ def build_inventory(source):
                 "at": [x, y],
                 "behaviour": activation.get("behaviour"),
                 "activation_path": activation.get("path"),
+                "directions": list(activation.get("directions") or []),
+                "trigger_tile": (
+                    [activation["approach"][0], activation["approach"][1]]
+                    if activation.get("approach") is not None else [x, y]
+                ),
                 "tile_walkable": activation.get("tile_walkable"),
                 "warp_event_present": activation.get("warp_event_present"),
                 "engine_predicate": ACTIVATION_PREDICATES.get(activation.get("path")),

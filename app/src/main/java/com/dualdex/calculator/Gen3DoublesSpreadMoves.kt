@@ -20,7 +20,7 @@ package com.dualdex.calculator
  *
  * Derivation
  * ----------
- * `pret/pokeemerald @ 5eff78649e7170a877b961ef0b3da18b81a16038` (the same pinned revision the
+ * `pret/pokeemerald @ 5eff78649e7170a877b961ef0b3da13b81a16038` (the same pinned revision the
  * golden oracle uses) declares 27 moves with `MOVE_TARGET_BOTH` or `MOVE_TARGET_FOES_AND_ALLY` in
  * `src/data/battle_moves.h`. Exactly two classes of those matter to this gate:
  *

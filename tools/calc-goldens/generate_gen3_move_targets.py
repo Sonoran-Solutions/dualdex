@@ -26,25 +26,55 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUTPUT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gen3_move_targets.json")
 
-PINNED_COMMIT = "5eff78649e7170a877b961ef0b3da18b81a16038"
+PINNED_COMMIT = "5eff78649e7170a877b961ef0b3da13b81a16038"
 
 SPREAD_TARGETS = ("MOVE_TARGET_BOTH", "MOVE_TARGET_FOES_AND_ALLY")
 
 
-def _read(path: str) -> str:
-    with open(path, encoding="utf-8", errors="ignore") as handle:
-        return handle.read()
+def _git_show(repo: str, path: str) -> str:
+    """The bytes of `PINNED_COMMIT:path` in `repo`, or a loud failure.
+
+    Reading through git rather than the working tree is the whole provenance guarantee: `--check`
+    must not be able to certify a document derived from whatever files happen to be checked out.
+    """
+    out = subprocess.run(
+        ["git", "-C", repo, "show", f"{PINNED_COMMIT}:{path}"],
+        capture_output=True,
+        text=True,
+    )
+    if out.returncode != 0:
+        raise SystemExit(
+            f"cannot read {path} at the pinned commit {PINNED_COMMIT} from {repo}:\n"
+            f"{out.stderr.strip()}\n"
+            "The provenance this file records is only meaningful if that exact revision is present.\n"
+            "Fetch it (for example `git -C <checkout> fetch origin " + PINNED_COMMIT + "`) and retry."
+        )
+    return out.stdout
+
+
+def verify_pin(repo: str) -> None:
+    """Fail unless `repo` actually contains `PINNED_COMMIT`."""
+    out = subprocess.run(
+        ["git", "-C", repo, "cat-file", "-e", f"{PINNED_COMMIT}^{{commit}}"],
+        capture_output=True,
+        text=True,
+    )
+    if out.returncode != 0:
+        raise SystemExit(
+            f"{repo} does not contain the pinned commit {PINNED_COMMIT}; the recorded provenance "
+            "would be false"
+        )
 
 
 def move_ids(pokeemerald: str) -> list[str]:
     """`MOVE_*` symbols in ascending index order, from `include/constants/moves.h`."""
     entries: list[tuple[int, str]] = []
-    for line in _read(os.path.join(pokeemerald, "include/constants/moves.h")).splitlines():
+    for line in _git_show(pokeemerald, "include/constants/moves.h").splitlines():
         match = re.match(r"\s*#define\s+(MOVE_[A-Z0-9_]+)\s+(\d+)\s*$", line)
         if match:
             entries.append((int(match.group(2)), match.group(1)))
@@ -55,7 +85,7 @@ def move_ids(pokeemerald: str) -> list[str]:
 
 def move_names(pokeemerald: str) -> list[str]:
     """Engine-facing move names in index order, from `src/data/text/move_names.h`."""
-    text = _read(os.path.join(pokeemerald, "src/data/text/move_names.h"))
+    text = _git_show(pokeemerald, "src/data/text/move_names.h")
     return re.findall(r'_\("([^"]*)"\)', text)
 
 
@@ -65,7 +95,7 @@ def move_targets(pokeemerald: str) -> dict[str, tuple[str, int]]:
     The split is by symbol boundary rather than a fixed closing-brace pattern, so a block whose
     closing brace is indented differently cannot silently drop out of the table.
     """
-    source = _read(os.path.join(pokeemerald, "src/data/battle_moves.h"))
+    source = _git_show(pokeemerald, "src/data/battle_moves.h")
     starts = [(m.start(), m.group(1)) for m in re.finditer(r"\[(MOVE_[A-Z0-9_]+)\]\s*=", source)]
     result: dict[str, tuple[str, int]] = {}
     for index, (position, symbol) in enumerate(starts):
@@ -77,6 +107,12 @@ def move_targets(pokeemerald: str) -> dict[str, tuple[str, int]]:
             continue
         result[symbol] = (target.group(1), int(power.group(1)) if power else 0)
     return result
+
+
+def read_committed(path: str) -> str:
+    """The committed artifact as text (only used by --check)."""
+    with open(path, encoding="utf-8") as handle:
+        return handle.read()
 
 
 def build_document(pokeemerald: str) -> dict:
@@ -132,12 +168,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if not os.path.isdir(args.pokeemerald):
         raise SystemExit(f"--pokeemerald is not a directory: {args.pokeemerald}")
+    verify_pin(args.pokeemerald)
 
     document = build_document(args.pokeemerald)
     rendered = json.dumps(document, indent=2) + "\n"
 
     if args.check:
-        current = _read(OUTPUT_PATH) if os.path.exists(OUTPUT_PATH) else ""
+        current = read_committed(OUTPUT_PATH) if os.path.exists(OUTPUT_PATH) else ""
         if current != rendered:
             print(
                 f"{OUTPUT_PATH} does not match the pinned checkout at {args.pokeemerald}",

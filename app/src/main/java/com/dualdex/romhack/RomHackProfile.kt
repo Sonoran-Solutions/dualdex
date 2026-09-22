@@ -48,7 +48,10 @@ data class RomHackProfile(
      * section that also holds asset arrays, so only the retail image can prove them.
      *
      * Defaults to false: a new profile may not read battle state until someone proves its
-     * addresses. See `docs/VANILLA_CALCULATOR_EVIDENCE.md` §7.3 and
+     * addresses. Proving the `gBattleMons` base is necessary but not sufficient — for vanilla it is
+     * also the legacy presence heuristic that would run, and the enemy-party path additionally needs
+     * the authoritative lifecycle gate this group of offsets carries, which no vanilla layout
+     * declares. See `docs/VANILLA_CALCULATOR_EVIDENCE.md` §7.3-§7.4 and
      * `tools/calc-goldens/audit_vanilla_layout.py --firered-rom/--emerald-rom`.
      */
     val battleStateReadVerified: Boolean = false,

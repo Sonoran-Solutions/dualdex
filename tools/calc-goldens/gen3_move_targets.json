@@ -2,7 +2,7 @@
   "schema": "dualdex.gen3_move_targets.v1",
   "provenance": {
     "project": "pret/pokeemerald",
-    "commit": "5eff78649e7170a877b961ef0b3da18b81a16038",
+    "commit": "5eff78649e7170a877b961ef0b3da13b81a16038",
     "sources": [
       "src/data/battle_moves.h (.target, .power, in MOVES_COUNT order)",
       "include/constants/moves.h (symbol -> index)",

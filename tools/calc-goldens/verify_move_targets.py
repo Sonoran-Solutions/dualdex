@@ -26,7 +26,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 PATH = os.path.join(HERE, "gen3_move_targets.json")
 
-PINNED_COMMIT = "5eff78649e7170a877b961ef0b3da18b81a16038"
+PINNED_COMMIT = "5eff78649e7170a877b961ef0b3da13b81a16038"
 
 KNOWN_TARGETS = {
     "MOVE_TARGET_SELECTED",

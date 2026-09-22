@@ -87,11 +87,6 @@ SAVE_BLOCK1_POS_OFFSET = 0x00
 SAVE_BLOCK1_LOCATION_OFFSET = 0x04
 SAVE_BLOCK1_ESCAPE_WARP_OFFSET = 0x24
 
-# Party-group window: symbols that must all sit inside it, bounded on each side by one of the
-# player/enemy party arrays. A party count byte that lands inside this window in one revision and
-# outside it in the other is exactly the layout divergence this audit is looking for.
-PARTY_WINDOW_PAD = 16
-
 # Every symbol that must be identical between the two FireRed revisions, i.e. the whole
 # exact-trust-gated read surface plus the party group. Reported individually so a diff is legible.
 AUDITED_FIRERED_SYMBOLS = (
@@ -187,7 +182,6 @@ def read_symbols(elf: str) -> dict[str, tuple[int, str, int]]:
 #     reference looks like - a scan that matched hundreds of places would not be evidence at all.
 # ---------------------------------------------------------------------------
 ROM_BODY_START = 0x000000C0  # first byte after the 192-byte cartridge header
-GBA_ROM_BASE = 0x08000000
 
 
 def find_literal_references(rom: bytes, address: int) -> list[int]:
@@ -275,21 +269,31 @@ def check_retail_rom(
                 f"offset(s), starting 0x{hits[0]:08X}"
             )
         else:
-            # An absent address is NOT a licence to invent a replacement: the audit reports it and
-            # leaves the configuration alone, so no unproven address enters production. Finding the
-            # right one needs the retail build's debug symbols, which the pret project does not
-            # publish; the neighbouring-address count below is the starting point for that work and
-            # deliberately stops there.
+            # What an absent literal establishes, and what it does not.
+            #
+            # It establishes that this scan did NOT prove the address: no instruction in the image
+            # loads it as a whole word. It does NOT establish that the address is wrong. A compiler
+            # may materialise a nearby base or group address and reach the symbol with an added
+            # offset, and it may keep the address in a table the scan does not reach, so a symbol
+            # can be used by the retail program without its own address ever appearing as a literal.
+            #
+            # The neighbouring count is therefore reported as context, not as a verdict: a cluster
+            # of referenced addresses around this one is consistent with the address being reached
+            # via an offset, and also consistent with the configured value being wrong. Deciding
+            # between those needs the retail build's debug symbols, which `pret/pokefirered` does
+            # not publish, so this tool reports UNPROVEN and changes nothing. A guessed replacement
+            # is exactly what must not enter production.
             nearby = sum(
                 1
                 for delta in range(-0x200, 0x200, 4)
                 if find_literal_references(rom, address + delta)
             )
             problems.append(
-                f"{label}: {name} 0x{address:08X} does NOT appear anywhere in the retail image, "
-                f"while {nearby} addresses within +/-0x200 of it do. The configured address is "
-                "unproven for this build - and the neighbours being referenced is evidence that the "
-                "value itself is wrong rather than that the method failed."
+                f"{label}: {name} 0x{address:08X} was NOT proved: no literal in the image holds it "
+                f"as a whole word ({nearby} addresses within +/-0x200 of it are referenced, which is "
+                "consistent with the symbol being reached through an offset from a nearby base, or "
+                "with the configured value being wrong - the scan cannot tell the two apart). The "
+                "address stays UNPROVEN and the capability that consumes it stays closed."
             )
     return notes, problems
 

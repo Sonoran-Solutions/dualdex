@@ -427,7 +427,7 @@ $ python3 tools/calc-goldens/audit_vanilla_layout.py \
 | Emerald player/enemy party addresses | **RUNTIME VERIFIED** (build-level) | `0x020244EC` / `0x02024744` from the pinned build, matching the profile |
 | `sizeof(struct BattlePokemon)`, `hp`, `statStages` | **SOURCE VERIFIED** | `include/pokemon.h` field offsets (`0x28`, `0x18`, 88 bytes) equal the reader's compiled values, and `gBattleMons` is 88 x 4 bytes in both games |
 | SaveBlock1 base and `pos`/`location`/`escapeWarp` for the legacy location path | **SOURCE + build VERIFIED** | `struct SaveBlock1` places `playerParty` at `+0x38` (FireRed, `include/global.h:773`) and `+0x238` (Emerald); the audited `0x00`/`0x04`/`0x24` fields match, and the derived base is inside EWRAM in both builds |
-| `battle_mons_offset`, the battle-lifecycle offsets, and the Battle UI offsets | **UNPROVEN** (FireRed) / **RUNTIME VERIFIED (retail probe)** (Emerald) | These are linker-ordered EWRAM placements inside the section that also holds stubbed asset arrays, so a build with stubbed graphics cannot confirm them; §7.3 probes the retail images and reports per build. Their consumption is gated by `battleStateReadVerified`, not by the hash |
+| `battle_mons_offset`, the battle-lifecycle offsets, and the Battle UI offsets | **UNPROVEN** (FireRed) / **proved by the retail probe** (Emerald), both left unauthorized — §7.4 | These are linker-ordered EWRAM placements inside the section that also holds stubbed asset arrays, so a build with stubbed graphics cannot confirm them; §7.3 probes the retail images and reports per build. Their consumption is gated by `battleStateReadVerified`, not by the hash, and §7.4 explains why Emerald's proof is not enough to open the block |
 
 ### 7.3 The battle-state addresses: probed against the retail images, and not assumed
 
@@ -442,22 +442,28 @@ The audit therefore probes the retail images directly, with
 `--firered-rom` / `--emerald-rom`. A GBA program reaches an EWRAM global by loading a literal word
 holding its address, and those literal pools are in the cartridge, so finding the configured address
 as a little-endian word in the accepted dump is direct evidence that the retail program uses it. The
-method is validated in the same run against the party addresses §7.1 already proved:
+method is validated in the same run against the party addresses §7.1 already proved.
+
+**What the negative case does and does not establish.** An address that does *not* appear as a whole
+word only means this scan did **not prove** it. It is not proof that the address is wrong: a compiler
+may materialise a nearby base or group address and reach the symbol with an added offset, and it may
+keep the address in a table the scan does not reach. The neighbouring-reference count below is
+reported as context, not as a verdict — a cluster of referenced addresses around an unproven one is
+consistent both with the symbol being reached through an offset and with the configured value being
+wrong, and this scan cannot tell those apart. Deciding between them needs the retail build's debug
+symbols, which `pret/pokefirered` does not publish. So the tool reports UNPROVEN, changes nothing,
+and a guessed replacement never enters production.
 
 | Build | Address | Result |
 |---|---|---|
 | FireRed Rev 0 (retail) | `gPlayerParty` `0x02024284` (control) | referenced at 745 ROM offsets |
 | FireRed Rev 0 (retail) | `gEnemyParty` `0x0202402C` (control) | referenced at 392 ROM offsets |
-| FireRed Rev 0 (retail) | `battle_mons_offset` `0x02023F90` | **NOT PRESENT ANYWHERE IN THE IMAGE**, while 51 addresses within ±0x200 of it are referenced |
+| FireRed Rev 0 (retail) | `battle_mons_offset` `0x02023F90` | **not proved**: no literal in the image holds it, while 51 addresses within ±0x200 of it are referenced |
 | Emerald (retail) | `gPlayerParty` `0x020244EC` / `gEnemyParty` `0x02024744` (controls) | referenced at 1091 / 532 ROM offsets |
-| Emerald (retail) | `battle_mons_offset` `0x02024064` | referenced at 1147 ROM offsets, first at `0x00033214` |
+| Emerald (retail) | `battle_mons_offset` `0x02024064` | proved: referenced at 1147 ROM offsets, first at `0x00033214` |
 
-So the two builds differ: Emerald's configured battle base is confirmed against its retail image,
-and FireRed's is **not** — the absence is not a gap in the method, because the addresses immediately
-around it *are* referenced while this one is not. The audit reports it as UNPROVEN and exits
-non-zero; it deliberately does **not** substitute a guessed replacement, because an unproven address
-entering production is exactly the failure mode this section exists to prevent. Finding the correct
-one needs the retail build's debug symbols, which `pret/pokefirered` does not publish.
+So the two builds are **not** in the same position: Emerald's configured battle base is proved by
+this scan, FireRed's is not. Both stay closed (§7.4).
 
 **The authorization is therefore decoupled, which is the reviewer's stated alternative.**
 `RomHackProfile.battleStateReadVerified` (and `RuntimeRomTrust.mayReadBattleState`) is a gate
@@ -473,16 +479,37 @@ The scope of the closure is precise, and is asserted by
 |---|---|---|
 | player party (`player_party_offset`, `player_party_count_offset`) | §7.1 build evidence + `src/pokemon.c` declaration order | yes |
 | player location (SaveBlock1 base derived from `gPlayerParty`, `pos`/`location`/`escapeWarp`) | §7.1 | yes |
-| battle presence (`gBattleMons[0]`) | §7.3: unproven on FireRed | **no** |
-| enemy party (needs the battle lifecycle) | §7.3 | **no** |
-| active battler / player stat stages / battle UI | §7.3 | **no** |
-| live battler ability, effective types, held item | §7.3 | **no** |
+| battle presence (`gBattleMons[0]`) | §7.3: not proved on FireRed; Emerald would still use the legacy heuristic | **no** |
+| enemy party (needs the battle lifecycle) | §7.4: no vanilla layout declares the lifecycle gate | **no** |
+| active battler / player stat stages / battle UI | §7.3, §7.4 | **no** |
+| live battler ability, effective types, held item | §7.3, §7.4 | **no** |
 
 When the flag is false the poller does not invoke those readers at all, battle presence is published
 as `UNKNOWN` (the answer is withheld, never defaulted to "no battle"), and no battle-derived state is
-published. A per-profile flag can be turned on for Emerald alone on the evidence above; it is left
-off for both until that decision is made deliberately per game, because the two builds are demonstrably
-not in the same position.
+published.
+
+### 7.4 Why Emerald stays closed too
+
+Emerald's `battle_mons_offset` being proved is **not** sufficient to enable the block, and flipping
+that one bit for Emerald alone would not do what it looks like it does:
+
+* the whole battle-state block opens together, not just `gBattleMons`. Vanilla would still run
+  `read_legacy_battle_presence()`, whose own contract records that `gBattleMons[0].species` can remain
+  stale after a battle — that is a heuristic, not an authoritative lifecycle signal, which is
+  precisely why the H&S path uses `gMain.inBattle`;
+* Emerald's configuration does not declare any of the lifecycle offsets
+  (`battlers_count_offset`, `battle_type_flags_offset`, `battle_outcome_offset`) that the authoritative
+  gate needs, and `pokemon_read_enemy_party_gba()` refuses to publish the authoritative enemy-party
+  count for a layout without that gate. So "enabling Emerald" would switch on the legacy presence
+  heuristic while the enemy-party path still lacked the authority it requires — it would not restore
+  the enemy party at all.
+
+Vanilla battle-lifecycle support is therefore deliberately left as a **separate, bounded piece of
+work**: either establish an authoritative lifecycle for Emerald (the `gMain.inBattle` route the H&S
+profile already uses, with the same cross-checking), or split `battleStateReadVerified` into narrower
+per-capability flags so that proven `gBattleMons`-based reads can be enabled without also enabling
+the presence heuristic. Neither belongs in an evidence-repair pass, so `battleStateReadVerified` stays
+`false` for both vanilla profiles at this head.
 
 Two caveats are recorded rather than hidden:
 
@@ -609,10 +636,11 @@ how §7.3's `UNPROVEN` finding is reproducible rather than asserted.
   Rev 1 runtime-untested.
 * The **damage** arithmetic is re-derived per revision; the read-only memory layout is audited at
   build level for FireRed Rev 0, FireRed Rev 1 and Emerald (§7), and the battle-state addresses are
-  probed against the retail images (§7.3). FireRed Rev 0's configured `battle_mons_offset` is **not**
-  present in its retail image, so the battle-state read surface stays unauthorized for vanilla
-  (`battleStateReadVerified = false`); Emerald's configured address is confirmed, and enabling it for
-  Emerald alone is a deliberate follow-up decision rather than an inference from this document.
+  probed against the retail images (§7.3). FireRed Rev 0's configured `battle_mons_offset` was not
+  proved, and Emerald's was — but the battle-state read surface stays unauthorized for **both**
+  vanilla profiles (`battleStateReadVerified = false`), because opening it for Emerald would switch
+  on the legacy presence heuristic without giving the enemy-party path the lifecycle authority it
+  requires (§7.4).
 * Vanilla `Doubles` shares the verified ruleset and is covered by one single-target, screenless
   fixture; it is a claim about that geometry only, not about live Doubles battle state. Doubles
   **with** a screen or **with** a move the pipeline reduces is refused (§2.2, §2.2.1).

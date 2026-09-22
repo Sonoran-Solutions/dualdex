@@ -646,6 +646,56 @@ class CalcVanillaGoldenBoundaryTest {
     }
 
     /**
+     * Closes the evidence chain: source -> artifact -> engine -> production gate.
+     *
+     * `native/tests/test_js_calc.c` proves the committed `gen3_move_targets.json` against the
+     * shipped engine over the whole Generation III move list, and
+     * `generate_gen3_move_targets.py` proves the artifact against the pinned decompilation. Neither
+     * of those reads the Kotlin table the production gate actually consults, so on its own a table
+     * that lost an entry would silently un-gate that move while every other check stayed green.
+     *
+     * This test derives the expected set from the committed artifact and requires *exact* equality
+     * with [Gen3DoublesSpreadMoves], in both directions: a missing entry fails, and so does an extra
+     * one that would refuse a calculation the games do not reduce.
+     */
+    @Test
+    fun `the production spread table is exactly the artifact's damaging MOVE_TARGET_BOTH set`() {
+        val artifact = JSONObject(
+            repoFile("tools/calc-goldens/gen3_move_targets.json").readText()
+        )
+        val moves = artifact.getJSONArray("moves").mapObjects()
+
+        val damagingBoth = mutableSetOf<String>()
+        for (move in moves) {
+            val name = move.getString("name")
+            if (move.getString("target") == "MOVE_TARGET_BOTH" && move.getInt("power") > 0) {
+                assertTrue("artifact has a duplicate move name: $name", damagingBoth.add(name))
+            }
+        }
+
+        // The engine resolves move names case-insensitively (the calculator library reduces them to
+        // alphanumerics), and the artifact carries the pinned source's upper-case spelling, so both
+        // sides are compared in that reduced form.
+        fun normalise(name: String): String =
+            name.lowercase().filter { it.isLetterOrDigit() }
+
+        val fromArtifact = damagingBoth.map(::normalise).toSet()
+        val fromProduction = Gen3DoublesSpreadMoves.names.map(::normalise).toSet()
+
+        assertEquals(
+            "the production gate's move table must be exactly the artifact's damaging " +
+                "MOVE_TARGET_BOTH set",
+            fromArtifact,
+            fromProduction
+        )
+        assertEquals(
+            "the spread set must not be empty or degenerate",
+            17,
+            fromProduction.size
+        )
+    }
+
+    /**
      * The move table itself: the host suite proves it against the engine for the whole Generation
      * III move list, and these two assertions pin the facts this gate depends on at the unit level
      * so a regeneration that dropped a move is caught even without the bundle.

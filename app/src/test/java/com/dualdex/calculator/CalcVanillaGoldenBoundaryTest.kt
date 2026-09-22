@@ -194,7 +194,7 @@ class CalcVanillaGoldenBoundaryTest {
     }
 
     @Test
-    fun `the production serialisation is byte-identical to the executed golden request`() {
+    fun `the production serialisation exactly matches the executed golden request`() {
         for (fixture in goldenFixtures()) {
             for (game in fixture.getJSONArray("games").mapStrings()) {
                 val ready = readyFor(game, fixture)

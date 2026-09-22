@@ -221,7 +221,7 @@ The production path is unchanged except for the corrected hashes:
 
 `CalcVanillaGoldenBoundaryTest` drives this real boundary (not the policy directly) and asserts, for
 both exact profiles and both FireRed revisions: `Ready` → `VERIFIED` → no limitations → the
-production serialisation is byte-identical to the golden request. It also covers near-miss hashes,
+production serialisation exactly matches the golden request. It also covers near-miss hashes,
 header-only recognition, wrong running bytes, and unsupported ability/item/status/weather.
 
 ---

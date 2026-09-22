@@ -2,6 +2,88 @@
   "schema": "dualdex.vanilla_gen3_goldens.v1",
   "ruleset": "VANILLA_GEN3",
   "mechanicsGeneration": 3,
+  "cartridgeReferences": [
+    {
+      "id": "cartridge_doubles_reflect_both_defenders_present",
+      "covers": [
+        "Doubles Reflect cartridge arithmetic (deliberately outside the VERIFIED surface)"
+      ],
+      "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
+      "sourceAnchor": "pret/pokefirered src/pokemon.c:2547 (CalculateBaseDamage, Reflect branch) and :2598 (Light Screen branch); identical text at pret/pokeemerald src/pokemon.c:3270 and :3321",
+      "refusedBy": "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED",
+      "provenance": "Reflect in a Doubles battle with both defending battlers present: CalculateBaseDamage runs `damage = 2 * (damage / 3)` on the pre-roll value, so 2 * floor(62/3) = 40 and the post-+2 value is 42. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)",
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Strength\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\",\"defenderSide\":{\"isReflect\":true}}}",
+      "bothDefendersPresent": true,
+      "screenOperation": "2 * (damage / 3)",
+      "preRollDamage": 62,
+      "screenedPreRollDamage": 40,
+      "expected": {
+        "damage": [
+          35,
+          36,
+          36,
+          36,
+          37,
+          37,
+          38,
+          38,
+          39,
+          39,
+          39,
+          40,
+          40,
+          41,
+          41,
+          42
+        ],
+        "minDamage": 35,
+        "maxDamage": 42,
+        "moveType": "Normal",
+        "moveCategory": "Physical",
+        "movePower": 80
+      }
+    },
+    {
+      "id": "cartridge_doubles_reflect_one_defender_present",
+      "covers": [
+        "Doubles Reflect cartridge arithmetic (deliberately outside the VERIFIED surface)"
+      ],
+      "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
+      "sourceAnchor": "pret/pokefirered src/pokemon.c:2547 (CalculateBaseDamage, Reflect branch) and :2598 (Light Screen branch); identical text at pret/pokeemerald src/pokemon.c:3270 and :3321",
+      "refusedBy": "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED",
+      "provenance": "The same Reflect with only one defending battler present falls back to `damage /= 2`, so floor(62/2) = 31 and the post-+2 value is 33: the format label alone cannot select the branch. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)",
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Strength\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\",\"defenderSide\":{\"isReflect\":true}}}",
+      "bothDefendersPresent": false,
+      "screenOperation": "damage / 2",
+      "preRollDamage": 62,
+      "screenedPreRollDamage": 31,
+      "expected": {
+        "damage": [
+          28,
+          28,
+          28,
+          29,
+          29,
+          29,
+          30,
+          30,
+          30,
+          31,
+          31,
+          31,
+          32,
+          32,
+          32,
+          33
+        ],
+        "minDamage": 28,
+        "maxDamage": 33,
+        "moveType": "Normal",
+        "moveCategory": "Physical",
+        "movePower": 80
+      }
+    }
+  ],
   "provenance": {
     "oracle": {
       "kind": "independent Generation III reference implementation",

@@ -235,6 +235,78 @@ class CalcVanillaGoldenBoundaryTest {
         }
     }
 
+    // --------------------------------------------------- cartridge references
+
+    /**
+     * The `cartridgeReferences` block records the source-exact Doubles screen arithmetic that the
+     * production gate refuses. Two invariants keep it honest, and both are asserted here rather
+     * than only in the Python verifier:
+     *
+     *  * the two references differ from each other, so the cartridge's target-presence branch
+     *    really is observable and not a constant;
+     *  * each reference's request is byte-identical to what the production serializer produces for
+     *    the same inputs, so the recorded request is the production request and not a hand-written
+     *    document.
+     */
+    @Test
+    fun `the source-exact Doubles screen references are observable and production-serialisable`() {
+        val references = goldenDocument().getJSONArray("cartridgeReferences").mapObjects()
+        assertEquals("two cartridge references are expected", 2, references.size)
+
+        val vectors = references.map { reference ->
+            val expected = reference.getJSONObject("expected")
+            val damage = expected.getJSONArray("damage")
+            assertEquals("${reference.getString("id")} roll count", 16, damage.length())
+            assertEquals(
+                "${reference.getString("id")} min",
+                damage.getInt(0),
+                expected.getInt("minDamage")
+            )
+            assertEquals(
+                "${reference.getString("id")} max",
+                damage.getInt(15),
+                expected.getInt("maxDamage")
+            )
+            assertEquals(
+                "${reference.getString("id")} must name the gate that refuses it",
+                "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED",
+                reference.getString("refusedBy")
+            )
+
+            // The recorded request describes the very shape the gate refuses, and asking the real
+            // boundary for it must be refused — that is what makes these references evidence about
+            // production rather than a standalone note. The engine half (the bundled pipeline does
+            // not produce these vectors) is asserted in native/tests/test_js_calc.c.
+            val input = JSONObject(reference.getString("request"))
+            assertEquals(
+                "${reference.getString("id")} request must be a Doubles request",
+                "Doubles",
+                input.getJSONObject("field").getString("gameType")
+            )
+            val outcome = CalcRequestBoundary.build(
+                profile = fireRed,
+                trust = exactTrust(fireRed, fireRed.sha256Hashes.first()),
+                attacker = participant(input.getJSONObject("attacker")),
+                defender = participant(input.getJSONObject("defender")),
+                move = CalcMoveInput(name = input.getJSONObject("move").getString("name")),
+                field = fieldOf(input.getJSONObject("field"))
+            )
+            assertTrue(
+                "${reference.getString("id")} must be refused by the production boundary, got " +
+                    "$outcome",
+                outcome is CalcRequestOutcome.Refused
+            )
+            damage.toIntList()
+        }
+
+        assertNotEquals(
+            "the cartridge target-presence branch must change the vector, or the gate has no " +
+                "observable basis",
+            vectors[0],
+            vectors[1]
+        )
+    }
+
     // ------------------------------------------------------- FireRed revisions
 
     @Test
@@ -383,6 +455,129 @@ class CalcVanillaGoldenBoundaryTest {
         assertTrue(verdict.limitations.contains(CalcLimitation.FIELD_CONDITION_NOT_MODELLED))
     }
 
+    // ------------------------------------------------- Doubles screen fail-closed
+
+    /**
+     * Builds a request through the real boundary with an explicit field format and screen state.
+     *
+     * Uses the same participants as the committed golden matrix, so the only difference from the
+     * verified Singles screen fixtures is the battle format.
+     */
+    private fun screenVerdict(
+        profile: RomHackProfile,
+        gameType: String,
+        isReflect: Boolean,
+        isLightScreen: Boolean,
+        moveName: String
+    ): CalcCapabilityVerdict {
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = exactTrust(profile, profile.sha256Hashes.first()),
+            attacker = CalcParticipantState(
+                species = "Machamp",
+                level = 50,
+                nature = "Hardy",
+                boosts = CalcParticipantState.NONE,
+                ivs = StatBlock(hp = 31, atk = 31, def = 31, spa = 31, spd = 31, spe = 31),
+                evs = StatBlock(),
+                origin = CalcInputOrigin.MANUAL
+            ),
+            defender = CalcParticipantState(
+                species = "Snorlax",
+                level = 50,
+                nature = "Hardy",
+                boosts = CalcParticipantState.NONE,
+                ivs = StatBlock(hp = 31, atk = 31, def = 31, spa = 31, spd = 31, spe = 31),
+                evs = StatBlock(),
+                origin = CalcInputOrigin.MANUAL
+            ),
+            move = CalcMoveInput(name = moveName),
+            field = CalcFieldInput(
+                gameType = gameType,
+                defenderSide = SideConditions(isReflect = isReflect, isLightScreen = isLightScreen)
+            )
+        )
+        return when (outcome) {
+            is CalcRequestOutcome.Ready -> outcome.verdict
+            is CalcRequestOutcome.Refused -> outcome.verdict
+        }
+    }
+
+    /**
+     * P1 review correction. The pinned engines apply a Doubles Reflect/Light Screen with integer
+     * *division first* — `damage = 2 * (damage / 3)` while both defending battlers are present,
+     * otherwise `damage /= 2` (`pret/pokefirered src/pokemon.c` `CalculateBaseDamage`) — while the
+     * shipped `@smogon/calc` 0.11.0 ADV pipeline applies `floor(rolled * 2/3)`. For the committed
+     * Strength fixture the two disagree (cartridge 35-42, pipeline 36-43), and the request shape
+     * cannot even express the cartridge's target-presence condition.
+     *
+     * Because the vanilla ruleset advertises [CalcSupport.VERIFIED], the exact-trusted Doubles +
+     * screen shape must be refused rather than published. This is the production-boundary proof.
+     */
+    @Test
+    fun `an exact trusted vanilla Doubles screen is refused rather than published as verified`() {
+        val cases = listOf(
+            Triple(CalcGameTypes.DOUBLES, true, false) to "Strength",
+            Triple(CalcGameTypes.DOUBLES, false, true) to "Hydro Pump",
+            // A lower-case label must not slip past the gate.
+            Triple("doubles", true, false) to "Strength"
+        )
+        for ((shape, moveName) in cases) {
+            val (gameType, isReflect, isLightScreen) = shape
+            for (profile in listOf(fireRed, emerald)) {
+                val id = "${profile.id}/$gameType/reflect=$isReflect/lightScreen=$isLightScreen/$moveName"
+                val verdict = screenVerdict(profile, gameType, isReflect, isLightScreen, moveName)
+                assertEquals("$id support", CalcSupport.UNSUPPORTED, verdict.support)
+                assertFalse("$id must not be verified", verdict.isVerified)
+                assertTrue(
+                    "$id limitation",
+                    verdict.limitations.contains(CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED)
+                )
+                // The whole point: no number may be published for this shape.
+                assertNull("$id request must not be authorized", verdict.request)
+            }
+        }
+    }
+
+    /**
+     * The negative control for the gate above: exactly the same screen state stays on the verified
+     * surface in Singles, so the gate is scoped to the one arithmetic the pipeline gets wrong and
+     * has not simply disabled screens.
+     */
+    @Test
+    fun `the same screen state remains verified in vanilla Singles`() {
+        for (profile in listOf(fireRed, emerald)) {
+            val reflect = screenVerdict(profile, CalcGameTypes.SINGLES, true, false, "Strength")
+            assertEquals("${profile.id} Singles Reflect", CalcSupport.VERIFIED, reflect.support)
+            assertEquals(
+                "${profile.id} Singles Reflect limitations",
+                emptyList<CalcLimitation>(),
+                reflect.limitations
+            )
+
+            val lightScreen = screenVerdict(profile, CalcGameTypes.SINGLES, false, true, "Hydro Pump")
+            assertEquals("${profile.id} Singles Light Screen", CalcSupport.VERIFIED, lightScreen.support)
+        }
+    }
+
+    /**
+     * The other half of the scope: an exact-trusted vanilla Doubles request with NO screen is still
+     * verified (the committed Doubles spread fixture depends on this), so the gate refuses only the
+     * screen shapes it cannot reproduce.
+     */
+    @Test
+    fun `an exact trusted vanilla Doubles request without a screen stays verified`() {
+        for (profile in listOf(fireRed, emerald)) {
+            val verdict = screenVerdict(profile, CalcGameTypes.DOUBLES, false, false, "Rock Slide")
+            assertEquals("${profile.id} Doubles no screen", CalcSupport.VERIFIED, verdict.support)
+            assertEquals(
+                "${profile.id} Doubles no screen limitations",
+                emptyList<CalcLimitation>(),
+                verdict.limitations
+            )
+        }
+    }
+
     // ------------------------------------------------------------- small helpers
 
     private fun verdictFor(
@@ -431,6 +626,8 @@ class CalcVanillaGoldenBoundaryTest {
 
     private fun JSONArray.mapObjects(): List<JSONObject> =
         (0 until length()).map { getJSONObject(it) }
+
+    private fun JSONArray.toIntList(): List<Int> = (0 until length()).map { getInt(it) }
 
     private fun assertJsonEquals(path: String, expected: JSONObject, actual: JSONObject) {
         assertEquals("$path keys", expected.keySet(), actual.keySet())

@@ -877,6 +877,87 @@ static void test_hns_party_counts_are_independent_symbols(void) {
 }
 
 /**
+ * Vanilla party-symbol layout invariant (PR #70 layout audit).
+ *
+ * `gPlayerPartyCount` and `gEnemyPartyCount` are the first two EWRAM objects of the party
+ * translation unit in both pinned decompilations (`pokefirered src/pokemon.c:59-60`,
+ * `pokeemerald src/pokemon.c:76-77`), so in every vanilla layout the enemy count is the byte
+ * immediately after the player count.
+ *
+ * `gEnemyPartyCount` is NOT `gEnemyParty - 4`: in FireRed the linker emits `.ALIGN(4)` padding
+ * before `src/pokemon.o`'s EWRAM block, so `gEnemyParty - 4` is `0x02024028`, a padding byte:
+ *
+ *     src/pokemon.o(ewram_data)
+ *     ewram_data 0x02024028  0x4d0 src/pokemon.o
+ *     0x02024029                gPlayerPartyCount
+ *     0x0202402a                gEnemyPartyCount
+ *     0x0202402c                gEnemyParty
+ *     0x02024284                gPlayerParty
+ *
+ * The configurations carried 0x24028 (FireRed/LeafGreen) and 0x24740 (Emerald) until PR #70's
+ * audit corrected them. This test pins the corrected values so a future edit cannot silently
+ * reintroduce an offset that names padding, and pins the invariant itself rather than only the
+ * numbers.
+ *
+ * The values come from the exact addresses the pinned builds resolve; see
+ * `tools/calc-goldens/audit_vanilla_layout.py` and
+ * `docs/VANILLA_CALCULATOR_EVIDENCE.md` §7.2. This test does not need those builds: it asserts the
+ * relationship (adjacency, and enemy count != enemy party - 4) that the build evidence establishes.
+ */
+static void test_vanilla_party_count_symbols_are_adjacent(void) {
+    printf("Running test_vanilla_party_count_symbols_are_adjacent...\n");
+
+    const GameMemoryConfig* emerald = pokemon_get_game_config(GAME_EMERALD);
+    const GameMemoryConfig* firered = pokemon_get_game_config(GAME_FIRERED);
+    const GameMemoryConfig* leafgreen = pokemon_get_game_config(GAME_LEAFGREEN);
+    TEST_ASSERT(emerald != NULL && firered != NULL && leafgreen != NULL,
+                "Emerald, FireRed and LeafGreen configs are required");
+
+    /* The old, wrong values must not come back. */
+    TEST_ASSERT(firered->enemy_party_count_offset != 0x24028,
+                "FireRed gEnemyPartyCount must not be the 0x02024028 alignment padding byte");
+    TEST_ASSERT(leafgreen->enemy_party_count_offset != 0x24028,
+                "LeafGreen gEnemyPartyCount must not be the 0x02024028 alignment padding byte");
+    TEST_ASSERT(emerald->enemy_party_count_offset != 0x24740,
+                "Emerald gEnemyPartyCount must not be the byte after gEnemyParty");
+
+    /* The invariant: the two count symbols are adjacent bytes, whatever the addresses are. */
+    TEST_ASSERT(firered->player_party_count_offset + 1 == firered->enemy_party_count_offset,
+                "FireRed party counts must be adjacent bytes");
+    TEST_ASSERT(leafgreen->player_party_count_offset + 1 == leafgreen->enemy_party_count_offset,
+                "LeafGreen party counts must be adjacent bytes");
+    TEST_ASSERT(emerald->player_party_count_offset + 1 == emerald->enemy_party_count_offset,
+                "Emerald party counts must be adjacent bytes");
+
+    /* ...and neither is derived from its party array. */
+    TEST_ASSERT(firered->enemy_party_count_offset != firered->enemy_party_offset - 4,
+                "FireRed enemy count must not be derived as gEnemyParty - 4");
+    TEST_ASSERT(emerald->enemy_party_count_offset != emerald->enemy_party_offset - 4,
+                "Emerald enemy count must not be derived as gEnemyParty - 4");
+    TEST_ASSERT(firered->player_party_count_offset != firered->player_party_offset - 4,
+                "FireRed player count must not be derived as gPlayerParty - 4");
+    TEST_ASSERT(emerald->player_party_count_offset != emerald->player_party_offset - 4,
+                "Emerald player count must not be derived as gPlayerParty - 4");
+
+    /* The exact symbol addresses the pinned builds resolve (audit evidence). */
+    TEST_ASSERT(firered->player_party_count_offset == 0x24029, "FireRed gPlayerPartyCount is 0x02024029");
+    TEST_ASSERT(firered->enemy_party_count_offset == 0x2402A, "FireRed gEnemyPartyCount is 0x0202402A");
+    TEST_ASSERT(firered->enemy_party_offset == 0x2402C, "FireRed gEnemyParty is 0x0202402C");
+    TEST_ASSERT(firered->player_party_offset == 0x24284, "FireRed gPlayerParty is 0x02024284");
+    TEST_ASSERT(emerald->player_party_count_offset == 0x244E9, "Emerald gPlayerPartyCount is 0x020244E9");
+    TEST_ASSERT(emerald->enemy_party_count_offset == 0x244EA, "Emerald gEnemyPartyCount is 0x020244EA");
+
+    /* The party arrays are adjacent six-slot blocks, which is what makes a count meaningful. */
+    TEST_ASSERT(firered->player_party_offset - firered->enemy_party_offset == 600,
+                "FireRed party arrays must be adjacent 6 x 100-byte blocks");
+    TEST_ASSERT(emerald->enemy_party_offset - emerald->player_party_offset == 600,
+                "Emerald party arrays must be adjacent 6 x 100-byte blocks");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_vanilla_party_count_symbols_are_adjacent" ANSI_RESET "\n");
+}
+
+/**
  * Authoritative gEnemyPartyCount contract for H&S 2.0.5.
  *
  * The compiled symbol 0x020342A9 is the ONLY authority for how many enemy slots exist. A count
@@ -5930,6 +6011,7 @@ int main(void) {
     test_hns_config_matches_release_runtime_evidence();
     test_hns_release_rom_party_fixture();
     test_hns_party_counts_are_independent_symbols();
+    test_vanilla_party_count_symbols_are_adjacent();
     test_hns_enemy_party_count_is_authoritative();
     test_expansion_ability_num_is_not_the_gigantamax_bit();
     test_expansion_nature_and_shiny_are_reported_honestly();

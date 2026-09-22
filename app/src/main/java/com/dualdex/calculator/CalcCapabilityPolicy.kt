@@ -285,6 +285,33 @@ enum class CalcLimitation(val blocks: Boolean) {
     HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED(true),
 
     /**
+     * A vanilla Generation III **Doubles** request carries an active Reflect or Light Screen, whose
+     * cartridge arithmetic this pipeline does not reproduce.
+     *
+     * The pinned engines apply the Doubles screen inside `CalculateBaseDamage` with a deliberately
+     * *integer* operation order —
+     * `if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE) && CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2)
+     *      damage = 2 * (damage / 3);` (identical text in `pret/pokefirered src/pokemon.c:2547`
+     * and `pret/pokeemerald src/pokemon.c:3270`) — so the division by 3
+     * happens on the pre-roll value and is floored *before* the multiply. The shipped
+     * `@smogon/calc` 0.11.0 ADV pipeline instead applies `floor(damage * 2 / 3)` to the rolled
+     * value, which differs by one on fourteen of the sixteen rolls (for the Strength fixture:
+     * the cartridge yields 35-42, the pipeline yields 36-43).
+     *
+     * The branch is also conditional on live state the request shape cannot express: the cartridge
+     * takes `2 * (damage / 3)` only while **both** defending battlers are present, and falls back to
+     * `damage / 2` otherwise. There is no target-presence operand, so a request cannot select the
+     * correct branch even in principle.
+     *
+     * Because `VANILLA_GEN3` advertises `CalcSupport.VERIFIED`, leaving this shape computable would
+     * let the application publish a number that differs from the cartridge under a Verified label.
+     * The gate therefore refuses the request instead of presenting a confident wrong vector. It is
+     * scoped to Doubles plus an active screen: Singles screens and the Doubles spread reduction
+     * remain on the verified surface, and the vanilla engine keeps its documented pipeline order.
+     */
+    VANILLA_DOUBLES_SCREEN_NOT_MODELLED(true),
+
+    /**
      * The move's effective type was authoritatively observed to be rewritten to Electric by an
      * active dynamic-type mechanism (`gFieldStatuses & STATUS_FIELD_ION_DELUGE` on a Normal move,
      * or the attacker's `volatiles.electrified` on any move).
@@ -672,6 +699,8 @@ data class CalcCapabilityVerdict(
                 "this is a Doubles battle whose current target count is not authoritatively observed, so the spread-move reduction cannot be determined"
             CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED ->
                 "the live battle format is not an authoritatively observed Singles battle, so the Singles damage arithmetic cannot be applied"
+            CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED ->
+                "this is a Doubles battle with Reflect or Light Screen active, whose cartridge arithmetic (2 * (damage / 3) only while both defenders are present) this calculation does not reproduce"
             CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED ->
                 "the current move's type is being rewritten to Electric by Ion Deluge or Electrify, which this calculation does not model"
             CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED ->
@@ -1784,6 +1813,23 @@ object CalcCapabilityPolicy {
         }
     }
 
+    /**
+     * True when a vanilla Generation III request is a **Doubles** battle with an active Reflect or
+     * Light Screen, the one screen shape whose cartridge arithmetic this pipeline does not
+     * reproduce (see [CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED]).
+     *
+     * Both the physical screen (Reflect, read for a physical move) and the special screen (Light
+     * Screen, read for a special move) are refused, and the check deliberately does not narrow by
+     * move category: the request shape cannot express the cartridge's own target-presence
+     * condition (`CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2`), so there is no input that
+     * would make the reproduced branch provable.
+     */
+    private fun vanillaDoublesScreenNotModelled(request: DamageCalculationRequest): Boolean {
+        if (!request.field.gameType.equals(CalcGameTypes.DOUBLES, ignoreCase = true)) return false
+        val side = request.field.defenderSide ?: return false
+        return side.isReflect || side.isLightScreen
+    }
+
     private fun collectRequestLimitations(
         profile: RomHackProfile,
         capability: CalcCapability,
@@ -1827,6 +1873,13 @@ object CalcCapabilityPolicy {
         }
         if (!request.field.terrain.isNullOrBlank()) {
             limitations.add(CalcLimitation.FIELD_CONDITION_NOT_MODELLED)
+        }
+
+        // Field conditions the generation III pipeline expresses with the wrong operation order.
+        // The vanilla ruleset advertises VERIFIED, so a Doubles screen whose cartridge arithmetic
+        // this pipeline does not reproduce must fail closed rather than be published as verified.
+        if (capability.ruleset == CalcRuleset.VANILLA_GEN3 && vanillaDoublesScreenNotModelled(request)) {
+            limitations.add(CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED)
         }
 
         listOf(request.attacker to true, request.defender to false).forEach { (input, isAttacker) ->

@@ -49,13 +49,24 @@ the public SHA-1 digests:
 
 Each old value **shares its leading hex digits with the pret SHA-1 of the same ROM** (FireRed Rev 0:
 the first 64 bits; Rev 1: the first 32 bits; Emerald: the first 28 bits) and differs in the tail.
-Two independent cryptographic digests of the same file cannot share a 64-bit prefix by chance, so
-the old strings were demonstrably not SHA-256 of any ROM. Because the production detector
-(`RomHackDetector`) computes a real SHA-256, `RuntimeRomTrust.exactRuntimeVerified` could **never**
-be true for a genuine FireRed/Emerald dump, which silently made the advertised `VERIFIED` state
-unreachable for the vanilla targets. The correction replaces each string with the No-Intro
-authenticated SHA-256 of the exact dump it was meant to identify; the accepted set is unchanged
-(same two FireRed revisions, same Emerald revision).
+
+What that establishes is deliberately narrower than "these strings are not SHA-256 of any ROM":
+
+* the old values are **not the SHA-256 of the intended supported dumps**, which is the claim that
+  matters, and the genuine No-Intro digests replace them;
+* the shared prefixes are **extremely strong evidence that the old strings were malformed or
+  transcribed values** rather than independent digests of some ROM.
+
+They are not a proof that no ROM anywhere has one of them as its SHA-256. Two distinct hash
+functions can agree on a 64-bit prefix by coincidence, and no finite set of digests can establish
+that a 256-bit string is "not the SHA-256 of any ROM" — only that it is not the SHA-256 of any file
+that has been hashed for comparison. The defect this slice fixes is the one the evidence supports:
+`RomHackDetector` computes a real SHA-256, so with those values
+`RuntimeRomTrust.exactRuntimeVerified` could never be true for the genuine FireRed/Emerald dumps,
+which silently made the advertised `VERIFIED` state unreachable for the vanilla targets. The
+correction replaces each string with the No-Intro authenticated SHA-256 of the exact dump it was
+meant to identify; the accepted set is unchanged (same two FireRed revisions, same Emerald
+revision).
 
 `tools/calc-goldens/verify_goldens.py` fails closed if the bundled profile hashes ever drift from
 the values recorded in the golden provenance.
@@ -70,6 +81,9 @@ decompilation at `pret/pokefirered` handles both. The arithmetic the calculator 
 route to the **same** `VANILLA_GEN3` capability row, and
 `CalcVanillaGoldenBoundaryTest` asserts both produce an identical normalised production request for
 the same fixture. No revision-specific damage difference is modelled, because none is evidenced.
+
+Damage arithmetic is not the only thing the shared profile authorizes, and §7 is the layout audit
+that closes that gap.
 
 ---
 
@@ -86,11 +100,12 @@ the modelled surface:
 * status is one of `brn`, `par`, `slp`, `frz`, `psn`, `tox`;
 * weather is one of `Sun`, `Rain`, `Sand`, `Hail` (canonical spelling); terrain is refused;
 * stat stages are within `-6..+6`; IVs `0..31`; EVs `0..255`; level `1..100`;
-* the request generation is 3 (a mismatch is disclosed and downgrades to `ESTIMATED`).
+* the request generation is 3 (a mismatch is disclosed and downgrades to `ESTIMATED`);
+* **not a Doubles battle with Reflect or Light Screen active** — see §2.2.
 
 The claim is exactly: **the shipped `@smogon/calc` 0.11.0 Generation III pipeline reproduces the
 exact ROM's ordinary damage arithmetic for those inputs.** It is not a claim to know the live
-battle state (see §6).
+battle state (see §8).
 
 ### 2.1 Scope caveats that are disclosed, not silently assumed
 
@@ -108,6 +123,79 @@ battle state (see §6).
 * **Live reads.** A live-read participant missing a damage-relevant field is refused
   (`LIVE_PARTICIPANT_STATE_UNKNOWN`); a live read on a non-exact ROM is refused
   (`LIVE_INPUTS_NOT_VERIFIED`). These paths are unchanged by this slice.
+
+### 2.2 Doubles screens are refused, not published (senior-review P1 correction)
+
+The pinned engines express a Doubles Reflect / Light Screen as an **integer-division-first**
+operation on the pre-roll damage, in `CalculateBaseDamage`:
+
+```c
+/* pret/pokefirered src/pokemon.c:2547 CalculateBaseDamage (Reflect branch; Light Screen
+   at :2598); identical text in pret/pokeemerald src/pokemon.c:3270 and :3321 */
+if ((sideStatus & SIDE_STATUS_REFLECT) && gCritMultiplier == 1)
+{
+    if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE)
+     && CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2)
+        damage = 2 * (damage / 3);
+    else
+        damage /= 2;
+}
+```
+
+Three separate facts follow, and each one is enough to keep this shape off the `VERIFIED` surface:
+
+1. **Operation order.** `2 * (damage / 3)` is not `floor(damage * 2 / 3)`: the two floor
+   separately. For the Strength fixture (pre-screen value 62) the cartridge computes
+   `2 * floor(62/3) = 40`, then `+2 = 42`, giving rolls **35-42**; writing the same intent as a
+   single fraction gives `floor(62 * 2/3) = 41`, then `+2 = 43`, giving **36-43**. Fourteen of the
+   sixteen rolls differ, each by one.
+2. **Target presence.** The cartridge takes the `2 * (damage / 3)` branch only while
+   `CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2` and otherwise halves. The request shape
+   carries no target-presence operand, so no request can select the correct branch even in
+   principle.
+3. **Where the screen is applied.** The cartridge applies it to the pre-roll value; the shipped
+   `@smogon/calc` 0.11.0 ADV pipeline applies `floor(rolled * 2/3)` inside its per-roll loop.
+
+Because `VANILLA_GEN3` advertises `CalcSupport.VERIFIED`, the exact-trusted
+`gameType = Doubles` + `defenderSide.isReflect`/`isLightScreen` shape is now **refused** with
+`CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED` rather than computed. The gate is scoped to
+that shape only:
+
+* Singles Reflect and Light Screen stay `VERIFIED` (they are two committed golden fixtures);
+* a Doubles request **without** a screen stays `VERIFIED` (the committed Doubles spread fixture);
+* `CalcVanillaGoldenBoundaryTest` asserts all three halves: the refusal, the Singles negative
+  control, and the screenless-Doubles control.
+
+The cartridge's own arithmetic is still recorded, as evidence rather than as an engine golden, in
+the `cartridgeReferences` block of `vanilla_gen3_goldens.json`. It is derived by
+`gen3_reference.doubles_cartridge_rolls()` and holds both branches: `2 * (damage / 3)` → 35-42 while
+both defenders are present, and `damage / 2` → 28-33 when only one is. The verifier fails if those
+two vectors ever become identical, and
+`native/tests/test_js_calc.c :: check_vanilla_doubles_screen_cartridge_divergence()` fails if the
+shipped engine ever starts producing a cartridge vector — which is the signal that the gate, not
+the fixture, should be revisited.
+
+### 2.3 "Cartridge-exact" means values and constants, not the whole operation order
+
+`VANILLA_GEN3` runs `@smogon/calc` 0.11.0's ADV pipeline, so where this document calls a branch
+"cartridge-exact" it means the **values and constants** the pinned source specifies for that branch,
+on the surface §2 lists. It is not a claim that every intermediate step is performed in the
+cartridge's order. The known order differences are:
+
+| Step | Pinned cartridge | Shipped pipeline | On the `VERIFIED` surface? |
+|---|---|---|---|
+| Reflect / Light Screen | `damage / 2`, or `2 * (damage / 3)` while both defenders are present, applied to the **pre-roll** value inside `CalculateBaseDamage` | `floor(rolled / 2)` or `floor(rolled * 2/3)` inside the per-roll loop | Singles screens: yes, asserted against committed vectors that encode the pipeline's order. Doubles: **no** — refused (§2.2) |
+| `+2` | inside `CalculateBaseDamage`, before crit / STAB / type | same placement | yes |
+| Critical `×2` | `Cmd_damagecalc`, immediately after `CalculateBaseDamage`, before STAB / type | same placement | yes |
+| STAB and type | `Cmd_typecalc`, after crit | after crit | yes |
+| 85-100 roll | `ApplyRandomDmgMultiplier`, applied **after** STAB and type | after STAB and type | yes |
+| Attack form (burn, Thick Fat, stages) | inside `CalculateBaseDamage`, before the `+2` | same placement | yes |
+
+The Singles screen row is the one to keep in mind when reading the golden vectors: those two fixtures
+are exact, reproducible vectors for the shipped pipeline's order, which is why they carry HOST
+VERIFIED evidence rather than a per-step claim about the cartridge. Re-implementing the cartridge's
+exact screen order in the bundle is a larger change than this evidence slice, and the corrected
+hashes do not imply it.
 
 ---
 
@@ -131,17 +219,32 @@ Key facts the oracle encodes, with source anchors:
 * stat stages: `gStatStageRatios` (`src/pokemon.c:1868` Emerald, `:1442` FireRed) —
   `+n → (10+n)/10`, `-n → 10/(10+n)`, floored, with a critical hit ignoring the attacker's negative
   stages and the defender's positive stages;
-* burn `÷2` (unless Guts), screens `÷2` singles / `×2/3` doubles, spread `÷2`, weather `×1.5`/`÷2`,
-  then `+2` and the critical `×2`;
+* burn `÷2` (unless Guts), Singles screens `÷2`, spread `÷2`, weather `×1.5`/`÷2`, then `+2` and
+  the critical `×2`;
 * STAB `×15/10` and per-defending-type flooring (`Cmd_typecalc`);
 * 16 rolls `floor(damage·r/100)` for `r = 85..100`, minimum 1
   (`ApplyRandomDmgMultiplier`, `src/battle_script_commands.c:1639` Emerald, `:1558` FireRed);
 * the Generation III **type-based** physical/special partition, so fixture B does not assume a
   modern per-move category.
 
+Two things the oracle deliberately refuses rather than guesses:
+
+* **Doubles Reflect / Light Screen.** `calculate()` raises for that shape, because the cartridge's
+  `2 * (damage / 3)` and the pipeline's `floor(rolled * 2/3)` are different arithmetic (§2.2). The
+  cartridge branch is available explicitly through
+  `gen3_reference.doubles_cartridge_rolls(request, both_defenders_present)`, which encodes the
+  integer operation order *and* the target-presence condition, and is what the committed
+  `cartridgeReferences` vectors are derived from.
+* **Non-neutral natures.** None of the committed fixtures use one, and the oracle does not implement
+  the `×1.1`/`×0.9` stat modifiers, so a request naming Adamant or Modest **raises** instead of
+  silently computing the neutral value. A future fixture cannot exceed the oracle without that gap
+  being closed deliberately.
+
 `tools/calc-goldens/verify_goldens.py` re-derives every committed expected vector from this oracle
 and fails closed on any drift. It also fails if the bundled profile hashes differ from the golden
-provenance.
+provenance, if a `cartridgeReferences` vector drifts from the source-exact derivation, or if the two
+target-presence reference vectors ever become identical (which would mean the branch is no longer
+observable).
 
 ---
 
@@ -162,14 +265,21 @@ evidence level.
 | `vg3_e_screen_reflect_singles` | E Reflect ×1/2 (Singles) | 28-33 |
 | `vg3_e_screen_light_screen_singles` | E Light Screen ×1/2 (Singles) | 16-19 |
 | `vg3_e_doubles_spread_format_sensitive` | E format-sensitive Doubles spread ×1/2 | 26-31 |
+| — (refused, not a golden) | E Doubles **with** Reflect / Light Screen | not computed: see §2.2 |
 | `vg3_f_weather_rain_halves_fire` | F Rain ×1/2 on Fire | 12-15 |
 | `vg3_f_weather_sun_boosts_fire` | F Sun ×1.5 on Fire | 35-42 |
 | `vg3_g_burn_guts_boosts_attack` | G burn + Guts ×1.5, no burn halving | 75-89 |
 | `vg3_h_stat_stage_attack_plus_two` | H +2 Attack stage | 100-118 |
 
+**The Doubles row is the only Doubles surface on the matrix, and the gate is what keeps it that
+way:** it uses no screen, so it stays on the verified surface, while every Doubles request *with* a
+screen is refused (§2.2). Any future Doubles fixture must state which of the two screen arithmetics
+it means and may only be added to the engine matrix if the engine reproduces that one.
+
 Fixture inputs use Machamp (Hardy L50, 31 IV / 0 EV) versus Snorlax (Hardy L50, 31 IV / 0 EV), so
 the stat arithmetic is explicit and reproducible. Every fixture is asserted against **both**
-`vanilla_firered` and `vanilla_emerald` at the production boundary.
+`vanilla_firered` and `vanilla_emerald` at the production boundary. All twelve use a neutral nature,
+which is exactly the set the oracle implements (§3).
 
 Evidence level per fixture:
 
@@ -177,7 +287,11 @@ Evidence level per fixture:
 * **HOST VERIFIED** — the shipped `calc_bundle.js` engine produces the exact vector:
   `native/tests/test_js_calc.c :: run_vanilla_golden_matrix()` reads the same fixture file, executes
   the exact request, and asserts all 16 rolls plus move type/category/power.
-* **RUNTIME VERIFIED** — not obtained in this slice; see §5.
+* **RUNTIME VERIFIED** — not obtained for *damage* in this slice; see §5. The read-only memory
+  layout does carry a RUNTIME VERIFIED classification, from the pinned builds, in §7.
+* The committed `cartridgeReferences` block carries the same SOURCE VERIFIED evidence level but is
+  deliberately **outside** the engine matrix: it records what the cartridge does for the shape
+  production refuses (§2.2).
 
 ---
 
@@ -204,9 +318,117 @@ rolls with a PASS/FAIL exit.
 
 ---
 
-## 6. Trust and boundary behaviour
+## 7. Read-only layout audit: what the corrected hashes newly authorize
 
-The production path is unchanged except for the corrected hashes:
+Repairing the hashes does more than make calculator trust reachable. `RuntimeRomTrust`'s
+`exactRuntimeVerified` drives `mayReadLiveMemory`, which is the **universal** gate for every
+profile-dependent read in the companion:
+
+| Read | Reader offset(s) that must hold | Enabled by |
+|---|---|---|
+| player party | `player_party_offset`, `player_party_count_offset`, `battle_mons_offset + count` | `CompanionViewModel.pollVerifiedRomMemory` |
+| enemy party | `enemy_party_offset`, `enemy_party_count_offset` | same |
+| battle presence | `battle_mons_offset` (the vanilla layouts read `gBattleMons[0].species`) | same |
+| active battler / active enemy | `battle_mons_offset`, `battle_mons_stat_stages_offset`, party offsets | same |
+| stat stages | `battle_mons_offset + battle_mons_stat_stages_offset` / `+ battle_mons_hp_offset` | same |
+| player location | `player_party_offset` (the legacy SaveBlock1 base is derived from it) plus `save_block1_pos_offset` / `location_offset` / `escape_warp_offset` | same |
+
+Interactive paths stay closed (`battleUiVerified = false`, `interactiveControlsVerified = false`), so
+this is a read-surface question, not a write-safety one. But FireRed Rev 0 and Rev 1 share **one**
+profile and therefore **one** memory-layout table, so "both revisions are accepted" is only sound if
+both revisions really place every one of those symbols at the same address.
+
+### 7.1 The audit and its result
+
+`tools/calc-goldens/audit_vanilla_layout.py` turns that into a check. It reads the ELF symbol table
+of builds made from the **pinned** decompilations (`pret/pokefirered @ c75f352`, both revisions;
+`pret/pokeemerald @ 5eff786`), scrapes the expected offsets out of `native/src/pokemon_reader.c` and
+the bundled profiles rather than restating them, and asserts:
+
+```
+$ python3 tools/calc-goldens/audit_vanilla_layout.py \
+      --firered-rev0 pokefirered.elf --firered-rev1 pokefirered_rev1.elf --emerald pokeemerald.elf
+  [OK] FireRed Rev 0: party group matches the shipped offsets (player 0x02024284, enemy 0x0202402C)
+  [OK] FireRed Rev 0: gPlayerParty and gEnemyParty are exactly 600 bytes apart (enemy first) ...
+  [OK] FireRed Rev 0: count block 0x02024029..0x0202402A heads the party TU's EWRAM ...
+  [OK] FireRed Rev 0: reader-derived SaveBlock1 base 0x0202424C (gPlayerParty == SaveBlock1+0x38) ...
+  [OK] FireRed Rev 0: gBattleMons stride is 88 bytes x 4 battlers; reader hp=0x28 statStages=0x18
+  [OK] FireRed Rev 1: (identical to Rev 0 for every line above)
+  [OK] FireRed Rev 0 and Rev 1: 889 EWRAM+IWRAM symbols, all at identical addresses
+  [OK] Emerald: party group matches the shipped offsets (player 0x020244EC, enemy 0x02024744)
+  ...
+```
+
+| Requirement | Classification | Evidence |
+|---|---|---|
+| FireRed Rev 1 shares Rev 0's entire RAM layout | **RUNTIME VERIFIED** (build-level) | both revisions built from the pinned commit produce 889 EWRAM+IWRAM symbols at byte-identical addresses; every one of the 45043 differing symbols is a ROM address (the rev1 change shifts code/rodata), no RAM symbol moves |
+| FireRed player/enemy party addresses | **RUNTIME VERIFIED** (build-level) | the pinned build resolves `gPlayerParty` at `0x02024284` and `gEnemyParty` at `0x0202402C`, exactly the profile's declared values |
+| Emerald player/enemy party addresses | **RUNTIME VERIFIED** (build-level) | `0x020244EC` / `0x02024744` from the pinned build, matching the profile |
+| `sizeof(struct BattlePokemon)`, `hp`, `statStages` | **SOURCE VERIFIED** | `include/pokemon.h` field offsets (`0x28`, `0x18`, 88 bytes) equal the reader's compiled values, and `gBattleMons` is 88 x 4 bytes in both games |
+| SaveBlock1 base and `pos`/`location`/`escapeWarp` for the legacy location path | **SOURCE + build VERIFIED** | `struct SaveBlock1` places `playerParty` at `+0x38` (FireRed, `include/global.h:773`) and `+0x238` (Emerald); the audited `0x00`/`0x04`/`0x24` fields match, and the derived base is inside EWRAM in both builds |
+| `battle_mons_offset`, the battle-lifecycle offsets, and the Battle UI offsets | **existing prior evidence** | `UNPROVEN` here by construction: these are linker-ordered EWRAM placements inside the section that also holds stubbed asset arrays, so a build with stubbed graphics cannot confirm their absolute values. They are unchanged by this slice, and the audit reports them as unproven rather than silently blessing them |
+
+Two caveats are recorded rather than hidden:
+
+* The builds used for the audit stub the repository's non-free graphics assets (the upstream
+  `data/tilesets/**` and `graphics/**` files are not redistributable), so ROM addresses and the
+  absolute placement of later EWRAM objects differ from the retail image. That does **not** affect
+  the Rev 0/Rev 1 equivalence result — which is a differential claim about one build pair — and the
+  party group lands on the profile's exact addresses, which is a positive reproduction of the retail
+  layout for those symbols.
+* Rev 1's ROM-address map differs from Rev 0's by design (the revision string), which is why the
+  audit asserts RAM equality and *reports* ROM movement instead of failing on it.
+
+**Conclusion: FireRed Rev 1 stays in the profile's `sha256Hashes`.** It shares Rev 0's RAM layout,
+including every symbol the exact-trust read surface touches, so the shared memory-layout table is
+correct for it and no hash needs to be withheld.
+
+### 7.2 Defect found by the audit: the enemy party COUNT offset
+
+The audit's strict form — "the reader's declared offset for a count must be the symbol the pinned
+build resolves" — failed against the reader as it stood before this slice, and the failure is real:
+
+```
+native/src/pokemon_reader.c declares enemy_party_count_offset EWRAM+0x24028 = 0x02024028,
+but the pinned build places gEnemyPartyCount at 0x0202402A
+```
+
+The linker map for `src/pokemon.o` shows why:
+
+```
+0x02024024                gBattleMonForms
+0x02024028                        . = ALIGN (0x4)      <- padding, not a symbol
+ewram_data 0x02024028  0x4d0 src/pokemon.o
+0x02024029                gPlayerPartyCount
+0x0202402a                gEnemyPartyCount
+0x0202402c                gEnemyParty
+0x02024284                gPlayerParty
+```
+
+`gPlayerPartyCount` and `gEnemyPartyCount` are the first two EWRAM objects of `src/pokemon.c`
+(`pokefirered src/pokemon.c:59-60`, `pokeemerald src/pokemon.c:76-77`), so the enemy count is always
+`player_count + 1` and never `gEnemyParty - 4`. The previous values (FireRed/LeafGreen `0x24028`,
+Emerald `0x24740`) named that alignment padding byte and the byte after the enemy party array.
+
+This was **latent, not a live misread**, because `pokemon_read_enemy_party_gba` returns before
+reading any count for a layout that does not declare the full battle-lifecycle gate — which today is
+every vanilla title — so no enemy party was being published from those offsets. The values are
+corrected to the exact symbols (`0x2402A`, `0x244EA`) with that reasoning recorded next to the config,
+because a symbol offset that points at padding is a defect regardless of whether a guard currently
+hides it. The reader's `enemy_party_count_offset` now also participates in the audit's strict check,
+so it cannot silently drift back.
+
+The heuristic-layout hack configurations (`CONFIG_GHOST_GREY`, `CONFIG_RADICAL_RED`, `CONFIG_UNBOUND`)
+retain `0x24028`: they are not part of this audit's pinned-build evidence, and changing offsets for
+unbuilt ROM hacks would be a guess.
+
+---
+
+## 8. Trust and boundary behaviour
+
+The trust and calculator path is unchanged except for the corrected hashes and the new Doubles
+screen gate. The only other production change is the enemy party **count** offset correction in
+`native/src/pokemon_reader.c` (§7.2), which the existing guard makes behaviour-preserving:
 
 * `RomHackDetector.detectCompatibility` — only a real exact SHA-256 match to a verified, layout-
   verified profile yields `VERIFIED`; filename, header and base-game heuristics yield
@@ -222,37 +444,57 @@ The production path is unchanged except for the corrected hashes:
 `CalcVanillaGoldenBoundaryTest` drives this real boundary (not the policy directly) and asserts, for
 both exact profiles and both FireRed revisions: `Ready` → `VERIFIED` → no limitations → the
 production serialisation exactly matches the golden request. It also covers near-miss hashes,
-header-only recognition, wrong running bytes, and unsupported ability/item/status/weather.
+header-only recognition, wrong running bytes, unsupported ability/item/status/weather, and — added by
+this correction pass — the three Doubles-screen verdicts of §2.2: the Doubles + screen refusal, the
+Singles + same-screen negative control, and the screenless-Doubles control.
 
 ---
 
-## 7. CI coverage
+## 9. CI coverage
 
 `./ci.sh test` now runs, in order:
 
 1. `calc_test` — the shipped engine executes the golden matrix
-   (`run_vanilla_golden_matrix`), asserting every roll;
+   (`run_vanilla_golden_matrix`), asserting every roll, and then
+   `check_vanilla_doubles_screen_cartridge_divergence()` asserts that the engine does **not** produce
+   either committed cartridge Doubles-screen vector;
 2. `calc_goldens_check` — `verify_goldens.py` re-derives every expected roll from the independent
-   oracle and checks that the bundled profile hashes match the golden provenance;
-3. the Kotlin suite — `CalcVanillaGoldenBoundaryTest` drives the production boundary for both
-   profiles and compares the serialisation with the executed request.
+   oracle, re-derives both `cartridgeReferences` vectors through
+   `doubles_cartridge_rolls()`, and checks that the bundled profile hashes match the golden
+   provenance;
+3. the native reader suite — includes the party-layout assertions that pin the corrected enemy count
+   offsets;
+4. the Kotlin suite — `CalcVanillaGoldenBoundaryTest` drives the production boundary for both
+   profiles, compares the serialisation with the executed request, and pins the Doubles-screen
+   fail-closed verdicts.
 
-The fixture file is the single source of truth for all three, so a profile edit, an oracle change or
-a bundle change that alters a golden fails the canonical gate.
+The fixture file is the single source of truth for all four, so a profile edit, an oracle change or a
+bundle change that alters a golden fails the canonical gate.
+
+`tools/calc-goldens/audit_vanilla_layout.py` (§7) is deliberately **not** part of `./ci.sh test`: it
+needs ELF files built from the pinned upstream decompilations, which the canonical gate does not
+fetch. It is the recorded, re-runnable command behind §7's evidence, not a hidden CI step.
 
 ---
 
-## 8. Remaining limitations
+## 10. Remaining limitations
 
 * Direct exact-ROM runtime damage goldens are not obtained (§5). Both local dumps cover FireRed
   Rev 0 and Emerald; no FireRed Rev 1 dump is present, so even a future runtime harness would leave
   Rev 1 runtime-untested.
-* The profile's `memoryLayoutVerified` flag and party offsets cover the accepted revision set as
-  declared by the profile; this slice re-derives the **damage** arithmetic per revision but does not
-  re-derive the memory layout for FireRed Rev 1.
-* Badge boosts are unmodelled and disclosed on every verified headline (§2.1).
+* The **damage** arithmetic is re-derived per revision; the read-only memory layout is now audited
+  at build level for FireRed Rev 0, FireRed Rev 1 and Emerald (§7), but the audit's inputs are local
+  decompilation builds with stubbed non-redistributable assets, so absolute ROM addresses and the
+  linker-ordered battle offsets cannot be confirmed from them. Those remain "existing prior
+  evidence".
 * Vanilla `Doubles` shares the verified ruleset and is covered by one format-sensitive spread
-  fixture; it is not a claim about live Doubles battle state.
+  fixture and one screenless control in the boundary test; it is a claim about that arithmetic only,
+  not about live Doubles battle state, and Doubles **with** a screen is refused (§2.2).
+* The enemy party count offset correction (§7.2) is evidenced but its *effect* is currently hidden by
+  the reader's lifecycle guard: no vanilla title declares the full battle-lifecycle gate, so no
+  enemy party is published for them yet. Restoring that read surface is a separate slice and must not
+  be inferred from this correction.
+* Badge boosts are unmodelled and disclosed on every verified headline (§2.1).
 * The matrix covers the ordinary single-hit damage path; exotic move mechanics (multi-hit, fixed
   damage, HP-scaled power, etc.) remain outside the vanilla `VERIFIED` surface and are not asserted
   here.

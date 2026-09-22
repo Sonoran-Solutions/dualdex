@@ -33,8 +33,13 @@ library source). *NOT FOUND* means the evidence does not exist and is never trea
 
 DualDex supports **exact verified FireRed**, **exact verified Emerald**, and **exact H&S 2.0.5**.
 Vanilla FireRed/Emerald requests that stay inside the verified input set are presented as **Verified**
-using `@smogon/calc`'s ADV pipeline (`gen: 3`). The exact supported SHA-256s, the independent
-Generation III oracle, the shared golden fixture matrix, the production-boundary evidence and the
+using `@smogon/calc`'s ADV pipeline (`gen: 3`). That input set excludes a Doubles battle with Reflect
+or Light Screen active: the cartridge applies the screen as `2 * (damage / 3)` on the pre-roll value
+and only while both defending battlers are present, which this pipeline does not reproduce, so the
+shape is refused (`CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED`) instead of being published.
+The exact supported SHA-256s, the independent
+Generation III oracle, the shared golden fixture matrix, the production-boundary evidence, the
+read-only memory layout audit and the
 corrected vanilla profile hashes are recorded in
 [VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md). H&S 2.0.5 calculator support is a **partial, fail-closed
 slice (Gap C4b/PARTIAL, Gap C4c/OPEN)**: the UQ4.12 roll-first damage arithmetic is implemented in QuickJS
@@ -189,8 +194,9 @@ Two exclusions are enforced or disclosed rather than merely documented:
   (`CalcResultPresentation.BADGE_BOOST_NOTE`) instead of leaving it to this document.
 
 The exact supported vanilla SHA-256s, the independent Generation III oracle, the golden damage
-matrix, and the correction of the previously non-genuine vanilla profile hashes are recorded in
-[VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md).
+matrix, the correction of the previously non-genuine vanilla profile hashes, the read-only memory
+layout audit behind the two accepted FireRed revisions, and the vanilla Doubles Reflect/Light Screen
+exclusion are recorded in [VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md).
 
 ---
 

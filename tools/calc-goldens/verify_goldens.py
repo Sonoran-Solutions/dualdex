@@ -253,6 +253,84 @@ def serialise_request(request_input):
     }, separators=(",", ":"))
 
 
+def build_cartridge_references():
+    """Source-exact Doubles screen goldens, deliberately NOT part of the engine matrix.
+
+    These carry the cartridge's own arithmetic (`2 * (damage / 3)` computed on the pre-roll value
+    while both defending battlers are present, `damage / 2` otherwise) for a shape the shipped
+    `@smogon/calc` 0.11.0 pipeline expresses differently and which the production gate therefore
+    refuses (`CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED`).
+
+    They are committed so the two facts that keep that gate honest are machine-checked rather than
+    asserted in prose: the cartridge vector really is different from the pipeline's, and the
+    cartridge branch really does depend on the target-presence operand.
+    """
+    fighters = (
+        "Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs "
+        "Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)"
+    )
+    cases = [
+        (
+            "cartridge_doubles_reflect_both_defenders_present",
+            "Strength",
+            True,
+            "Reflect in a Doubles battle with both defending battlers present: CalculateBaseDamage "
+            "runs `damage = 2 * (damage / 3)` on the pre-roll value, so 2 * floor(62/3) = 40 and "
+            "the post-+2 value is 42. " + fighters,
+        ),
+        (
+            "cartridge_doubles_reflect_one_defender_present",
+            "Strength",
+            False,
+            "The same Reflect with only one defending battler present falls back to `damage /= 2`, "
+            "so floor(62/2) = 31 and the post-+2 value is 33: the format label alone cannot select "
+            "the branch. " + fighters,
+        ),
+    ]
+
+    references = []
+    for reference_id, move_name, both_present, provenance in cases:
+        raw = {
+            "attacker": participant("Machamp"),
+            "defender": participant("Snorlax"),
+            "move": {"name": move_name},
+            "field": {
+                "gameType": "Doubles",
+                "weather": None,
+                "defenderSide": {"isReflect": True},
+            },
+        }
+        result = gen3_reference.doubles_cartridge_rolls(raw, both_present)
+        references.append({
+            "id": reference_id,
+            "covers": [
+                "Doubles Reflect cartridge arithmetic (deliberately outside the VERIFIED surface)"
+            ],
+            "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
+            "sourceAnchor": (
+                "pret/pokefirered src/pokemon.c:2547 (CalculateBaseDamage, Reflect branch) and "
+                ":2598 (Light Screen branch); identical text at pret/pokeemerald "
+                "src/pokemon.c:3270 and :3321"
+            ),
+            "refusedBy": "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED",
+            "provenance": provenance,
+            "request": serialise_request(raw),
+            "bothDefendersPresent": result["bothDefendersPresent"],
+            "screenOperation": result["screenOperation"],
+            "preRollDamage": result["preRollDamage"],
+            "screenedPreRollDamage": result["screenedPreRollDamage"],
+            "expected": {
+                "damage": result["damage"],
+                "minDamage": result["minDamage"],
+                "maxDamage": result["maxDamage"],
+                "moveType": result["moveType"],
+                "moveCategory": result["moveCategory"],
+                "movePower": result["movePower"],
+            },
+        })
+    return references
+
+
 def build_document():
     fixtures = []
     for raw in build_fixtures():
@@ -275,6 +353,7 @@ def build_document():
         "schema": "dualdex.vanilla_gen3_goldens.v1",
         "ruleset": "VANILLA_GEN3",
         "mechanicsGeneration": 3,
+        "cartridgeReferences": build_cartridge_references(),
         "provenance": {
             "oracle": {
                 "kind": "independent Generation III reference implementation",
@@ -353,6 +432,34 @@ def verify():
                 f"{fixture_id}: golden {actual_expected} != independent oracle "
                 f"{expected_fixture['expected']}")
 
+    # Source-exact Doubles screen references (outside the engine matrix).
+    committed_refs = {ref["id"]: ref for ref in document.get("cartridgeReferences", [])}
+    expected_refs = {ref["id"]: ref for ref in expected_doc["cartridgeReferences"]}
+    if set(committed_refs) != set(expected_refs):
+        errors.append(
+            f"cartridge reference ids differ: {sorted(set(expected_refs) ^ set(committed_refs))}")
+    for reference_id, expected_ref in expected_refs.items():
+        actual_ref = committed_refs.get(reference_id)
+        if actual_ref is None:
+            continue
+        for key in ("request", "expected", "screenOperation", "preRollDamage",
+                    "screenedPreRollDamage", "bothDefendersPresent", "refusedBy"):
+            if actual_ref.get(key) != expected_ref[key]:
+                errors.append(
+                    f"{reference_id}: committed {key} {actual_ref.get(key)!r} != source-exact "
+                    f"oracle {expected_ref[key]!r}")
+
+    # The two committed reference vectors must genuinely differ, which is the whole reason the
+    # production gate exists: if they ever agree, the gate is refusing a shape the pipeline now
+    # reproduces and this check forces the discussion.
+    vectors = {ref["id"]: ref["expected"]["damage"] for ref in expected_refs.values()}
+    if len(vectors) == 2:
+        distinct = len({tuple(vector) for vector in vectors.values()})
+        if distinct != 2:
+            errors.append(
+                "the two cartridge Doubles Reflect references produced the same vector; the "
+                "target-presence branch is no longer observable")
+
     if errors:
         print("VANILLA GEN III GOLDEN VERIFICATION FAILED:")
         for error in errors:
@@ -361,7 +468,8 @@ def verify():
 
     print(f"vanilla Gen III goldens verified: {len(expected)} fixtures, "
           f"all expected rolls match the independent oracle; "
-          f"profile hashes match the bundled FireRed/Emerald profiles")
+          f"{len(expected_refs)} source-exact Doubles screen references verified (refused by "
+          f"production); profile hashes match the bundled FireRed/Emerald profiles")
     return 0
 
 

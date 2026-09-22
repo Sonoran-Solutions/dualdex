@@ -173,6 +173,28 @@ def modified_stat(stat: int, stage: int) -> int:
     return floor(stat * 2 / (2 - stage))
 
 
+# ---------------------------------------------------------------------------
+# Naturals: the matrix uses Hardy (neutral) only.
+#
+# A nature multiplies one stat by 1.1 and another by 0.9 with the result floored, and the exact
+# rounding is observable in the final rolls. This reference deliberately does not implement that
+# (none of the committed fixtures need it) but it must not silently ignore the field either: a
+# future fixture with `"nature": "Adamant"` would otherwise be "verified" against an oracle that
+# quietly computed the neutral value.
+# ---------------------------------------------------------------------------
+NEUTRAL_NATURES = {None, "", "Hardy", "Docile", "Serious", "Bashful", "Quirky"}
+
+
+def _require_neutral_nature(participant: dict, role: str) -> None:
+    nature = participant.get("nature")
+    if nature not in NEUTRAL_NATURES:
+        raise ValueError(
+            f"unsupported nature {nature!r} for the {role}: this reference implements only the "
+            "neutral natures (Hardy/Docile/Serious/Bashful/Quirky) that every committed fixture "
+            "uses; add nature handling before using it as an oracle for a non-neutral fixture"
+        )
+
+
 # Ability handling for the modelled vanilla Gen III subset. The names and the
 # constants come from the same decompilation (src/battle_util.c
 # CalcAttackStat / CalcDefenseStat and src/pokemon.c).
@@ -224,6 +246,8 @@ def calculate(request: dict) -> dict:
     """
     attacker = request["attacker"]
     defender = request["defender"]
+    _require_neutral_nature(attacker, "attacker")
+    _require_neutral_nature(defender, "defender")
     move_input = request["move"]
     field = request.get("field", {})
 
@@ -251,14 +275,38 @@ def calculate(request: dict) -> dict:
     if status == "brn" and is_physical and attacker.get("ability") != "Guts":
         base = floor(base / 2)
 
+    # Battle-format arithmetic. Two different things live here and they must not be conflated:
+    #
+    #  * the Doubles SCREEN is a cartridge operation with integer division done first
+    #    (`damage = 2 * (damage / 3)`), which is what `doubles_cartridge_rolls` below
+    #    implements. This reference computes it exactly, because the source does.
+    #  * the shipped `@smogon/calc` 0.11.0 pipeline this module mirrors for the *pipeline*
+    #    fixtures applies `floor(value * 2 / 3)` to the rolled value instead.
+    #
+    # A request that reaches the screen branch in Doubles is therefore rejected by the caller:
+    # `calculate` cannot say which of the two a consumer means, and guessing would silently
+    # produce a vector that differs from the cartridge on ten of sixteen rolls.
     game_type = field.get("gameType", "Singles")
     defender_side = field.get("defenderSide") or {}
+    doubles_screen = (
+        game_type != "Singles"
+        and ((is_physical and defender_side.get("isReflect"))
+             or (not is_physical and defender_side.get("isLightScreen")))
+    )
+    if doubles_screen and not is_crit:
+        raise ValueError(
+            "Doubles Reflect/Light Screen: this reference models the cartridge's "
+            "2 * (damage / 3) only through doubles_cartridge_rolls(), because the shipped "
+            "@smogon/calc pipeline applies the screen to the ROLLED value as floor(x * 2/3) and "
+            "the two disagree. Pass the request to doubles_cartridge_rolls() when the cartridge "
+            "arithmetic is what you mean, and use only Singles screen fixtures here."
+        )
+
     if not is_crit:
-        screen_multiplier = 2 / 3 if game_type != "Singles" else 1 / 2
         if is_physical and defender_side.get("isReflect"):
-            base = floor(base * screen_multiplier)
+            base = floor(base / 2)
         elif not is_physical and defender_side.get("isLightScreen"):
-            base = floor(base * screen_multiplier)
+            base = floor(base / 2)
 
     if game_type != "Singles" and spread:
         base = floor(base / 2)
@@ -291,4 +339,115 @@ def calculate(request: dict) -> dict:
         "moveCategory": category,
         "movePower": base_power,
         "effectiveness": eff,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Cartridge Doubles screen arithmetic (source-exact, independent of the bundle).
+#
+# `pret/pokefirered src/pokemon.c :: CalculateBaseDamage` (identical text in
+# `pret/pokeemerald src/pokemon.c`), inside the physical branch for Reflect and
+# the special branch for Light Screen:
+#
+#     if ((sideStatus & SIDE_STATUS_REFLECT) && gCritMultiplier == 1)
+#     {
+#         if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE)
+#          && CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2)
+#             damage = 2 * (damage / 3);
+#         else
+#             damage /= 2;
+#     }
+#
+# Three facts are encoded here because they are exactly what the shipped
+# `@smogon/calc` 0.11.0 pipeline does not reproduce:
+#
+#   1. the division by 3 is INTEGER division on the pre-roll damage, so
+#      `2 * (damage / 3)` is NOT `floor(damage * 2 / 3)`;
+#   2. the branch is selected by how many defending battlers are PRESENT, not by
+#      the format label alone;
+#   3. the screen is applied to the pre-roll value, before `+2` and the roll.
+#
+# `bothDefendersPresent` is that target-presence operand. A caller that cannot
+# supply it cannot ask for the Doubles branch.
+# ---------------------------------------------------------------------------
+def doubles_cartridge_rolls(request: dict, both_defenders_present: bool) -> dict:
+    """The Doubles Reflect / Light Screen roll vector the cartridge produces.
+
+    ``request`` has the same shape :func:`calculate` takes and must be a Doubles
+    request with an active Reflect (physical move) or Light Screen (special
+    move). ``both_defenders_present`` is
+    ``CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2``: when it is false the
+    cartridge falls back to ``damage /= 2`` and no screen multiplier can be
+    inferred from the format label.
+
+    Raises ValueError for anything this function does not model, so it can never
+    return a confident wrong vector.
+    """
+    attacker = request["attacker"]
+    defender = request["defender"]
+    move_input = request["move"]
+    field = request.get("field", {})
+
+    _require_neutral_nature(attacker, "attacker")
+    _require_neutral_nature(defender, "defender")
+
+    game_type = field.get("gameType", "Singles")
+    if game_type == "Singles":
+        raise ValueError("doubles_cartridge_rolls models the Doubles branch only")
+    if bool(move_input.get("isCrit")):
+        raise ValueError("a critical hit skips the screen branch entirely (gCritMultiplier == 1)")
+
+    move_name = move_input["name"]
+    move_type, base_power, spread = MOVES[move_name]
+    category = category_for_type(move_type)
+    is_physical = category == "Physical"
+
+    defender_side = field.get("defenderSide") or {}
+    if is_physical and not defender_side.get("isReflect"):
+        raise ValueError("a physical Doubles request needs defenderSide.isReflect for this branch")
+    if not is_physical and not defender_side.get("isLightScreen"):
+        raise ValueError("a special Doubles request needs defenderSide.isLightScreen for this branch")
+
+    attack, _ = _attacker_stat(attacker, defender, move_type, is_physical, False)
+    defense, _ = _defender_stat(defender, is_physical, False, move_name)
+    level = attacker["level"]
+    pre_roll = floor(floor(floor((2 * level) / 5 + 2) * attack * base_power) / defense / 50)
+
+    status = attacker.get("status")
+    if status == "brn" and is_physical and attacker.get("ability") != "Guts":
+        pre_roll = floor(pre_roll / 2)
+
+    # The screen, with the cartridge's operation order and branch condition.
+    if both_defenders_present:
+        screened = 2 * (pre_roll // 3)
+    else:
+        screened = pre_roll // 2
+
+    # Moves hitting both targets do half damage in a double battle, also in the pre-roll value, and
+    # also only while both defending battlers are present.
+    if spread and both_defenders_present:
+        screened = screened // 2
+
+    value = screened
+    if is_physical:
+        value = max(1, value)
+    value += 2
+
+    if move_type in SPECIES_TYPES[attacker["species"]]:
+        value = floor(value * 1.5)
+    for defender_type in SPECIES_TYPES[defender["species"]]:
+        value = floor(value * TYPE_EFFECTIVENESS.get((move_type, defender_type), 1.0))
+
+    damage = [max(1, floor(value * roll / 100)) for roll in range(85, 101)]
+    return {
+        "damage": damage,
+        "screenedPreRollDamage": screened,
+        "preRollDamage": pre_roll,
+        "screenOperation": "2 * (damage / 3)" if both_defenders_present else "damage / 2",
+        "bothDefendersPresent": both_defenders_present,
+        "minDamage": damage[0],
+        "maxDamage": damage[-1],
+        "moveType": move_type,
+        "moveCategory": category,
+        "movePower": base_power,
     }

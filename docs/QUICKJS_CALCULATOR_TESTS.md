@@ -72,7 +72,7 @@ partially accepting it, and it is what lets the suite assert typed values
 | `gen3_ability_thick_fat_fire` | control case: no ability specified |
 | `gen3_ability_thick_fat_halves_fire` | Thick Fat halves the Fire attack form |
 | `gen3_reflect_physical_singles` | singles Reflect is ×1/2 |
-| `gen3_reflect_doubles_uses_two_thirds` | doubles screens are ×2/3: format-dependent |
+| `gen3_reflect_doubles_pipeline_arithmetic` | the shipped `@smogon/calc` Doubles screen arithmetic (post-roll `×2/3`) — deliberately NOT the cartridge's `2 * (damage / 3)`, which is why production refuses this shape for exact vanilla (`VANILLA_DOUBLES_SCREEN_NOT_MODELLED`) |
 | `gen3_light_screen_special_singles` | singles Light Screen is ×1/2 |
 | `gen3_crit_doubles_the_attack_form` | the Crit checkbox path: Generation III crits are ×2 |
 | `gen3_explicit_guts_boosts_a_statused_attacker` | a whitelisted ability must reach the pipeline |

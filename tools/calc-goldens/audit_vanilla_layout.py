@@ -40,7 +40,8 @@ Usage
         --firered-rev1 /path/pokefirered_rev1.elf \
         --emerald      /path/pokeemerald.elf
 
-Exit status is non-zero when a check fails, so the audit can be wired into a gate.
+Exit status is non-zero when a check fails. Retail literal scans leave battle symbol identity
+UNPROVEN and return non-zero even when every candidate address appears in the ROM.
 """
 
 from __future__ import annotations
@@ -170,25 +171,16 @@ def read_symbols(elf: str) -> dict[str, tuple[int, str, int]]:
 # A decompilation build proves the address of a symbol *in that build*. For the EWRAM globals whose
 # placement is linker-ordered inside the section that also holds asset arrays, a build with stubbed
 # assets cannot prove the absolute retail address (see the UNPROVEN note in the report). The retail
-# image can, directly: a Game Boy Advance program reaches a global by loading a literal word that
-# holds its address, and those literal pools live in the ROM. Finding the configured address as a
-# little-endian word in the retail dump therefore proves the retail program itself uses that address.
+# image supplies address-use context: literal occurrences show only that an address appears in
+# the accepted bytes, not which symbol occupies it. In particular, Emerald references the
+# configured 0x02024064 even though the runtime probe corroborates BattlePokemon at 0x02024084.
+# A hit count (however large) cannot establish symbol identity, and no hit cannot disprove it:
+# a compiler may reach a symbol through an offset from a nearby base.
 #
-# Three properties keep this from being a coincidence hunt:
-#   * it runs against the ROM the profile's own SHA-256 accepts, so the bytes are the exact build;
-#   * the same scan is run over addresses the party-group checks have ALREADY proven structurally
-#     (gPlayerParty, gEnemyParty), so the method is validated on known-good inputs in the same run;
-#   * the hit count is reported. What the method concludes from it is one-sided, and the count's
-#     magnitude is not part of that conclusion:
-#       - ZERO hits means the scan did NOT prove the address. That is the only thing zero establishes
-#         (see the caveat at the report site: a symbol can be reached through an offset from a nearby
-#         base, so absence of its own literal is not proof that the configured value is wrong).
-#       - ONE OR MORE hits means the retail program does reference the address. A large count is
-#         expected, not suspicious: these are heavily used engine globals, so the same base word is
-#         loaded from many functions and pools. On the two accepted retail dumps the positive
-#         controls alone report 745 and 392 for FireRed (gPlayerParty, gEnemyParty) and 1091 and 532
-#         for Emerald, and those controls passing is what makes the same scan's verdict on the battle
-#         offsets meaningful.
+# Party addresses remain positive controls because their identities have independent structural
+# evidence. That evidence does not transfer to other addresses. Every battle candidate stays
+# UNPROVEN, with a non-zero retail-audit exit, until independent symbol evidence is available;
+# this literal scanner does not consume such evidence or authorize a production read.
 # ---------------------------------------------------------------------------
 ROM_BODY_START = 0x000000C0  # first byte after the 192-byte cartridge header
 
@@ -243,8 +235,8 @@ def check_retail_rom(
         return notes, problems
     notes.append(f"{label}: dump SHA-256 {digest[:16]}... is an accepted profile hash")
 
-    # Positive controls: addresses the structural checks already accepted. If the method does not
-    # find these, it cannot be trusted for the address it is actually being asked to prove.
+    # Positive controls with independently established party-symbol identities. Their literal
+    # hits corroborate address use only; they cannot prove the identity of a battle candidate.
     for symbol in ("gPlayerParty", "gEnemyParty"):
         expected = EWRAM_BASE + config["player_party_offset" if symbol == "gPlayerParty" else "enemy_party_offset"]
         hits = find_literal_references(rom, expected)
@@ -252,7 +244,7 @@ def check_retail_rom(
             problems.append(
                 f"{label}: positive control failed - no literal reference to the already-proven "
                 f"{symbol} address 0x{expected:08X} was found, so this probe cannot be trusted for "
-                "the battle offsets either"
+                "address-use controls either"
             )
         else:
             notes.append(
@@ -260,7 +252,8 @@ def check_retail_rom(
                 f"{len(hits)} ROM offset(s)"
             )
 
-    # The addresses under audit: the read surface that exact-hash trust newly unlocks.
+    # Battle candidates: literal hits cannot establish their symbol identities. The independent
+    # battleStateReadVerified gate remains closed regardless of exact-hash trust.
     audited = [
         ("battle_mons_offset (gBattleMons base)", EWRAM_BASE + config["battle_mons_offset"]),
     ]
@@ -273,9 +266,11 @@ def check_retail_rom(
     for name, address in audited:
         hits = find_literal_references(rom, address)
         if hits:
-            notes.append(
+            problems.append(
                 f"{label}: {name} 0x{address:08X} appears as a literal at {len(hits)} ROM "
-                f"offset(s), starting 0x{hits[0]:08X}"
+                f"offset(s), starting 0x{hits[0]:08X}; this is address-use context only, not "
+                "proof of the named symbol's identity. Independent symbol evidence is required. "
+                "The address stays UNPROVEN and the capability that consumes it stays closed."
             )
         else:
             # What an absent literal establishes, and what it does not.
@@ -647,7 +642,8 @@ def main(argv: list[str] | None = None) -> int:
             "  [UNPROVEN] battle_mons_offset and the battle-lifecycle/UI offsets are not covered by "
             "the pinned builds: they are LinkerScript-ordered EWRAM placements that move with asset "
             "sizes, so a build with stubbed assets cannot confirm their absolute values. Re-run with "
-            "--firered-rom/--emerald-rom to probe the retail images directly; until that passes, the "
+            "--firered-rom/--emerald-rom for address-use context only; independent retail symbol "
+            "evidence is still required, and the "
             "battle-state read surface stays unauthorized (RomHackProfile.battleStateReadVerified)."
         )
     return 1 if rom_problems else 0

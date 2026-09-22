@@ -125,6 +125,7 @@ hns_map_data_check() {
 calc_goldens_check() {
   echo "== vanilla FireRed/Emerald golden matrix (independent oracle) =="
   python3 tools/calc-goldens/verify_goldens.py
+  python3 tools/calc-goldens/test_audit_vanilla_layout.py
   # ROM-free verdict/mutation tests only; runtime replay remains developer-only.
   python3 tools/vanilla-runtime-probe/test_probe.py
   # The Generation III move table the vanilla Doubles spread gate rests on. Self-contained: it

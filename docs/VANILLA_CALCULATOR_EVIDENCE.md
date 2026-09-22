@@ -685,8 +685,12 @@ bundle change that alters a golden fails the canonical gate.
 `tools/calc-goldens/audit_vanilla_layout.py` (§7) is deliberately **not** part of `./ci.sh test`: its
 ELF mode needs builds of the pinned upstream decompilations and its ROM mode needs a legally obtained
 retail dump, neither of which the canonical gate fetches. It is the recorded, re-runnable command
-behind §7's evidence, not a hidden CI step — and its ROM mode exits non-zero for FireRed, which is
-how §7.3's `UNPROVEN` finding is reproducible rather than asserted.
+behind §7's evidence, not a hidden CI step. Its ROM mode exits non-zero for **both FireRed and
+Emerald**: a literal hit supplies address-use context only, so every battle candidate stays
+`UNPROVEN` without independent symbol identity. The ROM-free regression suite
+`tools/calc-goldens/test_audit_vanilla_layout.py` runs in canonical CI and specifically rejects
+Emerald's known-wrong `0x02024064` candidate even when it appears repeatedly as a literal and
+both independently established party controls pass.
 
 ---
 
@@ -739,8 +743,8 @@ H&S exact-ROM recognition with a verified calculation. H&S remains capped at `ES
 **Closure recommendation:** all nine criteria as written have evidence for the bounded surface;
 close #9 after senior review and merge of this runtime-evidence PR. Until then leave #9 and the PR
 open. The smallest remaining action for this slice is review/merge and acceptance bookkeeping,
-not implementation of broader H&S mechanics. H&S's existing §14.14 warning that its document alone
-does not close #9 is respected by this cross-target audit; its broader exclusions are not silently
+not implementation of broader H&S mechanics. H&S §14.14 now records the same accepted
+bounded closure scope and links to this cross-target audit; its broader exclusions are not
 promoted into support or new closure requirements.
 
 Unchanged limits remain visible: H&S Doubles, damage items, many abilities/moves and active

@@ -169,6 +169,131 @@ def read_symbols(elf: str) -> dict[str, tuple[int, str, int]]:
     return symbols
 
 
+# ---------------------------------------------------------------------------
+# Retail ROM probe.
+#
+# A decompilation build proves the address of a symbol *in that build*. For the EWRAM globals whose
+# placement is linker-ordered inside the section that also holds asset arrays, a build with stubbed
+# assets cannot prove the absolute retail address (see the UNPROVEN note in the report). The retail
+# image can, directly: a Game Boy Advance program reaches a global by loading a literal word that
+# holds its address, and those literal pools live in the ROM. Finding the configured address as a
+# little-endian word in the retail dump therefore proves the retail program itself uses that address.
+#
+# Three properties keep this from being a coincidence hunt:
+#   * it runs against the ROM the profile's own SHA-256 accepts, so the bytes are the exact build;
+#   * the same scan is run over addresses the party-group checks have ALREADY proven structurally
+#     (gPlayerParty, gEnemyParty), so the method is validated on known-good inputs in the same run;
+#   * the hit count is reported, and a single hit in a multi-megabyte image is what a real literal
+#     reference looks like - a scan that matched hundreds of places would not be evidence at all.
+# ---------------------------------------------------------------------------
+ROM_BODY_START = 0x000000C0  # first byte after the 192-byte cartridge header
+GBA_ROM_BASE = 0x08000000
+
+
+def find_literal_references(rom: bytes, address: int) -> list[int]:
+    """Offsets in `rom` holding `address` as a little-endian word (4-byte aligned)."""
+    needle = address.to_bytes(4, "little")
+    hits: list[int] = []
+    start = ROM_BODY_START
+    while True:
+        index = rom.find(needle, start)
+        if index < 0:
+            break
+        if index % 4 == 0:
+            hits.append(index)
+        start = index + 1
+    return hits
+
+
+def read_rom(path: str) -> bytes:
+    with open(path, "rb") as handle:
+        return handle.read()
+
+
+def sha256_of(path: str) -> str:
+    import hashlib
+
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def check_retail_rom(
+    label: str,
+    rom_path: str,
+    profile: dict,
+    config: dict[str, int],
+) -> tuple[list[str], list[str]]:
+    """Probe one retail dump. Returns (notes, problems)."""
+    notes: list[str] = []
+    problems: list[str] = []
+
+    rom = read_rom(rom_path)
+    digest = sha256_of(rom_path)
+    if digest not in profile["sha256Hashes"]:
+        problems.append(
+            f"{label}: the supplied dump has SHA-256 {digest}, which the profile does not accept; "
+            "a probe against unknown bytes proves nothing"
+        )
+        return notes, problems
+    notes.append(f"{label}: dump SHA-256 {digest[:16]}... is an accepted profile hash")
+
+    # Positive controls: addresses the structural checks already accepted. If the method does not
+    # find these, it cannot be trusted for the address it is actually being asked to prove.
+    for symbol in ("gPlayerParty", "gEnemyParty"):
+        expected = EWRAM_BASE + config["player_party_offset" if symbol == "gPlayerParty" else "enemy_party_offset"]
+        hits = find_literal_references(rom, expected)
+        if not hits:
+            problems.append(
+                f"{label}: positive control failed - no literal reference to the already-proven "
+                f"{symbol} address 0x{expected:08X} was found, so this probe cannot be trusted for "
+                "the battle offsets either"
+            )
+        else:
+            notes.append(
+                f"{label}: positive control {symbol} 0x{expected:08X} appears as a literal at "
+                f"{len(hits)} ROM offset(s)"
+            )
+
+    # The addresses under audit: the read surface that exact-hash trust newly unlocks.
+    audited = [
+        ("battle_mons_offset (gBattleMons base)", EWRAM_BASE + config["battle_mons_offset"]),
+    ]
+    for field in ("battlers_count_offset", "battle_type_flags_offset", "battle_outcome_offset",
+                  "battler_party_indexes_offset", "battler_positions_offset",
+                  "absent_battler_flags_offset", "side_statuses_offset"):
+        if config.get(field):
+            audited.append((field.replace("_offset", ""), EWRAM_BASE + config[field]))
+
+    for name, address in audited:
+        hits = find_literal_references(rom, address)
+        if hits:
+            notes.append(
+                f"{label}: {name} 0x{address:08X} appears as a literal at {len(hits)} ROM "
+                f"offset(s), starting 0x{hits[0]:08X}"
+            )
+        else:
+            # An absent address is NOT a licence to invent a replacement: the audit reports it and
+            # leaves the configuration alone, so no unproven address enters production. Finding the
+            # right one needs the retail build's debug symbols, which the pret project does not
+            # publish; the neighbouring-address count below is the starting point for that work and
+            # deliberately stops there.
+            nearby = sum(
+                1
+                for delta in range(-0x200, 0x200, 4)
+                if find_literal_references(rom, address + delta)
+            )
+            problems.append(
+                f"{label}: {name} 0x{address:08X} does NOT appear anywhere in the retail image, "
+                f"while {nearby} addresses within +/-0x200 of it do. The configured address is "
+                "unproven for this build - and the neighbours being referenced is evidence that the "
+                "value itself is wrong rather than that the method failed."
+            )
+    return notes, problems
+
+
 # Compiler-suffixed local statics: `sGengarScroll.182` in one revision is `sGengarScroll.185` in
 # the other because an unrelated static in the same translation unit was added or removed. The
 # SUFFIX is an artifact of how many such locals `gcc`/agbcc had already emitted, so it must not be
@@ -436,10 +561,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--firered-rev0", help="ELF built from pret/pokefirered with GAME_REVISION=0")
     parser.add_argument("--firered-rev1", help="ELF built from pret/pokefirered with GAME_REVISION=1")
     parser.add_argument("--emerald", help="ELF built from pret/pokeemerald")
+    parser.add_argument("--firered-rom", help="exact retail FireRed (Rev 0) dump to probe")
+    parser.add_argument("--firered-rev1-rom", help="exact retail FireRed Rev 1 dump to probe")
+    parser.add_argument("--emerald-rom", help="exact retail Emerald dump to probe")
     args = parser.parse_args(argv)
 
-    if not any((args.firered_rev0, args.firered_rev1, args.emerald)):
-        parser.error("at least one of --firered-rev0/--firered-rev1/--emerald is required")
+    if not any((args.firered_rev0, args.firered_rev1, args.emerald,
+                args.firered_rom, args.firered_rev1_rom, args.emerald_rom)):
+        parser.error(
+            "at least one of --firered-rev0/--firered-rev1/--emerald (pinned builds) or "
+            "--firered-rom/--firered-rev1-rom/--emerald-rom (retail dumps) is required"
+        )
 
     notes: list[str] = []
     try:
@@ -469,6 +601,25 @@ def main(argv: list[str] | None = None) -> int:
             notes += check_party_group("Emerald", args.emerald, emerald_symbols, emerald_profile, emerald_config)
             notes += check_battle_pokemon("Emerald", args.emerald, emerald_symbols, emerald_config)
 
+        rom_problems: list[str] = []
+        if args.firered_rom:
+            rom_notes, rom_problems = check_retail_rom(
+                "FireRed Rev 0 (retail)", args.firered_rom, firered_profile, firered_config
+            )
+            notes += rom_notes
+        if args.firered_rev1_rom:
+            rom_notes, problems = check_retail_rom(
+                "FireRed Rev 1 (retail)", args.firered_rev1_rom, firered_profile, firered_config
+            )
+            notes += rom_notes
+            rom_problems += problems
+        if args.emerald_rom:
+            rom_notes, problems = check_retail_rom(
+                "Emerald (retail)", args.emerald_rom, emerald_profile, emerald_config
+            )
+            notes += rom_notes
+            rom_problems += problems
+
     except Failure as failure:
         print(f"FAIL: {failure}", file=sys.stderr)
         return 1
@@ -476,12 +627,17 @@ def main(argv: list[str] | None = None) -> int:
     print("Vanilla read-only layout audit")
     for note in notes:
         print(f"  [OK] {note}")
-    print(
-        "  [UNPROVEN] battle_mons_offset and the battle-lifecycle/UI offsets are prior evidence, "
-        "not re-derived here: they are the LinkerScript-ordered EWRAM placements that move with "
-        "asset sizes, so a build with stubbed assets cannot confirm their absolute values."
-    )
-    return 0
+    for problem in rom_problems:
+        print(f"  [UNPROVEN] {problem}")
+    if not any((args.firered_rom, args.firered_rev1_rom, args.emerald_rom)):
+        print(
+            "  [UNPROVEN] battle_mons_offset and the battle-lifecycle/UI offsets are not covered by "
+            "the pinned builds: they are LinkerScript-ordered EWRAM placements that move with asset "
+            "sizes, so a build with stubbed assets cannot confirm their absolute values. Re-run with "
+            "--firered-rom/--emerald-rom to probe the retail images directly; until that passes, the "
+            "battle-state read surface stays unauthorized (RomHackProfile.battleStateReadVerified)."
+        )
+    return 1 if rom_problems else 0
 
 
 if __name__ == "__main__":

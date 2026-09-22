@@ -11,6 +11,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -249,9 +250,25 @@ class CalcVanillaGoldenBoundaryTest {
      *    document.
      */
     @Test
-    fun `the source-exact Doubles screen references are observable and production-serialisable`() {
+    fun `the source-exact Doubles branch references are refused and their operand is observable`() {
         val references = goldenDocument().getJSONArray("cartridgeReferences").mapObjects()
-        assertEquals("two cartridge references are expected", 2, references.size)
+        // Two branches (screen, spread), each in both target-presence states.
+        assertEquals("four cartridge references are expected", 4, references.size)
+
+        val screenGate = "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED"
+        val spreadGate = "CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED"
+        assertEquals(
+            "each Doubles branch must be recorded in both target-presence states",
+            listOf(false, true),
+            references.filter { it.getString("refusedBy") == screenGate }
+                .map { it.getBoolean("bothDefendersPresent") }.sorted()
+        )
+        assertEquals(
+            "each Doubles branch must be recorded in both target-presence states",
+            listOf(false, true),
+            references.filter { it.getString("refusedBy") == spreadGate }
+                .map { it.getBoolean("bothDefendersPresent") }.sorted()
+        )
 
         val vectors = references.map { reference ->
             val expected = reference.getJSONObject("expected")
@@ -267,10 +284,9 @@ class CalcVanillaGoldenBoundaryTest {
                 damage.getInt(15),
                 expected.getInt("maxDamage")
             )
-            assertEquals(
-                "${reference.getString("id")} must name the gate that refuses it",
-                "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED",
-                reference.getString("refusedBy")
+            assertTrue(
+                "${reference.getString("id")} must name a Doubles gate that refuses it",
+                reference.getString("refusedBy") in setOf(screenGate, spreadGate)
             )
 
             // The recorded request describes the very shape the gate refuses, and asking the real
@@ -299,12 +315,20 @@ class CalcVanillaGoldenBoundaryTest {
             damage.toIntList()
         }
 
-        assertNotEquals(
-            "the cartridge target-presence branch must change the vector, or the gate has no " +
-                "observable basis",
-            vectors[0],
-            vectors[1]
-        )
+        // Within each branch, the target-presence operand must change the vector: that missing
+        // operand is the entire justification for the two gates.
+        for (gate in listOf(screenGate, spreadGate)) {
+            val pair = references.filter { it.getString("refusedBy") == gate }
+                .sortedBy { it.getBoolean("bothDefendersPresent") }
+            val oneDefender = pair.first().getJSONObject("expected").getJSONArray("damage").toIntList()
+            val bothDefenders = pair.last().getJSONObject("expected").getJSONArray("damage").toIntList()
+            assertNotEquals(
+                "$gate: the target-presence operand must change the cartridge vector, or the " +
+                    "gate has no observable basis",
+                oneDefender,
+                bothDefenders
+            )
+        }
     }
 
     // ------------------------------------------------------- FireRed revisions
@@ -561,20 +585,88 @@ class CalcVanillaGoldenBoundaryTest {
     }
 
     /**
-     * The other half of the scope: an exact-trusted vanilla Doubles request with NO screen is still
-     * verified (the committed Doubles spread fixture depends on this), so the gate refuses only the
-     * screen shapes it cannot reproduce.
+     * The companion to the screen gate: the **spread** reduction has the same problem. The
+     * cartridge halves a spread move only while both opposing battlers are present
+     * (`CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2`), which the request cannot express, so
+     * every Doubles request whose move the shipped pipeline reduces is refused. The move table is
+     * derived from the pinned source and checked exhaustively against the shipped bundle by the
+     * host suite, so this test only has to prove the boundary applies it.
      */
     @Test
-    fun `an exact trusted vanilla Doubles request without a screen stays verified`() {
+    fun `an exact trusted vanilla Doubles spread move is refused rather than published as verified`() {
+        val spreadMoves = listOf("Rock Slide", "Surf", "Blizzard", "Swift", "Earthquake")
+        for (moveName in spreadMoves) {
+            for (profile in listOf(fireRed, emerald)) {
+                val id = "${profile.id}/Doubles/$moveName"
+                val verdict = screenVerdict(profile, CalcGameTypes.DOUBLES, false, false, moveName)
+                if (moveName == "Earthquake") {
+                    // Earthquake's target class covers the user's own side, which the pinned
+                    // pipeline does not reduce, so it must NOT be refused by this gate: the gate is
+                    // scoped to the moves the pipeline actually reduces.
+                    assertEquals("$id support", CalcSupport.VERIFIED, verdict.support)
+                    continue
+                }
+                assertEquals("$id support", CalcSupport.UNSUPPORTED, verdict.support)
+                assertFalse("$id must not be verified", verdict.isVerified)
+                assertTrue(
+                    "$id limitation",
+                    verdict.limitations.contains(CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED)
+                )
+                assertNull("$id request must not be authorized", verdict.request)
+            }
+        }
+    }
+
+    /**
+     * The gate must be scoped by move, not by format: the same moves stay verified in Singles, and
+     * a Doubles request whose move the pipeline never reduces stays verified too. Without this the
+     * gate could pass the test above by refusing every Doubles request.
+     */
+    @Test
+    fun `the spread gate does not refuse Singles or non-spread Doubles`() {
         for (profile in listOf(fireRed, emerald)) {
-            val verdict = screenVerdict(profile, CalcGameTypes.DOUBLES, false, false, "Rock Slide")
-            assertEquals("${profile.id} Doubles no screen", CalcSupport.VERIFIED, verdict.support)
+            for (moveName in listOf("Rock Slide", "Surf", "Blizzard")) {
+                val singles = screenVerdict(profile, CalcGameTypes.SINGLES, false, false, moveName)
+                assertEquals(
+                    "${profile.id}/Singles/$moveName",
+                    CalcSupport.VERIFIED,
+                    singles.support
+                )
+            }
+            // Strength is not a spread move: Doubles does not reduce it, so the format label alone
+            // is not a reason to refuse.
+            val strength = screenVerdict(profile, CalcGameTypes.DOUBLES, false, false, "Strength")
+            assertEquals("${profile.id}/Doubles/Strength", CalcSupport.VERIFIED, strength.support)
             assertEquals(
-                "${profile.id} Doubles no screen limitations",
+                "${profile.id}/Doubles/Strength limitations",
                 emptyList<CalcLimitation>(),
-                verdict.limitations
+                strength.limitations
             )
+        }
+    }
+
+    /**
+     * The move table itself: the host suite proves it against the engine for the whole Generation
+     * III move list, and these two assertions pin the facts this gate depends on at the unit level
+     * so a regeneration that dropped a move is caught even without the bundle.
+     */
+    @Test
+    fun `the Gen III Doubles spread table is scoped to the moves the pipeline reduces`() {
+        assertTrue("Rock Slide must be in the table", Gen3DoublesSpreadMoves.isSpread("Rock Slide"))
+        assertTrue("Surf must be in the table", Gen3DoublesSpreadMoves.isSpread("Surf"))
+        // Earthquake and Explosion are spread-capable in the games but the shipped pipeline does
+        // NOT reduce them, so gating them would refuse a calculation that is already correct.
+        assertFalse("Earthquake must not be in the table", Gen3DoublesSpreadMoves.isSpread("Earthquake"))
+        assertFalse("Explosion must not be in the table", Gen3DoublesSpreadMoves.isSpread("Explosion"))
+        assertFalse("Strength must not be in the table", Gen3DoublesSpreadMoves.isSpread("Strength"))
+        // A spelling the engine would resolve to the same move must not slip past the gate.
+        assertTrue("case-insensitive match", Gen3DoublesSpreadMoves.isSpread("rock slide"))
+        assertTrue("surrounding whitespace tolerated", Gen3DoublesSpreadMoves.isSpread("  Swift "))
+        // Every name must name the pinned symbol it was derived from, so the table is auditable.
+        for (name in Gen3DoublesSpreadMoves.names) {
+            val constant = Gen3DoublesSpreadMoves.pinnedConstant(name)
+            assertNotNull("$name must carry its pinned symbol", constant)
+            assertTrue("$name pinned symbol", constant!!.startsWith("MOVE_"))
         }
     }
 

@@ -19,6 +19,7 @@
   ],
   "isVerified": true,
   "memoryLayoutVerified": true,
+  "battleStateReadVerified": true,
   "battleUiVerified": false,
   "interactiveControlsVerified": false,
   "gameDataPackId": "hns_2_0_5"

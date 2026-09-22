@@ -323,7 +323,18 @@ class CompanionViewModel(
             }
         }
 
-        val enemyPartyRaw = coreCoordinator.readEnemyPartyFromCore(gameId)
+        // Battle-derived reads are gated one level below mayReadLiveMemory. An exact hash proves
+        // WHICH build is running; it does not prove that the configured `battle_mons_offset` is that
+        // build's address. Where the profile cannot assert the latter (see
+        // RomHackProfile.battleStateReadVerified), the battle globals are not dereferenced at all,
+        // while the structurally-proven party and location reads above and below continue.
+        val battleStateReadable = _runtimeRomTrust.value.mayReadBattleState
+
+        val enemyPartyRaw = if (battleStateReadable) {
+            coreCoordinator.readEnemyPartyFromCore(gameId)
+        } else {
+            null
+        }
         if (enemyPartyRaw == null) {
             // A failed read is not evidence that the battle ended: debounce it.
             if (enemyPartyStabilizer.onInvalidRead() == LiveObservationDecision.CLEAR &&
@@ -339,9 +350,15 @@ class CompanionViewModel(
             }
         }
 
-        val presence = com.dualdex.battle.BattlePresence.fromNativeCode(
-            coreCoordinator.readBattlePresence(gameId)
-        )
+        val presence = if (battleStateReadable) {
+            com.dualdex.battle.BattlePresence.fromNativeCode(
+                coreCoordinator.readBattlePresence(gameId)
+            )
+        } else {
+            // Not "no battle": the question cannot be answered from this layout, so the answer is
+            // withheld rather than defaulted, and nothing battle-derived is published from it.
+            com.dualdex.battle.BattlePresence.UNKNOWN
+        }
         _battlePresence.value = presence
         val inBattle = battlePresenceStabilizer.update(presence)
         if (inBattle != _isInBattle.value) {
@@ -442,16 +459,22 @@ class CompanionViewModel(
         // pinned catalogue and the item ID against the exact H&S item catalogue; neither
         // catalogue is the source of the observation and neither enables calculator capability
         // here.
-        publishBattlerRuntimeState(
-            gameId,
-            com.dualdex.pokemon.hns.HnsBattlerRole.PLAYER,
-            _playerBattlerState
-        )
-        publishBattlerRuntimeState(
-            gameId,
-            com.dualdex.pokemon.hns.HnsBattlerRole.OPPONENT,
-            _enemyBattlerState
-        )
+        if (battleStateReadable) {
+            publishBattlerRuntimeState(
+                gameId,
+                com.dualdex.pokemon.hns.HnsBattlerRole.PLAYER,
+                _playerBattlerState
+            )
+            publishBattlerRuntimeState(
+                gameId,
+                com.dualdex.pokemon.hns.HnsBattlerRole.OPPONENT,
+                _enemyBattlerState
+            )
+        } else {
+            // The same unproven battle base feeds this reader, so it is not invoked either.
+            if (_playerBattlerState.value != null) _playerBattlerState.value = null
+            if (_enemyBattlerState.value != null) _enemyBattlerState.value = null
+        }
     }
 
     /** Reads one role's live battler state and publishes it with its catalogue identity. */

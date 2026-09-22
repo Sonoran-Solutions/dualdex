@@ -102,6 +102,8 @@ object ProfileLoader {
             isVerified = json.optBoolean("isVerified", false),
             interactiveControlsVerified = json.optBoolean("interactiveControlsVerified", false),
             memoryLayoutVerified = json.optBoolean("memoryLayoutVerified", false),
+            // Absent means false: a profile that does not assert this may not read battle state.
+            battleStateReadVerified = json.optBoolean("battleStateReadVerified", false),
             battleUiVerified = json.optBoolean("battleUiVerified", false),
             commandCursorVerified = json.optBoolean("commandCursorVerified", false),
             moveCursorVerified = json.optBoolean("moveCursorVerified", false),

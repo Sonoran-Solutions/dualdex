@@ -28,6 +28,7 @@ class RomCompatibilityTest {
         sha256Hashes = listOf(fireRedSha),
         isVerified = true,
         memoryLayoutVerified = true,
+        battleStateReadVerified = true,
         playerPartyOffset = 0x02024284L,
         enemyPartyOffset = 0x0202402CL
     )
@@ -41,6 +42,7 @@ class RomCompatibilityTest {
         sha256Hashes = listOf(emeraldSha),
         isVerified = true,
         memoryLayoutVerified = true,
+        battleStateReadVerified = true,
         playerPartyOffset = 0x020244ECL,
         enemyPartyOffset = 0x02024744L
     )
@@ -495,6 +497,7 @@ class RomCompatibilityTest {
         sha256Hashes = emptyList(),
         isVerified = true,
         memoryLayoutVerified = true,
+        battleStateReadVerified = true,
         playerPartyOffset = 0x02034768L,
         enemyPartyOffset = 0x020342B8L,
         battleUiVerified = false,
@@ -582,6 +585,130 @@ class RomCompatibilityTest {
         // The independent capability flags are unchanged by the hash promotion.
         assertFalse(profile.battleUiVerified)
         assertFalse(profile.interactiveControlsVerified)
+    }
+
+    // ------------------------------------------------------- battle-state scope
+
+    /**
+     * The exact-hash gate and the battle-state gate are separate decisions.
+     *
+     * Repairing a profile's SHA-256 values makes `exactRuntimeVerified` reachable, and that flag is
+     * the universal live-memory gate — so a corrected hash must not be able to promote a read whose
+     * configured address was never proven for the retail image. `gBattleMons` is exactly such an
+     * address: it is a linker-ordered EWRAM placement inside the section that also holds asset
+     * arrays, so only the retail build can prove it (see
+     * `tools/calc-goldens/audit_vanilla_layout.py --firered-rom`).
+     *
+     * This test drives the real poller for an exact-trusted vanilla ROM and asserts that the
+     * structurally-proven reads still run while the battle-state readers do not.
+     */
+    @Test
+    fun vanillaBattleStateReadsStayClosedWhilePartyAndLocationStayOpen() {
+        var readPartyCalls = 0
+        var readEnemyPartyCalls = 0
+        var readLocationCalls = 0
+        var readPresenceCalls = 0
+        var readStatStageCalls = 0
+
+        val coordinator = object : LibretroCoreCoordinator() {
+            override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? {
+                readPartyCalls++
+                return arrayOf(createMon(1))
+            }
+
+            override fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? {
+                readEnemyPartyCalls++
+                return arrayOf(createMon(2))
+            }
+
+            override fun readPlayerLocation(gameId: Int): PlayerLocation? {
+                readLocationCalls++
+                return null
+            }
+
+            override fun readBattlePresence(gameId: Int): Int {
+                readPresenceCalls++
+                return 1
+            }
+
+            override fun readBattleStatStages(gameId: Int, battler: Int): IntArray {
+                readStatStageCalls++
+                return IntArray(7)
+            }
+        }
+
+        // A template that claims the hash and the layout but NOT the battle-state addresses.
+        val vanillaProfile = fireRedProfile.copy(battleStateReadVerified = false)
+        val vm = CompanionViewModel(coreCoordinator = coordinator)
+        vm.setRomSession(
+            RomCompatibility.verified(vanillaProfile, fireRedSha),
+            RomIdentity(fireRedSha, "Pokemon FireRed")
+        )
+
+        val trust = vm.runtimeRomTrust.value
+        assertTrue("an exact hash must still authorize live memory", trust.mayReadLiveMemory)
+        assertFalse(
+            "an exact hash must not authorize battle-state reads whose addresses are unproven",
+            trust.mayReadBattleState
+        )
+
+        vm.pollTick()
+
+        assertTrue("party reads must still run", readPartyCalls > 0)
+        assertTrue("location reads must still run", readLocationCalls > 0)
+        assertEquals("enemy party reads depend on the battle base", 0, readEnemyPartyCalls)
+        assertEquals("battle presence dereferences the battle base", 0, readPresenceCalls)
+        assertEquals("stat stages dereference the battle base", 0, readStatStageCalls)
+        assertTrue(
+            "the battle presence must be withheld, not answered as 'no battle'",
+            vm.battlePresence.value == com.dualdex.battle.BattlePresence.UNKNOWN
+        )
+        assertFalse("no battle may be reported from an unreadable base", vm.isInBattle.value)
+    }
+
+    /** The other half: a profile that DOES prove its battle offsets keeps the full scope. */
+    @Test
+    fun provenBattleStateAddressesKeepTheBattleReadsOpen() {
+        var readPresenceCalls = 0
+        val coordinator = object : LibretroCoreCoordinator() {
+            override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? = arrayOf(createMon(1))
+
+            override fun readBattlePresence(gameId: Int): Int {
+                readPresenceCalls++
+                return 1
+            }
+        }
+        val provenProfile = fireRedProfile.copy(battleStateReadVerified = true)
+        val vm = CompanionViewModel(coreCoordinator = coordinator)
+        vm.setRomSession(
+            RomCompatibility.verified(provenProfile, fireRedSha),
+            RomIdentity(fireRedSha, "Pokemon FireRed")
+        )
+        assertTrue(vm.runtimeRomTrust.value.mayReadBattleState)
+        vm.pollTick()
+        assertTrue("presence must be read when the addresses are proven", readPresenceCalls > 0)
+    }
+
+    @Test
+    fun bundledVanillaProfilesDoNotClaimProvenBattleStateAddresses() {
+        // The bundled FireRed dump's `gBattleMons` base 0x02023F90 does not appear anywhere in the
+        // retail image, while the party addresses it sits beside do (audit evidence, §7.3), so the
+        // profile must not assert this until the address is actually proven.
+        val dir = generateSequence(java.io.File(System.getProperty("user.dir") ?: ".")) { it.parentFile }
+            .map { java.io.File(it, "app/src/main/assets/profiles") }
+            .firstOrNull { it.isDirectory }
+            ?: throw AssertionError("Unable to locate bundled ROM profiles")
+        for (id in listOf("vanilla_firered", "vanilla_emerald")) {
+            val profile = ProfileLoader.parseProfile(java.io.File(dir, "$id.json").readText())
+            assertTrue("$id must still be an exactly supported build", profile.isSupportedVanillaGen3())
+            assertFalse(
+                "$id must not claim proven battle-state addresses until they are proven",
+                profile.battleStateReadVerified
+            )
+        }
+        // H&S 2.0.5 does: its battle globals are compiled-symbol verified and runtime cross-checked.
+        val hns = bundledHeartAndSoul()
+        assertTrue("heart_and_soul battle offsets are proven", hns.battleStateReadVerified)
     }
 
     @Test

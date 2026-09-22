@@ -36,6 +36,7 @@ class ActiveEnemyResolutionTest {
         sha256Hashes = listOf(fireRedSha),
         isVerified = true,
         memoryLayoutVerified = true,
+        battleStateReadVerified = true,
         playerPartyOffset = 0x02024284L,
         enemyPartyOffset = 0x0202402CL
     )

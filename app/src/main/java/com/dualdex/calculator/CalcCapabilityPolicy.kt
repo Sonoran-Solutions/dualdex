@@ -306,10 +306,33 @@ enum class CalcLimitation(val blocks: Boolean) {
      * Because `VANILLA_GEN3` advertises `CalcSupport.VERIFIED`, leaving this shape computable would
      * let the application publish a number that differs from the cartridge under a Verified label.
      * The gate therefore refuses the request instead of presenting a confident wrong vector. It is
-     * scoped to Doubles plus an active screen: Singles screens and the Doubles spread reduction
-     * remain on the verified surface, and the vanilla engine keeps its documented pipeline order.
+     * scoped to Doubles plus an active screen: Singles screens remain on the verified surface, the
+     * vanilla engine keeps its documented pipeline order, and the Doubles **spread** reduction is
+     * refused separately by [VANILLA_DOUBLES_SPREAD_NOT_MODELLED].
      */
     VANILLA_DOUBLES_SCREEN_NOT_MODELLED(true),
+
+    /**
+     * A vanilla Generation III **Doubles** request uses a move the shipped pipeline reduces as a
+     * spread move, and the request carries no authoritative target count.
+     *
+     * The pinned engines apply the reduction inside `CalculateBaseDamage` only while both opposing
+     * battlers are actually present —
+     * `if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE) && gBattleMoves[move].target == MOVE_TARGET_BOTH
+     *      && CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2) damage /= 2;`
+     * (`pret/pokefirered src/pokemon.c:2553` physical, `:2604` special; identical at
+     * `pret/pokeemerald src/pokemon.c:3276` and `:3327`) — so Rock Slide against a single remaining
+     * foe is NOT halved. The shipped `@smogon/calc` 0.11.0 ADV pipeline reduces whenever
+     * `field.gameType` says Doubles, and the static request has no target-presence operand, so a
+     * lone opponent would be reduced where the cartridge does not. That is the same epistemic hole
+     * as [VANILLA_DOUBLES_SCREEN_NOT_MODELLED], reached through the spread branch.
+     *
+     * [Gen3DoublesSpreadMoves] identifies the moves the shipped pipeline actually reduces (derived
+     * from the pinned decompilation and checked against the shipped bundle by the host suite). H&S
+     * Doubles already fails closed for its own reasons
+     * ([HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED]); this limitation is the vanilla half.
+     */
+    VANILLA_DOUBLES_SPREAD_NOT_MODELLED(true),
 
     /**
      * The move's effective type was authoritatively observed to be rewritten to Electric by an
@@ -701,6 +724,8 @@ data class CalcCapabilityVerdict(
                 "the live battle format is not an authoritatively observed Singles battle, so the Singles damage arithmetic cannot be applied"
             CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED ->
                 "this is a Doubles battle with Reflect or Light Screen active, whose cartridge arithmetic (2 * (damage / 3) only while both defenders are present) this calculation does not reproduce"
+            CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED ->
+                "this Doubles move hits both opponents, and the reduction the games apply depends on how many opposing battlers are actually present, which this request does not establish"
             CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED ->
                 "the current move's type is being rewritten to Electric by Ion Deluge or Electrify, which this calculation does not model"
             CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED ->
@@ -1830,6 +1855,27 @@ object CalcCapabilityPolicy {
         return side.isReflect || side.isLightScreen
     }
 
+    /**
+     * True when a vanilla Generation III request is a **Doubles** battle whose move the shipped
+     * pipeline reduces as a spread move (see
+     * [CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED]).
+     *
+     * The cartridge's condition is `CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2`, which the
+     * static request cannot carry: there is no target-presence operand, and for vanilla there is no
+     * live reader that supplies one either. The request therefore fails closed whenever the move is
+     * one the pipeline would reduce, which [Gen3DoublesSpreadMoves] enumerates from the pinned
+     * source.
+     *
+     * The table is a superset-safe construction rather than a guess about the engine: the host
+     * suite (`check_gen3_spread_move_table_matches_engine`) recovers every Generation III move's
+     * pre-roll damage in Singles and Doubles and fails if the engine reduces any move this table
+     * omits, so a table that drifted out of date cannot silently let a reduced move through.
+     */
+    private fun vanillaDoublesSpreadNotModelled(request: DamageCalculationRequest): Boolean {
+        if (!request.field.gameType.equals(CalcGameTypes.DOUBLES, ignoreCase = true)) return false
+        return Gen3DoublesSpreadMoves.isSpread(request.move.name)
+    }
+
     private fun collectRequestLimitations(
         profile: RomHackProfile,
         capability: CalcCapability,
@@ -1880,6 +1926,14 @@ object CalcCapabilityPolicy {
         // this pipeline does not reproduce must fail closed rather than be published as verified.
         if (capability.ruleset == CalcRuleset.VANILLA_GEN3 && vanillaDoublesScreenNotModelled(request)) {
             limitations.add(CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED)
+        }
+
+        // The Doubles spread reduction has the same shape of problem: the games decide it from the
+        // number of opposing battlers actually present, and this request cannot express that.
+        if (capability.ruleset == CalcRuleset.VANILLA_GEN3 &&
+            vanillaDoublesSpreadNotModelled(request)
+        ) {
+            limitations.add(CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED)
         }
 
         listOf(request.attacker to true, request.defender to false).forEach { (input, isAttacker) ->

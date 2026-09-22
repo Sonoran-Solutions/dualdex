@@ -113,7 +113,15 @@ engine; they were not produced by running the engine and copying its output.
 production-serialised request against the shipped bundle, and asserts the full 16-roll
 vector for the neutral physical, neutral special (Gen III type split), STAB + type
 effectiveness, critical hit (and crit stage-ignore), Singles Reflect / Light Screen,
-format-sensitive Doubles spread, Rain/Sun, burn + Guts, and stat-stage branches.
+a Doubles single-target (unreduced) control, Rain/Sun, burn + Guts, and stat-stage branches.
+
+Doubles **screens** and Doubles **spread** moves are deliberately absent from this matrix: the
+cartridge conditions both on how many opposing battlers are actually present, which the request shape
+cannot carry, so production refuses them
+(`CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED`, `CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED`)
+and their source-exact vectors live in the fixture file's `cartridgeReferences` block instead. The
+same suite also proves the move table the spread gate rests on, over the whole Generation III move
+list, and asserts that the shipped engine does not produce either committed cartridge vector.
 
 The same fixture file is used by two other checks, so none of the three can drift:
 

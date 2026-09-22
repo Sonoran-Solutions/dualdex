@@ -1258,7 +1258,8 @@ class CalcCapabilityPolicyTest {
                 CalcLimitation.LEVEL_OUT_OF_RANGE,
                 CalcLimitation.STATUS_NOT_MODELLED,
                 CalcLimitation.FIELD_CONDITION_NOT_MODELLED,
-                CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED ->
+                CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED,
+                CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED ->
                     assertTrue("$limitation must block", limitation.blocksCalculation)
                 else ->
                     assertFalse("$limitation must not block", limitation.blocksCalculation)

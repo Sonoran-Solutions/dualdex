@@ -101,7 +101,8 @@ the modelled surface:
 * weather is one of `Sun`, `Rain`, `Sand`, `Hail` (canonical spelling); terrain is refused;
 * stat stages are within `-6..+6`; IVs `0..31`; EVs `0..255`; level `1..100`;
 * the request generation is 3 (a mismatch is disclosed and downgrades to `ESTIMATED`);
-* **not a Doubles battle with Reflect or Light Screen active** — see §2.2.
+* **not a Doubles battle with Reflect or Light Screen active**, and **not a Doubles request whose
+  move the shipped pipeline reduces as a spread move** — see §2.2.
 
 The claim is exactly: **the shipped `@smogon/calc` 0.11.0 Generation III pipeline reproduces the
 exact ROM's ordinary damage arithmetic for those inputs.** It is not a claim to know the live
@@ -124,7 +125,7 @@ battle state (see §8).
   (`LIVE_PARTICIPANT_STATE_UNKNOWN`); a live read on a non-exact ROM is refused
   (`LIVE_INPUTS_NOT_VERIFIED`). These paths are unchanged by this slice.
 
-### 2.2 Doubles screens are refused, not published (senior-review P1 correction)
+### 2.2 Doubles screens and Doubles spread moves are refused, not published (senior-review P1 corrections)
 
 The pinned engines express a Doubles Reflect / Light Screen as an **integer-division-first**
 operation on the pre-roll damage, in `CalculateBaseDamage`:
@@ -166,14 +167,73 @@ that shape only:
 * `CalcVanillaGoldenBoundaryTest` asserts all three halves: the refusal, the Singles negative
   control, and the screenless-Doubles control.
 
-The cartridge's own arithmetic is still recorded, as evidence rather than as an engine golden, in
-the `cartridgeReferences` block of `vanilla_gen3_goldens.json`. It is derived by
-`gen3_reference.doubles_cartridge_rolls()` and holds both branches: `2 * (damage / 3)` → 35-42 while
-both defenders are present, and `damage / 2` → 28-33 when only one is. The verifier fails if those
-two vectors ever become identical, and
-`native/tests/test_js_calc.c :: check_vanilla_doubles_screen_cartridge_divergence()` fails if the
-shipped engine ever starts producing a cartridge vector — which is the signal that the gate, not
-the fixture, should be revisited.
+#### 2.2.1 The spread reduction has the same hole, and the same treatment
+
+The identical condition governs the **spread** reduction, in the same function
+(`pret/pokefirered src/pokemon.c:2553` physical and `:2604` special; `pret/pokeemerald
+src/pokemon.c:3276` and `:3327`):
+
+```c
+if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE)
+ && gBattleMoves[move].target == MOVE_TARGET_BOTH
+ && CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2)
+    damage /= 2;
+```
+
+Two consequences, and both were reachable as `VERIFIED` before this correction:
+
+1. **Target presence again.** Rock Slide against a single remaining foe is **not** reduced: the
+   cartridge vector is the Singles one (58 → `+2` = 60), while the shipped pipeline halves whenever
+   the format label says Doubles (29 → `+2` = 31). The `vg3_e_doubles_spread_format_sensitive`
+   fixture asserted the pipeline's reduced vector as `VERIFIED`, which is the same class of error
+   the screen fix closed.
+2. **The move set is narrower than "any spread move".** The cartridge also requires
+   `MOVE_TARGET_BOTH`, which is the *opposing* pair only. `MOVE_TARGET_FOES_AND_ALLY` moves
+   (Earthquake, Explosion, Magnitude, Selfdestruct, Teeter Dance) are spread-capable in the games
+   but the shipped pipeline does not reduce them, so they are already correct and must not be
+   refused.
+
+So the Doubles spread shape now fails closed for `VANILLA_GEN3` with
+`CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED`, and the set of moves it applies to is derived
+from the pinned source rather than guessed: `Gen3DoublesSpreadMoves` lists the 17 damaging
+`MOVE_TARGET_BOTH` moves, and
+`native/tests/test_js_calc.c :: check_gen3_spread_move_table_matches_engine()` proves the table
+against the engine itself over the **whole** Generation III move list (354 moves, accounted for
+entry by entry) by recovering each move's pre-roll damage in Singles and in Doubles and requiring
+the engine to reduce exactly those 17.
+
+The previous spread golden is therefore no longer in the verified matrix. Its place is taken by
+`vg3_e_doubles_single_target_unreduced` — the only Doubles geometry left on the surface — and the
+two target-presence states of the spread branch are recorded as source-exact references (§2.2.2).
+The pipeline's own H&S Doubles behaviour is still pinned at the engine level by
+`gap_c4b_doubles_spread_two_targets_halved`, `gap_c4b_doubles_spread_one_target_not_halved` and
+`gap_c4b_doubles_spread_missing_target_count_refused`, which exercise the engine's explicit
+`field.targetCount` contract directly.
+
+#### 2.2.2 The cartridge arithmetic is recorded, not published
+
+The cartridge's own arithmetic for both branches is recorded, as evidence rather than as an engine
+golden, in the `cartridgeReferences` block of `vanilla_gen3_goldens.json`. It is derived by
+`gen3_reference.doubles_cartridge_rolls(request, both_defenders_present)`, which encodes the integer
+operation order *and* the presence operand for the screen branch and the spread branch together:
+
+| Reference | Branch | Both defenders present | Vector |
+|---|---|---|---|
+| `cartridge_doubles_reflect_both_defenders_present` | screen | yes — `2 * (damage / 3)` | 35-42 |
+| `cartridge_doubles_reflect_one_defender_present` | screen | no — `damage / 2` | 28-33 |
+| `cartridge_doubles_spread_both_defenders_present` | spread | yes — `damage /= 2` | 26-31 |
+| `cartridge_doubles_spread_one_defender_present` | spread | no — no reduction | 51-60 |
+
+`gen3_reference.calculate()` **raises** for both Doubles shapes instead of guessing which arithmetic
+a caller means, and the verifier fails if any branch's two presence states stop differing (which
+would mean the gate no longer rests on an observable operand) or if a branch stops matching the
+source-derived operation.
+
+`native/tests/test_js_calc.c :: check_vanilla_doubles_cartridge_divergence()` then scores the engine
+against each reference in its own right: three of the four states must diverge (the both-defenders
+spread state legitimately agrees, because both the cartridge and the pipeline halve there), each
+committed pair must differ, and any agreement in a state that must diverge fails the suite as the
+signal that the gate — not the fixture — should be revisited.
 
 ### 2.3 "Cartridge-exact" means values and constants, not the whole operation order
 
@@ -264,8 +324,9 @@ evidence level.
 | `vg3_d_crit_ignores_negative_attack_and_positive_defense` | D crit ignores unfavourable stages | 102-120 |
 | `vg3_e_screen_reflect_singles` | E Reflect ×1/2 (Singles) | 28-33 |
 | `vg3_e_screen_light_screen_singles` | E Light Screen ×1/2 (Singles) | 16-19 |
-| `vg3_e_doubles_spread_format_sensitive` | E format-sensitive Doubles spread ×1/2 | 26-31 |
+| `vg3_e_doubles_single_target_unreduced` | E Doubles single-target move is not reduced | 51-60 |
 | — (refused, not a golden) | E Doubles **with** Reflect / Light Screen | not computed: see §2.2 |
+| — (refused, not a golden) | E Doubles **spread** move (Rock Slide and the other 16) | not computed: see §2.2.1 |
 | `vg3_f_weather_rain_halves_fire` | F Rain ×1/2 on Fire | 12-15 |
 | `vg3_f_weather_sun_boosts_fire` | F Sun ×1.5 on Fire | 35-42 |
 | `vg3_g_burn_guts_boosts_attack` | G burn + Guts ×1.5, no burn halving | 75-89 |
@@ -366,7 +427,62 @@ $ python3 tools/calc-goldens/audit_vanilla_layout.py \
 | Emerald player/enemy party addresses | **RUNTIME VERIFIED** (build-level) | `0x020244EC` / `0x02024744` from the pinned build, matching the profile |
 | `sizeof(struct BattlePokemon)`, `hp`, `statStages` | **SOURCE VERIFIED** | `include/pokemon.h` field offsets (`0x28`, `0x18`, 88 bytes) equal the reader's compiled values, and `gBattleMons` is 88 x 4 bytes in both games |
 | SaveBlock1 base and `pos`/`location`/`escapeWarp` for the legacy location path | **SOURCE + build VERIFIED** | `struct SaveBlock1` places `playerParty` at `+0x38` (FireRed, `include/global.h:773`) and `+0x238` (Emerald); the audited `0x00`/`0x04`/`0x24` fields match, and the derived base is inside EWRAM in both builds |
-| `battle_mons_offset`, the battle-lifecycle offsets, and the Battle UI offsets | **existing prior evidence** | `UNPROVEN` here by construction: these are linker-ordered EWRAM placements inside the section that also holds stubbed asset arrays, so a build with stubbed graphics cannot confirm their absolute values. They are unchanged by this slice, and the audit reports them as unproven rather than silently blessing them |
+| `battle_mons_offset`, the battle-lifecycle offsets, and the Battle UI offsets | **UNPROVEN** (FireRed) / **RUNTIME VERIFIED (retail probe)** (Emerald) | These are linker-ordered EWRAM placements inside the section that also holds stubbed asset arrays, so a build with stubbed graphics cannot confirm them; §7.3 probes the retail images and reports per build. Their consumption is gated by `battleStateReadVerified`, not by the hash |
+
+### 7.3 The battle-state addresses: probed against the retail images, and not assumed
+
+§7.1's `UNPROVEN` row is not a documentation nicety. Correcting the hashes makes
+`RuntimeRomTrust.exactRuntimeVerified` reachable for the genuine dumps, and that flag is the
+**universal** live-memory gate: the poller then calls vanilla battle presence, which dereferences
+`battle_mons_offset`, and the enemy-party, stat-stage and battler-state readers share that base.
+Rev 0/Rev 1 equality proves the two revisions agree with each other; it says nothing about whether
+the shared constant is the retail address.
+
+The audit therefore probes the retail images directly, with
+`--firered-rom` / `--emerald-rom`. A GBA program reaches an EWRAM global by loading a literal word
+holding its address, and those literal pools are in the cartridge, so finding the configured address
+as a little-endian word in the accepted dump is direct evidence that the retail program uses it. The
+method is validated in the same run against the party addresses §7.1 already proved:
+
+| Build | Address | Result |
+|---|---|---|
+| FireRed Rev 0 (retail) | `gPlayerParty` `0x02024284` (control) | referenced at 745 ROM offsets |
+| FireRed Rev 0 (retail) | `gEnemyParty` `0x0202402C` (control) | referenced at 392 ROM offsets |
+| FireRed Rev 0 (retail) | `battle_mons_offset` `0x02023F90` | **NOT PRESENT ANYWHERE IN THE IMAGE**, while 51 addresses within ±0x200 of it are referenced |
+| Emerald (retail) | `gPlayerParty` `0x020244EC` / `gEnemyParty` `0x02024744` (controls) | referenced at 1091 / 532 ROM offsets |
+| Emerald (retail) | `battle_mons_offset` `0x02024064` | referenced at 1147 ROM offsets, first at `0x00033214` |
+
+So the two builds differ: Emerald's configured battle base is confirmed against its retail image,
+and FireRed's is **not** — the absence is not a gap in the method, because the addresses immediately
+around it *are* referenced while this one is not. The audit reports it as UNPROVEN and exits
+non-zero; it deliberately does **not** substitute a guessed replacement, because an unproven address
+entering production is exactly the failure mode this section exists to prevent. Finding the correct
+one needs the retail build's debug symbols, which `pret/pokefirered` does not publish.
+
+**The authorization is therefore decoupled, which is the reviewer's stated alternative.**
+`RomHackProfile.battleStateReadVerified` (and `RuntimeRomTrust.mayReadBattleState`) is a gate
+*independent of the hash trust*: an exact hash establishes **which** build is running, never that a
+configured address is that build's address. The bundled vanilla profiles set it to `false` and the
+H&S 2.0.5 profile — whose battle globals are compiled-symbol verified and runtime cross-checked
+(`docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md` §5 rows 5-8) — sets it to `true`.
+
+The scope of the closure is precise, and is asserted by
+`RomCompatibilityTest.vanillaBattleStateReadsStayClosedWhilePartyAndLocationStayOpen`:
+
+| Read | Proven by | Enabled for exact-trusted vanilla? |
+|---|---|---|
+| player party (`player_party_offset`, `player_party_count_offset`) | §7.1 build evidence + `src/pokemon.c` declaration order | yes |
+| player location (SaveBlock1 base derived from `gPlayerParty`, `pos`/`location`/`escapeWarp`) | §7.1 | yes |
+| battle presence (`gBattleMons[0]`) | §7.3: unproven on FireRed | **no** |
+| enemy party (needs the battle lifecycle) | §7.3 | **no** |
+| active battler / player stat stages / battle UI | §7.3 | **no** |
+| live battler ability, effective types, held item | §7.3 | **no** |
+
+When the flag is false the poller does not invoke those readers at all, battle presence is published
+as `UNKNOWN` (the answer is withheld, never defaulted to "no battle"), and no battle-derived state is
+published. A per-profile flag can be turned on for Emerald alone on the evidence above; it is left
+off for both until that decision is made deliberately per game, because the two builds are demonstrably
+not in the same position.
 
 Two caveats are recorded rather than hidden:
 
@@ -437,7 +553,11 @@ screen gate. The only other production change is the enemy party **count** offse
   the detected hash, and membership in the profile's own hash list.
 * `CalcCapabilityPolicy.evaluate` — caps at `ESTIMATED` with `ROM_NOT_EXACT_VERIFIED` unless
   `exactRuntimeVerified`; `VERIFIED` is reached only with the `VANILLA_GEN3` ceiling and no
-  limitations.
+  limitations, and the two Doubles format gates of §2.2 apply on top of that.
+* `RuntimeRomTrust.mayReadBattleState` — strictly narrower than `mayReadLiveMemory`: it additionally
+  requires `RomHackProfile.battleStateReadVerified`. Calculator trust and the battle-state read
+  authorization are separate decisions, so correcting a profile's hashes cannot promote a read whose
+  address was never proven (§7.3).
 * `CalcRequestBoundary` — the only path from application state to an engine request; the authorized
   request is the one the verdict was computed from.
 
@@ -456,14 +576,17 @@ Singles + same-screen negative control, and the screenless-Doubles control.
 
 1. `calc_test` — the shipped engine executes the golden matrix
    (`run_vanilla_golden_matrix`), asserting every roll, and then
-   `check_vanilla_doubles_screen_cartridge_divergence()` asserts that the engine does **not** produce
+   `check_vanilla_doubles_cartridge_divergence()` asserts that the engine does **not** produce
    either committed cartridge Doubles-screen vector;
 2. `calc_goldens_check` — `verify_goldens.py` re-derives every expected roll from the independent
-   oracle, re-derives both `cartridgeReferences` vectors through
-   `doubles_cartridge_rolls()`, and checks that the bundled profile hashes match the golden
-   provenance;
+   oracle, re-derives all four `cartridgeReferences` vectors through `doubles_cartridge_rolls()`,
+   requires each refused branch to be recorded in both of its target-presence states with the two
+   states differing, and checks that the bundled profile hashes match the golden provenance;
+   `generate_gen3_move_targets.py --check` re-derives `gen3_move_targets.json`;
 3. the native reader suite — includes the party-layout assertions that pin the corrected enemy count
    offsets;
+   the engine suites also run the whole-move-list spread-table check and the per-state cartridge
+   divergence check described in §2.2.1/§2.2.2;
 4. the Kotlin suite — `CalcVanillaGoldenBoundaryTest` drives the production boundary for both
    profiles, compares the serialisation with the executed request, and pins the Doubles-screen
    fail-closed verdicts.
@@ -471,9 +594,11 @@ Singles + same-screen negative control, and the screenless-Doubles control.
 The fixture file is the single source of truth for all four, so a profile edit, an oracle change or a
 bundle change that alters a golden fails the canonical gate.
 
-`tools/calc-goldens/audit_vanilla_layout.py` (§7) is deliberately **not** part of `./ci.sh test`: it
-needs ELF files built from the pinned upstream decompilations, which the canonical gate does not
-fetch. It is the recorded, re-runnable command behind §7's evidence, not a hidden CI step.
+`tools/calc-goldens/audit_vanilla_layout.py` (§7) is deliberately **not** part of `./ci.sh test`: its
+ELF mode needs builds of the pinned upstream decompilations and its ROM mode needs a legally obtained
+retail dump, neither of which the canonical gate fetches. It is the recorded, re-runnable command
+behind §7's evidence, not a hidden CI step — and its ROM mode exits non-zero for FireRed, which is
+how §7.3's `UNPROVEN` finding is reproducible rather than asserted.
 
 ---
 
@@ -482,18 +607,19 @@ fetch. It is the recorded, re-runnable command behind §7's evidence, not a hidd
 * Direct exact-ROM runtime damage goldens are not obtained (§5). Both local dumps cover FireRed
   Rev 0 and Emerald; no FireRed Rev 1 dump is present, so even a future runtime harness would leave
   Rev 1 runtime-untested.
-* The **damage** arithmetic is re-derived per revision; the read-only memory layout is now audited
-  at build level for FireRed Rev 0, FireRed Rev 1 and Emerald (§7), but the audit's inputs are local
-  decompilation builds with stubbed non-redistributable assets, so absolute ROM addresses and the
-  linker-ordered battle offsets cannot be confirmed from them. Those remain "existing prior
-  evidence".
-* Vanilla `Doubles` shares the verified ruleset and is covered by one format-sensitive spread
-  fixture and one screenless control in the boundary test; it is a claim about that arithmetic only,
-  not about live Doubles battle state, and Doubles **with** a screen is refused (§2.2).
-* The enemy party count offset correction (§7.2) is evidenced but its *effect* is currently hidden by
-  the reader's lifecycle guard: no vanilla title declares the full battle-lifecycle gate, so no
-  enemy party is published for them yet. Restoring that read surface is a separate slice and must not
-  be inferred from this correction.
+* The **damage** arithmetic is re-derived per revision; the read-only memory layout is audited at
+  build level for FireRed Rev 0, FireRed Rev 1 and Emerald (§7), and the battle-state addresses are
+  probed against the retail images (§7.3). FireRed Rev 0's configured `battle_mons_offset` is **not**
+  present in its retail image, so the battle-state read surface stays unauthorized for vanilla
+  (`battleStateReadVerified = false`); Emerald's configured address is confirmed, and enabling it for
+  Emerald alone is a deliberate follow-up decision rather than an inference from this document.
+* Vanilla `Doubles` shares the verified ruleset and is covered by one single-target, screenless
+  fixture; it is a claim about that geometry only, not about live Doubles battle state. Doubles
+  **with** a screen or **with** a move the pipeline reduces is refused (§2.2, §2.2.1).
+* The enemy party count offset correction (§7.2) is evidenced but its *effect* is currently hidden
+  twice over: no vanilla title declares the full battle-lifecycle gate, and the battle-state reads
+  that would consume it are unauthorized (§7.3). Restoring that read surface is a separate slice and
+  must not be inferred from this correction.
 * Badge boosts are unmodelled and disclosed on every verified headline (§2.1).
 * The matrix covers the ordinary single-hit damage path; exotic move mechanics (multi-hit, fixed
   damage, HP-scaled power, etc.) remain outside the vanilla `VERIFIED` surface and are not asserted

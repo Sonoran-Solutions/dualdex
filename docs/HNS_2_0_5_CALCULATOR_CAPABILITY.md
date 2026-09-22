@@ -33,10 +33,13 @@ library source). *NOT FOUND* means the evidence does not exist and is never trea
 
 DualDex supports **exact verified FireRed**, **exact verified Emerald**, and **exact H&S 2.0.5**.
 Vanilla FireRed/Emerald requests that stay inside the verified input set are presented as **Verified**
-using `@smogon/calc`'s ADV pipeline (`gen: 3`). That input set excludes a Doubles battle with Reflect
-or Light Screen active: the cartridge applies the screen as `2 * (damage / 3)` on the pre-roll value
-and only while both defending battlers are present, which this pipeline does not reproduce, so the
-shape is refused (`CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED`) instead of being published.
+using `@smogon/calc`'s ADV pipeline (`gen: 3`). That input set excludes two Doubles shapes the
+cartridge conditions on how many opposing battlers are actually present, which this pipeline neither
+reproduces nor can be told: a battle with Reflect or Light Screen active (the cartridge applies
+`2 * (damage / 3)` on the pre-roll value only while both defenders are present), refused as
+`CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED`, and a move the pipeline reduces as a spread
+move (the cartridge halves it only while both opponents are present, so a lone remaining foe is not
+reduced at all), refused as `CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED`.
 The exact supported SHA-256s, the independent
 Generation III oracle, the shared golden fixture matrix, the production-boundary evidence, the
 read-only memory layout audit and the
@@ -195,8 +198,10 @@ Two exclusions are enforced or disclosed rather than merely documented:
 
 The exact supported vanilla SHA-256s, the independent Generation III oracle, the golden damage
 matrix, the correction of the previously non-genuine vanilla profile hashes, the read-only memory
-layout audit behind the two accepted FireRed revisions, and the vanilla Doubles Reflect/Light Screen
-exclusion are recorded in [VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md).
+layout audit behind the two accepted FireRed revisions, the retail-image probe of the battle-state
+addresses, the resulting decoupling of calculator trust from battle-state read authorization, and the
+vanilla Doubles Reflect/Light Screen and spread exclusions are recorded in
+[VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md).
 
 ---
 

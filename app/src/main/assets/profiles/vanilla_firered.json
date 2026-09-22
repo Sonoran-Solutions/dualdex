@@ -20,6 +20,7 @@
   ],
   "isVerified": true,
   "memoryLayoutVerified": true,
+  "battleStateReadVerified": false,
   "battleUiVerified": false,
   "interactiveControlsVerified": false,
   "gameDataPackId": "gen3_vanilla"

@@ -165,15 +165,22 @@ def build_fixtures():
             provenance=(
                 "Singles Light Screen halves the special base damage before +2. " + fighters),
         ),
+        # The Doubles spread reduction is NOT in this matrix any more: the cartridge applies it
+        # only while both opposing battlers are present
+        # (`CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2`), and a vanilla request carries no
+        # target-presence operand, so the shape is refused rather than published. Both of its
+        # target-presence states are recorded in `cartridgeReferences` instead.
         fixture(
-            "vg3_e_doubles_spread_format_sensitive",
-            ["E format-sensitive Doubles spread x1/2"],
-            {"name": "Rock Slide"},
+            "vg3_e_doubles_single_target_unreduced",
+            ["E Doubles single-target move is NOT reduced (the reachable Doubles geometry)"],
+            {"name": "Strength"},
             game_type="Doubles",
             provenance=(
-                "Rock Slide targets both foes; in a non-Singles format the engine halves "
-                "the base damage. This is the format-sensitive counterpart of the Singles "
-                "neutral fixture and fails if field.gameType is normalised away. " + fighters),
+                "The only Doubles geometry left on the verified surface: a single-target move "
+                "with no screen. Strength is not a spread move, so the format does not change its "
+                "damage and the vector equals the Singles one (62 -> +2 = 64); this fixture fails "
+                "if a future change ever starts applying a format-based reduction to a move the "
+                "games never reduce. " + fighters),
         ),
         fixture(
             "vg3_f_weather_rain_halves_fire",
@@ -254,68 +261,123 @@ def serialise_request(request_input):
 
 
 def build_cartridge_references():
-    """Source-exact Doubles screen goldens, deliberately NOT part of the engine matrix.
+    """Source-exact Doubles goldens that are deliberately NOT part of the engine matrix.
 
-    These carry the cartridge's own arithmetic (`2 * (damage / 3)` computed on the pre-roll value
-    while both defending battlers are present, `damage / 2` otherwise) for a shape the shipped
+    Two format-dependent cartridge branches are covered here, both of which the shipped
     `@smogon/calc` 0.11.0 pipeline expresses differently and which the production gate therefore
-    refuses (`CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED`).
+    refuses:
 
-    They are committed so the two facts that keep that gate honest are machine-checked rather than
-    asserted in prose: the cartridge vector really is different from the pipeline's, and the
-    cartridge branch really does depend on the target-presence operand.
+      * the **screen** branch — `2 * (damage / 3)` on the pre-roll value while both defending
+        battlers are present, `damage / 2` otherwise
+        (`CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED`);
+      * the **spread** branch — `damage /= 2` while both defending battlers are present, and *no*
+        reduction at all against a single remaining foe
+        (`CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED`).
+
+    Each branch is recorded in both of its target-presence states, so the operand that the request
+    shape cannot carry is visible in the committed data rather than only in prose. They are
+    committed so the facts that keep the gates honest are machine-checked: the cartridge vector
+    differs from the pipeline's, and it changes with the target-presence operand.
     """
     fighters = (
         "Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs "
         "Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)"
     )
+    screen_anchor = (
+        "pret/pokefirered src/pokemon.c:2547 (CalculateBaseDamage, Reflect branch) and :2598 "
+        "(Light Screen branch); identical text at pret/pokeemerald src/pokemon.c:3270 and :3321"
+    )
+    spread_anchor = (
+        "pret/pokefirered src/pokemon.c:2553 (physical) and :2604 (special): "
+        "`if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE) && gBattleMoves[move].target == "
+        "MOVE_TARGET_BOTH && CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2) damage /= 2;`; "
+        "identical text at pret/pokeemerald src/pokemon.c:3276 and :3327"
+    )
+
     cases = [
-        (
-            "cartridge_doubles_reflect_both_defenders_present",
-            "Strength",
-            True,
-            "Reflect in a Doubles battle with both defending battlers present: CalculateBaseDamage "
-            "runs `damage = 2 * (damage / 3)` on the pre-roll value, so 2 * floor(62/3) = 40 and "
-            "the post-+2 value is 42. " + fighters,
-        ),
-        (
-            "cartridge_doubles_reflect_one_defender_present",
-            "Strength",
-            False,
-            "The same Reflect with only one defending battler present falls back to `damage /= 2`, "
-            "so floor(62/2) = 31 and the post-+2 value is 33: the format label alone cannot select "
-            "the branch. " + fighters,
-        ),
+        {
+            "id": "cartridge_doubles_reflect_both_defenders_present",
+            "move": "Strength",
+            "defender_side": {"isReflect": True},
+            "both_present": True,
+            "refused_by": "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED",
+            "anchor": screen_anchor,
+            "covers": "Doubles Reflect cartridge arithmetic (outside the VERIFIED surface)",
+            "provenance": (
+                "Reflect in a Doubles battle with both defending battlers present: "
+                "CalculateBaseDamage runs `damage = 2 * (damage / 3)` on the pre-roll value, so "
+                "2 * floor(62/3) = 40 and the post-+2 value is 42. " + fighters
+            ),
+        },
+        {
+            "id": "cartridge_doubles_reflect_one_defender_present",
+            "move": "Strength",
+            "defender_side": {"isReflect": True},
+            "both_present": False,
+            "refused_by": "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED",
+            "anchor": screen_anchor,
+            "covers": "Doubles Reflect cartridge arithmetic (outside the VERIFIED surface)",
+            "provenance": (
+                "The same Reflect with only one defending battler present falls back to "
+                "`damage /= 2`, so floor(62/2) = 31 and the post-+2 value is 33: the format label "
+                "alone cannot select the branch. " + fighters
+            ),
+        },
+        {
+            "id": "cartridge_doubles_spread_both_defenders_present",
+            "move": "Rock Slide",
+            "defender_side": None,
+            "both_present": True,
+            "refused_by": "CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED",
+            "anchor": spread_anchor,
+            "covers": "Doubles spread reduction cartridge arithmetic (outside the VERIFIED surface)",
+            "provenance": (
+                "Rock Slide targets both opposing battlers, and with both of them present the "
+                "cartridge halves the pre-roll damage (floor(58/2) = 29 -> +2 = 31) before the "
+                "85-100 roll. " + fighters
+            ),
+        },
+        {
+            "id": "cartridge_doubles_spread_one_defender_present",
+            "move": "Rock Slide",
+            "defender_side": None,
+            "both_present": False,
+            "refused_by": "CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED",
+            "anchor": spread_anchor,
+            "covers": "Doubles spread reduction cartridge arithmetic (outside the VERIFIED surface)",
+            "provenance": (
+                "The same Rock Slide in a Doubles battle with only one opposing battler remaining "
+                "is NOT reduced at all: the cartridge vector equals the Singles vector (58 -> +2 = "
+                "60), while the shipped pipeline halves it whenever the format label says Doubles. "
+                + fighters
+            ),
+        },
     ]
 
     references = []
-    for reference_id, move_name, both_present, provenance in cases:
+    for case in cases:
         raw = {
             "attacker": participant("Machamp"),
             "defender": participant("Snorlax"),
-            "move": {"name": move_name},
+            "move": {"name": case["move"]},
             "field": {
                 "gameType": "Doubles",
                 "weather": None,
-                "defenderSide": {"isReflect": True},
+                "defenderSide": case["defender_side"],
             },
         }
-        result = gen3_reference.doubles_cartridge_rolls(raw, both_present)
+        result = gen3_reference.doubles_cartridge_rolls(raw, case["both_present"])
         references.append({
-            "id": reference_id,
-            "covers": [
-                "Doubles Reflect cartridge arithmetic (deliberately outside the VERIFIED surface)"
-            ],
+            "id": case["id"],
+            "covers": [case["covers"]],
             "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
-            "sourceAnchor": (
-                "pret/pokefirered src/pokemon.c:2547 (CalculateBaseDamage, Reflect branch) and "
-                ":2598 (Light Screen branch); identical text at pret/pokeemerald "
-                "src/pokemon.c:3270 and :3321"
-            ),
-            "refusedBy": "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED",
-            "provenance": provenance,
+            "sourceAnchor": case["anchor"],
+            "refusedBy": case["refused_by"],
+            "provenance": case["provenance"],
             "request": serialise_request(raw),
             "bothDefendersPresent": result["bothDefendersPresent"],
+            "hasScreen": result["hasScreen"],
+            "isSpread": result["isSpread"],
             "screenOperation": result["screenOperation"],
             "preRollDamage": result["preRollDamage"],
             "screenedPreRollDamage": result["screenedPreRollDamage"],
@@ -443,22 +505,63 @@ def verify():
         if actual_ref is None:
             continue
         for key in ("request", "expected", "screenOperation", "preRollDamage",
-                    "screenedPreRollDamage", "bothDefendersPresent", "refusedBy"):
+                    "screenedPreRollDamage", "bothDefendersPresent", "hasScreen", "isSpread",
+                    "refusedBy", "sourceAnchor"):
             if actual_ref.get(key) != expected_ref[key]:
                 errors.append(
                     f"{reference_id}: committed {key} {actual_ref.get(key)!r} != source-exact "
                     f"oracle {expected_ref[key]!r}")
 
-    # The two committed reference vectors must genuinely differ, which is the whole reason the
-    # production gate exists: if they ever agree, the gate is refusing a shape the pipeline now
-    # reproduces and this check forces the discussion.
-    vectors = {ref["id"]: ref["expected"]["damage"] for ref in expected_refs.values()}
-    if len(vectors) == 2:
-        distinct = len({tuple(vector) for vector in vectors.values()})
-        if distinct != 2:
+    # Every refused branch must be recorded in BOTH of its target-presence states, and the two
+    # states must genuinely differ. That is the whole reason the production gates exist: if the
+    # presence operand stopped changing the vector, a gate would be refusing a shape the pipeline
+    # now reproduces, and this check forces the discussion instead of leaving it in prose.
+    by_gate: dict[str, dict[bool, list[int]]] = {}
+    for ref in expected_refs.values():
+        by_gate.setdefault(ref["refusedBy"], {})[bool(ref["bothDefendersPresent"])] = ref["expected"]["damage"]
+    if set(by_gate) != {
+        "CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED",
+        "CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED",
+    }:
+        errors.append(f"cartridge references cover unexpected gates: {sorted(by_gate)}")
+    for gate, states in by_gate.items():
+        if set(states) != {True, False}:
             errors.append(
-                "the two cartridge Doubles Reflect references produced the same vector; the "
-                "target-presence branch is no longer observable")
+                f"{gate}: references must cover both target-presence states, got {sorted(states)}")
+            continue
+        if states[True] == states[False]:
+            errors.append(
+                f"{gate}: the target-presence operand no longer changes the cartridge vector, so "
+                "the gate is no longer justified by this evidence")
+
+    # The spread branch must reduce by exactly the pre-roll halving in the both-present state and
+    # not at all otherwise: both facts are what the vanilla Doubles spread gate rests on.
+    spread = gen3_reference.doubles_cartridge_rolls(
+        {
+            "attacker": participant("Machamp"),
+            "defender": participant("Snorlax"),
+            "move": {"name": "Rock Slide"},
+            "field": {"gameType": "Doubles", "weather": None, "defenderSide": None},
+        },
+        True,
+    )
+    spread_single = gen3_reference.doubles_cartridge_rolls(
+        {
+            "attacker": participant("Machamp"),
+            "defender": participant("Snorlax"),
+            "move": {"name": "Rock Slide"},
+            "field": {"gameType": "Doubles", "weather": None, "defenderSide": None},
+        },
+        False,
+    )
+    # `preRollDamage` is the base damage before the `+2`; `screenedPreRollDamage` is the value the
+    # 85-100 roll is applied to, i.e. after the `+2`.
+    if spread["screenedPreRollDamage"] != spread["preRollDamage"] // 2 + 2:
+        errors.append(
+            "the spread reference does not halve the pre-roll damage in the both-present state")
+    if spread_single["screenedPreRollDamage"] != spread_single["preRollDamage"] + 2:
+        errors.append(
+            "the spread reference must NOT reduce the pre-roll damage with a single defender")
 
     if errors:
         print("VANILLA GEN III GOLDEN VERIFICATION FAILED:")
@@ -468,8 +571,9 @@ def verify():
 
     print(f"vanilla Gen III goldens verified: {len(expected)} fixtures, "
           f"all expected rolls match the independent oracle; "
-          f"{len(expected_refs)} source-exact Doubles screen references verified (refused by "
-          f"production); profile hashes match the bundled FireRed/Emerald profiles")
+          f"{len(expected_refs)} source-exact Doubles branch references verified (screen and "
+          f"spread, both target-presence states, all refused by production); profile hashes match "
+          f"the bundled FireRed/Emerald profiles")
     return 0
 
 

@@ -285,7 +285,7 @@ def calculate(request: dict) -> dict:
     #
     # A request that reaches the screen branch in Doubles is therefore rejected by the caller:
     # `calculate` cannot say which of the two a consumer means, and guessing would silently
-    # produce a vector that differs from the cartridge on ten of sixteen rolls.
+    # produce a vector that differs from the cartridge on fourteen of sixteen rolls.
     game_type = field.get("gameType", "Singles")
     defender_side = field.get("defenderSide") or {}
     doubles_screen = (
@@ -302,14 +302,21 @@ def calculate(request: dict) -> dict:
             "arithmetic is what you mean, and use only Singles screen fixtures here."
         )
 
+    if game_type != "Singles" and spread:
+        raise ValueError(
+            "Doubles spread move: the cartridge applies `damage /= 2` only while both opposing "
+            "battlers are present (CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2) and does "
+            "not reduce the damage at all against a single remaining foe, while the shipped "
+            "@smogon/calc pipeline reduces whenever the format label says Doubles. This reference "
+            "will not guess which one a caller means: use doubles_cartridge_rolls() with the "
+            "target-presence operand, or a Singles fixture."
+        )
+
     if not is_crit:
         if is_physical and defender_side.get("isReflect"):
             base = floor(base / 2)
         elif not is_physical and defender_side.get("isLightScreen"):
             base = floor(base / 2)
-
-    if game_type != "Singles" and spread:
-        base = floor(base / 2)
 
     weather = field.get("weather")
     if (weather == "Sun" and move_type == "Fire") or (weather == "Rain" and move_type == "Water"):
@@ -371,14 +378,21 @@ def calculate(request: dict) -> dict:
 # supply it cannot ask for the Doubles branch.
 # ---------------------------------------------------------------------------
 def doubles_cartridge_rolls(request: dict, both_defenders_present: bool) -> dict:
-    """The Doubles Reflect / Light Screen roll vector the cartridge produces.
+    """The Doubles roll vector the cartridge produces for a screen and/or spread move.
 
     ``request`` has the same shape :func:`calculate` takes and must be a Doubles
-    request with an active Reflect (physical move) or Light Screen (special
-    move). ``both_defenders_present`` is
-    ``CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2``: when it is false the
-    cartridge falls back to ``damage /= 2`` and no screen multiplier can be
-    inferred from the format label.
+    request that exercises at least one of the two format-dependent branches:
+
+      * an active Reflect (physical move) or Light Screen (special move), which the
+        cartridge applies as ``2 * (damage / 3)`` while both defending battlers are
+        present and ``damage / 2`` otherwise;
+      * a spread move, which the cartridge halves while both defending battlers are
+        present and does not reduce at all otherwise.
+
+    ``both_defenders_present`` is
+    ``CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2``, the operand **both**
+    branches read. It is not derivable from the format label, which is exactly why
+    a request without it cannot be answered.
 
     Raises ValueError for anything this function does not model, so it can never
     return a confident wrong vector.
@@ -403,10 +417,15 @@ def doubles_cartridge_rolls(request: dict, both_defenders_present: bool) -> dict
     is_physical = category == "Physical"
 
     defender_side = field.get("defenderSide") or {}
-    if is_physical and not defender_side.get("isReflect"):
-        raise ValueError("a physical Doubles request needs defenderSide.isReflect for this branch")
-    if not is_physical and not defender_side.get("isLightScreen"):
-        raise ValueError("a special Doubles request needs defenderSide.isLightScreen for this branch")
+    has_screen = bool(
+        (is_physical and defender_side.get("isReflect"))
+        or (not is_physical and defender_side.get("isLightScreen"))
+    )
+    if not has_screen and not spread:
+        raise ValueError(
+            "this Doubles request exercises neither a screen nor a spread move, so it has no "
+            "branch this function models; use calculate() for a plain Doubles request"
+        )
 
     attack, _ = _attacker_stat(attacker, defender, move_type, is_physical, False)
     defense, _ = _defender_stat(defender, is_physical, False, move_name)
@@ -418,17 +437,18 @@ def doubles_cartridge_rolls(request: dict, both_defenders_present: bool) -> dict
         pre_roll = floor(pre_roll / 2)
 
     # The screen, with the cartridge's operation order and branch condition.
-    if both_defenders_present:
-        screened = 2 * (pre_roll // 3)
-    else:
-        screened = pre_roll // 2
+    value = pre_roll
+    if has_screen:
+        if both_defenders_present:
+            value = 2 * (value // 3)
+        else:
+            value = value // 2
 
-    # Moves hitting both targets do half damage in a double battle, also in the pre-roll value, and
+    # Moves hitting both targets do half damage in a double battle, also on the pre-roll value, and
     # also only while both defending battlers are present.
     if spread and both_defenders_present:
-        screened = screened // 2
+        value = value // 2
 
-    value = screened
     if is_physical:
         value = max(1, value)
     value += 2
@@ -439,11 +459,18 @@ def doubles_cartridge_rolls(request: dict, both_defenders_present: bool) -> dict
         value = floor(value * TYPE_EFFECTIVENESS.get((move_type, defender_type), 1.0))
 
     damage = [max(1, floor(value * roll / 100)) for roll in range(85, 101)]
+    operations = []
+    if has_screen:
+        operations.append("2 * (damage / 3)" if both_defenders_present else "damage / 2")
+    if spread:
+        operations.append("damage / 2 (spread)" if both_defenders_present else "no reduction (single target)")
     return {
         "damage": damage,
-        "screenedPreRollDamage": screened,
+        "screenedPreRollDamage": value,
         "preRollDamage": pre_roll,
-        "screenOperation": "2 * (damage / 3)" if both_defenders_present else "damage / 2",
+        "screenOperation": "; ".join(operations),
+        "hasScreen": has_screen,
+        "isSpread": spread,
         "bothDefendersPresent": both_defenders_present,
         "minDamage": damage[0],
         "maxDamage": damage[-1],

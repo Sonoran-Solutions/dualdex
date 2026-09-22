@@ -6,7 +6,7 @@
     {
       "id": "cartridge_doubles_reflect_both_defenders_present",
       "covers": [
-        "Doubles Reflect cartridge arithmetic (deliberately outside the VERIFIED surface)"
+        "Doubles Reflect cartridge arithmetic (outside the VERIFIED surface)"
       ],
       "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
       "sourceAnchor": "pret/pokefirered src/pokemon.c:2547 (CalculateBaseDamage, Reflect branch) and :2598 (Light Screen branch); identical text at pret/pokeemerald src/pokemon.c:3270 and :3321",
@@ -14,9 +14,11 @@
       "provenance": "Reflect in a Doubles battle with both defending battlers present: CalculateBaseDamage runs `damage = 2 * (damage / 3)` on the pre-roll value, so 2 * floor(62/3) = 40 and the post-+2 value is 42. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)",
       "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Strength\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\",\"defenderSide\":{\"isReflect\":true}}}",
       "bothDefendersPresent": true,
+      "hasScreen": true,
+      "isSpread": false,
       "screenOperation": "2 * (damage / 3)",
       "preRollDamage": 62,
-      "screenedPreRollDamage": 40,
+      "screenedPreRollDamage": 42,
       "expected": {
         "damage": [
           35,
@@ -46,7 +48,7 @@
     {
       "id": "cartridge_doubles_reflect_one_defender_present",
       "covers": [
-        "Doubles Reflect cartridge arithmetic (deliberately outside the VERIFIED surface)"
+        "Doubles Reflect cartridge arithmetic (outside the VERIFIED surface)"
       ],
       "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
       "sourceAnchor": "pret/pokefirered src/pokemon.c:2547 (CalculateBaseDamage, Reflect branch) and :2598 (Light Screen branch); identical text at pret/pokeemerald src/pokemon.c:3270 and :3321",
@@ -54,9 +56,11 @@
       "provenance": "The same Reflect with only one defending battler present falls back to `damage /= 2`, so floor(62/2) = 31 and the post-+2 value is 33: the format label alone cannot select the branch. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)",
       "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Strength\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\",\"defenderSide\":{\"isReflect\":true}}}",
       "bothDefendersPresent": false,
+      "hasScreen": true,
+      "isSpread": false,
       "screenOperation": "damage / 2",
       "preRollDamage": 62,
-      "screenedPreRollDamage": 31,
+      "screenedPreRollDamage": 33,
       "expected": {
         "damage": [
           28,
@@ -81,6 +85,90 @@
         "moveType": "Normal",
         "moveCategory": "Physical",
         "movePower": 80
+      }
+    },
+    {
+      "id": "cartridge_doubles_spread_both_defenders_present",
+      "covers": [
+        "Doubles spread reduction cartridge arithmetic (outside the VERIFIED surface)"
+      ],
+      "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
+      "sourceAnchor": "pret/pokefirered src/pokemon.c:2553 (physical) and :2604 (special): `if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE) && gBattleMoves[move].target == MOVE_TARGET_BOTH && CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2) damage /= 2;`; identical text at pret/pokeemerald src/pokemon.c:3276 and :3327",
+      "refusedBy": "CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED",
+      "provenance": "Rock Slide targets both opposing battlers, and with both of them present the cartridge halves the pre-roll damage (floor(58/2) = 29 -> +2 = 31) before the 85-100 roll. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)",
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Rock Slide\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\"}}",
+      "bothDefendersPresent": true,
+      "hasScreen": false,
+      "isSpread": true,
+      "screenOperation": "damage / 2 (spread)",
+      "preRollDamage": 58,
+      "screenedPreRollDamage": 31,
+      "expected": {
+        "damage": [
+          26,
+          26,
+          26,
+          27,
+          27,
+          27,
+          28,
+          28,
+          28,
+          29,
+          29,
+          29,
+          30,
+          30,
+          30,
+          31
+        ],
+        "minDamage": 26,
+        "maxDamage": 31,
+        "moveType": "Rock",
+        "moveCategory": "Physical",
+        "movePower": 75
+      }
+    },
+    {
+      "id": "cartridge_doubles_spread_one_defender_present",
+      "covers": [
+        "Doubles spread reduction cartridge arithmetic (outside the VERIFIED surface)"
+      ],
+      "evidence": "SOURCE VERIFIED (pinned pret CalculateBaseDamage)",
+      "sourceAnchor": "pret/pokefirered src/pokemon.c:2553 (physical) and :2604 (special): `if ((gBattleTypeFlags & BATTLE_TYPE_DOUBLE) && gBattleMoves[move].target == MOVE_TARGET_BOTH && CountAliveMonsInBattle(BATTLE_ALIVE_DEF_SIDE) == 2) damage /= 2;`; identical text at pret/pokeemerald src/pokemon.c:3276 and :3327",
+      "refusedBy": "CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED",
+      "provenance": "The same Rock Slide in a Doubles battle with only one opposing battler remaining is NOT reduced at all: the cartridge vector equals the Singles vector (58 -> +2 = 60), while the shipped pipeline halves it whenever the format label says Doubles. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85, HP 235)",
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Rock Slide\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\"}}",
+      "bothDefendersPresent": false,
+      "hasScreen": false,
+      "isSpread": true,
+      "screenOperation": "no reduction (single target)",
+      "preRollDamage": 58,
+      "screenedPreRollDamage": 60,
+      "expected": {
+        "damage": [
+          51,
+          51,
+          52,
+          52,
+          53,
+          54,
+          54,
+          55,
+          55,
+          56,
+          57,
+          57,
+          58,
+          58,
+          59,
+          60
+        ],
+        "minDamage": 51,
+        "maxDamage": 60,
+        "moveType": "Rock",
+        "moveCategory": "Physical",
+        "movePower": 75
       }
     }
   ],
@@ -850,16 +938,16 @@
       }
     },
     {
-      "id": "vg3_e_doubles_spread_format_sensitive",
+      "id": "vg3_e_doubles_single_target_unreduced",
       "covers": [
-        "E format-sensitive Doubles spread x1/2"
+        "E Doubles single-target move is NOT reduced (the reachable Doubles geometry)"
       ],
       "games": [
         "vanilla_firered",
         "vanilla_emerald"
       ],
       "evidence": "SOURCE VERIFIED (oracle) + HOST VERIFIED (shipped engine)",
-      "provenance": "Rock Slide targets both foes; in a non-Singles format the engine halves the base damage. This is the format-sensitive counterpart of the Singles neutral fixture and fails if field.gameType is normalised away. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
+      "provenance": "The only Doubles geometry left on the verified surface: a single-target move with no screen. Strength is not a spread move, so the format does not change its damage and the vector equals the Singles one (62 -> +2 = 64); this fixture fails if a future change ever starts applying a format-based reduction to a move the games never reduce. Machamp (Hardy L50, 31 IV / 0 EV, Atk 150 / SpA 85) vs Snorlax (Hardy L50, 31 IV / 0 EV, Def 85 / SpD 130, HP 235)",
       "input": {
         "attacker": {
           "species": "Machamp",
@@ -914,7 +1002,7 @@
           }
         },
         "move": {
-          "name": "Rock Slide",
+          "name": "Strength",
           "isCrit": false
         },
         "field": {
@@ -923,31 +1011,31 @@
           "defenderSide": null
         }
       },
-      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Rock Slide\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\"}}",
+      "request": "{\"gen\":3,\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ivs\":{\"hp\":31,\"atk\":31,\"def\":31,\"spa\":31,\"spd\":31,\"spe\":31},\"evs\":{\"hp\":0,\"atk\":0,\"def\":0,\"spa\":0,\"spd\":0,\"spe\":0}},\"move\":{\"name\":\"Strength\",\"isCrit\":false},\"field\":{\"gameType\":\"Doubles\"}}",
       "expected": {
         "damage": [
-          26,
-          26,
-          26,
-          27,
-          27,
-          27,
-          28,
-          28,
-          28,
-          29,
-          29,
-          29,
-          30,
-          30,
-          30,
-          31
+          54,
+          55,
+          55,
+          56,
+          56,
+          57,
+          58,
+          58,
+          59,
+          60,
+          60,
+          61,
+          62,
+          62,
+          63,
+          64
         ],
-        "minDamage": 26,
-        "maxDamage": 31,
-        "moveType": "Rock",
+        "minDamage": 54,
+        "maxDamage": 64,
+        "moveType": "Normal",
         "moveCategory": "Physical",
-        "movePower": 75
+        "movePower": 80
       }
     },
     {

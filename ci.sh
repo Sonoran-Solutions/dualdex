@@ -125,6 +125,11 @@ hns_map_data_check() {
 calc_goldens_check() {
   echo "== vanilla FireRed/Emerald golden matrix (independent oracle) =="
   python3 tools/calc-goldens/verify_goldens.py
+  # The Generation III move table the vanilla Doubles spread gate rests on. Self-contained: it
+  # re-parses the committed artifact and checks it is internally consistent with the pinned source's
+  # schema, and the host calculator suite proves it against the engine over the whole move list.
+  echo "== Generation III move-target table =="
+  python3 tools/calc-goldens/verify_move_targets.py
 }
 
 # H&S data-pack generator tests. Mandatory and self-contained: they drive the

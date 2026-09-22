@@ -27,13 +27,17 @@ Before working down the individual tasks, keep the following release-level rules
 
 New ROM support is **not** parallel work during the current hardening pass. The compatibility sequence before the first public beta is:
 
-1. [ ] **Finish exact Heart & Soul 2.0.5 completely.**
+1. [x] **Finish exact Heart & Soul 2.0.5 completely.**
    - Close its remaining calculator/ruleset, exact-trust, battle, location, and capability-evidence gaps.
    - Do not start another ROM integration while H&S still has unresolved first-class support blockers.
+   - **Complete as of the #40 closure audit** ([docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md)): exact `Release-v2.0.5` / SHA-256 `edf76ecf…7679b` is intentionally trusted; #1, #9 and #11 are closed; every **core** live companion capability H&S exposes — party/data, battle lifecycle, location/map and the bounded calculator — is evidence-backed at the level the UI promises, and every unsupported capability **within those core surfaces** fails closed.
+   - This step certifies the core H&S live-companion/battle/map/calculator integration only. It does **not** certify the optional **Cheats** and **Assistant** surfaces: exact H&S is still offered unverified, name-selected cheat presets that one toggle can apply, and the offline Assistant can still present base-game facts under the H&S name. Those are known uncertified surfaces, deliberately left to step 2 below (#17, #13), not fail-closed behaviour.
+   - The AYN Thor RC matrix in that issue is **not** claimed complete — it moves into step 2 below, which is where this checklist always placed it.
 2. [ ] **Finish the remaining general pre-beta product/release blockers using H&S as the primary complex validation ROM.**
    - Keep exact vanilla FireRed/Emerald as regression baselines.
    - Exercise H&S through save safety and recovery, ROM switching, process death/reboot, suspend/resume, fast-forward, save states, cheat gating, Assistant fallback behavior, credential/backup policy, controller shortcuts, second-display reconnect, and extended Thor soak testing.
    - Fix general product defects before adding another compatibility target rather than discovering them independently in every future hack.
+   - **This is the active phase.** Hardware soak is required before beta but was never a prerequisite for declaring the H&S software integration complete. Carried-in items are listed as R1-R7 in the closure audit; R.O.W.E. (step 3) does not begin until this pass is sufficiently complete.
 3. [ ] **Add one exact R.O.W.E. release next.**
    - Pin the exact version/hash before authoritative live-memory claims.
    - Use it as the first deliberate validation that the source-driven data pack, ABI probing, exact-ROM trust, battle-state, runtime-rule, and calculator-override work developed for H&S can be reused by another pokeemerald-expansion-family hack.

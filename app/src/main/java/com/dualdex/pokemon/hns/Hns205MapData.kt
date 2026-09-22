@@ -11,7 +11,8 @@ import com.dualdex.pokemon.RegionId
  *   Tag: Release-v2.0.5
  *   Commit: 1f42b74dff0e9fe942419845d040663dd829a973
  *   Extraction: data/maps/map_groups.json, data/maps/<map>/map.json,
- *               src/data/region_map/region_map_entries.h (IS_HNS table)
+ *               src/data/region_map/region_map_sections.json (display names),
+ *               src/data/region_map/region_map_layout_{johto,kanto,jk}.h (canvases)
  *   ROM dependency: NONE
  *
  * [locationGroups] maps the raw SaveBlock1 mapGroup/mapNum pair the running game

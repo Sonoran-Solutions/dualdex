@@ -616,7 +616,8 @@ def generate_kotlin(locations, sections, upstream_sha, max_group, source_digest,
     add(f" *   Commit: {upstream_sha}")
     # Avoid a literal "*/" inside the generated block comment.
     add(" *   Extraction: data/maps/map_groups.json, data/maps/<map>/map.json,")
-    add(" *               src/data/region_map/region_map_entries.h (IS_HNS table)")
+    add(" *               src/data/region_map/region_map_sections.json (display names),")
+    add(" *               src/data/region_map/region_map_layout_{johto,kanto,jk}.h (canvases)")
     add(" *   ROM dependency: NONE")
     add(" *")
     add(" * [locationGroups] maps the raw SaveBlock1 mapGroup/mapNum pair the running game")

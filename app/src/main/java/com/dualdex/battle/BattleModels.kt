@@ -620,6 +620,10 @@ data class MovePresentation(
     val damageLimitations: List<CalcLimitation> = emptyList(),
     /** All ability-specific refusal details; these remain structured until the move card renders. */
     val damageAbilityBlockers: List<HnsAbilityRequestDecision> = emptyList(),
+    /** All held-item refusal details (side + exact pinned item identity). */
+    val damageItemBlockers: List<com.dualdex.calculator.HnsItemRequestDecision> = emptyList(),
+    /** Every refusal blocker (state, ability, item, mechanic) in display order. */
+    val damageBlockers: List<DamageBlockerPresentation> = emptyList(),
     /** Short human-readable reason shown after the generic unavailable label when available. */
     val damageUnavailableReason: String? = null,
     val calculatorSupport: CalcSupport? = null
@@ -628,6 +632,17 @@ data class MovePresentation(
     val hasDamage: Boolean get() = damageConfidence == DamageConfidence.VERIFIED && maxDamage > 0
     val effectivenessVerified: Boolean get() = effectivenessConfidence == DataConfidence.VERIFIED
     val damageVerified: Boolean get() = damageConfidence == DamageConfidence.VERIFIED
+
+    /**
+     * The compact unavailable text for the move card: one line for a single blocker, otherwise the
+     * typed count followed by one short line per blocker. Never a concatenated single line.
+     */
+    val damageUnavailableText: String get() = when {
+        damageBlockers.size > 1 ->
+            "Damage unavailable · ${DamageBlockerPresentation.headline(damageBlockers)}\n" +
+                damageBlockers.joinToString("\n") { it.detail }
+        else -> "Damage unavailable" + damageUnavailableReason?.let { " · $it" }.orEmpty()
+    }
 
     val ppDisplay: String get() = when {
         maxPp != null && currentPp != null -> "$currentPp/$maxPp"
@@ -997,6 +1012,8 @@ object BattlePresentationBuilder {
             isKnown = moveKnown,
             damageLimitations = hnsDamage?.limitations.orEmpty(),
             damageAbilityBlockers = hnsDamage?.abilityBlockers.orEmpty(),
+            damageItemBlockers = hnsDamage?.itemBlockers.orEmpty(),
+            damageBlockers = hnsDamage?.blockers.orEmpty(),
             damageUnavailableReason = hnsDamage?.unavailableReason,
             calculatorSupport = hnsDamage?.support
         )

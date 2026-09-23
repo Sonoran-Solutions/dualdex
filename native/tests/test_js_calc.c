@@ -3549,6 +3549,118 @@ static void check_gap_c4e_pinch_abilities(void) {
     }
 }
 
+
+/* ------------------------------------------------------------------ */
+/* PR #78 / C3 follow-up: Tera Shell + Truant and stripped items       */
+/* ------------------------------------------------------------------ */
+
+/* The exact request shape the production boundary emits for the live Chikorita/Pidgey Singles
+ * control (Tackle, Normal, Physical, neutral stages, observed raw stats and types), with the two
+ * abilities and the item fields varied. The independent oracle is the C4a transcription of the
+ * pinned H&S damage path. */
+#define HNS_TACKLE_REQUEST(ATK_ABILITY, DEF_ABILITY, ATK_ITEM, DEF_ITEM) \
+    "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\"," \
+    "\"attacker\":{\"species\":\"Chikorita\",\"level\":6,\"ability\":\"" ATK_ABILITY "\"," ATK_ITEM \
+    "\"hp\":11,\"maxHP\":23," \
+    "\"rawStats\":{\"attack\":13,\"defense\":13,\"speed\":9,\"spAttack\":12,\"spDefense\":12}," \
+    "\"statStages\":[0,0,0,0,0,0,0,0]}," \
+    "\"defender\":{\"species\":\"Pidgey\",\"level\":3,\"ability\":\"" DEF_ABILITY "\"," DEF_ITEM \
+    "\"overrides\":{\"types\":[\"Normal\",\"Flying\"]}," \
+    "\"rawStats\":{\"attack\":8,\"defense\":7,\"speed\":8,\"spAttack\":7,\"spDefense\":7}," \
+    "\"statStages\":[0,0,0,0,0,0,0,0]}," \
+    "\"move\":{\"name\":\"Tackle\",\"overrides\":{\"basePower\":40,\"type\":\"Normal\",\"category\":\"Physical\"}}," \
+    "\"field\":{\"gameType\":\"Singles\"}}"
+
+static int hns_response_str_equals(const char* req, const char* key, const char* expected) {
+    char* out = js_calc_calculate(req);
+    int ok = 0;
+    if (out) {
+        jl_value* doc = jl_parse(out);
+        const jl_value* v = doc ? jl_get(doc, key) : NULL;
+        if (expected == NULL) {
+            ok = v != NULL && v->type == JL_NULL;
+        } else {
+            ok = jl_str(v) != NULL && strcmp(jl_str(v), expected) == 0;
+        }
+        jl_free(doc);
+    }
+    free(out);
+    return ok;
+}
+
+static void check_pr78_tera_shell_truant_and_item_stripping(void) {
+    long oracle[ROLL_COUNT];
+    double control[ROLL_COUNT];
+    double engine[ROLL_COUNT];
+
+    /* Neutral control: no effective ability on either side ("(other)"), no items. */
+    const char* req_control = HNS_TACKLE_REQUEST("(other)", "(other)", "", "");
+    hns_ordinary_rolls(6, 40, 13, 7, 0, 1.0, 0, 0, oracle);
+
+    g_fixture = "pr78_neutral_control_matches_oracle";
+    if (hns_request_rolls(req_control, control)) {
+        check_condition("neutral control Tackle matches the independent H&S oracle", rolls_equal(control, oracle));
+    } else {
+        check_condition("neutral control request produced a response", 0);
+    }
+
+    /* Exact authorized pair: attacker Tera Shell, defender Truant (both globally unsupported,
+     * both proven irrelevant for this request by HnsAbilityContextPolicy). */
+    const char* req_pair = HNS_TACKLE_REQUEST("Tera Shell", "Truant", "", "");
+    g_fixture = "pr78_tera_shell_truant_accepted_by_shipped_calculator";
+    check_condition("the shipped calculator accepts Tera Shell and Truant",
+        hns_request_rolls(req_pair, engine));
+    g_fixture = "pr78_tera_shell_truant_no_default_ability_substitution";
+    check_condition("attacker ability reaches the H&S path unmodified as Tera Shell",
+        hns_response_str_equals(req_pair, "attackerAbility", "Tera Shell"));
+    check_condition("defender ability reaches the H&S path unmodified as Truant",
+        hns_response_str_equals(req_pair, "defenderAbility", "Truant"));
+    check_condition("the neutral control is (other), not a species default ability",
+        hns_response_str_equals(req_control, "attackerAbility", "(other)"));
+    g_fixture = "pr78_tera_shell_truant_equals_neutral_control";
+    check_condition("Tera Shell + Truant damage vector equals the neutral control",
+        rolls_equal(engine, oracle));
+
+    /* Positive control: an ability name that DOES reach the H&S arithmetic changes the vector,
+     * so the equality above is not produced by abilities being ignored wholesale. */
+    const char* req_huge = HNS_TACKLE_REQUEST("Huge Power", "(other)", "", "");
+    g_fixture = "pr78_ability_names_are_live_in_the_hns_path";
+    if (hns_request_rolls(req_huge, engine)) {
+        check_condition("Huge Power changes the H&S vector (ability names are read)", !rolls_equal(engine, oracle));
+    } else {
+        check_condition("Huge Power request produced a response", 0);
+    }
+
+    /* Stripped items. The production boundary forwards NO item for every H&S item (HnsItemRegistry
+     * .engineItemName is null for all 901 IDs), including a globally unsupported item proven
+     * irrelevant to the request. The stripped request must equal ITEM_NONE exactly. */
+    const char* req_stripped = HNS_TACKLE_REQUEST("(other)", "(other)", "", "");
+    const char* req_item_none = HNS_TACKLE_REQUEST("(other)", "(other)", "\"item\":\"None\",", "\"item\":\"None\",");
+    g_fixture = "c3_irrelevant_item_stripped_equals_item_none";
+    if (hns_request_rolls(req_stripped, engine) && hns_request_rolls(req_item_none, control)) {
+        check_condition("stripped request equals the explicit ITEM_NONE request", rolls_equal(engine, oracle) &&
+            rolls_equal(control, oracle));
+    } else {
+        check_condition("stripped/ITEM_NONE requests produced responses", 0);
+    }
+    check_condition("the stripped request reaches the H&S path with no attacker item",
+        hns_response_str_equals(req_stripped, "attackerItem", NULL));
+    check_condition("the stripped request reaches the H&S path with no defender item",
+        hns_response_str_equals(req_stripped, "defenderItem", NULL));
+
+    /* Why stripping (not forwarding) is required: a forwarded name the engine happens to model
+     * would silently apply its arithmetic. Silk Scarf is a relevant H&S item for Tackle and is
+     * refused by policy; if it were forwarded the vector would change. */
+    const char* req_forwarded = HNS_TACKLE_REQUEST("(other)", "(other)", "\"item\":\"Silk Scarf\",", "");
+    g_fixture = "c3_forwarded_item_name_would_change_damage";
+    if (hns_request_rolls(req_forwarded, engine)) {
+        check_condition("a forwarded engine-known item name changes the vector", !rolls_equal(engine, oracle));
+    } else {
+        check_condition("forwarded-name request produced a response", 0);
+    }
+}
+#undef HNS_TACKLE_REQUEST
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -3599,6 +3711,9 @@ int main(void) {
 
     printf("-- Gap C4e: pinch ability (Overgrow) condition uses live HP --\n");
     check_gap_c4e_pinch_abilities();
+
+    printf("-- PR #78 follow-up: Tera Shell + Truant defense in depth; stripped H&S items --\n");
+    check_pr78_tera_shell_truant_and_item_stripping();
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
     check_oracle_self_tests();

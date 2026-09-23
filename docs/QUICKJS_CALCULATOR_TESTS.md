@@ -258,6 +258,15 @@ Pinned versions: `@smogon/calc` 0.11.0, `esbuild` 0.28.2 (from
   inputs (280/280 byte-identical outputs), so the library damage path is
   untouched; all differences are the intended format normalisation.
 
+The H&S held-item / PR #78 follow-up added four echo fields to the `calculateHnsDamage` result
+(`attackerAbility`, `defenderAbility`, `attackerItem`, `defenderItem`) and nothing else; the damage
+arithmetic is untouched. Consecutive regenerations of that bundle are identical
+(`sha256 d53d93d2b6140f39dd3d5d93e2f0820768f69d55be8ec18757a50bac0050f857`), and every pre-existing
+host check still passes against it. `check_pr78_tera_shell_truant_and_item_stripping` uses the echoes to
+prove that Tera Shell/Truant reach the H&S path unmodified (no constructor/default-ability substitution)
+and equal the neutral-control vector and the independent H&S oracle, and that a stripped H&S item
+reaches the engine as no item and equals the explicit `ITEM_NONE` request.
+
 Minified output renames identifiers, so a textual diff of the artifact is
 unreadable by construction; the run-time equivalence check above is the drift
 evidence.

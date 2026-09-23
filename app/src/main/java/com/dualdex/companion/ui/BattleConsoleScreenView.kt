@@ -1018,20 +1018,7 @@ class BattleConsoleScreenView(
                     "${pres.minDamage}–${pres.maxDamage} HP" +
                             (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix
                 }
-                pres.damageConfidence == DamageConfidence.UNAVAILABLE ->
-                    if (pres.damageAbilityBlockers.size > 1) {
-                        val details = pres.damageAbilityBlockers.joinToString("\n") { blocker ->
-                            val owner = if (blocker.side == com.dualdex.calculator.HnsAbilitySide.ATTACKER) {
-                                "You"
-                            } else {
-                                "Foe"
-                            }
-                            "$owner: ${blocker.abilityName}"
-                        }
-                        "Damage unavailable · ${pres.damageAbilityBlockers.size} ability blockers\n$details"
-                    } else {
-                        "Damage unavailable" + pres.damageUnavailableReason?.let { " · $it" }.orEmpty()
-                    }
+                pres.damageConfidence == DamageConfidence.UNAVAILABLE -> pres.damageUnavailableText
                 else -> pres.damageDisplayText
             }
             holder.damageView.text = damageText

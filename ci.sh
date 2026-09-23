@@ -155,6 +155,8 @@ hns_generator_test() {
   (cd tools/hns-type-system && python3 -m unittest test_generate_hns_type_system -v)
   echo "== H&S item-catalogue generator tests =="
   (cd tools/hns-items && python3 -m unittest test_generate_hns_items -v)
+  echo "== H&S item capability audit checker tests =="
+  (cd tools/hns-items && python3 -m unittest test_generate_hns_item_audit -v)
   echo "== H&S move-effect generator tests =="
   (cd tools/hns-move-mechanics && python3 -m unittest test_generate_hns_move_effects -v)
 }
@@ -427,6 +429,14 @@ source_check() {
   echo "== move-effect / ordinary-move map verification (pinned upstream) =="
   python3 tools/hns-move-mechanics/generate_hns_move_effects.py \
     --upstream-dir "$upstream" --verify
+
+  # Reviewed per-hold-effect item capability decisions must cover the exact pinned item domain,
+  # every pinned HOLD_EFFECT_* reference and every literal item-identity read; the generated
+  # inventory/Kotlin audit and the request-local rule evidence must match. Never inferred from a
+  # grep miss: categories are reviewed input in tools/hns-items/decisions.json.
+  echo "== H&S held-item capability audit verification (pinned upstream) =="
+  python3 tools/hns-items/generate_hns_item_audit.py \
+    --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --check
 
   # Reviewed per-ability capability decisions must cover the exact pinned enum
   # and ability-info table. The generator never infers neutrality from a grep miss.

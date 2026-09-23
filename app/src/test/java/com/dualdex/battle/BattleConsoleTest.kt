@@ -2,12 +2,23 @@ package com.dualdex.battle
 
 import com.dualdex.calculator.DamageCalculationRequest
 import com.dualdex.calculator.DamageCalculationResponse
+import com.dualdex.calculator.CalcLimitation
+import com.dualdex.calculator.CalcSupport
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.pokemon.DeclaredAbility
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.MoveDatabase
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.SpeciesDatabase
+import com.dualdex.pokemon.GameDataPackRegistry
+import com.dualdex.pokemon.hns.BattlerRuntimeObservation
+import com.dualdex.pokemon.hns.HnsBattlerRuntimeState
+import com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus
+import com.dualdex.pokemon.hns.HnsBattlerTypeObservation
+import com.dualdex.pokemon.hns.HnsChallengeField
+import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
+import com.dualdex.pokemon.hns.HnsChallengeSettingsStatus
 import com.dualdex.emulator.InputManager
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.ProfileMatchMethod
@@ -96,19 +107,202 @@ class BattleConsoleTest {
     )
 
     private val exactHash = "c".repeat(64)
+    private val bundledHnsHash = "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b"
 
     private fun exactProfile(profile: RomHackProfile = RomHackProfile.DEFAULT_FIRERED): RomHackProfile =
         profile.copy(sha256Hashes = listOf(exactHash))
 
-    private fun exactTrust(profile: RomHackProfile, method: ProfileMatchMethod = ProfileMatchMethod.EXACT_SHA256): RuntimeRomTrust =
+    private fun exactTrust(
+        profile: RomHackProfile,
+        method: ProfileMatchMethod = ProfileMatchMethod.EXACT_SHA256,
+        romHash: String = exactHash
+    ): RuntimeRomTrust =
         RuntimeRomTrust(
             matchMethod = method,
-            detectedSha256 = exactHash,
-            activeRomSha256 = exactHash,
+            detectedSha256 = romHash,
+            activeRomSha256 = romHash,
             profileVerified = profile.isVerified,
             memoryLayoutVerified = profile.memoryLayoutVerified,
             profileSha256Hashes = profile.sha256Hashes
         )
+
+    private val hnsProfile by lazy {
+        RomHackProfile(
+            id = "heart_and_soul",
+            name = "Pokemon Heart & Soul",
+            baseGame = "Emerald",
+            gameId = 8,
+            developer = "Lil Dill / PokemonHnS-Development",
+            engine = "pokeemerald-expansion",
+            hasEvs = true,
+            hasIvs = true,
+            hasPhysSpecSplit = true,
+            steelResistsGhostDark = false,
+            cfruOffsets = false,
+            playerPartyOffset = 33769316,
+            enemyPartyOffset = 33768116,
+            docsUrl = "https://pokemonhns-development.github.io/pokehns-expansion-documentation/",
+            headerTitles = listOf("HEARTSOUL", "HNS", "POKEHNS", "HEART", "SOUL"),
+            sha256Hashes = listOf(bundledHnsHash),
+            isVerified = true,
+            interactiveControlsVerified = false,
+            memoryLayoutVerified = true,
+            battleStateReadVerified = true,
+            battleUiVerified = false,
+            gameDataPackId = "hns_2_0_5",
+        )
+    }
+
+    private val hnsTrust by lazy { exactTrust(hnsProfile, romHash = bundledHnsHash) }
+
+    private fun hnsSettings(optionStyle: Int = 0, fairyTypesEnabled: Boolean = true) = HnsChallengeSettingsSnapshot(
+        status = HnsChallengeSettingsStatus.OBSERVED,
+        optionStyle = HnsChallengeField(true, optionStyle, false),
+        txModeFairyTypes = HnsChallengeField(true, if (fairyTypesEnabled) 1 else 0, false),
+        txRandomType = HnsChallengeField(true, 0, false),
+        txRandomTypeEffectiveness = HnsChallengeField(true, 0, false),
+        txRandomAbilities = HnsChallengeField(true, 0, false),
+        txRandomMoves = HnsChallengeField(true, 0, false),
+        txChallengesNoEvs = HnsChallengeField(true, 0, false),
+        txChallengesBaseStatEqualizer = HnsChallengeField(true, 0, false),
+        txChallengesMirror = HnsChallengeField(true, 0, false),
+        txChallengesMirrorThief = HnsChallengeField(true, 0, false),
+        txChallengesTrainerScalingIvs = HnsChallengeField(true, 0, false),
+        txChallengesTrainerScalingEvs = HnsChallengeField(true, 0, false),
+        txChallengesMaxPartyIvs = HnsChallengeField(true, 0, false),
+        txModeSturdy = HnsChallengeField(true, 1, false),
+        txChallengesLevelCap = HnsChallengeField(true, 0, false),
+        txChallengesExpMultiplier = HnsChallengeField(true, 0, false),
+        txModeLegendaryAbilities = HnsChallengeField(true, 1, false)
+    )
+
+    private fun hnsBattler(
+        partySlot: Int,
+        battlerIndex: Int,
+        typeIds: List<Int>,
+        abilityId: Int = 0,
+        abilityName: String = "None",
+        itemId: Int = 0,
+        battlersCount: Int = 2,
+        hp: Int = 20,
+        maxHp: Int = 20
+    ) = BattlerRuntimeObservation(
+        state = HnsBattlerRuntimeState(
+            status = HnsBattlerRuntimeStatus.OBSERVED,
+            battlerIndex = battlerIndex,
+            partySlot = partySlot,
+            abilityId = abilityId,
+            abilityOutOfDomain = false,
+            types = typeIds.map { HnsBattlerTypeObservation(observed = true, raw = it, outOfDomain = false) },
+            itemId = itemId,
+            itemOutOfDomain = false,
+            statsObserved = true,
+            rawAttack = 45,
+            rawDefense = 35,
+            rawSpeed = 30,
+            rawSpAttack = 40,
+            rawSpDefense = 40,
+            stagesObserved = true,
+            statStages = List(8) { 0 },
+            badgesObserved = true,
+            badgeBoostAtk = false,
+            badgeBoostDef = false,
+            badgeBoostSpe = false,
+            badgeBoostSpa = false,
+            badgeBoostSpd = false,
+            rawBadgesByte = 0,
+            absentBattlerFlags = 0,
+            absentFlagsReadable = true,
+            battlersCount = battlersCount,
+            battlersCountReadable = true,
+            hpObserved = true,
+            hp = hp,
+            maxHp = maxHp,
+            statusObserved = true,
+            status1 = 0,
+            volatilesObserved = true,
+            transientVolatilesObserved = true,
+            persistentVolatilesObserved = true,
+            gimmickObserved = true,
+            activeGimmick = 0,
+            fieldStatusesReadable = true,
+            fieldStatuses = 0,
+            weatherReadable = true,
+            battleWeather = 0,
+            sideStatusesReadable = true,
+            sideStatuses = 0
+        ),
+        abilityIdentity = if (abilityId == 0) DeclaredAbility.EmptySlot else DeclaredAbility.Declared(abilityId, abilityName)
+    )
+
+    private fun hnsContext(
+        optionStyle: Int = 0,
+        playerAbilityId: Int = 0,
+        playerAbilityName: String = "None",
+        playerItemId: Int = 0,
+        fairyTypesEnabled: Boolean = true,
+        battlersCount: Int = 2,
+        playerObservation: BattlerRuntimeObservation? = null,
+        enemyObservation: BattlerRuntimeObservation? = null
+    ): BattleHnsCalculationContext {
+        val party = listOf(createTestPokemon(species = 152, moves = intArrayOf(33, 129, 0, 0), pp = intArrayOf(35, 25, 0, 0)))
+        return BattleHnsCalculationContext(
+            playerParty = party,
+            activePlayerSlot = 0,
+            activeEnemySlot = 0,
+            challengeSettings = hnsSettings(optionStyle, fairyTypesEnabled),
+            playerBattlerState = playerObservation ?: hnsBattler(
+                partySlot = 0,
+                battlerIndex = 0,
+                typeIds = listOf(13), // Grass
+                abilityId = playerAbilityId,
+                abilityName = playerAbilityName,
+                itemId = playerItemId,
+                battlersCount = battlersCount
+            ),
+            enemyBattlerState = enemyObservation ?: hnsBattler(
+                partySlot = 0,
+                battlerIndex = 1,
+                typeIds = listOf(1, 3), // Normal / Flying
+                battlersCount = battlersCount
+            ),
+            activeBattle = true
+        )
+    }
+
+    private fun buildHnsPresentation(
+        moveId: Int,
+        context: BattleHnsCalculationContext,
+        calculator: BattleDamageCalculator = BattleDamageCalculator { request ->
+            DamageCalculationResponse(
+                success = true,
+                minDamage = 8,
+                maxDamage = 12,
+                range = listOf(8, 10, 12),
+                moveCategory = request.moveOverride?.category ?: "Physical"
+            )
+        },
+        defender: ParsedPokemon = createTestPokemon(species = 16, nickname = "Pidgey")
+    ): MovePresentation {
+        val attacker = context.playerParty[context.activePlayerSlot]
+        val pack = GameDataPackRegistry.getForProfile(
+            hnsProfile.engine,
+            hnsProfile.hasPhysSpecSplit,
+            hnsProfile.gameDataPackId
+        )
+        return BattlePresentationBuilder.build(
+            moveInfo = MoveDatabase.get(moveId, pack),
+            currentPp = attacker.pp.firstOrNull(),
+            attacker = attacker,
+            defender = defender,
+            profile = hnsProfile,
+            runtimeTrust = hnsTrust,
+            calculator = calculator,
+            attackerStages = StatStages(),
+            defenderStages = StatStages(),
+            hnsCalculationContext = context
+        )
+    }
 
     // 1. Move metadata unavailable / fallback behavior
     @Test
@@ -282,7 +476,7 @@ class BattleConsoleTest {
 
         // Known type matchup: Water vs Fire/Flying = 2x, with conservative data confidence.
         val (effLabel, confidence) = MoveEffectiveness.evaluate(waterGun.id, waterGun.category, defender, RomHackProfile.DEFAULT_FIRERED)
-        assertEquals(EffectivenessLabel.SUBSTANTIAL, effLabel)
+        assertEquals(EffectivenessLabel.SUPER_EFFECTIVE, effLabel)
         // Water Gun falls through the shared database; the Gen 3 pack exposes the value for
         // presentation but does not claim it is an explicitly verified Gen 3 entry.
         assertEquals(DataConfidence.ESTIMATE, confidence)
@@ -307,6 +501,22 @@ class BattleConsoleTest {
         assertEquals(EffectivenessLabel.NEUTRAL, steelGen6Label)
     }
 
+    @Test
+    fun effectivenessUsesNaturalPokemonLanguageAtTwoAndFourTimes() {
+        val twoTimes = MoveEffectiveness.confidence(
+            moveType = PokemonType.WATER,
+            defenderType1 = PokemonType.FIRE
+        )
+        val fourTimes = MoveEffectiveness.confidence(
+            moveType = PokemonType.WATER,
+            defenderType1 = PokemonType.FIRE,
+            defenderType2 = PokemonType.GROUND
+        )
+
+        assertEquals("Super Effective (2x)", twoTimes?.displayName)
+        assertEquals("Extremely Effective (4x)", fourTimes?.displayName)
+    }
+
     // 5. Damage confidence
     @Test
     fun testDamageConfidence() {
@@ -329,6 +539,37 @@ class BattleConsoleTest {
         assertFalse(verifiedPres.hasDamage)
         assertEquals(40, verifiedPres.minDamage)
         assertEquals(48, verifiedPres.maxDamage)
+
+        val context = hnsContext()
+        val fireRedWithLiveSnapshots = BattlePresentationBuilder.build(
+            moveInfo = firePunch,
+            currentPp = 15,
+            attacker = attacker,
+            defender = defender,
+            profile = RomHackProfile.DEFAULT_FIRERED,
+            calculator = stubCalculator,
+            hnsCalculationContext = context
+        )
+        assertEquals(verifiedPres, fireRedWithLiveSnapshots)
+
+        val emerald = RomHackProfile.DEFAULT_FIRERED.copy(
+            id = "vanilla_emerald_test",
+            name = "Pokemon Emerald",
+            baseGame = "Emerald",
+            gameId = 3
+        )
+        val emeraldPres = BattlePresentationBuilder.build(
+            moveInfo = firePunch,
+            currentPp = 15,
+            attacker = attacker,
+            defender = defender,
+            profile = emerald,
+            calculator = stubCalculator,
+            hnsCalculationContext = context
+        )
+        assertEquals(DamageConfidence.ESTIMATE, emeraldPres.damageConfidence)
+        assertEquals(verifiedPres.minDamage, emeraldPres.minDamage)
+        assertEquals(verifiedPres.maxDamage, emeraldPres.maxDamage)
 
         // Split/CFRU profile: Gen 3 calc cannot produce verified range
         val hackPres = BattlePresentationBuilder.build(
@@ -363,6 +604,241 @@ class BattleConsoleTest {
             calculator = stubCalculator
         )
         assertEquals(DamageConfidence.UNAVAILABLE, noDefPres.damageConfidence)
+    }
+
+    @Test
+    fun exactHnsBattlePresentationExecutesOnlyBoundaryAuthorizedEstimatedRequests() {
+        val sentRequests = mutableListOf<DamageCalculationRequest>()
+        val calculator = BattleDamageCalculator { request ->
+            sentRequests += request
+            DamageCalculationResponse(
+                success = true,
+                minDamage = 10,
+                maxDamage = 14,
+                range = listOf(10, 12, 14),
+                moveCategory = request.moveOverride?.category ?: "Physical"
+            )
+        }
+        val supportedContext = hnsContext()
+        val attacker = supportedContext.playerParty[0]
+        val defender = createTestPokemon(species = 16, nickname = "Pidgey")
+        val supported = buildHnsPresentation(33, supportedContext, calculator)
+
+        assertEquals(DamageConfidence.ESTIMATE, supported.damageConfidence)
+        assertEquals(CalcSupport.ESTIMATED, supported.calculatorSupport)
+        assertTrue(supported.minDamage > 0)
+        assertTrue(supported.maxDamage >= supported.minDamage)
+        assertEquals(MoveCategory.PHYSICAL, supported.category)
+        assertEquals(1, sentRequests.size)
+        assertEquals("hns_2_0_5", sentRequests.single().typeSystem)
+        assertEquals("Tackle", sentRequests.single().move.name)
+        assertEquals(CalcSupport.ESTIMATED, supported.calculatorSupport)
+        assertFalse(supported.damageConfidence == DamageConfidence.VERIFIED)
+
+        // A runtime ability change invalidates the presentation key and the production boundary
+        // refuses the new state instead of retaining the prior neutral-state range.
+        val changedContext = hnsContext(playerAbilityId = 62, playerAbilityName = "Guts")
+        val oldKey = BattleMovePresentationCacheKey.from(
+            attacker, defender, hnsProfile, hnsTrust, StatStages(), StatStages(), supportedContext
+        )
+        val changedKey = BattleMovePresentationCacheKey.from(
+            attacker, defender, hnsProfile, hnsTrust, StatStages(), StatStages(), changedContext
+        )
+        assertNotEquals(oldKey, changedKey)
+
+        val refused = buildHnsPresentation(33, changedContext, calculator)
+        assertEquals(DamageConfidence.UNAVAILABLE, refused.damageConfidence)
+        assertTrue(refused.damageLimitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertEquals("Ability effect not modelled", refused.damageUnavailableReason)
+        assertEquals("the refusal must never reach the calculator", 1, sentRequests.size)
+    }
+
+    @Test
+    fun hnsThirdSlotMysteryIsIgnoredForLiveDamageAndEffectiveness() {
+        val sentRequests = mutableListOf<DamageCalculationRequest>()
+        val calculator = BattleDamageCalculator { request ->
+            sentRequests += request
+            DamageCalculationResponse(
+                success = true,
+                minDamage = 10,
+                maxDamage = 14,
+                range = listOf(10, 12, 14),
+                moveCategory = request.moveOverride?.category ?: "Physical"
+            )
+        }
+        // These are the raw H&S engine tuples observed for Chikorita and Hoothoot. Slot 2's
+        // Mystery is the engine's ordinary no-added-third-type state.
+        val realRuntimeTuples = hnsContext().copy(
+            playerBattlerState = hnsBattler(0, 0, listOf(13, 13, 10)), // Chikorita: Grass/Grass/Mystery
+            enemyBattlerState = hnsBattler(0, 1, listOf(1, 3, 10)) // Hoothoot: Normal/Flying/Mystery
+        )
+
+        val supported = buildHnsPresentation(33, realRuntimeTuples, calculator)
+        assertEquals(DamageConfidence.ESTIMATE, supported.damageConfidence)
+        assertEquals("Normal", supported.typeName)
+        assertEquals("Neutral (1x)", supported.effectiveness)
+        assertEquals(1, sentRequests.size)
+
+        // A real third type remains unrepresentable. Neither the calculator nor effectiveness
+        // presentation may silently truncate it to the first two slots.
+        val thirdType = buildHnsPresentation(
+            33,
+            hnsContext().copy(
+                playerBattlerState = hnsBattler(0, 0, listOf(13, 13, 10)),
+                enemyBattlerState = hnsBattler(0, 1, listOf(1, 3, 12)) // Normal/Flying/Water
+            ),
+            calculator
+        )
+        assertEquals(DamageConfidence.UNAVAILABLE, thirdType.damageConfidence)
+        assertTrue(thirdType.damageLimitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED))
+        assertEquals(MoveEffectiveness.UNAVAILABLE, thirdType.effectiveness)
+        assertEquals("a refused third type must never reach the calculator", 1, sentRequests.size)
+    }
+
+    @Test
+    fun hnsBattlePresentationKeepsRepresentativeBoundaryRefusalsClosed() {
+        val calculatorCalls = mutableListOf<DamageCalculationRequest>()
+        val calculator = BattleDamageCalculator { request ->
+            calculatorCalls += request
+            DamageCalculationResponse(success = true, minDamage = 5, maxDamage = 7, range = listOf(5, 7))
+        }
+
+        val doubles = buildHnsPresentation(33, hnsContext(battlersCount = 4), calculator)
+        assertEquals(DamageConfidence.UNAVAILABLE, doubles.damageConfidence)
+        assertTrue(doubles.damageLimitations.contains(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED))
+        assertEquals("Doubles not supported", doubles.damageUnavailableReason)
+
+        val unsupportedItem = buildHnsPresentation(33, hnsContext(playerItemId = 426), calculator)
+        assertEquals(DamageConfidence.UNAVAILABLE, unsupportedItem.damageConfidence)
+        assertTrue(unsupportedItem.damageLimitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals("Item effect not modelled", unsupportedItem.damageUnavailableReason)
+
+        val missingPlayerState = hnsBattler(0, 0, listOf(13)).copy(
+            state = hnsBattler(0, 0, listOf(13)).state.copy(status = HnsBattlerRuntimeStatus.UNAVAILABLE)
+        )
+        val incomplete = buildHnsPresentation(
+            33,
+            hnsContext(playerObservation = missingPlayerState),
+            calculator
+        )
+        assertEquals(DamageConfidence.UNAVAILABLE, incomplete.damageConfidence)
+        assertTrue(incomplete.damageLimitations.isNotEmpty())
+        assertEquals("Live battle state incomplete", incomplete.damageUnavailableReason)
+        assertTrue("only the supported control may execute", calculatorCalls.isEmpty())
+    }
+
+    @Test
+    fun hnsBattleCardCategoryMatchesTheAuthorizedRequestInBothOptionStyles() {
+        val requests = mutableListOf<DamageCalculationRequest>()
+        val calculator = BattleDamageCalculator { request ->
+            requests += request
+            val category = request.moveOverride?.category ?: "Physical" // Swift is Normal under TYPE_BASED.
+            DamageCalculationResponse(
+                success = true,
+                minDamage = 7,
+                maxDamage = 11,
+                range = listOf(7, 11),
+                moveCategory = category
+            )
+        }
+
+        val perMove = buildHnsPresentation(129, hnsContext(optionStyle = 0), calculator) // Swift: per-move Special.
+        assertEquals(MoveCategory.SPECIAL, perMove.category)
+        assertEquals("Special", requests[0].moveOverride?.category)
+        assertEquals(CalcSupport.ESTIMATED, perMove.calculatorSupport)
+
+        val typeBased = buildHnsPresentation(129, hnsContext(optionStyle = 1), calculator)
+        assertEquals(MoveCategory.PHYSICAL, typeBased.category)
+        assertNull(requests[1].moveOverride?.category)
+        assertEquals("Normal", requests[1].moveOverride?.type)
+        assertEquals(CalcSupport.ESTIMATED, typeBased.calculatorSupport)
+
+        val electrifiedObservation = hnsBattler(0, 0, listOf(13)).copy(
+            state = hnsBattler(0, 0, listOf(13)).state.copy(volatileElectrified = true)
+        )
+        val electrified = buildHnsPresentation(
+            129,
+            hnsContext(optionStyle = 1, playerObservation = electrifiedObservation),
+            calculator
+        )
+        assertEquals("Electrify changes the type-based category to Electric/Special", MoveCategory.SPECIAL, electrified.category)
+        assertEquals(DamageConfidence.UNAVAILABLE, electrified.damageConfidence)
+
+        val unreadVolatileObservation = hnsBattler(0, 0, listOf(13)).copy(
+            state = hnsBattler(0, 0, listOf(13)).state.copy(volatilesObserved = false)
+        )
+        val categoryUnknown = buildHnsPresentation(
+            129,
+            hnsContext(optionStyle = 1, playerObservation = unreadVolatileObservation),
+            calculator
+        )
+        assertNull("an unreadable dynamic type must not fall back to the static category", categoryUnknown.category)
+
+        val statusMove = buildHnsPresentation(14, hnsContext(optionStyle = 1), calculator)
+        assertEquals(MoveCategory.STATUS, statusMove.category)
+        assertEquals(DamageConfidence.UNAVAILABLE, statusMove.damageConfidence)
+    }
+
+    @Test
+    fun fairyOffHnsBattleCardUsesTheEffectiveMoveAndDefenderTypes() {
+        val pack = GameDataPackRegistry.getForProfile(
+            hnsProfile.engine,
+            hnsProfile.hasPhysSpecSplit,
+            hnsProfile.gameDataPackId
+        )
+        val dazzlingGleam = requireNotNull(pack.getMoveByName("Dazzling Gleam"))
+        val gengar = requireNotNull(pack.getSpeciesByName("Gengar"))
+        val dazzlingRequests = mutableListOf<DamageCalculationRequest>()
+        val fairyOffMoveContext = hnsContext(optionStyle = 1, fairyTypesEnabled = false).copy(
+            playerParty = listOf(createTestPokemon(
+                species = 152,
+                moves = intArrayOf(dazzlingGleam.id, 0, 0, 0),
+                pp = intArrayOf(10, 0, 0, 0)
+            )),
+            enemyBattlerState = hnsBattler(partySlot = 0, battlerIndex = 1, typeIds = listOf(8, 4))
+        )
+        val dazzlingPresentation = buildHnsPresentation(
+            moveId = dazzlingGleam.id,
+            context = fairyOffMoveContext,
+            calculator = BattleDamageCalculator { request ->
+                dazzlingRequests += request
+                DamageCalculationResponse(success = false, error = "fixture response")
+            },
+            defender = createTestPokemon(species = gengar.id, nickname = "Gengar")
+        )
+
+        assertEquals("Normal", dazzlingPresentation.typeName)
+        assertEquals("No Effect (0x)", dazzlingPresentation.effectiveness)
+        assertEquals(MoveCategory.PHYSICAL, dazzlingPresentation.category)
+        assertEquals(1, dazzlingRequests.size)
+        assertEquals("Normal", dazzlingRequests.single().moveOverride?.type)
+        assertNull(dazzlingRequests.single().moveOverride?.category)
+        assertEquals(listOf("Ghost", "Poison"), dazzlingRequests.single().defenderOverride?.types)
+
+        val darkPulse = requireNotNull(pack.getMoveByName("Dark Pulse"))
+        val clefable = requireNotNull(pack.getSpeciesByName("Clefable"))
+        val defenderRequests = mutableListOf<DamageCalculationRequest>()
+        val fairyOffDefenderContext = hnsContext(optionStyle = 0, fairyTypesEnabled = false).copy(
+            playerParty = listOf(createTestPokemon(
+                species = 152,
+                moves = intArrayOf(darkPulse.id, 0, 0, 0),
+                pp = intArrayOf(15, 0, 0, 0)
+            )),
+            enemyBattlerState = hnsBattler(partySlot = 0, battlerIndex = 1, typeIds = listOf(1))
+        )
+        val defenderPresentation = buildHnsPresentation(
+            moveId = darkPulse.id,
+            context = fairyOffDefenderContext,
+            calculator = BattleDamageCalculator { request ->
+                defenderRequests += request
+                DamageCalculationResponse(success = false, error = "fixture response")
+            },
+            defender = createTestPokemon(species = clefable.id, nickname = "Clefable")
+        )
+
+        assertEquals("Dark", defenderPresentation.typeName)
+        assertEquals("Neutral (1x)", defenderPresentation.effectiveness)
+        assertEquals(listOf("Normal"), defenderRequests.single().defenderOverride?.types)
     }
 
     // 6. Battle false while party remains populated

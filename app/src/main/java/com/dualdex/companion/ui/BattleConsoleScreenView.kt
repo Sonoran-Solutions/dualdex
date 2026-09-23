@@ -13,6 +13,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.dualdex.battle.*
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.calculator.CalcSupport
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.MoveDatabase
 import com.dualdex.pokemon.ParsedPokemon
@@ -123,12 +124,8 @@ class BattleConsoleScreenView(
     private var viewScope: CoroutineScope? = null
     private var calculationJob: Job? = null
     private val damageCalculator: BattleDamageCalculator = CachingBattleDamageCalculator()
-
-    private var lastAttacker: ParsedPokemon? = null
-    private var lastDefender: ParsedPokemon? = null
-    private var lastProfile: RomHackProfile? = null
-    private var lastPlayerStages: StatStages? = null
-    private var lastEnemyStages: StatStages? = null
+    private var lastMovePresentationKey: BattleMovePresentationCacheKey? = null
+    private var latestMovePresentationKey: BattleMovePresentationCacheKey? = null
     private var lastCachedMoves: List<MovePresentation> = emptyList()
 
     init {
@@ -777,6 +774,9 @@ class BattleConsoleScreenView(
         scope.launch { viewModel.runtimeRomTrust.collectLatest { refreshUI() } }
         scope.launch { viewModel.playerStatStages.collectLatest { refreshUI() } }
         scope.launch { viewModel.enemyStatStages.collectLatest { refreshUI() } }
+        scope.launch { viewModel.challengeSettings.collectLatest { refreshUI() } }
+        scope.launch { viewModel.playerBattlerState.collectLatest { refreshUI() } }
+        scope.launch { viewModel.enemyBattlerState.collectLatest { refreshUI() } }
         scope.launch { viewModel.battleUiSnapshot.collectLatest { refreshUI() } }
     }
 
@@ -813,6 +813,9 @@ class BattleConsoleScreenView(
         val runtimeTrust = viewModel.runtimeRomTrust.value
         val playerStages = viewModel.playerStatStages.value
         val enemyStages = viewModel.enemyStatStages.value
+        val challengeSettings = viewModel.challengeSettings.value
+        val playerBattlerState = viewModel.playerBattlerState.value
+        val enemyBattlerState = viewModel.enemyBattlerState.value
         val uiSnap = viewModel.battleUiSnapshot.value
 
         val attacker: ParsedPokemon? = if (inBattle) {
@@ -829,8 +832,18 @@ class BattleConsoleScreenView(
             null
         }
 
+        val hnsCalculationContext = BattleHnsCalculationContext(
+            playerParty = party.toList(),
+            activePlayerSlot = activePlayerIdx,
+            activeEnemySlot = activeEnemyIdx.takeIf { enemyResolution.hasResolvedSlot },
+            challengeSettings = challengeSettings,
+            playerBattlerState = playerBattlerState,
+            enemyBattlerState = enemyBattlerState,
+            activeBattle = inBattle
+        )
+
         // Cache-aware move presentation calculation
-        ensureMovePresentations(attacker, defender, profile, runtimeTrust, playerStages, enemyStages)
+        ensureMovePresentations(attacker, defender, profile, runtimeTrust, playerStages, enemyStages, hnsCalculationContext)
 
         if (!inBattle || attacker == null) {
             val (title, detail) = if (runtimeTrust.hasActiveRom && !runtimeTrust.mayReadLiveMemory) {
@@ -992,19 +1005,21 @@ class BattleConsoleScreenView(
             holder.categoryView.text = pres.categoryDisplay
 
             // Damage range & percentage
+            val estimateSuffix = if (pres.calculatorSupport == CalcSupport.ESTIMATED) " · Estimate" else ""
             val damageText = when {
                 pres.isStatMove -> "Status move"
                 pres.maxDamage > 0 && defender != null && defender.maxHp > 0 -> {
                     val minPct = (pres.minDamage * 100) / defender.maxHp
                     val maxPct = (pres.maxDamage * 100) / defender.maxHp
                     "${pres.minDamage}–${pres.maxDamage} HP · $minPct–$maxPct%" +
-                            if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else ""
+                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix
                 }
                 pres.maxDamage > 0 -> {
                     "${pres.minDamage}–${pres.maxDamage} HP" +
-                            if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else ""
+                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix
                 }
-                pres.damageConfidence == DamageConfidence.UNAVAILABLE -> "Damage unavailable"
+                pres.damageConfidence == DamageConfidence.UNAVAILABLE ->
+                    "Damage unavailable" + pres.damageUnavailableReason?.let { " · $it" }.orEmpty()
                 else -> pres.damageDisplayText
             }
             holder.damageView.text = damageText
@@ -1276,30 +1291,43 @@ class BattleConsoleScreenView(
         profile: RomHackProfile,
         runtimeTrust: com.dualdex.romhack.RuntimeRomTrust,
         playerStages: StatStages,
-        enemyStages: StatStages
+        enemyStages: StatStages,
+        hnsCalculationContext: BattleHnsCalculationContext
     ) {
         if (attacker == null || attacker.isEmpty) {
             calculationJob?.cancel()
             lastCachedMoves = emptyList()
-            lastAttacker = null
-            lastDefender = null
-            lastProfile = null
-            lastPlayerStages = null
-            lastEnemyStages = null
+            lastMovePresentationKey = null
+            latestMovePresentationKey = null
             return
         }
 
-        if (attacker == lastAttacker && defender == lastDefender && profile == lastProfile &&
-            playerStages == lastPlayerStages && enemyStages == lastEnemyStages && lastCachedMoves.isNotEmpty()) {
+        val key = BattleMovePresentationCacheKey.from(
+            attacker = attacker,
+            defender = defender,
+            profile = profile,
+            runtimeTrust = runtimeTrust,
+            playerStages = playerStages,
+            enemyStages = enemyStages,
+            context = hnsCalculationContext
+        )
+        if (key == lastMovePresentationKey) {
+            return
+        }
+        if (key == latestMovePresentationKey && calculationJob?.isActive == true) {
             return
         }
 
+        latestMovePresentationKey = key
+        // Do not leave a previous frame's range or category visible while the new live state is
+        // being prepared. refreshUI binds this empty list before the background job completes.
+        lastCachedMoves = emptyList()
         calculationJob?.cancel()
         val scope = viewScope ?: CoroutineScope(Dispatchers.Main + SupervisorJob()).also { viewScope = it }
+        val dataPack = viewModel.activeGameDataPack
         calculationJob = scope.launch {
             val presentations = withContext(Dispatchers.Default) {
                 val list = mutableListOf<MovePresentation>()
-                val dataPack = viewModel.activeGameDataPack
                 for (i in attacker.moves.indices) {
                     val moveId = attacker.moves[i]
                     if (moveId <= 0) continue
@@ -1313,17 +1341,15 @@ class BattleConsoleScreenView(
                         runtimeTrust = runtimeTrust,
                         calculator = damageCalculator,
                         attackerStages = playerStages,
-                        defenderStages = enemyStages
+                        defenderStages = enemyStages,
+                        hnsCalculationContext = hnsCalculationContext
                     )
                     list += pres
                 }
                 list
             }
-            lastAttacker = attacker
-            lastDefender = defender
-            lastProfile = profile
-            lastPlayerStages = playerStages
-            lastEnemyStages = enemyStages
+            if (latestMovePresentationKey != key) return@launch
+            lastMovePresentationKey = key
             lastCachedMoves = presentations
 
             if (activeMode == BattleMode.BATTLE) {

@@ -608,6 +608,18 @@ class HnsBattlerRuntimeStateTest {
     }
 
     @Test
+    fun `only third-slot Mystery is normalized as H and S unused typing`() {
+        fun slots(vararg ids: Int) = ids.map {
+            HnsBattlerTypeObservation(observed = true, raw = it, outOfDomain = false)
+        }
+
+        assertEquals(listOf("Grass", "Grass"), normalizeHnsBattlerTypes(slots(13, 13, 10)))
+        assertEquals(listOf("Normal", "Flying"), normalizeHnsBattlerTypes(slots(1, 3, 10)))
+        assertEquals(listOf("Mystery", "Grass"), normalizeHnsBattlerTypes(slots(10, 13, 10)))
+        assertEquals(listOf("Normal", "Flying", "Water"), normalizeHnsBattlerTypes(slots(1, 3, 12)))
+    }
+
+    @Test
     fun `out-of-domain type stays raw and unnamed`() {
         val st = HnsBattlerRuntimeState.fromNativeArray(
             observedTuple(types = listOf(13, HnsBattlerRuntimeStateIds.TYPE_ID_MAX + 1, 0), typesInvalid = 1)

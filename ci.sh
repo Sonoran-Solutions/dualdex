@@ -427,6 +427,12 @@ source_check() {
   python3 tools/hns-move-mechanics/generate_hns_move_effects.py \
     --upstream-dir "$upstream" --verify
 
+  # Reviewed per-ability capability decisions must cover the exact pinned enum
+  # and ability-info table. The generator never infers neutrality from a grep miss.
+  echo "== H&S ability capability audit verification (pinned upstream) =="
+  python3 tools/hns-abilities/generate_hns_ability_audit.py \
+    --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --check
+
   # Regression for the bootstrap's error propagation itself (this is the
   # scenario the regeneration block must guard against: a dev checkout with
   # pre-existing generated headers lets later commands succeed, so an early

@@ -5,6 +5,7 @@ import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.hns.BattlerRuntimeObservation
 import com.dualdex.pokemon.hns.HnsAbilityCategory
 import com.dualdex.pokemon.hns.HnsAbilityRegistry
+import com.dualdex.pokemon.hns.HnsAbilityAuditData
 import com.dualdex.pokemon.hns.HnsBattlerRuntimeState
 import com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
 import com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus
@@ -799,5 +800,33 @@ class CalcHnsAbilityTest {
 
         // Must fail closed to unreadable because abilityId exceeds pinned domain
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
+    }
+    @Test
+    fun `pinned ability domain has a unique classification and consistent numeric lookup`() {
+        val entries = HnsAbilityAuditData.entries
+        assertEquals((0..310).toList(), entries.map { it.abilityId })
+        assertEquals(311, entries.map { it.canonicalName }.toSet().size)
+        entries.forEach { entry ->
+            assertEquals(entry, HnsAbilityRegistry.classify(entry.abilityId))
+            assertEquals(entry.titleCaseName, HnsAbilityRegistry.canonicalTitleCaseName(entry.abilityId))
+            assertEquals(entry, HnsAbilityRegistry.classify(entry.canonicalName))
+            if (entries.count { it.titleCaseName == entry.titleCaseName } == 1) {
+                assertEquals(entry, HnsAbilityRegistry.classify(entry.titleCaseName))
+            }
+        }
+        assertEquals(HnsAbilityCategory.UNCLASSIFIED, HnsAbilityRegistry.classify(311).category)
+    }
+
+    @Test
+    fun `pinned non-damage ability groups are supported while damage modifiers remain refused`() {
+        // Contact status, accuracy, switching, overworld, and status-move priority.
+        listOf(8, 9, 14, 39, 50, 52, 53, 158, 230, 237).forEach { id ->
+            assertEquals("ability $id", HnsAbilityCategory.PROVEN_NO_DAMAGE_EFFECT,
+                HnsAbilityRegistry.classify(id).category)
+        }
+        listOf(37, 47, 62, 74, 91, 168, 262, 282).forEach { id ->
+            assertEquals("ability $id", HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+                HnsAbilityRegistry.classify(id).category)
+        }
     }
 }

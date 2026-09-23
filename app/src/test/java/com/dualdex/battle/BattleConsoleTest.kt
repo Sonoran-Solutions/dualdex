@@ -155,13 +155,14 @@ class BattleConsoleTest {
 
     private val hnsTrust by lazy { exactTrust(hnsProfile, romHash = bundledHnsHash) }
 
-    private fun hnsSettings(optionStyle: Int = 0, fairyTypesEnabled: Boolean = true) = HnsChallengeSettingsSnapshot(
+    private fun hnsSettings(optionStyle: Int = 0, fairyTypesEnabled: Boolean = true,
+                            randomAbilities: Boolean = false) = HnsChallengeSettingsSnapshot(
         status = HnsChallengeSettingsStatus.OBSERVED,
         optionStyle = HnsChallengeField(true, optionStyle, false),
         txModeFairyTypes = HnsChallengeField(true, if (fairyTypesEnabled) 1 else 0, false),
         txRandomType = HnsChallengeField(true, 0, false),
         txRandomTypeEffectiveness = HnsChallengeField(true, 0, false),
-        txRandomAbilities = HnsChallengeField(true, 0, false),
+        txRandomAbilities = HnsChallengeField(true, if (randomAbilities) 1 else 0, false),
         txRandomMoves = HnsChallengeField(true, 0, false),
         txChallengesNoEvs = HnsChallengeField(true, 0, false),
         txChallengesBaseStatEqualizer = HnsChallengeField(true, 0, false),
@@ -241,6 +242,7 @@ class BattleConsoleTest {
         playerAbilityName: String = "None",
         playerItemId: Int = 0,
         fairyTypesEnabled: Boolean = true,
+        randomAbilities: Boolean = false,
         battlersCount: Int = 2,
         playerObservation: BattlerRuntimeObservation? = null,
         enemyObservation: BattlerRuntimeObservation? = null
@@ -250,7 +252,7 @@ class BattleConsoleTest {
             playerParty = party,
             activePlayerSlot = 0,
             activeEnemySlot = 0,
-            challengeSettings = hnsSettings(optionStyle, fairyTypesEnabled),
+            challengeSettings = hnsSettings(optionStyle, fairyTypesEnabled, randomAbilities),
             playerBattlerState = playerObservation ?: hnsBattler(
                 partySlot = 0,
                 battlerIndex = 0,
@@ -649,8 +651,43 @@ class BattleConsoleTest {
         val refused = buildHnsPresentation(33, changedContext, calculator)
         assertEquals(DamageConfidence.UNAVAILABLE, refused.damageConfidence)
         assertTrue(refused.damageLimitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
-        assertEquals("Ability effect not modelled", refused.damageUnavailableReason)
+        assertEquals("Your Guts not modelled", refused.damageUnavailableReason)
         assertEquals("the refusal must never reach the calculator", 1, sentRequests.size)
+    }
+
+    @Test
+    fun randomAbilityUsesObservedEffectiveIdAndNamesTheBlockingSide() {
+        val sent = mutableListOf<DamageCalculationRequest>()
+        val calculator = BattleDamageCalculator { request ->
+            sent += request
+            DamageCalculationResponse(success = true, minDamage = 8, maxDamage = 12,
+                range = listOf(8, 10, 12), moveCategory = "Physical")
+        }
+        // Chikorita normally has Overgrow. The observed randomized Static ID wins.
+        val safe = hnsContext(playerAbilityId = 9, playerAbilityName = "Static", randomAbilities = true)
+        val estimated = buildHnsPresentation(33, safe, calculator)
+        assertEquals(DamageConfidence.ESTIMATE, estimated.damageConfidence)
+        assertEquals(1, sent.size)
+        assertEquals(9, sent.single().attacker.abilityId)
+
+        val harmful = hnsContext(playerAbilityId = 62, playerAbilityName = "Guts", randomAbilities = true)
+        val refused = buildHnsPresentation(33, harmful, calculator)
+        assertEquals(DamageConfidence.UNAVAILABLE, refused.damageConfidence)
+        assertEquals("Your Guts not modelled", refused.damageUnavailableReason)
+        assertEquals(1, sent.size)
+
+        val defenderHarmful = hnsContext(playerAbilityId = 9, playerAbilityName = "Static", randomAbilities = true,
+            enemyObservation = hnsBattler(0, 1, listOf(1, 3), 26, "Levitate"))
+        val opponentRefused = buildHnsPresentation(33, defenderHarmful, calculator)
+        assertEquals(DamageConfidence.UNAVAILABLE, opponentRefused.damageConfidence)
+        assertEquals("Opponent's Levitate not modelled", opponentRefused.damageUnavailableReason)
+        assertEquals(1, sent.size)
+
+        val unresolved = buildHnsPresentation(33,
+            hnsContext(playerAbilityId = 80, playerAbilityName = "Steadfast", randomAbilities = true), calculator)
+        assertEquals(DamageConfidence.UNAVAILABLE, unresolved.damageConfidence)
+        assertEquals("Your Steadfast not yet audited", unresolved.damageUnavailableReason)
+        assertEquals(1, sent.size)
     }
 
     @Test

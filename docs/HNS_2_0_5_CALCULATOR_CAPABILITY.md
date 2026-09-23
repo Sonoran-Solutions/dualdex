@@ -1,5 +1,57 @@
 # H&S 2.0.5 calculator capability matrix (issue #9)
 
+## Pinned ability audit (Random Abilities)
+
+The exact `Release-v2.0.5` source at commit
+`1f42b74dff0e9fe942419845d040663dd829a973` defines **311 ability IDs (0–310)**.
+The reviewed inventory is
+[`tools/hns-abilities/ability_inventory.tsv`](../tools/hns-abilities/ability_inventory.tsv):
+each row records the numeric ID, enum symbol, pinned display name, category before this
+audit, proposed category, source references, pinned description, and reviewer rationale.
+`decisions.json` is the explicit manual decision input. The generator validates the enum
+and `gAbilitiesInfo` with the pinned source, writes the inventory and Kotlin registry,
+and its `--check` mode runs in `./ci.sh source-check`. Missing/extra IDs, changed
+names, duplicate IDs or symbols, and a decision for an absent ID fail the check.
+Source references are an index for review, never automatic proof of neutrality.
+
+| Category | IDs |
+|---|---:|
+| `PROVEN_NO_DAMAGE_EFFECT` | 85 |
+| `MODELLED_EQUIVALENT` | 0 |
+| `MODELLED_HNS_SPECIFIC` | 0 |
+| `MODELLED_HNS_CONDITIONAL` | 4 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 218 |
+| `UNCLASSIFIED` | 4 |
+
+The audit follows the ordinary `EFFECT_HIT` dependency path through attack and defense
+stats, base power, final modifiers, STAB, type effectiveness, effective battler and
+move types, weather, field and side states, critical hits, status, HP thresholds,
+held items, partner effects, grounding, and effective ability replacement. Principal
+pinned paths include `src/battle_util.c` (`CalcAttackStat`, `CalcDefenseStat`,
+`CalcMoveBasePowerAfterModifiers`, `CalcFinalDmg`, and `GetBattleMoveType`),
+`src/battle_main.c`, `src/battle_move_resolution.c`, `src/battle_script_commands.c`,
+`src/battle_end_turn.c`, and `src/data/abilities.h`. A source description or a
+missing symbol in one function is insufficient proof. The current live-operand and
+ordinary-move gates remain in force: a neutral ability does not authorize an
+unsupported move, item, field, Doubles state, or random type setting.
+
+New neutral examples include Static (post-hit contact status), Compound Eyes and
+Sand Veil (accuracy/evasion), Inner Focus (flinch prevention), Hyper Cutter and
+Full Metal Body (stat-drop prevention with live stages), Run Away (escape),
+Pickup and Ball Fetch (overworld/after-battle), and Prankster (status-move priority). Guts, Huge
+Power, Thick Fat, Pure Power, Levitate, Adaptability, Protean, Transistor, and
+Quark Drive remain refused. Speed Boost, Steadfast, Pickpocket, and Stamina
+remain unresolved and refused. No new contextual irrelevance rule was added;
+the existing pinch-ability defender and wrong-move-type checks remain.
+
+In Random Abilities battles, the boundary takes the effective numeric ID from
+`gBattleMons[battler].ability` (or observed suppression), checks the matched live
+slot and identity, and never grants capability from the species default. The
+Battle tab names a blocking observed ability, for example “Your Guts not
+modelled” or “Opponent's Levitate not modelled”; an unresolved ID says “not yet
+audited”. The exact `CalcLimitation` stays `HNS_ABILITY_EFFECT_NOT_MODELLED`
+and a refusal never reaches the calculator.
+
 This document is the **authority** for what DualDex's damage calculator may honestly claim about
 Pokemon Heart & Soul (H&S) 2.0.5, and for how the two verified vanilla targets differ from it.
 
@@ -156,8 +208,8 @@ Only these individual behaviours are source-and-test demonstrated:
 | Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack/spAttack stat in `calculateHnsDamage` | **HOST-ORACLE MATCHES (Gap C4b partial / open)** |
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
 | Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
-| Abilities (supported subset) | Keen Eye, Insomnia, None, Thick Fat, Guts, Huge Power | H&S UQ4.12 pipeline in `calculateHnsDamage` | **HOST-ORACLE MATCHES (Gap C2 closed; Gap C4b partial / open)** — exact formula and stage interaction executed; unmodelled/divergent abilities fail-closed via `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
-| Abilities (unsupported) | starter pinch abilities, modern abilities | not modelled | **does not match** — blocked fail-closed by `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
+| Abilities (supported subset) | 85 proven neutral abilities and 4 conditional pinch abilities | Neutral abilities add no modifier; pinch uses the H&S UQ4.12 pipeline | **CONDITIONALLY AUTHORIZED** under the live operand gates (§14.6 and pinned audit above) |
+| Abilities (unsupported) | Guts, Thick Fat, Huge Power, Pure Power, modern modifiers | not modelled | **does not match** — blocked fail-closed by `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
 | Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items | identity consumed; no damage item modelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — `ITEM_NONE` and a small source-proven no-ordinary-damage set clear the item blockers only for an item-independent move; every damage-relevant item fails closed with `HNS_ITEM_EFFECT_NOT_MODELLED`; every item-dependent move fails closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`; unreadable current item is `HNS_EFFECTIVE_ITEM_UNREADABLE` (§7) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
 
@@ -713,9 +765,9 @@ per-ability capability decision:
 - **Anti-spoofing ownership:** In `CalcRequestBoundary`, caller-supplied abilities on `LIVE_READ` participants
   cannot override or fabricate authoritative observations.
 - **Conditional ability capability (`HnsAbilityRegistry`):**
-  - `PROVEN_NO_DAMAGE_EFFECT` (`ABILITY_NONE`, `KEEN EYE`, `INSOMNIA`): zero move-damage effect in H&S. Cleared with no ability blocker.
-  - `MODELLED_EQUIVALENT` (`GUTS`, `THICK FAT`, `HUGE POWER`, `PURE POWER`): exact arithmetic parity proven against ADV pipeline. Cleared with no ability blocker.
-  - `UNSUPPORTED_DAMAGE_RELEVANT` (`OVERGROW`, `BLAZE`, `TORRENT`, `SWARM`, modern abilities): damage-relevant but divergent or unmodelled. Fails closed with `HNS_ABILITY_EFFECT_NOT_MODELLED`.
+  - `PROVEN_NO_DAMAGE_EFFECT` (`ABILITY_NONE`, `KEEN EYE`, `INSOMNIA`, and the audited neutral set above): zero move-damage effect in H&S. Cleared with no ability blocker.
+  - `MODELLED_HNS_CONDITIONAL` (`OVERGROW`, `BLAZE`, `TORRENT`, `SWARM`): the H&S pinch modifier is modelled; a relevant move requires observed live HP (§14.6).
+  - `UNSUPPORTED_DAMAGE_RELEVANT` (`GUTS`, `THICK FAT`, `HUGE POWER`, `PURE POWER`, modern modifiers): damage-relevant but divergent or unmodelled. Fails closed with `HNS_ABILITY_EFFECT_NOT_MODELLED`.
 - **Default ability substitution prevention:** `@smogon/calc` defaulting to `species.abilities[0]` is prevented
   by setting `options.ability = '(other)'` when ability is omitted, empty, or `"None"` under `typeSystem === 'hns_2_0_5'`.
 - Verified via QuickJS host tests (`native/tests/test_js_calc.c:check_gap_c2_abilities`) and Kotlin unit tests (`CalcHnsAbilityTest.kt`).
@@ -1332,7 +1384,7 @@ following mechanisms. Each is dispositioned for the already-supported ordinary `
 | `ABILITY_LIQUID_VOICE` (sound moves) | attacker ability | Ability unclassified in `HnsAbilityRegistry`; `HNS_ABILITY_EFFECT_NOT_MODELLED` refuses it before the type question. |
 | `EFFECT_AURA_WHEEL` + Morpeko-Hangry | species + ability | Non-`EFFECT_HIT`; refused. |
 | ate-type abilities (`Pixilate`, `Refrigerate`, `Aerilate`, `Galvanize` via `TrySetAteType`, `src/battle_main.c:6128`) | attacker ability | Abilities unclassified; ability gate refuses them. |
-| `ABILITY_NORMALIZE` | attacker ability | Unclassified; ability gate refuses it. |
+| `ABILITY_NORMALIZE` | attacker ability | Damage relevant and unsupported; ability gate refuses it. |
 | **Ion Deluge (`gFieldStatuses & STATUS_FIELD_ION_DELUGE`)** | field status | **Relevant to an otherwise-supported Normal `EFFECT_HIT` move. The field word is not read → FAIL CLOSED.** |
 | **`gBattleMons[battler].volatiles.electrified`** (Electrify) | attacker volatile | **Relevant to ANY otherwise-supported move (the volatile has no type check) → FAIL CLOSED.** |
 | Tera/Dynamax/Z gimmick | `GetActiveGimmick` | Gimmick state is not carried by the request and not read → FAIL CLOSED. |

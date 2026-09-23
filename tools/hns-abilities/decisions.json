@@ -1,0 +1,1230 @@
+{
+  "0": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned battle paths affect no direct-damage operand or modifier; ability identity is read from the live battler."
+  },
+  "15": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned battle paths affect no direct-damage operand or modifier; ability identity is read from the live battler."
+  },
+  "51": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned battle paths affect no direct-damage operand or modifier; ability identity is read from the live battler."
+  },
+  "77": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned battle paths affect no direct-damage operand or modifier; ability identity is read from the live battler."
+  },
+  "1": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "6": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "7": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "12": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "14": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "17": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "19": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "20": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "21": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "23": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "27": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "28": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "29": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "30": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "32": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "35": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "38": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "39": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "40": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "41": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "42": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "46": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "48": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "49": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "50": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "53": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "56": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "60": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "61": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "69": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "71": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "72": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "73": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "75": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a critical-hit, damage, or attack-blocking result; the current calculator does not model that trigger."
+  },
+  "98": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "99": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "100": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned priority effect can change whether a damaging move is blocked by priority-sensitive field/ability rules; current calculator does not model that interaction."
+  },
+  "102": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "105": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a critical-hit, damage, or attack-blocking result; the current calculator does not model that trigger."
+  },
+  "107": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "108": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "115": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "118": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "119": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "123": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "126": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "130": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "131": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "140": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "142": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "143": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "144": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "145": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "147": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "149": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "156": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "158": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "162": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "166": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "175": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "177": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned priority/contact change can alter terrain blocking, contact-dependent damage, or move outcome; no complete model is available."
+  },
+  "193": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "194": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "203": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned priority/contact change can alter terrain blocking, contact-dependent damage, or move outcome; no complete model is available."
+  },
+  "205": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned priority effect can change whether a damaging move is blocked by priority-sensitive field/ability rules; current calculator does not model that interaction."
+  },
+  "212": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "214": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a critical-hit, damage, or attack-blocking result; the current calculator does not model that trigger."
+  },
+  "219": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a critical-hit, damage, or attack-blocking result; the current calculator does not model that trigger."
+  },
+  "237": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "239": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "242": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "253": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "257": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "259": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned priority/contact change can alter terrain blocking, contact-dependent damage, or move outcome; no complete model is available."
+  },
+  "260": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a critical-hit, damage, or attack-blocking result; the current calculator does not model that trigger."
+  },
+  "272": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a critical-hit, damage, or attack-blocking result; the current calculator does not model that trigger."
+  },
+  "275": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a critical-hit, damage, or attack-blocking result; the current calculator does not model that trigger."
+  },
+  "283": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "296": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a critical-hit, damage, or attack-blocking result; the current calculator does not model that trigger."
+  },
+  "298": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "305": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "306": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "310": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+  },
+  "65": {
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Pinned CalcAttackStat pinch modifier is modelled with authoritative live HP; irrelevant defender and wrong-type attacker cases are proven at the request boundary."
+  },
+  "66": {
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Pinned CalcAttackStat pinch modifier is modelled with authoritative live HP; irrelevant defender and wrong-type attacker cases are proven at the request boundary."
+  },
+  "67": {
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Pinned CalcAttackStat pinch modifier is modelled with authoritative live HP; irrelevant defender and wrong-type attacker cases are proven at the request boundary."
+  },
+  "68": {
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Pinned CalcAttackStat pinch modifier is modelled with authoritative live HP; irrelevant defender and wrong-type attacker cases are proven at the request boundary."
+  },
+  "37": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned stat modifier or ability interaction diverges in ordering/rounding from the embedded calculator; fail closed."
+  },
+  "47": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned stat modifier or ability interaction diverges in ordering/rounding from the embedded calculator; fail closed."
+  },
+  "62": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned stat modifier or ability interaction diverges in ordering/rounding from the embedded calculator; fail closed."
+  },
+  "74": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned stat modifier or ability interaction diverges in ordering/rounding from the embedded calculator; fail closed."
+  },
+  "91": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned damage/type/stat modifier is not reproduced by the embedded calculator; fail closed."
+  },
+  "137": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned damage/type/stat modifier is not reproduced by the embedded calculator; fail closed."
+  },
+  "168": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned damage/type/stat modifier is not reproduced by the embedded calculator; fail closed."
+  },
+  "255": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned damage/type/stat modifier is not reproduced by the embedded calculator; fail closed."
+  },
+  "262": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned damage/type/stat modifier is not reproduced by the embedded calculator; fail closed."
+  },
+  "282": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned damage/type/stat modifier is not reproduced by the embedded calculator; fail closed."
+  },
+  "2": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "4": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "5": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "8": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "battle_util.c GetTotalAccuracy changes evasion in sand; no damage operand or type/immunity change."
+  },
+  "10": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "11": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "13": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "16": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "18": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "22": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "24": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "25": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "26": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "31": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "33": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "34": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "36": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "43": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "45": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "52": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned battle_script_commands.c prevents or reflects a stat-stage decrease; the resulting live stat stages are read before the direct hit. No current-hit damage modifier is applied by this ability."
+  },
+  "54": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "55": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "57": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "58": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "59": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "63": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "64": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "70": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "76": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "78": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "79": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "82": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "83": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "84": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "85": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "86": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "87": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "88": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "89": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "92": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "94": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "95": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "96": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "97": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "101": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "103": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "104": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "106": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "109": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "110": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "111": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "112": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "113": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "114": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "116": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "117": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "120": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "121": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "122": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "125": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "127": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "128": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "129": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "132": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "133": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "134": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "135": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "136": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "138": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "139": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "141": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "146": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "148": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "150": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "151": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "152": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "153": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "154": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "155": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "157": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "159": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "160": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "161": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "163": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "164": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "167": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "169": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "170": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "171": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "172": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "173": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "174": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "176": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "178": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "179": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "180": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "181": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "182": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "184": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "185": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "186": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "187": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "188": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "189": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "190": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "191": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "195": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "196": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "197": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "198": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "199": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "200": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "201": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "202": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "204": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "206": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "207": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "208": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "209": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "210": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "211": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "213": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "215": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "216": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "217": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "218": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "220": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "221": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "222": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "223": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "224": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "225": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "226": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "227": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "228": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "229": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "230": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned battle_script_commands.c prevents or reflects a stat-stage decrease; the resulting live stat stages are read before the direct hit. No current-hit damage modifier is applied by this ability."
+  },
+  "231": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "232": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "233": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "234": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "235": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "236": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "238": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "240": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned battle_script_commands.c prevents or reflects a stat-stage decrease; the resulting live stat stages are read before the direct hit. No current-hit damage modifier is applied by this ability."
+  },
+  "241": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "243": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "244": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "245": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "246": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "247": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "248": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "249": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "250": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "251": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "252": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "254": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "256": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "258": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "261": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "263": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "264": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "265": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "266": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "267": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "268": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "269": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "270": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "271": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "273": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "274": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "276": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "277": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "278": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "279": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "280": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "281": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "284": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "285": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "286": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "287": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "288": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "289": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "290": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "291": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "292": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "293": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "294": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "295": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "297": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "299": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "300": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "301": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "302": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "303": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "304": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "307": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "308": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "309": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+  },
+  "9": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned use affects a secondary contact/status, end-turn recovery, speed after a hit, or accuracy; the live HP/status/stat snapshot captures earlier effects and the ability adds no modifier to this ordinary direct hit."
+  },
+  "44": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned use affects a secondary contact/status, end-turn recovery, speed after a hit, or accuracy; the live HP/status/stat snapshot captures earlier effects and the ability adds no modifier to this ordinary direct hit."
+  },
+  "81": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned use affects a secondary contact/status, end-turn recovery, speed after a hit, or accuracy; the live HP/status/stat snapshot captures earlier effects and the ability adds no modifier to this ordinary direct hit."
+  },
+  "90": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned use affects a secondary contact/status, end-turn recovery, speed after a hit, or accuracy; the live HP/status/stat snapshot captures earlier effects and the ability adds no modifier to this ordinary direct hit."
+  },
+  "93": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned use affects a secondary contact/status, end-turn recovery, speed after a hit, or accuracy; the live HP/status/stat snapshot captures earlier effects and the ability adds no modifier to this ordinary direct hit."
+  },
+  "165": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned use affects a secondary contact/status, end-turn recovery, speed after a hit, or accuracy; the live HP/status/stat snapshot captures earlier effects and the ability adds no modifier to this ordinary direct hit."
+  },
+  "183": {
+    "category": "PROVEN_NO_DAMAGE_EFFECT",
+    "rationale": "Pinned use affects a secondary contact/status, end-turn recovery, speed after a hit, or accuracy; the live HP/status/stat snapshot captures earlier effects and the ability adds no modifier to this ordinary direct hit."
+  }
+}

@@ -23,6 +23,7 @@ import com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus
 import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
 import com.dualdex.pokemon.hns.HnsFairyTypeMappings
 import com.dualdex.pokemon.hns.HnsOptionStyle
+import com.dualdex.pokemon.hns.normalizeHnsBattlerTypes
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
 
@@ -358,11 +359,10 @@ object BattleHnsDamagePresenter {
             if (!enemy.persistentVolatilesObserved || enemy.volatileRoostActive) {
                 return HnsMoveTypePresentation(effectiveMoveType)
             }
-            val observedTypes = enemy.types.mapNotNull { observedType ->
-                if (!observedType.observed || observedType.outOfDomain) return HnsMoveTypePresentation(effectiveMoveType)
-                if (observedType.isTypeNoneSentinel) null
-                else observedType.name?.let(PokemonType::fromString)
-                    ?: return HnsMoveTypePresentation(effectiveMoveType)
+            val observedTypeNames = normalizeHnsBattlerTypes(enemy.types)
+                ?: return HnsMoveTypePresentation(effectiveMoveType)
+            val observedTypes = observedTypeNames.map { typeName ->
+                PokemonType.fromString(typeName) ?: return HnsMoveTypePresentation(effectiveMoveType)
             }
             if (observedTypes.isEmpty() || observedTypes.size > 2 || observedTypes.toSet() != defenderTypes.toSet()) {
                 return HnsMoveTypePresentation(effectiveMoveType)

@@ -654,6 +654,48 @@ class BattleConsoleTest {
     }
 
     @Test
+    fun hnsThirdSlotMysteryIsIgnoredForLiveDamageAndEffectiveness() {
+        val sentRequests = mutableListOf<DamageCalculationRequest>()
+        val calculator = BattleDamageCalculator { request ->
+            sentRequests += request
+            DamageCalculationResponse(
+                success = true,
+                minDamage = 10,
+                maxDamage = 14,
+                range = listOf(10, 12, 14),
+                moveCategory = request.moveOverride?.category ?: "Physical"
+            )
+        }
+        // These are the raw H&S engine tuples observed for Chikorita and Hoothoot. Slot 2's
+        // Mystery is the engine's ordinary no-added-third-type state.
+        val realRuntimeTuples = hnsContext().copy(
+            playerBattlerState = hnsBattler(0, 0, listOf(13, 13, 10)), // Chikorita: Grass/Grass/Mystery
+            enemyBattlerState = hnsBattler(0, 1, listOf(1, 3, 10)) // Hoothoot: Normal/Flying/Mystery
+        )
+
+        val supported = buildHnsPresentation(33, realRuntimeTuples, calculator)
+        assertEquals(DamageConfidence.ESTIMATE, supported.damageConfidence)
+        assertEquals("Normal", supported.typeName)
+        assertEquals("Neutral (1x)", supported.effectiveness)
+        assertEquals(1, sentRequests.size)
+
+        // A real third type remains unrepresentable. Neither the calculator nor effectiveness
+        // presentation may silently truncate it to the first two slots.
+        val thirdType = buildHnsPresentation(
+            33,
+            hnsContext().copy(
+                playerBattlerState = hnsBattler(0, 0, listOf(13, 13, 10)),
+                enemyBattlerState = hnsBattler(0, 1, listOf(1, 3, 12)) // Normal/Flying/Water
+            ),
+            calculator
+        )
+        assertEquals(DamageConfidence.UNAVAILABLE, thirdType.damageConfidence)
+        assertTrue(thirdType.damageLimitations.contains(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED))
+        assertEquals(MoveEffectiveness.UNAVAILABLE, thirdType.effectiveness)
+        assertEquals("a refused third type must never reach the calculator", 1, sentRequests.size)
+    }
+
+    @Test
     fun hnsBattlePresentationKeepsRepresentativeBoundaryRefusalsClosed() {
         val calculatorCalls = mutableListOf<DamageCalculationRequest>()
         val calculator = BattleDamageCalculator { request ->

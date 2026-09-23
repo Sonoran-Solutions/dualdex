@@ -3,6 +3,7 @@ package com.dualdex.calculator
 import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
 import com.dualdex.pokemon.hns.HnsChallengeSettingsStatus
 import com.dualdex.pokemon.hns.HnsOptionStyle
+import com.dualdex.pokemon.hns.normalizeHnsBattlerTypes
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
 
@@ -856,8 +857,9 @@ object CalcRequestBoundary {
      *
      * The empty-slot sentinel (`TYPE_NONE`) is dropped, never named "Normal"; an out-of-domain
      * value, a non-OBSERVED status, a failed exact-trust check, or a party-slot mismatch yields
-     * null (unobserved) rather than a static fallback or a coerced type. A third non-empty type is
-     * preserved here so the policy can reject it instead of truncating it.
+     * null (unobserved) rather than a static fallback or a coerced type. H&S's ordinary third-slot
+     * `TYPE_MYSTERY` sentinel is normalized away; any genuine third type is preserved so the
+     * policy can reject it instead of truncating it.
      */
     private fun authoritativeObservedTypes(
         participantPartySlot: Int?,
@@ -873,10 +875,7 @@ object CalcRequestBoundary {
             return null
         }
         if (state.typesOutOfDomain) return null
-        val names = state.types
-            .filter { it.observed && !it.outOfDomain && !it.isTypeNoneSentinel }
-            .mapNotNull { it.name }
-        return names.ifEmpty { null }
+        return normalizeHnsBattlerTypes(state.types)
     }
 
     /**

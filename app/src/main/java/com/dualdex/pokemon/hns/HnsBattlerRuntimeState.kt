@@ -75,6 +75,27 @@ data class HnsBattlerTypeObservation(
         get() = observed && !outOfDomain && raw == HnsBattlerRuntimeStateIds.TYPE_NONE
 }
 
+/**
+ * Normalize the three live H&S type slots for calculator and Battle presentation consumers.
+ *
+ * H&S normally leaves `TYPE_MYSTERY` in slot 2 when a battler has no added third type. That one
+ * exact shape is treated as an unused slot. `TYPE_MYSTERY` in either primary slot remains a real
+ * battle type (for example during a typeless battle effect), and a non-Mystery third type remains
+ * in the result so a two-type consumer can refuse it rather than silently truncate it. Empty
+ * `TYPE_NONE` slots retain their existing sentinel behavior and are omitted. Incomplete or
+ * out-of-domain observations return null instead of producing a partial list.
+ */
+fun normalizeHnsBattlerTypes(slots: List<HnsBattlerTypeObservation>): List<String>? {
+    val names = mutableListOf<String>()
+    slots.forEachIndexed { index, slot ->
+        if (!slot.observed || slot.outOfDomain) return null
+        if (slot.isTypeNoneSentinel) return@forEachIndexed
+        if (index == 2 && slot.raw == HnsBattlerRuntimeStateIds.TYPE_MYSTERY) return@forEachIndexed
+        names += slot.name ?: return null
+    }
+    return names.takeIf { it.isNotEmpty() }
+}
+
 /** Which authoritative active battler a live observation is requested for (matches the native enum). */
 object HnsBattlerRole {
     const val PLAYER = 0

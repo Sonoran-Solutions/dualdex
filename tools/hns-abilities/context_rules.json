@@ -1,0 +1,339 @@
+{
+  "4": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "attacker_critical_hit_armor",
+        "predicate": "Ability is on the attacker.",
+        "rationale": "The critical-hit prevention branch reads abilityDef, so an attacker's Battle Armor cannot change its outgoing damage.",
+        "evidence": [
+          {"source": "src/battle_util.c:8056", "contains": "ctx->abilityDef == ABILITY_BATTLE_ARMOR"}
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "defender_critical_probability_unmodelled",
+        "predicate": "Ability is on the defender.",
+        "rationale": "Battle Armor suppresses critical hits. The request's isCrit flag does not prove the reported damage range and KO probability exclude critical-hit odds, so defender-side Armor remains blocked.",
+        "evidence": [
+          {"source": "src/battle_util.c:8056", "contains": "ctx->abilityDef == ABILITY_BATTLE_ARMOR"}
+        ]
+      }
+    ],
+    "fallback": "Unknown context never clears the globally unsupported ability."
+  },
+  "26": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "attacker_levitate_does_not_change_outgoing_damage",
+        "predicate": "Ability is on the attacker.",
+        "rationale": "The Ground immunity branch checks the defender's effective ability.",
+        "evidence": [
+          {"source": "src/battle_util.c:8385", "contains": "ctx->abilityDef == ABILITY_LEVITATE"}
+        ]
+      },
+      {
+        "rule": "defender_levitate_non_ground_move",
+        "predicate": "Ability is on the defender and the observed effective move type is not Ground.",
+        "rationale": "The Levitate immunity branch is nested under the Ground move-type effectiveness case.",
+        "evidence": [
+          {"source": "src/battle_util.c:8379", "contains": "ctx->moveType == TYPE_GROUND"},
+          {"source": "src/battle_util.c:8385", "contains": "ctx->abilityDef == ABILITY_LEVITATE"}
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Ground moves and missing effective-type authority remain blocked."
+  },
+  "37": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "defender_attack_stat_ability",
+        "predicate": "Ability is on the defender.",
+        "rationale": "Huge Power is read from abilityAtk and applies only to the holder's physical Attack stat.",
+        "evidence": [
+          {"source": "src/battle_util.c:6989", "contains": "case ABILITY_HUGE_POWER"},
+          {"source": "src/battle_util.c:6991", "contains": "IsBattleMovePhysical(move)"}
+        ]
+      },
+      {
+        "rule": "attack_stat_ability_special_move",
+        "predicate": "Ability is on the attacker and authoritative effective category is Special.",
+        "rationale": "The source multiplier is guarded by IsBattleMovePhysical.",
+        "evidence": [
+          {"source": "src/battle_util.c:6989", "contains": "case ABILITY_HUGE_POWER"},
+          {"source": "src/battle_util.c:6991", "contains": "IsBattleMovePhysical(move)"}
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Attacker Physical moves remain blocked; unknown effective category is not cleared."
+  },
+  "47": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "attacker_thick_fat_does_not_mitigate_incoming_damage",
+        "predicate": "Ability is on the attacker.",
+        "rationale": "Thick Fat is in the defender-side ability modifier switch.",
+        "evidence": [
+          {"source": "src/battle_util.c:7119", "contains": "switch (ctx->abilityDef)"},
+          {"source": "src/battle_util.c:7121", "contains": "case ABILITY_THICK_FAT"}
+        ]
+      },
+      {
+        "rule": "thick_fat_other_move_type",
+        "predicate": "Ability is on the defender and authoritative effective move type is neither Fire nor Ice.",
+        "rationale": "Only Fire and Ice enter the Thick Fat half-stat branch.",
+        "evidence": [
+          {"source": "src/battle_util.c:7122", "contains": "moveType == TYPE_FIRE || moveType == TYPE_ICE"}
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Fire/Ice moves and missing effective-type authority remain blocked."
+  },
+  "54": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "defender_truant_does_not_change_incoming_damage",
+        "predicate": "Ability is on the defender.",
+        "rationale": "CancelerTruant gates the holder's own move action; it is not an incoming damage modifier.",
+        "evidence": [
+          {"source": "src/battle_move_resolution.c:253", "contains": "GetBattlerAbility(ctx->battlerAtk) == ABILITY_TRUANT"}
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "attacker_move_execution_state_unobserved",
+        "predicate": "Ability is on the attacker.",
+        "rationale": "Move execution depends on truantCounter, which is toggled at end of turn and initialized on switch-in; DualDex does not observe it.",
+        "evidence": [
+          {"source": "src/battle_move_resolution.c:253", "contains": "volatiles.truantCounter"},
+          {"source": "src/battle_util.c:3779", "contains": "volatiles.truantCounter ^= 1"},
+          {"source": "src/battle_script_commands.c:5839", "contains": "volatiles.truantCounter = 1"}
+        ]
+      }
+    ],
+    "fallback": "Unknown ability side never clears Truant."
+  },
+  "57": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "plus_minus_singles_no_partner",
+        "predicate": "The exact live battler count proves Singles, so the attacker has no battle partner.",
+        "rationale": "Plus boosts Special Attack only when its holder's active partner has Minus (or Plus under the configured interaction).",
+        "evidence": [
+          {"source": "src/battle_util.c:7027", "contains": "IsBattleMoveSpecial(move) && IsBattlerAlive(BATTLE_PARTNER(battlerAtk))"},
+          {"source": "src/battle_util.c:7030", "contains": "partnerAbility == ABILITY_MINUS"}
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown or non-Singles live topology remains blocked."
+  },
+  "58": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "plus_minus_singles_no_partner",
+        "predicate": "The exact live battler count proves Singles, so the attacker has no battle partner.",
+        "rationale": "Minus boosts Special Attack only when its holder's active partner has Plus (or Minus under the configured interaction).",
+        "evidence": [
+          {"source": "src/battle_util.c:7036", "contains": "IsBattleMoveSpecial(move) && IsBattlerAlive(BATTLE_PARTNER(battlerAtk))"},
+          {"source": "src/battle_util.c:7039", "contains": "partnerAbility == ABILITY_PLUS"}
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown or non-Singles live topology remains blocked."
+  },
+  "62": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "defender_guts_does_not_modify_incoming_damage",
+        "predicate": "Ability is on the defender.",
+        "rationale": "Guts is read in the attacker Attack-stat modifier switch.",
+        "evidence": [
+          {"source": "src/battle_util.c:6987", "contains": "switch (ctx->abilityAtk)"},
+          {"source": "src/battle_util.c:7056", "contains": "case ABILITY_GUTS"}
+        ]
+      },
+      {
+        "rule": "guts_special_move",
+        "predicate": "Ability is on the attacker, the effective category is Special, and dynamic move type is authoritatively neutral.",
+        "rationale": "Guts changes Attack only when the move is physical.",
+        "evidence": [
+          {"source": "src/battle_util.c:7057", "contains": "status1 & STATUS1_ANY && IsBattleMovePhysical(move)"}
+        ]
+      },
+      {
+        "rule": "guts_attacker_neutral_status",
+        "predicate": "Ability is on the attacker, status1 is observed zero, and effective physical category/dynamic move state is authoritative.",
+        "rationale": "The damage modifier requires STATUS1_ANY and a physical move.",
+        "evidence": [
+          {"source": "src/battle_util.c:7057", "contains": "status1 & STATUS1_ANY"}
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "A statused attacker using a Physical move remains blocked; missing status/category/type authority is unknown."
+  },
+  "74": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "defender_attack_stat_ability",
+        "predicate": "Ability is on the defender.",
+        "rationale": "Pure Power is read from abilityAtk and applies only to the holder's physical Attack stat.",
+        "evidence": [
+          {"source": "src/battle_util.c:6990", "contains": "case ABILITY_PURE_POWER"},
+          {"source": "src/battle_util.c:6991", "contains": "IsBattleMovePhysical(move)"}
+        ]
+      },
+      {
+        "rule": "attack_stat_ability_special_move",
+        "predicate": "Ability is on the attacker and authoritative effective category is Special.",
+        "rationale": "The source multiplier is guarded by IsBattleMovePhysical.",
+        "evidence": [
+          {"source": "src/battle_util.c:6990", "contains": "case ABILITY_PURE_POWER"},
+          {"source": "src/battle_util.c:6991", "contains": "IsBattleMovePhysical(move)"}
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Attacker Physical moves remain blocked; unknown effective category is not cleared."
+  },
+  "75": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "attacker_critical_hit_armor",
+        "predicate": "Ability is on the attacker.",
+        "rationale": "The critical-hit prevention branch reads abilityDef, so an attacker's Shell Armor cannot change its outgoing damage.",
+        "evidence": [
+          {"source": "src/battle_util.c:8056", "contains": "ctx->abilityDef == ABILITY_SHELL_ARMOR"}
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "defender_critical_probability_unmodelled",
+        "predicate": "Ability is on the defender.",
+        "rationale": "Shell Armor suppresses critical hits. The request's isCrit flag does not prove the reported damage range and KO probability exclude critical-hit odds, so defender-side Armor remains blocked.",
+        "evidence": [
+          {"source": "src/battle_util.c:8056", "contains": "ctx->abilityDef == ABILITY_SHELL_ARMOR"}
+        ]
+      }
+    ],
+    "fallback": "Unknown context never clears the globally unsupported ability."
+  },
+  "91": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "defender_adaptability_does_not_boost_incoming_damage",
+        "predicate": "Ability is on the defender.",
+        "rationale": "Adaptability only changes the attacker's same-type attack bonus multiplier.",
+        "evidence": [
+          {"source": "src/battle_util.c:7427", "contains": "ctx->abilityAtk == ABILITY_ADAPTABILITY"},
+          {"source": "src/battle_util.c:7428", "contains": "!IS_BATTLER_OF_TYPE(ctx->battlerAtk, ctx->moveType)"}
+        ]
+      },
+      {
+        "rule": "adaptability_without_stab",
+        "predicate": "Ability is on the attacker, exact live Singles is observed, and the effective move type is absent from observed current attacker types.",
+        "rationale": "The non-STAB branch returns a 1.0 multiplier before Adaptability is consulted.",
+        "evidence": [
+          {"source": "src/battle_util.c:7428", "contains": "!IS_BATTLER_OF_TYPE(ctx->battlerAtk, ctx->moveType)"},
+          {"source": "src/battle_util.c:7430", "contains": "ctx->abilityAtk == ABILITY_ADAPTABILITY"}
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "STAB, unknown type, or unknown battle topology remains blocked."
+  },
+  "132": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "friend_guard_singles_no_partner",
+        "predicate": "The exact live battler count proves Singles, so the defender has no battle partner.",
+        "rationale": "Friend Guard is applied by the defender-partner modifier only when an alive partner holds the ability.",
+        "evidence": [
+          {"source": "src/battle_util.c:7642", "contains": "if (!IsBattlerAlive(battlerPartnerDef))"},
+          {"source": "src/battle_util.c:7647", "contains": "case ABILITY_FRIEND_GUARD"}
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown or non-Singles live topology remains blocked."
+  },
+  "140": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "telepathy_singles_no_partner",
+        "predicate": "The exact live battler count proves Singles; the defender cannot be the attacker's battle partner.",
+        "rationale": "Telepathy sets effectiveness to zero only when the ability holder is the attacker's partner and the move has power.",
+        "evidence": [
+          {"source": "src/battle_util.c:8422", "contains": "ctx->abilityDef == ABILITY_TELEPATHY && ctx->battlerDef == BATTLE_PARTNER(ctx->battlerAtk)"},
+          {"source": "src/battle_util.c:8423", "contains": "GetMovePower(ctx->move) != 0"}
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown or non-Singles live topology remains blocked."
+  },
+  "308": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "attacker_always_irrelevant",
+        "predicate": "Ability is on the attacker.",
+        "rationale": "ShouldTeraShellDistortTypeMatchups receives the defender ability and checks the defender's live species and HP.",
+        "evidence": [
+          {"source": "src/battle_util.c:324", "contains": "ShouldTeraShellDistortTypeMatchups(enum Move move, enum BattlerId battlerDef, enum Ability abilityDef)"},
+          {"source": "src/battle_util.c:330", "contains": "abilityDef == ABILITY_TERA_SHELL"}
+        ]
+      },
+      {
+        "rule": "defender_not_terapagos_terastal",
+        "predicate": "Ability is on the defender and authoritative current species is not SPECIES_TERAPAGOS_TERASTAL.",
+        "rationale": "The type distortion requires the current defender species/form to be Terapagos-Terastal.",
+        "evidence": [
+          {"source": "src/battle_util.c:327", "contains": "gBattleMons[battlerDef].species == SPECIES_TERAPAGOS_TERASTAL"},
+          {"source": "include/constants/species.h:1543", "contains": "SPECIES_TERAPAGOS_TERASTAL"}
+        ]
+      },
+      {
+        "rule": "terapagos_below_full_hp",
+        "predicate": "Ability is on the defender, exact current species is Terapagos-Terastal, and observed live HP is below observed maxHP.",
+        "rationale": "The type distortion requires current HP to equal maxHP.",
+        "evidence": [
+          {"source": "src/battle_util.c:328", "contains": "gBattleMons[battlerDef].hp == gBattleMons[battlerDef].maxHP"}
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "terapagos_full_hp_relevant",
+        "predicate": "Ability is on full-HP Terapagos-Terastal defender.",
+        "rationale": "All reviewed source predicates for the type-distortion branch are satisfied; the move matchup is not modeled.",
+        "evidence": [
+          {"source": "src/battle_util.c:327", "contains": "SPECIES_TERAPAGOS_TERASTAL"},
+          {"source": "src/battle_util.c:328", "contains": "hp == gBattleMons[battlerDef].maxHP"},
+          {"source": "src/battle_util.c:330", "contains": "abilityDef == ABILITY_TERA_SHELL"}
+        ]
+      }
+    ],
+    "fallback": "Missing current species or HP/maxHP authority remains unknown and blocked."
+  }
+}

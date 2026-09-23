@@ -575,8 +575,8 @@ class BattleConsoleScreenView(
             setTextColor(DualDexTheme.Color.textPrimary)
             textSize = DualDexTheme.Type.compact
             typeface = Typeface.DEFAULT_BOLD
-            isSingleLine = true
-            ellipsize = TextUtils.TruncateAt.END
+            isSingleLine = false
+            ellipsize = null
         }
         subRow.addView(damageView, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
 
@@ -1019,7 +1019,19 @@ class BattleConsoleScreenView(
                             (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix
                 }
                 pres.damageConfidence == DamageConfidence.UNAVAILABLE ->
-                    "Damage unavailable" + pres.damageUnavailableReason?.let { " · $it" }.orEmpty()
+                    if (pres.damageAbilityBlockers.size > 1) {
+                        val details = pres.damageAbilityBlockers.joinToString("\n") { blocker ->
+                            val owner = if (blocker.side == com.dualdex.calculator.HnsAbilitySide.ATTACKER) {
+                                "You"
+                            } else {
+                                "Foe"
+                            }
+                            "$owner: ${blocker.abilityName}"
+                        }
+                        "Damage unavailable · ${pres.damageAbilityBlockers.size} ability blockers\n$details"
+                    } else {
+                        "Damage unavailable" + pres.damageUnavailableReason?.let { " · $it" }.orEmpty()
+                    }
                 else -> pres.damageDisplayText
             }
             holder.damageView.text = damageText

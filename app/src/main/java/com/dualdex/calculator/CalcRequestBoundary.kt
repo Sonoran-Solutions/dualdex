@@ -604,6 +604,16 @@ object CalcRequestBoundary {
             observation = playerBattlerState,
             isExactVerified = isExactVerified
         )
+        val defenderHpPair = authoritativeObservedHp(
+            participantPartySlot = request.defender.partySlot,
+            observation = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val defenderSpeciesId = authoritativeObservedSpecies(
+            participantPartySlot = request.defender.partySlot,
+            observation = enemyBattlerState,
+            isExactVerified = isExactVerified
+        )
         val attackerStatus1 = authoritativeObservedStatus1(
             participantPartySlot = request.attacker.partySlot,
             observation = playerBattlerState,
@@ -727,6 +737,9 @@ object CalcRequestBoundary {
             defenderGimmick = defenderGimmick,
             attackerHp = attackerHpPair?.first,
             attackerMaxHp = attackerHpPair?.second,
+            defenderHp = defenderHpPair?.first,
+            defenderMaxHp = defenderHpPair?.second,
+            defenderSpeciesId = defenderSpeciesId,
             attackerStatus1 = attackerStatus1,
             weatherObserved = weather != null,
             weatherWord = weather ?: 0,
@@ -1222,6 +1235,24 @@ object CalcRequestBoundary {
         if (!state.hpObserved) return null
         if (state.maxHp <= 0) return null
         return state.hp to state.maxHp
+    }
+
+    /** The current slot-matched BattlePokemon species/form, or null when it was not read. */
+    private fun authoritativeObservedSpecies(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Int? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        val speciesId = state.speciesId?.takeIf { it > 0 } ?: return null
+        // An arbitrary non-Terapagos number is not evidence of another form. Require this exact
+        // source-domain lookup to succeed before the value can clear a form-specific blocker.
+        return speciesId.takeIf {
+            com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getSpecies(it) != null
+        }
     }
 
     /** The slot-matched live `status1` word, or null when it was not read. 0 is an observed neutral. */

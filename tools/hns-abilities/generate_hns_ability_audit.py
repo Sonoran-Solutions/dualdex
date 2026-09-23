@@ -17,6 +17,8 @@ HERE = pathlib.Path(__file__).resolve().parent
 TARGET = HERE / "ability_inventory.tsv"
 KOTLIN = ROOT / "app/src/main/java/com/dualdex/pokemon/hns/HnsAbilityAuditData.kt"
 PIN = "1f42b74dff0e9fe942419845d040663dd829a973"
+CONTEXT_RULES = HERE / "context_rules.json"
+CONTEXT_CANDIDATES = {4, 26, 37, 47, 54, 57, 58, 62, 74, 75, 91, 132, 140, 308}
 
 
 def load_extractor():
@@ -29,6 +31,67 @@ def load_extractor():
 
 def kt(value):
     return json.dumps(value, ensure_ascii=False)
+
+
+def validate_context_rules(upstream, abilities, decisions):
+    """Check the manually reviewed request-local rules against exact pinned source lines.
+
+    This file is deliberately hand-authored: source search results never generate a clearance.
+    The checker only verifies that each reviewed predicate still points at the pinned text.
+    """
+    data = json.loads(CONTEXT_RULES.read_text())
+    if set(map(int, data)) != CONTEXT_CANDIDATES:
+        raise SystemExit("context_rules.json must cover exactly the reviewed first-wave abilities")
+    policy = (ROOT / "app/src/main/java/com/dualdex/calculator/HnsAbilityContextPolicy.kt").read_text()
+    all_rules = set()
+    seen_rules = set()
+    for raw_id, entry in data.items():
+        aid = int(raw_id)
+        expected = "UNSUPPORTED_DAMAGE_RELEVANT"
+        if entry.get("global") != expected or decisions.get(raw_id, {}).get("category") != expected:
+            raise SystemExit(f"context rule {aid} may not weaken its global ability category")
+        if aid not in abilities:
+            raise SystemExit(f"context rule refers to nonexistent ability {aid}")
+        if not entry.get("fallback"):
+            raise SystemExit(f"context rule {aid} needs a fail-closed fallback")
+
+        rules = entry.get("context_rules", []) + entry.get("always_blocking", [])
+        if not rules:
+            raise SystemExit(f"context rule {aid} has no reviewed rule or blocking rationale")
+        for rule in rules:
+            name = rule.get("rule", "")
+            if not name or (aid, name) in seen_rules:
+                raise SystemExit(f"missing or duplicate contextual rule name: {name!r}")
+            seen_rules.add((aid, name))
+            all_rules.add(name)
+            if f'"{name}"' not in policy:
+                raise SystemExit(f"context rule {name} is not implemented in HnsAbilityContextPolicy.kt")
+            if not rule.get("predicate") or not rule.get("rationale"):
+                raise SystemExit(f"context rule {name} needs a predicate and source rationale")
+            evidence = rule.get("evidence", [])
+            if not evidence:
+                raise SystemExit(f"context rule {name} needs pinned source evidence")
+            for item in evidence:
+                match = re.fullmatch(r"(.+):(\d+)", item.get("source", ""))
+                if not match:
+                    raise SystemExit(f"invalid source reference for {name}: {item.get('source')!r}")
+                source_path = upstream / match.group(1)
+                if not source_path.is_file():
+                    raise SystemExit(f"missing pinned source file for {name}: {source_path}")
+                source_lines = source_path.read_text(errors="replace").splitlines()
+                line_no = int(match.group(2))
+                if line_no < 1 or line_no > len(source_lines):
+                    raise SystemExit(f"source line out of range for {name}: {item['source']}")
+                if item.get("contains", "") not in source_lines[line_no - 1]:
+                    raise SystemExit(f"pinned source evidence changed for {name}: {item['source']}")
+
+    required = {
+        "attacker_move_execution_state_unobserved",
+        "defender_critical_probability_unmodelled",
+        "terapagos_full_hp_relevant",
+    }
+    if not required <= all_rules:
+        raise SystemExit("context rules must retain Truant, critical-armor, and full-HP Tera Shell blocks")
 
 
 def main():
@@ -49,6 +112,7 @@ def main():
     decisions = json.loads((HERE / "decisions.json").read_text())
     if set(map(int, decisions)) - set(abilities):
         raise SystemExit("decision refers to a nonexistent ability")
+    validate_context_rules(upstream, abilities, decisions)
     source_refs = {}
     info_text = (upstream / "src/data/abilities.h").read_text()
     for path in (upstream / "src").rglob("*.c"):

@@ -2408,6 +2408,7 @@ static bool battle_pokemon_layout_declared(const GameMemoryConfig* config) {
  */
 static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* config) {
     return config->battle_mons_size == HNS_BATTLE_POKEMON_SIZEOF &&
+           HNS_BATTLE_POKEMON_SPECIES_OFFSET + HNS_BATTLE_POKEMON_SPECIES_SIZE <= HNS_BATTLE_POKEMON_SIZEOF &&
            config->battle_mons_ability_offset == HNS_BATTLE_POKEMON_ABILITY_OFFSET &&
            config->battle_mons_ability_size == HNS_BATTLE_POKEMON_ABILITY_SIZE &&
            config->battle_mons_types_offset == HNS_BATTLE_POKEMON_TYPES_OFFSET &&
@@ -2591,6 +2592,17 @@ bool pokemon_read_battler_runtime_state_gba(
 
     const uint32_t mon_base = DUALDEX_GBA_EWRAM_BASE + config->battle_mons_offset +
                               (uint32_t)(uint8_t)battler * config->battle_mons_size;
+
+    // The active species is mutable BattlePokemon state: form changes and Transform update this
+    // word, while the stored party species can remain stale. Publish it only from this
+    // lifecycle- and battler-resolved live record.
+    uint8_t species_bytes[HNS_BATTLE_POKEMON_SPECIES_SIZE];
+    if (HNS_BATTLE_POKEMON_SPECIES_SIZE == 2 &&
+        read(user, mon_base + HNS_BATTLE_POKEMON_SPECIES_OFFSET,
+             species_bytes, sizeof(species_bytes))) {
+        out_state->species_observed = true;
+        out_state->species_id = (uint16_t)(species_bytes[0] | (species_bytes[1] << 8));
+    }
 
     // The complete required field bytes must be readable through the bounds-checked reader;
     // a truncated or unmapped window fails closed rather than yielding a partial observation.

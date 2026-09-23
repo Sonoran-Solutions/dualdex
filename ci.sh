@@ -385,7 +385,8 @@ source_check() {
   python3 tools/hns-layout/generate_hns_challenge_layout.py \
     --upstream-dir "$upstream" --verify
 
-  # 1c. The live BattlePokemon layout table (ability offset/width, types
+  # 1c. The live BattlePokemon layout table (current species and ability
+  #     offset/width, types
   #     offset/count/width, enum domains) must regenerate byte-for-byte from the
   #     pinned source, compiled with the same pinned ARM toolchain. This is the
   #     source-check for the runtime live-battler reader; it compiles the pinned

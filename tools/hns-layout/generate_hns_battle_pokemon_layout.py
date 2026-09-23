@@ -9,7 +9,7 @@ ARM toolchain (the same toolchain and flags recorded in
 docs/HNS_2_0_5_COMPATIBILITY_EVIDENCE.md §10):
 
   * sizeof(struct BattlePokemon)
-  * byte offset and byte width of `ability`
+  * byte offset and byte width of current `species` and `ability`
   * byte offset, element count and element width of `types`
   * the structural domain of the two enums: ABILITIES_COUNT and
     NUMBER_OF_MON_TYPES (an observed ID above these bounds is outside the
@@ -94,6 +94,10 @@ def build_probe_c() -> str:
             "   not part of any build. */",
             "#include \"global.h\"",
             "const unsigned long ddx_sizeof_bp = sizeof(struct BattlePokemon);",
+            "const unsigned long ddx_species_offset =",
+            "    __builtin_offsetof(struct BattlePokemon, species);",
+            "const unsigned long ddx_species_size =",
+            "    sizeof(((struct BattlePokemon *)0)->species);",
             "const unsigned long ddx_attack_offset =",
             "    __builtin_offsetof(struct BattlePokemon, attack);",
             "const unsigned long ddx_attack_size =",
@@ -221,6 +225,7 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
 
     # Source-comment offsets: the pinned source labels every member with a
     # /*0xNN*/ byte offset comment. Extract the ones DualDex reads.
+    species_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*u16 species;", body)
     attack_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*u16 attack;", body)
     defense_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*u16 defense;", body)
     speed_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*u16 speed;", body)
@@ -230,9 +235,10 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
     ability_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*enum Ability ability;", body)
     types_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*enum Type types\[(\d+)\];", body)
     item_m = re.search(r"/\*0x([0-9A-Fa-f]+)\*/\s*enum Item item;", body)
-    if not attack_m or not defense_m or not speed_m or not spattack_m or not spdefense_m or not stat_stages_m or not ability_m or not types_m or not item_m:
+    if not species_m or not attack_m or not defense_m or not speed_m or not spattack_m or not spdefense_m or not stat_stages_m or not ability_m or not types_m or not item_m:
         fail("could not parse the labelled member offsets from "
              "include/pokemon.h; the pinned source shape changed")
+    pins["source_species_offset"] = int(species_m.group(1), 16)
     pins["source_attack_offset"] = int(attack_m.group(1), 16)
     pins["source_defense_offset"] = int(defense_m.group(1), 16)
     pins["source_speed_offset"] = int(speed_m.group(1), 16)
@@ -267,6 +273,8 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
 
 def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int]) -> str:
     sizeof_bp = compiled["ddx_sizeof_bp"]
+    species_offset = compiled["ddx_species_offset"]
+    species_size = compiled["ddx_species_size"]
     attack_offset = compiled["ddx_attack_offset"]
     attack_size = compiled["ddx_attack_size"]
     defense_offset = compiled["ddx_defense_offset"]
@@ -294,6 +302,7 @@ def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int
     agreements = []
     disagreements = []
     checks = [
+        ("species byte offset", species_offset, pins["source_species_offset"]),
         ("attack byte offset", attack_offset, pins["source_attack_offset"]),
         ("defense byte offset", defense_offset, pins["source_defense_offset"]),
         ("speed byte offset", speed_offset, pins["source_speed_offset"]),
@@ -363,6 +372,8 @@ def render_header(commit, arm_gcc, compiled: dict[str, int], pins: dict[str, int
         "#define DUALDEX_HNS_BATTLE_POKEMON_LAYOUT_GEN_H",
         "",
         "#define HNS_BATTLE_POKEMON_SIZEOF " + str(sizeof_bp),
+        "#define HNS_BATTLE_POKEMON_SPECIES_OFFSET " + str(species_offset),
+        "#define HNS_BATTLE_POKEMON_SPECIES_SIZE " + str(species_size),
         "#define HNS_BATTLE_POKEMON_ATTACK_OFFSET " + str(attack_offset),
         "#define HNS_BATTLE_POKEMON_ATTACK_SIZE " + str(attack_size),
         "#define HNS_BATTLE_POKEMON_DEFENSE_OFFSET " + str(defense_offset),

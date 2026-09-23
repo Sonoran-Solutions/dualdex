@@ -1530,6 +1530,19 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `a live Rusted Sword or Shield is refused as a battle form-change identity`() {
+        for ((player, enemy) in listOf(playerObservation(itemId = 288) to enemyObservation(),
+            playerObservation() to enemyObservation(itemId = 289))) {
+            val refused = refusedOf(build(trustFor(exactSha), goldenARequest(), player, enemy),
+                "a Rusted item must never inherit HOLD_EFFECT_NONE neutrality")
+            assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+            val decision = refused.verdict.hnsItemDecisions.single()
+            assertEquals(com.dualdex.pokemon.hns.HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, decision.globalCategory)
+            assertEquals(HnsItemRequestRelevance.UNKNOWN, decision.relevance)
+        }
+    }
+
+    @Test
     fun `clearing an item never clears another limitation`() {
         val refused = refusedOf(
             build(trustFor(exactSha), goldenARequest(),

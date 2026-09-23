@@ -183,6 +183,18 @@ class HnsItemContextPolicyTest {
     }
 
     @Test
+    fun `Rusted Sword and Shield are never cleared by any request context`() {
+        for (id in listOf(288, 289)) for (side in HnsItemSide.values()) for (type in PokemonType.values()) {
+            for (category in MoveCategory.values()) for (hp in listOf(10, 20)) {
+                val decision = HnsItemContextPolicy.assess(id, ctx(side, true, type, category, 0, 0, 0, hp, 20))
+                assertEquals("item $id $side $type $category", unknown, decision.relevance)
+                assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, decision.globalCategory)
+            }
+        }
+        assertEquals("Rusted Sword", HnsItemContextPolicy.assess(288, ctx(HnsItemSide.ATTACKER)).itemName)
+    }
+
+    @Test
     fun `unclassified and supported items are never cleared by context`() {
         val red = HnsItemContextPolicy.assess(redOrb, ctx(HnsItemSide.DEFENDER))
         assertEquals(HnsItemCategory.UNCLASSIFIED, red.globalCategory)

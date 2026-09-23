@@ -142,6 +142,8 @@ internal object HnsItemAuditData {
     /** Identity-specific decisions that override the hold-effect family, keyed by item ID. */
     val identityExceptions: Map<Int, HnsItemFamilyDecision> = mapOf(
         581 to HnsItemFamilyDecision("ITEM_ENIGMA_BERRY_E_READER", "identity_exception", HnsItemCategory.UNCLASSIFIED, "The e-Reader Enigma Berry has no static holdEffect: GetBattlerHoldEffectInternal returns the runtime gEnigmaBerries[battler].holdEffect for this exact ID (src/battle_util.c:5834). Its catalogue HOLD_EFFECT_NONE is therefore not its battle effect; it is not classified by family and fails closed."),
+        289 to HnsItemFamilyDecision("ITEM_RUSTED_SHIELD", "identity_exception", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Held-item identity with battle semantics its HOLD_EFFECT_NONE does not describe: FORM_CHANGE_BEGIN_BATTLE (src/data/pokemon/form_change_tables.h) turns a holding Zamazenta into its Crowned form and replaces Iron Head with Behemoth Bash at battle start (src/battle_main.c:689-690); DoesSpeciesUseHoldItemToChangeForm also treats it as form-bound (src/battle_util.c:8619). Never inherits HOLD_EFFECT_NONE neutrality; no request-local clearance."),
+        288 to HnsItemFamilyDecision("ITEM_RUSTED_SWORD", "identity_exception", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Held-item identity with battle semantics its HOLD_EFFECT_NONE does not describe: FORM_CHANGE_BEGIN_BATTLE (src/data/pokemon/form_change_tables.h) turns a holding Zacian into its Crowned form and replaces Iron Head with Behemoth Blade at battle start (src/battle_main.c:689-690); DoesSpeciesUseHoldItemToChangeForm also treats it as form-bound (src/battle_util.c:8619). Never inherits HOLD_EFFECT_NONE neutrality; no request-local clearance."),
     )
 
     /** Pinned type operand (secondaryId or resist-berry param) for type-matched families. */
@@ -226,10 +228,10 @@ internal object HnsItemAuditData {
 
     /** Category totals over the 0..ITEM_ID_MAX domain, for drift checks. */
     val categoryCounts: Map<HnsItemCategory, Int> = mapOf(
-        HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT to 587,
+        HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT to 585,
         HnsItemCategory.MODELLED_EQUIVALENT to 0,
         HnsItemCategory.MODELLED_HNS_SPECIFIC to 0,
-        HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT to 311,
+        HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT to 313,
         HnsItemCategory.UNCLASSIFIED to 3,
     )
 

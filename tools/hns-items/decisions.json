@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "pinned_commit": "1f42b74dff0e9fe942419845d040663dd829a973",
-  "method": "Every catalogue hold effect is a reviewed family. reviewed_refs must equal the set of pinned src/**/*.c references to that HOLD_EFFECT_* symbol (AI, debug and animation sources excluded), so a new or moved read fails source-check instead of silently inheriting a decision. identity_reference_sites must equal the set of enclosing definitions of literal ITEM_* catalogue symbols in pinned src/battle_*.c. Categories are reviewed input; the generator never infers one.",
+  "method": "Every catalogue hold effect is a reviewed family. reviewed_refs must equal the set of pinned src/**/*.c references to that HOLD_EFFECT_* symbol (AI, debug and animation sources excluded), so a new or moved read fails source-check instead of silently inheriting a decision. identity_reference_sites must equal the set of enclosing definitions of literal ITEM_* catalogue symbols in pinned src/battle_*.c. Categories are reviewed input; the generator never infers one. form_change_item_identities must equal every ITEM_* identity in pinned src/data/pokemon/form_change_tables.h with its methods; an identity with a battle-time held method (FORM_CHANGE_BEGIN_BATTLE or FORM_CHANGE_BATTLE_*) may never be PROVEN_NO_ORDINARY_DAMAGE_EFFECT.",
   "families": {
     "HOLD_EFFECT_NONE": {
       "category": "PROVEN_NO_ORDINARY_DAMAGE_EFFECT",
@@ -1174,6 +1174,14 @@
     "ITEM_ENIGMA_BERRY_E_READER": {
       "category": "UNCLASSIFIED",
       "rationale": "The e-Reader Enigma Berry has no static holdEffect: GetBattlerHoldEffectInternal returns the runtime gEnigmaBerries[battler].holdEffect for this exact ID (src/battle_util.c:5834). Its catalogue HOLD_EFFECT_NONE is therefore not its battle effect; it is not classified by family and fails closed."
+    },
+    "ITEM_RUSTED_SWORD": {
+      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "rationale": "Held-item identity with battle semantics its HOLD_EFFECT_NONE does not describe: FORM_CHANGE_BEGIN_BATTLE (src/data/pokemon/form_change_tables.h) turns a holding Zacian into its Crowned form and replaces Iron Head with Behemoth Blade at battle start (src/battle_main.c:689-690); DoesSpeciesUseHoldItemToChangeForm also treats it as form-bound (src/battle_util.c:8619). Never inherits HOLD_EFFECT_NONE neutrality; no request-local clearance."
+    },
+    "ITEM_RUSTED_SHIELD": {
+      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "rationale": "Held-item identity with battle semantics its HOLD_EFFECT_NONE does not describe: FORM_CHANGE_BEGIN_BATTLE (src/data/pokemon/form_change_tables.h) turns a holding Zamazenta into its Crowned form and replaces Iron Head with Behemoth Bash at battle start (src/battle_main.c:689-690); DoesSpeciesUseHoldItemToChangeForm also treats it as form-bound (src/battle_util.c:8619). Never inherits HOLD_EFFECT_NONE neutrality; no request-local clearance."
     }
   },
   "identity_reference_sites": {
@@ -1224,5 +1232,1029 @@
     "src/battle_z_move.c:sSignatureZMoves": "Z-Move selection table; Z-Crystals are UNSUPPORTED and an active Z-Move gimmick is refused.",
     "src/battle_z_move.c:CanUseZMove": "Z-Power Ring key-item check (bag).",
     "src/battle_z_move.c:IsViableZMove": "Z-Power Ring key-item check (bag)."
+  },
+  "form_change_item_identities": {
+    "ITEM_ABOMASITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_ABSOLITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_ABSOLITE_Z": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_ADAMANT_CRYSTAL": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_AERODACTYLITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_AGGRONITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_ALAKAZITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_ALTARIANITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_AMPHAROSITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_AUDINITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_BANETTITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_BARBARACITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_BAXCALIBRITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_BEEDRILLITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_BLASTOISINITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_BLAZIKENITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_BLUE_ORB": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_PRIMAL_REVERSION"
+      ],
+      "disposition": "Primal Reversion; HOLD_EFFECT_PRIMAL_ORB is UNCLASSIFIED."
+    },
+    "ITEM_BUGINIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_BUG_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_BURN_DRIVE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_CAMERUPTITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_CHANDELURITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_CHARIZARDITE_X": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_CHARIZARDITE_Y": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_CHESNAUGHTITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_CHILL_DRIVE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_CHIMECHITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_CLEFABLITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_CORNERSTONE_MASK": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_CRABOMINITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_DARKINIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_DARKRANITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_DARK_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_DELPHOXITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_DIANCITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_DOUSE_DRIVE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_DRACO_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_DRAGALGITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_DRAGONINITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_DRAGONIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_DRAGON_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_DRAMPANITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_DREAD_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_EARTH_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_EELEKTROSSITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_ELECTRIC_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_ELECTRIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_EMBOARITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_EXCADRITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_FAIRIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_FAIRY_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_FALINKSITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_FERALIGITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_FIGHTING_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_FIGHTINIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_FIRE_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_FIRIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_FIST_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_FLAME_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_FLOETTITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_FLYING_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_FLYINIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_FROSLASSITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_GALLADITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_GARCHOMPITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_GARCHOMPITE_Z": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_GARDEVOIRITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_GENGARITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_GHOSTIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_GHOST_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_GLALITITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_GLIMMORANITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_GOLISOPITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_GOLURKITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_GRACIDEA": {
+      "methods": [
+        "FORM_CHANGE_ITEM_USE"
+      ],
+      "disposition": "Used from the bag via the party menu (src/party_menu.c:6872); holding it has no battle effect."
+    },
+    "ITEM_GRASSIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_GRASS_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_GRENINJITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_GRISEOUS_CORE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_GRISEOUS_ORB": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_GROUNDIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_GROUND_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_GYARADOSITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_HAWLUCHANITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_HEARTHFLAME_MASK": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_HEATRANITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_HERACRONITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_HOUNDOOMINITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_ICE_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_ICICLE_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_ICIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_INSECT_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_IRON_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_KANGASKHANITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_LATIASITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_LATIOSITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_LOPUNNITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_LUCARIONITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_LUCARIONITE_Z": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_LUSTROUS_GLOBE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_MAGEARNITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_MALAMARITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_MANECTITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_MAWILITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_MEADOW_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_MEDICHAMITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_MEGANIUMITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_MEOWSTICITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_METAGROSSITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_METEORITE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_USE"
+      ],
+      "disposition": "Used from the bag via the party menu (src/party_menu.c:6872); holding it has no battle effect."
+    },
+    "ITEM_MEWTWONITE_X": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_MEWTWONITE_Y": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_MIND_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_NONE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "ITEM_NONE row selects the item-less base form; read live."
+    },
+    "ITEM_PIDGEOTITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_PINK_NECTAR": {
+      "methods": [
+        "FORM_CHANGE_ITEM_USE"
+      ],
+      "disposition": "Used from the bag via the party menu (src/party_menu.c:6872); holding it has no battle effect."
+    },
+    "ITEM_PINSIRITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_PIXIE_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_POISONIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_POISON_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_PRISON_BOTTLE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_USE"
+      ],
+      "disposition": "Used from the bag via the party menu (src/party_menu.c:6872); holding it has no battle effect."
+    },
+    "ITEM_PSYCHIC_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_PSYCHIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_PURPLE_NECTAR": {
+      "methods": [
+        "FORM_CHANGE_ITEM_USE"
+      ],
+      "disposition": "Used from the bag via the party menu (src/party_menu.c:6872); holding it has no battle effect."
+    },
+    "ITEM_PYROARITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_RAICHUNITE_X": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_RAICHUNITE_Y": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_RED_NECTAR": {
+      "methods": [
+        "FORM_CHANGE_ITEM_USE"
+      ],
+      "disposition": "Used from the bag via the party menu (src/party_menu.c:6872); holding it has no battle effect."
+    },
+    "ITEM_RED_ORB": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_PRIMAL_REVERSION"
+      ],
+      "disposition": "Primal Reversion; HOLD_EFFECT_PRIMAL_ORB is UNCLASSIFIED."
+    },
+    "ITEM_REVEAL_GLASS": {
+      "methods": [
+        "FORM_CHANGE_ITEM_USE"
+      ],
+      "disposition": "Used from the bag via the party menu (src/party_menu.c:6872); holding it has no battle effect."
+    },
+    "ITEM_ROCKIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_ROCK_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_ROTOM_CATALOG": {
+      "methods": [
+        "FORM_CHANGE_ITEM_USE_MULTICHOICE"
+      ],
+      "disposition": "Used from the bag via the party menu; holding it has no battle effect."
+    },
+    "ITEM_RUSTED_SHIELD": {
+      "methods": [
+        "FORM_CHANGE_BEGIN_BATTLE",
+        "FORM_CHANGE_END_BATTLE"
+      ],
+      "disposition": "Battle-start held-item form change; UNSUPPORTED identity exception. After battle; paired with the BEGIN_BATTLE row of the same item."
+    },
+    "ITEM_RUSTED_SWORD": {
+      "methods": [
+        "FORM_CHANGE_BEGIN_BATTLE",
+        "FORM_CHANGE_END_BATTLE"
+      ],
+      "disposition": "Battle-start held-item form change; UNSUPPORTED identity exception. After battle; paired with the BEGIN_BATTLE row of the same item."
+    },
+    "ITEM_SABLENITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_SALAMENCITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_SCEPTILITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_SCIZORITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_SCOLIPITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_SCOVILLAINITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_SCRAFTINITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_SHARPEDONITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_SHOCK_DRIVE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_SKARMORITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_SKY_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_SLOWBRONITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_SPLASH_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_SPOOKY_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_STARAPTITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_STARMINITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_STEELIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_STEELIXITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_STEEL_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_STONE_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_SWAMPERTITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_TATSUGIRINITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_TOXIC_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_TYRANITARITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_ULTRANECROZIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_ULTRA_BURST"
+      ],
+      "disposition": "Ultra Burst at turn start; HOLD_EFFECT_Z_CRYSTAL is UNSUPPORTED."
+    },
+    "ITEM_VENUSAURITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_VICTREEBELITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_WATERIUM_Z": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_WATER_MEMORY": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_WELLSPRING_MASK": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_YELLOW_NECTAR": {
+      "methods": [
+        "FORM_CHANGE_ITEM_USE"
+      ],
+      "disposition": "Used from the bag via the party menu (src/party_menu.c:6872); holding it has no battle effect."
+    },
+    "ITEM_ZAP_PLATE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_HOLD"
+      ],
+      "disposition": "Held-item form (Arceus/Silvally/Genesect/Giratina/Dialga/Palkia/Ogerpon/Z-Crystal holders): the form is fixed before the move and read live from gBattleMons species/types/stats; any damage effect is decided by its hold-effect family."
+    },
+    "ITEM_ZERAORITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    },
+    "ITEM_ZYGARDE_CUBE": {
+      "methods": [
+        "FORM_CHANGE_ITEM_USE_MULTICHOICE"
+      ],
+      "disposition": "Used from the bag via the party menu; holding it has no battle effect."
+    },
+    "ITEM_ZYGARDITE": {
+      "methods": [
+        "FORM_CHANGE_BATTLE_MEGA_EVOLUTION_ITEM"
+      ],
+      "disposition": "Mega Evolution at turn start; HOLD_EFFECT_MEGA_STONE is UNSUPPORTED."
+    }
   }
 }

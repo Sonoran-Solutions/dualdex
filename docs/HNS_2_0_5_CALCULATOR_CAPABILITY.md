@@ -159,7 +159,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy`. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — global categories remain unchanged; 84 proven-neutral abilities and four conditional pinch abilities retain their existing rules. Fourteen globally unsupported abilities receive reviewed contextual rules; only source-proven irrelevant requests clear their one ability blocker. Relevant and unknown contexts remain refused with `HNS_ABILITY_EFFECT_NOT_MODELLED`; independent blockers remain in force. |
-| 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **identity yes; damage effects no** — exact item identity and the current battle item are consumed; no damage item is modelled; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (587 neutral / 311 unsupported / 3 unclassified); no item blocker only for a globally neutral item or an unsupported item source-proven irrelevant to the exact request (§7.4–§7.5) **and** a move that does not read item state; relevant/unknown damage items fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`, and item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) fail closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
+| 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **identity yes; damage effects no** — exact item identity and the current battle item are consumed; no damage item is modelled; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (585 neutral / 313 unsupported / 3 unclassified); no item blocker only for a globally neutral item or an unsupported item source-proven irrelevant to the exact request (§7.4–§7.5) **and** a move that does not read item state; relevant/unknown damage items fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`, and item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) fail closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 10 | Snow | Ice Defense ×1.5 `[src/battle_util.c:7389]`; Snow never chips, Hail chips 1/16 `[src/battle_end_turn.c:155]` | **no** | **REFUSED** when asked for — fails closed |
@@ -235,7 +235,7 @@ Only these individual behaviours are source-and-test demonstrated:
 | Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
 | Abilities (supported subset) | 84 proven neutral abilities and 4 conditional pinch abilities | Neutral abilities add no modifier; pinch uses the H&S UQ4.12 pipeline | **CONDITIONALLY AUTHORIZED** under the live operand gates (§14.6 and pinned audit above) |
 | Abilities (globally unsupported) | Guts, Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — `HNS_ABILITY_EFFECT_NOT_MODELLED` remains for relevant or unknown request contexts; source-proven irrelevant contexts may clear only that ability blocker (§6.3) |
-| Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items | identity consumed; no damage item modelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — 587 globally neutral items, and unsupported items proven irrelevant to the exact request, clear the item blocker only for an item-independent move; every relevant or unresolved item fails closed with `HNS_ITEM_EFFECT_NOT_MODELLED`; every item-dependent move fails closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`; unreadable current item is `HNS_EFFECTIVE_ITEM_UNREADABLE` (§7) |
+| Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items | identity consumed; no damage item modelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — 585 globally neutral items, and unsupported items proven irrelevant to the exact request, clear the item blocker only for an item-independent move; every relevant or unresolved item fails closed with `HNS_ITEM_EFFECT_NOT_MODELLED`; every item-dependent move fails closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`; unreadable current item is `HNS_EFFECTIVE_ITEM_UNREADABLE` (§7) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
 
 ### 3.3 Three different claims that must not be conflated
@@ -595,7 +595,7 @@ H&S item identity is now exact and independent of the generic expansion table:
 This table is the **static** half of the contextual decision. It proves only that the item's own hold
 effect does not touch the ordinary damage path; a request using any of these items is still refused if
 the selected move is item-dependent (§7.2). These six rows are examples of the 32 globally neutral
-hold-effect families (587 items) audited in §7.4.
+hold-effect families (585 items) audited in §7.4.
 
 | Item | H&S numeric ID | Identity source | H&S source effect | ADV behavior | DualDex category | Reason |
 |---|---|---|---|---|---|---|
@@ -698,10 +698,10 @@ Results (`HnsItemAuditData.categoryCounts`, also asserted by `HnsItemAuditTest` 
 
 | Category | Items | Families |
 |---|---|---|
-| `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` | 587 | 32 |
+| `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` | 585 | 32 |
 | `MODELLED_EQUIVALENT` | 0 | 0 |
 | `MODELLED_HNS_SPECIFIC` | 0 | 0 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 311 | 97 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 311 hold-effect-family items + 2 identity exceptions = 313 | 97 |
 | `UNCLASSIFIED` | 3 | 1 family (`HOLD_EFFECT_PRIMAL_ORB`) + 1 identity exception |
 
 Globally neutral groups: `no_battle_effect` (`NONE`, `REPEL`, `DOUBLE_PRIZE`, `FRIENDSHIP_UP`,
@@ -713,6 +713,18 @@ Globally neutral groups: `no_battle_effect` (`NONE`, `REPEL`, `DOUBLE_PRIZE`, `F
 its catalogue hold effect is `NONE`, but `GetBattlerHoldEffectInternal` returns the runtime
 `gEnigmaBerries[battler].holdEffect` for that exact ID (`[src/battle_util.c:5834]`), so it is
 `UNCLASSIFIED`.
+
+Rusted Sword (288) and Rusted Shield (289) are also `HOLD_EFFECT_NONE` in the catalogue, but pinned
+`src/data/pokemon/form_change_tables.h` uses them in `FORM_CHANGE_BEGIN_BATTLE`: at battle start a
+holding Zacian/Zamazenta becomes its Crowned form and Iron Head becomes Behemoth Blade/Bash
+(`[src/battle_main.c:689-690]`). They are `UNSUPPORTED_DAMAGE_RELEVANT` identity exceptions with no
+request-local clearance. Because a held item can act through form-change tables independently of its
+hold effect, source-check also requires `form_change_item_identities` in `decisions.json` to equal
+every `ITEM_*` identity (with its methods) in the pinned form-change tables, and it refuses any identity
+with a battle-time held method (`FORM_CHANGE_BEGIN_BATTLE` or `FORM_CHANGE_BATTLE_*`) that is classified
+neutral. Bag-use rows (`FORM_CHANGE_ITEM_USE*`, e.g. Gracidea, Rotom Catalog) and `FORM_CHANGE_ITEM_HOLD`
+rows (Plates, Memories, Drives, orbs, masks, Z-Crystals, whose form is fixed before the move and read
+live) are reviewed dispositions.
 
 Globally unsupported groups (with request-local rules in §7.5 unless noted): `attacker_offense`
 (22 families), `defender_defense` (8), `post_hit_or_residual` (54), `turn_order` (7), `weight_only`

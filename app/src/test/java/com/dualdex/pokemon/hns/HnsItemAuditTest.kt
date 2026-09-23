@@ -43,10 +43,26 @@ class HnsItemAuditTest {
 
     @Test
     fun `identity exceptions refer to real identities and override their family`() {
-        assertEquals(setOf(581), HnsItemAuditData.identityExceptions.keys)
+        assertEquals(setOf(288, 289, 581), HnsItemAuditData.identityExceptions.keys)
         val enigma = Hns205ItemCatalogue.get(581)!!
         assertEquals("ITEM_ENIGMA_BERRY_E_READER", enigma.canonicalSymbol)
         assertEquals(HnsItemCategory.UNCLASSIFIED, HnsItemRegistry.classify(581).category)
+    }
+
+    @Test
+    fun `Rusted Sword and Shield never inherit HOLD_EFFECT_NONE neutrality`() {
+        // FORM_CHANGE_BEGIN_BATTLE (src/data/pokemon/form_change_tables.h) crowns a holding
+        // Zacian/Zamazenta and swaps Iron Head for Behemoth Blade/Bash: battle-relevant item
+        // identity that the NONE hold effect does not describe.
+        for ((id, symbol) in listOf(288 to "ITEM_RUSTED_SWORD", 289 to "ITEM_RUSTED_SHIELD")) {
+            val entry = HnsItemRegistry.classify(id)
+            assertEquals(symbol, entry.data?.canonicalSymbol)
+            assertEquals("HOLD_EFFECT_NONE", entry.data?.holdEffect)
+            assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, entry.category)
+            assertEquals("identity_exception", entry.familyGroup)
+            assertFalse(HnsItemRegistry.isSupportedForDamage(id))
+            assertNull(HnsItemRegistry.engineItemName(id))
+        }
     }
 
     @Test
@@ -54,8 +70,8 @@ class HnsItemAuditTest {
         val counts = domain.groupingBy { HnsItemRegistry.classify(it).category }.eachCount()
         val expected = HnsItemAuditData.categoryCounts.filterValues { it > 0 }
         assertEquals(expected, counts)
-        assertEquals(587, counts[HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT])
-        assertEquals(311, counts[HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT])
+        assertEquals(585, counts[HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT])
+        assertEquals(313, counts[HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT])
         assertEquals(3, counts[HnsItemCategory.UNCLASSIFIED])
         assertNull("nothing is MODELLED today", counts[HnsItemCategory.MODELLED_EQUIVALENT])
         assertNull(counts[HnsItemCategory.MODELLED_HNS_SPECIFIC])

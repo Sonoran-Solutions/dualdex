@@ -18,6 +18,11 @@ exceptions. The generator only COLLECTS and CHECKS; it never decides that an ite
   * literal ITEM_* catalogue symbols in pinned `src/battle_*.c` must occur only inside reviewed
     enclosing definitions (`identity_reference_sites`), so an identity-specific read cannot appear
     unreviewed;
+  * every ITEM_* identity in pinned src/data/pokemon/form_change_tables.h, with its form-change
+    methods, must equal the reviewed `form_change_item_identities`, and an identity with a
+    battle-time held method (FORM_CHANGE_BEGIN_BATTLE or FORM_CHANGE_BATTLE_*) may never be
+    PROVEN_NO_ORDINARY_DAMAGE_EFFECT: a held item can change battle form/moves through these tables
+    independently of its hold effect (e.g. Rusted Sword/Shield);
   * identity exceptions and request-local context rules must refer to real identities/families, and
     every context rule must be implemented by name in HnsItemContextPolicy.kt and cite pinned source
     lines that still contain the quoted text.
@@ -66,6 +71,10 @@ DEFINITION = re.compile(
 )
 
 
+FORM_CHANGE_TABLES = "src/data/pokemon/form_change_tables.h"
+BATTLE_HELD_FORM_METHODS = re.compile(r"^FORM_CHANGE_(BEGIN_BATTLE|BATTLE_.*)$")
+
+
 class AuditError(Exception):
     pass
 
@@ -109,6 +118,29 @@ def scan_identity_sites(upstream, item_symbols):
             if found:
                 sites.setdefault(f"{rel}:{enclosing}", set()).update(found)
     return sites
+
+
+def scan_form_change_items(upstream):
+    """{ITEM_* symbol: sorted form-change methods} from the pinned form-change tables."""
+    text = (upstream / FORM_CHANGE_TABLES).read_text(errors="replace")
+    found = {}
+    for match in re.finditer(r"\{\s*(FORM_CHANGE_[A-Z_]+)\s*,[^}]*?\b(ITEM_[A-Z0-9_]+)", text):
+        found.setdefault(match.group(2), set()).add(match.group(1))
+    return {symbol: sorted(methods) for symbol, methods in found.items()}
+
+
+def check_form_change_identities(scanned, reviewed, category_of):
+    if set(scanned) != set(reviewed):
+        raise AuditError(
+            f"held-item form-change identities changed; review {sorted(set(scanned) - set(reviewed))}, "
+            f"stale {sorted(set(reviewed) - set(scanned))}")
+    for symbol, methods in scanned.items():
+        entry = reviewed[symbol]
+        if entry.get("methods") != methods or not entry.get("disposition"):
+            raise AuditError(f"form-change methods for {symbol} changed or lack a disposition: {methods}")
+        if any(BATTLE_HELD_FORM_METHODS.match(m) for m in methods) and \
+                category_of(symbol) == "PROVEN_NO_ORDINARY_DAMAGE_EFFECT":
+            raise AuditError(f"{symbol} changes battle form while held ({methods}) but is classified neutral")
 
 
 def check_evidence(upstream, rule_name, evidence):
@@ -251,6 +283,14 @@ def main():
             raise AuditError(
                 f"literal item identity reads changed; missing review for "
                 f"{sorted(set(sites) - set(reviewed_sites))}, stale {sorted(set(reviewed_sites) - set(sites))}")
+        def category_of(symbol):
+            exc = exceptions.get(symbol)
+            return exc["category"] if exc else families[by_symbol[symbol]["hold_effect"]]["category"]
+        form_items = scan_form_change_items(upstream)
+        unknown = sorted(set(form_items) - set(by_symbol))
+        if unknown:
+            raise AuditError(f"form-change tables name non-catalogue items {unknown}")
+        check_form_change_identities(form_items, decisions.get("form_change_item_identities", {}), category_of)
         rule_names = validate_context_rules(upstream, decisions)
     except Exception as exc:  # noqa: BLE001 - every extraction or review failure is fatal
         print(f"error: {exc}", file=sys.stderr)

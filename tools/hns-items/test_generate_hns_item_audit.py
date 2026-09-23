@@ -67,6 +67,62 @@ class ScanTests(unittest.TestCase):
                 audit.check_evidence(self.root, "bad", bad)
 
 
+class FormChangeIdentityTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.tmp.name)
+        write(self.root, audit.FORM_CHANGE_TABLES,
+              "static const struct FormChange sZacianFormChangeTable[] =\n{\n"
+              "    {FORM_CHANGE_BEGIN_BATTLE, SPECIES_ZACIAN_CROWNED, ITEM_RUSTED_SWORD, MOVE_IRON_HEAD, MOVE_BEHEMOTH_BLADE},\n"
+              "    {FORM_CHANGE_END_BATTLE,   SPECIES_ZACIAN_HERO,    ITEM_RUSTED_SWORD, MOVE_BEHEMOTH_BLADE, MOVE_IRON_HEAD},\n"
+              "    {FORM_CHANGE_TERMINATOR},\n};\n"
+              "    {FORM_CHANGE_ITEM_USE, SPECIES_SHAYMIN_SKY, ITEM_GRACIDEA, },\n")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def reviewed(self):
+        return {
+            "ITEM_RUSTED_SWORD": {"methods": ["FORM_CHANGE_BEGIN_BATTLE", "FORM_CHANGE_END_BATTLE"], "disposition": "x"},
+            "ITEM_GRACIDEA": {"methods": ["FORM_CHANGE_ITEM_USE"], "disposition": "bag"},
+        }
+
+    def test_scan_collects_every_identity_with_its_methods(self):
+        self.assertEqual(audit.scan_form_change_items(self.root), {
+            "ITEM_RUSTED_SWORD": ["FORM_CHANGE_BEGIN_BATTLE", "FORM_CHANGE_END_BATTLE"],
+            "ITEM_GRACIDEA": ["FORM_CHANGE_ITEM_USE"],
+        })
+
+    def test_battle_start_form_item_can_never_be_neutral(self):
+        scanned = audit.scan_form_change_items(self.root)
+        audit.check_form_change_identities(scanned, self.reviewed(), lambda s: "UNSUPPORTED_DAMAGE_RELEVANT")
+        with self.assertRaises(audit.AuditError):
+            audit.check_form_change_identities(
+                scanned, self.reviewed(),
+                lambda s: "PROVEN_NO_ORDINARY_DAMAGE_EFFECT" if s == "ITEM_RUSTED_SWORD" else "UNSUPPORTED_DAMAGE_RELEVANT")
+        # A bag-use identity may stay neutral.
+        audit.check_form_change_identities(
+            scanned, self.reviewed(),
+            lambda s: "PROVEN_NO_ORDINARY_DAMAGE_EFFECT" if s == "ITEM_GRACIDEA" else "UNSUPPORTED_DAMAGE_RELEVANT")
+
+    def test_unreviewed_or_changed_form_rows_fail(self):
+        scanned = audit.scan_form_change_items(self.root)
+        missing = self.reviewed()
+        del missing["ITEM_GRACIDEA"]
+        with self.assertRaises(audit.AuditError):
+            audit.check_form_change_identities(scanned, missing, lambda s: "UNSUPPORTED_DAMAGE_RELEVANT")
+        changed = self.reviewed()
+        changed["ITEM_RUSTED_SWORD"]["methods"] = ["FORM_CHANGE_ITEM_HOLD"]
+        with self.assertRaises(audit.AuditError):
+            audit.check_form_change_identities(scanned, changed, lambda s: "UNSUPPORTED_DAMAGE_RELEVANT")
+
+    def test_committed_review_keeps_rusted_items_non_neutral(self):
+        decisions = json.loads((HERE / "decisions.json").read_text())
+        for symbol in ("ITEM_RUSTED_SWORD", "ITEM_RUSTED_SHIELD"):
+            self.assertEqual(decisions["identity_exceptions"][symbol]["category"], "UNSUPPORTED_DAMAGE_RELEVANT")
+            self.assertIn("FORM_CHANGE_BEGIN_BATTLE", decisions["form_change_item_identities"][symbol]["methods"])
+
+
 class ReviewedArtifactTests(unittest.TestCase):
     """Structural checks on the committed reviewed artifacts that need no upstream checkout."""
 

@@ -23,6 +23,9 @@ import com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus
 import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
 import com.dualdex.pokemon.hns.HnsFairyTypeMappings
 import com.dualdex.pokemon.hns.HnsOptionStyle
+import com.dualdex.pokemon.hns.HnsAbilityCategory
+import com.dualdex.pokemon.hns.HnsAbilityRegistry
+import com.dualdex.pokemon.DeclaredAbility
 import com.dualdex.pokemon.hns.normalizeHnsBattlerTypes
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
@@ -419,7 +422,8 @@ object BattleHnsDamagePresenter {
         return when {
             CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED in verdict.limitations || observedDoubles ->
                 "Doubles not supported"
-            CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED in verdict.limitations -> "Ability effect not modelled"
+            CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED in verdict.limitations ->
+                abilityRefusalReason(context) ?: "Ability effect not modelled"
             CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED in verdict.limitations ||
                 CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE in verdict.limitations -> "Item effect not modelled"
             CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED in verdict.limitations ||
@@ -433,5 +437,30 @@ object BattleHnsDamagePresenter {
             CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE in verdict.limitations -> "Challenge settings unavailable"
             else -> "Damage interaction not modelled"
         }
+    }
+
+    /** The same observed, slot-bound effective ID that the request boundary evaluates. */
+    private fun abilityRefusalReason(context: BattleHnsCalculationContext?): String? {
+        if (context == null) return null
+        fun label(observation: BattlerRuntimeObservation?, slot: Int?, owner: String): String? {
+            val state = observation?.state ?: return null
+            if (state.status != HnsBattlerRuntimeStatus.OBSERVED || slot == null ||
+                state.partySlot != slot || state.abilityOutOfDomain) return null
+            val id = state.effectiveAbilityId ?: return null
+            if (id !in 0..HnsBattlerRuntimeStateIds.ABILITY_ID_MAX) return null
+            val declared = observation.abilityIdentity as? DeclaredAbility.Declared
+            if (id != 0 && (declared == null || declared.abilityId != id || declared.name.isBlank())) return null
+            val entry = HnsAbilityRegistry.classify(id)
+            return when (entry.category) {
+                HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT -> "$owner ${entry.titleCaseName} not modelled"
+                HnsAbilityCategory.UNCLASSIFIED -> "$owner ${entry.titleCaseName} not yet audited"
+                else -> null
+            }
+        }
+        val blockers = listOfNotNull(
+            label(context.playerBattlerState, context.activePlayerSlot, "Your"),
+            label(context.enemyBattlerState, context.activeEnemySlot, "Opponent's")
+        )
+        return blockers.takeIf { it.isNotEmpty() }?.joinToString("; ")
     }
 }

@@ -56,13 +56,13 @@ class CalcHnsC4eProductionBoundaryTest {
         )
     }
 
-    private fun settings(): HnsChallengeSettingsSnapshot = HnsChallengeSettingsSnapshot(
+    private fun settings(randomAbilities: Boolean = false): HnsChallengeSettingsSnapshot = HnsChallengeSettingsSnapshot(
         status = HnsChallengeSettingsStatus.OBSERVED,
         optionStyle = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
         txModeFairyTypes = HnsChallengeField(observed = true, raw = 1, outOfDomain = false),
         txRandomType = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
         txRandomTypeEffectiveness = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
-        txRandomAbilities = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
+        txRandomAbilities = HnsChallengeField(observed = true, raw = if (randomAbilities) 1 else 0, outOfDomain = false),
         txRandomMoves = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
         txChallengesNoEvs = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
         txChallengesBaseStatEqualizer = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
@@ -315,18 +315,42 @@ class CalcHnsC4eProductionBoundaryTest {
         request: DamageCalculationRequest,
         player: BattlerRuntimeObservation?,
         enemy: BattlerRuntimeObservation?,
-        activeBattle: Boolean = true
+        activeBattle: Boolean = true,
+        randomAbilities: Boolean = false
     ): CalcRequestOutcome = CalcRequestBoundary.build(
         profile = heartAndSoul,
         trust = trust,
         request = request,
-        challengeSettings = settings(),
+        challengeSettings = settings(randomAbilities),
         playerBattlerState = player,
         enemyBattlerState = enemy,
         activeBattle = activeBattle
     )
 
     // ---------------------------------------------------------------- positive control
+
+    @Test
+    fun `Random Abilities verdict follows the observed effective ID rather than species or caller`() {
+        val trust = trustFor(exactSha)
+        val claimedDefaults = goldenARequest() // Chikorita Overgrow, Pidgey Tangled Feet
+        val harmless = build(trust, claimedDefaults,
+            playerObservation(abilityId = 9, abilityName = "Static"), enemyObservation(),
+            randomAbilities = true) as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("observed Static must permit an ordinary request")
+        assertEquals(9, harmless.request.attacker.abilityId)
+        assertEquals("Static", harmless.request.attacker.ability)
+
+        val harmful = build(trust, claimedDefaults,
+            playerObservation(abilityId = 62, abilityName = "Guts"), enemyObservation(),
+            randomAbilities = true) as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("observed Guts must refuse despite caller Overgrow")
+        assertTrue(harmful.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+
+        val defenderHarmful = build(trust, claimedDefaults,
+            playerObservation(abilityId = 9, abilityName = "Static"),
+            enemyObservation(abilityId = 47, abilityName = "Thick Fat"), randomAbilities = true)
+        assertTrue(defenderHarmful is CalcRequestOutcome.Refused)
+    }
 
     @Test
     fun `exact trusted live Singles ordinary request reaches Ready with ESTIMATED`() {
@@ -1110,6 +1134,12 @@ class CalcHnsC4eProductionBoundaryTest {
         refusedWith(
             expected = CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
             player = playerObservation(abilityId = 91, abilityName = "Adaptability")
+        )
+        // Telepathy zeroes type effectiveness against its partner in pinned H&S; the
+        // global registry remains conservative even though this production path is Singles.
+        refusedWith(
+            expected = CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
+            player = playerObservation(abilityId = 140, abilityName = "Telepathy")
         )
     }
 

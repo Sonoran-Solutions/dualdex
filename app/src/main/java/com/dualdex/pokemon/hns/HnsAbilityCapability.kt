@@ -44,7 +44,8 @@ enum class HnsAbilityCategory {
     UNSUPPORTED_DAMAGE_RELEVANT,
 
     /**
-     * Any ability not explicitly classified and audited in the registry. Fails closed.
+     * Pinned ability deliberately unresolved, or an ID/name outside the pinned catalogue.
+     * Fails closed.
      */
     UNCLASSIFIED;
 
@@ -74,180 +75,24 @@ object HnsAbilityRegistry {
     private val entriesById = HashMap<Int, HnsAbilityEntry>()
     private val entriesByName = HashMap<String, HnsAbilityEntry>()
 
-    private fun register(
-        id: Int?,
-        canonicalName: String,
-        titleCaseName: String,
-        category: HnsAbilityCategory,
-        rationale: String
-    ) {
-        val entry = HnsAbilityEntry(id, canonicalName, titleCaseName, category, rationale)
-        if (id != null) {
-            entriesById[id] = entry
-        }
-        val key = normalizeKey(canonicalName)
-        entriesByName[key] = entry
-        val titleKey = normalizeKey(titleCaseName)
-        if (titleKey != key) {
-            entriesByName[titleKey] = entry
-        }
-    }
-
     private fun normalizeKey(raw: String): String =
         raw.trim().lowercase().replace("_", " ").replace("-", " ")
 
     init {
-        // 0: ABILITY_NONE
-        register(
-            id = 0,
-            canonicalName = "NONE",
-            titleCaseName = "None",
-            category = HnsAbilityCategory.PROVEN_NO_DAMAGE_EFFECT,
-            rationale = "Observed to have no ability; zero damage effect."
-        )
-
-        // 15: INSOMNIA
-        register(
-            id = 15,
-            canonicalName = "INSOMNIA",
-            titleCaseName = "Insomnia",
-            category = HnsAbilityCategory.PROVEN_NO_DAMAGE_EFFECT,
-            rationale = "battle_move_resolution.c:1202 (blocks Rest), battle_util.c:5482, 9068 (sleep immunity). Zero damage modifier."
-        )
-
-        // 37: HUGE POWER
-        register(
-            id = 37,
-            canonicalName = "HUGE POWER",
-            titleCaseName = "Huge Power",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Modifier ordering/composition divergence: H&S composes ability multipliers together and applies stat stages before abilities, whereas ADV applies ability modifiers sequentially before stat stages."
-        )
-
-        // 47: THICK FAT
-        register(
-            id = 47,
-            canonicalName = "THICK FAT",
-            titleCaseName = "Thick Fat",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Modifier ordering/composition divergence: when interacting with other ability modifiers (e.g. Guts) or non-neutral stat stages, compound fixed-point rounding differs from ADV sequential flooring."
-        )
-
-        // 51: KEEN EYE
-        register(
-            id = 51,
-            canonicalName = "KEEN EYE",
-            titleCaseName = "Keen Eye",
-            category = HnsAbilityCategory.PROVEN_NO_DAMAGE_EFFECT,
-            rationale = "battle_script_commands.c:7711 (prevents acc drop), battle_util.c:10451 (ignores evasion). Zero damage modifier."
-        )
-
-        // 77: TANGLED FEET
-        register(
-            id = 77,
-            canonicalName = "TANGLED FEET",
-            titleCaseName = "Tangled Feet",
-            category = HnsAbilityCategory.PROVEN_NO_DAMAGE_EFFECT,
-            rationale = "battle_util.c:10508 lowers the attacker's accuracy by 20% while the holder is confused (GetTotalAccuracy), never the damage. Zero damage modifier."
-        )
-
-        // 62: GUTS
-        register(
-            id = 62,
-            canonicalName = "GUTS",
-            titleCaseName = "Guts",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Modifier ordering/composition divergence: when interacting with other ability modifiers (e.g. Thick Fat) or non-neutral stat stages, compound fixed-point rounding differs from ADV sequential flooring."
-        )
-
-        // 65: OVERGROW
-        register(
-            id = 65,
-            canonicalName = "OVERGROW",
-            titleCaseName = "Overgrow",
-            category = HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
-            rationale = "battle_util.c:7023 CalcAttackStat applies x1.5 as an Attack-stat modifier when moveType == TYPE_GRASS and hp <= maxHP/3. Modelled in calculateHnsDamage's post-stat-stage ability block; the policy requires authoritative live HP (or proves the ability irrelevant by move type) before authorizing (Gap C4e)."
-        )
-
-        // 66: BLAZE
-        register(
-            id = 66,
-            canonicalName = "BLAZE",
-            titleCaseName = "Blaze",
-            category = HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
-            rationale = "Same Attack-stat pinch modifier as Overgrow for TYPE_FIRE, condition hp <= maxHP/3. Modelled conditionally on authoritative live HP (Gap C4e)."
-        )
-
-        // 67: TORRENT
-        register(
-            id = 67,
-            canonicalName = "TORRENT",
-            titleCaseName = "Torrent",
-            category = HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
-            rationale = "Same Attack-stat pinch modifier as Overgrow for TYPE_WATER, condition hp <= maxHP/3. Modelled conditionally on authoritative live HP (Gap C4e)."
-        )
-
-        // 68: SWARM
-        register(
-            id = 68,
-            canonicalName = "SWARM",
-            titleCaseName = "Swarm",
-            category = HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
-            rationale = "Same Attack-stat pinch modifier as Overgrow for TYPE_BUG, condition hp <= maxHP/3. Modelled conditionally on authoritative live HP (Gap C4e)."
-        )
-
-        // 74: PURE POWER
-        register(
-            id = 74,
-            canonicalName = "PURE POWER",
-            titleCaseName = "Pure Power",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Modifier ordering/composition divergence: stat stages and compound ability interactions differ from ADV sequential pipeline."
-        )
-
-        // Modern damage abilities explicitly audited and marked unsupported
-        register(
-            id = 91,
-            canonicalName = "ADAPTABILITY",
-            titleCaseName = "Adaptability",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Post-Gen-III STAB increase unmodelled by ADV."
-        )
-        register(
-            id = 137,
-            canonicalName = "TOXIC BOOST",
-            titleCaseName = "Toxic Boost",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Post-Gen-III ability unmodelled by ADV."
-        )
-        register(
-            id = 168,
-            canonicalName = "PROTEAN",
-            titleCaseName = "Protean",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Dynamic move-type changing ability unmodelled by ADV."
-        )
-        register(
-            id = 255,
-            canonicalName = "GORILLA TACTICS",
-            titleCaseName = "Gorilla Tactics",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Post-Gen-III ability unmodelled by ADV."
-        )
-        register(
-            id = 262,
-            canonicalName = "TRANSISTOR",
-            titleCaseName = "Transistor",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Post-Gen-III electric boost ability unmodelled by ADV."
-        )
-        register(
-            id = 282,
-            canonicalName = "QUARK DRIVE",
-            titleCaseName = "Quark Drive",
-            category = HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
-            rationale = "Paradox terrain/stat boost ability unmodelled by ADV."
-        )
+        HnsAbilityAuditData.entries.forEach { entry ->
+            require(entry.abilityId != null && entriesById.putIfAbsent(entry.abilityId, entry) == null) {
+                "Duplicate H&S ability ID ${entry.abilityId}"
+            }
+            val symbolKey = normalizeKey(entry.canonicalName)
+            require(entriesByName.putIfAbsent(symbolKey, entry) == null) {
+                "Duplicate H&S ability symbol ${entry.canonicalName}"
+            }
+        }
+        // Some distinct numeric abilities share a displayed name (for example As One).
+        // Name-only lookup of those entries must remain unresolved; live reads use IDs.
+        HnsAbilityAuditData.entries.groupBy { normalizeKey(it.titleCaseName) }.forEach { (key, matches) ->
+            if (matches.size == 1) entriesByName.putIfAbsent(key, matches.single())
+        }
     }
 
     /**

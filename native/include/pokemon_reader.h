@@ -743,6 +743,8 @@ typedef struct {
     int8_t   battler_index;        // the gBattleMons entry that was read, -1 when not observed
     int8_t   party_slot;           // authoritative gBattlerPartyIndexes slot, -1 when unknown
     bool     party_slot_known;     // true only when the slot came from authoritative state
+    bool     species_observed;     // current gBattleMons species word was decoded from live memory
+    uint16_t species_id;           // current battle form, never inferred from stored party species
     bool     ability_observed;     // the ability word was decoded from live memory
     bool     ability_invalid;      // outside the pinned enum Ability domain (still reported raw)
     uint16_t ability_id;           // the engine's current effective ability identity

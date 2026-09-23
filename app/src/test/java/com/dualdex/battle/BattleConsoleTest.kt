@@ -4,6 +4,7 @@ import com.dualdex.calculator.DamageCalculationRequest
 import com.dualdex.calculator.DamageCalculationResponse
 import com.dualdex.calculator.CalcLimitation
 import com.dualdex.calculator.CalcSupport
+import com.dualdex.calculator.HnsAbilitySide
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.pokemon.DeclaredAbility
 import com.dualdex.pokemon.MoveCategory
@@ -186,12 +187,15 @@ class BattleConsoleTest {
         itemId: Int = 0,
         battlersCount: Int = 2,
         hp: Int = 20,
-        maxHp: Int = 20
+        maxHp: Int = 20,
+        speciesId: Int? = if (battlerIndex == 0) 152 else 16,
+        status1: Int = 0
     ) = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
             status = HnsBattlerRuntimeStatus.OBSERVED,
             battlerIndex = battlerIndex,
             partySlot = partySlot,
+            speciesId = speciesId,
             abilityId = abilityId,
             abilityOutOfDomain = false,
             types = typeIds.map { HnsBattlerTypeObservation(observed = true, raw = it, outOfDomain = false) },
@@ -220,7 +224,7 @@ class BattleConsoleTest {
             hp = hp,
             maxHp = maxHp,
             statusObserved = true,
-            status1 = 0,
+            status1 = status1,
             volatilesObserved = true,
             transientVolatilesObserved = true,
             persistentVolatilesObserved = true,
@@ -639,7 +643,11 @@ class BattleConsoleTest {
 
         // A runtime ability change invalidates the presentation key and the production boundary
         // refuses the new state instead of retaining the prior neutral-state range.
-        val changedContext = hnsContext(playerAbilityId = 62, playerAbilityName = "Guts")
+        val changedContext = hnsContext(
+            playerAbilityId = 62,
+            playerAbilityName = "Guts",
+            playerObservation = hnsBattler(0, 0, listOf(13), 62, "Guts", status1 = 0x10)
+        )
         val oldKey = BattleMovePresentationCacheKey.from(
             attacker, defender, hnsProfile, hnsTrust, StatStages(), StatStages(), supportedContext
         )
@@ -670,24 +678,88 @@ class BattleConsoleTest {
         assertEquals(1, sent.size)
         assertEquals(9, sent.single().attacker.abilityId)
 
-        val harmful = hnsContext(playerAbilityId = 62, playerAbilityName = "Guts", randomAbilities = true)
+        val harmful = hnsContext(
+            playerAbilityId = 62,
+            playerAbilityName = "Guts",
+            randomAbilities = true,
+            playerObservation = hnsBattler(0, 0, listOf(13), 62, "Guts", status1 = 0x10)
+        )
         val refused = buildHnsPresentation(33, harmful, calculator)
         assertEquals(DamageConfidence.UNAVAILABLE, refused.damageConfidence)
         assertEquals("Your Guts not modelled", refused.damageUnavailableReason)
         assertEquals(1, sent.size)
 
+        val defenderIrrelevant = hnsContext(playerAbilityId = 9, playerAbilityName = "Static", randomAbilities = true,
+            enemyObservation = hnsBattler(0, 1, listOf(1, 3), 26, "Levitate"))
+        val opponentEstimated = buildHnsPresentation(33, defenderIrrelevant, calculator)
+        assertEquals(DamageConfidence.ESTIMATE, opponentEstimated.damageConfidence)
+        assertEquals(2, sent.size)
+
         val defenderHarmful = hnsContext(playerAbilityId = 9, playerAbilityName = "Static", randomAbilities = true,
             enemyObservation = hnsBattler(0, 1, listOf(1, 3), 26, "Levitate"))
-        val opponentRefused = buildHnsPresentation(33, defenderHarmful, calculator)
+        val opponentRefused = buildHnsPresentation(89, defenderHarmful, calculator) // Earthquake
         assertEquals(DamageConfidence.UNAVAILABLE, opponentRefused.damageConfidence)
-        assertEquals("Opponent's Levitate not modelled", opponentRefused.damageUnavailableReason)
-        assertEquals(1, sent.size)
+        assertEquals("Foe Levitate not modelled", opponentRefused.damageUnavailableReason)
+        assertEquals(2, sent.size)
 
         val unresolved = buildHnsPresentation(33,
             hnsContext(playerAbilityId = 80, playerAbilityName = "Steadfast", randomAbilities = true), calculator)
         assertEquals(DamageConfidence.UNAVAILABLE, unresolved.damageConfidence)
         assertEquals("Your Steadfast not yet audited", unresolved.damageUnavailableReason)
+        assertEquals(2, sent.size)
+    }
+
+    @Test
+    fun `random Tera Shell attacker and Truant defender reach an estimated battle card`() {
+        val sent = mutableListOf<DamageCalculationRequest>()
+        val calculator = BattleDamageCalculator { request ->
+            sent += request
+            DamageCalculationResponse(success = true, minDamage = 8, maxDamage = 12,
+                range = listOf(8, 10, 12), moveCategory = "Physical")
+        }
+        val context = hnsContext(
+            playerAbilityId = 308,
+            playerAbilityName = "Tera Shell",
+            randomAbilities = true,
+            enemyObservation = hnsBattler(0, 1, listOf(1, 3), 54, "Truant")
+        )
+        val result = buildHnsPresentation(33, context, calculator)
+        assertEquals(DamageConfidence.ESTIMATE, result.damageConfidence)
+        assertTrue(result.damageLimitations.none {
+            it == CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED
+        })
+        assertTrue(result.damageAbilityBlockers.isEmpty())
         assertEquals(1, sent.size)
+        assertEquals(308, sent.single().attacker.abilityId)
+        assertEquals(54, sent.single().defender.abilityId)
+    }
+
+    @Test
+    fun `relevant abilities retain structured multi-blocker presentation and never call calculator`() {
+        val sent = mutableListOf<DamageCalculationRequest>()
+        val calculator = BattleDamageCalculator { request ->
+            sent += request
+            DamageCalculationResponse(success = true, minDamage = 8, maxDamage = 12,
+                range = listOf(8, 10, 12), moveCategory = "Physical")
+        }
+        val context = hnsContext(
+            playerAbilityId = 37,
+            playerAbilityName = "Huge Power",
+            randomAbilities = true,
+            enemyObservation = hnsBattler(
+                0, 1, listOf(1), 308, "Tera Shell", hp = 20, maxHp = 20, speciesId = 1432
+            )
+        )
+        val defender = createTestPokemon(species = 1432, nickname = "Terapagos")
+        val result = buildHnsPresentation(33, context, calculator, defender)
+        assertEquals(DamageConfidence.UNAVAILABLE, result.damageConfidence)
+        assertEquals("Live battle state incomplete", result.damageUnavailableReason)
+        assertEquals(2, result.damageAbilityBlockers.size)
+        assertEquals(listOf(HnsAbilitySide.ATTACKER, HnsAbilitySide.DEFENDER),
+            result.damageAbilityBlockers.map { it.side })
+        assertEquals(listOf("Huge Power", "Tera Shell"),
+            result.damageAbilityBlockers.map { it.abilityName })
+        assertEquals(0, sent.size)
     }
 
     @Test

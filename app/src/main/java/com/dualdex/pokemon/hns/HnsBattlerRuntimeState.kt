@@ -224,6 +224,8 @@ data class HnsBattlerRuntimeState(
     val status: HnsBattlerRuntimeStatus = HnsBattlerRuntimeStatus.UNAVAILABLE,
     val battlerIndex: Int? = null,
     val partySlot: Int? = null,
+    /** Current battle species/form, or null when the live species word was not read. */
+    val speciesId: Int? = null,
     val abilityId: Int? = null,
     val abilityOutOfDomain: Boolean = false,
     val types: List<HnsBattlerTypeObservation> = emptyList(),
@@ -460,7 +462,8 @@ data class HnsBattlerRuntimeState(
          * [62] volatileForesight, [63] volatileMiracleEye, [64] volatileRoot,
          * [65] volatileSmackDown, [66] volatileTelekinesis, [67] volatileMagnetRise,
          * [68] volatileGastroAcid, [69] volatileRoostActive,
-         * [70] volatileSubstitute, [71] volatileEndured.
+         * [70] volatileSubstitute, [71] volatileEndured,
+         * [72] speciesObserved, [73] current live battle species ID.
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
          * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is
@@ -475,6 +478,7 @@ data class HnsBattlerRuntimeState(
         private const val C4E_FIELD_TUPLE_LEN = 60
         private const val C4E_TRANSIENT_TUPLE_LEN = 62
         private const val C4E_PERSISTENT_TUPLE_LEN = 72
+        private const val C4E_SPECIES_TUPLE_LEN = 74
 
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -546,11 +550,13 @@ data class HnsBattlerRuntimeState(
             // same read window, so they are only authoritative when the window was read AND the
             // tuple is long enough to carry them.
             val c4ePersistent = raw.size >= C4E_PERSISTENT_TUPLE_LEN
+            val speciesId = if (raw.size >= C4E_SPECIES_TUPLE_LEN && raw[72] != 0) raw[73] else null
             val persistentVolatilesObserved = volatilesObserved && c4ePersistent
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
                 partySlot = raw[2].takeIf { raw[3] != 0 && it in 0..5 },
+                speciesId = speciesId,
                 abilityId = abilityId,
                 abilityOutOfDomain = abilityOutOfDomain,
                 types = types,

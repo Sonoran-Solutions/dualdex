@@ -16,6 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -83,6 +84,7 @@ class CalcHnsC4eProductionBoundaryTest {
      */
     private fun playerObservation(
         partySlot: Int = 0,
+        speciesId: Int? = 152, // Chikorita; live BattlePokemon species/form identity
         abilityId: Int = 65,
         abilityName: String = "Overgrow",
         types: List<Int> = listOf(13), // Grass (Chikorita; pinned enum Type GRASS = 13)
@@ -124,6 +126,7 @@ class CalcHnsC4eProductionBoundaryTest {
             status = HnsBattlerRuntimeStatus.OBSERVED,
             battlerIndex = 0,
             partySlot = partySlot,
+            speciesId = speciesId,
             abilityId = abilityId,
             abilityOutOfDomain = false,
             types = types.map { HnsBattlerTypeObservation(observed = true, raw = it, outOfDomain = false) },
@@ -186,9 +189,13 @@ class CalcHnsC4eProductionBoundaryTest {
 
     private fun enemyObservation(
         partySlot: Int = 0,
+        speciesId: Int? = 16, // Pidgey; live BattlePokemon species/form identity
         abilityId: Int = 77,
         abilityName: String = "Tangled Feet",
         types: List<Int> = listOf(1, 3), // Normal, Flying (Pidgey)
+        hpObserved: Boolean = true,
+        hp: Int = 15,
+        maxHp: Int = 15,
         volatilesObserved: Boolean = true,
         transientVolatilesObserved: Boolean = volatilesObserved,
         glaiveRush: Boolean = false,
@@ -221,6 +228,7 @@ class CalcHnsC4eProductionBoundaryTest {
             status = HnsBattlerRuntimeStatus.OBSERVED,
             battlerIndex = 1,
             partySlot = partySlot,
+            speciesId = speciesId,
             abilityId = abilityId,
             abilityOutOfDomain = false,
             types = types.map { HnsBattlerTypeObservation(observed = true, raw = it, outOfDomain = false) },
@@ -239,9 +247,9 @@ class CalcHnsC4eProductionBoundaryTest {
             absentFlagsReadable = true,
             battlersCount = observedBattlersCount ?: 0,
             battlersCountReadable = observedBattlersCount != null,
-            hpObserved = true,
-            hp = 15,
-            maxHp = 15,
+            hpObserved = hpObserved,
+            hp = hp,
+            maxHp = maxHp,
             statusObserved = statusObserved,
             status1 = status1,
             volatilesObserved = volatilesObserved,
@@ -341,12 +349,12 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals("Static", harmless.request.attacker.ability)
 
         val harmful = build(trust, claimedDefaults,
-            playerObservation(abilityId = 62, abilityName = "Guts"), enemyObservation(),
+            playerObservation(abilityId = 62, abilityName = "Guts", status1 = 0x10), enemyObservation(),
             randomAbilities = true) as? CalcRequestOutcome.Refused
             ?: throw AssertionError("observed Guts must refuse despite caller Overgrow")
         assertTrue(harmful.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
 
-        val defenderHarmful = build(trust, claimedDefaults,
+        val defenderHarmful = build(trust, goldenARequest(move = "Ember"),
             playerObservation(abilityId = 9, abilityName = "Static"),
             enemyObservation(abilityId = 47, abilityName = "Thick Fat"), randomAbilities = true)
         assertTrue(defenderHarmful is CalcRequestOutcome.Refused)
@@ -1133,14 +1141,133 @@ class CalcHnsC4eProductionBoundaryTest {
     fun `unsupported ability is refused`() {
         refusedWith(
             expected = CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
+            request = goldenARequest(move = "Razor Leaf"),
             player = playerObservation(abilityId = 91, abilityName = "Adaptability")
         )
-        // Telepathy zeroes type effectiveness against its partner in pinned H&S; the
-        // global registry remains conservative even though this production path is Singles.
-        refusedWith(
-            expected = CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
-            player = playerObservation(abilityId = 140, abilityName = "Telepathy")
+    }
+
+    @Test
+    fun `randomized attacker Tera Shell and defender Truant clear only their request-local blockers`() {
+        val trust = trustFor(exactSha)
+        val outcome = build(
+            trust = trust,
+            request = goldenARequest(), // Caller claims Chikorita Overgrow and Pidgey Tangled Feet.
+            player = playerObservation(abilityId = 308, abilityName = "Tera Shell"),
+            enemy = enemyObservation(abilityId = 54, abilityName = "Truant"),
+            randomAbilities = true
         )
+        val ready = outcome as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("live attacker Tera Shell + defender Truant should estimate, got $outcome")
+        assertEquals(CalcSupport.ESTIMATED, ready.verdict.support)
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertEquals(308, ready.request.attacker.abilityId)
+        assertEquals(54, ready.request.defender.abilityId)
+        assertEquals(listOf(308, 54), ready.verdict.hnsAbilityDecisions.map { it.abilityId })
+        assertTrue(ready.verdict.hnsAbilityDecisions.all {
+            it.globalCategory == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+                it.relevance == HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+        })
+        assertEquals(com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(308).category)
+        assertEquals(com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(54).category)
+    }
+
+    @Test
+    fun `swapping Truant to attacker remains refused`() {
+        val outcome = build(
+            trust = trustFor(exactSha),
+            request = goldenARequest(),
+            player = playerObservation(abilityId = 54, abilityName = "Truant"),
+            enemy = enemyObservation(abilityId = 308, abilityName = "Tera Shell"),
+            randomAbilities = true
+        ) as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("attacker Truant must remain blocked without truantCounter authority")
+        assertTrue(outcome.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            outcome.verdict.hnsAbilityDecisions.first { it.abilityId == 54 }.relevance)
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            outcome.verdict.hnsAbilityDecisions.first { it.abilityId == 308 }.relevance)
+    }
+
+    @Test
+    fun `defender Tera Shell clears only with live species and HP proof`() {
+        val trust = trustFor(exactSha)
+        val regularSpecies = build(
+            trust, goldenARequest(), playerObservation(),
+            enemyObservation(abilityId = 308, abilityName = "Tera Shell"), randomAbilities = true
+        )
+        assertTrue("non-Terapagos Tera Shell is irrelevant", regularSpecies is CalcRequestOutcome.Ready)
+
+        val terapagosRequest = goldenARequest().copy(
+            defender = liveInput("Terapagos", 3, 77, "Tangled Feet")
+        )
+        val fullHp = build(
+            trust, terapagosRequest, playerObservation(),
+            enemyObservation(speciesId = 1432, abilityId = 308, abilityName = "Tera Shell",
+                types = listOf(1), hp = 15, maxHp = 15), randomAbilities = true
+        ) as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("full-HP Terapagos-Terastal with Tera Shell must remain blocked")
+        assertTrue(fullHp.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            fullHp.verdict.hnsAbilityDecisions.single { it.abilityId == 308 }.relevance)
+
+        val belowFull = build(
+            trust, terapagosRequest, playerObservation(),
+            enemyObservation(speciesId = 1432, abilityId = 308, abilityName = "Tera Shell",
+                types = listOf(1), hp = 14, maxHp = 15), randomAbilities = true
+        ) as? CalcRequestOutcome.Refused
+            ?: throw AssertionError("the ambiguous Terapagos display name still fails the independent species gate")
+        assertFalse("below-full proof must clear only the Tera Shell blocker",
+            belowFull.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertTrue(belowFull.verdict.limitations.contains(CalcLimitation.SPECIES_NOT_IN_PINNED_DATA))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            belowFull.verdict.hnsAbilityDecisions.single { it.abilityId == 308 }.relevance)
+
+        for (missing in listOf(
+            enemyObservation(speciesId = 1432, abilityId = 308, abilityName = "Tera Shell",
+                types = listOf(1), hpObserved = false),
+            enemyObservation(speciesId = null, abilityId = 308, abilityName = "Tera Shell",
+                types = listOf(1)),
+            enemyObservation(speciesId = 65535, abilityId = 308, abilityName = "Tera Shell",
+                types = listOf(1))
+        )) {
+            val refused = build(trust, terapagosRequest, playerObservation(), missing, randomAbilities = true)
+                as? CalcRequestOutcome.Refused
+                ?: throw AssertionError("missing species/HP authority must not clear Tera Shell")
+            assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+            assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+                refused.verdict.hnsAbilityDecisions.single { it.abilityId == 308 }.relevance)
+        }
+    }
+
+    @Test
+    fun `Telepathy stays globally unsupported but is irrelevant in observed Singles`() {
+        val ready = build(
+            trustFor(exactSha), goldenARequest(),
+            playerObservation(abilityId = 9, abilityName = "Static"),
+            enemyObservation(abilityId = 140, abilityName = "Telepathy"), randomAbilities = true
+        ) as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("Telepathy cannot affect ordinary opponent damage in observed Singles")
+        val telepathy = ready.verdict.hnsAbilityDecisions.single { it.abilityId == 140 }
+        assertEquals(com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+            telepathy.globalCategory)
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, telepathy.relevance)
+        assertEquals(com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(140).category)
+
+        for (count in listOf(null, 4)) {
+            val refused = build(
+                trustFor(exactSha), goldenARequest(),
+                playerObservation(abilityId = 9, abilityName = "Static", observedBattlersCount = count),
+                enemyObservation(abilityId = 140, abilityName = "Telepathy", observedBattlersCount = count),
+                randomAbilities = true
+            ) as? CalcRequestOutcome.Refused
+                ?: throw AssertionError("unknown or Doubles topology must not clear Telepathy")
+            assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+            assertNotEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                refused.verdict.hnsAbilityDecisions.single { it.abilityId == 140 }.relevance)
+        }
     }
 
     @Test
@@ -1315,7 +1442,8 @@ class CalcHnsC4eProductionBoundaryTest {
         // The caller claims Overgrow, but the engine reports Adaptability (91, unsupported).
         val trust = trustFor(exactSha)
         val spoofed = goldenARequest().copy(
-            attacker = liveInput("Chikorita", 5, 0, "Overgrow")
+            attacker = liveInput("Chikorita", 5, 0, "Overgrow"),
+            move = CalcMoveInput(name = "Razor Leaf") // STAB keeps Adaptability relevant.
         )
         refusedWith(
             expected = CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,

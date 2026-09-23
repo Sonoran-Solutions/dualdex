@@ -800,7 +800,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * never silently drift apart.  Every public surface that touches this tuple
  * references BATTLER_RUNTIME_STATE_TUPLE_LEN instead of a local literal.
  */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 72
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 74
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -835,6 +835,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * [65] volatileSmackDown, [66] volatileTelekinesis, [67] volatileMagnetRise,
  * [68] volatileGastroAcid, [69] volatileRoostActive,
  * [70] volatileSubstitute, [71] volatileEndured.
+ * [72] speciesObserved, [73] current species id from gBattleMons[battler].species.
  *         Every Gap C4e `*Observed` bit separates an observed neutral value
  *         (bit 1, payload 0) from a field that was never read (bit 0). Slots
  *         [60]/[61] are only meaningful while [47] volatilesObserved is 1;
@@ -971,6 +972,8 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
      * `endured` caps it at HP-1. Same window, same [47] authority. */
     values[70] = (state.volatile_substitute) ? 1 : 0;
     values[71] = (state.volatile_endured) ? 1 : 0;
+    values[72] = (state.species_observed) ? 1 : 0;
+    values[73] = (jint)state.species_id;
 
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;

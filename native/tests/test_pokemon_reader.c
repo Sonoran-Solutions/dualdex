@@ -4569,6 +4569,8 @@ static void test_hns_challenge_settings_no_stale_across_games(void) {
 // ===========================================================================
 
 #define PIN_BATTLE_POKEMON_SIZEOF 136
+#define PIN_BATTLE_POKEMON_SPECIES_OFFSET 0x00
+#define PIN_BATTLE_POKEMON_SPECIES_SIZE 2
 #define PIN_BATTLE_POKEMON_ABILITY_OFFSET 0x20
 #define PIN_BATTLE_POKEMON_ABILITY_SIZE 2
 #define PIN_BATTLE_POKEMON_TYPES_OFFSET 0x22
@@ -4756,6 +4758,9 @@ static void test_hns_battle_pokemon_live_layout_pins(void) {
 
     TEST_ASSERT(HNS_BATTLE_POKEMON_SIZEOF == PIN_BATTLE_POKEMON_SIZEOF,
                 "generated BattlePokemon stride must equal the pinned 136");
+    TEST_ASSERT(HNS_BATTLE_POKEMON_SPECIES_OFFSET == PIN_BATTLE_POKEMON_SPECIES_OFFSET &&
+                HNS_BATTLE_POKEMON_SPECIES_SIZE == PIN_BATTLE_POKEMON_SPECIES_SIZE,
+                "generated current-species offset and width must equal the pinned field");
     TEST_ASSERT(HNS_BATTLE_POKEMON_ABILITY_OFFSET == PIN_BATTLE_POKEMON_ABILITY_OFFSET,
                 "generated ability offset must equal the pinned 0x20");
     TEST_ASSERT(HNS_BATTLE_POKEMON_ABILITY_SIZE == PIN_BATTLE_POKEMON_ABILITY_SIZE,
@@ -5163,6 +5168,8 @@ static void test_hns_battler_state_unresolved_ability_stays_raw(void) {
     BattlerRuntimeState st;
     TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st),
                 "an out-of-domain ability is still an observation");
+    TEST_ASSERT(st.species_observed && st.species_id == 155,
+                "current BattlePokemon species must be observed from the live battler record");
     TEST_ASSERT(st.status == BATTLER_RUNTIME_STATE_OBSERVED_INVALID,
                 "the status must degrade honestly, not silently pass");
     TEST_ASSERT(st.ability_observed && st.ability_invalid &&

@@ -12,6 +12,9 @@ import com.dualdex.calculator.CalcRequestBoundary
 import com.dualdex.calculator.CalcRequestOutcome
 import com.dualdex.calculator.CalcSupport
 import com.dualdex.calculator.CalcCapabilityVerdict
+import com.dualdex.calculator.HnsAbilityRequestDecision
+import com.dualdex.calculator.HnsAbilityRequestRelevance
+import com.dualdex.calculator.HnsAbilitySide
 import com.dualdex.pokemon.GameDataPackRegistry
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.MoveInfo
@@ -23,9 +26,6 @@ import com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus
 import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
 import com.dualdex.pokemon.hns.HnsFairyTypeMappings
 import com.dualdex.pokemon.hns.HnsOptionStyle
-import com.dualdex.pokemon.hns.HnsAbilityCategory
-import com.dualdex.pokemon.hns.HnsAbilityRegistry
-import com.dualdex.pokemon.DeclaredAbility
 import com.dualdex.pokemon.hns.normalizeHnsBattlerTypes
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
@@ -128,6 +128,8 @@ data class BattleHnsDamagePresentation(
     val koChanceText: String = "",
     val support: CalcSupport? = null,
     val limitations: List<CalcLimitation> = emptyList(),
+    /** Structured unresolved ability blockers; the UI must not truncate away blocker names. */
+    val abilityBlockers: List<HnsAbilityRequestDecision> = emptyList(),
     val unavailableReason: String? = null
 )
 
@@ -214,15 +216,21 @@ object BattleHnsDamagePresenter {
         )
 
         return when (outcome) {
-            is CalcRequestOutcome.Refused -> BattleHnsDamagePresentation(
-                category = category,
-                moveType = typePresentation.moveType,
-                effectiveness = typePresentation.effectiveness,
-                effectivenessConfidence = typePresentation.effectivenessConfidence,
-                support = outcome.verdict.support,
-                limitations = outcome.verdict.limitations,
-                unavailableReason = refusalReason(outcome.verdict, context)
-            )
+            is CalcRequestOutcome.Refused -> {
+                val abilityBlockers = outcome.verdict.hnsAbilityDecisions.filter {
+                    it.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+                }
+                BattleHnsDamagePresentation(
+                    category = category,
+                    moveType = typePresentation.moveType,
+                    effectiveness = typePresentation.effectiveness,
+                    effectivenessConfidence = typePresentation.effectivenessConfidence,
+                    support = outcome.verdict.support,
+                    limitations = outcome.verdict.limitations,
+                    abilityBlockers = abilityBlockers,
+                    unavailableReason = refusalReason(outcome.verdict, abilityBlockers, context)
+                )
+            }
             is CalcRequestOutcome.Ready -> {
                 val requestTypePresentation = resolveTypePresentation(
                     moveInfo = moveInfo,
@@ -412,6 +420,7 @@ object BattleHnsDamagePresenter {
 
     private fun refusalReason(
         verdict: CalcCapabilityVerdict,
+        abilityBlockers: List<HnsAbilityRequestDecision>,
         context: BattleHnsCalculationContext?
     ): String {
         val playerState = context?.playerBattlerState?.state
@@ -422,45 +431,35 @@ object BattleHnsDamagePresenter {
         return when {
             CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED in verdict.limitations || observedDoubles ->
                 "Doubles not supported"
+            CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN in verdict.limitations ||
+                CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED in verdict.limitations ||
+                CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE in verdict.limitations ||
+                CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE in verdict.limitations -> "Live battle state incomplete"
+            CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED in verdict.limitations ->
+                "Live battle format not supported"
             CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED in verdict.limitations ->
-                abilityRefusalReason(context) ?: "Ability effect not modelled"
+                when (abilityBlockers.size) {
+                    1 -> abilityBlockerLabel(abilityBlockers.single())
+                    in 2..Int.MAX_VALUE -> "${abilityBlockers.size} ability blockers"
+                    else -> "Ability effect not modelled"
+                }
             CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED in verdict.limitations ||
                 CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE in verdict.limitations -> "Item effect not modelled"
             CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED in verdict.limitations ||
                 CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED in verdict.limitations -> "Move effect not modelled"
             CalcLimitation.CATEGORY_SPLIT_TOGGLE_UNREADABLE in verdict.limitations -> "Move category unavailable"
-            CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN in verdict.limitations ||
-                CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED in verdict.limitations ||
-                CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED in verdict.limitations ||
-                CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE in verdict.limitations ||
-                CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE in verdict.limitations -> "Live battle state incomplete"
             CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE in verdict.limitations -> "Challenge settings unavailable"
             else -> "Damage interaction not modelled"
         }
     }
 
-    /** The same observed, slot-bound effective ID that the request boundary evaluates. */
-    private fun abilityRefusalReason(context: BattleHnsCalculationContext?): String? {
-        if (context == null) return null
-        fun label(observation: BattlerRuntimeObservation?, slot: Int?, owner: String): String? {
-            val state = observation?.state ?: return null
-            if (state.status != HnsBattlerRuntimeStatus.OBSERVED || slot == null ||
-                state.partySlot != slot || state.abilityOutOfDomain) return null
-            val id = state.effectiveAbilityId ?: return null
-            if (id !in 0..HnsBattlerRuntimeStateIds.ABILITY_ID_MAX) return null
-            val declared = observation.abilityIdentity as? DeclaredAbility.Declared
-            if (id != 0 && (declared == null || declared.abilityId != id || declared.name.isBlank())) return null
-            val entry = HnsAbilityRegistry.classify(id)
-            return when (entry.category) {
-                HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT -> "$owner ${entry.titleCaseName} not modelled"
-                HnsAbilityCategory.UNCLASSIFIED -> "$owner ${entry.titleCaseName} not yet audited"
-                else -> null
-            }
+    private fun abilityBlockerLabel(blocker: HnsAbilityRequestDecision): String {
+        val owner = if (blocker.side == HnsAbilitySide.ATTACKER) "Your" else "Foe"
+        val auditStatus = if (blocker.globalCategory == com.dualdex.pokemon.hns.HnsAbilityCategory.UNCLASSIFIED) {
+            "not yet audited"
+        } else {
+            "not modelled"
         }
-        val blockers = listOfNotNull(
-            label(context.playerBattlerState, context.activePlayerSlot, "Your"),
-            label(context.enemyBattlerState, context.activeEnemySlot, "Opponent's")
-        )
-        return blockers.takeIf { it.isNotEmpty() }?.joinToString("; ")
+        return "$owner ${blocker.abilityName} $auditStatus"
     }
 }

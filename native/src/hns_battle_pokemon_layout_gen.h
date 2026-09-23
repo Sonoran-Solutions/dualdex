@@ -34,6 +34,7 @@
  *     ITEMS_COUNT; an observed ID above ITEM_ID_MAX is reported as such.
  *
  * Source-text cross-check (compiled ABI wins on disagreement):
+ *   agree — species byte offset: compiled 0, source text 0
  *   agree — attack byte offset: compiled 2, source text 2
  *   agree — defense byte offset: compiled 4, source text 4
  *   agree — speed byte offset: compiled 6, source text 6
@@ -52,6 +53,8 @@
 #define DUALDEX_HNS_BATTLE_POKEMON_LAYOUT_GEN_H
 
 #define HNS_BATTLE_POKEMON_SIZEOF 136
+#define HNS_BATTLE_POKEMON_SPECIES_OFFSET 0
+#define HNS_BATTLE_POKEMON_SPECIES_SIZE 2
 #define HNS_BATTLE_POKEMON_ATTACK_OFFSET 2
 #define HNS_BATTLE_POKEMON_ATTACK_SIZE 2
 #define HNS_BATTLE_POKEMON_DEFENSE_OFFSET 4

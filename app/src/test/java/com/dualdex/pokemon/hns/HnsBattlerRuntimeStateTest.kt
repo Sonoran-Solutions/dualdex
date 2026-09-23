@@ -416,6 +416,15 @@ class HnsBattlerRuntimeStateTest {
     }
 
     @Test
+    fun `74-element tuple decodes the current live battle species and older tuple stays unknown`() {
+        val raw = c4ePersistentTuple().copyOf(74)
+        raw[72] = 1
+        raw[73] = 1432 // SPECIES_TERAPAGOS_TERASTAL
+        assertEquals(1432, HnsBattlerRuntimeState.fromNativeArray(raw).speciesId)
+        assertNull(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf(72)).speciesId)
+    }
+
+    @Test
     fun `observed bit false keeps a nonzero payload non-authoritative`() {
         // Every readability bit clear while the payload slots hold tempting nonzero values: the
         // decoder must report the field unobserved and must NOT promote the payload.

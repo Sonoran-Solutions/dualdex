@@ -8,6 +8,7 @@ import com.dualdex.calculator.CalcMoveInput
 import com.dualdex.calculator.CalcPokemonInput
 import com.dualdex.calculator.CalcRuleset
 import com.dualdex.calculator.CalcSupport
+import com.dualdex.calculator.HnsAbilityRequestDecision
 import com.dualdex.calculator.DamageCalculationRequest
 import com.dualdex.calculator.DamageCalculationResponse
 import com.dualdex.calculator.DamageCalculator
@@ -617,6 +618,8 @@ data class MovePresentation(
     val isKnown: Boolean = true,
     /** Exact production-boundary refusal reasons, retained for inspection and regression tests. */
     val damageLimitations: List<CalcLimitation> = emptyList(),
+    /** All ability-specific refusal details; these remain structured until the move card renders. */
+    val damageAbilityBlockers: List<HnsAbilityRequestDecision> = emptyList(),
     /** Short human-readable reason shown after the generic unavailable label when available. */
     val damageUnavailableReason: String? = null,
     val calculatorSupport: CalcSupport? = null
@@ -993,6 +996,7 @@ object BattlePresentationBuilder {
             koChanceText = koChance,
             isKnown = moveKnown,
             damageLimitations = hnsDamage?.limitations.orEmpty(),
+            damageAbilityBlockers = hnsDamage?.abilityBlockers.orEmpty(),
             damageUnavailableReason = hnsDamage?.unavailableReason,
             calculatorSupport = hnsDamage?.support
         )

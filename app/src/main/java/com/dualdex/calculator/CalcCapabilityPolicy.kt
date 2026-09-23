@@ -622,7 +622,9 @@ data class CalcCapabilityVerdict(
     val limitations: List<CalcLimitation>,
     val request: DamageCalculationRequest?,
     /** Why the build itself is unsupported; empty for a recorded capability row. */
-    val unsupportedReason: String = ""
+    val unsupportedReason: String = "",
+    /** Request-local decisions for globally unsupported or unresolved H&S abilities. */
+    val hnsAbilityDecisions: List<HnsAbilityRequestDecision> = emptyList()
 ) {
     /** True only when the result may be shown as verified. */
     val isVerified: Boolean get() = support == CalcSupport.VERIFIED
@@ -1028,6 +1030,7 @@ object CalcCapabilityPolicy {
         val capability = capabilityFor(profile) ?: return unsupported(profile)
 
         val limitations = LinkedHashSet(capability.alwaysLimitations)
+        val abilityDecisions = mutableListOf<HnsAbilityRequestDecision>()
 
         // Limitations the production preparation path already discovered are part of the decision,
         // not a separate opinion: an incomplete live read must be able to lower the verdict even
@@ -1038,7 +1041,7 @@ object CalcCapabilityPolicy {
             limitations.add(CalcLimitation.MECHANICS_GENERATION_MISMATCH)
         }
 
-        collectRequestLimitations(profile, capability, request, limitations)
+        collectRequestLimitations(profile, capability, request, limitations, abilityDecisions)
 
         if (capability.ruleset == CalcRuleset.HNS_2_0_5) {
             val exactTrusted = isExactRuntimeVerified(profile, trust)
@@ -1230,7 +1233,8 @@ object CalcCapabilityPolicy {
                     capability.ruleset,
                     request.copy(gen = capability.mechanicsGeneration)
                 )
-            }
+            },
+            hnsAbilityDecisions = abilityDecisions.toList()
         )
     }
 
@@ -1695,7 +1699,8 @@ object CalcCapabilityPolicy {
         classification: com.dualdex.pokemon.hns.HnsAbilityEntry,
         isAttacker: Boolean,
         request: DamageCalculationRequest,
-        limitations: MutableSet<CalcLimitation>
+        limitations: MutableSet<CalcLimitation>,
+        decisions: MutableList<HnsAbilityRequestDecision>
     ) {
         val pinchType = classification.abilityId?.let { HNS_PINCH_ABILITY_TYPES[it] }
         if (pinchType != null) {
@@ -1716,7 +1721,25 @@ object CalcCapabilityPolicy {
             }
             return
         }
-        if (!classification.category.isSupportedForDamage) {
+        if (classification.category == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT) {
+            val side = if (isAttacker) HnsAbilitySide.ATTACKER else HnsAbilitySide.DEFENDER
+            val decision = HnsAbilityContextPolicy.assess(
+                abilityId = classification.abilityId ?: -1,
+                context = HnsAbilityContextPolicy.contextForRequest(request, side)
+            )
+            decisions += decision
+            if (decision.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT) {
+                limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
+            }
+        } else if (!classification.category.isSupportedForDamage) {
+            decisions += HnsAbilityRequestDecision(
+                abilityId = classification.abilityId,
+                abilityName = classification.titleCaseName,
+                side = if (isAttacker) HnsAbilitySide.ATTACKER else HnsAbilitySide.DEFENDER,
+                globalCategory = classification.category,
+                relevance = HnsAbilityRequestRelevance.UNKNOWN,
+                rationale = "Unresolved global ability classification always fails closed."
+            )
             limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
         }
     }
@@ -1880,7 +1903,8 @@ object CalcCapabilityPolicy {
         profile: RomHackProfile,
         capability: CalcCapability,
         request: DamageCalculationRequest,
-        limitations: MutableSet<CalcLimitation>
+        limitations: MutableSet<CalcLimitation>,
+        abilityDecisions: MutableList<HnsAbilityRequestDecision>
     ) {
         val pack = GameDataPackRegistry.getForProfile(profile)
 
@@ -1950,7 +1974,8 @@ object CalcCapabilityPolicy {
                             classification = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.abilityId),
                             isAttacker = isAttacker,
                             request = request,
-                            limitations = limitations
+                            limitations = limitations,
+                            decisions = abilityDecisions
                         )
                     }
                 } else {
@@ -1966,7 +1991,8 @@ object CalcCapabilityPolicy {
                             classification = classification,
                             isAttacker = isAttacker,
                             request = request,
-                            limitations = limitations
+                            limitations = limitations,
+                            decisions = abilityDecisions
                         )
                     }
                 }

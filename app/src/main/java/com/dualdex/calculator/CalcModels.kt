@@ -273,6 +273,11 @@ data class CalcHnsLiveBattleState(
      */
     val attackerHp: Int? = null,
     val attackerMaxHp: Int? = null,
+    /** Boundary-owned defender HP and max HP from the active gBattleMons record. */
+    val defenderHp: Int? = null,
+    val defenderMaxHp: Int? = null,
+    /** Boundary-owned current defender battle species/form ID; null means it was not observed. */
+    val defenderSpeciesId: Int? = null,
     /**
      * The attacker's authoritative `status1` word, or null when unread. 0 is an observed
      * "no status"; the ordinary subset requires that (a non-zero live status is not modelled here).

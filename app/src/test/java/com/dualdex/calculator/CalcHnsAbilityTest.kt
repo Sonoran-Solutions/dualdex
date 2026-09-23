@@ -824,7 +824,7 @@ class CalcHnsAbilityTest {
             assertEquals("ability $id", HnsAbilityCategory.PROVEN_NO_DAMAGE_EFFECT,
                 HnsAbilityRegistry.classify(id).category)
         }
-        listOf(37, 47, 62, 74, 91, 168, 262, 282).forEach { id ->
+        listOf(37, 47, 62, 74, 91, 140, 168, 262, 282).forEach { id ->
             assertEquals("ability $id", HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
                 HnsAbilityRegistry.classify(id).category)
         }

@@ -1135,6 +1135,12 @@ class CalcHnsC4eProductionBoundaryTest {
             expected = CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
             player = playerObservation(abilityId = 91, abilityName = "Adaptability")
         )
+        // Telepathy zeroes type effectiveness against its partner in pinned H&S; the
+        // global registry remains conservative even though this production path is Singles.
+        refusedWith(
+            expected = CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
+            player = playerObservation(abilityId = 140, abilityName = "Telepathy")
+        )
     }
 
     @Test

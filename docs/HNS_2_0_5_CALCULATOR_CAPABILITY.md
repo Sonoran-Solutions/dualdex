@@ -16,11 +16,11 @@ Source references are an index for review, never automatic proof of neutrality.
 
 | Category | IDs |
 |---|---:|
-| `PROVEN_NO_DAMAGE_EFFECT` | 85 |
+| `PROVEN_NO_DAMAGE_EFFECT` | 84 |
 | `MODELLED_EQUIVALENT` | 0 |
 | `MODELLED_HNS_SPECIFIC` | 0 |
 | `MODELLED_HNS_CONDITIONAL` | 4 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 218 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 219 |
 | `UNCLASSIFIED` | 4 |
 
 The audit follows the ordinary `EFFECT_HIT` dependency path through attack and defense
@@ -40,8 +40,10 @@ Sand Veil (accuracy/evasion), Inner Focus (flinch prevention), Hyper Cutter and
 Full Metal Body (stat-drop prevention with live stages), Run Away (escape),
 Pickup and Ball Fetch (overworld/after-battle), and Prankster (status-move priority). Guts, Huge
 Power, Thick Fat, Pure Power, Levitate, Adaptability, Protean, Transistor, and
-Quark Drive remain refused. Speed Boost, Steadfast, Pickpocket, and Stamina
-remain unresolved and refused. No new contextual irrelevance rule was added;
+Quark Drive and Telepathy remain refused. Pinned H&S sets type effectiveness to zero
+for a partner target when Telepathy applies. Singles authorization currently excludes
+that context, but the registry remains globally conservative. Speed Boost, Steadfast,
+Pickpocket, and Stamina remain unresolved and refused. No new contextual irrelevance rule was added;
 the existing pinch-ability defender and wrong-move-type checks remain.
 
 In Random Abilities battles, the boundary takes the effective numeric ID from
@@ -75,6 +77,10 @@ Line references below are `file:line` into that pinned checkout.
 > through the real `CalcRequestBoundary`. Everything outside that subset still fails closed. See
 > §14 for the authorized subset, the new live readers and the exact hash decision; §13 is the
 > historical C4d record, which deliberately did not promote.
+
+> **Current status note:** Gap sections below preserve point-in-time history. Statements that no
+> production request reaches `Ready` / `ESTIMATED` describe pre-C4e states and are superseded by
+> this C4e status and §14.9.
 
 **Vocabulary.** *SOURCE VERIFIED* means read directly from the pinned source (or from the vendored
 library source). *NOT FOUND* means the evidence does not exist and is never treated as true.
@@ -133,7 +139,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — type chart is exact and verified in QuickJS. Used by `calculateHnsDamage` for post-roll type effectiveness; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C1/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
-| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; strict per-ability capability gating (`PROVEN_NO_DAMAGE_EFFECT`, `MODELLED_EQUIVALENT`, `UNSUPPORTED_DAMAGE_RELEVANT`) in `HnsAbilityRegistry`. Engine default ability substitution prevented via `'(other)'`. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — live read and manual abilities are verified or fail-closed. The only damage-relevant abilities that execute in `calculateHnsDamage` are the conditional pinch abilities (Overgrow/Blaze/Torrent/Swarm, §14.6); every other ability is admitted only in the two **non-modifying** classes — `PROVEN_NO_DAMAGE_EFFECT` (for example None, Keen Eye, Insomnia) and `MODELLED_EQUIVALENT` — while damage-relevant abilities whose modifier ordering/composition diverges from the ADV pipeline are `UNSUPPORTED_DAMAGE_RELEVANT` and **refuse** with `HNS_ABILITY_EFFECT_NOT_MODELLED` (Huge Power id 37, Thick Fat id 47, Guts id 62, Pure Power id 74; `CalcCapabilityPolicy.kt:1720`). The §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C2/C4b` "production refused" verdict was the historical pre-C4e state. *Correction, #40 closure audit: an earlier revision of this row listed Thick Fat, Guts and Huge Power as supported abilities that "execute in `calculateHnsDamage`". They do not — those three are refused, and the admitted ability list is the two non-modifying classes plus the pinch abilities.*) |
+| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; strict per-ability capability gating in `HnsAbilityRegistry`. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — the 84 proven-neutral abilities and four conditional pinch abilities are admitted under their respective rules; damage-relevant abilities whose effects are unmodelled remain `UNSUPPORTED_DAMAGE_RELEVANT` and refuse with `HNS_ABILITY_EFFECT_NOT_MODELLED`. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. Historical C2/C4b wording is superseded by the pinned audit above. |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **identity yes; damage effects no** — exact item identity and the current battle item are consumed; no damage item is modelled; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — no item blocker only for `ITEM_NONE`/proven no-*ordinary*-damage items **and** a move that does not read item state; damage items fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`, and item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) fail closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
@@ -208,7 +214,7 @@ Only these individual behaviours are source-and-test demonstrated:
 | Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack/spAttack stat in `calculateHnsDamage` | **HOST-ORACLE MATCHES (Gap C4b partial / open)** |
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
 | Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
-| Abilities (supported subset) | 85 proven neutral abilities and 4 conditional pinch abilities | Neutral abilities add no modifier; pinch uses the H&S UQ4.12 pipeline | **CONDITIONALLY AUTHORIZED** under the live operand gates (§14.6 and pinned audit above) |
+| Abilities (supported subset) | 84 proven neutral abilities and 4 conditional pinch abilities | Neutral abilities add no modifier; pinch uses the H&S UQ4.12 pipeline | **CONDITIONALLY AUTHORIZED** under the live operand gates (§14.6 and pinned audit above) |
 | Abilities (unsupported) | Guts, Thick Fat, Huge Power, Pure Power, modern modifiers | not modelled | **does not match** — blocked fail-closed by `HNS_ABILITY_EFFECT_NOT_MODELLED` (§6) |
 | Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items | identity consumed; no damage item modelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — `ITEM_NONE` and a small source-proven no-ordinary-damage set clear the item blockers only for an item-independent move; every damage-relevant item fails closed with `HNS_ITEM_EFFECT_NOT_MODELLED`; every item-dependent move fails closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`; unreadable current item is `HNS_EFFECTIVE_ITEM_UNREADABLE` (§7) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
@@ -226,11 +232,10 @@ The matrix in §2 uses these distinctions, and any future H&S work must keep the
    `Pokemon` and `Move` constructors (`options.overrides`).
 3. **The calculator reproduces the H&S mechanic.** It does so where §3.2 says "MATCHES".
 
-**Consuming the record (2) does not imply reproducing the mechanic (3).** In Gap C4b, the calculator
-engine executes the exact H&S UQ4.12 arithmetic pipeline (`calculateHnsDamage`), host-verified for the
-supported ordinary subset. The fail-closed policy (§11.4) means **no production H&S request is promoted
-to `CalcSupport.ESTIMATED` today**: unsupported mechanics and unobserved active battle states remain
-strictly fail-closed (`CalcSupport.UNSUPPORTED`).
+**Historical C4b snapshot (superseded by C4e):** Consuming the record (2) did not imply reproducing
+the mechanic (3). At C4b, the engine executed the H&S UQ4.12 pipeline, but the fail-closed policy meant
+no production request was promoted to `CalcSupport.ESTIMATED`. The current narrow production path is
+documented above and in §14.9; unsupported mechanics and unobserved live state still fail closed.
 
 
 ### 3.4 Vanilla Gen III verified set
@@ -434,7 +439,7 @@ that the H&S ability system is unmodelled with a strict per-ability and per-part
      abilities cannot override or fabricate authoritative observations.
 
 2. **Per-Ability Capability Audit (`HnsAbilityRegistry`):**
-   - **Supported in C2:** `PROVEN_NO_DAMAGE_EFFECT` (`ABILITY_NONE`, `KEEN EYE`, `INSOMNIA`): Proven to have zero move-damage effect in
+   - **Historical C2 supported set:** `PROVEN_NO_DAMAGE_EFFECT` included `ABILITY_NONE`, `KEEN EYE`, and `INSOMNIA`; the pinned audit above supersedes the old incomplete list.
      the H&S battle engine. No ability blocker is added.
    - **Temporarily Unsupported:** `UNSUPPORTED_DAMAGE_RELEVANT` (`GUTS`, `THICK FAT`, `HUGE POWER`, `PURE POWER`, starter pinch abilities,
      and modern abilities): While isolated multipliers match for some Gen 3 abilities, H&S fixed-point ability composition
@@ -445,7 +450,7 @@ that the H&S ability system is unmodelled with a strict per-ability and per-part
        (combined modifier $1.5 \times 0.5 = 0.75$ applied once) versus 78 in ADV ($\lfloor 105/2 \rfloor = 52 \rightarrow \lfloor 52 \times 1.5 \rfloor = 78$).
      - Non-neutral stat stages compound this divergence.
      - Starter pinch abilities modify Attack stat in H&S vs Base Power in ADV (17,750 diverging damage spreads).
-     - All damage-relevant abilities remain strictly fail-closed with `HNS_ABILITY_EFFECT_NOT_MODELLED` until the damage-order
+     - At the time of this C2 snapshot, damage-relevant abilities were fail-closed; current conditional pinch support is documented in §14.6.
        and rounding layer is modelled.
 
 3. **Prevention of `@smogon/calc` Default Ability Substitution:**
@@ -683,7 +688,7 @@ and `snapshot.status == OBSERVED`), the boundary constructs `CalcHnsRuntimeRules
 - With exact runtime settings observed, randomizers OFF, and representable types, the type chart is
   modelled via `typeSystem: "hns_2_0_5"` (Gap C1 closed).
 
-**Why H&S calculations remain refused:**
+**Why H&S calculations remained refused at Gap C2/C4a (historical):**
 Gap A connected challenge rules to calculator requests and capability evaluation, but all H&S calculations
 remain strictly refused (`CalcSupport.UNSUPPORTED`) because Gap C2 remains open (ability system /
 mechanics incompatibility, §9).
@@ -722,7 +727,7 @@ provided in `overrides`, the Gen 3 ADV pipeline (`calculateADV`) uses `move.cate
 `atk`/`def` vs `spa`/`spd`. When `category` is omitted from `overrides`, it falls back to Gen 3
 type-based category derivation (`SPECIAL.includes(data.type)`).
 
-**Why H&S calculations remained refused after Gap B:**
+**Why H&S calculations remained refused after Gap B (historical):**
 Gap B closed data-consumption plumbing only. At the time of Gap B, calculations remained refused
 pending Gap A (resolved in PR #61) and Gap C. Following Gap C1 (exact type system + Fairy toggle),
 H&S calculations remain strictly **refused** (`UNSUPPORTED`, `request == null`) due to Gap C2
@@ -772,7 +777,7 @@ per-ability capability decision:
   by setting `options.ability = '(other)'` when ability is omitted, empty, or `"None"` under `typeSystem === 'hns_2_0_5'`.
 - Verified via QuickJS host tests (`native/tests/test_js_calc.c:check_gap_c2_abilities`) and Kotlin unit tests (`CalcHnsAbilityTest.kt`).
 
-**Why H&S calculations remain refused:**
+**Why H&S calculations remained refused at Gap C2/C4a (historical):**
 Gap C2 resolves ability input and capability gating. When participants have modelled or proven-no-effect abilities,
 no ability blockers are added. However, H&S calculations remain strictly **refused** (`CalcSupport.UNSUPPORTED`,
 `request == null`) by the C4a mechanics blockers: `BADGE_BOOST_NOT_MODELLED` (§10.2),
@@ -1111,7 +1116,7 @@ In `native/tests/test_js_calc.c`:
   - Doubles target count: `field.targetCount: 2` halves a spread move; `field.targetCount: 1`
     does **not**; a missing count is refused (fail-closed).
 
-### 11.4 Fail-Closed Policy Boundaries (no `ESTIMATED` promotion)
+### 11.4 Historical snapshot (superseded by C4e): Fail-Closed Policy Boundaries
 
 In `app/src/main/java/com/dualdex/calculator/CalcCapabilityPolicy.kt`:
 - `BADGE_BOOST_NOT_MODELLED` is no longer an unconditional `alwaysLimitations` entry, but it still
@@ -1140,7 +1145,7 @@ In `app/src/main/java/com/dualdex/calculator/CalcCapabilityPolicy.kt`:
 
 ---
 
-## 12. Gap C4c — Runtime Validation + Remaining Live Operand Authority (PARTIAL / OPEN)
+## 12. Gap C4c — Runtime Validation + Remaining Live Operand Authority (historical; superseded by C4e)
 
 This section documents the Gap C4c slice (issues #9 and #40), advancing H&S 2.0.5 calculator support
 toward **runtime verification** against the official H&S 2.0.5 ROM. C4c is a **foundation slice**:
@@ -1317,7 +1322,7 @@ Specifically BLOCKED, with the blocking cause named:
 
 ---
 
-## 13. Gap C4d — official-ROM damage goldens + full live-dependency audit (PARTIAL / OPEN)
+## 13. Gap C4d — official-ROM damage goldens + full live-dependency audit (historical; superseded by C4e)
 
 This section records the Gap C4d slice (issues #9 and #40). C4d does the part C4c deliberately did
 not: it produces **official H&S 2.0.5 ROM damage goldens** and re-audits the complete live damage
@@ -1491,7 +1496,7 @@ slice: `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` and the challenge-settings gate alre
 H&S fail-closed, and the goldens were produced by a developer-only probe that runs outside the trust
 model. `battleUiVerified` and `interactiveControlsVerified` are unchanged (`false`).
 
-### 13.8 Production subset decision
+### 13.8 Historical production subset decision (superseded by §14.9)
 
 **No H&S request reaches `Ready` / `ESTIMATED` after C4d.** The candidate first subset named in the
 task (exact-trust Singles `EFFECT_HIT` with observed types/stats/badges/move type and every

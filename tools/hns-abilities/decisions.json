@@ -208,8 +208,8 @@
     "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
   },
   "140": {
-    "category": "PROVEN_NO_DAMAGE_EFFECT",
-    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "src/battle_util.c:8422 sets the type-effectiveness modifier to zero when the holder is the attacker's partner and the move has power. Current production is Singles-only, but the registry is global and does not model this partner-dependent immunity."
   },
   "142": {
     "category": "PROVEN_NO_DAMAGE_EFFECT",

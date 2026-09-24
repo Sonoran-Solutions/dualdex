@@ -2158,8 +2158,10 @@ HP/maxHP observed (20/20 and 16/16), `status1 == 0`, volatiles observed with `el
 weather=0x0000` (observed clear) and `sideStatusesReadable=1 sideStatuses=0x00000000` (observed
 screenless defender side). That is the neutral state the first production subset depends on, so the
 neutral case is **RUNTIME VERIFIED**. No positive transition (an actually-active volatile/gimmick, or
-an active Rain / Reflect frame) was manufactured, so the active cases stay SOURCE + HOST reasoned and
-are refused at runtime rather than claimed verified.
+an active Rain / Reflect frame) was manufactured in this neutral baseline. Active ordinary Rain/Sun and
+Reflect/Light Screen are SOURCE + HOST reasoned / conditionally production-authorized, but do not have
+retained positive runtime verification (unsupported weather or side-status bits continue to fail closed);
+active unmodelled volatiles and gimmicks remain refused at runtime rather than claimed verified.
 
 The correction pass extends the same volatile read window to cover `chargeTimer` and `tarShot` (a
 reader-only change); `golden-c4e-live-operands.log` was produced before that extension and does not
@@ -2503,6 +2505,6 @@ All evidence is checked into the repository and bound to the official release RO
 
 #### 15.7.6 Evidence tiers
 - `gFieldStatuses` @ `EWRAM + 0x2E8`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (0 -> 1 -> 0 for Magic Room, 2 for Trick Room, bit 0x100 set / 0x102 combined for Electric Terrain; retained in `hns205-field-status-positive-transitions.log`)
-- `gBattleWeather` @ `EWRAM + 0x390`: **SOURCE + HOST REASONED** (neutral clear-weather 0x0000 RUNTIME VERIFIED in `golden-c4e-live-operands.log`; active rain execution isolated from `0x2E8` in Scenario 64; active weather remains refused at runtime and is SOURCE + HOST reasoned per §14.11)
-- `gSideStatuses` @ `EWRAM + 0x324`: **SOURCE + HOST REASONED** (neutral screenless defender side RUNTIME VERIFIED in `golden-c4e-live-operands.log`; active reflect execution isolated from `0x2E8` in Scenario 64; active screens remain refused at runtime and is SOURCE + HOST reasoned per §14.11)
+- `gBattleWeather` @ `EWRAM + 0x390`: **SOURCE + HOST REASONED** (neutral clear-weather 0x0000 RUNTIME VERIFIED in `golden-c4e-live-operands.log`; active rain execution isolated from `0x2E8` in Scenario 64; active ordinary Rain/Sun is conditionally production-authorized but lacks retained positive runtime verification, while unsupported weather bits continue to fail closed)
+- `gSideStatuses` @ `EWRAM + 0x324`: **SOURCE + HOST REASONED** (neutral screenless defender side RUNTIME VERIFIED in `golden-c4e-live-operands.log`; active reflect execution isolated from `0x2E8` in Scenario 64; active ordinary Reflect/Light Screen is conditionally production-authorized but lacks retained positive runtime verification, while unsupported side-status bits continue to fail closed)
 - `gBattleControllerExecFlags` @ `EWRAM + 0x2F4`: **RELEASE SYMBOL + RUNTIME VERIFIED** (0x300 withdrawn; reconciled with §11.5/§11.6)

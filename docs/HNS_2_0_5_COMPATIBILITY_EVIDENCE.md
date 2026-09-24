@@ -3586,8 +3586,10 @@ Golden A hit frame the production reader reported:
 The `[GOLDEN-HIT] PASS` line records the same `damage=6` Golden A hit. This proves the neutral values
 the first production subset depends on, including the observed clear-weather and screenless
 defender-side words. A **positive transition** (an active Electrify / Glaive Rush / Charge / Tar
-Shot / Tera / Rain / Reflect frame) was deliberately not manufactured, so the active cases remain
-refused at runtime and are SOURCE + HOST reasoned only. The correction pass extends the same volatile
+Shot / Tera / Rain / Reflect frame) was deliberately not manufactured in this neutral baseline. Active
+ordinary Rain/Sun and Reflect/Light Screen are SOURCE + HOST reasoned / conditionally production-authorized,
+but do not have retained positive runtime verification (unsupported weather or side-status bits continue
+to fail closed); active unmodelled volatiles and gimmicks remain refused at runtime. The correction pass extends the same volatile
 read window to cover `chargeTimer` (bit 73) and `tarShot` (bit 299); this golden log predates that
 reader-only change and does not print the two operands, so they are HOST VERIFIED only.
 
@@ -3718,8 +3720,8 @@ All evidence is checked into the repository and bound to the official release RO
 
 #### 14.4.5 Evidence tier classification
 - `gFieldStatuses` @ `EWRAM + 0x2E8`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (0 -> 1 -> 0 for Magic Room, 2 for Trick Room, bit 0x100 set / 0x102 combined for Electric Terrain; verified under live move execution on the official release ROM; retained in `hns205-field-status-positive-transitions.log`).
-- `gBattleWeather` @ `EWRAM + 0x390`: **SOURCE + HOST REASONED** (neutral clear-weather 0x0000 is RUNTIME VERIFIED per §14.11 / `golden-c4e-live-operands.log`; active rain execution is isolated from `0x2E8` in Scenario 64; active weather remains refused at runtime and is SOURCE + HOST reasoned per §14.11).
-- `gSideStatuses` @ `EWRAM + 0x324`: **SOURCE + HOST REASONED** (neutral screenless 0x00000000 defender side is RUNTIME VERIFIED per §14.11 / `golden-c4e-live-operands.log`; active reflect execution is isolated from `0x2E8` in Scenario 64; active screens remain refused at runtime and is SOURCE + HOST reasoned per §14.11).
+- `gBattleWeather` @ `EWRAM + 0x390`: **SOURCE + HOST REASONED** (neutral clear-weather 0x0000 is RUNTIME VERIFIED per §14.11 / `golden-c4e-live-operands.log`; active rain execution is isolated from `0x2E8` in Scenario 64; active ordinary Rain/Sun is conditionally production-authorized but lacks retained positive runtime verification, while unsupported weather bits continue to fail closed).
+- `gSideStatuses` @ `EWRAM + 0x324`: **SOURCE + HOST REASONED** (neutral screenless 0x00000000 defender side is RUNTIME VERIFIED per §14.11 / `golden-c4e-live-operands.log`; active reflect execution is isolated from `0x2E8` in Scenario 64; active ordinary Reflect/Light Screen is conditionally production-authorized but lacks retained positive runtime verification, while unsupported side-status bits continue to fail closed).
 - `gBattleControllerExecFlags` @ `EWRAM + 0x2F4`: **RELEASE SYMBOL + RUNTIME VERIFIED** (controller execution bitmask; bit 0 active during player turn; 0x300 withdrawn).
 
 ---

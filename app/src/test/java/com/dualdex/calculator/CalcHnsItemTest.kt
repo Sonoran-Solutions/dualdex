@@ -65,6 +65,7 @@ class CalcHnsItemTest {
     private val charcoal = 426        // HOLD_EFFECT_TYPE_POWER, x1.2
     private val choiceBand = 442      // HOLD_EFFECT_CHOICE_BAND
     private val amuletCoin = 466      // HOLD_EFFECT_DOUBLE_PRIZE (proven no-damage)
+    private val eviolite = 494        // HOLD_EFFECT_EVIOLITE (defender-read, species-gated)
 
     private fun exactTrust(profile: RomHackProfile): RuntimeRomTrust = RuntimeRomTrust.from(
         compatibility = RomCompatibility.verified(profile, profile.sha256Hashes.first()),
@@ -390,10 +391,39 @@ class CalcHnsItemTest {
                 species = "Swampert", partySlot = 0, itemId = itemNone,
                 provenance = CalcItemProvenance.PARTY_STORAGE
             ),
+            enemyBattlerState = abilityNoneObservation(partySlot = 0, itemId = eviolite),
+            activeBattle = true
+        )
+        // Eviolite is defender-read and has no request-local clearance here, so the observed
+        // opponent item is the one being refused (not the stored party ITEM_NONE).
+        assertTrue(verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        val decision = verdict.hnsItemDecisions.single()
+        assertEquals(eviolite, decision.itemId)
+        assertEquals(HnsItemSide.DEFENDER, decision.side)
+        assertEquals("Eviolite", decision.itemName)
+    }
+
+    @Test
+    fun `an opponent current attacker-only item is proven irrelevant to incoming damage`() {
+        // The same observation path with the opponent's Charcoal: Charcoal is read only as the
+        // attacker's hold effect, so the defender-side copy clears exactly its own item blocker.
+        val verdict = outcomeFor(
+            attacker = liveInput(
+                species = "Machamp", partySlot = 0, itemId = itemNone,
+                provenance = CalcItemProvenance.BATTLE_EFFECTIVE
+            ),
+            defender = liveInput(
+                species = "Swampert", partySlot = 0, itemId = itemNone,
+                provenance = CalcItemProvenance.PARTY_STORAGE
+            ),
             enemyBattlerState = abilityNoneObservation(partySlot = 0, itemId = charcoal),
             activeBattle = true
         )
-        assertTrue(verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        val decision = verdict.hnsItemDecisions.single()
+        assertEquals(charcoal, decision.itemId)
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, decision.relevance)
+        assertEquals("defender_holds_attacker_only_item", decision.rule)
     }
 
     @Test
@@ -663,5 +693,18 @@ class CalcHnsItemTest {
             CalcCapabilityPolicy.itemLimitation(CalcRuleset.VANILLA_GEN3, "Amulet Coin")
         )
         assertTrue(HnsItemRegistry.classify(amuletCoin).category.isSupportedForDamage)
+
+        // A vanilla verdict never carries H&S item decisions, even for an H&S-irrelevant shape.
+        val vanilla = CalcCapabilityPolicy.evaluate(
+            fireRed, exactTrust(fireRed),
+            DamageCalculationRequest(
+                gen = 3,
+                attacker = CalcPokemonInput(species = "Machamp", level = 50, item = "Charcoal"),
+                defender = CalcPokemonInput(species = "Swampert", level = 50, item = "Choice Band"),
+                move = CalcMoveInput(name = "Cross Chop")
+            )
+        )
+        assertTrue(vanilla.hnsItemDecisions.isEmpty())
+        assertEquals("Charcoal", vanilla.request?.attacker?.item)
     }
 }

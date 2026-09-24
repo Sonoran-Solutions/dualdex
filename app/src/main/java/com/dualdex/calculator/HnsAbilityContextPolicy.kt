@@ -2,6 +2,7 @@ package com.dualdex.calculator
 
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.PokemonType
+import com.dualdex.pokemon.hns.HnsAbilityAuditData
 import com.dualdex.pokemon.hns.HnsAbilityCategory
 
 /** Which request participant owns an effective live ability. */
@@ -36,7 +37,11 @@ data class HnsAbilityRequestDecision(
  * returns UNKNOWN.
  */
 object HnsAbilityContextPolicy {
-    const val TERAPAGOS_TERASTAL_SPECIES_ID = 1432
+    /**
+     * The exact pinned SPECIES_TERAPAGOS_TERASTAL, generated from the pinned species header by
+     * tools/hns-abilities/generate_hns_ability_audit.py (source-check fails on any drift).
+     */
+    const val TERAPAGOS_TERASTAL_SPECIES_ID = HnsAbilityAuditData.TERAPAGOS_TERASTAL_SPECIES_ID
 
     data class Context(
         val side: HnsAbilitySide,

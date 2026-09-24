@@ -120,6 +120,7 @@ class CalcHnsC4eProductionBoundaryTest {
         sideStatuses: Int = 0,
         badgesObserved: Boolean = true,
         observedBattlersCount: Int? = 2,
+        itemId: Int? = 0,
         absentBattlerFlags: Int = 0
     ): BattlerRuntimeObservation = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
@@ -130,7 +131,7 @@ class CalcHnsC4eProductionBoundaryTest {
             abilityId = abilityId,
             abilityOutOfDomain = false,
             types = types.map { HnsBattlerTypeObservation(observed = true, raw = it, outOfDomain = false) },
-            itemId = 0,
+            itemId = itemId,
             itemOutOfDomain = false,
             statsObserved = true,
             rawAttack = 12,
@@ -222,6 +223,7 @@ class CalcHnsC4eProductionBoundaryTest {
         statusObserved: Boolean = true,
         status1: Int = 0,
         observedBattlersCount: Int? = 2,
+        itemId: Int? = 0,
         absentBattlerFlags: Int = 0
     ): BattlerRuntimeObservation = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
@@ -232,7 +234,7 @@ class CalcHnsC4eProductionBoundaryTest {
             abilityId = abilityId,
             abilityOutOfDomain = false,
             types = types.map { HnsBattlerTypeObservation(observed = true, raw = it, outOfDomain = false) },
-            itemId = 0,
+            itemId = itemId,
             itemOutOfDomain = false,
             statsObserved = true,
             rawAttack = 8,
@@ -1450,5 +1452,195 @@ class CalcHnsC4eProductionBoundaryTest {
             request = spoofed,
             player = playerObservation(abilityId = 91, abilityName = "Adaptability")
         )
+    }
+
+    // ------------------------------------------------ held items: request-local relevance
+
+    private fun readyOf(outcome: CalcRequestOutcome, why: String): CalcRequestOutcome.Ready =
+        outcome as? CalcRequestOutcome.Ready ?: throw AssertionError("$why, got $outcome")
+
+    private fun refusedOf(outcome: CalcRequestOutcome, why: String): CalcRequestOutcome.Refused =
+        outcome as? CalcRequestOutcome.Refused ?: throw AssertionError("$why, got $outcome")
+
+    @Test
+    fun `live items proven irrelevant clear only their own item blockers and are stripped`() {
+        // Your Charcoal cannot boost Normal Tackle; the foe's Choice Band is read only when it attacks.
+        val ready = readyOf(
+            build(trustFor(exactSha), goldenARequest(), playerObservation(itemId = 426), enemyObservation(itemId = 442)),
+            "irrelevant live items must not refuse an otherwise supported request"
+        )
+        assertEquals(CalcSupport.ESTIMATED, ready.verdict.support)
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals(listOf(426, 442), ready.verdict.hnsItemDecisions.map { it.itemId })
+        assertEquals(
+            listOf("type_item_move_type_mismatch", "defender_holds_attacker_only_item"),
+            ready.verdict.hnsItemDecisions.map { it.rule }
+        )
+        assertTrue(ready.verdict.hnsItemDecisions.all {
+            it.globalCategory == com.dualdex.pokemon.hns.HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+                it.relevance == HnsItemRequestRelevance.PROVEN_IRRELEVANT
+        })
+        // The global category is untouched by the request-local clearance.
+        assertEquals(com.dualdex.pokemon.hns.HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+            com.dualdex.pokemon.hns.HnsItemRegistry.classify(426).category)
+        // Live numeric IDs are bound, and the engine receives no item name at all.
+        assertEquals(426, ready.request.attacker.itemId)
+        assertEquals(442, ready.request.defender.itemId)
+        assertNull(ready.request.attacker.item)
+        assertNull(ready.request.defender.item)
+        val json = buildCalcRequestJson(ready.request)
+        assertFalse("no H&S item name may reach the engine: $json", json.contains("\"item\""))
+    }
+
+    @Test
+    fun `a relevant live item stays refused with its structured decision`() {
+        val refused = refusedOf(
+            build(trustFor(exactSha), goldenARequest(), playerObservation(itemId = 425), enemyObservation()),
+            "Silk Scarf boosts Normal Tackle"
+        )
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        val decision = refused.verdict.hnsItemDecisions.single()
+        assertEquals(425, decision.itemId)
+        assertEquals("Silk Scarf", decision.itemName)
+        assertEquals(HnsItemSide.ATTACKER, decision.side)
+        assertEquals(HnsItemRequestRelevance.RELEVANT, decision.relevance)
+
+        val sash = refusedOf(
+            build(trustFor(exactSha), goldenARequest(), playerObservation(), enemyObservation(itemId = 481)),
+            "a full-HP foe's Focus Sash can change the HP lost"
+        )
+        assertEquals(HnsItemRequestRelevance.RELEVANT, sash.verdict.hnsItemDecisions.single().relevance)
+        val damagedFoe = build(trustFor(exactSha), goldenARequest(),
+            playerObservation(), enemyObservation(itemId = 481, hp = 9, maxHp = 15))
+        assertTrue("Focus Sash below max HP cannot activate", damagedFoe is CalcRequestOutcome.Ready)
+    }
+
+    @Test
+    fun `missing effective-type authority keeps a type item unknown and blocked`() {
+        // Wonder Room (bit 2) makes gFieldStatuses non-zero: the dynamic-type/field operands are no longer
+        // proven neutral, so Charcoal cannot be cleared even though Tackle is Normal.
+        val refused = refusedOf(
+            build(trustFor(exactSha), goldenARequest(),
+                playerObservation(itemId = 426, fieldStatuses = 1 shl 2),
+                enemyObservation(fieldStatuses = 1 shl 2)),
+            "an unproven effective type must not clear a type item"
+        )
+        assertEquals(HnsItemRequestRelevance.UNKNOWN, refused.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+    }
+
+    @Test
+    fun `a live Rusted Sword or Shield is refused as a battle form-change identity`() {
+        for ((player, enemy) in listOf(playerObservation(itemId = 288) to enemyObservation(),
+            playerObservation() to enemyObservation(itemId = 289))) {
+            val refused = refusedOf(build(trustFor(exactSha), goldenARequest(), player, enemy),
+                "a Rusted item must never inherit HOLD_EFFECT_NONE neutrality")
+            assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+            val decision = refused.verdict.hnsItemDecisions.single()
+            assertEquals(com.dualdex.pokemon.hns.HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, decision.globalCategory)
+            assertEquals(HnsItemRequestRelevance.UNKNOWN, decision.relevance)
+        }
+    }
+
+    @Test
+    fun `clearing an item never clears another limitation`() {
+        val refused = refusedOf(
+            build(trustFor(exactSha), goldenARequest(),
+                playerObservation(status1 = 0x10), enemyObservation(itemId = 442)),
+            "an active live status stays refused"
+        )
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, refused.verdict.hnsItemDecisions.single().relevance)
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
+    }
+
+    @Test
+    fun `the move-item interaction gate stays independent of item relevance`() {
+        // Knock Off reads the foe's item presence even though Choice Band's own effect is irrelevant.
+        val refused = refusedOf(
+            build(trustFor(exactSha), goldenARequest(move = "Knock Off"), playerObservation(), enemyObservation(itemId = 442)),
+            "Knock Off is item-dependent"
+        )
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        // A non-ordinary move is never an operand for clearing an item that needs the ordinary path.
+        val scarf = refusedOf(
+            build(trustFor(exactSha), goldenARequest(move = "Knock Off"), playerObservation(itemId = 444), enemyObservation()),
+            "Choice Scarf needs an ordinary move"
+        )
+        assertEquals(HnsItemRequestRelevance.UNKNOWN, scarf.verdict.hnsItemDecisions.single().relevance)
+    }
+
+    @Test
+    fun `item and ability contextual policies compose`() {
+        val ready = readyOf(
+            build(trustFor(exactSha), goldenARequest(),
+                playerObservation(abilityId = 308, abilityName = "Tera Shell", itemId = 472), // Leftovers
+                enemyObservation(abilityId = 54, abilityName = "Truant", itemId = 442),
+                randomAbilities = true),
+            "irrelevant abilities and items together must estimate"
+        )
+        assertEquals(2, ready.verdict.hnsAbilityDecisions.size)
+        assertEquals(2, ready.verdict.hnsItemDecisions.size)
+        assertEquals("single_hit_item_activation_outside_damage", ready.verdict.hnsItemDecisions.first().rule)
+
+        val refused = refusedOf(
+            build(trustFor(exactSha), goldenARequest(),
+                playerObservation(abilityId = 308, abilityName = "Tera Shell"),
+                enemyObservation(abilityId = 54, abilityName = "Truant", itemId = 481),
+                randomAbilities = true),
+            "a relevant item is not hidden by irrelevant abilities"
+        )
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+    }
+
+    @Test
+    fun `anti-spoof - the live current item wins over any caller item claim`() {
+        val trust = trustFor(exactSha)
+        // Caller claims an irrelevant Charcoal (ID and name); the engine's current item is Silk Scarf.
+        val claimed = goldenARequest().let {
+            it.copy(attacker = it.attacker.copy(itemId = 426, item = "CHARCOAL",
+                itemProvenance = CalcItemProvenance.PARTY_STORAGE))
+        }
+        val spoofed = refusedOf(build(trust, claimed, playerObservation(itemId = 425), enemyObservation()),
+            "a caller item cannot replace the live current item")
+        assertEquals(425, spoofed.verdict.hnsItemDecisions.single().itemId)
+
+        // A name-only caller claim is ignored for an active battler too.
+        val named = goldenARequest().let { it.copy(attacker = it.attacker.copy(item = "Charcoal")) }
+        assertEquals(425, refusedOf(build(trust, named, playerObservation(itemId = 425), enemyObservation()),
+            "a caller name cannot replace the live current item").verdict.hnsItemDecisions.single().itemId)
+
+        // Consumed / knocked off: stored Silk Scarf, live ITEM_NONE -> the live word wins.
+        val stored = goldenARequest().let {
+            it.copy(attacker = it.attacker.copy(itemId = 425, item = "SILK SCARF",
+                itemProvenance = CalcItemProvenance.PARTY_STORAGE))
+        }
+        val consumed = readyOf(build(trust, stored, playerObservation(itemId = 0), enemyObservation()),
+            "a consumed item is represented by the live ITEM_NONE")
+        assertEquals(0, consumed.request.attacker.itemId)
+        assertTrue(consumed.verdict.hnsItemDecisions.isEmpty())
+
+        // Swapped (Trick): stored Charcoal, live Choice Band on a physical move -> the live item refuses.
+        val swapped = refusedOf(build(trust, claimed, playerObservation(itemId = 442), enemyObservation()),
+            "the swapped-in live Choice Band is relevant to Tackle")
+        assertEquals(442, swapped.verdict.hnsItemDecisions.single().itemId)
+        assertEquals(HnsItemRequestRelevance.RELEVANT, swapped.verdict.hnsItemDecisions.single().relevance)
+
+        // Unread current item: never falls back to the stored irrelevant item.
+        val unread = refusedOf(build(trust, claimed, playerObservation(itemId = null), enemyObservation()),
+            "an unread live item must not fall back to the stored item")
+        assertTrue(unread.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE))
+        assertTrue(unread.verdict.hnsItemDecisions.isEmpty())
+
+        // The opponent item comes only from the resolved active opponent's live word.
+        val foeStored = goldenARequest().let {
+            it.copy(defender = it.defender.copy(itemId = 481, item = "FOCUS SASH",
+                itemProvenance = CalcItemProvenance.PARTY_STORAGE))
+        }
+        val foe = readyOf(build(trust, foeStored, playerObservation(), enemyObservation(itemId = 442)),
+            "the foe's live Choice Band, not its stored Focus Sash, is the effective item")
+        assertEquals(listOf(442), foe.verdict.hnsItemDecisions.map { it.itemId })
     }
 }

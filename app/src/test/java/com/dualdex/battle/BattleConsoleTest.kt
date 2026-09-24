@@ -659,7 +659,9 @@ class BattleConsoleTest {
         val refused = buildHnsPresentation(33, changedContext, calculator)
         assertEquals(DamageConfidence.UNAVAILABLE, refused.damageConfidence)
         assertTrue(refused.damageLimitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
-        assertEquals("Your Guts not modelled", refused.damageUnavailableReason)
+        // The statused Guts holder is refused for two independent reasons; neither hides the other.
+        assertEquals("2 blockers", refused.damageUnavailableReason)
+        assertEquals(listOf("Status not modelled", "You: Guts"), refused.damageBlockers.map { it.detail })
         assertEquals("the refusal must never reach the calculator", 1, sentRequests.size)
     }
 
@@ -686,7 +688,9 @@ class BattleConsoleTest {
         )
         val refused = buildHnsPresentation(33, harmful, calculator)
         assertEquals(DamageConfidence.UNAVAILABLE, refused.damageConfidence)
-        assertEquals("Your Guts not modelled", refused.damageUnavailableReason)
+        assertEquals("Your Guts not modelled",
+            refused.damageBlockers.filterIsInstance<DamageBlockerPresentation.Ability>().single().headline)
+        assertEquals("2 blockers", refused.damageUnavailableReason)
         assertEquals(1, sent.size)
 
         val defenderIrrelevant = hnsContext(playerAbilityId = 9, playerAbilityName = "Static", randomAbilities = true,
@@ -699,7 +703,10 @@ class BattleConsoleTest {
             enemyObservation = hnsBattler(0, 1, listOf(1, 3), 26, "Levitate"))
         val opponentRefused = buildHnsPresentation(89, defenderHarmful, calculator) // Earthquake
         assertEquals(DamageConfidence.UNAVAILABLE, opponentRefused.damageConfidence)
-        assertEquals("Foe Levitate not modelled", opponentRefused.damageUnavailableReason)
+        // Earthquake is also outside the ordinary move subset; both reasons stay visible.
+        assertEquals("2 blockers", opponentRefused.damageUnavailableReason)
+        assertEquals(listOf("Foe: Levitate", "Move effect not modelled"), opponentRefused.damageBlockers.map { it.detail })
+        assertEquals("Foe's Levitate not modelled", opponentRefused.damageBlockers.first().headline)
         assertEquals(2, sent.size)
 
         val unresolved = buildHnsPresentation(33,
@@ -753,7 +760,12 @@ class BattleConsoleTest {
         val defender = createTestPokemon(species = 1432, nickname = "Terapagos")
         val result = buildHnsPresentation(33, context, calculator, defender)
         assertEquals(DamageConfidence.UNAVAILABLE, result.damageConfidence)
-        assertEquals("Live battle state incomplete", result.damageUnavailableReason)
+        // Every blocker class stays visible: the live-state gap does not hide either ability.
+        assertEquals("${result.damageBlockers.size} blockers", result.damageUnavailableReason)
+        assertTrue(result.damageBlockers.map { it.detail }.containsAll(
+            listOf("Live battle state incomplete", "You: Huge Power", "Foe: Tera Shell")
+        ))
+        assertTrue(result.damageUnavailableText.startsWith("Damage unavailable · ${result.damageBlockers.size} blockers\n"))
         assertEquals(2, result.damageAbilityBlockers.size)
         assertEquals(listOf(HnsAbilitySide.ATTACKER, HnsAbilitySide.DEFENDER),
             result.damageAbilityBlockers.map { it.side })
@@ -817,10 +829,11 @@ class BattleConsoleTest {
         assertTrue(doubles.damageLimitations.contains(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED))
         assertEquals("Doubles not supported", doubles.damageUnavailableReason)
 
-        val unsupportedItem = buildHnsPresentation(33, hnsContext(playerItemId = 426), calculator)
+        // Silk Scarf (425) boosts Normal moves and Tackle is Normal: the item is relevant.
+        val unsupportedItem = buildHnsPresentation(33, hnsContext(playerItemId = 425), calculator)
         assertEquals(DamageConfidence.UNAVAILABLE, unsupportedItem.damageConfidence)
         assertTrue(unsupportedItem.damageLimitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
-        assertEquals("Item effect not modelled", unsupportedItem.damageUnavailableReason)
+        assertEquals("Your Silk Scarf not modelled", unsupportedItem.damageUnavailableReason)
 
         val missingPlayerState = hnsBattler(0, 0, listOf(13)).copy(
             state = hnsBattler(0, 0, listOf(13)).state.copy(status = HnsBattlerRuntimeStatus.UNAVAILABLE)
@@ -833,6 +846,7 @@ class BattleConsoleTest {
         assertEquals(DamageConfidence.UNAVAILABLE, incomplete.damageConfidence)
         assertTrue(incomplete.damageLimitations.isNotEmpty())
         assertEquals("Live battle state incomplete", incomplete.damageUnavailableReason)
+        assertEquals(listOf("Live battle state incomplete"), incomplete.damageBlockers.map { it.detail })
         assertTrue("only the supported control may execute", calculatorCalls.isEmpty())
     }
 
@@ -1478,5 +1492,142 @@ class BattleConsoleTest {
 
         vm.setInteractiveBattleControlsEnabled(true)
         assertTrue("Interactive controls should be enabled when set to true", vm.isInteractiveBattleControlsEnabled.value)
+    }
+
+    // ------------------------------------------------------------------
+    // H&S held items: request-local relevance and structured item blockers
+    // ------------------------------------------------------------------
+
+    private fun recordingCalculator(sent: MutableList<DamageCalculationRequest>) = BattleDamageCalculator { request ->
+        sent += request
+        DamageCalculationResponse(success = true, minDamage = 8, maxDamage = 12,
+            range = listOf(8, 10, 12), moveCategory = request.moveOverride?.category ?: "Physical")
+    }
+
+    @Test
+    fun `live items proven irrelevant to this request reach an estimate and are stripped before the engine`() {
+        // Real-device shape: exact H&S Singles, otherwise supported, where live items used to
+        // refuse with HNS_ITEM_EFFECT_NOT_MODELLED. Your Charcoal cannot boost Normal Tackle and the
+        // foe's Choice Band is read only when the foe attacks.
+        val sent = mutableListOf<DamageCalculationRequest>()
+        val context = hnsContext(
+            playerItemId = 426,
+            enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 442)
+        )
+        val result = buildHnsPresentation(33, context, recordingCalculator(sent))
+        assertEquals(DamageConfidence.ESTIMATE, result.damageConfidence)
+        assertEquals(CalcSupport.ESTIMATED, result.calculatorSupport)
+        assertTrue(result.damageLimitations.none { it == CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED })
+        assertTrue(result.damageItemBlockers.isEmpty())
+        assertTrue(result.damageBlockers.isEmpty())
+        assertEquals(1, sent.size)
+        // The engine never receives an H&S item name: a proven-irrelevant item is forwarded as none.
+        assertNull(sent.single().attacker.item)
+        assertNull(sent.single().defender.item)
+        assertEquals(426, sent.single().attacker.itemId)
+        assertEquals(442, sent.single().defender.itemId)
+    }
+
+    @Test
+    fun `Choice Band on a special move is irrelevant but on a physical move is refused`() {
+        val sent = mutableListOf<DamageCalculationRequest>()
+        val special = buildHnsPresentation(52, hnsContext(playerItemId = 442), recordingCalculator(sent)) // Ember
+        assertEquals(MoveCategory.SPECIAL, special.category)
+        assertEquals(DamageConfidence.ESTIMATE, special.damageConfidence)
+        assertEquals(1, sent.size)
+
+        val physical = buildHnsPresentation(33, hnsContext(playerItemId = 442), recordingCalculator(sent)) // Tackle
+        assertEquals(DamageConfidence.UNAVAILABLE, physical.damageConfidence)
+        assertEquals("Your Choice Band not modelled", physical.damageUnavailableReason)
+        assertEquals("Damage unavailable · Your Choice Band not modelled", physical.damageUnavailableText)
+        assertEquals(1, sent.size)
+    }
+
+    @Test
+    fun `relevant and unaudited live items name the side and exact pinned identity`() {
+        val sent = mutableListOf<DamageCalculationRequest>()
+        val calculator = recordingCalculator(sent)
+
+        val silkScarf = buildHnsPresentation(33, hnsContext(playerItemId = 425), calculator)
+        assertEquals("Your Silk Scarf not modelled", silkScarf.damageUnavailableReason)
+        val itemBlocker = silkScarf.damageItemBlockers.single()
+        assertEquals(425, itemBlocker.itemId)
+        assertEquals(com.dualdex.calculator.HnsItemSide.ATTACKER, itemBlocker.side)
+        assertEquals(com.dualdex.calculator.HnsItemRequestRelevance.RELEVANT, itemBlocker.relevance)
+        assertEquals("type_item_move_type_match", itemBlocker.rule)
+
+        val foeSash = buildHnsPresentation(33,
+            hnsContext(enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 481, hp = 20, maxHp = 20)),
+            calculator)
+        assertEquals("Foe's Focus Sash not modelled", foeSash.damageUnavailableReason)
+        assertEquals(com.dualdex.calculator.HnsItemSide.DEFENDER, foeSash.damageItemBlockers.single().side)
+
+        val unaudited = buildHnsPresentation(33, hnsContext(playerItemId = 290), calculator) // Red Orb
+        assertEquals("Your Red Orb not yet audited", unaudited.damageUnavailableReason)
+        assertEquals(0, sent.size)
+
+        // The same Focus Sash on a damaged foe cannot activate (it requires hp == maxHP).
+        val damagedFoe = buildHnsPresentation(33,
+            hnsContext(enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 481, hp = 12, maxHp = 20)),
+            calculator)
+        assertEquals(DamageConfidence.ESTIMATE, damagedFoe.damageConfidence)
+        assertEquals(1, sent.size)
+    }
+
+    @Test
+    fun `several item blockers are listed compactly by side`() {
+        val sent = mutableListOf<DamageCalculationRequest>()
+        val result = buildHnsPresentation(33,
+            hnsContext(playerItemId = 425, enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 481)),
+            recordingCalculator(sent))
+        assertEquals(DamageConfidence.UNAVAILABLE, result.damageConfidence)
+        assertEquals("2 item blockers", result.damageUnavailableReason)
+        assertEquals(
+            "Damage unavailable · 2 item blockers\nYou: Silk Scarf\nFoe: Focus Sash",
+            result.damageUnavailableText
+        )
+        assertEquals(0, sent.size)
+    }
+
+    @Test
+    fun `ability item and mechanic blockers all remain visible together`() {
+        val sent = mutableListOf<DamageCalculationRequest>()
+        val context = hnsContext(
+            playerAbilityId = 37,
+            playerAbilityName = "Huge Power",
+            playerItemId = 442,
+            randomAbilities = true
+        )
+        val result = buildHnsPresentation(67, context, recordingCalculator(sent)) // Low Kick: weight-based
+        assertEquals(DamageConfidence.UNAVAILABLE, result.damageConfidence)
+        assertEquals("3 blockers", result.damageUnavailableReason)
+        assertEquals(
+            listOf("You: Huge Power", "You: Choice Band", "Move effect not modelled"),
+            result.damageBlockers.map { it.detail }
+        )
+        assertTrue(result.damageBlockers[0] is DamageBlockerPresentation.Ability)
+        assertTrue(result.damageBlockers[1] is DamageBlockerPresentation.Item)
+        assertTrue(result.damageBlockers[2] is DamageBlockerPresentation.Mechanic)
+        assertTrue(result.damageLimitations.containsAll(listOf(
+            CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
+            CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED,
+            CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED
+        )))
+        assertEquals(0, sent.size)
+    }
+
+    @Test
+    fun `an item-dependent move stays refused even when the live item is proven irrelevant`() {
+        val sent = mutableListOf<DamageCalculationRequest>()
+        // Knock Off reads the foe's item presence; the foe's Choice Band is irrelevant as a hold
+        // effect, but the move-item interaction is an independent, still-unmodelled gate.
+        val result = buildHnsPresentation(282,
+            hnsContext(enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 442)),
+            recordingCalculator(sent))
+        assertEquals(DamageConfidence.UNAVAILABLE, result.damageConfidence)
+        assertTrue(result.damageLimitations.contains(CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED))
+        assertFalse(result.damageLimitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals("Move effect not modelled", result.damageUnavailableReason)
+        assertEquals(0, sent.size)
     }
 }

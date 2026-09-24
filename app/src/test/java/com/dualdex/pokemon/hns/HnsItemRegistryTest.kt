@@ -65,13 +65,31 @@ class HnsItemRegistryTest {
     }
 
     @Test
-    fun `an in-domain unregistered item is unclassified and fails closed`() {
-        // 39 = ITEM_ENERGY_POWDER: a real identity with no audited damage classification.
+    fun `an in-domain item with an unresolved family or identity is unclassified and fails closed`() {
+        // 290 = ITEM_RED_ORB: HOLD_EFFECT_PRIMAL_ORB is a reviewed but unaudited family.
+        val redOrb = HnsItemRegistry.classify(290)
+        assertEquals("ITEM_RED_ORB", redOrb.data?.canonicalSymbol)
+        assertEquals(HnsItemCategory.UNCLASSIFIED, redOrb.category)
+        assertFalse(HnsItemRegistry.isSupportedForDamage(290))
+
+        // 581 = the e-Reader Enigma Berry: its catalogue hold effect is NONE, but its battle hold
+        // effect is runtime data, so an identity exception keeps it out of the NONE family.
+        val enigma = HnsItemRegistry.classify(581)
+        assertEquals("ITEM_ENIGMA_BERRY_E_READER", enigma.data?.canonicalSymbol)
+        assertEquals("HOLD_EFFECT_NONE", enigma.data?.holdEffect)
+        assertEquals(HnsItemCategory.UNCLASSIFIED, enigma.category)
+        assertEquals("identity_exception", enigma.familyGroup)
+        assertFalse(HnsItemRegistry.isSupportedForDamage(581))
+    }
+
+    @Test
+    fun `hold effect none items are classified by their reviewed family`() {
+        // 39 = ITEM_ENERGY_POWDER: previously unaudited; HOLD_EFFECT_NONE is proven neutral.
         val entry = HnsItemRegistry.classify(39)
-        assertEquals(39, entry.itemId)
         assertEquals("ITEM_ENERGY_POWDER", entry.data?.canonicalSymbol)
-        assertEquals(HnsItemCategory.UNCLASSIFIED, entry.category)
-        assertFalse(entry.category.isSupportedForDamage)
+        assertEquals(HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT, entry.category)
+        assertEquals("no_battle_effect", entry.familyGroup)
+        assertEquals("Energy Powder", HnsItemRegistry.displayName(39))
     }
 
     @Test

@@ -325,7 +325,13 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       defenderTypes: defender.types,
       defenderMaxHP: maxHP,
       koChanceText: "",
-      effectiveness: typeEffectiveness
+      effectiveness: typeEffectiveness,
+      // Echo the exact ability/item operands this H&S path read, so host tests can prove that
+      // no constructor/default substitution happened and that stripped items stayed absent.
+      attackerAbility: attacker.ability || null,
+      defenderAbility: defender.ability || null,
+      attackerItem: attacker.item || null,
+      defenderItem: defender.item || null
     };
   }
 
@@ -531,7 +537,11 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     defenderTypes: defender.types,
     defenderMaxHP: maxHP,
     koChanceText: "",
-    effectiveness: typeEffectiveness
+    effectiveness: typeEffectiveness,
+    attackerAbility: attacker.ability || null,
+    defenderAbility: defender.ability || null,
+    attackerItem: attacker.item || null,
+    defenderItem: defender.item || null
   };
 }
 

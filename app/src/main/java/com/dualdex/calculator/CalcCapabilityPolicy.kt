@@ -624,7 +624,13 @@ data class CalcCapabilityVerdict(
     /** Why the build itself is unsupported; empty for a recorded capability row. */
     val unsupportedReason: String = "",
     /** Request-local decisions for globally unsupported or unresolved H&S abilities. */
-    val hnsAbilityDecisions: List<HnsAbilityRequestDecision> = emptyList()
+    val hnsAbilityDecisions: List<HnsAbilityRequestDecision> = emptyList(),
+    /**
+     * Request-local decisions for globally unsupported or unresolved H&S held items. A decision
+     * that is not PROVEN_IRRELEVANT is the structured cause of an
+     * [CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED] limitation.
+     */
+    val hnsItemDecisions: List<HnsItemRequestDecision> = emptyList()
 ) {
     /** True only when the result may be shown as verified. */
     val isVerified: Boolean get() = support == CalcSupport.VERIFIED
@@ -1031,6 +1037,7 @@ object CalcCapabilityPolicy {
 
         val limitations = LinkedHashSet(capability.alwaysLimitations)
         val abilityDecisions = mutableListOf<HnsAbilityRequestDecision>()
+        val itemDecisions = mutableListOf<HnsItemRequestDecision>()
 
         // Limitations the production preparation path already discovered are part of the decision,
         // not a separate opinion: an incomplete live read must be able to lower the verdict even
@@ -1041,7 +1048,7 @@ object CalcCapabilityPolicy {
             limitations.add(CalcLimitation.MECHANICS_GENERATION_MISMATCH)
         }
 
-        collectRequestLimitations(profile, capability, request, limitations, abilityDecisions)
+        collectRequestLimitations(profile, capability, request, limitations, abilityDecisions, itemDecisions)
 
         if (capability.ruleset == CalcRuleset.HNS_2_0_5) {
             val exactTrusted = isExactRuntimeVerified(profile, trust)
@@ -1234,7 +1241,8 @@ object CalcCapabilityPolicy {
                     request.copy(gen = capability.mechanicsGeneration)
                 )
             },
-            hnsAbilityDecisions = abilityDecisions.toList()
+            hnsAbilityDecisions = abilityDecisions.toList(),
+            hnsItemDecisions = itemDecisions.toList()
         )
     }
 
@@ -1576,8 +1584,27 @@ object CalcCapabilityPolicy {
      */
     private fun collectHnsItemLimitation(
         input: CalcPokemonInput,
-        limitations: MutableSet<CalcLimitation>
+        isAttacker: Boolean,
+        request: DamageCalculationRequest,
+        ordinaryMove: Boolean?,
+        limitations: MutableSet<CalcLimitation>,
+        decisions: MutableList<HnsItemRequestDecision>
     ) {
+        // Global capability first; a globally unsupported/unresolved item then gets exactly one
+        // request-local decision, and only PROVEN_IRRELEVANT removes its blocker.
+        fun classify(id: Int) {
+            if (com.dualdex.pokemon.hns.HnsItemRegistry.isSupportedForDamage(id)) return
+            val side = if (isAttacker) HnsItemSide.ATTACKER else HnsItemSide.DEFENDER
+            val decision = HnsItemContextPolicy.assess(
+                itemId = id,
+                context = HnsItemContextPolicy.contextForRequest(request, side, ordinaryMove)
+            )
+            decisions += decision
+            if (decision.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT) {
+                limitations.add(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED)
+            }
+        }
+
         if (input.origin == CalcInputOrigin.LIVE_READ) {
             when (input.itemProvenance) {
                 CalcItemProvenance.BATTLE_EFFECTIVE,
@@ -1587,8 +1614,8 @@ object CalcCapabilityPolicy {
                         !com.dualdex.pokemon.hns.HnsItemRegistry.isInDomain(id)
                     ) {
                         limitations.add(CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE)
-                    } else if (!com.dualdex.pokemon.hns.HnsItemRegistry.classify(id).category.isSupportedForDamage) {
-                        limitations.add(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED)
+                    } else {
+                        classify(id)
                     }
                 }
                 CalcItemProvenance.UNKNOWN,
@@ -1606,19 +1633,33 @@ object CalcCapabilityPolicy {
         if (id != null) {
             if (!com.dualdex.pokemon.hns.HnsItemRegistry.isInDomain(id)) {
                 limitations.add(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE)
-            } else if (!com.dualdex.pokemon.hns.HnsItemRegistry.classify(id).category.isSupportedForDamage) {
-                limitations.add(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED)
+            } else {
+                classify(id)
             }
             return
         }
         val name = input.item?.takeIf { it.isNotBlank() } ?: return
         if (name.trim().equals("None", ignoreCase = true)) return
-        val entry = com.dualdex.pokemon.hns.HnsItemRegistry.classifyByName(name)
-        when {
-            entry.category.isSupportedForDamage -> { /* supported no-damage item */ }
-            entry.itemId == null -> limitations.add(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE)
-            else -> limitations.add(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED)
+        // A manual name is only an identity once it resolves through the exact catalogue; the
+        // numeric ID it resolves to is then the capability key, exactly as for a live read.
+        val resolved = com.dualdex.pokemon.hns.HnsItemRegistry.resolveIdByName(name)
+        if (resolved == null) {
+            limitations.add(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE)
+        } else {
+            classify(resolved)
         }
+    }
+
+    /**
+     * True when the selected H&S move is a single-hit ordinary move whose damage does not read item
+     * state, false for any other pinned move, and null when the move is not in the pinned pack.
+     * This is an OPERAND of item relevance only; it never clears the move's own gates.
+     */
+    private fun hnsOrdinaryMove(pack: GameDataPack, request: DamageCalculationRequest): Boolean? {
+        val move = pack.getMoveByName(request.move.name) ?: return null
+        return com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(move.id).category ==
+            com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.ORDINARY_PROVEN_EQUIVALENT &&
+            !com.dualdex.pokemon.hns.HnsMoveItemInteractionRegistry.classify(move.id).isItemDependent
     }
 
     /** The canonical spelling of [item] when the ADV pipeline models it, else null. */
@@ -1904,9 +1945,11 @@ object CalcCapabilityPolicy {
         capability: CalcCapability,
         request: DamageCalculationRequest,
         limitations: MutableSet<CalcLimitation>,
-        abilityDecisions: MutableList<HnsAbilityRequestDecision>
+        abilityDecisions: MutableList<HnsAbilityRequestDecision>,
+        itemDecisions: MutableList<HnsItemRequestDecision>
     ) {
         val pack = GameDataPackRegistry.getForProfile(profile)
+        val ordinaryMove = if (capability.ruleset == CalcRuleset.HNS_2_0_5) hnsOrdinaryMove(pack, request) else null
 
         // The bridge selects content by name. If a name is not in this build's pinned data, the
         // engine would fall back to its own record and produce a confident number from another
@@ -1997,7 +2040,7 @@ object CalcCapabilityPolicy {
                     }
                 }
 
-                collectHnsItemLimitation(input, limitations)
+                collectHnsItemLimitation(input, isAttacker, request, ordinaryMove, limitations, itemDecisions)
             } else {
                 input.ability?.takeIf { it.isNotBlank() }?.let { ability ->
                     if (!isAbilityModelled(capability.ruleset, ability)) {

@@ -220,6 +220,12 @@ object BattleHnsDamagePresenter {
             activeBattle = true
         )
 
+        val verdict = when (outcome) {
+            is CalcRequestOutcome.Refused -> outcome.verdict
+            is CalcRequestOutcome.Ready -> outcome.verdict
+        }
+        HnsFieldDiagnostics.record(verdict.hnsFieldDiagnostics?.fieldState)
+
         return when (outcome) {
             is CalcRequestOutcome.Refused -> {
                 val abilityBlockers = outcome.verdict.hnsAbilityDecisions.filter {

@@ -189,7 +189,10 @@ class BattleConsoleTest {
         hp: Int = 20,
         maxHp: Int = 20,
         speciesId: Int? = if (battlerIndex == 0) 152 else 16,
-        status1: Int = 0
+        status1: Int = 0,
+        fieldStatuses: Int = 0,
+        battleWeather: Int = 0,
+        sideStatuses: Int = 0
     ) = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
             status = HnsBattlerRuntimeStatus.OBSERVED,
@@ -231,11 +234,11 @@ class BattleConsoleTest {
             gimmickObserved = true,
             activeGimmick = 0,
             fieldStatusesReadable = true,
-            fieldStatuses = 0,
+            fieldStatuses = fieldStatuses,
             weatherReadable = true,
-            battleWeather = 0,
+            battleWeather = battleWeather,
             sideStatusesReadable = true,
-            sideStatuses = 0
+            sideStatuses = sideStatuses
         ),
         abilityIdentity = if (abilityId == 0) DeclaredAbility.EmptySlot else DeclaredAbility.Declared(abilityId, abilityName)
     )
@@ -1629,5 +1632,78 @@ class BattleConsoleTest {
         assertFalse(result.damageLimitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
         assertEquals("Move effect not modelled", result.damageUnavailableReason)
         assertEquals(0, sent.size)
+    }
+
+    // ------------------------------------------------ live field state on the Battle tab
+
+    private fun fieldContext(
+        field: Int,
+        playerItemId: Int = 0,
+        weather: Int = 0,
+        foeSide: Int = 0
+    ) = hnsContext(
+        playerObservation = hnsBattler(0, 0, listOf(13), itemId = playerItemId, fieldStatuses = field,
+            battleWeather = weather),
+        enemyObservation = hnsBattler(0, 1, listOf(1, 3), fieldStatuses = field, battleWeather = weather,
+            sideStatuses = foeSide)
+    )
+
+    @Test
+    fun `device regression - Wise Glasses on a Physical move is not a second blocker beside the field`() {
+        val sent = mutableListOf<DamageCalculationRequest>()
+        val tackle = buildHnsPresentation(33, fieldContext(field = 0x4, playerItemId = 476), recordingCalculator(sent))
+        assertEquals(DamageConfidence.UNAVAILABLE, tackle.damageConfidence)
+        assertEquals("Wonder Room not modelled", tackle.damageUnavailableReason)
+        assertEquals("Damage unavailable · Wonder Room not modelled\nField: Wonder Room (0x00000004)",
+            tackle.damageUnavailableText)
+        assertTrue(tackle.damageBlockers.single() is DamageBlockerPresentation.Field)
+        assertTrue(tackle.damageItemBlockers.isEmpty())
+
+        // Negative control: Special Water Gun keeps Wise Glasses as a genuine item blocker.
+        val waterGun = buildHnsPresentation(55, fieldContext(field = 0x4, playerItemId = 476), recordingCalculator(sent))
+        assertEquals("Damage unavailable · 2 blockers\nField: Wonder Room (0x00000004)\nYou: Wise Glasses",
+            waterGun.damageUnavailableText)
+        assertEquals(listOf(476), waterGun.damageItemBlockers.map { it.itemId })
+        assertEquals(0, sent.size)
+    }
+
+    @Test
+    fun `an irrelevant live terrain lets the ordinary move reach an estimate`() {
+        val sent = mutableListOf<DamageCalculationRequest>()
+        val result = buildHnsPresentation(33, fieldContext(field = 0x100, playerItemId = 476), recordingCalculator(sent))
+        assertEquals(DamageConfidence.ESTIMATE, result.damageConfidence)
+        assertEquals(1, sent.size)
+        assertEquals(0x100, sent.single().hnsLiveBattleState?.fieldStatuses)
+    }
+
+    @Test
+    fun `field, weather and foe side status are distinct Battle-tab blockers`() {
+        // Wonder Room (field), an unmodelled weather bit and an unmodelled foe side-status bit: three
+        // separate classes, never one generic "Field condition not modelled".
+        val result = buildHnsPresentation(33, fieldContext(field = 0x4, weather = 0x20, foeSide = 0x100))
+        assertEquals("3 blockers", result.damageUnavailableReason)
+        assertEquals(
+            listOf("Field: Wonder Room (0x00000004)", "Weather: not modelled (0x0020)", "Foe side: not modelled (0x00000100)"),
+            result.damageBlockers.map { it.detail }
+        )
+        assertTrue(result.damageBlockers[0] is DamageBlockerPresentation.Field)
+        assertTrue(result.damageBlockers[1] is DamageBlockerPresentation.Weather)
+        assertTrue(result.damageBlockers[2] is DamageBlockerPresentation.SideStatus)
+        assertFalse(result.damageUnavailableText.contains("Field condition not modelled"))
+    }
+
+    @Test
+    fun `the Battle status row shows the raw decoded field word`() {
+        val context = fieldContext(field = 0x102)
+        val state = HnsFieldDiagnostics.observedFieldState(hnsProfile, hnsTrust, context.playerBattlerState,
+            context.enemyBattlerState)
+        assertEquals("Trick Room + Electric Terrain (0x00000102)", HnsFieldDiagnostics.statusRow(state))
+        val clear = fieldContext(field = 0)
+        assertEquals("clear (0x00000000)", HnsFieldDiagnostics.statusRow(HnsFieldDiagnostics.observedFieldState(
+            hnsProfile, hnsTrust, clear.playerBattlerState, clear.enemyBattlerState)))
+        // A torn read (the two observations disagree) is shown as unread, never as clear.
+        val torn = HnsFieldDiagnostics.observedFieldState(hnsProfile, hnsTrust,
+            hnsBattler(0, 0, listOf(13), fieldStatuses = 0x100), hnsBattler(0, 1, listOf(1, 3), fieldStatuses = 0))
+        assertEquals("Unread", HnsFieldDiagnostics.statusRow(torn))
     }
 }

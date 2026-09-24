@@ -634,15 +634,12 @@ data class MovePresentation(
     val damageVerified: Boolean get() = damageConfidence == DamageConfidence.VERIFIED
 
     /**
-     * The compact unavailable text for the move card: one line for a single blocker, otherwise the
-     * typed count followed by one short line per blocker. Never a concatenated single line.
+     * The compact unavailable text for the move card: one line for a single blocker (plus the observed
+     * mask for a field condition), otherwise the typed count followed by one short line per blocker.
+     * Never a concatenated single line.
      */
-    val damageUnavailableText: String get() = when {
-        damageBlockers.size > 1 ->
-            "Damage unavailable · ${DamageBlockerPresentation.headline(damageBlockers)}\n" +
-                damageBlockers.joinToString("\n") { it.detail }
-        else -> "Damage unavailable" + damageUnavailableReason?.let { " · $it" }.orEmpty()
-    }
+    val damageUnavailableText: String
+        get() = DamageBlockerPresentation.unavailableText(damageBlockers, damageUnavailableReason)
 
     val ppDisplay: String get() = when {
         maxPp != null && currentPp != null -> "$currentPp/$maxPp"

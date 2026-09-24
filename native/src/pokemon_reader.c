@@ -3,6 +3,7 @@
 #include "gba_memory_map.h"
 #include "hns_battle_pokemon_layout_gen.h"
 #include "hns_live_battle_layout_gen.h"
+#include "hns_field_status_gen.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -235,7 +236,7 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     // is a POINTER to the heap-allocated battle struct, read afresh each observation and required
     // to point inside EWRAM before any byte is dereferenced.
     .field_statuses_offset = 0x2F4,
-    .field_status_ion_deluge_mask = (1u << 10), // STATUS_FIELD_ION_DELUGE
+    .field_status_ion_deluge_mask = HNS_STATUS_FIELD_ION_DELUGE, // generated from the pinned battle.h
     // Gap C4e correction: gBattleWeather (u16) and gSideStatuses[NUM_BATTLE_SIDES] (u32 each) are
     // EWRAM globals shared with gBattlersCount/gBattlerPartyIndexes (release ELF, same EWRAM
     // image). The release ROM's `pokehns-release.elf` places gBattleWeather at 0x02000390 and
@@ -2826,8 +2827,10 @@ bool pokemon_read_battler_runtime_state_gba(
         out_state->battlers_count_readable = true;
     }
 
-    /* Battle-global `gFieldStatuses` (Ion Deluge is one bit). Read once per observation; it is
-     * the same word for every battler, so the boundary cross-checks the two observations agree. */
+    /* Battle-global `gFieldStatuses`. Read once per observation and stored UNMASKED: every pinned
+     * bit (hns_field_status_gen.h) and any unexpected bit reach the policy exactly as read, which
+     * decides each bit itself. It is the same word for every battler, so the boundary cross-checks
+     * the two observations agree. A readable 0 is an observed clear field, distinct from unread. */
     if (config->field_statuses_offset != 0) {
         uint8_t fs_bytes[4];
         if (read(user, DUALDEX_GBA_EWRAM_BASE + config->field_statuses_offset,

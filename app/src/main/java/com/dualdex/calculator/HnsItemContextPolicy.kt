@@ -2,6 +2,8 @@ package com.dualdex.calculator
 
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.PokemonType
+import com.dualdex.pokemon.hns.HnsFieldState
+import com.dualdex.pokemon.hns.HnsFieldStatus
 import com.dualdex.pokemon.hns.HnsItemCategory
 import com.dualdex.pokemon.hns.HnsItemRegistry
 
@@ -45,9 +47,6 @@ data class HnsItemRequestDecision(
  */
 object HnsItemContextPolicy {
 
-    /** Abilities read by GetDynamicMoveType (`src/battle_main.c:6382-6417`). */
-    private val TYPE_CHANGING_ABILITY_IDS = setOf(96, 174, 182, 184, 204, 206)
-
     /** ABILITY_ANALYTIC: the only ordinary-damage read of turn order (`src/battle_util.c:6690`). */
     private const val ANALYTIC_ABILITY_ID = 148
 
@@ -55,12 +54,12 @@ object HnsItemContextPolicy {
         val side: HnsItemSide,
         /** Single-hit ordinary move with no move/item interaction; null when the move is unknown. */
         val ordinaryMove: Boolean?,
-        /** Authoritative effective move type, or null (see [contextForRequest]). */
+        /** Authoritative effective move type ([HnsMoveAuthority.effectiveType]), or null. */
         val moveType: PokemonType?,
-        /** Authoritative effective category, or null. */
+        /** Authoritative effective category ([HnsMoveAuthority.category]), or null. */
         val moveCategory: MoveCategory?,
-        /** Live gFieldStatuses word, or null when unread. */
-        val fieldStatuses: Int?,
+        /** Decoded live gFieldStatuses word, or null when unread. */
+        val fieldState: HnsFieldState?,
         /** Live gBattleWeather word, or null when unread. */
         val weatherWord: Int?,
         /** Effective attacker ability ID, or null when unknown. */
@@ -129,9 +128,11 @@ object HnsItemContextPolicy {
     /**
      * Builds the item context from a request whose live state was rebound by CalcRequestBoundary.
      *
-     * The effective move type and category are accepted only for an ordinary move whose dynamic
-     * type is proven neutral: live Electrify/field words observed neutral, live attacker gimmick
-     * observed none, and a known attacker ability that GetDynamicMoveType does not read.
+     * The effective move type and category come from [HnsMoveAuthority], which requires only the
+     * evidence each operand needs: an unrelated live field bit (a terrain, Trick Room, Wonder Room,
+     * Gravity, ...) does not make a category or type unknown. Item rules that do depend on a field
+     * bit (Wonder Room for the defensive-stat items, terrain for the grounding items) read the
+     * decoded [Context.fieldState] themselves.
      */
     fun contextForRequest(
         request: DamageCalculationRequest,
@@ -139,29 +140,15 @@ object HnsItemContextPolicy {
         ordinaryMove: Boolean?
     ): Context {
         val live = request.hnsLiveBattleState
-        val attackerAbilityId = request.attacker.abilityId
-        val typeAuthoritative = ordinaryMove == true && live != null && live.dynamicMoveTypeObserved &&
-            live.attackerElectrified == false && live.fieldStatuses == 0 && live.attackerGimmick == 0 &&
-            attackerAbilityId != null && attackerAbilityId !in TYPE_CHANGING_ABILITY_IDS
-        val moveType = if (typeAuthoritative) PokemonType.fromString(request.moveOverride?.type) else null
-        val category = if (!typeAuthoritative) null else when (request.moveOverride?.category?.lowercase()) {
-            "physical" -> MoveCategory.PHYSICAL
-            "special" -> MoveCategory.SPECIAL
-            "status" -> MoveCategory.STATUS
-            else -> if (request.hnsRuntimeRules?.optionStyle == com.dualdex.pokemon.hns.HnsOptionStyle.TYPE_BASED) {
-                moveType?.let(::categoryForType)
-            } else {
-                null
-            }
-        }
+        val authority = HnsMoveAuthority.forRequest(request, ordinaryMove)
         return Context(
             side = side,
             ordinaryMove = ordinaryMove,
-            moveType = moveType,
-            moveCategory = category,
-            fieldStatuses = live?.fieldStatuses,
+            moveType = authority.effectiveType,
+            moveCategory = authority.category,
+            fieldState = live?.fieldStatuses?.let(HnsFieldState::decode),
             weatherWord = if (live?.weatherObserved == true) live.weatherWord else null,
-            attackerAbilityId = attackerAbilityId,
+            attackerAbilityId = request.attacker.abilityId,
             defenderHp = live?.defenderHp,
             defenderMaxHp = live?.defenderMaxHp
         )
@@ -273,10 +260,11 @@ object HnsItemContextPolicy {
             )
         }
         val category = c.moveCategory
-        val noFieldStatus = c.fieldStatuses == 0
+        // usesDefStat follows the category unless Wonder Room swaps it (src/battle_util.c:7226).
+        val noWonderRoom = c.fieldState?.let { it.fullyDecoded && !it.has(HnsFieldStatus.WONDER_ROOM) } == true
         return when (holdEffect) {
             "HOLD_EFFECT_ASSAULT_VEST" -> when {
-                category == MoveCategory.PHYSICAL && noFieldStatus -> specialDefensePhysicalMove()
+                category == MoveCategory.PHYSICAL && noWonderRoom -> specialDefensePhysicalMove()
                 category == MoveCategory.SPECIAL -> relevant(
                     rule = "special_defense_item_special_move",
                     source = "src/battle_util.c:7371",
@@ -285,12 +273,12 @@ object HnsItemContextPolicy {
                 else -> null
             }
             "HOLD_EFFECT_DEEP_SEA_SCALE" -> when {
-                category == MoveCategory.PHYSICAL && noFieldStatus -> specialDefensePhysicalMove()
+                category == MoveCategory.PHYSICAL && noWonderRoom -> specialDefensePhysicalMove()
                 category == MoveCategory.SPECIAL -> defenderSpeciesGated()
                 else -> null
             }
             "HOLD_EFFECT_METAL_POWDER" -> when {
-                category == MoveCategory.SPECIAL && noFieldStatus -> proof(
+                category == MoveCategory.SPECIAL && noWonderRoom -> proof(
                     rule = "defense_item_special_move",
                     source = "src/battle_util.c:7358",
                     rationale = "Metal Powder applies only when the move uses Defense; this special move uses Sp. Def " +
@@ -365,16 +353,19 @@ object HnsItemContextPolicy {
     }
 
     private fun grounding(holdEffect: String, c: Context): Proof? {
-        if (c.ordinaryMove != true || c.fieldStatuses != 0) return null
+        // Groundedness reaches an ordinary hit through the Ground-move branches and the terrain
+        // checks (IsBattlerTerrainAffected returns FALSE without a terrain bit, src/battle_util.c:5142).
+        val noTerrain = c.fieldState?.let { it.fullyDecoded && !it.terrainActive } == true
+        if (c.ordinaryMove != true || !noTerrain) return null
         if (holdEffect == "HOLD_EFFECT_IRON_BALL") {
             val speed = turnOrder(c) ?: return null
             if (speed.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT) return speed
         }
         if (c.side == HnsItemSide.ATTACKER) {
             return proof(
-                rule = "grounding_item_attacker_no_field_status",
+                rule = "grounding_item_attacker_no_terrain",
                 source = "src/battle_util.c:5142",
-                rationale = "The attacker's groundedness is read only by terrain checks, and no field status is active."
+                rationale = "The attacker's groundedness is read only by terrain checks, and no terrain is active."
             )
         }
         val moveType = c.moveType ?: return null
@@ -386,7 +377,7 @@ object HnsItemContextPolicy {
             )
         } else {
             proof(
-                rule = "grounding_item_defender_no_field_non_ground_move",
+                rule = "grounding_item_defender_non_ground_move_no_terrain",
                 source = "src/battle_util.c:8379",
                 rationale = "The defender's grounding item is read only for Ground moves and terrain; neither applies."
             )
@@ -408,7 +399,7 @@ object HnsItemContextPolicy {
     private fun specialDefensePhysicalMove() = proof(
         rule = "special_defense_item_physical_move",
         source = "src/battle_util.c:7371",
-        rationale = "This item modifies Sp. Def only; this physical move uses Defense and no Wonder Room is active."
+        rationale = "This item modifies Sp. Def only; this physical move uses Defense and Wonder Room is observed inactive."
     )
 
     private fun speciesGated() = unknownRule(
@@ -438,13 +429,6 @@ object HnsItemContextPolicy {
 
     private fun unknownRule(rule: String, source: String, rationale: String) =
         Proof(HnsItemRequestRelevance.UNKNOWN, rule, source, rationale)
-
-    private fun categoryForType(type: PokemonType): MoveCategory = when (type) {
-        PokemonType.NORMAL, PokemonType.FIGHTING, PokemonType.FLYING, PokemonType.POISON,
-        PokemonType.GROUND, PokemonType.ROCK, PokemonType.BUG, PokemonType.GHOST,
-        PokemonType.STEEL -> MoveCategory.PHYSICAL
-        else -> MoveCategory.SPECIAL
-    }
 
     private fun unknown(id: Int, name: String, side: HnsItemSide) = HnsItemRequestDecision(
         id, name, side, HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, HnsItemRequestRelevance.UNKNOWN,

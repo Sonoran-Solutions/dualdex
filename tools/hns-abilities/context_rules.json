@@ -168,7 +168,7 @@
       },
       {
         "rule": "guts_special_move",
-        "predicate": "Ability is on the attacker, the effective category is Special, and dynamic move type is authoritatively neutral.",
+        "predicate": "Ability is on the attacker and the authoritative effective category (HnsMoveAuthority: per-move under PER_MOVE_SPLIT, the effective type's under TYPE_BASED) is Special.",
         "rationale": "Guts changes Attack only when the move is physical.",
         "evidence": [
           {"source": "src/battle_util.c:7057", "contains": "status1 & STATUS1_ANY && IsBattleMovePhysical(move)"}
@@ -176,7 +176,7 @@
       },
       {
         "rule": "guts_attacker_neutral_status",
-        "predicate": "Ability is on the attacker, status1 is observed zero, and effective physical category/dynamic move state is authoritative.",
+        "predicate": "Ability is on the attacker, status1 is observed zero, and the effective category is authoritative (HnsMoveAuthority).",
         "rationale": "The damage modifier requires STATUS1_ANY and a physical move.",
         "evidence": [
           {"source": "src/battle_util.c:7057", "contains": "status1 & STATUS1_ANY"}

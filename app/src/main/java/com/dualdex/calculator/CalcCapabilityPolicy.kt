@@ -354,13 +354,13 @@ enum class CalcLimitation(val blocks: Boolean) {
     HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED(true),
 
     /**
-     * The battle-global `gFieldStatuses` word was authoritatively observed to carry a bit outside
-     * the explicitly supported Ion Deluge mask. Every other field status alters ordinary damage or
-     * the defensive stat for the supported subset: Wonder Room swaps Defense / Sp.Def inside
-     * `CalcDefenseStat`, the four terrains apply a x1.3 / x0.5 type modifier, Mud/Water Sport
-     * reduce their type, Gravity changes Ground immunity / groundedness, and Trick/Magic Room /
-     * Fairy Lock gate abilities and items. None of those is modelled here, so the request fails
-     * closed rather than silently computing without the modifier (issue #9, Gap C4e correction).
+     * The battle-global `gFieldStatuses` word was authoritatively observed with a condition that
+     * [HnsFieldContextPolicy] could not prove irrelevant to this exact request: a relevant or
+     * undecidable pinned bit (Wonder Room's Defense / Sp.Def swap, a terrain boosting this move's
+     * type, Gravity with a Ground move, ...) or any bit outside the reviewed pinned mask. The
+     * structured causes are [CalcCapabilityVerdict.hnsFieldDecisions]; the raw word is kept in
+     * [CalcCapabilityVerdict.hnsFieldDiagnostics] (issue #9, Gap C4e correction; H&S field-context
+     * audit in tools/hns-field-status/field_audit.json).
      */
     HNS_FIELD_STATUS_NOT_MODELLED(true),
 
@@ -630,7 +630,16 @@ data class CalcCapabilityVerdict(
      * that is not PROVEN_IRRELEVANT is the structured cause of an
      * [CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED] limitation.
      */
-    val hnsItemDecisions: List<HnsItemRequestDecision> = emptyList()
+    val hnsItemDecisions: List<HnsItemRequestDecision> = emptyList(),
+    /**
+     * Request-local decisions for every active live `gFieldStatuses` condition (one per pinned bit,
+     * plus one for any unknown bits). A decision that is not PROVEN_IRRELEVANT is the structured
+     * cause of [CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED] (or, for Ion Deluge on a Normal move,
+     * of [CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED]).
+     */
+    val hnsFieldDecisions: List<HnsFieldRequestDecision> = emptyList(),
+    /** The raw live field/weather/side words this verdict was decided from, for diagnostics. */
+    val hnsFieldDiagnostics: CalcHnsFieldDiagnostics? = null
 ) {
     /** True only when the result may be shown as verified. */
     val isVerified: Boolean get() = support == CalcSupport.VERIFIED
@@ -925,19 +934,9 @@ object CalcCapabilityPolicy {
         "???"
     )
 
-    /** `STATUS_FIELD_ION_DELUGE` from the pinned `include/constants/battle.h`. */
+    /** `STATUS_FIELD_ION_DELUGE` from the pinned `include/constants/battle.h` (generated). */
     const val HNS_STATUS_FIELD_ION_DELUGE: Int =
         com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.STATUS_FIELD_ION_DELUGE
-
-    /**
-     * The only `gFieldStatuses` bit the ordinary subset models. Ion Deluge can force a Normal
-     * move to Electric, which the policy handles explicitly; every other bit (Wonder Room,
-     * Gravity, the four terrains, Mud/Water Sport, Trick/Magic Room, Fairy Lock) changes ordinary
-     * damage, the type chart or the defensive stat and must fail closed with
-     * [CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED].
-     */
-    const val HNS_SUPPORTED_FIELD_STATUS_MASK: Int =
-        com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.FIELD_STATUS_SUPPORTED_MASK
 
     /**
      * The pinch abilities and the move type each boosts, keyed by the pinned numeric ability ID.
@@ -1038,6 +1037,7 @@ object CalcCapabilityPolicy {
         val limitations = LinkedHashSet(capability.alwaysLimitations)
         val abilityDecisions = mutableListOf<HnsAbilityRequestDecision>()
         val itemDecisions = mutableListOf<HnsItemRequestDecision>()
+        val fieldDecisions = mutableListOf<HnsFieldRequestDecision>()
 
         // Limitations the production preparation path already discovered are part of the decision,
         // not a separate opinion: an incomplete live read must be able to lower the verdict even
@@ -1205,7 +1205,7 @@ object CalcCapabilityPolicy {
             // electrified volatile, Glaive Rush volatile, gimmick state, HP and status; a positive
             // (or unread) value that the ordinary arithmetic does not model fails closed with its
             // own precise limitation rather than the coarse live-state blocker.
-            collectHnsLiveOperandLimitations(request, limitations)
+            collectHnsLiveOperandLimitations(pack, request, limitations, fieldDecisions)
         }
 
         if (!isExactRuntimeVerified(profile, trust)) {
@@ -1242,7 +1242,16 @@ object CalcCapabilityPolicy {
                 )
             },
             hnsAbilityDecisions = abilityDecisions.toList(),
-            hnsItemDecisions = itemDecisions.toList()
+            hnsItemDecisions = itemDecisions.toList(),
+            hnsFieldDecisions = fieldDecisions.toList(),
+            hnsFieldDiagnostics = request.hnsLiveBattleState?.let { live ->
+                CalcHnsFieldDiagnostics(
+                    fieldState = live.fieldStatuses?.let(com.dualdex.pokemon.hns.HnsFieldState::decode),
+                    weatherWord = if (live.weatherObserved) live.weatherWord else null,
+                    defenderSideStatuses = if (live.defenderScreensObserved) live.defenderSideStatuses else null,
+                    attackerElectrified = live.attackerElectrified
+                )
+            }.takeIf { capability.ruleset == CalcRuleset.HNS_2_0_5 }
         )
     }
 
@@ -1740,6 +1749,7 @@ object CalcCapabilityPolicy {
         classification: com.dualdex.pokemon.hns.HnsAbilityEntry,
         isAttacker: Boolean,
         request: DamageCalculationRequest,
+        ordinaryMove: Boolean?,
         limitations: MutableSet<CalcLimitation>,
         decisions: MutableList<HnsAbilityRequestDecision>
     ) {
@@ -1766,7 +1776,7 @@ object CalcCapabilityPolicy {
             val side = if (isAttacker) HnsAbilitySide.ATTACKER else HnsAbilitySide.DEFENDER
             val decision = HnsAbilityContextPolicy.assess(
                 abilityId = classification.abilityId ?: -1,
-                context = HnsAbilityContextPolicy.contextForRequest(request, side)
+                context = HnsAbilityContextPolicy.contextForRequest(request, side, ordinaryMove)
             )
             decisions += decision
             if (decision.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT) {
@@ -1790,28 +1800,43 @@ object CalcCapabilityPolicy {
      *
      * The boundary has already observed the operands ([CalcHnsLiveBattleState]); this decides
      * whether the observed values are usable:
+     *  - every active `gFieldStatuses` bit is decided on its own by [HnsFieldContextPolicy]; a bit
+     *    that is not proven irrelevant for this exact request blocks with
+     *    [CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED] (an unknown bit always blocks);
      *  - an active dynamic-type retype (Electrify, or Ion Deluge on a Normal move) blocks;
      *  - an active defender Glaive Rush volatile blocks (x2 not modelled);
      *  - an unread gimmick blocks; an active gimmick blocks;
      *  - an unread or non-zero live attacker status blocks.
      */
     private fun collectHnsLiveOperandLimitations(
+        pack: GameDataPack,
         request: DamageCalculationRequest,
-        limitations: MutableSet<CalcLimitation>
+        limitations: MutableSet<CalcLimitation>,
+        fieldDecisions: MutableList<HnsFieldRequestDecision>
     ) {
         val live = request.hnsLiveBattleState ?: return
         val staticType = request.moveOverride?.type
         val fieldStatuses = live.fieldStatuses
         val electrified = live.attackerElectrified
-        // Explicit supported field-status mask. Only Ion Deluge is modelled; ANY other bit
-        // (Wonder Room, Gravity, terrain, Mud/Water Sport, Trick/Magic Room, Fairy Lock) changes
-        // ordinary damage or the defensive stat and must fail closed rather than clear the Ion
-        // Deluge check. This is independent of the move type: the mere presence of an unmodelled
-        // field status is disqualifying for the ordinary subset.
-        if (fieldStatuses != null &&
-            (fieldStatuses and HNS_SUPPORTED_FIELD_STATUS_MASK.inv()) != 0
-        ) {
-            limitations.add(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED)
+        // Field conditions are decided bit by bit from the raw observed word. A field decision only
+        // ever adds its own limitation; it never removes one recorded elsewhere, and nothing recorded
+        // elsewhere removes it. Ion Deluge keeps its dedicated dynamic-type limitation below.
+        if (fieldStatuses != null) {
+            val move = pack.getMoveByName(request.move.name)
+            val decisions = HnsFieldContextPolicy.assess(
+                state = com.dualdex.pokemon.hns.HnsFieldState.decode(fieldStatuses),
+                context = HnsFieldContextPolicy.contextForRequest(request, hnsOrdinaryMove(pack, request), move?.id)
+            )
+            fieldDecisions += decisions
+            for (decision in decisions) {
+                when {
+                    decision.relevance == HnsFieldRequestRelevance.PROVEN_IRRELEVANT -> Unit
+                    decision.status == com.dualdex.pokemon.hns.HnsFieldStatus.ION_DELUGE &&
+                        decision.relevance == HnsFieldRequestRelevance.RELEVANT ->
+                        limitations.add(CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED)
+                    else -> limitations.add(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED)
+                }
+            }
         }
         if (fieldStatuses != null && electrified != null && staticType != null) {
             val ionDelugeActive = (fieldStatuses and HNS_STATUS_FIELD_ION_DELUGE) != 0 &&
@@ -2017,6 +2042,7 @@ object CalcCapabilityPolicy {
                             classification = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.abilityId),
                             isAttacker = isAttacker,
                             request = request,
+                            ordinaryMove = ordinaryMove,
                             limitations = limitations,
                             decisions = abilityDecisions
                         )
@@ -2034,6 +2060,7 @@ object CalcCapabilityPolicy {
                             classification = classification,
                             isAttacker = isAttacker,
                             request = request,
+                            ordinaryMove = ordinaryMove,
                             limitations = limitations,
                             decisions = abilityDecisions
                         )

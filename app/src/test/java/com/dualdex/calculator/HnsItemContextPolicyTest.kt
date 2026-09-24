@@ -2,6 +2,7 @@ package com.dualdex.calculator
 
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.PokemonType
+import com.dualdex.pokemon.hns.HnsFieldState
 import com.dualdex.pokemon.hns.HnsItemAuditData
 import com.dualdex.pokemon.hns.HnsItemCategory
 import org.junit.Assert.assertEquals
@@ -53,8 +54,8 @@ class HnsItemContextPolicyTest {
         defenderHp: Int? = 10,
         defenderMaxHp: Int? = 20
     ) = HnsItemContextPolicy.Context(
-        side, ordinaryMove, moveType, moveCategory, fieldStatuses, weatherWord, attackerAbilityId,
-        defenderHp, defenderMaxHp
+        side, ordinaryMove, moveType, moveCategory, fieldStatuses?.let(HnsFieldState::decode), weatherWord,
+        attackerAbilityId, defenderHp, defenderMaxHp
     )
 
     private fun relevance(id: Int, context: HnsItemContextPolicy.Context?) =
@@ -114,12 +115,22 @@ class HnsItemContextPolicyTest {
     }
 
     @Test
-    fun `Assault Vest and Metal Powder need the category and an observed empty field word`() {
+    fun `Assault Vest and Metal Powder need the category and an observed inactive Wonder Room`() {
         assertEquals(irrelevant, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, moveCategory = MoveCategory.PHYSICAL)))
         assertEquals(relevant, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, moveCategory = MoveCategory.SPECIAL)))
-        // Wonder Room (any unproven field word) keeps the physical case unknown.
+        // Wonder Room swaps usesDefStat; an unread word or an unknown bit is not assumed Wonder-Room-free.
         assertEquals(unknown, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, fieldStatuses = 4)))
         assertEquals(unknown, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, fieldStatuses = null)))
+        assertEquals(unknown, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, fieldStatuses = 1 shl 12)))
+        assertEquals(unknown, relevance(metalPowder, ctx(HnsItemSide.DEFENDER, moveCategory = MoveCategory.SPECIAL,
+            fieldStatuses = 4)))
+        // Any other field bit (a terrain, Trick Room, Gravity) leaves usesDefStat unchanged.
+        for (unrelated in listOf(1 shl 1, 1 shl 5, 1 shl 8, (1 shl 6) or (1 shl 11))) {
+            assertEquals(irrelevant, relevance(assaultVest, ctx(HnsItemSide.DEFENDER,
+                moveCategory = MoveCategory.PHYSICAL, fieldStatuses = unrelated)))
+            assertEquals(irrelevant, relevance(metalPowder, ctx(HnsItemSide.DEFENDER,
+                moveCategory = MoveCategory.SPECIAL, fieldStatuses = unrelated)))
+        }
 
         assertEquals(irrelevant, relevance(metalPowder, ctx(HnsItemSide.DEFENDER, moveCategory = MoveCategory.SPECIAL)))
         assertEquals(unknown, relevance(metalPowder, ctx(HnsItemSide.DEFENDER, moveCategory = MoveCategory.PHYSICAL)))
@@ -165,10 +176,19 @@ class HnsItemContextPolicyTest {
     }
 
     @Test
-    fun `grounding items need an empty field word and a non-Ground move on the defender`() {
+    fun `grounding items need no terrain and a non-Ground move on the defender`() {
         assertEquals(irrelevant, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, moveType = PokemonType.WATER)))
         assertEquals(relevant, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, moveType = PokemonType.GROUND)))
-        assertEquals(unknown, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, fieldStatuses = 1 shl 5)))
+        // A terrain reads groundedness; an unread word or an unknown bit is not assumed terrain-free.
+        for (terrain in listOf(1 shl 6, 1 shl 7, 1 shl 8, 1 shl 9)) {
+            assertEquals(unknown, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, fieldStatuses = terrain)))
+            assertEquals(unknown, relevance(airBalloon, ctx(HnsItemSide.ATTACKER, fieldStatuses = terrain)))
+        }
+        assertEquals(unknown, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, fieldStatuses = null)))
+        assertEquals(unknown, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, fieldStatuses = 1 shl 13)))
+        // Gravity or Trick Room is not a terrain: the grounding item is still irrelevant.
+        assertEquals(irrelevant, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, fieldStatuses = 1 shl 5)))
+        assertEquals(irrelevant, relevance(airBalloon, ctx(HnsItemSide.ATTACKER, fieldStatuses = 1 shl 1)))
         assertEquals(irrelevant, relevance(airBalloon, ctx(HnsItemSide.ATTACKER, moveType = null)))
         // Iron Ball also needs the turn-order predicate.
         assertEquals(irrelevant, relevance(ironBall, ctx(HnsItemSide.DEFENDER, moveType = PokemonType.WATER)))

@@ -1,0 +1,2910 @@
+{
+  "schema_version": 1,
+  "pinned_commit": "1f42b74dff0e9fe942419845d040663dd829a973",
+  "contract": "A field decision clears only its own gFieldStatuses bit, and only when pinned source plus authoritative request operands prove that bit cannot change the displayed single-hit damage range for this exact request. Each active bit is assessed independently; RELEVANT and UNKNOWN never clear. A bit outside the reviewed pinned mask is always UNKNOWN. Clearing a field bit never clears an ability, item, move-mechanic, weather, side-status, volatile, gimmick or challenge limitation, and those never clear a field bit.",
+  "operands": {
+    "ordinary_move": "The selected move is ORDINARY_PROVEN_EQUIVALENT in HnsMoveMechanicsRegistry (single-hit EFFECT_HIT, no terrain boost - checked by this generator).",
+    "pre_field_move_type": "The pinned move type (Fairy toggle applied), accepted only with an observed GIMMICK_NONE attacker and a known effective attacker ability that GetDynamicMoveType does not read.",
+    "effective_move_type": "pre_field_move_type, additionally requiring the attacker's Electrify volatile observed false, the field word decoded with no unknown bit, and Ion Deluge not rewriting a Normal move.",
+    "move_id": "The pinned move ID; Gravity-banned and positive-priority facts are generated from the pinned move table.",
+    "attacker_ability": "The boundary-owned effective attacker ability ID from the live battler.",
+    "defender_ability": "The boundary-owned effective defender ability ID from the live battler.",
+    "attacker_item": "The boundary-owned live battle-effective attacker item ID (in domain).",
+    "defender_item": "The boundary-owned live battle-effective defender item ID (in domain)."
+  },
+  "compositions": {
+    "STATUS_FIELD_TERRAIN_ANY": [
+      "STATUS_FIELD_GRASSY_TERRAIN",
+      "STATUS_FIELD_MISTY_TERRAIN",
+      "STATUS_FIELD_ELECTRIC_TERRAIN",
+      "STATUS_FIELD_PSYCHIC_TERRAIN"
+    ]
+  },
+  "rule_abilities": [
+    "ABILITY_ANALYTIC",
+    "ABILITY_GALE_WINGS",
+    "ABILITY_GRASS_PELT",
+    "ABILITY_QUARK_DRIVE",
+    "ABILITY_HADRON_ENGINE"
+  ],
+  "unknown_bits": {
+    "rule": "unknown_field_bits",
+    "relevance": "UNKNOWN",
+    "predicate": "Any observed bit outside the twelve reviewed pinned bits. The pinned build never sets one, so it means an unexpected or torn read; it is preserved and always blocks.",
+    "evidence": [
+      {
+        "source": "include/constants/battle.h:405",
+        "contains": "#define STATUS_FIELD_FAIRY_LOCK"
+      }
+    ]
+  },
+  "starting_conditions": {
+    "reset": [
+      {
+        "source": "src/battle_main.c:3232",
+        "contains": "gFieldStatuses = 0;"
+      }
+    ],
+    "trainer_starting_statuses": "TryFieldEffects(FIELD_EFFECT_TRAINER_STATUSES) applies gStartingStatuses (terrains, Trick/Magic/Wonder Room) before the first turn; gStartingStatuses is filled only from the trainer table's startingStatus, and no pinned H&S trainer (src/data/trainers_hns.h / trainers_hns.party) declares one.",
+    "overworld_terrain": "FIELD_EFFECT_OVERWORLD_TERRAIN needs B_THUNDERSTORM_TERRAIN (FALSE in include/config/battle.h) or B_OVERWORLD_FOG >= GEN_8 (GEN_3), so overworld weather never sets terrain in H&S 2.0.5.",
+    "switch_in_abilities": "Electric Surge and Hadron Engine (Electric Terrain), Grassy Surge, Misty Surge and Psychic Surge set terrain on switch-in before either side selects a move (AbilityBattleEffects -> TryChangeBattleTerrain). With Random Abilities either lead can carry one, so a fresh battle can already show a terrain bit.",
+    "after_first_move": "Rooms, Gravity, Mud/Water Sport, Fairy Lock, Ion Deluge, Seed Sower and terrain moves set bits only once a move or its effect runs."
+  },
+  "statuses": [
+    {
+      "symbol": "STATUS_FIELD_MAGIC_ROOM",
+      "bit": 0,
+      "kotlin_name": "MAGIC_ROOM",
+      "display_name": "Magic Room",
+      "affects": {
+        "move_type": false,
+        "move_category": false,
+        "base_power": false,
+        "attack_stat": false,
+        "defense_stat": false,
+        "final_damage": false,
+        "type_effectiveness": false,
+        "turn_order": true,
+        "move_failure": true,
+        "item_activation": true,
+        "ability_activation": false
+      },
+      "set_by": [
+        "src/battle_script_commands.c:Cmd_setroom",
+        "src/battle_script_commands.c:HandleRoomMove",
+        "src/battle_util.c:SetStartingFieldStatus",
+        "src/battle_util.c:TryFieldEffects"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_end_turn.c:HandleEndTurnMagicRoom",
+        "src/battle_script_commands.c:HandleRoomMove"
+      ],
+      "read_by": [
+        "src/battle_util.c:GetBattlerHoldEffectInternal",
+        "src/battle_util.c:CheckSetUnburden",
+        "src/battle_util.c:CanFling",
+        "src/battle_move_resolution.c:CancelerMoveFailure"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_util.c:5827",
+          "contains": "if (gFieldStatuses & STATUS_FIELD_MAGIC_ROOM)"
+        },
+        {
+          "source": "src/battle_util.c:5837",
+          "contains": "return GetItemHoldEffect(gBattleMons[battler].item);"
+        }
+      ],
+      "rationale": "Magic Room makes GetBattlerHoldEffect return HOLD_EFFECT_NONE for every battler, so it can switch off any held item's hold effect (damage, grounding, speed); its other reads are Natural Gift/Fling failure and Unburden, none reachable by an ordinary move. No H&S item is modelled by the engine, so when every held item is ITEM_NONE or has a globally audited neutral hold effect, suppressing those hold effects cannot change this hit.",
+      "request_operands": [
+        "ordinary_move",
+        "attacker_item",
+        "defender_item"
+      ],
+      "rules": [
+        {
+          "rule": "magic_room_held_items_neutral",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "ordinary_move",
+            "attacker_item",
+            "defender_item"
+          ],
+          "predicate": "Ordinary move, and both authoritative live battle-effective items are ITEM_NONE or globally PROVEN_NO_ORDINARY_DAMAGE_EFFECT.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:5827",
+              "contains": "if (gFieldStatuses & STATUS_FIELD_MAGIC_ROOM)"
+            },
+            {
+              "source": "src/battle_util.c:5828",
+              "contains": "return HOLD_EFFECT_NONE;"
+            },
+            {
+              "source": "src/battle_util.c:5837",
+              "contains": "return GetItemHoldEffect(gBattleMons[battler].item);"
+            }
+          ]
+        }
+      ],
+      "fallback": "Any held item without a neutral global audit, an unread item, or a non-ordinary move keeps Magic Room blocking: its suppression of a damage-relevant hold effect is not modelled."
+    },
+    {
+      "symbol": "STATUS_FIELD_TRICK_ROOM",
+      "bit": 1,
+      "kotlin_name": "TRICK_ROOM",
+      "display_name": "Trick Room",
+      "affects": {
+        "move_type": false,
+        "move_category": false,
+        "base_power": false,
+        "attack_stat": false,
+        "defense_stat": false,
+        "final_damage": false,
+        "type_effectiveness": false,
+        "turn_order": true,
+        "move_failure": false,
+        "item_activation": true,
+        "ability_activation": false
+      },
+      "set_by": [
+        "src/battle_script_commands.c:Cmd_setroom",
+        "src/battle_script_commands.c:HandleRoomMove",
+        "src/battle_util.c:SetStartingFieldStatus",
+        "src/battle_util.c:TryFieldEffects"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_end_turn.c:HandleEndTurnTrickRoom",
+        "src/battle_script_commands.c:HandleRoomMove"
+      ],
+      "read_by": [
+        "src/battle_main.c:GetWhichBattlerFasterArgs",
+        "src/battle_util.c:AbilityBattleEffects",
+        "src/battle_hold_effects.c:TryRoomService",
+        "src/battle_util.c:IsLastMonToMove",
+        "src/battle_util.c:CalcMoveBasePowerAfterModifiers"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_main.c:5091",
+          "contains": "if (gFieldStatuses & STATUS_FIELD_TRICK_ROOM)"
+        },
+        {
+          "source": "src/battle_util.c:6690",
+          "contains": "case ABILITY_ANALYTIC:"
+        },
+        {
+          "source": "src/battle_util.c:6691",
+          "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+        }
+      ],
+      "rationale": "Trick Room only reverses the speed comparison (and triggers Room Service / Magician ordering). Turn order reaches an ordinary move's damage only through the attacker's Analytic (IsLastMonToMove); the turn-order base-power effects (Payback, Bolt Beak, Gyro Ball, ...) are never ordinary.",
+      "request_operands": [
+        "ordinary_move",
+        "attacker_ability"
+      ],
+      "rules": [
+        {
+          "rule": "trick_room_attacker_not_analytic",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "ordinary_move",
+            "attacker_ability"
+          ],
+          "predicate": "Ordinary move and the authoritative effective attacker ability is not Analytic.",
+          "evidence": [
+            {
+              "source": "src/battle_main.c:5091",
+              "contains": "if (gFieldStatuses & STATUS_FIELD_TRICK_ROOM)"
+            },
+            {
+              "source": "src/battle_util.c:6690",
+              "contains": "case ABILITY_ANALYTIC:"
+            },
+            {
+              "source": "src/battle_util.c:6691",
+              "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+            }
+          ]
+        },
+        {
+          "rule": "trick_room_attacker_analytic",
+          "relevance": "RELEVANT",
+          "operands": [
+            "attacker_ability"
+          ],
+          "predicate": "The attacker's effective ability is Analytic, whose x1.3 depends on turn order.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6690",
+              "contains": "case ABILITY_ANALYTIC:"
+            },
+            {
+              "source": "src/battle_util.c:6691",
+              "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+            }
+          ]
+        }
+      ],
+      "fallback": "Unknown attacker ability or non-ordinary move never clears."
+    },
+    {
+      "symbol": "STATUS_FIELD_WONDER_ROOM",
+      "bit": 2,
+      "kotlin_name": "WONDER_ROOM",
+      "display_name": "Wonder Room",
+      "affects": {
+        "move_type": false,
+        "move_category": false,
+        "base_power": false,
+        "attack_stat": true,
+        "defense_stat": true,
+        "final_damage": false,
+        "type_effectiveness": false,
+        "turn_order": false,
+        "move_failure": false,
+        "item_activation": true,
+        "ability_activation": true
+      },
+      "set_by": [
+        "src/battle_script_commands.c:Cmd_setroom",
+        "src/battle_script_commands.c:HandleRoomMove",
+        "src/battle_util.c:SetStartingFieldStatus",
+        "src/battle_util.c:TryFieldEffects"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_end_turn.c:HandleEndTurnWonderRoom",
+        "src/battle_script_commands.c:HandleRoomMove"
+      ],
+      "read_by": [
+        "src/battle_util.c:CalcDefenseStat",
+        "src/battle_util.c:CalcAttackStat",
+        "src/battle_util.c:GetHighestStatId",
+        "src/battle_util.c:GetParadoxHighestStatId"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_util.c:7226",
+          "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM) // the defense stats are swapped"
+        },
+        {
+          "source": "src/battle_util.c:7240",
+          "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM) // the defense stats are swapped"
+        }
+      ],
+      "rationale": "Wonder Room swaps the raw Defense / Sp. Def used by CalcDefenseStat AND flips usesDefStat, which gates Marvel Scale, Fur Coat, Grass Pelt, Assault Vest, Metal Powder, Deep Sea Scale, the Ruin abilities and the weather Def/SpDef boosts. Equal raw stats would not neutralise the usesDefStat flip, so no request-local proof is attempted.",
+      "request_operands": [],
+      "rules": [
+        {
+          "rule": "wonder_room_swaps_defensive_stat",
+          "relevance": "RELEVANT",
+          "operands": [],
+          "predicate": "Always: every damaging move reads the swapped defensive stat and usesDefStat.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7226",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM) // the defense stats are swapped"
+            },
+            {
+              "source": "src/battle_util.c:7240",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM) // the defense stats are swapped"
+            }
+          ]
+        }
+      ],
+      "fallback": "Always blocking."
+    },
+    {
+      "symbol": "STATUS_FIELD_MUDSPORT",
+      "bit": 3,
+      "kotlin_name": "MUD_SPORT",
+      "display_name": "Mud Sport",
+      "affects": {
+        "move_type": false,
+        "move_category": false,
+        "base_power": false,
+        "attack_stat": false,
+        "defense_stat": false,
+        "final_damage": true,
+        "type_effectiveness": false,
+        "turn_order": false,
+        "move_failure": false,
+        "item_activation": false,
+        "ability_activation": false
+      },
+      "set_by": [
+        "src/battle_script_commands.c:Cmd_settypebasedhalvers"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_end_turn.c:HandleEndTurnMudSport"
+      ],
+      "read_by": [
+        "src/battle_util.c:IsFieldMudSportAffected",
+        "src/battle_util.c:CalcMoveBasePowerAfterModifiers"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_util.c:6283",
+          "contains": "if (moveType != TYPE_ELECTRIC)"
+        },
+        {
+          "source": "src/battle_util.c:6286",
+          "contains": "if (gFieldStatuses & STATUS_FIELD_MUDSPORT)"
+        },
+        {
+          "source": "src/battle_util.c:6647",
+          "contains": "if (IsFieldMudSportAffected(ctx->moveType))"
+        }
+      ],
+      "rationale": "Mud Sport's only damage read multiplies an Electric move (ctx->moveType, the dynamic type) by 0.33.",
+      "request_operands": [
+        "ordinary_move",
+        "effective_move_type"
+      ],
+      "rules": [
+        {
+          "rule": "mud_sport_non_electric_move",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "ordinary_move",
+            "effective_move_type"
+          ],
+          "predicate": "Ordinary move whose authoritative effective type is not Electric.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6283",
+              "contains": "if (moveType != TYPE_ELECTRIC)"
+            },
+            {
+              "source": "src/battle_util.c:6647",
+              "contains": "if (IsFieldMudSportAffected(ctx->moveType))"
+            }
+          ]
+        },
+        {
+          "rule": "mud_sport_electric_move",
+          "relevance": "RELEVANT",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The authoritative effective move type is Electric.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6286",
+              "contains": "if (gFieldStatuses & STATUS_FIELD_MUDSPORT)"
+            }
+          ]
+        }
+      ],
+      "fallback": "Unknown effective type or non-ordinary move never clears."
+    },
+    {
+      "symbol": "STATUS_FIELD_WATERSPORT",
+      "bit": 4,
+      "kotlin_name": "WATER_SPORT",
+      "display_name": "Water Sport",
+      "affects": {
+        "move_type": false,
+        "move_category": false,
+        "base_power": false,
+        "attack_stat": false,
+        "defense_stat": false,
+        "final_damage": true,
+        "type_effectiveness": false,
+        "turn_order": false,
+        "move_failure": false,
+        "item_activation": false,
+        "ability_activation": false
+      },
+      "set_by": [
+        "src/battle_script_commands.c:Cmd_settypebasedhalvers"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_end_turn.c:HandleEndTurnWaterSport"
+      ],
+      "read_by": [
+        "src/battle_util.c:IsFieldWaterSportAffected",
+        "src/battle_util.c:CalcMoveBasePowerAfterModifiers"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_util.c:6303",
+          "contains": "if (moveType != TYPE_FIRE)"
+        },
+        {
+          "source": "src/battle_util.c:6306",
+          "contains": "if (gFieldStatuses & STATUS_FIELD_WATERSPORT)"
+        },
+        {
+          "source": "src/battle_util.c:6649",
+          "contains": "if (IsFieldWaterSportAffected(ctx->moveType))"
+        }
+      ],
+      "rationale": "Water Sport's only damage read multiplies a Fire move (ctx->moveType, the dynamic type) by 0.33.",
+      "request_operands": [
+        "ordinary_move",
+        "effective_move_type"
+      ],
+      "rules": [
+        {
+          "rule": "water_sport_non_fire_move",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "ordinary_move",
+            "effective_move_type"
+          ],
+          "predicate": "Ordinary move whose authoritative effective type is not Fire.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6303",
+              "contains": "if (moveType != TYPE_FIRE)"
+            },
+            {
+              "source": "src/battle_util.c:6649",
+              "contains": "if (IsFieldWaterSportAffected(ctx->moveType))"
+            }
+          ]
+        },
+        {
+          "rule": "water_sport_fire_move",
+          "relevance": "RELEVANT",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The authoritative effective move type is Fire.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6306",
+              "contains": "if (gFieldStatuses & STATUS_FIELD_WATERSPORT)"
+            }
+          ]
+        }
+      ],
+      "fallback": "Unknown effective type or non-ordinary move never clears."
+    },
+    {
+      "symbol": "STATUS_FIELD_GRAVITY",
+      "bit": 5,
+      "kotlin_name": "GRAVITY",
+      "display_name": "Gravity",
+      "affects": {
+        "move_type": false,
+        "move_category": false,
+        "base_power": true,
+        "attack_stat": false,
+        "defense_stat": false,
+        "final_damage": false,
+        "type_effectiveness": true,
+        "turn_order": false,
+        "move_failure": true,
+        "item_activation": false,
+        "ability_activation": false
+      },
+      "set_by": [
+        "src/battle_script_commands.c:Cmd_setgravity",
+        "src/battle_script_commands.c:SetMoveEffect"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_end_turn.c:HandleEndTurnGravity"
+      ],
+      "read_by": [
+        "src/battle_util.c:IsBattlerGroundedInverseCheck",
+        "src/battle_util.c:IsBattlerGrounded",
+        "src/battle_util.c:MulByTypeEffectiveness",
+        "src/battle_util.c:CalcTypeEffectivenessMultiplierInternal",
+        "src/battle_util.c:IsGravityPreventingMove",
+        "src/battle_move_resolution.c:CancelerVolatileBlocked",
+        "src/battle_util.c:CalcMoveBasePower",
+        "src/battle_util.c:GetTotalAccuracy",
+        "src/battle_util.c:TrySetCantSelectMoveBattleScript",
+        "src/battle_util.c:CheckMoveLimitations",
+        "src/battle_util.c:CalcPartyMonTypeEffectivenessMultiplier",
+        "src/battle_script_commands.c:Cmd_settelekinesis",
+        "src/battle_end_turn.c:HandleEndTurnFirstEventBlock",
+        "src/battle_move_resolution.c:MoveEndMoveBlock",
+        "src/battle_script_commands.c:IsRototillerAffected",
+        "src/battle_switch_in.c:TryHazardsOnSwitchIn",
+        "src/battle_util.c:IsAbilityPreventingEscape"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_util.c:6023",
+          "contains": "if (gFieldStatuses & STATUS_FIELD_GRAVITY && isAnticipation == FALSE)"
+        },
+        {
+          "source": "src/battle_util.c:8379",
+          "contains": "else if (ctx->moveType == TYPE_GROUND"
+        },
+        {
+          "source": "src/battle_util.c:8280",
+          "contains": "if (ctx->moveType == TYPE_GROUND && defType == TYPE_FLYING && IsBattlerGrounded("
+        },
+        {
+          "source": "src/battle_move_resolution.c:334",
+          "contains": "else if (gFieldStatuses & STATUS_FIELD_GRAVITY && IsGravityPreventingMove(ctx->move))"
+        },
+        {
+          "source": "src/battle_util.c:6532",
+          "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRAVITY)"
+        },
+        {
+          "source": "src/battle_util.c:10564",
+          "contains": "if (gFieldStatuses & STATUS_FIELD_GRAVITY)"
+        }
+      ],
+      "rationale": "Gravity grounds every battler. In an ordinary hit, groundedness is read by the Ground-move immunity/effectiveness branches and by terrain checks (each terrain bit is assessed separately with a type-based rule that does not depend on groundedness). Gravity also makes gravityBanned moves fail, boosts Grav Apple (never ordinary) and raises accuracy, which is outside the displayed damage range.",
+      "request_operands": [
+        "ordinary_move",
+        "effective_move_type",
+        "move_id"
+      ],
+      "rules": [
+        {
+          "rule": "gravity_non_ground_unbanned_move",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "ordinary_move",
+            "effective_move_type",
+            "move_id"
+          ],
+          "predicate": "Ordinary move whose authoritative effective type is not Ground and whose pinned gravityBanned is FALSE.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:8379",
+              "contains": "else if (ctx->moveType == TYPE_GROUND"
+            },
+            {
+              "source": "src/battle_util.c:8280",
+              "contains": "if (ctx->moveType == TYPE_GROUND && defType == TYPE_FLYING && IsBattlerGrounded("
+            },
+            {
+              "source": "src/battle_util.c:1377",
+              "contains": "return IsMoveGravityBanned(move);"
+            }
+          ]
+        },
+        {
+          "rule": "gravity_ground_move",
+          "relevance": "RELEVANT",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The authoritative effective move type is Ground; Gravity can remove its immunity.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6023",
+              "contains": "if (gFieldStatuses & STATUS_FIELD_GRAVITY && isAnticipation == FALSE)"
+            },
+            {
+              "source": "src/battle_util.c:8379",
+              "contains": "else if (ctx->moveType == TYPE_GROUND"
+            }
+          ]
+        },
+        {
+          "rule": "gravity_banned_move",
+          "relevance": "RELEVANT",
+          "operands": [
+            "move_id"
+          ],
+          "predicate": "The pinned move is gravityBanned, so Gravity makes it fail.",
+          "evidence": [
+            {
+              "source": "src/battle_move_resolution.c:334",
+              "contains": "else if (gFieldStatuses & STATUS_FIELD_GRAVITY && IsGravityPreventingMove(ctx->move))"
+            }
+          ]
+        }
+      ],
+      "fallback": "Unknown effective type or non-ordinary move never clears."
+    },
+    {
+      "symbol": "STATUS_FIELD_GRASSY_TERRAIN",
+      "bit": 6,
+      "kotlin_name": "GRASSY_TERRAIN",
+      "display_name": "Grassy Terrain",
+      "affects": {
+        "move_type": true,
+        "move_category": false,
+        "base_power": true,
+        "attack_stat": false,
+        "defense_stat": true,
+        "final_damage": true,
+        "type_effectiveness": false,
+        "turn_order": true,
+        "move_failure": false,
+        "item_activation": true,
+        "ability_activation": true
+      },
+      "set_by": [
+        "src/battle_util.c:TryChangeBattleTerrain",
+        "src/battle_util.c:AbilityBattleEffects",
+        "src/battle_util.c:SetStartingFieldStatus",
+        "src/battle_util.c:TryFieldEffects",
+        "src/battle_script_commands.c:BS_SetTerrain",
+        "src/battle_script_commands.c:SetMoveEffect"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_end_turn.c:EndTurnTerrain",
+        "src/battle_end_turn.c:HandleEndTurnTerrain",
+        "src/battle_script_commands.c:RemoveAllTerrains",
+        "src/battle_script_commands.c:TryDefogClear",
+        "src/battle_util.c:TryChangeBattleTerrain"
+      ],
+      "read_by": [
+        "src/battle_util.c:IsGrassyTerrainAffected",
+        "src/battle_util.c:CalcMoveBasePowerAfterModifiers",
+        "src/battle_util.c:CalcDefenseStat",
+        "src/battle_main.c:GetBattleMovePriority",
+        "src/battle_main.c:GetDynamicMoveType",
+        "src/battle_util.c:CalcMoveBasePower",
+        "src/battle_end_turn.c:HandleEndTurnFirstEventBlock",
+        "src/battle_hold_effects.c:TryTerrainSeeds",
+        "src/battle_hold_effects.c:TryHandleSeed",
+        "src/battle_util.c:ChangeTypeBasedOnTerrain",
+        "src/battle_script_commands.c:BS_TryHealPulse",
+        "src/battle_script_commands.c:Cmd_settypetoenvironment",
+        "src/battle_move_resolution.c:GetNaturePowerMove",
+        "src/battle_move_resolution.c:MoveEndThirdMoveBlock",
+        "src/battle_move_resolution.c:CancelerMoveFailure",
+        "src/battle_util.c:IsAnyTerrainAffected",
+        "src/battle_util.c:IsBattlerTerrainAffected",
+        "src/battle_util.c:CalcTerrainBoostedPower",
+        "src/battle_script_commands.c:BS_JumpIfTerrainAffected"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_util.c:6639",
+          "contains": "if (IsGrassyTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_GRASS)"
+        },
+        {
+          "source": "src/battle_util.c:7296",
+          "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRASSY_TERRAIN && usesDefStat)"
+        },
+        {
+          "source": "src/battle_util.c:6616",
+          "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRASSY_TERRAIN && !IsSemiInvulnerable(battlerDef, CHECK_ALL))"
+        },
+        {
+          "source": "src/battle_main.c:5044",
+          "contains": "&& IsGrassyTerrainAffected(battler, ability, GetBattlerHoldEffect(battler), gFieldStatuses)"
+        }
+      ],
+      "rationale": "For an ordinary hit Grassy Terrain boosts a grounded attacker's Grass move and powers the defender's Grass Pelt; Earthquake/Magnitude halving, Terrain Pulse and Grassy Glide priority are non-ordinary effects, but Grassy Glide priority on either side can change turn order, which the attacker's Analytic reads. Healing, seeds and Mimicry act outside the hit or are observed live.",
+      "request_operands": [
+        "ordinary_move",
+        "effective_move_type",
+        "attacker_ability",
+        "defender_ability"
+      ],
+      "rules": [
+        {
+          "rule": "grassy_terrain_non_grass_move",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "ordinary_move",
+            "effective_move_type",
+            "attacker_ability",
+            "defender_ability"
+          ],
+          "predicate": "Ordinary move whose authoritative effective type is not Grass, the defender's effective ability is not Grass Pelt and the attacker's is not Analytic.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6639",
+              "contains": "if (IsGrassyTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_GRASS)"
+            },
+            {
+              "source": "src/battle_util.c:7296",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRASSY_TERRAIN && usesDefStat)"
+            },
+            {
+              "source": "src/battle_util.c:6690",
+              "contains": "case ABILITY_ANALYTIC:"
+            },
+            {
+              "source": "src/battle_util.c:6691",
+              "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+            }
+          ]
+        },
+        {
+          "rule": "grassy_terrain_grass_move",
+          "relevance": "RELEVANT",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The authoritative effective move type is Grass.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6639",
+              "contains": "if (IsGrassyTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_GRASS)"
+            }
+          ]
+        },
+        {
+          "rule": "grassy_terrain_grass_pelt_defender",
+          "relevance": "RELEVANT",
+          "operands": [
+            "defender_ability"
+          ],
+          "predicate": "The defender's effective ability is Grass Pelt.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7296",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRASSY_TERRAIN && usesDefStat)"
+            }
+          ]
+        },
+        {
+          "rule": "grassy_terrain_attacker_analytic",
+          "relevance": "RELEVANT",
+          "operands": [
+            "attacker_ability"
+          ],
+          "predicate": "The attacker's effective ability is Analytic; Grassy Glide priority can change turn order.",
+          "evidence": [
+            {
+              "source": "src/battle_main.c:5044",
+              "contains": "&& IsGrassyTerrainAffected(battler, ability, GetBattlerHoldEffect(battler), gFieldStatuses)"
+            },
+            {
+              "source": "src/battle_util.c:6690",
+              "contains": "case ABILITY_ANALYTIC:"
+            },
+            {
+              "source": "src/battle_util.c:6691",
+              "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+            }
+          ]
+        }
+      ],
+      "fallback": "Unknown effective type, unknown attacker/defender ability or non-ordinary move never clears."
+    },
+    {
+      "symbol": "STATUS_FIELD_MISTY_TERRAIN",
+      "bit": 7,
+      "kotlin_name": "MISTY_TERRAIN",
+      "display_name": "Misty Terrain",
+      "affects": {
+        "move_type": true,
+        "move_category": false,
+        "base_power": false,
+        "attack_stat": false,
+        "defense_stat": false,
+        "final_damage": true,
+        "type_effectiveness": false,
+        "turn_order": false,
+        "move_failure": false,
+        "item_activation": true,
+        "ability_activation": false
+      },
+      "set_by": [
+        "src/battle_util.c:TryChangeBattleTerrain",
+        "src/battle_util.c:AbilityBattleEffects",
+        "src/battle_util.c:SetStartingFieldStatus",
+        "src/battle_util.c:TryFieldEffects",
+        "src/battle_script_commands.c:BS_SetTerrain",
+        "src/battle_script_commands.c:SetMoveEffect"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_end_turn.c:EndTurnTerrain",
+        "src/battle_end_turn.c:HandleEndTurnTerrain",
+        "src/battle_script_commands.c:RemoveAllTerrains",
+        "src/battle_script_commands.c:TryDefogClear",
+        "src/battle_util.c:TryChangeBattleTerrain"
+      ],
+      "read_by": [
+        "src/battle_util.c:IsMistyTerrainAffected",
+        "src/battle_util.c:CalcMoveBasePowerAfterModifiers",
+        "src/battle_main.c:GetDynamicMoveType",
+        "src/battle_util.c:CanSetNonVolatileStatus",
+        "src/battle_util.c:CanBeConfused",
+        "src/battle_hold_effects.c:CanBeInfinitelyConfused",
+        "src/battle_end_turn.c:HandleEndTurnYawn",
+        "src/battle_script_commands.c:Cmd_trysetrest",
+        "src/battle_script_commands.c:Cmd_setyawn",
+        "src/battle_util.c:CheckSkyDropState",
+        "src/battle_main.c:FaintClearSetData",
+        "src/battle_hold_effects.c:TryTerrainSeeds",
+        "src/battle_hold_effects.c:TryHandleSeed",
+        "src/battle_util.c:ChangeTypeBasedOnTerrain",
+        "src/battle_script_commands.c:Cmd_settypetoenvironment",
+        "src/battle_move_resolution.c:GetNaturePowerMove",
+        "src/battle_move_resolution.c:MoveEndThirdMoveBlock",
+        "src/battle_move_resolution.c:CancelerMoveFailure",
+        "src/battle_util.c:IsAnyTerrainAffected",
+        "src/battle_util.c:IsBattlerTerrainAffected",
+        "src/battle_util.c:CalcTerrainBoostedPower",
+        "src/battle_util.c:CalcMoveBasePower",
+        "src/battle_script_commands.c:BS_JumpIfTerrainAffected"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_util.c:6641",
+          "contains": "if (IsMistyTerrainAffected(battlerDef, ctx->abilityDef, ctx->holdEffectDef, ctx->fieldStatuses) && moveType == TYPE_DRAGON)"
+        }
+      ],
+      "rationale": "Misty Terrain's only ordinary-damage read halves a Dragon move against a grounded defender; its other reads prevent status/confusion, pick Terrain Pulse/Nature Power/Camouflage behaviour or activate seeds.",
+      "request_operands": [
+        "ordinary_move",
+        "effective_move_type"
+      ],
+      "rules": [
+        {
+          "rule": "misty_terrain_non_dragon_move",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "ordinary_move",
+            "effective_move_type"
+          ],
+          "predicate": "Ordinary move whose authoritative effective type is not Dragon.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6641",
+              "contains": "if (IsMistyTerrainAffected(battlerDef, ctx->abilityDef, ctx->holdEffectDef, ctx->fieldStatuses) && moveType == TYPE_DRAGON)"
+            }
+          ]
+        },
+        {
+          "rule": "misty_terrain_dragon_move",
+          "relevance": "RELEVANT",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The authoritative effective move type is Dragon.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6641",
+              "contains": "if (IsMistyTerrainAffected(battlerDef, ctx->abilityDef, ctx->holdEffectDef, ctx->fieldStatuses) && moveType == TYPE_DRAGON)"
+            }
+          ]
+        }
+      ],
+      "fallback": "Unknown effective type or non-ordinary move never clears."
+    },
+    {
+      "symbol": "STATUS_FIELD_ELECTRIC_TERRAIN",
+      "bit": 8,
+      "kotlin_name": "ELECTRIC_TERRAIN",
+      "display_name": "Electric Terrain",
+      "affects": {
+        "move_type": true,
+        "move_category": false,
+        "base_power": false,
+        "attack_stat": true,
+        "defense_stat": true,
+        "final_damage": true,
+        "type_effectiveness": false,
+        "turn_order": true,
+        "move_failure": false,
+        "item_activation": true,
+        "ability_activation": true
+      },
+      "set_by": [
+        "src/battle_util.c:TryChangeBattleTerrain",
+        "src/battle_util.c:AbilityBattleEffects",
+        "src/battle_util.c:SetStartingFieldStatus",
+        "src/battle_util.c:TryFieldEffects",
+        "src/battle_script_commands.c:BS_SetTerrain",
+        "src/battle_script_commands.c:SetMoveEffect"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_end_turn.c:EndTurnTerrain",
+        "src/battle_end_turn.c:HandleEndTurnTerrain",
+        "src/battle_script_commands.c:RemoveAllTerrains",
+        "src/battle_script_commands.c:TryDefogClear",
+        "src/battle_util.c:TryChangeBattleTerrain"
+      ],
+      "read_by": [
+        "src/battle_util.c:IsElectricTerrainAffected",
+        "src/battle_util.c:CalcMoveBasePowerAfterModifiers",
+        "src/battle_util.c:CalcAttackStat",
+        "src/battle_util.c:CalcDefenseStat",
+        "src/battle_main.c:GetBattlerTotalSpeedStat",
+        "src/battle_main.c:GetDynamicMoveType",
+        "src/battle_hold_effects.c:TryBoosterEnergy",
+        "src/battle_util.c:CanSetNonVolatileStatus",
+        "src/battle_end_turn.c:HandleEndTurnYawn",
+        "src/battle_script_commands.c:Cmd_trysetrest",
+        "src/battle_script_commands.c:Cmd_setyawn",
+        "src/battle_hold_effects.c:TryTerrainSeeds",
+        "src/battle_hold_effects.c:TryHandleSeed",
+        "src/battle_util.c:ChangeTypeBasedOnTerrain",
+        "src/battle_script_commands.c:Cmd_settypetoenvironment",
+        "src/battle_move_resolution.c:GetNaturePowerMove",
+        "src/battle_move_resolution.c:MoveEndThirdMoveBlock",
+        "src/battle_move_resolution.c:CancelerMoveFailure",
+        "src/battle_util.c:IsAnyTerrainAffected",
+        "src/battle_util.c:IsBattlerTerrainAffected",
+        "src/battle_util.c:CalcTerrainBoostedPower",
+        "src/battle_util.c:CalcMoveBasePower",
+        "src/battle_script_commands.c:BS_JumpIfTerrainAffected"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_util.c:6643",
+          "contains": "if (IsElectricTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_ELECTRIC)"
+        },
+        {
+          "source": "src/battle_util.c:7098",
+          "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN || gBattleMons[battlerAtk].volatiles.boosterEnergyActivated)"
+        },
+        {
+          "source": "src/battle_util.c:7111",
+          "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN && IsBattleMoveSpecial(move))"
+        },
+        {
+          "source": "src/battle_util.c:7319",
+          "contains": "if ((gFieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN || gBattleMons[battlerDef].volatiles.boosterEnergyActivated)"
+        },
+        {
+          "source": "src/battle_main.c:4959",
+          "contains": "else if (ability == ABILITY_SURGE_SURFER && gFieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN)"
+        }
+      ],
+      "rationale": "For an ordinary hit Electric Terrain boosts a grounded attacker's Electric move and powers Quark Drive (attacker Attack/Sp. Atk, defender Defense/Sp. Def) and Hadron Engine (attacker Sp. Atk). Surge Surfer and Quark Drive speed change turn order, which the attacker's Analytic reads.",
+      "request_operands": [
+        "ordinary_move",
+        "effective_move_type",
+        "attacker_ability",
+        "defender_ability"
+      ],
+      "rules": [
+        {
+          "rule": "electric_terrain_non_electric_move",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "ordinary_move",
+            "effective_move_type",
+            "attacker_ability",
+            "defender_ability"
+          ],
+          "predicate": "Ordinary move whose authoritative effective type is not Electric, neither effective ability is Quark Drive, the attacker's is not Hadron Engine and not Analytic.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6643",
+              "contains": "if (IsElectricTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_ELECTRIC)"
+            },
+            {
+              "source": "src/battle_util.c:7098",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN || gBattleMons[battlerAtk].volatiles.boosterEnergyActivated)"
+            },
+            {
+              "source": "src/battle_util.c:7111",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN && IsBattleMoveSpecial(move))"
+            },
+            {
+              "source": "src/battle_util.c:7319",
+              "contains": "if ((gFieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN || gBattleMons[battlerDef].volatiles.boosterEnergyActivated)"
+            },
+            {
+              "source": "src/battle_util.c:6690",
+              "contains": "case ABILITY_ANALYTIC:"
+            },
+            {
+              "source": "src/battle_util.c:6691",
+              "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+            }
+          ]
+        },
+        {
+          "rule": "electric_terrain_electric_move",
+          "relevance": "RELEVANT",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The authoritative effective move type is Electric.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6643",
+              "contains": "if (IsElectricTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_ELECTRIC)"
+            }
+          ]
+        },
+        {
+          "rule": "electric_terrain_paradox_ability",
+          "relevance": "RELEVANT",
+          "operands": [
+            "attacker_ability",
+            "defender_ability"
+          ],
+          "predicate": "Either effective ability is Quark Drive, or the attacker's is Hadron Engine.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7098",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN || gBattleMons[battlerAtk].volatiles.boosterEnergyActivated)"
+            },
+            {
+              "source": "src/battle_util.c:7111",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN && IsBattleMoveSpecial(move))"
+            },
+            {
+              "source": "src/battle_util.c:7319",
+              "contains": "if ((gFieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN || gBattleMons[battlerDef].volatiles.boosterEnergyActivated)"
+            }
+          ]
+        },
+        {
+          "rule": "electric_terrain_attacker_analytic",
+          "relevance": "RELEVANT",
+          "operands": [
+            "attacker_ability"
+          ],
+          "predicate": "The attacker's effective ability is Analytic; Surge Surfer / Quark Drive speed can change turn order.",
+          "evidence": [
+            {
+              "source": "src/battle_main.c:4959",
+              "contains": "else if (ability == ABILITY_SURGE_SURFER && gFieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN)"
+            },
+            {
+              "source": "src/battle_util.c:6690",
+              "contains": "case ABILITY_ANALYTIC:"
+            },
+            {
+              "source": "src/battle_util.c:6691",
+              "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+            }
+          ]
+        }
+      ],
+      "fallback": "Unknown effective type, unknown attacker/defender ability or non-ordinary move never clears."
+    },
+    {
+      "symbol": "STATUS_FIELD_PSYCHIC_TERRAIN",
+      "bit": 9,
+      "kotlin_name": "PSYCHIC_TERRAIN",
+      "display_name": "Psychic Terrain",
+      "affects": {
+        "move_type": true,
+        "move_category": false,
+        "base_power": false,
+        "attack_stat": false,
+        "defense_stat": false,
+        "final_damage": true,
+        "type_effectiveness": false,
+        "turn_order": false,
+        "move_failure": true,
+        "item_activation": true,
+        "ability_activation": false
+      },
+      "set_by": [
+        "src/battle_util.c:TryChangeBattleTerrain",
+        "src/battle_util.c:AbilityBattleEffects",
+        "src/battle_util.c:SetStartingFieldStatus",
+        "src/battle_util.c:TryFieldEffects",
+        "src/battle_script_commands.c:BS_SetTerrain",
+        "src/battle_script_commands.c:SetMoveEffect"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_end_turn.c:EndTurnTerrain",
+        "src/battle_end_turn.c:HandleEndTurnTerrain",
+        "src/battle_script_commands.c:RemoveAllTerrains",
+        "src/battle_script_commands.c:TryDefogClear",
+        "src/battle_util.c:TryChangeBattleTerrain"
+      ],
+      "read_by": [
+        "src/battle_util.c:IsPsychicTerrainAffected",
+        "src/battle_util.c:CalcMoveBasePowerAfterModifiers",
+        "src/battle_util.c:CanPsychicTerrainProtectTarget",
+        "src/battle_main.c:GetDynamicMoveType",
+        "src/battle_util.c:CanBattlerHitBothFoesInTerrain",
+        "src/battle_hold_effects.c:TryTerrainSeeds",
+        "src/battle_hold_effects.c:TryHandleSeed",
+        "src/battle_util.c:ChangeTypeBasedOnTerrain",
+        "src/battle_script_commands.c:Cmd_settypetoenvironment",
+        "src/battle_move_resolution.c:GetNaturePowerMove",
+        "src/battle_move_resolution.c:MoveEndThirdMoveBlock",
+        "src/battle_move_resolution.c:CancelerMoveFailure",
+        "src/battle_util.c:IsAnyTerrainAffected",
+        "src/battle_util.c:IsBattlerTerrainAffected",
+        "src/battle_util.c:CalcTerrainBoostedPower",
+        "src/battle_util.c:CalcMoveBasePower",
+        "src/battle_script_commands.c:BS_JumpIfTerrainAffected"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_util.c:6645",
+          "contains": "if (IsPsychicTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_PSYCHIC)"
+        },
+        {
+          "source": "src/battle_util.c:2394",
+          "contains": "if (movePriority <= 0"
+        },
+        {
+          "source": "src/battle_util.c:2395",
+          "contains": "|| !IsPsychicTerrainAffected(ctx->battlerDef, ctx->abilityDef, ctx->holdEffectDef, gFieldStatuses)"
+        }
+      ],
+      "rationale": "For an ordinary hit Psychic Terrain boosts a grounded attacker's Psychic move and makes a positive-priority move fail against a grounded target. Positive priority for an ordinary move comes from its pinned priority, Triage on a healing move, or Gale Wings on a Flying move (Prankster only raises status moves).",
+      "request_operands": [
+        "ordinary_move",
+        "effective_move_type",
+        "move_id",
+        "attacker_ability"
+      ],
+      "rules": [
+        {
+          "rule": "psychic_terrain_non_psychic_non_priority_move",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "ordinary_move",
+            "effective_move_type",
+            "move_id",
+            "attacker_ability"
+          ],
+          "predicate": "Ordinary move whose authoritative effective type is not Psychic, whose pinned priority is a literal <= 0 and that is not a healing move, used by an attacker whose effective ability is not Gale Wings.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6645",
+              "contains": "if (IsPsychicTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_PSYCHIC)"
+            },
+            {
+              "source": "src/battle_util.c:2394",
+              "contains": "if (movePriority <= 0"
+            },
+            {
+              "source": "src/battle_main.c:5032",
+              "contains": "else if (ability == ABILITY_GALE_WINGS"
+            }
+          ]
+        },
+        {
+          "rule": "psychic_terrain_psychic_move",
+          "relevance": "RELEVANT",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The authoritative effective move type is Psychic.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6645",
+              "contains": "if (IsPsychicTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_PSYCHIC)"
+            }
+          ]
+        },
+        {
+          "rule": "psychic_terrain_priority_move",
+          "relevance": "RELEVANT",
+          "operands": [
+            "move_id"
+          ],
+          "predicate": "The pinned move may have positive priority; Psychic Terrain blocks it against a grounded target.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:2394",
+              "contains": "if (movePriority <= 0"
+            },
+            {
+              "source": "src/battle_util.c:2395",
+              "contains": "|| !IsPsychicTerrainAffected(ctx->battlerDef, ctx->abilityDef, ctx->holdEffectDef, gFieldStatuses)"
+            }
+          ]
+        }
+      ],
+      "fallback": "Unknown effective type, unknown attacker ability, a Gale Wings attacker or a non-ordinary move never clears."
+    },
+    {
+      "symbol": "STATUS_FIELD_ION_DELUGE",
+      "bit": 10,
+      "kotlin_name": "ION_DELUGE",
+      "display_name": "Ion Deluge",
+      "affects": {
+        "move_type": true,
+        "move_category": true,
+        "base_power": false,
+        "attack_stat": false,
+        "defense_stat": false,
+        "final_damage": false,
+        "type_effectiveness": false,
+        "turn_order": false,
+        "move_failure": false,
+        "item_activation": false,
+        "ability_activation": false
+      },
+      "set_by": [
+        "src/battle_script_commands.c:SetMoveEffect"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_main.c:BattleTurnPassed"
+      ],
+      "read_by": [
+        "src/battle_main.c:SetTypeBeforeUsingMove"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_main.c:6437",
+          "contains": "if ((gFieldStatuses & STATUS_FIELD_ION_DELUGE && moveType == TYPE_NORMAL)"
+        }
+      ],
+      "rationale": "Ion Deluge rewrites a move whose pre-field dynamic type is Normal to Electric (which, under TYPE_BASED, also changes its category). The active rewrite stays refused by HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED.",
+      "request_operands": [
+        "ordinary_move",
+        "pre_field_move_type"
+      ],
+      "rules": [
+        {
+          "rule": "ion_deluge_non_normal_move",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "ordinary_move",
+            "pre_field_move_type"
+          ],
+          "predicate": "Ordinary move whose authoritative pre-field dynamic type (static type, no type-changing attacker ability, no gimmick) is not Normal.",
+          "evidence": [
+            {
+              "source": "src/battle_main.c:6437",
+              "contains": "if ((gFieldStatuses & STATUS_FIELD_ION_DELUGE && moveType == TYPE_NORMAL)"
+            }
+          ]
+        },
+        {
+          "rule": "ion_deluge_normal_move",
+          "relevance": "RELEVANT",
+          "operands": [
+            "pre_field_move_type"
+          ],
+          "predicate": "The pre-field move type is Normal, so Ion Deluge makes it Electric (refused as an active dynamic type).",
+          "evidence": [
+            {
+              "source": "src/battle_main.c:6437",
+              "contains": "if ((gFieldStatuses & STATUS_FIELD_ION_DELUGE && moveType == TYPE_NORMAL)"
+            }
+          ]
+        }
+      ],
+      "fallback": "Unknown pre-field type or non-ordinary move never clears."
+    },
+    {
+      "symbol": "STATUS_FIELD_FAIRY_LOCK",
+      "bit": 11,
+      "kotlin_name": "FAIRY_LOCK",
+      "display_name": "Fairy Lock",
+      "affects": {
+        "move_type": false,
+        "move_category": false,
+        "base_power": false,
+        "attack_stat": false,
+        "defense_stat": false,
+        "final_damage": false,
+        "type_effectiveness": false,
+        "turn_order": false,
+        "move_failure": false,
+        "item_activation": false,
+        "ability_activation": false
+      },
+      "set_by": [
+        "src/battle_script_commands.c:BS_TrySetFairyLock"
+      ],
+      "cleared_by": [
+        "src/battle_main.c:BattleStartClearSetData",
+        "src/battle_util2.c:FreeBattleResources",
+        "src/battle_end_turn.c:HandleEndTurnVarious"
+      ],
+      "read_by": [
+        "src/battle_util.c:CanBattlerEscape"
+      ],
+      "damage_evidence": [
+        {
+          "source": "src/battle_util.c:5107",
+          "contains": "else if (gFieldStatuses & STATUS_FIELD_FAIRY_LOCK)"
+        }
+      ],
+      "rationale": "Fairy Lock's only read is CanBattlerEscape (switching and fleeing). No damage, type, stat, turn-order, item or ability path reads it.",
+      "request_operands": [],
+      "rules": [
+        {
+          "rule": "fairy_lock_escape_only",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [],
+          "predicate": "Always: Fairy Lock is read only by CanBattlerEscape.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:5107",
+              "contains": "else if (gFieldStatuses & STATUS_FIELD_FAIRY_LOCK)"
+            },
+            {
+              "source": "src/battle_end_turn.c:50",
+              "contains": "gFieldStatuses &= ~STATUS_FIELD_FAIRY_LOCK;"
+            }
+          ]
+        }
+      ],
+      "fallback": "None needed; the rule is unconditional."
+    }
+  ],
+  "reference_sites": {
+    "src/battle_end_turn.c:EndTurnTerrain": {
+      "lines": [
+        1180
+      ],
+      "tokens": [
+        "gFieldStatuses"
+      ],
+      "use": "clear: terrain timer expiry (generic flag argument)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_end_turn.c:HandleEndTurnFirstEventBlock": {
+      "lines": [
+        354,
+        358
+      ],
+      "tokens": [
+        "IsBattlerGrounded",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "gFieldStatuses"
+      ],
+      "use": "end-of-turn Grassy Terrain healing of grounded battlers (after damage; not a damage operand)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_end_turn.c:HandleEndTurnGravity": {
+      "lines": [
+        1104
+      ],
+      "tokens": [
+        "STATUS_FIELD_GRAVITY",
+        "gFieldStatuses"
+      ],
+      "use": "clear: Gravity timer expiry",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_end_turn.c:HandleEndTurnMagicRoom": {
+      "lines": [
+        1168
+      ],
+      "tokens": [
+        "STATUS_FIELD_MAGIC_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "clear: Magic Room timer expiry",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_MAGIC_ROOM"
+      ]
+    },
+    "src/battle_end_turn.c:HandleEndTurnMudSport": {
+      "lines": [
+        1136
+      ],
+      "tokens": [
+        "STATUS_FIELD_MUDSPORT",
+        "gFieldStatuses"
+      ],
+      "use": "clear: Mud Sport timer expiry",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_MUDSPORT"
+      ]
+    },
+    "src/battle_end_turn.c:HandleEndTurnTerrain": {
+      "lines": [
+        1196,
+        1197,
+        1198,
+        1199,
+        1200,
+        1201,
+        1202,
+        1203
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "gFieldStatuses"
+      ],
+      "use": "clear: selects the active terrain whose timer expires",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_end_turn.c:HandleEndTurnTrickRoom": {
+      "lines": [
+        1088
+      ],
+      "tokens": [
+        "STATUS_FIELD_TRICK_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "clear: Trick Room timer expiry",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_TRICK_ROOM"
+      ]
+    },
+    "src/battle_end_turn.c:HandleEndTurnVarious": {
+      "lines": [
+        50
+      ],
+      "tokens": [
+        "STATUS_FIELD_FAIRY_LOCK",
+        "gFieldStatuses"
+      ],
+      "use": "clear: Fairy Lock ends at end of turn",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_FAIRY_LOCK"
+      ]
+    },
+    "src/battle_end_turn.c:HandleEndTurnWaterSport": {
+      "lines": [
+        1120
+      ],
+      "tokens": [
+        "STATUS_FIELD_WATERSPORT",
+        "gFieldStatuses"
+      ],
+      "use": "clear: Water Sport timer expiry",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_WATERSPORT"
+      ]
+    },
+    "src/battle_end_turn.c:HandleEndTurnWonderRoom": {
+      "lines": [
+        1152
+      ],
+      "tokens": [
+        "STATUS_FIELD_WONDER_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "clear: Wonder Room timer expiry",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_WONDER_ROOM"
+      ]
+    },
+    "src/battle_end_turn.c:HandleEndTurnYawn": {
+      "lines": [
+        877,
+        882
+      ],
+      "tokens": [
+        "IsElectricTerrainAffected",
+        "IsMistyTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "Yawn sleep prevention by Electric/Misty Terrain (status, not damage)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN"
+      ]
+    },
+    "src/battle_hold_effects.c:CanBeInfinitelyConfused": {
+      "lines": [
+        139
+      ],
+      "tokens": [
+        "IsMistyTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "confusion prevention in Misty Terrain (status, not damage)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_MISTY_TERRAIN"
+      ]
+    },
+    "src/battle_hold_effects.c:TryBoosterEnergy": {
+      "lines": [
+        68
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "gFieldStatuses"
+      ],
+      "use": "item activation: Booster Energy is not consumed by a Quark Drive holder in Electric Terrain (activation bookkeeping, not an operand of this hit)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN"
+      ]
+    },
+    "src/battle_hold_effects.c:TryHandleSeed": {
+      "lines": [
+        100
+      ],
+      "tokens": [
+        "gFieldStatuses"
+      ],
+      "use": "item activation: a terrain seed raises a stat stage (the result is observed live as a stat stage)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_hold_effects.c:TryRoomService": {
+      "lines": [
+        84
+      ],
+      "tokens": [
+        "STATUS_FIELD_TRICK_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "item activation: Room Service lowers Speed when Trick Room is up (turn order only)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_TRICK_ROOM"
+      ]
+    },
+    "src/battle_hold_effects.c:TryTerrainSeeds": {
+      "lines": [
+        119,
+        122,
+        125,
+        128
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ],
+      "use": "item activation: selects the seed matching the active terrain",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_main.c:BattleStartClearSetData": {
+      "lines": [
+        3232
+      ],
+      "tokens": [
+        "gFieldStatuses"
+      ],
+      "use": "clear: every battle starts with gFieldStatuses = 0",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_MAGIC_ROOM",
+        "STATUS_FIELD_TRICK_ROOM",
+        "STATUS_FIELD_WONDER_ROOM",
+        "STATUS_FIELD_MUDSPORT",
+        "STATUS_FIELD_WATERSPORT",
+        "STATUS_FIELD_GRAVITY",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_ION_DELUGE",
+        "STATUS_FIELD_FAIRY_LOCK"
+      ]
+    },
+    "src/battle_main.c:BattleTurnPassed": {
+      "lines": [
+        4224
+      ],
+      "tokens": [
+        "STATUS_FIELD_ION_DELUGE",
+        "gFieldStatuses"
+      ],
+      "use": "clear: Ion Deluge lasts one turn",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_ION_DELUGE"
+      ]
+    },
+    "src/battle_main.c:FaintClearSetData": {
+      "lines": [
+        3611
+      ],
+      "tokens": [
+        "IsMistyTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "Sky Drop release on faint (not damage)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_MISTY_TERRAIN"
+      ]
+    },
+    "src/battle_main.c:GetBattleMovePriority": {
+      "lines": [
+        5044
+      ],
+      "tokens": [
+        "IsGrassyTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "priority: Grassy Glide in Grassy Terrain (EFFECT_GRASSY_GLIDE; turn order only)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN"
+      ]
+    },
+    "src/battle_main.c:GetBattlerTotalSpeedStat": {
+      "lines": [
+        4959,
+        4965
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "gFieldStatuses"
+      ],
+      "use": "speed: Surge Surfer and Quark Drive in Electric Terrain (turn order only)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN"
+      ]
+    },
+    "src/battle_main.c:GetDynamicMoveType": {
+      "lines": [
+        6335,
+        6337,
+        6339,
+        6341,
+        6343
+      ],
+      "tokens": [
+        "IsAnyTerrainAffected",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "gFieldStatuses"
+      ],
+      "use": "move type: Terrain Pulse (EFFECT_TERRAIN_PULSE, never ordinary)",
+      "damage": "excluded",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_main.c:GetWhichBattlerFasterArgs": {
+      "lines": [
+        5091,
+        5099
+      ],
+      "tokens": [
+        "STATUS_FIELD_TRICK_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "turn order: Trick Room reverses the speed comparison",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_TRICK_ROOM"
+      ]
+    },
+    "src/battle_main.c:SetTypeBeforeUsingMove": {
+      "lines": [
+        6437
+      ],
+      "tokens": [
+        "STATUS_FIELD_ION_DELUGE",
+        "gFieldStatuses"
+      ],
+      "use": "move type: Ion Deluge turns a Normal move Electric (the ordinary path; blocked by the dynamic-type gate)",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_ION_DELUGE"
+      ]
+    },
+    "src/battle_main.c:gFieldStatuses": {
+      "lines": [
+        237
+      ],
+      "tokens": [
+        "gFieldStatuses"
+      ],
+      "use": "definition of the EWRAM word",
+      "damage": "none",
+      "statuses": []
+    },
+    "src/battle_move_resolution.c:CancelerMoveFailure": {
+      "lines": [
+        1173,
+        1213,
+        1234
+      ],
+      "tokens": [
+        "IsLastMonToMove",
+        "STATUS_FIELD_MAGIC_ROOM",
+        "STATUS_FIELD_TERRAIN_ANY",
+        "gFieldStatuses"
+      ],
+      "use": "move failure: Protect/Endure last-mover check, Steel Roller needs terrain, Natural Gift fails in Magic Room (none is an ordinary move)",
+      "damage": "excluded",
+      "statuses": [
+        "STATUS_FIELD_MAGIC_ROOM",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_move_resolution.c:CancelerVolatileBlocked": {
+      "lines": [
+        334
+      ],
+      "tokens": [
+        "IsGravityPreventingMove",
+        "STATUS_FIELD_GRAVITY",
+        "gFieldStatuses"
+      ],
+      "use": "move failure: Gravity makes a gravityBanned move fail",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_move_resolution.c:GetNaturePowerMove": {
+      "lines": [
+        4157,
+        4159,
+        4161,
+        4163
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "gFieldStatuses"
+      ],
+      "use": "Nature Power move selection (not ordinary)",
+      "damage": "excluded",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_move_resolution.c:MoveEndMoveBlock": {
+      "lines": [
+        3138
+      ],
+      "tokens": [
+        "IsBattlerGrounded"
+      ],
+      "use": "MoveEnd (after damage): Smack Down style grounding",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_move_resolution.c:MoveEndThirdMoveBlock": {
+      "lines": [
+        3589,
+        3596
+      ],
+      "tokens": [
+        "STATUS_FIELD_TERRAIN_ANY",
+        "gFieldStatuses"
+      ],
+      "use": "MoveEnd (after damage): terrain-dependent move end effects",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_script_commands.c:BS_JumpIfTerrainAffected": {
+      "lines": [
+        12292
+      ],
+      "tokens": [
+        "IsBattlerTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "script branch for terrain-dependent (non-ordinary) move scripts",
+      "damage": "excluded",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_script_commands.c:BS_SetTerrain": {
+      "lines": [
+        12242,
+        12244,
+        12249,
+        12251,
+        12256,
+        12258,
+        12263,
+        12265
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "gFieldStatuses"
+      ],
+      "use": "set: terrain moves and scripts",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_script_commands.c:BS_TryHealPulse": {
+      "lines": [
+        12574
+      ],
+      "tokens": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "gFieldStatuses"
+      ],
+      "use": "Floral Healing in Grassy Terrain (status move)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN"
+      ]
+    },
+    "src/battle_script_commands.c:BS_TrySetFairyLock": {
+      "lines": [
+        13604,
+        13610
+      ],
+      "tokens": [
+        "STATUS_FIELD_FAIRY_LOCK",
+        "gFieldStatuses"
+      ],
+      "use": "set: Fairy Lock",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_FAIRY_LOCK"
+      ]
+    },
+    "src/battle_script_commands.c:Cmd_damagecalc": {
+      "lines": [
+        1323
+      ],
+      "tokens": [
+        "fieldStatuses",
+        "gFieldStatuses"
+      ],
+      "use": "damage context: ctx.fieldStatuses = gFieldStatuses, the word every ctx->fieldStatuses read sees",
+      "damage": "ordinary",
+      "statuses": []
+    },
+    "src/battle_script_commands.c:Cmd_setgravity": {
+      "lines": [
+        6558,
+        6564
+      ],
+      "tokens": [
+        "STATUS_FIELD_GRAVITY",
+        "gFieldStatuses"
+      ],
+      "use": "set: Gravity move",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_script_commands.c:Cmd_setroom": {
+      "lines": [
+        10032,
+        10035,
+        10038
+      ],
+      "tokens": [
+        "STATUS_FIELD_MAGIC_ROOM",
+        "STATUS_FIELD_TRICK_ROOM",
+        "STATUS_FIELD_WONDER_ROOM"
+      ],
+      "use": "set: Trick Room, Wonder Room, Magic Room moves",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_TRICK_ROOM",
+        "STATUS_FIELD_WONDER_ROOM",
+        "STATUS_FIELD_MAGIC_ROOM"
+      ]
+    },
+    "src/battle_script_commands.c:Cmd_settelekinesis": {
+      "lines": [
+        11551
+      ],
+      "tokens": [
+        "STATUS_FIELD_GRAVITY",
+        "gFieldStatuses"
+      ],
+      "use": "Telekinesis fails under Gravity (status move)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_script_commands.c:Cmd_settypebasedhalvers": {
+      "lines": [
+        10354,
+        10356,
+        10376,
+        10378
+      ],
+      "tokens": [
+        "STATUS_FIELD_MUDSPORT",
+        "STATUS_FIELD_WATERSPORT",
+        "gFieldStatuses"
+      ],
+      "use": "set: Mud Sport / Water Sport",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_MUDSPORT",
+        "STATUS_FIELD_WATERSPORT"
+      ]
+    },
+    "src/battle_script_commands.c:Cmd_settypetoenvironment": {
+      "lines": [
+        10490,
+        10492,
+        10495,
+        10498,
+        10501
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_TERRAIN_ANY",
+        "gFieldStatuses"
+      ],
+      "use": "Camouflage (status move)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_script_commands.c:Cmd_setyawn": {
+      "lines": [
+        9990,
+        9996
+      ],
+      "tokens": [
+        "IsElectricTerrainAffected",
+        "IsMistyTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "Yawn failure in Electric/Misty Terrain (status move)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN"
+      ]
+    },
+    "src/battle_script_commands.c:Cmd_trysetmagiccoat": {
+      "lines": [
+        10179
+      ],
+      "tokens": [
+        "IsLastMonToMove"
+      ],
+      "use": "turn order read by Magic Coat (status move)",
+      "damage": "none",
+      "statuses": []
+    },
+    "src/battle_script_commands.c:Cmd_trysetrest": {
+      "lines": [
+        7493,
+        7497
+      ],
+      "tokens": [
+        "IsElectricTerrainAffected",
+        "IsMistyTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "Rest failure in Electric/Misty Terrain (status move)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN"
+      ]
+    },
+    "src/battle_script_commands.c:Cmd_trysetsnatch": {
+      "lines": [
+        10195
+      ],
+      "tokens": [
+        "IsLastMonToMove"
+      ],
+      "use": "turn order read by Snatch (status move)",
+      "damage": "none",
+      "statuses": []
+    },
+    "src/battle_script_commands.c:HandleRoomMove": {
+      "lines": [
+        10011,
+        10013,
+        10019
+      ],
+      "tokens": [
+        "gFieldStatuses"
+      ],
+      "use": "set/toggle a room status (generic flag argument)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_TRICK_ROOM",
+        "STATUS_FIELD_WONDER_ROOM",
+        "STATUS_FIELD_MAGIC_ROOM"
+      ]
+    },
+    "src/battle_script_commands.c:IsRototillerAffected": {
+      "lines": [
+        14861
+      ],
+      "tokens": [
+        "IsBattlerGrounded"
+      ],
+      "use": "Rototiller (status move)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_script_commands.c:RemoveAllTerrains": {
+      "lines": [
+        7073,
+        7075,
+        7078,
+        7081,
+        7084,
+        7091
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_TERRAIN_ANY",
+        "gFieldStatuses"
+      ],
+      "use": "clear: terrain removal",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_script_commands.c:SetMoveEffect": {
+      "lines": [
+        3027,
+        3029,
+        3031,
+        3034,
+        3037,
+        3040,
+        3120,
+        3122,
+        3327,
+        3331,
+        3335,
+        3339,
+        3382,
+        3402,
+        3404
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_GRAVITY",
+        "STATUS_FIELD_ION_DELUGE",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_TERRAIN_ANY",
+        "gFieldStatuses"
+      ],
+      "use": "set/clear by secondary move effects after damage (Ion Deluge, Gravity, Defog, Secret Power, terrain)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_ION_DELUGE",
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_script_commands.c:TryDefogClear": {
+      "lines": [
+        7175
+      ],
+      "tokens": [
+        "STATUS_FIELD_TERRAIN_ANY",
+        "gFieldStatuses"
+      ],
+      "use": "clear: Defog terrain clearing",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_switch_in.c:TryHazardsOnSwitchIn": {
+      "lines": [
+        315,
+        324,
+        333
+      ],
+      "tokens": [
+        "IsBattlerGrounded"
+      ],
+      "use": "entry hazards on switch-in (not the damage of this hit)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_util.c:AbilityBattleEffects": {
+      "lines": [
+        3418,
+        3427,
+        3436,
+        3445,
+        4291,
+        4529,
+        4908
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_TRICK_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "set: Electric/Grassy/Misty/Psychic Surge and Hadron Engine on switch-in, Seed Sower after damage; Magician target order; Quark Drive activation flag",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_TRICK_ROOM"
+      ]
+    },
+    "src/battle_util.c:CalcAttackStat": {
+      "lines": [
+        6945,
+        7098,
+        7111
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_WONDER_ROOM",
+        "fieldStatuses"
+      ],
+      "use": "Body Press stage under Wonder Room (not ordinary); Quark Drive and Hadron Engine in Electric Terrain",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_WONDER_ROOM",
+        "STATUS_FIELD_ELECTRIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:CalcDefenseStat": {
+      "lines": [
+        7226,
+        7240,
+        7296,
+        7319
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_WONDER_ROOM",
+        "fieldStatuses",
+        "gFieldStatuses"
+      ],
+      "use": "Wonder Room swaps Def/SpDef and usesDefStat; Grass Pelt in Grassy Terrain; Quark Drive in Electric Terrain",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_WONDER_ROOM",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:CalcMoveBasePower": {
+      "lines": [
+        6532,
+        6536
+      ],
+      "tokens": [
+        "IsAnyTerrainAffected",
+        "STATUS_FIELD_GRAVITY",
+        "fieldStatuses"
+      ],
+      "use": "Grav Apple in Gravity, Terrain Pulse (effects, never ordinary)",
+      "damage": "excluded",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:CalcMoveBasePowerAfterModifiers": {
+      "lines": [
+        6616,
+        6639,
+        6641,
+        6643,
+        6645,
+        6647,
+        6649,
+        6691
+      ],
+      "tokens": [
+        "IsElectricTerrainAffected",
+        "IsFieldMudSportAffected",
+        "IsFieldWaterSportAffected",
+        "IsGrassyTerrainAffected",
+        "IsLastMonToMove",
+        "IsMistyTerrainAffected",
+        "IsPsychicTerrainAffected",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "fieldStatuses"
+      ],
+      "use": "Earthquake/Magnitude halving in Grassy Terrain (effects); grounded Grass/Electric/Psychic x1.3 and Misty Dragon x0.5; Mud/Water Sport; Analytic turn order",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_MUDSPORT",
+        "STATUS_FIELD_WATERSPORT",
+        "STATUS_FIELD_TRICK_ROOM"
+      ]
+    },
+    "src/battle_util.c:CalcPartyMonTypeEffectivenessMultiplier": {
+      "lines": [
+        8477
+      ],
+      "tokens": [
+        "STATUS_FIELD_GRAVITY",
+        "gFieldStatuses"
+      ],
+      "use": "party-menu effectiveness display (not battle damage)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_util.c:CalcTerrainBoostedPower": {
+      "lines": [
+        6269,
+        6271,
+        6272
+      ],
+      "tokens": [
+        "IsBattlerTerrainAffected",
+        "fieldStatuses"
+      ],
+      "use": "terrainBoost moves (no ordinary move declares one; checked by the generator)",
+      "damage": "excluded",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:CalcTypeEffectivenessMultiplierInternal": {
+      "lines": [
+        8380,
+        8404,
+        8415
+      ],
+      "tokens": [
+        "IsBattlerGrounded",
+        "IsBattlerGroundedInverseCheck"
+      ],
+      "use": "Thousand Arrows / Iron Ball grounding of a Flying defender (Ground moves)",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_util.c:CanBattlerEscape": {
+      "lines": [
+        5107
+      ],
+      "tokens": [
+        "STATUS_FIELD_FAIRY_LOCK",
+        "gFieldStatuses"
+      ],
+      "use": "escape prevention: Fairy Lock",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_FAIRY_LOCK"
+      ]
+    },
+    "src/battle_util.c:CanBattlerHitBothFoesInTerrain": {
+      "lines": [
+        9542
+      ],
+      "tokens": [
+        "IsBattlerTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "Expanding Force spread targeting (not ordinary)",
+      "damage": "excluded",
+      "statuses": [
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:CanBeConfused": {
+      "lines": [
+        5602
+      ],
+      "tokens": [
+        "IsMistyTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "confusion prevention in Misty Terrain",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_MISTY_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:CanFling": {
+      "lines": [
+        9274
+      ],
+      "tokens": [
+        "STATUS_FIELD_MAGIC_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "Fling (not ordinary)",
+      "damage": "excluded",
+      "statuses": [
+        "STATUS_FIELD_MAGIC_ROOM"
+      ]
+    },
+    "src/battle_util.c:CanPsychicTerrainProtectTarget": {
+      "lines": [
+        2395
+      ],
+      "tokens": [
+        "IsPsychicTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "move failure: Psychic Terrain blocks a positive-priority move against a grounded target",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:CanSetNonVolatileStatus": {
+      "lines": [
+        5471,
+        5518
+      ],
+      "tokens": [
+        "IsElectricTerrainAffected",
+        "IsMistyTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "status prevention in Electric/Misty Terrain",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:ChangeTypeBasedOnTerrain": {
+      "lines": [
+        2281,
+        2283,
+        2285,
+        2287
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "gFieldStatuses"
+      ],
+      "use": "Mimicry rewrites battler types (the result is observed live as types)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:CheckMoveLimitations": {
+      "lines": [
+        1713
+      ],
+      "tokens": [
+        "IsGravityPreventingMove"
+      ],
+      "use": "move selection legality under Gravity (selection, not damage)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_util.c:CheckSetUnburden": {
+      "lines": [
+        10759
+      ],
+      "tokens": [
+        "STATUS_FIELD_MAGIC_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "Unburden after item loss, skipped in Magic Room (speed)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_MAGIC_ROOM"
+      ]
+    },
+    "src/battle_util.c:CheckSkyDropState": {
+      "lines": [
+        1114
+      ],
+      "tokens": [
+        "IsMistyTerrainAffected",
+        "gFieldStatuses"
+      ],
+      "use": "Sky Drop (not ordinary)",
+      "damage": "excluded",
+      "statuses": [
+        "STATUS_FIELD_MISTY_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:GetBattlerHoldEffectInternal": {
+      "lines": [
+        5827
+      ],
+      "tokens": [
+        "STATUS_FIELD_MAGIC_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "Magic Room returns HOLD_EFFECT_NONE for every held item",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_MAGIC_ROOM"
+      ]
+    },
+    "src/battle_util.c:GetHighestStatId": {
+      "lines": [
+        5153
+      ],
+      "tokens": [
+        "STATUS_FIELD_WONDER_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "Wonder Room swaps the Def/SpDef comparison (Beast Boost style stat choice)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_WONDER_ROOM"
+      ]
+    },
+    "src/battle_util.c:GetParadoxHighestStatId": {
+      "lines": [
+        5227
+      ],
+      "tokens": [
+        "STATUS_FIELD_WONDER_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "Wonder Room swaps the Def/SpDef comparison for Protosynthesis/Quark Drive",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_WONDER_ROOM"
+      ]
+    },
+    "src/battle_util.c:GetTotalAccuracy": {
+      "lines": [
+        10564
+      ],
+      "tokens": [
+        "STATUS_FIELD_GRAVITY",
+        "gFieldStatuses"
+      ],
+      "use": "accuracy under Gravity (not part of the damage range)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_util.c:IsAbilityPreventingEscape": {
+      "lines": [
+        5071
+      ],
+      "tokens": [
+        "IsBattlerGrounded"
+      ],
+      "use": "escape prevention (Arena Trap)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_util.c:IsAnyTerrainAffected": {
+      "lines": [
+        5135,
+        5137
+      ],
+      "tokens": [
+        "IsAnyTerrainAffected",
+        "IsBattlerTerrainAffected",
+        "STATUS_FIELD_TERRAIN_ANY",
+        "fieldStatuses"
+      ],
+      "use": "definition: any terrain flag + grounded holder",
+      "damage": "excluded",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:IsBattlerGrounded": {
+      "lines": [
+        6036,
+        6038
+      ],
+      "tokens": [
+        "IsBattlerGrounded",
+        "IsBattlerGroundedInverseCheck"
+      ],
+      "use": "definition wrapper of the grounded check",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_util.c:IsBattlerGroundedInverseCheck": {
+      "lines": [
+        6019,
+        6023
+      ],
+      "tokens": [
+        "IsBattlerGroundedInverseCheck",
+        "STATUS_FIELD_GRAVITY",
+        "gFieldStatuses"
+      ],
+      "use": "Gravity grounds every battler",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_util.c:IsBattlerTerrainAffected": {
+      "lines": [
+        5140,
+        5147
+      ],
+      "tokens": [
+        "IsBattlerGrounded",
+        "IsBattlerTerrainAffected"
+      ],
+      "use": "definition: terrain flag, not semi-invulnerable, grounded",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:IsElectricTerrainAffected": {
+      "lines": [
+        5130,
+        5132
+      ],
+      "tokens": [
+        "IsBattlerTerrainAffected",
+        "IsElectricTerrainAffected",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "fieldStatuses"
+      ],
+      "use": "definition: Electric Terrain flag + grounded holder",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:IsFieldMudSportAffected": {
+      "lines": [
+        6281,
+        6286
+      ],
+      "tokens": [
+        "IsFieldMudSportAffected",
+        "STATUS_FIELD_MUDSPORT",
+        "gFieldStatuses"
+      ],
+      "use": "Mud Sport: Electric moves x0.33",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_MUDSPORT"
+      ]
+    },
+    "src/battle_util.c:IsFieldWaterSportAffected": {
+      "lines": [
+        6301,
+        6306
+      ],
+      "tokens": [
+        "IsFieldWaterSportAffected",
+        "STATUS_FIELD_WATERSPORT",
+        "gFieldStatuses"
+      ],
+      "use": "Water Sport: Fire moves x0.33",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_WATERSPORT"
+      ]
+    },
+    "src/battle_util.c:IsGrassyTerrainAffected": {
+      "lines": [
+        5125,
+        5127
+      ],
+      "tokens": [
+        "IsBattlerTerrainAffected",
+        "IsGrassyTerrainAffected",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "fieldStatuses"
+      ],
+      "use": "definition: Grassy Terrain flag + grounded holder",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:IsGravityPreventingMove": {
+      "lines": [
+        1372,
+        1374,
+        1377
+      ],
+      "tokens": [
+        "IsGravityPreventingMove",
+        "IsMoveGravityBanned",
+        "STATUS_FIELD_GRAVITY",
+        "gFieldStatuses"
+      ],
+      "use": "definition: Gravity + gMovesInfo[move].gravityBanned",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_util.c:IsLastMonToMove": {
+      "lines": [
+        1183
+      ],
+      "tokens": [
+        "IsLastMonToMove"
+      ],
+      "use": "definition: turn order; its only ordinary-damage reader is Analytic",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_TRICK_ROOM"
+      ]
+    },
+    "src/battle_util.c:IsMistyTerrainAffected": {
+      "lines": [
+        5120,
+        5122
+      ],
+      "tokens": [
+        "IsBattlerTerrainAffected",
+        "IsMistyTerrainAffected",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "fieldStatuses"
+      ],
+      "use": "definition: Misty Terrain flag + grounded holder",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_MISTY_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:IsPsychicTerrainAffected": {
+      "lines": [
+        5115,
+        5117
+      ],
+      "tokens": [
+        "IsBattlerTerrainAffected",
+        "IsPsychicTerrainAffected",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "fieldStatuses"
+      ],
+      "use": "definition: Psychic Terrain flag + grounded holder",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:MulByTypeEffectiveness": {
+      "lines": [
+        8280
+      ],
+      "tokens": [
+        "IsBattlerGrounded"
+      ],
+      "use": "grounded Flying defender vs Ground move",
+      "damage": "ordinary",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_util.c:SetStartingFieldStatus": {
+      "lines": [
+        2572,
+        2575,
+        2576,
+        2577
+      ],
+      "tokens": [
+        "STATUS_FIELD_TERRAIN_ANY",
+        "gFieldStatuses"
+      ],
+      "use": "set: trainer starting statuses (gStartingStatuses)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_TRICK_ROOM",
+        "STATUS_FIELD_MAGIC_ROOM",
+        "STATUS_FIELD_WONDER_ROOM"
+      ]
+    },
+    "src/battle_util.c:TryChangeBattleTerrain": {
+      "lines": [
+        2167,
+        2169,
+        2170
+      ],
+      "tokens": [
+        "STATUS_FIELD_TERRAIN_ANY",
+        "gFieldStatuses"
+      ],
+      "use": "set: every terrain change (Surge abilities, Hadron Engine, Seed Sower, moves) clears the other terrains",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN"
+      ]
+    },
+    "src/battle_util.c:TryFieldEffects": {
+      "lines": [
+        2682,
+        2697,
+        2712,
+        2727,
+        2737,
+        2746,
+        2755,
+        2969,
+        2973,
+        2981,
+        2983
+      ],
+      "tokens": [
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MAGIC_ROOM",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_TRICK_ROOM",
+        "STATUS_FIELD_WONDER_ROOM",
+        "gFieldStatuses"
+      ],
+      "use": "set: trainer starting statuses and overworld terrain (disabled by config in H&S)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_TRICK_ROOM",
+        "STATUS_FIELD_MAGIC_ROOM",
+        "STATUS_FIELD_WONDER_ROOM"
+      ]
+    },
+    "src/battle_util.c:TrySetCantSelectMoveBattleScript": {
+      "lines": [
+        1508
+      ],
+      "tokens": [
+        "IsGravityPreventingMove"
+      ],
+      "use": "move selection legality under Gravity (selection, not damage)",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_GRAVITY"
+      ]
+    },
+    "src/battle_util2.c:FreeBattleResources": {
+      "lines": [
+        60
+      ],
+      "tokens": [
+        "gFieldStatuses"
+      ],
+      "use": "clear: battle teardown resets gFieldStatuses = 0",
+      "damage": "none",
+      "statuses": [
+        "STATUS_FIELD_MAGIC_ROOM",
+        "STATUS_FIELD_TRICK_ROOM",
+        "STATUS_FIELD_WONDER_ROOM",
+        "STATUS_FIELD_MUDSPORT",
+        "STATUS_FIELD_WATERSPORT",
+        "STATUS_FIELD_GRAVITY",
+        "STATUS_FIELD_GRASSY_TERRAIN",
+        "STATUS_FIELD_MISTY_TERRAIN",
+        "STATUS_FIELD_ELECTRIC_TERRAIN",
+        "STATUS_FIELD_PSYCHIC_TERRAIN",
+        "STATUS_FIELD_ION_DELUGE",
+        "STATUS_FIELD_FAIRY_LOCK"
+      ]
+    }
+  }
+}

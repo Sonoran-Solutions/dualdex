@@ -190,6 +190,9 @@ class CalcVanillaGoldenBoundaryTest {
                 assertTrue("$id must be verified", ready.verdict.isVerified)
                 assertEquals("$id limitations", emptyList<CalcLimitation>(), ready.verdict.limitations)
                 assertEquals("$id detail", "", ready.verdict.supportDetail)
+                // The H&S field-state decoder is H&S-only: vanilla verdicts carry no field decision.
+                assertTrue("$id field decisions", ready.verdict.hnsFieldDecisions.isEmpty())
+                assertEquals("$id field diagnostics", null, ready.verdict.hnsFieldDiagnostics)
             }
         }
     }

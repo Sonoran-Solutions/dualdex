@@ -5652,7 +5652,7 @@ static void test_hns_field_statuses_raw_word(void) {
     HnsBattleFixture fx;
     hns_battler_fixture_two_battlers(&fx, &gba, cfg);
 
-    TEST_ASSERT(cfg->field_statuses_offset == 0x2F4, "gFieldStatuses stays at EWRAM+0x2F4");
+    TEST_ASSERT(cfg->field_statuses_offset == 0x2E8, "gFieldStatuses at EWRAM+0x2E8 in release ROM");
     TEST_ASSERT(cfg->field_status_ion_deluge_mask == HNS_STATUS_FIELD_ION_DELUGE,
                 "Ion Deluge mask comes from the generated pinned header");
     TEST_ASSERT(HNS_STATUS_FIELD_KNOWN_MASK == 0x00000FFFu, "twelve pinned field bits");
@@ -5685,6 +5685,106 @@ static void test_hns_field_statuses_raw_word(void) {
 
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_hns_field_statuses_raw_word" ANSI_RESET "\n");
+}
+
+/**
+ * Device-shaped regression for the AYN Thor finding:
+ * On official H&S 2.0.5, a fresh battle with Porygon (holding Wise Glasses) vs Croconaw
+ * showed "Damage unavailable · 2 blockers / Field: Magic Room (0x00000001) / You: Wise Glasses".
+ *
+ * Root cause:
+ * DualDex was reading EWRAM offset 0x2F4, which is gBattleControllerExecFlags on the official
+ * release ROM. Battler 0's controller loop sets bit 0 (0x00000001), which DualDex decoded
+ * as STATUS_FIELD_MAGIC_ROOM (1 << 0).
+ *
+ * In the official release ROM, gFieldStatuses is at EWRAM 0x020002E8 (offset 0x2E8).
+ *
+ * This test pins:
+ * 1. The official release layout has field_statuses_offset == 0x2E8.
+ * 2. When battler 0 controller is active (0x2F4 = 0x00000001) and field is clean (0x2E8 = 0),
+ *    the reader observes field_statuses == 0 (clean field, NOT Magic Room).
+ * 3. An address mutation / negative control proving that reading legacy 0x2F4 would have produced
+ *    the bogus Magic Room word 0x00000001.
+ * 4. Positive controls proving actual field conditions placed at 0x2E8 (Magic Room = 1,
+ *    Trick Room = 2, Electric Terrain = 0x100) are decoded accurately regardless of whether
+ *    gBattleControllerExecFlags at 0x2F4 is 0 or 1.
+ */
+static void test_hns_field_statuses_thor_regression(void) {
+    printf("Running test_hns_field_statuses_thor_regression...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    const uint32_t official_field_offset = 0x2E8;
+    const uint32_t legacy_exec_flags_offset = 0x2F4;
+
+    TEST_ASSERT(cfg->field_statuses_offset == official_field_offset,
+                "config field_statuses_offset must be official release offset 0x2E8");
+
+    // Case 1: Exact Thor device condition:
+    // Controller loop for battler 0 is active (gBattleControllerExecFlags = 1).
+    // Field status is neutral (gFieldStatuses = 0).
+    write32_le_t(gba.ewram + legacy_exec_flags_offset, 0x00000001u);
+    write32_le_t(gba.ewram + official_field_offset, 0x00000000u);
+
+    BattlerRuntimeState player, enemy;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &player), "player read succeeds");
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &enemy), "enemy read succeeds");
+    TEST_ASSERT(player.field_statuses_readable && enemy.field_statuses_readable,
+                "field statuses must be readable");
+    TEST_ASSERT(player.field_statuses == 0x00000000u,
+                "player field status must be 0 (no bogus Magic Room from controller flags)");
+    TEST_ASSERT(enemy.field_statuses == 0x00000000u,
+                "enemy field status must be 0 (no bogus Magic Room from controller flags)");
+
+    // Anti-regression assertion: verify that reading the legacy address 0x2F4 would indeed have
+    // yielded 0x00000001 (STATUS_FIELD_MAGIC_ROOM), confirming the exact mechanism of the Thor defect.
+    uint32_t legacy_word = (uint32_t)gba.ewram[legacy_exec_flags_offset] |
+                           ((uint32_t)gba.ewram[legacy_exec_flags_offset + 1] << 8) |
+                           ((uint32_t)gba.ewram[legacy_exec_flags_offset + 2] << 16) |
+                           ((uint32_t)gba.ewram[legacy_exec_flags_offset + 3] << 24);
+    TEST_ASSERT(legacy_word == 0x00000001u, "legacy 0x2F4 offset contains controller exec bit 0");
+    TEST_ASSERT((legacy_word & HNS_STATUS_FIELD_MAGIC_ROOM) != 0,
+                "legacy 0x2F4 would falsely decode as Magic Room");
+
+    // Case 2: Positive control - real Magic Room active (0x2E8 = 1), controller active (0x2F4 = 1).
+    write32_le_t(gba.ewram + official_field_offset, HNS_STATUS_FIELD_MAGIC_ROOM);
+    write32_le_t(gba.ewram + legacy_exec_flags_offset, 0x00000001u);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &player), "read player");
+    TEST_ASSERT(player.field_statuses == HNS_STATUS_FIELD_MAGIC_ROOM,
+                "genuine Magic Room must be read when present at 0x2E8");
+
+    // Case 3: Positive control - real Magic Room active (0x2E8 = 1), controller idle (0x2F4 = 0).
+    write32_le_t(gba.ewram + official_field_offset, HNS_STATUS_FIELD_MAGIC_ROOM);
+    write32_le_t(gba.ewram + legacy_exec_flags_offset, 0x00000000u);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &player), "read player");
+    TEST_ASSERT(player.field_statuses == HNS_STATUS_FIELD_MAGIC_ROOM,
+                "genuine Magic Room must be read even when controller is idle");
+
+    // Case 4: Positive control - Trick Room (0x2E8 = 2), controller active (0x2F4 = 1).
+    write32_le_t(gba.ewram + official_field_offset, HNS_STATUS_FIELD_TRICK_ROOM);
+    write32_le_t(gba.ewram + legacy_exec_flags_offset, 0x00000001u);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &player), "read player");
+    TEST_ASSERT(player.field_statuses == HNS_STATUS_FIELD_TRICK_ROOM,
+                "genuine Trick Room must be read at 0x2E8 regardless of 0x2F4");
+
+    // Case 5: Positive control - Electric Terrain (0x2E8 = 0x100), controller active (0x2F4 = 1).
+    write32_le_t(gba.ewram + official_field_offset, HNS_STATUS_FIELD_ELECTRIC_TERRAIN);
+    write32_le_t(gba.ewram + legacy_exec_flags_offset, 0x00000001u);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &player), "read player");
+    TEST_ASSERT(player.field_statuses == HNS_STATUS_FIELD_ELECTRIC_TERRAIN,
+                "genuine Electric Terrain must be read at 0x2E8 regardless of 0x2F4");
+
+    // Case 6: Clean field (0x2E8 = 0), both battlers controller exec flags active (0x2F4 = 3).
+    write32_le_t(gba.ewram + official_field_offset, 0x00000000u);
+    write32_le_t(gba.ewram + legacy_exec_flags_offset, 0x00000003u);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &player), "read player");
+    TEST_ASSERT(player.field_statuses == 0x00000000u,
+                "clean field must remain 0 when multiple battler controller flags are active");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_field_statuses_thor_regression" ANSI_RESET "\n");
 }
 
 static void test_hns_battler_state_c4e_live_operands(void) {
@@ -6215,6 +6315,7 @@ int main(void) {
     test_hns_battler_state_stats_stages_badges();
     test_hns_battler_state_c4e_live_operands();
     test_hns_field_statuses_raw_word();
+    test_hns_field_statuses_thor_regression();
     test_hns_battler_state_c4e_field_conditions();
     test_hns_target_count_computation();
     test_hns_target_count_anti_spoof();

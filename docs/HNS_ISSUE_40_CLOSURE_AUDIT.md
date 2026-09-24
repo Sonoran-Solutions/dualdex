@@ -193,6 +193,13 @@ any mechanic. The intentionally unsupported set (Doubles computation, damage ite
 effects, dynamic-type/volatile positive states, active gimmicks, non-neutral live status, unmodelled
 weather/screens/topology) refuses by design.
 
+*Post-#40 note (field-status layout repair)*: The live `gFieldStatuses` runtime address has been
+corrected from legacy `0x2F4` (withdrawn as `gBattleControllerExecFlags`, which caused a bogus Magic
+Room blocker `0x00000001` on the AYN Thor) to the official release ROM layout `0x2E8`, backed by
+release symbols (`artifacts-default/pokehns.map` and literal pool disassembly) and positive runtime
+transitions (0 -> 1 -> 0 for Magic Room, 2 for Trick Room, 0x100 for Electric Terrain via `runtime_battle_probe`)
+and pinned in `test_hns_field_statuses_thor_regression`.
+
 **Section F: MET FOR THE ACCEPTED BOUNDED SCOPE.**
 
 ---

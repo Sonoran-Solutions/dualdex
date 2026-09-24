@@ -1814,7 +1814,7 @@ commit:
 
 | Global | EWRAM offset |
 |---|---|
-| `gFieldStatuses` | `0x2F4` |
+| `gFieldStatuses` | `0x2E8` (corrected from `0x2F4`; see §15.7) |
 | `gBattleWeather` | `0x390` |
 | `gSideStatuses[NUM_BATTLE_SIDES]` | `0x324` (4-byte stride) |
 | `gBattleStruct` pointer | `0xB4` |
@@ -2233,10 +2233,13 @@ bit was set.
 
 Authority: `PokemonHnS-Development/pokehns-expansion` `Release-v2.0.5`
 (`1f42b74dff0e9fe942419845d040663dd829a973`), ROM SHA-256
-`edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`. The reader address is unchanged:
-`gFieldStatuses` at EWRAM `+0x2F4`, verified by the C4e official-ROM evidence
-(`fieldStatusesReadable=1`, `fieldStatuses=0x00000000` on the neutral golden). Nothing found in this
-work contradicts it, so the reader was not rewritten.
+`edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`. The reader address was
+previously configured at EWRAM `+0x2F4` based on an experimental LTO build (`pokehns-release.elf`).
+Following the AYN Thor real-device observation of a bogus Magic Room blocker on fresh battle entry,
+official ROM literal pools, disassembly, and positive semantic transitions (Magic Room 0->1->0,
+Trick Room 2, Electric Terrain 0x100) proved that `0x2F4` is `gBattleControllerExecFlags` and
+`gFieldStatuses` is at EWRAM `+0x2E8` (see §15.7). The production reader has been updated to `0x2E8`,
+and the legacy `0x2F4` attribution has been withdrawn.
 
 ### 15.1 Pinned bit table (generated, source-checked)
 
@@ -2314,9 +2317,9 @@ battle-level observations read it and agree (a torn read stays null).
 Every verdict for a live H&S request carries the raw word in
 `CalcCapabilityVerdict.hnsFieldDiagnostics`, next to the separate `gBattleWeather` word, the defender
 `gSideStatuses` word and the attacker Electrify volatile. `hnsFieldDecisions` holds one decision per
-active pinned bit, plus one for any unknown bits. Native host tests
-(`test_hns_field_statuses_raw_word`) prove all of the following:
-- the address stays `+0x2F4`;
+active pinned bit, plus one for any unknown bits. Native host tests (`test_hns_field_statuses_raw_word`) and device regression tests
+(`test_hns_field_statuses_thor_regression`) prove all of the following:
+- the address is verified at `+0x2E8` (the legacy `+0x2F4` was withdrawn as `gBattleControllerExecFlags`);
 - zero stays readable;
 - each of the 12 bits, combinations, `0x2000`, `0x80000100` and `0xFFFFFFFF` survive unchanged;
 - both observations agree.
@@ -2435,10 +2438,60 @@ Engine, or another Surge's terrain).
 The observed card is consistent with any non-zero word. Before this change, *every* non-zero word made
 Wise Glasses UNKNOWN whatever the move's category, and added the generic field blocker.
 
-After this change the same battle tells us exactly what was read: the status row, a
-`Field: <condition> (0x…)` line and the `DualDexHnsField` log line. If it is a terrain, Physical moves
-and non-matching types stop showing both blockers. Nothing in this analysis suggests the `+0x2F4`
-reader is wrong.
+After this change the same battle exposed the exact raw word: `Field: Magic Room (0x00000001)`.
+This real-device capture exposed the underlying reader defect: `0x2F4` was reading controller flags,
+not `gFieldStatuses`. The resolution is detailed in §15.7 below.
 
-When a device capture identifies the exact mask, it should be added as a named regression next to the
-§15.6 cases.
+### 15.7 Real-device resolution: AYN Thor finding, 0x2E8 verification, and 0x2F4 withdrawal
+
+#### 15.7.1 The AYN Thor finding
+On real hardware (AYN Thor running the exact official H&S 2.0.5 ROM
+`edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`), a fresh battle was opened:
+- Player: Porygon, held item Wise Glasses, live randomized ability Tera Shell.
+- Opponent: Croconaw, live randomized ability Truant.
+- No move had yet established Magic Room, no terrain, no weather.
+
+DualDex reported:
+```text
+Damage unavailable · 2 blockers
+Field: Magic Room (0x00000001)
+You: Wise Glasses
+```
+Neither Tera Shell nor Truant can create Magic Room. Magic Room suppresses held item effects
+(`GetBattlerHoldEffectInternal` returns `HOLD_EFFECT_NONE`), which caused Wise Glasses to be blocked.
+
+#### 15.7.2 Investigation and layout authority
+Investigation proved that the reader offset `0x2F4` was wrong:
+1. **Official Release ROM Layout**:
+   In the official ROM binary (`edf76ecf...`) and its symbol map (`artifacts-default/pokehns.map`):
+   - `0x020002E8` is `gFieldStatuses` (107 literal pool matches across battle routines, e.g. `0x08006A28` loading alongside `gAiLogicData` at `0x2EC`, `gBattlersCount` at `0xB0`, and `gAbsentBattlerFlags` at `0x30A`).
+   - `0x020002F4` is `gBattleControllerExecFlags`. Disassembly of `0x08056C00` proves this address is checked with `tst r2, r3` (`1 << battler`) during battle controller execution. When battler 0 executes its controller loop, bit 0 is set (`0x00000001`), which DualDex decoded as `STATUS_FIELD_MAGIC_ROOM`.
+2. **Provenance of the Faulty 0x2F4 Offset**:
+   An experimental build `pokehns-release.elf` built on Sep 14 with `-flto=auto` had reordered global symbols, placing `gFieldStatuses` at `0x2F4` and `gBattleControllerExecFlags` at `0x300`. This experimental layout did not match the official release ROM.
+3. **Withdrawal**:
+   The attribution of EWRAM offset `0x2F4` to `gFieldStatuses` is **WITHDRAWN / MISATTRIBUTED**. The read occurred, but semantic attribution of that memory location to `gFieldStatuses` was unproven and false.
+
+#### 15.7.3 Semantic positive runtime verification
+Using `tools/hns-runtime-probe/runtime_battle_probe` with normal controller inputs on the official release ROM:
+- **Magic Room (move 478)**:
+  - Fresh battle: `candidate_0x2E8 == 0x00000000`, `legacy_0x2F4 == 0x00000000`
+  - Turn 1 (Magic Room used): `candidate_0x2E8 == 0x00000001`, `legacy_0x2F4 == 0x00000001`
+  - Turn 2 (Magic Room toggled off): `candidate_0x2E8 == 0x00000000`, `legacy_0x2F4 == 0x00000001` (stuck on 1 due to battler 0 controller exec)
+- **Trick Room (move 433)**: Turn 1 sets `candidate_0x2E8 == 0x00000002`, `legacy_0x2F4 == 0x00000001`.
+- **Electric Terrain (move 604)**: Turn 1 sets `candidate_0x2E8 == 0x00000100`, `legacy_0x2F4 == 0x00000001`.
+- **Rain Dance (move 240)**: sets `gBattleWeather` (0x390) = `0x0001`, `gFieldStatuses` (0x2E8) remains 0.
+- **Reflect (move 115)**: sets `gSideStatuses` (0x324) = `0x00000001`, `gFieldStatuses` (0x2E8) remains 0.
+
+#### 15.7.4 Device-shaped regression & anti-regression tests
+`native/tests/test_pokemon_reader.c` adds `test_hns_field_statuses_thor_regression`, which reproduces the Thor device state:
+- Sets `gBattleControllerExecFlags` (`0x2F4`) = `0x00000001`.
+- Sets `gFieldStatuses` (`0x2E8`) = `0x00000000`.
+- Asserts the reader reports `field_statuses == 0` (clean field).
+- Asserts an anti-regression check that legacy `0x2F4` would have read `0x00000001` (Magic Room).
+- Tests positive controls (Magic Room = 1, Trick Room = 2, Electric Terrain = 0x100 at `0x2E8`) with controller active and idle.
+
+#### 15.7.5 Evidence tiers
+- `gFieldStatuses` @ `EWRAM + 0x2E8`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED**
+- `gBattleWeather` @ `EWRAM + 0x390`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED**
+- `gSideStatuses` @ `EWRAM + 0x324`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED**
+- `gBattleControllerExecFlags` @ `EWRAM + 0x2F4`: **RELEASE SYMBOL + RUNTIME VERIFIED**

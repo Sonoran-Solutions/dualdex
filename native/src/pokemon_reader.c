@@ -229,13 +229,17 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_outcome_offset = 0x12C,
     .battler_positions_offset = 0x238,
     .absent_battler_flags_offset = 0x30A,
-    // Gap C4e battle-global live state. gFieldStatuses and gBattleStruct are EWRAM globals whose
-    // addresses are shared with gBattlersCount/gBattlerPartyIndexes (release ELF, same EWRAM
-    // image); the from-source and official release builds agree on the EWRAM battle globals, and
-    // the probe runtime run verifies the reads (see the compatibility evidence §14). gBattleStruct
-    // is a POINTER to the heap-allocated battle struct, read afresh each observation and required
-    // to point inside EWRAM before any byte is dereferenced.
-    .field_statuses_offset = 0x2F4,
+    // Battle-global live state. In the official release ROM (SHA-256 edf76ecf... matching
+    // artifacts-default/pokehns.map), gFieldStatuses is located at EWRAM 0x020002E8 (offset 0x2E8).
+    // The previous offset 0x2F4 was derived from an experimental LTO build (pokehns-release.elf)
+    // where symbol ordering was shifted: on the official release ROM, 0x020002F4 is actually
+    // gBattleControllerExecFlags. When battler 0 executes its controller loop, bit 0 of 0x2F4 is
+    // set to 1, which DualDex previously decoded as STATUS_FIELD_MAGIC_ROOM (0x00000001).
+    // Official ROM disassembly and positive runtime transitions (Magic Room 0->1->0, Trick Room 2,
+    // Electric Terrain 0x100 via runtime_battle_probe) verify 0x2E8 as the true gFieldStatuses.
+    // gBattleStruct is a POINTER to the heap-allocated battle struct, read afresh each observation
+    // and required to point inside EWRAM before any byte is dereferenced.
+    .field_statuses_offset = 0x2E8,
     .field_status_ion_deluge_mask = HNS_STATUS_FIELD_ION_DELUGE, // generated from the pinned battle.h
     // Gap C4e correction: gBattleWeather (u16) and gSideStatuses[NUM_BATTLE_SIDES] (u32 each) are
     // EWRAM globals shared with gBattlersCount/gBattlerPartyIndexes (release ELF, same EWRAM

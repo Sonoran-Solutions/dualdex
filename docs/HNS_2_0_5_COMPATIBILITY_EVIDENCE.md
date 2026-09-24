@@ -146,7 +146,8 @@ never mixed implicitly.
 | `gBattleOutcome` | `0x0200012C` | 1 | `0x12C` |
 | `gBattlerPartyIndexes` | `0x02000144` | 8 | `0x144` |
 | `gBattlerPositions` | `0x02000238` | 4 | `0x238` |
-| `gBattleControllerExecFlags` | `0x020002F4` | 4 | `0x2F4` |
+| `gFieldStatuses` | `0x020002E8` | 4 | `0x2E8` — RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED (§14.4). Official release map `artifacts-default/pokehns.map` and literal pool disassembly place `gFieldStatuses` here |
+| `gBattleControllerExecFlags` | `0x020002F4` | 4 | `0x2F4` — RELEASE SYMBOL + RUNTIME VERIFIED. Bit `(1 << battler)` is set while battler controller executes (disassembly at `0x08056C00`). In an experimental LTO build (`pokehns-release.elf`), this symbol shifted to `0x300` and `gFieldStatuses` sat at `0x2F4`, which previously led to an errant attribution of `0x2F4` to `gFieldStatuses` (now withdrawn) |
 | `gAbsentBattlerFlags` | `0x0200030A` | 1 | `0x30A` |
 | `gBattleMons` | `0x02000420` | `0x220` | `0x420` |
 | `gSaveblock3` | `0x0200921C` | `0x34` | `0x921C` — see the challenge-settings section (§13): the **release ROM's** `gSaveblock3` is `0x02009218`, 4 bytes lower, the same −4 shift §11.6 found for the party group; `0x0200921C` is the from-source build's value |
@@ -3545,7 +3546,8 @@ regenerates and byte-compares it. Values for the pinned commit: `hp` 42, `maxHP`
 `foresight` 45, `root` 75, `gastroAcid` 80, `smackDown` 82, `telekinesis` 83, `miracleEye` 84,
 `magnetRise` 85, `roostActive` 318, `endured` 322 (hence the generated 41-byte read window);
 `BattleStruct.gimmick` 668, `BattleGimmickData.activeGimmick` 11. The EWRAM globals
-`gFieldStatuses` (`0x2F4`) and the `gBattleStruct` pointer (`0xB4`) are shared with the already-pinned
+`gFieldStatuses` (`0x2E8` — see §14.4; previously misattributed to `0x2F4`, which is `gBattleControllerExecFlags`)
+and the `gBattleStruct` pointer (`0xB4`) are shared with the already-pinned
 battle globals and are runtime-verified below.
 
 ### Runtime reader semantics (HOST VERIFIED)
@@ -3656,6 +3658,50 @@ runtime transition is claimed.
 - Kotlin unit tests: `702 passed, 0 failed` (684 before the round-4 correction; 18 new
   boundary/decoder tests: boundary 53, decoder 30).
 - `./ci.sh all` and `git diff --check` pass; exact-head GitHub Actions green (see the PR).
+
+### 14.4 Runtime layout correction: `gFieldStatuses` verification and `0x2F4` withdrawal
+
+#### 14.4.1 The AYN Thor finding
+On real hardware (AYN Thor running the official Heart & Soul 2.0.5 ROM `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`), a fresh battle was entered:
+- Player: Porygon, held item Wise Glasses, live ability Tera Shell.
+- Opponent: Croconaw, live ability Truant.
+- No move had established Magic Room, no terrain, no weather.
+
+DualDex reported:
+```text
+Damage unavailable · 2 blockers
+Field: Magic Room (0x00000001)
+You: Wise Glasses
+```
+Neither battler's ability or moves can establish Magic Room. Magic Room suppresses held item effects (`GetBattlerHoldEffectInternal` returns `HOLD_EFFECT_NONE`), causing Wise Glasses to be blocked.
+
+#### 14.4.2 Root cause investigation & release symbol layout
+Investigation revealed that DualDex's reader was configured with `.field_statuses_offset = 0x2F4`.
+1. **Official Release ROM Layout**:
+   Inspection of `artifacts-default/pokehns.map` and literal pools in the official ROM binary (`edf76ecf...`):
+   - `0x020002E8` (EWRAM `+0x2E8`) is `gFieldStatuses` (referenced by 107 literal pools across battle routines, e.g. `0x08006A28` loading alongside `gAiLogicData` at `0x2EC`, `gBattlersCount` at `0xB0`, and `gAbsentBattlerFlags` at `0x30A`).
+   - `0x020002F4` (EWRAM `+0x2F4`) is `gBattleControllerExecFlags`. Disassembly of `0x08056C00` in the official ROM proves this address is accessed with `tst r2, r3` (`1 << battler`) to check active controller execution. During battler 0's turn input loop, bit 0 is set (`0x00000001`). DualDex reading `0x2F4` decoded bit 0 (`STATUS_FIELD_MAGIC_ROOM`) as active Magic Room!
+2. **Provenance of the Faulty 0x2F4 Offset**:
+   An experimental build `pokehns-release.elf` compiled on Sep 14 with `-flto=auto` had reordered global symbols, placing `gFieldStatuses` at `0x2F4` and `gBattleControllerExecFlags` at `0x300`. Previous contributors assumed this experimental ELF matched the release ROM. In the original neutral golden verification (`60-golden-a-neutral.txt`), `0x2F4` happened to be `0x00000000` at frame 0 before controller execution, giving false confidence without semantic positive verification.
+3. **Withdrawal**:
+   The attribution of EWRAM offset `0x2F4` to `gFieldStatuses` is **WITHDRAWN / MISATTRIBUTED**. The read occurred, but semantic attribution of that memory location to `gFieldStatuses` was unproven and false.
+
+#### 14.4.3 Semantic positive runtime verification
+Using `tools/hns-runtime-probe/runtime_battle_probe` with normal controller inputs on the official release ROM (`edf76ecf...`), positive semantic transitions were executed:
+- **Magic Room (move 478)**:
+  - Battle entry: `candidate_0x2E8 == 0x00000000`, `legacy_0x2F4 == 0x00000000`
+  - Turn 1 (Magic Room used): `candidate_0x2E8 == 0x00000001`, `legacy_0x2F4 == 0x00000001`
+  - Turn 2 (Magic Room toggled off): `candidate_0x2E8 == 0x00000000`, `legacy_0x2F4 == 0x00000001` (remains 1 because battler 0 controller is executing)
+- **Trick Room (move 433)**: Turn 1 sets `candidate_0x2E8 == 0x00000002`, `legacy_0x2F4 == 0x00000001`.
+- **Electric Terrain (move 604)**: Turn 1 sets `candidate_0x2E8 == 0x00000100`, `legacy_0x2F4 == 0x00000001`.
+- **Rain Dance (move 240)**: sets `gBattleWeather` (`0x390`) = `0x0001`. `gFieldStatuses` (`0x2E8`) remains 0.
+- **Reflect (move 115)**: sets `gSideStatuses` (`0x324`) = `0x00000001`. `gFieldStatuses` (`0x2E8`) remains 0.
+
+#### 14.4.4 Evidence tier classification
+- `gFieldStatuses` @ `EWRAM + 0x2E8`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (0 -> 1 -> 0, 2, 0x100 verified under live move execution on the official release ROM).
+- `gBattleWeather` @ `EWRAM + 0x390`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (0 -> 0x0001 under Rain Dance).
+- `gSideStatuses` @ `EWRAM + 0x324`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (0 -> 0x00000001 under Reflect).
+- `gBattleControllerExecFlags` @ `EWRAM + 0x2F4`: **RELEASE SYMBOL + RUNTIME VERIFIED** (controller execution bitmask; bit 0 active during player turn).
 
 ---
 

@@ -1,0 +1,31 @@
+# Scenario 64: H&S 2.0.5 Field Status, Weather, and Side Status Isolation
+# Demonstrates that Rain Dance sets gBattleWeather (0x390) and Reflect sets
+# gSideStatuses (0x324) without bleeding into gFieldStatuses (0x2E8).
+#
+# Requires a save with starter knowing:
+#   move 0: 33  (Tackle)
+#   move 1: 240 (Rain Dance)
+#   move 2: 115 (Reflect)
+#   move 3: 478 (Magic Room)
+# (Generated via: python3 tools/hns-runtime-probe/prepare_field_test_save.py <starter.sav> <field.sav> 33 240 115 478)
+wait 120
+mash 800
+wait 200
+walk DOWN 2
+walk LEFT 14
+walk DOWN 3
+walk LEFT 1
+hunt 500
+assert-battle active
+field-status fresh-battle
+expect-field-status 0x00000000
+damage-probe 240 1
+field-status after-rain
+expect-field-status 0x00000000
+damage-probe 115 1
+field-status after-reflect
+expect-field-status 0x00000000
+damage-probe 478 1
+field-status after-magic-room
+expect-field-status 0x00000001
+dump-field-window after-all

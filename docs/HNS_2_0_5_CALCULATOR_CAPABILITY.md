@@ -2482,7 +2482,16 @@ Using `tools/hns-runtime-probe/runtime_battle_probe` with normal controller inpu
 - **Rain Dance (move 240)**: sets `gBattleWeather` (0x390) = `0x0001`, `gFieldStatuses` (0x2E8) remains 0.
 - **Reflect (move 115)**: sets `gSideStatuses` (0x324) = `0x00000001`, `gFieldStatuses` (0x2E8) remains 0.
 
-#### 15.7.4 Device-shaped regression & anti-regression tests
+#### 15.7.4 Retained evidence artifacts
+All evidence is checked into the repository and bound to the official release ROM SHA-256 (`edf76ecf...`):
+- `tools/hns-runtime-probe/evidence/hns205-field-status-positive-transitions.log`: full execution log of Scenario 63 (0 -> 1 -> 0 for Magic Room, 2 for Trick Room, 0x100 for Electric Terrain, with memory window dumps).
+- `tools/hns-runtime-probe/evidence/hns205-field-weather-screens-isolation.log`: full execution log of Scenario 64 (weather and side-status isolation).
+- `tools/hns-runtime-probe/scenarios/63-field-status-transitions.txt`: reproducible scripted probe scenario.
+- `tools/hns-runtime-probe/scenarios/64-field-weather-screens-isolation.txt`: reproducible isolation scenario.
+- `tools/hns-runtime-probe/evidence/hns205-field-layout-symbols.txt`: exact symbol map extract from `upstream-hns/pokehns-expansion/pokehns.map`, disassembly excerpts of `IsBattleControllerActive` (`0x08056C00`) and field status AI (`0x08006874`), and literal pool frequency counts.
+- `tools/hns-runtime-probe/prepare_field_test_save.py`: helper script to generate test saves with target moves.
+
+#### 15.7.5 Device-shaped regression & anti-regression tests
 `native/tests/test_pokemon_reader.c` adds `test_hns_field_statuses_thor_regression`, which reproduces the Thor device state:
 - Sets `gBattleControllerExecFlags` (`0x2F4`) = `0x00000001`.
 - Sets `gFieldStatuses` (`0x2E8`) = `0x00000000`.
@@ -2490,8 +2499,8 @@ Using `tools/hns-runtime-probe/runtime_battle_probe` with normal controller inpu
 - Asserts an anti-regression check that legacy `0x2F4` would have read `0x00000001` (Magic Room).
 - Tests positive controls (Magic Room = 1, Trick Room = 2, Electric Terrain = 0x100 at `0x2E8`) with controller active and idle.
 
-#### 15.7.5 Evidence tiers
-- `gFieldStatuses` @ `EWRAM + 0x2E8`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED**
-- `gBattleWeather` @ `EWRAM + 0x390`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED**
-- `gSideStatuses` @ `EWRAM + 0x324`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED**
-- `gBattleControllerExecFlags` @ `EWRAM + 0x2F4`: **RELEASE SYMBOL + RUNTIME VERIFIED**
+#### 15.7.6 Evidence tiers
+- `gFieldStatuses` @ `EWRAM + 0x2E8`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (retained in `hns205-field-status-positive-transitions.log`)
+- `gBattleWeather` @ `EWRAM + 0x390`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (retained in `hns205-field-weather-screens-isolation.log`)
+- `gSideStatuses` @ `EWRAM + 0x324`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (retained in `hns205-field-weather-screens-isolation.log`)
+- `gBattleControllerExecFlags` @ `EWRAM + 0x2F4`: **RELEASE SYMBOL + RUNTIME VERIFIED** (0x300 withdrawn; reconciled with §11.5/§11.6)

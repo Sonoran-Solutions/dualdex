@@ -1,0 +1,35 @@
+# Scenario 63: H&S 2.0.5 Live Field Status Semantic Positive Transitions
+# Demonstrates positive transitions at EWRAM 0x020002E8 and contrasts with
+# gBattleControllerExecFlags at EWRAM 0x020002F4.
+#
+# Requires a save with starter knowing:
+#   move 0: 33  (Tackle)
+#   move 1: 478 (Magic Room)
+#   move 2: 433 (Trick Room)
+#   move 3: 604 (Electric Terrain)
+# (Generated via: python3 tools/hns-runtime-probe/prepare_field_test_save.py <starter.sav> <field.sav>)
+wait 120
+mash 800
+wait 200
+walk DOWN 2
+walk LEFT 14
+walk DOWN 3
+walk LEFT 1
+hunt 500
+assert-battle active
+field-status fresh-battle
+expect-field-status 0x00000000
+damage-probe 478 1
+field-status magic-room-active
+expect-field-status 0x00000001
+damage-probe 478 1
+field-status magic-room-ended
+expect-field-status 0x00000000
+dump-field-window magic-room-ended
+damage-probe 433 1
+field-status trick-room-active
+expect-field-status 0x00000002
+damage-probe 604 1
+field-status electric-terrain-active
+expect-field-status 0x00000102
+dump-field-window after-terrain

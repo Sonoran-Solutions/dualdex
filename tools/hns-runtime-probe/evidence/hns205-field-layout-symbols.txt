@@ -1,0 +1,120 @@
+# Heart & Soul 2.0.5 Release ROM Battle Layout & Symbol Evidence
+#
+# Target ROM:
+#   File:       Pokémon Heart and Soul (v2.0.5).gba
+#   SHA-256:    edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+# Upstream Tag: Release-v2.0.5
+# Commit:       1f42b74dff0e9fe942419845d040663dd829a973
+# Date:         2026-09-24
+
+================================================================================
+1. Upstream Official Release Symbol Map (pokehns.map)
+================================================================================
+Location: upstream-hns/pokehns-expansion/pokehns.map (and artifacts-default/pokehns.map)
+
+Excerpts for EWRAM battle globals (base 0x02000000):
+
+                0x020000ac                gBattleTypeFlags
+                0x020000b0                gBattlersCount
+                0x020000b4                gBattleStruct
+                0x0200012c                gBattleOutcome
+                0x02000144                gBattlerPartyIndexes
+                0x02000238                gBattlerPositions
+                0x02000254                gBattleResources
+                0x02000258                gSideTimers
+                0x020002dc                gChosenMoveByBattler
+                0x020002e4                gChosenActionByBattler
+                0x020002e8                gFieldStatuses
+                0x020002ec                gAiLogicData
+                0x020002f0                gIntroSlideFlags
+                0x020002f4                gBattleControllerExecFlags
+                0x020002f8                gMonSpritesGfxPtr
+                0x020002fc                gLastUsedItem
+                0x020002fe                gBattlerAbility
+                0x02000300                gLastUsedAbility
+                0x02000302                gCurrentTurnActionNumber
+                0x02000304                gActionsByTurnOrder
+                0x02000308                gBattleTurnCounter
+                0x0200030a                gAbsentBattlerFlags
+                0x02000310                gBattlerSpriteIds
+                0x02000314                gFieldTimers
+                0x02000324                gSideStatuses
+                0x02000390                gBattleWeather
+                0x02000420                gBattleMons
+
+================================================================================
+2. Contrast with Experimental Build (pokehns-release.elf)
+================================================================================
+An experimental LTO build (`pokehns-release.elf`) compiled with `-flto=auto`
+reordered global symbols in EWRAM:
+
+  nm pokehns-release.elf:
+    0200026c B gLastUsedAbility
+    020002f4 B gFieldStatuses
+    02000300 B gBattleControllerExecFlags
+
+In that experimental build, gFieldStatuses was at 0x2F4 and gBattleControllerExecFlags
+was at 0x300. Previous DualDex investigations mistakenly consulted this ELF instead
+of the official release ROM binary, causing:
+1. §11.5 / §11.6 to cite 0x02000300 for gBattleControllerExecFlags.
+2. §14 to configure DualDex reader with `.field_statuses_offset = 0x2F4`.
+On the actual official release ROM (SHA-256 edf76ecf...), 0x2F4 is
+gBattleControllerExecFlags and 0x2E8 is gFieldStatuses.
+
+================================================================================
+3. Official Release ROM Disassembly: gBattleControllerExecFlags at 0x020002F4
+================================================================================
+Target function: IsBattleControllerActive(u8 battler)
+Source: src/battle_controller.c:
+  bool32 IsBattleControllerActive(u8 battler) {
+      return (gBattleControllerExecFlags & (1 << battler)) != 0;
+  }
+
+ARM Thumb disassembly in Pokémon Heart and Soul (v2.0.5).gba at 0x08056C00:
+
+  08056c00: 2301      movs  r3, #1
+  08056c02: 0600      lsls  r0, r0, #24
+  08056c04: 0e00      lsrs  r0, r0, #24
+  08056c06: 4083      lsls  r3, r0          ; r3 = (1 << battler)
+  08056c08: 4a0a      ldr   r2, [pc, #40]   ; loads [0x08056C34]
+  08056c0a: 6812      ldr   r2, [r2, #0]    ; r2 = *0x020002F4
+  08056c0c: b500      push  {lr}
+  08056c0e: 421a      tst   r2, r3          ; test (*0x020002F4 & (1 << battler))
+  08056c10: d00b      beq.n 0x08056C2A
+
+Literal pool at 0x08056C34:
+  08056c34: 020002f4  .word 0x020002f4      ; Address of gBattleControllerExecFlags
+
+This conclusively proves that on the official release ROM, 0x020002F4 is
+gBattleControllerExecFlags (NOT gFieldStatuses). When battler 0 executes its
+controller loop, bit 0 is set (0x00000001).
+
+================================================================================
+4. Official Release ROM Disassembly: gFieldStatuses at 0x020002E8
+================================================================================
+ARM Thumb disassembly in Pokémon Heart and Soul (v2.0.5).gba at 0x08006874:
+
+  08006874: 4b6c      ldr   r3, [pc, #432]  ; loads [0x08006A28]
+  08006876: 681b      ldr   r3, [r3, #0]    ; r3 = *0x020002E8 (gFieldStatuses)
+  08006878: 059b      lsls  r3, r3, #22     ; checks field status bit
+  0800687a: d400      bmi.n 0x0800687E
+  0800687c: e13b      b.n   0x08006AF6
+  0800687e: 4b65      ldr   r3, [pc, #404]  ; loads [0x08006A14]
+  08006880: 681a      ldr   r2, [r3, #0]    ; r2 = *0x020002EC (gAiLogicData)
+
+Literal pool cluster at 0x08006A14 - 0x08006A28:
+  08006a14: 020002ec  .word 0x020002ec      ; gAiLogicData
+  08006a1c: 020000b0  .word 0x020000b0      ; gBattlersCount
+  08006a20: 02000420  .word 0x02000420      ; gBattleMons
+  08006a24: 0200030a  .word 0x0200030a      ; gAbsentBattlerFlags
+  08006a28: 020002e8  .word 0x020002e8      ; gFieldStatuses
+
+================================================================================
+5. Official Release ROM Literal Pool Scan Summary
+================================================================================
+Scanning 32-bit little-endian constants across the official ROM (16MB):
+  0x020002E8 (gFieldStatuses):           107 literal pool occurrences
+  0x020002F4 (gBattleControllerExecFlags): 66 literal pool occurrences
+  0x02000300 (gLastUsedAbility):           82 literal pool occurrences
+  0x02000324 (gSideStatuses):              50 literal pool occurrences
+  0x02000390 (gBattleWeather):             40 literal pool occurrences

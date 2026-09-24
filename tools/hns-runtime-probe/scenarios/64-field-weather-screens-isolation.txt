@@ -1,6 +1,7 @@
-# Scenario 64: H&S 2.0.5 Field Status, Weather, and Side Status Isolation
-# Demonstrates that Rain Dance sets gBattleWeather (0x390) and Reflect sets
-# gSideStatuses (0x324) without bleeding into gFieldStatuses (0x2E8).
+# Scenario 64: H&S 2.0.5 Field Status Isolation across Weather and Side Status Moves
+# Demonstrates that moves associated with other EWRAM globals (Rain Dance for weather,
+# Reflect for side status) do not bleed into or mutate gFieldStatuses (0x2E8).
+# gFieldStatuses remains cleanly 0x00000000 until Magic Room is cast (0x00000001).
 #
 # Requires a save with starter knowing:
 #   move 0: 33  (Tackle)

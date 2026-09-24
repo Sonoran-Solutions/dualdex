@@ -2478,16 +2478,18 @@ Using `tools/hns-runtime-probe/runtime_battle_probe` with normal controller inpu
   - Turn 1 (Magic Room used): `candidate_0x2E8 == 0x00000001`, `legacy_0x2F4 == 0x00000001`
   - Turn 2 (Magic Room toggled off): `candidate_0x2E8 == 0x00000000`, `legacy_0x2F4 == 0x00000001` (stuck on 1 due to battler 0 controller exec)
 - **Trick Room (move 433)**: Turn 1 sets `candidate_0x2E8 == 0x00000002`, `legacy_0x2F4 == 0x00000001`.
-- **Electric Terrain (move 604)**: Turn 1 sets `candidate_0x2E8 == 0x00000100`, `legacy_0x2F4 == 0x00000001`.
-- **Rain Dance (move 240)**: sets `gBattleWeather` (0x390) = `0x0001`, `gFieldStatuses` (0x2E8) remains 0.
-- **Reflect (move 115)**: sets `gSideStatuses` (0x324) = `0x00000001`, `gFieldStatuses` (0x2E8) remains 0.
+- **Electric Terrain (move 604)**: Turn 2 sets bit 8 (`0x100`, `STATUS_FIELD_ELECTRIC_TERRAIN`); because Trick Room is still active from Turn 1, `candidate_0x2E8 == 0x00000102` (combined state `0x100 | 0x2`), proving Electric Terrain adds bit `0x100`. `legacy_0x2F4 == 0x00000001`.
+- **Field Isolation across Weather & Screens (Scenario 64)**:
+  - Turn 1 (Rain Dance, move 240): `candidate_0x2E8 == 0x00000000`, `legacy_0x2F4 == 0x00000001`. Demonstrates that weather activation does not mutate or bleed into `gFieldStatuses`.
+  - Turn 2 (Reflect, move 115): `candidate_0x2E8 == 0x00000000`, `legacy_0x2F4 == 0x00000001`. Demonstrates that side status activation does not mutate or bleed into `gFieldStatuses`.
+  - Turn 3 (Magic Room, move 478): `candidate_0x2E8 == 0x00000001`, `legacy_0x2F4 == 0x00000001`. Confirms positive field transition occurs independently at `0x2E8`.
 
 #### 15.7.4 Retained evidence artifacts
 All evidence is checked into the repository and bound to the official release ROM SHA-256 (`edf76ecf...`):
-- `tools/hns-runtime-probe/evidence/hns205-field-status-positive-transitions.log`: full execution log of Scenario 63 (0 -> 1 -> 0 for Magic Room, 2 for Trick Room, 0x100 for Electric Terrain, with memory window dumps).
-- `tools/hns-runtime-probe/evidence/hns205-field-weather-screens-isolation.log`: full execution log of Scenario 64 (weather and side-status isolation).
+- `tools/hns-runtime-probe/evidence/hns205-field-status-positive-transitions.log`: full execution log of Scenario 63 (0 -> 1 -> 0 for Magic Room, 2 for Trick Room, bit 0x100 set / 0x102 combined for Electric Terrain, with memory window dumps).
+- `tools/hns-runtime-probe/evidence/hns205-field-weather-screens-isolation.log`: full execution log of Scenario 64 (field isolation across weather and side-status move executions).
 - `tools/hns-runtime-probe/scenarios/63-field-status-transitions.txt`: reproducible scripted probe scenario.
-- `tools/hns-runtime-probe/scenarios/64-field-weather-screens-isolation.txt`: reproducible isolation scenario.
+- `tools/hns-runtime-probe/scenarios/64-field-weather-screens-isolation.txt`: reproducible field isolation scenario across weather and side status moves.
 - `tools/hns-runtime-probe/evidence/hns205-field-layout-symbols.txt`: exact symbol map extract from `upstream-hns/pokehns-expansion/pokehns.map`, disassembly excerpts of `IsBattleControllerActive` (`0x08056C00`) and field status AI (`0x08006874`), and literal pool frequency counts.
 - `tools/hns-runtime-probe/prepare_field_test_save.py`: helper script to generate test saves with target moves.
 
@@ -2500,7 +2502,7 @@ All evidence is checked into the repository and bound to the official release RO
 - Tests positive controls (Magic Room = 1, Trick Room = 2, Electric Terrain = 0x100 at `0x2E8`) with controller active and idle.
 
 #### 15.7.6 Evidence tiers
-- `gFieldStatuses` @ `EWRAM + 0x2E8`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (retained in `hns205-field-status-positive-transitions.log`)
-- `gBattleWeather` @ `EWRAM + 0x390`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (retained in `hns205-field-weather-screens-isolation.log`)
-- `gSideStatuses` @ `EWRAM + 0x324`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (retained in `hns205-field-weather-screens-isolation.log`)
+- `gFieldStatuses` @ `EWRAM + 0x2E8`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (0 -> 1 -> 0 for Magic Room, 2 for Trick Room, bit 0x100 set / 0x102 combined for Electric Terrain; retained in `hns205-field-status-positive-transitions.log`)
+- `gBattleWeather` @ `EWRAM + 0x390`: **SOURCE + HOST REASONED** (neutral clear-weather 0x0000 RUNTIME VERIFIED in `golden-c4e-live-operands.log`; active rain execution isolated from `0x2E8` in Scenario 64; active weather remains refused at runtime and is SOURCE + HOST reasoned per §14.11)
+- `gSideStatuses` @ `EWRAM + 0x324`: **SOURCE + HOST REASONED** (neutral screenless defender side RUNTIME VERIFIED in `golden-c4e-live-operands.log`; active reflect execution isolated from `0x2E8` in Scenario 64; active screens remain refused at runtime and is SOURCE + HOST reasoned per §14.11)
 - `gBattleControllerExecFlags` @ `EWRAM + 0x2F4`: **RELEASE SYMBOL + RUNTIME VERIFIED** (0x300 withdrawn; reconciled with §11.5/§11.6)

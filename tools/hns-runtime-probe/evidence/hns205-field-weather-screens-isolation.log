@@ -1,0 +1,90 @@
+== DualDex H&S 2.0.5 runtime battle-state probe ==
+core   : /home/dq/Projects/upstream-hns/mgba-host/mgba_libretro.so
+rom    : /home/dq/Downloads/Pokémon Heart and Soul (v2.0.5).gba
+save   : /tmp/field_weather_screens.sav
+script : tools/hns-runtime-probe/scenarios/64-field-weather-screens-isolation.txt
+layout : playerParty=0x34764 playerPartyCount=0x342A4 enemyParty=0x342B4 enemyPartyCount=0x342A5 battleMons=0x420 battlersCount=0xB0 battleTypeFlags=0xAC outcome=0x12C partyIndexes=0x144 positions=0x238 absentFlags=0x30A gMain=0x03005BD8+0x439 bit 1
+rom sha256 : edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+[ROM] path=/home/dq/Downloads/Pokémon Heart and Soul (v2.0.5).gba sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b loaded=1
+
+-- memory regions after load: 0 --
+save RAM size: 131072 bytes
+battery save load: OK
+
+-- runtime table (a row appears on every observed state change) --
+     1  INACTIVE  NONE      ABSENT   inB=false bat=0 flags=0x00000000 idx=0,0,0,0 pos=0,0,0,0 sp=0,0,0,0 hp=0,0,0,0 eParty=0/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=0 pSlot=-1/0 st0=0,0,0,0
+   209  INACTIVE  NONE      ABSENT   inB=false bat=0 flags=0x00000000 idx=0,0,0,0 pos=0,0,0,0 sp=0,0,0,0 hp=0,0,0,0 eParty=0/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=0,0,0,0
+  1542  INITIALIZING UNKNOWN   UNKNOWN  inB=true  bat=0 flags=0x00000000 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=0,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=0,0,0,0
+  1544  INITIALIZING UNKNOWN   UNKNOWN  inB=true  bat=0 flags=0x00000004 idx=0,0,0,0 pos=255,255,255,255 sp=0,0,0,0 hp=0,0,0,0 eParty=1/0 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=0,0,0,0
+  1545  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=0,0,0,0 hp=0,0,0,0 eParty=1/1 ae=NONE_ACTIVE slot=-1 bat=-1 opp=0 fnt=0 pParty=1 pSlot=-1/0 st0=0,0,0,0
+  [hunt] ENCOUNTER after 4 iterations
+  [assert] battle=active OK (frame 1547)
+[HNS-FIELD] label=fresh-battle rom_sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b address=0x020002E8 raw=0x00000000 decoded=none legacy_0x2F4=0x00000000 candidate_0x2E8=0x00000000 frame=1547
+  [HNS-FIELD]
+  rom_sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+  address=0x020002E8
+  raw=0x00000000
+  decoded=none
+  legacy_0x2F4=0x00000000
+  [assert] field-status=0x00000000 OK (frame 1547)
+  [damage-probe] move=240 maxTurns=1 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=NONE_ACTIVE slot=-1 battler=-1 at frame 1547
+  [damage-probe] opponent battler=1 species=0 hp=0/0
+  1570  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,163,0,0 hp=20,17,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  [damage-probe] turn=0 battler=1 species=163 hp 0 -> 17 (delta -17 of maxHP 17) faint=no crit=UNKNOWN frame=1570
+  2022  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,163,0,0 hp=20,17,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  2400  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,163,0,0 hp=17,17,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+[HNS-FIELD] label=after-rain rom_sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b address=0x020002E8 raw=0x00000000 decoded=none legacy_0x2F4=0x00000001 candidate_0x2E8=0x00000000 frame=2597
+  [HNS-FIELD]
+  rom_sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+  address=0x020002E8
+  raw=0x00000000
+  decoded=none
+  legacy_0x2F4=0x00000001
+  [assert] field-status=0x00000000 OK (frame 2597)
+  [damage-probe] move=115 maxTurns=1 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=SLOT slot=0 battler=1 at frame 2597
+  [damage-probe] opponent battler=1 species=163 hp=17/17
+  2671  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,163,0,0 hp=17,17,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+  2866  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,163,0,0 hp=17,17,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+[HNS-FIELD] label=after-reflect rom_sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b address=0x020002E8 raw=0x00000000 decoded=none legacy_0x2F4=0x00000001 candidate_0x2E8=0x00000000 frame=3254
+  [HNS-FIELD]
+  rom_sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+  address=0x020002E8
+  raw=0x00000000
+  decoded=none
+  legacy_0x2F4=0x00000001
+  [assert] field-status=0x00000000 OK (frame 3254)
+  [damage-probe] move=478 maxTurns=1 kind=WILD_SINGLE battlers=2 enemyParty=1 activeEnemy=SLOT slot=0 battler=1 at frame 3254
+  [damage-probe] opponent battler=1 species=163 hp=17/17
+  3319  ACTIVE    WILD_SINGLE PRESENT  inB=true  bat=2 flags=0x00000004 idx=0,0,0,0 pos=0,1,255,255 sp=152,163,0,0 hp=17,17,0,0 eParty=1/1 ae=SLOT slot=0 bat=1 opp=1 fnt=0 pParty=1 pSlot=0/1 st0=6,6,6,6
+[HNS-FIELD] label=after-magic-room rom_sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b address=0x020002E8 raw=0x00000001 decoded=Magic Room legacy_0x2F4=0x00000001 candidate_0x2E8=0x00000001 frame=3821
+  [HNS-FIELD]
+  rom_sha256=edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b
+  address=0x020002E8
+  raw=0x00000001
+  decoded=Magic Room
+  legacy_0x2F4=0x00000001
+  [assert] field-status=0x00000001 OK (frame 3821)
+[FIELD-WINDOW] label=after-all frame=3821
+  [WINDOW] off=+0x2E0 (0x020002E0) = 0x00000000
+  [WINDOW] off=+0x2E4 (0x020002E4) = 0xFFFF00FF
+  [WINDOW] off=+0x2E8 (0x020002E8) = 0x00000001 (gFieldStatuses candidate)
+  [WINDOW] off=+0x2EC (0x020002EC) = 0x02017828 (gAiLogicData)
+  [WINDOW] off=+0x2F0 (0x020002F0) = 0x00000000 (gIntroSlideFlags)
+  [WINDOW] off=+0x2F4 (0x020002F4) = 0x00000001 (gBattleControllerExecFlags / legacy_0x2F4)
+  [WINDOW] off=+0x2F8 (0x020002F8) = 0x0201E178 (gMonSpritesGfxPtr)
+  [WINDOW] off=+0x2FC (0x020002FC) = 0x00000000 (gLastUsedItem)
+  [WINDOW] off=+0x300 (0x02000300) = 0x0002000F (gLastUsedAbility)
+  [WINDOW] off=+0x304 (0x02000304) = 0x00000000 (gActionsByTurnOrder)
+  [WINDOW] off=+0x308 (0x02000308) = 0x00000003 (gBattleTurnCounter)
+  [WINDOW] off=+0x30C (0x0200030C) = 0x0201E068
+  [WINDOW] off=+0x310 (0x02000310) = 0x00000608 (gBattlerSpriteIds)
+
+-- summary --
+frames run                    : 3821
+frames checked                : 3821
+runtime invariant violations  : 0
+script errors                 : 0
+script runner status          : ok
+result                        : PASS
+-- regions after unload: 0 (must be 0) --
+-- read after unload must be rejected: rejected (correct) --

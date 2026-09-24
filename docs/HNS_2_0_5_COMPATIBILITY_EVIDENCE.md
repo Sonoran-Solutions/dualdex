@@ -146,7 +146,8 @@ never mixed implicitly.
 | `gBattleOutcome` | `0x0200012C` | 1 | `0x12C` |
 | `gBattlerPartyIndexes` | `0x02000144` | 8 | `0x144` |
 | `gBattlerPositions` | `0x02000238` | 4 | `0x238` |
-| `gBattleControllerExecFlags` | `0x020002F4` | 4 | `0x2F4` |
+| `gFieldStatuses` | `0x020002E8` | 4 | `0x2E8` — RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED (§14.4). Official release map `artifacts-default/pokehns.map` and literal pool disassembly place `gFieldStatuses` here |
+| `gBattleControllerExecFlags` | `0x020002F4` | 4 | `0x2F4` — RELEASE SYMBOL + RUNTIME VERIFIED. Bit `(1 << battler)` is set while battler controller executes (disassembly at `0x08056C00`). In an experimental LTO build (`pokehns-release.elf`), this symbol shifted to `0x300` and `gFieldStatuses` sat at `0x2F4`, which previously led to an errant attribution of `0x2F4` to `gFieldStatuses` (now withdrawn) |
 | `gAbsentBattlerFlags` | `0x0200030A` | 1 | `0x30A` |
 | `gBattleMons` | `0x02000420` | `0x220` | `0x420` |
 | `gSaveblock3` | `0x0200921C` | `0x34` | `0x921C` — see the challenge-settings section (§13): the **release ROM's** `gSaveblock3` is `0x02009218`, 4 bytes lower, the same −4 shift §11.6 found for the party group; `0x0200921C` is the from-source build's value |
@@ -1206,7 +1207,7 @@ correlation**, never proximity.
 | `gBattlerPositions` | `0x02000238` | `0,1` during singles (battler 0 player side, battler 1 opponent side) | **CONFIRMED** |
 | `gAbsentBattlerFlags` | `0x0200030A` | `0x00` for singles | **CONFIRMED** |
 | `gBattleMons` | `0x02000420`, stride 136 | species `152,19` / HP `19,13` matching the party Pokémon and the encountered wild Pokémon | **CONFIRMED** |
-| `gBattleControllerExecFlags` | `0x02000300` | bit 0 is cleared when waiting for controller input (action selection, move selection, party menu) and set while executing animations/scripts | **CONFIRMED** |
+| `gBattleControllerExecFlags` | `0x020002F4` | bit 0 is set while battler 0 controller is executing and clear during idle states (disassembly at `0x08056C00`). Address `0x02000300` was previously cited based on an experimental LTO build (`pokehns-release.elf`), but on the official release ROM `0x02000300` is `gLastUsedAbility` and `0x020002F4` is `gBattleControllerExecFlags` (see §11.6 Discrepancy 3 and §14.4) | **CONFIRMED at 0x020002F4 (0x02000300 WITHDRAWN)** |
 | `gPartyMenu` | `0x020341FC` | base structure for in-battle party menu; `menuType/layout` at `+0x08 = 0x02034204`, `slotId` cursor at `+0x09 = 0x02034205` transitions `0 -> 1` on D-pad DOWN, `action` at `+0x0B = 0x02034207`. Contrast with `0x020341F8`, which is the EWRAM storage for the file-static `sPartyMenuInternal` pointer (`static EWRAM_DATA struct PartyMenuInternal *sPartyMenuInternal = NULL;`). | **CONFIRMED** |
 | `gPlayerPartyCount` | `0x020342A4` | `0` before the starter, `1` afterwards | **CONFIRMED — config was wrong (see §11.6)** |
 | `gEnemyPartyCount` | `0x020342A5` | `1` during the wild battle | **CONFIRMED — config was wrong (see §11.6)** |
@@ -1265,7 +1266,12 @@ discrepancy before the fix and fails if the addresses drift back.
 Both fixes are **fail-closed**: a wrong address produced `UNKNOWN`/empty state, never a wrong
 Pokémon. No UI surface displayed a fabricated opponent at any point.
 
-**Discrepancy 3 — `gBattleControllerExecFlags` address and input wait states.** The source build places `gBattleControllerExecFlags` at `0x02000304`, while the release binary places it at **`0x02000300`** (4 bytes earlier, matching the general EWRAM shift observed across the battle and party groups). Crucially, upstream battle controller logic sets bit 0 of `gBattleControllerExecFlags` when the controller task is actively executing animations or script commands, and *clears* bit 0 when the battle controller is idling waiting for player controller input (`bcmd == 17` Action Selection, `bcmd == 19` Move Selection, `bcmd == 18` Yes/No Box, and `bcmd == 21` Party Menu). Probing routines that require `(exec & 1)` during user-input states will fail to recognize that the game is awaiting input.
+**Discrepancy 3 — `gBattleControllerExecFlags` address reconciliation (`0x020002F4` vs `0x02000300`).** Earlier investigation during Phase 5 attributed `gBattleControllerExecFlags` to `0x02000300` based on an experimental LTO build (`pokehns-release.elf`, where `gLastUsedAbility` sat at `0x26C` and `gBattleControllerExecFlags` sat at `0x300`). **That attribution is WITHDRAWN.** On the official release ROM (`edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`), matching the upstream release map `pokehns.map`:
+* `0x020002F4` is `gBattleControllerExecFlags`. Disassembly at `0x08056C00` (`IsBattleControllerActive`) in the official ROM binary proves this address is dereferenced and tested with `tst r2, r3` (`1 << battler`) to check active controller execution. 66 literal pools in the official binary load `0x020002F4`.
+* `0x02000300` is `gLastUsedAbility` (referenced by 82 literal pools in the official ROM).
+* Crucially, because `0x020002F4` sets bit 0 (`0x00000001`) during battler 0's controller execution loop, attributing `0x2F4` to `gFieldStatuses` in §14 caused DualDex to report false Magic Room on fresh battle entry (the AYN Thor finding, §14.4).
+* The authoritative official-release address is **`0x020002F4`** (reconciled with §2.1 and §14.4).
+
 
 **Discrepancy 4 — `gPartyMenu` layout disambiguation (`0x020341FC` vs `0x020341F8`).** In-battle party switching requires tracking the party menu cursor to select a replacement Pokémon. Candidate A (`0x020341F8`) corresponds to the EWRAM storage for the file-static `sPartyMenuInternal` pointer (`static EWRAM_DATA struct PartyMenuInternal *sPartyMenuInternal = NULL;`) in `src/party_menu.c`. Probing offsets relative to `0x020341F8` (such as `+0x09 = 0x02034201`) sampled across the pointer and into the early fields of `gPartyMenu`, leaving them unaffected by cursor navigation. Candidate B (**`0x020341FC`**) corresponds to the exported `gPartyMenu` struct (`struct PartyMenu`), where `menuType`/`layout` sits at `+0x08 = 0x02034204`, `slotId` sits at `+0x09 = 0x02034205`, and `action` sits at `+0x0B = 0x02034207`. Live semantic correlation during Scenario 42 confirmed this conclusively: upon entering the party menu, `0x02034205` read `0` (slot 0, Chikorita); after pressing D-pad DOWN, `0x02034205` transitioned to `1` (slot 1, Hoothoot), whereas Candidate A remained unchanged at `0`.
 
@@ -3545,7 +3551,8 @@ regenerates and byte-compares it. Values for the pinned commit: `hp` 42, `maxHP`
 `foresight` 45, `root` 75, `gastroAcid` 80, `smackDown` 82, `telekinesis` 83, `miracleEye` 84,
 `magnetRise` 85, `roostActive` 318, `endured` 322 (hence the generated 41-byte read window);
 `BattleStruct.gimmick` 668, `BattleGimmickData.activeGimmick` 11. The EWRAM globals
-`gFieldStatuses` (`0x2F4`) and the `gBattleStruct` pointer (`0xB4`) are shared with the already-pinned
+`gFieldStatuses` (`0x2E8` — see §14.4; previously misattributed to `0x2F4`, which is `gBattleControllerExecFlags`)
+and the `gBattleStruct` pointer (`0xB4`) are shared with the already-pinned
 battle globals and are runtime-verified below.
 
 ### Runtime reader semantics (HOST VERIFIED)
@@ -3579,8 +3586,10 @@ Golden A hit frame the production reader reported:
 The `[GOLDEN-HIT] PASS` line records the same `damage=6` Golden A hit. This proves the neutral values
 the first production subset depends on, including the observed clear-weather and screenless
 defender-side words. A **positive transition** (an active Electrify / Glaive Rush / Charge / Tar
-Shot / Tera / Rain / Reflect frame) was deliberately not manufactured, so the active cases remain
-refused at runtime and are SOURCE + HOST reasoned only. The correction pass extends the same volatile
+Shot / Tera / Rain / Reflect frame) was deliberately not manufactured in this neutral baseline. Active
+ordinary Rain/Sun and Reflect/Light Screen are SOURCE + HOST reasoned / conditionally production-authorized,
+but do not have retained positive runtime verification (unsupported weather or side-status bits continue
+to fail closed); active unmodelled volatiles and gimmicks remain refused at runtime. The correction pass extends the same volatile
 read window to cover `chargeTimer` (bit 73) and `tarShot` (bit 299); this golden log predates that
 reader-only change and does not print the two operands, so they are HOST VERIFIED only.
 
@@ -3656,6 +3665,64 @@ runtime transition is claimed.
 - Kotlin unit tests: `702 passed, 0 failed` (684 before the round-4 correction; 18 new
   boundary/decoder tests: boundary 53, decoder 30).
 - `./ci.sh all` and `git diff --check` pass; exact-head GitHub Actions green (see the PR).
+
+### 14.4 Runtime layout correction: `gFieldStatuses` verification and `0x2F4` withdrawal
+
+#### 14.4.1 The AYN Thor finding
+On real hardware (AYN Thor running the official Heart & Soul 2.0.5 ROM `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`), a fresh battle was entered:
+- Player: Porygon, held item Wise Glasses, live ability Tera Shell.
+- Opponent: Croconaw, live ability Truant.
+- No move had established Magic Room, no terrain, no weather.
+
+DualDex reported:
+```text
+Damage unavailable · 2 blockers
+Field: Magic Room (0x00000001)
+You: Wise Glasses
+```
+Neither battler's ability or moves can establish Magic Room. Magic Room suppresses held item effects (`GetBattlerHoldEffectInternal` returns `HOLD_EFFECT_NONE`), causing Wise Glasses to be blocked.
+
+#### 14.4.2 Root cause investigation & release symbol layout
+Investigation revealed that DualDex's reader was configured with `.field_statuses_offset = 0x2F4`.
+1. **Official Release ROM Layout**:
+   Inspection of `artifacts-default/pokehns.map` and literal pools in the official ROM binary (`edf76ecf...`):
+   - `0x020002E8` (EWRAM `+0x2E8`) is `gFieldStatuses` (referenced by 107 literal pools across battle routines, e.g. `0x08006A28` loading alongside `gAiLogicData` at `0x2EC`, `gBattlersCount` at `0xB0`, and `gAbsentBattlerFlags` at `0x30A`).
+   - `0x020002F4` (EWRAM `+0x2F4`) is `gBattleControllerExecFlags`. Disassembly of `0x08056C00` in the official ROM proves this address is accessed with `tst r2, r3` (`1 << battler`) to check active controller execution. During battler 0's turn input loop, bit 0 is set (`0x00000001`). DualDex reading `0x2F4` decoded bit 0 (`STATUS_FIELD_MAGIC_ROOM`) as active Magic Room!
+2. **Provenance of the Faulty 0x2F4 Offset**:
+   An experimental build `pokehns-release.elf` compiled on Sep 14 with `-flto=auto` had reordered global symbols, placing `gFieldStatuses` at `0x2F4` and `gBattleControllerExecFlags` at `0x300`. Previous contributors assumed this experimental ELF matched the release ROM. In the original neutral golden verification (`60-golden-a-neutral.txt`), `0x2F4` happened to be `0x00000000` at frame 0 before controller execution, giving false confidence without semantic positive verification.
+3. **Withdrawal**:
+   The attribution of EWRAM offset `0x2F4` to `gFieldStatuses` is **WITHDRAWN / MISATTRIBUTED**. The read occurred, but semantic attribution of that memory location to `gFieldStatuses` was unproven and false.
+
+#### 14.4.3 Semantic positive runtime verification
+Using `tools/hns-runtime-probe/runtime_battle_probe` with normal controller inputs on the official release ROM (`edf76ecf...`), positive semantic transitions were executed and retained as reviewable evidence artifacts:
+- **Magic Room (move 478)**:
+  - Battle entry: `candidate_0x2E8 == 0x00000000`, `legacy_0x2F4 == 0x00000000`
+  - Turn 1 (Magic Room used): `candidate_0x2E8 == 0x00000001`, `legacy_0x2F4 == 0x00000001`
+  - Turn 2 (Magic Room toggled off): `candidate_0x2E8 == 0x00000000`, `legacy_0x2F4 == 0x00000001` (remains 1 because battler 0 controller is executing)
+- **Trick Room (move 433)**: Turn 1 sets `candidate_0x2E8 == 0x00000002`, `legacy_0x2F4 == 0x00000001`.
+- **Electric Terrain (move 604)**: Turn 2 sets bit 8 (`0x100`, `STATUS_FIELD_ELECTRIC_TERRAIN`); because Trick Room is still active from Turn 1, `candidate_0x2E8 == 0x00000102` (combined state `0x100 | 0x2`), proving Electric Terrain adds bit `0x100`. `legacy_0x2F4 == 0x00000001`.
+- **Field Isolation across Weather & Screens (Scenario 64)**:
+  - Turn 1 (Rain Dance, move 240): `candidate_0x2E8 == 0x00000000`, `legacy_0x2F4 == 0x00000001`. Demonstrates that weather activation does not mutate or bleed into `gFieldStatuses`.
+  - Turn 2 (Reflect, move 115): `candidate_0x2E8 == 0x00000000`, `legacy_0x2F4 == 0x00000001`. Demonstrates that side status activation does not mutate or bleed into `gFieldStatuses`.
+  - Turn 3 (Magic Room, move 478): `candidate_0x2E8 == 0x00000001`, `legacy_0x2F4 == 0x00000001`. Confirms positive field transition occurs independently at `0x2E8`.
+
+#### 14.4.4 Retained evidence artifacts
+All evidence is checked into the repository and bound to the official release ROM SHA-256 (`edf76ecf...`):
+1. **Raw Runtime Probe Logs**:
+   - `tools/hns-runtime-probe/evidence/hns205-field-status-positive-transitions.log`: full execution log of Scenario 63 demonstrating 0 -> 1 -> 0 (Magic Room), 2 (Trick Room), and bit 0x100 set / 0x102 combined (Electric Terrain) with field window dumps at each transition.
+   - `tools/hns-runtime-probe/evidence/hns205-field-weather-screens-isolation.log`: full execution log of Scenario 64 demonstrating field status isolation (`gFieldStatuses == 0x00000000` maintained across Rain Dance and Reflect move executions, followed by positive Magic Room transition to `0x00000001`).
+2. **Reproducible Test Scenarios**:
+   - `tools/hns-runtime-probe/scenarios/63-field-status-transitions.txt`: scripted probe inputs and assertions.
+   - `tools/hns-runtime-probe/scenarios/64-field-weather-screens-isolation.txt`: field isolation across weather/screens move inputs and assertions.
+   - `tools/hns-runtime-probe/prepare_field_test_save.py`: turnkey script to prepare test saves with designated moves.
+3. **Symbol Extraction & Disassembly Audit**:
+   - `tools/hns-runtime-probe/evidence/hns205-field-layout-symbols.txt`: exact symbol map extract from `upstream-hns/pokehns-expansion/pokehns.map`, disassembly excerpts of `IsBattleControllerActive` at `0x08056C00` (proving `0x020002F4 == gBattleControllerExecFlags`) and `battle_ai_field_statuses` at `0x08006874` / `0x08006A28` (proving `0x020002E8 == gFieldStatuses`), and literal pool frequency counts across the official ROM.
+
+#### 14.4.5 Evidence tier classification
+- `gFieldStatuses` @ `EWRAM + 0x2E8`: **RELEASE SYMBOL + POSITIVE RUNTIME VERIFIED** (0 -> 1 -> 0 for Magic Room, 2 for Trick Room, bit 0x100 set / 0x102 combined for Electric Terrain; verified under live move execution on the official release ROM; retained in `hns205-field-status-positive-transitions.log`).
+- `gBattleWeather` @ `EWRAM + 0x390`: **SOURCE + HOST REASONED** (neutral clear-weather 0x0000 is RUNTIME VERIFIED per §14.11 / `golden-c4e-live-operands.log`; active rain execution is isolated from `0x2E8` in Scenario 64; active ordinary Rain/Sun is conditionally production-authorized but lacks retained positive runtime verification, while unsupported weather bits continue to fail closed).
+- `gSideStatuses` @ `EWRAM + 0x324`: **SOURCE + HOST REASONED** (neutral screenless 0x00000000 defender side is RUNTIME VERIFIED per §14.11 / `golden-c4e-live-operands.log`; active reflect execution is isolated from `0x2E8` in Scenario 64; active ordinary Reflect/Light Screen is conditionally production-authorized but lacks retained positive runtime verification, while unsupported side-status bits continue to fail closed).
+- `gBattleControllerExecFlags` @ `EWRAM + 0x2F4`: **RELEASE SYMBOL + RUNTIME VERIFIED** (controller execution bitmask; bit 0 active during player turn; 0x300 withdrawn).
 
 ---
 

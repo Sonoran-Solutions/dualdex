@@ -3293,6 +3293,42 @@ static void print_golden_state(const Sample* s, const char* label) {
     }
 }
 
+static void format_field_statuses_decoded(uint32_t val, char *buf, size_t sz) {
+    if (val == 0) {
+        snprintf(buf, sz, "none");
+        return;
+    }
+    buf[0] = '\0';
+    size_t len = 0;
+    static const struct { uint32_t mask; const char* name; } bits[] = {
+        { 1u << 0, "Magic Room" },
+        { 1u << 1, "Trick Room" },
+        { 1u << 2, "Wonder Room" },
+        { 1u << 3, "Mud Sport" },
+        { 1u << 4, "Water Sport" },
+        { 1u << 5, "Gravity" },
+        { 1u << 6, "Grassy Terrain" },
+        { 1u << 7, "Misty Terrain" },
+        { 1u << 8, "Electric Terrain" },
+        { 1u << 9, "Psychic Terrain" },
+        { 1u << 10, "Ion Deluge" },
+        { 1u << 11, "Fairy Lock" },
+    };
+    bool first = true;
+    for (size_t i = 0; i < sizeof(bits)/sizeof(bits[0]); i++) {
+        if (val & bits[i].mask) {
+            int n = snprintf(buf + len, sz > len ? sz - len : 0, "%s%s", first ? "" : ", ", bits[i].name);
+            if (n > 0) len += n;
+            first = false;
+        }
+    }
+    uint32_t unknown = val & ~0x00000FFFu;
+    if (unknown) {
+        int n = snprintf(buf + len, sz > len ? sz - len : 0, "%sUnknown(0x%08X)", first ? "" : ", ", (unsigned)unknown);
+        if (n > 0) len += n;
+    }
+}
+
 /** Navigate the 2x2 battle action menu (FIGHT=0, BAG=1, POKEMON=2, RUN=3) toward `target` and
  * confirm it when the engine reports the cursor on it. Returns true once the A press was sent. */
 static bool select_action_menu_index(Driver* d, uint8_t* ewram, size_t ewram_sz, int target,
@@ -3835,6 +3871,86 @@ static int run_script(Driver* d, const char* script_path) {
                         script_error("savload '%s' failed: the core rejected the battery save", a1);
                     }
                 }
+            }
+        } else if (!strcmp(cmd, "field-status")) {
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            const uint32_t cfg_off = d->cfg ? d->cfg->field_statuses_offset : 0;
+            const uint32_t raw_prod = (ewram && ewram_sz > cfg_off + 4 && cfg_off != 0)
+                ? ((uint32_t)ewram[cfg_off] | ((uint32_t)ewram[cfg_off+1] << 8) |
+                   ((uint32_t)ewram[cfg_off+2] << 16) | ((uint32_t)ewram[cfg_off+3] << 24)) : 0;
+            const uint32_t legacy_0x2F4 = (ewram && ewram_sz > 0x2F8)
+                ? ((uint32_t)ewram[0x2F4] | ((uint32_t)ewram[0x2F5] << 8) |
+                   ((uint32_t)ewram[0x2F6] << 16) | ((uint32_t)ewram[0x2F7] << 24)) : 0;
+            const uint32_t cand_0x2E8 = (ewram && ewram_sz > 0x2EC)
+                ? ((uint32_t)ewram[0x2E8] | ((uint32_t)ewram[0x2E9] << 8) |
+                   ((uint32_t)ewram[0x2EA] << 16) | ((uint32_t)ewram[0x2EB] << 24)) : 0;
+            char decoded[128];
+            format_field_statuses_decoded(raw_prod, decoded, sizeof(decoded));
+            printf("[HNS-FIELD] label=%s rom_sha256=%s address=0x0200%04X raw=0x%08X decoded=%s legacy_0x2F4=0x%08X candidate_0x2E8=0x%08X frame=%d\n",
+                   a1[0] ? a1 : "step", g_rom_sha256, (unsigned)cfg_off, (unsigned)raw_prod,
+                   decoded, (unsigned)legacy_0x2F4, (unsigned)cand_0x2E8, d->frame);
+            printf("  [HNS-FIELD]\n  rom_sha256=%s\n  address=0x0200%04X\n  raw=0x%08X\n  decoded=%s\n  legacy_0x2F4=0x%08X\n",
+                   g_rom_sha256, (unsigned)cfg_off, (unsigned)raw_prod, decoded, (unsigned)legacy_0x2F4);
+        } else if (!strcmp(cmd, "dump-field-window")) {
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            printf("[FIELD-WINDOW] label=%s frame=%d\n", a1[0] ? a1 : "step", d->frame);
+            if (ewram && ewram_sz >= 0x320) {
+                for (uint32_t off = 0x2E0; off <= 0x310; off += 4) {
+                    uint32_t val = (uint32_t)ewram[off] | ((uint32_t)ewram[off+1] << 8) |
+                                   ((uint32_t)ewram[off+2] << 16) | ((uint32_t)ewram[off+3] << 24);
+                    const char *sym = "";
+                    if (off == 0x2E8) sym = " (gFieldStatuses candidate)";
+                    else if (off == 0x2EC) sym = " (gAiLogicData)";
+                    else if (off == 0x2F0) sym = " (gIntroSlideFlags)";
+                    else if (off == 0x2F4) sym = " (gBattleControllerExecFlags / legacy_0x2F4)";
+                    else if (off == 0x2F8) sym = " (gMonSpritesGfxPtr)";
+                    else if (off == 0x2FC) sym = " (gLastUsedItem)";
+                    else if (off == 0x300) sym = " (gLastUsedAbility)";
+                    else if (off == 0x304) sym = " (gActionsByTurnOrder)";
+                    else if (off == 0x308) sym = " (gBattleTurnCounter)";
+                    else if (off == 0x30A) sym = " (gAbsentBattlerFlags)";
+                    else if (off == 0x310) sym = " (gBattlerSpriteIds)";
+                    else if (off == 0x314) sym = " (gFieldTimers)";
+                    printf("  [WINDOW] off=+0x%03X (0x0200%04X) = 0x%08X%s\n", off, off, (unsigned)val, sym);
+                }
+            }
+        } else if (!strcmp(cmd, "expect-field-status")) {
+            uint32_t want = (uint32_t)strtoul(a1, NULL, 0);
+            size_t ewram_sz = 0;
+            uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+            const uint32_t cfg_off = d->cfg ? d->cfg->field_statuses_offset : 0;
+            const uint32_t raw_prod = (ewram && ewram_sz > cfg_off + 4 && cfg_off != 0)
+                ? ((uint32_t)ewram[cfg_off] | ((uint32_t)ewram[cfg_off+1] << 8) |
+                   ((uint32_t)ewram[cfg_off+2] << 16) | ((uint32_t)ewram[cfg_off+3] << 24)) : 0;
+            if (raw_prod != want) {
+                script_error("expect-field-status: expected 0x%08X, got 0x%08X at frame %d",
+                             (unsigned)want, (unsigned)raw_prod, d->frame);
+            } else {
+                printf("  [assert] field-status=0x%08X OK (frame %d)\n", (unsigned)want, d->frame);
+            }
+        } else if (!strcmp(cmd, "await-field-status")) {
+            uint32_t want = (uint32_t)strtoul(a1, NULL, 0);
+            int max_f = a2[0] ? atoi(a2) : 3000;
+            bool matched = false;
+            for (int f = 0; f < max_f; f++) {
+                size_t ewram_sz = 0;
+                uint8_t* ewram = libretro_host_get_ewram(&ewram_sz);
+                const uint32_t cfg_off = d->cfg ? d->cfg->field_statuses_offset : 0;
+                const uint32_t raw_prod = (ewram && ewram_sz > cfg_off + 4 && cfg_off != 0)
+                    ? ((uint32_t)ewram[cfg_off] | ((uint32_t)ewram[cfg_off+1] << 8) |
+                       ((uint32_t)ewram[cfg_off+2] << 16) | ((uint32_t)ewram[cfg_off+3] << 24)) : 0;
+                if (raw_prod == want) {
+                    matched = true;
+                    break;
+                }
+                step_one(d, 0, &previous, &have_previous);
+            }
+            if (!matched) {
+                script_error("await-field-status 0x%08X timed out after %d frames", (unsigned)want, max_f);
+            } else {
+                printf("  [await-field-status] matched 0x%08X at frame %d\n", (unsigned)want, d->frame);
             }
         } else if (!strcmp(cmd, "assert-rom-sha256")) {
             if (!g_rom_sha256[0] || strcmp(a1, g_rom_sha256))

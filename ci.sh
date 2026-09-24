@@ -159,6 +159,8 @@ hns_generator_test() {
   (cd tools/hns-items && python3 -m unittest test_generate_hns_item_audit -v)
   echo "== H&S move-effect generator tests =="
   (cd tools/hns-move-mechanics && python3 -m unittest test_generate_hns_move_effects -v)
+  echo "== H&S field-status audit generator tests =="
+  (cd tools/hns-field-status && python3 -m unittest test_generate_hns_field_status -v)
 }
 
 # Locate the ARM preprocessor the data-pack generator drives. Fail-closed: the
@@ -437,6 +439,14 @@ source_check() {
   echo "== H&S held-item capability audit verification (pinned upstream) =="
   python3 tools/hns-items/generate_hns_item_audit.py \
     --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --check
+
+  # The pinned gFieldStatuses bit table (all twelve STATUS_FIELD_* bits and STATUS_FIELD_TERRAIN_ANY)
+  # must still match the reviewed audit and the generated Kotlin enum / native header; every pinned
+  # field-status read must be a reviewed reference site, and every request-local field rule must be
+  # reviewed, implemented in HnsFieldContextPolicy.kt and cite unchanged pinned lines.
+  echo "== H&S field-status audit verification (pinned upstream) =="
+  python3 tools/hns-field-status/generate_hns_field_status.py \
+    --upstream-dir "$upstream" --check
 
   # Reviewed per-ability capability decisions must cover the exact pinned enum
   # and ability-info table. The generator never infers neutrality from a grep miss.

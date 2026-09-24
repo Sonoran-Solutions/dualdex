@@ -13,6 +13,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.dualdex.battle.*
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.calculator.CalcCapabilityPolicy
 import com.dualdex.calculator.CalcSupport
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.MoveDatabase
@@ -1206,6 +1207,13 @@ class BattleConsoleScreenView(
         val weatherDisplay = if (fieldData.weather == WeatherType.UNKNOWN) "Clear / Normal" else fieldData.weather.displayName
         addDetailRow(fieldStatusContainer, "Weather", weatherDisplay)
         addDetailRow(fieldStatusContainer, "Condition", fieldData.condition.displayName)
+        if (inBattle && CalcCapabilityPolicy.isExactRuntimeVerified(profile, runtimeTrust)) {
+            val fieldState = HnsFieldDiagnostics.observedFieldState(
+                profile, runtimeTrust, viewModel.playerBattlerState.value, viewModel.enemyBattlerState.value
+            )
+            HnsFieldDiagnostics.record(fieldState)
+            addDetailRow(fieldStatusContainer, "Field", HnsFieldDiagnostics.statusRow(fieldState))
+        }
         addDetailRow(fieldStatusContainer, "ROM Profile", "${profile.name} (${if (profile.isVerified) "Verified" else "Unverified"})")
         addDetailRow(fieldStatusContainer, "Engine", profile.engine)
         addDetailRow(fieldStatusContainer, "Phys/Spec Split", if (profile.hasPhysSpecSplit) "Enabled" else "Standard Gen 3")

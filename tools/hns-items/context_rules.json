@@ -4,9 +4,10 @@
   "contract": "A PROVEN_IRRELEVANT rule removes only the one item blocker it names, and only when every operand of its predicate is authoritative for this request. The H&S Battle/Calc damage contract is the single-hit damage range and its percentage of the defender's max HP for the current observed state; the shipped H&S engine emits no KO/survival text (calculateHnsDamage returns koChanceText \"\"). Missing operands return UNKNOWN, which never clears. Effect suppression (Klutz, Embargo, Magic Room) only removes a hold effect, so every irrelevance proof below also holds under suppression.",
   "operands": {
     "ordinary_move": "The selected move is ORDINARY_PROVEN_EQUIVALENT in HnsMoveMechanicsRegistry (single-hit EFFECT_HIT, fixed power, no state-dependent flag) and has no HnsMoveItemInteractionRegistry interaction.",
-    "effective_move_type": "request.moveOverride.type (pinned move + Fairy toggle), accepted only when the live dynamic-type words were observed neutral (no Electrify, gFieldStatuses == 0), the live attacker gimmick is observed GIMMICK_NONE, and the live attacker ability is known and is not one GetDynamicMoveType reads (Normalize 96, Refrigerate 174, Pixilate 182, Aerilate 184, Liquid Voice 204, Galvanize 206).",
-    "effective_category": "The request's per-move category under PER_MOVE_SPLIT, or the category of the effective type under TYPE_BASED; unknown otherwise.",
-    "field_statuses_zero": "The live gFieldStatuses word observed exactly 0 (no terrain, Wonder Room, Magic Room, Gravity, Ion Deluge).",
+    "effective_move_type": "HnsMoveAuthority.effectiveType: request.moveOverride.type (pinned move + Fairy toggle) of an ordinary move, accepted only when the live attacker gimmick is observed GIMMICK_NONE, the live attacker ability is known and is not one GetDynamicMoveType reads (Normalize 96, Refrigerate 174, Pixilate 182, Aerilate 184, Liquid Voice 204, Galvanize 206), Electrify is observed false, and the observed gFieldStatuses word has no unknown bit and no Ion Deluge rewriting a Normal move. No other field bit changes an ordinary move's type, so an unrelated terrain/room/Gravity bit does not remove this authority.",
+    "effective_category": "HnsMoveAuthority.category: the ordinary move's pinned category under an observed PER_MOVE_SPLIT (with GIMMICK_NONE; no field bit changes it), or the category of the authoritative effective type under TYPE_BASED; unknown otherwise.",
+    "wonder_room_inactive": "The live gFieldStatuses word observed, fully decoded, with STATUS_FIELD_WONDER_ROOM clear.",
+    "no_terrain": "The live gFieldStatuses word observed, fully decoded, with every STATUS_FIELD_TERRAIN_ANY bit clear.",
     "clear_weather": "The live gBattleWeather word observed exactly 0.",
     "defender_hp": "Boundary-owned live gBattleMons[defender].hp / .maxHP."
   },
@@ -148,7 +149,7 @@
           "rule": "special_defense_item_physical_move",
           "side": "DEFENDER",
           "families": ["HOLD_EFFECT_ASSAULT_VEST", "HOLD_EFFECT_DEEP_SEA_SCALE"],
-          "predicate": "Ordinary move whose effective category is Physical and gFieldStatuses observed 0 (no Wonder Room).",
+          "predicate": "Ordinary move whose effective category is Physical and Wonder Room is observed inactive.",
           "rationale": "Both apply only when !usesDefStat; for an ordinary physical move usesDefStat is TRUE unless Wonder Room swaps the stats.",
           "evidence": [
             {"source": "src/battle_util.c:7224", "contains": "if (moveEffect == EFFECT_PSYSHOCK || IsBattleMovePhysical(move))"},
@@ -161,7 +162,7 @@
           "rule": "defense_item_special_move",
           "side": "DEFENDER",
           "families": ["HOLD_EFFECT_METAL_POWDER"],
-          "predicate": "Ordinary move whose effective category is Special and gFieldStatuses observed 0 (no Wonder Room).",
+          "predicate": "Ordinary move whose effective category is Special and Wonder Room is observed inactive.",
           "rationale": "Metal Powder applies only when usesDefStat, which is FALSE for an ordinary special move without Wonder Room.",
           "evidence": [
             {"source": "src/battle_util.c:7358", "contains": "&& usesDefStat &&"},
@@ -299,9 +300,9 @@
     "grounding": {
       "context_rules": [
         {
-          "rule": "grounding_item_attacker_no_field_status",
+          "rule": "grounding_item_attacker_no_terrain",
           "side": "ATTACKER",
-          "predicate": "Ordinary move, gFieldStatuses observed 0, and (Iron Ball only) the turn-order predicate holds.",
+          "predicate": "Ordinary move, no terrain bit observed, and (Iron Ball only) the turn-order predicate holds.",
           "rationale": "The attacker's groundedness is read only through terrain checks, which return FALSE when no terrain flag is set; Iron Ball's speed halving is covered by the turn-order predicate.",
           "evidence": [
             {"source": "src/battle_util.c:5142", "contains": "if (!(fieldStatus & terrainFlag))"},
@@ -309,9 +310,9 @@
           ]
         },
         {
-          "rule": "grounding_item_defender_no_field_non_ground_move",
+          "rule": "grounding_item_defender_non_ground_move_no_terrain",
           "side": "DEFENDER",
-          "predicate": "Ordinary move, gFieldStatuses observed 0, authoritative effective type is not Ground, and (Iron Ball only) the turn-order predicate holds.",
+          "predicate": "Ordinary move, no terrain bit observed, authoritative effective type is not Ground, and (Iron Ball only) the turn-order predicate holds.",
           "rationale": "The defender's Air Balloon / Iron Ball are read in the Ground-move effectiveness branches and in terrain checks; neither applies to a non-Ground move without terrain.",
           "evidence": [
             {"source": "src/battle_util.c:8379", "contains": "else if (ctx->moveType == TYPE_GROUND"},
@@ -329,7 +330,7 @@
           "evidence": [{"source": "src/battle_util.c:8392", "contains": "ctx->holdEffectDef == HOLD_EFFECT_AIR_BALLOON"}]
         }
       ],
-      "fallback": "Any field status, unknown type or non-ordinary move never clears."
+      "fallback": "An active or unread terrain, an unknown field bit, unknown type or non-ordinary move never clears."
     },
     "weather_shield": {
       "context_rules": [

@@ -144,14 +144,11 @@ object HnsBattlerRuntimeStateIds {
     const val SIDE_STATUS_MODELLED = SIDE_STATUS_REFLECT or SIDE_STATUS_LIGHTSCREEN
 
     /**
-     * Pinned `STATUS_FIELD_ION_DELUGE` bit (`include/constants/battle.h`). It forces a Normal
-     * move to Electric. The explicit supported field-status mask is exactly this bit: every
-     * other `gFieldStatuses` bit (Wonder Room, Gravity, the four terrains, Mud/Water Sport,
-     * Trick/Magic Room, Fairy Lock) changes damage or the defensive stat and is not modelled,
-     * so it must fail closed rather than clear the Ion Deluge check.
+     * Pinned `STATUS_FIELD_ION_DELUGE` bit, generated from `include/constants/battle.h`
+     * ([HnsFieldStatusData]). It forces a Normal move to Electric. Every other bit is decided per
+     * request by `HnsFieldContextPolicy`; see [HnsFieldState].
      */
-    const val STATUS_FIELD_ION_DELUGE = 1 shl 10
-    const val FIELD_STATUS_SUPPORTED_MASK = STATUS_FIELD_ION_DELUGE
+    const val STATUS_FIELD_ION_DELUGE = HnsFieldStatusData.STATUS_FIELD_ION_DELUGE
 
     /**
      * Pinned `volatiles.chargeTimer` width is 2 bits, so its raw domain is `0..3`; any

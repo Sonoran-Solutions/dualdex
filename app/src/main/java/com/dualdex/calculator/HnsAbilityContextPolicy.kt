@@ -142,7 +142,7 @@ object HnsAbilityContextPolicy {
                     "defender_guts_does_not_modify_incoming_damage", "src/battle_util.c:7056",
                     "Guts is applied only in the attacker's Attack-stat modifier path."
                 )
-                c.moveCategory == null || !c.dynamicMoveTypeKnownNeutral -> null
+                c.moveCategory == null -> null
                 c.moveCategory == MoveCategory.SPECIAL -> proof(
                     "guts_special_move", "src/battle_util.c:7056",
                     "Guts modifies Attack only for physical moves."
@@ -162,7 +162,7 @@ object HnsAbilityContextPolicy {
                     "defender_attack_stat_ability", "src/battle_util.c:6989",
                     "Huge Power and Pure Power modify the holder's Attack stat only."
                 )
-                c.moveCategory == null || !c.dynamicMoveTypeKnownNeutral -> null
+                c.moveCategory == null -> null
                 c.moveCategory == MoveCategory.SPECIAL -> proof(
                     "attack_stat_ability_special_move", "src/battle_util.c:6989",
                     "Huge Power and Pure Power multiply Attack only for physical moves."
@@ -226,37 +226,35 @@ object HnsAbilityContextPolicy {
         }
     }
 
+    /**
+     * Builds the ability context from a request whose live state was rebound by CalcRequestBoundary.
+     *
+     * The effective move type and category come from [HnsMoveAuthority]: each needs only its own
+     * evidence, so an unrelated live field bit (terrain, a room, Gravity, ...) does not make them
+     * unknown. [Context.moveType] is null whenever the effective type is not authoritative, and
+     * [Context.dynamicMoveTypeKnownNeutral] is true exactly when it is.
+     */
     fun contextForRequest(
         request: DamageCalculationRequest,
-        side: HnsAbilitySide
+        side: HnsAbilitySide,
+        ordinaryMove: Boolean?
     ): Context {
         val live = request.hnsLiveBattleState
-        val moveType = PokemonType.fromString(request.moveOverride?.type)
-        val rawCategory = request.moveOverride?.category?.lowercase()
-        val category = when {
-            rawCategory == "status" -> MoveCategory.STATUS
-            rawCategory == "physical" -> MoveCategory.PHYSICAL
-            rawCategory == "special" -> MoveCategory.SPECIAL
-            request.hnsRuntimeRules?.optionStyle == com.dualdex.pokemon.hns.HnsOptionStyle.TYPE_BASED ->
-                moveType?.let(::categoryForType)
-            else -> null
-        }
+        val authority = HnsMoveAuthority.forRequest(request, ordinaryMove)
         val rawAttackerTypes = live?.attackerTypes
         val attackerTypes = rawAttackerTypes?.mapNotNull { PokemonType.fromString(it) }
             ?.takeIf { types -> types.size == rawAttackerTypes.size }?.toSet()
-        val dynamicNeutral = live != null && live.dynamicMoveTypeObserved &&
-            live.attackerElectrified == false && live.fieldStatuses == 0
         return Context(
             side = side,
-            moveType = moveType,
-            moveCategory = category,
+            moveType = authority.effectiveType,
+            moveCategory = authority.category,
             attackerTypes = attackerTypes,
             defenderSpeciesId = live?.defenderSpeciesId,
             defenderHp = live?.defenderHp,
             defenderMaxHp = live?.defenderMaxHp,
             attackerStatus1 = live?.attackerStatus1,
             observedBattlersCount = live?.observedBattlersCount,
-            dynamicMoveTypeKnownNeutral = dynamicNeutral
+            dynamicMoveTypeKnownNeutral = authority.effectiveType != null
         )
     }
 
@@ -277,13 +275,6 @@ object HnsAbilityContextPolicy {
 
     private fun singlesProof(c: Context, rule: String, source: String, rationale: String): Proof? =
         if (c.observedBattlersCount == 2) proof(rule, source, rationale) else null
-
-    private fun categoryForType(type: PokemonType): MoveCategory = when (type) {
-        PokemonType.NORMAL, PokemonType.FIGHTING, PokemonType.FLYING, PokemonType.POISON,
-        PokemonType.GROUND, PokemonType.ROCK, PokemonType.BUG, PokemonType.GHOST,
-        PokemonType.STEEL -> MoveCategory.PHYSICAL
-        else -> MoveCategory.SPECIAL
-    }
 
     private fun unknown(
         id: Int,

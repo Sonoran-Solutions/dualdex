@@ -3,6 +3,7 @@
 #include "gba_memory_map.h"
 #include "../src/hns_battle_pokemon_layout_gen.h"
 #include "../src/hns_live_battle_layout_gen.h"
+#include "../src/hns_field_status_gen.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5641,6 +5642,51 @@ static void hns_battle_set_gimmick(HnsBattleFixture* fx, uint8_t battler, uint8_
     fx->gba->ewram[(bs_base - 0x02000000u) + off] = gimmick;
 }
 
+/* The live `gFieldStatuses` reader must preserve the raw battle-global word: a readable zero
+ * stays an observed 0 (never "unread"), every pinned bit and any unexpected high bit survive
+ * unchanged, nothing is masked, and both battle-level observations report the same word. */
+static void test_hns_field_statuses_raw_word(void) {
+    printf("Running test_hns_field_statuses_raw_word...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    TEST_ASSERT(cfg->field_statuses_offset == 0x2F4, "gFieldStatuses stays at EWRAM+0x2F4");
+    TEST_ASSERT(cfg->field_status_ion_deluge_mask == HNS_STATUS_FIELD_ION_DELUGE,
+                "Ion Deluge mask comes from the generated pinned header");
+    TEST_ASSERT(HNS_STATUS_FIELD_KNOWN_MASK == 0x00000FFFu, "twelve pinned field bits");
+    TEST_ASSERT(HNS_STATUS_FIELD_TERRAIN_ANY == 0x000003C0u, "terrain composition bits 6..9");
+
+    const uint32_t words[] = {
+        0u,
+        HNS_STATUS_FIELD_MAGIC_ROOM, HNS_STATUS_FIELD_TRICK_ROOM, HNS_STATUS_FIELD_WONDER_ROOM,
+        HNS_STATUS_FIELD_MUDSPORT, HNS_STATUS_FIELD_WATERSPORT, HNS_STATUS_FIELD_GRAVITY,
+        HNS_STATUS_FIELD_GRASSY_TERRAIN, HNS_STATUS_FIELD_MISTY_TERRAIN,
+        HNS_STATUS_FIELD_ELECTRIC_TERRAIN, HNS_STATUS_FIELD_PSYCHIC_TERRAIN,
+        HNS_STATUS_FIELD_ION_DELUGE, HNS_STATUS_FIELD_FAIRY_LOCK,
+        HNS_STATUS_FIELD_TRICK_ROOM | HNS_STATUS_FIELD_ELECTRIC_TERRAIN,
+        HNS_STATUS_FIELD_KNOWN_MASK,
+        0x00002000u,                                   /* first bit above the pinned mask */
+        0x80000000u | HNS_STATUS_FIELD_ELECTRIC_TERRAIN, /* high bit survives the u32 read */
+        0xFFFFFFFFu
+    };
+    for (size_t i = 0; i < sizeof(words) / sizeof(words[0]); i++) {
+        write32_le_t(gba.ewram + cfg->field_statuses_offset, words[i]);
+        BattlerRuntimeState player, enemy;
+        TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &player), "player read must succeed");
+        TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &enemy), "enemy read must succeed");
+        TEST_ASSERT(player.field_statuses_readable && enemy.field_statuses_readable,
+                    "field word is readable on both observations (0 included)");
+        TEST_ASSERT(player.field_statuses == words[i], "player word is the raw word, unmasked");
+        TEST_ASSERT(enemy.field_statuses == words[i], "enemy word is the raw word, unmasked");
+        TEST_ASSERT(player.field_statuses == enemy.field_statuses, "battle-global word agrees");
+    }
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_field_statuses_raw_word" ANSI_RESET "\n");
+}
+
 static void test_hns_battler_state_c4e_live_operands(void) {
     printf("Running test_hns_battler_state_c4e_live_operands...\n");
     const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
@@ -6168,6 +6214,7 @@ int main(void) {
     test_hns_badge_state_reading();
     test_hns_battler_state_stats_stages_badges();
     test_hns_battler_state_c4e_live_operands();
+    test_hns_field_statuses_raw_word();
     test_hns_battler_state_c4e_field_conditions();
     test_hns_target_count_computation();
     test_hns_target_count_anti_spoof();

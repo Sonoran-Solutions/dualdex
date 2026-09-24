@@ -232,9 +232,10 @@ data class CalcHnsLiveBattleState(
     val moveTargetCount: Int? = null,
     // --- Gap C4e live operand authority ------------------------------------------------------
     /**
-     * The battle-global `gFieldStatuses` word, or null when it was not read. Ion Deluge is the
-     * only bit that can retype an otherwise-supported ordinary move: it forces a Normal move to
-     * Electric. A non-null value is an authoritative observation; 0 is an observed neutral word.
+     * The battle-global `gFieldStatuses` word, unmasked, or null when it was not read. A non-null
+     * value is an authoritative observation (0 is an observed clear field). Ion Deluge is the only
+     * bit that can retype an ordinary move (Normal to Electric); every active bit is decided per
+     * request by [HnsFieldContextPolicy].
      */
     val fieldStatuses: Int? = null,
     /**
@@ -326,6 +327,20 @@ data class CalcHnsLiveBattleState(
      * [CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED]).
      */
     val observedBattlersCount: Int? = null
+)
+
+/**
+ * The raw live field-condition words an H&S verdict was decided from, kept so a refusal can say
+ * exactly what was read. [fieldState] preserves the unmasked `gFieldStatuses` word (null when it
+ * was not authoritatively read); [weatherWord] is `gBattleWeather` and [defenderSideStatuses] the
+ * defender's `gSideStatuses` word, each null when unread. They are separate classes: a terrain, a
+ * weather and a screen are never reported as the same condition.
+ */
+data class CalcHnsFieldDiagnostics(
+    val fieldState: com.dualdex.pokemon.hns.HnsFieldState?,
+    val weatherWord: Int?,
+    val defenderSideStatuses: Int?,
+    val attackerElectrified: Boolean?
 )
 
 /**

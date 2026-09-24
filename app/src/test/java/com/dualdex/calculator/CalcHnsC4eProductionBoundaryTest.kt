@@ -8,6 +8,7 @@ import com.dualdex.pokemon.hns.HnsBattlerTypeObservation
 import com.dualdex.pokemon.hns.HnsChallengeField
 import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
 import com.dualdex.pokemon.hns.HnsChallengeSettingsStatus
+import com.dualdex.pokemon.hns.HnsFieldStatus
 import com.dualdex.romhack.ProfileLoader
 import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackProfile
@@ -57,9 +58,9 @@ class CalcHnsC4eProductionBoundaryTest {
         )
     }
 
-    private fun settings(randomAbilities: Boolean = false): HnsChallengeSettingsSnapshot = HnsChallengeSettingsSnapshot(
+    private fun settings(randomAbilities: Boolean = false, optionStyle: Int = 0): HnsChallengeSettingsSnapshot = HnsChallengeSettingsSnapshot(
         status = HnsChallengeSettingsStatus.OBSERVED,
-        optionStyle = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
+        optionStyle = HnsChallengeField(observed = true, raw = optionStyle, outOfDomain = false),
         txModeFairyTypes = HnsChallengeField(observed = true, raw = 1, outOfDomain = false),
         txRandomType = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
         txRandomTypeEffectiveness = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
@@ -326,12 +327,13 @@ class CalcHnsC4eProductionBoundaryTest {
         player: BattlerRuntimeObservation?,
         enemy: BattlerRuntimeObservation?,
         activeBattle: Boolean = true,
-        randomAbilities: Boolean = false
+        randomAbilities: Boolean = false,
+        optionStyle: Int = 0
     ): CalcRequestOutcome = CalcRequestBoundary.build(
         profile = heartAndSoul,
         trust = trust,
         request = request,
-        challengeSettings = settings(randomAbilities),
+        challengeSettings = settings(randomAbilities, optionStyle),
         playerBattlerState = player,
         enemyBattlerState = enemy,
         activeBattle = activeBattle
@@ -852,14 +854,23 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `active terrain field status is refused`() {
-        // Grassy Terrain (bit 6) applies a x1.3 Grass modifier; the ordinary arithmetic does not
-        // model terrain, so it must fail closed.
+    fun `active terrain field status is refused for the boosted type only`() {
+        // Grassy Terrain (bit 6) applies a x1.3 modifier to a grounded attacker's Grass move; the
+        // ordinary arithmetic does not model terrain, so a Grass move must fail closed.
         refusedWith(
             expected = CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED,
+            request = goldenARequest(move = "Vine Whip"),
             player = playerObservation(fieldStatuses = 1 shl 6),
             enemy = enemyObservation(fieldStatuses = 1 shl 6)
         )
+        // Normal Tackle is untouched by Grassy Terrain (no Grass Pelt, no Analytic): the field
+        // decision is proven irrelevant and the request stays Ready.
+        val ready = readyOf(
+            build(trustFor(exactSha), goldenARequest(), playerObservation(fieldStatuses = 1 shl 6),
+                enemyObservation(fieldStatuses = 1 shl 6)),
+            "Grassy Terrain cannot change Tackle"
+        )
+        assertEquals("grassy_terrain_non_grass_move", ready.verdict.hnsFieldDecisions.single().rule)
     }
 
     @Test
@@ -1517,16 +1528,22 @@ class CalcHnsC4eProductionBoundaryTest {
 
     @Test
     fun `missing effective-type authority keeps a type item unknown and blocked`() {
-        // Wonder Room (bit 2) makes gFieldStatuses non-zero: the dynamic-type/field operands are no longer
-        // proven neutral, so Charcoal cannot be cleared even though Tackle is Normal.
+        // Electrify rewrites the move to Electric, so the effective type is not authoritative and
+        // Charcoal cannot be cleared even though Tackle's pinned type is Normal.
         val refused = refusedOf(
             build(trustFor(exactSha), goldenARequest(),
-                playerObservation(itemId = 426, fieldStatuses = 1 shl 2),
-                enemyObservation(fieldStatuses = 1 shl 2)),
+                playerObservation(itemId = 426, electrified = true), enemyObservation()),
             "an unproven effective type must not clear a type item"
         )
         assertEquals(HnsItemRequestRelevance.UNKNOWN, refused.verdict.hnsItemDecisions.single().relevance)
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        // An unknown field bit also removes effective-type authority (it is never assumed harmless).
+        val unknownBit = refusedOf(
+            build(trustFor(exactSha), goldenARequest(),
+                playerObservation(itemId = 426, fieldStatuses = 1 shl 13), enemyObservation(fieldStatuses = 1 shl 13)),
+            "an unknown field bit must not be assumed type-neutral"
+        )
+        assertEquals(HnsItemRequestRelevance.UNKNOWN, unknownBit.verdict.hnsItemDecisions.single().relevance)
     }
 
     @Test
@@ -1642,5 +1659,332 @@ class CalcHnsC4eProductionBoundaryTest {
         val foe = readyOf(build(trust, foeStored, playerObservation(), enemyObservation(itemId = 442)),
             "the foe's live Choice Band, not its stored Focus Sash, is the effective item")
         assertEquals(listOf(442), foe.verdict.hnsItemDecisions.map { it.itemId })
+    }
+
+    // ------------------------------------- live field status: per-bit request relevance
+
+    private val wiseGlasses = 476
+    private val everstone = 245 // globally PROVEN_NO_ORDINARY_DAMAGE_EFFECT
+
+    /** Golden-A with the same battle-global field word on both observations. */
+    private fun fieldBuild(
+        word: Int,
+        move: String = "Tackle",
+        attackerItem: Int? = 0,
+        defenderItem: Int? = 0,
+        attackerAbility: Pair<Int, String> = 65 to "Overgrow",
+        defenderAbility: Pair<Int, String> = 77 to "Tangled Feet",
+        status1: Int = 0,
+        electrified: Boolean = false,
+        optionStyle: Int = 0
+    ): CalcRequestOutcome = build(
+        trustFor(exactSha), goldenARequest(move),
+        playerObservation(fieldStatuses = word, itemId = attackerItem, abilityId = attackerAbility.first,
+            abilityName = attackerAbility.second, status1 = status1, electrified = electrified),
+        enemyObservation(fieldStatuses = word, itemId = defenderItem, abilityId = defenderAbility.first,
+            abilityName = defenderAbility.second),
+        randomAbilities = true,
+        optionStyle = optionStyle
+    )
+
+    private fun CalcRequestOutcome.verdict(): CalcCapabilityVerdict = when (this) {
+        is CalcRequestOutcome.Ready -> verdict
+        is CalcRequestOutcome.Refused -> verdict
+    }
+
+    private fun fieldDecision(outcome: CalcRequestOutcome, status: HnsFieldStatus): HnsFieldRequestDecision =
+        outcome.verdict().hnsFieldDecisions.single { it.status == status }
+
+    private fun cardText(outcome: CalcRequestOutcome): String {
+        val blockers = com.dualdex.battle.DamageBlockerPresentation.from(outcome.verdict(), observedDoubles = false)
+        return com.dualdex.battle.DamageBlockerPresentation.unavailableText(
+            blockers, com.dualdex.battle.DamageBlockerPresentation.headline(blockers)
+        )
+    }
+
+    @Test
+    fun `the raw field word is preserved and every active bit gets its own named decision`() {
+        val word = HnsFieldStatus.WONDER_ROOM.mask or HnsFieldStatus.ELECTRIC_TERRAIN.mask or
+            HnsFieldStatus.FAIRY_LOCK.mask
+        val refused = refusedOf(fieldBuild(word), "Wonder Room always blocks")
+        assertEquals(0x904, refused.verdict.hnsFieldDiagnostics?.fieldState?.raw)
+        assertEquals(
+            listOf(HnsFieldStatus.WONDER_ROOM, HnsFieldStatus.ELECTRIC_TERRAIN, HnsFieldStatus.FAIRY_LOCK),
+            refused.verdict.hnsFieldDecisions.map { it.status }
+        )
+        assertEquals(
+            listOf(HnsFieldRequestRelevance.RELEVANT, HnsFieldRequestRelevance.PROVEN_IRRELEVANT,
+                HnsFieldRequestRelevance.PROVEN_IRRELEVANT),
+            refused.verdict.hnsFieldDecisions.map { it.relevance }
+        )
+        assertEquals(
+            listOf("wonder_room_swaps_defensive_stat", "electric_terrain_non_electric_move", "fairy_lock_escape_only"),
+            refused.verdict.hnsFieldDecisions.map { it.rule }
+        )
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        assertEquals("Damage unavailable · Wonder Room not modelled\nField: Wonder Room (0x00000004)", cardText(refused))
+    }
+
+    @Test
+    fun `a readable zero field word is clear and records no decision`() {
+        val ready = readyOf(fieldBuild(0), "an observed clear field is the positive control")
+        assertEquals(0, ready.verdict.hnsFieldDiagnostics?.fieldState?.raw)
+        assertTrue(ready.verdict.hnsFieldDiagnostics!!.fieldState!!.isClear)
+        assertTrue(ready.verdict.hnsFieldDecisions.isEmpty())
+    }
+
+    @Test
+    fun `Wise Glasses with a Physical move clears while an unrelated field condition blocks alone`() {
+        // Device regression (AYN Thor): exact H&S, ordinary Singles, attacker Wise Glasses, a non-zero
+        // live field word. Tackle is authoritatively Physical under PER_MOVE_SPLIT; Wonder Room does
+        // not change that, so the card shows the field condition and NOT a second Wise Glasses blocker.
+        val refused = refusedOf(
+            fieldBuild(HnsFieldStatus.WONDER_ROOM.mask, attackerItem = wiseGlasses),
+            "Wonder Room independently blocks"
+        )
+        val glasses = refused.verdict.hnsItemDecisions.single()
+        assertEquals("Wise Glasses", glasses.itemName)
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, glasses.relevance)
+        assertEquals("special_only_item_physical_move", glasses.rule)
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        assertEquals("Damage unavailable · Wonder Room not modelled\nField: Wonder Room (0x00000004)", cardText(refused))
+    }
+
+    @Test
+    fun `Wise Glasses with a Special move stays a real blocker next to the field condition`() {
+        val refused = refusedOf(
+            fieldBuild(HnsFieldStatus.WONDER_ROOM.mask, move = "Water Gun", attackerItem = wiseGlasses),
+            "Wise Glasses boosts Special Water Gun"
+        )
+        val glasses = refused.verdict.hnsItemDecisions.single()
+        assertEquals(HnsItemRequestRelevance.RELEVANT, glasses.relevance)
+        assertEquals("special_only_item_special_move", glasses.rule)
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        assertEquals(
+            "Damage unavailable · 2 blockers\nField: Wonder Room (0x00000004)\nYou: Wise Glasses",
+            cardText(refused)
+        )
+    }
+
+    @Test
+    fun `device-shaped Electric Terrain from a switch-in surge is decided per move`() {
+        // The most likely Thor explanation: a Random Abilities lead with Electric Surge / Hadron
+        // Engine sets Electric Terrain (0x00000100) on switch-in, before any move is chosen.
+        val terrain = HnsFieldStatus.ELECTRIC_TERRAIN.mask
+        val tackle = readyOf(fieldBuild(terrain, attackerItem = wiseGlasses),
+            "neither Electric Terrain nor Wise Glasses can change Physical Tackle")
+        assertEquals("electric_terrain_non_electric_move", fieldDecision(tackle, HnsFieldStatus.ELECTRIC_TERRAIN).rule)
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, tackle.verdict.hnsItemDecisions.single().relevance)
+
+        val waterGun = refusedOf(fieldBuild(terrain, move = "Water Gun", attackerItem = wiseGlasses),
+            "Wise Glasses is relevant to a Special move")
+        assertEquals(HnsFieldRequestRelevance.PROVEN_IRRELEVANT,
+            fieldDecision(waterGun, HnsFieldStatus.ELECTRIC_TERRAIN).relevance)
+        assertFalse(waterGun.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        assertEquals("Damage unavailable · Your Wise Glasses not modelled", cardText(waterGun))
+
+        val thunderShock = refusedOf(fieldBuild(terrain, move = "Thunder Shock", attackerItem = wiseGlasses),
+            "Electric Terrain boosts an Electric move")
+        assertEquals("electric_terrain_electric_move", fieldDecision(thunderShock, HnsFieldStatus.ELECTRIC_TERRAIN).rule)
+        assertEquals(
+            "Damage unavailable · 2 blockers\nField: Electric Terrain (0x00000100)\nYou: Wise Glasses",
+            cardText(thunderShock)
+        )
+
+        // A Hadron Engine attacker keeps its own ability blocker AND the terrain it reads.
+        val hadron = refusedOf(fieldBuild(terrain, attackerAbility = 289 to "Hadron Engine"),
+            "Hadron Engine reads Electric Terrain")
+        assertEquals("electric_terrain_paradox_ability", fieldDecision(hadron, HnsFieldStatus.ELECTRIC_TERRAIN).rule)
+        assertTrue(hadron.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertTrue(hadron.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        assertEquals(
+            "Damage unavailable · 2 blockers\nField: Electric Terrain (0x00000100)\nYou: Hadron Engine",
+            cardText(hadron)
+        )
+    }
+
+    @Test
+    fun `type-based category needs only effective-type authority`() {
+        // TYPE_BASED: Normal Tackle is Physical from its type; Wonder Room does not change the type.
+        val physical = refusedOf(
+            fieldBuild(HnsFieldStatus.WONDER_ROOM.mask, attackerItem = wiseGlasses, optionStyle = 1),
+            "Wonder Room blocks"
+        )
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, physical.verdict.hnsItemDecisions.single().relevance)
+        // Ion Deluge rewrites Normal Tackle to Electric: type (and so TYPE_BASED category) is unknown.
+        val ionDeluge = refusedOf(
+            fieldBuild(HnsFieldStatus.ION_DELUGE.mask, attackerItem = wiseGlasses, optionStyle = 1),
+            "Ion Deluge on a Normal move stays refused"
+        )
+        assertEquals(HnsItemRequestRelevance.UNKNOWN, ionDeluge.verdict.hnsItemDecisions.single().relevance)
+        // Under PER_MOVE_SPLIT the category does not depend on the type rewrite.
+        val perMove = refusedOf(
+            fieldBuild(HnsFieldStatus.ION_DELUGE.mask, attackerItem = wiseGlasses),
+            "Ion Deluge on a Normal move stays refused"
+        )
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, perMove.verdict.hnsItemDecisions.single().relevance)
+    }
+
+    @Test
+    fun `Charcoal clears on a known non-Fire move despite an unrelated field bit`() {
+        val refused = refusedOf(fieldBuild(HnsFieldStatus.WONDER_ROOM.mask, attackerItem = 426), "Wonder Room blocks")
+        val charcoal = refused.verdict.hnsItemDecisions.single()
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, charcoal.relevance)
+        assertEquals("type_item_move_type_mismatch", charcoal.rule)
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        // Missing dynamic-type authority still fails closed.
+        val electrified = refusedOf(
+            fieldBuild(HnsFieldStatus.TRICK_ROOM.mask, attackerItem = 426, electrified = true),
+            "Electrify removes effective-type authority"
+        )
+        assertEquals(HnsItemRequestRelevance.UNKNOWN, electrified.verdict.hnsItemDecisions.single().relevance)
+    }
+
+    @Test
+    fun `an unknown field bit blocks with its preserved mask`() {
+        val refused = refusedOf(fieldBuild(0x2000), "a bit outside the pinned mask must block")
+        val decision = refused.verdict.hnsFieldDecisions.single()
+        assertNull(decision.status)
+        assertEquals(0x2000, decision.rawMask)
+        assertEquals(HnsFieldRequestRelevance.UNKNOWN, decision.relevance)
+        assertEquals("unknown_field_bits", decision.rule)
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        assertEquals("Damage unavailable · Unknown field state 0x00002000\nField: Unknown bits 0x00002000", cardText(refused))
+
+        // An unknown bit also removes effective-type authority, so a co-set terrain cannot be cleared.
+        val mixed = refusedOf(fieldBuild(0x2000 or HnsFieldStatus.ELECTRIC_TERRAIN.mask), "unknown bit blocks")
+        assertEquals(0x2100, mixed.verdict.hnsFieldDiagnostics?.fieldState?.raw)
+        assertEquals(HnsFieldRequestRelevance.UNKNOWN, fieldDecision(mixed, HnsFieldStatus.ELECTRIC_TERRAIN).relevance)
+        assertEquals(
+            "Damage unavailable · 2 field blockers\nElectric Terrain (0x00000100)\nUnknown bits 0x00002000",
+            cardText(mixed)
+        )
+    }
+
+    @Test
+    fun `multiple active field bits are decided independently`() {
+        val word = HnsFieldStatus.MUD_SPORT.mask or HnsFieldStatus.WATER_SPORT.mask or HnsFieldStatus.TRICK_ROOM.mask
+        val refused = refusedOf(fieldBuild(word, move = "Thunder Shock"), "Mud Sport weakens Electric moves")
+        assertEquals(HnsFieldRequestRelevance.RELEVANT, fieldDecision(refused, HnsFieldStatus.MUD_SPORT).relevance)
+        assertEquals(HnsFieldRequestRelevance.PROVEN_IRRELEVANT, fieldDecision(refused, HnsFieldStatus.WATER_SPORT).relevance)
+        assertEquals(HnsFieldRequestRelevance.PROVEN_IRRELEVANT, fieldDecision(refused, HnsFieldStatus.TRICK_ROOM).relevance)
+        assertEquals("Damage unavailable · Mud Sport not modelled\nField: Mud Sport (0x00000008)", cardText(refused))
+
+        val both = refusedOf(fieldBuild(word or HnsFieldStatus.WONDER_ROOM.mask, move = "Thunder Shock"), "two blockers")
+        assertEquals(
+            "Damage unavailable · 2 field blockers\nWonder Room (0x00000004)\nMud Sport (0x00000008)",
+            cardText(both)
+        )
+        readyOf(fieldBuild(word, move = "Tackle"), "no active bit can change Tackle")
+    }
+
+    @Test
+    fun `clearing a field bit never clears another limitation and vice versa`() {
+        // Electric Terrain is irrelevant to Tackle, but the live attacker status still blocks.
+        val status = refusedOf(fieldBuild(HnsFieldStatus.ELECTRIC_TERRAIN.mask, status1 = 0x10), "status blocks")
+        assertEquals(HnsFieldRequestRelevance.PROVEN_IRRELEVANT,
+            fieldDecision(status, HnsFieldStatus.ELECTRIC_TERRAIN).relevance)
+        assertFalse(status.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        assertTrue(status.verdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
+
+        // A relevant item and a relevant field condition are both kept.
+        val both = refusedOf(fieldBuild(HnsFieldStatus.WONDER_ROOM.mask, attackerItem = 425), "Silk Scarf + Wonder Room")
+        assertTrue(both.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertTrue(both.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        assertEquals(
+            "Damage unavailable · 2 blockers\nField: Wonder Room (0x00000004)\nYou: Silk Scarf",
+            cardText(both)
+        )
+
+        // Field + item + unsupported move effect: every blocker stays visible.
+        val three = refusedOf(fieldBuild(HnsFieldStatus.WONDER_ROOM.mask, move = "Water Gun",
+            attackerItem = wiseGlasses, attackerAbility = 62 to "Guts", status1 = 0), "three blocker classes")
+        assertTrue(three.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        assertTrue(three.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        val withMove = refusedOf(fieldBuild(HnsFieldStatus.WONDER_ROOM.mask, move = "Seismic Toss",
+            attackerItem = 425, attackerAbility = 148 to "Analytic"), "field + ability + item + move")
+        assertEquals(
+            "Damage unavailable · 4 blockers\nField: Wonder Room (0x00000004)\nYou: Analytic\nYou: Silk Scarf\nMove effect not modelled",
+            cardText(withMove)
+        )
+    }
+
+    @Test
+    fun `Trick Room is relevant only to an Analytic attacker`() {
+        val ready = readyOf(fieldBuild(HnsFieldStatus.TRICK_ROOM.mask), "Trick Room cannot change Tackle")
+        assertEquals("trick_room_attacker_not_analytic", fieldDecision(ready, HnsFieldStatus.TRICK_ROOM).rule)
+        val analytic = refusedOf(fieldBuild(HnsFieldStatus.TRICK_ROOM.mask, attackerAbility = 148 to "Analytic"),
+            "Analytic reads turn order")
+        assertEquals("trick_room_attacker_analytic", fieldDecision(analytic, HnsFieldStatus.TRICK_ROOM).rule)
+        assertTrue(analytic.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertTrue(analytic.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+    }
+
+    @Test
+    fun `Gravity clears only non-Ground moves that it does not ban`() {
+        val ready = readyOf(fieldBuild(HnsFieldStatus.GRAVITY.mask), "Gravity cannot change Tackle")
+        assertEquals("gravity_non_ground_unbanned_move", fieldDecision(ready, HnsFieldStatus.GRAVITY).rule)
+        val ground = fieldBuild(HnsFieldStatus.GRAVITY.mask, move = "Mud-Slap")
+        assertEquals("gravity_ground_move", fieldDecision(ground, HnsFieldStatus.GRAVITY).rule)
+        assertTrue(ground.verdict().limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        val banned = fieldBuild(HnsFieldStatus.GRAVITY.mask, move = "Floaty Fall")
+        assertEquals("gravity_banned_move", fieldDecision(banned, HnsFieldStatus.GRAVITY).rule)
+    }
+
+    @Test
+    fun `terrain type rules block the boosted or weakened type and clear the rest`() {
+        val cases = listOf(
+            Triple(HnsFieldStatus.MISTY_TERRAIN, "Dragon Breath", "misty_terrain_dragon_move"),
+            Triple(HnsFieldStatus.MISTY_TERRAIN, "Tackle", "misty_terrain_non_dragon_move"),
+            Triple(HnsFieldStatus.PSYCHIC_TERRAIN, "Confusion", "psychic_terrain_psychic_move"),
+            Triple(HnsFieldStatus.PSYCHIC_TERRAIN, "Quick Attack", "psychic_terrain_priority_move"),
+            Triple(HnsFieldStatus.PSYCHIC_TERRAIN, "Tackle", "psychic_terrain_non_psychic_non_priority_move"),
+            Triple(HnsFieldStatus.WATER_SPORT, "Ember", "water_sport_fire_move"),
+            Triple(HnsFieldStatus.GRASSY_TERRAIN, "Vine Whip", "grassy_terrain_grass_move")
+        )
+        for ((status, move, rule) in cases) {
+            val outcome = fieldBuild(status.mask, move = move)
+            assertEquals("$status / $move", rule, fieldDecision(outcome, status).rule)
+            val blocks = outcome.verdict().limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED)
+            assertEquals("$status / $move", !rule.contains("non_"), blocks)
+        }
+        // Grass Pelt reads Grassy Terrain even for a non-Grass move.
+        val pelt = fieldBuild(HnsFieldStatus.GRASSY_TERRAIN.mask, defenderAbility = 179 to "Grass Pelt")
+        assertEquals("grassy_terrain_grass_pelt_defender", fieldDecision(pelt, HnsFieldStatus.GRASSY_TERRAIN).rule)
+        // Gale Wings can grant Flying priority: Psychic Terrain stays unknown.
+        val gale = fieldBuild(HnsFieldStatus.PSYCHIC_TERRAIN.mask, attackerAbility = 177 to "Gale Wings")
+        assertEquals(HnsFieldRequestRelevance.UNKNOWN, fieldDecision(gale, HnsFieldStatus.PSYCHIC_TERRAIN).relevance)
+    }
+
+    @Test
+    fun `Magic Room clears only when both live items are absent or globally neutral`() {
+        readyOf(fieldBuild(HnsFieldStatus.MAGIC_ROOM.mask), "no held items")
+        val neutral = readyOf(fieldBuild(HnsFieldStatus.MAGIC_ROOM.mask, attackerItem = everstone, defenderItem = everstone),
+            "Everstone's hold effect never reaches damage")
+        assertEquals("magic_room_held_items_neutral", fieldDecision(neutral, HnsFieldStatus.MAGIC_ROOM).rule)
+        // Charcoal is itself irrelevant to Tackle, but its suppression is not modelled: Magic Room stays.
+        val charcoal = refusedOf(fieldBuild(HnsFieldStatus.MAGIC_ROOM.mask, attackerItem = 426), "unsupported item held")
+        assertEquals(HnsFieldRequestRelevance.UNKNOWN, fieldDecision(charcoal, HnsFieldStatus.MAGIC_ROOM).relevance)
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, charcoal.verdict.hnsItemDecisions.single().relevance)
+        assertEquals("Damage unavailable · Magic Room not modelled\nField: Magic Room (0x00000001)", cardText(charcoal))
+    }
+
+    @Test
+    fun `Ion Deluge keeps its dynamic-type refusal and is named on the card`() {
+        val refused = refusedOf(fieldBuild(HnsFieldStatus.ION_DELUGE.mask), "Ion Deluge on Normal Tackle")
+        assertEquals("ion_deluge_normal_move", fieldDecision(refused, HnsFieldStatus.ION_DELUGE).rule)
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        assertEquals("Damage unavailable · Ion Deluge not modelled\nField: Ion Deluge (0x00000400)", cardText(refused))
+        // Electrify is a second, independent cause that keeps its own blocker.
+        val electrified = refusedOf(fieldBuild(HnsFieldStatus.ION_DELUGE.mask, electrified = true), "both causes")
+        assertEquals(
+            "Damage unavailable · 2 blockers\nBattle effect not modelled\nField: Ion Deluge (0x00000400)",
+            cardText(electrified)
+        )
+        val waterGun = readyOf(fieldBuild(HnsFieldStatus.ION_DELUGE.mask, move = "Water Gun"), "Ion Deluge ignores Water")
+        assertEquals("ion_deluge_non_normal_move", fieldDecision(waterGun, HnsFieldStatus.ION_DELUGE).rule)
     }
 }

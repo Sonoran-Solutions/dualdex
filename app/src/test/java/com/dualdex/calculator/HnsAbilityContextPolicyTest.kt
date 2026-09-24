@@ -95,7 +95,7 @@ class HnsAbilityContextPolicyTest {
     }
 
     @Test
-    fun `Guts uses side status category and dynamic type authority`() {
+    fun `Guts uses side status and category authority`() {
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             relevance(62, context(side = HnsAbilitySide.DEFENDER, attackerStatus1 = null,
                 moveCategory = null)))
@@ -107,9 +107,13 @@ class HnsAbilityContextPolicyTest {
             relevance(62, context(moveCategory = MoveCategory.PHYSICAL, attackerStatus1 = 0x10)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(62, context(moveCategory = MoveCategory.PHYSICAL, attackerStatus1 = null)))
+        // Category authority is its own operand (HnsMoveAuthority): without it Guts stays unknown,
+        // whatever the effective-type authority says.
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(62, context(moveCategory = MoveCategory.PHYSICAL, attackerStatus1 = 0,
-                dynamicMoveTypeKnownNeutral = false)))
+            relevance(62, context(moveCategory = null, attackerStatus1 = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(62, context(moveCategory = MoveCategory.SPECIAL, attackerStatus1 = 0x10,
+                moveType = null, dynamicMoveTypeKnownNeutral = false)))
     }
 
     @Test
@@ -122,8 +126,7 @@ class HnsAbilityContextPolicyTest {
             assertEquals(HnsAbilityRequestRelevance.RELEVANT,
                 relevance(id, context(moveCategory = MoveCategory.PHYSICAL)))
             assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-                relevance(id, context(moveCategory = MoveCategory.SPECIAL,
-                    dynamicMoveTypeKnownNeutral = false)))
+                relevance(id, context(moveCategory = null)))
         }
     }
 

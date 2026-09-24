@@ -747,10 +747,15 @@ observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` re
 
 * **ordinary move** — `HnsMoveMechanicsRegistry` `ORDINARY_PROVEN_EQUIVALENT` (single hit) and no
   move/item interaction;
-* **effective type/category** — accepted only when the live Electrify/field words are observed neutral
-  (`gFieldStatuses == 0`), the live attacker gimmick is none, and the live attacker ability is known and
-  not one `GetDynamicMoveType` reads (Normalize, Refrigerate, Pixilate, Aerilate, Liquid Voice, Galvanize);
-* live `gFieldStatuses`, `gBattleWeather`, defender HP/maxHP, and the effective attacker ability ID.
+* **effective type / category** — from `HnsMoveAuthority`, each with only the evidence it needs (§15.4):
+  the type needs an ordinary move, an observed GIMMICK_NONE attacker, a known attacker ability that
+  `GetDynamicMoveType` does not read (Normalize, Refrigerate, Pixilate, Aerilate, Liquid Voice,
+  Galvanize), Electrify observed false and a fully decoded field word without Ion Deluge on a Normal
+  move; the category is the pinned per-move category under PER_MOVE_SPLIT (no field bit changes it)
+  and the effective type's category under TYPE_BASED. An unrelated field bit (terrain, a room,
+  Gravity, ...) no longer makes either unknown;
+* the decoded live `gFieldStatuses` word (Wonder Room / terrain bits where a rule actually reads them),
+  `gBattleWeather`, defender HP/maxHP, and the effective attacker ability ID.
 
 | Family | Proven irrelevant | Still blocked |
 |---|---|---|
@@ -761,8 +766,8 @@ observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` re
 | Light Ball, Ogerpon masks, Punching Glove | Defender side | Attacker side (species / punching flag unobserved) |
 | Life Orb, Expert Belt, Metronome | Defender side | Attacker side |
 | Scope Lens, Lucky Punch, Leek | Defender side | Attacker side (critical odds, as for defender Battle Armor) |
-| Assault Vest, Deep Sea Scale | Attacker side; defender vs an authoritative Physical move with no field status (no Wonder Room) | Special move; unknown category/field word |
-| Metal Powder | Attacker side; defender vs an authoritative Special move with no field status | Physical move (species) |
+| Assault Vest, Deep Sea Scale | Attacker side; defender vs an authoritative Physical move with Wonder Room observed inactive | Special move; Wonder Room; unknown category, unread field word or unknown field bit |
+| Metal Powder | Attacker side; defender vs an authoritative Special move with Wonder Room observed inactive | Physical move (species); Wonder Room |
 | Eviolite, Ring Target | Attacker side | Defender side |
 | Resist berries | Attacker side; defender vs a different authoritative effective type | Matching type (effectiveness not proven); unknown type |
 | Focus Sash | Attacker side; defender whose live HP < maxHP | Full-HP defender; unknown HP |
@@ -770,7 +775,7 @@ observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` re
 | Post-hit / residual (Leftovers, Black Sludge, Shell Bell, Rocky Helmet, HP/status/confusion/pinch berries, Weakness Policy, herbs, orbs, …) | Either side for an ordinary single-hit move: every activation is an `ItemBattleEffects` call in a `MoveEnd` handler, at end of turn, at switch-in or from an event script | Non-ordinary or unknown move |
 | Turn order (Choice Scarf, Quick Claw, Custap Berry, Lagging Tail, Macho Brace, Power items, Quick Powder) | Either side for an ordinary move when the live attacker ability is known and not Analytic | Attacker Analytic; unknown ability; non-ordinary move |
 | Float Stone | Either side for an ordinary move | Non-ordinary move |
-| Air Balloon, Iron Ball | Attacker with no field status; defender with no field status and a non-Ground effective move (Iron Ball also needs the turn-order predicate) | Ground move; any field status; unknown type |
+| Air Balloon, Iron Ball | Attacker with no terrain bit; defender with no terrain bit and a non-Ground effective move (Iron Ball also needs the turn-order predicate) | Ground move; an active/unread terrain or unknown field bit; unknown type |
 | Utility Umbrella | Either side for an ordinary move with observed clear weather | Sun/rain; unobserved weather |
 
 Survival items are handled conservatively: a defender Focus Sash at full HP and any defender Focus Band
@@ -778,7 +783,7 @@ keep blocking, because the displayed range/percentage would overstate the HP los
 split was deliberately not introduced.
 
 On the Battle tab every refusal keeps its blockers structured (`DamageBlockerPresentation`: State,
-Ability, Item, Mechanic). One blocker renders as e.g. `Damage unavailable · Your Charcoal not modelled`,
+Field, Weather, SideStatus, Ability, Item, Mechanic — §15.7). One blocker renders as e.g. `Damage unavailable · Your Charcoal not modelled`,
 `Damage unavailable · Foe's Focus Sash not modelled` or `Damage unavailable · Your Red Orb not yet
 audited` (the name is the pinned `gItemsInfo` name of the exact numeric ID). Several render as a typed
 count and one short line each (`2 item blockers` / `You: Silk Scarf` / `Foe: Focus Sash`, or `3 blockers`
@@ -829,11 +834,11 @@ Recorded so they are not mistaken for oversights. Each is a deliberate scope bou
    for the ordinary physical, special, STAB, crit, stat stage, badge boost, weather, and screen paths
    (native `test_js_calc.c` fixtures matching the independent C oracle), but full end-to-end loop
    validation against an official running ROM remains an open beta gate.
-6. **Snow, terrain and modern side conditions** are refused rather than approximated, because the
+6. **Snow, terrain and modern side conditions** in a *manual* request are refused rather than approximated, because the
    ADV pipeline accepts the fields and ignores them — the worst possible failure mode. The Calc
    screen only offers Sun/Rain/Sand/Hail, so this gate is invisible in the UI today; it exists to
    stop a future screen (or the battle console) from sending a value the engine would treat as *no
-   weather*.
+   weather*. (Live H&S terrain and room state is the separate, per-request decision of §15.)
 
 ---
 
@@ -1920,6 +1925,10 @@ path, so the positive control is unchanged.
 
 ### 14.5.1 Field-status resolution
 
+> **Superseded by §15.** The global "only Ion Deluge is supported" mask below was the C4e rule. Each
+> active bit is now decided per request by `HnsFieldContextPolicy`; the historical text is kept for
+> provenance.
+
 The boundary binds the battle-global `gFieldStatuses` word (both battle-level observations must read
 it and agree). The policy then applies the explicit supported mask from §14.1.3:
 
@@ -2182,8 +2191,8 @@ still green; C4e adds the pinch-ability fixtures alongside it.
   (§14.11) but no positive transition.
 * Active dynamic-type retypes, active Glaive Rush, active Charge on an Electric move, active Tar
   Shot on a Fire move, any active persistent volatile (Foresight, Miracle Eye, Ingrain/Smack
-  Down/Telekinesis/Magnet Rise, Roost, Gastro Acid suppression, Substitute, Endure), unmodelled
-  field statuses (Wonder Room, Gravity, terrain, Mud/Water Sport),
+  Down/Telekinesis/Magnet Rise, Roost, Gastro Acid suppression, Substitute, Endure), field
+  statuses not proven irrelevant to the request (§15; Wonder Room always, unknown bits always),
   active gimmicks, non-neutral live status, unread or unmodelled live weather (including the primal
   bits) / defender-side screens, a live topology that is not the observed Singles `2` (an unread or
   disagreeing `gBattlersCount`, or an observed `4`), relevant or unknown unsupported ability
@@ -2209,3 +2218,227 @@ are not newly supported; positive badge runtime Golden D and positive transient 
 not newly proven, and crit Golden E remains indirect. These are follow-up evidence/support work,
 not additional requirements for the accepted #9 closure. #40 is a separate, broader gate
 (hardware, maps, lifecycle, cheats, Assistant, release) and remains open.
+
+---
+
+## 15. Live field state (`gFieldStatuses`) — decoder, source audit and request-local relevance
+
+**Trigger.** On an AYN Thor, a fresh Random Abilities battle showed `Damage unavailable · 2
+blockers` / `Field condition not modelled` / `You: Wise Glasses`. The user had not set a terrain or
+room. Two defects are fixed here. First, the UI collapsed every field, weather and side condition into
+one label and never said which bit it read. Second, the item and ability context policies required
+`gFieldStatuses == 0` before they would treat the move's type **or category** as authoritative. That
+made an obvious "Wise Glasses cannot boost a Physical move" undecidable whenever any unrelated field
+bit was set.
+
+Authority: `PokemonHnS-Development/pokehns-expansion` `Release-v2.0.5`
+(`1f42b74dff0e9fe942419845d040663dd829a973`), ROM SHA-256
+`edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`. The reader address is unchanged:
+`gFieldStatuses` at EWRAM `+0x2F4`, verified by the C4e official-ROM evidence
+(`fieldStatusesReadable=1`, `fieldStatuses=0x00000000` on the neutral golden). Nothing found in this
+work contradicts it, so the reader was not rewritten.
+
+### 15.1 Pinned bit table (generated, source-checked)
+
+| Bit | Mask | Pinned symbol | Condition | Damage-path reads for an ordinary hit (`field_audit.json`) |
+|---:|---|---|---|---|
+| 0 | `0x00000001` | `STATUS_FIELD_MAGIC_ROOM` | Magic Room | `GetBattlerHoldEffectInternal` returns `HOLD_EFFECT_NONE` for every holder (items, grounding, speed) |
+| 1 | `0x00000002` | `STATUS_FIELD_TRICK_ROOM` | Trick Room | turn order only (`GetWhichBattlerFasterArgs`); reaches damage only via the attacker's Analytic |
+| 2 | `0x00000004` | `STATUS_FIELD_WONDER_ROOM` | Wonder Room | `CalcDefenseStat` swaps Defense/Sp. Def **and** `usesDefStat` (Marvel Scale, Fur Coat, Grass Pelt, Assault Vest, Metal Powder, Deep Sea Scale, Ruin, weather Def/SpDef boosts); paradox stat choice |
+| 3 | `0x00000008` | `STATUS_FIELD_MUDSPORT` | Mud Sport | Electric move ×0.33 |
+| 4 | `0x00000010` | `STATUS_FIELD_WATERSPORT` | Water Sport | Fire move ×0.33 |
+| 5 | `0x00000020` | `STATUS_FIELD_GRAVITY` | Gravity | groundedness (Ground-move immunity/effectiveness, terrain checks); `gravityBanned` moves fail; accuracy (not part of the range) |
+| 6 | `0x00000040` | `STATUS_FIELD_GRASSY_TERRAIN` | Grassy Terrain | grounded attacker's Grass ×1.3; defender Grass Pelt; Grassy Glide priority (turn order) |
+| 7 | `0x00000080` | `STATUS_FIELD_MISTY_TERRAIN` | Misty Terrain | Dragon ×0.5 against a grounded target |
+| 8 | `0x00000100` | `STATUS_FIELD_ELECTRIC_TERRAIN` | Electric Terrain | grounded attacker's Electric ×1.3; Quark Drive (attacker/defender); Hadron Engine (attacker); Surge Surfer / Quark Drive speed |
+| 9 | `0x00000200` | `STATUS_FIELD_PSYCHIC_TERRAIN` | Psychic Terrain | grounded attacker's Psychic ×1.3; a positive-priority move fails against a grounded target |
+| 10 | `0x00000400` | `STATUS_FIELD_ION_DELUGE` | Ion Deluge | `SetTypeBeforeUsingMove`: Normal → Electric (and so TYPE_BASED category) |
+| 11 | `0x00000800` | `STATUS_FIELD_FAIRY_LOCK` | Fairy Lock | `CanBattlerEscape` only |
+| — | `0x000003C0` | `STATUS_FIELD_TERRAIN_ANY` | any terrain | composition of bits 6–9 |
+
+`tools/hns-field-status/generate_hns_field_status.py` parses these `#define`s from the pinned
+`include/constants/battle.h` (it refuses any form other than `(1 << n)` or an OR of field symbols). It
+emits the `HnsFieldStatus` enum and `HnsFieldStatusData` constants
+(`app/src/main/java/com/dualdex/pokemon/hns/HnsFieldStatusData.kt`) and the native
+`native/src/hns_field_status_gen.h`. No mask is hand-written anywhere else: `HnsBattlerRuntimeStateIds`
+and the reader config's Ion Deluge mask use the generated values. `--check` runs in `./ci.sh
+source-check` and fails on any of these:
+- a moved, renamed, added, removed or bit-sharing symbol, or a changed `TERRAIN_ANY` composition;
+- a new, moved or removed pinned field-status reference;
+- stale evidence text;
+- a rule that is reviewed but not implemented, or implemented but not reviewed;
+- an ordinary move that declares a terrain boost;
+- a regenerated artifact that differs from the committed one.
+
+The self-contained drift tests (`test_generate_hns_field_status.py`, in `./ci.sh test`) prove that
+each of those mutations fails.
+
+### 15.2 Source dependency audit
+
+`tools/hns-field-status/field_audit.json` records, for each of the 12 bits:
+- the set, clear and read sites;
+- pinned damage evidence;
+- the `affects` matrix (move type, category, base power, Attack/Sp. Atk, Defense/Sp. Def, final damage,
+  type effectiveness, turn order, move failure, item activation, ability activation);
+- the request operands a proof needs;
+- the reviewed rules and the fail-closed fallback.
+
+The reference inventory covers every pinned `src/**/*.c` reference (AI, debug, animation and bg
+excluded) to any of these tokens, grouped by enclosing definition (91 sites):
+- the field symbols, `gFieldStatuses` and `ctx->fieldStatuses`;
+- the terrain helpers, `IsBattlerGrounded[InverseCheck]`, `IsGravityPreventingMove`/`IsMoveGravityBanned`;
+- the sport helpers and `IsLastMonToMove`.
+
+Each site carries a reviewed `use` and a damage disposition:
+- `ordinary`: on the single-hit `EFFECT_HIT` path;
+- `excluded`: reachable only through a non-ordinary effect such as Terrain Pulse, Grav Apple, Nature
+  Power, Expanding Force, Steel Roller, Natural Gift or Fling;
+- `none`: set/clear, status prevention, selection, speed, post-damage or end-of-turn.
+
+Relevance is never inferred from a field's name.
+
+Move facts are derived from the pinned move table with the same ordinary-move extraction as
+`tools/hns-move-mechanics`:
+- Gravity-banned ordinary moves: `{Floaty Fall}`;
+- ordinary moves whose priority can be positive (literal > 0, an unprovable expression, or a
+  healing move that Triage raises by +3): Quick Attack, Mach Punch, Extreme Speed, Feint, Vacuum Wave,
+  Bullet Punch, Ice Shard, Shadow Sneak, Aqua Jet, Accelerock, Jet Punch;
+- ordinary terrain-boost moves: none, and the generator fails if one appears.
+
+### 15.3 Decoder and raw-word preservation
+
+The native reader stores the 32-bit word **unmasked** (a readable `0` is an observed clear field,
+never "unread"). JNI passes it bit-for-bit as `jint`, and `CalcRequestBoundary` binds it only when both
+battle-level observations read it and agree (a torn read stays null).
+`HnsFieldState.decode(raw)` = `(raw, active: Set<HnsFieldStatus>, unknownMask = raw & ~0x00000FFF)`.
+Every verdict for a live H&S request carries the raw word in
+`CalcCapabilityVerdict.hnsFieldDiagnostics`, next to the separate `gBattleWeather` word, the defender
+`gSideStatuses` word and the attacker Electrify volatile. `hnsFieldDecisions` holds one decision per
+active pinned bit, plus one for any unknown bits. Native host tests
+(`test_hns_field_statuses_raw_word`) prove all of the following:
+- the address stays `+0x2F4`;
+- zero stays readable;
+- each of the 12 bits, combinations, `0x2000`, `0x80000100` and `0xFFFFFFFF` survive unchanged;
+- both observations agree.
+
+### 15.4 Move-type vs move-category authority (`HnsMoveAuthority`)
+
+The old single `typeAuthoritative` flag (which included `fieldStatuses == 0`) authorised both type and
+category. It is split into three operands. Item, ability and field rules each consume only what they
+need.
+
+| Operand | Authoritative when | Why (pinned) |
+|---|---|---|
+| `preFieldType` | ordinary move, live state, attacker gimmick observed `GIMMICK_NONE`, attacker ability known and not Normalize/Refrigerate/Pixilate/Aerilate/Liquid Voice/Galvanize | `GetDynamicMoveType` rewrites an ordinary move only through those abilities or a Dynamax/Z gimmick |
+| `effectiveType` | `preFieldType` known, Electrify observed false, field word read and fully decoded, and not (Ion Deluge ∧ Normal) | `SetTypeBeforeUsingMove`: only Electrify and Ion-Deluge-on-Normal retype an ordinary move; Terrain Pulse / Weather Ball are never ordinary; an unknown bit is never assumed harmless |
+| `category` | **PER_MOVE_SPLIT**: ordinary move, live state, GIMMICK_NONE → the pinned per-move category. **TYPE_BASED**: `gTypesInfo[effectiveType].damageCategory` | `GetBattleMoveCategory`: only Z/Max moves and the category-swapping effects (none ordinary) change it; `optionStyle == 1` uses the dynamic type |
+
+Consequences:
+- Choice Band / Wise Glasses / Muscle Band need only the category.
+- Charcoal / Plates / Gems / resist berries / signature orbs need only the effective type.
+- Focus Sash needs only defender HP/maxHP.
+- Assault Vest / Metal Powder / Deep Sea Scale need the category and Wonder Room observed inactive.
+- Air Balloon / Iron Ball need no terrain bit.
+
+The ability rules (Guts, Huge/Pure Power, Thick Fat, Levitate, Adaptability) use the same authority,
+so a terrain no longer blocks, for example, "Guts cannot boost a Special move".
+
+### 15.5 Request-local field rules (`HnsFieldContextPolicy`)
+
+Every active bit is decided independently. PROVEN_IRRELEVANT removes only that bit's
+`HNS_FIELD_STATUS_NOT_MODELLED` contribution. RELEVANT and UNKNOWN block. A non-ordinary or unknown
+move leaves every contextual bit UNKNOWN (the move blocker applies independently anyway).
+
+| Condition | Proven irrelevant (rule) | Relevant / kept blocking |
+|---|---|---|
+| Magic Room | both authoritative live battle-effective items are `ITEM_NONE` or globally `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` (`magic_room_held_items_neutral`) — no H&S item is modelled by the engine, so suppressing a neutral hold effect changes nothing | any other held item or an unread item (UNKNOWN): suppression of a damage-relevant hold effect is not modelled |
+| Trick Room | attacker's effective ability known and not Analytic (`trick_room_attacker_not_analytic`) | Analytic attacker (`trick_room_attacker_analytic`) |
+| Wonder Room | — | always (`wonder_room_swaps_defensive_stat`): equal raw Def/SpDef would not neutralise the `usesDefStat` flip |
+| Mud Sport / Water Sport | effective type not Electric / not Fire | Electric / Fire |
+| Gravity | effective type not Ground and the move not `gravityBanned` | Ground move; Floaty Fall |
+| Grassy Terrain | effective type not Grass, defender not Grass Pelt, attacker not Analytic | Grass move; Grass Pelt; Analytic (Grassy Glide priority) |
+| Misty Terrain | effective type not Dragon | Dragon |
+| Electric Terrain | effective type not Electric, no Quark Drive on either side, attacker not Hadron Engine / Analytic | Electric move; Quark Drive / Hadron Engine (their ability blockers remain too); Analytic |
+| Psychic Terrain | effective type not Psychic, pinned priority provably ≤ 0 (not a healing move), attacker ability known and not Gale Wings | Psychic move; positive-priority move; Gale Wings attacker (UNKNOWN) |
+| Ion Deluge | pre-field type not Normal (`ion_deluge_non_normal_move`) | Normal move: refused with the **unchanged** `HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED` (C4e behaviour) and named on the card |
+| Fairy Lock | always (`fairy_lock_escape_only`) | — |
+| any bit outside `0x00000FFF` | — | always UNKNOWN (`unknown_field_bits`), mask preserved |
+
+The final verdict is the union of independent limitations. A cleared field bit never clears an
+ability, item, item-dependent-move, move-mechanic, status, weather, screen, volatile, gimmick,
+challenge or species/type limitation. A cleared item or ability never clears a field bit.
+
+**Deliberately still blocking.** These are out of scope and not modelled: Wonder Room arithmetic,
+terrain modifiers, Magic Room suppression of damage-relevant items, Trick Room turn simulation for
+Analytic, Gravity on Ground moves, Ion Deluge's active Electric rewrite, positive-priority moves under
+Psychic Terrain, and every unknown bit. Weather and side statuses keep their own C4e rules (§14.7.1).
+Doubles remains refused.
+
+### 15.6 Wise Glasses regression (the Thor symptom)
+
+Setup: exact H&S, ordinary Singles, attacker Wise Glasses, a non-zero live field word, PER_MOVE_SPLIT.
+
+| Move | Field word | Result |
+|---|---|---|
+| Tackle (Physical) | Wonder Room `0x00000004` | Wise Glasses **PROVEN_IRRELEVANT** (`special_only_item_physical_move`); card: `Damage unavailable · Wonder Room not modelled` / `Field: Wonder Room (0x00000004)` — one blocker |
+| Water Gun (Special) | Wonder Room `0x00000004` | Wise Glasses RELEVANT; card: `Damage unavailable · 2 blockers` / `Field: Wonder Room (0x00000004)` / `You: Wise Glasses` |
+| Tackle | Electric Terrain `0x00000100` | both proven irrelevant → **Ready** (estimate shown) |
+| Water Gun | Electric Terrain `0x00000100` | terrain irrelevant; card: `Damage unavailable · Your Wise Glasses not modelled` |
+| Thunder Shock (Special, Electric) | Electric Terrain `0x00000100` | `2 blockers` / `Field: Electric Terrain (0x00000100)` / `You: Wise Glasses` |
+
+These are asserted through the real `CalcRequestBoundary`
+(`CalcHnsC4eProductionBoundaryTest`) and the Battle move-card model (`BattleConsoleTest`).
+
+### 15.7 Battle-tab presentation and on-device diagnosis
+
+`DamageBlockerPresentation` has separate `Field`, `Weather` and `SideStatus` classes alongside State,
+Ability, Item and Mechanic. Terrain, weather and a screen are therefore never the same label:
+
+- `Damage unavailable · Electric Terrain not modelled` / `Field: Electric Terrain (0x00000100)`. A
+  single field blocker always shows its observed mask.
+- `Damage unavailable · 2 field blockers` / `Wonder Room (0x00000004)` / `Mud Sport (0x00000008)`
+- `Damage unavailable · Unknown field state 0x00002000` / `Field: Unknown bits 0x00002000`
+- `Damage unavailable · 4 blockers` / `Field: Wonder Room (0x00000004)` / `You: Analytic` /
+  `You: Silk Scarf` / `Move effect not modelled`
+- `Weather: not modelled (0x0020)` and `Foe side: not modelled (0x00000100)` are separate blockers.
+
+The Battle status panel gains a **Field** row, e.g. `Trick Room + Electric Terrain (0x00000102)`,
+`clear (0x00000000)`, or `Unread` for a torn or unread word. The word is logged (tag
+`DualDexHnsField`, `H&S gFieldStatuses …`) once per change. The next device run therefore records
+exactly which bit DualDex reads.
+
+### 15.8 Why a fresh battle can already have field state
+
+`gFieldStatuses = 0` at `BattleStartClearSetData` (`src/battle_main.c:3232`) and at
+`FreeBattleResources`. Before the first move it can then be set by:
+
+- **Trainer starting statuses** (`TryFieldEffects(FIELD_EFFECT_TRAINER_STATUSES)`, which reads
+  `gStartingStatuses`, filled from the trainer's `startingStatus`). No pinned H&S trainer declares
+  one (`src/data/trainers_hns.h` / `.party`), so this does not occur in H&S 2.0.5.
+- **Overworld terrain** (`FIELD_EFFECT_OVERWORLD_TERRAIN`). This is compiled off: `B_THUNDERSTORM_TERRAIN
+  FALSE` and `B_OVERWORLD_FOG GEN_3` in `include/config/battle.h`.
+- **Switch-in abilities**: Electric Surge and Hadron Engine (Electric Terrain), Grassy Surge, Misty
+  Surge and Psychic Surge, via `AbilityBattleEffects` → `TryChangeBattleTerrain`. **With Random
+  Abilities either lead can carry one**, so a "fresh" battle can legitimately start with a terrain bit.
+- Rooms, Gravity, the Sports, Fairy Lock, Ion Deluge, Seed Sower and terrain moves only set bits once a
+  move or its effect runs.
+
+"Fresh battle" therefore does not imply "no field state" in a Random Abilities run.
+
+### 15.9 The Thor observation
+
+The raw bit has not been captured, so the exact bit cannot be named. In pinned H&S 2.0.5 the only
+pre-move sources are the switch-in terrain abilities (§15.8), so under Random Abilities the leading
+explanation is a terrain bit (most likely Electric Terrain `0x00000100` from Electric Surge or Hadron
+Engine, or another Surge's terrain).
+
+The observed card is consistent with any non-zero word. Before this change, *every* non-zero word made
+Wise Glasses UNKNOWN whatever the move's category, and added the generic field blocker.
+
+After this change the same battle tells us exactly what was read: the status row, a
+`Field: <condition> (0x…)` line and the `DualDexHnsField` log line. If it is a terrain, Physical moves
+and non-matching types stop showing both blockers. Nothing in this analysis suggests the `+0x2F4`
+reader is wrong.
+
+When a device capture identifies the exact mask, it should be added as a named regression next to the
+§15.6 cases.

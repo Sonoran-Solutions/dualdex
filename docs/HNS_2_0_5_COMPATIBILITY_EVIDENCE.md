@@ -3939,23 +3939,51 @@ While Wise Glasses was previously proven irrelevant to Physical moves (`special_
 In pinned upstream H&S 2.0.5 (`1f42b74dff0e9fe942419845d040663dd829a973`):
 - `include/constants/hold_effects.h`: `HOLD_EFFECT_WISE_GLASSES` is hold effect 94.
 - `src/data/items.h`: Item 476 (`ITEM_WISE_GLASSES`) has `holdEffect = HOLD_EFFECT_WISE_GLASSES`, `holdEffectParamAtk = 10`.
-- `src/battle_util.c:6817-6819`: In `CalculateBasePower`, the attacker's held item effect is applied directly to base power:
+- `src/battle_util.c:6817-6819`: In `CalcMoveBasePowerAfterModifiers(struct BattleContext *ctx)`:
 ```c
     case HOLD_EFFECT_WISE_GLASSES:
-        if (IS_MOVE_SPECIAL(move))
-            n = 4505;
+        if (IsBattleMoveSpecial(move))
+            modifier = uq4_12_multiply(
+                modifier,
+                uq4_12_add(
+                    UQ_4_12(1.0),
+                    PercentToUQ4_12_Floored(holdEffectParamAtk)
+                )
+            );
         break;
 ```
-Following the switch block, `CalculateBasePower` applies `n` to base power `sp`:
+The fixed-point math (`include/fpmath.h:15,40-43` and `src/battle_util.c:985-988`) computes:
+- `UQ_4_12(1.0) = (uq4_12_t)(1.0 * 4096 + 0.5) = 4096`
+- `PercentToUQ4_12_Floored(10) = (4096 * 10) / 100 = 409`
+- `uq4_12_add(4096, 409) = 4505`
+- The ratio `4505 / 4096 = 1.099853515625` (+9.985% boost, floored integer percentage representation).
+
+At the end of `CalcMoveBasePowerAfterModifiers` (`src/battle_util.c:6871`), the modifier is applied to `basePower` via:
 ```c
-    if (n != 0)
-        sp = (sp * n) / 4096; // integer truncation
+    return uq4_12_multiply_by_int_half_down(modifier, basePower);
 ```
-In the fixed-point modifier convention used across H&S Gen 4/5 items, `4505 / 4096 ≈ 1.1000976` (+10%). Specifically, `tools/calc-bundler/entry.js` models this as:
+Where `uq4_12_multiply_by_int_half_down` (`include/fpmath.h:70-73`) is defined as:
+```c
+static inline u32 uq4_12_multiply_by_int_half_down(uq4_12_t modifier, u32 value)
+{
+    return UQ_4_12_TO_INT((modifier * value) + UQ_4_12_ROUND - 1);
+}
+```
+With `UQ_4_12_ROUND - 1 = 2047` and `UQ_4_12_TO_INT(x) = (u32)(x / 4096)`, this computes:
+`((modifier * value) + 2047) / 4096` (half-down rounding: ties round down).
+
+For example, with BP 40 (Water Gun):
+- Half-down: `(4505 * 40 + 2047) / 4096 = 182247 / 4096 = 44` (boosted base power).
+- In contrast, plain integer truncation would yield `(4505 * 40) / 4096 = 180200 / 4096 = 43`.
+
+In `tools/calc-bundler/entry.js`, `calculateHnsDamage` applies this exact operation:
 ```javascript
+function halfDown(mod, val) {
+  return Math.floor((mod * val + 2047) / 4096);
+}
+...
 else if (item === 'wise glasses' && !isPhysical) bp = halfDown(4505, bp);
 ```
-Where `halfDown(4505, bp)` performs `Math.floor((4505 * bp) / 4096)` (standard half-down rounding for base power modifiers in `calculateHnsDamage`).
 
 ### 15.3 Host C oracle test fixtures (`native/tests/test_js_calc.c`)
 To guarantee that the QuickJS calculator engine reproduces exact H&S damage rolls without drift:

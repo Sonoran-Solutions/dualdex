@@ -221,11 +221,11 @@ object HnsItemRegistry {
      * The engine-adapter spelling for a modelled item, or null when the engine must receive no
      * item at all.
      *
-     * No H&S damage item is modelled today, so this is always null. Every item that reaches the
-     * engine is either globally proven to have no ordinary damage effect, or globally unsupported
-     * but proven irrelevant to that exact request by `HnsItemContextPolicy`; in both cases the
-     * correct engine input is "no item". A MODELLED_* item returns only its explicit adapter
-     * spelling, never its raw H&S source name.
+     * Modelled H&S damage items (such as Wise Glasses) return their explicit engine adapter spelling.
+     * Every other item that reaches the engine is either globally proven to have no ordinary damage
+     * effect, or globally unsupported but proven irrelevant to that exact request by
+     * `HnsItemContextPolicy`; in both cases the correct engine input is "no item" (null). A MODELLED_*
+     * item returns only its explicit adapter spelling, never its raw H&S source name.
      *
      * This stripping is correct only for moves that do not read item state. A move whose semantics
      * DO read item identity/presence/absence must never be allowed to reach this point:

@@ -1769,6 +1769,38 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `Wise Glasses category crossover under PER_MOVE_SPLIT vs TYPE_BASED`() {
+        // Under PER_MOVE_SPLIT (optionStyle = 0): Dragon Claw is Physical.
+        // Wise Glasses is PROVEN_IRRELEVANT (special_only_item_physical_move).
+        // moveOverride.category is "Physical", engine rolls unboosted.
+        val perMoveSplit = readyOf(
+            fieldBuild(0, move = "Dragon Claw", attackerItem = wiseGlasses, optionStyle = 0),
+            "Dragon Claw is Physical under PER_MOVE_SPLIT: Wise Glasses is proven irrelevant"
+        )
+        val perMoveGlasses = perMoveSplit.verdict.hnsItemDecisions.single()
+        assertEquals("Wise Glasses", perMoveGlasses.itemName)
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, perMoveGlasses.relevance)
+        assertEquals("special_only_item_physical_move", perMoveGlasses.rule)
+        assertFalse(perMoveSplit.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals("Physical", perMoveSplit.verdict.request?.moveOverride?.category)
+
+        // Under TYPE_BASED (optionStyle = 1): Dragon Claw (Dragon type) is Special.
+        // Wise Glasses is MODELLED (wise_glasses_special_move).
+        // moveOverride.category is omitted (null), engine applies halfDown(4505, 80) = 88 BP.
+        val typeBased = readyOf(
+            fieldBuild(0, move = "Dragon Claw", attackerItem = wiseGlasses, optionStyle = 1),
+            "Dragon Claw is Special under TYPE_BASED: Wise Glasses is modelled"
+        )
+        val typeBasedGlasses = typeBased.verdict.hnsItemDecisions.single()
+        assertEquals("Wise Glasses", typeBasedGlasses.itemName)
+        assertEquals(HnsItemRequestRelevance.MODELLED, typeBasedGlasses.relevance)
+        assertEquals("wise_glasses_special_move", typeBasedGlasses.rule)
+        assertFalse(typeBased.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertNull(typeBased.verdict.request?.moveOverride?.category)
+        assertEquals("Wise Glasses", typeBased.verdict.request?.attacker?.item)
+    }
+
+    @Test
     fun `device-shaped Electric Terrain from a switch-in surge is decided per move`() {
         // The most likely Thor explanation: a Random Abilities lead with Electric Surge / Hadron
         // Engine sets Electric Terrain (0x00000100) on switch-in, before any move is chosen.

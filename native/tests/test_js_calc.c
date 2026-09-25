@@ -3809,6 +3809,68 @@ static void check_gap_c4f_wise_glasses(void) {
         }
     }
 
+    /* Test 6: Category crossover (Dragon Claw, BP 80, Dragon).
+     * Under PER_MOVE_SPLIT (optionStyle = 0): Dragon Claw is Physical -> Wise Glasses
+     * is irrelevant, moveOverride.category is "Physical", engine rolls unboosted at BP 80.
+     * Under TYPE_BASED (optionStyle = 1): Dragon type is Special under Gen III rules ->
+     * Wise Glasses applies, moveOverride.category is omitted (null), engine applies
+     * halfDown(4505, 80) = 88 BP.
+     */
+    g_fixture = "gap_c4f_wise_glasses_category_crossover_dragon_claw";
+    {
+        /* PER_MOVE_SPLIT: category "Physical" in move overrides.
+         * Porygon raw Atk: 15, Croconaw raw Def: 20. Unboosted BP 80. */
+        const char* req_split =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Porygon\",\"level\":10,\"ability\":\"(other)\",\"item\":\"Wise Glasses\","
+            "\"rawStats\":{\"attack\":15,\"defense\":17,\"speed\":12,\"spAttack\":22,\"spDefense\":19},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Croconaw\",\"level\":10,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Water\"]},"
+            "\"rawStats\":{\"attack\":21,\"defense\":20,\"speed\":16,\"spAttack\":17,\"spDefense\":18},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Dragon Claw\",\"overrides\":{\"basePower\":80,\"type\":\"Dragon\",\"category\":\"Physical\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+
+        /* TYPE_BASED: category omitted in move overrides, Gen III type-based treats Dragon as Special.
+         * Porygon raw SpA: 22, Croconaw raw SpD: 18. Boosted BP = halfDown(4505, 80) = 88. */
+        const char* req_type_based =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Porygon\",\"level\":10,\"ability\":\"(other)\",\"item\":\"Wise Glasses\","
+            "\"rawStats\":{\"attack\":15,\"defense\":17,\"speed\":12,\"spAttack\":22,\"spDefense\":19},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Croconaw\",\"level\":10,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Water\"]},"
+            "\"rawStats\":{\"attack\":21,\"defense\":20,\"speed\":16,\"spAttack\":17,\"spDefense\":18},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Dragon Claw\",\"overrides\":{\"basePower\":80,\"type\":\"Dragon\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+
+        /* Split oracle: Physical, BP 80, Atk 15, Def 20, no STAB, 1.0x */
+        hns_ordinary_rolls(10, 80, 15, 20, 0, 1.0, 0, 0, unboosted_oracle);
+        /* Type-based oracle: Special, BP 88 (halfDown(4505, 80)), SpA 22, SpD 18, no STAB, 1.0x */
+        hns_ordinary_rolls(10, 88, 22, 18, 0, 1.0, 0, 0, oracle);
+
+        if (hns_request_rolls(req_split, engine)) {
+            check_condition("PER_MOVE_SPLIT Dragon Claw is Physical and ignores Wise Glasses (BP 80)",
+                            rolls_equal(engine, unboosted_oracle));
+        } else {
+            check_condition("PER_MOVE_SPLIT Dragon Claw request produced a response", 0);
+        }
+
+        if (hns_request_rolls(req_type_based, engine)) {
+            check_condition("TYPE_BASED Dragon Claw is Special and applies Wise Glasses (BP 80 -> 88)",
+                            rolls_equal(engine, oracle));
+        } else {
+            check_condition("TYPE_BASED Dragon Claw request produced a response", 0);
+        }
+
+        check_condition("PER_MOVE_SPLIT Dragon Claw reports Physical category",
+                        hns_response_str_equals(req_split, "moveCategory", "Physical"));
+        check_condition("TYPE_BASED Dragon Claw reports Special category",
+                        hns_response_str_equals(req_type_based, "moveCategory", "Special"));
+    }
+
 #undef HNS_WISE_GLASSES_REQUEST
 }
 

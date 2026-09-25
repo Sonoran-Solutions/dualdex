@@ -1705,12 +1705,13 @@ object CalcCapabilityPolicy {
                 } else {
                     input.ability?.let { com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(it) ?: it }
                 },
-                // Gap C3: no H&S item's damage effect is modelled today. Every item that reaches
-                // this point is either ITEM_NONE or a proven no-ordinary-damage item, so the engine
-                // must receive no item at all. Forwarding the raw H&S source name could silently
-                // match an unrelated ADV item name. A modelled item would be mapped explicitly here.
+                // Items mapped via engineItemName: modelled H&S items (such as Wise Glasses) return
+                // their explicit engine adapter spelling. Globally neutral items or items proven
+                // irrelevant to this request return null so the engine receives no item at all.
+                // Forwarding an unreviewed raw H&S source name could silently match an unrelated ADV
+                // item name.
                 //
-                // Stripping the item is only safe because a move whose damage reads item state is
+                // Stripping non-modelled items is only safe because a move whose damage reads item state is
                 // already refused by HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED in
                 // collectHnsItemDependentMoveLimitation; this method is reached only for an
                 // authorized request. See that gate for the interaction audit.

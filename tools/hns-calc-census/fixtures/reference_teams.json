@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "purpose": [
+    "Reference player teams for the issue #84 trainer blocker census.",
+    "These are MEASUREMENT FIXTURES, not gameplay recommendations: they exist so the census",
+    "has a fixed, committed attacker and defender whose properties are stable and explainable.",
+    "They are small on purpose so every reported number can be traced back to a matchup a human",
+    "can read. Each team's lead ability is deliberately a category-neutral pinch ability",
+    "(Overgrow / Blaze) that is provably INACTIVE at the census baseline's full HP, so the",
+    "census attributes an ability blocker to the trainer Pokemon being measured rather than to",
+    "the fixture. Every move is a pinned ordinary fixed-base-power move, so move-mechanics",
+    "blockers reported by the census belong to the trainer data, not to the fixture."
+  ],
+  "teams": [
+    {
+      "id": "ref-physical",
+      "lead": {
+        "species": "Chikorita",
+        "level": 50,
+        "ability": "Overgrow",
+        "abilityId": 65,
+        "item": null,
+        "itemId": 0,
+        "partySlot": 0,
+        "types": ["Grass"],
+        "moves": ["Tackle", "Razor Leaf", "Body Slam", "Iron Tail"]
+      },
+      "notes": [
+        "Physical-leaning fixture: every move is PHYSICAL, so this team exercises the",
+        "attacker-side physical category and the defender-side category-conditional ability rules.",
+        "Four move types (Normal, Grass, Normal, Steel) so both directions see varied type matchups.",
+        "No held item: an omitted item is the pinned ITEM_NONE, not an unknown."
+      ]
+    },
+    {
+      "id": "ref-special",
+      "lead": {
+        "species": "Cyndaquil",
+        "level": 50,
+        "ability": "Blaze",
+        "abilityId": 66,
+        "item": "WISE GLASSES",
+        "itemId": 476,
+        "partySlot": 0,
+        "types": ["Fire"],
+        "moves": ["Ember", "Swift", "Extrasensory", "Flame Wheel"]
+      },
+      "notes": [
+        "Special-leaning fixture: three SPECIAL moves plus one PHYSICAL, so the census covers the",
+        "special category in both directions without needing a third team.",
+        "Holds Wise Glasses, the one H&S held item the production calculator already models, so the",
+        "fixture also proves a modelled item contributes no blocker on either side."
+      ]
+    }
+  ]
+}

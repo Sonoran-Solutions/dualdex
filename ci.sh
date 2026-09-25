@@ -7,7 +7,8 @@
 #
 #   ./ci.sh test     # native reader suite + H&S tracker selftests +
 #                    # QuickJS calculator suite + data-pack generator tests
-#                    # + Kotlin unit tests
+#                    # + H&S census source-reader tests + Kotlin unit tests
+#                    # (which include the committed issue #84 census artifact check)
 #   ./ci.sh build    # assemble the debug APK
 #   ./ci.sh all      # test then build (default)
 #   ./ci.sh release  # assemble the production-signed release APK (requires
@@ -161,6 +162,13 @@ hns_generator_test() {
   (cd tools/hns-move-mechanics && python3 -m unittest test_generate_hns_move_effects -v)
   echo "== H&S field-status audit generator tests =="
   (cd tools/hns-field-status && python3 -m unittest test_generate_hns_field_status -v)
+  # The issue #84 census' pinned trainer-source reader. Self-contained: it drives the real reader
+  # against synthetic fixtures in the pinned source's own shapes, so it needs no upstream checkout
+  # and pins the fail-closed contract (an unknown trainer or party field, a party pool or
+  # party-order AI flag, a partySize/party mismatch, an unresolvable species/item/move symbol, a
+  # non-constant initializer or a stray preprocessor directive must raise, never be skipped).
+  echo "== H&S trainer census source-reader tests =="
+  (cd tools/hns-calc-census && python3 -m unittest test_hns_trainer_source -v)
 }
 
 # Locate the ARM preprocessor the data-pack generator drives. Fail-closed: the
@@ -493,8 +501,19 @@ source_check() {
   python3 tools/hns-data-pack/generate_hns_data_pack.py \
     --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --verify
 
+  # 2b. The committed issue #84 trainer census inventory must re-derive byte-for-byte from the
+  #     pinned trainer source. It is the input the Kotlin census decides every policy request
+  #     from, so a drift here would silently change what the committed census report measures.
+  #     It reads `src/data/trainers.h` plus the same preprocessed species/ability/move/item
+  #     tables the generators above use, so it runs after they have been verified.
+  echo "== H&S trainer census inventory verification (pinned upstream) =="
+  python3 tools/hns-calc-census/generate_hns_trainer_census.py \
+    --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --check
+
   # 3. The Kotlin tests must re-derive the mapping from that source independently,
-  #    and must fail (not skip) if it is missing or wrong.
+  #    and must fail (not skip) if it is missing or wrong. The issue #84 census runs here too:
+  #    it derives the census from the (now re-verified) inventory and fails when the committed
+  #    `tools/hns-calc-census/census.json.gz` or `docs/HNS_CALC_CENSUS.md` is stale.
   ./gradlew testDebugUnitTest -Pdualdex.hns.upstreamCheck=true
 }
 

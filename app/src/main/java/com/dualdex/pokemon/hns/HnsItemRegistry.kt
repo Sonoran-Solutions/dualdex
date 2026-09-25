@@ -114,9 +114,11 @@ object HnsItemRegistry {
     /**
      * Engine-adapter spellings for MODELLED_* items, keyed by numeric ID. A MODELLED_* item without
      * an explicit adapter here is NOT supported: stripping it would silently drop a modelled effect,
-     * and forwarding its raw H&S name could match an unrelated ADV item. Empty today.
+     * and forwarding its raw H&S name could match an unrelated ADV item.
      */
-    private val modelledEngineAdapters: Map<Int, String> = emptyMap()
+    private val modelledEngineAdapters: Map<Int, String> = mapOf(
+        476 to "Wise Glasses"
+    )
 
     /**
      * Classifies a held item by its exact numeric H&S item ID.

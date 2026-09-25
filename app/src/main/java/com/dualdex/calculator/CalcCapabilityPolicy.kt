@@ -1599,17 +1599,19 @@ object CalcCapabilityPolicy {
         limitations: MutableSet<CalcLimitation>,
         decisions: MutableList<HnsItemRequestDecision>
     ) {
-        // Global capability first; a globally unsupported/unresolved item then gets exactly one
-        // request-local decision, and only PROVEN_IRRELEVANT removes its blocker.
+        // Global capability first; a globally unsupported or modelled item then gets exactly one
+        // request-local decision, and only PROVEN_IRRELEVANT or MODELLED removes its blocker.
         fun classify(id: Int) {
-            if (com.dualdex.pokemon.hns.HnsItemRegistry.isSupportedForDamage(id)) return
+            val entry = com.dualdex.pokemon.hns.HnsItemRegistry.classify(id)
+            if (entry.category == com.dualdex.pokemon.hns.HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT) return
             val side = if (isAttacker) HnsItemSide.ATTACKER else HnsItemSide.DEFENDER
             val decision = HnsItemContextPolicy.assess(
                 itemId = id,
                 context = HnsItemContextPolicy.contextForRequest(request, side, ordinaryMove)
             )
             decisions += decision
-            if (decision.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT) {
+            if (decision.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT &&
+                decision.relevance != HnsItemRequestRelevance.MODELLED) {
                 limitations.add(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED)
             }
         }

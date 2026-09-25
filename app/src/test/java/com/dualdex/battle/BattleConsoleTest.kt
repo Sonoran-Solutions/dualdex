@@ -1659,11 +1659,18 @@ class BattleConsoleTest {
         assertTrue(tackle.damageBlockers.single() is DamageBlockerPresentation.Field)
         assertTrue(tackle.damageItemBlockers.isEmpty())
 
-        // Negative control: Special Water Gun keeps Wise Glasses as a genuine item blocker.
+        // Special Water Gun with Wise Glasses clears the item blocker; only Wonder Room blocks.
         val waterGun = buildHnsPresentation(55, fieldContext(field = 0x4, playerItemId = 476), recordingCalculator(sent))
-        assertEquals("Damage unavailable · 2 blockers\nField: Wonder Room (0x00000004)\nYou: Wise Glasses",
+        assertEquals("Damage unavailable · Wonder Room not modelled\nField: Wonder Room (0x00000004)",
             waterGun.damageUnavailableText)
-        assertEquals(listOf(476), waterGun.damageItemBlockers.map { it.itemId })
+        assertTrue(waterGun.damageItemBlockers.isEmpty())
+        assertEquals(0, sent.size)
+
+        // Negative control: unmodelled Choice Specs (443) stays a genuine item blocker next to Wonder Room.
+        val choiceSpecs = buildHnsPresentation(55, fieldContext(field = 0x4, playerItemId = 443), recordingCalculator(sent))
+        assertEquals("Damage unavailable · 2 blockers\nField: Wonder Room (0x00000004)\nYou: Choice Specs",
+            choiceSpecs.damageUnavailableText)
+        assertEquals(listOf(443), choiceSpecs.damageItemBlockers.map { it.itemId })
         assertEquals(0, sent.size)
     }
 
@@ -1674,6 +1681,12 @@ class BattleConsoleTest {
         assertEquals(DamageConfidence.ESTIMATE, result.damageConfidence)
         assertEquals(1, sent.size)
         assertEquals(0x100, sent.single().hnsLiveBattleState?.fieldStatuses)
+
+        // Special Water Gun with Wise Glasses also reaches an estimate
+        val specialResult = buildHnsPresentation(55, fieldContext(field = 0x100, playerItemId = 476), recordingCalculator(sent))
+        assertEquals(DamageConfidence.ESTIMATE, specialResult.damageConfidence)
+        assertEquals(2, sent.size)
+        assertEquals("Wise Glasses", sent.last().attacker.item)
     }
 
     @Test

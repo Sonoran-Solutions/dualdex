@@ -64,6 +64,7 @@ class HnsItemContextPolicyTest {
     private val irrelevant = HnsItemRequestRelevance.PROVEN_IRRELEVANT
     private val relevant = HnsItemRequestRelevance.RELEVANT
     private val unknown = HnsItemRequestRelevance.UNKNOWN
+    private val modelled = HnsItemRequestRelevance.MODELLED
 
     @Test
     fun `attacker-only items are irrelevant on the defender whatever the move`() {
@@ -85,7 +86,15 @@ class HnsItemContextPolicyTest {
         assertEquals(irrelevant, relevance(choiceSpecs, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.PHYSICAL)))
         assertEquals(relevant, relevance(choiceSpecs, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.SPECIAL)))
         assertEquals(unknown, relevance(choiceSpecs, ctx(HnsItemSide.ATTACKER, moveCategory = null)))
+
         assertEquals(irrelevant, relevance(wiseGlasses, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.PHYSICAL)))
+        assertEquals(modelled, relevance(wiseGlasses, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.SPECIAL)))
+        assertEquals(unknown, relevance(wiseGlasses, ctx(HnsItemSide.ATTACKER, moveCategory = null)))
+
+        val specialDecision = HnsItemContextPolicy.assess(wiseGlasses, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.SPECIAL))
+        assertEquals("wise_glasses_special_move", specialDecision.rule)
+        assertEquals(modelled, specialDecision.relevance)
+        assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, specialDecision.globalCategory)
     }
 
     @Test

@@ -220,7 +220,10 @@ sealed interface DamageBlockerPresentation {
                 mechanics += Mechanic("Ability effect not modelled", abilityLimitation)
             }
             val items = verdict.hnsItemDecisions
-                .filter { it.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT }
+                .filter {
+                    it.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT &&
+                        it.relevance != HnsItemRequestRelevance.MODELLED
+                }
                 .map(::Item)
             val itemLimitation = take(setOf(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
             if (itemLimitation.isNotEmpty() && items.isEmpty()) {

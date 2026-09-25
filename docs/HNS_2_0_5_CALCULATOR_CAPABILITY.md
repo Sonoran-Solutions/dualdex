@@ -644,7 +644,8 @@ an ordinary move and are already refused by the static audit).
 | Deep Sea Tooth / Scale | 399 / 398 | ×2 SpA / SpD for Clamperl (`[src/battle_util.c:7169-7172]`, `:7353-7356]`) | ×2 | `UNSUPPORTED_DAMAGE_RELEVANT` | Not proven ADV-equivalent. |
 | Soul Dew | 400 | ×1.2 Psychic/Dragon base power for the Lati twins (`[src/battle_util.c:6833-6838]`) | ×1.5 SpD (ADV) | `UNSUPPORTED_DAMAGE_RELEVANT` | H&S and ADV semantics differ. |
 | Life Orb / Expert Belt | 479 / 477 | ×1.3 after the roll + 1/10 recoil / ×1.2 on super-effective hits (`[src/battle_util.c:7673-7674]`, `:7669-7671]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Post-Gen-III items. |
-| Muscle Band / Wise Glasses | 475 / 476 | ≈×1.1 physical / special base power (`[src/battle_util.c:6813-6819]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Post-Gen-III items. |
+| Muscle Band | 475 | ≈×1.1 physical base power (`[src/battle_util.c:6813-6816]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Post-Gen-III item. |
+| Wise Glasses | 476 | ×1.1 special base power via `halfDown(4505, bp)` (`[src/battle_util.c:6817-6819]`) | none | `MODELLED_HNS_SPECIFIC` | Modelled in QuickJS engine; host verified against independent C oracle fixtures. |
 | Eviolite / Assault Vest | 494 / 503 | ×1.5 Def / SpD (`[src/battle_util.c:7361-7373]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Evolution state is not in the request shape. |
 | Normal Gem / Fire Gem | 339 / 340 | ×1.3 matching-type base power and consumed (`[src/battle_util.c:6633-6634]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Gem consumption state is not modelled. |
 | Occa Berry | 550 | ×0.5 super-effective Fire damage and consumed (`[src/battle_util.c:7686-7696]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Consumption state is not modelled. |
@@ -760,7 +761,8 @@ observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` re
 | Family | Proven irrelevant | Still blocked |
 |---|---|---|
 | Choice Band, Muscle Band, Thick Club | Defender side; attacker with an authoritative Special move | Physical move (Band: relevant; Club: species unobserved); unknown category |
-| Choice Specs, Wise Glasses, Deep Sea Tooth | Defender side; attacker with an authoritative Physical move | Special move; unknown category |
+| Choice Specs, Deep Sea Tooth | Defender side; attacker with an authoritative Physical move | Special move; unknown category |
+| Wise Glasses | Defender side; attacker with an authoritative Physical move (PROVEN_IRRELEVANT); attacker with an authoritative Special move (MODELLED) | Unknown category |
 | Type boosters, Plates, Gems | Defender side; attacker whose authoritative effective type differs from the pinned `secondaryId` | Matching type; unknown effective type |
 | Lustrous/Adamant/Griseous Orb, Soul Dew | Defender side; attacker whose effective type is outside the two boosted types | Boosted type (species unobserved) |
 | Light Ball, Ogerpon masks, Punching Glove | Defender side | Attacker side (species / punching flag unobserved) |
@@ -2386,10 +2388,11 @@ Setup: exact H&S, ordinary Singles, attacker Wise Glasses, a non-zero live field
 | Move | Field word | Result |
 |---|---|---|
 | Tackle (Physical) | Wonder Room `0x00000004` | Wise Glasses **PROVEN_IRRELEVANT** (`special_only_item_physical_move`); card: `Damage unavailable · Wonder Room not modelled` / `Field: Wonder Room (0x00000004)` — one blocker |
-| Water Gun (Special) | Wonder Room `0x00000004` | Wise Glasses RELEVANT; card: `Damage unavailable · 2 blockers` / `Field: Wonder Room (0x00000004)` / `You: Wise Glasses` |
+| Water Gun (Special) | Wonder Room `0x00000004` | Wise Glasses **MODELLED** (`wise_glasses_special_move`); card: `Damage unavailable · Wonder Room not modelled` / `Field: Wonder Room (0x00000004)` — Wonder Room is the only blocker |
 | Tackle | Electric Terrain `0x00000100` | both proven irrelevant → **Ready** (estimate shown) |
-| Water Gun | Electric Terrain `0x00000100` | terrain irrelevant; card: `Damage unavailable · Your Wise Glasses not modelled` |
-| Thunder Shock (Special, Electric) | Electric Terrain `0x00000100` | `2 blockers` / `Field: Electric Terrain (0x00000100)` / `You: Wise Glasses` |
+| Water Gun | Electric Terrain `0x00000100` | terrain irrelevant; Wise Glasses **MODELLED** → **Ready** (estimate shown) |
+| Water Gun | Clean / neutral field `0x00000000` | Wise Glasses **MODELLED** → **Ready** (estimate shown) |
+| Thunder Shock (Special, Electric) | Electric Terrain `0x00000100` | Wise Glasses **MODELLED**; card: `Damage unavailable · Electric Terrain not modelled` / `Field: Electric Terrain (0x00000100)` |
 
 These are asserted through the real `CalcRequestBoundary`
 (`CalcHnsC4eProductionBoundaryTest`) and the Battle move-card model (`BattleConsoleTest`).

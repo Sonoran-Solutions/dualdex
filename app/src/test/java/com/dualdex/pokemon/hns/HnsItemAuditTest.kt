@@ -71,22 +71,33 @@ class HnsItemAuditTest {
         val expected = HnsItemAuditData.categoryCounts.filterValues { it > 0 }
         assertEquals(expected, counts)
         assertEquals(585, counts[HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT])
-        assertEquals(313, counts[HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT])
+        assertEquals(312, counts[HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT])
         assertEquals(3, counts[HnsItemCategory.UNCLASSIFIED])
-        assertNull("nothing is MODELLED today", counts[HnsItemCategory.MODELLED_EQUIVALENT])
-        assertNull(counts[HnsItemCategory.MODELLED_HNS_SPECIFIC])
+        assertNull("nothing is MODELLED_EQUIVALENT", counts[HnsItemCategory.MODELLED_EQUIVALENT])
+        assertEquals(1, counts[HnsItemCategory.MODELLED_HNS_SPECIFIC])
+        assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, HnsItemRegistry.classify(476).category)
+        assertEquals("Wise Glasses", HnsItemRegistry.engineItemName(476))
+        assertTrue(HnsItemRegistry.isSupportedForDamage(476))
     }
 
     @Test
-    fun `no item name is ever forwarded to the engine`() {
-        for (id in domain) assertNull("item $id", HnsItemRegistry.engineItemName(id))
+    fun `only modelled items are forwarded to the engine`() {
+        for (id in domain) {
+            if (id == 476) {
+                assertEquals("Wise Glasses", HnsItemRegistry.engineItemName(id))
+            } else {
+                assertNull("item $id", HnsItemRegistry.engineItemName(id))
+            }
+        }
         assertNull(HnsItemRegistry.engineItemName(null))
         assertNull(HnsItemRegistry.engineItemName(901))
-        // Supported for damage means exactly the proven-neutral families while nothing is modelled.
+        // Supported for damage means proven-neutral families or modelled items with engine adapters.
         for (id in domain) {
+            val expectedSupported = (id == 476) ||
+                (HnsItemRegistry.classify(id).category == HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT)
             assertEquals(
                 "item $id",
-                HnsItemRegistry.classify(id).category == HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT,
+                expectedSupported,
                 HnsItemRegistry.isSupportedForDamage(id)
             )
         }

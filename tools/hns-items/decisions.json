@@ -834,9 +834,9 @@
       ]
     },
     "HOLD_EFFECT_WISE_GLASSES": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "Modelled in the H&S QuickJS damage calculator: multiplies Special move base power by UQ4.12 4505 (1.0 + 10% floored) using uq4_12_multiply_by_int_half_down per pinned H&S src/battle_util.c:6818. Physical moves and defender hold effect are proven irrelevant.",
       "reviewed_refs": [
         "src/battle_util.c:6817"
       ]

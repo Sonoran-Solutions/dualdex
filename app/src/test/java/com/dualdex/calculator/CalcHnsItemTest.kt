@@ -100,6 +100,34 @@ class CalcHnsItemTest {
         itemIdentity = null
     )
 
+    private fun neutralObservation(
+        partySlot: Int = 0,
+        itemId: Int? = itemNone,
+        battlerIndex: Int = 0
+    ): BattlerRuntimeObservation = BattlerRuntimeObservation(
+        state = HnsBattlerRuntimeState(
+            status = HnsBattlerRuntimeStatus.OBSERVED,
+            battlerIndex = battlerIndex,
+            partySlot = partySlot,
+            abilityId = 0,
+            abilityOutOfDomain = false,
+            types = emptyList(),
+            itemId = itemId,
+            itemOutOfDomain = false,
+            fieldStatusesReadable = true,
+            fieldStatuses = 0,
+            weatherReadable = true,
+            battleWeather = 0,
+            gimmickObserved = true,
+            activeGimmick = 0,
+            volatilesObserved = true,
+            volatileElectrified = false,
+            badgesObserved = true
+        ),
+        abilityIdentity = DeclaredAbility.EmptySlot,
+        itemIdentity = null
+    )
+
     private fun dummyParsedPokemon(heldItem: Int): ParsedPokemon = ParsedPokemon(
         isValid = true,
         isEmpty = false,
@@ -519,6 +547,50 @@ class CalcHnsItemTest {
         assertTrue(verdict.limitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
         assertEquals(CalcSupport.UNSUPPORTED, verdict.support)
         assertNull(verdict.request)
+    }
+
+    @Test
+    fun `wise glasses with special move is modelled and clears item limitation`() {
+        val wiseGlasses = 476
+        val verdict = outcomeFor(
+            attacker = liveInput(
+                species = "Porygon", partySlot = 0, itemId = wiseGlasses,
+                provenance = CalcItemProvenance.BATTLE_EFFECTIVE, item = "Wise Glasses"
+            ),
+            playerBattlerState = neutralObservation(itemId = wiseGlasses),
+            enemyBattlerState = neutralObservation(battlerIndex = 1),
+            activeBattle = true,
+            moveName = "Water Gun"
+        )
+        assertFalse(
+            "modelled Wise Glasses with Special move clears HNS_ITEM_EFFECT_NOT_MODELLED",
+            verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED)
+        )
+        val decision = verdict.hnsItemDecisions.single { it.itemId == wiseGlasses }
+        assertEquals(HnsItemRequestRelevance.MODELLED, decision.relevance)
+        assertEquals("wise_glasses_special_move", decision.rule)
+    }
+
+    @Test
+    fun `wise glasses with physical move is proven irrelevant and clears item limitation`() {
+        val wiseGlasses = 476
+        val verdict = outcomeFor(
+            attacker = liveInput(
+                species = "Porygon", partySlot = 0, itemId = wiseGlasses,
+                provenance = CalcItemProvenance.BATTLE_EFFECTIVE, item = "Wise Glasses"
+            ),
+            playerBattlerState = neutralObservation(itemId = wiseGlasses),
+            enemyBattlerState = neutralObservation(battlerIndex = 1),
+            activeBattle = true,
+            moveName = "Tackle"
+        )
+        assertFalse(
+            "Wise Glasses with Physical move clears HNS_ITEM_EFFECT_NOT_MODELLED",
+            verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED)
+        )
+        val decision = verdict.hnsItemDecisions.single { it.itemId == wiseGlasses }
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, decision.relevance)
+        assertEquals("special_only_item_physical_move", decision.rule)
     }
 
     // ------------------------------------------------------------------

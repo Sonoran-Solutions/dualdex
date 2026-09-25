@@ -1752,18 +1752,18 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `Wise Glasses with a Special move stays a real blocker next to the field condition`() {
+    fun `Wise Glasses with a Special move is modelled and does not block next to the field condition`() {
         val refused = refusedOf(
             fieldBuild(HnsFieldStatus.WONDER_ROOM.mask, move = "Water Gun", attackerItem = wiseGlasses),
-            "Wise Glasses boosts Special Water Gun"
+            "Wonder Room blocks while Wise Glasses is modelled"
         )
         val glasses = refused.verdict.hnsItemDecisions.single()
-        assertEquals(HnsItemRequestRelevance.RELEVANT, glasses.relevance)
-        assertEquals("special_only_item_special_move", glasses.rule)
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals(HnsItemRequestRelevance.MODELLED, glasses.relevance)
+        assertEquals("wise_glasses_special_move", glasses.rule)
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
         assertEquals(
-            "Damage unavailable · 2 blockers\nField: Wonder Room (0x00000004)\nYou: Wise Glasses",
+            "Damage unavailable · Wonder Room not modelled\nField: Wonder Room (0x00000004)",
             cardText(refused)
         )
     }
@@ -1778,18 +1778,21 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals("electric_terrain_non_electric_move", fieldDecision(tackle, HnsFieldStatus.ELECTRIC_TERRAIN).rule)
         assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, tackle.verdict.hnsItemDecisions.single().relevance)
 
-        val waterGun = refusedOf(fieldBuild(terrain, move = "Water Gun", attackerItem = wiseGlasses),
-            "Wise Glasses is relevant to a Special move")
+        val waterGun = readyOf(fieldBuild(terrain, move = "Water Gun", attackerItem = wiseGlasses),
+            "Electric Terrain is irrelevant to Water Gun and Wise Glasses is modelled")
         assertEquals(HnsFieldRequestRelevance.PROVEN_IRRELEVANT,
             fieldDecision(waterGun, HnsFieldStatus.ELECTRIC_TERRAIN).relevance)
         assertFalse(waterGun.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
-        assertEquals("Damage unavailable · Your Wise Glasses not modelled", cardText(waterGun))
+        assertFalse(waterGun.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals(HnsItemRequestRelevance.MODELLED, waterGun.verdict.hnsItemDecisions.single().relevance)
+        assertEquals("Wise Glasses", waterGun.verdict.request?.attacker?.item)
 
         val thunderShock = refusedOf(fieldBuild(terrain, move = "Thunder Shock", attackerItem = wiseGlasses),
-            "Electric Terrain boosts an Electric move")
+            "Electric Terrain boosts an Electric move while Wise Glasses is modelled")
         assertEquals("electric_terrain_electric_move", fieldDecision(thunderShock, HnsFieldStatus.ELECTRIC_TERRAIN).rule)
+        assertFalse(thunderShock.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
         assertEquals(
-            "Damage unavailable · 2 blockers\nField: Electric Terrain (0x00000100)\nYou: Wise Glasses",
+            "Damage unavailable · Electric Terrain not modelled\nField: Electric Terrain (0x00000100)",
             cardText(thunderShock)
         )
 
@@ -1900,7 +1903,7 @@ class CalcHnsC4eProductionBoundaryTest {
 
         // Field + item + unsupported move effect: every blocker stays visible.
         val three = refusedOf(fieldBuild(HnsFieldStatus.WONDER_ROOM.mask, move = "Water Gun",
-            attackerItem = wiseGlasses, attackerAbility = 62 to "Guts", status1 = 0), "three blocker classes")
+            attackerItem = 443, attackerAbility = 62 to "Guts", status1 = 0), "three blocker classes")
         assertTrue(three.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
         assertTrue(three.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
         val withMove = refusedOf(fieldBuild(HnsFieldStatus.WONDER_ROOM.mask, move = "Seismic Toss",

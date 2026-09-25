@@ -3922,3 +3922,64 @@ The decisive M4 converts the observed-`4`-with-a-Singles-label, observed-`4`-wit
 disagreement, unread, and both observed-`4`-Doubles cases (with target count 1 and 2) from refused
 to incorrectly `Ready`, which is exactly the wrong-format arithmetic this gate exists to prevent.
 All mutations were reverted and `git diff` is clean of the mutation markers.
+
+---
+
+## 15. Gap C4f — Heart & Soul 2.0.5 Wise Glasses Engine Modeling
+
+### 15.1 Real-device trigger & problem statement
+On real hardware (AYN Thor running the official Heart & Soul 2.0.5 ROM `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`), after correcting the reader offset for `gFieldStatuses` to `EWRAM + 0x2E8`, the previous bogus Magic Room blocker was resolved.
+However, in a fresh battle with Porygon holding Wise Glasses against Croconaw, DualDex reached:
+```text
+Damage unavailable · Your Wise Glasses not modelled
+```
+While Wise Glasses was previously proven irrelevant to Physical moves (`special_only_item_physical_move`) and on the defender (`defender_holds_attacker_only_item`), it was globally categorized as `UNSUPPORTED_DAMAGE_RELEVANT`. Consequently, on relevant Special moves (e.g. Water Gun), it failed closed with `HNS_ITEM_EFFECT_NOT_MODELLED`.
+
+### 15.2 Pinned upstream implementation & arithmetic
+In pinned upstream H&S 2.0.5 (`1f42b74dff0e9fe942419845d040663dd829a973`):
+- `include/constants/hold_effects.h`: `HOLD_EFFECT_WISE_GLASSES` is hold effect 94.
+- `src/data/items.h`: Item 476 (`ITEM_WISE_GLASSES`) has `holdEffect = HOLD_EFFECT_WISE_GLASSES`, `holdEffectParamAtk = 10`.
+- `src/battle_util.c:6817-6819`: In `CalculateBasePower`, the attacker's held item effect is applied directly to base power:
+```c
+    case HOLD_EFFECT_WISE_GLASSES:
+        if (IS_MOVE_SPECIAL(move))
+            n = 4505;
+        break;
+```
+Following the switch block, `CalculateBasePower` applies `n` to base power `sp`:
+```c
+    if (n != 0)
+        sp = (sp * n) / 4096; // integer truncation
+```
+In the fixed-point modifier convention used across H&S Gen 4/5 items, `4505 / 4096 ≈ 1.1000976` (+10%). Specifically, `tools/calc-bundler/entry.js` models this as:
+```javascript
+else if (item === 'wise glasses' && !isPhysical) bp = halfDown(4505, bp);
+```
+Where `halfDown(4505, bp)` performs `Math.floor((4505 * bp) / 4096)` (standard half-down rounding for base power modifiers in `calculateHnsDamage`).
+
+### 15.3 Host C oracle test fixtures (`native/tests/test_js_calc.c`)
+To guarantee that the QuickJS calculator engine reproduces exact H&S damage rolls without drift:
+1. `check_gap_c4f_wise_glasses` tests:
+   - Special move Water Gun (BP 40 -> 44) boosted roll parity across all 16 damage rolls against an independent C oracle fixture.
+   - Swift (BP 60 -> 66) rounding parity.
+   - Psybeam (BP 65 -> 71) half-down rounding parity.
+   - Tackle (BP 40, Physical) negative control asserting that base power and damage rolls remain completely unmodified.
+   - Defender holding Wise Glasses negative control asserting that incoming damage is completely unmodified.
+   - Attacker item name echoing in the result JSON (`attackerItem == "Wise Glasses"`).
+2. All assertions pass deterministically on host C suites under `./ci.sh test`.
+
+### 15.4 Capability audit & policy updates
+1. **Item Capability Audit Tooling (`tools/hns-items/`)**:
+   - `decisions.json`: `HOLD_EFFECT_WISE_GLASSES` transitioned from `UNSUPPORTED_DAMAGE_RELEVANT` to `MODELLED_HNS_SPECIFIC`.
+   - `context_rules.json`: Added `wise_glasses_special_move` under `attacker_offense.context_rules` (cites `src/battle_util.c:6818`), yielding `MODELLED`. Removed `HOLD_EFFECT_WISE_GLASSES` from `always_blocking.special_only_item_special_move`.
+   - Audit regenerated with 901 pinned items: 585 neutral, 312 unsupported, 1 modelled (`ITEM_WISE_GLASSES`), 3 unclassified.
+2. **Kotlin Policy & Presentation**:
+   - `HnsItemRegistry`: Registered adapter for ID 476 -> `"Wise Glasses"`.
+   - `HnsItemContextPolicy`: Evaluates `MODELLED_HNS_SPECIFIC` items; returns `HnsItemRequestRelevance.MODELLED` under `wise_glasses_special_move` for authoritative Special moves.
+   - `CalcCapabilityPolicy`: Clears `HNS_ITEM_EFFECT_NOT_MODELLED` for both `PROVEN_IRRELEVANT` and `MODELLED` relevance.
+   - `DamageBlockerPresentation`: Excludes `MODELLED` items from damage blocker display alongside `PROVEN_IRRELEVANT`.
+
+### 15.5 Evidence tier classification
+- Wise Glasses arithmetic (`halfDown(4505, bp)` on Special moves): **HOST VERIFIED / PRODUCTION AUTHORIZED** (pinned upstream source `src/battle_util.c:6817-6819`; verified across roll suites in `test_js_calc.c` against independent C arithmetic; authorized for production live calculation).
+- Note: This implementation is **HOST VERIFIED** and **PRODUCTION AUTHORIZED**, not claimed as **RUNTIME VERIFIED** (which is reserved for cartridge memory dumps / live RAM captures).
+

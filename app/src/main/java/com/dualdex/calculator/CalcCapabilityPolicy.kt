@@ -1599,17 +1599,19 @@ object CalcCapabilityPolicy {
         limitations: MutableSet<CalcLimitation>,
         decisions: MutableList<HnsItemRequestDecision>
     ) {
-        // Global capability first; a globally unsupported/unresolved item then gets exactly one
-        // request-local decision, and only PROVEN_IRRELEVANT removes its blocker.
+        // Global capability first; a globally unsupported or modelled item then gets exactly one
+        // request-local decision, and only PROVEN_IRRELEVANT or MODELLED removes its blocker.
         fun classify(id: Int) {
-            if (com.dualdex.pokemon.hns.HnsItemRegistry.isSupportedForDamage(id)) return
+            val entry = com.dualdex.pokemon.hns.HnsItemRegistry.classify(id)
+            if (entry.category == com.dualdex.pokemon.hns.HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT) return
             val side = if (isAttacker) HnsItemSide.ATTACKER else HnsItemSide.DEFENDER
             val decision = HnsItemContextPolicy.assess(
                 itemId = id,
                 context = HnsItemContextPolicy.contextForRequest(request, side, ordinaryMove)
             )
             decisions += decision
-            if (decision.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT) {
+            if (decision.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT &&
+                decision.relevance != HnsItemRequestRelevance.MODELLED) {
                 limitations.add(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED)
             }
         }
@@ -1703,12 +1705,13 @@ object CalcCapabilityPolicy {
                 } else {
                     input.ability?.let { com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(it) ?: it }
                 },
-                // Gap C3: no H&S item's damage effect is modelled today. Every item that reaches
-                // this point is either ITEM_NONE or a proven no-ordinary-damage item, so the engine
-                // must receive no item at all. Forwarding the raw H&S source name could silently
-                // match an unrelated ADV item name. A modelled item would be mapped explicitly here.
+                // Items mapped via engineItemName: modelled H&S items (such as Wise Glasses) return
+                // their explicit engine adapter spelling. Globally neutral items or items proven
+                // irrelevant to this request return null so the engine receives no item at all.
+                // Forwarding an unreviewed raw H&S source name could silently match an unrelated ADV
+                // item name.
                 //
-                // Stripping the item is only safe because a move whose damage reads item state is
+                // Stripping non-modelled items is only safe because a move whose damage reads item state is
                 // already refused by HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED in
                 // collectHnsItemDependentMoveLimitation; this method is reached only for an
                 // authorized request. See that gate for the interaction audit.

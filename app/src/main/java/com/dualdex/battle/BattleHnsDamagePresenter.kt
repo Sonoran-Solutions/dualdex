@@ -232,7 +232,8 @@ object BattleHnsDamagePresenter {
                     it.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
                 }
                 val itemBlockers = outcome.verdict.hnsItemDecisions.filter {
-                    it.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT
+                    it.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT &&
+                        it.relevance != HnsItemRequestRelevance.MODELLED
                 }
                 val blockers = DamageBlockerPresentation.from(outcome.verdict, observedDoubles(context))
                 BattleHnsDamagePresentation(

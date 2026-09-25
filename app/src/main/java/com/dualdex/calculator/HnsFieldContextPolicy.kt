@@ -135,7 +135,7 @@ object HnsFieldContextPolicy {
                     rule = "magic_room_held_items_neutral",
                     source = "src/battle_util.c:5827",
                     rationale = "Magic Room only turns hold effects off; both live items are absent or have a hold " +
-                        "effect audited to never reach ordinary damage, and no H&S item is modelled by the engine."
+                        "effect audited to never reach ordinary damage, so suppressing them has no damage effect."
                 ) else null
             }
             HnsFieldStatus.TRICK_ROOM -> when (attacker) {

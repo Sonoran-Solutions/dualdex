@@ -2842,6 +2842,13 @@ static int rolls_equal(const double* engine, const long* oracle) {
     return 1;
 }
 
+static int double_rolls_equal(const double* a, const double* b) {
+    for (int i = 0; i < ROLL_COUNT; i++) {
+        if ((long)a[i] != (long)b[i]) return 0;
+    }
+    return 1;
+}
+
 /* Machamp (Atk 150) vs Snorlax (Def 85), Hardy L50 31 IV / 0 EV, ability ignored. */
 #define C4A_MACHAMP_SNORLAX_HEAD \
     "\"gen\":3,\"typeSystem\":\"hns_2_0_5\"," \
@@ -3661,6 +3668,212 @@ static void check_pr78_tera_shell_truant_and_item_stripping(void) {
 }
 #undef HNS_TACKLE_REQUEST
 
+/* ------------------------------------------------------------------ */
+/* Gap C4f: Wise Glasses arithmetic parity and category filtering     */
+/* ------------------------------------------------------------------ */
+
+/* Pinned H&S 2.0.5 (src/battle_util.c:6818 CalcMoveBasePowerAfterModifiers):
+ *   HOLD_EFFECT_WISE_GLASSES:
+ *     if (IsBattleMoveSpecial(move))
+ *       modifier = uq4_12_multiply(modifier, uq4_12_add(UQ_4_12(1.0), PercentToUQ4_12_Floored(holdEffectParamAtk)));
+ *
+ * holdEffectParamAtk = 10 (src/data/items.h:10103).
+ * PercentToUQ4_12_Floored(10) = (4096 * 10) / 100 = 409.
+ * UQ_4_12(1.0) = 4096.
+ * modifier = 4096 + 409 = 4505 (0x1199).
+ * Applied to base power via uq4_12_multiply_by_int_half_down(4505, bp):
+ *   (4505 * bp + 2047) / 4096, integer division.
+ *
+ * Applicable ONLY to Special moves:
+ *   - Physical moves: base power unmodified.
+ *   - Defender Wise Glasses: holdEffectAtk is not read, damage unmodified.
+ */
+static void check_gap_c4f_wise_glasses(void) {
+    long oracle[ROLL_COUNT];
+    long unboosted_oracle[ROLL_COUNT];
+    double engine[ROLL_COUNT];
+    double control[ROLL_COUNT];
+
+    /* Porygon L10 vs Croconaw L10.
+     * Porygon raw SpA: 22. Croconaw raw SpD: 18. */
+#define HNS_WISE_GLASSES_REQUEST(MOVE_NAME, BP, TYPE, CAT, ATK_ITEM, DEF_ITEM) \
+    "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\"," \
+    "\"attacker\":{\"species\":\"Porygon\",\"level\":10,\"ability\":\"(other)\"," ATK_ITEM \
+    "\"rawStats\":{\"attack\":15,\"defense\":17,\"speed\":12,\"spAttack\":22,\"spDefense\":19}," \
+    "\"statStages\":[0,0,0,0,0,0,0,0]}," \
+    "\"defender\":{\"species\":\"Croconaw\",\"level\":10,\"ability\":\"(other)\"," DEF_ITEM \
+    "\"overrides\":{\"types\":[\"Water\"]}," \
+    "\"rawStats\":{\"attack\":21,\"defense\":20,\"speed\":16,\"spAttack\":17,\"spDefense\":18}," \
+    "\"statStages\":[0,0,0,0,0,0,0,0]}," \
+    "\"move\":{\"name\":\"" MOVE_NAME "\",\"overrides\":{\"basePower\":" #BP ",\"type\":\"" TYPE "\",\"category\":\"" CAT "\"}}," \
+    "\"field\":{\"gameType\":\"Singles\"}}"
+
+    /* Test 1: Water Gun (BP 40, Water, Special).
+     * Boosted BP = (4505 * 40 + 2047) / 4096 = 182247 / 4096 = 44.
+     * Attacker: Porygon (Normal), no STAB. Defender: Water, 0.5x resistance.
+     */
+    g_fixture = "gap_c4f_wise_glasses_special_bp40";
+    {
+        const char* req_wise = HNS_WISE_GLASSES_REQUEST("Water Gun", 40, "Water", "Special", "\"item\":\"Wise Glasses\",", "");
+        const char* req_none = HNS_WISE_GLASSES_REQUEST("Water Gun", 40, "Water", "Special", "", "");
+
+        hns_ordinary_rolls(10, 40, 22, 18, 0, 0.5, 0, 0, unboosted_oracle);
+        hns_ordinary_rolls(10, 44, 22, 18, 0, 0.5, 0, 0, oracle);
+
+        if (hns_request_rolls(req_wise, engine) && hns_request_rolls(req_none, control)) {
+            check_condition("Wise Glasses Water Gun matches independent boosted oracle (BP 40 -> 44)",
+                            rolls_equal(engine, oracle));
+            check_condition("Unboosted Water Gun matches independent baseline oracle",
+                            rolls_equal(control, unboosted_oracle));
+            check_condition("Wise Glasses increases damage over unboosted baseline",
+                            oracle[ROLL_COUNT - 1] > unboosted_oracle[ROLL_COUNT - 1]);
+        } else {
+            check_condition("Wise Glasses Water Gun requests produced responses", 0);
+        }
+        check_condition("attackerItem is echoed as Wise Glasses",
+                        hns_response_str_equals(req_wise, "attackerItem", "Wise Glasses"));
+    }
+
+    /* Test 2: Swift (BP 60, Normal, Special).
+     * Boosted BP = (4505 * 60 + 2047) / 4096 = 272347 / 4096 = 66.
+     * Attacker: Porygon (Normal), STAB 1.5x. Defender: Water, 1.0x.
+     */
+    g_fixture = "gap_c4f_wise_glasses_special_bp60_rounding";
+    {
+        const char* req_wise = HNS_WISE_GLASSES_REQUEST("Swift", 60, "Normal", "Special", "\"item\":\"Wise Glasses\",", "");
+        hns_ordinary_rolls(10, 66, 22, 18, 1, 1.0, 0, 0, oracle);
+
+        if (hns_request_rolls(req_wise, engine)) {
+            check_condition("Wise Glasses Swift matches independent boosted oracle (BP 60 -> 66)",
+                            rolls_equal(engine, oracle));
+        } else {
+            check_condition("Wise Glasses Swift request produced a response", 0);
+        }
+    }
+
+    /* Test 3: Psybeam (BP 65, Psychic, Special).
+     * Boosted BP = (4505 * 65 + 2047) / 4096 = 294872 / 4096 = 71.
+     * Rounding check: 65 * 1.1 = 71.5; half-down floors to 71.
+     */
+    g_fixture = "gap_c4f_wise_glasses_special_bp65_rounding";
+    {
+        const char* req_wise = HNS_WISE_GLASSES_REQUEST("Psybeam", 65, "Psychic", "Special", "\"item\":\"Wise Glasses\",", "");
+        hns_ordinary_rolls(10, 71, 22, 18, 0, 1.0, 0, 0, oracle);
+
+        if (hns_request_rolls(req_wise, engine)) {
+            check_condition("Wise Glasses Psybeam matches independent boosted oracle (BP 65 -> 71)",
+                            rolls_equal(engine, oracle));
+        } else {
+            check_condition("Wise Glasses Psybeam request produced a response", 0);
+        }
+    }
+
+    /* Test 4: Physical move negative control (Tackle, BP 40, Normal, Physical).
+     * Porygon raw Atk: 15. Croconaw raw Def: 20. STAB 1.5x.
+     * Wise Glasses must NOT modify physical moves.
+     */
+    g_fixture = "gap_c4f_wise_glasses_physical_no_boost";
+    {
+        const char* req_wise = HNS_WISE_GLASSES_REQUEST("Tackle", 40, "Normal", "Physical", "\"item\":\"Wise Glasses\",", "");
+        const char* req_none = HNS_WISE_GLASSES_REQUEST("Tackle", 40, "Normal", "Physical", "", "");
+
+        hns_ordinary_rolls(10, 40, 15, 20, 1, 1.0, 0, 0, unboosted_oracle);
+
+        if (hns_request_rolls(req_wise, engine) && hns_request_rolls(req_none, control)) {
+            check_condition("Wise Glasses Tackle matches unboosted oracle (BP unmodified)",
+                            rolls_equal(engine, unboosted_oracle));
+            check_condition("Wise Glasses Tackle vector equals no-item control",
+                            double_rolls_equal(engine, control));
+        } else {
+            check_condition("Wise Glasses Tackle requests produced responses", 0);
+        }
+    }
+
+    /* Test 5: Defender Wise Glasses negative control (Water Gun, BP 40, Water, Special).
+     * Defender holding Wise Glasses has NO effect on incoming damage.
+     */
+    g_fixture = "gap_c4f_defender_wise_glasses_no_effect";
+    {
+        const char* req_def_wise = HNS_WISE_GLASSES_REQUEST("Water Gun", 40, "Water", "Special", "", "\"item\":\"Wise Glasses\",");
+        const char* req_none = HNS_WISE_GLASSES_REQUEST("Water Gun", 40, "Water", "Special", "", "");
+
+        hns_ordinary_rolls(10, 40, 22, 18, 0, 0.5, 0, 0, unboosted_oracle);
+
+        if (hns_request_rolls(req_def_wise, engine) && hns_request_rolls(req_none, control)) {
+            check_condition("Defender Wise Glasses matches unboosted oracle",
+                            rolls_equal(engine, unboosted_oracle));
+            check_condition("Defender Wise Glasses vector equals no-item control",
+                            double_rolls_equal(engine, control));
+        } else {
+            check_condition("Defender Wise Glasses requests produced responses", 0);
+        }
+    }
+
+    /* Test 6: Category crossover (Dragon Claw, BP 80, Dragon).
+     * Under PER_MOVE_SPLIT (optionStyle = 0): Dragon Claw is Physical -> Wise Glasses
+     * is irrelevant, moveOverride.category is "Physical", engine rolls unboosted at BP 80.
+     * Under TYPE_BASED (optionStyle = 1): Dragon type is Special under Gen III rules ->
+     * Wise Glasses applies, moveOverride.category is omitted (null), engine applies
+     * halfDown(4505, 80) = 88 BP.
+     */
+    g_fixture = "gap_c4f_wise_glasses_category_crossover_dragon_claw";
+    {
+        /* PER_MOVE_SPLIT: category "Physical" in move overrides.
+         * Porygon raw Atk: 15, Croconaw raw Def: 20. Unboosted BP 80. */
+        const char* req_split =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Porygon\",\"level\":10,\"ability\":\"(other)\",\"item\":\"Wise Glasses\","
+            "\"rawStats\":{\"attack\":15,\"defense\":17,\"speed\":12,\"spAttack\":22,\"spDefense\":19},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Croconaw\",\"level\":10,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Water\"]},"
+            "\"rawStats\":{\"attack\":21,\"defense\":20,\"speed\":16,\"spAttack\":17,\"spDefense\":18},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Dragon Claw\",\"overrides\":{\"basePower\":80,\"type\":\"Dragon\",\"category\":\"Physical\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+
+        /* TYPE_BASED: category omitted in move overrides, Gen III type-based treats Dragon as Special.
+         * Porygon raw SpA: 22, Croconaw raw SpD: 18. Boosted BP = halfDown(4505, 80) = 88. */
+        const char* req_type_based =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Porygon\",\"level\":10,\"ability\":\"(other)\",\"item\":\"Wise Glasses\","
+            "\"rawStats\":{\"attack\":15,\"defense\":17,\"speed\":12,\"spAttack\":22,\"spDefense\":19},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"defender\":{\"species\":\"Croconaw\",\"level\":10,\"ability\":\"(other)\","
+            "\"overrides\":{\"types\":[\"Water\"]},"
+            "\"rawStats\":{\"attack\":21,\"defense\":20,\"speed\":16,\"spAttack\":17,\"spDefense\":18},"
+            "\"statStages\":[0,0,0,0,0,0,0,0]},"
+            "\"move\":{\"name\":\"Dragon Claw\",\"overrides\":{\"basePower\":80,\"type\":\"Dragon\"}},"
+            "\"field\":{\"gameType\":\"Singles\"}}";
+
+        /* Split oracle: Physical, BP 80, Atk 15, Def 20, no STAB, 1.0x */
+        hns_ordinary_rolls(10, 80, 15, 20, 0, 1.0, 0, 0, unboosted_oracle);
+        /* Type-based oracle: Special, BP 88 (halfDown(4505, 80)), SpA 22, SpD 18, no STAB, 1.0x */
+        hns_ordinary_rolls(10, 88, 22, 18, 0, 1.0, 0, 0, oracle);
+
+        if (hns_request_rolls(req_split, engine)) {
+            check_condition("PER_MOVE_SPLIT Dragon Claw is Physical and ignores Wise Glasses (BP 80)",
+                            rolls_equal(engine, unboosted_oracle));
+        } else {
+            check_condition("PER_MOVE_SPLIT Dragon Claw request produced a response", 0);
+        }
+
+        if (hns_request_rolls(req_type_based, engine)) {
+            check_condition("TYPE_BASED Dragon Claw is Special and applies Wise Glasses (BP 80 -> 88)",
+                            rolls_equal(engine, oracle));
+        } else {
+            check_condition("TYPE_BASED Dragon Claw request produced a response", 0);
+        }
+
+        check_condition("PER_MOVE_SPLIT Dragon Claw reports Physical category",
+                        hns_response_str_equals(req_split, "moveCategory", "Physical"));
+        check_condition("TYPE_BASED Dragon Claw reports Special category",
+                        hns_response_str_equals(req_type_based, "moveCategory", "Special"));
+    }
+
+#undef HNS_WISE_GLASSES_REQUEST
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -3714,6 +3927,9 @@ int main(void) {
 
     printf("-- PR #78 follow-up: Tera Shell + Truant defense in depth; stripped H&S items --\n");
     check_pr78_tera_shell_truant_and_item_stripping();
+
+    printf("-- Gap C4f: Wise Glasses arithmetic parity, rounding, and category filtering --\n");
+    check_gap_c4f_wise_glasses();
 
     printf("-- checker and parser self-tests (the oracle must reject bad responses) --\n");
     check_oracle_self_tests();

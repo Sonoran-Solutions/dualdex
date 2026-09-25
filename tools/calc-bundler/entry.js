@@ -448,6 +448,12 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   else if (item === 'never-melt ice' && move.type === 'Ice') bp = halfDown(4915, bp);
   else if (item === 'dragon fang' && move.type === 'Dragon') bp = halfDown(4915, bp);
   else if (item === 'black glasses' && move.type === 'Dark') bp = halfDown(4915, bp);
+  // H&S 2.0.5 Wise Glasses (src/battle_util.c:6818 CalcMoveBasePowerAfterModifiers):
+  // HOLD_EFFECT_WISE_GLASSES multiplies base power by (1.0 + holdEffectParamAtk%), where
+  // holdEffectParamAtk = 10, floored percent is (4096 * 10) / 100 = 409, so modifier is 4505 (UQ4.12).
+  // Applied to base power with uq4_12_multiply_by_int_half_down (halfDown 4505).
+  // Applies only to Special moves (IsBattleMoveSpecial(move)).
+  else if (item === 'wise glasses' && !isPhysical) bp = halfDown(4505, bp);
 
   const level = attacker.level || 50;
   let dmg = Math.floor(Math.floor(Math.floor(bp * userFinalAttack * (Math.floor((2 * level) / 5) + 2)) / targetFinalDefense) / 50) + 2;

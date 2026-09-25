@@ -142,7 +142,7 @@ class ReviewedArtifactTests(unittest.TestCase):
         for family in self.decisions["families"].values():
             groups.setdefault(family["group"], set()).add(family["category"])
         for group in self.rules["families"]:
-            self.assertEqual(groups[group], {"UNSUPPORTED_DAMAGE_RELEVANT"}, group)
+            self.assertTrue(groups[group].issubset({"UNSUPPORTED_DAMAGE_RELEVANT", "MODELLED_HNS_SPECIFIC"}), group)
 
     def test_display_name_uses_the_pinned_name(self):
         self.assertEqual(audit.display_name("SILK SCARF"), "Silk Scarf")

@@ -159,7 +159,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy`. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — global categories remain unchanged; 84 proven-neutral abilities and four conditional pinch abilities retain their existing rules. Fourteen globally unsupported abilities receive reviewed contextual rules; only source-proven irrelevant requests clear their one ability blocker. Relevant and unknown contexts remain refused with `HNS_ABILITY_EFFECT_NOT_MODELLED`; independent blockers remain in force. |
-| 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629` | **identity yes; damage effects no** — exact item identity and the current battle item are consumed; no damage item is modelled; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (585 neutral / 313 unsupported / 3 unclassified); no item blocker only for a globally neutral item or an unsupported item source-proven irrelevant to the exact request (§7.4–§7.5) **and** a move that does not read item state; relevant/unknown damage items fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`, and item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) fail closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
+| 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629`, Wise Glasses `[src/data/items.h:10091]` | **identity yes; damage effects conditionally modelled** — exact item identity and the current battle item are consumed; Wise Glasses modelled specifically for H&S; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (585 neutral / 312 unsupported / 1 modelled / 3 unclassified); no item blocker only for a globally neutral item, a modelled item (Wise Glasses), or an unsupported item source-proven irrelevant to the exact request (§7.4–§7.5) **and** a move that does not read item state; relevant/unknown unmodelled damage items fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`, and item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) fail closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 10 | Snow | Ice Defense ×1.5 `[src/battle_util.c:7389]`; Snow never chips, Hail chips 1/16 `[src/battle_end_turn.c:155]` | **no** | **REFUSED** when asked for — fails closed |
@@ -235,7 +235,7 @@ Only these individual behaviours are source-and-test demonstrated:
 | Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
 | Abilities (supported subset) | 84 proven neutral abilities and 4 conditional pinch abilities | Neutral abilities add no modifier; pinch uses the H&S UQ4.12 pipeline | **CONDITIONALLY AUTHORIZED** under the live operand gates (§14.6 and pinned audit above) |
 | Abilities (globally unsupported) | Guts, Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — `HNS_ABILITY_EFFECT_NOT_MODELLED` remains for relevant or unknown request contexts; source-proven irrelevant contexts may clear only that ability blocker (§6.3) |
-| Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items | identity consumed; no damage item modelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — 585 globally neutral items, and unsupported items proven irrelevant to the exact request, clear the item blocker only for an item-independent move; every relevant or unresolved item fails closed with `HNS_ITEM_EFFECT_NOT_MODELLED`; every item-dependent move fails closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`; unreadable current item is `HNS_EFFECTIVE_ITEM_UNREADABLE` (§7) |
+| Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items, Wise Glasses | identity consumed; Wise Glasses modelled, other damage items unmodelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — 585 globally neutral items, 1 modelled item (Wise Glasses), and unsupported items proven irrelevant to the exact request, clear the item blocker only for an item-independent move; every relevant or unresolved unmodelled item fails closed with `HNS_ITEM_EFFECT_NOT_MODELLED`; every item-dependent move fails closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`; unreadable current item is `HNS_EFFECTIVE_ITEM_UNREADABLE` (§7) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
 
 ### 3.3 Three different claims that must not be conflated
@@ -644,7 +644,8 @@ an ordinary move and are already refused by the static audit).
 | Deep Sea Tooth / Scale | 399 / 398 | ×2 SpA / SpD for Clamperl (`[src/battle_util.c:7169-7172]`, `:7353-7356]`) | ×2 | `UNSUPPORTED_DAMAGE_RELEVANT` | Not proven ADV-equivalent. |
 | Soul Dew | 400 | ×1.2 Psychic/Dragon base power for the Lati twins (`[src/battle_util.c:6833-6838]`) | ×1.5 SpD (ADV) | `UNSUPPORTED_DAMAGE_RELEVANT` | H&S and ADV semantics differ. |
 | Life Orb / Expert Belt | 479 / 477 | ×1.3 after the roll + 1/10 recoil / ×1.2 on super-effective hits (`[src/battle_util.c:7673-7674]`, `:7669-7671]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Post-Gen-III items. |
-| Muscle Band / Wise Glasses | 475 / 476 | ≈×1.1 physical / special base power (`[src/battle_util.c:6813-6819]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Post-Gen-III items. |
+| Muscle Band | 475 | ≈×1.1 physical base power (`[src/battle_util.c:6813-6816]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Post-Gen-III item. |
+| Wise Glasses | 476 | ×1.1 special base power via `halfDown(4505, bp)` (`[src/battle_util.c:6817-6819]`) | none | `MODELLED_HNS_SPECIFIC` | Modelled in QuickJS engine; host verified against independent C oracle fixtures. |
 | Eviolite / Assault Vest | 494 / 503 | ×1.5 Def / SpD (`[src/battle_util.c:7361-7373]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Evolution state is not in the request shape. |
 | Normal Gem / Fire Gem | 339 / 340 | ×1.3 matching-type base power and consumed (`[src/battle_util.c:6633-6634]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Gem consumption state is not modelled. |
 | Occa Berry | 550 | ×0.5 super-effective Fire damage and consumed (`[src/battle_util.c:7686-7696]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Consumption state is not modelled. |
@@ -660,11 +661,12 @@ supported static item. An observed current item that cannot be authoritatively r
 `HNS_EFFECTIVE_ITEM_UNREADABLE`, and a manual name that does not resolve in the exact H&S catalogue is
 `HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE`.
 
-Because no H&S item's damage effect is *modelled*, the engine request omits the item entirely for every
-authorized participant (`HnsItemRegistry.engineItemName` returns null for all 901 IDs) — both for a
-globally neutral item and for an unsupported item proven irrelevant to that exact request. A future
-`MODELLED_*` item is supported only with an explicit engine adapter spelling; without one it is refused
-rather than stripped. This is safe: the QuickJS
+Because most H&S items' damage effects are not modelled, the engine request omits the item entirely for
+every authorized participant without an explicit adapter (`HnsItemRegistry.engineItemName` returns null for
+900 of the 901 IDs) — both for a globally neutral item and for an unsupported item proven irrelevant to that
+exact request. Modelled items (currently Wise Glasses, ID 476, returning `"Wise Glasses"`) are forwarded with
+their explicit engine adapter spelling; a `MODELLED_*` item without an explicit adapter is refused rather than
+stripped. This is safe: the QuickJS
 host suite proves an omitted item and `"None"` are the same calculation, and that a name the engine
 does not model is a silent no-op, while a name it does model changes damage — which is exactly why a raw
 H&S source name must never be forwarded. The PR #78 follow-up fixture
@@ -690,8 +692,9 @@ never decides a category; it fails closed when:
   enclosing definitions (`identity_reference_sites`: bag/reward/pickup tables, key-item checks, message
   text, the Natural Gift table, and the e-Reader Enigma indirection);
 * an identity exception or context rule names a nonexistent identity/family, a rule refines a
-  non-unsupported family, a rule is not implemented by name in `HnsItemContextPolicy.kt`, or a rule's
-  cited pinned line no longer contains its quoted text;
+  family outside the allowed categories (currently `UNSUPPORTED_DAMAGE_RELEVANT` or `MODELLED_HNS_SPECIFIC`),
+  a rule is not implemented by name in `HnsItemContextPolicy.kt`, or a rule's cited pinned line no
+  longer contains its quoted text;
 * the generated `item_inventory.tsv` / `HnsItemAuditData.kt` differ from what the review produces.
 
 Results (`HnsItemAuditData.categoryCounts`, also asserted by `HnsItemAuditTest` without the upstream):
@@ -700,8 +703,8 @@ Results (`HnsItemAuditData.categoryCounts`, also asserted by `HnsItemAuditTest` 
 |---|---|---|
 | `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` | 585 | 32 |
 | `MODELLED_EQUIVALENT` | 0 | 0 |
-| `MODELLED_HNS_SPECIFIC` | 0 | 0 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 311 hold-effect-family items + 2 identity exceptions = 313 | 97 |
+| `MODELLED_HNS_SPECIFIC` | 1 | 1 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 310 hold-effect-family items + 2 identity exceptions = 312 | 96 |
 | `UNCLASSIFIED` | 3 | 1 family (`HOLD_EFFECT_PRIMAL_ORB`) + 1 identity exception |
 
 Globally neutral groups: `no_battle_effect` (`NONE`, `REPEL`, `DOUBLE_PRIZE`, `FRIENDSHIP_UP`,
@@ -760,7 +763,8 @@ observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` re
 | Family | Proven irrelevant | Still blocked |
 |---|---|---|
 | Choice Band, Muscle Band, Thick Club | Defender side; attacker with an authoritative Special move | Physical move (Band: relevant; Club: species unobserved); unknown category |
-| Choice Specs, Wise Glasses, Deep Sea Tooth | Defender side; attacker with an authoritative Physical move | Special move; unknown category |
+| Choice Specs, Deep Sea Tooth | Defender side; attacker with an authoritative Physical move | Special move; unknown category |
+| Wise Glasses | Defender side; attacker with an authoritative Physical move (PROVEN_IRRELEVANT); attacker with an authoritative Special move (MODELLED) | Unknown category |
 | Type boosters, Plates, Gems | Defender side; attacker whose authoritative effective type differs from the pinned `secondaryId` | Matching type; unknown effective type |
 | Lustrous/Adamant/Griseous Orb, Soul Dew | Defender side; attacker whose effective type is outside the two boosted types | Boosted type (species unobserved) |
 | Light Ball, Ogerpon masks, Punching Glove | Defender side | Attacker side (species / punching flag unobserved) |
@@ -2356,7 +2360,7 @@ move leaves every contextual bit UNKNOWN (the move blocker applies independently
 
 | Condition | Proven irrelevant (rule) | Relevant / kept blocking |
 |---|---|---|
-| Magic Room | both authoritative live battle-effective items are `ITEM_NONE` or globally `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` (`magic_room_held_items_neutral`) — no H&S item is modelled by the engine, so suppressing a neutral hold effect changes nothing | any other held item or an unread item (UNKNOWN): suppression of a damage-relevant hold effect is not modelled |
+| Magic Room | both authoritative live battle-effective items are `ITEM_NONE` or globally `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` (`magic_room_held_items_neutral`) — Magic Room only turns hold effects off, so suppressing a neutral hold effect changes nothing; suppressing a damage-relevant hold effect (including modelled items such as Wise Glasses) is not modelled by DualDex, so Magic Room continues to block when one is held | any other held item or an unread item (UNKNOWN): suppression of a damage-relevant hold effect is not modelled |
 | Trick Room | attacker's effective ability known and not Analytic (`trick_room_attacker_not_analytic`) | Analytic attacker (`trick_room_attacker_analytic`) |
 | Wonder Room | — | always (`wonder_room_swaps_defensive_stat`): equal raw Def/SpDef would not neutralise the `usesDefStat` flip |
 | Mud Sport / Water Sport | effective type not Electric / not Fire | Electric / Fire |
@@ -2386,10 +2390,11 @@ Setup: exact H&S, ordinary Singles, attacker Wise Glasses, a non-zero live field
 | Move | Field word | Result |
 |---|---|---|
 | Tackle (Physical) | Wonder Room `0x00000004` | Wise Glasses **PROVEN_IRRELEVANT** (`special_only_item_physical_move`); card: `Damage unavailable · Wonder Room not modelled` / `Field: Wonder Room (0x00000004)` — one blocker |
-| Water Gun (Special) | Wonder Room `0x00000004` | Wise Glasses RELEVANT; card: `Damage unavailable · 2 blockers` / `Field: Wonder Room (0x00000004)` / `You: Wise Glasses` |
+| Water Gun (Special) | Wonder Room `0x00000004` | Wise Glasses **MODELLED** (`wise_glasses_special_move`); card: `Damage unavailable · Wonder Room not modelled` / `Field: Wonder Room (0x00000004)` — Wonder Room is the only blocker |
 | Tackle | Electric Terrain `0x00000100` | both proven irrelevant → **Ready** (estimate shown) |
-| Water Gun | Electric Terrain `0x00000100` | terrain irrelevant; card: `Damage unavailable · Your Wise Glasses not modelled` |
-| Thunder Shock (Special, Electric) | Electric Terrain `0x00000100` | `2 blockers` / `Field: Electric Terrain (0x00000100)` / `You: Wise Glasses` |
+| Water Gun | Electric Terrain `0x00000100` | terrain irrelevant; Wise Glasses **MODELLED** → **Ready** (estimate shown) |
+| Water Gun | Clean / neutral field `0x00000000` | Wise Glasses **MODELLED** → **Ready** (estimate shown) |
+| Thunder Shock (Special, Electric) | Electric Terrain `0x00000100` | Wise Glasses **MODELLED**; card: `Damage unavailable · Electric Terrain not modelled` / `Field: Electric Terrain (0x00000100)` |
 
 These are asserted through the real `CalcRequestBoundary`
 (`CalcHnsC4eProductionBoundaryTest`) and the Battle move-card model (`BattleConsoleTest`).

@@ -75,6 +75,16 @@
             {"source": "src/battle_util.c:6835", "contains": "(B_SOUL_DEW_BOOST >= GEN_7 && (moveType == TYPE_PSYCHIC || moveType == TYPE_DRAGON))"},
             {"source": "include/config/battle.h:231", "contains": "#define B_SOUL_DEW_BOOST            GEN_LATEST"}
           ]
+        },
+        {
+          "rule": "wise_glasses_special_move",
+          "side": "ATTACKER",
+          "families": ["HOLD_EFFECT_WISE_GLASSES"],
+          "predicate": "Ordinary move whose effective category is Special.",
+          "rationale": "Wise Glasses multiplies base power by UQ4.12 4505 (1.0 + 10% floored) per pinned H&S src/battle_util.c:6818 and is modelled in the QuickJS calculator.",
+          "evidence": [
+            {"source": "src/battle_util.c:6818", "contains": "if (IsBattleMoveSpecial(move))"}
+          ]
         }
       ],
       "always_blocking": [
@@ -87,7 +97,7 @@
         },
         {
           "rule": "special_only_item_special_move",
-          "families": ["HOLD_EFFECT_CHOICE_SPECS", "HOLD_EFFECT_WISE_GLASSES"],
+          "families": ["HOLD_EFFECT_CHOICE_SPECS"],
           "predicate": "Attacker holds it and the effective category is Special.",
           "rationale": "The Sp. Atk / special base-power modifier applies and is not modelled.",
           "evidence": [{"source": "src/battle_util.c:7182", "contains": "IsBattleMoveSpecial(move) && GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX"}]

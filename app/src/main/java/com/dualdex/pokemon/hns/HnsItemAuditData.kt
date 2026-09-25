@@ -134,7 +134,7 @@ internal object HnsItemAuditData {
         "HOLD_EFFECT_WEAKNESS_POLICY" to HnsItemFamilyDecision("HOLD_EFFECT_WEAKNESS_POLICY", "post_hit_or_residual", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move."),
         "HOLD_EFFECT_WHITE_HERB" to HnsItemFamilyDecision("HOLD_EFFECT_WHITE_HERB", "post_hit_or_residual", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move."),
         "HOLD_EFFECT_WIDE_LENS" to HnsItemFamilyDecision("HOLD_EFFECT_WIDE_LENS", "accuracy_only", HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT, "Read only by GetTotalAccuracy (hit chance). The Battle card never claims hit probability, and accuracy never changes the damage of a hit that lands."),
-        "HOLD_EFFECT_WISE_GLASSES" to HnsItemFamilyDecision("HOLD_EFFECT_WISE_GLASSES", "attacker_offense", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local."),
+        "HOLD_EFFECT_WISE_GLASSES" to HnsItemFamilyDecision("HOLD_EFFECT_WISE_GLASSES", "attacker_offense", HnsItemCategory.MODELLED_HNS_SPECIFIC, "Modelled in the H&S QuickJS damage calculator: multiplies Special move base power by UQ4.12 4505 (1.0 + 10% floored) using uq4_12_multiply_by_int_half_down per pinned H&S src/battle_util.c:6818. Physical moves and defender hold effect are proven irrelevant."),
         "HOLD_EFFECT_ZOOM_LENS" to HnsItemFamilyDecision("HOLD_EFFECT_ZOOM_LENS", "accuracy_only", HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT, "Read only by GetTotalAccuracy (hit chance). The Battle card never claims hit probability, and accuracy never changes the damage of a hit that lands."),
         "HOLD_EFFECT_Z_CRYSTAL" to HnsItemFamilyDecision("HOLD_EFFECT_Z_CRYSTAL", "form_or_ability_changer", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Can change the holder's form or effective ability before the hit (Mega Evolution at turn start, Ultra Burst/Z-Moves, Ability Shield vs ability suppression). No request-local clearance is implemented; always blocks."),
     )
@@ -230,8 +230,8 @@ internal object HnsItemAuditData {
     val categoryCounts: Map<HnsItemCategory, Int> = mapOf(
         HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT to 585,
         HnsItemCategory.MODELLED_EQUIVALENT to 0,
-        HnsItemCategory.MODELLED_HNS_SPECIFIC to 0,
-        HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT to 313,
+        HnsItemCategory.MODELLED_HNS_SPECIFIC to 1,
+        HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT to 312,
         HnsItemCategory.UNCLASSIFIED to 3,
     )
 
@@ -242,6 +242,7 @@ internal object HnsItemAuditData {
         "special_only_item_physical_move",
         "type_item_move_type_mismatch",
         "signature_orb_move_type_outside_boost",
+        "wise_glasses_special_move",
         "physical_only_item_physical_move",
         "special_only_item_special_move",
         "type_item_move_type_match",

@@ -177,8 +177,8 @@ def validate_context_rules(upstream, decisions):
         if not members:
             raise AuditError(f"context rules refer to unknown family group {group}")
         for he in members:
-            if decisions["families"][he]["category"] != "UNSUPPORTED_DAMAGE_RELEVANT":
-                raise AuditError(f"context rules may only refine UNSUPPORTED families ({group}: {he})")
+            if decisions["families"][he]["category"] not in ("UNSUPPORTED_DAMAGE_RELEVANT", "MODELLED_HNS_SPECIFIC"):
+                raise AuditError(f"context rules may only refine UNSUPPORTED or MODELLED families ({group}: {he})")
         if not entry.get("fallback"):
             raise AuditError(f"context group {group} needs a fail-closed fallback")
         for rule in entry.get("context_rules", []) + entry.get("always_blocking", []):

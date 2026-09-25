@@ -10,8 +10,8 @@ import com.dualdex.pokemon.hns.HnsItemRegistry
 /** Which request participant holds an effective live item. */
 enum class HnsItemSide { ATTACKER, DEFENDER }
 
-/** Three-valued request-local item result. Unknown never clears a blocker. */
-enum class HnsItemRequestRelevance { PROVEN_IRRELEVANT, RELEVANT, UNKNOWN }
+/** Three-valued request-local item result (plus MODELLED for engine-supported items). Unknown never clears a blocker. */
+enum class HnsItemRequestRelevance { PROVEN_IRRELEVANT, RELEVANT, UNKNOWN, MODELLED }
 
 /**
  * Auditable outcome for one globally unsupported or unresolved held item.
@@ -72,13 +72,14 @@ object HnsItemContextPolicy {
         val entry = HnsItemRegistry.classify(itemId)
         val name = HnsItemRegistry.displayName(itemId) ?: "Item #$itemId"
         val side = context?.side ?: HnsItemSide.ATTACKER
-        if (entry.category != HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT) {
+        if (entry.category != HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+            entry.category != HnsItemCategory.MODELLED_HNS_SPECIFIC) {
             return HnsItemRequestDecision(
                 itemId, name, side, entry.category, HnsItemRequestRelevance.UNKNOWN,
                 rationale = if (entry.category == HnsItemCategory.UNCLASSIFIED) {
                     "Unresolved global item classification always fails closed."
                 } else {
-                    "Context rules are only evaluated for globally unsupported items."
+                    "Context rules are only evaluated for globally unsupported or modelled items."
                 }
             )
         }
@@ -179,13 +180,30 @@ object HnsItemContextPolicy {
                 MoveCategory.PHYSICAL -> speciesGated()
                 else -> null
             }
-            "HOLD_EFFECT_CHOICE_SPECS", "HOLD_EFFECT_WISE_GLASSES" -> when (category) {
+            "HOLD_EFFECT_CHOICE_SPECS" -> when (category) {
                 MoveCategory.PHYSICAL -> specialOnlyPhysicalMove()
                 MoveCategory.SPECIAL -> relevant(
                     rule = "special_only_item_special_move",
                     source = "src/battle_util.c:7182",
                     rationale = "The special modifier applies to this special move and is not modelled."
                 )
+                else -> null
+            }
+            "HOLD_EFFECT_WISE_GLASSES" -> when (category) {
+                MoveCategory.PHYSICAL -> specialOnlyPhysicalMove()
+                MoveCategory.SPECIAL -> if (HnsItemRegistry.isSupportedForDamage(itemId)) {
+                    modelled(
+                        rule = "wise_glasses_special_move",
+                        source = "src/battle_util.c:6818",
+                        rationale = "Wise Glasses multiplies base power by UQ4.12 4505 (1.0 + 10% floored) per pinned H&S src/battle_util.c:6818 and is modelled in the QuickJS calculator."
+                    )
+                } else {
+                    relevant(
+                        rule = "special_only_item_special_move",
+                        source = "src/battle_util.c:7182",
+                        rationale = "The special modifier applies to this special move and is not modelled."
+                    )
+                }
                 else -> null
             }
             "HOLD_EFFECT_DEEP_SEA_TOOTH" -> when (category) {
@@ -427,11 +445,14 @@ object HnsItemContextPolicy {
     private fun relevant(rule: String, source: String, rationale: String) =
         Proof(HnsItemRequestRelevance.RELEVANT, rule, source, rationale)
 
+    private fun modelled(rule: String, source: String, rationale: String) =
+        Proof(HnsItemRequestRelevance.MODELLED, rule, source, rationale)
+
     private fun unknownRule(rule: String, source: String, rationale: String) =
         Proof(HnsItemRequestRelevance.UNKNOWN, rule, source, rationale)
 
     private fun unknown(id: Int, name: String, side: HnsItemSide) = HnsItemRequestDecision(
-        id, name, side, HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, HnsItemRequestRelevance.UNKNOWN,
+        id, name, side, HnsItemRegistry.classify(id).category, HnsItemRequestRelevance.UNKNOWN,
         rationale = "Required authoritative request operand is missing or the context has no reviewed clearance rule."
     )
 }

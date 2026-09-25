@@ -3938,7 +3938,7 @@ While Wise Glasses was previously proven irrelevant to Physical moves (`special_
 ### 15.2 Pinned upstream implementation & arithmetic
 In pinned upstream H&S 2.0.5 (`1f42b74dff0e9fe942419845d040663dd829a973`):
 - `include/constants/hold_effects.h`: `HOLD_EFFECT_WISE_GLASSES` is hold effect 94.
-- `src/data/items.h`: Item 476 (`ITEM_WISE_GLASSES`) has `holdEffect = HOLD_EFFECT_WISE_GLASSES`, `holdEffectParamAtk = 10`.
+- `src/data/items.h:10091`: Item 476 (`ITEM_WISE_GLASSES`) has `holdEffect = HOLD_EFFECT_WISE_GLASSES`, `holdEffectParam = 10`.
 - `src/battle_util.c:6817-6819`: In `CalcMoveBasePowerAfterModifiers(struct BattleContext *ctx)`:
 ```c
     case HOLD_EFFECT_WISE_GLASSES:

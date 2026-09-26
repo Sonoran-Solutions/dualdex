@@ -195,9 +195,11 @@ object HnsCalcCensusReport {
 
         val occurrences = mutableListOf<Occurrence>()
         for (record in run.requests) {
-            for (limitation in record.outcome.limitations) {
-                if (!limitation.blocksCalculation) continue
-                occurrences += Occurrence(limitation.name, record.key, record.trainerKey)
+            // A soft limitation blocks only when this request lacks complete evidence. Keep the
+            // census aligned with the production verdict's request-level classification instead
+            // of the enum's hard-refusal disposition.
+            for (blocker in record.outcome.blockers) {
+                occurrences += Occurrence(blocker.limitation.name, record.key, record.trainerKey)
             }
         }
         return occurrences
@@ -225,19 +227,13 @@ object HnsCalcCensusReport {
 
         val occurrences = mutableListOf<Occurrence>()
         for (record in run.requests) {
-            if (!record.outcome.limitations.contains(
-                    com.dualdex.calculator.CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED
-                )
-            ) {
-                continue
-            }
-            for (decision in record.outcome.itemDecisions) {
-                if (decision.relevance == com.dualdex.calculator.HnsItemRequestRelevance.PROVEN_IRRELEVANT ||
-                    decision.relevance == com.dualdex.calculator.HnsItemRequestRelevance.MODELLED
-                ) {
+            for (blocker in record.outcome.blockers) {
+                if (blocker.limitation != com.dualdex.calculator.CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED) {
                     continue
                 }
-                occurrences += Occurrence(decision.itemName, decision.side.name.lowercase(), record.key, record.trainerKey)
+                val item = blocker.identity ?: continue
+                val side = blocker.side ?: continue
+                occurrences += Occurrence(item, side, record.key, record.trainerKey)
             }
         }
         return occurrences

@@ -161,6 +161,8 @@ These named abilities and items are neutralized by production policy before the 
 | Limitation | Battles | Requests |
 |---|---:|---:|
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 | 3578 |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 360 | 7988 |
+| `HNS_ITEM_EFFECT_NOT_MODELLED` | 94 | 488 |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 | 152 |
 | `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` | 22 | 336 |
 | `SPECIES_NOT_IN_PINNED_DATA` | 22 | 336 |
@@ -173,25 +175,25 @@ These named abilities and items are neutralized by production policy before the 
 | Item | Side | Battles | Requests |
 |---|---|---:|---:|
 | Quick Claw | attacker | 28 | 78 |
-| Scope Lens | attacker | 25 | 178 |
 | Leftovers | attacker | 25 | 70 |
 | Sitrus Berry | attacker | 21 | 54 |
-| Silk Scarf | attacker | 15 | 52 |
-| Charcoal | attacker | 13 | 34 |
-| Focus Band | defender | 12 | 96 |
-| Assault Vest | defender | 7 | 21 |
-| Focus Sash | defender | 6 | 48 |
-| Life Orb | attacker | 6 | 40 |
-| Miracle Seed | attacker | 6 | 22 |
-| Never-melt Ice | attacker | 6 | 20 |
+| Silk Scarf | attacker | 12 | 30 |
 | Eviolite | defender | 5 | 40 |
 | Flame Orb | attacker | 5 | 16 |
-| Hard Stone | attacker | 4 | 22 |
-| Black Belt | attacker | 4 | 14 |
+| Charcoal | attacker | 5 | 10 |
+| Hard Stone | attacker | 4 | 16 |
 | Chesto Berry | attacker | 4 | 14 |
+| Never-melt Ice | attacker | 4 | 8 |
 | Light Ball | attacker | 3 | 18 |
-| Magnet | attacker | 3 | 10 |
+| Miracle Seed | attacker | 3 | 12 |
 | Mystic Water | attacker | 3 | 8 |
+| Berry Juice | attacker | 2 | 8 |
+| Flying Gem | attacker | 2 | 8 |
+| Lagging Tail | attacker | 2 | 8 |
+| Toxic Orb | attacker | 2 | 8 |
+| Big Root | attacker | 2 | 6 |
+| Choice Specs | attacker | 2 | 6 |
+| Magnet | attacker | 2 | 6 |
 
 ## Random Abilities view
 

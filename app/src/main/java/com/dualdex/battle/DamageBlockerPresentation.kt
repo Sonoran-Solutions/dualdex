@@ -146,6 +146,7 @@ sealed interface DamageBlockerPresentation {
         fun from(verdict: CalcCapabilityVerdict, observedDoubles: Boolean): List<DamageBlockerPresentation> {
             val limitations = verdict.limitations.distinct()
             val blocking = verdict.blockingLimitations.toMutableSet()
+            val requestBlockers = blocking.toList()
             val states = mutableListOf<DamageBlockerPresentation>()
             val mechanics = mutableListOf<DamageBlockerPresentation>()
 
@@ -207,7 +208,11 @@ sealed interface DamageBlockerPresentation {
                 }
             }
             val fieldLimitation = take(setOf(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
-            val fieldBlockers = fieldDecisions.filter { it !in ionDeluge }.map { Field(it, rawField) }
+            // A known relevant field can be caveated even when another blocker refuses this
+            // request. Only UNKNOWN field decisions are causes of the blocking soft limitation.
+            val fieldBlockers = fieldDecisions
+                .filter { it !in ionDeluge && it.relevance == HnsFieldRequestRelevance.UNKNOWN }
+                .map { Field(it, rawField) }
             fields += fieldBlockers
             if (fieldLimitation.isNotEmpty() && fieldBlockers.isEmpty()) {
                 states += State("Field condition not modelled", fieldLimitation)
@@ -249,35 +254,51 @@ sealed interface DamageBlockerPresentation {
                 }
             }
 
-            val abilities = verdict.hnsAbilityDecisions
-                .filter { it.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT }
-                .map(::Ability)
             val abilityLimitation = take(setOf(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
-            if (abilityLimitation.isNotEmpty() && abilities.isEmpty()) {
-                mechanics += Mechanic("Ability effect not modelled", abilityLimitation)
-            }
             val abilityIdentityLimitations = take(setOf(
                 CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED,
                 CalcLimitation.HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE
             ))
+            // If one ability is UNKNOWN, the soft limitation blocks the request, but other
+            // RELEVANT abilities still have complete caveat evidence and are not blockers.
+            val abilities = verdict.hnsAbilityDecisions
+                .filter {
+                    when {
+                        it.globalCategory == HnsAbilityCategory.UNCLASSIFIED ->
+                            CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED in abilityIdentityLimitations
+                        else -> abilityLimitation.isNotEmpty() &&
+                            it.globalCategory == HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+                            it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+                    }
+                }
+                .map(::Ability)
+            if (abilityLimitation.isNotEmpty() && abilities.isEmpty()) {
+                mechanics += Mechanic("Ability effect not modelled", abilityLimitation)
+            }
             if (abilityIdentityLimitations.isNotEmpty() && abilities.isEmpty()) {
                 mechanics += Mechanic("Ability identity/capability not authoritative", abilityIdentityLimitations)
             }
+            val itemLimitation = take(setOf(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+            val itemIdentityLimitations = take(setOf(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE))
+            val itemClassificationLimitations = take(setOf(CalcLimitation.HNS_ITEM_EFFECT_UNCLASSIFIED))
+            // As with abilities, only UNKNOWN decisions are blockers for the soft item code.
             val items = verdict.hnsItemDecisions
                 .filter {
-                    it.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT &&
-                        it.relevance != HnsItemRequestRelevance.MODELLED
+                    when {
+                        it.globalCategory == HnsItemCategory.UNCLASSIFIED ->
+                            CalcLimitation.HNS_ITEM_EFFECT_UNCLASSIFIED in itemClassificationLimitations
+                        else -> itemLimitation.isNotEmpty() &&
+                            it.globalCategory == HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+                            it.relevance == HnsItemRequestRelevance.UNKNOWN
+                    }
                 }
                 .map(::Item)
-            val itemLimitation = take(setOf(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
             if (itemLimitation.isNotEmpty() && items.isEmpty()) {
                 mechanics += Mechanic("Item effect not modelled", itemLimitation)
             }
-            val itemIdentityLimitations = take(setOf(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE))
             if (itemIdentityLimitations.isNotEmpty() && items.isEmpty()) {
                 mechanics += Mechanic("Item identity not authoritative", itemIdentityLimitations)
             }
-            val itemClassificationLimitations = take(setOf(CalcLimitation.HNS_ITEM_EFFECT_UNCLASSIFIED))
             if (itemClassificationLimitations.isNotEmpty() && items.isEmpty()) {
                 mechanics += Mechanic("Item capability not classified", itemClassificationLimitations)
             }
@@ -292,7 +313,10 @@ sealed interface DamageBlockerPresentation {
             }
 
             val all = states + fields + abilities + items + mechanics
-            return all.ifEmpty { listOf(Mechanic("Damage interaction not modelled", limitations)) }
+            return all.ifEmpty {
+                if (requestBlockers.isEmpty()) emptyList()
+                else listOf(Mechanic("Damage interaction not modelled", requestBlockers))
+            }
         }
 
         /** The compact one-line reason: the only blocker's headline, or a typed count. */

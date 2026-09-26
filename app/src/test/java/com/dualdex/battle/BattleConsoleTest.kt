@@ -663,9 +663,10 @@ class BattleConsoleTest {
         val refused = buildHnsPresentation(33, changedContext, calculator)
         assertEquals(DamageConfidence.UNAVAILABLE, refused.damageConfidence)
         assertTrue(refused.damageLimitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
-        // The statused Guts holder is refused for two independent reasons; neither hides the other.
-        assertEquals("2 blockers", refused.damageUnavailableReason)
-        assertEquals(listOf("Status not modelled", "You: Guts"), refused.damageBlockers.map { it.detail })
+        // The status blocks; Guts is a complete caveat and is not mislabeled as a second blocker.
+        assertEquals("Status not modelled", refused.damageUnavailableReason)
+        assertEquals(listOf("Status not modelled"), refused.damageBlockers.map { it.detail })
+        assertTrue(refused.damageAbilityBlockers.isEmpty())
         assertEquals("the refusal must never reach the calculator", 1, sentRequests.size)
     }
 
@@ -692,9 +693,8 @@ class BattleConsoleTest {
         )
         val refused = buildHnsPresentation(33, harmful, calculator)
         assertEquals(DamageConfidence.UNAVAILABLE, refused.damageConfidence)
-        assertEquals("Your Guts not modelled",
-            refused.damageBlockers.filterIsInstance<DamageBlockerPresentation.Ability>().single().headline)
-        assertEquals("2 blockers", refused.damageUnavailableReason)
+        assertEquals("Status not modelled", refused.damageUnavailableReason)
+        assertTrue(refused.damageAbilityBlockers.isEmpty())
         assertEquals(1, sent.size)
 
         val defenderIrrelevant = hnsContext(playerAbilityId = 9, playerAbilityName = "Static", randomAbilities = true,
@@ -764,17 +764,15 @@ class BattleConsoleTest {
         val defender = createTestPokemon(species = 1432, nickname = "Terapagos")
         val result = buildHnsPresentation(33, context, calculator, defender)
         assertEquals(DamageConfidence.UNAVAILABLE, result.damageConfidence)
-        // Every blocker class stays visible: the live-state gap does not hide either ability.
-        assertEquals("${result.damageBlockers.size} blockers", result.damageUnavailableReason)
-        assertTrue(result.damageBlockers.map { it.detail }.containsAll(
-            listOf("Live battle state incomplete", "You: Huge Power", "Foe: Tera Shell")
-        ))
-        assertTrue(result.damageUnavailableText.startsWith("Damage unavailable · ${result.damageBlockers.size} blockers\n"))
-        assertEquals(2, result.damageAbilityBlockers.size)
-        assertEquals(listOf(HnsAbilitySide.ATTACKER, HnsAbilitySide.DEFENDER),
-            result.damageAbilityBlockers.map { it.side })
-        assertEquals(listOf("Huge Power", "Tera Shell"),
-            result.damageAbilityBlockers.map { it.abilityName })
+        // The request also has an independent unsupported-species cause. Neither complete ability
+        // caveat is labeled as a blocker beside those hard refusals.
+        assertEquals("2 blockers", result.damageUnavailableReason)
+        assertTrue(result.damageBlockers.any {
+            it is DamageBlockerPresentation.State && it.reason == "Live battle state incomplete"
+        })
+        assertTrue(result.damageBlockers.none { it is DamageBlockerPresentation.Ability })
+        assertTrue(result.damageUnavailableText.startsWith("Damage unavailable · 2 blockers\n"))
+        assertTrue(result.damageAbilityBlockers.isEmpty())
         assertEquals(0, sent.size)
     }
 
@@ -1731,17 +1729,15 @@ class BattleConsoleTest {
 
     @Test
     fun `field, weather and foe side status are distinct Battle-tab blockers`() {
-        // Wonder Room (field), an unmodelled weather bit and an unmodelled foe side-status bit: three
-        // separate classes, never one generic "Field condition not modelled".
+        // Wonder Room is a complete field caveat. Weather and foe side status are the two blockers.
         val result = buildHnsPresentation(33, fieldContext(field = 0x4, weather = 0x20, foeSide = 0x100))
-        assertEquals("3 blockers", result.damageUnavailableReason)
+        assertEquals("2 blockers", result.damageUnavailableReason)
         assertEquals(
-            listOf("Field: Wonder Room (0x00000004)", "Weather: not modelled (0x0020)", "Foe side: not modelled (0x00000100)"),
+            listOf("Weather: not modelled (0x0020)", "Foe side: not modelled (0x00000100)"),
             result.damageBlockers.map { it.detail }
         )
-        assertTrue(result.damageBlockers[0] is DamageBlockerPresentation.Field)
-        assertTrue(result.damageBlockers[1] is DamageBlockerPresentation.Weather)
-        assertTrue(result.damageBlockers[2] is DamageBlockerPresentation.SideStatus)
+        assertTrue(result.damageBlockers[0] is DamageBlockerPresentation.Weather)
+        assertTrue(result.damageBlockers[1] is DamageBlockerPresentation.SideStatus)
         assertFalse(result.damageUnavailableText.contains("Field condition not modelled"))
     }
 

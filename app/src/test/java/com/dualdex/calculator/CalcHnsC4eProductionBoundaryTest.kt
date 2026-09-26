@@ -1962,11 +1962,79 @@ class CalcHnsC4eProductionBoundaryTest {
             three.verdict.ignoredMechanics.map { it.presentationLine }.toSet())
         assertFalse(three.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
         val withMove = refusedOf(fieldBuild(HnsFieldStatus.WONDER_ROOM.mask, move = "Seismic Toss",
-            attackerItem = 425, attackerAbility = 148 to "Analytic"), "field + ability + item + move")
+            attackerItem = 425, attackerAbility = 54 to "Truant"), "field + caveatable ability + item + move")
         assertEquals(
-            "Damage unavailable · 4 blockers\nField: Wonder Room (0x00000004)\nYou: Analytic\nYou: Silk Scarf\nMove effect not modelled",
+            setOf(
+                CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED,
+                CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED
+            ),
+            withMove.verdict.blockingLimitations.toSet()
+        )
+        assertEquals(
+            "Damage unavailable · 2 blockers\nYou: Silk Scarf\nMove effect not modelled",
             cardText(withMove)
         )
+
+        // With an ordinary move all three soft effects are fully evidenced. The independent live
+        // status refusal remains the only blocker and does not turn them into refusal reasons.
+        val withHardStatus = refusedOf(fieldBuild(
+            HnsFieldStatus.WONDER_ROOM.mask,
+            attackerItem = 425,
+            attackerAbility = 54 to "Truant",
+            status1 = 0x10
+        ), "live status blocks beside three complete caveat decisions")
+        assertEquals(setOf(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED),
+            withHardStatus.verdict.blockingLimitations.toSet())
+        assertEquals("Damage unavailable · Status not modelled", cardText(withHardStatus))
+    }
+
+    @Test
+    fun `refusal presentation lists unknown decisions but omits neighboring caveats`() {
+        val mixedAbilities = refusedOf(
+            fieldBuild(
+                0,
+                attackerAbility = 54 to "Truant",
+                defenderAbility = 105 to "Super Luck"
+            ),
+            "unknown Super Luck blocks while attacker Truant has complete caveat evidence"
+        )
+        val abilityBlockers = com.dualdex.battle.DamageBlockerPresentation.from(mixedAbilities.verdict, false)
+        assertEquals(listOf("Foe: Super Luck"), abilityBlockers.map { it.detail })
+        assertTrue(mixedAbilities.verdict.ignoredMechanics.any {
+            it.presentationLine == "You: Truant"
+        })
+
+        val mixedItems = refusedOf(
+            build(
+                trustFor(exactSha), goldenARequest(),
+                playerObservation(itemId = 426, electrified = true),
+                enemyObservation(itemId = 481, hp = 15, maxHp = 15)
+            ),
+            "unknown Charcoal relevance blocks while the foe's Focus Sash has caveat evidence"
+        )
+        assertTrue(mixedItems.verdict.hnsItemDecisions.any {
+            it.itemName == "Charcoal" && it.relevance == HnsItemRequestRelevance.UNKNOWN
+        })
+        assertTrue(mixedItems.verdict.ignoredMechanics.any {
+            it.presentationLine == "Foe: Focus Sash"
+        })
+        val itemDetails = com.dualdex.battle.DamageBlockerPresentation.detailLines(
+            com.dualdex.battle.DamageBlockerPresentation.from(mixedItems.verdict, false)
+        )
+        assertTrue(itemDetails.any { it == "You: Charcoal" })
+        assertFalse(itemDetails.any { it == "Foe: Focus Sash" })
+
+        val mixedFields = refusedOf(
+            fieldBuild(HnsFieldStatus.WONDER_ROOM.mask or 0x2000),
+            "unknown field bits block while Wonder Room has caveat evidence"
+        )
+        assertEquals(
+            "Damage unavailable · Unknown field state 0x00002000\nField: Unknown bits 0x00002000",
+            cardText(mixedFields)
+        )
+        assertTrue(mixedFields.verdict.ignoredMechanics.any {
+            it.presentationLine == "Field: Wonder Room"
+        })
     }
 
     @Test
@@ -2140,6 +2208,10 @@ class CalcHnsC4eProductionBoundaryTest {
             it.abilityName == "Super Luck" && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
         })
         assertTrue(refused.verdict.ignoredMechanics.isEmpty())
+        assertEquals(
+            "Damage unavailable · 2 blockers\nYou: Super Luck\nMove effect not modelled",
+            cardText(refused)
+        )
     }
 
     @Test
@@ -2157,6 +2229,8 @@ class CalcHnsC4eProductionBoundaryTest {
             it == CalcLimitation.SPECIES_NOT_IN_PINNED_DATA || it == CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN
         })
         assertEquals(listOf("You: Huge Power"), unknownSpecies.verdict.ignoredMechanics.map { it.presentationLine })
+        assertFalse("a caveatable ability is not presented as an unknown-species blocker",
+            cardText(unknownSpecies).contains("Huge Power"))
 
         val doubles = refusedOf(
             build(

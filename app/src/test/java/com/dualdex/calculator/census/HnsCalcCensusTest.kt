@@ -98,6 +98,104 @@ class HnsCalcCensusTest {
     }
 
     @Test
+    fun `report blocker ranks use request blockers for unknown soft causes and omit caveats`() {
+        val base = artifacts().run
+        val template = base.requests.first()
+        val abilityCode = CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED
+        val itemCode = CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED
+        val fieldCode = CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED
+        val moveCode = CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED
+
+        val hardAndUnknownSoft = HnsCensusOutcome(
+            tier = HnsCensusResultTier.REFUSED,
+            support = CalcSupport.UNSUPPORTED,
+            limitations = listOf(moveCode, abilityCode, itemCode, fieldCode),
+            blockers = listOf(
+                HnsCensusBlocker(moveCode.name, moveCode),
+                HnsCensusBlocker(abilityCode.name, abilityCode, side = "attacker", identity = "Unknown Ability"),
+                HnsCensusBlocker(itemCode.name, itemCode, side = "defender", identity = "Focus Sash"),
+                HnsCensusBlocker(fieldCode.name, fieldCode, identity = "Unknown field bits 0x00002000")
+            ),
+            abilityDecisions = emptyList(),
+            itemDecisions = listOf(
+                com.dualdex.calculator.HnsItemRequestDecision(
+                    itemId = 481,
+                    itemName = "Focus Sash",
+                    side = com.dualdex.calculator.HnsItemSide.DEFENDER,
+                    globalCategory = com.dualdex.pokemon.hns.HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+                    relevance = com.dualdex.calculator.HnsItemRequestRelevance.UNKNOWN,
+                    rationale = "item relevance is unknown"
+                ),
+                com.dualdex.calculator.HnsItemRequestDecision(
+                    itemId = 425,
+                    itemName = "Silk Scarf",
+                    side = com.dualdex.calculator.HnsItemSide.ATTACKER,
+                    globalCategory = com.dualdex.pokemon.hns.HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+                    relevance = com.dualdex.calculator.HnsItemRequestRelevance.RELEVANT,
+                    rationale = "complete evidence supports a named caveat"
+                )
+            ),
+            fieldDecisions = emptyList()
+        )
+        val caveatedSoft = HnsCensusOutcome(
+            tier = HnsCensusResultTier.CAVEATED_ESTIMATE,
+            support = CalcSupport.ESTIMATED,
+            limitations = listOf(abilityCode, itemCode, fieldCode),
+            blockers = emptyList(),
+            abilityDecisions = emptyList(),
+            itemDecisions = listOf(
+                com.dualdex.calculator.HnsItemRequestDecision(
+                    itemId = 425,
+                    itemName = "Silk Scarf",
+                    side = com.dualdex.calculator.HnsItemSide.ATTACKER,
+                    globalCategory = com.dualdex.pokemon.hns.HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+                    relevance = com.dualdex.calculator.HnsItemRequestRelevance.RELEVANT,
+                    rationale = "complete evidence supports a named caveat"
+                )
+            ),
+            fieldDecisions = emptyList(),
+            ignoredMechanics = listOf(
+                HnsCensusBlocker("ignored_item", itemCode, "attacker", "Silk Scarf", "RELEVANT")
+            )
+        )
+        val run = base.copy(
+            // Keep this focused report fixture small; the assertion concerns the two request
+            // rows below, not the large ability-trial table emitted by the real census.
+            trainers = emptyList(),
+            referenceLeads = emptyList(),
+            requests = listOf(
+                template.copy(key = "regression-hard", trainerKey = "regression-hard",
+                    outcome = hardAndUnknownSoft),
+                template.copy(key = "regression-caveated", trainerKey = "regression-caveated",
+                    outcome = caveatedSoft)
+            ),
+            excludedMoves = emptyList(),
+            abilityDomain = emptyList(),
+            abilityCohorts = emptyList(),
+            abilityTrialExcludedAmbiguous = 0 to 0,
+            abilityTrials = emptyList()
+        )
+
+        val report = org.json.JSONObject(HnsCalcCensusReport.toJson(run))
+        val limitationCounts = report.getJSONArray("limitations").let { rows ->
+            (0 until rows.length()).associate {
+                val row = rows.getJSONObject(it)
+                row.getString("limitation") to row.getInt("requests")
+            }
+        }
+        assertEquals(1, limitationCounts[abilityCode.name])
+        assertEquals(1, limitationCounts[itemCode.name])
+        assertEquals(1, limitationCounts[fieldCode.name])
+        assertEquals(1, limitationCounts[moveCode.name])
+
+        val itemRanks = report.getJSONArray("itemBlockers")
+        assertEquals(1, itemRanks.length())
+        assertEquals("Focus Sash", itemRanks.getJSONObject(0).getString("item"))
+        assertEquals("defender", itemRanks.getJSONObject(0).getString("side"))
+        assertEquals(1, itemRanks.getJSONObject(0).getInt("requests"))
+    }
+
+    @Test
     fun `the census derives caveated estimates from production verdicts`() {
         assertEquals(3, HnsCensusResultTier.entries.size)
         assertEquals("CAVEATED_ESTIMATE", HnsCensusResultTier.CAVEATED_ESTIMATE.wireName)

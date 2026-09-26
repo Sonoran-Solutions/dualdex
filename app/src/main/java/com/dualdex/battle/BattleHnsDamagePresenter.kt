@@ -13,9 +13,7 @@ import com.dualdex.calculator.CalcRequestOutcome
 import com.dualdex.calculator.CalcSupport
 import com.dualdex.calculator.CalcCapabilityVerdict
 import com.dualdex.calculator.HnsAbilityRequestDecision
-import com.dualdex.calculator.HnsAbilityRequestRelevance
 import com.dualdex.calculator.HnsItemRequestDecision
-import com.dualdex.calculator.HnsItemRequestRelevance
 import com.dualdex.pokemon.GameDataPackRegistry
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.MoveInfo
@@ -230,14 +228,13 @@ object BattleHnsDamagePresenter {
 
         return when (outcome) {
             is CalcRequestOutcome.Refused -> {
-                val abilityBlockers = outcome.verdict.hnsAbilityDecisions.filter {
-                    it.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
-                }
-                val itemBlockers = outcome.verdict.hnsItemDecisions.filter {
-                    it.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT &&
-                        it.relevance != HnsItemRequestRelevance.MODELLED
-                }
                 val blockers = DamageBlockerPresentation.from(outcome.verdict, observedDoubles(context))
+                // Keep the typed Battle presentation aligned with the request-level refusal list.
+                // A complete caveat decision is not a blocker just because another cause refused.
+                val abilityBlockers = blockers.filterIsInstance<DamageBlockerPresentation.Ability>()
+                    .map { it.decision }
+                val itemBlockers = blockers.filterIsInstance<DamageBlockerPresentation.Item>()
+                    .map { it.decision }
                 BattleHnsDamagePresentation(
                     category = category,
                     moveType = typePresentation.moveType,

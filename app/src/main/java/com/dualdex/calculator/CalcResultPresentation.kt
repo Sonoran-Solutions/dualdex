@@ -69,7 +69,12 @@ data class CalcResultPresentation(
                     support = verdict.support
                 )
                 CalcSupport.ESTIMATED -> CalcResultPresentation(
-                    headline = "$ESTIMATED_PREFIX — ${verdict.supportDetail}",
+                    headline = if (verdict.isCaveatedEstimate) {
+                        "$ESTIMATED_PREFIX — estimate ignores:\n" +
+                            verdict.ignoredMechanics.joinToString("\n") { it.presentationLine }
+                    } else {
+                        "$ESTIMATED_PREFIX — ${verdict.supportDetail}"
+                    },
                     isVerified = false,
                     support = verdict.support
                 )

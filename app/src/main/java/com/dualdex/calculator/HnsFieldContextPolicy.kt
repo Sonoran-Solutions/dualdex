@@ -33,8 +33,9 @@ data class HnsFieldRequestDecision(
 /**
  * Source-backed request-local relevance rules for the live H&S field word.
  *
- * Each active bit is assessed independently and cleared only when every operand of a reviewed
- * predicate is authoritative. The rules, their operands and pinned evidence live in
+ * Each active bit is assessed independently. Irrelevance is proven only when every operand of a
+ * reviewed predicate is authoritative; complete relevant decisions can be named as caveats by the
+ * outer capability policy, while unknown relevance remains a hard refusal. The rules, their operands and pinned evidence live in
  * `tools/hns-field-status/field_audit.json`; `generate_hns_field_status.py --check` fails when a
  * rule implemented here is not reviewed there (or vice versa), when its evidence lines change, or
  * when a pinned field-status read appears that the audit does not list.

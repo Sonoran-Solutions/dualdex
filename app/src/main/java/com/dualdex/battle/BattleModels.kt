@@ -624,6 +624,8 @@ data class MovePresentation(
     val damageItemBlockers: List<com.dualdex.calculator.HnsItemRequestDecision> = emptyList(),
     /** Every refusal blocker (state, ability, item, mechanic) in display order. */
     val damageBlockers: List<DamageBlockerPresentation> = emptyList(),
+    /** Structured named mechanics neutralized for this estimate. */
+    val damageIgnoredMechanics: List<DamageBlockerPresentation> = emptyList(),
     /** Short human-readable reason shown after the generic unavailable label when available. */
     val damageUnavailableReason: String? = null,
     val calculatorSupport: CalcSupport? = null
@@ -668,7 +670,9 @@ data class MovePresentation(
         }
         DamageConfidence.ESTIMATE -> {
             if (maxDamage > 0) {
-                "$minDamage-$maxDamage (Estimate)" + if (koChanceText.isNotBlank()) " · $koChanceText" else ""
+                "$minDamage-$maxDamage (Estimate)" +
+                    (if (koChanceText.isNotBlank()) " · $koChanceText" else "") +
+                    DamageBlockerPresentation.ignoredText(damageIgnoredMechanics)
             } else {
                 "Estimate unavailable"
             }
@@ -1011,6 +1015,7 @@ object BattlePresentationBuilder {
             damageAbilityBlockers = hnsDamage?.abilityBlockers.orEmpty(),
             damageItemBlockers = hnsDamage?.itemBlockers.orEmpty(),
             damageBlockers = hnsDamage?.blockers.orEmpty(),
+            damageIgnoredMechanics = hnsDamage?.ignoredMechanics.orEmpty(),
             damageUnavailableReason = hnsDamage?.unavailableReason,
             calculatorSupport = hnsDamage?.support
         )

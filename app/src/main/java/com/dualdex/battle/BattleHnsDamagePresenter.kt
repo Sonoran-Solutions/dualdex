@@ -13,9 +13,7 @@ import com.dualdex.calculator.CalcRequestOutcome
 import com.dualdex.calculator.CalcSupport
 import com.dualdex.calculator.CalcCapabilityVerdict
 import com.dualdex.calculator.HnsAbilityRequestDecision
-import com.dualdex.calculator.HnsAbilityRequestRelevance
 import com.dualdex.calculator.HnsItemRequestDecision
-import com.dualdex.calculator.HnsItemRequestRelevance
 import com.dualdex.pokemon.GameDataPackRegistry
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.MoveInfo
@@ -135,6 +133,8 @@ data class BattleHnsDamagePresentation(
     val itemBlockers: List<HnsItemRequestDecision> = emptyList(),
     /** Every blocker class of a refusal, in display order; nothing is hidden behind another class. */
     val blockers: List<DamageBlockerPresentation> = emptyList(),
+    /** Same structured ability/item causes, now explicitly ignored for an estimate. */
+    val ignoredMechanics: List<DamageBlockerPresentation> = emptyList(),
     val unavailableReason: String? = null
 )
 
@@ -228,14 +228,13 @@ object BattleHnsDamagePresenter {
 
         return when (outcome) {
             is CalcRequestOutcome.Refused -> {
-                val abilityBlockers = outcome.verdict.hnsAbilityDecisions.filter {
-                    it.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
-                }
-                val itemBlockers = outcome.verdict.hnsItemDecisions.filter {
-                    it.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT &&
-                        it.relevance != HnsItemRequestRelevance.MODELLED
-                }
                 val blockers = DamageBlockerPresentation.from(outcome.verdict, observedDoubles(context))
+                // Keep the typed Battle presentation aligned with the request-level refusal list.
+                // A complete caveat decision is not a blocker just because another cause refused.
+                val abilityBlockers = blockers.filterIsInstance<DamageBlockerPresentation.Ability>()
+                    .map { it.decision }
+                val itemBlockers = blockers.filterIsInstance<DamageBlockerPresentation.Item>()
+                    .map { it.decision }
                 BattleHnsDamagePresentation(
                     category = category,
                     moveType = typePresentation.moveType,
@@ -275,7 +274,9 @@ object BattleHnsDamagePresenter {
                         unavailableReason = if (outcome.verdict.support == CalcSupport.ESTIMATED) null else "Calculation not supported"
                     )
                 } else {
-                    val response = calculator.calculate(outcome.request)
+                    val response = com.dualdex.calculator.CalcAuthorizedExecution.calculate(outcome.verdict) {
+                        calculator.calculate(it)
+                    }
                     if (response.success && response.maxDamage > 0) {
                         BattleHnsDamagePresentation(
                             category = parseCategory(response.moveCategory) ?: authorizedCategory ?: category,
@@ -287,7 +288,9 @@ object BattleHnsDamagePresenter {
                             maxDamage = response.maxDamage,
                             range = response.range,
                             koChanceText = response.koChanceText,
-                            support = outcome.verdict.support
+                            support = outcome.verdict.support,
+                            limitations = outcome.verdict.limitations,
+                            ignoredMechanics = DamageBlockerPresentation.ignoredFrom(outcome.verdict)
                         )
                     } else {
                         BattleHnsDamagePresentation(
@@ -296,7 +299,7 @@ object BattleHnsDamagePresenter {
                             effectiveness = requestTypePresentation.effectiveness,
                             effectivenessConfidence = requestTypePresentation.effectivenessConfidence,
                             support = outcome.verdict.support,
-                            unavailableReason = "Calculation unavailable"
+                            unavailableReason = response.error ?: "Calculation unavailable"
                         )
                     }
                 }

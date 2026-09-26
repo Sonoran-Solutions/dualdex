@@ -630,7 +630,9 @@ class CalcTabScreenView(
             return
         }
 
-        val res = DamageCalculator.calculate(authorised.request)
+        val res = CalcAuthorizedExecution.calculate(authorised.verdict) { request ->
+            DamageCalculator.calculate(request)
+        }
         val presentation = CalcResultPresentation.forVerdict(
             verdict = authorised.verdict,
             request = authorised.request
@@ -650,7 +652,11 @@ class CalcTabScreenView(
                     "Defender Max HP: ${res.defenderMaxHP} HP$koText\n\n" +
                     "Damage Rolls (16): [$rollsStr]"
         } else {
-            resultTextView.text = "Calculation: ${res.error ?: "Select move to calculate"}"
+            resultTextView.text = if (res.error == CalcAuthorizedExecution.ECHO_FAILURE) {
+                "Damage unavailable · ${res.error}"
+            } else {
+                "Calculation: ${res.error ?: "Select move to calculate"}"
+            }
         }
     }
 

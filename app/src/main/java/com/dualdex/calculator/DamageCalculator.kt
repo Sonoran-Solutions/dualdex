@@ -65,7 +65,20 @@ object DamageCalculator {
             defenderName = resObj.optString("defenderName", ""),
             defenderMaxHP = resObj.optInt("defenderMaxHP", 0),
             koChanceText = resObj.optString("koChanceText", ""),
-            effectiveness = if (resObj.has("effectiveness")) resObj.optDouble("effectiveness") else null
+            effectiveness = if (resObj.has("effectiveness")) resObj.optDouble("effectiveness") else null,
+            engineEcho = if (resObj.has("attackerAbility") || resObj.has("defenderAbility") ||
+                resObj.has("attackerItem") || resObj.has("defenderItem")
+            ) {
+                CalcEngineOperandEcho(
+                    attackerAbility = resObj.optNullableString("attackerAbility"),
+                    defenderAbility = resObj.optNullableString("defenderAbility"),
+                    attackerItem = resObj.optNullableString("attackerItem"),
+                    defenderItem = resObj.optNullableString("defenderItem"),
+                    hasCompleteContract = listOf(
+                        "attackerAbility", "defenderAbility", "attackerItem", "defenderItem"
+                    ).all(resObj::has)
+                )
+            } else null
         )
     }
 
@@ -293,3 +306,6 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
         }
         put("field", fieldObj)
     }.toString()
+
+private fun JSONObject.optNullableString(key: String): String? =
+    if (!has(key) || isNull(key)) null else optString(key)

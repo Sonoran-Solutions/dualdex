@@ -32,10 +32,16 @@ sealed interface DamageBlockerPresentation {
      * One active live `gFieldStatuses` condition that was not proven irrelevant: a pinned bit, or
      * every bit outside the reviewed pinned mask. [rawWord] is the whole observed word.
      */
-    data class Field(val decision: HnsFieldRequestDecision, val rawWord: Int?) : DamageBlockerPresentation {
+    data class Field(
+        val decision: HnsFieldRequestDecision,
+        val rawWord: Int?,
+        val ignored: Boolean = false
+    ) : DamageBlockerPresentation {
         override val headline: String
             get() = if (decision.status == null) {
                 "Unknown field state ${HnsFieldState.formatMask(decision.rawMask)}"
+            } else if (ignored) {
+                "Ignoring Field: ${decision.label}"
             } else {
                 "${decision.label} not modelled"
             }
@@ -47,7 +53,7 @@ sealed interface DamageBlockerPresentation {
             } else {
                 "${decision.label} (${HnsFieldState.formatMask(decision.rawMask)})"
             }
-        override val detail: String get() = "Field: $condition"
+        override val detail: String get() = if (ignored) "Field: ${decision.label}" else "Field: $condition"
     }
 
     /** The live `gBattleWeather` word carries a weather the calculator does not model. */
@@ -63,20 +69,34 @@ sealed interface DamageBlockerPresentation {
     }
 
     /** A globally unsupported/unresolved effective ability that was not proven irrelevant. */
-    data class Ability(val decision: HnsAbilityRequestDecision) : DamageBlockerPresentation {
+    data class Ability(
+        val decision: HnsAbilityRequestDecision,
+        val ignored: Boolean = false
+    ) : DamageBlockerPresentation {
         private val attacker get() = decision.side == HnsAbilitySide.ATTACKER
         override val headline: String
-            get() = "${possessive(attacker)} ${decision.abilityName} " +
-                auditStatus(decision.globalCategory == HnsAbilityCategory.UNCLASSIFIED)
+            get() = if (ignored) {
+                "Ignoring ${owner(attacker)}: ${decision.abilityName}"
+            } else {
+                "${possessive(attacker)} ${decision.abilityName} " +
+                    auditStatus(decision.globalCategory == HnsAbilityCategory.UNCLASSIFIED)
+            }
         override val detail: String get() = "${owner(attacker)}: ${decision.abilityName}"
     }
 
     /** A globally unsupported/unresolved live held item that was not proven irrelevant. */
-    data class Item(val decision: HnsItemRequestDecision) : DamageBlockerPresentation {
+    data class Item(
+        val decision: HnsItemRequestDecision,
+        val ignored: Boolean = false
+    ) : DamageBlockerPresentation {
         private val attacker get() = decision.side == HnsItemSide.ATTACKER
         override val headline: String
-            get() = "${possessive(attacker)} ${decision.itemName} " +
-                auditStatus(decision.globalCategory == HnsItemCategory.UNCLASSIFIED)
+            get() = if (ignored) {
+                "Ignoring ${owner(attacker)}: ${decision.itemName}"
+            } else {
+                "${possessive(attacker)} ${decision.itemName} " +
+                    auditStatus(decision.globalCategory == HnsItemCategory.UNCLASSIFIED)
+            }
         override val detail: String get() = "${owner(attacker)}: ${decision.itemName}"
     }
 
@@ -98,6 +118,23 @@ sealed interface DamageBlockerPresentation {
         private fun owner(attacker: Boolean) = if (attacker) "You" else "Foe"
         private fun auditStatus(unclassified: Boolean) = if (unclassified) "not yet audited" else "not modelled"
 
+        /** Same structured causes used for refusals, formatted as estimate caveats. */
+        fun ignoredFrom(verdict: CalcCapabilityVerdict): List<DamageBlockerPresentation> =
+            verdict.ignoredMechanics.map { mechanic ->
+                when (mechanic) {
+                    is com.dualdex.calculator.IgnoredCalcMechanic.Ability -> Ability(mechanic.decision, ignored = true)
+                    is com.dualdex.calculator.IgnoredCalcMechanic.Item -> Item(mechanic.decision, ignored = true)
+                    is com.dualdex.calculator.IgnoredCalcMechanic.Field -> Field(
+                        mechanic.decision,
+                        rawWord = verdict.hnsFieldDiagnostics?.fieldState?.raw,
+                        ignored = true
+                    )
+                }
+            }
+
+        fun ignoredText(mechanics: List<DamageBlockerPresentation>): String =
+            if (mechanics.isEmpty()) "" else "\nIgnores:\n" + mechanics.joinToString("\n") { it.detail }
+
         /**
          * All blockers of a refused verdict, ordered State, Field, Weather, SideStatus, Ability, Item,
          * Mechanic.
@@ -108,7 +145,8 @@ sealed interface DamageBlockerPresentation {
          */
         fun from(verdict: CalcCapabilityVerdict, observedDoubles: Boolean): List<DamageBlockerPresentation> {
             val limitations = verdict.limitations.distinct()
-            val blocking = limitations.filter { it.blocksCalculation }.toMutableSet()
+            val blocking = verdict.blockingLimitations.toMutableSet()
+            val requestBlockers = blocking.toList()
             val states = mutableListOf<DamageBlockerPresentation>()
             val mechanics = mutableListOf<DamageBlockerPresentation>()
 
@@ -170,7 +208,11 @@ sealed interface DamageBlockerPresentation {
                 }
             }
             val fieldLimitation = take(setOf(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
-            val fieldBlockers = fieldDecisions.filter { it !in ionDeluge }.map { Field(it, rawField) }
+            // A known relevant field can be caveated even when another blocker refuses this
+            // request. Only UNKNOWN field decisions are causes of the blocking soft limitation.
+            val fieldBlockers = fieldDecisions
+                .filter { it !in ionDeluge && it.relevance == HnsFieldRequestRelevance.UNKNOWN }
+                .map { Field(it, rawField) }
             fields += fieldBlockers
             if (fieldLimitation.isNotEmpty() && fieldBlockers.isEmpty()) {
                 states += State("Field condition not modelled", fieldLimitation)
@@ -212,25 +254,54 @@ sealed interface DamageBlockerPresentation {
                 }
             }
 
-            val abilities = verdict.hnsAbilityDecisions
-                .filter { it.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT }
-                .map(::Ability)
             val abilityLimitation = take(setOf(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+            val abilityIdentityLimitations = take(setOf(
+                CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED,
+                CalcLimitation.HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE
+            ))
+            // If one ability is UNKNOWN, the soft limitation blocks the request, but other
+            // RELEVANT abilities still have complete caveat evidence and are not blockers.
+            val abilities = verdict.hnsAbilityDecisions
+                .filter {
+                    when {
+                        it.globalCategory == HnsAbilityCategory.UNCLASSIFIED ->
+                            CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED in abilityIdentityLimitations
+                        else -> abilityLimitation.isNotEmpty() &&
+                            it.globalCategory == HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+                            it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+                    }
+                }
+                .map(::Ability)
             if (abilityLimitation.isNotEmpty() && abilities.isEmpty()) {
                 mechanics += Mechanic("Ability effect not modelled", abilityLimitation)
             }
+            if (abilityIdentityLimitations.isNotEmpty() && abilities.isEmpty()) {
+                mechanics += Mechanic("Ability identity/capability not authoritative", abilityIdentityLimitations)
+            }
+            val itemLimitation = take(setOf(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+            val itemIdentityLimitations = take(setOf(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE))
+            val itemClassificationLimitations = take(setOf(CalcLimitation.HNS_ITEM_EFFECT_UNCLASSIFIED))
+            // As with abilities, only UNKNOWN decisions are blockers for the soft item code.
             val items = verdict.hnsItemDecisions
                 .filter {
-                    it.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT &&
-                        it.relevance != HnsItemRequestRelevance.MODELLED
+                    when {
+                        it.globalCategory == HnsItemCategory.UNCLASSIFIED ->
+                            CalcLimitation.HNS_ITEM_EFFECT_UNCLASSIFIED in itemClassificationLimitations
+                        else -> itemLimitation.isNotEmpty() &&
+                            it.globalCategory == HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+                            it.relevance == HnsItemRequestRelevance.UNKNOWN
+                    }
                 }
                 .map(::Item)
-            val itemLimitation = take(setOf(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
             if (itemLimitation.isNotEmpty() && items.isEmpty()) {
                 mechanics += Mechanic("Item effect not modelled", itemLimitation)
             }
-            take(setOf(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE))
-                .takeIf { it.isNotEmpty() }?.let { mechanics += Mechanic("Item identity not authoritative", it) }
+            if (itemIdentityLimitations.isNotEmpty() && items.isEmpty()) {
+                mechanics += Mechanic("Item identity not authoritative", itemIdentityLimitations)
+            }
+            if (itemClassificationLimitations.isNotEmpty() && items.isEmpty()) {
+                mechanics += Mechanic("Item capability not classified", itemClassificationLimitations)
+            }
             take(
                 setOf(
                     CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED,
@@ -242,7 +313,10 @@ sealed interface DamageBlockerPresentation {
             }
 
             val all = states + fields + abilities + items + mechanics
-            return all.ifEmpty { listOf(Mechanic("Damage interaction not modelled", limitations)) }
+            return all.ifEmpty {
+                if (requestBlockers.isEmpty()) emptyList()
+                else listOf(Mechanic("Damage interaction not modelled", requestBlockers))
+            }
         }
 
         /** The compact one-line reason: the only blocker's headline, or a typed count. */

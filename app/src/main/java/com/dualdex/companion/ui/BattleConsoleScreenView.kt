@@ -1007,17 +1007,18 @@ class BattleConsoleScreenView(
 
             // Damage range & percentage
             val estimateSuffix = if (pres.calculatorSupport == CalcSupport.ESTIMATED) " · Estimate" else ""
+            val ignoredSuffix = DamageBlockerPresentation.ignoredText(pres.damageIgnoredMechanics)
             val damageText = when {
                 pres.isStatMove -> "Status move"
                 pres.maxDamage > 0 && defender != null && defender.maxHp > 0 -> {
                     val minPct = (pres.minDamage * 100) / defender.maxHp
                     val maxPct = (pres.maxDamage * 100) / defender.maxHp
                     "${pres.minDamage}–${pres.maxDamage} HP · $minPct–$maxPct%" +
-                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix
+                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix + ignoredSuffix
                 }
                 pres.maxDamage > 0 -> {
                     "${pres.minDamage}–${pres.maxDamage} HP" +
-                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix
+                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix + ignoredSuffix
                 }
                 pres.damageConfidence == DamageConfidence.UNAVAILABLE -> pres.damageUnavailableText
                 else -> pres.damageDisplayText

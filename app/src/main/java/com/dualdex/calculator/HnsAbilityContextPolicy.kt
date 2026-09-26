@@ -31,10 +31,11 @@ data class HnsAbilityRequestDecision(
 /**
  * Source-backed request-local relevance rules for globally unsupported H&S abilities.
  *
- * The registry remains the global capability authority. This policy only clears the single
- * ability blocker when its predicate is proven from request operands, most of which are rebound
- * by CalcRequestBoundary from the exact live battler observations. Anything absent or uncertain
- * returns UNKNOWN.
+ * The registry remains the global capability authority. This policy classifies the ability's
+ * request-local relevance from authoritative operands, most of which are rebound by
+ * CalcRequestBoundary from exact live battler observations. A proven irrelevant effect is cleared;
+ * a complete relevant decision can be named as a caveat by the outer capability policy. Anything
+ * absent or uncertain returns UNKNOWN and remains a hard refusal.
  */
 object HnsAbilityContextPolicy {
     /**

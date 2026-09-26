@@ -11,6 +11,9 @@ import org.junit.Test
 class HnsAbilityContextPolicyTest {
     private fun context(
         side: HnsAbilitySide = HnsAbilitySide.ATTACKER,
+        ordinaryMove: Boolean? = true,
+        isCrit: Boolean? = false,
+        attackerAbilityId: Int? = 0,
         moveType: PokemonType? = PokemonType.NORMAL,
         moveCategory: MoveCategory? = MoveCategory.PHYSICAL,
         attackerTypes: Set<PokemonType>? = setOf(PokemonType.GRASS),
@@ -22,6 +25,9 @@ class HnsAbilityContextPolicyTest {
         dynamicMoveTypeKnownNeutral: Boolean = true
     ) = HnsAbilityContextPolicy.Context(
         side = side,
+        ordinaryMove = ordinaryMove,
+        isCrit = isCrit,
+        attackerAbilityId = attackerAbilityId,
         moveType = moveType,
         moveCategory = moveCategory,
         attackerTypes = attackerTypes,
@@ -176,15 +182,59 @@ class HnsAbilityContextPolicyTest {
     }
 
     @Test
-    fun `critical armor clears attacker side but keeps defender blocked for KO odds`() {
+    fun `critical armor clears fixed noncritical range but conflicts with critical request`() {
         for (id in listOf(4, 75)) {
             assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
                 relevance(id, context(side = HnsAbilitySide.ATTACKER)))
-            assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
                 relevance(id, context(side = HnsAbilitySide.DEFENDER)))
+            assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, isCrit = true)))
+            assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, isCrit = null)))
         }
-        assertNotEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
-            relevance(4, context(side = HnsAbilitySide.DEFENDER)))
+    }
+
+    @Test
+    fun `critical stage is irrelevant but critical damage and forced critical remain relevant`() {
+        for (crit in listOf(false, true)) {
+            assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(105, context(isCrit = crit)))
+        }
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(105, context(isCrit = null)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(97, context(isCrit = false)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(97, context(isCrit = true)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(196, context(isCrit = false, attackerStatus1 = 0x08)))
+    }
+
+    @Test
+    fun `after-hit and berry recovery groups clear only ordinary hits`() {
+        for (id in listOf(24, 64, 106, 124, 152, 160, 215, 238, 254, 268, 139, 167, 291)) {
+            assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context()))
+            assertEquals("ability $id", HnsAbilityRequestRelevance.UNKNOWN,
+                relevance(id, context(ordinaryMove = false)))
+        }
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(192, context()))
+    }
+
+    @Test
+    fun `speed abilities clear without Analytic and keep its turn order dependency`() {
+        for (id in listOf(33, 34, 84, 95, 146, 202, 259)) {
+            assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = 0)))
+            assertEquals("ability $id", HnsAbilityRequestRelevance.RELEVANT,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = 148)))
+            assertEquals("ability $id", HnsAbilityRequestRelevance.UNKNOWN,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = null)))
+            assertEquals("ability $id", HnsAbilityRequestRelevance.UNKNOWN,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, ordinaryMove = false)))
+        }
     }
 
     @Test

@@ -3274,6 +3274,60 @@ static int hns_request_rolls(const char* req, double out[ROLL_COUNT]) {
     return ok;
 }
 
+/* Group A depends on this exact H&S result shape. A new output field forces the
+ * irrelevance proofs to be revisited, especially a KO or crit probability. */
+static void check_hns_single_hit_output_contract(void) {
+    static const char* keys[] = {
+        "success", "damage", "minDamage", "maxDamage", "range", "desc", "moveName",
+        "moveCategory", "moveType", "movePower", "attackerName", "attackerTypes",
+        "defenderName", "defenderTypes", "defenderMaxHP", "koChanceText", "effectiveness",
+        "attackerAbility", "defenderAbility", "attackerItem", "defenderItem"
+    };
+    const char* requests[] = {
+        "{" C4A_MACHAMP_SNORLAX_HEAD "\"move\":{\"name\":\"Rock Slide\",\"isCrit\":false}}",
+        "{" C4A_MACHAMP_SNORLAX_HEAD "\"move\":{\"name\":\"Rock Slide\",\"isCrit\":true}}",
+        "{" C4A_MACHAMP_SNORLAX_HEAD "\"move\":{\"name\":\"Splash\"}}"
+    };
+    double noncrit[ROLL_COUNT] = {0};
+    double crit[ROLL_COUNT] = {0};
+    double zero[ROLL_COUNT] = {0};
+    for (int n = 0; n < 3; n++) {
+        g_fixture = n == 0 ? "hns_output_contract_noncrit" :
+                    n == 1 ? "hns_output_contract_crit" : "hns_output_contract_zero";
+        char* raw = js_calc_calculate(requests[n]);
+        check_condition("H&S request returned JSON", raw != NULL);
+        if (!raw) continue;
+        jl_value* doc = jl_parse(raw);
+        check_condition("H&S response parses", doc != NULL && doc->type == JL_OBJ);
+        if (doc && doc->type == JL_OBJ) {
+            check_int("exact H&S result field count", (int)(sizeof(keys) / sizeof(keys[0])), doc->pair_count);
+            for (int i = 0; i < doc->pair_count; i++) {
+                int allowed = 0;
+                for (size_t j = 0; j < sizeof(keys) / sizeof(keys[0]); j++) {
+                    if (strcmp(doc->keys[i], keys[j]) == 0) { allowed = 1; break; }
+                }
+                check_condition("no new H&S output field without Group A review", allowed);
+            }
+            for (size_t j = 0; j < sizeof(keys) / sizeof(keys[0]); j++) {
+                int occurrences = 0;
+                for (int i = 0; i < doc->pair_count; i++) {
+                    if (strcmp(doc->keys[i], keys[j]) == 0) occurrences++;
+                }
+                check_int("each H&S output field occurs once", 1, occurrences);
+            }
+            const jl_value* ko = jl_get(doc, "koChanceText");
+            check_condition("H&S emits no KO probability", jl_is_str(ko) && jl_str(ko)[0] == '\0');
+            double* rolls = n == 0 ? noncrit : n == 1 ? crit : zero;
+            check_int("H&S emits exactly 16 single-hit rolls", ROLL_COUNT, response_rolls(doc, rolls));
+            if (n == 2) check_number("zero damage path has a zero roll", 0, jl_at(jl_get(doc, "damage"), 0));
+        }
+        jl_free(doc);
+        free(raw);
+    }
+    g_fixture = "hns_output_contract_fixed_crit_operand";
+    check_condition("fixed isCrit changes the selected hit's rolls", !rolls_equal(noncrit, crit));
+}
+
 static int rolls_contain(const double* rolls, int observed) {
     for (int i = 0; i < ROLL_COUNT; i++) {
         if ((int)rolls[i] == observed) return 1;
@@ -3915,6 +3969,9 @@ int main(void) {
 
     printf("-- Gap C4a: ordinary-damage arithmetic parity vs an independent H&S oracle --\n");
     check_gap_c4a_arithmetic_parity();
+
+    printf("-- Group A: H&S single-hit output shape and fixed crit operand --\n");
+    check_hns_single_hit_output_contract();
 
     printf("-- Gap C4b: arithmetic coverage (stat stages, crit ignores, badges, weather, screens, rawStats, target count) --\n");
     check_gap_c4b_arithmetic_coverage();

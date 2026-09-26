@@ -90,12 +90,15 @@ object HnsItemContextPolicy {
         val proof: Proof? = when (entry.familyGroup) {
             "attacker_offense" -> attackerOffense(holdEffect, itemId, c)
             "defender_defense" -> defenderDefense(holdEffect, itemId, c)
-            "post_hit_or_residual" -> if (c.ordinaryMove == true) proof(
-                rule = "single_hit_item_activation_outside_damage",
-                source = "src/battle_move_resolution.c:2429",
-                rationale = "Every activation of this hold effect runs after damage (MoveEnd), at end of turn, " +
-                    "at switch-in or from an event script; it is never read by a single hit's damage."
-            ) else null
+            "post_hit_or_residual" -> when (holdEffect) {
+                "HOLD_EFFECT_BLUNDER_POLICY", "HOLD_EFFECT_ROOM_SERVICE" -> postHitSpeed(holdEffect, c)
+                "HOLD_EFFECT_BOOSTER_ENERGY", "HOLD_EFFECT_TERRAIN_SEED", "HOLD_EFFECT_BERSERK_GENE" -> null
+                else -> if (c.ordinaryMove == true) proof(
+                    rule = "single_hit_item_activation_outside_damage",
+                    source = "src/battle_move_resolution.c:2429",
+                    rationale = "This hold effect acts after damage, at end of turn, or outside the selected hit."
+                ) else null
+            }
             "turn_order" -> turnOrder(c)
             "weight_only" -> if (c.ordinaryMove == true) proof(
                 rule = "weight_item_ordinary_move",
@@ -255,11 +258,12 @@ object HnsItemContextPolicy {
                 source = "src/battle_util.c:7660",
                 rationale = "GetAttackerItemsModifier applies this attacker item's final damage modifier."
             )
-            "HOLD_EFFECT_SCOPE_LENS", "HOLD_EFFECT_LUCKY_PUNCH", "HOLD_EFFECT_LEEK" -> relevant(
-                rule = "attacker_critical_stage_item",
-                source = "src/battle_util.c:8047",
-                rationale = "The attacker's critical-hit stage changes; critical odds are not modelled."
-            )
+            "HOLD_EFFECT_SCOPE_LENS", "HOLD_EFFECT_LUCKY_PUNCH", "HOLD_EFFECT_LEEK" ->
+                if (c.ordinaryMove == true) proof(
+                    rule = "fixed_crit_stage_item",
+                    source = "src/battle_util.c:8047",
+                    rationale = "The item changes critical-hit odds only; the selected hit's crit flag is fixed."
+                ) else null
             "HOLD_EFFECT_PUNCHING_GLOVE" -> unknownRule(
                 rule = "punching_flag_unobserved",
                 source = "src/battle_util.c:6844",
@@ -368,6 +372,21 @@ object HnsItemContextPolicy {
             source = "src/battle_util.c:6455",
             rationale = "Speed and turn order reach an ordinary move's damage only through Analytic, which the " +
                 "attacker does not have."
+        )
+    }
+
+    private fun postHitSpeed(holdEffect: String, c: Context): Proof? = when {
+        c.ordinaryMove != true || c.attackerAbilityId == null -> null
+        c.attackerAbilityId == ANALYTIC_ABILITY_ID -> relevant(
+            rule = "post_hit_speed_item_attacker_analytic",
+            source = "src/battle_util.c:6691",
+            rationale = "The attacker's Analytic damage depends on turn order."
+        )
+        else -> proof(
+            rule = "post_hit_speed_item_ordinary_move",
+            source = if (holdEffect == "HOLD_EFFECT_ROOM_SERVICE")
+                "src/battle_hold_effects.c:1058" else "src/battle_hold_effects.c:1109",
+            rationale = "This Speed effect cannot change ordinary damage without Analytic."
         )
     }
 

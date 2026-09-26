@@ -19,7 +19,11 @@ TARGET = HERE / "ability_inventory.tsv"
 KOTLIN = ROOT / "app/src/main/java/com/dualdex/pokemon/hns/HnsAbilityAuditData.kt"
 PIN = "1f42b74dff0e9fe942419845d040663dd829a973"
 CONTEXT_RULES = HERE / "context_rules.json"
-CONTEXT_CANDIDATES = {4, 26, 37, 47, 54, 57, 58, 62, 74, 75, 91, 132, 140, 308}
+CONTEXT_CANDIDATES = {
+    4, 24, 26, 33, 34, 37, 47, 54, 57, 58, 62, 64, 74, 75, 84, 91, 95, 97, 105,
+    106, 124, 132, 139, 140, 146, 152, 160, 167, 202, 215, 238, 254, 259, 268,
+    291, 308,
+}
 POLICY = ROOT / "app/src/main/java/com/dualdex/calculator/HnsAbilityContextPolicy.kt"
 
 
@@ -109,7 +113,8 @@ def validate_context_rules(upstream, abilities, decisions):
 
     required = {
         "attacker_move_execution_state_unobserved",
-        "defender_critical_probability_unmodelled",
+        "defender_armor_fixed_noncritical_hit",
+        "defender_armor_critical_hit_conflict",
         "terapagos_full_hp_relevant",
     }
     if not required <= all_rules:

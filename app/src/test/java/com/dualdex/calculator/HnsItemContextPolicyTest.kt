@@ -27,6 +27,12 @@ class HnsItemContextPolicyTest {
     private val lifeOrb = 479
     private val expertBelt = 477
     private val scopeLens = 471
+    private val leek = 393
+    private val luckyPunch = 395
+    private val blunderPolicy = 511
+    private val roomService = 512
+    private val boosterEnergy = 764
+    private val terrainSeed = 451
     private val assaultVest = 503
     private val eviolite = 494
     private val metalPowder = 396
@@ -108,9 +114,13 @@ class HnsItemContextPolicyTest {
     }
 
     @Test
-    fun `attacker final-modifier and critical items always block on the attacker`() {
-        for (id in listOf(lifeOrb, expertBelt, scopeLens)) {
+    fun `attacker final modifiers remain relevant while crit stage items clear fixed hit`() {
+        for (id in listOf(lifeOrb, expertBelt)) {
             assertEquals("item $id", relevant, relevance(id, ctx(HnsItemSide.ATTACKER)))
+        }
+        for (id in listOf(scopeLens, leek, luckyPunch)) {
+            assertEquals("item $id", irrelevant, relevance(id, ctx(HnsItemSide.ATTACKER)))
+            assertEquals("item $id", unknown, relevance(id, ctx(HnsItemSide.ATTACKER, ordinaryMove = false)))
         }
     }
 
@@ -170,11 +180,14 @@ class HnsItemContextPolicyTest {
                 assertEquals("item $id $side", unknown, relevance(id, ctx(side, ordinaryMove = null)))
             }
         }
+        assertEquals(unknown, relevance(boosterEnergy, ctx(HnsItemSide.ATTACKER)))
+        assertEquals(unknown, relevance(terrainSeed, ctx(HnsItemSide.DEFENDER)))
+        assertEquals(unknown, relevance(758, ctx(HnsItemSide.DEFENDER))) // Ability Shield preserves ability.
     }
 
     @Test
     fun `speed items need an ordinary move and a known non-Analytic attacker`() {
-        for (id in listOf(choiceScarf, quickClaw)) {
+        for (id in listOf(choiceScarf, quickClaw, blunderPolicy, roomService)) {
             assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.DEFENDER)))
             assertEquals(relevant, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = 148)))
             assertEquals(unknown, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = null)))

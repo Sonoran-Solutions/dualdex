@@ -145,6 +145,26 @@ object HnsCensusDisplayClassifier {
                     }
                 }
 
+                CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED -> {
+                    val causal = verdict.hnsAbilityDecisions.filter {
+                        it.globalCategory == com.dualdex.pokemon.hns.HnsAbilityCategory.UNCLASSIFIED
+                    }
+                    if (causal.isEmpty()) {
+                        out += HnsCensusBlocker(limitation.name, limitation)
+                    } else {
+                        for (decision in causal) {
+                            out += HnsCensusBlocker(
+                                kind = limitation.name,
+                                limitation = limitation,
+                                side = decision.side.name.lowercase(),
+                                identity = decision.abilityName,
+                                relevance = decision.relevance.name,
+                                rule = decision.rule
+                            )
+                        }
+                    }
+                }
+
                 CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED -> {
                     val ignored = verdict.ignoredMechanics
                         .filterIsInstance<com.dualdex.calculator.IgnoredCalcMechanic.Item>()
@@ -249,7 +269,8 @@ internal fun HnsCensusOutcome.abilityTrialDisposition(
 ): HnsAbilityTrialDisposition {
     val normalizedSide = side.lowercase()
     if (blockers.any {
-            it.limitation == CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED &&
+            (it.limitation == CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED ||
+                it.limitation == CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED) &&
                 it.side == normalizedSide && it.identity == abilityName
         }
     ) return HnsAbilityTrialDisposition.REFUSED

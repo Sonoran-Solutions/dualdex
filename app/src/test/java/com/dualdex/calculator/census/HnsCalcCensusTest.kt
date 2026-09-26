@@ -152,6 +152,40 @@ class HnsCalcCensusTest {
     }
 
     @Test
+    fun `unclassified ability refusal retains the tested side and identity`() {
+        val speedBoost = HnsAbilityRegistry.classify(3)
+        assertEquals(com.dualdex.pokemon.hns.HnsAbilityCategory.UNCLASSIFIED, speedBoost.category)
+        val decision = com.dualdex.calculator.HnsAbilityRequestDecision(
+            abilityId = 3,
+            abilityName = speedBoost.titleCaseName,
+            side = com.dualdex.calculator.HnsAbilitySide.ATTACKER,
+            globalCategory = speedBoost.category,
+            relevance = com.dualdex.calculator.HnsAbilityRequestRelevance.UNKNOWN,
+            rationale = "Unresolved global ability classification always fails closed."
+        )
+        val outcome = HnsCensusDisplayClassifier.classify(
+            CalcCapabilityVerdict(
+                support = CalcSupport.UNSUPPORTED,
+                capability = requireNotNull(com.dualdex.calculator.CalcCapabilityPolicy.capabilityFor(profile)),
+                limitations = listOf(CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED),
+                request = null,
+                hnsAbilityDecisions = listOf(decision)
+            )
+        )
+
+        assertEquals(HnsCensusResultTier.REFUSED, outcome.tier)
+        val blocker = outcome.blockers.single()
+        assertEquals(CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED, blocker.limitation)
+        assertEquals("attacker", blocker.side)
+        assertEquals("Speed Boost", blocker.identity)
+        assertEquals("UNKNOWN", blocker.relevance)
+        assertEquals(
+            HnsAbilityTrialDisposition.REFUSED,
+            outcome.abilityTrialDisposition("attacker", "Speed Boost")
+        )
+    }
+
+    @Test
     fun `a non blocking limitation never refuses and never becomes a blocker`() {
         val outcome = HnsCensusDisplayClassifier.classify(
             verdict(CalcSupport.ESTIMATED, listOf(CalcLimitation.ROM_NOT_EXACT_VERIFIED))
@@ -566,6 +600,39 @@ class HnsCalcCensusTest {
     }
 
     @Test
+    fun `all pinned unclassified abilities refuse their eligible trials`() {
+        val run = artifacts().run
+        val expected = mapOf(
+            3 to "Speed Boost",
+            80 to "Steadfast",
+            124 to "Pickpocket",
+            192 to "Stamina"
+        )
+        val actual = run.abilityDomain.filter {
+            HnsAbilityRegistry.classify(it.first).category ==
+                com.dualdex.pokemon.hns.HnsAbilityCategory.UNCLASSIFIED
+        }.toMap()
+        assertEquals("pin the real unclassified ability domain", expected, actual)
+
+        for ((id, name) in expected) {
+            val trials = run.abilityTrials.filter { it.abilityId == id }
+            assertEquals("$name must have both sides and move categories", 4, trials.size)
+            for (trial in trials) {
+                assertEquals(name, trial.abilityName)
+                assertEquals("UNKNOWN", trial.abilityRelevance)
+                assertTrue("$name must refuse in ${trial.side}/${trial.category}", trial.refusedByAbility)
+                assertTrue(trial.refusedRequests > 0)
+                assertEquals(0, trial.caveatedRequests)
+                assertEquals(0, trial.clearRequests)
+            }
+        }
+        val clearOnlyIds = run.abilityTrials.groupBy { it.abilityId }
+            .filterValues { rows -> rows.all { it.refusedRequests == 0 && it.caveatedRequests == 0 } }
+            .keys
+        assertTrue("unclassified abilities cannot be clear-only", clearOnlyIds.intersect(expected.keys).isEmpty())
+    }
+
+    @Test
     fun `contextual ability results survive into the census output`() {
         val run = artifacts().run
         val json = HnsCalcCensusReport.toJson(run)
@@ -593,6 +660,15 @@ class HnsCalcCensusTest {
                 it.getString("category") == "Physical" }
         assertEquals(hugePower.caveatedRequests, caveat.getInt("caveatedRequests"))
         assertEquals(hugePower.caveatedBattles, caveat.getInt("caveatedBattles"))
+        val unclassifiedIds = setOf(3, 80, 124, 192)
+        val refusalIds = (0 until refusalRows.length()).map {
+            refusalRows.getJSONObject(it).getInt("abilityId")
+        }.toSet()
+        val caveatIds = (0 until caveatRows.length()).map {
+            caveatRows.getJSONObject(it).getInt("abilityId")
+        }.toSet()
+        assertTrue("all unclassified abilities must rank as refusals", refusalIds.containsAll(unclassifiedIds))
+        assertTrue("unclassified abilities cannot be caveats", caveatIds.intersect(unclassifiedIds).isEmpty())
         val trialRows = root.getJSONArray("abilityTrials")
         val trial = (0 until trialRows.length()).map { trialRows.getJSONObject(it) }
             .single { it.getInt("abilityId") == 37 && it.getString("side") == "attacker" &&

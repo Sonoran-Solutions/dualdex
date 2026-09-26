@@ -209,25 +209,25 @@ Counts are weighted by the cohort's eligible requests; battle counts de-duplicat
 
 ### Abilities that cause refusals
 
-**217 of 310 abilities cause a request refusal in at least one eligible context. 6 have at least one caveated context; 92 produce only clear outcomes in their eligible trials.** Refusal and caveat counts are per ability/side/category and can apply to the same ability in different contexts.
+**221 of 310 abilities cause a request refusal in at least one eligible context. 6 have at least one caveated context; 88 produce only clear outcomes in their eligible trials.** Refusal and caveat counts are per ability/side/category and can apply to the same ability in different contexts.
 
 | # | Ability | Side | Category | Battles refused | Requests refused | Rule |
 |---:|---|---|---|---:|---:|---|
 | 1 | Drizzle | defender | Physical | 651 | 12670 | - |
-| 2 | Battle Armor | defender | Physical | 651 | 12670 | defender_critical_probability_unmodelled |
-| 3 | Sturdy | defender | Physical | 651 | 12670 | - |
-| 4 | Volt Absorb | defender | Physical | 651 | 12670 | - |
-| 5 | Water Absorb | defender | Physical | 651 | 12670 | - |
-| 6 | Cloud Nine | defender | Physical | 651 | 12670 | - |
-| 7 | Color Change | defender | Physical | 651 | 12670 | - |
-| 8 | Flash Fire | defender | Physical | 651 | 12670 | - |
-| 9 | Intimidate | defender | Physical | 651 | 12670 | - |
-| 10 | Rough Skin | defender | Physical | 651 | 12670 | - |
-| 11 | Wonder Guard | defender | Physical | 651 | 12670 | - |
-| 12 | Lightning Rod | defender | Physical | 651 | 12670 | - |
-| 13 | Swift Swim | defender | Physical | 651 | 12670 | - |
-| 14 | Chlorophyll | defender | Physical | 651 | 12670 | - |
-| 15 | Trace | defender | Physical | 651 | 12670 | - |
+| 2 | Speed Boost | defender | Physical | 651 | 12670 | - |
+| 3 | Battle Armor | defender | Physical | 651 | 12670 | defender_critical_probability_unmodelled |
+| 4 | Sturdy | defender | Physical | 651 | 12670 | - |
+| 5 | Volt Absorb | defender | Physical | 651 | 12670 | - |
+| 6 | Water Absorb | defender | Physical | 651 | 12670 | - |
+| 7 | Cloud Nine | defender | Physical | 651 | 12670 | - |
+| 8 | Color Change | defender | Physical | 651 | 12670 | - |
+| 9 | Flash Fire | defender | Physical | 651 | 12670 | - |
+| 10 | Intimidate | defender | Physical | 651 | 12670 | - |
+| 11 | Rough Skin | defender | Physical | 651 | 12670 | - |
+| 12 | Wonder Guard | defender | Physical | 651 | 12670 | - |
+| 13 | Lightning Rod | defender | Physical | 651 | 12670 | - |
+| 14 | Swift Swim | defender | Physical | 651 | 12670 | - |
+| 15 | Chlorophyll | defender | Physical | 651 | 12670 | - |
 
 (The full ranked table, one row per ability per side per category, is `abilityRefusals` in `census.json`.)
 
@@ -275,10 +275,10 @@ The same ability can be clear, caveated, or refused on different sides and in di
 
 | Side | Category | Refusing abilities | Requests refused (max) | Caveated abilities | Requests caveated (max) |
 |---|---|---:|---:|---:|---:|
-| attacker | Physical | 213 | 11175 | 4 | 11175 |
-| attacker | Special | 213 | 6791 | 2 | 6791 |
-| defender | Physical | 213 | 12670 | 2 | 1954 |
-| defender | Special | 213 | 7592 | 2 | 2188 |
+| attacker | Physical | 217 | 11175 | 4 | 11175 |
+| attacker | Special | 217 | 6791 | 2 | 6791 |
+| defender | Physical | 217 | 12670 | 2 | 1954 |
+| defender | Special | 217 | 7592 | 2 | 2188 |
 
 Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 370 rows, `RELEVANT` in 10 rows and `UNKNOWN` in 860 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `-Pdualdex.census.full=true`.
 

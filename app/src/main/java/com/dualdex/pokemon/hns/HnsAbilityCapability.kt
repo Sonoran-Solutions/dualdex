@@ -154,4 +154,17 @@ object HnsAbilityRegistry {
      */
     fun canonicalTitleCaseName(id: Int?): String? =
         id?.let { entriesById[it]?.titleCaseName }
+
+    /**
+     * The complete pinned H&S 2.0.5 ability domain as `(id, TitleCase name)` pairs, ordered by ID.
+     *
+     * This is the exact domain the generated audit covers - every `enum Ability` identity,
+     * `0 .. ABILITY_ID_MAX` - not only the abilities that happen to appear on a normal trainer
+     * party. The issue #84 Random Abilities census needs the whole domain, because under Random
+     * Abilities any ability can be installed on any battler.
+     */
+    fun pinnedAbilityDomain(): List<Pair<Int, String>> =
+        entriesById.values
+            .mapNotNull { entry -> entry.abilityId?.let { it to entry.titleCaseName } }
+            .sortedBy { it.first }
 }

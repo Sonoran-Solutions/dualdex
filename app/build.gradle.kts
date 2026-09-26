@@ -133,10 +133,18 @@ android {
         // `./ci.sh test` gate stays self-contained: no ROM, no network, and no
         // external checkout. `./ci.sh source-check` sets -Pdualdex.hns.upstreamCheck=true
         // and points HNS_UPSTREAM_DIR at a pinned checkout.
+        //
+        // `dualdex.census.generate` REGENERATES the committed issue #84 census artifacts
+        // instead of comparing against them. No gate sets it: `./ci.sh test` and
+        // `./ci.sh source-check` both run the census and fail when the committed
+        // artifacts are stale.
         unitTests.all {
             val upstreamCheck =
                 (project.findProperty("dualdex.hns.upstreamCheck") as String?) ?: "false"
             it.systemProperty("dualdex.hns.upstreamCheck", upstreamCheck)
+            val censusGenerate =
+                (project.findProperty("dualdex.census.generate") as String?) ?: "false"
+            it.systemProperty("dualdex.census.generate", censusGenerate)
         }
     }
 

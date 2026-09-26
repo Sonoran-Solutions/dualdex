@@ -20,122 +20,274 @@
           "predicate": "The item is held by the defender.",
           "rationale": "Every damage-path read of these hold effects is the attacker's (ctx->holdEffectAtk / holdEffectAtk / gSpecialStatuses[battlerAtk]); the defender's copy is only read when the defender itself attacks, or by Fling/Knock Off/Incinerate, which are gated separately or act after damage.",
           "evidence": [
-            {"source": "src/battle_util.c:6811", "contains": "switch (ctx->holdEffectAtk)"},
-            {"source": "src/battle_util.c:7163", "contains": "switch (ctx->holdEffectAtk)"},
-            {"source": "src/battle_util.c:7660", "contains": "switch (holdEffectAtk)"},
-            {"source": "src/battle_util.c:8047", "contains": "GetHoldEffectCritChanceIncrease(ctx->battlerAtk, ctx->holdEffectAtk)"},
-            {"source": "src/battle_util.c:6633", "contains": "if (gSpecialStatuses[battlerAtk].gemBoost)"}
+            {
+              "source": "src/battle_util.c:6811",
+              "contains": "switch (ctx->holdEffectAtk)"
+            },
+            {
+              "source": "src/battle_util.c:7163",
+              "contains": "switch (ctx->holdEffectAtk)"
+            },
+            {
+              "source": "src/battle_util.c:7660",
+              "contains": "switch (holdEffectAtk)"
+            },
+            {
+              "source": "src/battle_util.c:8047",
+              "contains": "GetHoldEffectCritChanceIncrease(ctx->battlerAtk, ctx->holdEffectAtk)"
+            },
+            {
+              "source": "src/battle_util.c:6633",
+              "contains": "if (gSpecialStatuses[battlerAtk].gemBoost)"
+            }
           ]
         },
         {
           "rule": "physical_only_item_special_move",
           "side": "ATTACKER",
-          "families": ["HOLD_EFFECT_CHOICE_BAND", "HOLD_EFFECT_MUSCLE_BAND", "HOLD_EFFECT_THICK_CLUB"],
+          "families": [
+            "HOLD_EFFECT_CHOICE_BAND",
+            "HOLD_EFFECT_MUSCLE_BAND",
+            "HOLD_EFFECT_THICK_CLUB"
+          ],
           "predicate": "Ordinary move whose effective category is Special.",
           "rationale": "Choice Band, Muscle Band and Thick Club apply only when IsBattleMovePhysical(move).",
           "evidence": [
-            {"source": "src/battle_util.c:7178", "contains": "IsBattleMovePhysical(move) && GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX"},
-            {"source": "src/battle_util.c:6814", "contains": "if (IsBattleMovePhysical(move))"},
-            {"source": "src/battle_util.c:7166", "contains": "&& IsBattleMovePhysical(move))"}
+            {
+              "source": "src/battle_util.c:7178",
+              "contains": "IsBattleMovePhysical(move) && GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX"
+            },
+            {
+              "source": "src/battle_util.c:6814",
+              "contains": "if (IsBattleMovePhysical(move))"
+            },
+            {
+              "source": "src/battle_util.c:7166",
+              "contains": "&& IsBattleMovePhysical(move))"
+            }
           ]
         },
         {
           "rule": "special_only_item_physical_move",
           "side": "ATTACKER",
-          "families": ["HOLD_EFFECT_CHOICE_SPECS", "HOLD_EFFECT_WISE_GLASSES", "HOLD_EFFECT_DEEP_SEA_TOOTH"],
+          "families": [
+            "HOLD_EFFECT_CHOICE_SPECS",
+            "HOLD_EFFECT_WISE_GLASSES",
+            "HOLD_EFFECT_DEEP_SEA_TOOTH"
+          ],
           "predicate": "Ordinary move whose effective category is Physical.",
           "rationale": "Choice Specs, Wise Glasses and Deep Sea Tooth apply only when IsBattleMoveSpecial(move).",
           "evidence": [
-            {"source": "src/battle_util.c:7182", "contains": "IsBattleMoveSpecial(move) && GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX"},
-            {"source": "src/battle_util.c:6818", "contains": "if (IsBattleMoveSpecial(move))"},
-            {"source": "src/battle_util.c:7170", "contains": "&& IsBattleMoveSpecial(move))"}
+            {
+              "source": "src/battle_util.c:7182",
+              "contains": "IsBattleMoveSpecial(move) && GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX"
+            },
+            {
+              "source": "src/battle_util.c:6818",
+              "contains": "if (IsBattleMoveSpecial(move))"
+            },
+            {
+              "source": "src/battle_util.c:7170",
+              "contains": "&& IsBattleMoveSpecial(move))"
+            }
           ]
         },
         {
           "rule": "type_item_move_type_mismatch",
           "side": "ATTACKER",
-          "families": ["HOLD_EFFECT_TYPE_POWER", "HOLD_EFFECT_PLATE", "HOLD_EFFECT_GEMS"],
+          "families": [
+            "HOLD_EFFECT_TYPE_POWER",
+            "HOLD_EFFECT_PLATE",
+            "HOLD_EFFECT_GEMS"
+          ],
           "predicate": "Ordinary move whose authoritative effective type differs from the item's pinned secondaryId type.",
           "rationale": "Type boosters and Plates multiply only when moveType == GetItemSecondaryId(item); a Gem only arms gemBoost when GetBattleMoveType(move) == GetItemSecondaryId(heldItem).",
           "evidence": [
-            {"source": "src/battle_util.c:6841", "contains": "if (moveType == GetItemSecondaryId(gBattleMons[battlerAtk].item))"},
-            {"source": "src/battle_main.c:6444", "contains": "&& GetBattleMoveType(move) == GetItemSecondaryId(heldItem)"}
+            {
+              "source": "src/battle_util.c:6841",
+              "contains": "if (moveType == GetItemSecondaryId(gBattleMons[battlerAtk].item))"
+            },
+            {
+              "source": "src/battle_main.c:6444",
+              "contains": "&& GetBattleMoveType(move) == GetItemSecondaryId(heldItem)"
+            }
           ]
         },
         {
           "rule": "signature_orb_move_type_outside_boost",
           "side": "ATTACKER",
-          "families": ["HOLD_EFFECT_LUSTROUS_ORB", "HOLD_EFFECT_ADAMANT_ORB", "HOLD_EFFECT_GRISEOUS_ORB", "HOLD_EFFECT_SOUL_DEW"],
+          "families": [
+            "HOLD_EFFECT_LUSTROUS_ORB",
+            "HOLD_EFFECT_ADAMANT_ORB",
+            "HOLD_EFFECT_GRISEOUS_ORB",
+            "HOLD_EFFECT_SOUL_DEW"
+          ],
           "predicate": "Ordinary move whose authoritative effective type is outside the item's two boosted types (Water/Dragon, Steel/Dragon, Ghost/Dragon, Psychic/Dragon).",
           "rationale": "Each branch requires the move type to be one of its two types; Soul Dew uses the B_SOUL_DEW_BOOST >= GEN_7 type branch (GEN_LATEST), so its Sp. Def branch is inactive.",
           "evidence": [
-            {"source": "src/battle_util.c:6822", "contains": "(moveType == TYPE_WATER || moveType == TYPE_DRAGON)"},
-            {"source": "src/battle_util.c:6826", "contains": "(moveType == TYPE_STEEL || moveType == TYPE_DRAGON)"},
-            {"source": "src/battle_util.c:6830", "contains": "(moveType == TYPE_GHOST || moveType == TYPE_DRAGON)"},
-            {"source": "src/battle_util.c:6835", "contains": "(B_SOUL_DEW_BOOST >= GEN_7 && (moveType == TYPE_PSYCHIC || moveType == TYPE_DRAGON))"},
-            {"source": "include/config/battle.h:231", "contains": "#define B_SOUL_DEW_BOOST            GEN_LATEST"}
+            {
+              "source": "src/battle_util.c:6822",
+              "contains": "(moveType == TYPE_WATER || moveType == TYPE_DRAGON)"
+            },
+            {
+              "source": "src/battle_util.c:6826",
+              "contains": "(moveType == TYPE_STEEL || moveType == TYPE_DRAGON)"
+            },
+            {
+              "source": "src/battle_util.c:6830",
+              "contains": "(moveType == TYPE_GHOST || moveType == TYPE_DRAGON)"
+            },
+            {
+              "source": "src/battle_util.c:6835",
+              "contains": "(B_SOUL_DEW_BOOST >= GEN_7 && (moveType == TYPE_PSYCHIC || moveType == TYPE_DRAGON))"
+            },
+            {
+              "source": "include/config/battle.h:231",
+              "contains": "#define B_SOUL_DEW_BOOST            GEN_LATEST"
+            }
           ]
         },
         {
           "rule": "wise_glasses_special_move",
           "side": "ATTACKER",
-          "families": ["HOLD_EFFECT_WISE_GLASSES"],
+          "families": [
+            "HOLD_EFFECT_WISE_GLASSES"
+          ],
           "predicate": "Ordinary move whose effective category is Special.",
           "rationale": "Wise Glasses multiplies base power by UQ4.12 4505 (1.0 + 10% floored) per pinned H&S src/battle_util.c:6818 and is modelled in the QuickJS calculator.",
           "evidence": [
-            {"source": "src/battle_util.c:6818", "contains": "if (IsBattleMoveSpecial(move))"}
+            {
+              "source": "src/battle_util.c:6818",
+              "contains": "if (IsBattleMoveSpecial(move))"
+            }
+          ]
+        },
+        {
+          "rule": "fixed_crit_stage_item",
+          "side": "ATTACKER",
+          "families": [
+            "HOLD_EFFECT_SCOPE_LENS",
+            "HOLD_EFFECT_LUCKY_PUNCH",
+            "HOLD_EFFECT_LEEK"
+          ],
+          "predicate": "Attacker holds a critical-stage-only item and the selected move is an authoritative ordinary single hit with a fixed isCrit flag.",
+          "rationale": "Scope Lens/Razor Claw, Lucky Punch and Leek change only crit selection probability, which the H&S range does not output.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:8047",
+              "contains": "GetHoldEffectCritChanceIncrease(ctx->battlerAtk, ctx->holdEffectAtk)"
+            },
+            {
+              "source": "src/battle_util.c:8009",
+              "contains": "case HOLD_EFFECT_SCOPE_LENS:"
+            },
+            {
+              "source": "src/battle_util.c:8012",
+              "contains": "case HOLD_EFFECT_LUCKY_PUNCH:"
+            },
+            {
+              "source": "src/battle_util.c:8016",
+              "contains": "case HOLD_EFFECT_LEEK:"
+            }
           ]
         }
       ],
       "always_blocking": [
         {
           "rule": "physical_only_item_physical_move",
-          "families": ["HOLD_EFFECT_CHOICE_BAND", "HOLD_EFFECT_MUSCLE_BAND"],
+          "families": [
+            "HOLD_EFFECT_CHOICE_BAND",
+            "HOLD_EFFECT_MUSCLE_BAND"
+          ],
           "predicate": "Attacker holds it and the effective category is Physical.",
           "rationale": "The x1.5 Attack / physical base-power modifier applies with H&S fixed-point placement the engine does not reproduce.",
-          "evidence": [{"source": "src/battle_util.c:7178", "contains": "IsBattleMovePhysical(move) && GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7178",
+              "contains": "IsBattleMovePhysical(move) && GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX"
+            }
+          ]
         },
         {
           "rule": "special_only_item_special_move",
-          "families": ["HOLD_EFFECT_CHOICE_SPECS"],
+          "families": [
+            "HOLD_EFFECT_CHOICE_SPECS"
+          ],
           "predicate": "Attacker holds it and the effective category is Special.",
           "rationale": "The Sp. Atk / special base-power modifier applies and is not modelled.",
-          "evidence": [{"source": "src/battle_util.c:7182", "contains": "IsBattleMoveSpecial(move) && GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7182",
+              "contains": "IsBattleMoveSpecial(move) && GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX"
+            }
+          ]
         },
         {
           "rule": "type_item_move_type_match",
-          "families": ["HOLD_EFFECT_TYPE_POWER", "HOLD_EFFECT_PLATE", "HOLD_EFFECT_GEMS"],
+          "families": [
+            "HOLD_EFFECT_TYPE_POWER",
+            "HOLD_EFFECT_PLATE",
+            "HOLD_EFFECT_GEMS"
+          ],
           "predicate": "Attacker holds it and the effective move type equals the item type.",
           "rationale": "The H&S x1.2 type boost / x1.3 gem boost applies and is not modelled.",
-          "evidence": [{"source": "src/battle_util.c:6841", "contains": "if (moveType == GetItemSecondaryId(gBattleMons[battlerAtk].item))"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6841",
+              "contains": "if (moveType == GetItemSecondaryId(gBattleMons[battlerAtk].item))"
+            }
+          ]
         },
         {
           "rule": "species_gated_item_species_unobserved",
-          "families": ["HOLD_EFFECT_THICK_CLUB", "HOLD_EFFECT_DEEP_SEA_TOOTH", "HOLD_EFFECT_LIGHT_BALL", "HOLD_EFFECT_LUSTROUS_ORB", "HOLD_EFFECT_ADAMANT_ORB", "HOLD_EFFECT_GRISEOUS_ORB", "HOLD_EFFECT_SOUL_DEW", "HOLD_EFFECT_OGERPON_MASK"],
+          "families": [
+            "HOLD_EFFECT_THICK_CLUB",
+            "HOLD_EFFECT_DEEP_SEA_TOOTH",
+            "HOLD_EFFECT_LIGHT_BALL",
+            "HOLD_EFFECT_LUSTROUS_ORB",
+            "HOLD_EFFECT_ADAMANT_ORB",
+            "HOLD_EFFECT_GRISEOUS_ORB",
+            "HOLD_EFFECT_SOUL_DEW",
+            "HOLD_EFFECT_OGERPON_MASK"
+          ],
           "predicate": "Attacker holds it and the category/type condition is met.",
           "rationale": "The remaining condition is the holder's species, which the item context does not carry; unknown never clears.",
-          "evidence": [{"source": "src/battle_util.c:7174", "contains": "atkBaseSpeciesId == SPECIES_PIKACHU"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7174",
+              "contains": "atkBaseSpeciesId == SPECIES_PIKACHU"
+            }
+          ]
         },
         {
           "rule": "attacker_final_modifier_item",
-          "families": ["HOLD_EFFECT_LIFE_ORB", "HOLD_EFFECT_EXPERT_BELT", "HOLD_EFFECT_METRONOME"],
+          "families": [
+            "HOLD_EFFECT_LIFE_ORB",
+            "HOLD_EFFECT_EXPERT_BELT",
+            "HOLD_EFFECT_METRONOME"
+          ],
           "predicate": "Attacker holds it.",
           "rationale": "GetAttackerItemsModifier applies Life Orb unconditionally, Metronome by consecutive-use counter, and Expert Belt on a super-effective hit whose H&S effectiveness is not proven here.",
-          "evidence": [{"source": "src/battle_util.c:7660", "contains": "switch (holdEffectAtk)"}]
-        },
-        {
-          "rule": "attacker_critical_stage_item",
-          "families": ["HOLD_EFFECT_SCOPE_LENS", "HOLD_EFFECT_LUCKY_PUNCH", "HOLD_EFFECT_LEEK"],
-          "predicate": "Attacker holds it.",
-          "rationale": "It raises the attacker's critical-hit stage; as with defender-side Battle Armor, critical odds are not part of the modelled request.",
-          "evidence": [{"source": "src/battle_util.c:8047", "contains": "GetHoldEffectCritChanceIncrease(ctx->battlerAtk, ctx->holdEffectAtk)"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7660",
+              "contains": "switch (holdEffectAtk)"
+            }
+          ]
         },
         {
           "rule": "punching_flag_unobserved",
-          "families": ["HOLD_EFFECT_PUNCHING_GLOVE"],
+          "families": [
+            "HOLD_EFFECT_PUNCHING_GLOVE"
+          ],
           "predicate": "Attacker holds it.",
           "rationale": "Punching Glove boosts punching moves and removes their contact; the punching flag is not part of the request.",
-          "evidence": [{"source": "src/battle_util.c:6844", "contains": "case HOLD_EFFECT_PUNCHING_GLOVE:"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6844",
+              "contains": "case HOLD_EFFECT_PUNCHING_GLOVE:"
+            }
+          ]
         }
       ],
       "fallback": "Unknown side, category, type, species or move class never clears."
@@ -148,101 +300,196 @@
           "predicate": "The item is held by the attacker.",
           "rationale": "Every damage-path read of these hold effects is the defender's (ctx->holdEffectDef in CalcDefenseStat, GetDefenderItemsModifier, type effectiveness and GetAdjustedDamage). Assault Vest's other read only restricts its holder's status-move selection.",
           "evidence": [
-            {"source": "src/battle_util.c:7351", "contains": "switch (ctx->holdEffectDef)"},
-            {"source": "src/battle_util.c:7684", "contains": "switch (ctx->holdEffectDef)"},
-            {"source": "src/battle_util.c:8193", "contains": "ctx->holdEffectDef == HOLD_EFFECT_FOCUS_BAND"},
-            {"source": "src/battle_util.c:8200", "contains": "ctx->holdEffectDef == HOLD_EFFECT_FOCUS_SASH"},
-            {"source": "src/battle_util.c:8257", "contains": "ctx->holdEffectDef == HOLD_EFFECT_RING_TARGET"}
+            {
+              "source": "src/battle_util.c:7351",
+              "contains": "switch (ctx->holdEffectDef)"
+            },
+            {
+              "source": "src/battle_util.c:7684",
+              "contains": "switch (ctx->holdEffectDef)"
+            },
+            {
+              "source": "src/battle_util.c:8193",
+              "contains": "ctx->holdEffectDef == HOLD_EFFECT_FOCUS_BAND"
+            },
+            {
+              "source": "src/battle_util.c:8200",
+              "contains": "ctx->holdEffectDef == HOLD_EFFECT_FOCUS_SASH"
+            },
+            {
+              "source": "src/battle_util.c:8257",
+              "contains": "ctx->holdEffectDef == HOLD_EFFECT_RING_TARGET"
+            }
           ]
         },
         {
           "rule": "special_defense_item_physical_move",
           "side": "DEFENDER",
-          "families": ["HOLD_EFFECT_ASSAULT_VEST", "HOLD_EFFECT_DEEP_SEA_SCALE"],
+          "families": [
+            "HOLD_EFFECT_ASSAULT_VEST",
+            "HOLD_EFFECT_DEEP_SEA_SCALE"
+          ],
           "predicate": "Ordinary move whose effective category is Physical and Wonder Room is observed inactive.",
           "rationale": "Both apply only when !usesDefStat; for an ordinary physical move usesDefStat is TRUE unless Wonder Room swaps the stats.",
           "evidence": [
-            {"source": "src/battle_util.c:7224", "contains": "if (moveEffect == EFFECT_PSYSHOCK || IsBattleMovePhysical(move))"},
-            {"source": "src/battle_util.c:7226", "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM)"},
-            {"source": "src/battle_util.c:7371", "contains": "if (!usesDefStat)"},
-            {"source": "src/battle_util.c:7354", "contains": "&& !usesDefStat)"}
+            {
+              "source": "src/battle_util.c:7224",
+              "contains": "if (moveEffect == EFFECT_PSYSHOCK || IsBattleMovePhysical(move))"
+            },
+            {
+              "source": "src/battle_util.c:7226",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM)"
+            },
+            {
+              "source": "src/battle_util.c:7371",
+              "contains": "if (!usesDefStat)"
+            },
+            {
+              "source": "src/battle_util.c:7354",
+              "contains": "&& !usesDefStat)"
+            }
           ]
         },
         {
           "rule": "defense_item_special_move",
           "side": "DEFENDER",
-          "families": ["HOLD_EFFECT_METAL_POWDER"],
+          "families": [
+            "HOLD_EFFECT_METAL_POWDER"
+          ],
           "predicate": "Ordinary move whose effective category is Special and Wonder Room is observed inactive.",
           "rationale": "Metal Powder applies only when usesDefStat, which is FALSE for an ordinary special move without Wonder Room.",
           "evidence": [
-            {"source": "src/battle_util.c:7358", "contains": "&& usesDefStat &&"},
-            {"source": "src/battle_util.c:7226", "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM)"}
+            {
+              "source": "src/battle_util.c:7358",
+              "contains": "&& usesDefStat &&"
+            },
+            {
+              "source": "src/battle_util.c:7226",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM)"
+            }
           ]
         },
         {
           "rule": "resist_berry_other_type",
           "side": "DEFENDER",
-          "families": ["HOLD_EFFECT_RESIST_BERRY"],
+          "families": [
+            "HOLD_EFFECT_RESIST_BERRY"
+          ],
           "predicate": "Ordinary move whose authoritative effective type differs from the berry's holdEffectParam type.",
           "rationale": "The resist-berry modifier requires ctx->moveType == GetBattlerHoldEffectParam(defender); consumption happens only when it applies.",
           "evidence": [
-            {"source": "src/battle_util.c:7689", "contains": "if (ctx->moveType == GetBattlerHoldEffectParam(ctx->battlerDef)"}
+            {
+              "source": "src/battle_util.c:7689",
+              "contains": "if (ctx->moveType == GetBattlerHoldEffectParam(ctx->battlerDef)"
+            }
           ]
         },
         {
           "rule": "focus_sash_defender_below_max_hp",
           "side": "DEFENDER",
-          "families": ["HOLD_EFFECT_FOCUS_SASH"],
+          "families": [
+            "HOLD_EFFECT_FOCUS_SASH"
+          ],
           "predicate": "Live defender hp < maxHP.",
           "rationale": "Focus Sash endures only when IsBattlerAtMaxHp(defender), i.e. hp == maxHP.",
           "evidence": [
-            {"source": "src/battle_util.c:8200", "contains": "HOLD_EFFECT_FOCUS_SASH && IsBattlerAtMaxHp(ctx->battlerDef)"},
-            {"source": "include/battle.h:1087", "contains": "return gBattleMons[battler].hp == gBattleMons[battler].maxHP;"}
+            {
+              "source": "src/battle_util.c:8200",
+              "contains": "HOLD_EFFECT_FOCUS_SASH && IsBattlerAtMaxHp(ctx->battlerDef)"
+            },
+            {
+              "source": "include/battle.h:1087",
+              "contains": "return gBattleMons[battler].hp == gBattleMons[battler].maxHP;"
+            }
           ]
         }
       ],
       "always_blocking": [
         {
           "rule": "special_defense_item_special_move",
-          "families": ["HOLD_EFFECT_ASSAULT_VEST"],
+          "families": [
+            "HOLD_EFFECT_ASSAULT_VEST"
+          ],
           "predicate": "Defender holds it and the move uses Sp. Def.",
           "rationale": "The x1.5 Sp. Def modifier applies and is not modelled.",
-          "evidence": [{"source": "src/battle_util.c:7371", "contains": "if (!usesDefStat)"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7371",
+              "contains": "if (!usesDefStat)"
+            }
+          ]
         },
         {
           "rule": "defender_species_gated_item",
-          "families": ["HOLD_EFFECT_EVIOLITE", "HOLD_EFFECT_DEEP_SEA_SCALE", "HOLD_EFFECT_METAL_POWDER"],
+          "families": [
+            "HOLD_EFFECT_EVIOLITE",
+            "HOLD_EFFECT_DEEP_SEA_SCALE",
+            "HOLD_EFFECT_METAL_POWDER"
+          ],
           "predicate": "Defender holds it and the category condition is met.",
           "rationale": "The remaining condition (can-evolve state, Clamperl, untransformed Ditto) is not carried by the item context.",
-          "evidence": [{"source": "src/battle_util.c:7361", "contains": "case HOLD_EFFECT_EVIOLITE:"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7361",
+              "contains": "case HOLD_EFFECT_EVIOLITE:"
+            }
+          ]
         },
         {
           "rule": "resist_berry_matching_type",
-          "families": ["HOLD_EFFECT_RESIST_BERRY"],
+          "families": [
+            "HOLD_EFFECT_RESIST_BERRY"
+          ],
           "predicate": "Defender holds it and the effective move type equals the berry type.",
           "rationale": "Whether it applies depends on H&S type effectiveness (or Normal for Chilan), which this rule does not prove.",
-          "evidence": [{"source": "src/battle_util.c:7689", "contains": "ctx->typeEffectivenessModifier >= UQ_4_12(2.0)"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7689",
+              "contains": "ctx->typeEffectivenessModifier >= UQ_4_12(2.0)"
+            }
+          ]
         },
         {
           "rule": "focus_sash_defender_at_max_hp",
-          "families": ["HOLD_EFFECT_FOCUS_SASH"],
+          "families": [
+            "HOLD_EFFECT_FOCUS_SASH"
+          ],
           "predicate": "Live defender hp == maxHP.",
           "rationale": "Focus Sash can leave the defender at 1 HP; the displayed range and percentage would overstate the HP lost.",
-          "evidence": [{"source": "src/battle_util.c:8200", "contains": "IsBattlerAtMaxHp(ctx->battlerDef)"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:8200",
+              "contains": "IsBattlerAtMaxHp(ctx->battlerDef)"
+            }
+          ]
         },
         {
           "rule": "focus_band_random_survival",
-          "families": ["HOLD_EFFECT_FOCUS_BAND"],
+          "families": [
+            "HOLD_EFFECT_FOCUS_BAND"
+          ],
           "predicate": "Defender holds it.",
           "rationale": "A random chance to endure at 1 HP; not modelled.",
-          "evidence": [{"source": "src/battle_util.c:8193", "contains": "HOLD_EFFECT_FOCUS_BAND && rand < GetBattlerHoldEffectParam"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:8193",
+              "contains": "HOLD_EFFECT_FOCUS_BAND && rand < GetBattlerHoldEffectParam"
+            }
+          ]
         },
         {
           "rule": "ring_target_immunity_unmodelled",
-          "families": ["HOLD_EFFECT_RING_TARGET"],
+          "families": [
+            "HOLD_EFFECT_RING_TARGET"
+          ],
           "predicate": "Defender holds it.",
           "rationale": "Ring Target turns a type immunity into neutral damage; the immunity is not proven absent here.",
-          "evidence": [{"source": "src/battle_util.c:8257", "contains": "ctx->holdEffectDef == HOLD_EFFECT_RING_TARGET"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:8257",
+              "contains": "ctx->holdEffectDef == HOLD_EFFECT_RING_TARGET"
+            }
+          ]
         }
       ],
       "fallback": "Unknown side, category, type, field word or HP never clears."
@@ -252,21 +499,85 @@
         {
           "rule": "single_hit_item_activation_outside_damage",
           "side": "EITHER",
-          "predicate": "The selected move is ordinary (single hit).",
-          "rationale": "These hold effects have no read in the damage computation. Every activation is an ItemBattleEffects call in a MoveEnd handler (after damage is dealt), at end of turn, at switch-in, or from an event script, so for a single-hit ordinary move none can change the hit's damage range. HP restored afterwards, contact recoil to the attacker and later stat changes are outside the displayed single-hit contract.",
+          "predicate": "The selected move is ordinary (single hit). Excludes Booster Energy, Terrain Seed, Berserk Gene and the speed-policy items Blunder Policy / Room Service.",
+          "rationale": "These hold effects have no read in the damage computation. Every activation is an ItemBattleEffects call in a MoveEnd handler (after damage is dealt), at end of turn, at switch-in, or from an event script, so for a single-hit ordinary move none can change the hit's damage range. HP restored afterwards, contact recoil to the attacker and later stat changes are outside the displayed single-hit contract. The mixed pre-hit stat writers are excluded pending #88; Blunder Policy and Room Service use the speed dependency rule.",
           "evidence": [
-            {"source": "src/battle_move_resolution.c:2429", "contains": "IsOnTargetHitActivation"},
-            {"source": "src/battle_move_resolution.c:2442", "contains": "IsOnAttackerAfterHitActivation"},
-            {"source": "src/battle_move_resolution.c:2812", "contains": "IsOnHpThresholdActivation"},
-            {"source": "src/battle_move_resolution.c:3216", "contains": "IsOnStatusChangeActivation"},
-            {"source": "src/battle_move_resolution.c:3282", "contains": "IsKeeMarangaBerryActivation"},
-            {"source": "src/battle_move_resolution.c:3384", "contains": "IsLifeOrbShellBellActivation"},
-            {"source": "src/battle_end_turn.c:384", "contains": "IsLeftoversActivation"},
-            {"source": "src/battle_switch_in.c:283", "contains": "IsOnSwitchInActivation"}
+            {
+              "source": "src/battle_move_resolution.c:2429",
+              "contains": "IsOnTargetHitActivation"
+            },
+            {
+              "source": "src/battle_move_resolution.c:2442",
+              "contains": "IsOnAttackerAfterHitActivation"
+            },
+            {
+              "source": "src/battle_move_resolution.c:2812",
+              "contains": "IsOnHpThresholdActivation"
+            },
+            {
+              "source": "src/battle_move_resolution.c:3216",
+              "contains": "IsOnStatusChangeActivation"
+            },
+            {
+              "source": "src/battle_move_resolution.c:3282",
+              "contains": "IsKeeMarangaBerryActivation"
+            },
+            {
+              "source": "src/battle_move_resolution.c:3384",
+              "contains": "IsLifeOrbShellBellActivation"
+            },
+            {
+              "source": "src/battle_end_turn.c:384",
+              "contains": "IsLeftoversActivation"
+            },
+            {
+              "source": "src/battle_switch_in.c:283",
+              "contains": "IsOnSwitchInActivation"
+            }
+          ]
+        },
+        {
+          "rule": "post_hit_speed_item_ordinary_move",
+          "side": "EITHER",
+          "families": [
+            "HOLD_EFFECT_BLUNDER_POLICY",
+            "HOLD_EFFECT_ROOM_SERVICE"
+          ],
+          "predicate": "Ordinary move, known attacker ability other than Analytic.",
+          "rationale": "The items alter Speed only after a miss or Trick Room activation; Analytic is the damage-time consumer of turn order.",
+          "evidence": [
+            {
+              "source": "src/battle_hold_effects.c:1109",
+              "contains": "case HOLD_EFFECT_BLUNDER_POLICY:"
+            },
+            {
+              "source": "src/battle_hold_effects.c:1058",
+              "contains": "case HOLD_EFFECT_ROOM_SERVICE:"
+            },
+            {
+              "source": "src/battle_util.c:6690",
+              "contains": "case ABILITY_ANALYTIC:"
+            }
           ]
         }
       ],
-      "always_blocking": [],
+      "always_blocking": [
+        {
+          "rule": "post_hit_speed_item_attacker_analytic",
+          "families": [
+            "HOLD_EFFECT_BLUNDER_POLICY",
+            "HOLD_EFFECT_ROOM_SERVICE"
+          ],
+          "predicate": "Ordinary move with Analytic attacker.",
+          "rationale": "Turn order may change Analytic damage, so do not clear.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6690",
+              "contains": "case ABILITY_ANALYTIC:"
+            }
+          ]
+        }
+      ],
       "fallback": "A non-ordinary or unknown move never clears."
     },
     "turn_order": {
@@ -277,10 +588,22 @@
           "predicate": "The selected move is ordinary and the live attacker ability is known and is not Analytic (148).",
           "rationale": "Speed items are read by GetBattlerTotalSpeedStat and turn ordering; the damage path reads total speed only for speed-based power effects (not ordinary), orders final modifiers by the unmodified gBattleMons speed, and reads turn order only through Analytic.",
           "evidence": [
-            {"source": "src/battle_main.c:4983", "contains": "HOLD_EFFECT_CHOICE_SCARF && GetActiveGimmick(battler) != GIMMICK_DYNAMAX"},
-            {"source": "src/battle_util.c:6455", "contains": "speed = GetBattlerTotalSpeedStat(battlerAtk"},
-            {"source": "src/battle_util.c:7718", "contains": "u32 unmodifiedAttackerSpeed = gBattleMons[ctx->battlerAtk].speed;"},
-            {"source": "src/battle_util.c:6691", "contains": "if (IsLastMonToMove(battlerAtk)"}
+            {
+              "source": "src/battle_main.c:4983",
+              "contains": "HOLD_EFFECT_CHOICE_SCARF && GetActiveGimmick(battler) != GIMMICK_DYNAMAX"
+            },
+            {
+              "source": "src/battle_util.c:6455",
+              "contains": "speed = GetBattlerTotalSpeedStat(battlerAtk"
+            },
+            {
+              "source": "src/battle_util.c:7718",
+              "contains": "u32 unmodifiedAttackerSpeed = gBattleMons[ctx->battlerAtk].speed;"
+            },
+            {
+              "source": "src/battle_util.c:6691",
+              "contains": "if (IsLastMonToMove(battlerAtk)"
+            }
           ]
         }
       ],
@@ -289,7 +612,12 @@
           "rule": "turn_order_item_attacker_analytic",
           "predicate": "The live attacker ability is Analytic.",
           "rationale": "Analytic's x1.3 depends on turn order, which the speed item can change.",
-          "evidence": [{"source": "src/battle_util.c:6691", "contains": "if (IsLastMonToMove(battlerAtk)"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6691",
+              "contains": "if (IsLastMonToMove(battlerAtk)"
+            }
+          ]
         }
       ],
       "fallback": "A non-ordinary move or unknown attacker ability never clears."
@@ -301,7 +629,12 @@
           "side": "EITHER",
           "predicate": "The selected move is ordinary.",
           "rationale": "Float Stone is read only by GetBattlerWeight, used by weight-based power effects, none of which is ordinary.",
-          "evidence": [{"source": "src/battle_util.c:6079", "contains": "if (holdEffect == HOLD_EFFECT_FLOAT_STONE)"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6079",
+              "contains": "if (holdEffect == HOLD_EFFECT_FLOAT_STONE)"
+            }
+          ]
         }
       ],
       "always_blocking": [],
@@ -315,8 +648,14 @@
           "predicate": "Ordinary move, no terrain bit observed, and (Iron Ball only) the turn-order predicate holds.",
           "rationale": "The attacker's groundedness is read only through terrain checks, which return FALSE when no terrain flag is set; Iron Ball's speed halving is covered by the turn-order predicate.",
           "evidence": [
-            {"source": "src/battle_util.c:5142", "contains": "if (!(fieldStatus & terrainFlag))"},
-            {"source": "src/battle_util.c:6639", "contains": "IsGrassyTerrainAffected(battlerAtk"}
+            {
+              "source": "src/battle_util.c:5142",
+              "contains": "if (!(fieldStatus & terrainFlag))"
+            },
+            {
+              "source": "src/battle_util.c:6639",
+              "contains": "IsGrassyTerrainAffected(battlerAtk"
+            }
           ]
         },
         {
@@ -325,10 +664,22 @@
           "predicate": "Ordinary move, no terrain bit observed, authoritative effective type is not Ground, and (Iron Ball only) the turn-order predicate holds.",
           "rationale": "The defender's Air Balloon / Iron Ball are read in the Ground-move effectiveness branches and in terrain checks; neither applies to a non-Ground move without terrain.",
           "evidence": [
-            {"source": "src/battle_util.c:8379", "contains": "else if (ctx->moveType == TYPE_GROUND"},
-            {"source": "src/battle_util.c:8392", "contains": "ctx->holdEffectDef == HOLD_EFFECT_AIR_BALLOON"},
-            {"source": "src/battle_util.c:8413", "contains": "ctx->holdEffectDef == HOLD_EFFECT_IRON_BALL"},
-            {"source": "src/battle_util.c:6641", "contains": "IsMistyTerrainAffected(battlerDef"}
+            {
+              "source": "src/battle_util.c:8379",
+              "contains": "else if (ctx->moveType == TYPE_GROUND"
+            },
+            {
+              "source": "src/battle_util.c:8392",
+              "contains": "ctx->holdEffectDef == HOLD_EFFECT_AIR_BALLOON"
+            },
+            {
+              "source": "src/battle_util.c:8413",
+              "contains": "ctx->holdEffectDef == HOLD_EFFECT_IRON_BALL"
+            },
+            {
+              "source": "src/battle_util.c:6641",
+              "contains": "IsMistyTerrainAffected(battlerDef"
+            }
           ]
         }
       ],
@@ -337,7 +688,12 @@
           "rule": "grounding_item_defender_ground_move",
           "predicate": "Defender holds it and the effective move type is Ground.",
           "rationale": "Air Balloon grants Ground immunity; Iron Ball lets Ground hit a Flying holder.",
-          "evidence": [{"source": "src/battle_util.c:8392", "contains": "ctx->holdEffectDef == HOLD_EFFECT_AIR_BALLOON"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:8392",
+              "contains": "ctx->holdEffectDef == HOLD_EFFECT_AIR_BALLOON"
+            }
+          ]
         }
       ],
       "fallback": "An active or unread terrain, an unknown field bit, unknown type or non-ordinary move never clears."
@@ -350,8 +706,14 @@
           "predicate": "Ordinary move and live gBattleWeather observed 0.",
           "rationale": "Every Utility Umbrella read is conditional on sun or rain; GetWeatherDamageModifier returns 1.0 before reading it when there is no weather.",
           "evidence": [
-            {"source": "src/battle_util.c:7436", "contains": "if (ctx->weather == B_WEATHER_NONE)"},
-            {"source": "src/battle_util.c:7440", "contains": "ctx->holdEffectDef == HOLD_EFFECT_UTILITY_UMBRELLA"}
+            {
+              "source": "src/battle_util.c:7436",
+              "contains": "if (ctx->weather == B_WEATHER_NONE)"
+            },
+            {
+              "source": "src/battle_util.c:7440",
+              "contains": "ctx->holdEffectDef == HOLD_EFFECT_UTILITY_UMBRELLA"
+            }
           ]
         }
       ],
@@ -360,10 +722,87 @@
           "rule": "umbrella_sun_or_rain",
           "predicate": "Live weather is sun or rain.",
           "rationale": "The holder ignores the weather modifier; not modelled.",
-          "evidence": [{"source": "src/battle_util.c:7440", "contains": "ctx->holdEffectDef == HOLD_EFFECT_UTILITY_UMBRELLA"}]
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7440",
+              "contains": "ctx->holdEffectDef == HOLD_EFFECT_UTILITY_UMBRELLA"
+            }
+          ]
         }
       ],
       "fallback": "Unobserved or non-clear weather never clears."
+    },
+    "form_or_ability_changer": {
+      "context_rules": [
+        {
+          "rule": "ability_shield_no_current_suppression",
+          "families": [
+            "HOLD_EFFECT_ABILITY_SHIELD"
+          ],
+          "predicate": "Authoritative ordinary single-hit move, observed Singles topology, both persistent volatile windows observed with Gastro Acid clear, neither effective ability is active Neutralizing Gas, and no defender-side Mold Breaker can affect the hit.",
+          "rationale": "Ability Shield changes whether Gastro Acid, Neutralizing Gas, or an ability-breaking attack suppresses the holder ability; with those sources absent, it cannot affect this hit.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:4998",
+              "contains": "bool32 hasAbilityShield = !noAbilityShield && GetBattlerHoldEffectIgnoreAbility(battler) == HOLD_EFFECT_ABILITY_SHIELD;"
+            },
+            {
+              "source": "src/battle_util.c:5015",
+              "contains": "if (gBattleMons[battler].volatiles.gastroAcid)"
+            },
+            {
+              "source": "src/battle_util.c:5018",
+              "contains": "if (!hasAbilityShield"
+            },
+            {
+              "source": "src/battle_util.c:4962",
+              "contains": "if (ability == ABILITY_MOLD_BREAKER"
+            },
+            {
+              "source": "src/battle_util.c:5020",
+              "contains": "&& (gBattleMons[battler].ability != ABILITY_NEUTRALIZING_GAS || gBattleMons[battler].volatiles.gastroAcid)"
+            }
+          ],
+          "side": "EITHER"
+        }
+      ],
+      "always_blocking": [
+        {
+          "rule": "ability_shield_current_suppression",
+          "families": [
+            "HOLD_EFFECT_ABILITY_SHIELD"
+          ],
+          "predicate": "A current suppression source can affect the holder or the defender ability during the hit.",
+          "rationale": "Ability Shield prevents the source ability-suppression path from removing the holder ability.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:4998",
+              "contains": "bool32 hasAbilityShield = !noAbilityShield && GetBattlerHoldEffectIgnoreAbility(battler) == HOLD_EFFECT_ABILITY_SHIELD;"
+            },
+            {
+              "source": "src/battle_util.c:5023",
+              "contains": "if (CanBreakThroughAbility(gBattlerAttacker, battler, hasAbilityShield, ignoreMoldBreaker))"
+            },
+            {
+              "source": "src/battle_util.c:4976",
+              "contains": "if (hasAbilityShield || ignoreMoldBreaker || battlerDef == battlerAtk)"
+            },
+            {
+              "source": "src/battle_util.c:5015",
+              "contains": "if (gBattleMons[battler].volatiles.gastroAcid)"
+            },
+            {
+              "source": "src/battle_util.c:5018",
+              "contains": "if (!hasAbilityShield"
+            },
+            {
+              "source": "src/battle_util.c:5020",
+              "contains": "&& (gBattleMons[battler].ability != ABILITY_NEUTRALIZING_GAS || gBattleMons[battler].volatiles.gastroAcid)"
+            }
+          ]
+        }
+      ],
+      "fallback": "Missing live topology, ability identities, or persistent volatile observations remains UNKNOWN."
     }
   }
 }

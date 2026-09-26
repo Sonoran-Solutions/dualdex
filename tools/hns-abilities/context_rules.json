@@ -7,21 +7,56 @@
         "predicate": "Ability is on the attacker.",
         "rationale": "The critical-hit prevention branch reads abilityDef, so an attacker's Battle Armor cannot change its outgoing damage.",
         "evidence": [
-          {"source": "src/battle_util.c:8056", "contains": "ctx->abilityDef == ABILITY_BATTLE_ARMOR"}
+          {
+            "source": "src/battle_util.c:8056",
+            "contains": "ctx->abilityDef == ABILITY_BATTLE_ARMOR"
+          }
+        ]
+      },
+      {
+        "rule": "defender_armor_fixed_noncritical_hit",
+        "predicate": "Defender ability, authoritative ordinary move, fixed isCrit=false.",
+        "rationale": "Crit prevention changes crit selection, not the already selected noncritical roll.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:8056",
+            "contains": "ctx->abilityDef == ABILITY_BATTLE_ARMOR"
+          }
         ]
       }
     ],
     "always_blocking": [
       {
-        "rule": "defender_critical_probability_unmodelled",
-        "predicate": "Ability is on the defender.",
-        "rationale": "Battle Armor suppresses critical hits. The request's isCrit flag does not prove the reported damage range and KO probability exclude critical-hit odds, so defender-side Armor remains blocked.",
+        "rule": "defender_armor_critical_hit_conflict",
+        "predicate": "Defender ability and fixed isCrit=true.",
+        "rationale": "The request conflicts with this ability preventing the critical hit; keep a named caveat.",
         "evidence": [
-          {"source": "src/battle_util.c:8056", "contains": "ctx->abilityDef == ABILITY_BATTLE_ARMOR"}
+          {
+            "source": "src/battle_util.c:8056",
+            "contains": "ctx->abilityDef == ABILITY_BATTLE_ARMOR"
+          }
         ]
       }
     ],
-    "fallback": "Unknown context never clears the globally unsupported ability."
+    "fallback": "Missing move-shape or critical-flag authority remains UNKNOWN."
+  },
+  "24": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "The pinned effect runs after damage or on a separately gated draining shape and cannot alter these rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4047",
+            "contains": "case ABILITY_ROUGH_SKIN"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
   },
   "26": {
     "global": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -31,7 +66,10 @@
         "predicate": "Ability is on the attacker.",
         "rationale": "The Ground immunity branch checks the defender's effective ability.",
         "evidence": [
-          {"source": "src/battle_util.c:8385", "contains": "ctx->abilityDef == ABILITY_LEVITATE"}
+          {
+            "source": "src/battle_util.c:8385",
+            "contains": "ctx->abilityDef == ABILITY_LEVITATE"
+          }
         ]
       },
       {
@@ -39,13 +77,79 @@
         "predicate": "Ability is on the defender and the observed effective move type is not Ground.",
         "rationale": "The Levitate immunity branch is nested under the Ground move-type effectiveness case.",
         "evidence": [
-          {"source": "src/battle_util.c:8379", "contains": "ctx->moveType == TYPE_GROUND"},
-          {"source": "src/battle_util.c:8385", "contains": "ctx->abilityDef == ABILITY_LEVITATE"}
+          {
+            "source": "src/battle_util.c:8379",
+            "contains": "ctx->moveType == TYPE_GROUND"
+          },
+          {
+            "source": "src/battle_util.c:8385",
+            "contains": "ctx->abilityDef == ABILITY_LEVITATE"
+          }
         ]
       }
     ],
     "always_blocking": [],
     "fallback": "Ground moves and missing effective-type authority remain blocked."
+  },
+  "33": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "speed_ability_without_analytic",
+        "predicate": "Ordinary move and known attacker ability other than Analytic (or speed ability itself on attacker).",
+        "rationale": "Only Analytic reads turn order into ordinary damage; this ability changes speed or priority.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4946",
+            "contains": "ABILITY_SWIFT_SWIM"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_ability_attacker_analytic",
+        "predicate": "Defender speed ability with Analytic attacker.",
+        "rationale": "Analytic can change current-hit damage from turn order.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC"
+          }
+        ]
+      }
+    ],
+    "fallback": "Unknown move or attacker ability remains UNKNOWN."
+  },
+  "34": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "speed_ability_without_analytic",
+        "predicate": "Ordinary move and known attacker ability other than Analytic (or speed ability itself on attacker).",
+        "rationale": "Only Analytic reads turn order into ordinary damage; this ability changes speed or priority.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4948",
+            "contains": "ABILITY_CHLOROPHYLL"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_ability_attacker_analytic",
+        "predicate": "Defender speed ability with Analytic attacker.",
+        "rationale": "Analytic can change current-hit damage from turn order.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC"
+          }
+        ]
+      }
+    ],
+    "fallback": "Unknown move or attacker ability remains UNKNOWN."
   },
   "37": {
     "global": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -55,8 +159,14 @@
         "predicate": "Ability is on the defender.",
         "rationale": "Huge Power is read from abilityAtk and applies only to the holder's physical Attack stat.",
         "evidence": [
-          {"source": "src/battle_util.c:6989", "contains": "case ABILITY_HUGE_POWER"},
-          {"source": "src/battle_util.c:6991", "contains": "IsBattleMovePhysical(move)"}
+          {
+            "source": "src/battle_util.c:6989",
+            "contains": "case ABILITY_HUGE_POWER"
+          },
+          {
+            "source": "src/battle_util.c:6991",
+            "contains": "IsBattleMovePhysical(move)"
+          }
         ]
       },
       {
@@ -64,8 +174,14 @@
         "predicate": "Ability is on the attacker and authoritative effective category is Special.",
         "rationale": "The source multiplier is guarded by IsBattleMovePhysical.",
         "evidence": [
-          {"source": "src/battle_util.c:6989", "contains": "case ABILITY_HUGE_POWER"},
-          {"source": "src/battle_util.c:6991", "contains": "IsBattleMovePhysical(move)"}
+          {
+            "source": "src/battle_util.c:6989",
+            "contains": "case ABILITY_HUGE_POWER"
+          },
+          {
+            "source": "src/battle_util.c:6991",
+            "contains": "IsBattleMovePhysical(move)"
+          }
         ]
       }
     ],
@@ -80,8 +196,14 @@
         "predicate": "Ability is on the attacker.",
         "rationale": "Thick Fat is in the defender-side ability modifier switch.",
         "evidence": [
-          {"source": "src/battle_util.c:7119", "contains": "switch (ctx->abilityDef)"},
-          {"source": "src/battle_util.c:7121", "contains": "case ABILITY_THICK_FAT"}
+          {
+            "source": "src/battle_util.c:7119",
+            "contains": "switch (ctx->abilityDef)"
+          },
+          {
+            "source": "src/battle_util.c:7121",
+            "contains": "case ABILITY_THICK_FAT"
+          }
         ]
       },
       {
@@ -89,7 +211,10 @@
         "predicate": "Ability is on the defender and authoritative effective move type is neither Fire nor Ice.",
         "rationale": "Only Fire and Ice enter the Thick Fat half-stat branch.",
         "evidence": [
-          {"source": "src/battle_util.c:7122", "contains": "moveType == TYPE_FIRE || moveType == TYPE_ICE"}
+          {
+            "source": "src/battle_util.c:7122",
+            "contains": "moveType == TYPE_FIRE || moveType == TYPE_ICE"
+          }
         ]
       }
     ],
@@ -104,7 +229,10 @@
         "predicate": "Ability is on the defender.",
         "rationale": "CancelerTruant gates the holder's own move action; it is not an incoming damage modifier.",
         "evidence": [
-          {"source": "src/battle_move_resolution.c:253", "contains": "GetBattlerAbility(ctx->battlerAtk) == ABILITY_TRUANT"}
+          {
+            "source": "src/battle_move_resolution.c:253",
+            "contains": "GetBattlerAbility(ctx->battlerAtk) == ABILITY_TRUANT"
+          }
         ]
       }
     ],
@@ -114,9 +242,18 @@
         "predicate": "Ability is on the attacker.",
         "rationale": "Move execution depends on truantCounter, which is toggled at end of turn and initialized on switch-in; DualDex does not observe it.",
         "evidence": [
-          {"source": "src/battle_move_resolution.c:253", "contains": "volatiles.truantCounter"},
-          {"source": "src/battle_util.c:3779", "contains": "volatiles.truantCounter ^= 1"},
-          {"source": "src/battle_script_commands.c:5839", "contains": "volatiles.truantCounter = 1"}
+          {
+            "source": "src/battle_move_resolution.c:253",
+            "contains": "volatiles.truantCounter"
+          },
+          {
+            "source": "src/battle_util.c:3779",
+            "contains": "volatiles.truantCounter ^= 1"
+          },
+          {
+            "source": "src/battle_script_commands.c:5839",
+            "contains": "volatiles.truantCounter = 1"
+          }
         ]
       }
     ],
@@ -130,8 +267,14 @@
         "predicate": "The exact live battler count proves Singles, so the attacker has no battle partner.",
         "rationale": "Plus boosts Special Attack only when its holder's active partner has Minus (or Plus under the configured interaction).",
         "evidence": [
-          {"source": "src/battle_util.c:7027", "contains": "IsBattleMoveSpecial(move) && IsBattlerAlive(BATTLE_PARTNER(battlerAtk))"},
-          {"source": "src/battle_util.c:7030", "contains": "partnerAbility == ABILITY_MINUS"}
+          {
+            "source": "src/battle_util.c:7027",
+            "contains": "IsBattleMoveSpecial(move) && IsBattlerAlive(BATTLE_PARTNER(battlerAtk))"
+          },
+          {
+            "source": "src/battle_util.c:7030",
+            "contains": "partnerAbility == ABILITY_MINUS"
+          }
         ]
       }
     ],
@@ -146,8 +289,14 @@
         "predicate": "The exact live battler count proves Singles, so the attacker has no battle partner.",
         "rationale": "Minus boosts Special Attack only when its holder's active partner has Plus (or Minus under the configured interaction).",
         "evidence": [
-          {"source": "src/battle_util.c:7036", "contains": "IsBattleMoveSpecial(move) && IsBattlerAlive(BATTLE_PARTNER(battlerAtk))"},
-          {"source": "src/battle_util.c:7039", "contains": "partnerAbility == ABILITY_PLUS"}
+          {
+            "source": "src/battle_util.c:7036",
+            "contains": "IsBattleMoveSpecial(move) && IsBattlerAlive(BATTLE_PARTNER(battlerAtk))"
+          },
+          {
+            "source": "src/battle_util.c:7039",
+            "contains": "partnerAbility == ABILITY_PLUS"
+          }
         ]
       }
     ],
@@ -162,8 +311,14 @@
         "predicate": "Ability is on the defender.",
         "rationale": "Guts is read in the attacker Attack-stat modifier switch.",
         "evidence": [
-          {"source": "src/battle_util.c:6987", "contains": "switch (ctx->abilityAtk)"},
-          {"source": "src/battle_util.c:7056", "contains": "case ABILITY_GUTS"}
+          {
+            "source": "src/battle_util.c:6987",
+            "contains": "switch (ctx->abilityAtk)"
+          },
+          {
+            "source": "src/battle_util.c:7056",
+            "contains": "case ABILITY_GUTS"
+          }
         ]
       },
       {
@@ -171,7 +326,10 @@
         "predicate": "Ability is on the attacker and the authoritative effective category (HnsMoveAuthority: per-move under PER_MOVE_SPLIT, the effective type's under TYPE_BASED) is Special.",
         "rationale": "Guts changes Attack only when the move is physical.",
         "evidence": [
-          {"source": "src/battle_util.c:7057", "contains": "status1 & STATUS1_ANY && IsBattleMovePhysical(move)"}
+          {
+            "source": "src/battle_util.c:7057",
+            "contains": "status1 & STATUS1_ANY && IsBattleMovePhysical(move)"
+          }
         ]
       },
       {
@@ -179,12 +337,33 @@
         "predicate": "Ability is on the attacker, status1 is observed zero, and the effective category is authoritative (HnsMoveAuthority).",
         "rationale": "The damage modifier requires STATUS1_ANY and a physical move.",
         "evidence": [
-          {"source": "src/battle_util.c:7057", "contains": "status1 & STATUS1_ANY"}
+          {
+            "source": "src/battle_util.c:7057",
+            "contains": "status1 & STATUS1_ANY"
+          }
         ]
       }
     ],
     "always_blocking": [],
     "fallback": "A statused attacker using a Physical move remains blocked; missing status/category/type authority is unknown."
+  },
+  "64": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "The pinned effect runs after damage or on a separately gated draining shape and cannot alter these rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_move_resolution.c:2170",
+            "contains": "ABILITY_LIQUID_OOZE"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
   },
   "74": {
     "global": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -194,8 +373,14 @@
         "predicate": "Ability is on the defender.",
         "rationale": "Pure Power is read from abilityAtk and applies only to the holder's physical Attack stat.",
         "evidence": [
-          {"source": "src/battle_util.c:6990", "contains": "case ABILITY_PURE_POWER"},
-          {"source": "src/battle_util.c:6991", "contains": "IsBattleMovePhysical(move)"}
+          {
+            "source": "src/battle_util.c:6990",
+            "contains": "case ABILITY_PURE_POWER"
+          },
+          {
+            "source": "src/battle_util.c:6991",
+            "contains": "IsBattleMovePhysical(move)"
+          }
         ]
       },
       {
@@ -203,8 +388,14 @@
         "predicate": "Ability is on the attacker and authoritative effective category is Special.",
         "rationale": "The source multiplier is guarded by IsBattleMovePhysical.",
         "evidence": [
-          {"source": "src/battle_util.c:6990", "contains": "case ABILITY_PURE_POWER"},
-          {"source": "src/battle_util.c:6991", "contains": "IsBattleMovePhysical(move)"}
+          {
+            "source": "src/battle_util.c:6990",
+            "contains": "case ABILITY_PURE_POWER"
+          },
+          {
+            "source": "src/battle_util.c:6991",
+            "contains": "IsBattleMovePhysical(move)"
+          }
         ]
       }
     ],
@@ -219,21 +410,68 @@
         "predicate": "Ability is on the attacker.",
         "rationale": "The critical-hit prevention branch reads abilityDef, so an attacker's Shell Armor cannot change its outgoing damage.",
         "evidence": [
-          {"source": "src/battle_util.c:8056", "contains": "ctx->abilityDef == ABILITY_SHELL_ARMOR"}
+          {
+            "source": "src/battle_util.c:8056",
+            "contains": "ctx->abilityDef == ABILITY_SHELL_ARMOR"
+          }
+        ]
+      },
+      {
+        "rule": "defender_armor_fixed_noncritical_hit",
+        "predicate": "Defender ability, authoritative ordinary move, fixed isCrit=false.",
+        "rationale": "Crit prevention changes crit selection, not the already selected noncritical roll.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:8056",
+            "contains": "ctx->abilityDef == ABILITY_SHELL_ARMOR"
+          }
         ]
       }
     ],
     "always_blocking": [
       {
-        "rule": "defender_critical_probability_unmodelled",
-        "predicate": "Ability is on the defender.",
-        "rationale": "Shell Armor suppresses critical hits. The request's isCrit flag does not prove the reported damage range and KO probability exclude critical-hit odds, so defender-side Armor remains blocked.",
+        "rule": "defender_armor_critical_hit_conflict",
+        "predicate": "Defender ability and fixed isCrit=true.",
+        "rationale": "The request conflicts with this ability preventing the critical hit; keep a named caveat.",
         "evidence": [
-          {"source": "src/battle_util.c:8056", "contains": "ctx->abilityDef == ABILITY_SHELL_ARMOR"}
+          {
+            "source": "src/battle_util.c:8056",
+            "contains": "ctx->abilityDef == ABILITY_SHELL_ARMOR"
+          }
         ]
       }
     ],
-    "fallback": "Unknown context never clears the globally unsupported ability."
+    "fallback": "Missing move-shape or critical-flag authority remains UNKNOWN."
+  },
+  "84": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "speed_ability_without_analytic",
+        "predicate": "Ordinary move and known attacker ability other than Analytic (or speed ability itself on attacker).",
+        "rationale": "Only Analytic reads turn order into ordinary damage; this ability changes speed or priority.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4967",
+            "contains": "ABILITY_UNBURDEN"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_ability_attacker_analytic",
+        "predicate": "Defender speed ability with Analytic attacker.",
+        "rationale": "Analytic can change current-hit damage from turn order.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC"
+          }
+        ]
+      }
+    ],
+    "fallback": "Unknown move or attacker ability remains UNKNOWN."
   },
   "91": {
     "global": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -243,8 +481,14 @@
         "predicate": "Ability is on the defender.",
         "rationale": "Adaptability only changes the attacker's same-type attack bonus multiplier.",
         "evidence": [
-          {"source": "src/battle_util.c:7427", "contains": "ctx->abilityAtk == ABILITY_ADAPTABILITY"},
-          {"source": "src/battle_util.c:7428", "contains": "!IS_BATTLER_OF_TYPE(ctx->battlerAtk, ctx->moveType)"}
+          {
+            "source": "src/battle_util.c:7427",
+            "contains": "ctx->abilityAtk == ABILITY_ADAPTABILITY"
+          },
+          {
+            "source": "src/battle_util.c:7428",
+            "contains": "!IS_BATTLER_OF_TYPE(ctx->battlerAtk, ctx->moveType)"
+          }
         ]
       },
       {
@@ -252,13 +496,133 @@
         "predicate": "Ability is on the attacker, exact live Singles is observed, and the effective move type is absent from observed current attacker types.",
         "rationale": "The non-STAB branch returns a 1.0 multiplier before Adaptability is consulted.",
         "evidence": [
-          {"source": "src/battle_util.c:7428", "contains": "!IS_BATTLER_OF_TYPE(ctx->battlerAtk, ctx->moveType)"},
-          {"source": "src/battle_util.c:7430", "contains": "ctx->abilityAtk == ABILITY_ADAPTABILITY"}
+          {
+            "source": "src/battle_util.c:7428",
+            "contains": "!IS_BATTLER_OF_TYPE(ctx->battlerAtk, ctx->moveType)"
+          },
+          {
+            "source": "src/battle_util.c:7430",
+            "contains": "ctx->abilityAtk == ABILITY_ADAPTABILITY"
+          }
         ]
       }
     ],
     "always_blocking": [],
     "fallback": "STAB, unknown type, or unknown battle topology remains blocked."
+  },
+  "95": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "speed_ability_without_analytic",
+        "predicate": "Ordinary move and known attacker ability other than Analytic (or speed ability itself on attacker).",
+        "rationale": "Only Analytic reads turn order into ordinary damage; this ability changes speed or priority.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4957",
+            "contains": "ABILITY_QUICK_FEET"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_ability_attacker_analytic",
+        "predicate": "Defender speed ability with Analytic attacker.",
+        "rationale": "Analytic can change current-hit damage from turn order.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC"
+          }
+        ]
+      }
+    ],
+    "fallback": "Unknown move or attacker ability remains UNKNOWN."
+  },
+  "97": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "sniper_without_attacker_critical_hit",
+        "predicate": "Defender Sniper or attacker Sniper with isCrit=false on an ordinary move.",
+        "rationale": "Sniper multiplies only an attacking critical hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7567",
+            "contains": "if (isCrit)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "sniper_attacker_critical_damage",
+        "predicate": "Attacker Sniper with isCrit=true.",
+        "rationale": "Sniper directly multiplies the selected critical hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7568",
+            "contains": "return UQ_4_12(1.5)"
+          }
+        ]
+      }
+    ],
+    "fallback": "Unknown move shape or crit flag remains UNKNOWN."
+  },
+  "105": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "fixed_crit_stage_only",
+        "predicate": "Authoritative ordinary move with a fixed critical flag.",
+        "rationale": "Super Luck changes critical stage only; the H&S response has no crit probability.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:8049",
+            "contains": "ctx->abilityAtk == ABILITY_SUPER_LUCK"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown move shape or crit flag remains UNKNOWN."
+  },
+  "106": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "The pinned effect runs after damage or on a separately gated draining shape and cannot alter these rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4067",
+            "contains": "case ABILITY_AFTERMATH"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
+  },
+  "124": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "The pinned effect runs after damage or on a separately gated draining shape and cannot alter these rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_move_resolution.c:3490",
+            "contains": "ABILITY_PICKPOCKET"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
   },
   "132": {
     "global": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -268,13 +632,37 @@
         "predicate": "The exact live battler count proves Singles, so the defender has no battle partner.",
         "rationale": "Friend Guard is applied by the defender-partner modifier only when an alive partner holds the ability.",
         "evidence": [
-          {"source": "src/battle_util.c:7642", "contains": "if (!IsBattlerAlive(battlerPartnerDef))"},
-          {"source": "src/battle_util.c:7647", "contains": "case ABILITY_FRIEND_GUARD"}
+          {
+            "source": "src/battle_util.c:7642",
+            "contains": "if (!IsBattlerAlive(battlerPartnerDef))"
+          },
+          {
+            "source": "src/battle_util.c:7647",
+            "contains": "case ABILITY_FRIEND_GUARD"
+          }
         ]
       }
     ],
     "always_blocking": [],
     "fallback": "Unknown or non-Singles live topology remains blocked."
+  },
+  "139": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "berry_recovery_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move with current held item already observed.",
+        "rationale": "Berry recovery or reuse occurs outside the selected hit and cannot alter its rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_end_turn.c:1273",
+            "contains": "case ABILITY_HARVEST"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown move shape remains UNKNOWN."
   },
   "140": {
     "global": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -284,13 +672,253 @@
         "predicate": "The exact live battler count proves Singles; the defender cannot be the attacker's battle partner.",
         "rationale": "Telepathy sets effectiveness to zero only when the ability holder is the attacker's partner and the move has power.",
         "evidence": [
-          {"source": "src/battle_util.c:8422", "contains": "ctx->abilityDef == ABILITY_TELEPATHY && ctx->battlerDef == BATTLE_PARTNER(ctx->battlerAtk)"},
-          {"source": "src/battle_util.c:8423", "contains": "GetMovePower(ctx->move) != 0"}
+          {
+            "source": "src/battle_util.c:8422",
+            "contains": "ctx->abilityDef == ABILITY_TELEPATHY && ctx->battlerDef == BATTLE_PARTNER(ctx->battlerAtk)"
+          },
+          {
+            "source": "src/battle_util.c:8423",
+            "contains": "GetMovePower(ctx->move) != 0"
+          }
         ]
       }
     ],
     "always_blocking": [],
     "fallback": "Unknown or non-Singles live topology remains blocked."
+  },
+  "146": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "speed_ability_without_analytic",
+        "predicate": "Ordinary move and known attacker ability other than Analytic (or speed ability itself on attacker).",
+        "rationale": "Only Analytic reads turn order into ordinary damage; this ability changes speed or priority.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4950",
+            "contains": "ABILITY_SAND_RUSH"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_ability_attacker_analytic",
+        "predicate": "Defender speed ability with Analytic attacker.",
+        "rationale": "Analytic can change current-hit damage from turn order.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC"
+          }
+        ]
+      }
+    ],
+    "fallback": "Unknown move or attacker ability remains UNKNOWN."
+  },
+  "152": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "The pinned effect runs after damage or on a separately gated draining shape and cannot alter these rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3972",
+            "contains": "case ABILITY_MUMMY"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
+  },
+  "160": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "The pinned effect runs after damage or on a separately gated draining shape and cannot alter these rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4048",
+            "contains": "case ABILITY_IRON_BARBS"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
+  },
+  "167": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "berry_recovery_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move with current held item already observed.",
+        "rationale": "Berry recovery or reuse occurs outside the selected hit and cannot alter its rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_script_commands.c:6573",
+            "contains": "ABILITY_CHEEK_POUCH"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown move shape remains UNKNOWN."
+  },
+  "202": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "speed_ability_without_analytic",
+        "predicate": "Ordinary move and known attacker ability other than Analytic (or speed ability itself on attacker).",
+        "rationale": "Only Analytic reads turn order into ordinary damage; this ability changes speed or priority.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4952",
+            "contains": "ABILITY_SLUSH_RUSH"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_ability_attacker_analytic",
+        "predicate": "Defender speed ability with Analytic attacker.",
+        "rationale": "Analytic can change current-hit damage from turn order.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC"
+          }
+        ]
+      }
+    ],
+    "fallback": "Unknown move or attacker ability remains UNKNOWN."
+  },
+  "215": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "The pinned effect runs after damage or on a separately gated draining shape and cannot alter these rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4087",
+            "contains": "case ABILITY_INNARDS_OUT"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
+  },
+  "238": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "The pinned effect runs after damage or on a separately gated draining shape and cannot alter these rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4231",
+            "contains": "case ABILITY_COTTON_DOWN"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
+  },
+  "254": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "The pinned effect runs after damage or on a separately gated draining shape and cannot alter these rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3995",
+            "contains": "case ABILITY_WANDERING_SPIRIT"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
+  },
+  "259": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "speed_ability_without_analytic",
+        "predicate": "Ordinary move and known attacker ability other than Analytic (or speed ability itself on attacker).",
+        "rationale": "Only Analytic reads turn order into ordinary damage; this ability changes speed or priority.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:5470",
+            "contains": "ABILITY_QUICK_DRAW"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_ability_attacker_analytic",
+        "predicate": "Defender speed ability with Analytic attacker.",
+        "rationale": "Analytic can change current-hit damage from turn order.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC"
+          }
+        ]
+      }
+    ],
+    "fallback": "Unknown move or attacker ability remains UNKNOWN."
+  },
+  "268": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "The pinned effect runs after damage or on a separately gated draining shape and cannot alter these rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3971",
+            "contains": "case ABILITY_LINGERING_AROMA"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
+  },
+  "291": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "berry_recovery_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move with current held item already observed.",
+        "rationale": "Berry recovery or reuse occurs outside the selected hit and cannot alter its rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_end_turn.c:1269",
+            "contains": "case ABILITY_CUD_CHEW"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown move shape remains UNKNOWN."
   },
   "308": {
     "global": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -300,8 +928,14 @@
         "predicate": "Ability is on the attacker.",
         "rationale": "ShouldTeraShellDistortTypeMatchups receives the defender ability and checks the defender's live species and HP.",
         "evidence": [
-          {"source": "src/battle_util.c:324", "contains": "ShouldTeraShellDistortTypeMatchups(enum Move move, enum BattlerId battlerDef, enum Ability abilityDef)"},
-          {"source": "src/battle_util.c:330", "contains": "abilityDef == ABILITY_TERA_SHELL"}
+          {
+            "source": "src/battle_util.c:324",
+            "contains": "ShouldTeraShellDistortTypeMatchups(enum Move move, enum BattlerId battlerDef, enum Ability abilityDef)"
+          },
+          {
+            "source": "src/battle_util.c:330",
+            "contains": "abilityDef == ABILITY_TERA_SHELL"
+          }
         ]
       },
       {
@@ -309,8 +943,14 @@
         "predicate": "Ability is on the defender and authoritative current species is not SPECIES_TERAPAGOS_TERASTAL.",
         "rationale": "The type distortion requires the current defender species/form to be Terapagos-Terastal.",
         "evidence": [
-          {"source": "src/battle_util.c:327", "contains": "gBattleMons[battlerDef].species == SPECIES_TERAPAGOS_TERASTAL"},
-          {"source": "include/constants/species.h:1543", "contains": "SPECIES_TERAPAGOS_TERASTAL"}
+          {
+            "source": "src/battle_util.c:327",
+            "contains": "gBattleMons[battlerDef].species == SPECIES_TERAPAGOS_TERASTAL"
+          },
+          {
+            "source": "include/constants/species.h:1543",
+            "contains": "SPECIES_TERAPAGOS_TERASTAL"
+          }
         ]
       },
       {
@@ -318,7 +958,10 @@
         "predicate": "Ability is on the defender, exact current species is Terapagos-Terastal, and observed live HP is below observed maxHP.",
         "rationale": "The type distortion requires current HP to equal maxHP.",
         "evidence": [
-          {"source": "src/battle_util.c:328", "contains": "gBattleMons[battlerDef].hp == gBattleMons[battlerDef].maxHP"}
+          {
+            "source": "src/battle_util.c:328",
+            "contains": "gBattleMons[battlerDef].hp == gBattleMons[battlerDef].maxHP"
+          }
         ]
       }
     ],
@@ -328,12 +971,88 @@
         "predicate": "Ability is on full-HP Terapagos-Terastal defender.",
         "rationale": "All reviewed source predicates for the type-distortion branch are satisfied; the move matchup is not modeled.",
         "evidence": [
-          {"source": "src/battle_util.c:327", "contains": "SPECIES_TERAPAGOS_TERASTAL"},
-          {"source": "src/battle_util.c:328", "contains": "hp == gBattleMons[battlerDef].maxHP"},
-          {"source": "src/battle_util.c:330", "contains": "abilityDef == ABILITY_TERA_SHELL"}
+          {
+            "source": "src/battle_util.c:327",
+            "contains": "SPECIES_TERAPAGOS_TERASTAL"
+          },
+          {
+            "source": "src/battle_util.c:328",
+            "contains": "hp == gBattleMons[battlerDef].maxHP"
+          },
+          {
+            "source": "src/battle_util.c:330",
+            "contains": "abilityDef == ABILITY_TERA_SHELL"
+          }
         ]
       }
     ],
     "fallback": "Missing current species or HP/maxHP authority remains unknown and blocked."
+  },
+  "221": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "Tangling Hair shares the pinned post-damage contact stat-change branch with Gooey and cannot alter the current hit rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4034",
+            "contains": "case ABILITY_TANGLING_HAIR"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
+  },
+  "247": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "attacker_ripen_no_current_hit_modifier",
+        "predicate": "Ripen is on the attacker and the move is authoritative ordinary single-hit.",
+        "rationale": "The direct damage read of Ripen is defender-side resist-berry damage reduction. The attacker-side Micle branch changes accuracy, which the display does not output.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7695",
+            "contains": "ctx->abilityDef == ABILITY_RIPEN"
+          },
+          {
+            "source": "src/battle_util.c:10558",
+            "contains": "if (atkAbility == ABILITY_RIPEN)"
+          }
+        ]
+      },
+      {
+        "rule": "ripen_without_defender_resist_berry",
+        "predicate": "Ripen is on the defender, the current defender item identity is authoritative and is not HOLD_EFFECT_RESIST_BERRY, and the move is authoritative ordinary single-hit.",
+        "rationale": "The only Ripen path in the current-hit damage calculation is the defender resist-berry modifier; other berry actions happen outside the current hit rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7686",
+            "contains": "case HOLD_EFFECT_RESIST_BERRY:"
+          },
+          {
+            "source": "src/battle_hold_effects.c:847",
+            "contains": "if (ability == ABILITY_RIPEN && GetItemPocket(itemId) == POCKET_BERRIES)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "defender_ripen_resist_berry",
+        "predicate": "Ripen is on the defender holding an authoritative HOLD_EFFECT_RESIST_BERRY item during an ordinary single-hit move.",
+        "rationale": "The damage path uses a quarter modifier instead of a half modifier when Ripen doubles a matching defender resist berry.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7695",
+            "contains": "return (ctx->abilityDef == ABILITY_RIPEN) ? UQ_4_12(0.25) : UQ_4_12(0.5);"
+          }
+        ]
+      }
+    ],
+    "fallback": "Unknown move shape or missing defender item identity remains UNKNOWN."
   }
 }

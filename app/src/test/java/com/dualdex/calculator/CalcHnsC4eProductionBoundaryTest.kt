@@ -1630,6 +1630,47 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `Group A proof clears crit stage item and abilities without a caveat`() {
+        val ready = readyOf(
+            build(trustFor(exactSha), goldenARequest(),
+                playerObservation(abilityId = 105, abilityName = "Super Luck", itemId = 471),
+                enemyObservation(abilityId = 4, abilityName = "Battle Armor"),
+                randomAbilities = true),
+            "fixed noncritical hit must clear stage-only effects"
+        )
+        assertTrue(ready.verdict.hnsAbilityDecisions.all {
+            it.relevance == HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+        })
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT,
+            ready.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(ready.verdict.ignoredMechanics.isEmpty())
+        assertTrue(ready.verdict.blockingLimitations.isEmpty())
+        assertEquals("Super Luck", ready.request.attacker.ability)
+        // The item bridge strips unmodelled held effects after policy proves this one irrelevant.
+        assertNull(ready.request.attacker.item)
+    }
+
+    @Test
+    fun `Group A after-hit ability clears ordinary hit but not unreviewed move shape`() {
+        val ordinary = readyOf(
+            build(trustFor(exactSha), goldenARequest(), playerObservation(),
+                enemyObservation(abilityId = 24, abilityName = "Rough Skin"), randomAbilities = true),
+            "Rough Skin acts after this hit"
+        )
+        assertTrue(ordinary.verdict.ignoredMechanics.isEmpty())
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            ordinary.verdict.hnsAbilityDecisions.single().relevance)
+
+        val nonordinary = refusedOf(
+            build(trustFor(exactSha), goldenARequest(move = "Explosion"), playerObservation(),
+                enemyObservation(abilityId = 24, abilityName = "Rough Skin"), randomAbilities = true),
+            "unsupported move shape remains refused"
+        )
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            nonordinary.verdict.hnsAbilityDecisions.single().relevance)
+    }
+
+    @Test
     fun `anti-spoof - the live current item wins over any caller item claim`() {
         val trust = trustFor(exactSha)
         // Caller claims an irrelevant Charcoal (ID and name); the engine's current item is Silk Scarf.
@@ -1994,12 +2035,12 @@ class CalcHnsC4eProductionBoundaryTest {
             fieldBuild(
                 0,
                 attackerAbility = 54 to "Truant",
-                defenderAbility = 105 to "Super Luck"
+                defenderAbility = 196 to "Merciless"
             ),
-            "unknown Super Luck blocks while attacker Truant has complete caveat evidence"
+            "unknown Merciless blocks while attacker Truant has complete caveat evidence"
         )
         val abilityBlockers = com.dualdex.battle.DamageBlockerPresentation.from(mixedAbilities.verdict, false)
-        assertEquals(listOf("Foe: Super Luck"), abilityBlockers.map { it.detail })
+        assertEquals(listOf("Foe: Merciless"), abilityBlockers.map { it.detail })
         assertTrue(mixedAbilities.verdict.ignoredMechanics.any {
             it.presentationLine == "You: Truant"
         })

@@ -1215,8 +1215,6 @@ internal object Hns205MoveEffects {
         664,
         665,
         666,
-        667,
-        668,
         670,
         674,
         677,
@@ -1319,8 +1317,6 @@ internal object Hns205MoveEffects {
         874,
         876,
         877,
-        879,
-        880,
         882,
     )
 

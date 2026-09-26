@@ -141,12 +141,11 @@ def check_crossref(entries_by_id: dict[str, dict]) -> int:
     return len(records)
 
 
-DIVERGENCE_KEYS = ("scenario", "issue", "summary")
+DIVERGENCE_KEYS = ("scenario", "issue", "summary", "calculatorRolls")
 
 
-def load_divergences(entries_by_id: dict[str, dict]) -> list[dict]:
-    doc = json.loads(DIVERGENCE_PATH.read_text())
-    if not isinstance(doc, dict) or set(doc) != {"schemaVersion", "divergences"} or doc["schemaVersion"] != 1:
+def validate_divergences(doc: dict, entries_by_id: dict[str, dict]) -> list[dict]:
+    if not isinstance(doc, dict) or set(doc) != {"schemaVersion", "divergences"} or doc["schemaVersion"] != 2:
         fail("known_divergences.json: unexpected header")
     ids = set()
     for rec in doc["divergences"]:
@@ -160,10 +159,22 @@ def load_divergences(entries_by_id: dict[str, dict]) -> list[dict]:
             fail(f"known_divergences.json: {rec['scenario']} must link its tracking issue")
         if entries_by_id[rec["scenario"]]["scenario"]["id"] != rec["scenario"]:
             fail("known_divergences.json: internal id mismatch")
+        rolls = rec["calculatorRolls"]
+        if (not isinstance(rolls, list) or len(rolls) != schema.ROLL_COUNT or
+                any(type(value) is not int or value < 0 or value > schema.MAX_MEASURABLE_DAMAGE for value in rolls)):
+            fail(f"known_divergences.json: {rec['scenario']} must pin exactly {schema.ROLL_COUNT} integral calculator rolls")
+        if rolls != sorted(rolls):
+            fail(f"known_divergences.json: {rec['scenario']} calculator rolls must be non-decreasing")
+        if rolls == entries_by_id[rec["scenario"]]["rolls"]:
+            fail(f"known_divergences.json: {rec['scenario']} is no longer a calculator divergence")
         ids.add(rec["scenario"])
     if [r["scenario"] for r in doc["divergences"]] != sorted(ids):
         fail("known_divergences.json: records must be sorted by scenario id")
     return doc["divergences"]
+
+
+def load_divergences(entries_by_id: dict[str, dict]) -> list[dict]:
+    return validate_divergences(json.loads(DIVERGENCE_PATH.read_text()), entries_by_id)
 
 
 def cmd_check(_args: argparse.Namespace) -> None:
@@ -215,7 +226,7 @@ def produce_corpus(args: argparse.Namespace) -> str:
     canonical_sources = backend.render_sources(scenarios)
     run_order = list(reversed(scenarios)) if args.order == "reversed" else scenarios
     run_sources = backend.render_sources(run_order)
-    backend.export_worktree(upstream, work, fresh=args.fresh)
+    backend.export_worktree(upstream, work)
     toolchain_id = backend.toolchain_identity(toolchain)
     print(f"hns-damage-oracle: building and running {len(scenarios)} scenarios x {schema.ROLL_COUNT} rolls "
           f"in {work} ({args.order} order)", file=sys.stderr)
@@ -288,7 +299,6 @@ def main(argv: list[str] | None = None) -> None:
         p.add_argument("--work-dir", default=str(default_work_dir()),
                        help="scratch directory for the exported pinned tree and build (never committed)")
         p.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
-        p.add_argument("--fresh", action="store_true", help="discard any cached export/build first")
         p.add_argument("--order", choices=("canonical", "reversed"), default="canonical",
                        help="test execution order; results must not depend on it")
         p.add_argument("--keep-log", help="also save the raw runner output to this file")

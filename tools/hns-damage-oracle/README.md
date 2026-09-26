@@ -102,6 +102,7 @@ minimum roll, 15 the maximum. The generator then verifies, per roll and fail-clo
 * HP-bar damage equals the defender's HP delta; immunities remove no HP; no damaging roll is 0;
   no roll is near the 60000-HP defender's capacity;
 * every observation is identical across the 16 rolls (no state leaks between runs).
+* the Hydra process exits with status 0; complete-looking output from a failed runner is rejected.
 
 Any violation aborts regeneration with the scenario ID. Nothing is defaulted or turned into zero.
 
@@ -141,7 +142,7 @@ HNS_UPSTREAM_DIR=/path/to/pokehns-expansion \
 
 # Prove regeneration is deterministic and order-independent, without writing anything
 HNS_UPSTREAM_DIR=/path/to/pokehns-expansion \
-  python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py verify --fresh --order reversed
+  python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py verify --order reversed
 
 # Inspect the generated battle tests without building
 python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py emit-sources --out /tmp/ddxo
@@ -151,7 +152,9 @@ Requirements for `regenerate`/`verify`: a checkout of the pinned commit with a c
 (`HNS_UPSTREAM_DIR`), the Arm GNU Toolchain 13.2.rel1 (`--toolchain-bin`, default
 `~/opt/arm-gnu-toolchain-13.2.Rel1-x86_64-arm-none-eabi/bin`, or `HNS_ARM_TOOLCHAIN_BIN`), a host
 C/C++ compiler, `make`, `patch` and libpng (the pinned tree's own `tools/` are built). The scratch
-tree defaults to `~/.cache/dualdex/hns-damage-oracle` (`--work-dir`); `--fresh` rebuilds it.
+tree defaults to `~/.cache/dualdex/hns-damage-oracle` (`--work-dir`). Every `regenerate` or `verify`
+run deletes that tree and re-exports the pinned commit with `git archive`; cached source is never
+trusted for corpus provenance.
 
 ## Provenance and determinism
 
@@ -191,9 +194,11 @@ registered in `known_divergences.json`, each linked to its tracking issue:
 | [#99](https://github.com/Sonoran-Solutions/dualdex/issues/99) | engine-only | 2 | Guts boosts special moves |
 | [#100](https://github.com/Sonoran-Solutions/dualdex/issues/100) | engine-only | 2 | Doubles spread reduction misses post-Gen-III spread moves |
 
-The differential test fails on any unregistered mismatch and on any registered scenario that has
-started to match, so fixing a defect forces the register (and `HnsDamageOracleAuthorityTest`'s #97
-pin) to be updated in the same change.
+Each registered scenario also pins its current 16-roll QuickJS calculator output in
+`known_divergences.json`. The differential test accepts only that exact wrong vector; a new wrong
+vector fails even when its scenario already has a tracking issue. It still fails on any unregistered
+mismatch and on any registered scenario that has started to match, so fixing a defect forces the
+register (and `HnsDamageOracleAuthorityTest`'s #97 pin) to be updated in the same change.
 
 ## Coverage
 

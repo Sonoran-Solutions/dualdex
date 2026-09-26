@@ -9,9 +9,11 @@ the committed corpus itself.
 from __future__ import annotations
 
 import copy
+import io
 import json
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -255,6 +257,16 @@ class RunnerOutputTest(unittest.TestCase):
         with self.assertRaisesRegex(backend.OracleError, "no result"):
             backend.parse_runner_output(text, [self.sid])
 
+    def test_nonzero_hydra_exit_rejects_otherwise_parseable_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            (work / "pokehns-test.elf").write_bytes(b"test elf")
+            process = mock.Mock(returncode=7, stdout=f"[0] DDXO {self.sid}: PASS\nrunner failed\n")
+            with mock.patch.object(backend, "_run"), mock.patch.object(backend.subprocess, "run", return_value=process):
+                with self.assertRaisesRegex(backend.OracleError, "hydra runner exited with status 7") as caught:
+                    backend.build_and_run(work, work / "toolchain", {}, 1)
+            self.assertIn("runner failed", str(caught.exception))
+
     def test_missing_roll_is_fatal(self):
         with self.assertRaisesRegex(backend.OracleError, "missing oracle output"):
             backend.parse_runner_output(runner_output(self.sid, skip_rng=7), [self.sid])
@@ -349,6 +361,31 @@ class HarnessGuardTest(unittest.TestCase):
             targets = [line[6:] for line in text.splitlines() if line.startswith("+++ b/")]
             self.assertEqual(targets, ["test/test_runner.c"])
 
+    def test_export_replaces_a_modified_cached_source_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            upstream = root / "upstream"
+            upstream.mkdir()
+            work = root / "cache"
+            source = work / "src/example.c"
+            source.parent.mkdir(parents=True)
+            source.write_text("modified cached source\n")
+            marker = work / ".dualdex-oracle-export"
+            marker.write_text("matching marker\n")
+
+            archive = io.BytesIO()
+            with tarfile.open(fileobj=archive, mode="w") as tar:
+                content = b"pinned archive source\n"
+                info = tarfile.TarInfo("src/example.c")
+                info.size = len(content)
+                tar.addfile(info, io.BytesIO(content))
+            result = mock.Mock(returncode=0, stdout=archive.getvalue())
+            with mock.patch.object(backend.subprocess, "run", return_value=result), \
+                    mock.patch.object(backend, "_apply_patch"):
+                backend.export_worktree(upstream, work)
+            self.assertEqual(source.read_text(), "pinned archive source\n")
+            self.assertFalse(marker.exists())
+
     def test_backend_provenance_has_no_machine_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             mgba = Path(tmp) / "tools/mgba/mgba-rom-test"
@@ -382,6 +419,30 @@ class CommittedCorpusTest(unittest.TestCase):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
         self.assertEqual([e["scenario"] for e in doc["entries"]], SCENARIOS)
         self.assertGreaterEqual(len(doc["entries"]), 1000)
+
+    def test_known_divergences_pin_the_current_calculator_vectors(self):
+        doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
+        by_id = {entry["scenario"]["id"]: entry for entry in doc["entries"]}
+        divergences = cli.load_divergences(by_id)
+        self.assertEqual(len(divergences), 11)
+        for record in divergences:
+            with self.subTest(scenario=record["scenario"]):
+                self.assertEqual(len(record["calculatorRolls"]), schema.ROLL_COUNT)
+                self.assertEqual(record["calculatorRolls"], sorted(record["calculatorRolls"]))
+                self.assertNotEqual(record["calculatorRolls"], by_id[record["scenario"]]["rolls"])
+
+    def test_divergence_register_rejects_missing_or_nondivergent_vectors(self):
+        scenario = "xref-c4a-neutral-base"
+        corpus_rolls = list(ROLLS)
+        entry = {"scenario": {"id": scenario}, "rolls": corpus_rolls}
+        header = {"schemaVersion": 2, "divergences": []}
+        record = {"scenario": scenario, "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/97",
+                  "summary": "test divergence", "calculatorRolls": list(ROLLS)}
+        with self.assertRaises(SystemExit):
+            cli.validate_divergences({**header, "divergences": [{k: v for k, v in record.items() if k != "calculatorRolls"}]},
+                                     {scenario: entry})
+        with self.assertRaises(SystemExit):
+            cli.validate_divergences({**header, "divergences": [record]}, {scenario: entry})
 
     def test_crossref_detects_an_altered_oracle_roll(self):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())

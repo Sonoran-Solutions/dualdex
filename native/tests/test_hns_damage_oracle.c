@@ -13,8 +13,8 @@
  *   HNS_ORACLE_MISMATCH {"scenario":...,"surface":...,"firstDifferingRoll":k,"expected":[...],
  *                        "actual":[...],"request":{...}}
  * and fails the run, unless the scenario is listed in tools/hns-damage-oracle/known_divergences.json
- * (each entry links the issue tracking the defect). A registered scenario that no longer diverges
- * also fails, so a fix cannot leave a stale register behind.
+ * with its current calculator vector pinned. Any different wrong vector fails too. A registered
+ * scenario that now matches the oracle fails, so a fix cannot leave a stale register behind.
  *
  * The expected values come only from the corpus; this file contains no damage arithmetic.
  */
@@ -383,7 +383,12 @@ static void print_rolls(const long r[ROLL_COUNT]) {
 
 /* ---------------------------------------------------------------- known divergences */
 
-static char* g_divergences[MAX_DIVERGENCES];
+typedef struct {
+    char* scenario;
+    long calculator_rolls[ROLL_COUNT];
+} known_divergence;
+
+static known_divergence g_divergences[MAX_DIVERGENCES];
 static int g_divergence_count = 0;
 static int g_divergence_seen[MAX_DIVERGENCES];
 
@@ -393,13 +398,37 @@ static int load_divergences(const char* path, err_t* err) {
     jl_value* doc = jl_parse(text);
     free(text);
     if (!is_obj(doc)) { jl_free(doc); return set_err(err, "%s is not a JSON object", path); }
+    long version;
+    if (!get_int(doc, "schemaVersion", 0, 1000, &version, err)) { jl_free(doc); return 0; }
+    if (version != 2) { jl_free(doc); return set_err(err, "unsupported divergence schemaVersion %ld", version); }
     const jl_value* list = jl_get(doc, "divergences");
     if (!jl_is_arr(list) || jl_len(list) > MAX_DIVERGENCES) { jl_free(doc); return set_err(err, "bad divergence list"); }
     for (int i = 0; i < jl_len(list); i++) {
-        const char* id = jl_str(jl_get(jl_at(list, i), "scenario"));
-        const char* issue = jl_str(jl_get(jl_at(list, i), "issue"));
+        const jl_value* record = jl_at(list, i);
+        const char* id = jl_str(jl_get(record, "scenario"));
+        const char* issue = jl_str(jl_get(record, "issue"));
         if (!id || !issue) { jl_free(doc); return set_err(err, "divergence %d lacks scenario/issue", i); }
-        g_divergences[g_divergence_count++] = strdup(id);
+        for (int j = 0; j < g_divergence_count; j++) {
+            if (strcmp(g_divergences[j].scenario, id) == 0) {
+                jl_free(doc);
+                return set_err(err, "duplicate known divergence %s", id);
+            }
+        }
+        err_t rolls_err = {{0}};
+        long calculator_rolls[ROLL_COUNT];
+        if (!read_rolls(jl_get(record, "calculatorRolls"), 0, 29999, calculator_rolls, &rolls_err)) {
+            jl_free(doc);
+            return set_err(err, "divergence %s has invalid calculatorRolls: %s", id, rolls_err.message);
+        }
+        for (int j = 1; j < ROLL_COUNT; j++) {
+            if (calculator_rolls[j] < calculator_rolls[j - 1]) {
+                jl_free(doc);
+                return set_err(err, "divergence %s calculatorRolls are not non-decreasing", id);
+            }
+        }
+        g_divergences[g_divergence_count].scenario = strdup(id);
+        memcpy(g_divergences[g_divergence_count].calculator_rolls, calculator_rolls, sizeof(calculator_rolls));
+        g_divergence_count++;
     }
     jl_free(doc);
     return 1;
@@ -407,7 +436,7 @@ static int load_divergences(const char* path, err_t* err) {
 
 static int divergence_index(const char* id) {
     for (int i = 0; i < g_divergence_count; i++) {
-        if (strcmp(g_divergences[i], id) == 0) return i;
+        if (strcmp(g_divergences[i].scenario, id) == 0) return i;
     }
     return -1;
 }
@@ -419,7 +448,8 @@ typedef struct {
 } run_stats;
 
 /* Returns 1 when the scenario matched, 0 on mismatch, -1 on an error (always a failure). */
-static int check_entry(const jl_value* entry, const long* override_expected, int report, int registered) {
+static int check_entry(const jl_value* entry, const long* override_expected, int report, int registered,
+                       const long* pinned_calculator_rolls) {
     err_t err = {{0}};
     const jl_value* scen = jl_get(entry, "scenario");
     const char* id = jl_str(jl_get(scen, "id"));
@@ -443,6 +473,8 @@ static int check_entry(const jl_value* entry, const long* override_expected, int
         return -1;
     }
     int diff = first_difference(expected, actual);
+    int changed = registered && pinned_calculator_rolls
+            ? first_difference(pinned_calculator_rolls, actual) : -1;
     if (diff >= 0 && report) {
         printf("HNS_ORACLE_MISMATCH {\"scenario\":\"%s\",\"surface\":\"%s\",\"registeredDivergence\":%s,"
                "\"firstDifferingRoll\":%d,\"expected\":",
@@ -453,6 +485,11 @@ static int check_entry(const jl_value* entry, const long* override_expected, int
         printf(",\"request\":%s}\n", req.data);
     }
     free(req.data);
+    if (changed >= 0) {
+        if (report) fail("%s: calculator mismatch changed from its pinned known-divergence vector at roll %d "
+                         "(see HNS_ORACLE_MISMATCH)", id, changed);
+        return -1;
+    }
     return diff < 0 ? 1 : 0;
 }
 
@@ -467,7 +504,8 @@ static void run_corpus(const jl_value* doc, run_stats* st) {
         if (surface && strcmp(surface, "modelled") == 0) st->modelled++;
         else st->engine_only++;
         int reg = id ? divergence_index(id) : -1;
-        int result = check_entry(entry, NULL, 1, reg >= 0);
+        const long* pinned = reg >= 0 ? g_divergences[reg].calculator_rolls : NULL;
+        int result = check_entry(entry, NULL, 1, reg >= 0, pinned);
         if (result == 1) {
             st->matched++;
             if (reg >= 0) fail("%s is registered as a known divergence but now matches the oracle; "
@@ -482,13 +520,13 @@ static void run_corpus(const jl_value* doc, run_stats* st) {
         }
     }
     for (int i = 0; i < g_divergence_count; i++) {
-        if (!g_divergence_seen[i] && divergence_index(g_divergences[i]) == i) {
+        if (!g_divergence_seen[i] && divergence_index(g_divergences[i].scenario) == i) {
             int found = 0;
             for (int k = 0; k < jl_len(entries); k++) {
                 const char* id = jl_str(jl_get(jl_get(jl_at(entries, k), "scenario"), "id"));
-                if (id && strcmp(id, g_divergences[i]) == 0) found = 1;
+                if (id && strcmp(id, g_divergences[i].scenario) == 0) found = 1;
             }
-            if (!found) fail("registered divergence %s is not a corpus scenario", g_divergences[i]);
+            if (!found) fail("registered divergence %s is not a corpus scenario", g_divergences[i].scenario);
         }
     }
 }
@@ -563,7 +601,7 @@ static void self_tests(const jl_value* doc) {
     for (int i = 0; i < jl_len(entries) && !probe; i++) {
         const jl_value* e = jl_at(entries, i);
         const char* id = jl_str(jl_get(jl_get(e, "scenario"), "id"));
-        if (id && divergence_index(id) < 0 && check_entry(e, NULL, 0, 0) == 1) probe = e;
+        if (id && divergence_index(id) < 0 && check_entry(e, NULL, 0, 0, NULL) == 1) probe = e;
     }
     self_check("some corpus entry matches exactly", probe != NULL);
     if (probe) {
@@ -574,10 +612,10 @@ static void self_tests(const jl_value* doc) {
             long altered[ROLL_COUNT];
             memcpy(altered, expected, sizeof(altered));
             altered[k] += 1;
-            if (check_entry(probe, altered, 0, 0) != 0) caught = 0;
+            if (check_entry(probe, altered, 0, 0, NULL) != 0) caught = 0;
         }
         self_check("the differential catches one altered expected roll at every index", caught);
-        self_check("the unaltered expected vector still matches", check_entry(probe, expected, 0, 0) == 1);
+        self_check("the unaltered expected vector still matches", check_entry(probe, expected, 0, 0, NULL) == 1);
     }
 }
 
@@ -619,7 +657,7 @@ int main(int argc, char** argv) {
            st.total, st.modelled, st.engine_only, st.matched, st.diverged_registered, g_divergence_count,
            g_self_checks);
     jl_free(doc);
-    for (int i = 0; i < g_divergence_count; i++) free(g_divergences[i]);
+    for (int i = 0; i < g_divergence_count; i++) free(g_divergences[i].scenario);
     js_calc_cleanup();
     if (g_failures) {
         printf("H&S differential damage oracle: %d failure(s)\n", g_failures);

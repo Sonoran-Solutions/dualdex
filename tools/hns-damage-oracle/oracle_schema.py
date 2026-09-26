@@ -31,7 +31,7 @@ HNS_PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
 HNS_PINNED_TREE = "586946f21e9322e8d837654d9e07cf6b8239feed"
 
 ORACLE_BACKEND_KIND = "pinned-expansion-battle-test-runner"
-ORACLE_TOOL_VERSION = 1
+ORACLE_TOOL_VERSION = 2
 
 ROLL_ORDER = (
     "rolls[k] is the damage at random factor (85+k)%, i.e. the pinned hit measured with "

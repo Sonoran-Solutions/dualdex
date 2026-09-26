@@ -194,9 +194,11 @@ stat stages, badge boosts, attacker HP), executed by the same QuickJS engine and
 above, and compared **roll by roll, all 16, exactly**. Each mismatch prints one
 `HNS_ORACLE_MISMATCH {...}` JSON line (scenario, surface, first differing roll, expected and actual
 vectors, the exact request) and fails the gate unless the scenario is registered in
-`tools/hns-damage-oracle/known_divergences.json` with its tracking issue; a registered scenario that
-starts to match fails too. The runner self-tests its own mismatch detection (one altered roll at each
-of the 16 indices, refused/short/fractional/string responses, duplicate IDs, wrong commit, wrong backend).
+`tools/hns-damage-oracle/known_divergences.json` with its tracking issue and its current QuickJS
+16-roll output pinned. Only that exact wrong vector is accepted; a different wrong vector fails even
+for an already registered scenario. A registered scenario that starts to match fails too. The runner
+self-tests its own mismatch detection (one altered roll at each of the 16 indices,
+refused/short/fractional/string responses, duplicate IDs, wrong commit, wrong backend).
 
 **Current result.** 1,324 scenarios (1,209 on the production-modelled surface, 115 engine-only);
 1,313 match all 16 rolls exactly. The 11 registered divergences are tracked in
@@ -227,7 +229,7 @@ pinned commit (`HNS_UPSTREAM_DIR`), the Arm GNU Toolchain 13.2.rel1, a host C/C+
 
 ```bash
 HNS_UPSTREAM_DIR=<pinned checkout> python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py regenerate
-HNS_UPSTREAM_DIR=<pinned checkout> python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py verify --fresh --order reversed
+HNS_UPSTREAM_DIR=<pinned checkout> python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py verify --order reversed
 ```
 
 **Provenance rules.** An oracle golden is only valid with its provenance: pinned repository, commit and

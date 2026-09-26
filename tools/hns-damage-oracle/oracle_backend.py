@@ -51,7 +51,6 @@ TEST_PREFIX = "DDXO "
 SCENARIOS_PER_FILE = 100
 BUILD_COMMAND = "make BUILD=hns TEST=1 pokehns-test.elf"
 RUNNER_DESCRIPTION = "pinned tools/mgba-rom-test-hydra + tools/mgba/mgba-rom-test, headless test ELF"
-WORK_MARKER = ".dualdex-oracle-export"
 
 KEEP_TEST_FILES = {
     "test/test_runner.c", "test/test_runner_args.c", "test/test_runner_battle.c", "test/test_test_runner.c",
@@ -650,13 +649,13 @@ def _apply_patch(work: Path, patch: Path) -> None:
     _run(["patch", "-p1", "--forward", "--batch", "-i", str(patch)], cwd=work)
 
 
-def export_worktree(upstream: Path, work: Path, fresh: bool) -> None:
-    """Export the pinned commit (not the working tree) into `work`, patch the harness, prune tests."""
-    marker = work / WORK_MARKER
-    wanted = HNS_PINNED_COMMIT + "\n" + "\n".join(sha256_file(PATCH_DIR / p) for p in HARNESS_PATCHES) + "\n"
-    if not fresh and marker.exists() and marker.read_text() == wanted:
-        shutil.rmtree(work / TEST_SUBDIR, ignore_errors=True)
-        return
+def export_worktree(upstream: Path, work: Path) -> None:
+    """Cleanly export the pinned commit into `work`, patch the harness, and prune tests.
+
+    Every corpus-producing run starts from `git archive` at the pinned commit. A scratch-tree marker
+    cannot establish source provenance because files below `src/` could have changed after it was
+    written.
+    """
     if work.exists():
         shutil.rmtree(work)
     work.mkdir(parents=True)
@@ -674,7 +673,6 @@ def export_worktree(upstream: Path, work: Path, fresh: bool) -> None:
             path.unlink()
     # The pinned Makefile refuses to build outside a git clone unless history checks are waived.
     (work / ".histignore").write_text("")
-    marker.write_text(wanted)
 
 
 def toolchain_identity(toolchain_bin: Path) -> dict:
@@ -709,7 +707,10 @@ def build_and_run(work: Path, toolchain_bin: Path, sources: dict[str, str], jobs
     env["MAKEFLAGS"] = f"-j{jobs}"
     proc = subprocess.run([hydra, mgba, "arm-none-eabi-objcopy", str(headless)], cwd=work, env=env, text=True,
                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    # Hydra exits non-zero when any test fails; the parser turns that into a named failure.
+    if proc.returncode != 0:
+        tail = "\n".join(proc.stdout.splitlines()[-40:])
+        detail = f"\n{tail}" if tail else ""
+        raise OracleError(f"hydra runner exited with status {proc.returncode}; refusing its output{detail}")
     return proc.stdout
 
 

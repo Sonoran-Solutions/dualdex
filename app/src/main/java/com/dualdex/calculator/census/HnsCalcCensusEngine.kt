@@ -341,13 +341,25 @@ object HnsCalcCensusEngine {
                     "trainer ${trainer.key} slot ${mon.partySlot} names ${mon.species} but the " +
                         "pinned data pack names ID ${mon.speciesId} ${species.name}"
                 }
-                val declared = pack.getDeclaredAbilityForSlot(species.id, 0)
-                check(declared is DeclaredAbility.Declared) {
-                    "trainer ${trainer.key} slot ${mon.partySlot} has no declared slot-0 ability"
-                }
-                check(declared.abilityId == mon.abilityId) {
-                    "trainer ${trainer.key} slot ${mon.partySlot} resolved ability ${mon.abilityId} " +
-                        "but the pinned pack declares ${declared.abilityId} for slot 0"
+                // The pinned `.party` source may declare an ability explicitly (229 of 1832
+                // entries do), and `CreateNPCTrainerPartyFromTrainer` then asserts it is one of
+                // the species' own slots. An entry with no declaration resolves through slot 0.
+                // Both shapes are checked against the species' declared slots rather than against
+                // slot 0 alone.
+                val slots = (0 until DECLARED_ABILITY_SLOTS).map {
+                    pack.getDeclaredAbilityForSlot(species.id, it)
+                }.filterIsInstance<DeclaredAbility.Declared>().map { it.abilityId }
+                when (mon.abilitySource) {
+                    "party-entry" -> check(mon.abilityId in slots) {
+                        "trainer ${trainer.key} slot ${mon.partySlot} declares ability " +
+                            "${mon.abilityId}, which is not one of ${species.name}'s declared " +
+                            "slots $slots"
+                    }
+                    else -> check(slots.firstOrNull() == mon.abilityId) {
+                        "trainer ${trainer.key} slot ${mon.partySlot} resolved slot-0 ability " +
+                            "${mon.abilityId}, but the pinned pack declares ${slots.firstOrNull()} " +
+                            "for slot 0"
+                    }
                 }
                 check(HnsAbilityRegistry.classify(mon.abilityId).abilityId == mon.abilityId) {
                     "trainer ${trainer.key} slot ${mon.partySlot} ability ${mon.abilityId} is " +
@@ -972,6 +984,9 @@ object HnsCalcCensusEngine {
      * Abilities view.
      */
     const val EXPECTED_ABILITY_DOMAIN: Int = 310
+
+    /** `NUM_ABILITY_SLOTS` from the pinned `include/constants/pokemon.h`. */
+    const val DECLARED_ABILITY_SLOTS: Int = 3
 
     private fun requestKey(
         trainerKey: String,

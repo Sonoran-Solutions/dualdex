@@ -66,8 +66,8 @@ class HnsCalcCensusArtifactTest {
     fun `census covers every trainer battle and Pokemon of the pinned inventory`() {
         val derived = artifacts()
         val run = derived.run
-        assertEquals(854, run.trainers.size)
-        assertEquals(1825, run.trainers.sumOf { it.party.size })
+        assertEquals(651, run.trainers.size)
+        assertEquals(1832, run.trainers.sumOf { it.party.size })
         assertEquals(310, run.abilityDomain.size)
     }
 }

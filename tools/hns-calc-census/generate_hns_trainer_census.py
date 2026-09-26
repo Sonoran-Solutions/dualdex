@@ -46,9 +46,9 @@ SPECIES_ARITH_RE = re.compile(r"^\(\s*(SPECIES_[A-Z0-9_]+)\s*\+\s*(\d+)\s*\)$")
 # Sanity floors. They exist so a source-drift regression that silently shrinks the census
 # fails loudly instead of producing a smaller, quieter report. They are asserted against
 # the pinned commit's own numbers, which are recorded in the census report.
-EXPECTED_TRAINER_ENTRIES = 855
-EXPECTED_BATTLE_TRAINERS = 854
-EXPECTED_TRAINER_POKEMON = 1825
+EXPECTED_TRAINER_ENTRIES = 651
+EXPECTED_BATTLE_TRAINERS = 651
+EXPECTED_TRAINER_POKEMON = 1832
 
 # The pinned build uses no party pools and no party-index shuffling, so the lead is the
 # first party slot. These are asserted so a future source that turns either on fails the
@@ -84,6 +84,57 @@ src = _load_module("hns_calc_census_trainer_source", HERE / "hns_trainer_source.
 
 
 # --------------------------------------------------------------------------- species map
+
+
+SPECIES_IDENTITY_RE = re.compile(r"^#define\s+(SPECIES_[A-Z0-9_]+)\s+([0-9]+)\s*$")
+SPECIES_ALIAS_RE = re.compile(r"^#define\s+(SPECIES_[A-Z0-9_]+)\s+(SPECIES_[A-Z0-9_]+)\s*$")
+
+
+def parse_species_constants(text: str, where: str) -> Dict[str, int]:
+    """Resolve every `SPECIES_*` identity of the pinned `include/constants/species.h`.
+
+    Both the plain integer defines and the header's own ALIAS defines are read. The aliases matter:
+    `SPECIES_DUDUNSPARCE` is defined as `SPECIES_DUDUNSPARCE_TWO_SEGMENT`, and the trainer table
+    spells the species `Dudunsparce`, so without the alias that entry would be unresolvable. An
+    alias chain is resolved to a fixpoint, and an alias of an unknown symbol is refused.
+    """
+    constants: Dict[str, int] = {}
+    aliases: List[Tuple[str, str, int]] = []
+    for number, line in enumerate(text.split("\n"), start=1):
+        stripped = line.strip()
+        match = SPECIES_IDENTITY_RE.match(stripped)
+        if match is not None:
+            symbol, value = match.group(1), int(match.group(2))
+            if symbol in constants and constants[symbol] != value:
+                raise src.SourceError(
+                    f"{where}:{number} conflicting values for {symbol}: {constants[symbol]} and "
+                    f"{value}"
+                )
+            constants[symbol] = value
+            continue
+        alias = SPECIES_ALIAS_RE.match(stripped)
+        if alias is not None:
+            aliases.append((alias.group(1), alias.group(2), number))
+    if not constants:
+        raise src.SourceError(f"{where} declares no SPECIES_* identity")
+    remaining = aliases
+    while remaining:
+        progressed = False
+        still: List[Tuple[str, str, int]] = []
+        for symbol, target, number in remaining:
+            if target in constants:
+                constants[symbol] = constants[target]
+                progressed = True
+            else:
+                still.append((symbol, target, number))
+        if not progressed:
+            symbol, target, number = still[0]
+            raise src.SourceError(
+                f"{where}:{number} {symbol} aliases undefined symbol {target}; refusing to invent "
+                "an ID"
+            )
+        remaining = still
+    return constants
 
 
 def parse_species_defines(text: str, where: str) -> Dict[str, int]:
@@ -214,6 +265,9 @@ def build(upstream: pathlib.Path, cpp_bin: str) -> Tuple[dict, dict]:
     # shares with the preprocessed table, with the two cross-checked. A symbol that neither
     # resolves is a hard error naming the trainers that use it.
     species_header = (upstream / "include/constants/species.h").read_text(encoding="utf-8")
+    species_constants = parse_species_constants(
+        species_header, "include/constants/species.h"
+    )
     species_enum_ids = parse_species_defines(species_header, "include/constants/species.h")
     species_names = data_pack.extract_species(cpp_bin, str(upstream))
 
@@ -229,16 +283,60 @@ def build(upstream: pathlib.Path, cpp_bin: str) -> Tuple[dict, dict]:
     )
     learnset_by_symbol = src.parse_learnsets(pokemon_out, "preprocessed src/pokemon.c")
 
-    species_by_symbol = resolve_species_symbols(
-        species_enum_ids, species_names, species_by_id
-    )
     # The display name is the one the Kotlin data pack resolves by name; it must come from the
     # same formatter the pack generator used, never from a second spelling rule.
     display_names = {sid: entry["name"] for sid, entry in species_names.items()}
 
+    # The trainer source names species by the `SPECIES_*` constant `trainerproc` generated, so the
+    # census resolves that constant's exact spelling against the pinned species table.
+    src.SPECIES_ID_BY_SYMBOL.clear()
+    src.SPECIES_ID_BY_SYMBOL.update(species_constants)
+    species_symbols_by_name = src.build_species_symbols_by_name(species_constants, species_by_id)
+    if not species_symbols_by_name:
+        raise BuildError("no species identity could be spelled from the pinned species table")
+
+    # Name indices for the values a `.party` entry spells, all built from the pinned tables.
+    src.ABILITY_SYMBOL_BY_NAME.clear()
+    for constant, ability_id in ability_ids.items():
+        src.ABILITY_SYMBOL_BY_NAME[
+            re.sub(r"[^a-z0-9]", "", constant[len("ABILITY_"):].lower())
+        ] = constant
+    src.HNS_ABILITY_TITLE_CASE.clear()
+    for constant, ability_id in ability_ids.items():
+        entry = abilities_dict.get(ability_id)
+        if entry is not None:
+            src.HNS_ABILITY_TITLE_CASE[constant] = format_ability_name(entry["name"])
+    src.ITEM_SYMBOL_BY_NAME.clear()
+    # Two pinned item identities can share a display name (e.g. `SITRUS BERRY` at 523 and an
+    # unused placeholder at 897). The canonical identity is the lower ID, so the index is built in
+    # ID order and the first claim wins; `resolve_item_symbol` then re-checks the resolved
+    # identity's own name against the spelling it was asked for.
+    for symbol, entry in sorted(items_by_symbol.items(), key=lambda kv: kv[1]["id"]):
+        key = re.sub(r"[^a-z0-9]", "", (entry.get("source_name") or "").lower())
+        if key:
+            src.ITEM_SYMBOL_BY_NAME.setdefault(key, symbol)
+    src.MOVE_SYMBOL_BY_NAME.clear()
+    # The trainer source spells moves with their pre-Gen-VI/VIII names (`Faint Attack`,
+    # `Hi Jump Kick`, `SmellingSalt`, `Vice Grip`), which the pinned `enum Move` still declares as
+    # aliases of the modern constants (`MOVE_FAINT_ATTACK = MOVE_FEINT_ATTACK`). The enum's own
+    # alias members are therefore indexed alongside the display names, so every spelling the
+    # pinned source can use resolves to the identity the build compiles.
+    move_constants = _parse_move_enum(
+        data_pack.run_cpp(cpp_bin, str(upstream), "include/constants/moves.h")
+    )
+    for constant, move_id in move_constants.items():
+        entry = moves_by_symbol.get(constant)
+        if entry is None:
+            continue
+        src.MOVE_SYMBOL_BY_NAME[re.sub(r"[^a-z0-9]", "", entry.name.lower())] = constant
+        src.MOVE_SYMBOL_BY_NAME.setdefault(
+            re.sub(r"[^a-z0-9]", "", constant[len("MOVE_"):].lower()), constant
+        )
+
     trainers = src.resolve_trainers(
         (upstream / src.TRAINERS_HEADER).read_text(encoding="utf-8"),
-        species_by_symbol=species_by_symbol,
+        species_by_id=species_by_id,
+        species_symbols_by_name=species_symbols_by_name,
         moves_by_symbol=moves_by_symbol,
         items_by_symbol=items_by_symbol,
         learnset_by_symbol=learnset_by_symbol,
@@ -248,7 +346,7 @@ def build(upstream: pathlib.Path, cpp_bin: str) -> Tuple[dict, dict]:
     )
 
     inventory = _inventory_json(
-        trainers, moves_by_symbol, species_by_id, species_by_symbol, learnset_by_symbol
+        trainers, moves_by_symbol, species_by_id, species_constants, learnset_by_symbol
     )
     return inventory, {"moves": moves_by_symbol, "items": items_by_symbol, "species": species_by_id}
 
@@ -305,6 +403,16 @@ def resolve_species_symbols(
     return resolved
 
 
+def format_ability_name(raw: str) -> str:
+    """The pinned ability table's `OVERGROW` -> the shipped catalogue's `Overgrow`.
+
+    Only used for the human-readable name the census artifact publishes; every capability
+    decision is made from the numeric ability ID.
+    """
+    words = raw.strip().replace("_", " ").split()
+    return " ".join(w.capitalize() for w in words)
+
+
 def _move_entries(cpp_bin: str, upstream: pathlib.Path) -> Dict[str, dict]:
     """`gMovesInfo` keyed by its `enum Move` symbol, message names resolved."""
     data_pack, _ = load_support_modules()
@@ -349,6 +457,14 @@ def _move_entries(cpp_bin: str, upstream: pathlib.Path) -> Dict[str, dict]:
             raise BuildError(f"duplicate move ID {move_id} in preprocessed gMovesInfo")
         by_id[move_id] = record
         by_symbol[key] = record
+    # `gMovesInfo` is keyed by the CANONICAL constant of each identity, while `enum Move` also
+    # declares alias members for the same identity (`MOVE_FAINT_ATTACK = MOVE_FEINT_ATTACK`). The
+    # trainer source uses the aliases, so every enum member that resolves to a known identity is
+    # added, which is why this reader needs the enum at all.
+    for constant, move_id in move_ids.items():
+        record = by_id.get(move_id)
+        if record is not None:
+            by_symbol.setdefault(constant, record)
     return by_symbol
 
 
@@ -372,7 +488,7 @@ def _parse_move_enum(enum_out: str) -> Dict[str, int]:
 
 
 def _inventory_json(
-    trainers, moves_by_symbol, species_by_id, species_by_symbol, learnset_by_symbol
+    trainers, moves_by_symbol, species_by_id, species_constants, learnset_by_symbol
 ) -> dict:
     battle_trainers = [t for t in trainers if t.is_battle]
     mons = [mon for t in battle_trainers for mon in t.party]
@@ -391,7 +507,7 @@ def _inventory_json(
         )
 
     used_species = {mon.species_symbol for mon in mons}
-    unresolved = sorted(s for s in used_species if s not in species_by_symbol)
+    unresolved = sorted(s for s in used_species if s not in species_constants)
     if unresolved:
         raise BuildError(f"trainer parties name unresolvable species: {unresolved[:10]}")
 

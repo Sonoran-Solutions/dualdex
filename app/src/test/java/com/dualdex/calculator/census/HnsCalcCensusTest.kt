@@ -119,16 +119,16 @@ class HnsCalcCensusTest {
     @Test
     fun `the census enumerates every trainer battle and Pokemon of the pinned source`() {
         val run = artifacts().run
-        assertEquals(854, run.trainers.size)
-        assertEquals(1825, run.trainers.sumOf { it.party.size })
-        assertEquals(777, run.trainers.count { it.isSingles })
-        assertEquals(77, run.trainers.count { !it.isSingles })
+        assertEquals(651, run.trainers.size)
+        assertEquals(1832, run.trainers.sumOf { it.party.size })
+        assertEquals(642, run.trainers.count { it.isSingles })
+        assertEquals(9, run.trainers.count { !it.isSingles })
         // The committed inventory's own sanity floors.
         val inventory = org.json.JSONObject(
             File(root, HnsCalcCensusGenerator.INVENTORY_RELATIVE_PATH).readText()
         )
-        assertEquals(854, inventory.getInt("trainerBattles"))
-        assertEquals(1825, inventory.getInt("trainerPokemon"))
+        assertEquals(651, inventory.getInt("trainerBattles"))
+        assertEquals(1832, inventory.getInt("trainerPokemon"))
         assertEquals(
             HnsCalcCensusBaseline.PINNED_COMMIT,
             inventory.getString("pinnedCommit")
@@ -421,7 +421,7 @@ class HnsCalcCensusTest {
             val jsonFile = File(scratch, HnsCalcCensusGenerator.JSON_RELATIVE_PATH)
             val bytes = jsonFile.readBytes()
             File(scratch, HnsCalcCensusGenerator.DOC_RELATIVE_PATH)
-                .writeText(artifacts.markdown.replace("854", "853"))
+                .writeText(artifacts.markdown + "\nstale extra line\n")
             val stale = HnsCalcCensusGenerator.check(scratch, artifacts)
             assertNotNull(stale)
             assertTrue(stale!!.contains("stale"))

@@ -327,7 +327,7 @@ object HnsCalcCensusReport {
         members += "pinned" to JsonValue.obj(
             "commit" to JsonValue.str(HnsCalcCensusBaseline.PINNED_COMMIT),
             "tag" to JsonValue.str(HnsCalcCensusBaseline.PINNED_TAG),
-            "source" to JsonValue.str("src/data/trainers.h"),
+            "source" to JsonValue.str(HnsCalcCensusEngine.TRAINER_SOURCE),
             "dataPack" to JsonValue.str(HnsCalcCensusBaseline.DATA_PACK_ID),
             "engine" to JsonValue.str(HnsCalcCensusBaseline.UPSTREAM_ENGINE),
             "profileId" to JsonValue.str(HnsCalcCensusBaseline.PROFILE_ID),
@@ -348,7 +348,10 @@ object HnsCalcCensusReport {
             )
         )
         members += "baseline" to JsonValue.obj(
-            "gameType" to JsonValue.str("per trainer battleType (SINGLES -> Singles/2, DOUBLES -> Doubles/4)"),
+            "gameType" to JsonValue.str(
+                "per trainer 'Double Battle' setting (No -> Singles/gBattlersCount 2, " +
+                    "Yes -> Doubles/4)"
+            ),
             "challengeSettings" to JsonValue.str("observed; optionStyle=PER_MOVE_SPLIT; Random Types/Type Effectiveness/Abilities/Moves OFF; no base-stat equalizer; no level/IV/EV scaling"),
             "fieldStatuses" to JsonValue.num(0),
             "weather" to JsonValue.str("clear"),
@@ -654,7 +657,10 @@ object HnsCalcCensusReport {
         out.append("| Upstream | `PokemonHnS-Development/pokehns-expansion` |\n")
         out.append("| Commit | `${HnsCalcCensusBaseline.PINNED_COMMIT}` |\n")
         out.append("| Tag | `${HnsCalcCensusBaseline.PINNED_TAG}` |\n")
-        out.append("| Trainer source | `src/data/trainers.h` (the table the pinned build compiles for `POKEMON_HNS`) |\n")
+        out.append(
+            "| Trainer source | `${HnsCalcCensusEngine.TRAINER_SOURCE}` (what the pinned build's " +
+                "`trainerproc` compiles for `POKEMON_HNS`) |\n"
+        )
         out.append("| Data pack | `${HnsCalcCensusBaseline.DATA_PACK_ID}` |\n")
         out.append("| Trainer inventory | `tools/hns-calc-census/trainer_inventory.json` |\n\n")
 
@@ -678,9 +684,12 @@ object HnsCalcCensusReport {
         )
         out.append("- pinned H&S 2.0.5 profile and data pack, asserted through the existing " +
             "`RuntimeRomTrust` mechanism at the real exact-trusted ceiling (no trust was weakened);\n")
-        out.append("- battle topology taken from each trainer's own pinned `battleType`: " +
-            "`SINGLES` -> Singles / `gBattlersCount = 2`, `DOUBLES` -> Doubles / `gBattlersCount = 4`. " +
-            "The topology is stated truthfully rather than chosen to please the policy;\n")
+        out.append(
+            "- battle topology taken from each trainer's own pinned `Double Battle` setting: " +
+                "`No` -> Singles / `gBattlersCount = 2`, `Yes` -> Doubles / " +
+                "`gBattlersCount = 4`. The topology is stated truthfully rather than chosen to " +
+                "please the policy;\n"
+        )
         out.append("- challenge settings observed: `optionStyle = PER_MOVE_SPLIT`, Random Types OFF, " +
             "Random Type Effectiveness OFF, Random Abilities OFF, Random Moves OFF, no base-stat " +
             "equalizer, no level/IV/EV scaling;\n")

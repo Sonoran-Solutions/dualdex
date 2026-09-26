@@ -1004,4 +1004,13 @@ object HnsCalcCensusEngine {
      * census' own documentation and tests can assert the entry point it claims to use.
      */
     const val POLICY_ENTRY_POINT: String = "CalcCapabilityPolicy.evaluate"
+
+    /**
+     * The committed pinned trainer source this census reads.
+     *
+     * Pinned upstream GITIGNORES the `trainers_hns.h` it compiles (`src/data.c` includes it under
+     * `IS_HNS`), so the committed `.party` file `trainerproc` generates that header from is the
+     * authoritative input a checkout actually carries.
+     */
+    const val TRAINER_SOURCE: String = "src/data/trainers_hns.party"
 }

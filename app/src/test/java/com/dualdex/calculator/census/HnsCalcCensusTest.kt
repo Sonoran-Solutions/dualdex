@@ -153,13 +153,11 @@ class HnsCalcCensusTest {
 
     @Test
     fun `unclassified ability refusal retains the tested side and identity`() {
-        val speedBoost = HnsAbilityRegistry.classify(3)
-        assertEquals(com.dualdex.pokemon.hns.HnsAbilityCategory.UNCLASSIFIED, speedBoost.category)
         val decision = com.dualdex.calculator.HnsAbilityRequestDecision(
-            abilityId = 3,
-            abilityName = speedBoost.titleCaseName,
+            abilityId = null,
+            abilityName = "Unresolved ability fixture",
             side = com.dualdex.calculator.HnsAbilitySide.ATTACKER,
-            globalCategory = speedBoost.category,
+            globalCategory = com.dualdex.pokemon.hns.HnsAbilityCategory.UNCLASSIFIED,
             relevance = com.dualdex.calculator.HnsAbilityRequestRelevance.UNKNOWN,
             rationale = "Unresolved global ability classification always fails closed."
         )
@@ -177,11 +175,11 @@ class HnsCalcCensusTest {
         val blocker = outcome.blockers.single()
         assertEquals(CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED, blocker.limitation)
         assertEquals("attacker", blocker.side)
-        assertEquals("Speed Boost", blocker.identity)
+        assertEquals("Unresolved ability fixture", blocker.identity)
         assertEquals("UNKNOWN", blocker.relevance)
         assertEquals(
             HnsAbilityTrialDisposition.REFUSED,
-            outcome.abilityTrialDisposition("attacker", "Speed Boost")
+            outcome.abilityTrialDisposition("attacker", "Unresolved ability fixture")
         )
     }
 
@@ -601,35 +599,17 @@ class HnsCalcCensusTest {
     }
 
     @Test
-    fun `all pinned unclassified abilities refuse their eligible trials`() {
+    fun `all pinned audit abilities have a classified global domain`() {
         val run = artifacts().run
-        val expected = mapOf(
-            3 to "Speed Boost",
-            80 to "Steadfast",
-            192 to "Stamina"
-        )
         val actual = run.abilityDomain.filter {
             HnsAbilityRegistry.classify(it.first).category ==
                 com.dualdex.pokemon.hns.HnsAbilityCategory.UNCLASSIFIED
         }.toMap()
-        assertEquals("pin the real unclassified ability domain", expected, actual)
-
-        for ((id, name) in expected) {
-            val trials = run.abilityTrials.filter { it.abilityId == id }
-            assertEquals("$name must have both sides and move categories", 4, trials.size)
-            for (trial in trials) {
-                assertEquals(name, trial.abilityName)
-                assertEquals("UNKNOWN", trial.abilityRelevance)
-                assertTrue("$name must refuse in ${trial.side}/${trial.category}", trial.refusedByAbility)
-                assertTrue(trial.refusedRequests > 0)
-                assertEquals(0, trial.caveatedRequests)
-                assertEquals(0, trial.clearRequests)
-            }
+        assertTrue("every pinned H&S ability now has an explicit global audit category", actual.isEmpty())
+        for (id in listOf(3, 80, 192)) {
+            assertEquals(com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+                HnsAbilityRegistry.classify(id).category)
         }
-        val clearOnlyIds = run.abilityTrials.groupBy { it.abilityId }
-            .filterValues { rows -> rows.all { it.refusedRequests == 0 && it.caveatedRequests == 0 } }
-            .keys
-        assertTrue("unclassified abilities cannot be clear-only", clearOnlyIds.intersect(expected.keys).isEmpty())
     }
 
     @Test

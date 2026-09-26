@@ -625,11 +625,11 @@ class CalcHnsAbilityTest {
     }
 
     @Test
-    fun `CalcRequestBoundary defense-in-depth rejects ability identity ID mismatch`() {
+    fun `CalcRequestBoundary trusts the slot-matched runtime ability ID over declaration identity`() {
         val trust = exactTrust(heartAndSoul)
         val snapshot = hnsSettingsSnapshot()
 
-        // Malformed observation: state says Overgrow (65) but identity says Keen Eye (51)
+        // The declaration is stale, but the numeric effective ability came from the active slot.
         val malformedObs = BattlerRuntimeObservation(
             state = HnsBattlerRuntimeState(
                 status = HnsBattlerRuntimeStatus.OBSERVED,
@@ -662,9 +662,24 @@ class CalcHnsAbilityTest {
             challengeSettings = snapshot,
             playerBattlerState = malformedObs
         )
-        val refused = outcome as CalcRequestOutcome.Refused
-        // Must fail closed to unreadable because identity ID does not match state ID
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
+        val verdict = when (outcome) {
+            is CalcRequestOutcome.Ready -> outcome.verdict
+            is CalcRequestOutcome.Refused -> outcome.verdict
+        }
+        assertFalse(verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
+        val ability = when (outcome) {
+            is CalcRequestOutcome.Ready -> outcome.request.attacker
+            is CalcRequestOutcome.Refused -> outcome.verdict.hnsAbilityDecisions
+                .firstOrNull { it.side == HnsAbilitySide.ATTACKER }
+                ?.let { decision ->
+                    assertEquals(65, decision.abilityId)
+                    null
+                }
+        }
+        if (ability != null) {
+            assertEquals(65, ability.abilityId)
+            assertEquals("Overgrow", ability.ability)
+        }
     }
 
     @Test

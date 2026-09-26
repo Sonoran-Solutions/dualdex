@@ -47,9 +47,9 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 
 | Tier | Requests |
 |---|---:|
-| `FULLY_MODELLED` | 15384 |
-| `CAVEATED_ESTIMATE` | 298 |
-| `REFUSED` | 8596 |
+| `FULLY_MODELLED` | 16813 |
+| `CAVEATED_ESTIMATE` | 333 |
+| `REFUSED` | 7132 |
 
 ## Denominators
 
@@ -71,7 +71,7 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 
 **Definition.** For every trainer battle, the *trainer lead* is the trainer's pinned party slot 0 (the pinned source uses no party pools and no party-index shuffling; the inventory extractor fails closed if that ever changes). The *matchup* is that lead paired with each reference team lead, in both directions, over the eligible damaging moves of that pair. A pair *displays* only when **every** eligible request in it displays a number.
 
-> **23.2% of trainer-battle lead matchups display every eligible damaging move** (302 of 1302 reference-pair evaluations over 651 of 651 trainer battles).
+> **26.3% of trainer-battle lead matchups display every eligible damaging move** (342 of 1302 reference-pair evaluations over 651 of 651 trainer battles).
 
 | | |
 |---|---:|
@@ -79,15 +79,15 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 | Battles included in the lead metric | 651 |
 | Battles excluded: lead has no eligible damaging move | 0 |
 | Lead pairs evaluated (battle x reference team) | 1302 |
-| Lead pairs whose every eligible request displays | 302 |
+| Lead pairs whose every eligible request displays | 342 |
 | Eligible requests in the lead metric | 8450 |
-| Of those, displaying | 5424 |
+| Of those, displaying | 6018 |
 
 Split by the trainer's own battle format, because the production subset models Singles only and a Doubles battle is refused by the live-battle-format gate:
 
 | Format | Pairs evaluated | Pairs displaying | Coverage |
 |---|---:|---:|---:|
-| Singles | 1284 | 302 | 23.5% |
+| Singles | 1284 | 342 | 26.6% |
 | Doubles | 18 | 0 | 0.0% |
 
 A battle whose lead has no eligible damaging move is excluded rather than counted as covered or as blocked, because there is no damage number in question for it. Its party members are still counted in the trainer-level inventory and in the blocker counts.
@@ -99,30 +99,30 @@ Ranked by the number of distinct trainer battles affected, then by requests. A b
 | # | Blocker | Limitation | Side | Battles | Requests |
 |---:|---|---|---|---:|---:|
 | 1 | HNS_MOVE_MECHANICS_NOT_MODELLED | `HNS_MOVE_MECHANICS_NOT_MODELLED` | - | 557 | 3578 |
-| 2 | Intimidate | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 85 | 776 |
-| 3 | Intimidate | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 85 | 544 |
-| 4 | HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | - | 68 | 152 |
-| 5 | Chlorophyll | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 66 | 228 |
-| 6 | Water Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 47 | 408 |
-| 7 | Water Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 47 | 280 |
-| 8 | Swift Swim | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 38 | 150 |
-| 9 | Soundproof | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 34 | 336 |
-| 10 | Soundproof | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 32 | 206 |
-| 11 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 29 | 232 |
-| 12 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 29 | 176 |
-| 13 | Quick Claw | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 28 | 78 |
-| 14 | Leftovers | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 25 | 70 |
-| 15 | Guts | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 23 | 96 |
-| 16 | HNS_LIVE_BATTLE_STATE_NOT_MODELLED | `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` | - | 22 | 336 |
-| 17 | SPECIES_NOT_IN_PINNED_DATA | `SPECIES_NOT_IN_PINNED_DATA` | - | 22 | 336 |
-| 18 | Sitrus Berry | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 21 | 54 |
-| 19 | Volt Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 17 | 144 |
-| 20 | Volt Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 17 | 96 |
-| 21 | Scope Lens | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 17 | 52 |
-| 22 | Hustle | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 15 | 120 |
-| 23 | Hustle | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 15 | 78 |
-| 24 | Flash Fire | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 14 | 120 |
-| 25 | Flash Fire | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 14 | 86 |
+| 2 | HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | - | 68 | 152 |
+| 3 | Chlorophyll | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 66 | 228 |
+| 4 | Intimidate | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 64 | 218 |
+| 5 | Water Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 47 | 408 |
+| 6 | Water Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 47 | 280 |
+| 7 | Swift Swim | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 38 | 150 |
+| 8 | Soundproof | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 34 | 336 |
+| 9 | Soundproof | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 32 | 206 |
+| 10 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 29 | 232 |
+| 11 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 29 | 176 |
+| 12 | Quick Claw | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 28 | 78 |
+| 13 | Leftovers | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 25 | 70 |
+| 14 | Guts | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 23 | 96 |
+| 15 | SPECIES_NOT_IN_PINNED_DATA | `SPECIES_NOT_IN_PINNED_DATA` | - | 22 | 336 |
+| 16 | Sitrus Berry | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 21 | 54 |
+| 17 | Volt Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 17 | 144 |
+| 18 | Volt Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 17 | 96 |
+| 19 | Scope Lens | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 17 | 52 |
+| 20 | Hustle | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 15 | 120 |
+| 21 | Hustle | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 15 | 78 |
+| 22 | Flash Fire | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 14 | 120 |
+| 23 | Flash Fire | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 14 | 86 |
+| 24 | Lightning Rod | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 13 | 104 |
+| 25 | Lightning Rod | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 13 | 88 |
 
 ## Ignored mechanics in caveated estimates
 
@@ -131,10 +131,10 @@ These named abilities and items are neutralized by production policy before the 
 | Mechanic | Side | Battles | Requests |
 |---|---|---:|---:|
 | Thick Fat | defender | 36 | 84 |
+| Focus Band | defender | 10 | 80 |
 | Charcoal | attacker | 10 | 20 |
-| Focus Band | defender | 7 | 56 |
-| Silk Scarf | attacker | 5 | 12 |
-| Assault Vest | defender | 4 | 12 |
+| Silk Scarf | attacker | 8 | 18 |
+| Assault Vest | defender | 5 | 15 |
 | Miracle Seed | attacker | 4 | 10 |
 | Never-melt Ice | attacker | 4 | 8 |
 | Focus Sash | defender | 3 | 24 |
@@ -142,9 +142,9 @@ These named abilities and items are neutralized by production policy before the 
 | Sharp Beak | attacker | 3 | 6 |
 | Twisted Spoon | attacker | 3 | 6 |
 | Choice Specs | attacker | 2 | 10 |
+| Life Orb | attacker | 2 | 8 |
 | Metal Coat | attacker | 2 | 6 |
 | Magnet | attacker | 2 | 4 |
-| Life Orb | attacker | 1 | 6 |
 | Black Belt | attacker | 1 | 4 |
 | Choice Band | attacker | 1 | 4 |
 | Hard Stone | attacker | 1 | 4 |
@@ -161,12 +161,10 @@ These named abilities and items are neutralized by production policy before the 
 | Limitation | Battles | Requests |
 |---|---:|---:|
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 | 3578 |
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 320 | 5694 |
-| `HNS_ITEM_EFFECT_NOT_MODELLED` | 96 | 552 |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 304 | 4378 |
+| `HNS_ITEM_EFFECT_NOT_MODELLED` | 96 | 544 |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 | 152 |
-| `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` | 22 | 336 |
 | `SPECIES_NOT_IN_PINNED_DATA` | 22 | 336 |
-| `HNS_ABILITY_EFFECT_UNCLASSIFIED` | 12 | 160 |
 | `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` | 9 | 352 |
 | `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED` | 9 | 288 |
 
@@ -213,21 +211,21 @@ Counts are weighted by the cohort's eligible requests; battle counts de-duplicat
 
 | # | Ability | Side | Category | Battles refused | Requests refused | Rule |
 |---:|---|---|---|---:|---:|---|
-| 1 | Drizzle | defender | Physical | 651 | 12670 | - |
-| 2 | Speed Boost | defender | Physical | 651 | 12670 | - |
-| 3 | Sturdy | defender | Physical | 651 | 12670 | - |
-| 4 | Volt Absorb | defender | Physical | 651 | 12670 | - |
-| 5 | Water Absorb | defender | Physical | 651 | 12670 | - |
-| 6 | Cloud Nine | defender | Physical | 651 | 12670 | - |
-| 7 | Color Change | defender | Physical | 651 | 12670 | - |
-| 8 | Flash Fire | defender | Physical | 651 | 12670 | - |
-| 9 | Intimidate | defender | Physical | 651 | 12670 | - |
-| 10 | Wonder Guard | defender | Physical | 651 | 12670 | - |
-| 11 | Lightning Rod | defender | Physical | 651 | 12670 | - |
-| 12 | Trace | defender | Physical | 651 | 12670 | - |
-| 13 | Soundproof | defender | Physical | 651 | 12670 | - |
-| 14 | Sand Stream | defender | Physical | 651 | 12670 | - |
-| 15 | Hustle | defender | Physical | 651 | 12670 | - |
+| 1 | Sturdy | defender | Physical | 651 | 12670 | - |
+| 2 | Volt Absorb | defender | Physical | 651 | 12670 | - |
+| 3 | Water Absorb | defender | Physical | 651 | 12670 | - |
+| 4 | Cloud Nine | defender | Physical | 651 | 12670 | - |
+| 5 | Flash Fire | defender | Physical | 651 | 12670 | - |
+| 6 | Wonder Guard | defender | Physical | 651 | 12670 | - |
+| 7 | Lightning Rod | defender | Physical | 651 | 12670 | - |
+| 8 | Soundproof | defender | Physical | 651 | 12670 | - |
+| 9 | Sand Stream | defender | Physical | 651 | 12670 | - |
+| 10 | Hustle | defender | Physical | 651 | 12670 | - |
+| 11 | Forecast | defender | Physical | 651 | 12670 | - |
+| 12 | Marvel Scale | defender | Physical | 651 | 12670 | - |
+| 13 | Air Lock | defender | Physical | 651 | 12670 | - |
+| 14 | Motor Drive | defender | Physical | 651 | 12670 | - |
+| 15 | Rivalry | defender | Physical | 651 | 12670 | - |
 
 (The full ranked table, one row per ability per side per category, is `abilityRefusals` in `census.json`.)
 
@@ -261,33 +259,69 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Guts | 4 | 2 | 0 | defender_guts_does_not_modify_incoming_damage, guts_attacker_neutral_status, guts_special_move |
 | Shell Armor | 4 | 2 | 0 | attacker_critical_hit_armor, defender_armor_fixed_noncritical_hit |
 | Adaptability | 4 | 2 | 2 | adaptability_with_stab, defender_adaptability_does_not_boost_incoming_damage |
+| Drizzle | 4 | 4 | 0 | live_weather_setter_supported_weather |
+| Speed Boost | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Color Change | 4 | 4 | 0 | live_effective_types_capture_type_rewriter |
+| Intimidate | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Rough Skin | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
 | Swift Swim | 4 | 4 | 0 | speed_ability_without_analytic |
 | Chlorophyll | 4 | 4 | 0 | speed_ability_without_analytic |
+| Trace | 4 | 4 | 0 | live_effective_ability_capture_ability_rewriter |
 | Plus | 4 | 4 | 0 | plus_minus_singles_no_partner |
 | Minus | 4 | 4 | 0 | plus_minus_singles_no_partner |
 | Liquid Ooze | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
+| Drought | 4 | 4 | 0 | live_weather_setter_supported_weather |
+| Steadfast | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Anger Point | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Unburden | 4 | 4 | 0 | speed_ability_without_analytic |
+| Simple | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Download | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Quick Feet | 4 | 4 | 0 | speed_ability_without_analytic |
 | Sniper | 4 | 4 | 0 | sniper_without_attacker_critical_hit |
 | Super Luck | 4 | 4 | 0 | fixed_crit_stage_only |
 | Aftermath | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
 | Pickpocket | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
+| Defiant | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Friend Guard | 4 | 4 | 0 | friend_guard_singles_no_partner |
+| Weak Armor | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Harvest | 4 | 4 | 0 | berry_recovery_outside_single_hit |
 | Telepathy | 4 | 4 | 0 | telepathy_singles_no_partner |
+| Moody | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Sand Rush | 4 | 4 | 0 | speed_ability_without_analytic |
 | Mummy | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
+| Moxie | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Justified | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Rattled | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Iron Barbs | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
 | Cheek Pouch | 4 | 4 | 0 | berry_recovery_outside_single_hit |
+| Protean | 4 | 4 | 0 | live_effective_types_capture_type_rewriter |
+| Competitive | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Stamina | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Water Compaction | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Berserk | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Slush Rush | 4 | 4 | 0 | speed_ability_without_analytic |
 | Innards Out | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
+| Soul-Heart | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Tangling Hair | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
+| Receiver | 4 | 4 | 0 | live_effective_ability_capture_ability_rewriter |
+| Power Of Alchemy | 4 | 4 | 0 | live_effective_ability_capture_ability_rewriter |
+| Beast Boost | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Intrepid Sword | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Dauntless Shield | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Libero | 4 | 4 | 0 | live_effective_types_capture_type_rewriter |
 | Cotton Down | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
+| Steam Engine | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Ripen | 4 | 4 | 0 | attacker_ripen_no_current_hit_modifier, ripen_without_defender_resist_berry |
+| Mimicry | 4 | 4 | 0 | live_effective_types_capture_type_rewriter |
 | Wandering Spirit | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
 | Quick Draw | 4 | 4 | 0 | speed_ability_without_analytic |
+| Chilling Neigh | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Grim Neigh | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Lingering Aroma | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
+| Thermal Exchange | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Anger Shell | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Guard Dog | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
+| Opportunist | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Cud Chew | 4 | 4 | 0 | berry_recovery_outside_single_hit |
 | Huge Power | 3 | 2 | 1 | attack_stat_ability_physical_move, attack_stat_ability_special_move, defender_attack_stat_ability |
 | Pure Power | 3 | 2 | 1 | attack_stat_ability_physical_move, attack_stat_ability_special_move, defender_attack_stat_ability |

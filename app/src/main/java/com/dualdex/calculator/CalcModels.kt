@@ -165,9 +165,9 @@ data class CalcHnsRuntimeRules(
  * does not apply. When it is present, every mutable class must be authoritatively observed:
  *
  *  - [attackerTypes] / [defenderTypes]: the engine's current effective types for that participant,
- *    or null when unobserved. A third non-empty type, an out-of-domain/typeless value, or a set
- *    that differs from the static record cannot be represented by the two-type calculator, so it
- *    blocks rather than silently using the static typing.
+ *    or null when unobserved. These are serialized as type overrides. A third non-empty type,
+ *    an out-of-domain value, or typeless state cannot be represented by the two-type calculator
+ *    and remains blocked.
  *  - [attackerBattleStatWordsObserved] / [defenderBattleStatWordsObserved]: true only when an
  *    authoritative observation of the engine's current raw stat words exists. No runtime reader
  *    produces this yet (Gap C4b), so it is false in production.

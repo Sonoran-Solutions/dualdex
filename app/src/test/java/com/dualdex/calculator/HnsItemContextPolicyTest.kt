@@ -62,11 +62,16 @@ class HnsItemContextPolicyTest {
         defenderAbilityId: Int? = null,
         attackerGastroAcid: Boolean? = null,
         defenderGastroAcid: Boolean? = null,
-        observedBattlersCount: Int? = null
+        observedBattlersCount: Int? = null,
+        attackerStatStages: List<Int>? = null,
+        defenderStatStages: List<Int>? = null,
+        attackerHasBattleItemObservation: Boolean = false,
+        defenderHasBattleItemObservation: Boolean = false
     ) = HnsItemContextPolicy.Context(
         side, ordinaryMove, moveType, moveCategory, fieldStatuses?.let(HnsFieldState::decode), weatherWord,
         attackerAbilityId, defenderHp, defenderMaxHp, defenderAbilityId, attackerGastroAcid,
-        defenderGastroAcid, observedBattlersCount
+        defenderGastroAcid, observedBattlersCount, attackerStatStages, defenderStatStages,
+        attackerHasBattleItemObservation, defenderHasBattleItemObservation
     )
 
     private fun relevance(id: Int, context: HnsItemContextPolicy.Context?) =
@@ -188,6 +193,91 @@ class HnsItemContextPolicyTest {
         assertEquals(unknown, relevance(boosterEnergy, ctx(HnsItemSide.ATTACKER)))
         assertEquals(unknown, relevance(terrainSeed, ctx(HnsItemSide.DEFENDER)))
         assertEquals(unknown, relevance(758, ctx(HnsItemSide.DEFENDER))) // Ability Shield preserves ability.
+    }
+
+    @Test
+    fun `Blunder Policy and Room Service retain only the Analytic speed dependency`() {
+        for (id in listOf(511, 512)) {
+            val ordinary = HnsItemContextPolicy.assess(id, ctx(
+                HnsItemSide.ATTACKER,
+                attackerAbilityId = 0
+            ))
+            assertEquals("item $id", irrelevant, ordinary.relevance)
+            assertEquals("post_hit_speed_item_ordinary_move", ordinary.rule)
+
+            val analytic = HnsItemContextPolicy.assess(id, ctx(
+                HnsItemSide.ATTACKER,
+                attackerAbilityId = 148
+            ))
+            assertEquals("item $id", relevant, analytic.relevance)
+            assertEquals("post_hit_speed_item_attacker_analytic", analytic.rule)
+
+            assertEquals(unknown, relevance(id, ctx(
+                HnsItemSide.ATTACKER,
+                ordinaryMove = null,
+                attackerAbilityId = 0
+            )))
+        }
+    }
+
+    @Test
+    fun `Terrain Seed and Berserk Gene require current item plus authoritative holder stages`() {
+        val stages = listOf(0, 0, 1, 0, 0, 0, 0, 0)
+        val seed = HnsItemContextPolicy.assess(terrainSeed, ctx(
+            HnsItemSide.ATTACKER,
+            fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN,
+            observedBattlersCount = 2,
+            attackerStatStages = stages,
+            attackerHasBattleItemObservation = true
+        ))
+        assertEquals(irrelevant, seed.relevance)
+        assertEquals("terrain_seed_live_stat_stage", seed.rule)
+
+        assertEquals(unknown, relevance(terrainSeed, ctx(
+            HnsItemSide.ATTACKER,
+            fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN,
+            observedBattlersCount = 2,
+            attackerStatStages = null,
+            attackerHasBattleItemObservation = true
+        )))
+        assertEquals(unknown, relevance(terrainSeed, ctx(
+            HnsItemSide.ATTACKER,
+            fieldStatuses = null,
+            observedBattlersCount = 2,
+            attackerStatStages = stages,
+            attackerHasBattleItemObservation = true
+        )))
+        assertEquals(unknown, relevance(terrainSeed, ctx(
+            HnsItemSide.ATTACKER,
+            observedBattlersCount = 2,
+            attackerStatStages = stages
+        )))
+
+        val gene = HnsItemContextPolicy.assess(798, ctx(
+            HnsItemSide.ATTACKER,
+            observedBattlersCount = 2,
+            attackerStatStages = stages,
+            attackerHasBattleItemObservation = true
+        ))
+        assertEquals(irrelevant, gene.relevance)
+        assertEquals("berserk_gene_live_stat_stage", gene.rule)
+        assertEquals(unknown, relevance(798, ctx(
+            HnsItemSide.ATTACKER,
+            observedBattlersCount = 2,
+            attackerStatStages = stages
+        )))
+    }
+
+    @Test
+    fun `Booster Energy remains blocked because damage time boost flags are not observed`() {
+        val decision = HnsItemContextPolicy.assess(boosterEnergy, ctx(
+            HnsItemSide.ATTACKER,
+            observedBattlersCount = 2,
+            attackerStatStages = List(8) { 0 },
+            attackerHasBattleItemObservation = true
+        ))
+        assertEquals(unknown, decision.relevance)
+        assertEquals("booster_energy_boost_payload_unobserved", decision.rule)
     }
 
     @Test
@@ -316,6 +406,21 @@ class HnsItemContextPolicyTest {
             ctx(HnsItemSide.ATTACKER, attackerAbilityId = 0, defenderAbilityId = 0,
                 attackerGastroAcid = true, defenderGastroAcid = false, observedBattlersCount = 2)
         ).forEach { HnsItemContextPolicy.assess(758, it).rule?.let(produced::add) }
+        listOf(
+            HnsItemContextPolicy.assess(terrainSeed, ctx(
+                HnsItemSide.ATTACKER,
+                fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN,
+                observedBattlersCount = 2,
+                attackerStatStages = List(8) { 0 },
+                attackerHasBattleItemObservation = true
+            )),
+            HnsItemContextPolicy.assess(798, ctx(
+                HnsItemSide.ATTACKER,
+                observedBattlersCount = 2,
+                attackerStatStages = List(8) { 0 },
+                attackerHasBattleItemObservation = true
+            ))
+        ).forEach { it.rule?.let(produced::add) }
         assertEquals(HnsItemAuditData.contextRuleNames, produced)
         assertTrue(produced.size >= 30)
     }

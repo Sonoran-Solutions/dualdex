@@ -59,8 +59,29 @@ object HnsAbilityContextPolicy {
         val attackerStatus1: Int?,
         val observedBattlersCount: Int?,
         val dynamicMoveTypeKnownNeutral: Boolean,
-        val defenderItemId: Int?
+        val defenderItemId: Int?,
+        val defenderTypes: Set<PokemonType>? = null,
+        val attackerStatStages: List<Int>? = null,
+        val defenderStatStages: List<Int>? = null,
+        val attackerAbilityObserved: Boolean = false,
+        val defenderAbilityObserved: Boolean = false,
+        val attackerHp: Int? = null,
+        val defenderAbilityId: Int? = null,
+        val weatherWord: Int? = null
     )
+
+    /** Abilities whose only damage-relevant effect is already reflected in live stat stages. */
+    private val LIVE_STAT_STAGE_WRITER_IDS = setOf(
+        3, 22, 80, 83, 86, 88, 128, 133, 141, 153, 154, 155, 172, 192, 195, 201,
+        220, 224, 234, 235, 243, 264, 265, 270, 271, 275, 290
+    )
+    private val SPEED_STAGE_WRITER_IDS = setOf(3, 80, 86, 133, 141, 155, 224, 243, 271, 290)
+
+    private val LIVE_RAIN_SUN_SETTER_IDS = setOf(2, 70) // Drizzle / Drought
+    private val LIVE_TYPE_REWRITER_IDS = setOf(16, 168, 236, 250) // Color Change / Protean / Libero / Mimicry
+    private val MOVE_TIME_TYPE_REWRITER_IDS = setOf(168, 236) // Protean / Libero
+    private val LIVE_ABILITY_REWRITER_IDS = setOf(36, 222, 223) // Trace / Receiver / Power of Alchemy
+    private val WEATHER_SUPPRESSOR_IDS = setOf(13, 76) // Cloud Nine / Air Lock
 
     fun assess(abilityId: Int, context: Context?): HnsAbilityRequestDecision {
         val entry = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(abilityId)
@@ -78,6 +99,51 @@ object HnsAbilityContextPolicy {
 
         val c = context ?: return unknown(entry.abilityId ?: abilityId, entry.titleCaseName, side)
         val proof: Proof? = when (abilityId) {
+            in LIVE_STAT_STAGE_WRITER_IDS -> if (
+                c.ordinaryMove == true && c.observedBattlersCount == 2 &&
+                c.attackerAbilityObserved && c.defenderAbilityObserved &&
+                validStages(c.attackerStatStages) && validStages(c.defenderStatStages)
+            ) {
+                if (c.side == HnsAbilitySide.DEFENDER && abilityId in SPEED_STAGE_WRITER_IDS &&
+                    c.attackerAbilityId == 148
+                ) relevant(
+                    "speed_stage_writer_analytic_dependency", "src/battle_util.c:6690",
+                    "This defender's speed stage may affect whether the Analytic attacker moves last; that turn-order dependency is not modelled."
+                ) else proof(
+                    "live_stat_stages_capture_stage_writer", statWriterSource(abilityId),
+                    "This ability changes only battle stat stages; both active battlers' exact live stages are supplied to the damage engine."
+                )
+            } else null
+            in LIVE_RAIN_SUN_SETTER_IDS -> if (weatherSetterStateProven(c)) proof(
+                "live_weather_setter_supported_weather", weatherSetterSource(abilityId),
+                "Drizzle/Drought only establish ordinary Rain/Sun. The observed unsuppressed weather is passed to the damage engine, which applies those modifiers."
+            ) else null
+            in LIVE_TYPE_REWRITER_IDS -> if (
+                c.ordinaryMove == true && c.observedBattlersCount == 2 && abilityObserved(c) &&
+                c.dynamicMoveTypeKnownNeutral && c.moveType != null && liveTypesForSide(c) != null
+            ) {
+                val liveTypes = liveTypesForSide(c)
+                if (abilityId in MOVE_TIME_TYPE_REWRITER_IDS && liveTypes != setOf(c.moveType)) {
+                    // Protean/Libero execute before this move's damage and may change the type
+                    // after the current battle-state snapshot. `usedProteanLibero` is not in the
+                    // runtime tuple, so only the already-monotyped same-type case proves that no
+                    // pending transform can change this hit's STAB/type effectiveness.
+                    null
+                } else proof(
+                    "live_effective_types_capture_type_rewriter", typeRewriterSource(abilityId),
+                    if (abilityId in MOVE_TIME_TYPE_REWRITER_IDS) {
+                        "Protean/Libero cannot change this hit when the observed battler is already monotyped to the move's effective type; that exact live type is passed to the damage engine."
+                    } else {
+                        "The ability's type change is already the active battler's observed effective type, which is passed to the damage engine."
+                    }
+                )
+            } else null
+            in LIVE_ABILITY_REWRITER_IDS -> if (
+                c.ordinaryMove == true && abilityObserved(c)
+            ) proof(
+                "live_effective_ability_capture_ability_rewriter", abilityRewriterSource(abilityId),
+                "The active battler's effective runtime ability ID is authoritative; a copied/replaced ability is evaluated under that current ID."
+            ) else null
             105 -> if (c.ordinaryMove == true && c.isCrit != null) proof(
                 "fixed_crit_stage_only", "src/battle_util.c:8049",
                 "Super Luck changes only critical-hit odds; this hit's critical flag is fixed."
@@ -302,8 +368,7 @@ object HnsAbilityContextPolicy {
         val live = request.hnsLiveBattleState
         val authority = HnsMoveAuthority.forRequest(request, ordinaryMove)
         val rawAttackerTypes = live?.attackerTypes
-        val attackerTypes = rawAttackerTypes?.mapNotNull { PokemonType.fromString(it) }
-            ?.takeIf { types -> types.size == rawAttackerTypes.size }?.toSet()
+        val rawDefenderTypes = live?.defenderTypes
         return Context(
             side = side,
             ordinaryMove = ordinaryMove,
@@ -311,7 +376,7 @@ object HnsAbilityContextPolicy {
             attackerAbilityId = request.attacker.abilityId,
             moveType = authority.effectiveType,
             moveCategory = authority.category,
-            attackerTypes = attackerTypes,
+            attackerTypes = parsedTypes(rawAttackerTypes),
             defenderSpeciesId = live?.defenderSpeciesId,
             defenderHp = live?.defenderHp,
             defenderMaxHp = live?.defenderMaxHp,
@@ -323,8 +388,56 @@ object HnsAbilityContextPolicy {
                     HnsItemRegistry.resolveIdByName(request.defender.item)
                 request.defender.origin == CalcInputOrigin.MANUAL -> 0
                 else -> null
-            }
+            },
+            defenderTypes = parsedTypes(rawDefenderTypes),
+            attackerStatStages = live?.attackerStatStages,
+            defenderStatStages = live?.defenderStatStages,
+            attackerAbilityObserved = hasAuthoritativeLiveAbility(request.attacker),
+            defenderAbilityObserved = hasAuthoritativeLiveAbility(request.defender),
+            attackerHp = live?.attackerHp,
+            defenderAbilityId = request.defender.abilityId,
+            weatherWord = live?.takeIf { it.weatherObserved }?.weatherWord
         )
+    }
+
+    private fun parsedTypes(rawTypes: List<String>?): Set<PokemonType>? {
+        if (rawTypes == null || rawTypes.isEmpty() || rawTypes.size > 2) return null
+        val parsed = rawTypes.map { PokemonType.fromString(it) ?: return null }
+        if (parsed.any { it.displayName !in CalcCapabilityPolicy.HNS_REPRESENTABLE_TYPES }) return null
+        return parsed.toSet()
+    }
+
+    private fun hasAuthoritativeLiveAbility(input: CalcPokemonInput): Boolean =
+        input.origin == CalcInputOrigin.LIVE_READ && input.abilityId != null &&
+            input.abilityId in 0..com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.ABILITY_ID_MAX &&
+            CalcInputField.ABILITY !in input.unknownFields
+
+    private fun abilityObserved(c: Context): Boolean = when (c.side) {
+        HnsAbilitySide.ATTACKER -> c.attackerAbilityObserved
+        HnsAbilitySide.DEFENDER -> c.defenderAbilityObserved
+    }
+
+    private fun liveTypesForSide(c: Context): Set<PokemonType>? = when (c.side) {
+        HnsAbilitySide.ATTACKER -> c.attackerTypes
+        HnsAbilitySide.DEFENDER -> c.defenderTypes
+    }
+
+    private fun validStages(stages: List<Int>?): Boolean =
+        stages != null && stages.size == 8 && stages.all { it in -6..6 }
+
+    private fun weatherSetterStateProven(c: Context): Boolean {
+        if (c.ordinaryMove != true || c.observedBattlersCount != 2 || !abilityObserved(c)) return false
+        if (!c.attackerAbilityObserved || !c.defenderAbilityObserved) return false
+        val rawWeather = c.weatherWord ?: return false
+        val weatherIds = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
+        if (rawWeather != 0 && rawWeather != weatherIds.B_WEATHER_RAIN_NORMAL &&
+            rawWeather != weatherIds.B_WEATHER_SUN_NORMAL
+        ) return false
+        val defenderHp = c.defenderHp ?: return false
+        val attackerHp = c.attackerHp ?: return false
+        if (attackerHp <= 0 || defenderHp <= 0) return false
+        return c.attackerAbilityId !in WEATHER_SUPPRESSOR_IDS &&
+            c.defenderAbilityId !in WEATHER_SUPPRESSOR_IDS
     }
 
     private data class Proof(
@@ -373,6 +486,52 @@ object HnsAbilityContextPolicy {
         95 -> "src/battle_main.c:4957"
         84 -> "src/battle_main.c:4967"
         else -> "src/battle_main.c:5470"
+    }
+
+    private fun statWriterSource(id: Int) = when (id) {
+        3 -> "src/battle_util.c:3738"
+        22 -> "src/battle_util.c:3451"
+        80 -> "data/battle_scripts_1.s:5726"
+        83 -> "src/battle_util.c:4022"
+        86 -> "src/battle_script_commands.c:7792"
+        88 -> "src/battle_util.c:3269"
+        128 -> "src/battle_util.c:1275"
+        133 -> "src/battle_util.c:3942"
+        141 -> "src/battle_util.c:3748"
+        153 -> "src/battle_util.c:4553"
+        154 -> "src/battle_util.c:3894"
+        155 -> "src/battle_util.c:3906"
+        172 -> "src/battle_util.c:1205"
+        192 -> "src/battle_util.c:3930"
+        195 -> "src/battle_util.c:3918"
+        201 -> "src/battle_util.c:3865"
+        220 -> "src/battle_script_commands.c:14154"
+        224 -> "src/battle_util.c:4558"
+        234 -> "src/battle_util.c:3488"
+        235 -> "src/battle_util.c:3502"
+        243 -> "src/battle_util.c:4240"
+        264, 265 -> "src/battle_util.c:4579"
+        270 -> "src/battle_util.c:4304"
+        271 -> "src/battle_util.c:3877"
+        275 -> "src/battle_script_commands.c:13365"
+        else -> "src/battle_util.c:4648"
+    }
+
+    private fun weatherSetterSource(id: Int) = when (id) {
+        2 -> "src/battle_util.c:3354"
+        else -> "src/battle_util.c:3383"
+    }
+
+    private fun typeRewriterSource(id: Int) = when (id) {
+        16 -> "src/battle_util.c:3850"
+        168 -> "src/battle_script_commands.c:944"
+        236 -> "src/battle_script_commands.c:944"
+        else -> "src/battle_util.c:4896"
+    }
+
+    private fun abilityRewriterSource(id: Int) = when (id) {
+        36 -> "src/battle_util.c:3097"
+        else -> "src/battle_script_commands.c:14126"
     }
 
     private fun unknown(

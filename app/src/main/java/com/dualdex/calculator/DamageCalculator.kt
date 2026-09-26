@@ -159,17 +159,21 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("spe", b.spe)
                 })
             }
-            request.attackerOverride?.let { override ->
+            val attackerOverride = request.attackerOverride
+            val attackerTypes = request.hnsLiveBattleState?.attackerTypes ?: attackerOverride?.types
+            if (attackerOverride != null || attackerTypes != null) {
                 put("overrides", JSONObject().apply {
-                    put("types", JSONArray(override.types))
-                    put("baseStats", JSONObject().apply {
-                        put("hp", override.baseStats.hp)
-                        put("atk", override.baseStats.atk)
-                        put("def", override.baseStats.def)
-                        put("spa", override.baseStats.spa)
-                        put("spd", override.baseStats.spd)
-                        put("spe", override.baseStats.spe)
-                    })
+                    attackerTypes?.let { put("types", JSONArray(it)) }
+                    attackerOverride?.let { override ->
+                        put("baseStats", JSONObject().apply {
+                            put("hp", override.baseStats.hp)
+                            put("atk", override.baseStats.atk)
+                            put("def", override.baseStats.def)
+                            put("spa", override.baseStats.spa)
+                            put("spd", override.baseStats.spd)
+                            put("spe", override.baseStats.spe)
+                        })
+                    }
                 })
             }
             request.hnsLiveBattleState?.let { live ->
@@ -238,17 +242,21 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("spe", b.spe)
                 })
             }
-            request.defenderOverride?.let { override ->
+            val defenderOverride = request.defenderOverride
+            val defenderTypes = request.hnsLiveBattleState?.defenderTypes ?: defenderOverride?.types
+            if (defenderOverride != null || defenderTypes != null) {
                 put("overrides", JSONObject().apply {
-                    put("types", JSONArray(override.types))
-                    put("baseStats", JSONObject().apply {
-                        put("hp", override.baseStats.hp)
-                        put("atk", override.baseStats.atk)
-                        put("def", override.baseStats.def)
-                        put("spa", override.baseStats.spa)
-                        put("spd", override.baseStats.spd)
-                        put("spe", override.baseStats.spe)
-                    })
+                    defenderTypes?.let { put("types", JSONArray(it)) }
+                    defenderOverride?.let { override ->
+                        put("baseStats", JSONObject().apply {
+                            put("hp", override.baseStats.hp)
+                            put("atk", override.baseStats.atk)
+                            put("def", override.baseStats.def)
+                            put("spa", override.baseStats.spa)
+                            put("spd", override.baseStats.spd)
+                            put("spe", override.baseStats.spe)
+                        })
+                    }
                 })
             }
             request.hnsLiveBattleState?.defenderRawStats?.let { raw ->

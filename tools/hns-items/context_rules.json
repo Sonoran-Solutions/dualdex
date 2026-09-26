@@ -497,6 +497,30 @@
     "post_hit_or_residual": {
       "context_rules": [
         {
+          "rule": "post_hit_speed_item_attacker_analytic",
+          "side": "EITHER",
+          "families": [
+            "HOLD_EFFECT_BLUNDER_POLICY",
+            "HOLD_EFFECT_ROOM_SERVICE"
+          ],
+          "predicate": "The selected move is ordinary and the live attacker ability is Analytic (148).",
+          "rationale": "The speed-stage item can affect the turn-order condition Analytic reads on this request, so retain the item when the live attacker has Analytic.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6691",
+              "contains": "if (IsLastMonToMove(battlerAtk)"
+            },
+            {
+              "source": "src/battle_hold_effects.c:1058",
+              "contains": "case HOLD_EFFECT_ROOM_SERVICE:"
+            },
+            {
+              "source": "src/battle_hold_effects.c:1109",
+              "contains": "case HOLD_EFFECT_BLUNDER_POLICY:"
+            }
+          ]
+        },
+        {
           "rule": "single_hit_item_activation_outside_damage",
           "side": "EITHER",
           "predicate": "The selected move is ordinary (single hit). Excludes Booster Energy, Terrain Seed, Berserk Gene and the speed-policy items Blunder Policy / Room Service.",
@@ -559,21 +583,82 @@
               "contains": "case ABILITY_ANALYTIC:"
             }
           ]
+        },
+        {
+          "rule": "terrain_seed_live_stat_stage",
+          "side": "EITHER",
+          "families": [
+            "HOLD_EFFECT_TERRAIN_SEED"
+          ],
+          "predicate": "Exact live active battler, ordinary move, authoritative eight-entry holder stage array, and fully decoded live field-status word.",
+          "rationale": "The seed writes only the holder’s Defense or Sp. Def stage and is consumed. The live stage and terrain trigger are separately authoritative; active terrain still receives its own hard calculator limitation.",
+          "evidence": [
+            {
+              "source": "src/battle_hold_effects.c:98",
+              "contains": "enum ItemEffect TryHandleSeed(enum BattlerId battler, u32 terrainFlag, enum Stat statId)"
+            },
+            {
+              "source": "src/battle_hold_effects.c:100",
+              "contains": "if (gFieldStatuses & terrainFlag && CompareStat(battler, statId, MAX_STAT_STAGE, CMP_LESS_THAN, GetBattlerAbility(battler)))"
+            },
+            {
+              "source": "src/battle_hold_effects.c:103",
+              "contains": "SET_STATCHANGER(statId, 1, FALSE);"
+            },
+            {
+              "source": "src/battle_script_commands.c:14713",
+              "contains": "if (holdEffect == HOLD_EFFECT_TERRAIN_SEED && ItemBattleEffects(battler, 0, holdEffect, IsOnEffectActivation))"
+            }
+          ]
+        },
+        {
+          "rule": "berserk_gene_live_stat_stage",
+          "side": "EITHER",
+          "families": [
+            "HOLD_EFFECT_BERSERK_GENE"
+          ],
+          "predicate": "Exact live active battler, ordinary move, and authoritative eight-entry holder stage array.",
+          "rationale": "Berserk Gene activates on switch-in, writes the holder’s Attack stage, may set confusion, and removes itself. The effective stage is authoritative; confusion has no direct single-hit damage modifier.",
+          "evidence": [
+            {
+              "source": "src/data/hold_effects.h:607",
+              "contains": ".onSwitchIn = TRUE,"
+            },
+            {
+              "source": "src/battle_hold_effects.c:150",
+              "contains": "SET_STATCHANGER(STAT_ATK, 2, FALSE);"
+            },
+            {
+              "source": "data/battle_scripts_1.s:8177",
+              "contains": "removeitem BS_SCRIPTING"
+            }
+          ]
         }
       ],
       "always_blocking": [
         {
-          "rule": "post_hit_speed_item_attacker_analytic",
+          "rule": "booster_energy_boost_payload_unobserved",
           "families": [
-            "HOLD_EFFECT_BLUNDER_POLICY",
-            "HOLD_EFFECT_ROOM_SERVICE"
+            "HOLD_EFFECT_BOOSTER_ENERGY"
           ],
-          "predicate": "Ordinary move with Analytic attacker.",
-          "rationale": "Turn order may change Analytic damage, so do not clear.",
+          "predicate": "Booster Energy is active on a Protosynthesis or Quark Drive battler.",
+          "rationale": "The damage-time modifier reads separate boosterEnergyActivated and paradoxBoostedStat fields. The runtime reader does not observe those operands, so stat stages alone cannot prove the item effect is represented.",
           "evidence": [
             {
-              "source": "src/battle_util.c:6690",
-              "contains": "case ABILITY_ANALYTIC:"
+              "source": "src/battle_hold_effects.c:70",
+              "contains": "gBattleMons[battler].volatiles.paradoxBoostedStat = GetParadoxHighestStatId(battler);"
+            },
+            {
+              "source": "src/battle_hold_effects.c:73",
+              "contains": "gBattleMons[battler].volatiles.boosterEnergyActivated = TRUE;"
+            },
+            {
+              "source": "src/battle_util.c:7087",
+              "contains": "if (ctx->weather & B_WEATHER_SUN || gBattleMons[battlerAtk].volatiles.boosterEnergyActivated)"
+            },
+            {
+              "source": "src/battle_util.c:7310",
+              "contains": "if (((ctx->weather & B_WEATHER_SUN && HasWeatherEffect()) || gBattleMons[battlerDef].volatiles.boosterEnergyActivated)"
             }
           ]
         }

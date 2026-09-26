@@ -92,6 +92,8 @@ class CalcHnsC4eProductionBoundaryTest {
         hpObserved: Boolean = true,
         hp: Int = 14,
         maxHp: Int = 20,
+        stagesObserved: Boolean = true,
+        statStages: List<Int> = listOf(0, 0, 0, 0, 0, 0, 0, 0),
         status1: Int = 0,
         statusObserved: Boolean = true,
         volatilesObserved: Boolean = true,
@@ -140,8 +142,8 @@ class CalcHnsC4eProductionBoundaryTest {
             rawSpeed = 8,
             rawSpAttack = 11,
             rawSpDefense = 11,
-            stagesObserved = true,
-            statStages = listOf(0, 0, 0, 0, 0, 0, 0, 0),
+            stagesObserved = stagesObserved,
+            statStages = statStages,
             badgesObserved = badgesObserved,
             badgeBoostAtk = false,
             badgeBoostDef = false,
@@ -198,6 +200,8 @@ class CalcHnsC4eProductionBoundaryTest {
         hpObserved: Boolean = true,
         hp: Int = 15,
         maxHp: Int = 15,
+        stagesObserved: Boolean = true,
+        statStages: List<Int> = listOf(0, 0, 0, 0, 0, 0, 0, 0),
         volatilesObserved: Boolean = true,
         transientVolatilesObserved: Boolean = volatilesObserved,
         glaiveRush: Boolean = false,
@@ -243,8 +247,8 @@ class CalcHnsC4eProductionBoundaryTest {
             rawSpeed = 9,
             rawSpAttack = 7,
             rawSpDefense = 7,
-            stagesObserved = true,
-            statStages = listOf(0, 0, 0, 0, 0, 0, 0, 0),
+            stagesObserved = stagesObserved,
+            statStages = statStages,
             badgesObserved = false,
             absentBattlerFlags = absentBattlerFlags,
             absentFlagsReadable = true,
@@ -363,6 +367,258 @@ class CalcHnsC4eProductionBoundaryTest {
             enemyObservation(abilityId = 47, abilityName = "Thick Fat"), randomAbilities = true)
         val estimate = readyOf(defenderHarmful, "known relevant Thick Fat can be caveated")
         assertEquals(listOf("Foe: Thick Fat"), estimate.verdict.ignoredMechanics.map { it.presentationLine })
+    }
+
+    @Test
+    fun `live stat writers use exact attacker and defender stages and missing stages fail closed`() {
+        val trust = trustFor(exactSha)
+        val attackerStages = listOf(0, 1, 0, 0, 0, 0, 0, 0)
+        val speedStages = listOf(0, 0, 1, 0, 0, 0, 0, 0)
+        val defenseStages = listOf(0, 0, 1, 0, 0, 0, 0, 0)
+
+        val speedBoost = readyOf(
+            build(trust, goldenARequest(),
+                playerObservation(abilityId = 3, abilityName = "Speed Boost", statStages = speedStages),
+                enemyObservation()),
+            "Speed Boost's already observed attacker stage is the damage input"
+        )
+        assertEquals(speedStages, speedBoost.request.hnsLiveBattleState?.attackerStatStages)
+        assertTrue(speedBoost.verdict.ignoredMechanics.isEmpty())
+
+        val intimidate = readyOf(
+            build(trust, goldenARequest(), playerObservation(statStages = attackerStages),
+                enemyObservation(abilityId = 22, abilityName = "Intimidate", statStages = defenseStages)),
+            "Intimidate's attack-stage mutation is read from the active attacker"
+        )
+        assertEquals(attackerStages, intimidate.request.hnsLiveBattleState?.attackerStatStages)
+
+        for ((id, name) in listOf(80 to "Steadfast", 192 to "Stamina")) {
+            val stages = if (id == 80) speedStages else defenseStages
+            val ready = readyOf(
+                build(trust, goldenARequest(), playerObservation(),
+                    enemyObservation(abilityId = id, abilityName = name, statStages = stages)),
+                "$name's defender stage is read from the active battler"
+            )
+            assertEquals(stages, ready.request.hnsLiveBattleState?.defenderStatStages)
+            assertTrue(ready.verdict.ignoredMechanics.isEmpty())
+        }
+
+        val unread = refusedOf(
+            build(trust, goldenARequest(),
+                playerObservation(abilityId = 3, abilityName = "Speed Boost", stagesObserved = false),
+                enemyObservation()),
+            "a live ability cannot substitute for a missing stage read"
+        )
+        assertTrue(unread.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 3 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+        })
+        assertTrue(unread.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+    }
+
+    @Test
+    fun `live current types override the species default for type rewriting abilities`() {
+        val trust = trustFor(exactSha)
+        val request = goldenARequest().copy(
+            defender = goldenARequest().defender.copy(ability = "Color Change", abilityId = 16)
+        )
+        val ready = readyOf(
+            build(trust, request, playerObservation(),
+                enemyObservation(abilityId = 16, abilityName = "Color Change", types = listOf(6))),
+            "the observed effective Rock type overrides Pidgey's static Normal/Flying types"
+        )
+        val liveJson = buildCalcRequestJson(ready.request)
+        assertTrue(liveJson.contains("\"types\":[\"Rock\"]"))
+        assertTrue(ready.verdict.ignoredMechanics.isEmpty())
+
+        val missingTypes = refusedOf(
+            build(trust, request, playerObservation(),
+                enemyObservation(abilityId = 16, abilityName = "Color Change", types = emptyList())),
+            "species types cannot substitute for unread current types"
+        )
+        assertTrue(missingTypes.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 16 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+        })
+    }
+
+    @Test
+    fun `Protean and Libero clear only when the current type proves no move-time rewrite is pending`() {
+        val trust = trustFor(exactSha)
+        for ((id, name) in listOf(168 to "Protean", 236 to "Libero")) {
+            val request = goldenARequest().copy(
+                attacker = goldenARequest().attacker.copy(ability = name, abilityId = id)
+            )
+            val sameType = readyOf(
+                build(trust, request, playerObservation(abilityId = id, abilityName = name, types = listOf(1)),
+                    enemyObservation()),
+                "$name cannot change an already-Normal monotype before Tackle"
+            )
+            assertEquals(listOf("Normal"), sameType.request.hnsLiveBattleState?.attackerTypes)
+            assertTrue(sameType.verdict.ignoredMechanics.isEmpty())
+
+            val pendingTypeChange = refusedOf(
+                build(trust, request, playerObservation(abilityId = id, abilityName = name, types = listOf(13)),
+                    enemyObservation()),
+                "$name may retype the current Grass battler to Normal before Tackle"
+            )
+            assertTrue(pendingTypeChange.verdict.hnsAbilityDecisions.any {
+                it.abilityId == id && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+            })
+            assertTrue(pendingTypeChange.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        }
+    }
+
+    @Test
+    fun `live weather setter proof clears Drizzle only for observed supported unsuppressed weather`() {
+        val trust = trustFor(exactSha)
+        val drizzleRequest = goldenARequest().copy(
+            attacker = goldenARequest().attacker.copy(ability = "Drizzle", abilityId = 2)
+        )
+        val rain = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_RAIN_NORMAL
+        val ready = readyOf(
+            build(trust, drizzleRequest,
+                playerObservation(abilityId = 2, abilityName = "Drizzle", battleWeather = rain),
+                enemyObservation(battleWeather = rain)),
+            "ordinary unsuppressed Rain is consumed by the damage engine"
+        )
+        assertEquals("Rain", ready.request.field.weather)
+        assertTrue(ready.verdict.ignoredMechanics.isEmpty())
+
+        val suppressed = refusedOf(
+            build(trust, drizzleRequest,
+                playerObservation(abilityId = 2, abilityName = "Drizzle", battleWeather = rain),
+                enemyObservation(abilityId = 13, abilityName = "Cloud Nine", battleWeather = rain)),
+            "Cloud Nine dynamically suppresses raw weather and remains a separate blocker"
+        )
+        assertTrue(suppressed.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 2 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+        })
+        assertTrue(suppressed.verdict.hnsAbilityDecisions.any { it.abilityId == 13 })
+    }
+
+    @Test
+    fun `Group B held stat items use only live stages and do not hide terrain or missing-stage limits`() {
+        val trust = trustFor(exactSha)
+        val electricTerrain = 1 shl 8
+        val seed = readyOf(
+            build(trust, goldenARequest(move = "Thunder Shock"), playerObservation(fieldStatuses = electricTerrain),
+                enemyObservation(itemId = 451, fieldStatuses = electricTerrain,
+                    statStages = listOf(0, 0, 1, 0, 0, 0, 0, 0))),
+            "a current Electric Seed and observed Defense stage clear only the item blocker"
+        )
+        assertEquals("terrain_seed_live_stat_stage", seed.verdict.hnsItemDecisions.single().rule)
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, seed.verdict.hnsItemDecisions.single().relevance)
+        assertFalse(seed.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals(listOf("Field: Electric Terrain"), seed.verdict.ignoredMechanics.map { it.presentationLine })
+
+        val unreadSeed = refusedOf(
+            build(trust, goldenARequest(), playerObservation(),
+                enemyObservation(itemId = 451, fieldStatuses = electricTerrain, stagesObserved = false)),
+            "an Electric Seed cannot clear without the authoritative holder stage array"
+        )
+        assertEquals(HnsItemRequestRelevance.UNKNOWN, unreadSeed.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(unreadSeed.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+
+        val gene = readyOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 798, statStages = listOf(2, 0, 0, 0, 0, 0, 0, 0)), enemyObservation()),
+            "Berserk Gene's Attack-stage result is already in live state"
+        )
+        assertEquals("berserk_gene_live_stat_stage", gene.verdict.hnsItemDecisions.single().rule)
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, gene.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(gene.verdict.ignoredMechanics.isEmpty())
+    }
+
+    @Test
+    fun `unmodelled weather and terrain setters plus unobserved power payloads remain blocked`() {
+        val trust = trustFor(exactSha)
+        data class Candidate(
+            val id: Int,
+            val name: String,
+            val move: String = "Tackle",
+            val weather: Int = 0,
+            val field: Int = 0
+        )
+        val candidates = listOf(
+            Candidate(45, "Sand Stream", weather = 1 shl 5),
+            Candidate(117, "Snow Warning", weather = 1 shl 7),
+            Candidate(245, "Sand Spit"),
+            Candidate(189, "Primordial Sea", weather = 1 shl 1),
+            Candidate(190, "Desolate Land", weather = 1 shl 4),
+            Candidate(191, "Delta Stream", weather = 1 shl 9),
+            Candidate(288, "Orichalcum Pulse", weather = 1 shl 3),
+            Candidate(226, "Electric Surge", "Thunder Shock", field = 1 shl 8),
+            Candidate(227, "Psychic Surge", "Psybeam", field = 1 shl 9),
+            Candidate(228, "Misty Surge", "Dragon Breath", field = 1 shl 10),
+            Candidate(229, "Grassy Surge", "Vine Whip", field = 1 shl 6),
+            Candidate(269, "Seed Sower", "Vine Whip", field = 1 shl 6),
+            Candidate(289, "Hadron Engine", "Thunder Shock", field = 1 shl 8)
+        )
+        for (candidate in candidates) {
+            val request = goldenARequest(move = candidate.move).copy(
+                attacker = goldenARequest(move = candidate.move).attacker.copy(
+                    ability = candidate.name, abilityId = candidate.id
+                )
+            )
+            val outcome = build(trust, request,
+                playerObservation(abilityId = candidate.id, abilityName = candidate.name,
+                    fieldStatuses = candidate.field, battleWeather = candidate.weather),
+                enemyObservation(fieldStatuses = candidate.field, battleWeather = candidate.weather))
+            val refused = refusedOf(outcome, "${candidate.name} needs weather/terrain damage support")
+            assertTrue("${candidate.name} must remain UNKNOWN", refused.verdict.hnsAbilityDecisions.any {
+                it.abilityId == candidate.id && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+            })
+            assertTrue("${candidate.name} must retain its ability limitation",
+                refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        }
+
+        for ((id, name) in listOf(277 to "Wind Power", 280 to "Electromorphosis")) {
+            val request = goldenARequest(move = "Thunder Shock").copy(
+                attacker = goldenARequest(move = "Thunder Shock").attacker.copy(ability = name, abilityId = id)
+            )
+            val charged = refusedOf(build(trust, request,
+                playerObservation(abilityId = id, abilityName = name, chargeTimer = 1), enemyObservation()),
+                "$name's observed Charge timer is not consumed by the damage engine")
+            assertTrue(charged.verdict.limitations.contains(CalcLimitation.HNS_CHARGE_ACTIVE_NOT_MODELLED))
+            assertTrue(charged.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        }
+
+        val boosterRequest = goldenARequest().copy(
+            attacker = goldenARequest().attacker.copy(ability = "Protosynthesis", abilityId = 281)
+        )
+        val booster = refusedOf(build(trust, boosterRequest,
+            playerObservation(abilityId = 281, abilityName = "Protosynthesis", itemId = 764,
+                battleWeather = 1 shl 3), enemyObservation(battleWeather = 1 shl 3)),
+            "Booster Energy's separate activation and boosted-stat flags are not observed")
+        assertTrue(booster.verdict.hnsItemDecisions.any {
+            it.itemId == 764 && it.rule == "booster_energy_boost_payload_unobserved" &&
+                it.relevance == HnsItemRequestRelevance.UNKNOWN
+        })
+        assertTrue(booster.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertTrue(booster.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+    }
+
+    @Test
+    fun `effective runtime ability ID wins over a mismatched declaration identity`() {
+        val trust = trustFor(exactSha)
+        val base = playerObservation(abilityId = 9, abilityName = "Static")
+        val replacement = base.copy(
+            abilityIdentity = DeclaredAbility.Declared(65, "Overgrow")
+        )
+        val ready = readyOf(
+            build(trust, goldenARequest(), replacement, enemyObservation()),
+            "the slot-matched current effective ability ID is authoritative after a replacement"
+        )
+        assertEquals(9, ready.request.attacker.abilityId)
+        assertEquals("Static", ready.request.attacker.ability)
+
+        val unreadAbility = replacement.copy(
+            state = replacement.state.copy(abilityId = null, abilityOutOfDomain = true)
+        )
+        val refused = refusedOf(
+            build(trust, goldenARequest(), unreadAbility, enemyObservation()),
+            "a copied/default identity cannot replace an unread current ability ID"
+        )
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE))
     }
 
     @Test

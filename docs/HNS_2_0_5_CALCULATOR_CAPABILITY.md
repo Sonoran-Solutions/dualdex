@@ -14,8 +14,9 @@ and its `--check` mode runs in `./ci.sh source-check`. Missing/extra IDs, change
 names, duplicate IDs or symbols, and a decision for an absent ID fail the check.
 Source references are an index for review, never automatic proof of neutrality. The separate
 [`tools/hns-abilities/context_rules.json`](../tools/hns-abilities/context_rules.json) tracks reviewed
-request-local proofs. `./ci.sh source-check` validates each referenced source line against the
-same pinned checkout and ensures these rules do not alter the global decisions.
+request-local proofs. [`HNS_2_0_5_LIVE_STATE_AUTHORITY_MATRIX.md`](HNS_2_0_5_LIVE_STATE_AUTHORITY_MATRIX.md)
+is the shared provenance reference for the operands those rules can consume. `./ci.sh source-check`
+validates each referenced source line against the same pinned checkout.
 
 | Category | IDs |
 |---|---:|
@@ -23,8 +24,8 @@ same pinned checkout and ensures these rules do not alter the global decisions.
 | `MODELLED_EQUIVALENT` | 0 |
 | `MODELLED_HNS_SPECIFIC` | 0 |
 | `MODELLED_HNS_CONDITIONAL` | 4 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 220 |
-| `UNCLASSIFIED` | 3 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 223 |
+| `UNCLASSIFIED` | 0 |
 
 The audit follows the ordinary `EFFECT_HIT` dependency path through attack and defense
 stats, base power, final modifiers, STAB, type effectiveness, effective battler and
@@ -104,8 +105,9 @@ Spirit, Cotton Down, Gooey-like Tangling Hair, and Pickpocket; berry recovery fr
 Pouch, and Cud Chew; and speed or priority effects from Swift Swim, Chlorophyll, Sand Rush, Slush
 Rush, Quick Feet, Unburden, and Quick Draw when Analytic cannot depend on their turn order.
 `Pickpocket` moves from `UNCLASSIFIED` to globally unsupported with a request-local after-hit
-proof. Speed Boost, Steadfast, and Stamina remain `UNCLASSIFIED` for #88's live-state-writer
-audit. Merciless remains uncleared because it can force the current hit critical. Ripen clears
+proof. Group B (#88) now classifies Speed Boost, Steadfast, and Stamina as globally unsupported
+with request-local live-stage rules; their identity blockers clear only when the authoritative
+current stage arrays are present. Merciless remains uncleared because it can force the current hit critical. Ripen clears
 attacker contexts and defender contexts without a resist berry; its defender resist-berry path
 remains relevant. Ability Shield clears only when observed Singles state rules out Gastro Acid,
 Neutralizing Gas, and defender-side Mold Breaker suppression. Ground-relevant Iron Ball remains
@@ -2584,3 +2586,20 @@ All evidence is checked into the repository and bound to the official release RO
 - `gBattleWeather` @ `EWRAM + 0x390`: **SOURCE + HOST REASONED** (neutral clear-weather 0x0000 RUNTIME VERIFIED in `golden-c4e-live-operands.log`; active rain execution isolated from `0x2E8` in Scenario 64; active ordinary Rain/Sun is conditionally production-authorized but lacks retained positive runtime verification, while unsupported weather bits continue to fail closed)
 - `gSideStatuses` @ `EWRAM + 0x324`: **SOURCE + HOST REASONED** (neutral screenless defender side RUNTIME VERIFIED in `golden-c4e-live-operands.log`; active reflect execution isolated from `0x2E8` in Scenario 64; active ordinary Reflect/Light Screen is conditionally production-authorized but lacks retained positive runtime verification, while unsupported side-status bits continue to fail closed)
 - `gBattleControllerExecFlags` @ `EWRAM + 0x2F4`: **RELEASE SYMBOL + RUNTIME VERIFIED** (0x300 withdrawn; reconciled with §11.5/§11.6)
+
+
+## 16. Group B live-state writers (#88)
+
+[`HNS_2_0_5_LIVE_STATE_AUTHORITY_MATRIX.md`](HNS_2_0_5_LIVE_STATE_AUTHORITY_MATRIX.md) is the
+single provenance matrix for current stats/stages, HP/status, effective ability and types, weather,
+field/terrain, persistent volatiles, charge and boost payloads, gimmick/form, species, and held item.
+It names each pinned H&S field, the native/Kotlin observation and slot check, the boundary binding,
+and whether `calculateHnsDamage` consumes that operand.
+
+Group B clears stage writers only after the exact live stages are rebound, ordinary Drizzle/Drought
+only for supported unsuppressed clear/Rain/Sun, and type/ability replacements only under the
+request-local evidence in the matrix. It does not treat captured terrain or power flags as
+calculated effects. The matrix records the exact deferrals to #91 (weather, terrain, Charge and
+Flash Fire modifiers) and #92 (Booster Energy's unread paradox payload). Protean/Libero are
+narrower than Color Change/Mimicry because their pre-damage type change can occur after the state
+snapshot and `usedProteanLibero` is not observed.

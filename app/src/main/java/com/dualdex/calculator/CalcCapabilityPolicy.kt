@@ -1382,7 +1382,7 @@ object CalcCapabilityPolicy {
             // stat words, dynamic move type, transient state). An active battle whose mutable
             // classes are not authoritatively observed fails closed here rather than letting the
             // static view clear the ordinary-safe path.
-            if (hnsLiveBattleStateNotModelled(pack, request)) {
+            if (hnsLiveBattleStateNotModelled(request)) {
                 limitations.add(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
             }
 
@@ -1762,16 +1762,15 @@ object CalcCapabilityPolicy {
      * itself block, while every unobserved class does.
      */
     private fun hnsLiveBattleStateNotModelled(
-        pack: GameDataPack,
         request: DamageCalculationRequest
     ): Boolean {
         val live = request.hnsLiveBattleState ?: return false
 
-        // 1. Current effective battler types. An authoritative observation that matches the static
-        //    record is the only way this class is provably neutral; unobserved, out-of-domain,
-        //    typeless, third non-empty, or mismatching typing blocks.
-        if (!hnsLiveTypesProven(request.attacker, request.attackerOverride, live.attackerTypes, pack)) return true
-        if (!hnsLiveTypesProven(request.defender, request.defenderOverride, live.defenderTypes, pack)) return true
+        // 1. Current effective battler types. They are sent as engine type overrides below, so an
+        //    authoritative changed type is just as representable as the species default. Missing,
+        //    out-of-domain, typeless, or third non-empty typing remains blocked.
+        if (!hnsLiveTypesRepresentable(live.attackerTypes)) return true
+        if (!hnsLiveTypesRepresentable(live.defenderTypes)) return true
 
         // 2. Raw battle stat words (Power Trick swaps gBattleMons attack/defense with unchanged
         //    stages). No runtime reader supplies this yet: C4b.
@@ -1797,41 +1796,13 @@ object CalcCapabilityPolicy {
         return false
     }
 
-    /**
-     * True only when [observed] is an authoritative current-type observation that the static
-     * two-type request already represents: observed, in-domain, representable, at most two
-     * non-empty slots, and equal as a set to the static record.
-     */
-    private fun hnsLiveTypesProven(
-        input: CalcPokemonInput,
-        override: CalcSpeciesOverride?,
-        observed: List<String>?,
-        pack: GameDataPack
-    ): Boolean {
+    /** True when an authoritative current-type observation can be passed to the two-type engine. */
+    private fun hnsLiveTypesRepresentable(observed: List<String>?): Boolean {
         if (observed == null || observed.isEmpty()) return false
         // The request shape carries at most two types; a third non-empty live type (e.g. a layered
         // AddType) cannot be represented and must block rather than be truncated.
         if (observed.size > 2) return false
-        if (observed.any { it !in HNS_REPRESENTABLE_TYPES }) return false
-        val static = hnsEffectiveTypes(input, override, pack, null)
-        if (static.isEmpty()) return false
-        return observed.map { it.lowercase() }.toSet() == static.map { it.lowercase() }.toSet()
-    }
-
-    /**
-     * The effective species types: the authoritative live observation when present, else the
-     * boundary-owned override, else the pinned pack.
-     */
-    private fun hnsEffectiveTypes(
-        input: CalcPokemonInput,
-        override: CalcSpeciesOverride?,
-        pack: GameDataPack,
-        liveTypes: List<String>? = null
-    ): List<String> {
-        if (liveTypes != null && liveTypes.isNotEmpty()) return liveTypes
-        if (override != null) return override.types
-        val species = pack.getSpeciesByName(input.species) ?: return emptyList()
-        return listOfNotNull(species.type1.displayName, species.type2?.displayName)
+        return observed.all { it in HNS_REPRESENTABLE_TYPES }
     }
 
     /**

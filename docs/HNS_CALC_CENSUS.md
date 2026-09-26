@@ -282,7 +282,9 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Cheek Pouch | 4 | 4 | 0 | berry_recovery_outside_single_hit |
 | Slush Rush | 4 | 4 | 0 | speed_ability_without_analytic |
 | Innards Out | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
+| Tangling Hair | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
 | Cotton Down | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
+| Ripen | 4 | 4 | 0 | attacker_ripen_no_current_hit_modifier, ripen_without_defender_resist_berry |
 | Wandering Spirit | 4 | 4 | 0 | after_hit_ability_outside_single_hit |
 | Quick Draw | 4 | 4 | 0 | speed_ability_without_analytic |
 | Lingering Aroma | 4 | 4 | 0 | after_hit_ability_outside_single_hit |

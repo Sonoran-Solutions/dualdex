@@ -50,6 +50,8 @@ object HnsItemContextPolicy {
 
     /** ABILITY_ANALYTIC: the only ordinary-damage read of turn order (`src/battle_util.c:6690`). */
     private const val ANALYTIC_ABILITY_ID = 148
+    private const val NEUTRALIZING_GAS_ABILITY_ID = 256
+    private val MOLD_BREAKER_ABILITY_IDS = setOf(104, 163, 164)
 
     data class Context(
         val side: HnsItemSide,
@@ -66,7 +68,11 @@ object HnsItemContextPolicy {
         /** Effective attacker ability ID, or null when unknown. */
         val attackerAbilityId: Int?,
         val defenderHp: Int?,
-        val defenderMaxHp: Int?
+        val defenderMaxHp: Int?,
+        val defenderAbilityId: Int? = null,
+        val attackerGastroAcid: Boolean? = null,
+        val defenderGastroAcid: Boolean? = null,
+        val observedBattlersCount: Int? = null
     )
 
     fun assess(itemId: Int, context: Context?): HnsItemRequestDecision {
@@ -119,6 +125,10 @@ object HnsItemContextPolicy {
                     rationale = "The holder ignores the live weather modifier."
                 )
             }
+            "form_or_ability_changer" -> when (holdEffect) {
+                "HOLD_EFFECT_ABILITY_SHIELD" -> abilityShield(c)
+                else -> null
+            }
             else -> null
         }
 
@@ -155,7 +165,13 @@ object HnsItemContextPolicy {
             weatherWord = if (live?.weatherObserved == true) live.weatherWord else null,
             attackerAbilityId = request.attacker.abilityId,
             defenderHp = live?.defenderHp,
-            defenderMaxHp = live?.defenderMaxHp
+            defenderMaxHp = live?.defenderMaxHp,
+            defenderAbilityId = request.defender.abilityId,
+            attackerGastroAcid = live?.attackerPersistentVolatiles
+                ?.takeIf { it.observed }?.gastroAcid,
+            defenderGastroAcid = live?.defenderPersistentVolatiles
+                ?.takeIf { it.observed }?.gastroAcid,
+            observedBattlersCount = live?.observedBattlersCount
         )
     }
 
@@ -357,6 +373,45 @@ object HnsItemContextPolicy {
                 rationale = "Ring Target can turn a type immunity into damage; the immunity is not proven absent."
             )
             else -> null
+        }
+    }
+
+    private fun abilityShield(c: Context): Proof? {
+        if (c.ordinaryMove != true || c.observedBattlersCount != 2) return null
+        val attackerAbility = c.attackerAbilityId ?: return null
+        val defenderAbility = c.defenderAbilityId ?: return null
+        val attackerGastroAcid = c.attackerGastroAcid ?: return null
+        val defenderGastroAcid = c.defenderGastroAcid ?: return null
+
+        val holderAbility = if (c.side == HnsItemSide.ATTACKER) attackerAbility else defenderAbility
+        val holderGastroAcid = if (c.side == HnsItemSide.ATTACKER) attackerGastroAcid else defenderGastroAcid
+        val neutralizingGasActive =
+            (attackerAbility == NEUTRALIZING_GAS_ABILITY_ID && !attackerGastroAcid) ||
+                (defenderAbility == NEUTRALIZING_GAS_ABILITY_ID && !defenderGastroAcid)
+        val holderAbilityCanBeSuppressed = holderGastroAcid ||
+            (neutralizingGasActive && holderAbility != NEUTRALIZING_GAS_ABILITY_ID)
+        val attackerCanBreakDefenderAbility = c.side == HnsItemSide.DEFENDER &&
+            !attackerGastroAcid && attackerAbility in MOLD_BREAKER_ABILITY_IDS
+        val suppressionSource = when {
+            holderGastroAcid -> "src/battle_util.c:5015"
+            neutralizingGasActive && holderAbility != NEUTRALIZING_GAS_ABILITY_ID ->
+                "src/battle_util.c:5018"
+            attackerCanBreakDefenderAbility -> "src/battle_util.c:4976"
+            else -> null
+        }
+
+        return if (holderAbilityCanBeSuppressed || attackerCanBreakDefenderAbility) {
+            relevant(
+                rule = "ability_shield_current_suppression",
+                source = suppressionSource ?: "src/battle_util.c:4998",
+                rationale = "A live Gastro Acid, Neutralizing Gas, or defender-side ability-breaking attack can change whether the holder's ability affects this hit."
+            )
+        } else {
+            proof(
+                rule = "ability_shield_no_current_suppression",
+                source = "src/battle_util.c:4998",
+                rationale = "The live Singles participants have no current ability-suppression source for this ordinary hit."
+            )
         }
     }
 

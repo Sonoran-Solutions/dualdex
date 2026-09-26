@@ -4,6 +4,7 @@ import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.hns.HnsAbilityAuditData
 import com.dualdex.pokemon.hns.HnsAbilityCategory
+import com.dualdex.pokemon.hns.HnsItemRegistry
 
 /** Which request participant owns an effective live ability. */
 enum class HnsAbilitySide { ATTACKER, DEFENDER }
@@ -57,7 +58,8 @@ object HnsAbilityContextPolicy {
         val defenderMaxHp: Int?,
         val attackerStatus1: Int?,
         val observedBattlersCount: Int?,
-        val dynamicMoveTypeKnownNeutral: Boolean
+        val dynamicMoveTypeKnownNeutral: Boolean,
+        val defenderItemId: Int?
     )
 
     fun assess(abilityId: Int, context: Context?): HnsAbilityRequestDecision {
@@ -91,7 +93,7 @@ object HnsAbilityContextPolicy {
                     "Sniper multiplies this critical hit's damage."
                 )
             }
-            24, 64, 106, 124, 152, 160, 215, 238, 254, 268 ->
+            24, 64, 106, 124, 152, 160, 215, 221, 238, 254, 268 ->
                 if (c.ordinaryMove == true) proof(
                     "after_hit_ability_outside_single_hit", afterHitSource(abilityId),
                     "The pinned effect executes after damage or on a nonordinary draining move; it cannot change this hit's rolls."
@@ -100,6 +102,25 @@ object HnsAbilityContextPolicy {
                 "berry_recovery_outside_single_hit", berrySource(abilityId),
                 "The berry recovery or reuse acts after the current hit, using the already observed item state."
             ) else null
+            247 -> when {
+                c.ordinaryMove != true -> null
+                c.side == HnsAbilitySide.ATTACKER -> proof(
+                    "attacker_ripen_no_current_hit_modifier", "src/battle_util.c:7695, src/battle_util.c:10558",
+                    "Ripen's current-hit damage branch reads only the defender ability; its attacker-side Micle branch changes accuracy."
+                )
+                c.defenderItemId == null -> null
+                HnsItemRegistry.classify(c.defenderItemId).data == null ||
+                    HnsItemRegistry.classify(c.defenderItemId).category == com.dualdex.pokemon.hns.HnsItemCategory.UNCLASSIFIED -> null
+                HnsItemRegistry.classify(c.defenderItemId).data?.holdEffect == "HOLD_EFFECT_RESIST_BERRY" ->
+                    relevant(
+                        "defender_ripen_resist_berry", "src/battle_util.c:7695",
+                        "Ripen quarters damage instead of halving it when the defender's resist berry activates on this hit."
+                    )
+                else -> proof(
+                    "ripen_without_defender_resist_berry", "src/battle_util.c:7695, src/battle_hold_effects.c:847",
+                    "The only Ripen branch in current-hit damage is the defender resist-berry modifier; other berry effects occur outside this hit's rolls."
+                )
+            }
             33, 34, 84, 95, 146, 202, 259 -> when {
                 c.ordinaryMove != true || c.attackerAbilityId == null -> null
                 c.side == HnsAbilitySide.DEFENDER && c.attackerAbilityId == 148 -> relevant(
@@ -296,7 +317,13 @@ object HnsAbilityContextPolicy {
             defenderMaxHp = live?.defenderMaxHp,
             attackerStatus1 = live?.attackerStatus1,
             observedBattlersCount = live?.observedBattlersCount,
-            dynamicMoveTypeKnownNeutral = authority.effectiveType != null
+            dynamicMoveTypeKnownNeutral = authority.effectiveType != null,
+            defenderItemId = request.defender.itemId ?: when {
+                !request.defender.item.isNullOrBlank() ->
+                    HnsItemRegistry.resolveIdByName(request.defender.item)
+                request.defender.origin == CalcInputOrigin.MANUAL -> 0
+                else -> null
+            }
         )
     }
 
@@ -328,6 +355,7 @@ object HnsAbilityContextPolicy {
         152 -> "src/battle_util.c:3972"
         268 -> "src/battle_util.c:3971"
         254 -> "src/battle_util.c:3995"
+        221 -> "src/battle_util.c:4034"
         else -> "src/battle_util.c:4231"
     }
 

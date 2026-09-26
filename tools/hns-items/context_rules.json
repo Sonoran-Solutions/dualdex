@@ -731,6 +731,78 @@
         }
       ],
       "fallback": "Unobserved or non-clear weather never clears."
+    },
+    "form_or_ability_changer": {
+      "context_rules": [
+        {
+          "rule": "ability_shield_no_current_suppression",
+          "families": [
+            "HOLD_EFFECT_ABILITY_SHIELD"
+          ],
+          "predicate": "Authoritative ordinary single-hit move, observed Singles topology, both persistent volatile windows observed with Gastro Acid clear, neither effective ability is active Neutralizing Gas, and no defender-side Mold Breaker can affect the hit.",
+          "rationale": "Ability Shield changes whether Gastro Acid, Neutralizing Gas, or an ability-breaking attack suppresses the holder ability; with those sources absent, it cannot affect this hit.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:4998",
+              "contains": "bool32 hasAbilityShield = !noAbilityShield && GetBattlerHoldEffectIgnoreAbility(battler) == HOLD_EFFECT_ABILITY_SHIELD;"
+            },
+            {
+              "source": "src/battle_util.c:5015",
+              "contains": "if (gBattleMons[battler].volatiles.gastroAcid)"
+            },
+            {
+              "source": "src/battle_util.c:5018",
+              "contains": "if (!hasAbilityShield"
+            },
+            {
+              "source": "src/battle_util.c:4962",
+              "contains": "if (ability == ABILITY_MOLD_BREAKER"
+            },
+            {
+              "source": "src/battle_util.c:5020",
+              "contains": "&& (gBattleMons[battler].ability != ABILITY_NEUTRALIZING_GAS || gBattleMons[battler].volatiles.gastroAcid)"
+            }
+          ],
+          "side": "EITHER"
+        }
+      ],
+      "always_blocking": [
+        {
+          "rule": "ability_shield_current_suppression",
+          "families": [
+            "HOLD_EFFECT_ABILITY_SHIELD"
+          ],
+          "predicate": "A current suppression source can affect the holder or the defender ability during the hit.",
+          "rationale": "Ability Shield prevents the source ability-suppression path from removing the holder ability.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:4998",
+              "contains": "bool32 hasAbilityShield = !noAbilityShield && GetBattlerHoldEffectIgnoreAbility(battler) == HOLD_EFFECT_ABILITY_SHIELD;"
+            },
+            {
+              "source": "src/battle_util.c:5023",
+              "contains": "if (CanBreakThroughAbility(gBattlerAttacker, battler, hasAbilityShield, ignoreMoldBreaker))"
+            },
+            {
+              "source": "src/battle_util.c:4976",
+              "contains": "if (hasAbilityShield || ignoreMoldBreaker || battlerDef == battlerAtk)"
+            },
+            {
+              "source": "src/battle_util.c:5015",
+              "contains": "if (gBattleMons[battler].volatiles.gastroAcid)"
+            },
+            {
+              "source": "src/battle_util.c:5018",
+              "contains": "if (!hasAbilityShield"
+            },
+            {
+              "source": "src/battle_util.c:5020",
+              "contains": "&& (gBattleMons[battler].ability != ABILITY_NEUTRALIZING_GAS || gBattleMons[battler].volatiles.gastroAcid)"
+            }
+          ]
+        }
+      ],
+      "fallback": "Missing live topology, ability identities, or persistent volatile observations remains UNKNOWN."
     }
   }
 }

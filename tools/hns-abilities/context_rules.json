@@ -987,5 +987,72 @@
       }
     ],
     "fallback": "Missing current species or HP/maxHP authority remains unknown and blocked."
+  },
+  "221": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "after_hit_ability_outside_single_hit",
+        "predicate": "Authoritative ordinary single-hit move.",
+        "rationale": "Tangling Hair shares the pinned post-damage contact stat-change branch with Gooey and cannot alter the current hit rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4034",
+            "contains": "case ABILITY_TANGLING_HAIR"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
+  },
+  "247": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "attacker_ripen_no_current_hit_modifier",
+        "predicate": "Ripen is on the attacker and the move is authoritative ordinary single-hit.",
+        "rationale": "The direct damage read of Ripen is defender-side resist-berry damage reduction. The attacker-side Micle branch changes accuracy, which the display does not output.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7695",
+            "contains": "ctx->abilityDef == ABILITY_RIPEN"
+          },
+          {
+            "source": "src/battle_util.c:10558",
+            "contains": "if (atkAbility == ABILITY_RIPEN)"
+          }
+        ]
+      },
+      {
+        "rule": "ripen_without_defender_resist_berry",
+        "predicate": "Ripen is on the defender, the current defender item identity is authoritative and is not HOLD_EFFECT_RESIST_BERRY, and the move is authoritative ordinary single-hit.",
+        "rationale": "The only Ripen path in the current-hit damage calculation is the defender resist-berry modifier; other berry actions happen outside the current hit rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7686",
+            "contains": "case HOLD_EFFECT_RESIST_BERRY:"
+          },
+          {
+            "source": "src/battle_hold_effects.c:847",
+            "contains": "if (ability == ABILITY_RIPEN && GetItemPocket(itemId) == POCKET_BERRIES)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "defender_ripen_resist_berry",
+        "predicate": "Ripen is on the defender holding an authoritative HOLD_EFFECT_RESIST_BERRY item during an ordinary single-hit move.",
+        "rationale": "The damage path uses a quarter modifier instead of a half modifier when Ripen doubles a matching defender resist berry.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7695",
+            "contains": "return (ctx->abilityDef == ABILITY_RIPEN) ? UQ_4_12(0.25) : UQ_4_12(0.5);"
+          }
+        ]
+      }
+    ],
+    "fallback": "Unknown move shape or missing defender item identity remains UNKNOWN."
   }
 }

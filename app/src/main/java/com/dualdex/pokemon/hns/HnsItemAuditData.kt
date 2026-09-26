@@ -7,7 +7,7 @@ internal object HnsItemAuditData {
 
     /** Reviewed decision for every hold effect the pinned catalogue uses. */
     val families: Map<String, HnsItemFamilyDecision> = mapOf(
-        "HOLD_EFFECT_ABILITY_SHIELD" to HnsItemFamilyDecision("HOLD_EFFECT_ABILITY_SHIELD", "form_or_ability_changer", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Can change the holder's form or effective ability before the hit (Mega Evolution at turn start, Ultra Burst/Z-Moves, Ability Shield vs ability suppression). No request-local clearance is implemented; always blocks."),
+        "HOLD_EFFECT_ABILITY_SHIELD" to HnsItemFamilyDecision("HOLD_EFFECT_ABILITY_SHIELD", "form_or_ability_changer", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Can preserve the holder's effective ability against Gastro Acid, Neutralizing Gas, or ability-breaking attacks. The request-local rule clears only when the observed current hit has no applicable suppression source; otherwise it blocks."),
         "HOLD_EFFECT_ABSORB_BULB" to HnsItemFamilyDecision("HOLD_EFFECT_ABSORB_BULB", "post_hit_or_residual", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move."),
         "HOLD_EFFECT_ADAMANT_ORB" to HnsItemFamilyDecision("HOLD_EFFECT_ADAMANT_ORB", "attacker_offense", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local."),
         "HOLD_EFFECT_ADRENALINE_ORB" to HnsItemFamilyDecision("HOLD_EFFECT_ADRENALINE_ORB", "no_battle_effect", HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT, "Every pinned reference is outside battle damage (prize money, friendship, EXP, wild encounters, fleeing, evolution/breeding) or the hold effect has no battle reference at all."),
@@ -272,5 +272,7 @@ internal object HnsItemAuditData {
         "grounding_item_defender_ground_move",
         "umbrella_clear_weather",
         "umbrella_sun_or_rain",
+        "ability_shield_no_current_suppression",
+        "ability_shield_current_suppression",
     )
 }

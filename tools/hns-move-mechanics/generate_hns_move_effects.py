@@ -67,6 +67,7 @@ PLAIN_TARGET_RE = re.compile(r"TARGET_[A-Z0-9_]+")
 # request shape cannot express, so the ADV pipeline cannot be trusted to reproduce it.
 STATE_DEPENDENT_FLAGS = (
     "ignoresTargetDefenseEvasionStages",
+    "ignoresTargetAbility",
     "damagesUnderground",
     "damagesUnderwater",
     "damagesAirborne",

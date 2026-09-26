@@ -100,14 +100,16 @@ H&S source line in both contextual rule files against the pinned checkout.
 The Group A ability rules cover Super Luck's critical stage; Battle Armor and Shell Armor for a
 fixed noncritical hit; Sniper only when its critical damage multiplier cannot apply; post-hit
 Rough Skin, Iron Barbs, Aftermath, Innards Out, Liquid Ooze, Mummy, Lingering Aroma, Wandering
-Spirit, Cotton Down, and Pickpocket; berry recovery from Harvest, Cheek Pouch, and Cud Chew; and
-speed or priority effects from Swift Swim, Chlorophyll, Sand Rush, Slush Rush, Quick Feet,
-Unburden, and Quick Draw when Analytic cannot depend on their turn order. `Pickpocket` moves from
-`UNCLASSIFIED` to globally unsupported with a request-local after-hit proof. Speed Boost,
-Steadfast, and Stamina remain `UNCLASSIFIED` for #88's live-state-writer audit. Merciless remains
-uncleared because it can force the current hit critical; Ripen's resist-berry path, Ability Shield's
-ability-preservation path, and Ground-relevant Iron Ball remain outside these group proofs. New
-damage-time modifiers and immunities remain with #89–#93.
+Spirit, Cotton Down, Gooey-like Tangling Hair, and Pickpocket; berry recovery from Harvest, Cheek
+Pouch, and Cud Chew; and speed or priority effects from Swift Swim, Chlorophyll, Sand Rush, Slush
+Rush, Quick Feet, Unburden, and Quick Draw when Analytic cannot depend on their turn order.
+`Pickpocket` moves from `UNCLASSIFIED` to globally unsupported with a request-local after-hit
+proof. Speed Boost, Steadfast, and Stamina remain `UNCLASSIFIED` for #88's live-state-writer
+audit. Merciless remains uncleared because it can force the current hit critical. Ripen clears
+attacker contexts and defender contexts without a resist berry; its defender resist-berry path
+remains relevant. Ability Shield clears only when observed Singles state rules out Gastro Acid,
+Neutralizing Gas, and defender-side Mold Breaker suppression. Ground-relevant Iron Ball remains
+relevant. New damage-time modifiers and immunities remain with #89–#93.
 
 It is derived from the pinned upstream source, not from behaviour observed in the app:
 
@@ -779,9 +781,10 @@ live) are reviewed dispositions.
 Globally unsupported groups (with request-local rules in §7.5 unless noted): `attacker_offense`
 (22 families), `defender_defense` (8), `post_hit_or_residual` (54), `turn_order` (7), `weight_only`
 (Float Stone), `grounding` (Air Balloon, Iron Ball), `weather_shield` (Utility Umbrella), and
-`form_or_ability_changer` (`MEGA_STONE`, `Z_CRYSTAL`, `ABILITY_SHIELD` — no request-local clearance:
-Mega Evolution / Ultra Burst happen at turn start before the hit, and Ability Shield changes which
-ability applies). The full per-item table is
+`form_or_ability_changer` (`MEGA_STONE` and `Z_CRYSTAL` remain blocking because they change
+form or move state before the hit; `ABILITY_SHIELD` clears only for an observed ordinary Singles
+hit with no Gastro Acid, Neutralizing Gas, or defender-side Mold Breaker suppression source). The
+full per-item table is
 [`tools/hns-items/item_inventory.tsv`](../tools/hns-items/item_inventory.tsv).
 
 `HnsMoveItemInteractionRegistry` (§7.2) is unchanged and independent: a globally neutral or
@@ -790,7 +793,7 @@ request-locally irrelevant hold effect never clears `HNS_ITEM_DEPENDENT_MOVE_NOT
 ### 7.5 Request-local item relevance (`HnsItemContextPolicy`)
 
 The reviewed rules, predicates and pinned evidence are in
-[`tools/hns-items/context_rules.json`](../tools/hns-items/context_rules.json) (35 rules). The displayed
+[`tools/hns-items/context_rules.json`](../tools/hns-items/context_rules.json) (37 rules). The displayed
 H&S contract is the single-hit damage range and its percentage of the defender's max HP for the current
 observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` returns
 `koChanceText: ""`). Operands are request-owned and rebound by `CalcRequestBoundary`:
@@ -1173,13 +1176,13 @@ assuming badges off.
 
 `tools/hns-move-mechanics/generate_hns_move_effects.py` parses the pinned `enum Move` and the raw
 `.effect` / `.multiHit` / `.strikeCount` / `.explosion` / state-flag initializers of
-`src/data/moves_info.h` into `Hns205MoveEffects.kt` (928 resolved effects, 357 ordinary, 6 unresolved).
+`src/data/moves_info.h` into `Hns205MoveEffects.kt` (928 resolved effects, 353 ordinary, 6 unresolved).
 `HnsMoveMechanicsRegistry` classifies by the pack's numeric move ID:
 
 | Category | Meaning | Blocker |
 |---|---|---|
-| `ORDINARY_PROVEN_EQUIVALENT` | `EFFECT_HIT`, no multi-hit/explosion/always-crit/state flag | none |
-| `UNSUPPORTED_STATE_DEPENDENT` | reads HP/friendship/weight/speed/consecutive-use/target state | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
+| `ORDINARY_PROVEN_EQUIVALENT` | `EFFECT_HIT`, no multi-hit/explosion/always-crit/state flag or target-ability bypass | none |
+| `UNSUPPORTED_STATE_DEPENDENT` | reads HP/friendship/weight/speed/consecutive-use/target state or bypasses target ability | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
 | `UNSUPPORTED_FORMULA_DIFFERENT` | fixed damage, OHKO, level/percent, defence selection, per-hit sequence | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
 | `ITEM_DEPENDENT_HANDLED_ELSEWHERE` | C3 item-interaction audit owns it | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (C3) |
 | `UNCLASSIFIED` | effect missing/conditional/computed or unknown ID | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
@@ -1187,7 +1190,8 @@ assuming badges off.
 Representative blocked families: Return/Hidden Power/Low Kick (effect), multi-hit (`multiHit` /
 `strikeCount > 1`, including Bullet Seed and Double Kick, which hide behind `EFFECT_HIT`), Explosion/
 Self-Destruct (H&S keeps `B_EXPLOSION_DEFENSE` at `GEN_LATEST` while ADV halves Defence), Sacred
-Sword/Chip Away (`ignoresTargetDefenseEvasionStages`), fixed damage/OHKO/Endeavor/Final Gambit, and
+Sword/Chip Away (`ignoresTargetDefenseEvasionStages`), ability-bypassing hits such as Sunsteel Strike
+and Moongeist Beam (`ignoresTargetAbility`), fixed damage/OHKO/Endeavor/Final Gambit, and
 the unresolved Low Kick/Struggle conditionals. A simple `EFFECT_HIT` move such as Tackle clears the
 gate; the C3 item-dependent moves keep their C3 blocker and are not double-reported.
 

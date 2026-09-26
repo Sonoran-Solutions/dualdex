@@ -1141,7 +1141,7 @@
     "HOLD_EFFECT_ABILITY_SHIELD": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "form_or_ability_changer",
-      "rationale": "Can change the holder's form or effective ability before the hit (Mega Evolution at turn start, Ultra Burst/Z-Moves, Ability Shield vs ability suppression). No request-local clearance is implemented; always blocks.",
+      "rationale": "Can preserve the holder's effective ability against Gastro Acid, Neutralizing Gas, or ability-breaking attacks. The request-local rule clears only when the observed current hit has no applicable suppression source; otherwise it blocks.",
       "reviewed_refs": [
         "src/battle_script_commands.c:9876",
         "src/battle_script_commands.c:9879",

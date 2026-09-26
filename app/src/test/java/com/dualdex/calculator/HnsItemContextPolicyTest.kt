@@ -58,10 +58,15 @@ class HnsItemContextPolicyTest {
         weatherWord: Int? = 0,
         attackerAbilityId: Int? = 0,
         defenderHp: Int? = 10,
-        defenderMaxHp: Int? = 20
+        defenderMaxHp: Int? = 20,
+        defenderAbilityId: Int? = null,
+        attackerGastroAcid: Boolean? = null,
+        defenderGastroAcid: Boolean? = null,
+        observedBattlersCount: Int? = null
     ) = HnsItemContextPolicy.Context(
         side, ordinaryMove, moveType, moveCategory, fieldStatuses?.let(HnsFieldState::decode), weatherWord,
-        attackerAbilityId, defenderHp, defenderMaxHp
+        attackerAbilityId, defenderHp, defenderMaxHp, defenderAbilityId, attackerGastroAcid,
+        defenderGastroAcid, observedBattlersCount
     )
 
     private fun relevance(id: Int, context: HnsItemContextPolicy.Context?) =
@@ -186,6 +191,44 @@ class HnsItemContextPolicyTest {
     }
 
     @Test
+    fun `Ability Shield clears only when suppression cannot affect this hit`() {
+        val clearContext = ctx(HnsItemSide.DEFENDER, attackerAbilityId = 0, defenderAbilityId = 0,
+            attackerGastroAcid = false, defenderGastroAcid = false, observedBattlersCount = 2)
+        assertEquals(irrelevant, relevance(758, clearContext))
+        assertEquals(irrelevant, relevance(758, clearContext.copy(side = HnsItemSide.ATTACKER)))
+
+        assertEquals(relevant, relevance(758, clearContext.copy(attackerAbilityId = 256)))
+        assertEquals(relevant, relevance(758, clearContext.copy(defenderGastroAcid = true)))
+        assertEquals(relevant, relevance(758, clearContext.copy(side = HnsItemSide.ATTACKER,
+            attackerGastroAcid = true)))
+        assertEquals(relevant, relevance(758, clearContext.copy(attackerAbilityId = 104)))
+        assertEquals(unknown, relevance(758, ctx(HnsItemSide.DEFENDER, attackerAbilityId = 0,
+            defenderAbilityId = 0, attackerGastroAcid = false, defenderGastroAcid = false)))
+        assertEquals(unknown, relevance(758, clearContext.copy(ordinaryMove = false)))
+    }
+
+    @Test
+    fun `Ability Shield context uses only observed live suppression operands`() {
+        val live = CalcHnsLiveBattleState(
+            observedBattlersCount = 2,
+            attackerPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true),
+            defenderPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true)
+        )
+        val request = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Pikachu", abilityId = 0),
+            defender = CalcPokemonInput(species = "Bulbasaur", abilityId = 0),
+            move = CalcMoveInput("Tackle"),
+            hnsLiveBattleState = live
+        )
+        val context = HnsItemContextPolicy.contextForRequest(request, HnsItemSide.DEFENDER, true)
+        assertEquals(irrelevant, relevance(758, context))
+
+        val unobservedVolatiles = request.copy(hnsLiveBattleState = live.copy(defenderPersistentVolatiles = null))
+        assertEquals(unknown, relevance(758,
+            HnsItemContextPolicy.contextForRequest(unobservedVolatiles, HnsItemSide.DEFENDER, true)))
+    }
+
+    @Test
     fun `speed items need an ordinary move and a known non-Analytic attacker`() {
         for (id in listOf(choiceScarf, quickClaw, blunderPolicy, roomService)) {
             assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.DEFENDER)))
@@ -257,11 +300,22 @@ class HnsItemContextPolicyTest {
         for (id in representatives) {
             for (side in HnsItemSide.values()) for (type in types) for (category in MoveCategory.values()) {
                 for (hp in listOf(10, 20)) for (ability in listOf(0, 148)) for (weather in listOf(0, 1)) {
-                    HnsItemContextPolicy.assess(id, ctx(side, true, type, category, 0, weather, ability, hp, 20))
-                        .rule?.let(produced::add)
+                    HnsItemContextPolicy.assess(id, ctx(side, true, type, category, 0, weather, ability, hp, 20,
+                        defenderAbilityId = 0, attackerGastroAcid = false, defenderGastroAcid = false,
+                        observedBattlersCount = 2)).rule?.let(produced::add)
                 }
             }
         }
+        listOf(
+            ctx(HnsItemSide.DEFENDER, attackerAbilityId = 256, defenderAbilityId = 0,
+                attackerGastroAcid = false, defenderGastroAcid = false, observedBattlersCount = 2),
+            ctx(HnsItemSide.DEFENDER, attackerAbilityId = 104, defenderAbilityId = 0,
+                attackerGastroAcid = false, defenderGastroAcid = false, observedBattlersCount = 2),
+            ctx(HnsItemSide.DEFENDER, attackerAbilityId = 0, defenderAbilityId = 0,
+                attackerGastroAcid = false, defenderGastroAcid = true, observedBattlersCount = 2),
+            ctx(HnsItemSide.ATTACKER, attackerAbilityId = 0, defenderAbilityId = 0,
+                attackerGastroAcid = true, defenderGastroAcid = false, observedBattlersCount = 2)
+        ).forEach { HnsItemContextPolicy.assess(758, it).rule?.let(produced::add) }
         assertEquals(HnsItemAuditData.contextRuleNames, produced)
         assertTrue(produced.size >= 30)
     }

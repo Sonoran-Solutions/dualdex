@@ -551,16 +551,33 @@ class HnsCalcCensusTest {
 
     @Test
     fun `the census is deterministic - two derivations produce identical artifacts`() {
-        // Deliberately the UNCACHED derivation: this is the property that matters.
-        val first = HnsCalcCensusGenerator.derive(root)
-        val second = HnsCalcCensusGenerator.derive(root)
-        assertEquals(first.json, second.json)
-        assertEquals(first.markdown, second.markdown)
-        assertTrue(
-            "the gzip framing must be byte identical too",
-            HnsCalcCensusGenerator.gzipDeterministic(first.json)
-                .contentEquals(HnsCalcCensusGenerator.gzipDeterministic(second.json))
+        data class Fingerprint(
+            val jsonLength: Int,
+            val jsonSha256: String,
+            val markdownLength: Int,
+            val markdownSha256: String,
+            val gzipSha256: String
         )
+
+        fun fingerprint(): Fingerprint {
+            // Deliberately use the UNCACHED derivation: this is the property that matters. Keep
+            // only compact fingerprints after each pass so a second 20 MB census run and JSON
+            // string are not retained alongside the first one in the unit-test heap.
+            val artifacts = HnsCalcCensusGenerator.derive(root)
+            fun sha256(bytes: ByteArray): String = java.security.MessageDigest
+                .getInstance("SHA-256")
+                .digest(bytes)
+                .joinToString("") { "%02x".format(it) }
+            return Fingerprint(
+                jsonLength = artifacts.json.length,
+                jsonSha256 = sha256(artifacts.json.toByteArray(Charsets.UTF_8)),
+                markdownLength = artifacts.markdown.length,
+                markdownSha256 = sha256(artifacts.markdown.toByteArray(Charsets.UTF_8)),
+                gzipSha256 = sha256(HnsCalcCensusGenerator.gzipDeterministic(artifacts.json))
+            )
+        }
+
+        assertEquals(fingerprint(), fingerprint())
     }
 
     @Test

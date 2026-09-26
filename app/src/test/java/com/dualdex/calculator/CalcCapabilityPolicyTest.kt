@@ -1202,69 +1202,26 @@ class CalcCapabilityPolicyTest {
     // ------------------------------------------------------- capability matrix
 
     @Test
-    fun `blocking and non blocking limitations are classified explicitly`() {
+    fun `every limitation has an explicit three way disposition`() {
         CalcLimitation.values().forEach { limitation ->
-            when (limitation) {
-                CalcLimitation.SPECIES_NOT_IN_PINNED_DATA,
-                CalcLimitation.MOVE_NOT_IN_PINNED_DATA,
-                CalcLimitation.BOOSTS_OUT_OF_RANGE,
-                CalcLimitation.STAT_VALUES_OUT_OF_RANGE,
-                CalcLimitation.CATEGORY_SPLIT_TOGGLE_UNREADABLE,
-                CalcLimitation.FAIRY_TOGGLE_UNREADABLE,
-                CalcLimitation.RANDOM_TYPES_UNREADABLE,
-                CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_UNREADABLE,
-                CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED,
-                CalcLimitation.HNS_ABILITY_SYSTEM_NOT_MODELLED,
-                CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE,
-                CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
-                CalcLimitation.HNS_HELD_ITEM_SYSTEM_NOT_MODELLED,
-                CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE,
-                CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED,
-                CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE,
-                CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED,
-                CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED,
-                CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED,
-                CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
-                CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED,
-                CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
-                CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED,
-                CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED,
-                CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED,
-                CalcLimitation.HNS_CHARGE_ACTIVE_NOT_MODELLED,
-                CalcLimitation.HNS_TAR_SHOT_ACTIVE_NOT_MODELLED,
-                CalcLimitation.HNS_FORESIGHT_ACTIVE_NOT_MODELLED,
-                CalcLimitation.HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED,
-                CalcLimitation.HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED,
-                CalcLimitation.HNS_ROOST_ACTIVE_NOT_MODELLED,
-                CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED,
-                CalcLimitation.HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED,
-                CalcLimitation.HNS_ENDURED_ACTIVE_NOT_MODELLED,
-                CalcLimitation.HNS_GIMMICK_STATE_UNREADABLE,
-                CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED,
-                CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED,
-                CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED,
-                CalcLimitation.HNS_LIVE_WEATHER_UNKNOWN,
-                CalcLimitation.HNS_LIVE_WEATHER_NOT_MODELLED,
-                CalcLimitation.HNS_LIVE_SCREENS_UNKNOWN,
-                CalcLimitation.HNS_LIVE_SIDE_STATUS_NOT_MODELLED,
-                CalcLimitation.HNS_BASE_STAT_EQUALIZER_NOT_MODELLED,
-                CalcLimitation.HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED,
-                CalcLimitation.BADGE_BOOST_NOT_MODELLED,
-                CalcLimitation.UNREPRESENTABLE_TYPE_NOT_MODELLED,
-                CalcLimitation.RANDOM_TYPES_ACTIVE_NOT_MODELLED,
-                CalcLimitation.RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED,
-                CalcLimitation.LIVE_INPUTS_NOT_VERIFIED,
-                CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN,
-                CalcLimitation.LEVEL_OUT_OF_RANGE,
-                CalcLimitation.STATUS_NOT_MODELLED,
-                CalcLimitation.FIELD_CONDITION_NOT_MODELLED,
-                CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED,
-                CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED ->
+            when (limitation.disposition) {
+                CalcLimitationDisposition.NON_BLOCKING ->
+                    assertFalse("$limitation is informational", limitation.blocksCalculation)
+                CalcLimitationDisposition.SOFT_IGNORED_MECHANIC ->
+                    assertFalse("$limitation may run only as a caveated estimate", limitation.blocksCalculation)
+                CalcLimitationDisposition.HARD_REFUSAL ->
                     assertTrue("$limitation must block", limitation.blocksCalculation)
-                else ->
-                    assertFalse("$limitation must not block", limitation.blocksCalculation)
             }
         }
+        assertEquals(CalcLimitation.values().size, CalcLimitation.values().map { it.disposition }.size)
+        assertEquals(CalcLimitationDisposition.HARD_REFUSAL, CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE.disposition)
+        assertEquals(CalcLimitationDisposition.HARD_REFUSAL, CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED.disposition)
+        assertEquals(CalcLimitationDisposition.HARD_REFUSAL, CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE.disposition)
+        assertEquals(CalcLimitationDisposition.HARD_REFUSAL, CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE.disposition)
+        assertEquals(CalcLimitationDisposition.SOFT_IGNORED_MECHANIC, CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED.disposition)
+        assertEquals(CalcLimitationDisposition.SOFT_IGNORED_MECHANIC, CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED.disposition)
+        assertEquals(CalcLimitationDisposition.SOFT_IGNORED_MECHANIC, CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED.disposition)
+        assertEquals(CalcLimitationDisposition.NON_BLOCKING, CalcLimitation.ROM_NOT_EXACT_VERIFIED.disposition)
     }
 
     @Test
@@ -1972,5 +1929,28 @@ class CalcCapabilityPolicyTest {
             "correct typeSystem hns_2_0_5 clears HNS_TYPE_CHART_NOT_MODELLED",
             verdictCorrect.limitations.contains(CalcLimitation.HNS_TYPE_CHART_NOT_MODELLED)
         )
+    }
+
+    @Test
+    fun `every limitation has one explicit exhaustive disposition`() {
+        val classified = CalcLimitation.entries.associateWith { it.disposition }
+        assertEquals(CalcLimitation.entries.size, classified.size)
+        assertEquals(CalcLimitation.entries.toSet(), classified.keys)
+        assertTrue(classified.values.all { it in CalcLimitationDisposition.entries })
+        assertEquals(
+            setOf(
+                CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
+                CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED,
+                CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED
+            ),
+            classified.filterValues { it == CalcLimitationDisposition.SOFT_IGNORED_MECHANIC }.keys
+        )
+        assertEquals(
+            CalcLimitationDisposition.HARD_REFUSAL,
+            CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED.disposition
+        )
+        assertEquals(CalcLimitationDisposition.HARD_REFUSAL, CalcLimitation.CHALLENGE_SETTINGS_UNREADABLE.disposition)
+        assertEquals(CalcLimitationDisposition.NON_BLOCKING, CalcLimitation.ROM_NOT_EXACT_VERIFIED.disposition)
+        assertEquals(CalcLimitationDisposition.NON_BLOCKING, CalcLimitation.MECHANICS_GENERATION_MISMATCH.disposition)
     }
 }

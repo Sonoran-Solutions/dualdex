@@ -76,7 +76,8 @@ data class HnsCensusOutcome(
     val blockers: List<HnsCensusBlocker>,
     val abilityDecisions: List<HnsAbilityRequestDecision>,
     val itemDecisions: List<HnsItemRequestDecision>,
-    val fieldDecisions: List<HnsFieldRequestDecision>
+    val fieldDecisions: List<HnsFieldRequestDecision>,
+    val ignoredMechanics: List<HnsCensusBlocker> = emptyList()
 ) {
     val displayable: Boolean get() = tier != HnsCensusResultTier.REFUSED
 }
@@ -94,11 +95,8 @@ object HnsCensusDisplayClassifier {
     fun classify(verdict: CalcCapabilityVerdict): HnsCensusOutcome {
         val limitations = verdict.limitations.distinct()
         val blockers = buildBlockers(verdict)
-        val displayable = when (verdict.support) {
-            CalcSupport.UNSUPPORTED -> false
-            CalcSupport.ESTIMATED, CalcSupport.VERIFIED -> verdict.request != null
-        }
-        val ignoredMechanics = emptyList<HnsCensusBlocker>()
+        val displayable = verdict.mayRunEngine
+        val ignoredMechanics = if (displayable) buildIgnoredMechanics(verdict) else emptyList()
         val tier = when {
             !displayable -> HnsCensusResultTier.REFUSED
             ignoredMechanics.isEmpty() -> HnsCensusResultTier.FULLY_MODELLED
@@ -111,7 +109,8 @@ object HnsCensusDisplayClassifier {
             blockers = blockers,
             abilityDecisions = verdict.hnsAbilityDecisions,
             itemDecisions = verdict.hnsItemDecisions,
-            fieldDecisions = verdict.hnsFieldDecisions
+            fieldDecisions = verdict.hnsFieldDecisions,
+            ignoredMechanics = ignoredMechanics
         )
     }
 
@@ -122,7 +121,7 @@ object HnsCensusDisplayClassifier {
     private fun buildBlockers(verdict: CalcCapabilityVerdict): List<HnsCensusBlocker> {
         val out = mutableListOf<HnsCensusBlocker>()
         for (limitation in verdict.limitations.distinct()) {
-            if (!limitation.blocksCalculation) continue
+            if (limitation !in verdict.blockingLimitations) continue
             when (limitation) {
                 CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED -> {
                     val causal = verdict.hnsAbilityDecisions.filter {
@@ -191,6 +190,35 @@ object HnsCensusDisplayClassifier {
             compareBy({ it.limitation.ordinal }, { it.side ?: "" }, { it.identity ?: "" }, { it.rule ?: "" })
         )
     }
+
+    private fun buildIgnoredMechanics(verdict: CalcCapabilityVerdict): List<HnsCensusBlocker> =
+        verdict.ignoredMechanics.map { mechanic ->
+            when (mechanic) {
+                is com.dualdex.calculator.IgnoredCalcMechanic.Ability -> HnsCensusBlocker(
+                    kind = "ignored_ability",
+                    limitation = mechanic.limitation,
+                    side = mechanic.decision.side.name.lowercase(),
+                    identity = mechanic.decision.abilityName,
+                    relevance = mechanic.decision.relevance.name,
+                    rule = mechanic.decision.rule
+                )
+                is com.dualdex.calculator.IgnoredCalcMechanic.Item -> HnsCensusBlocker(
+                    kind = "ignored_item",
+                    limitation = mechanic.limitation,
+                    side = mechanic.decision.side.name.lowercase(),
+                    identity = mechanic.decision.itemName,
+                    relevance = mechanic.decision.relevance.name,
+                    rule = mechanic.decision.rule
+                )
+                is com.dualdex.calculator.IgnoredCalcMechanic.Field -> HnsCensusBlocker(
+                    kind = "ignored_field",
+                    limitation = mechanic.limitation,
+                    identity = mechanic.decision.label,
+                    relevance = mechanic.decision.relevance.name,
+                    rule = mechanic.decision.rule
+                )
+            }
+        }.distinct().sortedWith(compareBy({ it.limitation.ordinal }, { it.side ?: "" }, { it.identity ?: "" }))
 
     /** The ruleset the census is allowed to be measuring; anything else is a harness failure. */
     @JvmField

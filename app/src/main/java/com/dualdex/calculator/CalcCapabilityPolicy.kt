@@ -39,34 +39,34 @@ enum class CalcSupport {
 /**
  * Why a calculation is not fully verified.
  *
- * Every value is a documented, testable reason. [blocks] separates "no honest number exists" from
- * "a number exists, but it is not verified".
+ * Every value is a documented, testable reason. Its exhaustive [disposition] separates ordinary
+ * confidence limits, named mechanics that can be ignored, and hard refusals.
  */
-enum class CalcLimitation(val blocks: Boolean) {
+enum class CalcLimitation {
     /** The running ROM bytes are not the exact build this profile was verified against. */
-    ROM_NOT_EXACT_VERIFIED(false),
+    ROM_NOT_EXACT_VERIFIED,
 
     /**
      * This build has no verified SHA-256 in its profile, so no runtime can ever satisfy the exact
      * ROM gate and the build can never reach [CalcSupport.VERIFIED].
      */
-    BUILDS_NOT_HASH_VERIFIED(false),
+    BUILDS_NOT_HASH_VERIFIED,
 
     /**
      * H&S 2.0.5 challenge settings (`SaveBlock3.challengeSettings`) can change damage-relevant
      * state (EV application, base-stat equalization, species types, ability and move data) and
      * could not be read from live memory, hold an invalid status, or have required fields unobserved.
      */
-    CHALLENGE_SETTINGS_UNREADABLE(false),
+    CHALLENGE_SETTINGS_UNREADABLE,
 
     /** H&S 2.0.5 held items are not an authoritative table in this build. */
-    HELD_ITEM_DATA_NOT_AUTHORITATIVE(false),
+    HELD_ITEM_DATA_NOT_AUTHORITATIVE,
 
     /** The named ability's damage effect is not modelled for the active ruleset. */
-    ABILITY_NOT_MODELLED(false),
+    ABILITY_NOT_MODELLED,
 
     /** The named item's damage effect is not modelled for the active ruleset. */
-    ITEM_NOT_MODELLED(false),
+    ITEM_NOT_MODELLED,
 
     /**
      * The build's damage-rule toggle for move category (`challengeSettings.optionStyle`, bound to
@@ -75,38 +75,44 @@ enum class CalcLimitation(val blocks: Boolean) {
      * (`TYPE_BASED`) selects generation III's type-based damage category where the move's TYPE
      * decides. Unread, so the active category rule is unknown.
      */
-    CATEGORY_SPLIT_TOGGLE_UNREADABLE(true),
+    CATEGORY_SPLIT_TOGGLE_UNREADABLE,
 
     /**
      * The build's "ADD FAIRY TYPE" toggle. Turning it off deletes the Fairy type: species revert to
      * their pre-Fairy typings and Fairy moves are retyped. Unread, so the defender's types are
      * unknown.
      */
-    FAIRY_TOGGLE_UNREADABLE(true),
+    FAIRY_TOGGLE_UNREADABLE,
 
     /** The build's "RANDOM TYPES" toggle rewrites species typings at random. Unread. */
-    RANDOM_TYPES_UNREADABLE(true),
+    RANDOM_TYPES_UNREADABLE,
 
     /** The build's "RANDOM TYPE EFFECTIVENESS" toggle remaps the attacking type in the chart. Unread. */
-    RANDOM_TYPE_EFFECTIVENESS_UNREADABLE(true),
+    RANDOM_TYPE_EFFECTIVENESS_UNREADABLE,
 
     /**
      * The Heart & Soul 2.0.5 modern type chart (Fairy type present; Steel does not resist Ghost/Dark)
      * is not modelled by the generation III calculation pipeline (Gap C).
      */
-    HNS_TYPE_CHART_NOT_MODELLED(true),
+    HNS_TYPE_CHART_NOT_MODELLED,
 
     /**
      * An authoritative live effective ability could not be read from live memory (unobserved,
      * party slot mismatch, bench Pokemon, faint window, or out-of-domain ID), or an H&S manual
      * participant has an unspecified ability.
      */
-    HNS_EFFECTIVE_ABILITY_UNREADABLE(true),
+    HNS_EFFECTIVE_ABILITY_UNREADABLE,
 
     /**
      * The Heart & Soul 2.0.5 ability's damage effect is not modelled by the calculator pipeline.
      */
-    HNS_ABILITY_EFFECT_NOT_MODELLED(true),
+    HNS_ABILITY_EFFECT_NOT_MODELLED,
+
+    /** The ability ID/name is present, but its pinned capability classification is unresolved. */
+    HNS_ABILITY_EFFECT_UNCLASSIFIED,
+
+    /** A supplied ability name and numeric ability ID identify different pinned abilities. */
+    HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE,
 
     /**
      * An authoritative live current held item could not be read from live memory (unobserved,
@@ -114,19 +120,22 @@ enum class CalcLimitation(val blocks: Boolean) {
      * battle item is unknown. Distinct from an observed `ITEM_NONE`, which means explicitly no item
      * (issue #9, Gap C3).
      */
-    HNS_EFFECTIVE_ITEM_UNREADABLE(true),
+    HNS_EFFECTIVE_ITEM_UNREADABLE,
 
     /**
      * The Heart & Soul 2.0.5 held item is identity-known but its damage effect is not modelled by
      * the calculator pipeline (issue #9, Gap C3).
      */
-    HNS_ITEM_EFFECT_NOT_MODELLED(true),
+    HNS_ITEM_EFFECT_NOT_MODELLED,
+
+    /** The item ID/name is present, but its pinned capability classification is unresolved. */
+    HNS_ITEM_EFFECT_UNCLASSIFIED,
 
     /**
      * A supplied item identity could not be tied to the exact H&S 2.0.5 item catalogue, so no
      * capability can be established for it (issue #9, Gap C3).
      */
-    HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE(true),
+    HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE,
 
     /**
      * The selected H&S 2.0.5 move's damage semantics read held-item state (attacker item
@@ -140,36 +149,36 @@ enum class CalcLimitation(val blocks: Boolean) {
      * input, so the move must be refused before it ever reaches the engine rather than
      * allowed to no-op.
      */
-    HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED(true),
+    HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED,
 
     /**
      * The Heart & Soul 2.0.5 held-item system is not modelled by the calculator pipeline (Gap C3).
      */
     @Deprecated("Superseded by HNS_EFFECTIVE_ITEM_UNREADABLE, HNS_ITEM_EFFECT_NOT_MODELLED, and HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE")
-    HNS_HELD_ITEM_SYSTEM_NOT_MODELLED(true),
+    HNS_HELD_ITEM_SYSTEM_NOT_MODELLED,
 
     /**
      * The Heart & Soul 2.0.5 ability system is not modelled by the calculator pipeline (Gap C2).
      */
     @Deprecated("Superseded by HNS_EFFECTIVE_ABILITY_UNREADABLE and HNS_ABILITY_EFFECT_NOT_MODELLED")
-    HNS_ABILITY_SYSTEM_NOT_MODELLED(true),
+    HNS_ABILITY_SYSTEM_NOT_MODELLED,
 
     /**
      * The request contains a type that cannot be represented in the type chart.
      */
-    UNREPRESENTABLE_TYPE_NOT_MODELLED(true),
+    UNREPRESENTABLE_TYPE_NOT_MODELLED,
 
     /**
      * The Heart & Soul 2.0.5 "RANDOM TYPES" challenge is active in live memory, which is not modelled
      * by the calculator.
      */
-    RANDOM_TYPES_ACTIVE_NOT_MODELLED(true),
+    RANDOM_TYPES_ACTIVE_NOT_MODELLED,
 
     /**
      * The Heart & Soul 2.0.5 "RANDOM TYPE EFFECTIVENESS" challenge is active in live memory, which is
      * not modelled by the calculator.
      */
-    RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED(true),
+    RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED,
 
     /**
      * The build's generation III badge boost (a flat x1.1 damage modifier for the player's side)
@@ -183,7 +192,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * supply proven runtime badge state and the calculator must not fabricate it. See
      * docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §8.1.
      */
-    BADGE_BOOST_NOT_MODELLED(true),
+    BADGE_BOOST_NOT_MODELLED,
 
     /**
      * The H&S `tx_Challenges_BaseStatEqualizer` challenge replaces every non-HP base stat with a
@@ -193,7 +202,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * active equalizer silently changes every damage-relevant stat. Blocked fail-closed (issue #9,
      * Gap C4a).
      */
-    HNS_BASE_STAT_EQUALIZER_NOT_MODELLED(true),
+    HNS_BASE_STAT_EQUALIZER_NOT_MODELLED,
 
     /**
      * The H&S `tx_Random_Moves` challenge rerolls a Pokemon's learned moves at acquisition
@@ -202,7 +211,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * cannot be proven to be the authoritative current learned move. Blocked fail-closed
      * (issue #9, Gap C4a).
      */
-    HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED(true),
+    HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED,
 
     /**
      * The selected H&S move's effect is not the ordinary `EFFECT_HIT` damage path, or its effect
@@ -215,7 +224,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * times, deal fixed damage, or otherwise alter the base power must fail here rather than let
      * the engine compute a confident but wrong number.
      */
-    HNS_MOVE_MECHANICS_NOT_MODELLED(true),
+    HNS_MOVE_MECHANICS_NOT_MODELLED,
 
     /**
      * The request would exercise a damage modifier whose H&S placement/rounding differs from the
@@ -229,7 +238,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * STAB, super-effective and burned cases, so a request that exercises any of those modifiers
      * cannot be published from this host.
      */
-    HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED(true),
+    HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED,
 
     /**
      * An active H&S battle's mutable damage operands are not authoritatively observed, so the
@@ -245,7 +254,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * consume effective battler types, battle stat words, the dynamic move type, and transient
      * damage state before any of these classes may clear (§10.5).
      */
-    HNS_LIVE_BATTLE_STATE_NOT_MODELLED(true),
+    HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
 
     /**
      * An H&S Doubles request cannot establish the runtime target count
@@ -258,7 +267,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * `field.gameType` plus the move's static target class. This is deliberately coarse: the whole
      * Doubles format stays blocked until the count is represented.
      */
-    HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED(true),
+    HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED,
 
     /**
      * An active H&S battle's live format (`gBattlersCount`) was not authoritatively established
@@ -282,7 +291,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * and regardless of target-count resolution) fail closed with this limitation because
      * production Doubles is not implemented and carries unobserved live operands (e.g. Helping Hand).
      */
-    HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED(true),
+    HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
 
     /**
      * A vanilla Generation III **Doubles** request carries an active Reflect or Light Screen, whose
@@ -310,7 +319,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * vanilla engine keeps its documented pipeline order, and the Doubles **spread** reduction is
      * refused separately by [VANILLA_DOUBLES_SPREAD_NOT_MODELLED].
      */
-    VANILLA_DOUBLES_SCREEN_NOT_MODELLED(true),
+    VANILLA_DOUBLES_SCREEN_NOT_MODELLED,
 
     /**
      * A vanilla Generation III **Doubles** request uses a move the shipped pipeline reduces as a
@@ -332,7 +341,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * Doubles already fails closed for its own reasons
      * ([HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED]); this limitation is the vanilla half.
      */
-    VANILLA_DOUBLES_SPREAD_NOT_MODELLED(true),
+    VANILLA_DOUBLES_SPREAD_NOT_MODELLED,
 
     /**
      * The move's effective type was authoritatively observed to be rewritten to Electric by an
@@ -344,14 +353,14 @@ enum class CalcLimitation(val blocks: Boolean) {
      * subset's arithmetic/type evidence does not cover the forced Electric typing, so the request
      * fails closed rather than compute it with the static type (issue #9, Gap C4e).
      */
-    HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED(true),
+    HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED,
 
     /**
      * The defender's `volatiles.glaiveRush` was authoritatively observed true. `GetGlaiveRushModifier`
      * doubles the damage of any incoming move, and that x2 is not part of the ordinary-subset
      * arithmetic, so the request fails closed (issue #9, Gap C4e).
      */
-    HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED(true),
+    HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED,
 
     /**
      * The battle-global `gFieldStatuses` word was authoritatively observed with a condition that
@@ -362,7 +371,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * [CalcCapabilityVerdict.hnsFieldDiagnostics] (issue #9, Gap C4e correction; H&S field-context
      * audit in tools/hns-field-status/field_audit.json).
      */
-    HNS_FIELD_STATUS_NOT_MODELLED(true),
+    HNS_FIELD_STATUS_NOT_MODELLED,
 
     /**
      * The attacker's `volatiles.chargeTimer` was authoritatively observed non-zero and the
@@ -370,7 +379,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * timer is positive, and that x2 is not part of the ordinary-subset arithmetic, so the
      * request fails closed (issue #9, Gap C4e correction).
      */
-    HNS_CHARGE_ACTIVE_NOT_MODELLED(true),
+    HNS_CHARGE_ACTIVE_NOT_MODELLED,
 
     /**
      * The defender's `volatiles.tarShot` was authoritatively observed true and the effective move
@@ -378,7 +387,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * that x2 is not part of the ordinary-subset arithmetic, so the request fails closed
      * (issue #9, Gap C4e correction).
      */
-    HNS_TAR_SHOT_ACTIVE_NOT_MODELLED(true),
+    HNS_TAR_SHOT_ACTIVE_NOT_MODELLED,
 
     /**
      * The persistent `volatiles.foresight` was authoritatively observed true on a participant. The
@@ -386,14 +395,14 @@ enum class CalcLimitation(val blocks: Boolean) {
      * is set, which the static type chart cannot express, so the request fails closed rather than
      * compute the static immunity (review round 4).
      */
-    HNS_FORESIGHT_ACTIVE_NOT_MODELLED(true),
+    HNS_FORESIGHT_ACTIVE_NOT_MODELLED,
 
     /**
      * The persistent `volatiles.miracleEye` was authoritatively observed true on a participant. The
      * pinned `MulByTypeEffectiveness` bypasses a Dark immunity for Psychic moves while it is set,
      * which the static type chart cannot express, so the request fails closed (review round 4).
      */
-    HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED(true),
+    HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED,
 
     /**
      * One of the persistent grounding volatiles (`root` / `smackDown` ground the holder;
@@ -401,7 +410,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * The pinned `IsBattlerGrounded` reads them, so a Ground-type immunity can depend on live
      * volatile state the static chart does not carry; the request fails closed (review round 4).
      */
-    HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED(true),
+    HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED,
 
     /**
      * The persistent `volatiles.roostActive` was authoritatively observed true on a participant.
@@ -409,7 +418,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * `gBattleMons[].types` bytes are no longer the engine's effective types and the static-type
      * comparison cannot prove the request neutral. The request fails closed (review round 4).
      */
-    HNS_ROOST_ACTIVE_NOT_MODELLED(true),
+    HNS_ROOST_ACTIVE_NOT_MODELLED,
 
     /**
      * The persistent `volatiles.gastroAcid` was authoritatively observed true, so the pinned
@@ -417,7 +426,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * raw `gBattleMons[].ability` identity (for example a suppressed Overgrow pinch boost). The
      * request fails closed rather than classify the suppressed identity (review round 4).
      */
-    HNS_ABILITY_SUPPRESSED_NOT_MODELLED(true),
+    HNS_ABILITY_SUPPRESSED_NOT_MODELLED,
 
     /**
      * The persistent `volatiles.substitute` was authoritatively observed true on a participant.
@@ -425,35 +434,35 @@ enum class CalcLimitation(val blocks: Boolean) {
      * outcome this ordinary-damage calculation does not model, so the request fails closed
      * (review round 4).
      */
-    HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED(true),
+    HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED,
 
     /**
      * The persistent `volatiles.endured` was authoritatively observed true on a participant. The
      * pinned `GetAdjustedDamage` caps incoming damage at HP-1, an outcome this ordinary-damage
      * calculation does not model, so the request fails closed (review round 4).
      */
-    HNS_ENDURED_ACTIVE_NOT_MODELLED(true),
+    HNS_ENDURED_ACTIVE_NOT_MODELLED,
 
     /**
      * An active H&S battle's gimmick state (`gBattleStruct->gimmick.activeGimmick`) could not be
      * read, so Tera/Dynamax/Z/Mega could be silently active and change STAB, stats or type
      * semantics. Unreadable fails closed (issue #9, Gap C4e).
      */
-    HNS_GIMMICK_STATE_UNREADABLE(true),
+    HNS_GIMMICK_STATE_UNREADABLE,
 
     /**
      * A live gimmick (Tera/Dynamax/Z/Mega/Ultra Burst) was authoritatively observed active for a
      * participant. The ordinary-subset arithmetic does not model any gimmick's damage effect, so
      * the request fails closed (issue #9, Gap C4e).
      */
-    HNS_GIMMICK_ACTIVE_NOT_MODELLED(true),
+    HNS_GIMMICK_ACTIVE_NOT_MODELLED,
 
     /**
      * The attacker's authoritative live `status1` is non-zero (a status condition is active) or
      * could not be read. The ordinary subset models only a neutral status from live state, so a
      * live status fails closed rather than letting a stale party snapshot decide (issue #9, Gap C4e).
      */
-    HNS_LIVE_STATUS_NOT_MODELLED(true),
+    HNS_LIVE_STATUS_NOT_MODELLED,
 
     /**
      * A conditionally-supported pinch ability (`Overgrow`/`Blaze`/`Torrent`/`Swarm`) applies to the
@@ -461,7 +470,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * condition was not observed. The condition cannot be assumed inactive, so the request fails
      * closed (issue #9, Gap C4e).
      */
-    HNS_ABILITY_CONDITION_UNVERIFIED(true),
+    HNS_ABILITY_CONDITION_UNVERIFIED,
 
     /**
      * An active H&S battle's battle-global weather word (`gBattleWeather`) was not authoritatively
@@ -469,62 +478,62 @@ enum class CalcLimitation(val blocks: Boolean) {
      * assumed clear: a live Rain or Sun battle would otherwise compute as neutral (Gap C4e
      * correction).
      */
-    HNS_LIVE_WEATHER_UNKNOWN(true),
+    HNS_LIVE_WEATHER_UNKNOWN,
 
     /**
      * The battle-global weather word was observed, but it carries a condition the ordinary
      * arithmetic does not model (Sandstorm, Hail, Snow, Fog, Strong Winds). The request fails
      * closed instead of silently computing it as clear (Gap C4e correction).
      */
-    HNS_LIVE_WEATHER_NOT_MODELLED(true),
+    HNS_LIVE_WEATHER_NOT_MODELLED,
 
     /**
      * An active H&S battle's defender-side status word (`gSideStatuses[side]`) was not
      * authoritatively read, so Reflect / Light Screen could be active and halve the incoming move.
      * An unread word cannot be assumed screenless (Gap C4e correction).
      */
-    HNS_LIVE_SCREENS_UNKNOWN(true),
+    HNS_LIVE_SCREENS_UNKNOWN,
 
     /**
      * The defender-side status word was observed, but it carries a bit the ordinary arithmetic
      * does not model (Aurora Veil or any other side status). The request fails closed rather than
      * silently computing it without that modifier (Gap C4e correction).
      */
-    HNS_LIVE_SIDE_STATUS_NOT_MODELLED(true),
+    HNS_LIVE_SIDE_STATUS_NOT_MODELLED,
 
     /**
      * The build scales type-boost held items to a later-generation percentage than the generation
      * III pipeline applies.
      */
-    ITEM_BOOST_PERCENTAGE_DIFFERS(false),
+    ITEM_BOOST_PERCENTAGE_DIFFERS,
 
     /** The request asks for a different generation than the resolved ruleset uses. */
-    MECHANICS_GENERATION_MISMATCH(false),
+    MECHANICS_GENERATION_MISMATCH,
 
     /** The species is not present in the pinned data for this build. */
-    SPECIES_NOT_IN_PINNED_DATA(true),
+    SPECIES_NOT_IN_PINNED_DATA,
 
     /** The move is not present in the pinned data for this build. */
-    MOVE_NOT_IN_PINNED_DATA(true),
+    MOVE_NOT_IN_PINNED_DATA,
 
     /** Supplied stat boosts are outside the range the games can produce. */
-    BOOSTS_OUT_OF_RANGE(true),
+    BOOSTS_OUT_OF_RANGE,
 
     /** Supplied IVs/EVs are outside the range the active build can produce. */
-    STAT_VALUES_OUT_OF_RANGE(true),
+    STAT_VALUES_OUT_OF_RANGE,
 
     /**
      * Supplied level is outside the range the games can produce. The engine accepts any level and
      * returns a normal-looking number for it.
      */
-    LEVEL_OUT_OF_RANGE(true),
+    LEVEL_OUT_OF_RANGE,
 
     /**
      * The status string is not one the engine models. It stores an unrecognised status verbatim and
      * then treats the Pokemon as simply "has a status", which turns on the Guts and Marvel Scale
      * modifiers while skipping the burn halving.
      */
-    STATUS_NOT_MODELLED(true),
+    STATUS_NOT_MODELLED,
 
     /**
      * A field condition was supplied that the generation III pipeline does not model.
@@ -533,7 +542,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * it compares weather names exactly and silently ignores anything it does not recognise (so
      * "Snow" would compute as *no weather*), and it ignores `terrain` entirely.
      */
-    FIELD_CONDITION_NOT_MODELLED(true),
+    FIELD_CONDITION_NOT_MODELLED,
 
     /**
      * A participant whose values came from a live memory read is missing at least one
@@ -545,7 +554,7 @@ enum class CalcLimitation(val blocks: Boolean) {
      * is incomplete - an omitted ability is not the species' default, and an omitted stat stage is
      * not stage zero.
      */
-    LIVE_PARTICIPANT_STATE_UNKNOWN(true),
+    LIVE_PARTICIPANT_STATE_UNKNOWN,
 
     /**
      * A participant came from a live memory read whose values are, alone, not enough to authorize
@@ -553,10 +562,155 @@ enum class CalcLimitation(val blocks: Boolean) {
      * [ROM_NOT_EXACT_VERIFIED]: this says the inputs were read but are not verified, not that a
      * field is missing and not that the ROM is unrecognised.
      */
-    LIVE_INPUTS_NOT_VERIFIED(true);
+    LIVE_INPUTS_NOT_VERIFIED;
+
+    /**
+     * The one product disposition for every limitation. This exhaustive `when` is deliberately
+     * kept in one place: adding a limitation requires an explicit review decision at compile time.
+     */
+    val disposition: CalcLimitationDisposition
+        get() = when (this) {
+            ROM_NOT_EXACT_VERIFIED,
+            BUILDS_NOT_HASH_VERIFIED,
+            ABILITY_NOT_MODELLED,
+            ITEM_NOT_MODELLED,
+            ITEM_BOOST_PERCENTAGE_DIFFERS,
+            MECHANICS_GENERATION_MISMATCH -> CalcLimitationDisposition.NON_BLOCKING
+
+            HNS_ABILITY_EFFECT_NOT_MODELLED,
+            HNS_ITEM_EFFECT_NOT_MODELLED,
+            HNS_FIELD_STATUS_NOT_MODELLED -> CalcLimitationDisposition.SOFT_IGNORED_MECHANIC
+
+            CHALLENGE_SETTINGS_UNREADABLE,
+            HELD_ITEM_DATA_NOT_AUTHORITATIVE,
+            CATEGORY_SPLIT_TOGGLE_UNREADABLE,
+            FAIRY_TOGGLE_UNREADABLE,
+            RANDOM_TYPES_UNREADABLE,
+            RANDOM_TYPE_EFFECTIVENESS_UNREADABLE,
+            HNS_TYPE_CHART_NOT_MODELLED,
+            HNS_EFFECTIVE_ABILITY_UNREADABLE,
+            HNS_ABILITY_EFFECT_UNCLASSIFIED,
+            HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE,
+            HNS_EFFECTIVE_ITEM_UNREADABLE,
+            HNS_ITEM_EFFECT_UNCLASSIFIED,
+            HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE,
+            HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED,
+            HNS_HELD_ITEM_SYSTEM_NOT_MODELLED,
+            HNS_ABILITY_SYSTEM_NOT_MODELLED,
+            UNREPRESENTABLE_TYPE_NOT_MODELLED,
+            RANDOM_TYPES_ACTIVE_NOT_MODELLED,
+            RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED,
+            BADGE_BOOST_NOT_MODELLED,
+            HNS_BASE_STAT_EQUALIZER_NOT_MODELLED,
+            HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED,
+            HNS_MOVE_MECHANICS_NOT_MODELLED,
+            HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED,
+            HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
+            HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED,
+            HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
+            VANILLA_DOUBLES_SCREEN_NOT_MODELLED,
+            VANILLA_DOUBLES_SPREAD_NOT_MODELLED,
+            HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED,
+            HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED,
+            HNS_CHARGE_ACTIVE_NOT_MODELLED,
+            HNS_TAR_SHOT_ACTIVE_NOT_MODELLED,
+            HNS_FORESIGHT_ACTIVE_NOT_MODELLED,
+            HNS_MIRACLE_EYE_ACTIVE_NOT_MODELLED,
+            HNS_GROUNDING_VOLATILE_ACTIVE_NOT_MODELLED,
+            HNS_ROOST_ACTIVE_NOT_MODELLED,
+            HNS_ABILITY_SUPPRESSED_NOT_MODELLED,
+            HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED,
+            HNS_ENDURED_ACTIVE_NOT_MODELLED,
+            HNS_GIMMICK_STATE_UNREADABLE,
+            HNS_GIMMICK_ACTIVE_NOT_MODELLED,
+            HNS_LIVE_STATUS_NOT_MODELLED,
+            HNS_ABILITY_CONDITION_UNVERIFIED,
+            HNS_LIVE_WEATHER_UNKNOWN,
+            HNS_LIVE_WEATHER_NOT_MODELLED,
+            HNS_LIVE_SCREENS_UNKNOWN,
+            HNS_LIVE_SIDE_STATUS_NOT_MODELLED,
+            SPECIES_NOT_IN_PINNED_DATA,
+            MOVE_NOT_IN_PINNED_DATA,
+            BOOSTS_OUT_OF_RANGE,
+            STAT_VALUES_OUT_OF_RANGE,
+            LEVEL_OUT_OF_RANGE,
+            STATUS_NOT_MODELLED,
+            FIELD_CONDITION_NOT_MODELLED,
+            LIVE_PARTICIPANT_STATE_UNKNOWN,
+            LIVE_INPUTS_NOT_VERIFIED -> CalcLimitationDisposition.HARD_REFUSAL
+        }
 
     /** True when no damage number may be produced at all from this request. */
-    val blocksCalculation: Boolean get() = blocks
+    val blocksCalculation: Boolean get() = disposition == CalcLimitationDisposition.HARD_REFUSAL
+}
+
+enum class CalcLimitationDisposition {
+    NON_BLOCKING,
+    SOFT_IGNORED_MECHANIC,
+    HARD_REFUSAL
+}
+
+/** Original structured evidence for a mechanic the policy authorized the engine to ignore. */
+sealed interface IgnoredCalcMechanic {
+    val limitation: CalcLimitation
+    val presentationLine: String
+
+    data class Ability(val decision: HnsAbilityRequestDecision) : IgnoredCalcMechanic {
+        override val limitation = CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED
+        override val presentationLine: String
+            get() = "${if (decision.side == HnsAbilitySide.ATTACKER) "You" else "Foe"}: ${decision.abilityName}"
+    }
+
+    data class Item(val decision: HnsItemRequestDecision) : IgnoredCalcMechanic {
+        override val limitation = CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED
+        override val presentationLine: String
+            get() = "${if (decision.side == HnsItemSide.ATTACKER) "You" else "Foe"}: ${decision.itemName}"
+    }
+
+    data class Field(val decision: HnsFieldRequestDecision) : IgnoredCalcMechanic {
+        override val limitation = CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED
+        override val presentationLine: String get() = "Field: ${decision.label}"
+    }
+}
+
+/** A soft limitation is usable only when every causal mechanic has a known neutral form. */
+private fun softLimitationHasCompleteEvidence(
+    limitation: CalcLimitation,
+    ignored: List<IgnoredCalcMechanic>,
+    abilities: List<HnsAbilityRequestDecision>,
+    items: List<HnsItemRequestDecision>,
+    fields: List<HnsFieldRequestDecision>
+): Boolean = when (limitation) {
+    CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED -> {
+        val causal = abilities.filter {
+            it.globalCategory == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+                it.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+        }
+        causal.isNotEmpty() && causal.all { decision ->
+            decision.relevance == HnsAbilityRequestRelevance.RELEVANT &&
+                ignored.any { it is IgnoredCalcMechanic.Ability && it.decision == decision }
+        }
+    }
+    CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED -> {
+        val causal = items.filter {
+            it.globalCategory == com.dualdex.pokemon.hns.HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+                it.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT &&
+                it.relevance != HnsItemRequestRelevance.MODELLED
+        }
+        causal.isNotEmpty() && causal.all { decision ->
+            decision.relevance == HnsItemRequestRelevance.RELEVANT &&
+                ignored.any { it is IgnoredCalcMechanic.Item && it.decision == decision }
+        }
+    }
+    CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED -> {
+        val causal = fields.filter { it.relevance != HnsFieldRequestRelevance.PROVEN_IRRELEVANT }
+        causal.isNotEmpty() && causal.all { decision ->
+            decision.status != null && decision.relevance == HnsFieldRequestRelevance.RELEVANT &&
+                decision.status != com.dualdex.pokemon.hns.HnsFieldStatus.ION_DELUGE &&
+                ignored.any { it is IgnoredCalcMechanic.Field && it.decision == decision }
+        }
+    }
+    else -> false
 }
 
 /** The exact battle ruleset family a calculation is being produced for. */
@@ -639,13 +793,38 @@ data class CalcCapabilityVerdict(
      */
     val hnsFieldDecisions: List<HnsFieldRequestDecision> = emptyList(),
     /** The raw live field/weather/side words this verdict was decided from, for diagnostics. */
-    val hnsFieldDiagnostics: CalcHnsFieldDiagnostics? = null
+    val hnsFieldDiagnostics: CalcHnsFieldDiagnostics? = null,
+    /** Named ability/item mechanics deliberately neutralized in [request], when authorized. */
+    val ignoredMechanics: List<IgnoredCalcMechanic> = emptyList()
 ) {
     /** True only when the result may be shown as verified. */
     val isVerified: Boolean get() = support == CalcSupport.VERIFIED
 
     /** True when a number may be shown at all, carrying an explicit estimate label. */
     val isCalculable: Boolean get() = support != CalcSupport.UNSUPPORTED && request != null
+
+    /** Reasons that prevent execution. A soft limitation without structured evidence fails closed. */
+    val blockingLimitations: List<CalcLimitation>
+        get() = limitations.distinct().filter { limitation ->
+            when (limitation.disposition) {
+                CalcLimitationDisposition.HARD_REFUSAL -> true
+                CalcLimitationDisposition.NON_BLOCKING -> false
+                CalcLimitationDisposition.SOFT_IGNORED_MECHANIC ->
+                    !softLimitationHasCompleteEvidence(
+                        limitation, ignoredMechanics, hnsAbilityDecisions, hnsItemDecisions, hnsFieldDecisions
+                    )
+            }
+        }
+
+    val nonBlockingLimitations: List<CalcLimitation>
+        get() = limitations.distinct().filter {
+            it.disposition == CalcLimitationDisposition.NON_BLOCKING
+        }
+
+    val isCaveatedEstimate: Boolean
+        get() = isCalculable && ignoredMechanics.isNotEmpty()
+
+    val mayRunEngine: Boolean get() = isCalculable && blockingLimitations.isEmpty()
 
     val ruleset: CalcRuleset get() = capability.ruleset
 
@@ -705,10 +884,16 @@ data class CalcCapabilityVerdict(
                 "an authoritative live effective ability could not be read or ability is unspecified"
             CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED ->
                 "the Heart & Soul 2.0.5 ability's damage effect is not modelled by the calculator"
+            CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED ->
+                "the ability is known, but its Heart & Soul 2.0.5 damage capability is unclassified"
+            CalcLimitation.HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE ->
+                "the ability name and numeric ID identify different Heart & Soul 2.0.5 abilities"
             CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE ->
                 "an authoritative live current held item could not be read"
             CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED ->
                 "the Heart & Soul 2.0.5 held item's damage effect is not modelled by the calculator"
+            CalcLimitation.HNS_ITEM_EFFECT_UNCLASSIFIED ->
+                "the held item is known, but its Heart & Soul 2.0.5 damage capability is unclassified"
             CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE ->
                 "the item could not be tied to the exact Heart & Soul 2.0.5 item catalogue"
             CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED ->
@@ -1212,7 +1397,27 @@ object CalcCapabilityPolicy {
             limitations.add(CalcLimitation.ROM_NOT_EXACT_VERIFIED)
         }
 
-        val blocked = limitations.any { it.blocksCalculation }
+        val ignoredMechanics = collectIgnoredMechanics(
+            limitations = limitations,
+            abilityDecisions = abilityDecisions,
+            itemDecisions = itemDecisions,
+            fieldDecisions = fieldDecisions
+        )
+        val blocked = limitations.any { limitation ->
+            when (limitation.disposition) {
+                CalcLimitationDisposition.HARD_REFUSAL -> true
+                CalcLimitationDisposition.NON_BLOCKING -> false
+                CalcLimitationDisposition.SOFT_IGNORED_MECHANIC ->
+                    !softLimitationHasCompleteEvidence(
+                        limitation, ignoredMechanics, abilityDecisions, itemDecisions, fieldDecisions
+                    )
+            }
+        }
+        val normalizedRequest = normaliseNames(
+            capability.ruleset,
+            request.copy(gen = capability.mechanicsGeneration)
+        )
+        val executionRequest = neutralizeIgnoredMechanics(normalizedRequest, ignoredMechanics)
         val support = when {
             blocked -> CalcSupport.UNSUPPORTED
             // VERIFIED is reached only for a ruleset whose every damage rule is known and whose
@@ -1230,17 +1435,10 @@ object CalcCapabilityPolicy {
             support = support,
             capability = capability,
             limitations = limitations.toList(),
-            // The request is normalised before it is authorised: the generation is forced to the
-            // resolved ruleset, and ability/item names are rewritten to the exact spelling the
-            // engine matches, so what reaches the engine is what the verdict was computed from.
-            request = if (blocked) {
-                null
-            } else {
-                normaliseNames(
-                    capability.ruleset,
-                    request.copy(gen = capability.mechanicsGeneration)
-                )
-            },
+            // Identity was inspected above. Only now is an explicitly ignored ability/item
+            // neutralized in the execution request; the original identities remain in the
+            // structured decisions and ignoredMechanics evidence attached to this verdict.
+            request = if (blocked) null else executionRequest,
             hnsAbilityDecisions = abilityDecisions.toList(),
             hnsItemDecisions = itemDecisions.toList(),
             hnsFieldDecisions = fieldDecisions.toList(),
@@ -1251,7 +1449,89 @@ object CalcCapabilityPolicy {
                     defenderSideStatuses = if (live.defenderScreensObserved) live.defenderSideStatuses else null,
                     attackerElectrified = live.attackerElectrified
                 )
-            }.takeIf { capability.ruleset == CalcRuleset.HNS_2_0_5 }
+            }.takeIf { capability.ruleset == CalcRuleset.HNS_2_0_5 },
+            ignoredMechanics = ignoredMechanics
+        )
+    }
+
+    /** Converts only authoritative, audited H&S unsupported-effect decisions into caveats. */
+    private fun collectIgnoredMechanics(
+        limitations: Set<CalcLimitation>,
+        abilityDecisions: List<HnsAbilityRequestDecision>,
+        itemDecisions: List<HnsItemRequestDecision>,
+        fieldDecisions: List<HnsFieldRequestDecision>
+    ): List<IgnoredCalcMechanic> = buildList {
+        if (CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED in limitations) {
+            abilityDecisions.asSequence()
+                .filter {
+                    it.globalCategory == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+                        it.abilityId != null && it.abilityId >= 0 && it.abilityName.isNotBlank() &&
+                        it.relevance == HnsAbilityRequestRelevance.RELEVANT
+                }
+                .distinctBy { it.side to it.abilityId }
+                .mapTo(this) { IgnoredCalcMechanic.Ability(it) }
+        }
+        if (CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED in limitations) {
+            itemDecisions.asSequence()
+                .filter {
+                    it.globalCategory == com.dualdex.pokemon.hns.HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+                        it.itemId != null && it.itemId > 0 && it.itemName.isNotBlank() && it.itemName != "None" &&
+                        it.relevance == HnsItemRequestRelevance.RELEVANT
+                }
+                .distinctBy { it.side to it.itemId }
+                .mapTo(this) { IgnoredCalcMechanic.Item(it) }
+        }
+        if (CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED in limitations) {
+            fieldDecisions.asSequence()
+                .filter {
+                    it.status != null && it.relevance == HnsFieldRequestRelevance.RELEVANT &&
+                        it.status != com.dualdex.pokemon.hns.HnsFieldStatus.ION_DELUGE
+                }
+                .distinctBy { it.status }
+                .mapTo(this) { IgnoredCalcMechanic.Field(it) }
+        }
+    }
+
+    /**
+     * Erases both the engine-facing name and the source numeric identity for each caveated
+     * participant. H&S `(other)` is the engine's explicit no-ability value; an absent item is
+     * ITEM_NONE semantics. This runs after policy evaluation and never changes observed inputs.
+     */
+    private fun neutralizeIgnoredMechanics(
+        request: DamageCalculationRequest,
+        ignoredMechanics: List<IgnoredCalcMechanic>
+    ): DamageCalculationRequest {
+        if (ignoredMechanics.isEmpty()) return request
+
+        fun neutralize(input: CalcPokemonInput, side: HnsAbilitySide): CalcPokemonInput {
+            val ignoreAbility = ignoredMechanics.any {
+                it is IgnoredCalcMechanic.Ability && it.decision.side == side
+            }
+            val itemSide = if (side == HnsAbilitySide.ATTACKER) HnsItemSide.ATTACKER else HnsItemSide.DEFENDER
+            val ignoreItem = ignoredMechanics.any {
+                it is IgnoredCalcMechanic.Item && it.decision.side == itemSide
+            }
+            return input.copy(
+                ability = if (ignoreAbility) "(other)" else input.ability,
+                abilityId = if (ignoreAbility) null else input.abilityId,
+                item = if (ignoreItem) null else input.item,
+                itemId = if (ignoreItem) null else input.itemId
+            )
+        }
+
+        val ignoredFieldMask = ignoredMechanics.asSequence()
+            .filterIsInstance<IgnoredCalcMechanic.Field>()
+            .fold(0) { mask, mechanic -> mask or mechanic.decision.rawMask }
+        val liveState = request.hnsLiveBattleState?.let { live ->
+            if (ignoredFieldMask == 0) live else live.copy(
+                fieldStatuses = live.fieldStatuses?.and(ignoredFieldMask.inv())
+            )
+        }
+
+        return request.copy(
+            attacker = neutralize(request.attacker, HnsAbilitySide.ATTACKER),
+            defender = neutralize(request.defender, HnsAbilitySide.DEFENDER),
+            hnsLiveBattleState = liveState
         )
     }
 
@@ -1599,6 +1879,14 @@ object CalcCapabilityPolicy {
         limitations: MutableSet<CalcLimitation>,
         decisions: MutableList<HnsItemRequestDecision>
     ) {
+        val suppliedItemName = input.item?.takeIf { it.isNotBlank() }
+        if (input.origin == CalcInputOrigin.MANUAL && input.itemId != null && suppliedItemName != null &&
+            com.dualdex.pokemon.hns.HnsItemRegistry.resolveIdByName(suppliedItemName) != input.itemId
+        ) {
+            limitations.add(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE)
+            return
+        }
+
         // Global capability first; a globally unsupported or modelled item then gets exactly one
         // request-local decision, and only PROVEN_IRRELEVANT or MODELLED removes its blocker.
         fun classify(id: Int) {
@@ -1610,6 +1898,10 @@ object CalcCapabilityPolicy {
                 context = HnsItemContextPolicy.contextForRequest(request, side, ordinaryMove)
             )
             decisions += decision
+            if (entry.category == com.dualdex.pokemon.hns.HnsItemCategory.UNCLASSIFIED) {
+                limitations.add(CalcLimitation.HNS_ITEM_EFFECT_UNCLASSIFIED)
+                return
+            }
             if (decision.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT &&
                 decision.relevance != HnsItemRequestRelevance.MODELLED) {
                 limitations.add(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED)
@@ -1746,7 +2038,8 @@ object CalcCapabilityPolicy {
      *    clears it (the arithmetic is modelled), while an unobserved pair is refused precisely
      *    ([CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED]) rather than assumed inactive.
      *
-     * Any non-pinch ability keeps the original rule: an unsupported classification blocks.
+     * A non-pinch ability with complete, relevant context can be named as a caveat by the outer
+     * policy; unknown or unclassified effects remain hard refusals.
      */
     private fun collectHnsAbilityCapabilityLimitation(
         classification: com.dualdex.pokemon.hns.HnsAbilityEntry,
@@ -1763,7 +2056,7 @@ object CalcCapabilityPolicy {
             if (moveType == null) {
                 // The effective move type could not be resolved from the pinned pack; the
                 // ability's relevance cannot be proven, so fail closed on the ability.
-                limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
+                limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED)
             } else if (!moveType.equals(pinchType, ignoreCase = true)) {
                 // Provably irrelevant for this move's type.
             } else {
@@ -1794,7 +2087,7 @@ object CalcCapabilityPolicy {
                 relevance = HnsAbilityRequestRelevance.UNKNOWN,
                 rationale = "Unresolved global ability classification always fails closed."
             )
-            limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
+            limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED)
         }
     }
 
@@ -1804,8 +2097,8 @@ object CalcCapabilityPolicy {
      * The boundary has already observed the operands ([CalcHnsLiveBattleState]); this decides
      * whether the observed values are usable:
      *  - every active `gFieldStatuses` bit is decided on its own by [HnsFieldContextPolicy]; a bit
-     *    that is not proven irrelevant for this exact request blocks with
-     *    [CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED] (an unknown bit always blocks);
+     *    proven irrelevant is cleared, a known relevant bit can be named as a caveat, and unknown
+     *    relevance blocks with [CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED];
      *  - an active dynamic-type retype (Electrify, or Ion Deluge on a Normal move) blocks;
      *  - an active defender Glaive Rush volatile blocks (x2 not modelled);
      *  - an unread gimmick blocks; an active gimmick blocks;
@@ -2033,6 +2326,11 @@ object CalcCapabilityPolicy {
 
         listOf(request.attacker to true, request.defender to false).forEach { (input, isAttacker) ->
             if (capability.ruleset == CalcRuleset.HNS_2_0_5) {
+                if (input.origin == CalcInputOrigin.MANUAL && input.abilityId != null && !input.ability.isNullOrBlank() &&
+                    com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.ability).abilityId != input.abilityId
+                ) {
+                    limitations.add(CalcLimitation.HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE)
+                }
                 if (input.origin == CalcInputOrigin.LIVE_READ) {
                     if (input.unknownFields.contains(CalcInputField.ABILITY) || input.ability.isNullOrBlank() || input.abilityId == null) {
                         limitations.add(CalcLimitation.HNS_EFFECTIVE_ABILITY_UNREADABLE)

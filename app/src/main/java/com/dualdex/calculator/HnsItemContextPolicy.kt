@@ -37,8 +37,9 @@ data class HnsItemRequestDecision(
  *
  * [HnsItemRegistry] stays the global capability authority ("what can this item's own hold effect
  * change?"). This policy only answers whether that effect can change THIS request's single-hit
- * damage range, and only clears when every operand of a reviewed predicate is authoritative. The
- * reviewed rules, their predicates and their pinned evidence live in
+ * damage range. It proves irrelevance only when every operand of a reviewed predicate is
+ * authoritative; a complete relevant decision can be named as a caveat by the outer capability
+ * policy, while unknown relevance remains a hard refusal. The reviewed rules, their predicates and their pinned evidence live in
  * `tools/hns-items/context_rules.json`; `generate_hns_item_audit.py --check` fails when a rule named
  * here is not reviewed there or its evidence lines changed.
  *

@@ -161,6 +161,33 @@ object HnsCalcCensusReport {
             )
     }
 
+    private fun ignoredMechanicRanks(run: HnsCalcCensusEngine.CensusRun): List<BlockerRank> {
+        data class Occurrence(val mechanic: HnsCensusBlocker, val requestKey: String, val trainerKey: String)
+
+        val occurrences = run.requests.flatMap { record ->
+            record.outcome.ignoredMechanics.map { Occurrence(it, record.key, record.trainerKey) }
+        }
+        return occurrences
+            .groupBy { Triple(it.mechanic.kind, it.mechanic.side, it.mechanic.identity) }
+            .map { (key, group) ->
+                BlockerRank(
+                    key = key.third ?: key.first,
+                    kind = key.first,
+                    side = key.second,
+                    identity = key.third,
+                    requests = group.map { it.requestKey }.distinct().size,
+                    battles = group.map { it.trainerKey }.distinct().size
+                )
+            }
+            .sortedWith(
+                compareByDescending<BlockerRank> { it.battles }
+                    .thenByDescending { it.requests }
+                    .thenBy { it.kind }
+                    .thenBy { it.side ?: "" }
+                    .thenBy { it.identity ?: "" }
+            )
+    }
+
     private data class MoveRank(val key: String, val kind: String, val requests: Int, val battles: Int)
 
     private fun limitationRanks(run: HnsCalcCensusEngine.CensusRun): List<MoveRank> {
@@ -342,7 +369,7 @@ object HnsCalcCensusReport {
                 ),
                 "CAVEATED_ESTIMATE" to JsonValue.str(
                     "a number is displayed while named mechanics are intentionally ignored " +
-                        "(issue #86); zero on current main by construction, never fabricated"
+                        "according to the production verdict's ignoredMechanics"
                 ),
                 "REFUSED" to JsonValue.str("no number is displayed")
             )
@@ -554,13 +581,25 @@ object HnsCalcCensusReport {
                     // The ranked causes of this verdict, with production's own mechanic identity.
                     // The full policy decision objects are in the optional detailed dump.
                     "causes" to JsonValue.strArr(
-                        record.outcome.blockers.map { blocker ->
+                        (record.outcome.blockers + record.outcome.ignoredMechanics).map { blocker ->
                             buildString {
                                 append(blocker.limitation.name)
                                 blocker.side?.let { append(":").append(it) }
                                 blocker.identity?.let { append(":").append(it) }
                                 blocker.relevance?.let { append(":").append(it) }
                             }
+                        }
+                    ),
+                    "ignoredMechanics" to JsonValue.arr(
+                        record.outcome.ignoredMechanics.map { mechanic ->
+                            JsonValue.obj(
+                                "kind" to JsonValue.str(mechanic.kind),
+                                "limitation" to JsonValue.str(mechanic.limitation.name),
+                                "side" to JsonValue.str(mechanic.side),
+                                "mechanic" to JsonValue.str(mechanic.identity),
+                                "relevance" to JsonValue.str(mechanic.relevance),
+                                "rule" to JsonValue.str(mechanic.rule)
+                            )
                         }
                     )
                 )
@@ -603,6 +642,17 @@ object HnsCalcCensusReport {
                                 "mechanic" to JsonValue.str(blocker.identity),
                                 "relevance" to JsonValue.str(blocker.relevance),
                                 "rule" to JsonValue.str(blocker.rule)
+                            )
+                        }
+                    ),
+                    "ignoredMechanics" to JsonValue.arr(
+                        record.outcome.ignoredMechanics.map { mechanic ->
+                            JsonValue.obj(
+                                "limitation" to JsonValue.str(mechanic.limitation.name),
+                                "side" to JsonValue.str(mechanic.side),
+                                "mechanic" to JsonValue.str(mechanic.identity),
+                                "relevance" to JsonValue.str(mechanic.relevance),
+                                "rule" to JsonValue.str(mechanic.rule)
                             )
                         }
                     ),
@@ -655,6 +705,7 @@ object HnsCalcCensusReport {
         val lead = HnsCalcCensusMetrics.leadMatchup(run)
         val tiers = HnsCalcCensusMetrics.tierCounts(run)
         val blockers = blockerRanks(run)
+        val ignoredMechanics = ignoredMechanicRanks(run)
         val limitations = limitationRanks(run)
         val items = itemRanks(run)
         val abilities = abilityRanks(run)
@@ -754,11 +805,9 @@ object HnsCalcCensusReport {
                 "existing `CalcSupport` enum (whose H&S ceiling is `ESTIMATED` for every request):\n\n"
         )
         out.append("- `FULLY_MODELLED` - a number is displayed and no mechanic that could change it is ignored.\n")
-        out.append("- `CAVEATED_ESTIMATE` - a number is displayed while named mechanics are " +
-            "intentionally ignored (issue #86). **On current `main` this is 0 by construction**: " +
-            "the policy has no notion of an ignored mechanic yet, and the census never fabricates " +
-            "a caveated result. The schema already carries the tier, so #86 can feed its real " +
-            "production outcome in without rewriting this tool.\n")
+        out.append("- `CAVEATED_ESTIMATE` - a trustworthy base range is displayed after production " +
+            "neutralizes named, identity-known mechanics that it does not model. The ignored " +
+            "mechanics come from the production verdict, not a census heuristic.\n")
         out.append("- `REFUSED` - no number is displayed.\n\n")
         out.append("| Tier | Requests |\n|---|---:|\n")
         out.append("| `FULLY_MODELLED` | ${tiers.getValue(HnsCensusResultTier.FULLY_MODELLED)} |\n")
@@ -848,6 +897,19 @@ object HnsCalcCensusReport {
                     "${rank.side ?: "-"} | ${rank.battles} | ${rank.requests} |\n"
             )
         }
+        out.append("\n")
+
+        out.append("## Ignored mechanics in caveated estimates\n\n")
+        out.append(
+            "These named abilities and items are neutralized by production policy before the " +
+                "authorized request reaches the engine. Counts use the same distinct-battle and " +
+                "request rules as the hard-blocker table.\n\n"
+        )
+        out.append("| Mechanic | Side | Battles | Requests |\n|---|---|---:|---:|\n")
+        ignoredMechanics.take(25).forEach { rank ->
+            out.append("| ${rank.identity ?: rank.kind} | ${rank.side ?: "-"} | ${rank.battles} | ${rank.requests} |\n")
+        }
+        if (ignoredMechanics.isEmpty()) out.append("| _none_ | - | 0 | 0 |\n")
         out.append("\n")
 
         out.append("### Blocker codes\n\n")

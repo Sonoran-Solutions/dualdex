@@ -422,5 +422,15 @@ data class DamageCalculationResponse(
     val defenderMaxHP: Int = 0,
     val koChanceText: String = "",
     val effectiveness: Double? = null,
+    /** Echo of operands read by the H&S calculation path, used to verify caveat neutralization. */
+    val engineEcho: CalcEngineOperandEcho? = null,
     val error: String? = null
+)
+
+data class CalcEngineOperandEcho(
+    val attackerAbility: String?,
+    val defenderAbility: String?,
+    val attackerItem: String?,
+    val defenderItem: String?,
+    val hasCompleteContract: Boolean
 )

@@ -98,20 +98,20 @@ class HnsCalcCensusTest {
     }
 
     @Test
-    fun `the schema can represent a caveated estimate without issue 86 being implemented`() {
-        // The tier exists, is distinct from the other two, and carries a wire name the artifacts
-        // already publish. Issue #86 only has to start producing it; nothing here has to change.
+    fun `the census derives caveated estimates from production verdicts`() {
         assertEquals(3, HnsCensusResultTier.entries.size)
         assertEquals("CAVEATED_ESTIMATE", HnsCensusResultTier.CAVEATED_ESTIMATE.wireName)
-        val json = HnsCalcCensusReport.toJson(artifacts().run)
+        val run = artifacts().run
+        val json = HnsCalcCensusReport.toJson(run)
         assertTrue(json.contains("\"CAVEATED_ESTIMATE\""))
-        assertEquals(
-            "issue #86 is not implemented, so the census must contain no caveated estimate",
-            0,
-            artifacts().run.requests.count {
-                it.outcome.tier == HnsCensusResultTier.CAVEATED_ESTIMATE
-            }
-        )
+        val caveated = run.requests.filter { it.outcome.tier == HnsCensusResultTier.CAVEATED_ESTIMATE }
+        assertTrue("production policy should create real caveated estimates", caveated.isNotEmpty())
+        assertTrue(caveated.all { it.outcome.ignoredMechanics.isNotEmpty() && it.outcome.blockers.isEmpty() })
+        assertFalse(run.requests.any {
+            it.outcome.tier == HnsCensusResultTier.FULLY_MODELLED && it.outcome.ignoredMechanics.isNotEmpty()
+        })
+        assertTrue(run.requests.filter { it.outcome.tier == HnsCensusResultTier.REFUSED }
+            .all { it.outcome.ignoredMechanics.isEmpty() })
     }
 
     // ---------------------------------------------------------------------------- the census

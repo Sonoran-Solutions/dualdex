@@ -135,6 +135,8 @@ data class BattleHnsDamagePresentation(
     val itemBlockers: List<HnsItemRequestDecision> = emptyList(),
     /** Every blocker class of a refusal, in display order; nothing is hidden behind another class. */
     val blockers: List<DamageBlockerPresentation> = emptyList(),
+    /** Same structured ability/item causes, now explicitly ignored for an estimate. */
+    val ignoredMechanics: List<DamageBlockerPresentation> = emptyList(),
     val unavailableReason: String? = null
 )
 
@@ -275,7 +277,9 @@ object BattleHnsDamagePresenter {
                         unavailableReason = if (outcome.verdict.support == CalcSupport.ESTIMATED) null else "Calculation not supported"
                     )
                 } else {
-                    val response = calculator.calculate(outcome.request)
+                    val response = com.dualdex.calculator.CalcAuthorizedExecution.calculate(outcome.verdict) {
+                        calculator.calculate(it)
+                    }
                     if (response.success && response.maxDamage > 0) {
                         BattleHnsDamagePresentation(
                             category = parseCategory(response.moveCategory) ?: authorizedCategory ?: category,
@@ -287,7 +291,9 @@ object BattleHnsDamagePresenter {
                             maxDamage = response.maxDamage,
                             range = response.range,
                             koChanceText = response.koChanceText,
-                            support = outcome.verdict.support
+                            support = outcome.verdict.support,
+                            limitations = outcome.verdict.limitations,
+                            ignoredMechanics = DamageBlockerPresentation.ignoredFrom(outcome.verdict)
                         )
                     } else {
                         BattleHnsDamagePresentation(
@@ -296,7 +302,7 @@ object BattleHnsDamagePresenter {
                             effectiveness = requestTypePresentation.effectiveness,
                             effectivenessConfidence = requestTypePresentation.effectivenessConfidence,
                             support = outcome.verdict.support,
-                            unavailableReason = "Calculation unavailable"
+                            unavailableReason = response.error ?: "Calculation unavailable"
                         )
                     }
                 }

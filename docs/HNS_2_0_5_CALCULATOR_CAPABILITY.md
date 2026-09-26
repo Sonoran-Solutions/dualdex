@@ -68,8 +68,9 @@ current `BattlePokemon.species` word for form-dependent predicates such as Tera 
 request evidence, not a species-default ability lookup. The Battle tab keeps every remaining
 ability blocker as structured data and shows multiple blockers on separate lines (for example,
 `You: Huge Power` / `Foe: Tera Shell`); a single blocker keeps the compact one-line label. An
-unresolved ID says “not yet audited”. A refusal still uses
-`HNS_ABILITY_EFFECT_NOT_MODELLED` and never reaches the calculator.
+unresolved ID says “not yet audited”. A known relevant unsupported ability is neutralized and shown
+as an estimate caveat when the request evidence is complete; unknown or unclassified ability states
+remain hard refusals and never reach the calculator.
 
 This document is the **authority** for what DualDex's damage calculator may honestly claim about
 Pokemon Heart & Soul (H&S) 2.0.5, and for how the two verified vanilla targets differ from it.
@@ -99,12 +100,21 @@ Line references below are `file:line` into that pinned checkout.
 > production request reaches `Ready` / `ESTIMATED` describe pre-C4e states and are superseded by
 > this C4e status and §14.9.
 
+> **Current #86 result policy.** Every request ends as one of three outcomes: **Fully modelled**
+> (calculation and active damage modifiers are represented), **Caveated estimate** (a trustworthy
+> base request runs after one or more known, named mechanics are neutralized), or **Refused** (no
+> trustworthy base calculation exists). An estimate does not mean DualDex guessed a missing modifier;
+> it means the engine calculated the known request after deliberately removing each named mechanic
+> whose effect is not modelled. Known relevant abilities, items, and supported field modifiers may
+> be ignored this way. Unknown or unread identity/state remains a hard refusal, and any independent
+> hard limitation wins. See `CalcLimitation.disposition` and §14.9 / §15.5.
+
 **Vocabulary.** *SOURCE VERIFIED* means read directly from the pinned source (or from the vendored
 library source). *NOT FOUND* means the evidence does not exist and is never treated as true.
 
 ---
 
-## 1. The three answers, in one paragraph
+## 1. The three answers
 
 DualDex supports **exact verified FireRed**, **exact verified Emerald**, and **exact H&S 2.0.5**.
 Vanilla FireRed/Emerald requests that stay inside the verified input set are presented as **Verified**
@@ -117,26 +127,26 @@ move (the cartridge halves it only while both opponents are present, so a lone r
 reduced at all), refused as `CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED`.
 The exact supported SHA-256s, the independent
 Generation III oracle, the shared golden fixture matrix, the production-boundary evidence, the
-read-only memory layout audit and the
-corrected vanilla profile hashes are recorded in
+read-only memory layout audit and the corrected vanilla profile hashes are recorded in
 [VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md). H&S 2.0.5 calculator support is a **partial, fail-closed
 slice (Gap C4b/PARTIAL, Gap C4c/OPEN)**: the UQ4.12 roll-first damage arithmetic is implemented in QuickJS
 (`calculateHnsDamage`, §11) and host-verified against the native C oracle. After Gap C4e the live
 operands it depends on — current effective types, battle stat words, the dynamic move type, transient
 damage state, the runtime `GetMoveTargetCount` count, the gimmick state, and the attacker's live
 HP/status — are observed from exact-trusted runtime state for the ordinary Singles subset, so that
-subset is published as **Estimated** (§14). Everything outside it — Doubles, active dynamic-type
-retypes, Glaive Rush, active gimmicks, non-neutral live status, relevant or unknown unsupported
-ability effects, unsupported items/moves, active Random Types/Random Type Effectiveness/Random Moves,
-and other unmodelled inputs — is still **refused** (`CalcSupport.UNSUPPORTED`) rather than published as an estimate. H&S lets the player change rules (category split, Fairy type, randomizers), applies modern
+subset is published as **Estimated** (§14). Issue #86 adds a second bounded path: when the base
+request is still trustworthy, a known, relevant but unmodelled ability, item, or supported field
+modifier is removed from the authorized execution request, and its identity is shown with the
+estimate. Unknown ability/item identity, unread state, unsupported move mechanics, Doubles, active
+dynamic-type retypes, Glaive Rush, active gimmicks, non-neutral live status, active Random Types /
+Random Type Effectiveness / Random Moves, and other hard limitations remain **refused**. H&S lets the player change rules (category split, Fairy type, randomizers), applies modern
 base data and type matchups, and executes a distinct UQ4.12 pipeline with Gen III badge boosts; DualDex
 consumes challenge settings at runtime via `CalcRequestBoundary` (§4.1), executes the exact 19x19 H&S
 type chart (Gap C1, §3.1), and audits authoritative abilities (Gap C2, §6) and held items (Gap C3, §7).
-Requests outside the supported ordinary subset (unmodelled moves, relevant or unknown unsupported
-ability effects, unsupported items, out-of-range stat stages, unmodelled weather, unsupported active
-randomizers, unobserved mutable state in active
-battles, unspecified badge applicability, or an unobserved Doubles target count) remain strictly
-**refused** with a stated reason. Every other build — CFRU hacks, split-mechanics vanilla builds, any
+Requests with no trustworthy base calculation (unmodelled moves, unknown ability/item identity,
+unread live state, out-of-range stat stages, unmodelled weather, unsupported active randomizers,
+unspecified badge applicability, or unavailable Doubles arithmetic) remain strictly **refused** with
+a stated reason. Every other build — CFRU hacks, split-mechanics vanilla builds, any
 unidentified ROM — is **refused** rather than given a Gen III number.
 
 The single decision point is `CalcCapabilityPolicy`
@@ -158,8 +168,8 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — type chart is exact and verified in QuickJS. Used by `calculateHnsDamage` for post-roll type effectiveness; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C1/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
-| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy`. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — global categories remain unchanged; 84 proven-neutral abilities and four conditional pinch abilities retain their existing rules. Fourteen globally unsupported abilities receive reviewed contextual rules; only source-proven irrelevant requests clear their one ability blocker. Relevant and unknown contexts remain refused with `HNS_ABILITY_EFFECT_NOT_MODELLED`; independent blockers remain in force. |
-| 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629`, Wise Glasses `[src/data/items.h:10091]` | **identity yes; damage effects conditionally modelled** — exact item identity and the current battle item are consumed; Wise Glasses modelled specifically for H&S; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (585 neutral / 312 unsupported / 1 modelled / 3 unclassified); no item blocker only for a globally neutral item, a modelled item (Wise Glasses), or an unsupported item source-proven irrelevant to the exact request (§7.4–§7.5) **and** a move that does not read item state; relevant/unknown unmodelled damage items fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`, and item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) fail closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
+| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy`. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — global categories remain unchanged; 84 proven-neutral abilities and four conditional pinch abilities retain their existing rules. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
+| 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629`, Wise Glasses `[src/data/items.h:10091]` | **identity yes; damage effects conditionally modelled** — exact item identity and the current battle item are consumed; Wise Glasses modelled specifically for H&S; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (585 neutral / 312 unsupported / 1 modelled / 3 unclassified); a known `RELEVANT` unsupported item may be neutralized and named in a caveated estimate only for an item-independent move. Proven-irrelevant and modelled items keep their existing paths; `UNKNOWN`, unclassified, unread, and unauthoritative identities remain hard. Item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 10 | Snow | Ice Defense ×1.5 `[src/battle_util.c:7389]`; Snow never chips, Hail chips 1/16 `[src/battle_end_turn.c:155]` | **no** | **REFUSED** when asked for — fails closed |
@@ -234,8 +244,8 @@ Only these individual behaviours are source-and-test demonstrated:
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
 | Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
 | Abilities (supported subset) | 84 proven neutral abilities and 4 conditional pinch abilities | Neutral abilities add no modifier; pinch uses the H&S UQ4.12 pipeline | **CONDITIONALLY AUTHORIZED** under the live operand gates (§14.6 and pinned audit above) |
-| Abilities (globally unsupported) | Guts, Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — `HNS_ABILITY_EFFECT_NOT_MODELLED` remains for relevant or unknown request contexts; source-proven irrelevant contexts may clear only that ability blocker (§6.3) |
-| Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items, Wise Glasses | identity consumed; Wise Glasses modelled, other damage items unmodelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — 585 globally neutral items, 1 modelled item (Wise Glasses), and unsupported items proven irrelevant to the exact request, clear the item blocker only for an item-independent move; every relevant or unresolved unmodelled item fails closed with `HNS_ITEM_EFFECT_NOT_MODELLED`; every item-dependent move fails closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`; unreadable current item is `HNS_EFFECTIVE_ITEM_UNREADABLE` (§7) |
+| Abilities (globally unsupported) | Guts, Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — known relevant unsupported abilities are named caveats after neutralization; unknown/unread/unclassified abilities remain hard, and proven-irrelevant contexts do not become caveats (§6.3, #86) |
+| Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items, Wise Glasses | identity consumed; Wise Glasses modelled, other damage items unmodelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — a known relevant unsupported item may become a named caveat for an item-independent request; unread/unresolved identity remains hard, and item-dependent moves remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7, #86) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
 
 ### 3.3 Three different claims that must not be conflated
@@ -300,11 +310,12 @@ challenge-menu toggle flipping exactly `tx_Mode_Fairy_Types`).
   while omitting category for damaging moves to trigger type-based category derivation.
 - **Randomizer activation is known:** observed raw 0 clears unreadable blockers; observed raw 1 blocks with
   explicit active-not-modelled limitations.
-- **Unsupported mechanics still block:** live battler abilities (observed via `gBattleMons`, PR #56),
+- **Historical pre-C4e status:** live battler abilities (observed via `gBattleMons`, PR #56),
   authoritative data overrides (PR #57), runtime rules (PR #61), the exact H&S type chart (Gap C1, PR #62),
   authoritative effective abilities with conditional capability gating (Gap C2), and exact current held-item
   identity with conditional item capability (Gap C3) are plumbed, but the generation III badge boost remains
-  unmodelled, so all H&S calculations remain refused (`CalcSupport.UNSUPPORTED`).
+  unmodelled, so all H&S calculations remained refused (`CalcSupport.UNSUPPORTED`) at that point. This
+  snapshot is superseded by C4e and the #86 three-tier result policy above.
 
 Two properties make challenge settings decisive rather than a caveat:
 
@@ -350,7 +361,7 @@ The calculator truthfully distinguishes three states:
    - `tx_Random_Type == 1`: Observed ON. Blocks calculation with `RANDOM_TYPES_ACTIVE_NOT_MODELLED`.
    - `tx_Random_TypeEffectiveness == 1`: Observed ON. Blocks calculation with `RANDOM_TYPE_EFFECTIVENESS_ACTIVE_NOT_MODELLED`.
 
-**Every H&S calculation remains refused (`CalcSupport.UNSUPPORTED`) after Gap A, C1, C2, C3, and C4a because the generation III badge boost remains unmodelled (`BADGE_BOOST_NOT_MODELLED`), the pinned H&S damage-modifier order and staged-stat rounding are not reproduced (`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`), and mutable live battle state is not authoritatively observed (`HNS_LIVE_BATTLE_STATE_NOT_MODELLED`).**
+**Historical pre-C4e summary (superseded):** every H&S calculation remained refused (`CalcSupport.UNSUPPORTED`) after Gap A, C1, C2, C3, and C4a because the generation III badge boost remained unmodelled (`BADGE_BOOST_NOT_MODELLED`), the pinned H&S damage-modifier order and staged-stat rounding were not reproduced (`HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`), and mutable live battle state was not authoritatively observed (`HNS_LIVE_BATTLE_STATE_NOT_MODELLED`). Current production outcomes are described at the top of this document and in §14.9.
 
 ### 4.2 Value-changing fields
 
@@ -483,15 +494,16 @@ that the H&S ability system is unmodelled with a strict per-ability and per-part
    rewrites accepted names to exact Title Case (`"GUTS"` → `"Guts"`, `"HUGE POWER"` → `"Huge Power"`).
    Unmodelled names are left intact and blocked. `Sea Incense` is intentionally *not* in the type-boost list:
    the engine models it as its own ×1.05 Water case rather than as the generic ×1.1 type-boost item.
-   For H&S, item capability is decided by the exact numeric item ID, never by a name, and the authorized
-    request omits the item entirely because no H&S damage item is modelled (§7).
+   For H&S, item capability is decided by the exact numeric item ID, never by a name. The authorized
+   request preserves modelled items such as Wise Glasses, omits proven-neutral items, and removes a
+   known relevant unsupported item only for a named #86 estimate (§7).
 
 ### 6.3 Source-backed contextual ability relevance
 
 The global ability registry answers whether an ability is supported in general. If that category is
 `UNSUPPORTED_DAMAGE_RELEVANT`, `HnsAbilityContextPolicy` separately assesses its effect for the
-current request using only explicit request operands; `PROVEN_IRRELEVANT` removes that ability's
-blocker, while `RELEVANT` and `UNKNOWN` continue to block. This does not reclassify an ability or
+current request using only explicit request operands; `PROVEN_IRRELEVANT` adds no caveat, `RELEVANT`
+can become a named #86 caveat after neutralization, and `UNKNOWN` remains a hard refusal. This does not reclassify an ability or
 clear any unrelated `CalcLimitation`.
 
 The first-wave rules cover Tera Shell (ID 308), Truant (54), Telepathy (140), Levitate (26), Guts
@@ -579,9 +591,9 @@ H&S item identity is now exact and independent of the generic expansion table:
   an identity exception overrides it; the decisions are generated into `HnsItemAuditData.kt` and
   re-verified against the pinned source by `./ci.sh source-check`.
 * **Request-local relevance.** A globally unsupported item is then assessed by `HnsItemContextPolicy`
-  for the exact request (§7.5). Only `PROVEN_IRRELEVANT` removes that item's
-  `HNS_ITEM_EFFECT_NOT_MODELLED`; `RELEVANT` and `UNKNOWN` keep blocking, and no other limitation is
-  touched.
+  for the exact request (§7.5). `PROVEN_IRRELEVANT` adds no caveat; a known `RELEVANT` item gets a
+  soft disposition and is removed from the execution request for a named estimate. `UNKNOWN` stays
+  hard, and no other limitation is touched.
 * **Contextual interaction audit.** A move whose damage calculation reads held-item state is audited
   separately by `HnsMoveItemInteractionRegistry`, keyed by the exact pack's numeric move ID. Because no
   item-dependent interaction is modelled, every such move adds
@@ -632,7 +644,7 @@ Pluck/Bug Bite/Thief/Covet (the item is moved after the damage formula); Sucker 
 defender's chosen move, not an item); and the gem/plate/choice/pinch-berry hold effects (they multiply
 an ordinary move and are already refused by the static audit).
 
-### 7.3 Representative refused items (fail closed with `HNS_ITEM_EFFECT_NOT_MODELLED`)
+### 7.3 Representative globally unsupported items
 
 | Item | H&S numeric ID | H&S source effect | ADV behavior | DualDex category | Reason |
 |---|---|---|---|---|---|
@@ -653,9 +665,10 @@ an ordinary move and are already refused by the static audit).
 | Leftovers / Shell Bell / Rocky Helmet | 472 / 473 / 496 | between-turn heal / heal on damage / recoil on contact (`[src/battle_hold_effects.c:642-656]`, `:536-555]`, `:245-262]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Globally: later HP/KO changes. Request-locally irrelevant to a single ordinary hit (§7.5). |
 
 These rows remain **globally** `UNSUPPORTED_DAMAGE_RELEVANT`; §7.5 lists the exact request shapes in
-which each is proven irrelevant, and every other shape still fails closed with
-`HNS_ITEM_EFFECT_NOT_MODELLED`. The three `UNCLASSIFIED` identities (Red Orb, Blue Orb, e-Reader
-Enigma Berry) always fail closed. Independently, any request whose move is item-dependent (§7.2) fails
+which each is proven irrelevant. A known relevant item may instead be neutralized as a named #86
+caveat when its identity and contextual decision are authoritative and the move is item-independent.
+The three `UNCLASSIFIED` identities (Red Orb, Blue Orb, e-Reader Enigma Berry) always fail closed.
+Independently, any request whose move is item-dependent (§7.2) fails
 closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`, even when the item itself is `ITEM_NONE` or a
 supported static item. An observed current item that cannot be authoritatively read is
 `HNS_EFFECTIVE_ITEM_UNREADABLE`, and a manual name that does not resolve in the exact H&S catalogue is
@@ -760,12 +773,12 @@ observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` re
 * the decoded live `gFieldStatuses` word (Wonder Room / terrain bits where a rule actually reads them),
   `gBattleWeather`, defender HP/maxHP, and the effective attacker ability ID.
 
-| Family | Proven irrelevant | Still blocked |
+| Family | Proven irrelevant / modelled | Relevant or unknown |
 |---|---|---|
-| Choice Band, Muscle Band, Thick Club | Defender side; attacker with an authoritative Special move | Physical move (Band: relevant; Club: species unobserved); unknown category |
-| Choice Specs, Deep Sea Tooth | Defender side; attacker with an authoritative Physical move | Special move; unknown category |
+| Choice Band, Muscle Band, Thick Club | Defender side; attacker with an authoritative Special move | Known relevant modifier becomes a caveat; unknown category or identity remains hard |
+| Choice Specs, Deep Sea Tooth | Defender side; attacker with an authoritative Physical move | Known relevant modifier becomes a caveat; unknown category or identity remains hard |
 | Wise Glasses | Defender side; attacker with an authoritative Physical move (PROVEN_IRRELEVANT); attacker with an authoritative Special move (MODELLED) | Unknown category |
-| Type boosters, Plates, Gems | Defender side; attacker whose authoritative effective type differs from the pinned `secondaryId` | Matching type; unknown effective type |
+| Type boosters, Plates, Gems | Defender side; attacker whose authoritative effective type differs from the pinned `secondaryId` | Matching type becomes a caveat; unknown effective type remains hard |
 | Lustrous/Adamant/Griseous Orb, Soul Dew | Defender side; attacker whose effective type is outside the two boosted types | Boosted type (species unobserved) |
 | Light Ball, Ogerpon masks, Punching Glove | Defender side | Attacker side (species / punching flag unobserved) |
 | Life Orb, Expert Belt, Metronome | Defender side | Attacker side |
@@ -815,7 +828,9 @@ Recorded so they are not mistaken for oversights. Each is a deliberate scope bou
 2. **Ability defaults when no ability is supplied.** The engine applies the species' first bundled
    ability when the caller omits one. For vanilla Gen III that is the same data the profile
    describes, so it is correct there. For H&S, `resolveAbility()` in `entry.js` maps omitted/empty/None
-   to `'(other)'` to prevent default substitution, while DualDex policy strictly refuses unmodelled abilities.
+   to `'(other)'` to prevent default substitution. For H&S, a known relevant unmodelled ability is
+   neutralized and named in a caveated estimate (§14.9); unread identity or unknown relevance still
+   refuses.
 3. **Move mechanics beyond the ADV pipeline (gated in §10.3).** Multi-hit turn-doubling, weight-based
    power, fixed damage, Hidden Power's IV-derived base power, Return/Frustration's happiness scaling
    and the rest of the special-effect families are not modelled. Gap C4a derives each move's
@@ -1201,13 +1216,13 @@ active battler, Soak Water vs static Normal — which also makes the detector ad
 `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED` for the live 2×, third non-empty type, slot mismatch,
 out-of-domain type) and the policy-level fully-observed positive control.
 
-### 10.6 Evidence vocabulary and the final blockers
+### 10.6 Evidence vocabulary and the final blockers (historical pre-C4e)
 
 The arithmetic goldens are **SOURCE/HOST VERIFIED** (pinned source transcribed into the native
 oracle, executed against the committed bundle). They are **NOT RUNTIME VERIFIED**: no official ROM
 battle has produced them.
 
-The remaining production blockers are `BADGE_BOOST_NOT_MODELLED`,
+At the time of the C4b slice, the remaining production blockers were `BADGE_BOOST_NOT_MODELLED`,
 `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED`, `HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED`, and
 `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` (plus the C2/C3/type/setting blockers where applicable). The
 C4b slice has since bound the badge reader and the arithmetic, but Gap C4b remains **PARTIAL / OPEN**
@@ -1224,21 +1239,24 @@ until:
    damage state are consumed and validated (or proven neutral) before
    `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` may clear (§10.5 R1).
 
-Until then, H&S production calculations remain `UNSUPPORTED` with `request == null`, and
-`BUILDS_NOT_HASH_VERIFIED` is untouched: no ROM hash or trust is promoted here.
+That paragraph describes the pre-C4e state and is superseded by §14.9: the supported live Singles
+subset now calculates as an estimate, and complete, named ability/item/field relevance can be
+neutralized as a caveat. `BUILDS_NOT_HASH_VERIFIED` remains untouched: no ROM hash or trust is
+promoted here.
 
 ---
 
-## 11. Gap C4b — Partial Arithmetic + Reader Slice (SOURCE + HOST VERIFIED, PARTIAL / OPEN)
+## 11. Gap C4b — Partial Arithmetic + Reader Slice (historical pre-C4e; SOURCE + HOST VERIFIED)
 
-This section documents the Gap C4b slice (issues #9 and #40), advancing H&S 2.0.5 calculator support
+This section records the Gap C4b slice (issues #9 and #40), which advanced H&S 2.0.5 calculator support
 from source-audited but refused to **source-verified + host-verified calculation** for the supported
-ordinary mechanics subset. This is a **partial C4b slice, not C4b completion**: the arithmetic, stat
+ordinary mechanics subset. It is a historical **partial C4b slice, not C4b completion**: the arithmetic, stat
 stages, badge reader, and target-count operand are source- and host-verified, but no official H&S
 2.0.5 battle result has been validated against the new output (SOURCE/HOST VERIFIED, **not** RUNTIME
-VERIFIED), and the live operands (`battleStatWords`, `dynamicMoveType`, `transientState`, and the
-runtime target count) have no reader. Production requests therefore remain fail-closed, and C4b stays
-**PARTIAL / OPEN**.
+VERIFIED). At that historical stage, the live operands (`battleStatWords`, `dynamicMoveType`,
+`transientState`, and the runtime target count) had no reader and production requests remained
+fail-closed. Gap C4b's arithmetic is still partial; current production outcomes are described in
+§14.9.
 
 ### 11.1 ABI-backed Battle Mons layout and SaveBlock1 badge state reader
 
@@ -1618,11 +1636,11 @@ ordinary `EFFECT_HIT` subset:
 | `GetUndergroundModifier` / `GetDiveModifier` / `GetAirborneModifier` | `battle_util.c:7506-7525` | Gated by move flags; defender `volatiles.semiInvulnerable` unread → **FAIL CLOSED**. |
 | `GetScreensModifier` | `battle_util.c:7527` | `IsDoubleBattle()` selects `UQ_4_12(0.667)` (Doubles) vs `UQ_4_12(0.5)` (Singles). Carried by `request.field.defenderSide` only after the live format gate confirms the observed Singles topology (§14.7.2); a Doubles battle refuses rather than applying the Singles multiplier. **Runtime not separately validated.** |
 | `GetCollisionCourseElectroDriftModifier` | `battle_util.c:7551` | Only `EFFECT_COLLISION_COURSE`; refused. |
-| `GetAttackerAbilitiesModifier` (`Neuroforce`/`Sniper`/`Tinted Lens`) | `battle_util.c:7558` | Abilities unclassified; refused. |
-| `GetDefenderAbilitiesModifier` (`Multiscale`, `Shadow Shield`, `Filter`, `Solid Rock`, `Prism Armor`, `Fluffy`, `Punk Rock`, `Ice Scales`) | `battle_util.c:7580` | Abilities unclassified; refused. |
+| `GetAttackerAbilitiesModifier` (`Neuroforce`/`Sniper`/`Tinted Lens`) | `battle_util.c:7558` | A complete, known relevant ability may be neutralized as a named estimate caveat; unclassified identity or unknown relevance remains hard. |
+| `GetDefenderAbilitiesModifier` (`Multiscale`, `Shadow Shield`, `Filter`, `Solid Rock`, `Prism Armor`, `Fluffy`, `Punk Rock`, `Ice Scales`) | `battle_util.c:7580` | A complete, known relevant ability may be neutralized as a named estimate caveat; unclassified identity or unknown relevance remains hard. |
 | `GetDefenderPartnerAbilitiesModifier` (`Friend Guard`) | `battle_util.c:7640` | Doubles-only; format blocked and ability unclassified. |
-| `GetAttackerItemsModifier` (`Metronome`, `Expert Belt`, `Life Orb`) | `battle_util.c:7656` | Item capability refuses unmodelled items. |
-| `GetDefenderItemsModifier` (resist berries) | `battle_util.c:7682` | Item capability refuses unmodelled items. |
+| `GetAttackerItemsModifier` (`Metronome`, `Expert Belt`, `Life Orb`) | `battle_util.c:7656` | A known relevant item may be neutralized as a named estimate caveat; unknown item identity or relevance remains hard. |
+| `GetDefenderItemsModifier` (resist berries) | `battle_util.c:7682` | A known relevant item may be neutralized as a named estimate caveat; unknown item identity or relevance remains hard. |
 | `CalcMoveBasePowerAfterModifiers` state/power effects (`Facade`, `Brine`, …) | `battle_util.c:6573` | Non-`EFFECT_HIT` effects are refused by the move allow-list; ability/item/status base-power modifiers are refused by their gates. |
 | `CalcAttackStat` / `CalcDefenseStat` (stages, raw words, Power Trick, badge, ability stat mods) | `battle_util.c:6912`, `7211` | Stat stages and raw battle stat words are observed and **runtime validated** (golden C); badge state is read but player-side-only; the pinch/Huge Power/Guts/Thick Fat abilities are unsupported and refused. |
 | `GetActiveGimmick` / Tera multiplier | `battle_terastal.c:134` | Not carried and not read → **FAIL CLOSED**. |
@@ -2059,8 +2077,11 @@ A request reaches `Ready` / `ESTIMATED` only when **all** of the following hold:
 * supported challenge settings: optionStyle / Fairy observed, Random Types and Random Type
   Effectiveness observed **off**, Base Stat Equalizer observed **off**, Random Moves observed **off**.
   Random Abilities may be on or off because effective numeric IDs are read from the live battlers;
-* supported/none held items and supported attacks; ability capability combines the unchanged global
-  `HnsAbilityRegistry` with the source-backed contextual rules in §6.3 (pinch abilities use §14.6);
+* ability and item identities are authoritative and classified; modelled/proven-irrelevant mechanics
+  follow their normal paths, while a known relevant unsupported ability or item may be neutralized as a
+  named caveat when the move itself has a supported base calculation; ability capability combines the
+  unchanged global `HnsAbilityRegistry` with the source-backed contextual rules in §6.3 (pinch abilities
+  use §14.6);
 * effective move type fully resolved (no active Electrify / Ion Deluge);
 * defender Glaive Rush, attacker `chargeTimer` and defender `tarShot` observed neutral (`false` /
   `0` / `false`); a positive relevant Charge / Tar Shot refuses with its precise limitation and a
@@ -2071,8 +2092,9 @@ A request reaches `Ready` / `ESTIMATED` only when **all** of the following hold:
   tuple that does not carry them refuses with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`;
 * gimmick state observed `GIMMICK_NONE` for both participants;
 * attacker live `status1` observed `0`;
-* the battle-global `gFieldStatuses` word observed with at most the Ion Deluge bit (0 is the neutral
-  word; any other bit refuses with `HNS_FIELD_STATUS_NOT_MODELLED`);
+* the battle-global `gFieldStatuses` word observed and fully decoded (0 is the neutral word; a known
+  relevant supported field modifier may be cleared as a named caveat; unknown bits and Ion Deluge's
+  active Normal-type rewrite remain hard);
 * the battle-global `gBattleWeather` word observed (clear, ordinary Rain or ordinary Sun; any other
   word - including the primal Rain/Sun bits - refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, and an
   unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN`);
@@ -2085,10 +2107,12 @@ A request reaches `Ready` / `ESTIMATED` only when **all** of the following hold:
   `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` (§14.7.2);
 * no unmodelled weather/terrain/status/move mechanic.
 
-Every other limitation remains in force. A globally unsupported ability clears only when its
-request-local context is source-proven irrelevant; relevant or unknown abilities, unsupported
-items/moves, and all other unsupported state still refuse. This is a deliberately small capability
-class, not "H&S is supported".
+Every other hard limitation remains in force. A globally unsupported ability or item may be cleared
+only when its identity is known, its contextual decision is `RELEVANT`, and the authorized request
+neutralizes it; `UNKNOWN`, unclassified, unread, or unauthoritative identities remain hard. A known
+relevant field modifier is likewise cleared only through its reviewed neutral operand. No caveat
+permits an unsupported move, invented identity, or missing base operand. This is a deliberately small
+capability class, not "H&S is supported".
 
 **Provenance of every mutable operand for that subset** (task §3 audit). "Boundary-owned" means
 `CalcRequestBoundary` rebinds it from the exact-trusted runtime observation and strips any caller
@@ -2100,7 +2124,7 @@ value; "source-proven" means the pinned source/data proves it cannot vary for th
 | defender effective types | boundary-owned `gBattleMons[d].types`; must equal the pinned static record |
 | raw battle stat words | boundary-owned `gBattleMons` attack/defense/speed/spA/spD |
 | stat stages | boundary-owned `gBattleMons.statStages` |
-| current item | boundary-owned `gBattleMons[battler].item`; supported/no item only |
+| current item | boundary-owned `gBattleMons[battler].item`; modelled/proven-irrelevant items stay intact, while known relevant unsupported items are neutralized as named caveats |
 | effective ability | boundary-owned numeric `abilityId`; global classification plus contextual request rules (§6.3). Under observed `gastroAcid` the boundary publishes `ABILITY_NONE` (the engine's `GetBattlerAbility()`), and the suppression is separately refused (§14.5.2) |
 | current HP / max HP | boundary-owned `gBattleMons.hp` / `.maxHP`; required for a relevant pinch ability |
 | badge applicability | boundary-owned player-side badge state; enemy badges source-proven irrelevant |
@@ -2110,7 +2134,7 @@ value; "source-proven" means the pinned source/data proves it cannot vary for th
 | burn / status | boundary-owned live `status1` must be 0; non-neutral refuses |
 | crit flag | request `isCrit`; C4d indirect observation |
 | game format | boundary-owned `gBattlersCount` agreed by both battle-level observations; must be the observed Singles `2`, and the request label must agree; an unread word, a disagreement, an observed `4`, or a contradictory label refuses with `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` (§14.7.2) |
-| field statuses | boundary-owned battle-global `gFieldStatuses` (both observations must agree); only the Ion Deluge bit is modelled, any other bit refuses |
+| field statuses | boundary-owned battle-global `gFieldStatuses` (both observations must agree); known relevant supported modifiers are cleared as named caveats; unknown bits and Ion Deluge's active Normal retype remain hard |
 | attacker volatiles | boundary-owned `electrified` must be false; boundary-owned `chargeTimer` must be 0; the persistent window (`foresight`/`miracleEye`/`root`/`smackDown`/`telekinesis`/`magnetRise`/`gastroAcid`/`roostActive`/`substitute`/`endured`) must be observed all-false |
 | defender volatiles | boundary-owned `glaiveRush` must be false; boundary-owned `tarShot` must be false; the persistent window must be observed all-false |
 | gimmick / Tera | boundary-owned `gBattleStruct->gimmick.activeGimmick` must be `GIMMICK_NONE` |
@@ -2197,20 +2221,21 @@ still green; C4e adds the pinch-ability fixtures alongside it.
   (§14.11) but no positive transition.
 * Active dynamic-type retypes, active Glaive Rush, active Charge on an Electric move, active Tar
   Shot on a Fire move, any active persistent volatile (Foresight, Miracle Eye, Ingrain/Smack
-  Down/Telekinesis/Magnet Rise, Roost, Gastro Acid suppression, Substitute, Endure), field
-  statuses not proven irrelevant to the request (§15; Wonder Room always, unknown bits always),
+  Down/Telekinesis/Magnet Rise, Roost, Gastro Acid suppression, Substitute, Endure), unknown field
+  bits, field states with unknown contextual relevance, and Ion Deluge's Normal-type retype (§15),
   active gimmicks, non-neutral live status, unread or unmodelled live weather (including the primal
   bits) / defender-side screens, a live topology that is not the observed Singles `2` (an unread or
-  disagreeing `gBattlersCount`, or an observed `4`), relevant or unknown unsupported ability
-  effects, unsupported items/moves remain
+  disagreeing `gBattlersCount`, or an observed `4`), unknown or unclassified ability relevance,
+  unread/unresolved item identity, and unsupported moves remain
   refused so a confident wrong number is never published.
 
 ### 14.14 Issues #9 and #40
 
 The accepted #9 closure scope is now the **bounded exact H&S 2.0.5 ordinary live Singles subset**
 defined in §14.9, capped at **`ESTIMATED`**, together with the exact vanilla FireRed/Emerald
-calculator evidence. This does not promote H&S calculations to `VERIFIED`; contextual ability rules
-clear only individually proven-irrelevant abilities. The supported H&S subset has the pinned data, upstream/host fixtures and direct A/B/C
+calculator evidence. This does not promote H&S calculations to `VERIFIED`; contextually irrelevant
+abilities add no caveat, while known relevant unsupported mechanics produce named estimates under #86.
+The supported H&S subset has the pinned data, upstream/host fixtures and direct A/B/C
 runtime observations documented here; unsupported mechanics and states remain refused.
 
 [VANILLA_CALCULATOR_EVIDENCE.md §11](VANILLA_CALCULATOR_EVIDENCE.md#11-issue-9-acceptance-audit-current-main)
@@ -2350,38 +2375,45 @@ Consequences:
 - Air Balloon / Iron Ball need no terrain bit.
 
 The ability rules (Guts, Huge/Pure Power, Thick Fat, Levitate, Adaptability) use the same authority,
-so a terrain no longer blocks, for example, "Guts cannot boost a Special move".
+so a terrain no longer makes those ability decisions unknown merely because it is active. A known
+relevant ability or item can be ignored only when its full context is known; unknown relevance can
+still keep a request refused.
 
 ### 15.5 Request-local field rules (`HnsFieldContextPolicy`)
 
-Every active bit is decided independently. PROVEN_IRRELEVANT removes only that bit's
-`HNS_FIELD_STATUS_NOT_MODELLED` contribution. RELEVANT and UNKNOWN block. A non-ordinary or unknown
-move leaves every contextual bit UNKNOWN (the move blocker applies independently anyway).
+Every active bit is decided independently. `PROVEN_IRRELEVANT` contributes no limitation. A known
+`RELEVANT` field modifier receives a soft disposition: its named raw bit is removed from the
+authorized request and it appears in the estimate's ignored-mechanics list. `UNKNOWN` stays a hard
+refusal. A non-ordinary or unknown move leaves every contextual bit `UNKNOWN` (the move blocker also
+applies independently).
 
-| Condition | Proven irrelevant (rule) | Relevant / kept blocking |
+| Condition | Proven irrelevant (rule) | Relevant effect / current handling |
 |---|---|---|
-| Magic Room | both authoritative live battle-effective items are `ITEM_NONE` or globally `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` (`magic_room_held_items_neutral`) — Magic Room only turns hold effects off, so suppressing a neutral hold effect changes nothing; suppressing a damage-relevant hold effect (including modelled items such as Wise Glasses) is not modelled by DualDex, so Magic Room continues to block when one is held | any other held item or an unread item (UNKNOWN): suppression of a damage-relevant hold effect is not modelled |
-| Trick Room | attacker's effective ability known and not Analytic (`trick_room_attacker_not_analytic`) | Analytic attacker (`trick_room_attacker_analytic`) |
-| Wonder Room | — | always (`wonder_room_swaps_defensive_stat`): equal raw Def/SpDef would not neutralise the `usesDefStat` flip |
-| Mud Sport / Water Sport | effective type not Electric / not Fire | Electric / Fire |
-| Gravity | effective type not Ground and the move not `gravityBanned` | Ground move; Floaty Fall |
-| Grassy Terrain | effective type not Grass, defender not Grass Pelt, attacker not Analytic | Grass move; Grass Pelt; Analytic (Grassy Glide priority) |
-| Misty Terrain | effective type not Dragon | Dragon |
-| Electric Terrain | effective type not Electric, no Quark Drive on either side, attacker not Hadron Engine / Analytic | Electric move; Quark Drive / Hadron Engine (their ability blockers remain too); Analytic |
-| Psychic Terrain | effective type not Psychic, pinned priority provably ≤ 0 (not a healing move), attacker ability known and not Gale Wings | Psychic move; positive-priority move; Gale Wings attacker (UNKNOWN) |
-| Ion Deluge | pre-field type not Normal (`ion_deluge_non_normal_move`) | Normal move: refused with the **unchanged** `HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED` (C4e behaviour) and named on the card |
+| Magic Room | both authoritative live battle-effective items are `ITEM_NONE` or globally `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` (`magic_room_held_items_neutral`) | A damage-relevant or unread item makes suppression context unknown, so this field remains hard. |
+| Trick Room | attacker's effective ability known and not Analytic (`trick_room_attacker_not_analytic`) | Known Analytic makes Trick Room relevant; the ability's own unknown effect can independently keep the request hard. |
+| Wonder Room | — | Always relevant (`wonder_room_swaps_defensive_stat`); cleared and named as a caveat when the rest of the request is complete. |
+| Mud Sport / Water Sport | effective type not Electric / not Fire | Electric / Fire; cleared and named as a caveat when complete. |
+| Gravity | effective type not Ground and the move not `gravityBanned` | Ground move; Floaty Fall; cleared and named as a caveat when complete. |
+| Grassy Terrain | effective type not Grass, defender not Grass Pelt, attacker not Analytic | Grass move; Grass Pelt; Analytic (Grassy Glide priority); known and complete field effects are caveated. |
+| Misty Terrain | effective type not Dragon | Dragon; cleared and named as a caveat when complete. |
+| Electric Terrain | effective type not Electric, no Quark Drive on either side, attacker not Hadron Engine / Analytic | Electric move; Quark Drive / Hadron Engine; unknown ability relevance remains hard even when the field bit is known. |
+| Psychic Terrain | effective type not Psychic, pinned priority provably ≤ 0 (not a healing move), attacker ability known and not Gale Wings | Psychic move; positive-priority move; Gale Wings attacker (UNKNOWN). |
+| Ion Deluge | pre-field type not Normal (`ion_deluge_non_normal_move`) | Normal move changes effective move type and remains hard with `HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED`. |
 | Fairy Lock | always (`fairy_lock_escape_only`) | — |
 | any bit outside `0x00000FFF` | — | always UNKNOWN (`unknown_field_bits`), mask preserved |
 
-The final verdict is the union of independent limitations. A cleared field bit never clears an
+The final verdict is the union of independent limitations. A neutralized field bit never clears an
 ability, item, item-dependent-move, move-mechanic, status, weather, screen, volatile, gimmick,
-challenge or species/type limitation. A cleared item or ability never clears a field bit.
+challenge or species/type limitation. A neutralized item or ability never clears a field bit. If any
+hard limitation remains, the policy refuses the whole request while retaining known caveats for
+diagnostics.
 
-**Deliberately still blocking.** These are out of scope and not modelled: Wonder Room arithmetic,
-terrain modifiers, Magic Room suppression of damage-relevant items, Trick Room turn simulation for
-Analytic, Gravity on Ground moves, Ion Deluge's active Electric rewrite, positive-priority moves under
-Psychic Terrain, and every unknown bit. Weather and side statuses keep their own C4e rules (§14.7.1).
-Doubles remains refused.
+**Still unmodelled.** Caveat mode can display a known relevant modifier without applying it; it does
+not implement Wonder Room arithmetic, terrain modifiers, Magic Room suppression of damage-relevant
+items, Trick Room turn simulation for Analytic, Gravity on Ground moves, Ion Deluge's active Electric
+rewrite, positive-priority moves under Psychic Terrain, or unknown field bits. Unknown or base-shape
+limitations remain hard. Weather and side statuses keep their own C4e rules (§14.7.1). Doubles remains
+refused.
 
 ### 15.6 Wise Glasses regression (the Thor symptom)
 
@@ -2389,12 +2421,12 @@ Setup: exact H&S, ordinary Singles, attacker Wise Glasses, a non-zero live field
 
 | Move | Field word | Result |
 |---|---|---|
-| Tackle (Physical) | Wonder Room `0x00000004` | Wise Glasses **PROVEN_IRRELEVANT** (`special_only_item_physical_move`); card: `Damage unavailable · Wonder Room not modelled` / `Field: Wonder Room (0x00000004)` — one blocker |
-| Water Gun (Special) | Wonder Room `0x00000004` | Wise Glasses **MODELLED** (`wise_glasses_special_move`); card: `Damage unavailable · Wonder Room not modelled` / `Field: Wonder Room (0x00000004)` — Wonder Room is the only blocker |
+| Tackle (Physical) | Wonder Room `0x00000004` | Wise Glasses **PROVEN_IRRELEVANT** (`special_only_item_physical_move`); card: `42-50 (Estimate)` / `Ignores: Field: Wonder Room` |
+| Water Gun (Special) | Wonder Room `0x00000004` | Wise Glasses **MODELLED** (`wise_glasses_special_move`); card: `42-50 (Estimate)` / `Ignores: Field: Wonder Room` — Wonder Room is the only ignored mechanic |
 | Tackle | Electric Terrain `0x00000100` | both proven irrelevant → **Ready** (estimate shown) |
 | Water Gun | Electric Terrain `0x00000100` | terrain irrelevant; Wise Glasses **MODELLED** → **Ready** (estimate shown) |
 | Water Gun | Clean / neutral field `0x00000000` | Wise Glasses **MODELLED** → **Ready** (estimate shown) |
-| Thunder Shock (Special, Electric) | Electric Terrain `0x00000100` | Wise Glasses **MODELLED**; card: `Damage unavailable · Electric Terrain not modelled` / `Field: Electric Terrain (0x00000100)` |
+| Thunder Shock (Special, Electric) | Electric Terrain `0x00000100` | Wise Glasses **MODELLED**; card: `42-50 (Estimate)` / `Ignores: Field: Electric Terrain` |
 
 These are asserted through the real `CalcRequestBoundary`
 (`CalcHnsC4eProductionBoundaryTest`) and the Battle move-card model (`BattleConsoleTest`).

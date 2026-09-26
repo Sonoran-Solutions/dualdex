@@ -11,7 +11,6 @@ import com.dualdex.pokemon.MoveInfo
 import com.dualdex.pokemon.SpeciesInfo
 import com.dualdex.pokemon.hns.Hns205ItemCatalogue
 import com.dualdex.pokemon.hns.HnsAbilityRegistry
-import com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry
 import com.dualdex.romhack.RomHackProfile
 import org.json.JSONArray
 import org.json.JSONObject
@@ -202,6 +201,8 @@ object HnsCalcCensusEngine {
         val excludedMoves: List<ExcludedMove>,
         val abilityDomain: List<Pair<Int, String>>,
         val abilityCohorts: List<OperandCohort>,
+        /** Requests excluded from the ability trials per side because attribution was ambiguous. */
+        val abilityTrialExcludedAmbiguous: Pair<Int, Int>,
         val abilityTrials: List<AbilityTrial>,
         val baselinePositiveControl: BaselinePositiveControl
     )
@@ -397,19 +398,16 @@ object HnsCalcCensusEngine {
     private fun isDamaging(move: MoveInfo): Boolean = move.power > 0
 
     /**
-     * True when the pinned move-mechanics audit proves the move's damage is the ordinary
-     * fixed-base-power path the calculator reproduces. A move outside that subset is excluded
-     * from the damage denominator for the same reason a status move is: no displayed number is
-     * being refused, the move's damage shape is simply out of scope.
+     * The only reason a pinned move is excluded from the damage denominator.
+     *
+     * A move whose damage shape is outside the source-proven ordinary subset is **NOT** excluded:
+     * it deals damage, so the production policy has a real verdict for it
+     * (`HNS_MOVE_MECHANICS_NOT_MODELLED`), and dropping it would understate how many matchups the
+     * calculator refuses. Only a move with no base power at all is excluded, because there is no
+     * damage number to display or refuse for it.
      */
-    private fun isOrdinaryMove(pack: GameDataPack, move: MoveInfo): Boolean =
-        !HnsMoveMechanicsRegistry.classify(move.id).requiresBlock
-
-    private fun exclusionReason(pack: GameDataPack, move: MoveInfo): String? = when {
-        !isDamaging(move) -> "NON_DAMAGING_MOVE"
-        !isOrdinaryMove(pack, move) -> "MOVE_DAMAGE_SHAPE_NOT_IN_ORDINARY_SUBSET"
-        else -> null
-    }
+    private fun exclusionReason(move: MoveInfo): String? =
+        if (!isDamaging(move)) "NON_DAMAGING_MOVE" else null
 
     private fun outcomeFor(
         profile: RomHackProfile,
@@ -577,7 +575,7 @@ object HnsCalcCensusEngine {
 
                     // Direction 1: reference player lead -> trainer Pokemon.
                     for (move in movesOf(pack, lead.moves)) {
-                        val reason = exclusionReason(pack, move)
+                        val reason = exclusionReason(move)
                         if (reason != null) {
                             excluded += ExcludedMove(
                                 trainerKey = trainer.key,
@@ -636,7 +634,7 @@ object HnsCalcCensusEngine {
 
                     // Direction 2: trainer Pokemon -> reference player lead.
                     for (move in movesOf(pack, mon.moves)) {
-                        val reason = exclusionReason(pack, move)
+                        val reason = exclusionReason(move)
                         if (reason != null) {
                             excluded += ExcludedMove(
                                 trainerKey = trainer.key,
@@ -706,6 +704,7 @@ object HnsCalcCensusEngine {
             ),
             abilityDomain = abilityDomain,
             abilityCohorts = cohorts,
+            abilityTrialExcludedAmbiguous = ambiguousAbilityTrialRequests(cohorts),
             abilityTrials = randomAbilityTrials(pack, profile, abilityDomain, cohorts),
             baselinePositiveControl = baselinePositiveControl(pack, profile)
         )
@@ -766,27 +765,58 @@ object HnsCalcCensusEngine {
      * weight, so no probability weight is invented: under a uniform ability distribution the
      * ranking is exactly a count.
      */
+    /**
+     * True when the shipped ability catalogue does not already prove [abilityId] harmless for an
+     * ordinary damage request.
+     *
+     * `PROVEN_NO_DAMAGE_EFFECT` and the modelled categories cannot block; every other category can
+     * (via `HnsAbilityContextPolicy`, or by failing closed). Used to keep the Random Abilities
+     * attribution unambiguous: a trial's block can only be blamed on the ability under test when
+     * the OTHER battler's real ability is capable of blocking nothing on its own.
+     */
+    fun mayBlockAbility(abilityId: Int): Boolean =
+        !HnsAbilityRegistry.classify(abilityId).category.isSupportedForDamage
+
+    /**
+     * The Random Abilities view.
+     *
+     * Under Random Abilities any of the pinned build's abilities can be installed on any
+     * battler, so the question is not "which abilities do trainers happen to have" but "which
+     * abilities does production policy block, on which side, for which move categories, and how
+     * many of this census' requests would that affect".
+     *
+     * Every census request is assigned to an [OperandCohort]: the requests that share the exact
+     * operands an ability-relevance decision reads. Each ability of the complete pinned domain is
+     * then installed on each side of each cohort and decided by the real production policy. Cohorts
+     * are disjoint, so summing their weights counts each request exactly once; battles are
+     * de-duplicated because one battle can span several cohorts.
+     *
+     * **Attribution is per ability, never per request.** A trial counts as blocking only when the
+     * production verdict carries `HNS_ABILITY_EFFECT_NOT_MODELLED` **and** production produced an
+     * ability decision for the tested side whose relevance is not `PROVEN_IRRELEVANT`. A globally
+     * harmless ability produces no decision at all, so it can never be blamed for a block that a
+     * different mechanic caused; and a `PROVEN_IRRELEVANT` decision is a proven clearance.
+     *
+     * **The other battler is held harmless.** For a trial on one side, the cohort is skipped when
+     * the opposite battler's own real ability is one the shipped catalogue cannot prove harmless
+     * ([mayBlockAbility]), because then a block would be attributable to both abilities at once.
+     * The skipped cohorts are reported with their request counts so the coverage loss is visible.
+     */
     fun randomAbilityTrials(
         pack: GameDataPack,
         profile: RomHackProfile,
         abilityDomain: List<Pair<Int, String>>,
         cohorts: List<OperandCohort>,
-        typesCache: MutableMap<Int, List<String>> = HashMap()
+        maxContextRows: Int = MAX_ABILITY_CONTEXT_ROWS
     ): List<AbilityTrial> {
-        // Rows are aggregated by (ability, side, category) as they are produced and the affected
-        // requests and battles are de-duplicated, so a cohort that appears in several contexts
-        // cannot make one battle count twice. Only the ranked rows are retained: materializing
-        // every (ability x side x cohort) row would be over a million objects for a report whose
-        // useful resolution is the ability / side / category ranking.
+        // Aggregated per (ability, side, category) as the trials are produced. Materializing every
+        // (ability x side x cohort) row would be millions of short-lived objects for a report whose
+        // useful resolution is the ability/side/category ranking, so only that ranking plus a
+        // bounded set of the highest-impact context rows is retained.
         class Acc(var name: String, var relevance: String) {
-            /** Cohorts are disjoint, so summing their weights counts every request exactly once. */
             var requests = 0
             var cleared = 0
-
-            /** A trainer battle can appear in several cohorts, so battles are de-duplicated. */
             val battleKeys = LinkedHashSet<String>()
-
-            /** Distinct blocking contexts, which is what separates a global blocker from a contextual one. */
             val rules = LinkedHashSet<String>()
         }
         val accs = LinkedHashMap<String, Acc>()
@@ -794,38 +824,36 @@ object HnsCalcCensusEngine {
             val key = cohort.key
             val attackerSpecies = speciesFor(pack, key.attackerSpeciesId, key.attackerSpecies)
             val defenderSpecies = speciesFor(pack, key.defenderSpeciesId, key.defenderSpecies)
-            val attackerTypes = typesCache.getOrPut(key.attackerSpeciesId) {
-                typesOf(pack, attackerSpecies)
-            }
-            val defenderTypes = typesCache.getOrPut(key.defenderSpeciesId) {
-                typesOf(pack, defenderSpecies)
-            }
+            val attackerTypes = typesOf(pack, attackerSpecies)
+            val defenderTypes = typesOf(pack, defenderSpecies)
             val move = requireNotNull(pack.getMoveByName(key.move)) {
                 "move ${key.move} is not in the pinned data pack"
             }
+            val ambiguousForAttackerSide = mayBlockAbility(key.defenderAbilityId)
+            val ambiguousForDefenderSide = mayBlockAbility(key.attackerAbilityId)
             for ((abilityId, abilityName) in abilityDomain) {
                 for (side in listOf(SIDE_ATTACKER, SIDE_DEFENDER)) {
-                    val attackerAbilityId =
-                        if (side == SIDE_ATTACKER) abilityId else key.attackerAbilityId
-                    val attackerAbilityName =
-                        if (side == SIDE_ATTACKER) abilityName else key.attackerAbilityName
-                    val defenderAbilityId =
-                        if (side == SIDE_DEFENDER) abilityId else key.defenderAbilityId
-                    val defenderAbilityName =
-                        if (side == SIDE_DEFENDER) abilityName else key.defenderAbilityName
+                    // The side that is NOT under test must be provably harmless, or the trial
+                    // could not attribute a block to the tested ability alone.
+                    if (side == SIDE_ATTACKER && ambiguousForAttackerSide) continue
+                    if (side == SIDE_DEFENDER && ambiguousForDefenderSide) continue
                     val outcome = outcomeFor(
                         profile = profile,
                         attackerSpecies = key.attackerSpecies,
                         attackerLevel = ABILITY_TRIAL_LEVEL,
-                        attackerAbilityId = attackerAbilityId,
-                        attackerAbilityName = attackerAbilityName,
+                        attackerAbilityId =
+                            if (side == SIDE_ATTACKER) abilityId else key.attackerAbilityId,
+                        attackerAbilityName =
+                            if (side == SIDE_ATTACKER) abilityName else key.attackerAbilityName,
                         attackerItemId = 0,
                         attackerTypes = attackerTypes,
                         attackerSpeciesId = attackerSpecies.id,
                         defenderSpecies = key.defenderSpecies,
                         defenderLevel = ABILITY_TRIAL_LEVEL,
-                        defenderAbilityId = defenderAbilityId,
-                        defenderAbilityName = defenderAbilityName,
+                        defenderAbilityId =
+                            if (side == SIDE_DEFENDER) abilityId else key.defenderAbilityId,
+                        defenderAbilityName =
+                            if (side == SIDE_DEFENDER) abilityName else key.defenderAbilityName,
                         defenderItemId = 0,
                         defenderTypes = defenderTypes,
                         defenderSpeciesId = defenderSpecies.id,
@@ -834,30 +862,28 @@ object HnsCalcCensusEngine {
                         battlersCount = key.battlersCount
                     )
                     val decision = outcome.abilityDecisions.firstOrNull { it.side.name == side }
+                    // Attribution: a null decision means the tested ability is globally harmless,
+                    // which can never be the blocker; `PROVEN_IRRELEVANT` is a proven clearance.
                     val relevance = decision?.relevance?.name
-                        ?: com.dualdex.calculator.HnsAbilityRequestRelevance.UNKNOWN.name
-                    // The tested ability blocks this request only when production policy actually
-                    // blamed the ability and its own relevance result is not a proven clearance.
-                    // An `UNKNOWN` result blocks (required evidence is missing) exactly as it does
-                    // in production; a `PROVEN_IRRELEVANT` result never blocks even when the OTHER
-                    // side's real ability does.
-                    val blocksThisRequest = outcome.limitations.contains(
-                        com.dualdex.calculator.CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED
-                    ) && decision?.relevance !=
+                        ?: com.dualdex.calculator.HnsAbilityRequestRelevance
+                            .PROVEN_IRRELEVANT.name
+                    val blocked = decision != null &&
+                        decision.relevance !=
+                        com.dualdex.calculator.HnsAbilityRequestRelevance.PROVEN_IRRELEVANT &&
+                        outcome.limitations.contains(
+                            com.dualdex.calculator.CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED
+                        )
+                    val cleared = decision != null &&
+                        decision.relevance ==
                         com.dualdex.calculator.HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
                     val rankKey = "$abilityId|${side.lowercase()}|${move.category.displayName}"
                     val acc = accs.getOrPut(rankKey) { Acc(abilityName, relevance) }
-                    if (blocksThisRequest) {
+                    if (blocked) {
                         acc.requests += cohort.requestCount
                         acc.battleKeys += cohort.battles
-                        acc.rules += (decision?.rule ?: "unreviewed_context")
                     }
-                    if (decision?.relevance ==
-                        com.dualdex.calculator.HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
-                    ) {
-                        acc.cleared += cohort.requestCount
-                        acc.rules += (decision.rule ?: "unreviewed_context")
-                    }
+                    if (cleared) acc.cleared += cohort.requestCount
+                    if (decision?.rule != null) acc.rules += decision.rule
                     if (relevanceRank(relevance) > relevanceRank(acc.relevance)) {
                         acc.relevance = relevance
                     }
@@ -882,6 +908,25 @@ object HnsCalcCensusEngine {
                 )
             }
             .sortedWith(compareBy({ it.abilityId }, { it.side }, { it.category }))
+    }
+
+    /**
+     * Requests whose ability attribution is ambiguous because the OPPOSITE battler's real ability
+     * cannot be proven harmless, per side.
+     *
+     * These are excluded from the Random Abilities trials rather than attributed to both
+     * abilities at once, and their request counts are published so the exclusion is auditable.
+     */
+    fun ambiguousAbilityTrialRequests(
+        cohorts: List<OperandCohort>
+    ): Pair<Int, Int> {
+        var attackerSide = 0
+        var defenderSide = 0
+        for (cohort in cohorts) {
+            if (mayBlockAbility(cohort.key.defenderAbilityId)) attackerSide += cohort.requestCount
+            if (mayBlockAbility(cohort.key.attackerAbilityId)) defenderSide += cohort.requestCount
+        }
+        return attackerSide to defenderSide
     }
 
     /**
@@ -987,6 +1032,13 @@ object HnsCalcCensusEngine {
 
     /** `NUM_ABILITY_SLOTS` from the pinned `include/constants/pokemon.h`. */
     const val DECLARED_ABILITY_SLOTS: Int = 3
+
+    /**
+     * The ranked ability/side/category rows the census keeps: at most one per
+     * `(ability, side, category)`, so the bound is the size of that ranking (310 x 2 x 2), not the
+     * number of trials.
+     */
+    const val MAX_ABILITY_CONTEXT_ROWS: Int = 4 * 310
 
     private fun requestKey(
         trainerKey: String,

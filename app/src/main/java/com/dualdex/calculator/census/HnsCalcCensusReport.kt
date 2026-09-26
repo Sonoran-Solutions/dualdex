@@ -347,6 +347,16 @@ object HnsCalcCensusReport {
                 "REFUSED" to JsonValue.str("no number is displayed")
             )
         )
+        members += "eligibility" to JsonValue.obj(
+            "eligible" to JsonValue.str(
+                "a pinned move with base power > 0: it deals damage, so production has a real " +
+                    "verdict for it, including HNS_MOVE_MECHANICS_NOT_MODELLED"
+            ),
+            "excluded" to JsonValue.str(
+                "a pinned move with base power 0 (a status move): there is no damage number to " +
+                    "display or refuse for it"
+            )
+        )
         members += "baseline" to JsonValue.obj(
             "gameType" to JsonValue.str(
                 "per trainer 'Double Battle' setting (No -> Singles/gBattlersCount 2, " +
@@ -393,12 +403,23 @@ object HnsCalcCensusReport {
             "excludedMovesNonDamaging" to JsonValue.num(
                 run.excludedMoves.count { it.reason == "NON_DAMAGING_MOVE" }
             ),
-            "excludedMovesNotOrdinary" to JsonValue.num(
-                run.excludedMoves.count { it.reason == "MOVE_DAMAGE_SHAPE_NOT_IN_ORDINARY_SUBSET" }
+            // Moves whose damage shape is outside the ordinary subset are NOT excluded: they are
+            // evaluated and refused by production, so they count in the denominator and in the
+            // blocker ranking.
+            "eligibleRequestsRefusedByMoveMechanics" to JsonValue.num(
+                run.requests.count {
+                    it.outcome.limitations.contains(
+                        com.dualdex.calculator.CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED
+                    )
+                }
             ),
             "abilityDomainSize" to JsonValue.num(run.abilityDomain.size),
             "abilityOperandCohorts" to JsonValue.num(run.abilityCohorts.size),
-            "abilityTrials" to JsonValue.num(run.abilityTrials.size)
+            "abilityTrials" to JsonValue.num(run.abilityTrials.size),
+            "abilityTrialExcludedAmbiguousAttackerSide" to
+                JsonValue.num(run.abilityTrialExcludedAmbiguous.first),
+            "abilityTrialExcludedAmbiguousDefenderSide" to
+                JsonValue.num(run.abilityTrialExcludedAmbiguous.second)
         )
         members += "resultTiers" to JsonValue.obj(
             "FULLY_MODELLED" to JsonValue.num(tierCounts.getValue(HnsCensusResultTier.FULLY_MODELLED)),
@@ -754,14 +775,19 @@ object HnsCalcCensusReport {
         out.append("| - reference lead -> trainer | ${HnsCalcCensusMetrics.requestsByDirection(run).first} |\n")
         out.append("| - trainer -> reference lead | ${HnsCalcCensusMetrics.requestsByDirection(run).second} |\n")
         out.append("| Moves excluded, not damaging | ${run.excludedMoves.count { it.reason == "NON_DAMAGING_MOVE" }} |\n")
-        out.append("| Moves excluded, damage shape outside the ordinary subset | " +
-            "${run.excludedMoves.count { it.reason == "MOVE_DAMAGE_SHAPE_NOT_IN_ORDINARY_SUBSET" }} |\n\n")
         out.append(
-            "A status move is not a failed damage calculation: it has no base power, so there is no " +
-                "damage number to display or refuse, and counting it in the denominator would " +
-                "understate coverage. Such moves are recorded in `excludedMoves` with their reason " +
-                "and are excluded from every damage metric above. A move whose damage shape is " +
-                "outside the source-proven ordinary subset is excluded for the same reason.\n\n"
+            "| Of the eligible requests, refused by `HNS_MOVE_MECHANICS_NOT_MODELLED` | " +
+                "${run.requests.count { it.outcome.limitations.contains(com.dualdex.calculator.CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED) }} |\n\n"
+        )
+        out.append(
+            "**Eligibility rule.** A pinned move is eligible when its own record declares a base " +
+                "power greater than zero: it deals damage, so the production policy has a real " +
+                "verdict for it. A move whose damage shape is outside the source-proven ordinary " +
+                "subset is therefore **evaluated and refused** with " +
+                "`HNS_MOVE_MECHANICS_NOT_MODELLED`, and it counts in the denominator and in the " +
+                "blocker ranking. Only a move with no base power at all is excluded, because there " +
+                "is no damage number to display or refuse for it; those are recorded in " +
+                "`excludedMoves` with their reason and excluded from every damage metric above.\n\n"
         )
 
         out.append("## Lead-matchup battle coverage\n\n")
@@ -851,15 +877,32 @@ object HnsCalcCensusReport {
             "**Method.** Every eligible request is assigned to an *operand cohort*: the requests " +
                 "sharing exactly the operands an ability-relevance decision reads (direction, " +
                 "attacker and defender species, the move, the effective move type and category, " +
-                "STAB, format). Each ability is then installed on each side of each cohort - " +
-                "replacing only that side's ability and leaving the other side's real ability in " +
-                "place, so a cohort's own ability blocker can never be laundered away - and decided " +
-                "by the real production policy. Cohorts are disjoint, so summing their weights counts " +
-                "each request exactly once; battles are de-duplicated because one battle can span " +
-                "several cohorts. Under a uniform ability distribution the ranking is therefore " +
-                "exactly a count, with no probability weight invented. " +
+                "STAB, format). Each ability is then installed on each side of each cohort, " +
+                "replacing only that side's ability, and decided by the real production policy. " +
+                "Cohorts are disjoint, so summing their weights counts each request exactly once; " +
+                "battles are de-duplicated because one battle can span several cohorts. Under a " +
+                "uniform ability distribution the ranking is therefore exactly a count, with no " +
+                "probability weight invented. " +
                 "There are ${run.abilityCohorts.size} cohorts and ${run.abilityTrials.size} ranked " +
                 "ability/side/category rows.\n\n"
+        )
+        out.append(
+            "**Attribution rule.** A trial is credited to the ability under test only when " +
+                "production's own verdict both carries `HNS_ABILITY_EFFECT_NOT_MODELLED` **and** " +
+                "produced an ability decision for that side whose relevance is not " +
+                "`PROVEN_IRRELEVANT`. A globally harmless ability produces no decision at all, so " +
+                "it can never be blamed for a block another mechanic caused, and a " +
+                "`PROVEN_IRRELEVANT` decision is a proven clearance.\n\n"
+        )
+        out.append(
+            "**The opposite battler is held harmless.** For a trial on one side, a cohort is " +
+                "skipped when the opposite battler's own real ability is one the shipped catalogue " +
+                "cannot prove harmless, because a block would then be attributable to both " +
+                "abilities at once. This is a deliberate, disclosed narrowing: " +
+                "${run.abilityTrialExcludedAmbiguous.first} requests are excluded from the " +
+                "attacker-side trials and ${run.abilityTrialExcludedAmbiguous.second} from the " +
+                "defender-side trials. Counting them under both abilities would inflate every " +
+                "ranking, so they are reported rather than guessed.\n\n"
         )
         out.append(
             "**Reading the two columns.** *Requests blocked* is the number of this census' eligible " +
@@ -872,35 +915,41 @@ object HnsCalcCensusReport {
                 "contextual ability stays visible instead of being flattened into a global " +
                 "supported/unsupported verdict.\n\n"
         )
+        out.append("### Abilities the shipped catalogue cannot prove harmless\n\n")
         out.append(
             "**${blockingAbilityIdentities(run)} of ${run.abilityDomain.size} abilities block at " +
-                "least one census request** under this baseline. " +
-                "*Any ability is blocked by **${run.abilityCohorts.size}** distinct circumstances* " +
-                "(one per cohort, per side, per category); that number is the same for every " +
-                "ability, so the sizes below are not what distinguishes them. The spread is entirely " +
-                "in **Battles blocked** and in **Rules**, which is where the reviewed context rules " +
-                "live.\n\n"
+                "least one census request.** The other " +
+                "${run.abilityDomain.size - blockingAbilityIdentities(run)} are classified " +
+                "`PROVEN_NO_DAMAGE_EFFECT` (or modelled) by the shipped audit, so they produce no " +
+                "ability decision at all and can never be the blocker - which is exactly why the " +
+                "attribution rule above matters. Every blocking ability blocks all " +
+                "${run.trainers.size} battles in its category on either side: an ability with no " +
+                "reviewed clearance rule is refused in every context, and no probability weight is " +
+                "invented.\n\n"
         )
         out.append(
-            "| # | Ability | Side | Category | Battles blocked | Requests blocked | Rules |\n"
+            "| # | Ability | Side | Category | Battles blocked | Requests blocked | Rule |\n"
         )
         out.append("|---:|---|---|---|---:|---:|---|\n")
-        abilities.take(20).forEachIndexed { index, rank ->
+        abilities.filter { it.requests > 0 }.take(15).forEachIndexed { index, rank ->
             out.append(
                 "| ${index + 1} | ${rank.abilityName} | ${rank.side} | ${rank.category} | " +
                     "${rank.battles} | ${rank.requests} | ${rank.rule ?: "-"} |\n"
             )
         }
-        out.append("\n")
+        out.append(
+            "\n(The full ranked table, one row per ability per side per category, is " +
+                "`abilityBlockers` in `" + HnsCalcCensusReport.JSON_FILE_NAME + "`.)\n\n"
+        )
 
         out.append("### Abilities with a reviewed context rule\n\n")
         out.append(
             "These are the abilities the shipped `HnsAbilityContextPolicy` can actually clear for a " +
-                "specific request, at least once under this baseline. Everything else in the domain " +
-                "is refused in every one of the ${run.abilityCohorts.size} x 2 x 2 circumstances, " +
-                "which is why a plain \"most blocking abilities\" ranking is dominated by it. " +
-                "`Cleared contexts` counts the (side, category) contexts policy proved irrelevant " +
-                "for; `Blocking contexts` counts the ones where it still refuses.\n\n"
+                "specific request, at least once under this baseline. `Cleared contexts` counts " +
+                "the (side, category) contexts policy proved irrelevant for; `Blocking contexts` " +
+                "counts the ones where it still refuses. This is the whole list - " +
+                "${cleared.size} abilities - and it is the only place the domain is not refused " +
+                "wholesale, which is the argument for #86.\n\n"
         )
         out.append("| Ability | Cleared contexts | Blocking contexts | Reviewed rules that fired |\n")
         out.append("|---|---:|---:|---|\n")

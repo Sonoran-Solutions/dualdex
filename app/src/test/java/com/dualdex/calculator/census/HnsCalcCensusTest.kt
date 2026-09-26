@@ -208,22 +208,16 @@ class HnsCalcCensusTest {
     }
 
     @Test
-    fun `non damaging moves are excluded from the denominator with a reason and never refused`() {
+    fun `only non damaging moves are excluded from the denominator`() {
         val run = artifacts().run
         assertTrue(run.excludedMoves.isNotEmpty())
         for (excluded in run.excludedMoves) {
-            assertTrue(
-                "an excluded move must carry a reason",
-                excluded.reason == "NON_DAMAGING_MOVE" ||
-                    excluded.reason == "MOVE_DAMAGE_SHAPE_NOT_IN_ORDINARY_SUBSET"
+            assertEquals(
+                "the only exclusion reason is a move with no base power",
+                "NON_DAMAGING_MOVE", excluded.reason
             )
-            if (excluded.reason == "NON_DAMAGING_MOVE") {
-                assertEquals(0, excluded.movePower)
-            } else {
-                assertTrue(excluded.movePower > 0)
-            }
-            // Nothing that was excluded may also be evaluated: the denominator and the exclusion
-            // list must partition the pinned movesets.
+            assertEquals(0, excluded.movePower)
+            // The denominator and the exclusion list partition the pinned movesets exactly.
             assertFalse(
                 "excluded move ${excluded.move} was also evaluated for ${excluded.trainerKey}",
                 run.requests.any {
@@ -233,10 +227,32 @@ class HnsCalcCensusTest {
                 }
             )
         }
-        // Every evaluated request must be a damaging, ordinary move.
         for (request in run.requests) {
             assertTrue("evaluated a status move: ${request.move}", request.movePower > 0)
         }
+    }
+
+    @Test
+    fun `moves outside the ordinary subset are evaluated and refused, not excluded`() {
+        // A move whose damage shape is outside the source-proven ordinary subset still deals
+        // damage, so the production policy has a real verdict for it. Dropping it from the
+        // denominator would hide a real refusal and overstate coverage.
+        val run = artifacts().run
+        val refused = run.requests.filter {
+            it.outcome.limitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
+        }
+        assertTrue("expected some move-mechanics refusals, found none", refused.isNotEmpty())
+        for (request in refused) {
+            assertEquals(HnsCensusResultTier.REFUSED, request.outcome.tier)
+            assertTrue("a refused request must have a cause", request.outcome.blockers.isNotEmpty())
+        }
+        // And the specific moves the audit refuses are in the evaluated set, not the excluded one.
+        val evaluatedMoves = run.requests.map { it.move }.toSet()
+        val excludedMoves = run.excludedMoves.map { it.move }.toSet()
+        assertTrue(
+            "the ordinary-subset refusal must not be an exclusion",
+            evaluatedMoves.isNotEmpty() && excludedMoves.intersect(evaluatedMoves).isEmpty()
+        )
     }
 
     @Test
@@ -290,6 +306,47 @@ class HnsCalcCensusTest {
     }
 
     @Test
+    fun `a globally harmless ability can never be blamed for a block`() {
+        // `CalcCapabilityPolicy` only produces an ability decision for an ability the shipped
+        // audit cannot prove harmless. A trial whose tested ability produced no decision must
+        // therefore never be credited with a block, however the request-wide limitation stands.
+        val run = artifacts().run
+        val harmlessIds = run.abilityDomain.map { it.first }.filter { !HnsCalcCensusEngine.mayBlockAbility(it) }
+        assertTrue("expected some provably harmless abilities", harmlessIds.isNotEmpty())
+        for (trial in run.abilityTrials.filter { it.abilityId in harmlessIds }) {
+            assertFalse(
+                "harmless ability ${trial.abilityName} was credited with a block",
+                trial.blockedByAbility
+            )
+            assertEquals(0, trial.requestBlocks)
+            assertEquals(0, trial.battleBlocks)
+        }
+        // The complement is the only attributing set, and the published headline counts it.
+        val attributing = run.abilityTrials.filter { HnsCalcCensusEngine.mayBlockAbility(it.abilityId) }
+        assertTrue(attributing.any { it.blockedByAbility })
+    }
+
+    @Test
+    fun `ability trials disclose the requests they had to set aside`() {
+        val run = artifacts().run
+        val (attackerSide, defenderSide) = run.abilityTrialExcludedAmbiguous
+        assertTrue("expected some ambiguous attacker-side requests", attackerSide > 0)
+        assertTrue("expected some ambiguous defender-side requests", defenderSide > 0)
+        assertTrue("an exclusion can never exceed the census", attackerSide <= run.requests.size)
+        assertTrue("an exclusion can never exceed the census", defenderSide <= run.requests.size)
+        // A cohort is ambiguous for a side exactly when the opposite battler's ability cannot be
+        // proven harmless, so the disclosed counts must match that rule.
+        val expectedAttackerSide = run.abilityCohorts
+            .filter { HnsCalcCensusEngine.mayBlockAbility(it.key.defenderAbilityId) }
+            .sumOf { it.requestCount }
+        val expectedDefenderSide = run.abilityCohorts
+            .filter { HnsCalcCensusEngine.mayBlockAbility(it.key.attackerAbilityId) }
+            .sumOf { it.requestCount }
+        assertEquals(expectedAttackerSide, attackerSide)
+        assertEquals(expectedDefenderSide, defenderSide)
+    }
+
+    @Test
     fun `the Random Abilities view distinguishes attacker from defender`() {
         val run = artifacts().run
         val sides = run.abilityTrials.map { it.side }.distinct().sorted()
@@ -298,14 +355,35 @@ class HnsCalcCensusTest {
         val categories = run.abilityTrials.map { it.category }.distinct().sorted()
         assertEquals(listOf("Physical", "Special"), categories)
         // A category-conditional reviewed rule must actually differ between the two categories:
-        // Huge Power is provably irrelevant for a special move and relevant for a physical one.
-        val hugePower = run.abilityTrials.filter { it.abilityId == 37 && it.side == "attacker" }
-        assertEquals(2, hugePower.size)
-        val physical = hugePower.single { it.category == "Physical" }
-        val special = hugePower.single { it.category == "Special" }
-        assertTrue("Huge Power must block an attacker's physical move", physical.blockedByAbility)
-        assertFalse("Huge Power must not block an attacker's special move", special.blockedByAbility)
-        assertEquals("PROVEN_IRRELEVANT", special.abilityRelevance)
+        // Huge Power multiplies Attack, so it is relevant for the attacker's PHYSICAL move and
+        // provably irrelevant for the SPECIAL one, and irrelevant on the defender in both.
+        val hugePower = run.abilityTrials.filter { it.abilityId == 37 }
+        assertEquals(4, hugePower.size)
+        val attackerPhysical = hugePower.single { it.side == "attacker" && it.category == "Physical" }
+        val attackerSpecial = hugePower.single { it.side == "attacker" && it.category == "Special" }
+        assertEquals("RELEVANT", attackerPhysical.abilityRelevance)
+        assertTrue("Huge Power must block an attacker's physical move", attackerPhysical.blockedByAbility)
+        assertEquals(0, attackerPhysical.clearedRequests)
+        assertTrue(
+            "Huge Power must be provably irrelevant for an attacker's special move somewhere",
+            attackerSpecial.clearedRequests > 0
+        )
+        for (row in hugePower.filter { it.side == "defender" }) {
+            assertEquals("PROVEN_IRRELEVANT", row.abilityRelevance)
+            assertFalse("Huge Power must not block as a defender", row.blockedByAbility)
+            assertEquals(0, row.requestBlocks)
+        }
+        // Battle Armor: the mirror case, relevant only as a defender.
+        val battleArmor = run.abilityTrials.filter { it.abilityId == 4 }
+        assertEquals(4, battleArmor.size)
+        for (row in battleArmor.filter { it.side == "attacker" }) {
+            assertEquals("PROVEN_IRRELEVANT", row.abilityRelevance)
+            assertFalse("Battle Armor must not block as an attacker", row.blockedByAbility)
+        }
+        assertTrue(
+            "Battle Armor must block as a defender",
+            battleArmor.filter { it.side == "defender" }.all { it.blockedByAbility }
+        )
     }
 
     @Test

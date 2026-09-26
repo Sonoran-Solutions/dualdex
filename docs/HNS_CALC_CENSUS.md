@@ -49,7 +49,7 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 |---|---:|
 | `FULLY_MODELLED` | 13140 |
 | `CAVEATED_ESTIMATE` | 0 |
-| `REFUSED` | 7560 |
+| `REFUSED` | 11138 |
 
 ## Denominators
 
@@ -59,19 +59,19 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 | - singles | 642 |
 | - doubles | 9 |
 | Trainer Pokemon | 1832 |
-| Eligible damaging requests | 20700 |
+| Eligible damaging requests | 24278 |
 | - reference lead -> trainer | 14656 |
-| - trainer -> reference lead | 6044 |
+| - trainer -> reference lead | 9622 |
 | Moves excluded, not damaging | 4782 |
-| Moves excluded, damage shape outside the ordinary subset | 3578 |
+| Of the eligible requests, refused by `HNS_MOVE_MECHANICS_NOT_MODELLED` | 3578 |
 
-A status move is not a failed damage calculation: it has no base power, so there is no damage number to display or refuse, and counting it in the denominator would understate coverage. Such moves are recorded in `excludedMoves` with their reason and are excluded from every damage metric above. A move whose damage shape is outside the source-proven ordinary subset is excluded for the same reason.
+**Eligibility rule.** A pinned move is eligible when its own record declares a base power greater than zero: it deals damage, so the production policy has a real verdict for it. A move whose damage shape is outside the source-proven ordinary subset is therefore **evaluated and refused** with `HNS_MOVE_MECHANICS_NOT_MODELLED`, and it counts in the denominator and in the blocker ranking. Only a move with no base power at all is excluded, because there is no damage number to display or refuse for it; those are recorded in `excludedMoves` with their reason and excluded from every damage metric above.
 
 ## Lead-matchup battle coverage
 
 **Definition.** For every trainer battle, the *trainer lead* is the trainer's pinned party slot 0 (the pinned source uses no party pools and no party-index shuffling; the inventory extractor fails closed if that ever changes). The *matchup* is that lead paired with each reference team lead, in both directions, over the eligible damaging moves of that pair. A pair *displays* only when **every** eligible request in it displays a number.
 
-> **59.1% of trainer-battle lead matchups display every eligible damaging move** (770 of 1302 reference-pair evaluations over 651 of 651 trainer battles).
+> **19.1% of trainer-battle lead matchups display every eligible damaging move** (249 of 1302 reference-pair evaluations over 651 of 651 trainer battles).
 
 | | |
 |---|---:|
@@ -79,15 +79,15 @@ A status move is not a failed damage calculation: it has no base power, so there
 | Battles included in the lead metric | 651 |
 | Battles excluded: lead has no eligible damaging move | 0 |
 | Lead pairs evaluated (battle x reference team) | 1302 |
-| Lead pairs whose every eligible request displays | 770 |
-| Eligible requests in the lead metric | 7182 |
+| Lead pairs whose every eligible request displays | 249 |
+| Eligible requests in the lead metric | 8450 |
 | Of those, displaying | 4548 |
 
 Split by the trainer's own battle format, because the production subset models Singles only and a Doubles battle is refused by the live-battle-format gate:
 
 | Format | Pairs evaluated | Pairs displaying | Coverage |
 |---|---:|---:|---:|
-| Singles | 1284 | 770 | 60.0% |
+| Singles | 1284 | 249 | 19.4% |
 | Doubles | 18 | 0 | 0.0% |
 
 A battle whose lead has no eligible damaging move is excluded rather than counted as covered or as blocked, because there is no damage number in question for it. Its party members are still counted in the trainer-level inventory and in the blocker counts.
@@ -98,119 +98,123 @@ Ranked by the number of distinct trainer battles affected, then by requests. A b
 
 | # | Blocker | Limitation | Side | Battles | Requests |
 |---:|---|---|---|---:|---:|
-| 1 | Chlorophyll | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 91 | 944 |
-| 2 | Intimidate | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 85 | 776 |
-| 3 | Intimidate | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 77 | 338 |
-| 4 | Chlorophyll | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 75 | 280 |
-| 5 | HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | - | 68 | 152 |
-| 6 | Swift Swim | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 51 | 528 |
-| 7 | Swift Swim | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 50 | 202 |
-| 8 | Water Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 47 | 408 |
-| 9 | Water Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 43 | 168 |
-| 10 | Thick Fat | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 36 | 84 |
-| 11 | Soundproof | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 34 | 336 |
-| 12 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 29 | 232 |
-| 13 | Scope Lens | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 25 | 126 |
-| 14 | Soundproof | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 25 | 92 |
-| 15 | HNS_LIVE_BATTLE_STATE_NOT_MODELLED | `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` | - | 22 | 296 |
-| 16 | SPECIES_NOT_IN_PINNED_DATA | `SPECIES_NOT_IN_PINNED_DATA` | - | 22 | 296 |
-| 17 | Shell Armor | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 21 | 208 |
-| 18 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 18 | 48 |
-| 19 | Volt Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 17 | 144 |
-| 20 | Volt Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 17 | 70 |
-| 21 | Hustle | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 15 | 120 |
-| 22 | Flash Fire | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 14 | 120 |
-| 23 | Flash Fire | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 14 | 64 |
-| 24 | Hustle | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 14 | 48 |
-| 25 | Lightning Rod | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 13 | 104 |
+| 1 | HNS_MOVE_MECHANICS_NOT_MODELLED | `HNS_MOVE_MECHANICS_NOT_MODELLED` | - | 557 | 3578 |
+| 2 | Chlorophyll | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 91 | 944 |
+| 3 | Chlorophyll | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 90 | 452 |
+| 4 | Intimidate | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 85 | 776 |
+| 5 | Intimidate | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 85 | 544 |
+| 6 | HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | - | 68 | 152 |
+| 7 | Swift Swim | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 51 | 528 |
+| 8 | Swift Swim | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 51 | 352 |
+| 9 | Water Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 47 | 408 |
+| 10 | Water Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 47 | 280 |
+| 11 | Thick Fat | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 36 | 84 |
+| 12 | Soundproof | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 34 | 336 |
+| 13 | Soundproof | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 32 | 206 |
+| 14 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 29 | 232 |
+| 15 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 29 | 176 |
+| 16 | Quick Claw | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 28 | 78 |
+| 17 | Scope Lens | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 25 | 178 |
+| 18 | Leftovers | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 25 | 70 |
+| 19 | Guts | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 23 | 96 |
+| 20 | HNS_LIVE_BATTLE_STATE_NOT_MODELLED | `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` | - | 22 | 336 |
+| 21 | SPECIES_NOT_IN_PINNED_DATA | `SPECIES_NOT_IN_PINNED_DATA` | - | 22 | 336 |
+| 22 | Shell Armor | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 21 | 208 |
+| 23 | Sitrus Berry | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 21 | 54 |
+| 24 | Volt Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 17 | 144 |
+| 25 | Volt Absorb | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 17 | 96 |
 
 ### Blocker codes
 
 | Limitation | Battles | Requests |
 |---|---:|---:|
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 374 | 6926 |
-| `HNS_ITEM_EFFECT_NOT_MODELLED` | 81 | 535 |
+| `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 | 3578 |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 383 | 8248 |
+| `HNS_ITEM_EFFECT_NOT_MODELLED` | 105 | 1031 |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 | 152 |
-| `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` | 22 | 296 |
-| `SPECIES_NOT_IN_PINNED_DATA` | 22 | 296 |
-| `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` | 9 | 310 |
-| `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED` | 9 | 248 |
+| `HNS_LIVE_BATTLE_STATE_NOT_MODELLED` | 22 | 336 |
+| `SPECIES_NOT_IN_PINNED_DATA` | 22 | 336 |
+| `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` | 9 | 352 |
+| `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED` | 9 | 288 |
 
 ### Held-item blockers
 
 | Item | Side | Battles | Requests |
 |---|---|---:|---:|
-| Scope Lens | attacker | 25 | 126 |
+| Quick Claw | attacker | 28 | 78 |
+| Scope Lens | attacker | 25 | 178 |
+| Leftovers | attacker | 25 | 70 |
+| Sitrus Berry | attacker | 21 | 54 |
+| Silk Scarf | attacker | 15 | 52 |
+| Charcoal | attacker | 13 | 34 |
 | Focus Band | defender | 12 | 96 |
-| Charcoal | attacker | 12 | 24 |
-| Silk Scarf | attacker | 10 | 22 |
 | Assault Vest | defender | 7 | 21 |
 | Focus Sash | defender | 6 | 48 |
-| Never-melt Ice | attacker | 6 | 12 |
+| Life Orb | attacker | 6 | 40 |
+| Miracle Seed | attacker | 6 | 22 |
+| Never-melt Ice | attacker | 6 | 20 |
 | Eviolite | defender | 5 | 40 |
-| Life Orb | attacker | 5 | 20 |
-| Black Belt | attacker | 4 | 10 |
-| Miracle Seed | attacker | 4 | 10 |
-| Light Ball | attacker | 3 | 12 |
-| Magnet | attacker | 3 | 8 |
-| Sharp Beak | attacker | 3 | 6 |
-| Twisted Spoon | attacker | 3 | 6 |
-| Choice Specs | attacker | 2 | 10 |
-| Hard Stone | attacker | 2 | 6 |
-| Metal Coat | attacker | 2 | 6 |
-| Razor Claw | attacker | 2 | 6 |
-| Flying Gem | attacker | 2 | 4 |
+| Flame Orb | attacker | 5 | 16 |
+| Hard Stone | attacker | 4 | 22 |
+| Black Belt | attacker | 4 | 14 |
+| Chesto Berry | attacker | 4 | 14 |
+| Light Ball | attacker | 3 | 18 |
+| Magnet | attacker | 3 | 10 |
+| Mystic Water | attacker | 3 | 8 |
 
 ## Random Abilities view
 
 Under Random Abilities any of the pinned domain's 310 abilities can be installed on any battler, so the useful question is not which abilities trainers happen to have but which abilities production policy blocks, on which side, for which move categories, and how many of this census' requests that would affect.
 
-**Method.** Every eligible request is assigned to an *operand cohort*: the requests sharing exactly the operands an ability-relevance decision reads (direction, attacker and defender species, the move, the effective move type and category, STAB, format). Each ability is then installed on each side of each cohort - replacing only that side's ability and leaving the other side's real ability in place, so a cohort's own ability blocker can never be laundered away - and decided by the real production policy. Cohorts are disjoint, so summing their weights counts each request exactly once; battles are de-duplicated because one battle can span several cohorts. Under a uniform ability distribution the ranking is therefore exactly a count, with no probability weight invented. There are 6274 cohorts and 1240 ranked ability/side/category rows.
+**Method.** Every eligible request is assigned to an *operand cohort*: the requests sharing exactly the operands an ability-relevance decision reads (direction, attacker and defender species, the move, the effective move type and category, STAB, format). Each ability is then installed on each side of each cohort, replacing only that side's ability, and decided by the real production policy. Cohorts are disjoint, so summing their weights counts each request exactly once; battles are de-duplicated because one battle can span several cohorts. Under a uniform ability distribution the ranking is therefore exactly a count, with no probability weight invented. There are 7806 cohorts and 1240 ranked ability/side/category rows.
+
+**Attribution rule.** A trial is credited to the ability under test only when production's own verdict both carries `HNS_ABILITY_EFFECT_NOT_MODELLED` **and** produced an ability decision for that side whose relevance is not `PROVEN_IRRELEVANT`. A globally harmless ability produces no decision at all, so it can never be blamed for a block another mechanic caused, and a `PROVEN_IRRELEVANT` decision is a proven clearance.
+
+**The opposite battler is held harmless.** For a trial on one side, a cohort is skipped when the opposite battler's own real ability is one the shipped catalogue cannot prove harmless, because a block would then be attributable to both abilities at once. This is a deliberate, disclosed narrowing: 6312 requests are excluded from the attacker-side trials and 4016 from the defender-side trials. Counting them under both abilities would inflate every ranking, so they are reported rather than guessed.
 
 **Reading the two columns.** *Requests blocked* is the number of this census' eligible requests in which production policy would blame the ability under test if it were installed on that side in that move category. It is the exact under-uniform-distribution count for the ability itself; it deliberately does not also count the requests where only the cohort's real opposing ability blocks (that is the difference between asking "is this ability the blocker" and "does anything block at all"). *Rules* lists the distinct reviewed context rules that fired, so a contextual ability stays visible instead of being flattened into a global supported/unsupported verdict.
 
-**309 of 310 abilities block at least one census request** under this baseline. *Any ability is blocked by **6274** distinct circumstances* (one per cohort, per side, per category); that number is the same for every ability, so the sizes below are not what distinguishes them. The spread is entirely in **Battles blocked** and in **Rules**, which is where the reviewed context rules live.
+### Abilities the shipped catalogue cannot prove harmless
 
-| # | Ability | Side | Category | Battles blocked | Requests blocked | Rules |
+**222 of 310 abilities block at least one census request.** The other 88 are classified `PROVEN_NO_DAMAGE_EFFECT` (or modelled) by the shipped audit, so they produce no ability decision at all and can never be the blocker - which is exactly why the attribution rule above matters. Every blocking ability blocks all 651 battles in its category on either side: an ability with no reviewed clearance rule is refused in every context, and no probability weight is invented.
+
+| # | Ability | Side | Category | Battles blocked | Requests blocked | Rule |
 |---:|---|---|---|---:|---:|---|
-| 1 | Drizzle | attacker | Physical | 651 | 12510 | unreviewed_context |
-| 2 | Drizzle | defender | Physical | 651 | 12510 | unreviewed_context |
-| 3 | Speed Boost | attacker | Physical | 651 | 12510 | unreviewed_context |
-| 4 | Speed Boost | defender | Physical | 651 | 12510 | unreviewed_context |
-| 5 | Battle Armor | defender | Physical | 651 | 12510 | defender_critical_probability_unmodelled |
-| 6 | Sturdy | attacker | Physical | 651 | 12510 | unreviewed_context |
-| 7 | Sturdy | defender | Physical | 651 | 12510 | unreviewed_context |
-| 8 | Volt Absorb | attacker | Physical | 651 | 12510 | unreviewed_context |
-| 9 | Volt Absorb | defender | Physical | 651 | 12510 | unreviewed_context |
-| 10 | Water Absorb | attacker | Physical | 651 | 12510 | unreviewed_context |
-| 11 | Water Absorb | defender | Physical | 651 | 12510 | unreviewed_context |
-| 12 | Cloud Nine | attacker | Physical | 651 | 12510 | unreviewed_context |
-| 13 | Cloud Nine | defender | Physical | 651 | 12510 | unreviewed_context |
-| 14 | Color Change | attacker | Physical | 651 | 12510 | unreviewed_context |
-| 15 | Color Change | defender | Physical | 651 | 12510 | unreviewed_context |
-| 16 | Flash Fire | attacker | Physical | 651 | 12510 | unreviewed_context |
-| 17 | Flash Fire | defender | Physical | 651 | 12510 | unreviewed_context |
-| 18 | Intimidate | attacker | Physical | 651 | 12510 | unreviewed_context |
-| 19 | Intimidate | defender | Physical | 651 | 12510 | unreviewed_context |
-| 20 | Rough Skin | attacker | Physical | 651 | 12510 | unreviewed_context |
+| 1 | Drizzle | defender | Physical | 651 | 12670 | - |
+| 2 | Speed Boost | defender | Physical | 651 | 12670 | - |
+| 3 | Battle Armor | defender | Physical | 651 | 12670 | defender_critical_probability_unmodelled |
+| 4 | Sturdy | defender | Physical | 651 | 12670 | - |
+| 5 | Volt Absorb | defender | Physical | 651 | 12670 | - |
+| 6 | Water Absorb | defender | Physical | 651 | 12670 | - |
+| 7 | Cloud Nine | defender | Physical | 651 | 12670 | - |
+| 8 | Color Change | defender | Physical | 651 | 12670 | - |
+| 9 | Flash Fire | defender | Physical | 651 | 12670 | - |
+| 10 | Intimidate | defender | Physical | 651 | 12670 | - |
+| 11 | Rough Skin | defender | Physical | 651 | 12670 | - |
+| 12 | Wonder Guard | defender | Physical | 651 | 12670 | - |
+| 13 | Lightning Rod | defender | Physical | 651 | 12670 | - |
+| 14 | Swift Swim | defender | Physical | 651 | 12670 | - |
+| 15 | Chlorophyll | defender | Physical | 651 | 12670 | - |
+
+(The full ranked table, one row per ability per side per category, is `abilityBlockers` in `census.json`.)
 
 ### Abilities with a reviewed context rule
 
-These are the abilities the shipped `HnsAbilityContextPolicy` can actually clear for a specific request, at least once under this baseline. Everything else in the domain is refused in every one of the 6274 x 2 x 2 circumstances, which is why a plain "most blocking abilities" ranking is dominated by it. `Cleared contexts` counts the (side, category) contexts policy proved irrelevant for; `Blocking contexts` counts the ones where it still refuses.
+These are the abilities the shipped `HnsAbilityContextPolicy` can actually clear for a specific request, at least once under this baseline. `Cleared contexts` counts the (side, category) contexts policy proved irrelevant for; `Blocking contexts` counts the ones where it still refuses. This is the whole list - 14 abilities - and it is the only place the domain is not refused wholesale, which is the argument for #86.
 
 | Ability | Cleared contexts | Blocking contexts | Reviewed rules that fired |
 |---|---:|---:|---|
 | Tera Shell | 4 | 0 | attacker_always_irrelevant, defender_not_terapagos_terastal |
-| Guts | 4 | 1 | defender_guts_does_not_modify_incoming_damage, guts_attacker_neutral_status, guts_special_move |
 | Levitate | 4 | 2 | attacker_levitate_does_not_change_outgoing_damage, defender_levitate_ground_move |
 | Thick Fat | 4 | 2 | attacker_thick_fat_does_not_mitigate_incoming_damage, thick_fat_fire_or_ice_move |
+| Guts | 4 | 2 | defender_guts_does_not_modify_incoming_damage, guts_attacker_neutral_status, guts_special_move |
 | Adaptability | 4 | 2 | adaptability_with_stab, defender_adaptability_does_not_boost_incoming_damage |
 | Plus | 4 | 4 | plus_minus_singles_no_partner |
 | Minus | 4 | 4 | plus_minus_singles_no_partner |
 | Friend Guard | 4 | 4 | friend_guard_singles_no_partner |
 | Telepathy | 4 | 4 | telepathy_singles_no_partner |
-| Huge Power | 3 | 0 | attack_stat_ability_special_move, defender_attack_stat_ability |
-| Pure Power | 3 | 0 | attack_stat_ability_special_move, defender_attack_stat_ability |
+| Huge Power | 3 | 1 | attack_stat_ability_special_move, defender_attack_stat_ability |
+| Pure Power | 3 | 1 | attack_stat_ability_special_move, defender_attack_stat_ability |
 | Battle Armor | 2 | 0 | attacker_critical_hit_armor |
 | Truant | 2 | 0 | defender_truant_does_not_change_incoming_damage |
 | Shell Armor | 2 | 0 | attacker_critical_hit_armor |
@@ -221,12 +225,12 @@ The same ability can be harmless on one side and blocking on the other, which is
 
 | Side | Category | Blocking abilities | Requests blocked (max) |
 |---|---|---:|---:|
-| attacker | Physical | 305 | 12510 |
-| attacker | Special | 302 | 8190 |
-| defender | Physical | 304 | 12510 |
-| defender | Special | 304 | 8190 |
+| attacker | Physical | 218 | 11175 |
+| attacker | Special | 218 | 6791 |
+| defender | Physical | 217 | 12670 |
+| defender | Special | 217 | 7592 |
 
-Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 25 rows, `RELEVANT` in 10 rows and `UNKNOWN` in 1205 rows. A `RELEVANT` or `UNKNOWN` result blocks the request; only `PROVEN_IRRELEVANT` clears it. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `-Pdualdex.census.full=true`.
+Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 370 rows, `RELEVANT` in 10 rows and `UNKNOWN` in 860 rows. A `RELEVANT` or `UNKNOWN` result blocks the request; only `PROVEN_IRRELEVANT` clears it. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `-Pdualdex.census.full=true`.
 
 ## Provenance and reproduction
 

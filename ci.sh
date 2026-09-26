@@ -6,7 +6,8 @@
 # Actions. Run from the repo root:
 #
 #   ./ci.sh test     # native reader suite + H&S tracker selftests +
-#                    # QuickJS calculator suite + data-pack generator tests
+#                    # QuickJS calculator suite + H&S differential damage oracle
+#                    # (committed corpus, ROM-free) + data-pack generator tests
 #                    # + H&S census source-reader tests + Kotlin unit tests
 #                    # (which include the committed issue #84 census artifact check)
 #   ./ci.sh build    # assemble the debug APK
@@ -241,6 +242,43 @@ calc_test() {
     -lm -ldl -lpthread \
     -o native/build/test_js_calc
   ./native/build/test_js_calc
+}
+
+# H&S 2.0.5 differential damage oracle (issue #90). ROM-free and upstream-free: the committed golden
+# corpus (tools/hns-damage-oracle/corpus.json) was generated from the pinned H&S battle engine by the
+# oracle's developer-only `regenerate` command. Here it is only READ: its schema, provenance,
+# staleness against the scenario matrix and the existing hand-derived/ROM-observed fixture
+# cross-references are checked, and then every scenario is executed through the shipped QuickJS
+# calculator (same engine, bundle and compile flags as calc_test) comparing all 16 rolls exactly.
+hns_damage_oracle_test() {
+  echo "== H&S differential damage oracle: tool tests and corpus check =="
+  (cd tools/hns-damage-oracle && python3 -m unittest test_hns_damage_oracle -v)
+  python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py check
+  echo "== H&S differential damage oracle: shipped calculator vs pinned engine =="
+  local cc
+  cc="$(find_cc)"
+  if [ -z "$cc" ]; then
+    echo "error: no host C compiler found; the differential oracle suite is required" >&2
+    return 1
+  fi
+  init_submodules
+  mkdir -p native/build
+  "$cc" -O2 -std=c11 \
+    -D_GNU_SOURCE \
+    -DCONFIG_VERSION='"2024-01-13"' \
+    -DCONFIG_BIGNUM \
+    -fno-strict-aliasing \
+    -I native/include \
+    -I native/quickjs \
+    native/quickjs/quickjs.c \
+    native/quickjs/libregexp.c \
+    native/quickjs/libunicode.c \
+    native/quickjs/dtoa.c \
+    native/src/js_calc_engine.c \
+    native/tests/test_hns_damage_oracle.c \
+    -lm -ldl -lpthread \
+    -o native/build/test_hns_damage_oracle
+  ./native/build/test_hns_damage_oracle
 }
 
 gradle_test() {
@@ -534,10 +572,10 @@ gradle_release() {
 # regen_upstream_headers directly), the command vocabulary must not run.
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 case "${1:-all}" in
-  test)         native_test; tracker_selftest; calc_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test ;;
+  test)         native_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test ;;
   source-check) source_check ;;
   build)        gradle_build ;;
-  all)          native_test; tracker_selftest; calc_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
+  all)          native_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
   release)      gradle_release ;;
   *)            echo "usage: $0 [test|source-check|build|all|release]" >&2; exit 2 ;;
 esac

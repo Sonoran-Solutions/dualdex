@@ -1,0 +1,60 @@
+{
+ "divergences": [
+  {
+   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/98",
+   "scenario": "badge-pinch-overgrow-a255",
+   "summary": "Pinch + Attack badge: DualDex rounds each Attack modifier separately; pinned accumulates the UQ4.12 modifier and applies it once."
+  },
+  {
+   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/100",
+   "scenario": "doubles-dazzling-gleam-partner-present",
+   "summary": "Engine-only: Doubles spread reduction relies on @smogon Gen III move targets, so post-Gen-III spread moves are never reduced."
+  },
+  {
+   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/100",
+   "scenario": "doubles-dazzling-gleam-partner-present-crit",
+   "summary": "Engine-only: Doubles spread reduction relies on @smogon Gen III move targets, so post-Gen-III spread moves are never reduced."
+  },
+  {
+   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/99",
+   "scenario": "engine-guts-burn-psychic",
+   "summary": "Engine-only: Guts boosts special moves; pinned Guts is physical-only."
+  },
+  {
+   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/99",
+   "scenario": "engine-guts-poison-psychic",
+   "summary": "Engine-only: Guts boosts special moves; pinned Guts is physical-only."
+  },
+  {
+   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/97",
+   "scenario": "style-type-based-crunch",
+   "summary": "Type-based option style: DualDex uses Gen III categories (Ghost physical, Dark special); pinned gTypesInfo has Ghost special, Dark physical."
+  },
+  {
+   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/97",
+   "scenario": "style-type-based-dark-pulse",
+   "summary": "Type-based option style: DualDex uses Gen III categories (Ghost physical, Dark special); pinned gTypesInfo has Ghost special, Dark physical."
+  },
+  {
+   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/97",
+   "scenario": "style-type-based-fairy-off-moonblast",
+   "summary": "Type-based option style: DualDex uses Gen III categories (Ghost physical, Dark special); pinned gTypesInfo has Ghost special, Dark physical."
+  },
+  {
+   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/97",
+   "scenario": "style-type-based-shadow-ball",
+   "summary": "Type-based option style: DualDex uses Gen III categories (Ghost physical, Dark special); pinned gTypesInfo has Ghost special, Dark physical."
+  },
+  {
+   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/97",
+   "scenario": "style-type-based-shadow-claw",
+   "summary": "Type-based option style: DualDex uses Gen III categories (Ghost physical, Dark special); pinned gTypesInfo has Ghost special, Dark physical."
+  },
+  {
+   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/97",
+   "scenario": "wise-glasses-type-based-crunch",
+   "summary": "Type-based option style: DualDex uses Gen III categories (Ghost physical, Dark special); pinned gTypesInfo has Ghost special, Dark physical."
+  }
+ ],
+ "schemaVersion": 1
+}

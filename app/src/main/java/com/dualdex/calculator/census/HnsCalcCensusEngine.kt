@@ -31,7 +31,7 @@ import java.io.File
  */
 object HnsCalcCensusEngine {
 
-    const val SCHEMA_VERSION: Int = 1
+    const val SCHEMA_VERSION: Int = 2
 
     /** One reference player team lead, loaded from the committed fixture JSON. */
     data class ReferenceLead(
@@ -161,26 +161,33 @@ object HnsCalcCensusEngine {
     /**
      * One Random Abilities trial: this ability, on this side, in this operand cohort's context.
      *
-     * [blockedByAbility] is true only when the production policy refused because of THIS ability -
-     * that is, the ability decision came back RELEVANT and the verdict carries
-     * `HNS_ABILITY_EFFECT_NOT_MODELLED`. [abilityRelevance] preserves the full three-valued result
-     * (`PROVEN_IRRELEVANT` / `RELEVANT` / `UNKNOWN`) so a contextual ability stays visible instead
-     * of being flattened into supported/unsupported.
+     * Refusal, caveat and clear counts are attributed from the production outcome's matching
+     * [HnsCensusOutcome.blockers] and [HnsCensusOutcome.ignoredMechanics] entries. The ability's
+     * contextual relevance enum is retained for audit, but never used as a proxy for the outcome.
      */
     data class AbilityTrial(
         val abilityId: Int,
         val abilityName: String,
         val side: String,
         val category: String,
-        val blockedByAbility: Boolean,
+        val refusedByAbility: Boolean,
+        val caveatedByAbility: Boolean,
         val abilityRelevance: String,
         val abilityRule: String?,
-        /** Requests in which production policy PROVED this ability cannot change the number. */
+        /** Requests where neither a refusal nor a caveat was attributed to this ability. */
+        val clearRequests: Int,
+        /** Distinct trainer battles with a clear outcome for this ability. */
+        val clearBattles: Int,
+        /** Requests in which production policy explicitly PROVED this ability irrelevant. */
         val clearedRequests: Int,
-        /** Requests in which production policy blamed this ability, under uniform assignment. */
-        val requestBlocks: Int,
-        /** Distinct trainer battles in which it blamed this ability. */
-        val battleBlocks: Int,
+        /** Requests where this ability itself is a request-level blocker. */
+        val refusedRequests: Int,
+        /** Distinct trainer battles where this ability itself is a request-level blocker. */
+        val refusedBattles: Int,
+        /** Requests where production names this ability among ignored mechanics. */
+        val caveatedRequests: Int,
+        /** Distinct trainer battles where production names this ability among ignored mechanics. */
+        val caveatedBattles: Int,
         /** Distinct reviewed context rules that fired in any context for this rank. */
         val rules: List<String>
     ) {
@@ -791,11 +798,11 @@ object HnsCalcCensusEngine {
      * are disjoint, so summing their weights counts each request exactly once; battles are
      * de-duplicated because one battle can span several cohorts.
      *
-     * **Attribution is per ability, never per request.** A trial counts as blocking only when the
-     * production verdict carries `HNS_ABILITY_EFFECT_NOT_MODELLED` **and** production produced an
-     * ability decision for the tested side whose relevance is not `PROVEN_IRRELEVANT`. A globally
-     * harmless ability produces no decision at all, so it can never be blamed for a block that a
-     * different mechanic caused; and a `PROVEN_IRRELEVANT` decision is a proven clearance.
+     * **Attribution is per ability, never per request.** A trial is refused only when the tested
+     * ability itself appears in `outcome.blockers`; it is caveated when it appears in
+     * `outcome.ignoredMechanics`; otherwise it is clear. This keeps a complete caveat distinct
+     * from an UNKNOWN hard refusal, even when an unrelated move or field blocker also refuses the
+     * request. Relevance remains a separate audit column, not an outcome substitute.
      *
      * **The other battler is held harmless.** For a trial on one side, the cohort is skipped when
      * the opposite battler's own real ability is one the shipped catalogue cannot prove harmless
@@ -814,9 +821,13 @@ object HnsCalcCensusEngine {
         // useful resolution is the ability/side/category ranking, so only that ranking plus a
         // bounded set of the highest-impact context rows is retained.
         class Acc(var name: String, var relevance: String) {
-            var requests = 0
+            var refusedRequests = 0
+            var caveatedRequests = 0
+            var clearRequests = 0
             var cleared = 0
-            val battleKeys = LinkedHashSet<String>()
+            val refusedBattleKeys = LinkedHashSet<String>()
+            val caveatedBattleKeys = LinkedHashSet<String>()
+            val clearBattleKeys = LinkedHashSet<String>()
             val rules = LinkedHashSet<String>()
         }
         val accs = LinkedHashMap<String, Acc>()
@@ -862,25 +873,31 @@ object HnsCalcCensusEngine {
                         battlersCount = key.battlersCount
                     )
                     val decision = outcome.abilityDecisions.firstOrNull { it.side.name == side }
-                    // Attribution: a null decision means the tested ability is globally harmless,
-                    // which can never be the blocker; `PROVEN_IRRELEVANT` is a proven clearance.
+                    // The decision enum explains the policy rule; request-level blockers and
+                    // ignored mechanics determine whether this trial refused, was caveated, or
+                    // cleared. In particular, RELEVANT is not a synonym for refused.
                     val relevance = decision?.relevance?.name
                         ?: com.dualdex.calculator.HnsAbilityRequestRelevance
                             .PROVEN_IRRELEVANT.name
-                    val blocked = decision != null &&
-                        decision.relevance !=
-                        com.dualdex.calculator.HnsAbilityRequestRelevance.PROVEN_IRRELEVANT &&
-                        outcome.limitations.contains(
-                            com.dualdex.calculator.CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED
-                        )
+                    val disposition = outcome.abilityTrialDisposition(side, abilityName)
                     val cleared = decision != null &&
                         decision.relevance ==
                         com.dualdex.calculator.HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
                     val rankKey = "$abilityId|${side.lowercase()}|${move.category.displayName}"
                     val acc = accs.getOrPut(rankKey) { Acc(abilityName, relevance) }
-                    if (blocked) {
-                        acc.requests += cohort.requestCount
-                        acc.battleKeys += cohort.battles
+                    when (disposition) {
+                        HnsAbilityTrialDisposition.REFUSED -> {
+                            acc.refusedRequests += cohort.requestCount
+                            acc.refusedBattleKeys += cohort.battles
+                        }
+                        HnsAbilityTrialDisposition.CAVEATED -> {
+                            acc.caveatedRequests += cohort.requestCount
+                            acc.caveatedBattleKeys += cohort.battles
+                        }
+                        HnsAbilityTrialDisposition.CLEAR -> {
+                            acc.clearRequests += cohort.requestCount
+                            acc.clearBattleKeys += cohort.battles
+                        }
                     }
                     if (cleared) acc.cleared += cohort.requestCount
                     if (decision?.rule != null) acc.rules += decision.rule
@@ -898,12 +915,17 @@ object HnsCalcCensusEngine {
                     abilityName = acc.name,
                     side = parts[1],
                     category = parts[2],
-                    blockedByAbility = acc.requests > 0,
+                    refusedByAbility = acc.refusedRequests > 0,
+                    caveatedByAbility = acc.caveatedRequests > 0,
                     abilityRelevance = acc.relevance,
                     abilityRule = acc.rules.sorted().joinToString(",").ifEmpty { null },
+                    clearRequests = acc.clearRequests,
+                    clearBattles = acc.clearBattleKeys.size,
                     clearedRequests = acc.cleared,
-                    requestBlocks = acc.requests,
-                    battleBlocks = acc.battleKeys.size,
+                    refusedRequests = acc.refusedRequests,
+                    refusedBattles = acc.refusedBattleKeys.size,
+                    caveatedRequests = acc.caveatedRequests,
+                    caveatedBattles = acc.caveatedBattleKeys.size,
                     rules = acc.rules.sorted()
                 )
             }

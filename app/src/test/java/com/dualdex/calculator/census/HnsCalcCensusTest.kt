@@ -90,6 +90,68 @@ class HnsCalcCensusTest {
     }
 
     @Test
+    fun `ability trial attribution separates refusal caveat and clear evidence`() {
+        val relevant = com.dualdex.calculator.HnsAbilityRequestDecision(
+            abilityId = 37,
+            abilityName = "Huge Power",
+            side = com.dualdex.calculator.HnsAbilitySide.ATTACKER,
+            globalCategory = HnsAbilityRegistry.classify(37).category,
+            relevance = com.dualdex.calculator.HnsAbilityRequestRelevance.RELEVANT,
+            rule = "attack_stat_ability_physical_move",
+            rationale = "synthetic complete evidence"
+        )
+        val unknown = com.dualdex.calculator.HnsAbilityRequestDecision(
+            abilityId = 105,
+            abilityName = "Super Luck",
+            side = com.dualdex.calculator.HnsAbilitySide.DEFENDER,
+            globalCategory = HnsAbilityRegistry.classify(105).category,
+            relevance = com.dualdex.calculator.HnsAbilityRequestRelevance.UNKNOWN,
+            rule = "unreviewed_context",
+            rationale = "synthetic unknown evidence"
+        )
+        val verdict = CalcCapabilityVerdict(
+            support = CalcSupport.UNSUPPORTED,
+            capability = requireNotNull(com.dualdex.calculator.CalcCapabilityPolicy.capabilityFor(profile)),
+            limitations = listOf(
+                CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED,
+                CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED
+            ),
+            request = null,
+            hnsAbilityDecisions = listOf(relevant, unknown),
+            ignoredMechanics = listOf(com.dualdex.calculator.IgnoredCalcMechanic.Ability(relevant))
+        )
+        val outcome = HnsCensusDisplayClassifier.classify(verdict)
+
+        assertEquals(HnsCensusResultTier.REFUSED, outcome.tier)
+        assertTrue("the independent move limitation must refuse", outcome.blockers.any {
+            it.limitation == CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED
+        })
+        assertTrue("UNKNOWN Super Luck must remain a blocker", outcome.blockers.any {
+            it.limitation == CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED &&
+                it.side == "defender" && it.identity == "Super Luck"
+        })
+        assertFalse("the caveated Huge Power must not be listed as a blocker", outcome.blockers.any {
+            it.limitation == CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED &&
+                it.side == "attacker" && it.identity == "Huge Power"
+        })
+        assertTrue("the caveat evidence must survive the unrelated refusal", outcome.ignoredMechanics.any {
+            it.side == "attacker" && it.identity == "Huge Power"
+        })
+        assertEquals(
+            HnsAbilityTrialDisposition.CAVEATED,
+            outcome.abilityTrialDisposition("attacker", "Huge Power")
+        )
+        assertEquals(
+            HnsAbilityTrialDisposition.REFUSED,
+            outcome.abilityTrialDisposition("defender", "Super Luck")
+        )
+        assertEquals(
+            HnsAbilityTrialDisposition.CLEAR,
+            outcome.abilityTrialDisposition("attacker", "Flash Fire")
+        )
+    }
+
+    @Test
     fun `a non blocking limitation never refuses and never becomes a blocker`() {
         val outcome = HnsCensusDisplayClassifier.classify(
             verdict(CalcSupport.ESTIMATED, listOf(CalcLimitation.ROM_NOT_EXACT_VERIFIED))
@@ -209,7 +271,7 @@ class HnsCalcCensusTest {
             it.outcome.tier == HnsCensusResultTier.FULLY_MODELLED && it.outcome.ignoredMechanics.isNotEmpty()
         })
         assertTrue(run.requests.filter { it.outcome.tier == HnsCensusResultTier.REFUSED }
-            .all { it.outcome.ignoredMechanics.isEmpty() })
+            .all { it.outcome.blockers.isNotEmpty() })
     }
 
     // ---------------------------------------------------------------------------- the census
@@ -414,14 +476,14 @@ class HnsCalcCensusTest {
         for (trial in run.abilityTrials.filter { it.abilityId in harmlessIds }) {
             assertFalse(
                 "harmless ability ${trial.abilityName} was credited with a block",
-                trial.blockedByAbility
+                trial.refusedByAbility
             )
-            assertEquals(0, trial.requestBlocks)
-            assertEquals(0, trial.battleBlocks)
+            assertEquals(0, trial.refusedRequests)
+            assertEquals(0, trial.refusedBattles)
         }
         // The complement is the only attributing set, and the published headline counts it.
         val attributing = run.abilityTrials.filter { HnsCalcCensusEngine.mayBlockAbility(it.abilityId) }
-        assertTrue(attributing.any { it.blockedByAbility })
+        assertTrue(attributing.any { it.refusedByAbility })
     }
 
     @Test
@@ -460,28 +522,47 @@ class HnsCalcCensusTest {
         val attackerPhysical = hugePower.single { it.side == "attacker" && it.category == "Physical" }
         val attackerSpecial = hugePower.single { it.side == "attacker" && it.category == "Special" }
         assertEquals("RELEVANT", attackerPhysical.abilityRelevance)
-        assertTrue("Huge Power must block an attacker's physical move", attackerPhysical.blockedByAbility)
+        assertTrue("Huge Power must be counted as caveated on a physical attack", attackerPhysical.caveatedByAbility)
+        assertTrue(attackerPhysical.caveatedRequests > 0)
+        val eligiblePhysicalRequests = run.abilityCohorts
+            .filter { it.key.moveCategory == "Physical" && !HnsCalcCensusEngine.mayBlockAbility(it.key.defenderAbilityId) }
+            .sumOf { it.requestCount }
+        assertEquals(
+            "every eligible Huge Power trial must be classified from its request outcome",
+            eligiblePhysicalRequests,
+            attackerPhysical.refusedRequests + attackerPhysical.caveatedRequests + attackerPhysical.clearRequests
+        )
+        assertTrue(
+            "the complete-evidence contexts must be caveated rather than counted as refusals",
+            attackerPhysical.caveatedRequests > attackerPhysical.refusedRequests
+        )
         assertEquals(0, attackerPhysical.clearedRequests)
         assertTrue(
             "Huge Power must be provably irrelevant for an attacker's special move somewhere",
             attackerSpecial.clearedRequests > 0
         )
+        assertTrue("proven-irrelevant Huge Power trials must be clear", attackerSpecial.clearRequests > 0)
         for (row in hugePower.filter { it.side == "defender" }) {
             assertEquals("PROVEN_IRRELEVANT", row.abilityRelevance)
-            assertFalse("Huge Power must not block as a defender", row.blockedByAbility)
-            assertEquals(0, row.requestBlocks)
+            assertFalse("Huge Power must not refuse as a defender", row.refusedByAbility)
+            assertEquals(0, row.refusedRequests)
         }
         // Battle Armor: the mirror case, relevant only as a defender.
         val battleArmor = run.abilityTrials.filter { it.abilityId == 4 }
         assertEquals(4, battleArmor.size)
         for (row in battleArmor.filter { it.side == "attacker" }) {
             assertEquals("PROVEN_IRRELEVANT", row.abilityRelevance)
-            assertFalse("Battle Armor must not block as an attacker", row.blockedByAbility)
+            assertFalse("Battle Armor must not refuse as an attacker", row.refusedByAbility)
         }
-        assertTrue(
-            "Battle Armor must block as a defender",
-            battleArmor.filter { it.side == "defender" }.all { it.blockedByAbility }
-        )
+        assertTrue("Battle Armor UNKNOWN evidence must refuse as a defender", battleArmor
+            .filter { it.side == "defender" }.all { it.refusedByAbility })
+
+        val superLuckId = run.abilityDomain.single { it.second == "Super Luck" }.first
+        val superLuckTrials = run.abilityTrials.filter { it.abilityId == superLuckId }
+        assertTrue(superLuckTrials.isNotEmpty())
+        assertTrue("UNKNOWN Super Luck contexts must be refused", superLuckTrials
+            .filter { it.abilityRelevance == "UNKNOWN" }
+            .all { it.refusedRequests > 0 && it.caveatedRequests == 0 })
     }
 
     @Test
@@ -492,6 +573,33 @@ class HnsCalcCensusTest {
         assertTrue(json.contains("PROVEN_IRRELEVANT"))
         assertTrue(json.contains("RELEVANT"))
         assertTrue(json.contains("UNKNOWN"))
+        val root = org.json.JSONObject(json)
+        assertEquals(2, root.getInt("schemaVersion"))
+        assertTrue(root.has("abilityRefusals"))
+        assertTrue(root.has("abilityCaveats"))
+        assertFalse("the old blocked boolean must not survive as a stale proxy", json.contains("\"blocked\""))
+        val hugePower = run.abilityTrials.single {
+            it.abilityId == 37 && it.side == "attacker" && it.category == "Physical"
+        }
+        val refusalRows = root.getJSONArray("abilityRefusals")
+        val refusal = (0 until refusalRows.length()).map { refusalRows.getJSONObject(it) }
+            .single { it.getInt("abilityId") == 37 && it.getString("side") == "attacker" &&
+                it.getString("category") == "Physical" }
+        assertEquals(hugePower.refusedRequests, refusal.getInt("refusedRequests"))
+        assertEquals(hugePower.refusedBattles, refusal.getInt("refusedBattles"))
+        val caveatRows = root.getJSONArray("abilityCaveats")
+        val caveat = (0 until caveatRows.length()).map { caveatRows.getJSONObject(it) }
+            .single { it.getInt("abilityId") == 37 && it.getString("side") == "attacker" &&
+                it.getString("category") == "Physical" }
+        assertEquals(hugePower.caveatedRequests, caveat.getInt("caveatedRequests"))
+        assertEquals(hugePower.caveatedBattles, caveat.getInt("caveatedBattles"))
+        val trialRows = root.getJSONArray("abilityTrials")
+        val trial = (0 until trialRows.length()).map { trialRows.getJSONObject(it) }
+            .single { it.getInt("abilityId") == 37 && it.getString("side") == "attacker" &&
+                it.getString("category") == "Physical" }
+        assertEquals(hugePower.clearRequests, trial.getInt("clearRequests"))
+        assertEquals(hugePower.refusedRequests, trial.getInt("refusedRequests"))
+        assertEquals(hugePower.caveatedRequests, trial.getInt("caveatedRequests"))
         // A reviewed context rule must be named, not flattened to a generic code.
         assertTrue(
             "a reviewed rule name must appear in the artifact",

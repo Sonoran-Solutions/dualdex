@@ -126,7 +126,7 @@ Ranked by the number of distinct trainer battles affected, then by requests. A b
 
 ## Ignored mechanics in caveated estimates
 
-These named abilities and items are neutralized by production policy before the authorized request reaches the engine. Counts use the same distinct-battle and request rules as the hard-blocker table.
+These named abilities and items are neutralized by production policy before the authorized request reaches the engine. Counts use the same distinct-battle and request rules as the hard-blocker table and include only displayed caveated estimates. Per-request JSON retains ignored-mechanic evidence on refused requests when another independent blocker prevents display.
 
 | Mechanic | Side | Battles | Requests |
 |---|---|---:|---:|
@@ -197,21 +197,21 @@ These named abilities and items are neutralized by production policy before the 
 
 ## Random Abilities view
 
-Under Random Abilities any of the pinned domain's 310 abilities can be installed on any battler, so the useful question is not which abilities trainers happen to have but which abilities production policy blocks, on which side, for which move categories, and how many of this census' requests that would affect.
+Under Random Abilities any of the pinned domain's 310 abilities can be installed on either battler. Each trial is classified from the production request outcome as refused, caveated, or clear.
 
 **Method.** Every eligible request is assigned to an *operand cohort*: the requests sharing exactly the operands an ability-relevance decision reads (direction, attacker and defender species, the move, the effective move type and category, STAB, format). Each ability is then installed on each side of each cohort, replacing only that side's ability, and decided by the real production policy. Cohorts are disjoint, so summing their weights counts each request exactly once; battles are de-duplicated because one battle can span several cohorts. Under a uniform ability distribution the ranking is therefore exactly a count, with no probability weight invented. There are 7806 cohorts and 1240 ranked ability/side/category rows.
 
-**Attribution rule.** A trial is credited to the ability under test only when production's own verdict both carries `HNS_ABILITY_EFFECT_NOT_MODELLED` **and** produced an ability decision for that side whose relevance is not `PROVEN_IRRELEVANT`. A globally harmless ability produces no decision at all, so it can never be blamed for a block another mechanic caused, and a `PROVEN_IRRELEVANT` decision is a proven clearance.
+**Attribution rule.** A trial is *refused* only when the tested ability appears in `outcome.blockers`; it is *caveated* when it appears in `outcome.ignoredMechanics`; otherwise it is *clear*. An unrelated hard blocker can refuse the request while a complete ability caveat remains a caveat. The three-valued relevance column is retained as policy evidence but does not determine the outcome.
 
 **The opposite battler is held harmless.** For a trial on one side, a cohort is skipped when the opposite battler's own real ability is one the shipped catalogue cannot prove harmless, because a block would then be attributable to both abilities at once. This is a deliberate, disclosed narrowing: 6312 requests are excluded from the attacker-side trials and 4016 from the defender-side trials. Counting them under both abilities would inflate every ranking, so they are reported rather than guessed.
 
-**Reading the two columns.** *Requests blocked* is the number of this census' eligible requests in which production policy would blame the ability under test if it were installed on that side in that move category. It is the exact under-uniform-distribution count for the ability itself; it deliberately does not also count the requests where only the cohort's real opposing ability blocks (that is the difference between asking "is this ability the blocker" and "does anything block at all"). *Rules* lists the distinct reviewed context rules that fired, so a contextual ability stays visible instead of being flattened into a global supported/unsupported verdict.
+Counts are weighted by the cohort's eligible requests; battle counts de-duplicate trainer battles within each disposition. Refusals are attributed only to the exact ability entry in production's blocker list, while caveats use its ignored-mechanic list. Thus an unsupported move can refuse a request without making a caveatable ability look like a blocker. *Rules* lists the reviewed contextual rules that fired.
 
-### Abilities the shipped catalogue cannot prove harmless
+### Abilities that cause refusals
 
-**218 of 310 abilities block at least one census request.** The other 92 are classified `PROVEN_NO_DAMAGE_EFFECT` (or modelled) by the shipped audit, so they produce no ability decision at all and can never be the blocker - which is exactly why the attribution rule above matters. Every blocking ability blocks all 651 battles in its category on either side: an ability with no reviewed clearance rule is refused in every context, and no probability weight is invented.
+**217 of 310 abilities cause a request refusal in at least one eligible context. 6 have at least one caveated context; 92 produce only clear outcomes in their eligible trials.** Refusal and caveat counts are per ability/side/category and can apply to the same ability in different contexts.
 
-| # | Ability | Side | Category | Battles blocked | Requests blocked | Rule |
+| # | Ability | Side | Category | Battles refused | Requests refused | Rule |
 |---:|---|---|---|---:|---:|---|
 | 1 | Drizzle | defender | Physical | 651 | 12670 | - |
 | 2 | Battle Armor | defender | Physical | 651 | 12670 | defender_critical_probability_unmodelled |
@@ -229,41 +229,58 @@ Under Random Abilities any of the pinned domain's 310 abilities can be installed
 | 14 | Chlorophyll | defender | Physical | 651 | 12670 | - |
 | 15 | Trace | defender | Physical | 651 | 12670 | - |
 
-(The full ranked table, one row per ability per side per category, is `abilityBlockers` in `census.json`.)
+(The full ranked table, one row per ability per side per category, is `abilityRefusals` in `census.json`.)
+
+### Abilities that produce caveated estimates
+
+| # | Ability | Side | Category | Battles caveated | Requests caveated | Rule |
+|---:|---|---|---|---:|---:|---|
+| 1 | Thick Fat | defender | Special | 651 | 2188 | thick_fat_fire_or_ice_move,thick_fat_other_move_type |
+| 2 | Thick Fat | defender | Physical | 651 | 1954 | thick_fat_fire_or_ice_move,thick_fat_other_move_type |
+| 3 | Truant | attacker | Physical | 639 | 11175 | attacker_move_execution_state_unobserved |
+| 4 | Truant | attacker | Special | 626 | 6791 | attacker_move_execution_state_unobserved |
+| 5 | Huge Power | attacker | Physical | 604 | 8413 | attack_stat_ability_physical_move |
+| 6 | Pure Power | attacker | Physical | 604 | 8413 | attack_stat_ability_physical_move |
+| 7 | Adaptability | attacker | Special | 592 | 2917 | adaptability_with_stab,adaptability_without_stab |
+| 8 | Adaptability | attacker | Physical | 562 | 3728 | adaptability_with_stab,adaptability_without_stab |
+| 9 | Levitate | defender | Special | 45 | 112 | defender_levitate_ground_move,defender_levitate_non_ground_move |
+| 10 | Levitate | defender | Physical | 10 | 26 | defender_levitate_ground_move,defender_levitate_non_ground_move |
+
+(The complete ranking is in `abilityCaveats` in `census.json`.)
 
 ### Abilities with a reviewed context rule
 
-These are the abilities the shipped `HnsAbilityContextPolicy` can actually clear for a specific request, at least once under this baseline. `Cleared contexts` counts the (side, category) contexts policy proved irrelevant for; `Blocking contexts` counts the ones where it still refuses. This is the whole list - 14 abilities - and it is the only place the domain is not refused wholesale, which is the argument for #86.
+These rows have a reviewed context rule and at least one explicit proof of irrelevance. Context counts are per side/category; refusals and caveats are reported separately.
 
-| Ability | Cleared contexts | Blocking contexts | Reviewed rules that fired |
-|---|---:|---:|---|
-| Tera Shell | 4 | 0 | attacker_always_irrelevant, defender_not_terapagos_terastal |
-| Levitate | 4 | 2 | attacker_levitate_does_not_change_outgoing_damage, defender_levitate_ground_move |
-| Thick Fat | 4 | 2 | attacker_thick_fat_does_not_mitigate_incoming_damage, thick_fat_fire_or_ice_move |
-| Guts | 4 | 2 | defender_guts_does_not_modify_incoming_damage, guts_attacker_neutral_status, guts_special_move |
-| Adaptability | 4 | 2 | adaptability_with_stab, defender_adaptability_does_not_boost_incoming_damage |
-| Plus | 4 | 4 | plus_minus_singles_no_partner |
-| Minus | 4 | 4 | plus_minus_singles_no_partner |
-| Friend Guard | 4 | 4 | friend_guard_singles_no_partner |
-| Telepathy | 4 | 4 | telepathy_singles_no_partner |
-| Huge Power | 3 | 1 | attack_stat_ability_special_move, defender_attack_stat_ability |
-| Pure Power | 3 | 1 | attack_stat_ability_special_move, defender_attack_stat_ability |
-| Battle Armor | 2 | 0 | attacker_critical_hit_armor |
-| Truant | 2 | 0 | defender_truant_does_not_change_incoming_damage |
-| Shell Armor | 2 | 0 | attacker_critical_hit_armor |
+| Ability | Proven clear contexts | Refused contexts | Caveated contexts | Reviewed rules that fired |
+|---|---:|---:|---:|---|
+| Tera Shell | 4 | 0 | 0 | attacker_always_irrelevant, defender_not_terapagos_terastal |
+| Levitate | 4 | 2 | 2 | attacker_levitate_does_not_change_outgoing_damage, defender_levitate_ground_move |
+| Thick Fat | 4 | 2 | 2 | attacker_thick_fat_does_not_mitigate_incoming_damage, thick_fat_fire_or_ice_move |
+| Guts | 4 | 2 | 0 | defender_guts_does_not_modify_incoming_damage, guts_attacker_neutral_status, guts_special_move |
+| Adaptability | 4 | 2 | 2 | adaptability_with_stab, defender_adaptability_does_not_boost_incoming_damage |
+| Plus | 4 | 4 | 0 | plus_minus_singles_no_partner |
+| Minus | 4 | 4 | 0 | plus_minus_singles_no_partner |
+| Friend Guard | 4 | 4 | 0 | friend_guard_singles_no_partner |
+| Telepathy | 4 | 4 | 0 | telepathy_singles_no_partner |
+| Huge Power | 3 | 2 | 1 | attack_stat_ability_physical_move, attack_stat_ability_special_move, defender_attack_stat_ability |
+| Pure Power | 3 | 2 | 1 | attack_stat_ability_physical_move, attack_stat_ability_special_move, defender_attack_stat_ability |
+| Truant | 2 | 0 | 2 | attacker_move_execution_state_unobserved, defender_truant_does_not_change_incoming_damage |
+| Battle Armor | 2 | 2 | 0 | attacker_critical_hit_armor, defender_critical_probability_unmodelled |
+| Shell Armor | 2 | 2 | 0 | attacker_critical_hit_armor, defender_critical_probability_unmodelled |
 
 ### Side and category breakdown
 
-The same ability can be harmless on one side and blocking on the other, which is a property of the reviewed contextual rules rather than of the census. *Requests blocked* is the largest number any single ability blocks in that side/category, not a sum over abilities.
+The same ability can be clear, caveated, or refused on different sides and in different move categories. Each maximum is for one ability in that side/category, not a sum over abilities.
 
-| Side | Category | Blocking abilities | Requests blocked (max) |
-|---|---|---:|---:|
-| attacker | Physical | 214 | 11175 |
-| attacker | Special | 214 | 6791 |
-| defender | Physical | 213 | 12670 |
-| defender | Special | 213 | 7592 |
+| Side | Category | Refusing abilities | Requests refused (max) | Caveated abilities | Requests caveated (max) |
+|---|---|---:|---:|---:|---:|
+| attacker | Physical | 213 | 11175 | 4 | 11175 |
+| attacker | Special | 213 | 6791 | 2 | 6791 |
+| defender | Physical | 213 | 12670 | 2 | 1954 |
+| defender | Special | 213 | 7592 | 2 | 2188 |
 
-Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 370 rows, `RELEVANT` in 10 rows and `UNKNOWN` in 860 rows. A `RELEVANT` or `UNKNOWN` result blocks the request; only `PROVEN_IRRELEVANT` clears it. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `-Pdualdex.census.full=true`.
+Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 370 rows, `RELEVANT` in 10 rows and `UNKNOWN` in 860 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `-Pdualdex.census.full=true`.
 
 ## Provenance and reproduction
 

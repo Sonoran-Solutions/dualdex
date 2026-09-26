@@ -165,7 +165,11 @@ object HnsCalcCensusReport {
         data class Occurrence(val mechanic: HnsCensusBlocker, val requestKey: String, val trainerKey: String)
 
         val occurrences = run.requests.flatMap { record ->
-            record.outcome.ignoredMechanics.map { Occurrence(it, record.key, record.trainerKey) }
+            if (record.outcome.tier != HnsCensusResultTier.CAVEATED_ESTIMATE) {
+                emptyList()
+            } else {
+                record.outcome.ignoredMechanics.map { Occurrence(it, record.key, record.trainerKey) }
+            }
         }
         return occurrences
             .groupBy { Triple(it.mechanic.kind, it.mechanic.side, it.mechanic.identity) }
@@ -259,8 +263,12 @@ object HnsCalcCensusReport {
         val abilityName: String,
         val side: String,
         val category: String,
-        val requests: Int,
-        val battles: Int,
+        val refusedRequests: Int,
+        val refusedBattles: Int,
+        val caveatedRequests: Int,
+        val caveatedBattles: Int,
+        val clearRequests: Int,
+        val clearBattles: Int,
         val relevance: String,
         val rule: String?,
         val clearedRequests: Int
@@ -271,18 +279,17 @@ object HnsCalcCensusReport {
         val abilityId: Int,
         val abilityName: String,
         val clearedContexts: Int,
-        val blockingContexts: Int,
+        val refusedContexts: Int,
+        val caveatedContexts: Int,
         val rule: String?
     )
 
     /**
      * The Random Abilities ranking.
      *
-     * A trial is counted only when production policy refused because of that ability, so the
-     * counts are exactly the requests and battles that ability would break if it were installed
-     * on that side in that context. Trials where the ability is proven irrelevant stay in the
-     * output at relevance `PROVEN_IRRELEVANT` with zero counts, which is what keeps contextual
-     * abilities visible instead of flattening them to globally supported/unsupported.
+     * Refusal and caveat counts come from the tested ability's matching production blocker or
+     * ignored-mechanic entry. Trials where neither entry names it are clear. Relevance remains a
+     * separate policy audit value, not a proxy for the request outcome.
      */
     private fun abilityRanks(run: HnsCalcCensusEngine.CensusRun): List<AbilityRank> =
         run.abilityTrials
@@ -292,37 +299,45 @@ object HnsCalcCensusReport {
                     abilityName = trial.abilityName,
                     side = trial.side,
                     category = trial.category,
-                    requests = trial.requestBlocks,
-                    battles = trial.battleBlocks,
+                    refusedRequests = trial.refusedRequests,
+                    refusedBattles = trial.refusedBattles,
+                    caveatedRequests = trial.caveatedRequests,
+                    caveatedBattles = trial.caveatedBattles,
+                    clearRequests = trial.clearRequests,
+                    clearBattles = trial.clearBattles,
                     relevance = trial.abilityRelevance,
                     rule = trial.abilityRule,
                     clearedRequests = trial.clearedRequests
                 )
             }
             .sortedWith(
-                compareByDescending<AbilityRank> { it.battles }
-                    .thenByDescending { it.requests }
+                compareByDescending<AbilityRank> { it.refusedBattles }
+                    .thenByDescending { it.refusedRequests }
+                    .thenByDescending { it.caveatedBattles }
+                    .thenByDescending { it.caveatedRequests }
                     .thenBy { it.abilityId }
                     .thenBy { it.side }
                     .thenBy { it.category }
             )
 
     /**
-     * The abilities the shipped contextual policy actually clears in some context, ranked by how
-     * much they block elsewhere. This is the readable part of the Random Abilities view: an
-     * ability with no reviewed clearance rule is refused everywhere and would swamp a plain
-     * "most blocking" ranking.
+     * The abilities the shipped contextual policy explicitly proves irrelevant in some context.
      */
     private fun clearedAbilityRanks(run: HnsCalcCensusEngine.CensusRun): List<ClearedAbility> =
         run.abilityTrials
-            .filter { it.clearedRequests > 0 }
             .groupBy { it.abilityId to it.abilityName }
+            .filterValues { rows ->
+                rows.any { row ->
+                    row.clearedRequests > 0 && row.rules.any { rule -> rule != "unreviewed_context" }
+                }
+            }
             .map { (key, rows) ->
                 ClearedAbility(
                     abilityId = key.first,
                     abilityName = key.second,
                     clearedContexts = rows.count { it.clearedRequests > 0 },
-                    blockingContexts = rows.count { it.requestBlocks > 0 },
+                    refusedContexts = rows.count { it.refusedRequests > 0 },
+                    caveatedContexts = rows.count { it.caveatedRequests > 0 },
                     rule = rows.mapNotNull { row ->
                         row.rules.firstOrNull { it != "unreviewed_context" }
                     }.distinct().sorted().joinToString(", ").ifEmpty { null }
@@ -330,13 +345,23 @@ object HnsCalcCensusReport {
             }
             .sortedWith(
                 compareByDescending<ClearedAbility> { it.clearedContexts }
-                    .thenBy { it.blockingContexts }
+                    .thenBy { it.refusedContexts }
                     .thenBy { it.abilityId }
             )
 
-    /** Distinct ability identities (not side/category rows) that block at least one request. */
-    private fun blockingAbilityIdentities(run: HnsCalcCensusEngine.CensusRun): Int =
-        run.abilityTrials.filter { it.blockedByAbility }.map { it.abilityId }.distinct().size
+    /** Distinct ability identities (not side/category rows) named in at least one refusal. */
+    private fun refusingAbilityIdentities(run: HnsCalcCensusEngine.CensusRun): Int =
+        run.abilityTrials.filter { it.refusedByAbility }.map { it.abilityId }.distinct().size
+
+    /** Distinct ability identities named in at least one caveated estimate. */
+    private fun caveatedAbilityIdentities(run: HnsCalcCensusEngine.CensusRun): Int =
+        run.abilityTrials.filter { it.caveatedByAbility }.map { it.abilityId }.distinct().size
+
+    /** Distinct ability identities whose eligible trials were all clear. */
+    private fun clearOnlyAbilityIdentities(run: HnsCalcCensusEngine.CensusRun): Int =
+        run.abilityTrials.groupBy { it.abilityId }.count { (_, trials) ->
+            trials.all { it.refusedRequests == 0 && it.caveatedRequests == 0 }
+        }
 
     // ---------------------------------------------------------------------------- JSON
 
@@ -367,7 +392,10 @@ object HnsCalcCensusReport {
                     "a number is displayed while named mechanics are intentionally ignored " +
                         "according to the production verdict's ignoredMechanics"
                 ),
-                "REFUSED" to JsonValue.str("no number is displayed")
+                "REFUSED" to JsonValue.str(
+                    "no number is displayed; ignoredMechanics may still identify complete soft " +
+                        "causes alongside an independent blocker"
+                )
             )
         )
         members += "eligibility" to JsonValue.obj(
@@ -506,18 +534,32 @@ object HnsCalcCensusReport {
                 )
             }
         )
-        members += "abilityBlockers" to JsonValue.arr(
-            abilityRanks(run).filter { it.requests > 0 }.map {
+        members += "abilityRefusals" to JsonValue.arr(
+            abilityRanks(run).filter { it.refusedRequests > 0 }.map {
                 JsonValue.obj(
                     "abilityId" to JsonValue.num(it.abilityId),
                     "ability" to JsonValue.str(it.abilityName),
                     "side" to JsonValue.str(it.side),
                     "category" to JsonValue.str(it.category),
-                    "requests" to JsonValue.num(it.requests),
-                    "battles" to JsonValue.num(it.battles),
+                    "refusedRequests" to JsonValue.num(it.refusedRequests),
+                    "refusedBattles" to JsonValue.num(it.refusedBattles),
                     "relevance" to JsonValue.str(it.relevance),
                     "rule" to JsonValue.str(it.rule),
                     "clearedRequests" to JsonValue.num(it.clearedRequests)
+                )
+            }
+        )
+        members += "abilityCaveats" to JsonValue.arr(
+            abilityRanks(run).filter { it.caveatedRequests > 0 }.map {
+                JsonValue.obj(
+                    "abilityId" to JsonValue.num(it.abilityId),
+                    "ability" to JsonValue.str(it.abilityName),
+                    "side" to JsonValue.str(it.side),
+                    "category" to JsonValue.str(it.category),
+                    "caveatedRequests" to JsonValue.num(it.caveatedRequests),
+                    "caveatedBattles" to JsonValue.num(it.caveatedBattles),
+                    "relevance" to JsonValue.str(it.relevance),
+                    "rule" to JsonValue.str(it.rule)
                 )
             }
         )
@@ -530,9 +572,14 @@ object HnsCalcCensusReport {
                     "category" to JsonValue.str(trial.category),
                     "relevance" to JsonValue.str(trial.abilityRelevance),
                     "rule" to JsonValue.str(trial.abilityRule),
-                    "blocked" to JsonValue.bool(trial.blockedByAbility),
-                    "requests" to JsonValue.num(trial.requestBlocks),
-                    "battles" to JsonValue.num(trial.battleBlocks),
+                    "refusedByAbility" to JsonValue.bool(trial.refusedByAbility),
+                    "refusedRequests" to JsonValue.num(trial.refusedRequests),
+                    "refusedBattles" to JsonValue.num(trial.refusedBattles),
+                    "caveatedByAbility" to JsonValue.bool(trial.caveatedByAbility),
+                    "caveatedRequests" to JsonValue.num(trial.caveatedRequests),
+                    "caveatedBattles" to JsonValue.num(trial.caveatedBattles),
+                    "clearRequests" to JsonValue.num(trial.clearRequests),
+                    "clearBattles" to JsonValue.num(trial.clearBattles),
                     "clearedRequests" to JsonValue.num(trial.clearedRequests),
                     "rules" to JsonValue.strArr(trial.rules)
                 )
@@ -574,10 +621,10 @@ object HnsCalcCensusReport {
                     "tier" to JsonValue.str(record.outcome.tier.wireName),
                     "support" to JsonValue.str(record.outcome.support.name),
                     "limitations" to JsonValue.strArr(record.outcome.limitations.map { it.name }),
-                    // The ranked causes of this verdict, with production's own mechanic identity.
-                    // The full policy decision objects are in the optional detailed dump.
+                    // Request-level blockers only. Ignored mechanics remain in their separate
+                    // field, including on a refused request with an unrelated hard blocker.
                     "causes" to JsonValue.strArr(
-                        (record.outcome.blockers + record.outcome.ignoredMechanics).map { blocker ->
+                        record.outcome.blockers.map { blocker ->
                             buildString {
                                 append(blocker.limitation.name)
                                 blocker.side?.let { append(":").append(it) }
@@ -899,7 +946,9 @@ object HnsCalcCensusReport {
         out.append(
             "These named abilities and items are neutralized by production policy before the " +
                 "authorized request reaches the engine. Counts use the same distinct-battle and " +
-                "request rules as the hard-blocker table.\n\n"
+                "request rules as the hard-blocker table and include only displayed caveated " +
+                "estimates. Per-request JSON retains ignored-mechanic evidence on refused requests " +
+                "when another independent blocker prevents display.\n\n"
         )
         out.append("| Mechanic | Side | Battles | Requests |\n|---|---|---:|---:|\n")
         ignoredMechanics.take(25).forEach { rank ->
@@ -925,11 +974,9 @@ object HnsCalcCensusReport {
 
         out.append("## Random Abilities view\n\n")
         out.append(
-            "Under Random Abilities any of the pinned domain's " +
-                "${run.abilityDomain.size} abilities can be installed on any battler, so the useful " +
-                "question is not which abilities trainers happen to have but which abilities " +
-                "production policy blocks, on which side, for which move categories, and how many " +
-                "of this census' requests that would affect.\n\n"
+            "Under Random Abilities any of the pinned domain's ${run.abilityDomain.size} abilities " +
+                "can be installed on either battler. Each trial is classified from the production " +
+                "request outcome as refused, caveated, or clear.\n\n"
         )
         out.append(
             "**Method.** Every eligible request is assigned to an *operand cohort*: the requests " +
@@ -945,12 +992,11 @@ object HnsCalcCensusReport {
                 "ability/side/category rows.\n\n"
         )
         out.append(
-            "**Attribution rule.** A trial is credited to the ability under test only when " +
-                "production's own verdict both carries `HNS_ABILITY_EFFECT_NOT_MODELLED` **and** " +
-                "produced an ability decision for that side whose relevance is not " +
-                "`PROVEN_IRRELEVANT`. A globally harmless ability produces no decision at all, so " +
-                "it can never be blamed for a block another mechanic caused, and a " +
-                "`PROVEN_IRRELEVANT` decision is a proven clearance.\n\n"
+            "**Attribution rule.** A trial is *refused* only when the tested ability appears in " +
+                "`outcome.blockers`; it is *caveated* when it appears in `outcome.ignoredMechanics`; " +
+                "otherwise it is *clear*. An unrelated hard blocker can refuse the request while a " +
+                "complete ability caveat remains a caveat. The three-valued relevance column is " +
+                "retained as policy evidence but does not determine the outcome.\n\n"
         )
         out.append(
             "**The opposite battler is held harmless.** For a trial on one side, a cohort is " +
@@ -963,77 +1009,84 @@ object HnsCalcCensusReport {
                 "ranking, so they are reported rather than guessed.\n\n"
         )
         out.append(
-            "**Reading the two columns.** *Requests blocked* is the number of this census' eligible " +
-                "requests in which production policy would blame the ability under test if it were " +
-                "installed on that side in that move category. It is the exact under-uniform-" +
-                "distribution count for the ability itself; it deliberately does not also count the " +
-                "requests where only the cohort's real opposing ability blocks (that is the " +
-                "difference between asking \"is this ability the blocker\" and \"does anything " +
-                "block at all\"). *Rules* lists the distinct reviewed context rules that fired, so a " +
-                "contextual ability stays visible instead of being flattened into a global " +
-                "supported/unsupported verdict.\n\n"
+            "Counts are weighted by the cohort's eligible requests; battle counts de-duplicate " +
+                "trainer battles within each disposition. Refusals are attributed only to the exact " +
+                "ability entry in production's blocker list, while caveats use its ignored-mechanic " +
+                "list. Thus an unsupported move can refuse a request without making a caveatable " +
+                "ability look like a blocker. *Rules* lists the reviewed contextual rules that " +
+                "fired.\n\n"
         )
-        out.append("### Abilities the shipped catalogue cannot prove harmless\n\n")
+        out.append("### Abilities that cause refusals\n\n")
         out.append(
-            "**${blockingAbilityIdentities(run)} of ${run.abilityDomain.size} abilities block at " +
-                "least one census request.** The other " +
-                "${run.abilityDomain.size - blockingAbilityIdentities(run)} are classified " +
-                "`PROVEN_NO_DAMAGE_EFFECT` (or modelled) by the shipped audit, so they produce no " +
-                "ability decision at all and can never be the blocker - which is exactly why the " +
-                "attribution rule above matters. Every blocking ability blocks all " +
-                "${run.trainers.size} battles in its category on either side: an ability with no " +
-                "reviewed clearance rule is refused in every context, and no probability weight is " +
-                "invented.\n\n"
+            "**${refusingAbilityIdentities(run)} of ${run.abilityDomain.size} abilities cause a " +
+                "request refusal in at least one eligible context. ${caveatedAbilityIdentities(run)} " +
+                "have at least one caveated context; ${clearOnlyAbilityIdentities(run)} produce only " +
+                "clear outcomes in their eligible trials.** Refusal and caveat counts are per " +
+                "ability/side/category and can apply to the same ability in different contexts.\n\n"
         )
-        out.append(
-            "| # | Ability | Side | Category | Battles blocked | Requests blocked | Rule |\n"
-        )
+        out.append("| # | Ability | Side | Category | Battles refused | Requests refused | Rule |\n")
         out.append("|---:|---|---|---|---:|---:|---|\n")
-        abilities.filter { it.requests > 0 }.take(15).forEachIndexed { index, rank ->
+        abilities.filter { it.refusedRequests > 0 }.take(15).forEachIndexed { index, rank ->
             out.append(
                 "| ${index + 1} | ${rank.abilityName} | ${rank.side} | ${rank.category} | " +
-                    "${rank.battles} | ${rank.requests} | ${rank.rule ?: "-"} |\n"
+                    "${rank.refusedBattles} | ${rank.refusedRequests} | ${rank.rule ?: "-"} |\n"
             )
         }
         out.append(
             "\n(The full ranked table, one row per ability per side per category, is " +
-                "`abilityBlockers` in `" + HnsCalcCensusReport.JSON_FILE_NAME + "`.)\n\n"
+                "`abilityRefusals` in `" + HnsCalcCensusReport.JSON_FILE_NAME + "`.)\n\n"
         )
+
+        out.append("### Abilities that produce caveated estimates\n\n")
+        out.append("| # | Ability | Side | Category | Battles caveated | Requests caveated | Rule |\n")
+        out.append("|---:|---|---|---|---:|---:|---|\n")
+        abilities.filter { it.caveatedRequests > 0 }
+            .sortedWith(compareByDescending<AbilityRank> { it.caveatedBattles }
+                .thenByDescending { it.caveatedRequests }
+                .thenBy { it.abilityId }.thenBy { it.side }.thenBy { it.category })
+            .take(15).forEachIndexed { index, rank ->
+                out.append(
+                    "| ${index + 1} | ${rank.abilityName} | ${rank.side} | ${rank.category} | " +
+                        "${rank.caveatedBattles} | ${rank.caveatedRequests} | ${rank.rule ?: "-"} |\n"
+                )
+            }
+        out.append("\n(The complete ranking is in `abilityCaveats` in `" +
+            HnsCalcCensusReport.JSON_FILE_NAME + "`.)\n\n")
 
         out.append("### Abilities with a reviewed context rule\n\n")
         out.append(
-            "These are the abilities the shipped `HnsAbilityContextPolicy` can actually clear for a " +
-                "specific request, at least once under this baseline. `Cleared contexts` counts " +
-                "the (side, category) contexts policy proved irrelevant for; `Blocking contexts` " +
-                "counts the ones where it still refuses. This is the whole list - " +
-                "${cleared.size} abilities - and it is the only place the domain is not refused " +
-                "wholesale, which is the argument for #86.\n\n"
+            "These rows have a reviewed context rule and at least one explicit proof of " +
+                "irrelevance. Context counts are per side/category; refusals and caveats are " +
+                "reported separately.\n\n"
         )
-        out.append("| Ability | Cleared contexts | Blocking contexts | Reviewed rules that fired |\n")
-        out.append("|---|---:|---:|---|\n")
+        out.append("| Ability | Proven clear contexts | Refused contexts | Caveated contexts | Reviewed rules that fired |\n")
+        out.append("|---|---:|---:|---:|---|\n")
         cleared.forEach { rank ->
             out.append(
-                "| ${rank.abilityName} | ${rank.clearedContexts} | ${rank.blockingContexts} | " +
+                "| ${rank.abilityName} | ${rank.clearedContexts} | ${rank.refusedContexts} | " +
+                    "${rank.caveatedContexts} | " +
                     "${rank.rule ?: "-"} |\n"
             )
         }
-        if (cleared.isEmpty()) out.append("| _none_ | 0 | 0 | - |\n")
+        if (cleared.isEmpty()) out.append("| _none_ | 0 | 0 | 0 | - |\n")
         out.append("\n")
 
         out.append("### Side and category breakdown\n\n")
         out.append(
-            "The same ability can be harmless on one side and blocking on the other, which is a " +
-                "property of the reviewed contextual rules rather than of the census. " +
-                "*Requests blocked* is the largest number any single ability blocks in that " +
-                "side/category, not a sum over abilities.\n\n"
+            "The same ability can be clear, caveated, or refused on different sides and in " +
+                "different move categories. Each maximum is for one ability in that side/category, " +
+                "not a sum over abilities.\n\n"
         )
-        out.append("| Side | Category | Blocking abilities | Requests blocked (max) |\n|---|---|---:|---:|\n")
+        out.append("| Side | Category | Refusing abilities | Requests refused (max) | Caveated abilities | Requests caveated (max) |\n")
+        out.append("|---|---|---:|---:|---:|---:|\n")
         abilities.groupBy { it.side to it.category }
             .toSortedMap(compareBy({ it.first }, { it.second }))
             .forEach { (key, ranks) ->
                 out.append(
-                    "| ${key.first} | ${key.second} | ${ranks.count { it.requests > 0 }} | " +
-                        "${ranks.maxOfOrNull { it.requests } ?: 0} |\n"
+                    "| ${key.first} | ${key.second} | ${ranks.count { it.refusedRequests > 0 }} | " +
+                        "${ranks.maxOfOrNull { it.refusedRequests } ?: 0} | " +
+                        "${ranks.count { it.caveatedRequests > 0 }} | " +
+                        "${ranks.maxOfOrNull { it.caveatedRequests } ?: 0} |\n"
                 )
             }
         out.append("\n")
@@ -1041,8 +1094,10 @@ object HnsCalcCensusReport {
         out.append(
             "Across all " + run.abilityTrials.size + " ranked rows the strongest three-valued " +
                 "ability result was `PROVEN_IRRELEVANT` in $provenIrrelevantRows rows, `RELEVANT` " +
-                "in $relevantRows rows and `UNKNOWN` in $unknownRows rows. A `RELEVANT` or " +
-                "`UNKNOWN` result blocks the request; only `PROVEN_IRRELEVANT` clears it. The " +
+                "in $relevantRows rows and `UNKNOWN` in $unknownRows rows. These policy results " +
+                "are distinct from the trial dispositions above: RELEVANT may be caveated, while " +
+                "UNKNOWN remains refused. Clear, caveated and refused request/battle counts are " +
+                "included in each `abilityTrials` row. The " +
                 "per-ability-per-side-per-category detail is in `" +
                 HnsCalcCensusReport.JSON_FILE_NAME + "` under `abilityTrials`; the per-cohort " +
                 "detail used to derive it is printed by `-Pdualdex.census.full=true`.\n\n"

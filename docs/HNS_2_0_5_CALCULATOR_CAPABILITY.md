@@ -23,8 +23,8 @@ same pinned checkout and ensures these rules do not alter the global decisions.
 | `MODELLED_EQUIVALENT` | 0 |
 | `MODELLED_HNS_SPECIFIC` | 0 |
 | `MODELLED_HNS_CONDITIONAL` | 4 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 219 |
-| `UNCLASSIFIED` | 4 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 220 |
+| `UNCLASSIFIED` | 3 |
 
 The audit follows the ordinary `EFFECT_HIT` dependency path through attack and defense
 stats, base power, final modifiers, STAB, type effectiveness, effective battler and
@@ -41,11 +41,10 @@ unsupported move, item, field, Doubles state, or random type setting.
 New globally neutral examples include Static (post-hit contact status), Compound Eyes and Sand Veil
 (accuracy/evasion), Inner Focus (flinch prevention), Hyper Cutter and Full Metal Body (stat-drop
 prevention with live stages), Run Away (escape), Pickup and Ball Fetch (overworld/after-battle), and
-Prankster (status-move priority). The global categories above remain unchanged. A separate
+Prankster (status-move priority). Group A changes only Pickpocket's global category from
+`UNCLASSIFIED` to `UNSUPPORTED_DAMAGE_RELEVANT`; all other global decisions stay fixed. A separate
 `HnsAbilityContextPolicy` now makes a three-state decision (`PROVEN_IRRELEVANT`, `RELEVANT`, or
-`UNKNOWN`) for these 14 globally unsupported IDs: Tera Shell, Truant, Telepathy, Levitate, Guts,
-Huge Power, Pure Power, Thick Fat, Adaptability, Battle Armor, Shell Armor, Friend Guard, Plus, and
-Minus. Only a source-backed proof using operands rebound by `CalcRequestBoundary` removes that one
+`UNKNOWN`) for reviewed globally unsupported IDs. Only a source-backed proof using operands rebound by `CalcRequestBoundary` removes that one
 ability's blocker; unknown context still refuses, and all independent calculation limitations still
 apply.
 
@@ -56,9 +55,9 @@ Telepathy, Friend Guard, Plus, and Minus clear only when exact live battler topo
 Levitate, Guts, Huge/Pure Power, Thick Fat, and Adaptability clear only under their source-checked
 side, effective type/category, live status, current type, and topology predicates. Truant on the
 attacker remains blocked because `truantCounter` is not observed. Defender Battle Armor and Shell
-Armor also remain blocked: the current result includes KO probability and the request's critical-hit
-flag does not establish that critical odds are absent. The source-checkable artifact records both
-clearance rules and deliberately blocked contexts. The four conditional pinch abilities retain their
+Armor clear for a fixed noncritical ordinary hit; a critical request remains relevant because it
+conflicts with their prevention effect. The source-checkable artifact records both clearance rules
+and deliberately blocked contexts. The four conditional pinch abilities retain their
 existing separate condition gate.
 
 In Random Abilities battles, the boundary takes the effective numeric ID from
@@ -74,6 +73,43 @@ remain hard refusals and never reach the calculator.
 
 This document is the **authority** for what DualDex's damage calculator may honestly claim about
 Pokemon Heart & Soul (H&S) 2.0.5, and for how the two verified vanilla targets differ from it.
+
+## H&S displayed-range output contract (#87)
+
+The H&S Battle damage display represents **one ordinary hit's 16 integer damage rolls**, its
+minimum and maximum, and percentages of the defender's observed maximum HP. The request's
+already-selected `move.isCrit` value is the sole critical-hit operand: the range is conditional on
+that value. It contains no critical-hit probability, accuracy probability, KO probability,
+turn-selection probability, multi-turn simulation, end-of-turn result, after-hit/contact aftermath,
+or future stat/status change. `calculateHnsDamage` emits `koChanceText: ""` in both its ordinary and
+zero-damage branches. The generic vanilla calculator's KO path is separate.
+
+The 16 rolls are **raw damage before HP-based survival clamps**. Whether a user-facing range should
+account for Sturdy, Focus Sash, or Focus Band remains an unresolved product decision; #87 keeps
+their applicable contexts blocked or caveated pending maintainer confirmation. This output contract
+does not authorize unsupported move shapes, unknown live state, or a mechanic that changes the
+current hit's damage formula or forces that hit to be critical.
+
+`native/tests/test_js_calc.c` executes the shipped H&S bundle for noncritical, critical, and
+zero-damage requests. Its Group A regression asserts the exact response field set, an empty
+`koChanceText`, and 16 rolls selected by `isCrit`; a new probability output or other field makes
+CI fail until these proofs are revisited. The contextual ability/item tests assert each Group A
+clearance beside a nearby relevant or unknown case. `./ci.sh source-check` checks every cited
+H&S source line in both contextual rule files against the pinned checkout.
+
+The Group A ability rules cover Super Luck's critical stage; Battle Armor and Shell Armor for a
+fixed noncritical hit; Sniper only when its critical damage multiplier cannot apply; post-hit
+Rough Skin, Iron Barbs, Aftermath, Innards Out, Liquid Ooze, Mummy, Lingering Aroma, Wandering
+Spirit, Cotton Down, Gooey-like Tangling Hair, and Pickpocket; berry recovery from Harvest, Cheek
+Pouch, and Cud Chew; and speed or priority effects from Swift Swim, Chlorophyll, Sand Rush, Slush
+Rush, Quick Feet, Unburden, and Quick Draw when Analytic cannot depend on their turn order.
+`Pickpocket` moves from `UNCLASSIFIED` to globally unsupported with a request-local after-hit
+proof. Speed Boost, Steadfast, and Stamina remain `UNCLASSIFIED` for #88's live-state-writer
+audit. Merciless remains uncleared because it can force the current hit critical. Ripen clears
+attacker contexts and defender contexts without a resist berry; its defender resist-berry path
+remains relevant. Ability Shield clears only when observed Singles state rules out Gastro Acid,
+Neutralizing Gas, and defender-side Mold Breaker suppression. Ground-relevant Iron Ball remains
+relevant. New damage-time modifiers and immunities remain with #89–#93.
 
 It is derived from the pinned upstream source, not from behaviour observed in the app:
 
@@ -524,7 +560,7 @@ The rule examples are intentionally request-specific:
 | Huge Power, Pure Power | Defender side; attacker using an authoritative Special move | Physical attacker move or missing category/type authority |
 | Thick Fat | Attacker side; defender with a known non-Fire/non-Ice effective move | Fire/Ice move or missing effective-type authority |
 | Adaptability | Defender side; attacker has no STAB for the move in exact live Singles | STAB, unknown attacker types, dynamic type, or unknown topology |
-| Battle Armor, Shell Armor | Attacker side | Defender side, because critical probability can change KO odds |
+| Battle Armor, Shell Armor | Attacker side; defender on an ordinary fixed noncritical hit | Defender on a critical request; missing move-shape authority |
 
 For Tera Shell, `CalcRequestBoundary` reads the current `BattlePokemon.species` form word from the
 live active battler and binds the defender's observed HP/maxHP. It does not use the party species
@@ -745,9 +781,10 @@ live) are reviewed dispositions.
 Globally unsupported groups (with request-local rules in §7.5 unless noted): `attacker_offense`
 (22 families), `defender_defense` (8), `post_hit_or_residual` (54), `turn_order` (7), `weight_only`
 (Float Stone), `grounding` (Air Balloon, Iron Ball), `weather_shield` (Utility Umbrella), and
-`form_or_ability_changer` (`MEGA_STONE`, `Z_CRYSTAL`, `ABILITY_SHIELD` — no request-local clearance:
-Mega Evolution / Ultra Burst happen at turn start before the hit, and Ability Shield changes which
-ability applies). The full per-item table is
+`form_or_ability_changer` (`MEGA_STONE` and `Z_CRYSTAL` remain blocking because they change
+form or move state before the hit; `ABILITY_SHIELD` clears only for an observed ordinary Singles
+hit with no Gastro Acid, Neutralizing Gas, or defender-side Mold Breaker suppression source). The
+full per-item table is
 [`tools/hns-items/item_inventory.tsv`](../tools/hns-items/item_inventory.tsv).
 
 `HnsMoveItemInteractionRegistry` (§7.2) is unchanged and independent: a globally neutral or
@@ -756,7 +793,7 @@ request-locally irrelevant hold effect never clears `HNS_ITEM_DEPENDENT_MOVE_NOT
 ### 7.5 Request-local item relevance (`HnsItemContextPolicy`)
 
 The reviewed rules, predicates and pinned evidence are in
-[`tools/hns-items/context_rules.json`](../tools/hns-items/context_rules.json) (32 rules). The displayed
+[`tools/hns-items/context_rules.json`](../tools/hns-items/context_rules.json) (37 rules). The displayed
 H&S contract is the single-hit damage range and its percentage of the defender's max HP for the current
 observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` returns
 `koChanceText: ""`). Operands are request-owned and rebound by `CalcRequestBoundary`:
@@ -782,14 +819,15 @@ observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` re
 | Lustrous/Adamant/Griseous Orb, Soul Dew | Defender side; attacker whose effective type is outside the two boosted types | Boosted type (species unobserved) |
 | Light Ball, Ogerpon masks, Punching Glove | Defender side | Attacker side (species / punching flag unobserved) |
 | Life Orb, Expert Belt, Metronome | Defender side | Attacker side |
-| Scope Lens, Lucky Punch, Leek | Defender side | Attacker side (critical odds, as for defender Battle Armor) |
+| Scope Lens / Razor Claw, Lucky Punch, Leek | Defender side; attacker on an ordinary hit with fixed `isCrit` | Unknown or nonordinary move |
 | Assault Vest, Deep Sea Scale | Attacker side; defender vs an authoritative Physical move with Wonder Room observed inactive | Special move; Wonder Room; unknown category, unread field word or unknown field bit |
 | Metal Powder | Attacker side; defender vs an authoritative Special move with Wonder Room observed inactive | Physical move (species); Wonder Room |
 | Eviolite, Ring Target | Attacker side | Defender side |
 | Resist berries | Attacker side; defender vs a different authoritative effective type | Matching type (effectiveness not proven); unknown type |
 | Focus Sash | Attacker side; defender whose live HP < maxHP | Full-HP defender; unknown HP |
 | Focus Band | Attacker side | Defender side |
-| Post-hit / residual (Leftovers, Black Sludge, Shell Bell, Rocky Helmet, HP/status/confusion/pinch berries, Weakness Policy, herbs, orbs, …) | Either side for an ordinary single-hit move: every activation is an `ItemBattleEffects` call in a `MoveEnd` handler, at end of turn, at switch-in or from an event script | Non-ordinary or unknown move |
+| Post-hit / residual (Leftovers, Black Sludge, Shell Bell, Rocky Helmet, HP/status/confusion/pinch berries, Weakness Policy, herbs, orbs, …) | Either side for an ordinary single-hit move, after current damage or outside the selected hit | Non-ordinary or unknown move; Booster Energy, Terrain Seed, and Berserk Gene remain unresolved pre-hit stat writers |
+| Blunder Policy, Room Service | Ordinary move with known non-Analytic attacker | Analytic or unknown attacker ability; nonordinary move |
 | Turn order (Choice Scarf, Quick Claw, Custap Berry, Lagging Tail, Macho Brace, Power items, Quick Powder) | Either side for an ordinary move when the live attacker ability is known and not Analytic | Attacker Analytic; unknown ability; non-ordinary move |
 | Float Stone | Either side for an ordinary move | Non-ordinary move |
 | Air Balloon, Iron Ball | Attacker with no terrain bit; defender with no terrain bit and a non-Ground effective move (Iron Ball also needs the turn-order predicate) | Ground move; an active/unread terrain or unknown field bit; unknown type |
@@ -1138,13 +1176,13 @@ assuming badges off.
 
 `tools/hns-move-mechanics/generate_hns_move_effects.py` parses the pinned `enum Move` and the raw
 `.effect` / `.multiHit` / `.strikeCount` / `.explosion` / state-flag initializers of
-`src/data/moves_info.h` into `Hns205MoveEffects.kt` (928 resolved effects, 357 ordinary, 6 unresolved).
+`src/data/moves_info.h` into `Hns205MoveEffects.kt` (928 resolved effects, 353 ordinary, 6 unresolved).
 `HnsMoveMechanicsRegistry` classifies by the pack's numeric move ID:
 
 | Category | Meaning | Blocker |
 |---|---|---|
-| `ORDINARY_PROVEN_EQUIVALENT` | `EFFECT_HIT`, no multi-hit/explosion/always-crit/state flag | none |
-| `UNSUPPORTED_STATE_DEPENDENT` | reads HP/friendship/weight/speed/consecutive-use/target state | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
+| `ORDINARY_PROVEN_EQUIVALENT` | `EFFECT_HIT`, no multi-hit/explosion/always-crit/state flag or target-ability bypass | none |
+| `UNSUPPORTED_STATE_DEPENDENT` | reads HP/friendship/weight/speed/consecutive-use/target state or bypasses target ability | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
 | `UNSUPPORTED_FORMULA_DIFFERENT` | fixed damage, OHKO, level/percent, defence selection, per-hit sequence | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
 | `ITEM_DEPENDENT_HANDLED_ELSEWHERE` | C3 item-interaction audit owns it | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (C3) |
 | `UNCLASSIFIED` | effect missing/conditional/computed or unknown ID | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
@@ -1152,7 +1190,8 @@ assuming badges off.
 Representative blocked families: Return/Hidden Power/Low Kick (effect), multi-hit (`multiHit` /
 `strikeCount > 1`, including Bullet Seed and Double Kick, which hide behind `EFFECT_HIT`), Explosion/
 Self-Destruct (H&S keeps `B_EXPLOSION_DEFENSE` at `GEN_LATEST` while ADV halves Defence), Sacred
-Sword/Chip Away (`ignoresTargetDefenseEvasionStages`), fixed damage/OHKO/Endeavor/Final Gambit, and
+Sword/Chip Away (`ignoresTargetDefenseEvasionStages`), ability-bypassing hits such as Sunsteel Strike
+and Moongeist Beam (`ignoresTargetAbility`), fixed damage/OHKO/Endeavor/Final Gambit, and
 the unresolved Low Kick/Struggle conditionals. A simple `EFFECT_HIT` move such as Tackle clears the
 gate; the C3 item-dependent moves keep their C3 blocker and are not double-reported.
 

@@ -67,6 +67,14 @@ STATE_FLAG = """    [MOVE_ALIAS] =
         .ignoresTargetDefenseEvasionStages = TRUE,
     },"""
 
+ABILITY_BYPASS = """    [MOVE_POUND] =
+    {
+        .name = COMPOUND_STRING("POUND"),
+        .effect = EFFECT_HIT,
+        .power = 40,
+        .ignoresTargetAbility = TRUE,
+    },"""
+
 CONDITIONAL = """    [MOVE_STRUGGLE] =
     {
         .name = COMPOUND_STRING("STRUGGLE"),
@@ -126,6 +134,10 @@ class ParseMoveTableTest(unittest.TestCase):
     def test_state_flag_hit_is_not_ordinary(self):
         _, _, ordinary, _ = gen.parse_move_table(_table(STATE_FLAG))
         self.assertNotIn("MOVE_ALIAS", ordinary)
+
+    def test_target_ability_bypass_is_not_ordinary(self):
+        _, _, ordinary, _ = gen.parse_move_table(_table(ABILITY_BYPASS))
+        self.assertNotIn("MOVE_POUND", ordinary)
 
     def test_conditional_effect_is_unresolved(self):
         effects, targets, ordinary, unresolved = gen.parse_move_table(_table(CONDITIONAL))

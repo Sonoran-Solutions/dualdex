@@ -4,6 +4,7 @@ import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.hns.HnsAbilityAuditData
 import com.dualdex.pokemon.hns.HnsAbilityCategory
+import com.dualdex.pokemon.hns.HnsItemRegistry
 
 /** Which request participant owns an effective live ability. */
 enum class HnsAbilitySide { ATTACKER, DEFENDER }
@@ -46,6 +47,9 @@ object HnsAbilityContextPolicy {
 
     data class Context(
         val side: HnsAbilitySide,
+        val ordinaryMove: Boolean?,
+        val isCrit: Boolean?,
+        val attackerAbilityId: Int?,
         val moveType: PokemonType?,
         val moveCategory: MoveCategory?,
         val attackerTypes: Set<PokemonType>?,
@@ -54,7 +58,8 @@ object HnsAbilityContextPolicy {
         val defenderMaxHp: Int?,
         val attackerStatus1: Int?,
         val observedBattlersCount: Int?,
-        val dynamicMoveTypeKnownNeutral: Boolean
+        val dynamicMoveTypeKnownNeutral: Boolean,
+        val defenderItemId: Int?
     )
 
     fun assess(abilityId: Int, context: Context?): HnsAbilityRequestDecision {
@@ -72,17 +77,61 @@ object HnsAbilityContextPolicy {
         }
 
         val c = context ?: return unknown(entry.abilityId ?: abilityId, entry.titleCaseName, side)
-        if (abilityId in setOf(4, 75) && c.side == HnsAbilitySide.DEFENDER) {
-            // Keep defender-side Armor blocked. The engine result also exposes KO probability;
-            // request.isCrit does not establish that critical odds are absent from that result.
-            return unknown(
-                abilityId, entry.titleCaseName, c.side,
-                "Defender critical-hit prevention can change critical probability and KO odds; the current request does not model that distribution.",
-                rule = "defender_critical_probability_unmodelled",
-                source = "src/battle_util.c:8056"
-            )
-        }
         val proof: Proof? = when (abilityId) {
+            105 -> if (c.ordinaryMove == true && c.isCrit != null) proof(
+                "fixed_crit_stage_only", "src/battle_util.c:8049",
+                "Super Luck changes only critical-hit odds; this hit's critical flag is fixed."
+            ) else null
+            97 -> when {
+                c.ordinaryMove != true || c.isCrit == null -> null
+                c.side == HnsAbilitySide.DEFENDER || !c.isCrit -> proof(
+                    "sniper_without_attacker_critical_hit", "src/battle_util.c:7566",
+                    "Sniper changes only the attacker's critical-hit damage; that condition is absent."
+                )
+                else -> relevant(
+                    "sniper_attacker_critical_damage", "src/battle_util.c:7567",
+                    "Sniper multiplies this critical hit's damage."
+                )
+            }
+            24, 64, 106, 124, 152, 160, 215, 221, 238, 254, 268 ->
+                if (c.ordinaryMove == true) proof(
+                    "after_hit_ability_outside_single_hit", afterHitSource(abilityId),
+                    "The pinned effect executes after damage or on a nonordinary draining move; it cannot change this hit's rolls."
+                ) else null
+            139, 167, 291 -> if (c.ordinaryMove == true) proof(
+                "berry_recovery_outside_single_hit", berrySource(abilityId),
+                "The berry recovery or reuse acts after the current hit, using the already observed item state."
+            ) else null
+            247 -> when {
+                c.ordinaryMove != true -> null
+                c.side == HnsAbilitySide.ATTACKER -> proof(
+                    "attacker_ripen_no_current_hit_modifier", "src/battle_util.c:7695, src/battle_util.c:10558",
+                    "Ripen's current-hit damage branch reads only the defender ability; its attacker-side Micle branch changes accuracy."
+                )
+                c.defenderItemId == null -> null
+                HnsItemRegistry.classify(c.defenderItemId).data == null ||
+                    HnsItemRegistry.classify(c.defenderItemId).category == com.dualdex.pokemon.hns.HnsItemCategory.UNCLASSIFIED -> null
+                HnsItemRegistry.classify(c.defenderItemId).data?.holdEffect == "HOLD_EFFECT_RESIST_BERRY" ->
+                    relevant(
+                        "defender_ripen_resist_berry", "src/battle_util.c:7695",
+                        "Ripen quarters damage instead of halving it when the defender's resist berry activates on this hit."
+                    )
+                else -> proof(
+                    "ripen_without_defender_resist_berry", "src/battle_util.c:7695, src/battle_hold_effects.c:847",
+                    "The only Ripen branch in current-hit damage is the defender resist-berry modifier; other berry effects occur outside this hit's rolls."
+                )
+            }
+            33, 34, 84, 95, 146, 202, 259 -> when {
+                c.ordinaryMove != true || c.attackerAbilityId == null -> null
+                c.side == HnsAbilitySide.DEFENDER && c.attackerAbilityId == 148 -> relevant(
+                    "speed_ability_attacker_analytic", "src/battle_util.c:6691",
+                    "Changing turn order can change the attacker's Analytic damage modifier."
+                )
+                else -> proof(
+                    "speed_ability_without_analytic", speedSource(abilityId),
+                    "This effect changes speed or priority, and the attacker has no Analytic dependency."
+                )
+            }
             308 -> when (c.side) {
                 HnsAbilitySide.ATTACKER -> proof(
                     "attacker_always_irrelevant", "src/battle_util.c:327",
@@ -209,7 +258,17 @@ object HnsAbilityContextPolicy {
                     "attacker_critical_hit_armor", "src/battle_util.c:8056",
                     "The critical-hit prevention check reads only the defender's ability."
                 )
-                HnsAbilitySide.DEFENDER -> null
+                HnsAbilitySide.DEFENDER -> when {
+                    c.ordinaryMove != true || c.isCrit == null -> null
+                    !c.isCrit -> proof(
+                        "defender_armor_fixed_noncritical_hit", "src/battle_util.c:8056",
+                        "Critical-hit prevention cannot change an explicitly noncritical hit's rolls."
+                    )
+                    else -> relevant(
+                        "defender_armor_critical_hit_conflict", "src/battle_util.c:8056",
+                        "A critical request conflicts with the defender's critical-hit prevention."
+                    )
+                }
             }
             132 -> singlesProof(c, "friend_guard_singles_no_partner", "src/battle_util.c:7647",
                 "Friend Guard modifies damage to an ally; an authoritative Singles battle has none.")
@@ -247,6 +306,9 @@ object HnsAbilityContextPolicy {
             ?.takeIf { types -> types.size == rawAttackerTypes.size }?.toSet()
         return Context(
             side = side,
+            ordinaryMove = ordinaryMove,
+            isCrit = request.move.isCrit,
+            attackerAbilityId = request.attacker.abilityId,
             moveType = authority.effectiveType,
             moveCategory = authority.category,
             attackerTypes = attackerTypes,
@@ -255,7 +317,13 @@ object HnsAbilityContextPolicy {
             defenderMaxHp = live?.defenderMaxHp,
             attackerStatus1 = live?.attackerStatus1,
             observedBattlersCount = live?.observedBattlersCount,
-            dynamicMoveTypeKnownNeutral = authority.effectiveType != null
+            dynamicMoveTypeKnownNeutral = authority.effectiveType != null,
+            defenderItemId = request.defender.itemId ?: when {
+                !request.defender.item.isNullOrBlank() ->
+                    HnsItemRegistry.resolveIdByName(request.defender.item)
+                request.defender.origin == CalcInputOrigin.MANUAL -> 0
+                else -> null
+            }
         )
     }
 
@@ -276,6 +344,36 @@ object HnsAbilityContextPolicy {
 
     private fun singlesProof(c: Context, rule: String, source: String, rationale: String): Proof? =
         if (c.observedBattlersCount == 2) proof(rule, source, rationale) else null
+
+    private fun afterHitSource(id: Int) = when (id) {
+        64 -> "src/battle_move_resolution.c:2170"
+        124 -> "src/battle_move_resolution.c:3490"
+        24 -> "src/battle_util.c:4047"
+        160 -> "src/battle_util.c:4048"
+        106 -> "src/battle_util.c:4067"
+        215 -> "src/battle_util.c:4087"
+        152 -> "src/battle_util.c:3972"
+        268 -> "src/battle_util.c:3971"
+        254 -> "src/battle_util.c:3995"
+        221 -> "src/battle_util.c:4034"
+        else -> "src/battle_util.c:4231"
+    }
+
+    private fun berrySource(id: Int) = when (id) {
+        139 -> "src/battle_end_turn.c:1273"
+        291 -> "src/battle_end_turn.c:1269"
+        else -> "src/battle_script_commands.c:6573"
+    }
+
+    private fun speedSource(id: Int) = when (id) {
+        33 -> "src/battle_main.c:4946"
+        34 -> "src/battle_main.c:4948"
+        146 -> "src/battle_main.c:4950"
+        202 -> "src/battle_main.c:4952"
+        95 -> "src/battle_main.c:4957"
+        84 -> "src/battle_main.c:4967"
+        else -> "src/battle_main.c:5470"
+    }
 
     private fun unknown(
         id: Int,

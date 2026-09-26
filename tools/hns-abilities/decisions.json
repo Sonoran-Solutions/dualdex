@@ -1226,5 +1226,9 @@
   "183": {
     "category": "PROVEN_NO_DAMAGE_EFFECT",
     "rationale": "Pinned use affects a secondary contact/status, end-turn recovery, speed after a hit, or accuracy; the live HP/status/stat snapshot captures earlier effects and the ability adds no modifier to this ordinary direct hit."
+  },
+  "124": {
+    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "rationale": "Pickpocket transfers an item in MoveEndPickpocket after the current hit. Request-local ordinary-hit clearance is source reviewed; other shapes remain unsupported."
   }
 }

@@ -581,22 +581,23 @@ class HnsCalcCensusTest {
             assertFalse("Huge Power must not refuse as a defender", row.refusedByAbility)
             assertEquals(0, row.refusedRequests)
         }
-        // Battle Armor: the mirror case, relevant only as a defender.
+        // Battle Armor: its defender side clears a fixed noncritical hit.
         val battleArmor = run.abilityTrials.filter { it.abilityId == 4 }
         assertEquals(4, battleArmor.size)
         for (row in battleArmor.filter { it.side == "attacker" }) {
             assertEquals("PROVEN_IRRELEVANT", row.abilityRelevance)
             assertFalse("Battle Armor must not refuse as an attacker", row.refusedByAbility)
         }
-        assertTrue("Battle Armor UNKNOWN evidence must refuse as a defender", battleArmor
-            .filter { it.side == "defender" }.all { it.refusedByAbility })
+        assertTrue("Battle Armor must clear fixed noncritical defender trials", battleArmor
+            .filter { it.side == "defender" }.all { it.clearRequests > 0 })
 
         val superLuckId = run.abilityDomain.single { it.second == "Super Luck" }.first
         val superLuckTrials = run.abilityTrials.filter { it.abilityId == superLuckId }
         assertTrue(superLuckTrials.isNotEmpty())
-        assertTrue("UNKNOWN Super Luck contexts must be refused", superLuckTrials
-            .filter { it.abilityRelevance == "UNKNOWN" }
-            .all { it.refusedRequests > 0 && it.caveatedRequests == 0 })
+        assertTrue("Super Luck must clear ordinary fixed-crit trials", superLuckTrials
+            .all { it.clearRequests > 0 })
+        assertTrue("unsupported move shapes still leave Super Luck UNKNOWN", superLuckTrials
+            .all { it.refusedByAbility && it.refusedRequests > 0 })
     }
 
     @Test
@@ -605,7 +606,6 @@ class HnsCalcCensusTest {
         val expected = mapOf(
             3 to "Speed Boost",
             80 to "Steadfast",
-            124 to "Pickpocket",
             192 to "Stamina"
         )
         val actual = run.abilityDomain.filter {

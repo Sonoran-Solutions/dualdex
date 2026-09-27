@@ -113,9 +113,12 @@ proof. Group B (#88) now classifies Speed Boost, Steadfast, and Stamina as globa
 with request-local live-stage rules; their identity blockers clear only when the authoritative
 current stage arrays are present. Merciless remains uncleared because it can force the current hit critical. Ripen clears
 attacker contexts and defender contexts without a resist berry; its defender resist-berry path
-remains relevant. Ability Shield clears only when observed Singles state rules out Gastro Acid,
-Neutralizing Gas, and defender-side Mold Breaker suppression. Ground-relevant Iron Ball remains
-relevant. New damage-time modifiers and immunities remain with #89–#93.
+remains relevant. Ability Shield is irrelevant only when observed Singles state rules out Gastro
+Acid and every suppression source: Neutralizing Gas, a relevant Mold Breaker-family attack, and a
+move carrying the pinned `ignoresTargetAbility` flag. Group C models the Shield preserving the
+defender ability against Mold Breaker-family and literal move-flag suppression; Gastro Acid remains
+unsupported. Ground-relevant Iron Ball remains relevant. New damage-time modifiers and immunities
+remain with #89–#93.
 
 It is derived from the pinned upstream source, not from behaviour observed in the app:
 
@@ -1191,8 +1194,8 @@ assuming badges off.
 
 | Category | Meaning | Blocker |
 |---|---|---|
-| `ORDINARY_PROVEN_EQUIVALENT` | `EFFECT_HIT`, no multi-hit/explosion/always-crit/state flag or target-ability bypass | none |
-| `UNSUPPORTED_STATE_DEPENDENT` | reads HP/friendship/weight/speed/consecutive-use/target state or bypasses target ability | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
+| `ORDINARY_PROVEN_EQUIVALENT` | `EFFECT_HIT`, no multi-hit/explosion/always-crit/state flag; a literal source-backed target-ability bypass flag is delegated to Group C | none |
+| `UNSUPPORTED_STATE_DEPENDENT` | reads HP/friendship/weight/speed/consecutive-use/target state, or has a conditional/computed target-ability bypass | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
 | `UNSUPPORTED_FORMULA_DIFFERENT` | fixed damage, OHKO, level/percent, defence selection, per-hit sequence | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
 | `ITEM_DEPENDENT_HANDLED_ELSEWHERE` | C3 item-interaction audit owns it | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (C3) |
 | `UNCLASSIFIED` | effect missing/conditional/computed or unknown ID | `HNS_MOVE_MECHANICS_NOT_MODELLED` |
@@ -1200,10 +1203,12 @@ assuming badges off.
 Representative blocked families: Return/Hidden Power/Low Kick (effect), multi-hit (`multiHit` /
 `strikeCount > 1`, including Bullet Seed and Double Kick, which hide behind `EFFECT_HIT`), Explosion/
 Self-Destruct (H&S keeps `B_EXPLOSION_DEFENSE` at `GEN_LATEST` while ADV halves Defence), Sacred
-Sword/Chip Away (`ignoresTargetDefenseEvasionStages`), ability-bypassing hits such as Sunsteel Strike
-and Moongeist Beam (`ignoresTargetAbility`), fixed damage/OHKO/Endeavor/Final Gambit, and
-the unresolved Low Kick/Struggle conditionals. A simple `EFFECT_HIT` move such as Tackle clears the
-gate; the C3 item-dependent moves keep their C3 blocker and are not double-reported.
+Sword/Chip Away (`ignoresTargetDefenseEvasionStages`), conditional/computed target-ability bypasses,
+fixed damage/OHKO/Endeavor/Final Gambit, and the unresolved Low Kick/Struggle conditionals. Literal
+source-backed `ignoresTargetAbility` moves such as Sunsteel Strike and Moongeist Beam clear this
+gate and delegate their bypass to Group C, where Ability Shield preserves the defender ability. A
+simple `EFFECT_HIT` move such as Tackle also clears the gate; the C3 item-dependent moves keep their
+C3 blocker and are not double-reported.
 
 ### 10.4 Ordinary-damage arithmetic parity audit
 

@@ -21,7 +21,7 @@ type and flag matches. An immunity is a successful hit result with sixteen zero 
 | Sap Sipper (157) | Grass move | `src/battle_util.c:2469-2472` |
 | Earth Eater (297) | Ground move | `src/battle_util.c:2453-2456` |
 | Well-Baked Body (273) | Fire move | `src/battle_util.c:2473-2476` |
-| Flash Fire (18) | Fire move, except while frozen under the pinned configuration | `src/battle_util.c:2481-2484` |
+| Flash Fire (18) | Fire move; unconditional in the pinned configuration because `B_FLASH_FIRE_FROZEN` is `GEN_LATEST` | `src/battle_util.c:2481-2484`; `include/config/battle.h:174` |
 | Soundproof (43) | `soundMove` flag | `src/battle_util.c:2485-2488` |
 | Bulletproof (171) | `ballisticMove` flag | `src/battle_util.c:2489-2492` |
 | Wind Rider (274) | `windMove` flag | `src/battle_util.c:2477-2480` |
@@ -54,14 +54,18 @@ cannot be proved for a priority-blocking defender, the boundary refuses the requ
 | Iron Ball (484) | Grounds the holder and applies the pinned Flying-vs-Ground override; no other ordinary hit modifier | `src/battle_util.c:8413-8418` |
 | Ring Target (499) | Changes type-chart immunity cells to neutral before groundedness checks | `src/battle_util.c:8257` |
 | Float Stone (495) | No ordinary damage effect; weight-dependent moves remain outside this rule | pinned item hold-effect table |
-| Ability Shield (758) | Prevents the pinned Mold Breaker-family ability break-through check | `src/battle_util.c:4962-4998` |
+| Ability Shield (758) | Preserves the defender ability against Mold Breaker-family and literal `ignoresTargetAbility` checks; it does not prevent Gastro Acid | `src/battle_util.c:4974-5023`, `:9980` |
 
 Mold Breaker (104), Teravolt (164), and Turboblaze (163) are hard blockers only when a relevant
 defender immunity would otherwise participate and Ability Shield does not prevent suppression.
-Moves with the pinned `ignoresTargetAbility` field already bypass defender abilities. Unrelated
-defenders and moves do not receive a Mold Breaker blocker. `flashFireBoosted` is not part of the
-current live state: Flash Fire's defender-side immunity is modeled, but an attacker with Flash Fire
-using a Fire move is refused until issue #91 supplies that boost state.
+The pinned `ignoresTargetAbility` move flag sets the same ability-suppression state, so it normally
+bypasses defender abilities but Ability Shield preserves the holder's ability. For example,
+Sunsteel Strike bypasses Wonder Guard without Ability Shield and is blocked by Wonder Guard when
+the target holds Ability Shield. Only literal source-backed move flags are admitted; conditional or
+computed bypass cases remain fail-closed. Unrelated defenders and moves do not receive an ability
+bypass blocker. `flashFireBoosted` is not part of the current live state: Flash Fire's defender-side
+immunity is modeled, but an attacker with Flash Fire using a Fire move is refused until issue #91
+supplies that boost state.
 
 Purifying Salt's Ghost damage reduction is deferred to issue #91. Air Balloon, Iron Ball, Ring
 Target, and Float Stone do not claim generic ordinary damage multipliers.

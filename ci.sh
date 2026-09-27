@@ -447,8 +447,9 @@ source_check() {
     --upstream-dir "$upstream" --verify
 
   # 1c-bis. The live battle-state layout table (HP/maxHP/status1, volatile bit
-  #     positions, and the gimmick active array) must regenerate byte-for-byte
-  #     from the pinned source, compiled with the same pinned ARM toolchain.
+  #     positions, BattleStruct event fields, gimmick active array, and the
+  #     stable action-selection callback gate) must regenerate byte-for-byte
+  #     from the pinned source/release symbols, compiled with the same pinned ARM toolchain.
   #     This is the source-check for the C4e live-state readers; it compiles
   #     the pinned global.h/battle.h, so it must run AFTER the build-time
   #     headers above are materialized.

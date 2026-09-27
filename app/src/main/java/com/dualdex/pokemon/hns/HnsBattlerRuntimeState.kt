@@ -465,7 +465,8 @@ data class HnsBattlerRuntimeState(
          * [68] volatileGastroAcid, [69] volatileRoostActive,
          * [70] volatileSubstitute, [71] volatileEndured,
          * [72] speciesObserved, [73] current live battle species ID.
-         * [74] switchInPhaseObserved, [75] switchInEventsSettled.
+         * [74] switchInPhaseObserved, [75] switchInEventsSettled (event sentinel, clear flags,
+         * and stable action-selection callback).
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
          * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is

@@ -261,6 +261,8 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battler_state_switch_in_bit = HNS_LIVE_BATTLER_STATE_SWITCH_IN_BIT,
     .max_battlers_count = HNS_LIVE_MAX_BATTLERS_COUNT,
     .switch_in_events_count = HNS_LIVE_SWITCH_IN_EVENTS_COUNT,
+    .battle_main_func_gba_address = HNS_LIVE_BATTLE_MAIN_FUNC_GBA_ADDRESS,
+    .action_selection_func_ptr = HNS_LIVE_ACTION_SELECTION_FUNC_PTR,
     .battle_gimmick_active_offset = HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET,
     .battle_gimmick_side_stride = HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT,
     .battle_gimmick_party_count = HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT,
@@ -2477,11 +2479,13 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
 }
 
 /*
- * Read the pinned switch-in event driver state from the heap-allocated BattleStruct.
- * `BATTLE_LIFECYCLE_ACTIVE` proves only that the battle topology is valid; it does not prove
- * that entry scripts have completed. A settled proof requires both the event script sentinel
- * and every active BattlerState.switchIn flag to be clear. Any missing pointer/byte leaves the
- * phase unobserved so request policy cannot treat an intermediate frame as settled.
+ * Read the pinned switch-in event state and stable action-selection callback.
+ * `BATTLE_LIFECYCLE_ACTIVE` proves only that the battle topology is valid. The event counter and
+ * BattlerState.switchIn flags reset inside Cmd_switchineffects, after Cmd_switchindataupdate has
+ * already installed the replacement battler. gBattleMainFunc remains outside the action-selection
+ * callback across the entire action/script/controller sequence, including that earlier window.
+ * A settled proof therefore requires the event sentinel, clear active switchIn flags, and the
+ * exact action-selection callback. Any missing read leaves the phase unobserved.
  */
 static bool read_switch_in_phase(
     DualDexGbaReadFn read,
@@ -2494,7 +2498,9 @@ static bool read_switch_in_phase(
     if (!read || !config || !out_state || config->battle_struct_ptr_offset == 0 ||
         (battlers_count != 2 && battlers_count != 4) ||
         battlers_count > config->max_battlers_count || config->battler_state_size == 0 ||
-        config->event_state_switch_in_width == 0 || config->event_state_switch_in_width > 16) {
+        config->event_state_switch_in_width == 0 || config->event_state_switch_in_width > 16 ||
+        config->battle_main_func_gba_address != HNS_LIVE_BATTLE_MAIN_FUNC_GBA_ADDRESS ||
+        config->action_selection_func_ptr != HNS_LIVE_ACTION_SELECTION_FUNC_PTR) {
         return false;
     }
 
@@ -2547,9 +2553,16 @@ static bool read_switch_in_phase(
         any_battler_switching_in |= ((flag_byte >> flag_bit_offset) & 1u) != 0;
     }
 
+    uint8_t main_func_bytes[4];
+    if (!read(user, config->battle_main_func_gba_address,
+              main_func_bytes, sizeof(main_func_bytes))) return false;
+    const bool action_selection_stable =
+        read32_le(main_func_bytes) == config->action_selection_func_ptr;
+
     out_state->switch_in_phase_observed = true;
     out_state->switch_in_events_settled =
-        event_index == config->switch_in_events_count && !any_battler_switching_in;
+        event_index == config->switch_in_events_count && !any_battler_switching_in &&
+        action_selection_stable;
     return true;
 }
 

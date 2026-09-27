@@ -244,6 +244,12 @@ typedef struct {
     uint32_t battler_state_switch_in_bit;    // bit offset of BattlerState.switchIn
     uint32_t max_battlers_count;             // compiled MAX_BATTLERS_COUNT
     uint32_t switch_in_events_count;         // compiled SWITCH_IN_EVENTS_COUNT sentinel
+    // Wider Group B settlement gate. The switch-in event fields above reset only after
+    // replacement data is installed, so a pending proof also requires H&S's battle-main
+    // callback to be at the stable action-selection function. Both are exact H&S 2.0.5
+    // release-ROM symbols; 0 disables the phase proof for other layouts.
+    uint32_t battle_main_func_gba_address;    // IWRAM address of gBattleMainFunc
+    uint32_t action_selection_func_ptr;       // Thumb pointer to HandleTurnActionSelectionState
     uint32_t battle_gimmick_active_offset;   // struct BattleGimmickData-relative activeGimmick
     uint32_t battle_gimmick_side_stride;     // activeGimmick bytes per side (PARTY_SIZE)
     uint32_t battle_gimmick_party_count;     // PARTY_SIZE
@@ -820,8 +826,8 @@ typedef struct {
     uint16_t battle_weather;       // engine's current weather flags word (0 = clear)
     bool     side_statuses_readable; // the observed battler's gSideStatuses[side] was read
     uint32_t side_statuses;        // engine's current status word for the observed battler's side
-    bool     switch_in_phase_observed; // eventState.switchIn and every active BattlerState.switchIn read
-    bool     switch_in_events_settled; // event counter is complete and all battlers exited switch-in
+    bool     switch_in_phase_observed; // event state, active switchIn flags, and battle callback read
+    bool     switch_in_events_settled; // event complete, flags clear, and stable action selection active
 } BattlerRuntimeState;
 
 /**

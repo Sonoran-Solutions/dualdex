@@ -25,7 +25,7 @@ A policy call with no live operands is not a useful measurement, because the pro
 - battle topology taken from each trainer's own pinned `Double Battle` setting: `No` -> Singles / `gBattlersCount = 2`, `Yes` -> Doubles / `gBattlersCount = 4`. The topology is stated truthfully rather than chosen to please the policy;
 - challenge settings observed: `optionStyle = PER_MOVE_SPLIT`, Random Types OFF, Random Type Effectiveness OFF, Random Abilities OFF, Random Moves OFF, no base-stat equalizer, no level/IV/EV scaling;
 - no field effect (`gFieldStatuses = 0`), clear weather, no defender screens, every volatile bit observed false, all stat stages zero, no gimmick;
-- switch-in events observed settled: `eventState.switchIn = SWITCH_IN_EVENTS_COUNT` and every active `BattlerState.switchIn` flag clear;
+- switch-in events observed settled: `eventState.switchIn = SWITCH_IN_EVENTS_COUNT`, every active `BattlerState.switchIn` flag clear, and the official H&S `gBattleMainFunc` at `HandleTurnActionSelectionState`;
 - both battlers at full HP with `status1 = 0`, so a pinch ability is provably inactive rather than accidentally active;
 - each participant's own item and effective ability from the pinned trainer data, supplied as authoritative observations.
 

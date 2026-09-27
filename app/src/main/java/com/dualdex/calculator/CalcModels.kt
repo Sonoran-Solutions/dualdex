@@ -190,8 +190,10 @@ data class CalcHnsRuntimeRules(
  *    so the policy refuses the whole live calculation when the observed topology is not `2`
  *    (review round 5; see docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §14.7.2).
  *  - [switchInEventsSettled]: true only when both runtime observations agree that H&S has reached
- *    `SWITCH_IN_EVENTS_COUNT` and cleared every active `BattlerState.switchIn` flag. Null or false
- *    prevents Group B entry-writer proofs from treating an intermediate event-script frame as done.
+ *    `SWITCH_IN_EVENTS_COUNT`, cleared every active `BattlerState.switchIn` flag, and returned to
+ *    the stable action-selection callback. The callback gate covers the earlier replacement window
+ *    before `switchineffects` resets the event fields. Null or false prevents Group B entry-writer
+ *    proofs from treating an intermediate action/script frame as done.
  */
 data class CalcRawStats(
     val attack: Int,

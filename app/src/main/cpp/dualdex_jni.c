@@ -836,7 +836,8 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * [68] volatileGastroAcid, [69] volatileRoostActive,
  * [70] volatileSubstitute, [71] volatileEndured.
  * [72] speciesObserved, [73] current species id from gBattleMons[battler].species,
- * [74] switchInPhaseObserved, [75] switchInEventsSettled.
+ * [74] switchInPhaseObserved, [75] switchInEventsSettled (event sentinel, clear flags, stable
+ * action-selection callback).
  *         Every Gap C4e `*Observed` bit separates an observed neutral value
  *         (bit 1, payload 0) from a field that was never read (bit 0). Slots
  *         [60]/[61] are only meaningful while [47] volatilesObserved is 1;

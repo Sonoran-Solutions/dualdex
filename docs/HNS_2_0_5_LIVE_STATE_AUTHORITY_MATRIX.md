@@ -20,6 +20,18 @@ must be readable on both observations and match. Per-battler values are rebound 
 observation. `CalcRequestBoundary` strips caller-crafted live-state fields before binding them. A
 missing, stale, invalid, or mismatched value remains unknown and cannot grant a Group B clearance.
 
+## Switch-in phase gate
+
+The event counter and `BattlerState.switchIn` flags alone are insufficient during a replacement.
+Pinned H&S installs the new `gBattleMons` data in `Cmd_switchindataupdate`, then marks
+`BattlerState.switchIn` and resets `eventState.switchIn` in `switchineffects`. The opponent
+switch-in animation can also clear `monToSwitchIntoId` before those effects start. Native
+therefore treats the phase as settled only when the event counter is complete, all active flags are
+clear, and `gBattleMainFunc` points at `HandleTurnActionSelectionState`. That callback remains in
+action/script/controller work throughout the replacement sequence; an unread IWRAM callback fails
+closed. Official v2.0.5 release symbols for this gate are recorded in
+[`hns205-field-layout-symbols.txt`](../tools/hns-runtime-probe/evidence/hns205-field-layout-symbols.txt).
+
 ## Operand matrix
 
 | Operand | Pinned H&S field and timing | Runtime reader / slot authority | Boundary binding | Damage-engine consumption and current gate |

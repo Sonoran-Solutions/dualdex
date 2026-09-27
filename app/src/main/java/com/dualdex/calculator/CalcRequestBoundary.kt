@@ -907,8 +907,9 @@ object CalcRequestBoundary {
 
     /**
      * The settled switch-in/event-script phase, or null unless both exact runtime observations
-     * read the phase and agree. A readable false is retained: it proves the event driver is still
-     * pending and must not authorize a Group B clearance.
+     * read the phase and agree. Native requires the completed event counter, clear active switchIn
+     * flags, and H&S's stable action-selection callback; the callback gate covers replacement work
+     * before switchineffects resets the event fields. A readable false must not authorize Group B.
      */
     private fun authoritativeSwitchInEventsSettled(
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,

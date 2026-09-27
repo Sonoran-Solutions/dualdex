@@ -456,7 +456,7 @@ class CalcHnsC4eProductionBoundaryTest {
                 playerObservation(abilityId = 2, abilityName = "Drizzle", battleWeather = 0,
                     switchInEventsSettled = false),
                 enemyObservation(battleWeather = 0, switchInEventsSettled = false)),
-            "clear weather while Drizzle's entry script is pending is not a neutral proof"
+            "a replacement Drizzle battler with clear weather before the entry script is not a neutral proof"
         )
         assertTrue(pendingDrizzle.verdict.hnsAbilityDecisions.any {
             it.abilityId == 2 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN

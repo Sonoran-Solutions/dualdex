@@ -168,7 +168,7 @@ object HnsCalcCensusGenerator {
         if (!file.isFile) {
             return listOf(
                 "${file.path} is missing; regenerate with " +
-                    "./gradlew testDebugUnitTest -Pdualdex.census.generate=true"
+                    "DUALDEX_CENSUS_GENERATE=true ./ci.sh test"
             )
         }
         val committed = file.readBytes()
@@ -186,8 +186,7 @@ object HnsCalcCensusGenerator {
                         "${file.path} is stale: first difference at line ${index + 1}\n" +
                             "  committed: ${a.take(200)}\n" +
                             "  derived:   ${b.take(200)}\n" +
-                            "  regenerate with ./gradlew testDebugUnitTest " +
-                            "-Pdualdex.census.generate=true"
+                            "  regenerate with DUALDEX_CENSUS_GENERATE=true ./ci.sh test"
                     )
                 }
             }
@@ -195,7 +194,7 @@ object HnsCalcCensusGenerator {
         }
         return listOf(
             "${file.path} is stale and could not be decoded for a line diff; regenerate with " +
-                "./gradlew testDebugUnitTest -Pdualdex.census.generate=true"
+                "DUALDEX_CENSUS_GENERATE=true ./ci.sh test"
         )
     }
 
@@ -208,7 +207,7 @@ object HnsCalcCensusGenerator {
         if (!file.isFile) {
             return listOf(
                 "${file.path} is missing; regenerate with " +
-                    "./gradlew testDebugUnitTest -Pdualdex.census.generate=true"
+                    "DUALDEX_CENSUS_GENERATE=true ./ci.sh test"
             )
         }
         val committed = file.readText()
@@ -223,8 +222,7 @@ object HnsCalcCensusGenerator {
                     "${file.path} is stale: first difference at line ${index + 1}\n" +
                         "  committed: ${left.take(200)}\n" +
                         "  derived:   ${right.take(200)}\n" +
-                        "  regenerate with ./gradlew testDebugUnitTest " +
-                        "-Pdualdex.census.generate=true"
+                        "  regenerate with DUALDEX_CENSUS_GENERATE=true ./ci.sh test"
                 )
             }
         }

@@ -657,7 +657,7 @@ object HnsCalcCensusReport {
      * It is not committed - it is large and purely derivative of the same derivation - but it is
      * the artifact a reviewer or a follow-up issue (#86) inspects when a ranked number needs to be
      * traced back to one exact policy decision. Generate it with
-     * `./gradlew testDebugUnitTest -Pdualdex.census.full=true`.
+     * `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
      */
     fun toDetailJson(run: HnsCalcCensusEngine.CensusRun): String {
         val members = mutableListOf<Pair<String, JsonValue>>()
@@ -1102,7 +1102,7 @@ object HnsCalcCensusReport {
                 "included in each `abilityTrials` row. The " +
                 "per-ability-per-side-per-category detail is in `" +
                 HnsCalcCensusReport.JSON_FILE_NAME + "` under `abilityTrials`; the per-cohort " +
-                "detail used to derive it is printed by `-Pdualdex.census.full=true`.\n\n"
+                "detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.\n\n"
         )
 
         out.append("## Provenance and reproduction\n\n")
@@ -1117,10 +1117,10 @@ object HnsCalcCensusReport {
         out.append("python3 tools/hns-calc-census/generate_hns_trainer_census.py \\\n")
         out.append("    --upstream-dir \"\$HNS_UPSTREAM_DIR\"\n\n")
         out.append("# 2. Run the production policy over it and rewrite the census artifacts.\n")
-        out.append("./gradlew testDebugUnitTest -Pdualdex.census.generate=true\n")
+        out.append("DUALDEX_CENSUS_GENERATE=true ./ci.sh test\n")
         out.append("```\n\n")
         out.append(
-            "Add `-Pdualdex.census.full=true` to step 2 to also write the uncommitted, " +
+            "Add `DUALDEX_CENSUS_FULL=true` to step 2 to also write the uncommitted, " +
                 "per-request detail dump `tools/hns-calc-census/census-detail.json`: one row per " +
                 "evaluated request with the production policy's own ability, item and field " +
                 "decisions. It is derivative, ~20 MB, and deliberately not committed; `--check` " +

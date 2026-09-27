@@ -43,10 +43,16 @@ class HnsItemAuditTest {
 
     @Test
     fun `identity exceptions refer to real identities and override their family`() {
-        assertEquals(setOf(288, 289, 581), HnsItemAuditData.identityExceptions.keys)
+        assertEquals(setOf(288, 289, 484, 497, 499, 581), HnsItemAuditData.identityExceptions.keys)
         val enigma = Hns205ItemCatalogue.get(581)!!
         assertEquals("ITEM_ENIGMA_BERRY_E_READER", enigma.canonicalSymbol)
         assertEquals(HnsItemCategory.UNCLASSIFIED, HnsItemRegistry.classify(581).category)
+        for ((id, symbol) in listOf(484 to "ITEM_IRON_BALL", 497 to "ITEM_AIR_BALLOON", 499 to "ITEM_RING_TARGET")) {
+            val entry = HnsItemRegistry.classify(id)
+            assertEquals(symbol, entry.data?.canonicalSymbol)
+            assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, entry.category)
+            assertTrue(HnsItemRegistry.isSupportedForDamage(id))
+        }
     }
 
     @Test
@@ -71,10 +77,10 @@ class HnsItemAuditTest {
         val expected = HnsItemAuditData.categoryCounts.filterValues { it > 0 }
         assertEquals(expected, counts)
         assertEquals(585, counts[HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT])
-        assertEquals(312, counts[HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT])
+        assertEquals(309, counts[HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT])
         assertEquals(3, counts[HnsItemCategory.UNCLASSIFIED])
         assertNull("nothing is MODELLED_EQUIVALENT", counts[HnsItemCategory.MODELLED_EQUIVALENT])
-        assertEquals(1, counts[HnsItemCategory.MODELLED_HNS_SPECIFIC])
+        assertEquals(4, counts[HnsItemCategory.MODELLED_HNS_SPECIFIC])
         assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, HnsItemRegistry.classify(476).category)
         assertEquals("Wise Glasses", HnsItemRegistry.engineItemName(476))
         assertTrue(HnsItemRegistry.isSupportedForDamage(476))
@@ -83,17 +89,16 @@ class HnsItemAuditTest {
     @Test
     fun `only modelled items are forwarded to the engine`() {
         for (id in domain) {
-            if (id == 476) {
-                assertEquals("Wise Glasses", HnsItemRegistry.engineItemName(id))
-            } else {
-                assertNull("item $id", HnsItemRegistry.engineItemName(id))
-            }
+            val expectedName = mapOf(
+                476 to "Wise Glasses", 484 to "Iron Ball", 497 to "Air Balloon", 499 to "Ring Target"
+            )[id]
+            assertEquals("item $id", expectedName, HnsItemRegistry.engineItemName(id))
         }
         assertNull(HnsItemRegistry.engineItemName(null))
         assertNull(HnsItemRegistry.engineItemName(901))
         // Supported for damage means proven-neutral families or modelled items with engine adapters.
         for (id in domain) {
-            val expectedSupported = (id == 476) ||
+            val expectedSupported = (id in setOf(476, 484, 497, 499)) ||
                 (HnsItemRegistry.classify(id).category == HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT)
             assertEquals(
                 "item $id",

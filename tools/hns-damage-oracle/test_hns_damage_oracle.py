@@ -43,7 +43,8 @@ def observed_for(s: dict) -> dict:
     dfn = copy.deepcopy(battler)
     dfn["hpAtHit"] = s["defender"]["stats"]["hp"]
     return {"attacker": battler, "defender": dfn,
-            "move": {"id": 157, "type": "Rock", "power": 75, "category": "physical", "target": "both"},
+            "move": {"id": 157, "type": "Rock", "power": 75, "category": "physical", "target": "both",
+                     "flags": [], "priority": 0, "targetClass": 6},
             "targetCount": 1}
 
 
@@ -79,6 +80,29 @@ class ScenarioSchemaTest(unittest.TestCase):
         self.assertEqual(SCENARIOS, matrix.build_scenarios())
         self.assertEqual([s["id"] for s in SCENARIOS], sorted(s["id"] for s in SCENARIOS))
         self.assertEqual({s["surface"] for s in SCENARIOS}, {"modelled", "engine-only"})
+
+    def test_group_c_immunity_cases_include_positive_and_negative_controls(self):
+        by_id = {s["id"]: s for s in SCENARIOS}
+        expected = {
+            "group-c-absorb-volt-absorb", "group-c-absorb-motor-drive", "group-c-absorb-lightning-rod",
+            "group-c-absorb-water-absorb", "group-c-absorb-storm-drain", "group-c-absorb-dry-skin",
+            "group-c-absorb-sap-sipper", "group-c-absorb-earth-eater", "group-c-absorb-well-baked-body",
+            "group-c-absorb-flash-fire", "group-c-flag-soundproof", "group-c-flag-bulletproof",
+            "group-c-flag-wind-rider", "group-c-priority-queenly-majesty", "group-c-priority-dazzling",
+            "group-c-priority-armor-tail", "group-c-wonder-guard-neutral", "group-c-wonder-guard-resisted",
+            "group-c-wonder-guard-chart-immunity", "group-c-levitate",
+            "group-c-air-balloon", "group-c-ring-target-does-not-clear-ability",
+        }
+        self.assertTrue(expected.issubset(by_id))
+        self.assertTrue(all(by_id[sid]["expect"] == "immune" for sid in expected))
+        self.assertEqual(by_id["group-c-dry-skin-fire-boost"]["expect"], "damage")
+        self.assertEqual(by_id["group-c-flag-control-soundproof"]["expect"], "damage")
+        self.assertEqual(by_id["group-c-priority-control-dazzling"]["expect"], "damage")
+        self.assertEqual(by_id["group-c-wonder-guard-super-effective"]["expect"], "damage")
+        self.assertEqual(by_id["group-c-wonder-guard-resisted"]["expect"], "immune")
+        self.assertEqual(by_id["group-c-wonder-guard-chart-immunity"]["expect"], "immune")
+        self.assertEqual(by_id["group-c-ring-target"]["expect"], "damage")
+        self.assertEqual(by_id["group-c-ring-target-control"]["expect"], "immune")
 
     def test_duplicate_ids_rejected(self):
         with self.assertRaisesRegex(schema.SchemaError, "duplicate scenario id"):
@@ -218,7 +242,7 @@ def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, 
         f"DDXO|{sid}|{rng}|D3|0|{def_stage}|0|0",
         f"DDXO|{sid}|{rng}|D4|160|110|65|65|110|30",
         f"DDXO|{sid}|{rng}|D5|0|0|0|0",
-        f"DDXO|{sid}|{rng}|M|157|Rock|75|physical|both|1|157",
+        f"DDXO|{sid}|{rng}|M|157|Rock|75|physical|both|1|157|0|0|0|0|0|0|6",
         f"DDXO|{sid}|{rng}|F|none|0|0|0|1|0",
         f"DDXO|{sid}|{rng}|R|{damage}|{delta}|{hp_at_hit}",
     ]
@@ -246,7 +270,8 @@ class RunnerOutputTest(unittest.TestCase):
         self.assertEqual(entry["rolls"][0], 60 - 15 // 2)
         self.assertEqual(entry["rolls"], sorted(entry["rolls"]))
         self.assertEqual(entry["observed"]["move"], {"id": 157, "type": "Rock", "power": 75,
-                                                     "category": "physical", "target": "both"})
+                                                     "category": "physical", "target": "both", "flags": [],
+                                                     "priority": 0, "targetClass": 6})
         self.assertEqual(entry["observed"]["defender"]["types"], ["Normal"])
 
     def test_failed_or_missing_test_result_is_fatal(self):

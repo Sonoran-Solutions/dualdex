@@ -141,7 +141,10 @@ internal object HnsItemAuditData {
 
     /** Identity-specific decisions that override the hold-effect family, keyed by item ID. */
     val identityExceptions: Map<Int, HnsItemFamilyDecision> = mapOf(
+        497 to HnsItemFamilyDecision("ITEM_AIR_BALLOON", "identity_exception", HnsItemCategory.MODELLED_HNS_SPECIFIC, "Air Balloon identity exception for Group C (#89): the current-holder Ground-move immunity is evaluated from the boundary-owned current item and implemented by the H&S-specific immunity layer; both grounding items remain subject to their contextual turn-order rules."),
         581 to HnsItemFamilyDecision("ITEM_ENIGMA_BERRY_E_READER", "identity_exception", HnsItemCategory.UNCLASSIFIED, "The e-Reader Enigma Berry has no static holdEffect: GetBattlerHoldEffectInternal returns the runtime gEnigmaBerries[battler].holdEffect for this exact ID (src/battle_util.c:5834). Its catalogue HOLD_EFFECT_NONE is therefore not its battle effect; it is not classified by family and fails closed."),
+        484 to HnsItemFamilyDecision("ITEM_IRON_BALL", "identity_exception", HnsItemCategory.MODELLED_HNS_SPECIFIC, "Iron Ball identity exception for Group C (#89): Groundedness and its pinned Flying-type Ground-move override is evaluated from the boundary-owned current item and implemented by the H&S-specific immunity layer; Iron Ball remains subject to its separate Speed/Analytic contextual rule."),
+        499 to HnsItemFamilyDecision("ITEM_RING_TARGET", "identity_exception", HnsItemCategory.MODELLED_HNS_SPECIFIC, "Ring Target identity exception for Group C (#89): type-chart zero entries before ability and groundedness checks is evaluated from the boundary-owned current item and implemented by the H&S-specific immunity layer; Iron Ball remains subject to its separate Speed/Analytic contextual rule."),
         289 to HnsItemFamilyDecision("ITEM_RUSTED_SHIELD", "identity_exception", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Held-item identity with battle semantics its HOLD_EFFECT_NONE does not describe: FORM_CHANGE_BEGIN_BATTLE (src/data/pokemon/form_change_tables.h) turns a holding Zamazenta into its Crowned form and replaces Iron Head with Behemoth Bash at battle start (src/battle_main.c:689-690); DoesSpeciesUseHoldItemToChangeForm also treats it as form-bound (src/battle_util.c:8619). Never inherits HOLD_EFFECT_NONE neutrality; no request-local clearance."),
         288 to HnsItemFamilyDecision("ITEM_RUSTED_SWORD", "identity_exception", HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, "Held-item identity with battle semantics its HOLD_EFFECT_NONE does not describe: FORM_CHANGE_BEGIN_BATTLE (src/data/pokemon/form_change_tables.h) turns a holding Zacian into its Crowned form and replaces Iron Head with Behemoth Blade at battle start (src/battle_main.c:689-690); DoesSpeciesUseHoldItemToChangeForm also treats it as form-bound (src/battle_util.c:8619). Never inherits HOLD_EFFECT_NONE neutrality; no request-local clearance."),
     )
@@ -230,8 +233,8 @@ internal object HnsItemAuditData {
     val categoryCounts: Map<HnsItemCategory, Int> = mapOf(
         HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT to 585,
         HnsItemCategory.MODELLED_EQUIVALENT to 0,
-        HnsItemCategory.MODELLED_HNS_SPECIFIC to 1,
-        HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT to 312,
+        HnsItemCategory.MODELLED_HNS_SPECIFIC to 4,
+        HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT to 309,
         HnsItemCategory.UNCLASSIFIED to 3,
     )
 
@@ -260,7 +263,7 @@ internal object HnsItemAuditData {
         "resist_berry_matching_type",
         "focus_sash_defender_at_max_hp",
         "focus_band_random_survival",
-        "ring_target_immunity_unmodelled",
+        "ring_target_immunity_modelled",
         "single_hit_item_activation_outside_damage",
         "post_hit_speed_item_ordinary_move",
         "post_hit_speed_item_attacker_analytic",

@@ -15,7 +15,8 @@ pinned H&S battle code (1f42b74d)  ->  this oracle  ->  corpus.json (committed, 
 * **Is:** a generator that builds the pinned H&S tree's own battle test runner and measures, for each
   scenario, the HP actually removed by one hit for each of the 16 damage-roll values. Every roll is a
   separate, fresh battle. The corpus stores the scenario inputs, what the engine reported about the
-  hit (IDs, battle types, base stats, move type/power/category, target count, badge-boost verdicts)
+  hit (IDs, battle types, base stats, move type/power/category/flags/effective priority/target class,
+  target count, badge-boost verdicts)
   and the 16 measured rolls.
 * **Is not:** `@smogon/calc`, DualDex's `calculateHnsDamage`, `calc_bundle.js` or any Kotlin damage
   code. None of those are imported or executed by the generator. The type tables in
@@ -54,7 +55,7 @@ Two deviations from a stock `make check`, both hashed into the corpus provenance
    so they fail on `MESSAGE` matching even though their damage values reproduce.
 
 **Option B (runtime probe) — not needed**, so it was not built. Option A needs no ROM, regenerates the
-whole corpus (1,324 scenarios x 16 rolls = 21,184 battles) in about three to four minutes on 32 cores,
+whole corpus (1,360 scenarios x 16 rolls = 21,760 battles) in about three to four minutes on 32 cores,
 and controls every operand directly.
 
 ### Harness boundaries found while building it
@@ -106,7 +107,7 @@ minimum roll, 15 the maximum. The generator then verifies, per roll and fail-clo
 
 Any violation aborts regeneration with the scenario ID. Nothing is defaulted or turned into zero.
 
-## Scenario schema (v1)
+## Scenario schema (v2)
 
 Defined and validated by `oracle_schema.py`. Each scenario names only authoritative operands:
 
@@ -184,7 +185,7 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-1,313 of 1,324 scenarios match the shipped calculator on all 16 rolls. The 11 that do not are
+1,351 of 1,362 scenarios match the shipped calculator on all 16 rolls. The 11 that do not are
 registered in `known_divergences.json`, each linked to its tracking issue:
 
 | Issue | Surface | Scenarios | Defect |

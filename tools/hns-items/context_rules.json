@@ -478,12 +478,12 @@
           ]
         },
         {
-          "rule": "ring_target_immunity_unmodelled",
+          "rule": "ring_target_immunity_modelled",
           "families": [
             "HOLD_EFFECT_RING_TARGET"
           ],
-          "predicate": "Defender holds it.",
-          "rationale": "Ring Target turns a type immunity into neutral damage; the immunity is not proven absent here.",
+          "predicate": "Defender holds Ring Target on an ordinary move; source-checked move type is available.",
+          "rationale": "The modelled immunity layer reproduces Ring Target only for type-chart zero entries before separate ability and groundedness checks.",
           "evidence": [
             {
               "source": "src/battle_util.c:8257",

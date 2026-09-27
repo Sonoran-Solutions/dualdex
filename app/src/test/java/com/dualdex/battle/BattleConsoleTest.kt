@@ -711,10 +711,10 @@ class BattleConsoleTest {
             enemyObservation = hnsBattler(0, 1, listOf(1, 3), 26, "Levitate"))
         val opponentRefused = buildHnsPresentation(89, defenderHarmful, calculator) // Earthquake
         assertEquals(DamageConfidence.UNAVAILABLE, opponentRefused.damageConfidence)
-        // Earthquake is also outside the ordinary move subset; both reasons stay visible.
-        assertEquals("2 blockers", opponentRefused.damageUnavailableReason)
-        assertEquals(listOf("Foe: Levitate", "Move effect not modelled"), opponentRefused.damageBlockers.map { it.detail })
-        assertEquals("Foe's Levitate not modelled", opponentRefused.damageBlockers.first().headline)
+        // Earthquake is outside the ordinary move subset; its Levitate branch is modeled
+        // independently and therefore does not add a second blocker.
+        assertEquals("Move effect not modelled", opponentRefused.damageUnavailableReason)
+        assertEquals(listOf("Move effect not modelled"), opponentRefused.damageBlockers.map { it.detail })
         assertEquals(2, sent.size)
 
         val resolvedStageWriter = buildHnsPresentation(33,

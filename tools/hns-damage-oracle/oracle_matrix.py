@@ -55,7 +55,7 @@ MOVES = {
     "Tackle": ("Normal", "physical", 40), "Scratch": ("Normal", "physical", 40),
     "Headbutt": ("Normal", "physical", 70), "Strength": ("Normal", "physical", 80),
     "Body Slam": ("Normal", "physical", 85), "Mega Kick": ("Normal", "physical", 120),
-    "Swift": ("Normal", "special", 60), "Tri Attack": ("Normal", "special", 80),
+    "Swift": ("Normal", "special", 60), "Quick Attack": ("Normal", "physical", 40), "Tri Attack": ("Normal", "special", 80),
     "Hyper Voice": ("Normal", "special", 90),
     "Karate Chop": ("Fighting", "physical", 50), "Sky Uppercut": ("Fighting", "physical", 85),
     "Aura Sphere": ("Fighting", "special", 80), "Focus Blast": ("Fighting", "special", 120),
@@ -80,7 +80,7 @@ MOVES = {
     "Surf": ("Water", "special", 90), "Water Gun": ("Water", "special", 40),
     "Hydro Pump": ("Water", "special", 110), "Bubble Beam": ("Water", "special", 65),
     "Leaf Blade": ("Grass", "physical", 90), "Razor Leaf": ("Grass", "physical", 55),
-    "Seed Bomb": ("Grass", "physical", 80), "Energy Ball": ("Grass", "special", 90),
+    "Seed Bomb": ("Grass", "physical", 80), "Bullet Seed": ("Grass", "physical", 25), "Energy Ball": ("Grass", "special", 90),
     "Magical Leaf": ("Grass", "special", 60),
     "Thunder Punch": ("Electric", "physical", 75), "Spark": ("Electric", "physical", 65),
     "Thunderbolt": ("Electric", "special", 90), "Thunder Shock": ("Electric", "special", 40),
@@ -565,6 +565,92 @@ def _pinch() -> list[dict]:
     return out
 
 
+def _group_c_immunities() -> list[dict]:
+    """Pinned ability, move-flag, priority, and item immunity gates with negative controls."""
+    out = []
+    at = lambda **kw: attacker("Machamp", atk=145, spa=145, **kw)  # noqa: E731
+    df = lambda **kw: defender("Snorlax", dfn=107, spd=107, **kw)  # noqa: E731
+
+    absorbers = (
+        ("Volt Absorb", "Electric", "Thunderbolt"),
+        ("Motor Drive", "Electric", "Thunderbolt"),
+        ("Lightning Rod", "Electric", "Thunderbolt"),
+        ("Water Absorb", "Water", "Surf"),
+        ("Storm Drain", "Water", "Surf"),
+        ("Dry Skin", "Water", "Surf"),
+        ("Sap Sipper", "Grass", "Leaf Blade"),
+        ("Earth Eater", "Ground", "Earthquake"),
+        ("Well-Baked Body", "Fire", "Flamethrower"),
+        ("Flash Fire", "Fire", "Flamethrower"),
+    )
+    for ability, move_type, move in absorbers:
+        out.append(scenario(
+            f"group-c-absorb-{slug(ability)}", ["group-c-immunity", "ability-immunity", f"ability:{slug(ability)}"],
+            at(), df(ability=(symbol("ABILITY", ability), ability)), move, expect="immune"))
+
+    out.append(scenario("group-c-dry-skin-fire-boost", ["group-c-immunity", "ability-boost", "ability:dry-skin"],
+                        at(), df(ability=("ABILITY_DRY_SKIN", "Dry Skin")), "Flamethrower"))
+
+    for ability, move, flag in (
+        ("Soundproof", "Hyper Voice", "sound"),
+        ("Bulletproof", "Bullet Seed", "ballistic"),
+        ("Wind Rider", "Gust", "wind"),
+    ):
+        out.append(scenario(
+            f"group-c-flag-{slug(ability)}", ["group-c-immunity", "move-flag-immunity", f"ability:{slug(ability)}"],
+            at(), df(ability=(symbol("ABILITY", ability), ability)), move, expect="immune"))
+        out.append(scenario(
+            f"group-c-flag-control-{slug(ability)}", ["group-c-immunity", "negative-control", f"flag-control:{flag}"],
+            at(), df(ability=(symbol("ABILITY", ability), ability)), "Thunderbolt"))
+
+    for ability in ("Queenly Majesty", "Dazzling", "Armor Tail"):
+        out.append(scenario(
+            f"group-c-priority-{slug(ability)}", ["group-c-immunity", "priority-immunity", f"ability:{slug(ability)}"],
+            at(), df(ability=(symbol("ABILITY", ability), ability)), "Quick Attack", expect="immune"))
+        out.append(scenario(
+            f"group-c-priority-control-{slug(ability)}", ["group-c-immunity", "negative-control", "priority-control"],
+            at(), df(ability=(symbol("ABILITY", ability), ability)), "Swift"))
+
+    out.append(scenario("group-c-wonder-guard-neutral", ["group-c-immunity", "ability-immunity", "ability:wonder-guard"],
+                        at(), df(ability=("ABILITY_WONDER_GUARD", "Wonder Guard")), "Tackle", expect="immune"))
+    out.append(scenario("group-c-wonder-guard-resisted", ["group-c-immunity", "ability-immunity", "ability:wonder-guard"],
+                        at(), defender("Sudowoodo", dfn=107, spd=107,
+                                       ability=("ABILITY_WONDER_GUARD", "Wonder Guard")), "Tackle", expect="immune"))
+    out.append(scenario("group-c-wonder-guard-chart-immunity", ["group-c-immunity", "type-immunity", "ability:wonder-guard"],
+                        at(), defender("Sableye", dfn=107, spd=107,
+                                       ability=("ABILITY_WONDER_GUARD", "Wonder Guard")), "Tackle", expect="immune"))
+    out.append(scenario("group-c-wonder-guard-super-effective", ["group-c-immunity", "negative-control", "ability:wonder-guard"],
+                        at(), defender("Charizard", dfn=107, spd=107,
+                                       ability=("ABILITY_WONDER_GUARD", "Wonder Guard")), "Rock Slide"))
+    out.append(scenario("group-c-levitate", ["group-c-immunity", "ability-immunity", "ability:levitate"],
+                        at(), df(ability=("ABILITY_LEVITATE", "Levitate")), "Earthquake", expect="immune"))
+    out.append(scenario("group-c-levitate-control", ["group-c-immunity", "negative-control", "ability:levitate"],
+                        at(), df(ability=("ABILITY_LEVITATE", "Levitate")), "Thunderbolt"))
+
+    out.append(scenario("group-c-air-balloon", ["group-c-immunity", "item-immunity", "item:air-balloon"],
+                        at(), df(item=("ITEM_AIR_BALLOON", "Air Balloon")), "Earthquake", expect="immune"))
+    out.append(scenario("group-c-iron-ball-grounding", ["group-c-immunity", "negative-control", "item:iron-ball"],
+                        at(), defender("Pidgey", dfn=107, spd=107, item=("ITEM_IRON_BALL", "Iron Ball")), "Earthquake"))
+    out.append(scenario("group-c-iron-ball-control", ["group-c-immunity", "negative-control", "item:iron-ball"],
+                        at(), df(item=("ITEM_IRON_BALL", "Iron Ball")), "Tackle"))
+    out.append(scenario("group-c-float-stone-no-op", ["group-c-immunity", "negative-control", "item:float-stone"],
+                        at(), df(item=("ITEM_FLOAT_STONE", "Float Stone")), "Tackle"))
+    out.append(scenario("group-c-ring-target", ["group-c-immunity", "item-type-rewrite", "item:ring-target"],
+                        at(), defender("Clefable", dfn=107, spd=107, item=("ITEM_RING_TARGET", "Ring Target")),
+                        "Dragon Claw"))
+    out.append(scenario("group-c-ring-target-control", ["group-c-immunity", "negative-control", "item:ring-target"],
+                        at(), defender("Clefable", dfn=107, spd=107), "Dragon Claw", expect="immune"))
+    out.append(scenario("group-c-ring-target-dual", ["group-c-immunity", "item-type-rewrite", "item:ring-target"],
+                        at(), defender("Sableye", dfn=107, spd=107, item=("ITEM_RING_TARGET", "Ring Target")),
+                        "Karate Chop"))
+    out.append(scenario("group-c-ring-target-dual-control", ["group-c-immunity", "negative-control", "item:ring-target"],
+                        at(), defender("Sableye", dfn=107, spd=107), "Karate Chop", expect="immune"))
+    out.append(scenario("group-c-ring-target-does-not-clear-ability", ["group-c-immunity", "negative-control", "item:ring-target"],
+                        at(), df(item=("ITEM_RING_TARGET", "Ring Target"),
+                                 ability=("ABILITY_VOLT_ABSORB", "Volt Absorb")), "Thunderbolt", expect="immune"))
+    return out
+
+
 def _wise_glasses() -> list[dict]:
     out = []
     wise = ("ITEM_WISE_GLASSES", "Wise Glasses")
@@ -735,7 +821,7 @@ def _doubles() -> list[dict]:
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
-              _weather, _screens, _pinch, _wise_glasses, _badges, _rules, _engine_abilities,
+              _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _rules, _engine_abilities,
               _engine_items, _doubles)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

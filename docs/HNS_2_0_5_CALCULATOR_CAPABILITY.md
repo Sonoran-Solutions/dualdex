@@ -23,8 +23,8 @@ validates each referenced source line against the same pinned checkout.
 | `PROVEN_NO_DAMAGE_EFFECT` | 84 |
 | `MODELLED_EQUIVALENT` | 0 |
 | `MODELLED_HNS_SPECIFIC` | 0 |
-| `MODELLED_HNS_CONDITIONAL` | 4 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 223 |
+| `MODELLED_HNS_CONDITIONAL` | 21 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 206 |
 | `UNCLASSIFIED` | 0 |
 
 The audit follows the ordinary `EFFECT_HIT` dependency path through attack and defense
@@ -42,8 +42,11 @@ unsupported move, item, field, Doubles state, or random type setting.
 New globally neutral examples include Static (post-hit contact status), Compound Eyes and Sand Veil
 (accuracy/evasion), Inner Focus (flinch prevention), Hyper Cutter and Full Metal Body (stat-drop
 prevention with live stages), Run Away (escape), Pickup and Ball Fetch (overworld/after-battle), and
-Prankster (status-move priority). Group A changes only Pickpocket's global category from
-`UNCLASSIFIED` to `UNSUPPORTED_DAMAGE_RELEVANT`; all other global decisions stay fixed. A separate
+Prankster (status-move priority). Group C adds request-local immunity support for absorbers,
+move flags, priority blockers, Wonder Guard, Levitate, and the relevant grounding items; see
+[`HNS_GROUP_C_IMMUNITIES.md`](HNS_GROUP_C_IMMUNITIES.md). Group A changes only Pickpocket's global category from
+`UNCLASSIFIED` to `UNSUPPORTED_DAMAGE_RELEVANT`; Group C later promoted the specifically audited
+immunity abilities listed in its audit. Other global decisions stay fixed. A separate
 `HnsAbilityContextPolicy` now makes a three-state decision (`PROVEN_IRRELEVANT`, `RELEVANT`, or
 `UNKNOWN`) for reviewed globally unsupported IDs. Only a source-backed proof using operands rebound by `CalcRequestBoundary` removes that one
 ability's blocker; unknown context still refuses, and all independent calculation limitations still
@@ -53,8 +56,9 @@ Examples: attacker-side Tera Shell and defender-side Truant are irrelevant to or
 damage; defender Tera Shell clears only when live species proves it is not Terapagos-Terastal or
 live HP proves the Terastal form is below full HP. Full-HP Terapagos-Terastal remains refused.
 Telepathy, Friend Guard, Plus, and Minus clear only when exact live battler topology proves Singles.
-Levitate, Guts, Huge/Pure Power, Thick Fat, and Adaptability clear only under their source-checked
-side, effective type/category, live status, current type, and topology predicates. Truant on the
+Levitate (26) now uses the Group C Ground-immunity calculation; Guts, Huge/Pure Power, Thick Fat,
+and Adaptability clear only under their source-checked side, effective type/category, live status,
+current type, and topology predicates. Truant on the
 attacker remains blocked because `truantCounter` is not observed. Defender Battle Armor and Shell
 Armor clear for a fixed noncritical ordinary hit; a critical request remains relevant because it
 conflicts with their prevention effect. The source-checkable artifact records both clearance rules
@@ -207,7 +211,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — type chart is exact and verified in QuickJS. Used by `calculateHnsDamage` for post-roll type effectiveness; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C1/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
-| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy`. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — global categories remain unchanged; 84 proven-neutral abilities and four conditional pinch abilities retain their existing rules. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
+| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy` and Group C. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e / Group C)** — 84 proven-neutral abilities and 21 conditional abilities have audited request rules. Modeled Group C defender immunities return exact zero results; relevant Mold Breaker-family suppression remains a hard blocker unless Ability Shield preserves the defender ability. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629`, Wise Glasses `[src/data/items.h:10091]` | **identity yes; damage effects conditionally modelled** — exact item identity and the current battle item are consumed; Wise Glasses modelled specifically for H&S; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (585 neutral / 312 unsupported / 1 modelled / 3 unclassified); a known `RELEVANT` unsupported item may be neutralized and named in a caveated estimate only for an item-independent move. Proven-irrelevant and modelled items keep their existing paths; `UNKNOWN`, unclassified, unread, and unauthoritative identities remain hard. Item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
@@ -284,7 +288,7 @@ Only these individual behaviours are source-and-test demonstrated:
 | Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack/spAttack stat in `calculateHnsDamage` | **HOST-ORACLE MATCHES (Gap C4b partial / open)** |
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
 | Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
-| Abilities (supported subset) | 84 proven neutral abilities and 4 conditional pinch abilities | Neutral abilities add no modifier; pinch uses the H&S UQ4.12 pipeline | **CONDITIONALLY AUTHORIZED** under the live operand gates (§14.6 and pinned audit above) |
+| Abilities (supported subset) | 84 proven-neutral abilities and 21 conditional abilities, including the four pinch abilities and Group C immunities | Neutral abilities add no modifier; pinch uses the H&S UQ4.12 pipeline; Group C immunity conditions are described in [HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md) | **CONDITIONALLY AUTHORIZED** under the live operand gates (§14.6, Group C audit, and pinned inventory) |
 | Abilities (globally unsupported) | Guts, Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — known relevant unsupported abilities are named caveats after neutralization; unknown/unread/unclassified abilities remain hard, and proven-irrelevant contexts do not become caveats (§6.3, #86) |
 | Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items, Wise Glasses | identity consumed; Wise Glasses modelled, other damage items unmodelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — a known relevant unsupported item may become a named caveat for an item-independent request; unread/unresolved identity remains hard, and item-dependent moves remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7, #86) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
@@ -1022,7 +1026,7 @@ per-ability capability decision:
   cannot override or fabricate authoritative observations.
 - **Conditional ability capability (`HnsAbilityRegistry`):**
   - `PROVEN_NO_DAMAGE_EFFECT` (`ABILITY_NONE`, `KEEN EYE`, `INSOMNIA`, and the audited neutral set above): zero move-damage effect in H&S. Cleared with no ability blocker.
-  - `MODELLED_HNS_CONDITIONAL` (`OVERGROW`, `BLAZE`, `TORRENT`, `SWARM`): the H&S pinch modifier is modelled; a relevant move requires observed live HP (§14.6).
+  - `MODELLED_HNS_CONDITIONAL`: the four starter pinch abilities use the live HP gate (§14.6); Group C absorbers, flag blockers, priority blockers, Wonder Guard, and Levitate use the request-local conditions in [HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md).
   - `UNSUPPORTED_DAMAGE_RELEVANT` (`GUTS`, `THICK FAT`, `HUGE POWER`, `PURE POWER`, modern modifiers): damage-relevant but divergent or unmodelled. Fails closed with `HNS_ABILITY_EFFECT_NOT_MODELLED`.
 - **Default ability substitution prevention:** `@smogon/calc` defaulting to `species.abilities[0]` is prevented
   by setting `options.ability = '(other)'` when ability is omitted, empty, or `"None"` under `typeSystem === 'hns_2_0_5'`.
@@ -2292,7 +2296,12 @@ observations in §5. With that cross-target audit, the recommendation is to **cl
 review and merge of PR #71**. The earlier statement that broader H&S support leaves a remainder
 open under #9 is superseded by this accepted bounded scope. Until review/merge, #9 stays open.
 
-The limits in §14.13 remain unchanged: H&S Doubles, damage items and other unsupported mechanics
+Issue #89 extends the request-local supported subset with source-backed Group C immunities and the
+Air Balloon, Iron Ball, and Ring Target rules; the full audit is in
+[HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md). It does not alter the #97–#100 registered
+known-divergence vectors.
+
+The limits in §14.13 remain unchanged: H&S Doubles, other damage items and unsupported mechanics
 are not newly supported; positive badge runtime Golden D and positive transient transitions are
 not newly proven, and crit Golden E remains indirect. These are follow-up evidence/support work,
 not additional requirements for the accepted #9 closure. #40 is a separate, broader gate

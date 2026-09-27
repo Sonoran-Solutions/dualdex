@@ -137,6 +137,11 @@ object HnsItemContextPolicy {
                 "HOLD_EFFECT_ABILITY_SHIELD" -> abilityShield(c)
                 else -> null
             }
+            "identity_exception" -> when (holdEffect) {
+                "HOLD_EFFECT_RING_TARGET" -> defenderDefense(holdEffect, itemId, c)
+                "HOLD_EFFECT_AIR_BALLOON", "HOLD_EFFECT_IRON_BALL" -> grounding(holdEffect, c)
+                else -> null
+            }
             else -> null
         }
 
@@ -375,10 +380,10 @@ object HnsItemContextPolicy {
                 source = "src/battle_util.c:8193",
                 rationale = "Focus Band may randomly leave the defender at 1 HP."
             )
-            "HOLD_EFFECT_RING_TARGET" -> unknownRule(
-                rule = "ring_target_immunity_unmodelled",
+            "HOLD_EFFECT_RING_TARGET" -> modelled(
+                rule = "ring_target_immunity_modelled",
                 source = "src/battle_util.c:8257",
-                rationale = "Ring Target can turn a type immunity into damage; the immunity is not proven absent."
+                rationale = "Ring Target replaces zero type-chart entries before ability and groundedness checks; the H&S immunity layer models this exact scope."
             )
             else -> null
         }
@@ -409,7 +414,13 @@ object HnsItemContextPolicy {
         }
 
         return if (holderAbilityCanBeSuppressed || attackerCanBreakDefenderAbility) {
-            relevant(
+            if (c.side == HnsItemSide.DEFENDER && attackerCanBreakDefenderAbility &&
+                !holderAbilityCanBeSuppressed
+            ) modelled(
+                rule = "ability_shield_current_suppression",
+                source = "src/battle_util.c:4976",
+                rationale = "The exact current Ability Shield prevents the pinned Mold Breaker break-through check for this holder; the live effective defender ability is preserved."
+            ) else relevant(
                 rule = "ability_shield_current_suppression",
                 source = suppressionSource ?: "src/battle_util.c:4998",
                 rationale = "A live Gastro Acid, Neutralizing Gas, or defender-side ability-breaking attack can change whether the holder's ability affects this hit."
@@ -471,10 +482,10 @@ object HnsItemContextPolicy {
         }
         val moveType = c.moveType ?: return null
         return if (moveType == PokemonType.GROUND) {
-            relevant(
+            modelled(
                 rule = "grounding_item_defender_ground_move",
                 source = "src/battle_util.c:8392",
-                rationale = "The defender's grounding item changes a Ground move's effectiveness."
+                rationale = "The current Air Balloon or Iron Ball is forwarded to the H&S immunity layer, which reproduces the pinned Ground-move interaction after Gravity and persistent-volatile exclusions."
             )
         } else {
             proof(

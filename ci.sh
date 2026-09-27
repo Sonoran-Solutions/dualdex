@@ -283,7 +283,24 @@ hns_damage_oracle_test() {
 
 gradle_test() {
   echo "== gradle unit tests (self-contained: no ROM, no network) =="
-  ./gradlew testDebugUnitTest
+  local census_args=()
+  case "${DUALDEX_CENSUS_GENERATE:-false}" in
+    false) ;;
+    true) census_args+=("-Pdualdex.census.generate=true") ;;
+    *) echo "error: DUALDEX_CENSUS_GENERATE must be true or false" >&2; return 2 ;;
+  esac
+  case "${DUALDEX_CENSUS_FULL:-false}" in
+    false) ;;
+    true)
+      if [[ "${DUALDEX_CENSUS_GENERATE:-false}" != "true" ]]; then
+        echo "error: DUALDEX_CENSUS_FULL=true requires DUALDEX_CENSUS_GENERATE=true" >&2
+        return 2
+      fi
+      census_args+=("-Pdualdex.census.full=true")
+      ;;
+    *) echo "error: DUALDEX_CENSUS_FULL must be true or false" >&2; return 2 ;;
+  esac
+  ./gradlew testDebugUnitTest "${census_args[@]}"
 }
 
 # Explicit source validation against the pinned Heart & Soul 2.0.5 checkout.

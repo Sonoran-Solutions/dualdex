@@ -280,12 +280,12 @@
     "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
   },
   "214": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a critical-hit, damage, or attack-blocking result; the current calculator does not model that trigger."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C priority blocking is modeled only when source-derived effective priority is known; otherwise the production boundary hard-refuses (src/battle_move_resolution.c:1391)."
   },
   "219": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a critical-hit, damage, or attack-blocking result; the current calculator does not model that trigger."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C priority blocking is modeled only when source-derived effective priority is known; otherwise the production boundary hard-refuses (src/battle_move_resolution.c:1391)."
   },
   "237": {
     "category": "PROVEN_NO_DAMAGE_EFFECT",
@@ -328,8 +328,8 @@
     "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
   },
   "296": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a critical-hit, damage, or attack-blocking result; the current calculator does not model that trigger."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C priority blocking is modeled only when source-derived effective priority is known; otherwise the production boundary hard-refuses (src/battle_move_resolution.c:1391)."
   },
   "298": {
     "category": "PROVEN_NO_DAMAGE_EFFECT",
@@ -420,12 +420,12 @@
     "rationale": "battle_util.c GetTotalAccuracy changes evasion in sand; no damage operand or type/immunity change."
   },
   "10": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally by the H&S immunity layer: Electric absorbs zero matching single hits; healing is outside the selected hit (src/battle_util.c:2444)."
   },
   "11": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally by the H&S immunity layer: Water Absorb and Dry Skin zero matching Water hits; Dry Skin Fire weakness is modeled separately (src/battle_util.c:2448)."
   },
   "13": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -448,16 +448,16 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "25": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally by the pinned type-effectiveness layer: damaging moves with effectiveness at or below neutral are zeroed; super-effective hits proceed (src/battle_util.c:8421)."
   },
   "26": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally by the H&S Grounded/type-effectiveness layer; positive grounding volatiles and fields stay blocked by the live-state policy (src/battle_util.c:8385)."
   },
   "31": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally by the H&S immunity layer: matching Electric hits are zeroed; redirect behavior is Singles-only and does not alter the selected hit (src/battle_util.c:2461)."
   },
   "33": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -472,8 +472,8 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "43": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally from pinned MoveInfo.soundMove: sound-tagged ordinary hits are zeroed (src/battle_util.c:2485; include/move.h:358)."
   },
   "45": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -520,8 +520,8 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "78": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally by the H&S immunity layer: matching Electric hits are zeroed; the Speed boost is after the hit (src/battle_util.c:2457)."
   },
   "79": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -548,8 +548,8 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "87": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally by the H&S immunity layer: matching Water hits are zeroed and Fire damage uses the pinned 1.25 modifier (src/battle_util.c:2449; src/battle_util.c:6796)."
   },
   "88": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -616,8 +616,8 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "114": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally by the H&S immunity layer: matching Water hits are zeroed; redirection is outside the Singles damage result (src/battle_util.c:2465)."
   },
   "116": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -720,8 +720,8 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "157": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally by the H&S immunity layer: matching Grass hits are zeroed; its Attack stage effect is outside the hit (src/battle_util.c:2469)."
   },
   "159": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -756,8 +756,8 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "171": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally from pinned MoveInfo.ballisticMove: ball/bomb-tagged ordinary hits are zeroed (src/battle_util.c:2489; include/move.h:363)."
   },
   "172": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -1080,12 +1080,12 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "273": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally by the H&S immunity layer: Fire hits are zeroed; the Defense stage effect is after the hit (src/battle_util.c:2473)."
   },
   "274": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally from pinned MoveInfo.windMove: qualifying wind hits are zeroed; the Attack boost is after the hit (src/battle_util.c:2477; include/move.h:378)."
   },
   "276": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -1160,8 +1160,8 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "297": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Group C modeled conditionally by the H&S immunity layer: Ground hits are zeroed; healing is outside the selected hit (src/battle_util.c:2453)."
   },
   "299": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -1233,14 +1233,14 @@
   },
   "3": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Speed Boost can change a live battle stat stage. Request-local clearance requires both exact active battlers’ observed stat stages and preserves the Analytic turn-order dependency."
+    "rationale": "Speed Boost can change a live battle stat stage. Request-local clearance requires both exact active battlers\u2019 observed stat stages and preserves the Analytic turn-order dependency."
   },
   "80": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Steadfast can change a live battle stat stage. Request-local clearance requires both exact active battlers’ observed stat stages and preserves the Analytic turn-order dependency."
+    "rationale": "Steadfast can change a live battle stat stage. Request-local clearance requires both exact active battlers\u2019 observed stat stages and preserves the Analytic turn-order dependency."
   },
   "192": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Stamina can change a live battle stat stage. Request-local clearance requires both exact active battlers’ observed stat stages and preserves the Analytic turn-order dependency."
+    "rationale": "Stamina can change a live battle stat stage. Request-local clearance requires both exact active battlers\u2019 observed stat stages and preserves the Analytic turn-order dependency."
   }
 }

@@ -114,6 +114,15 @@ enum class CalcLimitation {
     /** A supplied ability name and numeric ability ID identify different pinned abilities. */
     HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE,
 
+    /** A source-dependent immunity operand could not be proven from pinned move/request data. */
+    HNS_IMMUNITY_CONTEXT_UNVERIFIED,
+
+    /** A Mold Breaker-family attacker could suppress a relevant defender immunity. */
+    HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED,
+
+    /** Flash Fire's attacker boost depends on a live activation flag absent from the runtime tuple. */
+    HNS_FLASH_FIRE_BOOST_NOT_MODELLED,
+
     /**
      * An authoritative live current held item could not be read from live memory (unobserved,
      * party-slot mismatch, faint window, doubles ambiguity, or out-of-domain ID), so the current
@@ -591,6 +600,9 @@ enum class CalcLimitation {
             HNS_EFFECTIVE_ABILITY_UNREADABLE,
             HNS_ABILITY_EFFECT_UNCLASSIFIED,
             HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE,
+            HNS_IMMUNITY_CONTEXT_UNVERIFIED,
+            HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED,
+            HNS_FLASH_FIRE_BOOST_NOT_MODELLED,
             HNS_EFFECTIVE_ITEM_UNREADABLE,
             HNS_ITEM_EFFECT_UNCLASSIFIED,
             HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE,
@@ -888,6 +900,12 @@ data class CalcCapabilityVerdict(
                 "the ability is known, but its Heart & Soul 2.0.5 damage capability is unclassified"
             CalcLimitation.HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE ->
                 "the ability name and numeric ID identify different Heart & Soul 2.0.5 abilities"
+            CalcLimitation.HNS_IMMUNITY_CONTEXT_UNVERIFIED ->
+                "a pinned move flag or effective-priority operand required by the H&S immunity check could not be verified"
+            CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED ->
+                "Mold Breaker, Teravolt, or Turboblaze could suppress a defender immunity that the calculator does not model"
+            CalcLimitation.HNS_FLASH_FIRE_BOOST_NOT_MODELLED ->
+                "Flash Fire's attacker-side Fire boost depends on a live activation flag that is not observed"
             CalcLimitation.HNS_EFFECTIVE_ITEM_UNREADABLE ->
                 "an authoritative live current held item could not be read"
             CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED ->
@@ -2020,6 +2038,25 @@ object CalcCapabilityPolicy {
         limitations: MutableSet<CalcLimitation>,
         decisions: MutableList<HnsAbilityRequestDecision>
     ) {
+        // Mold Breaker only matters when the current defender has an immunity that would
+        // otherwise participate. The request-local Group C gate adds a hard blocker for that
+        // precise interaction; the global unsupported label alone would incorrectly refuse
+        // unrelated defenders and moves before the interaction could be assessed.
+        if (isAttacker && classification.abilityId != null &&
+            classification.abilityId in HnsGroupCPolicy.moldBreakerAbilityIds
+        ) return
+
+        // Flash Fire is deliberately split by role. Defender-side immunity is in the Group C
+        // result layer; the attacker's later boost needs `flashFireBoosted`, which #88 does not read.
+        if (classification.abilityId == 18) {
+            val moveType = request.moveOverride?.type
+            when {
+                !isAttacker -> return
+                moveType != null && !moveType.equals("Fire", ignoreCase = true) -> return
+                else -> limitations.add(CalcLimitation.HNS_FLASH_FIRE_BOOST_NOT_MODELLED)
+            }
+            return
+        }
         val pinchType = classification.abilityId?.let { HNS_PINCH_ABILITY_TYPES[it] }
         if (pinchType != null) {
             if (!isAttacker) return // defender pinch abilities never modify incoming damage
@@ -2266,6 +2303,7 @@ object CalcCapabilityPolicy {
         if (capability.ruleset == CalcRuleset.HNS_2_0_5) {
             collectHnsItemDependentMoveLimitation(pack, request, limitations)
             collectHnsMoveMechanicsLimitation(pack, request, limitations)
+            limitations.addAll(HnsGroupCPolicy.integrityLimitations(request))
         }
 
         // Field conditions the generation III pipeline cannot express. The engine accepts these

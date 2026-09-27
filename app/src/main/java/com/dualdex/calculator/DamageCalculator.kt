@@ -51,6 +51,18 @@ object DamageCalculator {
             rangeList.add(rangeArray.getInt(i))
         }
 
+        val immunityCauses = mutableListOf<CalcImmunityCause>()
+        val causeArray = resObj.optJSONArray("immunityCauses") ?: JSONArray()
+        for (i in 0 until causeArray.length()) {
+            val cause = causeArray.optJSONObject(i) ?: continue
+            val kind = cause.optString("kind")
+            val source = cause.optString("source")
+            val name = cause.optString("name")
+            if (kind.isNotBlank() && source.isNotBlank() && name.isNotBlank()) {
+                immunityCauses += CalcImmunityCause(kind, source, name)
+            }
+        }
+
         return DamageCalculationResponse(
             success = true,
             minDamage = resObj.optInt("minDamage", 0),
@@ -66,6 +78,7 @@ object DamageCalculator {
             defenderMaxHP = resObj.optInt("defenderMaxHP", 0),
             koChanceText = resObj.optString("koChanceText", ""),
             effectiveness = if (resObj.has("effectiveness")) resObj.optDouble("effectiveness") else null,
+            immunityCauses = immunityCauses,
             engineEcho = if (resObj.has("attackerAbility") || resObj.has("defenderAbility") ||
                 resObj.has("attackerItem") || resObj.has("defenderItem")
             ) {
@@ -287,6 +300,28 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
         val moveObj = JSONObject().apply {
             put("name", request.move.name)
             put("isCrit", request.move.isCrit)
+            if (request.typeSystem == "hns_2_0_5") {
+                // Group C metadata is looked up by the exact pinned move name -> move ID. The
+                // request has no caller-owned flags/priority field, so fabricated JSON operands
+                // cannot create or bypass an immunity.
+                val pinnedMove = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)
+                pinnedMove?.let { move ->
+                    val moveId = move.id
+                    put("hnsMoveId", moveId)
+                    put("hnsMoveFlags", JSONArray(
+                        com.dualdex.pokemon.hns.Hns205MoveEffects.immunityFlagsById[moveId].orEmpty().sorted()
+                    ))
+                    com.dualdex.pokemon.hns.Hns205MoveEffects.unknownImmunityFlagsById[moveId]?.let {
+                        put("hnsUnknownMoveFlags", JSONArray(it.sorted()))
+                    }
+                    com.dualdex.pokemon.hns.Hns205MoveEffects.targetClassByMoveId[moveId]?.let {
+                        put("hnsTargetClass", it)
+                    }
+                    HnsGroupCPolicy.effectivePriority(request, moveId)?.let {
+                        put("effectivePriority", it)
+                    }
+                }
+            }
             request.moveOverride?.let { override ->
                 put("overrides", JSONObject().apply {
                     put("basePower", override.basePower)

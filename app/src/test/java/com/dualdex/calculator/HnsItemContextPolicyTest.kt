@@ -252,7 +252,7 @@ class HnsItemContextPolicyTest {
         assertEquals(relevant, relevance(758, clearContext.copy(defenderGastroAcid = true)))
         assertEquals(relevant, relevance(758, clearContext.copy(side = HnsItemSide.ATTACKER,
             attackerGastroAcid = true)))
-        assertEquals(relevant, relevance(758, clearContext.copy(attackerAbilityId = 104)))
+        assertEquals(HnsItemRequestRelevance.MODELLED, relevance(758, clearContext.copy(attackerAbilityId = 104)))
         assertEquals(unknown, relevance(758, ctx(HnsItemSide.DEFENDER, attackerAbilityId = 0,
             defenderAbilityId = 0, attackerGastroAcid = false, defenderGastroAcid = false)))
         assertEquals(unknown, relevance(758, clearContext.copy(ordinaryMove = false)))
@@ -294,7 +294,7 @@ class HnsItemContextPolicyTest {
     @Test
     fun `grounding items need no terrain and a non-Ground move on the defender`() {
         assertEquals(irrelevant, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, moveType = PokemonType.WATER)))
-        assertEquals(relevant, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, moveType = PokemonType.GROUND)))
+        assertEquals(modelled, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, moveType = PokemonType.GROUND)))
         // A terrain reads groundedness; an unread word or an unknown bit is not assumed terrain-free.
         for (terrain in listOf(1 shl 6, 1 shl 7, 1 shl 8, 1 shl 9)) {
             assertEquals(unknown, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, fieldStatuses = terrain)))

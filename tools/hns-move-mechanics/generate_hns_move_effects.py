@@ -37,6 +37,7 @@ Pinned upstream revision: 1f42b74dff0e9fe942419845d040663dd829a973
 """
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -60,6 +61,7 @@ MOVE_ENUM_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*(?:=\s*([^,]+))?,?$")
 MOVE_ENTRY_RE = re.compile(r"^\s*\[(MOVE_[A-Z0-9_]+)\]\s*=")
 EFFECT_VALUE_RE = re.compile(r"\.effect\s*=\s*([^,\n]+)")
 TARGET_VALUE_RE = re.compile(r"\.target\s*=\s*([^,\n]+)")
+PRIORITY_VALUE_RE = re.compile(r"\.priority\s*=\s*([^,\n]+)")
 PLAIN_EFFECT_RE = re.compile(r"EFFECT_[A-Z0-9_]+")
 PLAIN_TARGET_RE = re.compile(r"TARGET_[A-Z0-9_]+")
 
@@ -76,6 +78,9 @@ STATE_DEPENDENT_FLAGS = (
     "ignoreTypeIfFlyingAndUngrounded",
     "alwaysCriticalHit",
 )
+
+# Exact pinned MoveInfo flags consumed by Group C's immunity/suppression path.
+IMMUNITY_FLAGS = ("soundMove", "ballisticMove", "windMove", "healingMove", "ignoresTargetAbility")
 
 
 def find_upstream_dir(provided):
@@ -164,13 +169,16 @@ def _entry_body(lines, start, end):
         yield symbol, body
 
 
-def classify_body(body):
-    """Return (effect, complication, target) for one move body.
+def classify_body(body, *, include_immunity_metadata=False):
+    """Return the effect classification for one move body.
 
     ``effect`` is the single unambiguous ``EFFECT_*`` symbol, or None when the effect is
     conditional, computed or declared more than once. ``complication`` is a short reason
     string when an ``EFFECT_HIT`` move must not be treated as ordinary, else None.
     ``target`` is the single unambiguous ``TARGET_*`` symbol, or None.
+
+    The original three-field result remains the default for other checked-in source readers.
+    The move-effect artifact generator opts into the appended immunity flags and priority facts.
     """
     if_depth = 0
     depth = 0
@@ -182,6 +190,10 @@ def classify_body(body):
     strike_count = 1
     explosion = False
     flags = []
+    immunity_flags = set()
+    unknown_immunity_flags = set()
+    plain_priorities = set()
+    computed_priorities = set()
     for line in body:
         stripped = line.strip()
         if stripped.startswith("#if"):
@@ -198,6 +210,14 @@ def classify_body(body):
         for flag in STATE_DEPENDENT_FLAGS:
             if re.match(rf"\.{re.escape(flag)}\s*=\s*TRUE\b", stripped):
                 flags.append(flag)
+        for flag in IMMUNITY_FLAGS:
+            found_flag = re.match(rf"\.{re.escape(flag)}\s*=\s*([^,]+)", stripped)
+            if found_flag:
+                value = found_flag.group(1).strip()
+                if if_depth == 0 and value == "TRUE":
+                    immunity_flags.add(flag)
+                elif value not in ("FALSE", "0") or if_depth != 0:
+                    unknown_immunity_flags.add(flag)
         if ".zMove" not in line:
             found = EFFECT_VALUE_RE.search(line)
             if found and depth <= 1:
@@ -213,25 +233,38 @@ def classify_body(body):
                     plain_targets.add(tvalue)
                 else:
                     computed_targets.add(tvalue)
+            found_priority = PRIORITY_VALUE_RE.search(line)
+            if found_priority and depth <= 1:
+                value = found_priority.group(1).strip()
+                if if_depth == 0 and re.fullmatch(r"-?\d+", value):
+                    plain_priorities.add(int(value))
+                else:
+                    computed_priorities.add(value)
         depth += line.count("{") - line.count("}")
 
     effect = next(iter(plain_effects)) if len(plain_effects) == 1 and not computed_effects else None
     target = next(iter(plain_targets)) if len(plain_targets) == 1 and not computed_targets else None
+    priority = None if computed_priorities or len(plain_priorities) > 1 else next(iter(plain_priorities), 0)
     if effect != "EFFECT_HIT":
-        return effect, None, target
-    if multi_hit:
-        return effect, "multiHit", target
-    if strike_count > 1:
-        return effect, f"strikeCount={strike_count}", target
-    if explosion:
-        return effect, "explosion", target
-    if flags:
-        return effect, flags[0], target
-    return effect, None, target
+        complication = None
+    elif multi_hit:
+        complication = "multiHit"
+    elif strike_count > 1:
+        complication = f"strikeCount={strike_count}"
+    elif explosion:
+        complication = "explosion"
+    elif flags:
+        complication = flags[0]
+    else:
+        complication = None
+    legacy = (effect, complication, target)
+    if include_immunity_metadata:
+        return (*legacy, immunity_flags, unknown_immunity_flags, priority)
+    return legacy
 
 
 def parse_move_table(text):
-    """Return (effect_by_symbol, ordinary_symbols, unresolved_symbols)."""
+    """Return source-derived effect/target/ordinary/flag/priority maps by move symbol."""
     lines = text.splitlines()
     start = next(
         (i for i, line in enumerate(lines) if "gMovesInfo[MOVES_COUNT_ALL]" in line),
@@ -250,8 +283,20 @@ def parse_move_table(text):
     target_by_symbol = {}
     ordinary_symbols = set()
     unresolved = set()
+    flags_by_symbol = {}
+    unknown_flags_by_symbol = {}
+    priority_by_symbol = {}
+    unknown_priority_symbols = set()
     for symbol, body in _entry_body(lines, start, end):
-        effect, complication, target = classify_body(body)
+        effect, complication, target, flags, unknown_flags, priority = classify_body(
+            body, include_immunity_metadata=True
+        )
+        flags_by_symbol[symbol] = flags
+        unknown_flags_by_symbol[symbol] = unknown_flags
+        if priority is None:
+            unknown_priority_symbols.add(symbol)
+        else:
+            priority_by_symbol[symbol] = priority
         if effect is None:
             unresolved.add(symbol)
             continue
@@ -260,7 +305,8 @@ def parse_move_table(text):
             target_by_symbol[symbol] = target
         if effect == "EFFECT_HIT" and complication is None:
             ordinary_symbols.add(symbol)
-    return effect_by_symbol, target_by_symbol, ordinary_symbols, unresolved
+    return (effect_by_symbol, target_by_symbol, ordinary_symbols, unresolved, flags_by_symbol,
+            unknown_flags_by_symbol, priority_by_symbol, unknown_priority_symbols)
 
 
 def build_maps(upstream_dir):
@@ -268,13 +314,18 @@ def build_maps(upstream_dir):
     moves_header = os.path.join(upstream_dir, "include/constants/moves.h")
     move_table = os.path.join(upstream_dir, "src/data/moves_info.h")
     ids = parse_move_enum(open(moves_header, encoding="utf-8", errors="replace").read())
-    effect_by_symbol, target_by_symbol, ordinary_symbols, unresolved = parse_move_table(
+    (effect_by_symbol, target_by_symbol, ordinary_symbols, unresolved, flags_by_symbol,
+     unknown_flags_by_symbol, priority_by_symbol, unknown_priority_symbols) = parse_move_table(
         open(move_table, encoding="utf-8", errors="replace").read()
     )
 
     effect_by_id = {}
     target_by_id = {}
     ordinary = set()
+    flags_by_id = {}
+    unknown_flags_by_id = {}
+    priority_by_id = {}
+    unknown_priority_ids = set()
     for symbol, effect in effect_by_symbol.items():
         if symbol not in ids:
             raise ValueError(f"Move table references {symbol}, absent from enum Move")
@@ -293,10 +344,22 @@ def build_maps(upstream_dir):
             target_by_id[move_id] = target_by_symbol[symbol]
         if symbol in ordinary_symbols:
             ordinary.add(move_id)
-    return effect_by_id, target_by_id, ordinary, unresolved
+    for symbol, flags in flags_by_symbol.items():
+        if symbol not in ids or ids[symbol] == 0:
+            continue
+        move_id = ids[symbol]
+        flags_by_id[move_id] = flags
+        unknown_flags_by_id[move_id] = unknown_flags_by_symbol[symbol]
+        if symbol in unknown_priority_symbols:
+            unknown_priority_ids.add(move_id)
+        elif symbol in priority_by_symbol:
+            priority_by_id[move_id] = priority_by_symbol[symbol]
+    return (effect_by_id, target_by_id, ordinary, unresolved, flags_by_id, unknown_flags_by_id,
+            priority_by_id, unknown_priority_ids)
 
 
-def generate_kotlin(effect_by_id, target_by_id, ordinary):
+def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_flags_by_id,
+                    priority_by_id, unknown_priority_ids):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
     # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
     # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
@@ -370,6 +433,31 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary):
         lines.append(f"        {move_id},")
     lines.append("    )")
     lines.append("")
+    lines.append("    /** Exact pinned MoveInfo flags used by Group C immunity and suppression rules. */")
+    lines.append("    val immunityFlagsById: Map<Int, Set<String>> = buildMap {")
+    for move_id, flags in sorted(flags_by_id.items()):
+        if flags:
+            encoded = ", ".join(json.dumps(flag) for flag in sorted(flags))
+            lines.append(f"        put({move_id}, setOf({encoded}))")
+    lines.append("    }")
+    lines.append("    /** Conditional/config-derived flag initializers fail closed here. */")
+    lines.append("    val unknownImmunityFlagsById: Map<Int, Set<String>> = buildMap {")
+    for move_id, flags in sorted(unknown_flags_by_id.items()):
+        if flags:
+            encoded = ", ".join(json.dumps(flag) for flag in sorted(flags))
+            lines.append(f"        put({move_id}, setOf({encoded}))")
+    lines.append("    }")
+    lines.append("")
+    lines.append("    /** Literal MoveInfo priority; omitted entries have conditional/computed priority. */")
+    lines.append("    val basePriorityById: Map<Int, Int> = buildMap {")
+    for move_id, priority in sorted(priority_by_id.items()):
+        lines.append(f"        put({move_id}, {priority})")
+    lines.append("    }")
+    lines.append("    val unknownPriorityMoveIds: Set<Int> = setOf(")
+    for move_id in sorted(unknown_priority_ids):
+        lines.append(f"        {move_id},")
+    lines.append("    )")
+    lines.append("")
     lines.append("    /**")
     lines.append("     * Internal spread/target classes, carried with the EXACT values of the pinned")
     lines.append("     * H&S 2.0.5 `enum MoveTarget` (1f42b74d). This is not the pinned enum itself;")
@@ -407,8 +495,10 @@ def main():
 
     upstream_dir = find_upstream_dir(args.upstream_dir)
     verify_git_commit(upstream_dir)
-    effect_by_id, target_by_id, ordinary, unresolved = build_maps(upstream_dir)
-    generated = generate_kotlin(effect_by_id, target_by_id, ordinary)
+    (effect_by_id, target_by_id, ordinary, unresolved, flags_by_id, unknown_flags_by_id,
+     priority_by_id, unknown_priority_ids) = build_maps(upstream_dir)
+    generated = generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id,
+                                unknown_flags_by_id, priority_by_id, unknown_priority_ids)
 
     if args.verify:
         if not os.path.isfile(args.output):

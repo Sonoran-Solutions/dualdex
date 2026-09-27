@@ -28,7 +28,7 @@
 
 #define ROLL_COUNT 16
 #define HNS_PINNED_COMMIT "1f42b74dff0e9fe942419845d040663dd829a973"
-#define ORACLE_SCHEMA_VERSION 1
+#define ORACLE_SCHEMA_VERSION 2
 #define MAX_DIVERGENCES 512
 
 static int g_failures = 0;
@@ -305,6 +305,11 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         !get_bool(scen, "crit", &crit, err) || !get_bool(field, "reflect", &reflect, err) ||
         !get_bool(field, "lightScreen", &light_screen, err))
         return 0;
+    const jl_value* move_flags = jl_get(o_move, "flags");
+    long priority = 0, target_class = 0;
+    if (!jl_is_arr(move_flags) || !get_int(o_move, "priority", -8, 10, &priority, err) ||
+        !get_int(o_move, "targetClass", 0, 255, &target_class, err))
+        return set_err(err, "oracle move immunity metadata is malformed");
     int doubles = strcmp(format, "doubles") == 0;
     if (!doubles && strcmp(format, "singles") != 0) return set_err(err, "unknown format %s", format);
 
@@ -314,7 +319,15 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     if (!emit_battler(sb, s_def, o_def, "defender", err)) return 0;
     sb_append(sb, ",\"move\":{\"name\":");
     sb_json_string(sb, move_label);
-    sb_append(sb, ",\"isCrit\":%s,\"overrides\":{\"basePower\":%ld,\"type\":", crit ? "true" : "false", power);
+    sb_append(sb, ",\"isCrit\":%s,\"hnsMoveFlags\":[", crit ? "true" : "false");
+    for (int i = 0; i < jl_len(move_flags); i++) {
+        const char* flag = jl_str(jl_at(move_flags, i));
+        if (!flag) return set_err(err, "oracle move flag %d is not a string", i);
+        if (i) sb_append(sb, ",");
+        sb_json_string(sb, flag);
+    }
+    sb_append(sb, "],\"effectivePriority\":%ld,\"hnsTargetClass\":%ld,\"overrides\":{\"basePower\":%ld,\"type\":",
+              priority, target_class, power);
     sb_json_string(sb, move_type);
     /* CalcDataOverrides.buildHnsMoveOverride omits the category under the type-based option style
      * so the calculator derives it from the effective move type. */
@@ -562,7 +575,7 @@ static void self_tests(const jl_value* doc) {
                a[15] == 16);
 
     /* Corpus header / entry validation. */
-    const char* base_head = "{\"schemaVersion\":1,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT
+    const char* base_head = "{\"schemaVersion\":2,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT
                             "\"},\"backend\":{\"kind\":\"pinned-expansion-battle-test-runner\"}},\"entries\":[";
     const char* rolls16 = "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]";
     const char* rolls15 = "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]";
@@ -582,13 +595,13 @@ static void self_tests(const jl_value* doc) {
     self_check("an entry with 15 rolls is rejected", !validate_header(short_rolls, &err));
     jl_free(short_rolls);
     jl_value* wrong_commit = jl_parse(
-        "{\"schemaVersion\":1,\"provenance\":{\"hnsUpstream\":{\"commit\":\"0000000000000000000000000000000000000000\"},"
+        "{\"schemaVersion\":2,\"provenance\":{\"hnsUpstream\":{\"commit\":\"0000000000000000000000000000000000000000\"},"
         "\"backend\":{\"kind\":\"pinned-expansion-battle-test-runner\"}},\"entries\":[{\"scenario\":{\"id\":\"a\"},"
         "\"rolls\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}]}");
     self_check("a corpus from another H&S commit is rejected", !validate_header(wrong_commit, &err));
     jl_free(wrong_commit);
     jl_value* wrong_backend = jl_parse(
-        "{\"schemaVersion\":1,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT "\"},"
+        "{\"schemaVersion\":2,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT "\"},"
         "\"backend\":{\"kind\":\"smogon-calc\"}},\"entries\":[{\"scenario\":{\"id\":\"a\"},"
         "\"rolls\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}]}");
     self_check("a corpus from a non-oracle backend is rejected", !validate_header(wrong_backend, &err));

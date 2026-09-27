@@ -121,6 +121,27 @@ object HnsCensusDisplayClassifier {
         for (limitation in verdict.limitations.distinct()) {
             if (limitation !in verdict.blockingLimitations) continue
             when (limitation) {
+                CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED -> {
+                    val causal = verdict.hnsAbilityDecisions.filter {
+                        it.globalCategory == com.dualdex.pokemon.hns.HnsAbilityCategory.MODELLED_HNS_CONDITIONAL &&
+                            it.relevance == com.dualdex.calculator.HnsAbilityRequestRelevance.UNKNOWN
+                    }
+                    if (causal.isEmpty()) {
+                        out += HnsCensusBlocker(limitation.name, limitation)
+                    } else {
+                        for (decision in causal) {
+                            out += HnsCensusBlocker(
+                                kind = limitation.name,
+                                limitation = limitation,
+                                side = decision.side.name.lowercase(),
+                                identity = decision.abilityName,
+                                relevance = decision.relevance.name,
+                                rule = decision.rule
+                            )
+                        }
+                    }
+                }
+
                 CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED -> {
                     val ignored = verdict.ignoredMechanics
                         .filterIsInstance<com.dualdex.calculator.IgnoredCalcMechanic.Ability>()
@@ -270,6 +291,7 @@ internal fun HnsCensusOutcome.abilityTrialDisposition(
     val normalizedSide = side.lowercase()
     if (blockers.any {
             (it.limitation == CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED ||
+                it.limitation == CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED ||
                 it.limitation == CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED) &&
                 it.side == normalizedSide && it.identity == abilityName
         }

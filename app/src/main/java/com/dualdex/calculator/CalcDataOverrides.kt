@@ -108,8 +108,8 @@ object CalcDataOverrides {
 
     /**
      * The boundary-owned H&S move override used for both authorization and presentation.
-     * Under TYPE_BASED the category is intentionally omitted so the calculator derives it from
-     * the effective move type, matching H&S `GetBattleMoveCategory`.
+     * Under TYPE_BASED the category is materialized from the pinned H&S `gTypesInfo` table.
+     * Omitting it would make the Gen III engine apply its own (different) Ghost/Dark split.
      */
     fun buildHnsMoveOverride(
         moveName: String,
@@ -122,7 +122,10 @@ object CalcDataOverrides {
         return when {
             move.category == MoveCategory.STATUS -> raw
             hnsRuntimeRules?.optionStyle == HnsOptionStyle.TYPE_BASED ->
-                raw.copy(category = null)
+                raw.copy(
+                    category = HnsMoveAuthority.categoryForTypeName(raw.type)
+                        ?.displayName
+                )
             else -> raw
         }
     }
@@ -143,21 +146,7 @@ object CalcDataOverrides {
                 "special" -> MoveCategory.SPECIAL
                 else -> null
             }
-            HnsOptionStyle.TYPE_BASED ->
-                PokemonType.fromString(override.type)?.let { type ->
-                    when (type) {
-                        PokemonType.NORMAL,
-                        PokemonType.FIGHTING,
-                        PokemonType.FLYING,
-                        PokemonType.POISON,
-                        PokemonType.GROUND,
-                        PokemonType.ROCK,
-                        PokemonType.BUG,
-                        PokemonType.GHOST,
-                        PokemonType.STEEL -> MoveCategory.PHYSICAL
-                        else -> MoveCategory.SPECIAL
-                    }
-                }
+            HnsOptionStyle.TYPE_BASED -> HnsMoveAuthority.categoryForTypeName(override.type)
             else -> null
         }
     }
@@ -174,8 +163,10 @@ object CalcDataOverrides {
      *   If a species is ambiguous (e.g. multi-form "Eevee") or missing, the override is null and cannot be smuggled in.
      *   `typeSystem` is set strictly to "hns_2_0_5".
      * - When [CalcHnsRuntimeRules.optionStyle] is [com.dualdex.pokemon.hns.HnsOptionStyle.TYPE_BASED],
-     *   non-status move override category is omitted (null) so the engine derives category from the effective move type.
-     *   Status moves retain "Status" in both modes (Status wins before optionStyle in H&S GetBattleMoveCategory).
+     *   the non-status move override category comes from pinned H&S `gTypesInfo`, preventing the
+     *   Gen III engine from substituting its different Ghost/Dark split. Live dynamic type changes
+     *   remain separately checked by request authorization. Status moves retain "Status" in both
+     *   modes (Status wins before optionStyle in H&S GetBattleMoveCategory).
      *   When [com.dualdex.pokemon.hns.HnsOptionStyle.PER_MOVE_SPLIT], the pinned per-move category is retained.
      */
     fun enrichRequest(

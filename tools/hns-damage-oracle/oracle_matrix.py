@@ -743,6 +743,14 @@ def _attack_stat_abilities() -> list[dict]:
         "group-d-hustle-special-control", ["ability:hustle", "attack-stat", "negative-control"],
         attacker("Machamp", spa=151, ability=hustle), defender("Snorlax", spd=109), "Psychic"))
     out.append(scenario(
+        "group-d-hustle-type-based-ghost-special", ["ability:hustle", "attack-stat", "option-style", "negative-control"],
+        attacker("Machamp", spa=151, ability=hustle), defender("Machamp", spd=109), "Shadow Ball",
+        style="typeBased"))
+    out.append(scenario(
+        "group-d-hustle-type-based-dark-physical", ["ability:hustle", "attack-stat", "option-style"],
+        attacker("Machamp", atk=151, ability=hustle), defender("Snorlax", dfn=109), "Crunch",
+        style="typeBased"))
+    out.append(scenario(
         "group-d-hustle-defender-control", ["ability:hustle", "attack-stat", "negative-control"],
         attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=hustle), "Strength"))
 
@@ -762,6 +770,14 @@ def _attack_stat_abilities() -> list[dict]:
         "group-d-guts-special-status-control", ["ability:guts", "attack-stat", "negative-control"],
         attacker("Machamp", spa=151, maxhp=300, status="burn", ability=guts),
         defender("Snorlax", spd=109), "Psychic", surface="engine-only"))
+    out.append(scenario(
+        "group-d-guts-type-based-ghost-special-status", ["ability:guts", "attack-stat", "option-style", "status:burn", "negative-control"],
+        attacker("Machamp", spa=151, maxhp=300, status="burn", ability=guts),
+        defender("Machamp", spd=109), "Shadow Ball", style="typeBased"))
+    out.append(scenario(
+        "group-d-guts-type-based-dark-physical-status", ["ability:guts", "attack-stat", "option-style", "status:burn"],
+        attacker("Machamp", atk=151, maxhp=300, status="burn", ability=guts),
+        defender("Snorlax", dfn=109), "Crunch", style="typeBased"))
     out.append(scenario(
         "group-d-guts-defender-control", ["ability:guts", "attack-stat", "negative-control"],
         attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=guts), "Strength"))

@@ -454,6 +454,16 @@ class CalcHnsAbilityTest {
     }
 
     @Test
+    fun `unknown conditional ability decisions preserve their registry category`() {
+        for (abilityId in listOf(55, 62)) { // Hustle / Guts
+            val decision = HnsAbilityContextPolicy.assess(abilityId, null)
+            assertEquals(HnsAbilityRegistry.classify(abilityId).category, decision.globalCategory)
+            assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL, decision.globalCategory)
+            assertEquals(HnsAbilityRequestRelevance.UNKNOWN, decision.relevance)
+        }
+    }
+
+    @Test
     fun `unsupported damage-relevant ability triggers HNS_ABILITY_EFFECT_NOT_MODELLED`() {
         val trust = exactTrust(heartAndSoul)
         val snapshot = hnsSettingsSnapshot()

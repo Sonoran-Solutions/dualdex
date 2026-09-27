@@ -184,27 +184,26 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-1,367 of 1,375 scenarios match the shipped calculator on all 16 rolls (1,259 production-modelled and
-116 engine-only). The eight remaining exact-vector divergences are registered in
+1,373 of 1,379 scenarios match the shipped calculator on all 16 rolls (1,263 production-modelled and
+116 engine-only). The two remaining exact-vector divergences are registered in
 `known_divergences.json`, each linked to its tracking issue:
 
 | Issue | Surface | Scenarios | Defect |
 |---|---|---:|---|
-| [#97](https://github.com/Sonoran-Solutions/dualdex/issues/97) | modelled | 6 | type-based option style uses Gen III categories; pinned `gTypesInfo` makes Ghost special and Dark physical |
 | [#100](https://github.com/Sonoran-Solutions/dualdex/issues/100) | engine-only | 2 | Doubles spread reduction misses post-Gen-III spread moves |
 
 The Attack-stat accumulator makes `badge-pinch-overgrow-a255` exact, resolving #98's only registered
 vector. The Guts Physical-category gate makes the burn- and poison-statused Psychic vectors exact,
-resolving #99's two registered vectors. Eight Group D scenarios exercise Hustle and Guts contexts,
-including physical/special and attacker/defender controls, status, badges, and critical hits. The Guts
-Special active-status control remains engine-only because production does not need to model a Guts
-modifier on a Special move.
+resolving #99's two registered vectors. Twelve Group D scenarios exercise Hustle and Guts contexts,
+including physical/special and attacker/defender controls, status, badges, critical hits, and
+TYPE_BASED Ghost/Dark moves. The Guts Special active-status control remains engine-only because
+production does not need to model a Guts modifier on a Special move.
 
 Each registered scenario also pins its current 16-roll QuickJS calculator output in
-`known_divergences.json`. The differential test accepts only that exact wrong vector; a new wrong
+`known_divergences.json`. The differential test accepts only those exact wrong vectors; a new wrong
 vector fails even when its scenario already has a tracking issue. It still fails on any unregistered
-mismatch and on any registered scenario that has started to match, so fixing a defect forces the
-register (and `HnsDamageOracleAuthorityTest`'s #97 pin) to be updated in the same change.
+mismatch and on any registered scenario that has started to match. The former #97 Ghost/Dark
+category divergences now match the pinned `gTypesInfo` categories.
 
 ## Coverage
 

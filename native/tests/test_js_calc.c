@@ -4045,9 +4045,9 @@ static void check_gap_c4f_wise_glasses(void) {
     /* Test 6: Category crossover (Dragon Claw, BP 80, Dragon).
      * Under PER_MOVE_SPLIT (optionStyle = 0): Dragon Claw is Physical -> Wise Glasses
      * is irrelevant, moveOverride.category is "Physical", engine rolls unboosted at BP 80.
-     * Under TYPE_BASED (optionStyle = 1): Dragon type is Special under Gen III rules ->
-     * Wise Glasses applies, moveOverride.category is omitted (null), engine applies
-     * halfDown(4505, 80) = 88 BP.
+     * Under TYPE_BASED (optionStyle = 1): pinned H&S gTypesInfo marks Dragon Special ->
+     * Wise Glasses applies, and the boundary sends category = "Special" explicitly; the
+     * engine applies halfDown(4505, 80) = 88 BP.
      */
     g_fixture = "gap_c4f_wise_glasses_category_crossover_dragon_claw";
     {
@@ -4065,7 +4065,7 @@ static void check_gap_c4f_wise_glasses(void) {
             "\"move\":{\"name\":\"Dragon Claw\",\"overrides\":{\"basePower\":80,\"type\":\"Dragon\",\"category\":\"Physical\"}},"
             "\"field\":{\"gameType\":\"Singles\"}}";
 
-        /* TYPE_BASED: category omitted in move overrides, Gen III type-based treats Dragon as Special.
+        /* TYPE_BASED: the boundary supplies its pinned H&S category (Special) in move overrides.
          * Porygon raw SpA: 22, Croconaw raw SpD: 18. Boosted BP = halfDown(4505, 80) = 88. */
         const char* req_type_based =
             "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
@@ -4076,7 +4076,7 @@ static void check_gap_c4f_wise_glasses(void) {
             "\"overrides\":{\"types\":[\"Water\"]},"
             "\"rawStats\":{\"attack\":21,\"defense\":20,\"speed\":16,\"spAttack\":17,\"spDefense\":18},"
             "\"statStages\":[0,0,0,0,0,0,0,0]},"
-            "\"move\":{\"name\":\"Dragon Claw\",\"overrides\":{\"basePower\":80,\"type\":\"Dragon\"}},"
+            "\"move\":{\"name\":\"Dragon Claw\",\"overrides\":{\"basePower\":80,\"type\":\"Dragon\",\"category\":\"Special\"}},"
             "\"field\":{\"gameType\":\"Singles\"}}";
 
         /* Split oracle: Physical, BP 80, Atk 15, Def 20, no STAB, 1.0x */

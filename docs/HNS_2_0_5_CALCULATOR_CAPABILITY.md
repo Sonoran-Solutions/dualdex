@@ -255,7 +255,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | # | Mechanic / state | H&S 2.0.5 (pinned) | Bridge can express | Verdict |
 |---|---|---|---|---|
 | 1 | Damage formula | Generation III arithmetic with modern data; UQ4.12 roll-first order | **yes** — dedicated `calculateHnsDamage` pipeline in `entry.js` implements exact UQ4.12 arithmetic, stat stages, badge boosts, pre-roll modifiers, roll step, and post-roll modifiers | **ARITHMETIC MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — full parity across all 16 damage rolls with native C oracle (§11), direct C4d official-ROM goldens A/B/C bind the arithmetic, and the exact-trusted live Singles ordinary subset defined in §14 is exposed as `Ready` / `CalcSupport.ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b PARTIAL / OPEN` verdict and "live-operand classes remain unobserved" were the historical pre-C4e state.) |
-| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category` (retained for PER_MOVE_SPLIT, omitted for damaging moves in TYPE_BASED to trigger Gen 3 type derivation; Status moves retain Status in both); `optionStyle` is consumed by `CalcRequestBoundary` | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — `optionStyle` selects category behavior with Status prioritized; the supported ordinary subset executes in `calculateHnsDamage` and is exposed as `Ready` / `ESTIMATED` for the exact-trusted live Singles ordinary subset defined in §14; all other requests remain fail-closed. (The `GAP A/B/C4b` "production refused" verdict was the historical pre-C4e state.) |
+| 2 | Move category | Per-move by default (`B_PHYSICAL_SPECIAL_SPLIT GEN_LATEST`) `[include/config/battle.h:76]`, decided by `GetBattleMoveCategory` `[src/battle_util.c:9173]` | **yes** — bridge expresses both behaviors via `move.overrides.category`; PER_MOVE_SPLIT uses the pinned per-move category, while TYPE_BASED materializes `gTypesInfo[effectiveType].damageCategory` (Ghost Special, Dark Physical). Status moves retain Status in both; `optionStyle` is consumed by `CalcRequestBoundary` | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — `optionStyle` selects category behavior with Status prioritized; the supported ordinary subset executes in `calculateHnsDamage` and is exposed as `Ready` / `ESTIMATED` for the exact-trusted live Singles ordinary subset defined in §14; all other requests remain fail-closed. (The `GAP A/B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — type chart is exact and verified in QuickJS. Used by `calculateHnsDamage` for post-roll type effectiveness; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C1/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
@@ -308,8 +308,8 @@ Additionally, runtime Fairy toggle behavior (`tx_Mode_Fairy_Types`) is modelled:
 - When Fairy is OFF (`fairyTypesEnabled == false`), species retype according to upstream `sPreFairyTypes` (20 species)
   and moves retype according to `sFairyMoveAltTypes` (34 moves) via `HnsFairyTypeMappings.kt`.
 - Coupling with `optionStyle`: under `TYPE_BASED` (`optionStyle == 1`), status moves retain `Status` (Status wins before
-  `optionStyle` in H&S `GetBattleMoveCategory`), while non-status moves derive damage category from their effective
-  (retyped) type (e.g. Moonblast -> Dark -> Special; Dazzling Gleam -> Normal -> Physical).
+  `optionStyle` in H&S `GetBattleMoveCategory`), while non-status move category comes from pinned
+  `gTypesInfo[effectiveType]` (e.g. Moonblast -> Dark -> Physical; Dazzling Gleam -> Normal -> Physical).
 - Host QuickJS tests in `native/tests/test_js_calc.c:check_gap_c1_type_system` verify Ghost/Dark -> Steel neutrality,
   Fairy offensive 2x, Dragon -> Fairy 0x immunity, Charm status category preservation, and request isolation.
 
@@ -979,8 +979,9 @@ and `snapshot.status == OBSERVED`), the boundary constructs `CalcHnsRuntimeRules
 `CalcDataOverrides.kt` consumes `hnsRuntimeRules`:
 - Under `optionStyle == 0` (`PER_MOVE_SPLIT`), the boundary-owned move override retains its explicit
   pinned category (`category = "Physical" / "Special"`).
-- Under `optionStyle == 1` (`TYPE_BASED`), the move override category is set to `null`, allowing
-  `@smogon/calc` Gen 3 ADV to derive move category from move type.
+- Under `optionStyle == 1` (`TYPE_BASED`), the move override category is explicitly set from the
+  pinned H&S `gTypesInfo` category for the effective type. Omitting it would make `@smogon/calc`
+  apply the Generation III Ghost/Dark split instead.
 
 `CalcCapabilityPolicy.kt` evaluates `request.hnsRuntimeRules`:
 - If missing, unreadable, or untrusted, calculation is blocked with `FAIRY_TOGGLE_UNREADABLE`,
@@ -1053,8 +1054,9 @@ H&S calculations remain strictly **refused** (`UNSUPPORTED`, `request == null`) 
   - Fairy ON (`fairyTypesEnabled == true`): species and moves retain H&S Fairy typings.
   - Fairy OFF (`fairyTypesEnabled == false`): species retype to pre-Fairy typings (`sPreFairyTypes`, 20 species)
     and Fairy moves retype to alternate typings (`sFairyMoveAltTypes`, 34 moves) via `HnsFairyTypeMappings.kt`.
-- Coupling with `optionStyle`: under `TYPE_BASED` (`optionStyle == 1`), damage category is derived from the
-  effective (retyped) move type (e.g. Moonblast -> Dark -> Special; Dazzling Gleam -> Normal -> Physical).
+- Coupling with `optionStyle`: under `TYPE_BASED` (`optionStyle == 1`), damage category comes from the
+  pinned H&S category for the effective (retyped) move type (e.g. Moonblast -> Dark -> Physical;
+  Dazzling Gleam -> Normal -> Physical).
 - Verified via host QuickJS suite (`native/tests/test_js_calc.c:check_gap_c1_type_system`), Kotlin unit tests
   (`CalcDataOverridesTest.kt`, `CalcCapabilityPolicyTest.kt`), and type-system generator tests (`test_generate_hns_type_system.py`).
 
@@ -1076,8 +1078,8 @@ per-ability capability decision:
   cannot override or fabricate authoritative observations.
 - **Conditional ability capability (`HnsAbilityRegistry`):**
   - `PROVEN_NO_DAMAGE_EFFECT` (`ABILITY_NONE`, `KEEN EYE`, `INSOMNIA`, and the audited neutral set above): zero move-damage effect in H&S. Cleared with no ability blocker.
-  - `MODELLED_HNS_CONDITIONAL`: the four starter pinch abilities use the live HP gate (§14.6); Group C absorbers, flag blockers, priority blockers, Wonder Guard, and Levitate use the request-local conditions in [HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md).
-  - `UNSUPPORTED_DAMAGE_RELEVANT` (`GUTS`, `THICK FAT`, `HUGE POWER`, `PURE POWER`, modern modifiers): damage-relevant but divergent or unmodelled. Fails closed with `HNS_ABILITY_EFFECT_NOT_MODELLED`.
+  - `MODELLED_HNS_CONDITIONAL`: the four starter pinch abilities use the live HP gate (§14.6); Hustle/Guts use the Attack-stat stage only with verified move category and (for Guts) status operands; Group C absorbers, flag blockers, priority blockers, Wonder Guard, and Levitate use the request-local conditions in [HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md).
+  - `UNSUPPORTED_DAMAGE_RELEVANT` (`THICK FAT`, `HUGE POWER`, `PURE POWER`, modern modifiers): damage-relevant but divergent or unmodelled. Fails closed with `HNS_ABILITY_EFFECT_NOT_MODELLED` unless a request-local rule can prove irrelevance.
 - **Default ability substitution prevention:** `@smogon/calc` defaulting to `species.abilities[0]` is prevented
   by setting `options.ability = '(other)'` when ability is omitted, empty, or `"None"` under `typeSystem === 'hns_2_0_5'`.
 - Verified via QuickJS host tests (`native/tests/test_js_calc.c:check_gap_c2_abilities`) and Kotlin unit tests (`CalcHnsAbilityTest.kt`).

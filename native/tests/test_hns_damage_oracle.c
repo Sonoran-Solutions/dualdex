@@ -332,15 +332,14 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     sb_append(sb, "],\"effectivePriority\":%ld,\"hnsTargetClass\":%ld,\"overrides\":{\"basePower\":%ld,\"type\":",
               priority, target_class, power);
     sb_json_string(sb, move_type);
-    /* CalcDataOverrides.buildHnsMoveOverride omits the category under the type-based option style
-     * so the calculator derives it from the effective move type. */
-    if (strcmp(style, "perMoveSplit") == 0) {
-        const char* cap = capitalised_category(category);
-        if (!cap) return set_err(err, "unknown move category %s", category);
-        sb_append(sb, ",\"category\":\"%s\"", cap);
-    } else if (strcmp(style, "typeBased") != 0) {
+    /* Production serializes the category resolved from the pinned H&S source. Under TYPE_BASED
+     * this is gTypesInfo[effectiveType], which differs from the Gen III engine's Ghost/Dark split. */
+    if (strcmp(style, "perMoveSplit") != 0 && strcmp(style, "typeBased") != 0) {
         return set_err(err, "unknown option style %s", style);
     }
+    const char* cap = capitalised_category(category);
+    if (!cap) return set_err(err, "unknown move category %s", category);
+    sb_append(sb, ",\"category\":\"%s\"", cap);
     sb_append(sb, "}},\"field\":{\"gameType\":\"%s\"", doubles ? "Doubles" : "Singles");
     if (strcmp(weather, "rain") == 0) sb_append(sb, ",\"weather\":\"Rain\"");
     else if (strcmp(weather, "sun") == 0) sb_append(sb, ",\"weather\":\"Sun\"");

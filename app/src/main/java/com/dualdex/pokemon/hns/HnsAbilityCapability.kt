@@ -28,11 +28,10 @@ enum class HnsAbilityCategory {
 
     /**
      * Pinned H&S implements an ability-specific modifier that is modelled for H&S, but only when
-     * its live condition is authoritatively observed (Gap C4e). The pinch abilities
-     * (`Overgrow`/`Blaze`/`Torrent`/`Swarm`) are the current members: H&S applies their x1.5 as an
-     * Attack-stat modifier when `hp <= maxHP/3` and the move type matches, so the policy must
-     * either read the live HP or prove the ability irrelevant (wrong move type) before the
-     * request may proceed.
+     * its live condition is authoritatively observed. Members include the pinch abilities
+     * (`Overgrow`/`Blaze`/`Torrent`/`Swarm`), Hustle, and Guts: H&S applies these in the Attack-stat
+     * stage when their move/category/status/HP conditions match, so the policy must read the live
+     * operands or prove the ability irrelevant before the request may proceed.
      */
     MODELLED_HNS_CONDITIONAL,
 

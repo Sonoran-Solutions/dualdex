@@ -104,7 +104,7 @@ object HnsAbilityContextPolicy {
             )
         }
 
-        val c = context ?: return unknown(entry.abilityId ?: abilityId, entry.titleCaseName, side)
+        val c = context ?: return unknown(entry.abilityId ?: abilityId, entry.titleCaseName, side, entry.category)
         val proof: Proof? = when (abilityId) {
             in LIVE_STAT_STAGE_WRITER_IDS -> if (
                 c.switchInEventsSettled == true && c.ordinaryMove == true && c.observedBattlersCount == 2 &&
@@ -371,7 +371,7 @@ object HnsAbilityContextPolicy {
         }
 
         return when (proof) {
-            null -> unknown(abilityId, entry.titleCaseName, c.side)
+            null -> unknown(abilityId, entry.titleCaseName, c.side, entry.category)
             else -> decision(
                 abilityId, entry.titleCaseName, c.side, entry.category,
                 proof.relevance, proof.rule, proof.source, proof.rationale
@@ -566,11 +566,12 @@ object HnsAbilityContextPolicy {
         id: Int,
         name: String,
         side: HnsAbilitySide,
+        category: HnsAbilityCategory,
         rationale: String = "Required authoritative request operand is missing or the context has no reviewed clearance rule.",
         rule: String? = null,
         source: String? = null
     ) = decision(
-        id, name, side, HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+        id, name, side, category,
         HnsAbilityRequestRelevance.UNKNOWN,
         rule = rule,
         source = source,

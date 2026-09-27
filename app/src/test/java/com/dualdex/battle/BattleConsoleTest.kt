@@ -880,7 +880,7 @@ class BattleConsoleTest {
 
         val typeBased = buildHnsPresentation(129, hnsContext(optionStyle = 1), calculator)
         assertEquals(MoveCategory.PHYSICAL, typeBased.category)
-        assertNull(requests[1].moveOverride?.category)
+        assertEquals("Physical", requests[1].moveOverride?.category)
         assertEquals("Normal", requests[1].moveOverride?.type)
         assertEquals(CalcSupport.ESTIMATED, typeBased.calculatorSupport)
 
@@ -943,7 +943,7 @@ class BattleConsoleTest {
         assertEquals(MoveCategory.PHYSICAL, dazzlingPresentation.category)
         assertEquals(1, dazzlingRequests.size)
         assertEquals("Normal", dazzlingRequests.single().moveOverride?.type)
-        assertNull(dazzlingRequests.single().moveOverride?.category)
+        assertEquals("Physical", dazzlingRequests.single().moveOverride?.category)
         assertEquals(listOf("Ghost", "Poison"), dazzlingRequests.single().defenderOverride?.types)
 
         val darkPulse = requireNotNull(pack.getMoveByName("Dark Pulse"))

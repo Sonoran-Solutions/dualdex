@@ -95,7 +95,6 @@ class HnsDamageOracleAuthorityTest {
     @Test
     fun productionAuthorityAgreesWithThePinnedEngineForEveryScenario() {
         assertTrue("the corpus must hold at least ~1000 scenarios", entries.size >= 1000)
-        var typeBasedDefects = 0
         for (entry in entries) {
             val scenario = entry.getJSONObject("scenario")
             val observed = entry.getJSONObject("observed")
@@ -128,24 +127,8 @@ class HnsDamageOracleAuthorityTest {
                 "special" -> MoveCategory.SPECIAL
                 else -> throw AssertionError("$id: unknown observed category")
             }
-            if (style == HnsOptionStyle.TYPE_BASED && oMove.getString("type") in TYPE_BASED_CATEGORY_DEFECT_TYPES) {
-                // Known defect #97: DualDex applies the Generation III split here. Pinned so a fix must
-                // also update this test and tools/hns-damage-oracle/known_divergences.json.
-                assertTrue("$id: #97 expected to still disagree", category != null && category != expected)
-                typeBasedDefects++
-            } else {
-                assertEquals("$id: $moveLabel category under $style", expected, category)
-            }
+            assertEquals("$id: $moveLabel category under $style", expected, category)
         }
-        assertTrue("the #97 type-based category defect is exercised", typeBasedDefects >= 5)
-    }
-
-    private companion object {
-        /**
-         * Issue #97: under the type-based option style pinned H&S takes the category from
-         * gTypesInfo (Ghost special, Dark physical); DualDex still applies the Generation III split.
-         */
-        val TYPE_BASED_CATEGORY_DEFECT_TYPES = setOf("Ghost", "Dark")
     }
 
     @Test

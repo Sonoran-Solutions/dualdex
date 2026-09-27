@@ -484,7 +484,7 @@ class CommittedCorpusTest(unittest.TestCase):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
         by_id = {entry["scenario"]["id"]: entry for entry in doc["entries"]}
         divergences = cli.load_divergences(by_id)
-        self.assertEqual(len(divergences), 8)
+        self.assertEqual(len(divergences), 2)
         for record in divergences:
             with self.subTest(scenario=record["scenario"]):
                 self.assertEqual(len(record["calculatorRolls"]), schema.ROLL_COUNT)

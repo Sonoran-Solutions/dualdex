@@ -776,13 +776,19 @@ object HnsCalcCensusEngine {
      * True when the shipped ability catalogue does not already prove [abilityId] harmless for an
      * ordinary damage request.
      *
-     * `PROVEN_NO_DAMAGE_EFFECT` and the modelled categories cannot block; every other category can
-     * (via `HnsAbilityContextPolicy`, or by failing closed). Used to keep the Random Abilities
+     * `PROVEN_NO_DAMAGE_EFFECT`, `MODELLED_EQUIVALENT`, and `MODELLED_HNS_SPECIFIC` cannot block.
+     * A `MODELLED_HNS_CONDITIONAL` ability can still block when its required live operand is
+     * missing, so it is conservatively treated as block-capable too. Every unsupported or
+     * unclassified category can also block (via `HnsAbilityContextPolicy`, or by failing closed).
+     * Used to keep the Random Abilities
      * attribution unambiguous: a trial's block can only be blamed on the ability under test when
      * the OTHER battler's real ability is capable of blocking nothing on its own.
      */
     fun mayBlockAbility(abilityId: Int): Boolean =
-        !HnsAbilityRegistry.classify(abilityId).category.isSupportedForDamage
+        HnsAbilityRegistry.classify(abilityId).category.let { category ->
+            category == com.dualdex.pokemon.hns.HnsAbilityCategory.MODELLED_HNS_CONDITIONAL ||
+                !category.isSupportedForDamage
+        }
 
     /**
      * The Random Abilities view.

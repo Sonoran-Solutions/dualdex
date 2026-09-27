@@ -63,9 +63,17 @@ data class HnsMoveAuthority(
         /** `gTypesInfo[type].damageCategory` of the pinned build (TYPE_BASED option style). */
         fun categoryForType(type: PokemonType): MoveCategory = when (type) {
             PokemonType.NORMAL, PokemonType.FIGHTING, PokemonType.FLYING, PokemonType.POISON,
-            PokemonType.GROUND, PokemonType.ROCK, PokemonType.BUG, PokemonType.GHOST,
-            PokemonType.STEEL -> MoveCategory.PHYSICAL
+            PokemonType.GROUND, PokemonType.ROCK, PokemonType.BUG, PokemonType.STEEL,
+            PokemonType.DARK, PokemonType.STELLAR -> MoveCategory.PHYSICAL
             else -> MoveCategory.SPECIAL
+        }
+
+        /** The pinned `TYPE_MYSTERY` entry is exposed by H&S data as `???` and is Special. */
+        fun categoryForTypeName(type: String?): MoveCategory? = when {
+            type.equals("None", ignoreCase = true) -> MoveCategory.PHYSICAL
+            type.equals("???", ignoreCase = true) || type.equals("Mystery", ignoreCase = true) ->
+                MoveCategory.SPECIAL
+            else -> PokemonType.fromString(type)?.let(::categoryForType)
         }
     }
 }

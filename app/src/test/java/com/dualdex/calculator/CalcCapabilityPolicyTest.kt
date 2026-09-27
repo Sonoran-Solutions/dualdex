@@ -1610,7 +1610,8 @@ class CalcCapabilityPolicyTest {
     fun `4 PER_MOVE_SPLIT optionStyle 0 retains authoritative move category`() {
         val (profile, trust) = exactHnsProfile()
         val snapshot = hnsSettingsSnapshot(optionStyle = 0)
-        // Crunch in H&S data pack is Physical (power 80, Dark). In Gen 3, Dark is type-based Special.
+        // PER_MOVE_SPLIT keeps Crunch's pinned Physical category regardless of its Dark type;
+        // TYPE_BASED uses H&S gTypesInfo, where Dark is also Physical (unlike Gen III).
         val baseReq = request(
             attacker = CalcPokemonInput(species = "Tyranitar", level = 50),
             defender = CalcPokemonInput(species = "Snorlax", level = 50),
@@ -1632,7 +1633,7 @@ class CalcCapabilityPolicyTest {
     }
 
     @Test
-    fun `5 TYPE_BASED optionStyle 1 omits move category so engine derives category from move type`() {
+    fun `5 TYPE_BASED optionStyle 1 sends category from pinned HNS type table`() {
         val (profile, trust) = exactHnsProfile()
         val snapshot = hnsSettingsSnapshot(optionStyle = 1)
         val baseReq = request(
@@ -1648,11 +1649,11 @@ class CalcCapabilityPolicyTest {
         val enriched = CalcDataOverrides.enrichRequest(profile, baseReq, rules)
         assertNotNull(enriched.moveOverride)
         assertEquals("Dark", enriched.moveOverride!!.type)
-        assertNull("TYPE_BASED optionStyle must omit category in move override", enriched.moveOverride!!.category)
+        assertEquals("Physical", enriched.moveOverride!!.category)
 
         val json = JSONObject(buildCalcRequestJson(enriched))
         val moveObj = json.getJSONObject("move").getJSONObject("overrides")
-        assertFalse("category must be omitted from move overrides JSON", moveObj.has("category"))
+        assertEquals("Physical", moveObj.getString("category"))
     }
 
     @Test
@@ -1805,7 +1806,7 @@ class CalcCapabilityPolicyTest {
             CalcRequestBoundary.resolveHnsRuntimeRules(profile, trust, snapshot)
         )
         assertEquals(80, enriched.moveOverride!!.basePower)
-        assertNull("TYPE_BASED from authoritative snapshot must omit category", enriched.moveOverride!!.category)
+        assertEquals("Physical", enriched.moveOverride!!.category)
         assertEquals(HnsOptionStyle.TYPE_BASED, enriched.hnsRuntimeRules!!.optionStyle)
     }
 

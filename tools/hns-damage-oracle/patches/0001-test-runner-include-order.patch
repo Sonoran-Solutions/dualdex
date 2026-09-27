@@ -1,0 +1,17 @@
+DualDex H&S damage oracle harness patch (issue #90). Test harness only; no src/ or battle code.
+
+At the pinned H&S 2.0.5 commit 1f42b74d include/fake_rtc.h dereferences struct SaveBlock3
+(challengeSettings.tx_Features_RTCType), but test/test_runner.c includes fake_rtc.h before
+global.h, so the stock expansion test runner fails to compile (incomplete type SaveBlock3).
+Including global.h first is the minimal fix.
+
+--- a/test/test_runner.c
++++ b/test/test_runner.c
+@@ -1,6 +1,6 @@
+ #include <stdarg.h>
+-#include "fake_rtc.h"
+ #include "global.h"
++#include "fake_rtc.h"
+ #include "gpu_regs.h"
+ #include "load_save.h"
+ #include "main.h"

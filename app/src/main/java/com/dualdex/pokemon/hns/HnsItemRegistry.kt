@@ -117,7 +117,10 @@ object HnsItemRegistry {
      * and forwarding its raw H&S name could match an unrelated ADV item.
      */
     private val modelledEngineAdapters: Map<Int, String> = mapOf(
-        476 to "Wise Glasses"
+        476 to "Wise Glasses",
+        484 to "Iron Ball",
+        497 to "Air Balloon",
+        499 to "Ring Target"
     )
 
     /**

@@ -15,7 +15,7 @@ import java.io.File
  * committed report trustworthy.
  *
  * Regenerate with:
- *   ./gradlew testDebugUnitTest -Pdualdex.census.generate=true
+ *   DUALDEX_CENSUS_GENERATE=true ./ci.sh test
  *
  * This test is self-contained: it needs no ROM, no emulator, no network and no upstream
  * checkout, because the inventory it consumes is itself re-derived from the pinned checkout by

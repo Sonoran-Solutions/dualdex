@@ -2850,9 +2850,12 @@ static int double_rolls_equal(const double* a, const double* b) {
 }
 
 /* Machamp (Atk 150) vs Snorlax (Def 85), Hardy L50 31 IV / 0 EV, ability ignored. */
-#define C4A_MACHAMP_SNORLAX_HEAD \
+#define C4A_MACHAMP_ATTACKER \
     "\"gen\":3,\"typeSystem\":\"hns_2_0_5\"," \
-    "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "}," \
+    "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
+
+#define C4A_MACHAMP_SNORLAX_HEAD \
+    C4A_MACHAMP_ATTACKER \
     "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
 
 static void check_gap_c4a_arithmetic_parity(void) {
@@ -3281,7 +3284,7 @@ static void check_hns_single_hit_output_contract(void) {
         "success", "damage", "minDamage", "maxDamage", "range", "desc", "moveName",
         "moveCategory", "moveType", "movePower", "attackerName", "attackerTypes",
         "defenderName", "defenderTypes", "defenderMaxHP", "koChanceText", "effectiveness",
-        "attackerAbility", "defenderAbility", "attackerItem", "defenderItem"
+        "immunityCause", "immunityCauses", "attackerAbility", "defenderAbility", "attackerItem", "defenderItem"
     };
     const char* requests[] = {
         "{" C4A_MACHAMP_SNORLAX_HEAD "\"move\":{\"name\":\"Rock Slide\",\"isCrit\":false}}",
@@ -3319,13 +3322,138 @@ static void check_hns_single_hit_output_contract(void) {
             check_condition("H&S emits no KO probability", jl_is_str(ko) && jl_str(ko)[0] == '\0');
             double* rolls = n == 0 ? noncrit : n == 1 ? crit : zero;
             check_int("H&S emits exactly 16 single-hit rolls", ROLL_COUNT, response_rolls(doc, rolls));
-            if (n == 2) check_number("zero damage path has a zero roll", 0, jl_at(jl_get(doc, "damage"), 0));
+            if (n == 2) {
+                check_number("zero damage path has a zero roll", 0, jl_at(jl_get(doc, "damage"), 0));
+                check_condition("non-immunity zero path has no causal record",
+                                jl_get(doc, "immunityCause")->type == JL_NULL && jl_len(jl_get(doc, "immunityCauses")) == 0);
+            } else {
+                check_condition("damaging path has no causal record",
+                                jl_get(doc, "immunityCause")->type == JL_NULL && jl_len(jl_get(doc, "immunityCauses")) == 0);
+            }
         }
         jl_free(doc);
         free(raw);
     }
     g_fixture = "hns_output_contract_fixed_crit_operand";
-    check_condition("fixed isCrit changes the selected hit's rolls", !rolls_equal(noncrit, crit));
+    check_condition("fixed isCrit changes the selected hit's rolls", !double_rolls_equal(noncrit, crit));
+}
+
+static void check_group_c_immunity_causes(void) {
+    printf("-- Group C: source-backed immunity causes and exact zero rolls --\n");
+    struct immunity_case {
+        const char* fixture;
+        const char* request;
+        const char* kind;
+        const char* source;
+        const char* name;
+    } cases[] = {
+        {"groupc_volt_absorb", "{" C4A_MACHAMP_ATTACKER "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Volt Absorb\"," IVS_MAX "," EVS_ZERO "},\"move\":{\"name\":\"Thunderbolt\"}}", "ability", "src/battle_util.c:2444", "Volt Absorb"},
+        {"groupc_soundproof", "{" C4A_MACHAMP_ATTACKER "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Soundproof\"," IVS_MAX "," EVS_ZERO "},\"move\":{\"name\":\"Hyper Voice\",\"hnsMoveFlags\":[\"soundMove\"]}}", "ability", "src/battle_util.c:2485", "Soundproof"},
+        {"groupc_bulletproof", "{" C4A_MACHAMP_ATTACKER "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Bulletproof\"," IVS_MAX "," EVS_ZERO "},\"move\":{\"name\":\"Bullet Seed\",\"hnsMoveFlags\":[\"ballisticMove\"]}}", "ability", "src/battle_util.c:2489", "Bulletproof"},
+        {"groupc_priority", "{" C4A_MACHAMP_ATTACKER "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Dazzling\"," IVS_MAX "," EVS_ZERO "},\"move\":{\"name\":\"Quick Attack\",\"effectivePriority\":1,\"hnsTargetClass\":1}}", "ability", "src/battle_move_resolution.c:1406", "Dazzling"},
+        {"groupc_wonder_guard", "{" C4A_MACHAMP_ATTACKER "\"defender\":{\"species\":\"Shedinja\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Wonder Guard\"," IVS_MAX "," EVS_ZERO "},\"move\":{\"name\":\"Thunderbolt\"}}", "ability", "src/battle_util.c:8421", "Wonder Guard"},
+        {"groupc_levitate", "{" C4A_MACHAMP_ATTACKER "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Levitate\"," IVS_MAX "," EVS_ZERO "},\"move\":{\"name\":\"Earthquake\"}}", "ability", "src/battle_util.c:8385", "Levitate"},
+        {"groupc_air_balloon", "{" C4A_MACHAMP_ATTACKER "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\",\"item\":\"Air Balloon\"," IVS_MAX "," EVS_ZERO "},\"move\":{\"name\":\"Earthquake\"}}", "item", "src/battle_util.c:8392", "Air Balloon"},
+        {"groupc_wind_rider", "{" C4A_MACHAMP_ATTACKER "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Wind Rider\"," IVS_MAX "," EVS_ZERO "},\"move\":{\"name\":\"Gust\",\"hnsMoveFlags\":[\"windMove\"]}}", "ability", "src/battle_util.c:2477", "Wind Rider"},
+        {"groupc_ring_target_ability_kept", "{" C4A_MACHAMP_ATTACKER "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Volt Absorb\",\"item\":\"Ring Target\"," IVS_MAX "," EVS_ZERO "},\"move\":{\"name\":\"Thunderbolt\"}}", "ability", "src/battle_util.c:2444", "Volt Absorb"},
+    };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        g_fixture = cases[i].fixture;
+        char* raw = js_calc_calculate(cases[i].request);
+        check_condition("Group C immunity request returns JSON", raw != NULL);
+        if (!raw) continue;
+        jl_value* doc = jl_parse(raw);
+            check_condition("Group C immunity response parses", doc != NULL && doc->type == JL_OBJ);
+        if (doc && doc->type == JL_OBJ) {
+            check_condition("modeled immunity is a successful result", jl_bool(jl_get(doc, "success")) == 1);
+            check_number("modeled immunity minimum is zero", 0, jl_get(doc, "minDamage"));
+            check_number("modeled immunity maximum is zero", 0, jl_get(doc, "maxDamage"));
+            check_int("modeled immunity has exactly 16 zero rolls", 16, response_rolls(doc, (double[ROLL_COUNT]){0}));
+            for (int r = 0; r < ROLL_COUNT; r++) check_number("immunity roll is zero", 0, jl_at(jl_get(doc, "damage"), r));
+            check_double("modeled immunity effectiveness is zero", 0.0, jl_get(doc, "effectiveness"));
+            const jl_value* cause = jl_get(doc, "immunityCause");
+            check_str("cause kind", cases[i].kind, jl_str(jl_get(cause, "kind")));
+            check_str("cause source", cases[i].source, jl_str(jl_get(cause, "source")));
+            check_str("cause name", cases[i].name, jl_str(jl_get(cause, "name")));
+            check_int("primary cause is retained in cause list", 1, jl_len(jl_get(doc, "immunityCauses")));
+        }
+        jl_free(doc);
+        free(raw);
+    }
+
+    g_fixture = "groupc_unflagged_soundproof_control";
+    {
+        const char* request = "{" C4A_MACHAMP_ATTACKER "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"Soundproof\"," IVS_MAX "," EVS_ZERO "},\"move\":{\"name\":\"Thunderbolt\"}}";
+        char* raw = js_calc_calculate(request);
+        check_condition("unflagged move control is damaging", raw != NULL);
+        if (raw) {
+            jl_value* doc = jl_parse(raw);
+            check_condition("unflagged move is not blocked by Soundproof", jl_num(jl_get(doc, "minDamage")) > 0);
+            jl_free(doc);
+            free(raw);
+        }
+    }
+
+    g_fixture = "groupc_ring_target_clears_only_type_chart";
+    {
+        const char* request =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Dragonite\",\"level\":50},"
+            "\"defender\":{\"species\":\"Clefable\",\"level\":50,\"item\":\"Ring Target\"},"
+            "\"move\":{\"name\":\"Dragon Claw\"}}";
+        char* raw = js_calc_calculate(request);
+        check_condition("Ring Target chart rewrite produces a response", raw != NULL);
+        if (raw) {
+            jl_value* doc = jl_parse(raw);
+            check_condition("Ring Target clears the type-only immunity", jl_num(jl_get(doc, "minDamage")) > 0);
+            check_double("Ring Target changes the zero chart cell to neutral", 1.0, jl_get(doc, "effectiveness"));
+            check_condition("Ring Target leaves no false immunity cause",
+                            jl_get(doc, "immunityCause")->type == JL_NULL && jl_len(jl_get(doc, "immunityCauses")) == 0);
+            jl_free(doc);
+            free(raw);
+        }
+    }
+
+    g_fixture = "groupc_ring_target_rewrites_each_type_cell";
+    {
+        const char* request =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Machamp\",\"level\":50},"
+            "\"defender\":{\"species\":\"Sableye\",\"level\":50,\"item\":\"Ring Target\"},"
+            "\"move\":{\"name\":\"Karate Chop\"}}";
+        char* raw = js_calc_calculate(request);
+        check_condition("dual-type Ring Target rewrite produces a response", raw != NULL);
+        if (raw) {
+            jl_value* doc = jl_parse(raw);
+            check_condition("Ring Target preserves the super-effective nonimmune type cell",
+                            jl_num(jl_get(doc, "minDamage")) > 0);
+            check_double("dual-type Ring Target keeps the 2x nonimmune cell", 2.0, jl_get(doc, "effectiveness"));
+            check_condition("dual-type Ring Target leaves no false immunity cause",
+                            jl_get(doc, "immunityCause")->type == JL_NULL && jl_len(jl_get(doc, "immunityCauses")) == 0);
+            jl_free(doc);
+            free(raw);
+        }
+    }
+
+    g_fixture = "groupc_iron_ball_overrides_flying_ground_immunity";
+    {
+        const char* request =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Dragonite\",\"level\":50},"
+            "\"defender\":{\"species\":\"Pidgey\",\"level\":50,\"item\":\"Iron Ball\"},"
+            "\"move\":{\"name\":\"Earthquake\"}}";
+        char* raw = js_calc_calculate(request);
+        check_condition("Iron Ball Ground override produces a response", raw != NULL);
+        if (raw) {
+            jl_value* doc = jl_parse(raw);
+            check_condition("Iron Ball makes Ground hit Flying type", jl_num(jl_get(doc, "minDamage")) > 0);
+            check_double("Iron Ball removes the Flying type zero", 1.0, jl_get(doc, "effectiveness"));
+            check_condition("Iron Ball does not invent an immunity cause",
+                            jl_get(doc, "immunityCause")->type == JL_NULL && jl_len(jl_get(doc, "immunityCauses")) == 0);
+            jl_free(doc);
+            free(raw);
+        }
+    }
 }
 
 static int rolls_contain(const double* rolls, int observed) {
@@ -3960,6 +4088,8 @@ int main(void) {
 
     printf("-- Gap C1: exact type system + Fairy toggle behavior --\n");
     check_gap_c1_type_system();
+
+    check_group_c_immunity_causes();
 
     printf("-- Gap C2: authoritative effective ability input + conditional ability support --\n");
     check_gap_c2_abilities();

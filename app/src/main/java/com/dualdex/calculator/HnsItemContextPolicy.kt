@@ -5,6 +5,7 @@ import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.hns.HnsFieldState
 import com.dualdex.pokemon.hns.HnsFieldStatus
 import com.dualdex.pokemon.hns.HnsItemCategory
+import com.dualdex.pokemon.hns.Hns205MoveEffects
 import com.dualdex.pokemon.hns.HnsItemRegistry
 
 /** Which request participant holds an effective live item. */
@@ -72,7 +73,9 @@ object HnsItemContextPolicy {
         val defenderAbilityId: Int? = null,
         val attackerGastroAcid: Boolean? = null,
         val defenderGastroAcid: Boolean? = null,
-        val observedBattlersCount: Int? = null
+        val observedBattlersCount: Int? = null,
+        /** True only when the pinned selected move carries the `ignoresTargetAbility` flag. */
+        val moveIgnoresTargetAbility: Boolean = false
     )
 
     fun assess(itemId: Int, context: Context?): HnsItemRequestDecision {
@@ -137,6 +140,11 @@ object HnsItemContextPolicy {
                 "HOLD_EFFECT_ABILITY_SHIELD" -> abilityShield(c)
                 else -> null
             }
+            "identity_exception" -> when (holdEffect) {
+                "HOLD_EFFECT_RING_TARGET" -> defenderDefense(holdEffect, itemId, c)
+                "HOLD_EFFECT_AIR_BALLOON", "HOLD_EFFECT_IRON_BALL" -> grounding(holdEffect, c)
+                else -> null
+            }
             else -> null
         }
 
@@ -164,6 +172,10 @@ object HnsItemContextPolicy {
     ): Context {
         val live = request.hnsLiveBattleState
         val authority = HnsMoveAuthority.forRequest(request, ordinaryMove)
+        val moveId = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id
+        val moveIgnoresTargetAbility = moveId?.let {
+            "ignoresTargetAbility" in Hns205MoveEffects.immunityFlagsById[it].orEmpty()
+        } == true
         return Context(
             side = side,
             ordinaryMove = ordinaryMove,
@@ -179,7 +191,8 @@ object HnsItemContextPolicy {
                 ?.takeIf { it.observed }?.gastroAcid,
             defenderGastroAcid = live?.defenderPersistentVolatiles
                 ?.takeIf { it.observed }?.gastroAcid,
-            observedBattlersCount = live?.observedBattlersCount
+            observedBattlersCount = live?.observedBattlersCount,
+            moveIgnoresTargetAbility = moveIgnoresTargetAbility
         )
     }
 
@@ -375,10 +388,10 @@ object HnsItemContextPolicy {
                 source = "src/battle_util.c:8193",
                 rationale = "Focus Band may randomly leave the defender at 1 HP."
             )
-            "HOLD_EFFECT_RING_TARGET" -> unknownRule(
-                rule = "ring_target_immunity_unmodelled",
+            "HOLD_EFFECT_RING_TARGET" -> modelled(
+                rule = "ring_target_immunity_modelled",
                 source = "src/battle_util.c:8257",
-                rationale = "Ring Target can turn a type immunity into damage; the immunity is not proven absent."
+                rationale = "Ring Target replaces zero type-chart entries before ability and groundedness checks; the H&S immunity layer models this exact scope."
             )
             else -> null
         }
@@ -399,17 +412,25 @@ object HnsItemContextPolicy {
         val holderAbilityCanBeSuppressed = holderGastroAcid ||
             (neutralizingGasActive && holderAbility != NEUTRALIZING_GAS_ABILITY_ID)
         val attackerCanBreakDefenderAbility = c.side == HnsItemSide.DEFENDER &&
-            !attackerGastroAcid && attackerAbility in MOLD_BREAKER_ABILITY_IDS
+            ((!attackerGastroAcid && attackerAbility in MOLD_BREAKER_ABILITY_IDS) ||
+                c.moveIgnoresTargetAbility)
         val suppressionSource = when {
             holderGastroAcid -> "src/battle_util.c:5015"
             neutralizingGasActive && holderAbility != NEUTRALIZING_GAS_ABILITY_ID ->
                 "src/battle_util.c:5018"
+            c.side == HnsItemSide.DEFENDER && c.moveIgnoresTargetAbility -> "src/battle_util.c:9980"
             attackerCanBreakDefenderAbility -> "src/battle_util.c:4976"
             else -> null
         }
 
         return if (holderAbilityCanBeSuppressed || attackerCanBreakDefenderAbility) {
-            relevant(
+            if (c.side == HnsItemSide.DEFENDER && attackerCanBreakDefenderAbility &&
+                !holderAbilityCanBeSuppressed
+            ) modelled(
+                rule = "ability_shield_current_suppression",
+                source = suppressionSource ?: "src/battle_util.c:4976",
+                rationale = "The exact current Ability Shield prevents the pinned Mold Breaker or move-level ability-bypass check for this holder; the live effective defender ability is preserved."
+            ) else relevant(
                 rule = "ability_shield_current_suppression",
                 source = suppressionSource ?: "src/battle_util.c:4998",
                 rationale = "A live Gastro Acid, Neutralizing Gas, or defender-side ability-breaking attack can change whether the holder's ability affects this hit."
@@ -471,10 +492,10 @@ object HnsItemContextPolicy {
         }
         val moveType = c.moveType ?: return null
         return if (moveType == PokemonType.GROUND) {
-            relevant(
+            modelled(
                 rule = "grounding_item_defender_ground_move",
                 source = "src/battle_util.c:8392",
-                rationale = "The defender's grounding item changes a Ground move's effectiveness."
+                rationale = "The current Air Balloon or Iron Ball is forwarded to the H&S immunity layer, which reproduces the pinned Ground-move interaction after Gravity and persistent-volatile exclusions."
             )
         } else {
             proof(

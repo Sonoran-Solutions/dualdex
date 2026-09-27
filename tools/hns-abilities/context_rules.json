@@ -59,7 +59,7 @@
     "fallback": "Nonordinary or unknown move shape remains UNKNOWN."
   },
   "26": {
-    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
       {
         "rule": "attacker_levitate_does_not_change_outgoing_damage",

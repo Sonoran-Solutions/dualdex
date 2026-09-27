@@ -75,9 +75,10 @@ def validate_context_rules(upstream, abilities, decisions):
     seen_rules = set()
     for raw_id, entry in data.items():
         aid = int(raw_id)
-        expected = "UNSUPPORTED_DAMAGE_RELEVANT"
-        if entry.get("global") != expected or decisions.get(raw_id, {}).get("category") != expected:
-            raise SystemExit(f"context rule {aid} may not weaken its global ability category")
+        expected = entry.get("global")
+        if expected not in ("UNSUPPORTED_DAMAGE_RELEVANT", "MODELLED_HNS_CONDITIONAL") or \
+                decisions.get(raw_id, {}).get("category") != expected:
+            raise SystemExit(f"context rule {aid} must agree with its reviewed global ability category")
         if aid not in abilities:
             raise SystemExit(f"context rule refers to nonexistent ability {aid}")
         if not entry.get("fallback"):

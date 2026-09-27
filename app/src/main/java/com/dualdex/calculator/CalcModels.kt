@@ -428,9 +428,17 @@ data class DamageCalculationResponse(
     val defenderMaxHP: Int = 0,
     val koChanceText: String = "",
     val effectiveness: Double? = null,
+    /** Pinned H&S source records that caused a zero hit, kept for audit and regression checks. */
+    val immunityCauses: List<CalcImmunityCause> = emptyList(),
     /** Echo of operands read by the H&S calculation path, used to verify caveat neutralization. */
     val engineEcho: CalcEngineOperandEcho? = null,
     val error: String? = null
+)
+
+data class CalcImmunityCause(
+    val kind: String,
+    val source: String,
+    val name: String
 )
 
 data class CalcEngineOperandEcho(

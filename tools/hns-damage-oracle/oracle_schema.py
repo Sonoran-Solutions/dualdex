@@ -23,7 +23,7 @@ import json
 import re
 from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 ROLL_COUNT = 16
 
 HNS_REPOSITORY = "PokemonHnS-Development/pokehns-expansion"
@@ -31,7 +31,7 @@ HNS_PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
 HNS_PINNED_TREE = "586946f21e9322e8d837654d9e07cf6b8239feed"
 
 ORACLE_BACKEND_KIND = "pinned-expansion-battle-test-runner"
-ORACLE_TOOL_VERSION = 2
+ORACLE_TOOL_VERSION = 3
 
 ROLL_ORDER = (
     "rolls[k] is the damage at random factor (85+k)%, i.e. the pinned hit measured with "
@@ -85,7 +85,8 @@ OBSERVED_KEYS = ("attacker", "defender", "move", "targetCount")
 OBSERVED_BATTLER_KEYS = ("speciesId", "types", "baseStats", "abilityId", "itemId", "hpAtHit", "badgeBoosts")
 BASE_STAT_KEYS = ("hp", "attack", "defense", "spAttack", "spDefense", "speed")
 BADGE_BOOST_KEYS = ("attack", "defense", "spAttack", "spDefense")
-OBSERVED_MOVE_KEYS = ("id", "type", "power", "category", "target")
+OBSERVED_MOVE_KEYS = ("id", "type", "power", "category", "target", "flags", "priority", "targetClass")
+MOVE_IMMUNITY_FLAGS = ("soundMove", "ballisticMove", "windMove", "healingMove", "ignoresTargetAbility")
 CATEGORIES = ("physical", "special")
 MOVE_TARGETS = ("selected", "both", "foesAndAlly", "other")
 
@@ -277,6 +278,13 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
     _require_int(move["power"], f"{path}.move.power", 1, 255)
     _require_enum(move["category"], CATEGORIES, f"{path}.move.category")
     _require_enum(move["target"], MOVE_TARGETS, f"{path}.move.target")
+    flags = move["flags"]
+    if not isinstance(flags, list) or any(flag not in MOVE_IMMUNITY_FLAGS for flag in flags):
+        _fail(f"{path}.move.flags", f"expected a list of supported immunity flags, got {flags!r}")
+    if flags != sorted(set(flags)):
+        _fail(f"{path}.move.flags", "flags must be sorted and unique")
+    _require_int(move["priority"], f"{path}.move.priority", -8, 10)
+    _require_int(move["targetClass"], f"{path}.move.targetClass", 0, 255)
     # The raw pinned GetMoveTargetCount. The engine consults it only inside IsDoubleBattle()
     # (GetTargetDamageModifier); in Singles a spread move still reports its empty partner slot.
     _require_int(observed["targetCount"], f"{path}.targetCount", 1, 3)

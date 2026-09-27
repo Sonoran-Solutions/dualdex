@@ -13,6 +13,7 @@ import com.dualdex.romhack.ProfileLoader
 import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -2755,6 +2756,223 @@ class CalcHnsC4eProductionBoundaryTest {
         }
         assertFalse(response.success)
         assertFalse("hard unread ability state must prevent any engine call", called)
+    }
+
+    @Test
+    fun `Group C modeled immunity survives boundary and authorized execution`() {
+        val ready = readyOf(
+            build(
+                trustFor(exactSha),
+                goldenARequest("Thunderbolt"),
+                playerObservation(),
+                enemyObservation(abilityId = 10, abilityName = "Volt Absorb"),
+                randomAbilities = true
+            ),
+            "the observed Volt Absorb defender is a modeled Group C immunity"
+        )
+        var engineRequest: DamageCalculationRequest? = null
+        val result = CalcAuthorizedExecution.calculate(ready.verdict) { request ->
+            engineRequest = request
+            val move = JSONObject(buildCalcRequestJson(request)).getJSONObject("move")
+            assertEquals(85, move.getInt("hnsMoveId"))
+            assertTrue(move.getJSONArray("hnsMoveFlags").length() == 0)
+            DamageCalculationResponse(
+                success = true,
+                minDamage = 0,
+                maxDamage = 0,
+                range = List(16) { 0 },
+                effectiveness = 0.0,
+                immunityCauses = listOf(
+                    CalcImmunityCause("ability", "src/battle_util.c:2438", "Volt Absorb")
+                )
+            )
+        }
+        assertTrue(result.success)
+        assertEquals(16, result.range.size)
+        assertTrue(result.range.all { it == 0 })
+        assertEquals(0.0, result.effectiveness!!, 0.0)
+        assertEquals("Volt Absorb", result.immunityCauses.single().name)
+        assertEquals(10, engineRequest?.defender?.abilityId)
+    }
+
+    @Test
+    fun `Mold Breaker blocks only when a defender immunity can change this hit`() {
+        val trust = trustFor(exactSha)
+        val moldBreaker = playerObservation(abilityId = 104, abilityName = "Mold Breaker")
+        readyOf(
+            build(trust, goldenARequest(), moldBreaker, enemyObservation(), randomAbilities = true),
+            "Mold Breaker cannot alter a Tackle hit on Tangled Feet"
+        )
+
+        val relevant = refusedOf(
+            build(
+                trust,
+                goldenARequest("Thunderbolt"),
+                moldBreaker,
+                enemyObservation(abilityId = 10, abilityName = "Volt Absorb"),
+                randomAbilities = true
+            ),
+            "Mold Breaker suppresses the otherwise relevant Volt Absorb immunity"
+        )
+        assertTrue(relevant.verdict.blockingLimitations.contains(
+            CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED
+        ))
+
+        readyOf(
+            build(
+                trust,
+                goldenARequest("Thunderbolt"),
+                moldBreaker,
+                enemyObservation(abilityId = 10, abilityName = "Volt Absorb", itemId = 758),
+                randomAbilities = true
+            ),
+            "the pinned Ability Shield check preserves Volt Absorb"
+        )
+
+        readyOf(
+            build(
+                trust,
+                goldenARequest("Earth Power"),
+                moldBreaker,
+                enemyObservation(abilityId = 26, abilityName = "Levitate"),
+                randomAbilities = true
+            ),
+            "Mold Breaker cannot change Pidgey's existing Ground type immunity"
+        )
+
+        val ringTargetLevitate = refusedOf(
+            build(
+                trust,
+                goldenARequest("Earth Power"),
+                moldBreaker,
+                enemyObservation(abilityId = 26, abilityName = "Levitate", itemId = 499),
+                randomAbilities = true
+            ),
+            "Ring Target removes Pidgey's type immunity, making Levitate relevant to Mold Breaker"
+        )
+        assertTrue(ringTargetLevitate.verdict.blockingLimitations.contains(
+            CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED
+        ))
+
+        readyOf(
+            build(
+                trust,
+                goldenARequest("Earth Power"),
+                moldBreaker,
+                enemyObservation(abilityId = 26, abilityName = "Levitate", itemId = 484),
+                randomAbilities = true
+            ),
+            "Iron Ball grounds Pidgey, so Levitate does not change the Ground hit"
+        )
+    }
+
+    @Test
+    fun `priority blocking uses source priority only at the observed action selection phase`() {
+        val trust = trustFor(exactSha)
+        val dazzling = enemyObservation(abilityId = 219, abilityName = "Dazzling")
+        val quick = readyOf(
+            build(trust, goldenARequest("Quick Attack"), playerObservation(), dazzling, randomAbilities = true),
+            "Quick Attack priority is source-proven during action selection"
+        )
+        val quickJson = JSONObject(buildCalcRequestJson(quick.request)).getJSONObject("move")
+        assertEquals(1, quickJson.getInt("effectivePriority"))
+        assertEquals(1, quickJson.getInt("hnsTargetClass"))
+        val blockedResult = CalcAuthorizedExecution.calculate(quick.verdict) {
+            DamageCalculationResponse(
+                success = true, minDamage = 0, maxDamage = 0, range = List(16) { 0 },
+                effectiveness = 0.0,
+                immunityCauses = listOf(CalcImmunityCause(
+                    "ability", "src/battle_move_resolution.c:1406", "Dazzling"
+                ))
+            )
+        }
+        assertTrue(blockedResult.success)
+        assertEquals(16, blockedResult.range.size)
+        assertTrue(blockedResult.range.all { it == 0 })
+
+        readyOf(
+            build(trust, goldenARequest("Tackle"), playerObservation(), dazzling, randomAbilities = true),
+            "zero-priority Tackle is not blocked by Dazzling"
+        )
+
+        val unreadPhase = refusedOf(
+            build(
+                trust,
+                goldenARequest("Quick Attack"),
+                playerObservation(switchInEventsSettled = false),
+                dazzling,
+                randomAbilities = true
+            ),
+            "priority is not guessed outside the observed action-selection phase"
+        )
+        assertTrue(unreadPhase.verdict.blockingLimitations.contains(
+            CalcLimitation.HNS_IMMUNITY_CONTEXT_UNVERIFIED
+        ))
+    }
+
+    @Test
+    fun `Flash Fire attacker boost remains refused for Fire damage`() {
+        val attacker = playerObservation(abilityId = 18, abilityName = "Flash Fire")
+        val fireMove = refusedOf(
+            build(
+                trustFor(exactSha), goldenARequest("Ember"), attacker, enemyObservation(),
+                randomAbilities = true
+            ),
+            "Flash Fire's attacker boost needs the missing activation flag"
+        )
+        assertTrue(fireMove.verdict.blockingLimitations.contains(
+            CalcLimitation.HNS_FLASH_FIRE_BOOST_NOT_MODELLED
+        ))
+
+        readyOf(
+            build(
+                trustFor(exactSha), goldenARequest("Water Gun"), attacker, enemyObservation(),
+                randomAbilities = true
+            ),
+            "attacker Flash Fire cannot change Water damage"
+        )
+    }
+
+    @Test
+    fun `move mechanics sent to the engine come from the pinned move identity`() {
+        val spoofed = goldenARequest("Thunderbolt").copy(
+            moveOverride = CalcMoveOverride(basePower = 40, type = "Water", category = "Special")
+        )
+        val ready = readyOf(
+            build(trustFor(exactSha), spoofed, playerObservation(), enemyObservation()),
+            "the boundary rebuilds move metadata from the selected pinned move"
+        )
+        val move = JSONObject(buildCalcRequestJson(ready.request)).getJSONObject("move")
+        assertEquals(85, move.getInt("hnsMoveId"))
+        assertFalse(move.getJSONArray("hnsMoveFlags").toString().contains("soundMove"))
+        assertFalse(move.has("hnsUnknownMoveFlags"))
+    }
+
+    @Test
+    fun `Ability Shield blocks the pinned move ability bypass and caller overrides cannot spoof it`() {
+        val trust = trustFor(exactSha)
+        val wonderGuard = enemyObservation(abilityId = 25, abilityName = "Wonder Guard", itemId = 758)
+        val spoofedSunsteel = goldenARequest("Sunsteel Strike").copy(
+            moveOverride = CalcMoveOverride(basePower = 1, type = "Normal", category = "Special")
+        )
+        val sunsteel = readyOf(
+            build(trust, spoofedSunsteel, playerObservation(), wonderGuard, randomAbilities = true),
+            "the pinned Sunsteel Strike flag reaches the engine with its protecting Ability Shield"
+        )
+        val sunsteelMove = JSONObject(buildCalcRequestJson(sunsteel.request)).getJSONObject("move")
+        assertEquals(667, sunsteelMove.getInt("hnsMoveId"))
+        assertTrue(sunsteelMove.getJSONArray("hnsMoveFlags").toString().contains("ignoresTargetAbility"))
+
+        val spoofedTackle = goldenARequest("Tackle").copy(
+            moveOverride = CalcMoveOverride(basePower = 100, type = "Steel", category = "Special")
+        )
+        val tackle = readyOf(
+            build(trust, spoofedTackle, playerObservation(), wonderGuard, randomAbilities = true),
+            "caller move metadata cannot add the pinned bypass flag to Tackle"
+        )
+        val tackleMove = JSONObject(buildCalcRequestJson(tackle.request)).getJSONObject("move")
+        assertEquals(33, tackleMove.getInt("hnsMoveId"))
+        assertFalse(tackleMove.getJSONArray("hnsMoveFlags").toString().contains("ignoresTargetAbility"))
     }
 
     @Test

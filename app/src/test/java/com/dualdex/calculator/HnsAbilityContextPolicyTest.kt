@@ -106,18 +106,11 @@ class HnsAbilityContextPolicyTest {
     }
 
     @Test
-    fun `Levitate clears attacker and non-Ground defender only with known effective type`() {
-        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
-            relevance(26, context(side = HnsAbilitySide.ATTACKER, moveType = null)))
-        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
-            relevance(26, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.NORMAL)))
-        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+    fun `Levitate is routed through the modeled Group C immunity layer`() {
+        assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(26).category)
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(26, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.GROUND)))
-        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(26, context(side = HnsAbilitySide.DEFENDER, moveType = null)))
-        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(26, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.NORMAL,
-                dynamicMoveTypeKnownNeutral = false)))
     }
 
     @Test

@@ -11,8 +11,8 @@ package com.dualdex.pokemon.hns
  */
 enum class HnsMoveMechanicsCategory {
     /**
-     * `EFFECT_HIT` with no multi-hit, explosion, always-crit or state-dependent damage flag: the
-     * pinned source's generic damage path, which the generation III pipeline reproduces.
+     * `EFFECT_HIT` with no multi-hit, explosion, always-crit or unmodelled state-dependent damage
+     * flag. `ignoresTargetAbility` is delegated to the request-local Group C ability layer.
      */
     ORDINARY_PROVEN_EQUIVALENT,
 
@@ -162,7 +162,7 @@ object HnsMoveMechanicsRegistry {
                 effect = "EFFECT_HIT",
                 category = HnsMoveMechanicsCategory.ORDINARY_PROVEN_EQUIVALENT,
                 rationale = "EFFECT_HIT with no multi-hit, explosion, always-crit or " +
-                    "state-dependent damage flag in the pinned source."
+                    "unmodelled state-dependent damage flag in the pinned source."
             )
         }
 

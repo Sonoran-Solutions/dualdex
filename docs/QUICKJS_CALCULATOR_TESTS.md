@@ -200,8 +200,8 @@ for an already registered scenario. A registered scenario that starts to match f
 self-tests its own mismatch detection (one altered roll at each of the 16 indices,
 refused/short/fractional/string responses, duplicate IDs, wrong commit, wrong backend).
 
-**Current result.** 1,324 scenarios (1,209 on the production-modelled surface, 115 engine-only);
-1,313 match all 16 rolls exactly. The 11 registered divergences are tracked in
+**Current result.** 1,362 scenarios (1,247 on the production-modelled surface, 115 engine-only);
+1,351 match all 16 rolls exactly. The 11 registered divergences are tracked in
 [#97](https://github.com/Sonoran-Solutions/dualdex/issues/97) (type-based option style: pinned H&S
 makes Ghost special and Dark physical),
 [#98](https://github.com/Sonoran-Solutions/dualdex/issues/98) (Attack modifiers must be accumulated in

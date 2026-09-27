@@ -153,11 +153,16 @@ class CalcHnsAbilityTest {
     }
 
     @Test
-    fun `HnsAbilityRegistry classifies Guts, Thick Fat, Huge Power, Pure Power as temporarily unsupported`() {
+    fun `HnsAbilityRegistry classifies Guts and Hustle as conditional Attack-stage models`() {
         val guts = HnsAbilityRegistry.classify(62)
-        assertEquals(HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT, guts.category)
-        assertFalse(guts.category.isSupportedForDamage)
+        assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL, guts.category)
+        assertTrue(guts.category.isSupportedForDamage)
         assertEquals("Guts", HnsAbilityRegistry.canonicalTitleCaseName(62))
+
+        val hustle = HnsAbilityRegistry.classify(55)
+        assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL, hustle.category)
+        assertTrue(hustle.category.isSupportedForDamage)
+        assertEquals("Hustle", HnsAbilityRegistry.canonicalTitleCaseName(55))
 
         val thickFat = HnsAbilityRegistry.classify(47)
         assertEquals(HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT, thickFat.category)
@@ -449,26 +454,36 @@ class CalcHnsAbilityTest {
     }
 
     @Test
+    fun `unknown conditional ability decisions preserve their registry category`() {
+        for (abilityId in listOf(55, 62)) { // Hustle / Guts
+            val decision = HnsAbilityContextPolicy.assess(abilityId, null)
+            assertEquals(HnsAbilityRegistry.classify(abilityId).category, decision.globalCategory)
+            assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL, decision.globalCategory)
+            assertEquals(HnsAbilityRequestRelevance.UNKNOWN, decision.relevance)
+        }
+    }
+
+    @Test
     fun `unsupported damage-relevant ability triggers HNS_ABILITY_EFFECT_NOT_MODELLED`() {
         val trust = exactTrust(heartAndSoul)
         val snapshot = hnsSettingsSnapshot()
 
-        // Test Guts (temporarily unsupported in C2 due to modifier composition & stat stages ordering)
-        val gutsReq = DamageCalculationRequest(
+        // Huge Power remains unsupported in this first Group D Attack-stage slice.
+        val hugePowerReq = DamageCalculationRequest(
             gen = 3,
             typeSystem = "hns_2_0_5",
-            attacker = CalcPokemonInput(species = "Machamp", level = 50, ability = "Guts"),
+            attacker = CalcPokemonInput(species = "Machamp", level = 50, ability = "Huge Power"),
             defender = CalcPokemonInput(species = "Swampert", level = 50, ability = "None"),
             move = CalcMoveInput(name = "Cross Chop")
         )
-        val outcomeGuts = CalcRequestBoundary.build(
+        val outcomeHugePower = CalcRequestBoundary.build(
             profile = heartAndSoul,
             trust = trust,
-            request = gutsReq,
+            request = hugePowerReq,
             challengeSettings = snapshot
         )
-        val refusedGuts = outcomeGuts as CalcRequestOutcome.Refused
-        assertTrue(refusedGuts.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        val refusedHugePower = outcomeHugePower as CalcRequestOutcome.Refused
+        assertTrue(refusedHugePower.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
 
         // Test Blaze: conditionally modelled (Gap C4e). With a Fire move the pinch condition is
         // relevant, and a manual request carries no authoritative live HP, so it must refuse
@@ -833,14 +848,18 @@ class CalcHnsAbilityTest {
     }
 
     @Test
-    fun `pinned non-damage ability groups are supported while damage modifiers remain refused`() {
+    fun `pinned ability inventory keeps unsupported modifiers distinct from Group D models`() {
         // Contact status, accuracy, switching, overworld, and status-move priority.
         listOf(8, 9, 14, 39, 50, 52, 53, 158, 230, 237).forEach { id ->
             assertEquals("ability $id", HnsAbilityCategory.PROVEN_NO_DAMAGE_EFFECT,
                 HnsAbilityRegistry.classify(id).category)
         }
-        listOf(37, 47, 62, 74, 91, 140, 168, 262, 282).forEach { id ->
+        listOf(37, 47, 74, 91, 140, 168, 262, 282).forEach { id ->
             assertEquals("ability $id", HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+                HnsAbilityRegistry.classify(id).category)
+        }
+        listOf(55, 62).forEach { id ->
+            assertEquals("ability $id", HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
                 HnsAbilityRegistry.classify(id).category)
         }
     }

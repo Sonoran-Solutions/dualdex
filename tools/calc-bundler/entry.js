@@ -276,6 +276,46 @@ function halfDown(mod, val) {
   return Math.floor((mod * val + 2047) / 4096);
 }
 
+const HNS_UQ4_12_ONE = 4096;
+const HNS_STATUS1_ANY_MASK = 0x10ff; // pinned include/constants/battle.h: STATUS1_ANY
+const HNS_STATUS1_BURN_MASK = 0x10; // pinned include/constants/battle.h: STATUS1_BURN
+const HNS_TYPE_POWER_ITEMS = {
+  'charcoal': 'Fire', 'mystic water': 'Water', 'miracle seed': 'Grass', 'magnet': 'Electric',
+  'silk scarf': 'Normal', 'black belt': 'Fighting', 'sharp beak': 'Flying', 'poison barb': 'Poison',
+  'soft sand': 'Ground', 'hard stone': 'Rock', 'silver powder': 'Bug', 'spell tag': 'Ghost',
+  'metal coat': 'Steel', 'twisted spoon': 'Psychic', 'never-melt ice': 'Ice', 'dragon fang': 'Dragon',
+  'black glasses': 'Dark'
+};
+
+// CalcMoveBasePowerAfterModifiers, CalcAttackStat and CalcDefenseStat accumulate UQ4.12
+// multipliers in order. Keep the fixed-point product separate from the integer operand so we
+// round the stat/base power once, at the pinned stage boundary.
+function createHnsModifierAccumulator() {
+  let modifier = HNS_UQ4_12_ONE;
+  return {
+    add(next) {
+      modifier = halfDown(next, modifier);
+    },
+    value() {
+      return modifier;
+    },
+    apply(integer) {
+      return halfDown(modifier, integer);
+    }
+  };
+}
+
+function applyHnsFinalDamageModifiers(damage, modifiers) {
+  // These are intentionally applied in sequence: the pinned damage path rounds after each
+  // DAMAGE_APPLY_MODIFIER call. Only GetOtherModifiers' own internal product is accumulated.
+  for (const modifier of modifiers) damage = halfDown(modifier, damage);
+  return damage;
+}
+
+function calculateHnsBaseDamage(power, attack, defense, level) {
+  return Math.floor(Math.floor(Math.floor(power * attack * (Math.floor((2 * level) / 5) + 2)) / defense) / 50) + 2;
+}
+
 const HNS_STAT_STAGE_RATIOS = [
   [10, 40], // -6
   [10, 35], // -5
@@ -293,8 +333,11 @@ const HNS_STAT_STAGE_RATIOS = [
 ];
 
 function calculateHnsDamage(gen, attacker, defender, move, field, input) {
+  // The H&S request adapter supplies the already-authorized effective type here. Keep the
+  // stage operand named explicitly so every type-sensitive modifier reads the same value.
+  const effectiveMoveType = move.type;
   let typeEffectiveness = 1.0;
-  const moveTypeRecord = gen.types.get(toID(move.type));
+  const moveTypeRecord = gen.types.get(toID(effectiveMoveType));
   const defenderItem = String(input.defender?.item || defender.item || '').toLowerCase();
   const ringTarget = defenderItem === 'ring target';
   if (moveTypeRecord && defender.types) {
@@ -326,7 +369,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     addImmunity('type', 'src/data/types_info.h', 'type-chart');
   }
 
-  if (hnsDamagingMove && move.type === 'Ground') {
+  if (hnsDamagingMove && effectiveMoveType === 'Ground') {
     const ironBall = defenderItem === 'iron ball';
     if (ironBall && defender.types?.some(t => String(t).toLowerCase() === 'flying')) {
       // Pinned Iron Ball override sets the accumulated effectiveness to neutral when it is the
@@ -359,7 +402,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       'Flash Fire': ['Fire', 'src/battle_util.c:2481']
     };
     const absorber = typeAbsorbers[defenderAbility];
-    if (!bypassTargetAbility && absorber && absorber[0] === move.type) {
+    if (!bypassTargetAbility && absorber && absorber[0] === effectiveMoveType) {
       addImmunity('ability', absorber[1], defenderAbility);
     }
     const flagImmunity = defenderAbility === 'Soundproof' && moveFlags.has('soundMove')
@@ -395,7 +438,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       desc: descStr,
       moveName: move.name,
       moveCategory: move.category,
-      moveType: move.type,
+      moveType: effectiveMoveType,
       movePower: move.bp,
       attackerName: attacker.name,
       attackerTypes: attacker.types,
@@ -416,6 +459,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   }
 
   const isPhysical = (move.category === 'Physical');
+  const isSpecial = (move.category === 'Special');
 
   let rawAtk;
   if (isPhysical) {
@@ -465,26 +509,35 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   defStage = Math.max(-6, Math.min(6, defStage));
 
   const atkRatio = HNS_STAT_STAGE_RATIOS[atkStage + 6];
-  let userFinalAttack = Math.floor((rawAtk * atkRatio[0]) / atkRatio[1]);
-
+  const attackAfterStages = Math.floor((rawAtk * atkRatio[0]) / atkRatio[1]);
   const defRatio = HNS_STAT_STAGE_RATIOS[defStage + 6];
-  let targetFinalDefense = Math.floor((rawDef * defRatio[0]) / defRatio[1]);
+  const defenseAfterStages = Math.floor((rawDef * defRatio[0]) / defRatio[1]);
 
-  if (defender.ability === 'Thick Fat' && (move.type === 'Fire' || move.type === 'Ice')) {
-    userFinalAttack = halfDown(2048, userFinalAttack);
-  }
   const attackerStatus = (attacker.status || input.attacker?.status || '').toLowerCase();
-  if (attacker.ability === 'Guts' && attackerStatus) {
-    userFinalAttack = halfDown(6144, userFinalAttack);
-  }
+  const rawStatus1 = input.attacker?.status1;
+  const hasStatusForGuts = Number.isInteger(rawStatus1)
+    ? (rawStatus1 & HNS_STATUS1_ANY_MASK) !== 0
+    : attackerStatus !== '';
+
+  // CalcAttackStat's order: attacker ability modifiers, target ability modifiers, then the
+  // offensive badge. Compose their UQ4.12 values in that order and apply once to the integer stat
+  // after the ordinary stage ratio has been rounded.
+  const attackModifier = createHnsModifierAccumulator();
   if (isPhysical && (attacker.ability === 'Huge Power' || attacker.ability === 'Pure Power')) {
-    userFinalAttack = userFinalAttack * 2;
+    attackModifier.add(8192);
+  }
+  if (attacker.ability === 'Guts' && isPhysical && hasStatusForGuts) {
+    attackModifier.add(6144);
+  }
+  if (attacker.ability === 'Hustle' && isPhysical) {
+    attackModifier.add(6144);
   }
 
   // H&S 2.0.5 pinch abilities (src/battle_util.c CalcAttackStat): the attacker's ability
   // modifier is x1.5 when the effective move type matches the boosted type AND the live HP is at
   // or below maxHP/3 (integer division). This is an ATTACK-STAT modifier, composed with
-  // uq4_12_multiply_half_down, exactly as the surrounding Thick Fat/Guts/Huge Power modifiers.
+  // uq4_12_multiply_half_down. Its position before defender abilities and badges mirrors
+  // CalcAttackStat's attacker -> target -> hold effect -> badge order.
   // The HP operands are boundary-owned live gBattleMons values; when they are absent the branch
   // does not fire, and the Kotlin capability policy refuses a matching-type pinch request instead
   // of letting it be computed as inactive.
@@ -492,59 +545,48 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const pinchType = HNS_PINCH_TYPES[attacker.ability];
   const pinchHp = input.attacker?.hp;
   const pinchMaxHp = input.attacker?.maxHP;
-  if (pinchType && move.type === pinchType && Number.isInteger(pinchHp) && Number.isInteger(pinchMaxHp) &&
+  if (pinchType && effectiveMoveType === pinchType && Number.isInteger(pinchHp) && Number.isInteger(pinchMaxHp) &&
       pinchMaxHp > 0 && pinchHp <= Math.floor(pinchMaxHp / 3)) {
-    userFinalAttack = halfDown(6144, userFinalAttack);
+    attackModifier.add(6144);
+  }
+
+  if (defender.ability === 'Thick Fat' && (effectiveMoveType === 'Fire' || effectiveMoveType === 'Ice')) {
+    attackModifier.add(2048);
   }
 
   const atkBadge = isPhysical ? !!input.attacker?.badgeBoosts?.atk : !!input.attacker?.badgeBoosts?.spa;
-  if (atkBadge) {
-    userFinalAttack = halfDown(4506, userFinalAttack);
-  }
+  if (atkBadge) attackModifier.add(4506);
+  const userFinalAttack = Math.max(1, attackModifier.apply(attackAfterStages));
+
+  // Defense-stage modifiers have their own accumulator so future defense abilities/items can be
+  // inserted at the pinned CalcDefenseStat stage without changing base or final damage ordering.
+  const defenseModifier = createHnsModifierAccumulator();
   const defBadge = isPhysical ? !!input.defender?.badgeBoosts?.def : !!input.defender?.badgeBoosts?.spd;
-  if (defBadge) {
-    targetFinalDefense = halfDown(4506, targetFinalDefense);
-  }
+  if (defBadge) defenseModifier.add(4506);
+  const targetFinalDefense = Math.max(1, defenseModifier.apply(defenseAfterStages));
 
-  userFinalAttack = Math.max(1, userFinalAttack);
-  targetFinalDefense = Math.max(1, targetFinalDefense);
-
-  let bpModifier = 4096;
-  const combineBpModifier = modifier => { bpModifier = halfDown(modifier, bpModifier); };
+  // CalcMoveBasePowerAfterModifiers has a separate fixed-point accumulator from the two stat
+  // stages. Preserve the Group C Dry Skin × Wise Glasses composition correction.
+  const basePowerModifier = createHnsModifierAccumulator();
   // H&S combines base-power UQ4.12 modifiers before applying the product to base power. In
   // particular, Dry Skin and Wise Glasses together produce 5631 (not two rounded BP steps).
-  if (!bypassTargetAbility && defenderAbility === 'Dry Skin' && move.type === 'Fire') {
-    combineBpModifier(5120);
+  if (!bypassTargetAbility && defenderAbility === 'Dry Skin' && effectiveMoveType === 'Fire') {
+    basePowerModifier.add(5120);
   }
   const item = (input.attacker?.item || attacker.item || '').toLowerCase();
-  if (item === 'charcoal' && move.type === 'Fire') combineBpModifier(4915);
-  else if (item === 'mystic water' && move.type === 'Water') combineBpModifier(4915);
-  else if (item === 'miracle seed' && move.type === 'Grass') combineBpModifier(4915);
-  else if (item === 'magnet' && move.type === 'Electric') combineBpModifier(4915);
-  else if (item === 'silk scarf' && move.type === 'Normal') combineBpModifier(4915);
-  else if (item === 'black belt' && move.type === 'Fighting') combineBpModifier(4915);
-  else if (item === 'sharp beak' && move.type === 'Flying') combineBpModifier(4915);
-  else if (item === 'poison barb' && move.type === 'Poison') combineBpModifier(4915);
-  else if (item === 'soft sand' && move.type === 'Ground') combineBpModifier(4915);
-  else if (item === 'hard stone' && move.type === 'Rock') combineBpModifier(4915);
-  else if (item === 'silver powder' && move.type === 'Bug') combineBpModifier(4915);
-  else if (item === 'spell tag' && move.type === 'Ghost') combineBpModifier(4915);
-  else if (item === 'metal coat' && move.type === 'Steel') combineBpModifier(4915);
-  else if (item === 'twisted spoon' && move.type === 'Psychic') combineBpModifier(4915);
-  else if (item === 'never-melt ice' && move.type === 'Ice') combineBpModifier(4915);
-  else if (item === 'dragon fang' && move.type === 'Dragon') combineBpModifier(4915);
-  else if (item === 'black glasses' && move.type === 'Dark') combineBpModifier(4915);
+  const typeBoostType = HNS_TYPE_POWER_ITEMS[item];
+  if (typeBoostType === effectiveMoveType) basePowerModifier.add(4915);
   // H&S 2.0.5 Wise Glasses (src/battle_util.c:6818 CalcMoveBasePowerAfterModifiers):
   // HOLD_EFFECT_WISE_GLASSES multiplies base power by (1.0 + holdEffectParamAtk%), where
   // holdEffectParamAtk = 10, floored percent is (4096 * 10) / 100 = 409, so modifier is 4505 (UQ4.12).
   // Applies only to Special moves (IsBattleMoveSpecial(move)). Its UQ4.12 value is combined
   // with the ability modifier above before base power is rounded, as in the pinned pipeline.
-  else if (item === 'wise glasses' && !isPhysical) combineBpModifier(4505);
+  if (item === 'wise glasses' && isSpecial) basePowerModifier.add(4505);
 
-  const bp = halfDown(bpModifier, move.bp);
+  const bp = basePowerModifier.apply(move.bp);
 
   const level = attacker.level || 50;
-  let dmg = Math.floor(Math.floor(Math.floor(bp * userFinalAttack * (Math.floor((2 * level) / 5) + 2)) / targetFinalDefense) / 50) + 2;
+  let dmg = calculateHnsBaseDamage(bp, userFinalAttack, targetFinalDefense, level);
 
   const gameType = normalizeGameType(field.gameType || input.field?.gameType);
   // H&S applies the Gen-III spread reduction only when GetMoveTargetCount(ctx) == 2, i.e. when
@@ -564,45 +606,54 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       throw new Error('field.targetCount must be a positive integer, got ' + JSON.stringify(targetCount));
     }
     if (targetCount === 2) {
-      dmg = halfDown(2048, dmg);
+      dmg = applyHnsFinalDamageModifiers(dmg, [2048]);
     }
   }
 
   const weatherStr = (field.weather || input.field?.weather || '').toLowerCase();
   if (weatherStr.includes('rain')) {
-    if (move.type === 'Fire') dmg = halfDown(2048, dmg);
-    else if (move.type === 'Water') dmg = halfDown(6144, dmg);
+    if (effectiveMoveType === 'Fire') dmg = applyHnsFinalDamageModifiers(dmg, [2048]);
+    else if (effectiveMoveType === 'Water') dmg = applyHnsFinalDamageModifiers(dmg, [6144]);
   } else if (weatherStr.includes('sun')) {
-    if (move.type === 'Water') dmg = halfDown(2048, dmg);
-    else if (move.type === 'Fire') dmg = halfDown(6144, dmg);
+    if (effectiveMoveType === 'Water') dmg = applyHnsFinalDamageModifiers(dmg, [2048]);
+    else if (effectiveMoveType === 'Fire') dmg = applyHnsFinalDamageModifiers(dmg, [6144]);
   }
 
   if (move.isCrit) {
-    dmg = halfDown(8192, dmg);
+    dmg = applyHnsFinalDamageModifiers(dmg, [8192]);
   }
 
-  const hasStab = attacker.types && attacker.types.some(t => t.toLowerCase() === move.type.toLowerCase());
+  const hasStab = attacker.types && attacker.types.some(t => t.toLowerCase() === effectiveMoveType.toLowerCase());
   const stabMod = (attacker.ability === 'Adaptability') ? 8192 : 6144;
 
-  const isBurned = isPhysical && (attackerStatus === 'brn') && (attacker.ability !== 'Guts');
+  const isBurnedStatus = Number.isInteger(rawStatus1)
+    ? (rawStatus1 & HNS_STATUS1_BURN_MASK) !== 0
+    : attackerStatus === 'brn';
+  const isBurned = isPhysical && isBurnedStatus &&
+    !(attacker.ability === 'Guts' && hasStatusForGuts);
 
-  let hasScreen = false;
+  let screenModifier = HNS_UQ4_12_ONE;
   if (!move.isCrit) {
     const defSide = field.defenderSide || input.field?.defenderSide;
-    if (isPhysical && defSide?.isReflect) hasScreen = true;
-    if (!isPhysical && defSide?.isLightScreen) hasScreen = true;
+    if (isPhysical && defSide?.isReflect) screenModifier = 2048;
+    if (!isPhysical && defSide?.isLightScreen) screenModifier = 2048;
   }
-  const screenMod = (gameType === 'Doubles') ? 2732 : 2048;
+  if (screenModifier !== HNS_UQ4_12_ONE && gameType === 'Doubles') screenModifier = 2732;
+
+  // GetOtherModifiers is its own pinned UQ4.12 accumulation stage after STAB, effectiveness and
+  // burn. Only the currently supported screen modifier contributes to this product.
+  const otherFinalModifier = createHnsModifierAccumulator();
+  otherFinalModifier.add(screenModifier);
 
   const damageArray = [];
   for (let r = 85; r <= 100; r++) {
     let x = Math.floor((dmg * r) / 100);
-    if (hasStab) x = halfDown(stabMod, x);
+    if (hasStab) x = applyHnsFinalDamageModifiers(x, [stabMod]);
     if (typeEffectiveness !== 1.0) {
-      x = halfDown(Math.round(typeEffectiveness * 4096), x);
+      x = applyHnsFinalDamageModifiers(x, [Math.round(typeEffectiveness * HNS_UQ4_12_ONE)]);
     }
-    if (isBurned) x = halfDown(2048, x);
-    if (hasScreen) x = halfDown(screenMod, x);
+    if (isBurned) x = applyHnsFinalDamageModifiers(x, [2048]);
+    x = applyHnsFinalDamageModifiers(x, [otherFinalModifier.value()]);
     if (x === 0) x = 1;
     damageArray.push(x);
   }
@@ -623,7 +674,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     desc: descStr,
     moveName: move.name,
     moveCategory: move.category,
-    moveType: move.type,
+    moveType: effectiveMoveType,
     movePower: move.bp,
     attackerName: attacker.name,
     attackerTypes: attacker.types,

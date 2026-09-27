@@ -14,9 +14,11 @@ Surfaces:
 
 * ``modelled``    -- mechanics the DualDex H&S calculator claims to reproduce exactly in production
                      (ordinary damage, type chart, STAB, crit, stat stages, burn, Rain/Sun, Singles
-                     screens, badge boosts, pinch abilities, Wise Glasses, Fairy toggle, option style);
+                     screens, badge boosts, pinch abilities, physical Hustle, statused-physical Guts,
+                     Wise Glasses, Fairy toggle, option style);
 * ``engine-only`` -- arithmetic the calculator *engine* contains but production refuses or strips
-                     (Doubles, Thick Fat, Guts, Huge/Pure Power, Adaptability, type-boost items).
+                     (Doubles, Thick Fat, Guts contexts outside the admitted physical/status path,
+                     Huge/Pure Power, Adaptability, type-boost items).
 """
 
 from __future__ import annotations
@@ -729,6 +731,59 @@ def _badges() -> list[dict]:
     return out
 
 
+def _attack_stat_abilities() -> list[dict]:
+    """Group D's first Attack-stat batch: source-backed Hustle and Guts controls."""
+    out = []
+    hustle = ("ABILITY_HUSTLE", "Hustle")
+    guts = ("ABILITY_GUTS", "Guts")
+    out.append(scenario(
+        "group-d-hustle-physical-badge-a255", ["ability:hustle", "attack-stat", "modifier-stacking"],
+        attacker("Machamp", atk=255, ability=hustle), defender("Snorlax", dfn=109), "Strength", badges=(1,)))
+    out.append(scenario(
+        "group-d-hustle-special-control", ["ability:hustle", "attack-stat", "negative-control"],
+        attacker("Machamp", spa=151, ability=hustle), defender("Snorlax", spd=109), "Psychic"))
+    out.append(scenario(
+        "group-d-hustle-type-based-ghost-special", ["ability:hustle", "attack-stat", "option-style", "negative-control"],
+        attacker("Machamp", spa=151, ability=hustle), defender("Machamp", spd=109), "Shadow Ball",
+        style="typeBased"))
+    out.append(scenario(
+        "group-d-hustle-type-based-dark-physical", ["ability:hustle", "attack-stat", "option-style"],
+        attacker("Machamp", atk=151, ability=hustle), defender("Snorlax", dfn=109), "Crunch",
+        style="typeBased"))
+    out.append(scenario(
+        "group-d-hustle-defender-control", ["ability:hustle", "attack-stat", "negative-control"],
+        attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=hustle), "Strength"))
+
+    out.append(scenario(
+        "group-d-guts-burn-physical-badge-crit-a255", ["ability:guts", "attack-stat", "badge", "crit", "modifier-stacking"],
+        attacker("Machamp", atk=255, maxhp=300, status="burn", ability=guts),
+        defender("Snorlax", dfn=109), "Strength", badges=(1,), crit=True))
+    out.append(scenario(
+        "group-d-guts-poison-physical", ["ability:guts", "attack-stat", "status:poison"],
+        attacker("Machamp", atk=151, maxhp=300, status="poison", ability=guts),
+        defender("Snorlax", dfn=109), "Karate Chop"))
+    out.append(scenario(
+        "group-d-guts-physical-no-status-control", ["ability:guts", "attack-stat", "negative-control"],
+        attacker("Machamp", atk=151, maxhp=300, status="none", ability=guts),
+        defender("Snorlax", dfn=109), "Strength"))
+    out.append(scenario(
+        "group-d-guts-special-status-control", ["ability:guts", "attack-stat", "negative-control"],
+        attacker("Machamp", spa=151, maxhp=300, status="burn", ability=guts),
+        defender("Snorlax", spd=109), "Psychic", surface="engine-only"))
+    out.append(scenario(
+        "group-d-guts-type-based-ghost-special-status", ["ability:guts", "attack-stat", "option-style", "status:burn", "negative-control"],
+        attacker("Machamp", spa=151, maxhp=300, status="burn", ability=guts),
+        defender("Machamp", spd=109), "Shadow Ball", style="typeBased"))
+    out.append(scenario(
+        "group-d-guts-type-based-dark-physical-status", ["ability:guts", "attack-stat", "option-style", "status:burn"],
+        attacker("Machamp", atk=151, maxhp=300, status="burn", ability=guts),
+        defender("Snorlax", dfn=109), "Crunch", style="typeBased"))
+    out.append(scenario(
+        "group-d-guts-defender-control", ["ability:guts", "attack-stat", "negative-control"],
+        attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=guts), "Strength"))
+    return out
+
+
 def _rules() -> list[dict]:
     out = []
     fairy_moves = ("Moonblast", "Play Rough", "Dazzling Gleam", "Fairy Wind")
@@ -845,7 +900,7 @@ def _doubles() -> list[dict]:
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
-              _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _rules, _engine_abilities,
+              _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities, _rules, _engine_abilities,
               _engine_items, _doubles)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

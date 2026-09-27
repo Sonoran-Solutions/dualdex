@@ -1,6 +1,7 @@
 package com.dualdex.calculator
 
 import com.dualdex.pokemon.Gen3VanillaDataPack
+import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.hns.HeartAndSoul205DataPack
 import com.dualdex.pokemon.hns.HnsOptionStyle
 import com.dualdex.romhack.RomHackProfile
@@ -306,7 +307,7 @@ class CalcDataOverridesTest {
     }
 
     @Test
-    fun `enrichRequest omits move category when optionStyle is TYPE_BASED`() {
+    fun `enrichRequest materializes pinned HNS type category when optionStyle is TYPE_BASED`() {
         val req = DamageCalculationRequest(
             attacker = CalcPokemonInput(species = "Tyranitar"),
             defender = CalcPokemonInput(species = "Snorlax"),
@@ -317,8 +318,20 @@ class CalcDataOverridesTest {
 
         assertNotNull(enriched.moveOverride)
         assertEquals("Dark", enriched.moveOverride!!.type)
-        assertNull("category must be null for TYPE_BASED", enriched.moveOverride!!.category)
+        assertEquals("Physical", enriched.moveOverride!!.category)
         assertEquals(rules, enriched.hnsRuntimeRules)
+    }
+
+    @Test
+    fun `type based category follows pinned HNS Ghost and Dark categories`() {
+        val rules = CalcHnsRuntimeRules(optionStyle = HnsOptionStyle.TYPE_BASED)
+        val ghost = CalcDataOverrides.buildHnsMoveOverride("Shadow Ball", hnsProfile, rules)
+        val dark = CalcDataOverrides.buildHnsMoveOverride("Crunch", hnsProfile, rules)
+
+        assertEquals("Special", ghost?.category)
+        assertEquals("Physical", dark?.category)
+        assertEquals(MoveCategory.SPECIAL, CalcDataOverrides.resolveHnsMoveCategory("Shadow Ball", hnsProfile, rules))
+        assertEquals(MoveCategory.PHYSICAL, CalcDataOverrides.resolveHnsMoveCategory("Crunch", hnsProfile, rules))
     }
 
     @Test
@@ -442,7 +455,7 @@ class CalcDataOverridesTest {
         assertEquals("Normal", enrichedSplit.moveOverride!!.type)
         assertEquals("Special", enrichedSplit.moveOverride!!.category)
 
-        // Case 2: Fairy OFF + TYPE_BASED -> Normal type, category null (engine resolves Physical)
+        // Case 2: Fairy OFF + TYPE_BASED -> Normal type and pinned Physical category.
         val rulesTypeBased = CalcHnsRuntimeRules(
             optionStyle = HnsOptionStyle.TYPE_BASED,
             fairyTypesEnabled = false
@@ -450,7 +463,7 @@ class CalcDataOverridesTest {
         val enrichedTypeBased = CalcDataOverrides.enrichRequest(hnsProfile, req, rulesTypeBased)
         assertNotNull(enrichedTypeBased.moveOverride)
         assertEquals("Normal", enrichedTypeBased.moveOverride!!.type)
-        assertNull("category must be null for TYPE_BASED", enrichedTypeBased.moveOverride!!.category)
+        assertEquals("Physical", enrichedTypeBased.moveOverride!!.category)
     }
 
     @Test

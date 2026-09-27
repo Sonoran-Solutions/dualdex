@@ -303,8 +303,41 @@
     "always_blocking": [],
     "fallback": "Unknown or non-Singles live topology remains blocked."
   },
+  "55": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "defender_hustle_does_not_modify_incoming_damage",
+        "predicate": "Hustle is on the defender.",
+        "rationale": "The pinned Hustle branch is in the attacker's Attack-stat modifier switch.",
+        "evidence": [
+          {"source": "src/battle_util.c:6912", "contains": "static inline u32 CalcAttackStat"},
+          {"source": "src/battle_util.c:7048", "contains": "case ABILITY_HUSTLE"}
+        ]
+      },
+      {
+        "rule": "hustle_special_move",
+        "predicate": "Hustle is on the attacker and the authoritative effective category is Special.",
+        "rationale": "The source applies Hustle only when IsBattleMovePhysical(move) is true.",
+        "evidence": [
+          {"source": "src/battle_util.c:7049", "contains": "if (IsBattleMovePhysical(move))"}
+        ]
+      },
+      {
+        "rule": "hustle_physical_move",
+        "predicate": "Hustle is on the attacker and the authoritative effective category is Physical.",
+        "rationale": "The physical branch composes a 1.5 UQ4.12 Attack modifier in CalcAttackStat.",
+        "evidence": [
+          {"source": "src/battle_util.c:7049", "contains": "if (IsBattleMovePhysical(move))"},
+          {"source": "src/battle_util.c:7050", "contains": "modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(1.5));"}
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown effective category remains blocked by HnsMoveAuthority."
+  },
   "62": {
-    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
       {
         "rule": "defender_guts_does_not_modify_incoming_damage",
@@ -340,6 +373,21 @@
           {
             "source": "src/battle_util.c:7057",
             "contains": "status1 & STATUS1_ANY"
+          }
+        ]
+      },
+      {
+        "rule": "guts_physical_move_with_status",
+        "predicate": "Guts is on the attacker, the authoritative effective category is Physical, and the boundary-observed status1 intersects pinned STATUS1_ANY.",
+        "rationale": "The production tuple carries the exact live status1 word to the calculator; the source checks STATUS1_ANY and physical category before composing the modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7057",
+            "contains": "status1 & STATUS1_ANY && IsBattleMovePhysical(move)"
+          },
+          {
+            "source": "include/constants/battle.h:163",
+            "contains": "#define STATUS1_ANY"
           }
         ]
       }

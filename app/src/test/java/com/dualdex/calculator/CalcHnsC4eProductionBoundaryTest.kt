@@ -365,11 +365,12 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals(9, harmless.request.attacker.abilityId)
         assertEquals("Static", harmless.request.attacker.ability)
 
-        val harmful = build(trust, claimedDefaults,
+        val guts = build(trust, claimedDefaults,
             playerObservation(abilityId = 62, abilityName = "Guts", status1 = 0x10), enemyObservation(),
-            randomAbilities = true) as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("observed Guts must refuse despite caller Overgrow")
-        assertTrue(harmful.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+            randomAbilities = true) as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("observed physical Guts with authoritative status1 must use the modeled Attack stage")
+        assertEquals(62, guts.request.attacker.abilityId)
+        assertFalse(guts.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
 
         val defenderHarmful = build(trust, goldenARequest(move = "Ember"),
             playerObservation(abilityId = 9, abilityName = "Static"),
@@ -1707,6 +1708,128 @@ class CalcHnsC4eProductionBoundaryTest {
         )
     }
 
+    @Test
+    fun `physical Guts uses the observed status1 word and forwards it to QuickJS`() {
+        val ready = build(
+            trustFor(exactSha), goldenARequest(),
+            playerObservation(abilityId = 62, abilityName = "Guts", status1 = 0x10),
+            enemyObservation(), randomAbilities = true
+        ) as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("physical Guts with an observed status1 must be modeled")
+
+        assertEquals(62, ready.request.attacker.abilityId)
+        assertEquals(0x10, ready.request.hnsLiveBattleState?.attackerStatus1)
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        val serialized = JSONObject(buildCalcRequestJson(ready.request))
+        assertEquals(0x10, serialized.getJSONObject("attacker").getInt("status1"))
+    }
+
+    @Test
+    fun `Guts missing status1 and special with active status remain fail closed`() {
+        val trust = trustFor(exactSha)
+        val unread = refusedOf(build(
+            trust, goldenARequest(),
+            playerObservation(abilityId = 62, abilityName = "Guts", statusObserved = false),
+            enemyObservation(), randomAbilities = true
+        ), "Guts needs an observed live status1 on physical moves")
+        assertTrue(unread.verdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
+        assertTrue(unread.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+        assertEquals(
+            com.dualdex.pokemon.hns.HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            unread.verdict.hnsAbilityDecisions.single().globalCategory
+        )
+
+        val special = refusedOf(build(
+            trust, goldenARequest(move = "Psychic"),
+            playerObservation(abilityId = 62, abilityName = "Guts", status1 = 0x10),
+            enemyObservation(), randomAbilities = true
+        ), "a special move does not get Guts, and non-neutral status remains outside the production subset")
+        assertTrue(special.verdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
+        assertFalse(special.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+        assertFalse(special.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+    }
+
+    @Test
+    fun `Hustle is modeled for physical hits and proven irrelevant for special hits`() {
+        val trust = trustFor(exactSha)
+        val physical = readyOf(build(
+            trust, goldenARequest(),
+            playerObservation(abilityId = 55, abilityName = "Hustle"), enemyObservation(), randomAbilities = true
+        ), "physical Hustle has an authoritative category")
+        assertFalse(physical.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+
+        val special = readyOf(build(
+            trust, goldenARequest(move = "Psychic"),
+            playerObservation(abilityId = 55, abilityName = "Hustle"), enemyObservation(), randomAbilities = true
+        ), "special Hustle is proven irrelevant")
+        assertFalse(special.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+        assertFalse(special.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+    }
+
+    @Test
+    fun `TYPE_BASED Ghost and Dark categories drive Hustle and Guts authorization`() {
+        val trust = trustFor(exactSha)
+        val hustleGhost = readyOf(build(
+            trust, goldenARequest(move = "Shadow Ball"),
+            playerObservation(abilityId = 55, abilityName = "Hustle"), enemyObservation(),
+            randomAbilities = true, optionStyle = 1
+        ), "TYPE_BASED Ghost is Special, so Hustle is irrelevant")
+        assertEquals("Special", hustleGhost.request.moveOverride?.category)
+        assertEquals(
+            com.dualdex.calculator.HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            hustleGhost.verdict.hnsAbilityDecisions.single().relevance
+        )
+
+        val hustleDark = readyOf(build(
+            trust, goldenARequest(move = "Crunch"),
+            playerObservation(abilityId = 55, abilityName = "Hustle"), enemyObservation(),
+            randomAbilities = true, optionStyle = 1
+        ), "TYPE_BASED Dark is Physical, so Hustle is modelled")
+        assertEquals("Physical", hustleDark.request.moveOverride?.category)
+        assertEquals(
+            com.dualdex.calculator.HnsAbilityRequestRelevance.RELEVANT,
+            hustleDark.verdict.hnsAbilityDecisions.single().relevance
+        )
+
+        val gutsGhost = build(
+            trust, goldenARequest(move = "Shadow Ball"),
+            playerObservation(abilityId = 62, abilityName = "Guts", status1 = 0x10), enemyObservation(),
+            randomAbilities = true, optionStyle = 1
+        )
+        val ghostVerdict = when (gutsGhost) {
+            is CalcRequestOutcome.Ready -> gutsGhost.verdict
+            is CalcRequestOutcome.Refused -> gutsGhost.verdict
+        }
+        assertTrue(ghostVerdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
+        assertEquals(
+            com.dualdex.calculator.HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            ghostVerdict.hnsAbilityDecisions.single().relevance
+        )
+
+        val gutsDark = readyOf(build(
+            trust, goldenARequest(move = "Crunch"),
+            playerObservation(abilityId = 62, abilityName = "Guts", status1 = 0x10), enemyObservation(),
+            randomAbilities = true, optionStyle = 1
+        ), "TYPE_BASED Dark is Physical, so statused Guts is modelled")
+        assertEquals("Physical", gutsDark.request.moveOverride?.category)
+        assertFalse(gutsDark.verdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
+    }
+
+    @Test
+    fun `manual Hustle identity mismatch does not authorize the modeled ability`() {
+        val mismatched = goldenARequest().copy(
+            attacker = CalcPokemonInput(
+                species = "Chikorita", level = 5, ability = "Guts", abilityId = 55,
+                origin = CalcInputOrigin.MANUAL
+            )
+        )
+        val refused = refusedOf(build(
+            trustFor(exactSha), mismatched, null, null, activeBattle = false
+        ), "Hustle's canonical ID cannot be paired with Guts' display identity")
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE))
+    }
+
     // ---------------------------------------------------------------- anti-spoofing
 
     @Test
@@ -2212,7 +2335,7 @@ class CalcHnsC4eProductionBoundaryTest {
 
         // Under TYPE_BASED (optionStyle = 1): Dragon Claw (Dragon type) is Special.
         // Wise Glasses is MODELLED (wise_glasses_special_move).
-        // moveOverride.category is omitted (null), engine applies halfDown(4505, 80) = 88 BP.
+        // The pinned category is explicit so the bundled Gen III category table cannot override it.
         val typeBased = readyOf(
             fieldBuild(0, move = "Dragon Claw", attackerItem = wiseGlasses, optionStyle = 1),
             "Dragon Claw is Special under TYPE_BASED: Wise Glasses is modelled"
@@ -2222,7 +2345,7 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals(HnsItemRequestRelevance.MODELLED, typeBasedGlasses.relevance)
         assertEquals("wise_glasses_special_move", typeBasedGlasses.rule)
         assertFalse(typeBased.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
-        assertNull(typeBased.verdict.request?.moveOverride?.category)
+        assertEquals("Special", typeBased.verdict.request?.moveOverride?.category)
         assertEquals("Wise Glasses", typeBased.verdict.request?.attacker?.item)
     }
 

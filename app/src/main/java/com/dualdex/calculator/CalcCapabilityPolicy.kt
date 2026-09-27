@@ -72,8 +72,8 @@ enum class CalcLimitation {
      * The build's damage-rule toggle for move category (`challengeSettings.optionStyle`, bound to
      * the "PHYS/SP SPLIT" row of the in-game Mode tab). Raw value 0 (`PER_MOVE_SPLIT`) selects
      * per-move category where a move's own `category` field decides physical/special; raw value 1
-     * (`TYPE_BASED`) selects generation III's type-based damage category where the move's TYPE
-     * decides. Unread, so the active category rule is unknown.
+     * (`TYPE_BASED`) selects `gTypesInfo[effectiveType].damageCategory`. Unread, so the active
+     * category rule is unknown.
      */
     CATEGORY_SPLIT_TOGGLE_UNREADABLE,
 
@@ -467,9 +467,9 @@ enum class CalcLimitation {
     HNS_GIMMICK_ACTIVE_NOT_MODELLED,
 
     /**
-     * The attacker's authoritative live `status1` is non-zero (a status condition is active) or
-     * could not be read. The ordinary subset models only a neutral status from live state, so a
-     * live status fails closed rather than letting a stale party snapshot decide (issue #9, Gap C4e).
+     * The attacker's authoritative live `status1` is active outside the exact modelled Guts
+     * physical path, or could not be read. Other live statuses fail closed rather than letting a
+     * stale party snapshot decide (issue #9, Gap C4e).
      */
     HNS_LIVE_STATUS_NOT_MODELLED,
 
@@ -977,7 +977,7 @@ data class CalcCapabilityVerdict(
             CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED ->
                 "the attacker's live status condition is not modelled by this ordinary-damage calculation"
             CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED ->
-                "a pinch ability applies to this move but its live HP condition could not be verified"
+                "a conditional ability applies to this move but its required live condition or operand could not be verified"
             CalcLimitation.HNS_LIVE_WEATHER_UNKNOWN ->
                 "the battle's live weather could not be read, so it cannot be assumed clear"
             CalcLimitation.HNS_LIVE_WEATHER_NOT_MODELLED ->
@@ -1117,7 +1117,7 @@ object CalcCapabilityPolicy {
      * Each is `SaveBlock3.challengeSettings`, is player-settable on a free tab, and changes which
      * rule the engine applies rather than merely which values it uses:
      *  - `optionStyle` - the "PHYS/SP SPLIT" row. Raw value 0 (`PER_MOVE_SPLIT`) selects the move's
-     *    own category; raw value 1 (`TYPE_BASED`) selects generation III's type-based damage category.
+     *    own category; raw value 1 (`TYPE_BASED`) selects pinned H&S `gTypesInfo` by effective type.
      *  - `tx_Mode_Fairy_Types` - "ADD FAIRY TYPE". Off deletes the type: species revert to their
      *    pre-Fairy typings and Fairy moves are retyped.
      *  - `tx_Random_Type` - "RANDOM TYPES" rewrites species typings.
@@ -2019,16 +2019,14 @@ object CalcCapabilityPolicy {
     /**
      * Records the ability limitation for one authoritative H&S classification (Gap C4e).
      *
-     * A pinch ability (`Overgrow`/`Blaze`/`Torrent`/`Swarm`) is conditionally supported:
-     *  - for the defender it is irrelevant (pinch abilities only modify the holder's Attack);
-     *  - for the attacker, if the effective move type does not match the boosted type, the
-     *    ability is provably irrelevant and adds no blocker;
-     *  - otherwise the 1/3-HP condition is live state: an authoritative observed HP/max HP pair
-     *    clears it (the arithmetic is modelled), while an unobserved pair is refused precisely
-     *    ([CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED]) rather than assumed inactive.
+     * Conditional abilities are authorized only from their exact live operands. Pinch abilities
+     * (`Overgrow`/`Blaze`/`Torrent`/`Swarm`) use type and HP; Hustle uses category; Guts uses
+     * category and status. Missing conditions fail closed with
+     * [CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED] rather than being assumed inactive.
      *
-     * A non-pinch ability with complete, relevant context can be named as a caveat by the outer
-     * policy; unknown or unclassified effects remain hard refusals.
+     * A modelled Attack-stage modifier is authorized only when its exact context predicate is
+     * proved; other known relevant unsupported abilities can be named as caveats by the outer
+     * policy, while unknown or unclassified effects remain hard refusals.
      */
     private fun collectHnsAbilityCapabilityLimitation(
         classification: com.dualdex.pokemon.hns.HnsAbilityEntry,
@@ -2072,19 +2070,38 @@ object CalcCapabilityPolicy {
                 val maxHp = request.hnsLiveBattleState?.attackerMaxHp
                 if (hp == null || maxHp == null || maxHp <= 0) {
                     limitations.add(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED)
+                    decisions += HnsAbilityRequestDecision(
+                        abilityId = classification.abilityId,
+                        abilityName = classification.titleCaseName,
+                        side = HnsAbilitySide.ATTACKER,
+                        globalCategory = classification.category,
+                        relevance = HnsAbilityRequestRelevance.UNKNOWN,
+                        rule = "pinch_ability_hp_condition_unverified",
+                        source = "src/battle_util.c:7023",
+                        rationale = "The move matches this conditional ability, but authoritative HP/max HP is missing."
+                    )
                 }
             }
             return
         }
-        if (classification.category == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT) {
+        val modelledAttackStatContext = classification.abilityId == 55 || classification.abilityId == 62
+        if (classification.category == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT ||
+            modelledAttackStatContext
+        ) {
             val side = if (isAttacker) HnsAbilitySide.ATTACKER else HnsAbilitySide.DEFENDER
             val decision = HnsAbilityContextPolicy.assess(
                 abilityId = classification.abilityId ?: -1,
                 context = HnsAbilityContextPolicy.contextForRequest(request, side, ordinaryMove)
             )
             decisions += decision
-            if (decision.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT) {
+            if (classification.category == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+                decision.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+            ) {
                 limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
+            } else if (modelledAttackStatContext && decision.relevance == HnsAbilityRequestRelevance.UNKNOWN) {
+                // Hustle/Guts are exact only where their Attack-stage operands are authoritative.
+                // A missing effective category or Guts status1 still blocks instead of guessing.
+                limitations.add(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED)
             }
         } else if (!classification.category.isSupportedForDamage) {
             decisions += HnsAbilityRequestDecision(
@@ -2110,7 +2127,8 @@ object CalcCapabilityPolicy {
      *  - an active dynamic-type retype (Electrify, or Ion Deluge on a Normal move) blocks;
      *  - an active defender Glaive Rush volatile blocks (x2 not modelled);
      *  - an unread gimmick blocks; an active gimmick blocks;
-     *  - an unread or non-zero live attacker status blocks.
+     *  - an unread live attacker status blocks; a positive status is accepted only for modelled
+     *    physical Guts, with the raw STATUS1_ANY word bound by the boundary.
      */
     private fun collectHnsLiveOperandLimitations(
         pack: GameDataPack,
@@ -2175,7 +2193,13 @@ object CalcCapabilityPolicy {
             limitations.add(CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED)
         }
         val status1 = live.attackerStatus1
-        if (status1 == null || status1 != 0) {
+        val hnsCategory = HnsMoveAuthority.forRequest(request, hnsOrdinaryMove(pack, request)).category
+        val gutsPhysicalStatusIsModelled = request.attacker.abilityId == 62 &&
+            hnsCategory == com.dualdex.pokemon.MoveCategory.PHYSICAL &&
+            status1 != null &&
+            (status1 and 0x1fff.inv()) == 0 &&
+            (status1 and 0x10ff) != 0
+        if (status1 == null || status1 != 0 && !gutsPhysicalStatusIsModelled) {
             limitations.add(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED)
         }
         // Live field conditions (Gap C4e correction). The boundary binds these from the observed

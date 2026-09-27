@@ -184,6 +184,36 @@ class HnsCalcCensusTest {
     }
 
     @Test
+    fun `conditional ability condition refusal retains ability identity for random ability attribution`() {
+        val entry = HnsAbilityRegistry.classify(55) // Hustle
+        val decision = com.dualdex.calculator.HnsAbilityRequestDecision(
+            abilityId = 55,
+            abilityName = entry.titleCaseName,
+            side = com.dualdex.calculator.HnsAbilitySide.ATTACKER,
+            globalCategory = entry.category,
+            relevance = com.dualdex.calculator.HnsAbilityRequestRelevance.UNKNOWN,
+            rule = "attack_stat_ability_category_unverified",
+            rationale = "synthetic missing category evidence"
+        )
+        val outcome = HnsCensusDisplayClassifier.classify(
+            CalcCapabilityVerdict(
+                support = CalcSupport.UNSUPPORTED,
+                capability = requireNotNull(com.dualdex.calculator.CalcCapabilityPolicy.capabilityFor(profile)),
+                limitations = listOf(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED),
+                request = null,
+                hnsAbilityDecisions = listOf(decision)
+            )
+        )
+
+        assertEquals("Hustle", outcome.blockers.single().identity)
+        assertEquals("attacker", outcome.blockers.single().side)
+        assertEquals(
+            HnsAbilityTrialDisposition.REFUSED,
+            outcome.abilityTrialDisposition("attacker", "Hustle")
+        )
+    }
+
+    @Test
     fun `a non blocking limitation never refuses and never becomes a blocker`() {
         val outcome = HnsCensusDisplayClassifier.classify(
             verdict(CalcSupport.ESTIMATED, listOf(CalcLimitation.ROM_NOT_EXACT_VERIFIED))
@@ -503,6 +533,8 @@ class HnsCalcCensusTest {
         // audit cannot prove harmless. A trial whose tested ability produced no decision must
         // therefore never be credited with a block, however the request-wide limitation stands.
         val run = artifacts().run
+        assertTrue("conditional abilities may block when their operands are missing", HnsCalcCensusEngine.mayBlockAbility(55))
+        assertTrue("conditional abilities may block when their operands are missing", HnsCalcCensusEngine.mayBlockAbility(62))
         val harmlessIds = run.abilityDomain.map { it.first }.filter { !HnsCalcCensusEngine.mayBlockAbility(it) }
         assertTrue("expected some provably harmless abilities", harmlessIds.isNotEmpty())
         for (trial in run.abilityTrials.filter { it.abilityId in harmlessIds }) {
@@ -594,8 +626,12 @@ class HnsCalcCensusTest {
         assertTrue(superLuckTrials.isNotEmpty())
         assertTrue("Super Luck must clear ordinary fixed-crit trials", superLuckTrials
             .all { it.clearRequests > 0 })
-        assertTrue("unsupported move shapes still leave Super Luck UNKNOWN", superLuckTrials
-            .all { it.refusedByAbility && it.refusedRequests > 0 })
+        val superLuckDefenderTrials = superLuckTrials.filter { it.side == "defender" }
+        assertTrue("missing defender-side fixed-crit evidence leaves Super Luck UNKNOWN",
+            superLuckDefenderTrials.any { it.refusedByAbility && it.refusedRequests > 0 })
+        assertTrue("the fixed noncritical attacker trials prove Super Luck irrelevant",
+            superLuckTrials.filter { it.side == "attacker" }
+                .all { !it.refusedByAbility && it.refusedRequests == 0 && it.clearRequests > 0 })
     }
 
     @Test
@@ -630,10 +666,15 @@ class HnsCalcCensusTest {
         }
         val refusalRows = root.getJSONArray("abilityRefusals")
         val refusal = (0 until refusalRows.length()).map { refusalRows.getJSONObject(it) }
-            .single { it.getInt("abilityId") == 37 && it.getString("side") == "attacker" &&
+            .singleOrNull { it.getInt("abilityId") == 37 && it.getString("side") == "attacker" &&
                 it.getString("category") == "Physical" }
-        assertEquals(hugePower.refusedRequests, refusal.getInt("refusedRequests"))
-        assertEquals(hugePower.refusedBattles, refusal.getInt("refusedBattles"))
+        if (hugePower.refusedRequests == 0) {
+            assertNull("a zero refusal count must not create an ability refusal row", refusal)
+        } else {
+            assertNotNull("a positive refusal count must appear in the refusal table", refusal)
+            assertEquals(hugePower.refusedRequests, refusal!!.getInt("refusedRequests"))
+            assertEquals(hugePower.refusedBattles, refusal.getInt("refusedBattles"))
+        }
         val caveatRows = root.getJSONArray("abilityCaveats")
         val caveat = (0 until caveatRows.length()).map { caveatRows.getJSONObject(it) }
             .single { it.getInt("abilityId") == 37 && it.getString("side") == "attacker" &&

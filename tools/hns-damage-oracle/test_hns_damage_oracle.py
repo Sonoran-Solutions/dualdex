@@ -39,9 +39,11 @@ def observed_for(s: dict) -> dict:
     battler = {"speciesId": 68, "types": ["Fighting"],
                "baseStats": {"hp": 90, "attack": 130, "defense": 80, "spAttack": 65, "spDefense": 85, "speed": 55},
                "abilityId": 15, "itemId": 0, "hpAtHit": s["attacker"]["stats"]["hp"],
+               "status1": {"none": 0, "poison": 8, "burn": 16}[s["attacker"]["status"]],
                "badgeBoosts": {"attack": False, "defense": False, "spAttack": False, "spDefense": False}}
     dfn = copy.deepcopy(battler)
     dfn["hpAtHit"] = s["defender"]["stats"]["hp"]
+    dfn["status1"] = {"none": 0, "poison": 8, "burn": 16}[s["defender"]["status"]]
     return {"attacker": battler, "defender": dfn,
             "move": {"id": 157, "type": "Rock", "power": 75, "category": "physical", "target": "both",
                      "flags": [], "priority": 0, "targetClass": 6},
@@ -103,6 +105,21 @@ class ScenarioSchemaTest(unittest.TestCase):
         self.assertEqual(by_id["group-c-wonder-guard-chart-immunity"]["expect"], "immune")
         self.assertEqual(by_id["group-c-ring-target"]["expect"], "damage")
         self.assertEqual(by_id["group-c-ring-target-control"]["expect"], "immune")
+
+    def test_group_d_attack_stat_matrix_covers_hustle_and_guts_conditions(self):
+        by_id = {s["id"]: s for s in SCENARIOS}
+        expected_modelled = {
+            "group-d-hustle-physical-badge-a255", "group-d-hustle-special-control",
+            "group-d-hustle-defender-control", "group-d-guts-burn-physical-badge-crit-a255",
+            "group-d-guts-poison-physical", "group-d-guts-physical-no-status-control",
+            "group-d-guts-defender-control",
+        }
+        self.assertTrue(expected_modelled.issubset(by_id))
+        self.assertTrue(all(by_id[sid]["surface"] == "modelled" for sid in expected_modelled))
+        self.assertEqual(by_id["group-d-guts-special-status-control"]["surface"], "engine-only")
+        self.assertEqual(by_id["group-d-guts-burn-physical-badge-crit-a255"]["attacker"]["status"], "burn")
+        self.assertEqual(by_id["group-d-guts-poison-physical"]["attacker"]["status"], "poison")
+        self.assertEqual(by_id["group-d-guts-physical-no-status-control"]["attacker"]["status"], "none")
 
     def test_duplicate_ids_rejected(self):
         with self.assertRaisesRegex(schema.SchemaError, "duplicate scenario id"):
@@ -228,16 +245,16 @@ class CorpusSchemaTest(unittest.TestCase):
 
 
 def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, types=("Fighting", "Fighting"),
-                 def_stage=0) -> list[str]:
+                 def_stage=0, atk_status="none", atk_status1=0, def_status="none", def_status1=0) -> list[str]:
     delta = damage if delta is None else delta
     t = f"{types[0]}|{types[1]}|Mystery"
     return [
-        f"DDXO|{sid}|{rng}|A1|68|50|{t}|15|0|none",
+        f"DDXO|{sid}|{rng}|A1|68|50|{t}|15|0|{atk_status}|{atk_status1}",
         f"DDXO|{sid}|{rng}|A2|200|200|150|100|75|100|80",
         f"DDXO|{sid}|{rng}|A3|0|0|0|0",
         f"DDXO|{sid}|{rng}|A4|90|130|80|65|85|55",
         f"DDXO|{sid}|{rng}|A5|0|0|0|0",
-        f"DDXO|{sid}|{rng}|D1|143|50|Normal|Normal|Mystery|15|0|none",
+        f"DDXO|{sid}|{rng}|D1|143|50|Normal|Normal|Mystery|15|0|{def_status}|{def_status1}",
         f"DDXO|{sid}|{rng}|D2|{60000 - delta}|60000|100|85|100|130|40",
         f"DDXO|{sid}|{rng}|D3|0|{def_stage}|0|0",
         f"DDXO|{sid}|{rng}|D4|160|110|65|65|110|30",
@@ -248,13 +265,15 @@ def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, 
     ]
 
 
-def runner_output(sid: str, *, result="PASS", skip_rng=None, extra=None, damage_for=None) -> str:
+def runner_output(sid: str, *, result="PASS", skip_rng=None, extra=None, damage_for=None,
+                  atk_status="none", atk_status1=0, def_status="none", def_status1=0) -> str:
     lines = [f"[0] DDXO {sid}: \x1b[32m{result}\x1b[0m"]
     for rng in range(16):
         if rng == skip_rng:
             continue
         damage = damage_for(rng) if damage_for else 60 - rng // 2
-        lines += runner_lines(sid, rng, damage)
+        lines += runner_lines(sid, rng, damage, atk_status=atk_status, atk_status1=atk_status1,
+                              def_status=def_status, def_status1=def_status1)
     lines += extra or []
     return "\n".join(lines) + "\n"
 
@@ -273,6 +292,16 @@ class RunnerOutputTest(unittest.TestCase):
                                                      "category": "physical", "target": "both", "flags": [],
                                                      "priority": 0, "targetClass": 6})
         self.assertEqual(entry["observed"]["defender"]["types"], ["Normal"])
+        self.assertEqual(entry["observed"]["attacker"]["status1"], 0)
+
+    def test_raw_status1_is_parsed_and_retained(self):
+        records = backend.parse_runner_output(
+            runner_output(self.sid, atk_status="burn", atk_status1=16), [self.sid])
+        self.assertEqual(records[self.sid][0]["A1"][8], "16")
+        scenario = a_scenario()
+        scenario["attacker"]["status"] = "burn"
+        entry = backend.assemble_entry(scenario, records[self.sid])
+        self.assertEqual(entry["observed"]["attacker"]["status1"], 16)
 
     def test_failed_or_missing_test_result_is_fatal(self):
         for result in ("FAIL", "ASSUMPTIONS_FAILED", "TO_DO"):
@@ -444,12 +473,18 @@ class CommittedCorpusTest(unittest.TestCase):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
         self.assertEqual([e["scenario"] for e in doc["entries"]], SCENARIOS)
         self.assertGreaterEqual(len(doc["entries"]), 1000)
+        for entry in doc["entries"]:
+            scenario = entry["scenario"]
+            for role in ("attacker", "defender"):
+                expected = {"none": 0, "poison": 8, "burn": 16}[scenario[role]["status"]]
+                self.assertEqual(entry["observed"][role]["status1"], expected,
+                                 f"{scenario['id']} {role} raw status1")
 
     def test_known_divergences_pin_the_current_calculator_vectors(self):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
         by_id = {entry["scenario"]["id"]: entry for entry in doc["entries"]}
         divergences = cli.load_divergences(by_id)
-        self.assertEqual(len(divergences), 11)
+        self.assertEqual(len(divergences), 2)
         for record in divergences:
             with self.subTest(scenario=record["scenario"]):
                 self.assertEqual(len(record["calculatorRolls"]), schema.ROLL_COUNT)

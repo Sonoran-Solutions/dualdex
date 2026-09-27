@@ -3738,6 +3738,57 @@ static void check_gap_c4e_pinch_abilities(void) {
     }
 }
 
+#define GROUP_D_OVERGROW_REQUEST(HP, BADGE) \
+    "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\",\"attacker\":{\"species\":\"Venusaur\",\"level\":50,\"ability\":\"Overgrow\",\"hp\":" #HP ",\"maxHP\":150," \
+    "\"badgeBoosts\":{\"atk\":" BADGE "},\"rawStats\":{\"attack\":255,\"defense\":100,\"speed\":100,\"spAttack\":100,\"spDefense\":100}," \
+    "\"statStages\":[0,0,0,0,0,0,0,0]}," \
+    "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"ability\":\"(other)\"," \
+    "\"rawStats\":{\"attack\":100,\"defense\":90,\"speed\":100,\"spAttack\":100,\"spDefense\":90}," \
+    "\"statStages\":[0,0,0,0,0,0,0,0]}," \
+    "\"move\":{\"name\":\"Leaf Blade\",\"overrides\":{\"basePower\":90,\"type\":\"Grass\",\"category\":\"Physical\"}}," \
+    "\"field\":{\"gameType\":\"Singles\"}}"
+
+static void check_group_d_attack_modifier_accumulation(void) {
+    printf("-- Group D: accumulated Attack modifiers and Hustle/Guts stage controls --\n");
+    double engine[ROLL_COUNT];
+    long expected[ROLL_COUNT];
+    long sequential[ROLL_COUNT];
+
+    /* Pinned CalcAttackStat combines Overgrow x1.5 and the offensive badge x1.1 in UQ4.12,
+     * then applies the product once: raw 255 -> 421. Repeated integer rounding gives 420. */
+    const char* combined = GROUP_D_OVERGROW_REQUEST(50, "true");
+    g_fixture = "group_d_pinch_badge_accumulator_matches_421_not_sequential_420";
+    if (hns_request_rolls(combined, engine)) {
+        hns_ordinary_rolls(50, 90, 421, 90, 1, 1.0, 0, 0, expected);
+        hns_ordinary_rolls(50, 90, 420, 90, 1, 1.0, 0, 0, sequential);
+        check_condition("Overgrow plus badge matches all 16 accumulated-modifier rolls",
+                        rolls_equal(engine, expected));
+        check_condition("fixture distinguishes accumulated from sequential rounding",
+                        !rolls_equal(engine, sequential));
+    } else {
+        check_condition("combined Overgrow and badge request produced a response", 0);
+    }
+
+    /* Negative controls keep the two modifiers independently observable. */
+    g_fixture = "group_d_overgrow_only_control";
+    if (hns_request_rolls(GROUP_D_OVERGROW_REQUEST(50, "false"), engine)) {
+        hns_ordinary_rolls(50, 90, 382, 90, 1, 1.0, 0, 0, expected);
+        check_condition("Overgrow without a badge applies only the pinch modifier",
+                        rolls_equal(engine, expected));
+    } else {
+        check_condition("Overgrow-only request produced a response", 0);
+    }
+
+    g_fixture = "group_d_badge_only_control";
+    if (hns_request_rolls(GROUP_D_OVERGROW_REQUEST(51, "true"), engine)) {
+        hns_ordinary_rolls(50, 90, 281, 90, 1, 1.0, 0, 0, expected);
+        check_condition("inactive Overgrow plus badge applies only the badge modifier",
+                        rolls_equal(engine, expected));
+    } else {
+        check_condition("badge-only request produced a response", 0);
+    }
+}
+
 
 /* ------------------------------------------------------------------ */
 /* PR #78 / C3 follow-up: Tera Shell + Truant and stripped items       */
@@ -3994,9 +4045,9 @@ static void check_gap_c4f_wise_glasses(void) {
     /* Test 6: Category crossover (Dragon Claw, BP 80, Dragon).
      * Under PER_MOVE_SPLIT (optionStyle = 0): Dragon Claw is Physical -> Wise Glasses
      * is irrelevant, moveOverride.category is "Physical", engine rolls unboosted at BP 80.
-     * Under TYPE_BASED (optionStyle = 1): Dragon type is Special under Gen III rules ->
-     * Wise Glasses applies, moveOverride.category is omitted (null), engine applies
-     * halfDown(4505, 80) = 88 BP.
+     * Under TYPE_BASED (optionStyle = 1): pinned H&S gTypesInfo marks Dragon Special ->
+     * Wise Glasses applies, and the boundary sends category = "Special" explicitly; the
+     * engine applies halfDown(4505, 80) = 88 BP.
      */
     g_fixture = "gap_c4f_wise_glasses_category_crossover_dragon_claw";
     {
@@ -4014,7 +4065,7 @@ static void check_gap_c4f_wise_glasses(void) {
             "\"move\":{\"name\":\"Dragon Claw\",\"overrides\":{\"basePower\":80,\"type\":\"Dragon\",\"category\":\"Physical\"}},"
             "\"field\":{\"gameType\":\"Singles\"}}";
 
-        /* TYPE_BASED: category omitted in move overrides, Gen III type-based treats Dragon as Special.
+        /* TYPE_BASED: the boundary supplies its pinned H&S category (Special) in move overrides.
          * Porygon raw SpA: 22, Croconaw raw SpD: 18. Boosted BP = halfDown(4505, 80) = 88. */
         const char* req_type_based =
             "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
@@ -4025,7 +4076,7 @@ static void check_gap_c4f_wise_glasses(void) {
             "\"overrides\":{\"types\":[\"Water\"]},"
             "\"rawStats\":{\"attack\":21,\"defense\":20,\"speed\":16,\"spAttack\":17,\"spDefense\":18},"
             "\"statStages\":[0,0,0,0,0,0,0,0]},"
-            "\"move\":{\"name\":\"Dragon Claw\",\"overrides\":{\"basePower\":80,\"type\":\"Dragon\"}},"
+            "\"move\":{\"name\":\"Dragon Claw\",\"overrides\":{\"basePower\":80,\"type\":\"Dragon\",\"category\":\"Special\"}},"
             "\"field\":{\"gameType\":\"Singles\"}}";
 
         /* Split oracle: Physical, BP 80, Atk 15, Def 20, no STAB, 1.0x */
@@ -4111,6 +4162,8 @@ int main(void) {
 
     printf("-- Gap C4e: pinch ability (Overgrow) condition uses live HP --\n");
     check_gap_c4e_pinch_abilities();
+
+    check_group_d_attack_modifier_accumulation();
 
     printf("-- PR #78 follow-up: Tera Shell + Truant defense in depth; stripped H&S items --\n");
     check_pr78_tera_shell_truant_and_item_stripping();

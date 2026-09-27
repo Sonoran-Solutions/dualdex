@@ -1018,6 +1018,14 @@ object HnsCalcCensusReport {
                 "ability look like a blocker. *Rules* lists the reviewed contextual rules that " +
                 "fired.\n\n"
         )
+        out.append(
+            "**Weighted request-trial totals.** Across the eligible ability/side/category " +
+                "contexts, production classified ${abilities.sumOf { it.refusedRequests }} " +
+                "request trials as refused, ${abilities.sumOf { it.caveatedRequests }} as " +
+                "caveated, and ${abilities.sumOf { it.clearRequests }} as clear. These totals " +
+                "count each ability assignment over each eligible request once and exclude the " +
+                "ambiguous opposite-ability contexts described above.\n\n"
+        )
         out.append("### Abilities that cause refusals\n\n")
         out.append(
             "**${refusingAbilityIdentities(run)} of ${run.abilityDomain.size} abilities cause a " +

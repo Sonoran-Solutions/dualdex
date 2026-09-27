@@ -213,9 +213,9 @@ static void DdxoBattler(const char *id, u32 roll, const char *role, u32 battler)
 {
     const struct BattlePokemon *mon = &gBattleMons[battler];
     u32 species = mon->species;
-    Test_MgbaPrintf("DDXO|%%s|%%d|%%s1|%%d|%%d|%%s|%%s|%%s|%%d|%%d|%%s", id, roll, role, species, mon->level,
+    Test_MgbaPrintf("DDXO|%%s|%%d|%%s1|%%d|%%d|%%s|%%s|%%s|%%d|%%d|%%s|%%d", id, roll, role, species, mon->level,
         DdxoType(mon->types[0]), DdxoType(mon->types[1]), DdxoType(mon->types[2]), mon->ability, mon->item,
-        DdxoStatus(mon->status1));
+        DdxoStatus(mon->status1), (s32)mon->status1);
     Test_MgbaPrintf("DDXO|%%s|%%d|%%s2|%%d|%%d|%%d|%%d|%%d|%%d|%%d", id, roll, role, mon->hp, mon->maxHP, mon->attack,
         mon->defense, mon->spAttack, mon->spDefense, mon->speed);
     Test_MgbaPrintf("DDXO|%%s|%%d|%%s3|%%d|%%d|%%d|%%d", id, roll, role, mon->statStages[STAT_ATK] - DEFAULT_STAT_STAGE,
@@ -444,7 +444,7 @@ def _int(text: str, what: str) -> int:
     return int(text)
 
 
-LINE_FIELDS = {"A1": 8, "A2": 7, "A3": 4, "A4": 6, "A5": 4, "D1": 8, "D2": 7, "D3": 4, "D4": 6, "D5": 4,
+LINE_FIELDS = {"A1": 9, "A2": 7, "A3": 4, "A4": 6, "A5": 4, "D1": 9, "D2": 7, "D3": 4, "D4": 6, "D5": 4,
                "M": 14, "F": 6, "R": 3}
 
 
@@ -516,6 +516,7 @@ def _battler_view(slot: dict[str, list[str]], role: str, sid: str) -> dict:
     return {
         "speciesId": _int(f1[0], what), "level": _int(f1[1], what), "types": battle_types,
         "abilityId": _int(f1[5], what), "itemId": _int(f1[6], what), "status": f1[7],
+        "status1": _int(f1[8], what),
         "hp": _int(f2[0], what), "maxHp": _int(f2[1], what), "attack": _int(f2[2], what),
         "defense": _int(f2[3], what), "spAttack": _int(f2[4], what), "spDefense": _int(f2[5], what),
         "speed": _int(f2[6], what),
@@ -538,6 +539,9 @@ def _check_battler(sid: str, role: str, scen: dict, seen: dict,
             raise OracleError(f"{what}: battle {key} {seen[key]} != scenario {st[key]}")
     if seen["status"] != scen["status"]:
         raise OracleError(f"{what}: battle status {seen['status']!r} != scenario {scen['status']!r}")
+    expected_status1 = {"none": 0, "poison": 8, "burn": 16}[scen["status"]]
+    if seen["status1"] != expected_status1:
+        raise OracleError(f"{what}: raw status1 {seen['status1']} != expected pinned status1 {expected_status1}")
     post_hit_stage_deltas = post_hit_stage_deltas or {}
     for stat, value in scen["stages"].items():
         # The runner reports battler stages after the move's hit hooks. These exact H&S
@@ -625,10 +629,12 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
         observed = {
             "attacker": {"speciesId": atk["speciesId"], "types": atk["types"], "baseStats": atk["baseStats"],
                          "abilityId": atk["abilityId"], "itemId": atk["itemId"], "hpAtHit": hp_at_hit,
+                         "status1": atk["status1"],
                          "badgeBoosts": atk["badgeBoosts"]},
             "defender": {"speciesId": dfn["speciesId"], "types": dfn["types"], "baseStats": dfn["baseStats"],
                          "abilityId": dfn["abilityId"], "itemId": dfn["itemId"],
-                         "hpAtHit": scenario["defender"]["stats"]["hp"], "badgeBoosts": dfn["badgeBoosts"]},
+                         "hpAtHit": scenario["defender"]["stats"]["hp"], "status1": dfn["status1"],
+                         "badgeBoosts": dfn["badgeBoosts"]},
             "move": {"id": move_id, "type": m[1], "power": _int(m[2], f"{sid} M"), "category": m[3],
                      "target": m[4], "flags": flags, "priority": _int(m[12], f"{sid} M priority"),
                      "targetClass": _int(m[13], f"{sid} M target class")},

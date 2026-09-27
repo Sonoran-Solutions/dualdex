@@ -21,7 +21,7 @@ PIN = "1f42b74dff0e9fe942419845d040663dd829a973"
 CONTEXT_RULES = HERE / "context_rules.json"
 CONTEXT_CANDIDATES = {
     2, 3, 4, 16, 22, 24, 26, 33, 34, 36, 37, 47, 54, 57, 58, 62, 64, 70, 74, 75,
-    80, 83, 84, 86, 88, 91, 95, 97, 105, 106, 124, 128, 132, 133, 139, 140, 141,
+    55, 80, 83, 84, 86, 88, 91, 95, 97, 105, 106, 124, 128, 132, 133, 139, 140, 141,
     146, 152, 153, 154, 155, 160, 167, 168, 172, 192, 195, 201, 202, 215, 221, 222,
     223, 224, 234, 235, 236, 238, 243, 247, 250, 254, 259, 268, 271, 275, 290, 291,
     220, 264, 265, 270, 308,
@@ -119,9 +119,11 @@ def validate_context_rules(upstream, abilities, decisions):
         "defender_armor_fixed_noncritical_hit",
         "defender_armor_critical_hit_conflict",
         "terapagos_full_hp_relevant",
+        "hustle_physical_move",
+        "guts_physical_move_with_status",
     }
     if not required <= all_rules:
-        raise SystemExit("context rules must retain Truant, critical-armor, and full-HP Tera Shell blocks")
+        raise SystemExit("context rules must retain live-state, type/category, Guts, Hustle, and bypass safety predicates")
 
 
 def main():
@@ -157,7 +159,7 @@ def main():
                   "MODELLED_HNS_CONDITIONAL", "UNSUPPORTED_DAMAGE_RELEVANT", "UNCLASSIFIED"}
     baseline_safe = {0, 15, 51, 77}
     baseline_conditional = {65, 66, 67, 68}
-    baseline_unsupported = {37, 47, 62, 74, 91, 137, 168, 255, 262, 282}
+    baseline_unsupported = {37, 47, 55, 62, 74, 91, 137, 168, 255, 262, 282}
     rows = []
     for aid, ability in sorted(abilities.items()):
         decision = decisions.get(str(aid), {})

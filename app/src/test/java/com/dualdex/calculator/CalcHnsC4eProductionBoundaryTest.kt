@@ -365,11 +365,12 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals(9, harmless.request.attacker.abilityId)
         assertEquals("Static", harmless.request.attacker.ability)
 
-        val harmful = build(trust, claimedDefaults,
+        val guts = build(trust, claimedDefaults,
             playerObservation(abilityId = 62, abilityName = "Guts", status1 = 0x10), enemyObservation(),
-            randomAbilities = true) as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("observed Guts must refuse despite caller Overgrow")
-        assertTrue(harmful.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+            randomAbilities = true) as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("observed physical Guts with authoritative status1 must use the modeled Attack stage")
+        assertEquals(62, guts.request.attacker.abilityId)
+        assertFalse(guts.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
 
         val defenderHarmful = build(trust, goldenARequest(move = "Ember"),
             playerObservation(abilityId = 9, abilityName = "Static"),
@@ -1705,6 +1706,75 @@ class CalcHnsC4eProductionBoundaryTest {
             expected = CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED,
             player = playerObservation(status1 = 0x10) // poison
         )
+    }
+
+    @Test
+    fun `physical Guts uses the observed status1 word and forwards it to QuickJS`() {
+        val ready = build(
+            trustFor(exactSha), goldenARequest(),
+            playerObservation(abilityId = 62, abilityName = "Guts", status1 = 0x10),
+            enemyObservation(), randomAbilities = true
+        ) as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("physical Guts with an observed status1 must be modeled")
+
+        assertEquals(62, ready.request.attacker.abilityId)
+        assertEquals(0x10, ready.request.hnsLiveBattleState?.attackerStatus1)
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        val serialized = JSONObject(buildCalcRequestJson(ready.request))
+        assertEquals(0x10, serialized.getJSONObject("attacker").getInt("status1"))
+    }
+
+    @Test
+    fun `Guts missing status1 and special with active status remain fail closed`() {
+        val trust = trustFor(exactSha)
+        val unread = refusedOf(build(
+            trust, goldenARequest(),
+            playerObservation(abilityId = 62, abilityName = "Guts", statusObserved = false),
+            enemyObservation(), randomAbilities = true
+        ), "Guts needs an observed live status1 on physical moves")
+        assertTrue(unread.verdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
+        assertTrue(unread.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+
+        val special = refusedOf(build(
+            trust, goldenARequest(move = "Psychic"),
+            playerObservation(abilityId = 62, abilityName = "Guts", status1 = 0x10),
+            enemyObservation(), randomAbilities = true
+        ), "a special move does not get Guts, and non-neutral status remains outside the production subset")
+        assertTrue(special.verdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
+        assertFalse(special.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+        assertFalse(special.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+    }
+
+    @Test
+    fun `Hustle is modeled for physical hits and proven irrelevant for special hits`() {
+        val trust = trustFor(exactSha)
+        val physical = readyOf(build(
+            trust, goldenARequest(),
+            playerObservation(abilityId = 55, abilityName = "Hustle"), enemyObservation(), randomAbilities = true
+        ), "physical Hustle has an authoritative category")
+        assertFalse(physical.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+
+        val special = readyOf(build(
+            trust, goldenARequest(move = "Psychic"),
+            playerObservation(abilityId = 55, abilityName = "Hustle"), enemyObservation(), randomAbilities = true
+        ), "special Hustle is proven irrelevant")
+        assertFalse(special.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+        assertFalse(special.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+    }
+
+    @Test
+    fun `manual Hustle identity mismatch does not authorize the modeled ability`() {
+        val mismatched = goldenARequest().copy(
+            attacker = CalcPokemonInput(
+                species = "Chikorita", level = 5, ability = "Guts", abilityId = 55,
+                origin = CalcInputOrigin.MANUAL
+            )
+        )
+        val refused = refusedOf(build(
+            trustFor(exactSha), mismatched, null, null, activeBattle = false
+        ), "Hustle's canonical ID cannot be paired with Guts' display identity")
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE))
     }
 
     // ---------------------------------------------------------------- anti-spoofing

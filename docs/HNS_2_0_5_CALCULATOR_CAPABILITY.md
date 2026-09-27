@@ -1,5 +1,49 @@
 # H&S 2.0.5 calculator capability matrix (issue #9)
 
+## Group D Attack-stat stage — first #91 slice
+
+The H&S path in `tools/calc-bundler/entry.js` now has named pipeline boundaries for the
+effective move type, base-power UQ4.12 accumulation, Attack-stat UQ4.12 accumulation,
+Defense-stat UQ4.12 accumulation, base damage, and final-damage modifiers. At a stat or
+base-power stage it starts at UQ4.12 1.0, composes modifiers in pinned order with
+`uq4_12_multiply_half_down` semantics, and applies the product once to the already stage-adjusted
+integer. The #103 Dry Skin × Wise Glasses path remains a base-power-stage regression. Final
+damage steps still round in their pinned sequence; only modifiers that upstream itself combines
+inside `GetOtherModifiers` use a final-stage accumulator.
+
+This PR owns the **Attack-stat stage** and newly models two abilities:
+
+| Ability | Exact modelled context | Request-local irrelevant contexts | Missing or conflicting evidence |
+|---|---|---|---|
+| Hustle (55) | Authoritative effective Physical move on the attacker; adds ×1.5 before the offensive badge | Defender role or authoritative Special move | Unknown effective category is a hard `HNS_ABILITY_CONDITION_UNVERIFIED` refusal |
+| Guts (62) | Authoritative effective Physical move on the attacker and live `status1 & STATUS1_ANY != 0`; adds ×1.5 before the offensive badge and suppresses burn's physical damage halving | Defender role, Special move, or an observed zero / non-`STATUS1_ANY` status word | Unread status, unknown category, or undefined status bits hard-refuse; other active statuses still remain blocked unless this exact Guts path proves them modelled |
+
+`CalcRequestBoundary` binds the effective ability, move category, and raw live status word to the
+current active battler. `DamageCalculator` serializes that raw `status1`; display text or a
+species-default ability cannot authorize Guts. The pinned test runner also observes `status1` in
+the oracle corpus so the status predicate is evidence, not inferred from a label.
+
+Candidate audit for later #91 slices:
+
+| Candidate | Decision | Source-backed reason |
+|---|---|---|
+| Solar Power | Defer — live state required | Special move plus effective, unsuppressed sun (`IsBattlerWeatherAffected`); the current damage request does not establish all weather-suppression effects for this ability modifier. |
+| Defeatist | Defer — semantics not yet proven | Source predicate is live HP ≤ maxHP/2 (`src/battle_util.c:7002`); this first slice does not yet have the HP threshold boundary matrix and combined-modifier oracle proof. |
+| Gorilla Tactics | Defer — live state required | Physical move modifier is disabled by selected or active Dynamax (`src/battle_util.c:7073-7075`); active gimmicks are refused by current production policy. |
+| Transistor | Defer — semantics not yet proven | The pinned `B_TRANSISTOR_BOOST` config selects the Gen 9 ratio (`src/battle_util.c:7060-7067`, `include/config/battle.h:185`); exact configuration/rounding cross-cases are not in this oracle slice. |
+| Dragon's Maw, Steelworker, Rocky Payload | Defer — semantics not yet proven | Each is an effective-type Attack-stat modifier (`src/battle_util.c:7069-7081`); matching and nonmatching type controls plus badge-composition vectors remain to be proven. |
+| Water Bubble (offensive half) | Defer — later pipeline stage | Its outgoing boost is in `CalcMoveBasePowerAfterModifiers` (`src/battle_util.c:6706`), owned by a later base-power batch; its defensive/burn effects are outside this request. |
+| Flower Gift | Defer — doubles/partner state and live state required | The attacker branch requires Cherrim Sunshine form, effective sun, and Physical category; a separate ally branch reads the partner (`src/battle_util.c:7044-7046`, `:7146`). |
+| Orichalcum Pulse | Defer — live state required | Requires effective sun, Physical category, and no Utility Umbrella (`src/battle_util.c:7105-7107`); weather suppression and the item side are not admitted here. |
+| Sword of Ruin / Beads of Ruin | Defer — later pipeline stage and doubles/side state | These modify the relevant Defense stat through Ruin field state (`src/battle_util.c:10746-10749`), which belongs to a Defense/field batch with exact side and multi-ability semantics. |
+
+An exact modifier is a **modelled damage-time modifier**. A source-backed context that cannot
+activate one is **request-local proven irrelevant**. A known relevant effect may only be
+neutralized under the separate **caveated estimate** policy when its operands are complete.
+Missing or conflicting evidence is a **hard refusal**; it never silently becomes an inactive
+condition. The new batch adds no defender-side breakable modifier, so Group C's Mold Breaker,
+move-bypass, and Ability Shield interpretation is unchanged.
+
 ## Pinned ability audit (Random Abilities)
 
 The exact `Release-v2.0.5` source at commit
@@ -23,8 +67,8 @@ validates each referenced source line against the same pinned checkout.
 | `PROVEN_NO_DAMAGE_EFFECT` | 84 |
 | `MODELLED_EQUIVALENT` | 0 |
 | `MODELLED_HNS_SPECIFIC` | 0 |
-| `MODELLED_HNS_CONDITIONAL` | 21 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 206 |
+| `MODELLED_HNS_CONDITIONAL` | 23 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 204 |
 | `UNCLASSIFIED` | 0 |
 
 The audit follows the ordinary `EFFECT_HIT` dependency path through attack and defense
@@ -56,9 +100,10 @@ Examples: attacker-side Tera Shell and defender-side Truant are irrelevant to or
 damage; defender Tera Shell clears only when live species proves it is not Terapagos-Terastal or
 live HP proves the Terastal form is below full HP. Full-HP Terapagos-Terastal remains refused.
 Telepathy, Friend Guard, Plus, and Minus clear only when exact live battler topology proves Singles.
-Levitate (26) now uses the Group C Ground-immunity calculation; Guts, Huge/Pure Power, Thick Fat,
-and Adaptability clear only under their source-checked side, effective type/category, live status,
-current type, and topology predicates. Truant on the
+Levitate (26) now uses the Group C Ground-immunity calculation; Guts and Hustle are modelled only
+at their exact Attack-stat predicates, while Huge/Pure Power, Thick Fat, and Adaptability clear
+only under their source-checked side, effective type/category, live status, current type, and
+topology predicates. Truant on the
 attacker remains blocked because `truantCounter` is not observed. Defender Battle Armor and Shell
 Armor clear for a fixed noncritical ordinary hit; a critical request remains relevant because it
 conflicts with their prevention effect. The source-checkable artifact records both clearance rules
@@ -291,8 +336,8 @@ Only these individual behaviours are source-and-test demonstrated:
 | Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack/spAttack stat in `calculateHnsDamage` | **HOST-ORACLE MATCHES (Gap C4b partial / open)** |
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
 | Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
-| Abilities (supported subset) | 84 proven-neutral abilities and 21 conditional abilities, including the four pinch abilities and Group C immunities | Neutral abilities add no modifier; pinch uses the H&S UQ4.12 pipeline; Group C immunity conditions are described in [HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md) | **CONDITIONALLY AUTHORIZED** under the live operand gates (§14.6, Group C audit, and pinned inventory) |
-| Abilities (globally unsupported) | Guts, Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — known relevant unsupported abilities are named caveats after neutralization; unknown/unread/unclassified abilities remain hard, and proven-irrelevant contexts do not become caveats (§6.3, #86) |
+| Abilities (supported subset) | 84 proven-neutral abilities and 23 conditional abilities, including four pinch abilities, Hustle, Guts, and Group C immunities | Neutral abilities add no modifier; pinch, Hustle, and Guts use the H&S Attack-stat UQ4.12 stage; Group C immunity conditions are described in [HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md) | **CONDITIONALLY AUTHORIZED** under the live operand gates (§14.6, Group C audit, and pinned inventory) |
+| Abilities (globally unsupported) | Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — known relevant unsupported abilities are named caveats after neutralization; unknown/unread/unclassified abilities remain hard, and proven-irrelevant contexts do not become caveats (§6.3, #86) |
 | Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items, Wise Glasses | identity consumed; Wise Glasses modelled, other damage items unmodelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — a known relevant unsupported item may become a named caveat for an item-independent request; unread/unresolved identity remains hard, and item-dependent moves remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7, #86) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
 
@@ -548,14 +593,15 @@ that the H&S ability system is unmodelled with a strict per-ability and per-part
 
 ### 6.3 Source-backed contextual ability relevance
 
-The global ability registry answers whether an ability is supported in general. If that category is
-`UNSUPPORTED_DAMAGE_RELEVANT`, `HnsAbilityContextPolicy` separately assesses its effect for the
-current request using only explicit request operands; `PROVEN_IRRELEVANT` adds no caveat, `RELEVANT`
-can become a named #86 caveat after neutralization, and `UNKNOWN` remains a hard refusal. This does not reclassify an ability or
-clear any unrelated `CalcLimitation`.
+The global ability registry answers whether an ability is supported in general. For an
+`UNSUPPORTED_DAMAGE_RELEVANT` ability, or a conditionally modelled ability with a reviewed
+request-local rule, `HnsAbilityContextPolicy` assesses the current request using explicit operands.
+`PROVEN_IRRELEVANT` adds no caveat, `RELEVANT` is either calculated exactly for a modelled
+damage-time modifier or can become a named #86 caveat after neutralization, and `UNKNOWN` remains a
+hard refusal. This does not clear any unrelated `CalcLimitation`.
 
-The first-wave rules cover Tera Shell (ID 308), Truant (54), Telepathy (140), Levitate (26), Guts
-(62), Huge Power (37), Pure Power (74), Thick Fat (47), Adaptability (91), Battle Armor (4), Shell
+The first-wave rules cover Tera Shell (ID 308), Truant (54), Telepathy (140), Levitate (26), Hustle
+(55), Guts (62), Huge Power (37), Pure Power (74), Thick Fat (47), Adaptability (91), Battle Armor (4), Shell
 Armor (75), Friend Guard (132), Plus (57), and Minus (58). The source-checkable predicates are
 tracked in [`context_rules.json`](../tools/hns-abilities/context_rules.json) and validated against
 the exact pinned commit during `./ci.sh source-check`.
@@ -568,7 +614,8 @@ The rule examples are intentionally request-specific:
 | Truant | Defender side for incoming damage | Attacker side because `truantCounter` is not observed |
 | Telepathy, Friend Guard, Plus, Minus | Exact live battler count is two (authoritative Singles, no partner) | Doubles or unknown topology |
 | Levitate | Attacker side; defender with an authoritative non-Ground effective move | Defender versus Ground or unknown effective move type |
-| Guts | Defender side; attacker using a Special move; observed neutral status for an authoritative physical move | Statused physical attacker or missing status/category/type authority |
+| Hustle | Defender side or authoritative Special move | Physical attacker move; missing category authority |
+| Guts | Defender side; attacker using a Special move; observed neutral status for an authoritative physical move | Statused Physical move is modelled with raw `status1 & STATUS1_ANY`; unread/invalid status or missing category authority |
 | Huge Power, Pure Power | Defender side; attacker using an authoritative Special move | Physical attacker move or missing category/type authority |
 | Thick Fat | Attacker side; defender with a known non-Fire/non-Ice effective move | Fire/Ice move or missing effective-type authority |
 | Adaptability | Defender side; attacker has no STAB for the move in exact live Singles | STAB, unknown attacker types, dynamic type, or unknown topology |
@@ -1350,9 +1397,12 @@ Rather than relying on `@smogon/calc`'s ADV `calculateADV` (which applies STAB a
 1. **Effective Stat Resolution:**
    - Uses `rawStats` if observed, otherwise computes from base stats, IVs, EVs, and nature.
    - Applies stat stages (-6..+6) using upstream `HNS_STAT_STAGE_RATIOS` with crit drop-ignore rules (target defensive boosts ignored, attacker offensive drops ignored).
-   - Applies ability modifiers (Thick Fat, Guts, Huge Power) and badge boosts (`halfDown(4506, stat)`) in UQ4.12.
+   - Uses the effective move type resolved by `GetBattleMoveType` as the shared operand for type-sensitive stages.
+   - Composes supported Attack modifiers (Huge/Pure Power, pinch abilities, Hustle, Guts, and the existing engine-only Thick Fat path) and the offensive badge in one UQ4.12 accumulator in `CalcAttackStat` order, then applies once to the integer stage-adjusted Attack stat. Guts is physical-only and tests the exact observed `status1 & STATUS1_ANY` word; Hustle is physical-only.
+   - Composes Defense-stage modifiers and the defensive badge in their own UQ4.12 accumulator, then applies once to the integer stage-adjusted Defense stat.
+   - Composes base-power modifiers in a separate accumulator, preserving the #103 Dry Skin × Wise Glasses result.
 2. **Base Damage:**
-   - `Math.floor(Math.floor(Math.floor(bp * userFinalAttack * (Math.floor(2 * level / 5) + 2)) / targetFinalDefense) / 50) + 2`.
+   - The named base-damage helper follows the pinned integer order: `floor(floor(floor(bp * attack * (floor(2 * level / 5) + 2)) / defense) / 50) + 2`.
 3. **Pre-Roll Modifiers (applied to damage including +2):**
    - Doubles spread reduction: `halfDown(2048, dmg)` **only** when the request carries an explicit
      `field.targetCount === 2` (`GetMoveTargetCount(ctx)`). A Doubles spread move with one present foe
@@ -1366,7 +1416,7 @@ Rather than relying on `@smogon/calc`'s ADV `calculateADV` (which applies STAB a
    - STAB: `halfDown(6144, x)` (or 8192 for Adaptability)
    - Type effectiveness: `halfDown(Math.round(eff * 4096), x)` using the 19x19 H&S type matrix
    - Burn: `halfDown(2048, x)`
-   - Screens: Reflect / Light Screen (`halfDown(2048, x)` singles / `halfDown(2732, x)` doubles)
+   - Screens and the currently admitted `GetOtherModifiers` product are applied after STAB, type effectiveness, and burn. Final-damage calls keep their pinned sequential rounding; only the engine's modifier subgroup accumulates internally.
 6. **Minimum Damage Floor:**
    - `if (x === 0 && eff > 0) x = 1`.
 
@@ -1699,14 +1749,14 @@ ordinary `EFFECT_HIT` subset:
 | `GetAttackerItemsModifier` (`Metronome`, `Expert Belt`, `Life Orb`) | `battle_util.c:7656` | A known relevant item may be neutralized as a named estimate caveat; unknown item identity or relevance remains hard. |
 | `GetDefenderItemsModifier` (resist berries) | `battle_util.c:7682` | A known relevant item may be neutralized as a named estimate caveat; unknown item identity or relevance remains hard. |
 | `CalcMoveBasePowerAfterModifiers` state/power effects (`Facade`, `Brine`, …) | `battle_util.c:6573` | Non-`EFFECT_HIT` effects are refused by the move allow-list; ability/item/status base-power modifiers are refused by their gates. |
-| `CalcAttackStat` / `CalcDefenseStat` (stages, raw words, Power Trick, badge, ability stat mods) | `battle_util.c:6912`, `7211` | Stat stages and raw battle stat words are observed and **runtime validated** (golden C); badge state is read but player-side-only; the pinch/Huge Power/Guts/Thick Fat abilities are unsupported and refused. |
+| `CalcAttackStat` / `CalcDefenseStat` (stages, raw words, Power Trick, badge, ability stat mods) | `battle_util.c:6912`, `7211` | Stat stages and raw battle stat words are observed and **runtime validated** (golden C); badge state is player-side-only; pinch abilities, Hustle, and Guts use the accumulated Attack-stage pipeline under exact live/category gates; Huge/Pure Power and Thick Fat remain unsupported for production. |
 | `GetActiveGimmick` / Tera multiplier | `battle_terastal.c:134` | Not carried and not read → **FAIL CLOSED**. |
 | Pledge state (`gBattleStruct->pledgeMove`) | `battle_util.c:7426` | Pledge moves are non-ordinary; refused. |
 
-**Conclusion.** For the supported ordinary subset the only relevant live-state classes that are not
-either observed or provably excluded by an existing capability gate are: dynamic move type (Ion
-Deluge / Electrify), the defense-side volatiles (Glaive Rush, Minimize, semi-invulnerable), and the
-gimmick/Tera state. All three stay unread, so the live-state gate correctly remains closed for every
+**Conclusion (current).** C4e observes enough state to authorize the narrow ordinary Singles subset
+documented in §14.9. The remaining relevant live-state classes here are dynamic move type (Ion
+Deluge / Electrify), defense-side volatiles (Glaive Rush, Minimize, semi-invulnerable), and active
+gimmick/Tera state. Those contexts remain refused; this is no longer a blanket refusal for every
 active battle.
 
 ### 13.4 Official-ROM goldens
@@ -2148,7 +2198,9 @@ A request reaches `Ready` / `ESTIMATED` only when **all** of the following hold:
   all false; each observed-active class refuses with its precise limitation (§14.5.2), and a short
   tuple that does not carry them refuses with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`;
 * gimmick state observed `GIMMICK_NONE` for both participants;
-* attacker live `status1` observed `0`;
+* attacker live `status1` observed; nonzero status is accepted only for effective Guts on an
+  authoritative Physical move when the raw word intersects pinned `STATUS1_ANY`; other active
+  statuses remain refused;
 * the battle-global `gFieldStatuses` word observed and fully decoded (0 is the neutral word; a known
   relevant supported field modifier may be cleared as a named caveat; unknown bits and Ion Deluge's
   active Normal-type rewrite remain hard);
@@ -2188,7 +2240,7 @@ value; "source-proven" means the pinned source/data proves it cannot vary for th
 | move type / effective type | pinned pack override + observed Ion Deluge field word and Electrify volatile |
 | weather | boundary-owned battle-global `gBattleWeather` (both observations must agree); only clear / ordinary Rain / ordinary Sun accepted; the primal Rain/Sun bits refuse |
 | screens | boundary-owned defender-side `gSideStatuses[side]`; only Reflect/Light Screen bits |
-| burn / status | boundary-owned live `status1` must be 0; non-neutral refuses |
+| burn / status | boundary-owned raw `status1`; only physical Guts with `status1 & STATUS1_ANY != 0` is modelled, including burn-cancellation; every other active status refuses |
 | crit flag | request `isCrit`; C4d indirect observation |
 | game format | boundary-owned `gBattlersCount` agreed by both battle-level observations; must be the observed Singles `2`, and the request label must agree; an unread word, a disagreement, an observed `4`, or a contradictory label refuses with `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` (§14.7.2) |
 | field statuses | boundary-owned battle-global `gFieldStatuses` (both observations must agree); known relevant supported modifiers are cleared as named caveats; unknown bits and Ion Deluge's active Normal retype remain hard |

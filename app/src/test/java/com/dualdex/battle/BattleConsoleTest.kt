@@ -649,8 +649,8 @@ class BattleConsoleTest {
         assertEquals(CalcSupport.ESTIMATED, supported.calculatorSupport)
         assertFalse(supported.damageConfidence == DamageConfidence.VERIFIED)
 
-        // A runtime ability change invalidates the presentation key and the production boundary
-        // refuses the new state instead of retaining the prior neutral-state range.
+        // A runtime ability change invalidates the presentation key. Physical Guts with the
+        // observed burn word is now an exact modelled Attack-stage request.
         val changedContext = hnsContext(
             playerAbilityId = 62,
             playerAbilityName = "Guts",
@@ -664,14 +664,11 @@ class BattleConsoleTest {
         )
         assertNotEquals(oldKey, changedKey)
 
-        val refused = buildHnsPresentation(33, changedContext, calculator)
-        assertEquals(DamageConfidence.UNAVAILABLE, refused.damageConfidence)
-        assertTrue(refused.damageLimitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
-        // The status blocks; Guts is a complete caveat and is not mislabeled as a second blocker.
-        assertEquals("Status not modelled", refused.damageUnavailableReason)
-        assertEquals(listOf("Status not modelled"), refused.damageBlockers.map { it.detail })
-        assertTrue(refused.damageAbilityBlockers.isEmpty())
-        assertEquals("the refusal must never reach the calculator", 1, sentRequests.size)
+        val guts = buildHnsPresentation(33, changedContext, calculator)
+        assertEquals(DamageConfidence.ESTIMATE, guts.damageConfidence)
+        assertTrue(guts.damageLimitations.isEmpty())
+        assertTrue(guts.damageAbilityBlockers.isEmpty())
+        assertEquals("the boundary-authorized Guts request reaches the calculator", 2, sentRequests.size)
     }
 
     @Test
@@ -689,23 +686,22 @@ class BattleConsoleTest {
         assertEquals(1, sent.size)
         assertEquals(9, sent.single().attacker.abilityId)
 
-        val harmful = hnsContext(
+        val guts = hnsContext(
             playerAbilityId = 62,
             playerAbilityName = "Guts",
             randomAbilities = true,
             playerObservation = hnsBattler(0, 0, listOf(13), 62, "Guts", status1 = 0x10)
         )
-        val refused = buildHnsPresentation(33, harmful, calculator)
-        assertEquals(DamageConfidence.UNAVAILABLE, refused.damageConfidence)
-        assertEquals("Status not modelled", refused.damageUnavailableReason)
-        assertTrue(refused.damageAbilityBlockers.isEmpty())
-        assertEquals(1, sent.size)
+        val gutsEstimate = buildHnsPresentation(33, guts, calculator)
+        assertEquals(DamageConfidence.ESTIMATE, gutsEstimate.damageConfidence)
+        assertTrue(gutsEstimate.damageAbilityBlockers.isEmpty())
+        assertEquals(2, sent.size)
 
         val defenderIrrelevant = hnsContext(playerAbilityId = 9, playerAbilityName = "Static", randomAbilities = true,
             enemyObservation = hnsBattler(0, 1, listOf(1, 3), 26, "Levitate"))
         val opponentEstimated = buildHnsPresentation(33, defenderIrrelevant, calculator)
         assertEquals(DamageConfidence.ESTIMATE, opponentEstimated.damageConfidence)
-        assertEquals(2, sent.size)
+        assertEquals(3, sent.size)
 
         val defenderHarmful = hnsContext(playerAbilityId = 9, playerAbilityName = "Static", randomAbilities = true,
             enemyObservation = hnsBattler(0, 1, listOf(1, 3), 26, "Levitate"))
@@ -715,12 +711,12 @@ class BattleConsoleTest {
         // independently and therefore does not add a second blocker.
         assertEquals("Move effect not modelled", opponentRefused.damageUnavailableReason)
         assertEquals(listOf("Move effect not modelled"), opponentRefused.damageBlockers.map { it.detail })
-        assertEquals(2, sent.size)
+        assertEquals(3, sent.size)
 
         val resolvedStageWriter = buildHnsPresentation(33,
             hnsContext(playerAbilityId = 80, playerAbilityName = "Steadfast", randomAbilities = true), calculator)
         assertEquals(DamageConfidence.ESTIMATE, resolvedStageWriter.damageConfidence)
-        assertEquals(3, sent.size)
+        assertEquals(4, sent.size)
         assertEquals(80, sent.last().attacker.abilityId)
     }
 

@@ -16,7 +16,7 @@ pinned H&S battle code (1f42b74d)  ->  this oracle  ->  corpus.json (committed, 
   scenario, the HP actually removed by one hit for each of the 16 damage-roll values. Every roll is a
   separate, fresh battle. The corpus stores the scenario inputs, what the engine reported about the
   hit (IDs, battle types, base stats, move type/power/category/flags/effective priority/target class,
-  target count, badge-boost verdicts)
+  target count, raw `status1` words, badge-boost verdicts)
   and the 16 measured rolls.
 * **Is not:** `@smogon/calc`, DualDex's `calculateHnsDamage`, `calc_bundle.js` or any Kotlin damage
   code. None of those are imported or executed by the generator. The type tables in
@@ -55,8 +55,7 @@ Two deviations from a stock `make check`, both hashed into the corpus provenance
    so they fail on `MESSAGE` matching even though their damage values reproduce.
 
 **Option B (runtime probe) — not needed**, so it was not built. Option A needs no ROM, regenerates the
-whole corpus (1,360 scenarios x 16 rolls = 21,760 battles) in about three to four minutes on 32 cores,
-and controls every operand directly.
+whole corpus (1,375 scenarios x 16 rolls = 22,000 battles) and controls every operand directly.
 
 ### Harness boundaries found while building it
 
@@ -107,14 +106,14 @@ minimum roll, 15 the maximum. The generator then verifies, per roll and fail-clo
 
 Any violation aborts regeneration with the scenario ID. Nothing is defaulted or turned into zero.
 
-## Scenario schema (v2)
+## Scenario schema (v3)
 
 Defined and validated by `oracle_schema.py`. Each scenario names only authoritative operands:
 
 | Field | Meaning |
 |---|---|
 | `id` | stable, descriptive, `[a-z0-9-]`, unique |
-| `tags`, `surface` | `modelled` (production claims exact) or `engine-only` (engine code exists, production refuses/strips: Doubles, Thick Fat, Guts, Huge/Pure Power, Adaptability, type-boost items) |
+| `tags`, `surface` | `modelled` (production claims exact) or `engine-only` (production refuses/strips: Doubles, Thick Fat, Guts outside the physical/status path, Huge/Pure Power, Adaptability, type-boost items) |
 | `format`, `attackerSide`, `doubles.defenderPartner` | Singles/Doubles, which side attacks, Doubles target presence |
 | `rules` | H&S challenge settings that change damage: `fairyTypes`, `optionStyle` (`perMoveSplit`/`typeBased`) |
 | `badges` | player badge flags held (1..8) |
@@ -124,8 +123,8 @@ Defined and validated by `oracle_schema.py`. Each scenario names only authoritat
 | `expect` | `damage` or `immune` (a declared immunity must remove no HP) |
 
 `observed` (recorded, not chosen): species/ability/item/move IDs, battle types, pinned base stats,
-move type/power/category/target class, `GetMoveTargetCount`, `hpAtHit`, and the engine's own
-`ShouldGetStatBadgeBoost` verdicts per battler.
+move type/power/category/target class, `GetMoveTargetCount`, `hpAtHit`, each battler's raw
+`BattlePokemon.status1`, and the engine's own `ShouldGetStatBadgeBoost` verdicts per battler.
 
 ## Commands
 
@@ -185,15 +184,21 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-1,351 of 1,362 scenarios match the shipped calculator on all 16 rolls. The 11 that do not are
-registered in `known_divergences.json`, each linked to its tracking issue:
+1,367 of 1,375 scenarios match the shipped calculator on all 16 rolls (1,259 production-modelled and
+116 engine-only). The eight remaining exact-vector divergences are registered in
+`known_divergences.json`, each linked to its tracking issue:
 
 | Issue | Surface | Scenarios | Defect |
-|---|---|---|---|
+|---|---|---:|---|
 | [#97](https://github.com/Sonoran-Solutions/dualdex/issues/97) | modelled | 6 | type-based option style uses Gen III categories; pinned `gTypesInfo` makes Ghost special and Dark physical |
-| [#98](https://github.com/Sonoran-Solutions/dualdex/issues/98) | modelled | 1 | Attack modifiers rounded one at a time instead of accumulated in UQ4.12 (pinch + badge) |
-| [#99](https://github.com/Sonoran-Solutions/dualdex/issues/99) | engine-only | 2 | Guts boosts special moves |
 | [#100](https://github.com/Sonoran-Solutions/dualdex/issues/100) | engine-only | 2 | Doubles spread reduction misses post-Gen-III spread moves |
+
+The Attack-stat accumulator makes `badge-pinch-overgrow-a255` exact, resolving #98's only registered
+vector. The Guts Physical-category gate makes the burn- and poison-statused Psychic vectors exact,
+resolving #99's two registered vectors. Eight Group D scenarios exercise Hustle and Guts contexts,
+including physical/special and attacker/defender controls, status, badges, and critical hits. The Guts
+Special active-status control remains engine-only because production does not need to model a Guts
+modifier on a Special move.
 
 Each registered scenario also pins its current 16-roll QuickJS calculator output in
 `known_divergences.json`. The differential test accepts only that exact wrong vector; a new wrong
@@ -213,5 +218,6 @@ register (and `HnsDamageOracleAuthorityTest`'s #97 pin) to be updated in the sam
 | `pinch-*` | 76 | Overgrow/Blaze/Torrent/Swarm at HP floor(max/3) and +1 for four max-HP values, off-type, crit |
 | `wise-glasses-*`, `badge-*` | 53 | BP rounding, physical/defender negative controls, type-based crossover; badges 1/3/6/7 both sides, pinch+badge modifier accumulation |
 | `fairy-*`, `style-*` | 66 | Fairy on/off typings and move retypes, immunity on/off, type-based categories |
+| `group-d-*` | 8 | Hustle and Guts physical/special, attacker/defender, status, badge, and critical-hit controls |
 | `engine-*`, `doubles-*` | 111 | engine-only: Thick Fat, Guts, Huge/Pure Power, Adaptability, 17 type-boost items, Doubles single-target/spread/partner-fainted/screens/Rain |
 | `xref-*` | 34 | existing fixture reproductions |

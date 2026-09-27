@@ -106,6 +106,17 @@ hide behind a matching min/max pair.
 These numbers were computed independently and then cross-checked against the
 engine; they were not produced by running the engine and copying its output.
 
+### H&S Group D Attack-stat regressions
+
+`check_group_d_attack_modifier_accumulation()` compares all 16 shipped-bundle rolls for the
+`Overgrow × offensive badge` regression at raw Attack 255. The pinned combined UQ4.12 modifier
+produces Attack 421; a second oracle vector at 420 proves the fixture fails if the old sequential
+integer rounding returns. Separate Overgrow-only and inactive-Overgrow-plus-badge controls verify
+each modifier independently. The committed differential corpus also covers Hustle's physical,
+special, and defender contexts and Guts with burn/poison on Physical moves, no-status and
+Special-move controls, a badge combination, and a critical-hit combination. Production authorizes
+Guts only from the boundary-observed raw `status1` and authoritative Physical category.
+
 ### Vanilla FireRed / Emerald golden matrix
 
 `run_vanilla_golden_matrix()` in this suite reads
@@ -200,15 +211,12 @@ for an already registered scenario. A registered scenario that starts to match f
 self-tests its own mismatch detection (one altered roll at each of the 16 indices,
 refused/short/fractional/string responses, duplicate IDs, wrong commit, wrong backend).
 
-**Current result.** 1,362 scenarios (1,247 on the production-modelled surface, 115 engine-only);
-1,351 match all 16 rolls exactly. The 11 registered divergences are tracked in
-[#97](https://github.com/Sonoran-Solutions/dualdex/issues/97) (type-based option style: pinned H&S
-makes Ghost special and Dark physical),
-[#98](https://github.com/Sonoran-Solutions/dualdex/issues/98) (Attack modifiers must be accumulated in
-UQ4.12 before being applied: pinch + badge),
-[#99](https://github.com/Sonoran-Solutions/dualdex/issues/99) (engine-only: Guts boosts special moves)
-and [#100](https://github.com/Sonoran-Solutions/dualdex/issues/100) (engine-only: Doubles spread
-reduction misses post-Generation-III spread moves).
+**Current result.** 1,375 scenarios (1,259 on the production-modelled surface, 116 engine-only);
+1,367 match all 16 rolls exactly. The eight remaining registered divergences are six #97 type-based
+option-style vectors (pinned H&S makes Ghost special and Dark physical) and two #100 Doubles spread
+vectors (post-Generation-III spread moves). The Attack-stat accumulator resolves #98's
+`badge-pinch-overgrow-a255` vector, and the Guts Physical-category gate resolves #99's burn- and
+poison-statused Psychic vectors. Both issues' registered scenarios now match all 16 pinned rolls.
 
 **What the oracle is.** The expected vectors are measured from the **real pinned H&S battle engine**
 (`PokemonHnS-Development/pokehns-expansion` @ `1f42b74dff0e9fe942419845d040663dd829a973`): the pinned

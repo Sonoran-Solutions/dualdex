@@ -115,6 +115,8 @@ class HnsAbilityContextPolicyTest {
 
     @Test
     fun `Guts uses side status and category authority`() {
+        assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(62).category)
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             relevance(62, context(side = HnsAbilitySide.DEFENDER, attackerStatus1 = null,
                 moveCategory = null)))
@@ -126,6 +128,10 @@ class HnsAbilityContextPolicyTest {
             relevance(62, context(moveCategory = MoveCategory.PHYSICAL, attackerStatus1 = 0x10)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(62, context(moveCategory = MoveCategory.PHYSICAL, attackerStatus1 = null)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(62, context(moveCategory = MoveCategory.PHYSICAL, attackerStatus1 = 1 shl 8)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(62, context(moveCategory = MoveCategory.PHYSICAL, attackerStatus1 = 1 shl 15)))
         // Category authority is its own operand (HnsMoveAuthority): without it Guts stays unknown,
         // whatever the effective-type authority says.
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
@@ -133,6 +139,20 @@ class HnsAbilityContextPolicyTest {
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             relevance(62, context(moveCategory = MoveCategory.SPECIAL, attackerStatus1 = 0x10,
                 moveType = null, dynamicMoveTypeKnownNeutral = false)))
+    }
+
+    @Test
+    fun `Hustle is exact only for authoritative physical attacker category`() {
+        assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(55).category)
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(55, context(moveCategory = MoveCategory.PHYSICAL)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(55, context(moveCategory = MoveCategory.SPECIAL)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(55, context(side = HnsAbilitySide.DEFENDER, moveCategory = null)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(55, context(moveCategory = null)))
     }
 
     @Test

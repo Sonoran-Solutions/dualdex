@@ -1240,13 +1240,14 @@ class CalcCapabilityPolicyTest {
         // because the engine would silently ignore them.
         assertFalse(CalcCapabilityPolicy.GEN3_MODELLED_ABILITIES.contains("Multiscale"))
         assertFalse(CalcCapabilityPolicy.GEN3_MODELLED_ABILITIES.contains("Adaptability"))
-        // H&S uses conditional ability support (Gap C2). Keen Eye and Insomnia are supported (zero damage effect);
-        // Thick Fat and Guts are temporarily unsupported due to modifier composition & stat stages ordering divergence.
+        // H&S uses conditional ability support (Gap C2 / Group D Attack stage). Keen Eye and Insomnia are
+        // supported (zero damage effect); Guts and Hustle now have source-backed Attack-stage support.
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Keen Eye"))
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Insomnia"))
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "None"))
         assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Thick Fat"))
-        assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Guts"))
+        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Guts"))
+        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Hustle"))
         // Gap C4e: the pinch abilities are conditionally modelled (their live HP condition is
         // enforced by the policy before a request may proceed).
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Overgrow"))

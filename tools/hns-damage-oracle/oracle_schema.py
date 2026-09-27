@@ -23,7 +23,7 @@ import json
 import re
 from typing import Any
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 ROLL_COUNT = 16
 
 HNS_REPOSITORY = "PokemonHnS-Development/pokehns-expansion"
@@ -31,7 +31,7 @@ HNS_PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
 HNS_PINNED_TREE = "586946f21e9322e8d837654d9e07cf6b8239feed"
 
 ORACLE_BACKEND_KIND = "pinned-expansion-battle-test-runner"
-ORACLE_TOOL_VERSION = 3
+ORACLE_TOOL_VERSION = 4
 
 ROLL_ORDER = (
     "rolls[k] is the damage at random factor (85+k)%, i.e. the pinned hit measured with "
@@ -82,7 +82,7 @@ DOUBLES_KEYS = ("defenderPartner",)
 DEFENDER_PARTNER_STATES = ("present", "fainted")
 
 OBSERVED_KEYS = ("attacker", "defender", "move", "targetCount")
-OBSERVED_BATTLER_KEYS = ("speciesId", "types", "baseStats", "abilityId", "itemId", "hpAtHit", "badgeBoosts")
+OBSERVED_BATTLER_KEYS = ("speciesId", "types", "baseStats", "abilityId", "itemId", "hpAtHit", "status1", "badgeBoosts")
 BASE_STAT_KEYS = ("hp", "attack", "defense", "spAttack", "spDefense", "speed")
 BADGE_BOOST_KEYS = ("attack", "defense", "spAttack", "spDefense")
 OBSERVED_MOVE_KEYS = ("id", "type", "power", "category", "target", "flags", "priority", "targetClass")
@@ -262,6 +262,7 @@ def _validate_observed_battler(b: Any, path: str) -> None:
     _require_int(b["abilityId"], f"{path}.abilityId", 1, 65535)
     _require_int(b["itemId"], f"{path}.itemId", 0, 65535)
     _require_int(b["hpAtHit"], f"{path}.hpAtHit", 1, 65535)
+    _require_int(b["status1"], f"{path}.status1", 0, 65535)
     _require_keys(b["badgeBoosts"], BADGE_BOOST_KEYS, f"{path}.badgeBoosts")
     for key in BADGE_BOOST_KEYS:
         _require_bool(b["badgeBoosts"][key], f"{path}.badgeBoosts.{key}")

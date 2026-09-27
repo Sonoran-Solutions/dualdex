@@ -73,8 +73,8 @@ Target, and Float Stone do not claim generic ordinary damage multipliers.
 ## Verification artifacts
 
 The generated ability, item, and move inventories are committed beside their source decisions.
-The issue #90 differential oracle now records upstream move flags, effective priority, and target
-class in corpus schema v2. Its Group C matrix includes the listed absorptions, flag matches,
+The issue #90 differential oracle now records upstream move flags, effective priority, target
+class, and raw attacker/defender `status1` in corpus schema v3. Its Group C matrix includes the listed absorptions, flag matches,
 priority blockers, Wonder Guard, Levitate, grounding items, Ring Target, and positive/negative
 controls. Native calculator tests assert exact zero rolls and causal records; production boundary
 tests cover authorization, current ability/item authority, Mold Breaker relevance, and pinned move

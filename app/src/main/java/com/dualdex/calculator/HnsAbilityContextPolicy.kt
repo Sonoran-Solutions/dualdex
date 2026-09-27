@@ -44,6 +44,9 @@ object HnsAbilityContextPolicy {
      * tools/hns-abilities/generate_hns_ability_audit.py (source-check fails on any drift).
      */
     const val TERAPAGOS_TERASTAL_SPECIES_ID = HnsAbilityAuditData.TERAPAGOS_TERASTAL_SPECIES_ID
+    private const val HNS_STATUS1_DEFINED_MASK = 0x1fff
+    private const val HNS_STATUS1_ANY_MASK = 0x10ff // pinned STATUS1_ANY, include/constants/battle.h:163
+    private val MODELLED_ATTACK_STAT_ABILITY_IDS = setOf(55, 62) // Hustle / Guts, Group D stage 1
 
     data class Context(
         val side: HnsAbilitySide,
@@ -88,14 +91,16 @@ object HnsAbilityContextPolicy {
     fun assess(abilityId: Int, context: Context?): HnsAbilityRequestDecision {
         val entry = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(abilityId)
         val side = context?.side ?: HnsAbilitySide.ATTACKER
-        if (entry.category != HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT) {
+        if (entry.category != HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
+            !(entry.category == HnsAbilityCategory.MODELLED_HNS_CONDITIONAL && abilityId in MODELLED_ATTACK_STAT_ABILITY_IDS)
+        ) {
             return decision(
                 entry.abilityId ?: abilityId,
                 entry.titleCaseName,
                 side,
                 entry.category,
                 HnsAbilityRequestRelevance.UNKNOWN,
-                rationale = "Context rules are only evaluated for globally unsupported abilities."
+            rationale = "No reviewed request-local rule applies to this ability classification."
             )
         }
 
@@ -258,6 +263,21 @@ object HnsAbilityContextPolicy {
                     )
                 }
             }
+            55 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "defender_hustle_does_not_modify_incoming_damage", "src/battle_util.c:7048",
+                    "Hustle is read only in the attacker's Attack-stat modifier path."
+                )
+                c.moveCategory == null -> null
+                c.moveCategory == MoveCategory.SPECIAL -> proof(
+                    "hustle_special_move", "src/battle_util.c:7049",
+                    "Hustle's Attack modifier requires a physical move."
+                )
+                else -> relevant(
+                    "hustle_physical_move", "src/battle_util.c:7049-7050",
+                    "A physical move receives the Hustle Attack-stat modifier."
+                )
+            }
             62 -> when {
                 c.side == HnsAbilitySide.DEFENDER -> proof(
                     "defender_guts_does_not_modify_incoming_damage", "src/battle_util.c:7056",
@@ -268,15 +288,17 @@ object HnsAbilityContextPolicy {
                     "guts_special_move", "src/battle_util.c:7056",
                     "Guts modifies Attack only for physical moves."
                 )
+                c.attackerStatus1 == null -> null
+                (c.attackerStatus1 and HNS_STATUS1_DEFINED_MASK.inv()) != 0 -> null
                 c.attackerStatus1 == 0 -> proof(
                     "guts_attacker_neutral_status", "src/battle_util.c:7056",
                     "The Guts Attack modifier requires STATUS1_ANY; live status1 is observed zero."
                 )
-                c.attackerStatus1 == null -> null
-                else -> relevant(
+                (c.attackerStatus1 and HNS_STATUS1_ANY_MASK) != 0 -> relevant(
                     "guts_physical_move_with_status", "src/battle_util.c:7056",
-                    "A statused attacker using a physical move receives the Guts modifier."
+                    "The observed status1 intersects pinned STATUS1_ANY, and a physical move receives the Guts modifier."
                 )
+                else -> null
             }
             37, 74 -> when {
                 c.side == HnsAbilitySide.DEFENDER -> proof(

@@ -667,6 +667,27 @@ class HnsBattlerRuntimeStateTest {
     }
 
     @Test
+    fun `switch-in phase tuple is decoded and older tuples fail closed`() {
+        val settled = IntArray(76).also { tuple ->
+            observedTuple().copyInto(tuple)
+            tuple[74] = 1
+            tuple[75] = 1
+        }
+        val decoded = HnsBattlerRuntimeState.fromNativeArray(settled)
+        assertTrue(decoded.switchInPhaseObserved)
+        assertTrue(decoded.switchInEventsSettled)
+
+        val pending = settled.copyOf().also { it[75] = 0 }
+        val pendingDecoded = HnsBattlerRuntimeState.fromNativeArray(pending)
+        assertTrue(pendingDecoded.switchInPhaseObserved)
+        assertFalse(pendingDecoded.switchInEventsSettled)
+
+        val prePhaseTuple = HnsBattlerRuntimeState.fromNativeArray(settled.copyOf(74))
+        assertFalse(prePhaseTuple.switchInPhaseObserved)
+        assertFalse(prePhaseTuple.switchInEventsSettled)
+    }
+
+    @Test
     fun `out-of-domain item is never named and never substituted`() {
         val st = HnsBattlerRuntimeState.fromNativeArray(
             observedTuple(item = HnsBattlerRuntimeStateIds.ITEM_ID_MAX + 1, itemInvalid = 1)

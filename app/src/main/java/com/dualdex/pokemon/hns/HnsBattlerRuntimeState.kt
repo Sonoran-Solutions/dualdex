@@ -375,7 +375,11 @@ data class HnsBattlerRuntimeState(
      */
     val sideStatusesReadable: Boolean = false,
     /** Engine's current status word for the observed battler's side. Only meaningful when readable. */
-    val sideStatuses: Int = 0
+    val sideStatuses: Int = 0,
+    /** true when the global switch-in event counter and every active battler flag were read. */
+    val switchInPhaseObserved: Boolean = false,
+    /** The event driver reached SWITCH_IN_EVENTS_COUNT and all active battler switchIn flags cleared. */
+    val switchInEventsSettled: Boolean = false
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
@@ -461,6 +465,8 @@ data class HnsBattlerRuntimeState(
          * [68] volatileGastroAcid, [69] volatileRoostActive,
          * [70] volatileSubstitute, [71] volatileEndured,
          * [72] speciesObserved, [73] current live battle species ID.
+         * [74] switchInPhaseObserved, [75] switchInEventsSettled (event sentinel, clear flags,
+         * and stable action-selection callback).
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
          * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is
@@ -468,7 +474,8 @@ data class HnsBattlerRuntimeState(
          * additionally carries the Gap C4e live operands, [C4E_FIELD_TUPLE_LEN]
          * the live weather / defender-side status operands, [C4E_TRANSIENT_TUPLE_LEN]
          * the Charge / Tar Shot volatile operands, and [C4E_PERSISTENT_TUPLE_LEN]
-         * the review-round-4 persistent volatile operands.
+         * the review-round-4 persistent volatile operands; [PHASE_TUPLE_LEN] additionally carries
+         * the authoritative switch-in/event settlement state.
          */
         private const val TUPLE_LEN = 42
         private const val C4E_TUPLE_LEN = 56
@@ -476,6 +483,7 @@ data class HnsBattlerRuntimeState(
         private const val C4E_TRANSIENT_TUPLE_LEN = 62
         private const val C4E_PERSISTENT_TUPLE_LEN = 72
         private const val C4E_SPECIES_TUPLE_LEN = 74
+        private const val PHASE_TUPLE_LEN = 76
 
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -548,6 +556,8 @@ data class HnsBattlerRuntimeState(
             // tuple is long enough to carry them.
             val c4ePersistent = raw.size >= C4E_PERSISTENT_TUPLE_LEN
             val speciesId = if (raw.size >= C4E_SPECIES_TUPLE_LEN && raw[72] != 0) raw[73] else null
+            val switchInPhaseObserved = raw.size >= PHASE_TUPLE_LEN && raw[74] != 0
+            val switchInEventsSettled = switchInPhaseObserved && raw[75] != 0
             val persistentVolatilesObserved = volatilesObserved && c4ePersistent
             val decoded = HnsBattlerRuntimeState(
                 status = status,
@@ -613,7 +623,9 @@ data class HnsBattlerRuntimeState(
                 weatherReadable = weatherReadable,
                 battleWeather = if (weatherReadable) raw[57] else 0,
                 sideStatusesReadable = sideStatusesReadable,
-                sideStatuses = if (sideStatusesReadable) raw[59] else 0
+                sideStatuses = if (sideStatusesReadable) raw[59] else 0,
+                switchInPhaseObserved = switchInPhaseObserved,
+                switchInEventsSettled = switchInEventsSettled
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for
             // out-of-domain observations, but a tuple whose flags claim an out-of-domain

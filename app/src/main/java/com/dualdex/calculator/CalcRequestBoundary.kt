@@ -232,7 +232,6 @@ object CalcRequestBoundary {
         }
 
         val state = observation?.state
-        val identity = observation?.abilityIdentity
 
         // Central boundary slot provenance binding:
         // A live-read participant under exact H&S must carry partySlot, and it must match the observed battler's partySlot.
@@ -266,29 +265,12 @@ object CalcRequestBoundary {
             return participant.copy(ability = null, abilityId = null, unknownFields = newUnknowns)
         }
 
-        // Defense-in-depth: verify identity abilityId matches the engine's effective ability.
-        // When gastroAcid was positively observed, GetBattlerAbility() is ABILITY_NONE regardless
-        // of the raw identity, so the authoritative name is "None" (the raw catalogue name would
-        // misrepresent the engine).
-        val abilitySuppressed = state.abilityId != null && state.abilityId != 0 &&
-            state.persistentVolatilesObserved && state.volatileGastroAcid
-        val authoritativeName = if (abilitySuppressed) {
-            "None"
-        } else if (effectiveAbilityId == 0) {
-            val declared = identity as? com.dualdex.pokemon.DeclaredAbility.Declared
-            if (declared != null && declared.abilityId != 0) {
-                null // ID mismatch: state is 0 but identity declares non-zero
-            } else {
-                "None"
-            }
-        } else {
-            val declared = identity as? com.dualdex.pokemon.DeclaredAbility.Declared
-            if (declared != null && declared.abilityId == effectiveAbilityId && declared.name.isNotBlank()) {
-                com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(declared.name) ?: declared.name
-            } else {
-                null // missing, blank, or ID mismatch
-            }
-        }
+        // Name the engine's effective runtime ID from the pinned catalogue. This field may
+        // legitimately differ from the species/party declaration after Trace, Receiver, Power
+        // of Alchemy, Wandering Spirit, or another ability replacement. Gastro Acid is already
+        // folded into effectiveAbilityId as ABILITY_NONE; a missing/out-of-domain ID still fails.
+        val authoritativeName =
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(effectiveAbilityId)
 
         if (authoritativeName == null) {
             val newUnknowns = if (participant.unknownFields.contains(CalcInputField.ABILITY)) {
@@ -300,8 +282,8 @@ object CalcRequestBoundary {
         }
 
         // Anti-spoofing: authoritative runtime observation wins over any caller-supplied value.
-        // The published id is the engine's EFFECTIVE ability, so a suppressed identity can never
-        // be classed as its raw pinch ability downstream.
+        // The published ID and display name both come from the engine's EFFECTIVE ability, so a
+        // replacement or Gastro Acid suppression cannot fall back to a species default.
         val newUnknowns = participant.unknownFields - CalcInputField.ABILITY
         return participant.copy(
             ability = authoritativeName,
@@ -726,6 +708,13 @@ object CalcRequestBoundary {
                 enemyBattlerState = enemyBattlerState,
                 isExactVerified = isExactVerified
             ),
+            // The same two boundary-owned observations must agree on the generated H&S event
+            // phase before Group B can treat a live writer's output as settled.
+            switchInEventsSettled = authoritativeSwitchInEventsSettled(
+                playerBattlerState = playerBattlerState,
+                enemyBattlerState = enemyBattlerState,
+                isExactVerified = isExactVerified
+            ),
             fieldStatuses = fieldStatuses,
             attackerElectrified = attackerElectrified,
             defenderGlaiveRush = defenderGlaiveRush,
@@ -914,6 +903,28 @@ object CalcRequestBoundary {
         if (!player.battlersCountReadable || !enemy.battlersCountReadable) return null
         if (player.battlersCount != enemy.battlersCount) return null
         return player.battlersCount
+    }
+
+    /**
+     * The settled switch-in/event-script phase, or null unless both exact runtime observations
+     * read the phase and agree. Native requires the completed event counter, clear active switchIn
+     * flags, and H&S's stable action-selection callback; the callback gate covers replacement work
+     * before switchineffects resets the event fields. A readable false must not authorize Group B.
+     */
+    private fun authoritativeSwitchInEventsSettled(
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Boolean? {
+        if (!isExactVerified) return null
+        val player = playerBattlerState?.state ?: return null
+        val enemy = enemyBattlerState?.state ?: return null
+        if (player.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED ||
+            enemy.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED
+        ) return null
+        if (!player.switchInPhaseObserved || !enemy.switchInPhaseObserved) return null
+        if (player.switchInEventsSettled != enemy.switchInEventsSettled) return null
+        return player.switchInEventsSettled
     }
 
     /**

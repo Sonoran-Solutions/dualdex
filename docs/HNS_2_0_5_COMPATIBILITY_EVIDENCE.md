@@ -36,7 +36,7 @@ The earlier C4c opening summary was superseded by the C4d/C4e evidence later in 
 | Opponent voluntary switch without faint | RUNTIME VERIFIED (Scenario 44, §11.10); §14.5 records a later replay limitation |
 | Doubles / partner / multi lifecycle | Natural Amy & May Doubles RUNTIME VERIFIED (Scenario 70); both active roles honestly AMBIGUOUS. Partner/multi remain source + synthetic only; see the issue #1 audit |
 | Maps / multi-region location routing (#11) | §12 remains authoritative; **§12.9 adds the runtime half**. H&S location reads are now RUNTIME VERIFIED at six legal checkpoints and across a real map transition in both directions; Kanto/Sinjoh/Alola *transitions* remain NOT RUNTIME VERIFIED with a source-derived blocker per edge (Kanto routing is source-backed only); the Map tab remains NOT DEVICE VERIFIED |
-| Calculator (#9) | Closed for the accepted bounded scope after PR #71: exact H&S ordinary live Singles is capped at ESTIMATED; unsupported mechanics are refused. See [capability §14.14](HNS_2_0_5_CALCULATOR_CAPABILITY.md) and the C4e section below |
+| Calculator (#9) | Exact H&S ordinary live Singles remains capped at ESTIMATED; unsupported mechanics are refused. See [capability §14.14](HNS_2_0_5_CALCULATOR_CAPABILITY.md), the [live-state authority matrix](HNS_2_0_5_LIVE_STATE_AUTHORITY_MATRIX.md), and the C4e / #88 evidence below |
 | `battleUiVerified` / `interactiveControlsVerified` | Both remain `false` — deliberately, and unrelated to the hash |
 
 Sections 1-11 are the historical record of the memory/layout phase and the battle-lifecycle phase,
@@ -2849,7 +2849,7 @@ In pinned H&S `Release-v2.0.5` (`1f42b74dff0e9fe942419845d040663dd829a973`):
    `BattlerRuntimeObservation` carries both `state.abilityId` and `abilityIdentity` (`DeclaredAbility.Declared?`).
    Both `CalcParticipantPresenter` and `CalcRequestBoundary` verify that:
    `observation.abilityIdentity.abilityId == state.abilityId` (and if `state.abilityId == 0`, that `abilityIdentity` is not a declared non-zero ability).
-   Any mismatch immediately treats the observation as unreadable (`EffectiveAbilityResolution.UnknownAbility`), clearing `ability = null` and recording `HNS_EFFECTIVE_ABILITY_UNREADABLE`.
+   **Historical implementation, superseded by Group B (#88):** a declaration-identity mismatch used to treat the observation as unreadable. The current `CalcRequestBoundary` trusts only the in-domain numeric ability ID from the exact slot-matched live battle observation and resolves its name from the pinned registry; stale declaration/name identity cannot replace that ID. An absent, invalid, or slot-mismatched runtime ID still fails closed.
 
 ### 16.3 Default Ability Substitution Prevention
 
@@ -3142,7 +3142,7 @@ given a fabricated positive fixture: H&S applies stages before its fixed-point a
 composition while ADV applies ability modifiers before stages, and the staged-stat rounding is not
 independently proven. The only positive parity cases are neutral-stage physical and special requests.
 
-### 18.5 Live battle state (R1)
+### 18.5 Live battle state (R1; historical pre-C4e snapshot)
 
 `CalcCapabilityPolicy.hnsLiveBattleStateNotModelled` refuses an active H&S battle whose mutable
 damage operands are not authoritatively observed with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`.
@@ -4011,3 +4011,19 @@ To guarantee that the QuickJS calculator engine reproduces exact H&S damage roll
 - Wise Glasses arithmetic (`halfDown(4505, bp)` on Special moves): **HOST VERIFIED / PRODUCTION AUTHORIZED** (pinned upstream source `src/battle_util.c:6817-6819`; verified across roll suites in `test_js_calc.c` against independent C arithmetic; authorized for production live calculation).
 - Note: This implementation is **HOST VERIFIED** and **PRODUCTION AUTHORIZED**, not claimed as **RUNTIME VERIFIED** (which is reserved for cartridge memory dumps / live RAM captures).
 
+
+
+## Group B live-state writer evidence (#88)
+
+[`HNS_2_0_5_LIVE_STATE_AUTHORITY_MATRIX.md`](HNS_2_0_5_LIVE_STATE_AUTHORITY_MATRIX.md) is the
+current shared provenance record for H&S fields DualDex reads, how exact active-slot authority is
+bound by `CalcRequestBoundary`, and which values `calculateHnsDamage` actually consumes. It is
+pinned to the same upstream commit documented in §1.
+
+Group B adds request-local stage-writer, ordinary weather-setter, effective-type, effective-ability,
+and triggered stat-item decisions. The production-boundary tests ensure caller/species defaults
+cannot manufacture live stages, types, ability, item, weather, or field authority. Terrain remains a
+captured but unconsumed damage operand; the matrix names #91 as the terrain/weather/Charge/Flash Fire
+handoff and #92 as the Booster Energy handoff. Protean/Libero are only clear in the already-mono
+same-move-type case because the current reader does not capture `usedProteanLibero` before the
+selected move's pre-damage type change.

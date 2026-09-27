@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the H&S 2.0.5 live battle-state layout table (Gap C4e).
+"""Generate the H&S 2.0.5 live battle-state layout table (Gap C4e / switch-in settlement).
 
 This is the authoritative source-check for the runtime readers added in C4e:
 
@@ -13,7 +13,12 @@ This is the authoritative source-check for the runtime readers added in C4e:
     `telekinesis`, `magnetRise`, `gastroAcid`) plus the `GetAdjustedDamage`
     states (`substitute`, `endured`);
   * the offset of `struct BattleStruct.gimmick` and of
-    `struct BattleGimmickData.activeGimmick`, plus its side/party strides.
+    `struct BattleGimmickData.activeGimmick`, plus its side/party strides;
+  * the `BattleStruct.eventState`, `battlerState`, and `monToSwitchIntoId` offsets plus compiled
+    bit positions used to prove that `SWITCH_IN_EVENTS_COUNT` was reached and every active
+    switch-in flag was cleared;
+  * the official-release `gBattleMainFunc` symbol and action-selection callback used to keep the
+    whole replacement action/script/controller sequence pending.
 
 How: the script compiles a probe translation unit against the pinned headers
 with the pinned ARM toolchain and reads the values back out of the emitted
@@ -44,6 +49,14 @@ from pathlib import Path
 
 PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
 PINNED_TAG = "Release-v2.0.5"
+
+# Official v2.0.5 release ROM symbols (SHA-256
+# edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b).
+# gBattleMainFunc is in IWRAM; this Thumb callback is the stable action
+# selection point used as the wider switch-in/event settlement gate.
+BATTLE_MAIN_FUNC_GBA_ADDRESS = 0x03002F5C
+ACTION_SELECTION_FUNC_PTR = 0x080893D9  # HandleTurnActionSelectionState | 1 (Thumb)
+BATTLE_SCRIPT_CALLBACK_FUNC_PTR = 0x0808B939  # RunBattleScriptCommands_PopCallbacksStack | 1
 
 # Same compiled-evidence flags as the other two H&S layout generators (§10 of
 # the compatibility evidence).
@@ -90,6 +103,7 @@ def build_probe_c() -> str:
             "   not part of any build. */",
             "#include \"global.h\"",
             "#include \"battle.h\"",
+            "#include \"constants/battle_switch_in.h\"",
             "const unsigned long ddx_sizeof_volatiles = sizeof(struct Volatiles);",
             "const unsigned long ddx_hp_offset =",
             "    __builtin_offsetof(struct BattlePokemon, hp);",
@@ -107,6 +121,18 @@ def build_probe_c() -> str:
             "    __builtin_offsetof(struct BattlePokemon, volatiles);",
             "const unsigned long ddx_gimmick_offset =",
             "    __builtin_offsetof(struct BattleStruct, gimmick);",
+            "const unsigned long ddx_battle_struct_event_state_offset =",
+            "    __builtin_offsetof(struct BattleStruct, eventState);",
+            "const unsigned long ddx_battle_struct_battler_state_offset =",
+            "    __builtin_offsetof(struct BattleStruct, battlerState);",
+            "const unsigned long ddx_battle_struct_mon_to_switch_into_id_offset =",
+            "    __builtin_offsetof(struct BattleStruct, monToSwitchIntoId);",
+            "const unsigned long ddx_battler_state_size = sizeof(struct BattlerState);",
+            "const unsigned long ddx_max_battlers_count = MAX_BATTLERS_COUNT;",
+            "const unsigned long ddx_switch_in_events_count = SWITCH_IN_EVENTS_COUNT;",
+            "const struct EventStates ddx_event_switch_in_one = { .switchIn = 1 };",
+            "const struct EventStates ddx_event_switch_in_all = { .switchIn = (enum SwitchInEvents)0xFF };",
+            "const struct BattlerState ddx_battler_switch_in = { .switchIn = 1 };",
             "const unsigned long ddx_active_gimmick_offset =",
             "    __builtin_offsetof(struct BattleGimmickData, activeGimmick);",
             "const unsigned long ddx_gimmick_side_count = NUM_BATTLE_SIDES;",
@@ -249,6 +275,70 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
         if not m:
             fail(f"could not parse {key} from include/pokemon.h; the pinned source shape changed")
         pins[key] = int(m.group(1), 16)
+
+    # Validate the action-selection callback gate against the pinned engine.
+    # The event counter and BattlerState.switchIn flags are reset only in
+    # Cmd_switchineffects, after Cmd_switchindataupdate has installed the new
+    # battler. Requiring the main callback to return to action selection also
+    # blocks the gap before switchineffects begins (and script/controller work
+    # through the rest of the replacement sequence).
+    battle_h = (upstream_path / "include/battle.h").read_text()
+    battle_main = (upstream_path / "src/battle_main.c").read_text()
+    battle_util = (upstream_path / "src/battle_util.c").read_text()
+    commands = (upstream_path / "src/battle_script_commands.c").read_text()
+    if not re.search(r"extern\s+void\s*\(\*gBattleMainFunc\)\(void\);", battle_h):
+        fail("gBattleMainFunc declaration changed; re-audit the switch-in phase gate")
+    if not re.search(r"gBattleMainFunc\s*=\s*HandleTurnActionSelectionState\s*;", battle_main):
+        fail("pinned source no longer assigns the action-selection callback")
+    execute_script = re.search(
+        r"void BattleScriptExecute\([^)]*\)\s*\{(.*?)\n\}", battle_util, re.S
+    )
+    if not execute_script or not re.search(
+        r"gBattleMainFunc\s*=\s*RunBattleScriptCommands_PopCallbacksStack\s*;",
+        execute_script.group(1),
+    ):
+        fail("pinned source no longer routes battle scripts through the main callback")
+    data_update = re.search(
+        r"static void Cmd_switchindataupdate\(void\)\s*\{(.*?)\n\}", commands, re.S
+    )
+    switch_effects = re.search(
+        r"static void Cmd_switchineffects\(void\)\s*\{(.*?)\n\}", commands, re.S
+    )
+    sent_flags = re.search(
+        r"static void UpdateSentMonFlags\([^)]*\)\s*\{(.*?)\n\}", commands, re.S
+    )
+    if not data_update or "monData[i] = gBattleResources->bufferB[battler][4 + i]" not in data_update.group(1):
+        fail("Cmd_switchindataupdate no longer installs the replacement battler as expected")
+    if not switch_effects or "gBattleStruct->eventState.switchIn = 0" not in switch_effects.group(1):
+        fail("Cmd_switchineffects no longer initializes the switch-in event counter")
+    sent_flags_index = switch_effects.group(1).find("UpdateSentMonFlags(battler)")
+    event_reset_index = switch_effects.group(1).find("gBattleStruct->eventState.switchIn = 0")
+    if sent_flags_index < 0 or event_reset_index < 0 or sent_flags_index >= event_reset_index:
+        fail("switch-in flags/event reset ordering changed; re-audit the phase gate")
+    if not sent_flags or "gBattleStruct->battlerState[battler].switchIn = TRUE" not in sent_flags.group(1):
+        fail("UpdateSentMonFlags no longer marks the battler entering before events")
+
+    pins["battle_main_func_gba_address"] = BATTLE_MAIN_FUNC_GBA_ADDRESS
+    pins["action_selection_func_ptr"] = ACTION_SELECTION_FUNC_PTR
+    pins["battle_script_callback_func_ptr"] = BATTLE_SCRIPT_CALLBACK_FUNC_PTR
+
+    # A built upstream checkout may carry its ignored .sym artifact. When
+    # available, cross-check the fixed official-release addresses against it;
+    # the committed ROM evidence remains the source when CI uses a sparse tree.
+    symbols_path = upstream_path / "pokehns.sym"
+    if symbols_path.is_file():
+        symbols = {}
+        for line in symbols_path.read_text().splitlines():
+            match = re.match(r"^([0-9a-fA-F]+)\s+\S+\s+\S+\s+(\S+)\s*$", line)
+            if match:
+                symbols[match.group(2)] = int(match.group(1), 16)
+        for symbol, expected in (
+            ("gBattleMainFunc", BATTLE_MAIN_FUNC_GBA_ADDRESS),
+            ("HandleTurnActionSelectionState", ACTION_SELECTION_FUNC_PTR & ~1),
+            ("RunBattleScriptCommands_PopCallbacksStack", BATTLE_SCRIPT_CALLBACK_FUNC_PTR & ~1),
+        ):
+            if symbols.get(symbol) != expected:
+                fail(f"pinned release symbol {symbol} is {symbols.get(symbol)!r}, expected 0x{expected:08X}")
     return pins
 
 
@@ -284,10 +374,12 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         " *",
         " * Pinned upstream: PokemonHnS-Development/pokehns-expansion",
         f" *   commit {PINNED_COMMIT} (tag {PINNED_TAG})",
+        " * Release-symbol source: official ROM SHA-256 edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b",
         f" * Compiler:   {Path(arm_gcc).name} (ARM GNU Toolchain 13.2.Rel1)",
         f" * Flags:      {' '.join(ARM_FLAGS)}",
         " *",
-        " * This is the ABI evidence for the C4e live-state readers: the",
+        " * This is the ABI evidence for the C4e live-state readers and the Group B",
+        " * switch-in settlement proof:",
         " * attacker's HP/maxHP (pinch-ability threshold), status1, the",
         " * BattlePokemon volatile bits, and the gimmick active array. Ordinary",
         " * members are compiled offsetof/sizeof scalars; bitfield members are",
@@ -323,9 +415,19 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f" *   volatile endured bit         = {compiled['volatile_endured_bit']}",
         f" *   volatile read window         = {compiled['volatile_window_bytes']} bytes",
         f" *   BattleStruct.gimmick         = {compiled['gimmick_offset']}",
+        f" *   BattleStruct.eventState      = {compiled['battle_struct_event_state_offset']}",
+        f" *   EventStates.switchIn         = bit {compiled['event_state_switch_in_bit']} width {compiled['event_state_switch_in_width']}",
+        f" *   BattleStruct.battlerState    = {compiled['battle_struct_battler_state_offset']}",
+        f" *   BattleStruct.monToSwitchIntoId = {compiled['battle_struct_mon_to_switch_into_id_offset']}",
+        f" *   sizeof(struct BattlerState)  = {compiled['battler_state_size']}",
+        f" *   BattlerState.switchIn        = bit {compiled['battler_state_switch_in_bit']}",
+        f" *   SWITCH_IN_EVENTS_COUNT      = {compiled['switch_in_events_count']}",
         f" *   BattleGimmickData.activeGimmick = {compiled['active_gimmick_offset']}",
+        f" *   gBattleMainFunc (IWRAM)      = 0x{pins['battle_main_func_gba_address']:08X}",
+        f" *   action-selection callback  = 0x{pins['action_selection_func_ptr']:08X}",
+        f" *   battle-script callback    = 0x{pins['battle_script_callback_func_ptr']:08X}",
         "",
-        " * Source-text cross-check (compiled ABI wins on disagreement):",
+        " * Source and official-symbol cross-check:",
     ]
     for a in agreements:
         lines.append(f" *   agree — {a}")
@@ -368,6 +470,18 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_BP_VOLATILE_ENDURED_BIT {compiled['volatile_endured_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_WINDOW_BYTES {compiled['volatile_window_bytes']}",
         f"#define HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET {compiled['gimmick_offset']}",
+        f"#define HNS_LIVE_BATTLE_STRUCT_EVENT_STATE_OFFSET {compiled['battle_struct_event_state_offset']}",
+        f"#define HNS_LIVE_EVENT_STATE_SWITCH_IN_BIT {compiled['event_state_switch_in_bit']}",
+        f"#define HNS_LIVE_EVENT_STATE_SWITCH_IN_WIDTH {compiled['event_state_switch_in_width']}",
+        f"#define HNS_LIVE_BATTLE_STRUCT_BATTLER_STATE_OFFSET {compiled['battle_struct_battler_state_offset']}",
+        f"#define HNS_LIVE_BATTLE_STRUCT_MON_TO_SWITCH_INTO_ID_OFFSET {compiled['battle_struct_mon_to_switch_into_id_offset']}",
+        f"#define HNS_LIVE_BATTLER_STATE_SIZE {compiled['battler_state_size']}",
+        f"#define HNS_LIVE_BATTLER_STATE_SWITCH_IN_BIT {compiled['battler_state_switch_in_bit']}",
+        f"#define HNS_LIVE_MAX_BATTLERS_COUNT {compiled['max_battlers_count']}",
+        f"#define HNS_LIVE_SWITCH_IN_EVENTS_COUNT {compiled['switch_in_events_count']}",
+        f"#define HNS_LIVE_BATTLE_MAIN_FUNC_GBA_ADDRESS 0x{pins['battle_main_func_gba_address']:08X}u",
+        f"#define HNS_LIVE_ACTION_SELECTION_FUNC_PTR 0x{pins['action_selection_func_ptr']:08X}u",
+        f"#define HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR 0x{pins['battle_script_callback_func_ptr']:08X}u",
         f"#define HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET {compiled['active_gimmick_offset']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT {compiled['gimmick_side_count']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT {compiled['gimmick_party_count']}",
@@ -521,6 +635,12 @@ def main() -> None:
             "volatile_substitute_bit": single_bit(blob, base_addr, syms, "ddx_v_substitute"),
             "volatile_endured_bit": single_bit(blob, base_addr, syms, "ddx_v_endured"),
             "gimmick_offset": scalar(blob, base_addr, syms, "ddx_gimmick_offset"),
+            "battle_struct_event_state_offset": scalar(blob, base_addr, syms, "ddx_battle_struct_event_state_offset"),
+            "battle_struct_battler_state_offset": scalar(blob, base_addr, syms, "ddx_battle_struct_battler_state_offset"),
+            "battle_struct_mon_to_switch_into_id_offset": scalar(blob, base_addr, syms, "ddx_battle_struct_mon_to_switch_into_id_offset"),
+            "battler_state_size": scalar(blob, base_addr, syms, "ddx_battler_state_size"),
+            "max_battlers_count": scalar(blob, base_addr, syms, "ddx_max_battlers_count"),
+            "switch_in_events_count": scalar(blob, base_addr, syms, "ddx_switch_in_events_count"),
             "active_gimmick_offset": scalar(blob, base_addr, syms, "ddx_active_gimmick_offset"),
             "gimmick_side_count": scalar(blob, base_addr, syms, "ddx_gimmick_side_count"),
             "gimmick_party_count": scalar(blob, base_addr, syms, "ddx_gimmick_party_count"),
@@ -532,6 +652,14 @@ def main() -> None:
         chargebit, chargewidth = multi_bit(blob, base_addr, syms, "ddx_v_charge_timer")
         compiled["volatile_charge_timer_bit"] = chargebit
         compiled["volatile_charge_timer_width"] = chargewidth
+        event_bit, event_width = multi_bit(blob, base_addr, syms, "ddx_event_switch_in_all")
+        compiled["event_state_switch_in_bit"] = event_bit
+        compiled["event_state_switch_in_width"] = event_width
+        compiled["battler_state_switch_in_bit"] = single_bit(
+            blob, base_addr, syms, "ddx_battler_switch_in"
+        )
+        if single_bit(blob, base_addr, syms, "ddx_event_switch_in_one") != event_bit:
+            fail("EventStates.switchIn bit probe disagrees between value 1 and full-width probe")
         # Read window: enough bytes to cover the highest exported volatile bit. Reading only
         # the first 10 bytes was sufficient for the original four bits but silently truncated
         # `tarShot` (and any later damage-relevant volatile), so the window is derived from the

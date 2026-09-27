@@ -500,7 +500,7 @@
           "rule": "single_hit_item_activation_outside_damage",
           "side": "EITHER",
           "predicate": "The selected move is ordinary (single hit). Excludes Booster Energy, Terrain Seed, Berserk Gene and the speed-policy items Blunder Policy / Room Service.",
-          "rationale": "These hold effects have no read in the damage computation. Every activation is an ItemBattleEffects call in a MoveEnd handler (after damage is dealt), at end of turn, at switch-in, or from an event script, so for a single-hit ordinary move none can change the hit's damage range. HP restored afterwards, contact recoil to the attacker and later stat changes are outside the displayed single-hit contract. The mixed pre-hit stat writers are excluded pending #88; Blunder Policy and Room Service use the speed dependency rule.",
+          "rationale": "These hold effects have no read in the damage computation. Every activation is an ItemBattleEffects call in a MoveEnd handler (after damage is dealt), at end of turn, at switch-in, or from an event script, so for a single-hit ordinary move none can change the hit's damage range. HP restored afterwards, contact recoil to the attacker and later stat changes are outside the displayed single-hit contract. Terrain Seed and Berserk Gene remain excluded because a held item can signal a pending switch-in activation; successful activation consumes the item, so stage observations cannot clear a still-held item. Blunder Policy and Room Service use the speed dependency rule.",
           "evidence": [
             {
               "source": "src/battle_move_resolution.c:2429",
@@ -568,12 +568,46 @@
             "HOLD_EFFECT_BLUNDER_POLICY",
             "HOLD_EFFECT_ROOM_SERVICE"
           ],
-          "predicate": "Ordinary move with Analytic attacker.",
-          "rationale": "Turn order may change Analytic damage, so do not clear.",
+          "predicate": "The selected move is ordinary and the live attacker ability is Analytic (148).",
+          "rationale": "The speed-stage item can affect the turn-order condition Analytic reads on this request; retain the item when the live attacker has Analytic.",
           "evidence": [
             {
-              "source": "src/battle_util.c:6690",
-              "contains": "case ABILITY_ANALYTIC:"
+              "source": "src/battle_util.c:6691",
+              "contains": "if (IsLastMonToMove(battlerAtk)"
+            },
+            {
+              "source": "src/battle_hold_effects.c:1058",
+              "contains": "case HOLD_EFFECT_ROOM_SERVICE:"
+            },
+            {
+              "source": "src/battle_hold_effects.c:1109",
+              "contains": "case HOLD_EFFECT_BLUNDER_POLICY:"
+            }
+          ]
+        },
+        {
+          "rule": "booster_energy_boost_payload_unobserved",
+          "families": [
+            "HOLD_EFFECT_BOOSTER_ENERGY"
+          ],
+          "predicate": "Booster Energy is active on a Protosynthesis or Quark Drive battler.",
+          "rationale": "The damage-time modifier reads separate boosterEnergyActivated and paradoxBoostedStat fields. The runtime reader does not observe those operands, so stat stages alone cannot prove the item effect is represented.",
+          "evidence": [
+            {
+              "source": "src/battle_hold_effects.c:70",
+              "contains": "gBattleMons[battler].volatiles.paradoxBoostedStat = GetParadoxHighestStatId(battler);"
+            },
+            {
+              "source": "src/battle_hold_effects.c:73",
+              "contains": "gBattleMons[battler].volatiles.boosterEnergyActivated = TRUE;"
+            },
+            {
+              "source": "src/battle_util.c:7087",
+              "contains": "if (ctx->weather & B_WEATHER_SUN || gBattleMons[battlerAtk].volatiles.boosterEnergyActivated)"
+            },
+            {
+              "source": "src/battle_util.c:7310",
+              "contains": "if (((ctx->weather & B_WEATHER_SUN && HasWeatherEffect()) || gBattleMons[battlerDef].volatiles.boosterEnergyActivated)"
             }
           ]
         }

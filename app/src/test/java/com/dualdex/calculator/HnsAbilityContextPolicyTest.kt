@@ -23,7 +23,16 @@ class HnsAbilityContextPolicyTest {
         attackerStatus1: Int? = 0,
         observedBattlersCount: Int? = 2,
         dynamicMoveTypeKnownNeutral: Boolean = true,
-        defenderItemId: Int? = 0
+        defenderItemId: Int? = 0,
+        defenderTypes: Set<PokemonType>? = setOf(PokemonType.NORMAL, PokemonType.FLYING),
+        attackerStatStages: List<Int>? = List(8) { 0 },
+        defenderStatStages: List<Int>? = List(8) { 0 },
+        attackerAbilityObserved: Boolean = true,
+        defenderAbilityObserved: Boolean = true,
+        attackerHp: Int? = 14,
+        defenderAbilityId: Int? = 0,
+        weatherWord: Int? = 0,
+        switchInEventsSettled: Boolean? = true
     ) = HnsAbilityContextPolicy.Context(
         side = side,
         ordinaryMove = ordinaryMove,
@@ -38,7 +47,16 @@ class HnsAbilityContextPolicyTest {
         attackerStatus1 = attackerStatus1,
         observedBattlersCount = observedBattlersCount,
         dynamicMoveTypeKnownNeutral = dynamicMoveTypeKnownNeutral,
-        defenderItemId = defenderItemId
+        defenderItemId = defenderItemId,
+        defenderTypes = defenderTypes,
+        attackerStatStages = attackerStatStages,
+        defenderStatStages = defenderStatStages,
+        attackerAbilityObserved = attackerAbilityObserved,
+        defenderAbilityObserved = defenderAbilityObserved,
+        attackerHp = attackerHp,
+        defenderAbilityId = defenderAbilityId,
+        weatherWord = weatherWord,
+        switchInEventsSettled = switchInEventsSettled
     )
 
     private fun relevance(id: Int, context: HnsAbilityContextPolicy.Context?) =
@@ -172,6 +190,90 @@ class HnsAbilityContextPolicyTest {
     }
 
     @Test
+    fun `live stage writers clear only with both exact stage arrays and preserve Analytic turn order`() {
+        val stageWriterIds = listOf(
+            3, 22, 80, 83, 86, 88, 128, 133, 141, 153, 154, 155, 172, 192, 195, 201,
+            220, 224, 234, 235, 243, 264, 265, 270, 271, 275, 290
+        )
+        stageWriterIds.forEach { id ->
+            assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context()))
+        }
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(22, context(attackerStatStages = null)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(192, context(defenderStatStages = List(7) { 0 })))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(3, context(attackerAbilityObserved = false)))
+        for (id in listOf(3, 80, 86, 133, 141, 155, 224, 243, 271, 290)) {
+            assertEquals("speed writer $id with Analytic", HnsAbilityRequestRelevance.RELEVANT,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = 148)))
+        }
+    }
+
+    @Test
+    fun `Simple doubles the delta while writing the stage and is cleared from the observed result`() {
+        val decision = HnsAbilityContextPolicy.assess(86, context())
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, decision.relevance)
+        assertEquals("live_stat_stages_capture_stage_writer", decision.rule)
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(86, context(defenderStatStages = null)))
+    }
+
+    @Test
+    fun `ordinary Rain and Sun setters clear only with observed unsuppressed weather`() {
+        for (id in listOf(2, 70)) {
+            assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context(weatherWord = 1)))
+            assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context(weatherWord = 1 shl 3)))
+        }
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(2, context(weatherWord = 1 shl 5))) // Sandstorm is not applied by the engine.
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(70, context(weatherWord = null)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(2, context(weatherWord = 1, defenderAbilityId = 13))) // Cloud Nine.
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(2, context(weatherWord = 1, attackerHp = 0)))
+    }
+
+    @Test
+    fun `type rewriters clear only with observed effective types for their side`() {
+        for (id in listOf(16, 250)) {
+            assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, defenderTypes = setOf(PokemonType.ROCK))))
+        }
+        for (id in listOf(168, 236)) {
+            assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context(moveType = PokemonType.GRASS, attackerTypes = setOf(PokemonType.GRASS))))
+            assertEquals("ability $id must not assume its pre-damage transform already ran",
+                HnsAbilityRequestRelevance.UNKNOWN,
+                relevance(id, context(moveType = PokemonType.NORMAL, attackerTypes = setOf(PokemonType.GRASS))))
+            assertEquals("ability $id can still transform a dual type before this hit",
+                HnsAbilityRequestRelevance.UNKNOWN,
+                relevance(id, context(moveType = PokemonType.GRASS,
+                    attackerTypes = setOf(PokemonType.GRASS, PokemonType.FLYING))))
+        }
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(16, context(side = HnsAbilitySide.DEFENDER, defenderTypes = null)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(250, context(attackerTypes = null)))
+    }
+
+    @Test
+    fun `effective ability rewriters use only an observed runtime ability`() {
+        for (id in listOf(36, 222, 223)) {
+            assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context()))
+        }
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(36, context(attackerAbilityObserved = false)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(222, context(ordinaryMove = null)))
+    }
+
+    @Test
     fun `partner abilities clear only with observed Singles topology`() {
         for (id in listOf(132, 57, 58)) {
             assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
@@ -222,7 +324,7 @@ class HnsAbilityContextPolicyTest {
                 relevance(id, context(ordinaryMove = false)))
         }
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(192, context()))
+            relevance(192, context(defenderStatStages = null)))
     }
 
     @Test
@@ -270,6 +372,26 @@ class HnsAbilityContextPolicyTest {
                 relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = null)))
             assertEquals("ability $id", HnsAbilityRequestRelevance.UNKNOWN,
                 relevance(id, context(side = HnsAbilitySide.DEFENDER, ordinaryMove = false)))
+        }
+    }
+
+    @Test
+    fun `switch-in writers require an observed settled event phase`() {
+        val pending = context(switchInEventsSettled = false)
+        val unread = context(switchInEventsSettled = null)
+        val settled = context(switchInEventsSettled = true)
+        for (id in listOf(22, 2, 16, 36, 222, 223)) {
+            assertEquals("pending ability $id", HnsAbilityRequestRelevance.UNKNOWN, relevance(id, pending))
+            assertEquals("unread phase ability $id", HnsAbilityRequestRelevance.UNKNOWN, relevance(id, unread))
+        }
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(22, settled.copy(side = HnsAbilitySide.DEFENDER)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(2, settled))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(16, settled.copy(side = HnsAbilitySide.DEFENDER)))
+        for (id in listOf(36, 222, 223)) {
+            assertEquals("settled ability rewriter $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, settled.copy(side = HnsAbilitySide.DEFENDER)))
         }
     }
 

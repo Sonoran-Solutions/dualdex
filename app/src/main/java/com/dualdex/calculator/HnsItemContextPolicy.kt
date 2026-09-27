@@ -98,7 +98,15 @@ object HnsItemContextPolicy {
             "defender_defense" -> defenderDefense(holdEffect, itemId, c)
             "post_hit_or_residual" -> when (holdEffect) {
                 "HOLD_EFFECT_BLUNDER_POLICY", "HOLD_EFFECT_ROOM_SERVICE" -> postHitSpeed(holdEffect, c)
-                "HOLD_EFFECT_BOOSTER_ENERGY", "HOLD_EFFECT_TERRAIN_SEED", "HOLD_EFFECT_BERSERK_GENE" -> null
+                "HOLD_EFFECT_BOOSTER_ENERGY" -> unknownRule(
+                    rule = "booster_energy_boost_payload_unobserved",
+                    source = "src/battle_util.c:7087",
+                    rationale = "Booster Energy sets separate boosterEnergyActivated/paradoxBoostedStat state consumed by Protosynthesis/Quark Drive damage modifiers; those live flags are not observed."
+                )
+                // A held item can still be waiting to execute in an active but unsettled
+                // switch-in frame. Successful activation consumes it, so its live stage and
+                // matching terrain cannot prove a still-held item irrelevant.
+                "HOLD_EFFECT_TERRAIN_SEED", "HOLD_EFFECT_BERSERK_GENE" -> null
                 else -> if (c.ordinaryMove == true) proof(
                     rule = "single_hit_item_activation_outside_damage",
                     source = "src/battle_move_resolution.c:2429",

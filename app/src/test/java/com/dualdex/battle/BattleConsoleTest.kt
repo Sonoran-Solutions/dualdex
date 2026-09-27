@@ -193,7 +193,9 @@ class BattleConsoleTest {
         status1: Int = 0,
         fieldStatuses: Int = 0,
         battleWeather: Int = 0,
-        sideStatuses: Int = 0
+        sideStatuses: Int = 0,
+        switchInPhaseObserved: Boolean = true,
+        switchInEventsSettled: Boolean = true
     ) = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
             status = HnsBattlerRuntimeStatus.OBSERVED,
@@ -239,7 +241,9 @@ class BattleConsoleTest {
             weatherReadable = true,
             battleWeather = battleWeather,
             sideStatusesReadable = true,
-            sideStatuses = sideStatuses
+            sideStatuses = sideStatuses,
+            switchInPhaseObserved = switchInPhaseObserved,
+            switchInEventsSettled = switchInEventsSettled
         ),
         abilityIdentity = if (abilityId == 0) DeclaredAbility.EmptySlot else DeclaredAbility.Declared(abilityId, abilityName)
     )
@@ -713,11 +717,11 @@ class BattleConsoleTest {
         assertEquals("Foe's Levitate not modelled", opponentRefused.damageBlockers.first().headline)
         assertEquals(2, sent.size)
 
-        val unresolved = buildHnsPresentation(33,
+        val resolvedStageWriter = buildHnsPresentation(33,
             hnsContext(playerAbilityId = 80, playerAbilityName = "Steadfast", randomAbilities = true), calculator)
-        assertEquals(DamageConfidence.UNAVAILABLE, unresolved.damageConfidence)
-        assertEquals("Your Steadfast not yet audited", unresolved.damageUnavailableReason)
-        assertEquals(2, sent.size)
+        assertEquals(DamageConfidence.ESTIMATE, resolvedStageWriter.damageConfidence)
+        assertEquals(3, sent.size)
+        assertEquals(80, sent.last().attacker.abilityId)
     }
 
     @Test
@@ -764,14 +768,12 @@ class BattleConsoleTest {
         val defender = createTestPokemon(species = 1432, nickname = "Terapagos")
         val result = buildHnsPresentation(33, context, calculator, defender)
         assertEquals(DamageConfidence.UNAVAILABLE, result.damageConfidence)
-        // The request also has an independent unsupported-species cause. Neither complete ability
-        // caveat is labeled as a blocker beside those hard refusals.
-        assertEquals("2 blockers", result.damageUnavailableReason)
-        assertTrue(result.damageBlockers.any {
-            it is DamageBlockerPresentation.State && it.reason == "Live battle state incomplete"
-        })
+        // The request has an independent unsupported interaction. The abilities' complete
+        // relevance evidence must not be mislabeled as blockers beside that refusal.
+        assertEquals("Damage interaction not modelled", result.damageUnavailableReason)
+        assertTrue(result.damageBlockers.isNotEmpty())
         assertTrue(result.damageBlockers.none { it is DamageBlockerPresentation.Ability })
-        assertTrue(result.damageUnavailableText.startsWith("Damage unavailable · 2 blockers\n"))
+        assertEquals("Damage unavailable · Damage interaction not modelled", result.damageUnavailableText)
         assertTrue(result.damageAbilityBlockers.isEmpty())
         assertEquals(0, sent.size)
     }

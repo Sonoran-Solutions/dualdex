@@ -647,7 +647,7 @@
     "HOLD_EFFECT_TERRAIN_SEED": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "This hold effect can write a stat or ability-related live operand before the current hit. It remains unsupported pending the live-state audit in #88; the generic after-hit rule does not clear it.",
+      "rationale": "This hold effect can write a damage-relevant Defense or Sp. Def stage before the current hit. A matching terrain and observed stage cannot prove its switch-in/event activation finished; successful activation consumes the item, so a currently held Terrain Seed remains unsupported.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1061",
         "src/battle_script_commands.c:14713"
@@ -721,7 +721,7 @@
     "HOLD_EFFECT_BERSERK_GENE": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "This hold effect can write a stat or ability-related live operand before the current hit. It remains unsupported pending the live-state audit in #88; the generic after-hit rule does not clear it.",
+      "rationale": "This hold effect can write a damage-relevant Attack stage on switch-in. An active battle and observed stage cannot prove its switch-in/event activation finished; successful activation consumes the item, so a currently held Berserk Gene remains unsupported.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1064"
       ]

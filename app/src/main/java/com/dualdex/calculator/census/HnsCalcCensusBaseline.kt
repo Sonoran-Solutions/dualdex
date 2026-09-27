@@ -227,7 +227,9 @@ object HnsCalcCensusBaseline {
                 weatherReadable = true,
                 battleWeather = 0,
                 sideStatusesReadable = true,
-                sideStatuses = 0
+                sideStatuses = 0,
+                switchInPhaseObserved = true,
+                switchInEventsSettled = true
             ),
             abilityIdentity = abilityName?.let { DeclaredAbility.Declared(abilityId, it) }
                 ?: DeclaredAbility.EmptySlot,

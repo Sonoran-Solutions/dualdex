@@ -14,8 +14,9 @@ and its `--check` mode runs in `./ci.sh source-check`. Missing/extra IDs, change
 names, duplicate IDs or symbols, and a decision for an absent ID fail the check.
 Source references are an index for review, never automatic proof of neutrality. The separate
 [`tools/hns-abilities/context_rules.json`](../tools/hns-abilities/context_rules.json) tracks reviewed
-request-local proofs. `./ci.sh source-check` validates each referenced source line against the
-same pinned checkout and ensures these rules do not alter the global decisions.
+request-local proofs. [`HNS_2_0_5_LIVE_STATE_AUTHORITY_MATRIX.md`](HNS_2_0_5_LIVE_STATE_AUTHORITY_MATRIX.md)
+is the shared provenance reference for the operands those rules can consume. `./ci.sh source-check`
+validates each referenced source line against the same pinned checkout.
 
 | Category | IDs |
 |---|---:|
@@ -23,8 +24,8 @@ same pinned checkout and ensures these rules do not alter the global decisions.
 | `MODELLED_EQUIVALENT` | 0 |
 | `MODELLED_HNS_SPECIFIC` | 0 |
 | `MODELLED_HNS_CONDITIONAL` | 4 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 220 |
-| `UNCLASSIFIED` | 3 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 223 |
+| `UNCLASSIFIED` | 0 |
 
 The audit follows the ordinary `EFFECT_HIT` dependency path through attack and defense
 stats, base power, final modifiers, STAB, type effectiveness, effective battler and
@@ -104,8 +105,9 @@ Spirit, Cotton Down, Gooey-like Tangling Hair, and Pickpocket; berry recovery fr
 Pouch, and Cud Chew; and speed or priority effects from Swift Swim, Chlorophyll, Sand Rush, Slush
 Rush, Quick Feet, Unburden, and Quick Draw when Analytic cannot depend on their turn order.
 `Pickpocket` moves from `UNCLASSIFIED` to globally unsupported with a request-local after-hit
-proof. Speed Boost, Steadfast, and Stamina remain `UNCLASSIFIED` for #88's live-state-writer
-audit. Merciless remains uncleared because it can force the current hit critical. Ripen clears
+proof. Group B (#88) now classifies Speed Boost, Steadfast, and Stamina as globally unsupported
+with request-local live-stage rules; their identity blockers clear only when the authoritative
+current stage arrays are present. Merciless remains uncleared because it can force the current hit critical. Ripen clears
 attacker contexts and defender contexts without a resist berry; its defender resist-berry path
 remains relevant. Ability Shield clears only when observed Singles state rules out Gastro Acid,
 Neutralizing Gas, and defender-side Mold Breaker suppression. Ground-relevant Iron Ball remains
@@ -166,11 +168,12 @@ Generation III oracle, the shared golden fixture matrix, the production-boundary
 read-only memory layout audit and the corrected vanilla profile hashes are recorded in
 [VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md). H&S 2.0.5 calculator support is a **partial, fail-closed
 slice (Gap C4b/PARTIAL, Gap C4c/OPEN)**: the UQ4.12 roll-first damage arithmetic is implemented in QuickJS
-(`calculateHnsDamage`, §11) and host-verified against the native C oracle. After Gap C4e the live
-operands it depends on — current effective types, battle stat words, the dynamic move type, transient
-damage state, the runtime `GetMoveTargetCount` count, the gimmick state, and the attacker's live
-HP/status — are observed from exact-trusted runtime state for the ordinary Singles subset, so that
-subset is published as **Estimated** (§14). Issue #86 adds a second bounded path: when the base
+(`calculateHnsDamage`, §11) and host-verified against the native C oracle. After Gap C4e the supported
+ordinary Singles subset receives current effective types, raw battle stat words, stat stages,
+transient volatiles, gimmick state, and the attacker's live HP/status from exact-trusted runtime
+state. Dynamic move retypes remain refused when active, and a Doubles request still needs the
+runtime `GetMoveTargetCount` value. The supported subset is published as **Estimated** (§14). Issue
+#86 adds a second bounded path: when the base
 request is still trustworthy, a known, relevant but unmodelled ability, item, or supported field
 modifier is removed from the authorized execution request, and its identity is shown with the
 estimate. Unknown ability/item identity, unread state, unsupported move mechanics, Doubles, active
@@ -265,9 +268,11 @@ Only these individual behaviours are source-and-test demonstrated:
 > **Gap C4b status: PARTIAL / OPEN.** With the implementation of `calculateHnsDamage` in
 > `tools/calc-bundler/entry.js` (§11), the H&S UQ4.12 roll-first calculation order is implemented and
 > proven against the native C oracle. That is **SOURCE + HOST VERIFIED arithmetic, not ROM-result
-> validation**. No official H&S 2.0.5 battle result has been compared against the new output, and the
-> remaining live-operand classes (dynamic move type, transient state, battle stat words, and the
-> runtime target count) have no reader. As a result, production requests are fail-closed: a manual /
+> validation**. No official H&S 2.0.5 battle result has been compared against the new output. Raw
+> battle stat words and stat stages have exact-trusted runtime readers. The relevant dynamic move-type
+> causes and selected transient states are also observed, but active retypes and damage modifiers
+> remain unsupported; the Doubles runtime target count still has no reader. As a result,
+> production requests are fail-closed: a manual /
 > out-of-battle request is refused because badge applicability is unspecified, and a Doubles request
 > is refused because the runtime target count is unavailable. C4b stays **PARTIAL / OPEN** until
 > reproducible official-ROM result validation and the remaining live operands are complete.
@@ -1105,7 +1110,8 @@ the request shape, so `BADGE_BOOST_NOT_MODELLED` (Gap C4) keeps H&S strictly ref
    - The Gen-III two-target reduction uses the runtime `GetMoveTargetCount(ctx)` count: a Doubles
      request without an observed `field.targetCount` fails closed with
      `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED` rather than halving every spread move.
-   - The dynamic move type, transient state, battle stat words, and target count have no reader, so
+   - Dynamic-move-type causes and selected transient states are observed, but active retypes and
+     damage modifiers remain unsupported. The Doubles target count still has no reader, so
      production H&S requests remain fail-closed, and no official H&S 2.0.5 battle result has been
      validated against the new output.
    - Unmodelled mechanics, unsupported abilities/items, out-of-range stages, unmodelled weather, active
@@ -1231,11 +1237,14 @@ no positive stage fixture is fabricated.
 `floor(damage · r / 100)` shape, but at a different point in the chain, which is exactly why the
 non-neutral cases diverge.
 
-### 10.5 Live battle state (R1)
+### 10.5 Live battle state (R1; historical pre-C4e snapshot)
 
 `hnsModifierOrderDiverges` evaluates the *static* species/move operands. H&S instead consumes
 battle-mutated operands that the request shape does not carry, so C4a adds
 `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`:
+
+The treatment column records the earlier C4a state. The raw-stat reader was added in C4b; current
+runtime behavior is described in §14.9.
 
 | State class | Pinned H&S mutation | C4a treatment |
 |---|---|---|
@@ -2584,3 +2593,20 @@ All evidence is checked into the repository and bound to the official release RO
 - `gBattleWeather` @ `EWRAM + 0x390`: **SOURCE + HOST REASONED** (neutral clear-weather 0x0000 RUNTIME VERIFIED in `golden-c4e-live-operands.log`; active rain execution isolated from `0x2E8` in Scenario 64; active ordinary Rain/Sun is conditionally production-authorized but lacks retained positive runtime verification, while unsupported weather bits continue to fail closed)
 - `gSideStatuses` @ `EWRAM + 0x324`: **SOURCE + HOST REASONED** (neutral screenless defender side RUNTIME VERIFIED in `golden-c4e-live-operands.log`; active reflect execution isolated from `0x2E8` in Scenario 64; active ordinary Reflect/Light Screen is conditionally production-authorized but lacks retained positive runtime verification, while unsupported side-status bits continue to fail closed)
 - `gBattleControllerExecFlags` @ `EWRAM + 0x2F4`: **RELEASE SYMBOL + RUNTIME VERIFIED** (0x300 withdrawn; reconciled with §11.5/§11.6)
+
+
+## 16. Group B live-state writers (#88)
+
+[`HNS_2_0_5_LIVE_STATE_AUTHORITY_MATRIX.md`](HNS_2_0_5_LIVE_STATE_AUTHORITY_MATRIX.md) is the
+single provenance matrix for current stats/stages, HP/status, effective ability and types, weather,
+field/terrain, persistent volatiles, charge and boost payloads, gimmick/form, species, and held item.
+It names each pinned H&S field, the native/Kotlin observation and slot check, the boundary binding,
+and whether `calculateHnsDamage` consumes that operand.
+
+Group B clears stage writers only after the exact live stages are rebound, ordinary Drizzle/Drought
+only for supported unsuppressed clear/Rain/Sun, and type/ability replacements only under the
+request-local evidence in the matrix. It does not treat captured terrain or power flags as
+calculated effects. The matrix records the exact deferrals to #91 (weather, terrain, Charge and
+Flash Fire modifiers) and #92 (Booster Energy's unread paradox payload). Protean/Libero are
+narrower than Color Change/Mimicry because their pre-damage type change can occur after the state
+snapshot and `usedProteanLibero` is not observed.

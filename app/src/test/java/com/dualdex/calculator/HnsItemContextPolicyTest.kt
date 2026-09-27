@@ -191,6 +191,57 @@ class HnsItemContextPolicyTest {
     }
 
     @Test
+    fun `Blunder Policy and Room Service retain only the Analytic speed dependency`() {
+        for (id in listOf(511, 512)) {
+            val ordinary = HnsItemContextPolicy.assess(id, ctx(
+                HnsItemSide.ATTACKER,
+                attackerAbilityId = 0
+            ))
+            assertEquals("item $id", irrelevant, ordinary.relevance)
+            assertEquals("post_hit_speed_item_ordinary_move", ordinary.rule)
+
+            val analytic = HnsItemContextPolicy.assess(id, ctx(
+                HnsItemSide.ATTACKER,
+                attackerAbilityId = 148
+            ))
+            assertEquals("item $id", relevant, analytic.relevance)
+            assertEquals("post_hit_speed_item_attacker_analytic", analytic.rule)
+
+            assertEquals(unknown, relevance(id, ctx(
+                HnsItemSide.ATTACKER,
+                ordinaryMove = null,
+                attackerAbilityId = 0
+            )))
+        }
+    }
+
+    @Test
+    fun `held Terrain Seed and Berserk Gene never clear from stage snapshots`() {
+        val matchingTerrainAndStages = ctx(
+            HnsItemSide.ATTACKER,
+            fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN,
+            observedBattlersCount = 2
+        )
+        val seed = HnsItemContextPolicy.assess(terrainSeed, matchingTerrainAndStages)
+        assertEquals(unknown, seed.relevance)
+        assertEquals(null, seed.rule)
+
+        val gene = HnsItemContextPolicy.assess(798, matchingTerrainAndStages)
+        assertEquals(unknown, gene.relevance)
+        assertEquals(null, gene.rule)
+    }
+
+    @Test
+    fun `Booster Energy remains blocked because damage time boost flags are not observed`() {
+        val decision = HnsItemContextPolicy.assess(boosterEnergy, ctx(
+            HnsItemSide.ATTACKER,
+            observedBattlersCount = 2
+        ))
+        assertEquals(unknown, decision.relevance)
+        assertEquals("booster_energy_boost_payload_unobserved", decision.rule)
+    }
+
+    @Test
     fun `Ability Shield clears only when suppression cannot affect this hit`() {
         val clearContext = ctx(HnsItemSide.DEFENDER, attackerAbilityId = 0, defenderAbilityId = 0,
             attackerGastroAcid = false, defenderGastroAcid = false, observedBattlersCount = 2)
@@ -316,6 +367,17 @@ class HnsItemContextPolicyTest {
             ctx(HnsItemSide.ATTACKER, attackerAbilityId = 0, defenderAbilityId = 0,
                 attackerGastroAcid = true, defenderGastroAcid = false, observedBattlersCount = 2)
         ).forEach { HnsItemContextPolicy.assess(758, it).rule?.let(produced::add) }
+        listOf(
+            HnsItemContextPolicy.assess(terrainSeed, ctx(
+                HnsItemSide.ATTACKER,
+                fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN,
+                observedBattlersCount = 2
+            )),
+            HnsItemContextPolicy.assess(798, ctx(
+                HnsItemSide.ATTACKER,
+                observedBattlersCount = 2
+            ))
+        ).forEach { it.rule?.let(produced::add) }
         assertEquals(HnsItemAuditData.contextRuleNames, produced)
         assertTrue(produced.size >= 30)
     }

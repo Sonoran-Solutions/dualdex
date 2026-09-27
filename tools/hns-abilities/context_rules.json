@@ -1054,5 +1054,985 @@
       }
     ],
     "fallback": "Unknown move shape or missing defender item identity remains UNKNOWN."
+  },
+  "3": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3738",
+            "contains": "case ABILITY_SPEED_BOOST:"
+          },
+          {
+            "source": "src/battle_util.c:3742",
+            "contains": "SET_STATCHANGER(STAT_SPEED, 1, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_stage_writer_analytic_dependency",
+        "predicate": "The speed-changing ability is on the defender and the observed attacker has Analytic.",
+        "rationale": "Analytic applies a current-hit multiplier when its holder moves last; the current calculator does not model the turn-order result.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          },
+          {
+            "source": "src/battle_util.c:6691",
+            "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+          }
+        ]
+      }
+    ],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "22": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3451",
+            "contains": "case ABILITY_INTIMIDATE:"
+          },
+          {
+            "source": "src/battle_util.c:3456",
+            "contains": "SET_STATCHANGER(STAT_ATK, 1, TRUE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "80": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "data/battle_scripts_1.s:5726",
+            "contains": "jumpifability BS_ATTACKER, ABILITY_STEADFAST, BattleScript_TryActivateSteadFast"
+          },
+          {
+            "source": "data/battle_scripts_1.s:5730",
+            "contains": "setstatchanger STAT_SPEED, 1, FALSE"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_stage_writer_analytic_dependency",
+        "predicate": "The speed-changing ability is on the defender and the observed attacker has Analytic.",
+        "rationale": "Analytic applies a current-hit multiplier when its holder moves last; the current calculator does not model the turn-order result.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          },
+          {
+            "source": "src/battle_util.c:6691",
+            "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+          }
+        ]
+      }
+    ],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "83": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4022",
+            "contains": "case ABILITY_ANGER_POINT:"
+          },
+          {
+            "source": "src/battle_util.c:4028",
+            "contains": "SET_STATCHANGER(STAT_ATK, MAX_STAT_STAGE - gBattleMons[battler].statStages[STAT_ATK], FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "86": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_script_commands.c:7792",
+            "contains": "else if (battlerAbility == ABILITY_SIMPLE && !flags.onlyChecking)"
+          },
+          {
+            "source": "src/battle_script_commands.c:7794",
+            "contains": "statValue = (SET_STAT_BUFF_VALUE(GET_STAT_BUFF_VALUE(statValue) * 2)) | ((statValue <= -1) ? STAT_BUFF_NEGATIVE : 0);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_stage_writer_analytic_dependency",
+        "predicate": "The speed-changing ability is on the defender and the observed attacker has Analytic.",
+        "rationale": "Analytic applies a current-hit multiplier when its holder moves last; the current calculator does not model the turn-order result.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          },
+          {
+            "source": "src/battle_util.c:6691",
+            "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+          }
+        ]
+      }
+    ],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "88": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3269",
+            "contains": "case ABILITY_DOWNLOAD:"
+          },
+          {
+            "source": "src/battle_util.c:3297",
+            "contains": "SET_STATCHANGER(statId, 1, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "128": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:1275",
+            "contains": "if (targetAbility == ABILITY_DEFIANT)"
+          },
+          {
+            "source": "src/battle_util.c:1276",
+            "contains": "SET_STATCHANGER(STAT_ATK, 2, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "133": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3942",
+            "contains": "case ABILITY_WEAK_ARMOR:"
+          },
+          {
+            "source": "data/battle_scripts_1.s:6746",
+            "contains": "setstatchanger STAT_DEF, 1, TRUE"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_stage_writer_analytic_dependency",
+        "predicate": "The speed-changing ability is on the defender and the observed attacker has Analytic.",
+        "rationale": "Analytic applies a current-hit multiplier when its holder moves last; the current calculator does not model the turn-order result.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          },
+          {
+            "source": "src/battle_util.c:6691",
+            "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+          }
+        ]
+      }
+    ],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "141": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3748",
+            "contains": "case ABILITY_MOODY:"
+          },
+          {
+            "source": "src/battle_util.c:3765",
+            "contains": "SET_STATCHANGER(i, 2, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_stage_writer_analytic_dependency",
+        "predicate": "The speed-changing ability is on the defender and the observed attacker has Analytic.",
+        "rationale": "Analytic applies a current-hit multiplier when its holder moves last; the current calculator does not model the turn-order result.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          },
+          {
+            "source": "src/battle_util.c:6691",
+            "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+          }
+        ]
+      }
+    ],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "153": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4553",
+            "contains": "case ABILITY_MOXIE:"
+          },
+          {
+            "source": "src/battle_util.c:4579",
+            "contains": "SET_STATCHANGER(stat, numMonsFainted, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "154": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3894",
+            "contains": "case ABILITY_JUSTIFIED:"
+          },
+          {
+            "source": "src/battle_util.c:3901",
+            "contains": "SET_STATCHANGER(STAT_ATK, 1, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "155": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3906",
+            "contains": "case ABILITY_RATTLED:"
+          },
+          {
+            "source": "src/battle_util.c:3913",
+            "contains": "SET_STATCHANGER(STAT_SPEED, 1, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_stage_writer_analytic_dependency",
+        "predicate": "The speed-changing ability is on the defender and the observed attacker has Analytic.",
+        "rationale": "Analytic applies a current-hit multiplier when its holder moves last; the current calculator does not model the turn-order result.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          },
+          {
+            "source": "src/battle_util.c:6691",
+            "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+          }
+        ]
+      }
+    ],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "172": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:1205",
+            "contains": "if (ability != ABILITY_DEFIANT && ability != ABILITY_COMPETITIVE)"
+          },
+          {
+            "source": "src/battle_util.c:1278",
+            "contains": "SET_STATCHANGER(STAT_SPATK, 2, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "192": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3930",
+            "contains": "case ABILITY_STAMINA:"
+          },
+          {
+            "source": "src/battle_util.c:3937",
+            "contains": "SET_STATCHANGER(STAT_DEF, 1, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "195": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3918",
+            "contains": "case ABILITY_WATER_COMPACTION:"
+          },
+          {
+            "source": "src/battle_util.c:3925",
+            "contains": "SET_STATCHANGER(STAT_DEF, 2, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "201": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3865",
+            "contains": "case ABILITY_BERSERK:"
+          },
+          {
+            "source": "src/battle_util.c:3872",
+            "contains": "SET_STATCHANGER(STAT_SPATK, 1, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "224": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4558",
+            "contains": "case ABILITY_BEAST_BOOST:"
+          },
+          {
+            "source": "src/battle_util.c:4579",
+            "contains": "SET_STATCHANGER(stat, numMonsFainted, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_stage_writer_analytic_dependency",
+        "predicate": "The speed-changing ability is on the defender and the observed attacker has Analytic.",
+        "rationale": "Analytic applies a current-hit multiplier when its holder moves last; the current calculator does not model the turn-order result.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          },
+          {
+            "source": "src/battle_util.c:6691",
+            "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+          }
+        ]
+      }
+    ],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "234": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3488",
+            "contains": "case ABILITY_INTREPID_SWORD:"
+          },
+          {
+            "source": "src/battle_util.c:3496",
+            "contains": "SET_STATCHANGER(STAT_ATK, 1, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "235": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3502",
+            "contains": "case ABILITY_DAUNTLESS_SHIELD:"
+          },
+          {
+            "source": "src/battle_util.c:3510",
+            "contains": "SET_STATCHANGER(STAT_DEF, 1, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "243": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4240",
+            "contains": "case ABILITY_STEAM_ENGINE:"
+          },
+          {
+            "source": "src/battle_util.c:4247",
+            "contains": "SET_STATCHANGER(STAT_SPEED, 6, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_stage_writer_analytic_dependency",
+        "predicate": "The speed-changing ability is on the defender and the observed attacker has Analytic.",
+        "rationale": "Analytic applies a current-hit multiplier when its holder moves last; the current calculator does not model the turn-order result.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          },
+          {
+            "source": "src/battle_util.c:6691",
+            "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+          }
+        ]
+      }
+    ],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "271": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3877",
+            "contains": "case ABILITY_ANGER_SHELL:"
+          },
+          {
+            "source": "data/battle_scripts_1.s:4935",
+            "contains": "modifybattlerstatstage BS_EFFECT_BATTLER, STAT_DEF, DECREASE, 1,"
+          },
+          {
+            "source": "data/battle_scripts_1.s:4939",
+            "contains": "modifybattlerstatstage BS_EFFECT_BATTLER, STAT_ATK, INCREASE, 1,"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_stage_writer_analytic_dependency",
+        "predicate": "The speed-changing ability is on the defender and the observed attacker has Analytic.",
+        "rationale": "Analytic applies a current-hit multiplier when its holder moves last; the current calculator does not model the turn-order result.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          },
+          {
+            "source": "src/battle_util.c:6691",
+            "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+          }
+        ]
+      }
+    ],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "275": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_script_commands.c:13365",
+            "contains": "case ABILITY_GUARD_DOG:"
+          },
+          {
+            "source": "data/battle_scripts_1.s:6251",
+            "contains": "modifybattlerstatstage BS_TARGET, STAT_ATK, INCREASE, 1,"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "290": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "The source branch mutates only stage state (Simple doubles the stage delta when written). The exact live stage arrays are passed into the damage formula, so this ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4648",
+            "contains": "case ABILITY_OPPORTUNIST:"
+          },
+          {
+            "source": "data/battle_scripts_1.s:7426",
+            "contains": "copyfoesstatincrease BS_SCRIPTING,"
+          },
+          {
+            "source": "data/battle_scripts_1.s:7427",
+            "contains": "statbuffchange BS_SCRIPTING, STAT_CHANGE_ALLOW_PTR,"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "speed_stage_writer_analytic_dependency",
+        "predicate": "The speed-changing ability is on the defender and the observed attacker has Analytic.",
+        "rationale": "Analytic applies a current-hit multiplier when its holder moves last; the current calculator does not model the turn-order result.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          },
+          {
+            "source": "src/battle_util.c:6691",
+            "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+          }
+        ]
+      }
+    ],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN; speed-stage writers remain relevant against an Analytic attacker."
+  },
+  "2": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_weather_setter_supported_weather",
+        "predicate": "Exact live Singles state, no active Cloud Nine/Air Lock, and the observed raw weather is clear, ordinary Rain, or ordinary Sun.",
+        "rationale": "Drizzle writes ordinary Rain only; the boundary reads the raw weather and the damage engine applies Rain modifiers. Active weather suppression or any other weather word remains blocked.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3354",
+            "contains": "case ABILITY_DRIZZLE:"
+          },
+          {
+            "source": "src/battle_util.c:3357",
+            "contains": "TryChangeBattleWeather(battler, BATTLE_WEATHER_RAIN, gLastUsedAbility)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown weather, weather suppression, unknown battler ability, or non-Singles topology remains UNKNOWN."
+  },
+  "70": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_weather_setter_supported_weather",
+        "predicate": "Exact live Singles state, no active Cloud Nine/Air Lock, and the observed raw weather is clear, ordinary Rain, or ordinary Sun.",
+        "rationale": "Drought writes ordinary Sun only; the boundary reads the raw weather and the damage engine applies Sun modifiers. Active weather suppression or any other weather word remains blocked.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3383",
+            "contains": "case ABILITY_DROUGHT:"
+          },
+          {
+            "source": "src/battle_util.c:3386",
+            "contains": "TryChangeBattleWeather(battler, BATTLE_WEATHER_SUN, gLastUsedAbility)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown weather, weather suppression, unknown battler ability, or non-Singles topology remains UNKNOWN."
+  },
+  "16": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_effective_types_capture_type_rewriter",
+        "predicate": "Exact live Singles request, ordinary move, observed effective ability, authoritative move type, and one or two representable active battler types.",
+        "rationale": "Color Change writes effective gBattleMons types before a later hit. The boundary reads those active types and serializes them as calculator type overrides; a missing, stale, invalid, or third type remains UNKNOWN.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3850",
+            "contains": "case ABILITY_COLOR_CHANGE:"
+          },
+          {
+            "source": "src/battle_util.c:3859",
+            "contains": "SET_BATTLER_TYPE(battler, moveType);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unobserved or unrepresentable live types remain UNKNOWN; active terrain still has its independent field limitation."
+  },
+  "168": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_effective_types_capture_type_rewriter",
+        "predicate": "Exact live Singles request and ordinary move with observed effective ability/type state; clear only if the observed current type set is the single effective move type, proving Protean cannot make another pre-damage type change. Otherwise the unobserved usedProteanLibero flag leaves the result UNKNOWN.",
+        "rationale": "Protean can rewrite gBattleMons types in the move's pre-damage canceler after the current reader snapshot. The reader does not observe usedProteanLibero, so a differing or dual current type cannot prove that no rewrite is pending. The already-monotyped same-type case cannot change STAB/type effectiveness and the exact live type is serialized as the override.",
+        "evidence": [
+          {
+            "source": "src/battle_script_commands.c:945",
+            "contains": "&& !gBattleMons[battler].volatiles.usedProteanLibero"
+          },
+          {
+            "source": "src/battle_script_commands.c:952",
+            "contains": "SET_BATTLER_TYPE(battler, moveType);"
+          },
+          {
+            "source": "src/battle_move_resolution.c:1448",
+            "contains": "gBattleMons[ctx->battlerAtk].volatiles.usedProteanLibero = TRUE;"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unobserved or unrepresentable live types remain UNKNOWN; active terrain still has its independent field limitation."
+  },
+  "236": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_effective_types_capture_type_rewriter",
+        "predicate": "Exact live Singles request and ordinary move with observed effective ability/type state; clear only if the observed current type set is the single effective move type, proving Libero cannot make another pre-damage type change. Otherwise the unobserved usedProteanLibero flag leaves the result UNKNOWN.",
+        "rationale": "Libero can rewrite gBattleMons types in the move's pre-damage canceler after the current reader snapshot. The reader does not observe usedProteanLibero, so a differing or dual current type cannot prove that no rewrite is pending. The already-monotyped same-type case cannot change STAB/type effectiveness and the exact live type is serialized as the override.",
+        "evidence": [
+          {
+            "source": "src/battle_script_commands.c:945",
+            "contains": "&& !gBattleMons[battler].volatiles.usedProteanLibero"
+          },
+          {
+            "source": "src/battle_script_commands.c:952",
+            "contains": "SET_BATTLER_TYPE(battler, moveType);"
+          },
+          {
+            "source": "src/battle_move_resolution.c:1448",
+            "contains": "gBattleMons[ctx->battlerAtk].volatiles.usedProteanLibero = TRUE;"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unobserved or unrepresentable live types remain UNKNOWN; active terrain still has its independent field limitation."
+  },
+  "250": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_effective_types_capture_type_rewriter",
+        "predicate": "Exact live Singles request, ordinary move, observed effective ability, authoritative move type, and one or two representable active battler types.",
+        "rationale": "Mimicry writes effective gBattleMons types before a later hit. The boundary reads those active types and serializes them as calculator type overrides; a missing, stale, invalid, or third type remains UNKNOWN.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4896",
+            "contains": "case ABILITY_MIMICRY:"
+          },
+          {
+            "source": "src/battle_util.c:2292",
+            "contains": "SET_BATTLER_TYPE(battler, battlerType);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unobserved or unrepresentable live types remain UNKNOWN; active terrain still has its independent field limitation."
+  },
+  "36": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_effective_ability_capture_ability_rewriter",
+        "predicate": "An exact live participant whose effective ability ID and active party slot were observed by the runtime reader.",
+        "rationale": "Trace can replace the battler ability. The damage request uses the exact current gBattleMons ability ID, including the copied ability, instead of the species or party default.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:3097",
+            "contains": "case ABILITY_TRACE:"
+          },
+          {
+            "source": "src/battle_util.c:3128",
+            "contains": "gBattleStruct->tracedAbility[battler] = gLastUsedAbility = gBattleMons[chosenTarget].ability;"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing, invalid, or slot-mismatched effective ability remains UNKNOWN and fails closed."
+  },
+  "222": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_effective_ability_capture_ability_rewriter",
+        "predicate": "An exact live participant whose effective ability ID and active party slot were observed by the runtime reader.",
+        "rationale": "Receiver can replace the battler ability. The damage request uses the exact current gBattleMons ability ID, including the copied ability, instead of the species or party default.",
+        "evidence": [
+          {
+            "source": "src/battle_script_commands.c:14126",
+            "contains": "&& (receiverAbility == ABILITY_RECEIVER || receiverAbility == ABILITY_POWER_OF_ALCHEMY)"
+          },
+          {
+            "source": "src/battle_script_commands.c:14131",
+            "contains": "gBattleStruct->tracedAbility[receiverBattler] = gBattleMons[faintedBattler].ability;"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing, invalid, or slot-mismatched effective ability remains UNKNOWN and fails closed."
+  },
+  "223": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_effective_ability_capture_ability_rewriter",
+        "predicate": "An exact live participant whose effective ability ID and active party slot were observed by the runtime reader.",
+        "rationale": "Power of Alchemy can replace the battler ability. The damage request uses the exact current gBattleMons ability ID, including the copied ability, instead of the species or party default.",
+        "evidence": [
+          {
+            "source": "src/battle_script_commands.c:14126",
+            "contains": "&& (receiverAbility == ABILITY_RECEIVER || receiverAbility == ABILITY_POWER_OF_ALCHEMY)"
+          },
+          {
+            "source": "src/battle_script_commands.c:14131",
+            "contains": "gBattleStruct->tracedAbility[receiverBattler] = gBattleMons[faintedBattler].ability;"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing, invalid, or slot-mismatched effective ability remains UNKNOWN and fails closed."
+  },
+  "220": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "Soul-Heart raises only the holder's Sp. Atk stage after a faint; the exact current stage is passed to the damage formula, so the ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_script_commands.c:14149",
+            "contains": "if (ability == ABILITY_SOUL_HEART"
+          },
+          {
+            "source": "src/battle_script_commands.c:14154",
+            "contains": "SET_STATCHANGER(STAT_SPATK, 1, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN."
+  },
+  "264": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "Chilling Neigh raises only the holder's Attack stage after a faint; the exact current stage is passed to the damage formula, so the ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4554",
+            "contains": "case ABILITY_CHILLING_NEIGH:"
+          },
+          {
+            "source": "src/battle_util.c:4579",
+            "contains": "SET_STATCHANGER(stat, numMonsFainted, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN."
+  },
+  "265": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "Grim Neigh raises only the holder's Sp. Atk stage after a faint; the exact current stage is passed to the damage formula, so the ability adds no second modifier to the selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4556",
+            "contains": "case ABILITY_GRIM_NEIGH:"
+          },
+          {
+            "source": "src/battle_util.c:4568",
+            "contains": "else if (ability == ABILITY_GRIM_NEIGH || ability == ABILITY_AS_ONE_SHADOW_RIDER)"
+          },
+          {
+            "source": "src/battle_util.c:4579",
+            "contains": "SET_STATCHANGER(stat, numMonsFainted, FALSE);"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN."
+  },
+  "270": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "live_stat_stages_capture_stage_writer",
+        "predicate": "An exact live H&S request with both active battlers, both effective ability IDs, and both eight-entry stat-stage arrays observed.",
+        "rationale": "Thermal Exchange raises only the holder's Attack stage after being hit by Fire. Its burn prevention changes status rather than adding a damage-time multiplier; the selected hit uses the observed live stage and status operands.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4297",
+            "contains": "case ABILITY_THERMAL_EXCHANGE:"
+          },
+          {
+            "source": "src/battle_util.c:4304",
+            "contains": "SET_STATCHANGER(STAT_ATK, 1, FALSE);"
+          },
+          {
+            "source": "src/battle_util.c:5452",
+            "contains": "else if (abilityDef == ABILITY_THERMAL_EXCHANGE)"
+          },
+          {
+            "source": "src/battle_util.c:9080",
+            "contains": "case ABILITY_THERMAL_EXCHANGE:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing live ability or either stat-stage observation remains UNKNOWN."
   }
 }

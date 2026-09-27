@@ -165,14 +165,13 @@ data class CalcHnsRuntimeRules(
  * does not apply. When it is present, every mutable class must be authoritatively observed:
  *
  *  - [attackerTypes] / [defenderTypes]: the engine's current effective types for that participant,
- *    or null when unobserved. A third non-empty type, an out-of-domain/typeless value, or a set
- *    that differs from the static record cannot be represented by the two-type calculator, so it
- *    blocks rather than silently using the static typing.
- *  - [attackerBattleStatWordsObserved] / [defenderBattleStatWordsObserved]: true only when an
- *    authoritative observation of the engine's current raw stat words exists. No runtime reader
- *    produces this yet (Gap C4b), so it is false in production.
- *  - [dynamicMoveTypeObserved]: true only when the current move's effective type was authoritatively
- *    observed. No runtime reader produces this yet (Gap C4b).
+ *    or null when unobserved. These are serialized as type overrides. A third non-empty type,
+ *    an out-of-domain value, or typeless state cannot be represented by the two-type calculator
+ *    and remains blocked.
+ *  - [attackerBattleStatWordsObserved] / [defenderBattleStatWordsObserved]: true only when the
+ *    runtime reader authoritatively observed the engine's current raw stat words.
+ *  - [dynamicMoveTypeObserved]: true only when the boundary observed the field and volatile words
+ *    needed to prove the current move type is unchanged.
  *  - [transientStateObserved]: true only when every transient damage-state operand reachable by
  *    the supported ordinary subset was authoritatively observed: the defender's Glaive Rush
  *    volatile, the attacker's Charge timer and the defender's Tar Shot volatile. A short tuple
@@ -190,6 +189,11 @@ data class CalcHnsRuntimeRules(
  *    observations, or null when unread/disagreeing. The production subset models Singles only,
  *    so the policy refuses the whole live calculation when the observed topology is not `2`
  *    (review round 5; see docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §14.7.2).
+ *  - [switchInEventsSettled]: true only when both runtime observations agree that H&S has reached
+ *    `SWITCH_IN_EVENTS_COUNT`, cleared every active `BattlerState.switchIn` flag, and returned to
+ *    the stable action-selection callback. The callback gate covers the earlier replacement window
+ *    before `switchineffects` resets the event fields. Null or false prevents Group B entry-writer
+ *    proofs from treating an intermediate action/script frame as done.
  */
 data class CalcRawStats(
     val attack: Int,
@@ -326,7 +330,9 @@ data class CalcHnsLiveBattleState(
      * the observed Singles topology (see
      * [CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED]).
      */
-    val observedBattlersCount: Int? = null
+    val observedBattlersCount: Int? = null,
+    /** Boundary-owned proof that the global switch-in/event driver has settled, or null if unread. */
+    val switchInEventsSettled: Boolean? = null
 )
 
 /**

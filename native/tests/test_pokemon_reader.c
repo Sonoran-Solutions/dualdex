@@ -649,6 +649,14 @@ static void hns_battle_fixture_init(HnsBattleFixture* fx, FakeGba* gba, const Ga
     // gSaveBlock1Ptr, so the location reader is not what these tests are measuring.
     write32_le_t(gba->iwram + (cfg->save_block1_ptr_gba_address - 0x03000000u),
                  cfg->save_block1_base_gba_address + 88u);
+    write32_le_t(gba->iwram + (cfg->battle_main_func_gba_address - 0x03000000u),
+                 cfg->action_selection_func_ptr);
+}
+
+/** Set the H&S battle-main callback pointer used by the switch-in phase proof. */
+static void hns_battle_set_main_callback(HnsBattleFixture* fx, uint32_t callback) {
+    write32_le_t(fx->gba->iwram + (fx->cfg->battle_main_func_gba_address - 0x03000000u),
+                 callback);
 }
 
 /** Set the engine's own lifecycle flag: `gMain.inBattle`. */
@@ -5642,6 +5650,96 @@ static void hns_battle_set_gimmick(HnsBattleFixture* fx, uint8_t battler, uint8_
     fx->gba->ewram[(bs_base - 0x02000000u) + off] = gimmick;
 }
 
+/** Write the generated switch-in event counter and active BattlerState.switchIn flags. */
+static void hns_battle_set_switch_in_phase(HnsBattleFixture* fx, uint8_t event_index,
+                                           uint8_t switching_in_mask) {
+    const uint32_t bs_base = 0x02030000u;
+    const size_t bs_offset = bs_base - 0x02000000u;
+    write32_le_t(fx->gba->ewram + fx->cfg->battle_struct_ptr_offset, bs_base);
+    const uint32_t event_bit = fx->cfg->event_state_switch_in_bit;
+    const uint32_t event_byte = event_bit / 8u;
+    const uint32_t event_shift = event_bit % 8u;
+    uint8_t* event_bytes = fx->gba->ewram + bs_offset +
+        fx->cfg->battle_struct_event_state_offset + event_byte;
+    const uint32_t event_value = (uint32_t)event_index << event_shift;
+    for (uint32_t i = 0; i < (event_shift + fx->cfg->event_state_switch_in_width + 7u) / 8u; i++) {
+        event_bytes[i] = (uint8_t)(event_value >> (8u * i));
+    }
+    const uint32_t flag_byte = fx->cfg->battler_state_switch_in_bit / 8u;
+    const uint32_t flag_mask = (uint32_t)1u << (fx->cfg->battler_state_switch_in_bit % 8u);
+    for (uint8_t battler = 0; battler < 2; battler++) {
+        uint8_t* state = fx->gba->ewram + bs_offset + fx->cfg->battle_struct_battler_state_offset +
+            (size_t)battler * fx->cfg->battler_state_size;
+        state[flag_byte] = (switching_in_mask & (1u << battler)) ? (uint8_t)flag_mask : 0;
+    }
+}
+
+static void test_hns_battler_switch_in_phase_requires_event_flags_and_stable_callback(void) {
+    printf("Running test_hns_battler_switch_in_phase_requires_event_flags_and_stable_callback...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    BattlerRuntimeState st;
+    hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "settled phase read succeeds");
+    TEST_ASSERT(st.switch_in_phase_observed && st.switch_in_events_settled,
+                "event counter, clear battler flags, and stable action-selection callback prove settlement");
+
+    hns_battle_set_switch_in_phase(&fx, 4, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "pending event read succeeds");
+    TEST_ASSERT(st.switch_in_phase_observed && !st.switch_in_events_settled,
+                "an intermediate event counter remains pending");
+
+    hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 1u << 1);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "switch-in flag read succeeds");
+    TEST_ASSERT(st.switch_in_phase_observed && !st.switch_in_events_settled,
+                "a still-set BattlerState.switchIn flag keeps the phase pending");
+
+    /* Replacement timing regression: the new Drizzle battler and clear weather are already
+     * readable, while switchindataupdate has run but switchineffects has not. The prior event
+     * counter is still at COUNT, every switchIn flag is clear, and the opponent controller has
+     * already cleared its monToSwitchIntoId during the send-out animation. The main callback is
+     * still in battle-script work, so this frame must remain pending. */
+    hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 0);
+    hns_battle_set_main_callback(&fx, HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR);
+    const size_t battle_struct_offset = 0x30000u;
+    gba.ewram[battle_struct_offset + HNS_LIVE_BATTLE_STRUCT_MON_TO_SWITCH_INTO_ID_OFFSET + 1u] =
+        HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT; /* PARTY_SIZE, cleared by the opponent send-out animation */
+    TEST_ASSERT(gba.ewram[battle_struct_offset + HNS_LIVE_BATTLE_STRUCT_MON_TO_SWITCH_INTO_ID_OFFSET + 1u] ==
+                    HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT,
+                "replacement transition models the opponent animation's cleared switch target");
+    hns_battle_set_battler(&fx, 1, 1, 1);
+    hns_battle_set_mon(&fx, 1, 382, 40); /* replacement Kyogre */
+    uint8_t* replacement = gba.ewram + cfg->battle_mons_offset + cfg->battle_mons_size;
+    write16_le_t(replacement + cfg->battle_mons_ability_offset, 2); /* Drizzle */
+    write16_le_t(gba.ewram + cfg->battle_weather_offset, 0); /* entry script has not set Rain */
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st),
+                "replacement battler remains readable before switch-in events");
+    TEST_ASSERT(st.ability_observed && st.ability_id == 2,
+                "the newly installed Drizzle identity is already visible in this transition");
+    TEST_ASSERT(st.switch_in_phase_observed && !st.switch_in_events_settled,
+                "old COUNT sentinel and clear flags cannot settle while action/script callback is active");
+
+    hns_battle_set_main_callback(&fx, cfg->action_selection_func_ptr);
+    write16_le_t(gba.ewram + cfg->battle_weather_offset, 1); /* Drizzle's entry script has set Rain */
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st),
+                "stable action-selection phase remains readable");
+    TEST_ASSERT(st.weather_readable && st.battle_weather == 1,
+                "replacement Drizzle has completed its weather entry effect");
+    TEST_ASSERT(st.switch_in_phase_observed && st.switch_in_events_settled,
+                "event sentinel, clear flags, and action-selection callback prove settlement");
+
+    write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "unreadable phase does not hide battle state");
+    TEST_ASSERT(!st.switch_in_phase_observed && !st.switch_in_events_settled,
+                "null BattleStruct pointer fails the settlement proof closed");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_switch_in_phase_requires_event_flags_and_stable_callback" ANSI_RESET "\n");
+}
+
 /* The live `gFieldStatuses` reader must preserve the raw battle-global word: a readable zero
  * stays an observed 0 (never "unread"), every pinned bit and any unexpected high bit survive
  * unchanged, nothing is masked, and both battle-level observations report the same word. */
@@ -6314,6 +6412,7 @@ int main(void) {
     test_hns_badge_state_reading();
     test_hns_battler_state_stats_stages_badges();
     test_hns_battler_state_c4e_live_operands();
+    test_hns_battler_switch_in_phase_requires_event_flags_and_stable_callback();
     test_hns_field_statuses_raw_word();
     test_hns_field_statuses_thor_regression();
     test_hns_battler_state_c4e_field_conditions();

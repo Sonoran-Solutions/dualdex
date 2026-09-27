@@ -794,8 +794,8 @@ object HnsCalcCensusReport {
         out.append(
             "A policy call with no live operands is not a useful measurement, because the " +
                 "production policy correctly refuses a request whose live evidence is missing. " +
-                "The census therefore supplies the fully observed neutral state an ordinary " +
-                "battle has at the start of the fight, and nothing else:\n\n"
+                "The census therefore supplies the fully observed neutral state after the " +
+                "authoritative switch-in/event phase has settled, and nothing else:\n\n"
         )
         out.append("- pinned H&S 2.0.5 profile and data pack, asserted through the existing " +
             "`RuntimeRomTrust` mechanism at the real exact-trusted ceiling (no trust was weakened);\n")
@@ -810,6 +810,8 @@ object HnsCalcCensusReport {
             "equalizer, no level/IV/EV scaling;\n")
         out.append("- no field effect (`gFieldStatuses = 0`), clear weather, no defender screens, " +
             "every volatile bit observed false, all stat stages zero, no gimmick;\n")
+        out.append("- switch-in events observed settled: `eventState.switchIn = " +
+            "SWITCH_IN_EVENTS_COUNT` and every active `BattlerState.switchIn` flag clear;\n")
         out.append("- both battlers at full HP with `status1 = 0`, so a pinch ability is provably " +
             "inactive rather than accidentally active;\n")
         out.append("- each participant's own item and effective ability from the pinned trainer " +

@@ -135,10 +135,23 @@ class ParseMoveTableTest(unittest.TestCase):
         _, _, ordinary, _, _, _, _, _ = gen.parse_move_table(_table(STATE_FLAG))
         self.assertNotIn("MOVE_ALIAS", ordinary)
 
-    def test_target_ability_bypass_is_not_ordinary(self):
+    def test_target_ability_bypass_is_ordinary_and_delegated_to_group_c(self):
         _, _, ordinary, _, flags, _, _, _ = gen.parse_move_table(_table(ABILITY_BYPASS))
-        self.assertNotIn("MOVE_POUND", ordinary)
+        self.assertIn("MOVE_POUND", ordinary)
         self.assertIn("ignoresTargetAbility", flags["MOVE_POUND"])
+
+    def test_conditional_target_ability_bypass_stays_unclassified(self):
+        entry = """    [MOVE_POUND] =
+    {
+        .effect = EFFECT_HIT,
+    #if B_EXPANDED_MOVE_FLAGS
+        .ignoresTargetAbility = TRUE,
+    #endif
+    },"""
+        _, _, ordinary, _, flags, unknown, _, _ = gen.parse_move_table(_table(entry))
+        self.assertNotIn("MOVE_POUND", ordinary)
+        self.assertNotIn("ignoresTargetAbility", flags["MOVE_POUND"])
+        self.assertIn("ignoresTargetAbility", unknown["MOVE_POUND"])
 
     def test_conditional_effect_is_unresolved(self):
         effects, targets, ordinary, unresolved, _, _, _, _ = gen.parse_move_table(_table(CONDITIONAL))

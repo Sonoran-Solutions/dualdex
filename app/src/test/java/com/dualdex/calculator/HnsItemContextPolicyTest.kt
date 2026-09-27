@@ -253,6 +253,8 @@ class HnsItemContextPolicyTest {
         assertEquals(relevant, relevance(758, clearContext.copy(side = HnsItemSide.ATTACKER,
             attackerGastroAcid = true)))
         assertEquals(HnsItemRequestRelevance.MODELLED, relevance(758, clearContext.copy(attackerAbilityId = 104)))
+        assertEquals(HnsItemRequestRelevance.MODELLED,
+            relevance(758, clearContext.copy(moveIgnoresTargetAbility = true)))
         assertEquals(unknown, relevance(758, ctx(HnsItemSide.DEFENDER, attackerAbilityId = 0,
             defenderAbilityId = 0, attackerGastroAcid = false, defenderGastroAcid = false)))
         assertEquals(unknown, relevance(758, clearContext.copy(ordinaryMove = false)))
@@ -273,6 +275,13 @@ class HnsItemContextPolicyTest {
         )
         val context = HnsItemContextPolicy.contextForRequest(request, HnsItemSide.DEFENDER, true)
         assertEquals(irrelevant, relevance(758, context))
+
+        val sunsteel = request.copy(move = CalcMoveInput("Sunsteel Strike"))
+        val sunsteelContext = HnsItemContextPolicy.contextForRequest(sunsteel, HnsItemSide.DEFENDER, true)
+        assertEquals(HnsItemRequestRelevance.MODELLED,
+            relevance(758, sunsteelContext))
+        assertEquals(false, context.moveIgnoresTargetAbility)
+        assertEquals(true, sunsteelContext.moveIgnoresTargetAbility)
 
         val unobservedVolatiles = request.copy(hnsLiveBattleState = live.copy(defenderPersistentVolatiles = null))
         assertEquals(unknown, relevance(758,

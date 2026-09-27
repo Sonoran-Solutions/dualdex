@@ -22,7 +22,8 @@ script:
     do not carry a damage-relevant complication: multi-hit (``multiHit`` or
     ``strikeCount > 1``), the ``explosion`` flag (H&S keeps ``B_EXPLOSION_DEFENSE`` at
     ``GEN_LATEST`` while the ADV pipeline halves Defense), ``alwaysCriticalHit``, or any of
-    the state-dependent damage flags.
+    the unmodelled state-dependent damage flags. ``ignoresTargetAbility`` is retained as
+    source-derived metadata and handled by the request-local Group C layer.
 
 The generated artifact is `app/src/main/java/com/dualdex/pokemon/hns/Hns205MoveEffects.kt`.
 It is a self-contained Kotlin object, so ordinary `./ci.sh test` never needs the upstream
@@ -69,7 +70,6 @@ PLAIN_TARGET_RE = re.compile(r"TARGET_[A-Z0-9_]+")
 # request shape cannot express, so the ADV pipeline cannot be trusted to reproduce it.
 STATE_DEPENDENT_FLAGS = (
     "ignoresTargetDefenseEvasionStages",
-    "ignoresTargetAbility",
     "damagesUnderground",
     "damagesUnderwater",
     "damagesAirborne",
@@ -303,7 +303,9 @@ def parse_move_table(text):
         effect_by_symbol[symbol] = effect
         if target is not None:
             target_by_symbol[symbol] = target
-        if effect == "EFFECT_HIT" and complication is None:
+        # Literal target-ability bypass is modelled by the request-local Group C layer. A
+        # conditional/computed bypass remains unknown and must not enter the ordinary allow-list.
+        if effect == "EFFECT_HIT" and complication is None and "ignoresTargetAbility" not in unknown_flags:
             ordinary_symbols.add(symbol)
     return (effect_by_symbol, target_by_symbol, ordinary_symbols, unresolved, flags_by_symbol,
             unknown_flags_by_symbol, priority_by_symbol, unknown_priority_symbols)
@@ -407,7 +409,8 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append(" *")
     lines.append(" * `ordinaryMoveIds` is the subset whose damage the generation III pipeline is proven")
     lines.append(" * to reproduce: `EFFECT_HIT` with no multi-hit, explosion, always-crit or")
-    lines.append(" * state-dependent damage flag. See generate_hns_move_effects.py for the exact rule.")
+    lines.append(" * unmodelled state-dependent damage flag. `ignoresTargetAbility` is delegated to")
+    lines.append(" * the request-local Group C ability layer.")
     lines.append(" *")
     lines.append(" * `targetClassByMoveId` maps move IDs to the INTERNAL `SpreadTargetClass`")
     lines.append(" * values (see Hns205MoveEffects.SpreadTargetClass below). Those are the EXACT")

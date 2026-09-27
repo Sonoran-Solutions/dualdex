@@ -73,6 +73,7 @@ MOVES = {
     "Shadow Ball": ("Ghost", "special", 80),
     "Iron Head": ("Steel", "physical", 80), "Meteor Mash": ("Steel", "physical", 90),
     "Flash Cannon": ("Steel", "special", 80), "Mirror Shot": ("Steel", "special", 65),
+    "Sunsteel Strike": ("Steel", "physical", 100),
     "Fire Punch": ("Fire", "physical", 75), "Fire Fang": ("Fire", "physical", 65),
     "Flamethrower": ("Fire", "special", 90), "Ember": ("Fire", "special", 40),
     "Heat Wave": ("Fire", "special", 95),
@@ -590,6 +591,17 @@ def _group_c_immunities() -> list[dict]:
 
     out.append(scenario("group-c-dry-skin-fire-boost", ["group-c-immunity", "ability-boost", "ability:dry-skin"],
                         at(), df(ability=("ABILITY_DRY_SKIN", "Dry Skin")), "Flamethrower"))
+    wise_glasses = ("ITEM_WISE_GLASSES", "Wise Glasses")
+    out.append(scenario(
+        "group-c-dry-skin-wise-glasses-control",
+        ["group-c-immunity", "ability-boost", "ability:dry-skin", "negative-control", "item:wise-glasses"],
+        attacker("Machamp", atk=145, spa=40),
+        defender("Snorlax", dfn=107, spd=41, ability=("ABILITY_DRY_SKIN", "Dry Skin")), "Flamethrower"))
+    out.append(scenario(
+        "group-c-dry-skin-wise-glasses",
+        ["group-c-immunity", "ability-boost", "ability:dry-skin", "item:wise-glasses", "modifier-stacking"],
+        attacker("Machamp", atk=145, spa=40, item=wise_glasses),
+        defender("Snorlax", dfn=107, spd=41, ability=("ABILITY_DRY_SKIN", "Dry Skin")), "Flamethrower"))
 
     for ability, move, flag in (
         ("Soundproof", "Hyper Voice", "sound"),
@@ -613,6 +625,18 @@ def _group_c_immunities() -> list[dict]:
 
     out.append(scenario("group-c-wonder-guard-neutral", ["group-c-immunity", "ability-immunity", "ability:wonder-guard"],
                         at(), df(ability=("ABILITY_WONDER_GUARD", "Wonder Guard")), "Tackle", expect="immune"))
+    ability_shield = ("ITEM_ABILITY_SHIELD", "Ability Shield")
+    out.append(scenario("group-c-wonder-guard-sunsteel-strike", ["group-c-immunity", "ability:wonder-guard",
+                        "move-ability-bypass"], at(), df(ability=("ABILITY_WONDER_GUARD", "Wonder Guard")),
+                        "Sunsteel Strike"))
+    out.append(scenario("group-c-wonder-guard-sunsteel-strike-ability-shield", ["group-c-immunity",
+                        "ability:wonder-guard", "item:ability-shield", "move-ability-bypass"], at(),
+                        df(ability=("ABILITY_WONDER_GUARD", "Wonder Guard"), item=ability_shield),
+                        "Sunsteel Strike", expect="immune"))
+    out.append(scenario("group-c-wonder-guard-ability-shield-control", ["group-c-immunity",
+                        "ability:wonder-guard", "item:ability-shield", "negative-control"], at(),
+                        df(ability=("ABILITY_WONDER_GUARD", "Wonder Guard"), item=ability_shield),
+                        "Tackle", expect="immune"))
     out.append(scenario("group-c-wonder-guard-resisted", ["group-c-immunity", "ability-immunity", "ability:wonder-guard"],
                         at(), defender("Sudowoodo", dfn=107, spd=107,
                                        ability=("ABILITY_WONDER_GUARD", "Wonder Guard")), "Tackle", expect="immune"))

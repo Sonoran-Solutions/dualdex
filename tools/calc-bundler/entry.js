@@ -317,6 +317,10 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const defenderAbility = defender.ability || '';
   const moveFlags = new Set(input.move?.hnsMoveFlags || []);
   const ignoresTargetAbility = moveFlags.has('ignoresTargetAbility');
+  // Move-level ability bypass enters the same Mold Breaker path as an attacker ability. The
+  // pinned GetBattlerAbilityInternal() checks Ability Shield before CanBreakThroughAbility(),
+  // so the move flag does not suppress a shielded target ability.
+  const bypassTargetAbility = ignoresTargetAbility && defenderItem !== 'ability shield';
   const hnsDamagingMove = move.category !== 'Status' && move.bp > 0;
   if (hnsDamagingMove && typeEffectiveness === 0) {
     addImmunity('type', 'src/data/types_info.h', 'type-chart');
@@ -330,14 +334,14 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       typeEffectiveness = 1.0;
       immunityCauses.splice(0, immunityCauses.length,
         ...immunityCauses.filter(cause => cause.kind !== 'type'));
-    } else if (defenderAbility === 'Levitate' && !ironBall && !ignoresTargetAbility) {
+    } else if (defenderAbility === 'Levitate' && !ironBall && !bypassTargetAbility) {
       addImmunity('ability', 'src/battle_util.c:8385', 'Levitate');
     } else if (defenderItem === 'air balloon') {
       addImmunity('item', 'src/battle_util.c:8392', 'Air Balloon');
     }
   }
 
-  if (hnsDamagingMove && !ignoresTargetAbility && defenderAbility === 'Wonder Guard' && typeEffectiveness <= 1.0) {
+  if (hnsDamagingMove && !bypassTargetAbility && defenderAbility === 'Wonder Guard' && typeEffectiveness <= 1.0) {
     addImmunity('ability', 'src/battle_util.c:8421', 'Wonder Guard');
   }
 
@@ -355,7 +359,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       'Flash Fire': ['Fire', 'src/battle_util.c:2481']
     };
     const absorber = typeAbsorbers[defenderAbility];
-    if (!ignoresTargetAbility && absorber && absorber[0] === move.type) {
+    if (!bypassTargetAbility && absorber && absorber[0] === move.type) {
       addImmunity('ability', absorber[1], defenderAbility);
     }
     const flagImmunity = defenderAbility === 'Soundproof' && moveFlags.has('soundMove')
@@ -365,12 +369,12 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
         : defenderAbility === 'Wind Rider' && moveFlags.has('windMove')
           ? 'src/battle_util.c:2477'
           : null;
-    if (!ignoresTargetAbility && flagImmunity) {
+    if (!bypassTargetAbility && flagImmunity) {
       addImmunity('ability', flagImmunity, defenderAbility);
     }
     const priority = input.move?.effectivePriority;
     const targetClass = input.move?.hnsTargetClass;
-    if (!ignoresTargetAbility && Number.isInteger(priority) && priority > 0 &&
+    if (!bypassTargetAbility && Number.isInteger(priority) && priority > 0 &&
         targetClass !== 12 && targetClass !== 13 &&
         ['Queenly Majesty', 'Dazzling', 'Armor Tail'].includes(defenderAbility)) {
       addImmunity('ability', 'src/battle_move_resolution.c:1406', defenderAbility);
@@ -505,34 +509,39 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   userFinalAttack = Math.max(1, userFinalAttack);
   targetFinalDefense = Math.max(1, targetFinalDefense);
 
-  let bp = move.bp;
-  // H&S applies Dry Skin's Fire weakness in the target ability base-power modifier. In the
-  // integer pipeline this is the 1.25 UQ4.12 modifier applied once to base power.
-  if (!ignoresTargetAbility && defenderAbility === 'Dry Skin' && move.type === 'Fire') bp = halfDown(5120, bp);
+  let bpModifier = 4096;
+  const combineBpModifier = modifier => { bpModifier = halfDown(modifier, bpModifier); };
+  // H&S combines base-power UQ4.12 modifiers before applying the product to base power. In
+  // particular, Dry Skin and Wise Glasses together produce 5631 (not two rounded BP steps).
+  if (!bypassTargetAbility && defenderAbility === 'Dry Skin' && move.type === 'Fire') {
+    combineBpModifier(5120);
+  }
   const item = (input.attacker?.item || attacker.item || '').toLowerCase();
-  if (item === 'charcoal' && move.type === 'Fire') bp = halfDown(4915, bp);
-  else if (item === 'mystic water' && move.type === 'Water') bp = halfDown(4915, bp);
-  else if (item === 'miracle seed' && move.type === 'Grass') bp = halfDown(4915, bp);
-  else if (item === 'magnet' && move.type === 'Electric') bp = halfDown(4915, bp);
-  else if (item === 'silk scarf' && move.type === 'Normal') bp = halfDown(4915, bp);
-  else if (item === 'black belt' && move.type === 'Fighting') bp = halfDown(4915, bp);
-  else if (item === 'sharp beak' && move.type === 'Flying') bp = halfDown(4915, bp);
-  else if (item === 'poison barb' && move.type === 'Poison') bp = halfDown(4915, bp);
-  else if (item === 'soft sand' && move.type === 'Ground') bp = halfDown(4915, bp);
-  else if (item === 'hard stone' && move.type === 'Rock') bp = halfDown(4915, bp);
-  else if (item === 'silver powder' && move.type === 'Bug') bp = halfDown(4915, bp);
-  else if (item === 'spell tag' && move.type === 'Ghost') bp = halfDown(4915, bp);
-  else if (item === 'metal coat' && move.type === 'Steel') bp = halfDown(4915, bp);
-  else if (item === 'twisted spoon' && move.type === 'Psychic') bp = halfDown(4915, bp);
-  else if (item === 'never-melt ice' && move.type === 'Ice') bp = halfDown(4915, bp);
-  else if (item === 'dragon fang' && move.type === 'Dragon') bp = halfDown(4915, bp);
-  else if (item === 'black glasses' && move.type === 'Dark') bp = halfDown(4915, bp);
+  if (item === 'charcoal' && move.type === 'Fire') combineBpModifier(4915);
+  else if (item === 'mystic water' && move.type === 'Water') combineBpModifier(4915);
+  else if (item === 'miracle seed' && move.type === 'Grass') combineBpModifier(4915);
+  else if (item === 'magnet' && move.type === 'Electric') combineBpModifier(4915);
+  else if (item === 'silk scarf' && move.type === 'Normal') combineBpModifier(4915);
+  else if (item === 'black belt' && move.type === 'Fighting') combineBpModifier(4915);
+  else if (item === 'sharp beak' && move.type === 'Flying') combineBpModifier(4915);
+  else if (item === 'poison barb' && move.type === 'Poison') combineBpModifier(4915);
+  else if (item === 'soft sand' && move.type === 'Ground') combineBpModifier(4915);
+  else if (item === 'hard stone' && move.type === 'Rock') combineBpModifier(4915);
+  else if (item === 'silver powder' && move.type === 'Bug') combineBpModifier(4915);
+  else if (item === 'spell tag' && move.type === 'Ghost') combineBpModifier(4915);
+  else if (item === 'metal coat' && move.type === 'Steel') combineBpModifier(4915);
+  else if (item === 'twisted spoon' && move.type === 'Psychic') combineBpModifier(4915);
+  else if (item === 'never-melt ice' && move.type === 'Ice') combineBpModifier(4915);
+  else if (item === 'dragon fang' && move.type === 'Dragon') combineBpModifier(4915);
+  else if (item === 'black glasses' && move.type === 'Dark') combineBpModifier(4915);
   // H&S 2.0.5 Wise Glasses (src/battle_util.c:6818 CalcMoveBasePowerAfterModifiers):
   // HOLD_EFFECT_WISE_GLASSES multiplies base power by (1.0 + holdEffectParamAtk%), where
   // holdEffectParamAtk = 10, floored percent is (4096 * 10) / 100 = 409, so modifier is 4505 (UQ4.12).
-  // Applied to base power with uq4_12_multiply_by_int_half_down (halfDown 4505).
-  // Applies only to Special moves (IsBattleMoveSpecial(move)).
-  else if (item === 'wise glasses' && !isPhysical) bp = halfDown(4505, bp);
+  // Applies only to Special moves (IsBattleMoveSpecial(move)). Its UQ4.12 value is combined
+  // with the ability modifier above before base power is rounded, as in the pinned pipeline.
+  else if (item === 'wise glasses' && !isPhysical) combineBpModifier(4505);
+
+  const bp = halfDown(bpModifier, move.bp);
 
   const level = attacker.level || 50;
   let dmg = Math.floor(Math.floor(Math.floor(bp * userFinalAttack * (Math.floor((2 * level) / 5) + 2)) / targetFinalDefense) / 50) + 2;

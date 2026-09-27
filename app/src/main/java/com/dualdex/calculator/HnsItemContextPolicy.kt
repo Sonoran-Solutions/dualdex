@@ -5,6 +5,7 @@ import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.hns.HnsFieldState
 import com.dualdex.pokemon.hns.HnsFieldStatus
 import com.dualdex.pokemon.hns.HnsItemCategory
+import com.dualdex.pokemon.hns.Hns205MoveEffects
 import com.dualdex.pokemon.hns.HnsItemRegistry
 
 /** Which request participant holds an effective live item. */
@@ -72,7 +73,9 @@ object HnsItemContextPolicy {
         val defenderAbilityId: Int? = null,
         val attackerGastroAcid: Boolean? = null,
         val defenderGastroAcid: Boolean? = null,
-        val observedBattlersCount: Int? = null
+        val observedBattlersCount: Int? = null,
+        /** True only when the pinned selected move carries the `ignoresTargetAbility` flag. */
+        val moveIgnoresTargetAbility: Boolean = false
     )
 
     fun assess(itemId: Int, context: Context?): HnsItemRequestDecision {
@@ -169,6 +172,10 @@ object HnsItemContextPolicy {
     ): Context {
         val live = request.hnsLiveBattleState
         val authority = HnsMoveAuthority.forRequest(request, ordinaryMove)
+        val moveId = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id
+        val moveIgnoresTargetAbility = moveId?.let {
+            "ignoresTargetAbility" in Hns205MoveEffects.immunityFlagsById[it].orEmpty()
+        } == true
         return Context(
             side = side,
             ordinaryMove = ordinaryMove,
@@ -184,7 +191,8 @@ object HnsItemContextPolicy {
                 ?.takeIf { it.observed }?.gastroAcid,
             defenderGastroAcid = live?.defenderPersistentVolatiles
                 ?.takeIf { it.observed }?.gastroAcid,
-            observedBattlersCount = live?.observedBattlersCount
+            observedBattlersCount = live?.observedBattlersCount,
+            moveIgnoresTargetAbility = moveIgnoresTargetAbility
         )
     }
 
@@ -404,11 +412,13 @@ object HnsItemContextPolicy {
         val holderAbilityCanBeSuppressed = holderGastroAcid ||
             (neutralizingGasActive && holderAbility != NEUTRALIZING_GAS_ABILITY_ID)
         val attackerCanBreakDefenderAbility = c.side == HnsItemSide.DEFENDER &&
-            !attackerGastroAcid && attackerAbility in MOLD_BREAKER_ABILITY_IDS
+            ((!attackerGastroAcid && attackerAbility in MOLD_BREAKER_ABILITY_IDS) ||
+                c.moveIgnoresTargetAbility)
         val suppressionSource = when {
             holderGastroAcid -> "src/battle_util.c:5015"
             neutralizingGasActive && holderAbility != NEUTRALIZING_GAS_ABILITY_ID ->
                 "src/battle_util.c:5018"
+            c.side == HnsItemSide.DEFENDER && c.moveIgnoresTargetAbility -> "src/battle_util.c:9980"
             attackerCanBreakDefenderAbility -> "src/battle_util.c:4976"
             else -> null
         }
@@ -418,8 +428,8 @@ object HnsItemContextPolicy {
                 !holderAbilityCanBeSuppressed
             ) modelled(
                 rule = "ability_shield_current_suppression",
-                source = "src/battle_util.c:4976",
-                rationale = "The exact current Ability Shield prevents the pinned Mold Breaker break-through check for this holder; the live effective defender ability is preserved."
+                source = suppressionSource ?: "src/battle_util.c:4976",
+                rationale = "The exact current Ability Shield prevents the pinned Mold Breaker or move-level ability-bypass check for this holder; the live effective defender ability is preserved."
             ) else relevant(
                 rule = "ability_shield_current_suppression",
                 source = suppressionSource ?: "src/battle_util.c:4998",

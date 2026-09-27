@@ -17,7 +17,8 @@ package com.dualdex.pokemon.hns
  *
  * `ordinaryMoveIds` is the subset whose damage the generation III pipeline is proven
  * to reproduce: `EFFECT_HIT` with no multi-hit, explosion, always-crit or
- * state-dependent damage flag. See generate_hns_move_effects.py for the exact rule.
+ * unmodelled state-dependent damage flag. `ignoresTargetAbility` is delegated to
+ * the request-local Group C ability layer.
  *
  * `targetClassByMoveId` maps move IDs to the INTERNAL `SpreadTargetClass`
  * values (see Hns205MoveEffects.SpreadTargetClass below). Those are the EXACT
@@ -1215,6 +1216,8 @@ internal object Hns205MoveEffects {
         664,
         665,
         666,
+        667,
+        668,
         670,
         674,
         677,
@@ -1317,6 +1320,8 @@ internal object Hns205MoveEffects {
         874,
         876,
         877,
+        879,
+        880,
         882,
     )
 

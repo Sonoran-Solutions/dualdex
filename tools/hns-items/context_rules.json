@@ -773,7 +773,7 @@
           "families": [
             "HOLD_EFFECT_ABILITY_SHIELD"
           ],
-          "predicate": "Authoritative ordinary single-hit move, observed Singles topology, both persistent volatile windows observed with Gastro Acid clear, neither effective ability is active Neutralizing Gas, and no defender-side Mold Breaker can affect the hit.",
+          "predicate": "Authoritative ordinary single-hit move, observed Singles topology, both persistent volatile windows observed with Gastro Acid clear, neither effective ability is active Neutralizing Gas, no defender-side Mold Breaker can affect the hit, and the selected move lacks ignoresTargetAbility.",
           "rationale": "Ability Shield changes whether Gastro Acid, Neutralizing Gas, or an ability-breaking attack suppresses the holder ability; with those sources absent, it cannot affect this hit.",
           "evidence": [
             {
@@ -791,6 +791,10 @@
             {
               "source": "src/battle_util.c:4962",
               "contains": "if (ability == ABILITY_MOLD_BREAKER"
+            },
+            {
+              "source": "src/battle_util.c:9980",
+              "contains": "gBattleStruct->moldBreakerActive = IsMoldBreakerTypeAbility(gBattlerAttacker, GetBattlerAbility(gBattlerAttacker)) || MoveIgnoresTargetAbility(gCurrentMove);"
             },
             {
               "source": "src/battle_util.c:5020",
@@ -820,6 +824,10 @@
             {
               "source": "src/battle_util.c:4976",
               "contains": "if (hasAbilityShield || ignoreMoldBreaker || battlerDef == battlerAtk)"
+            },
+            {
+              "source": "src/battle_util.c:9980",
+              "contains": "gBattleStruct->moldBreakerActive = IsMoldBreakerTypeAbility(gBattlerAttacker, GetBattlerAbility(gBattlerAttacker)) || MoveIgnoresTargetAbility(gCurrentMove);"
             },
             {
               "source": "src/battle_util.c:5015",

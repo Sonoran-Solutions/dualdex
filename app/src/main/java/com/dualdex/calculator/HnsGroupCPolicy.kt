@@ -87,7 +87,8 @@ internal object HnsGroupCPolicy {
             ) return setOf(CalcLimitation.HNS_IMMUNITY_CONTEXT_UNVERIFIED)
         }
 
-        if (attackerAbility in moldBreakerFamilies && defenderAbility != null &&
+        val moveFlagModelsSuppression = "ignoresTargetAbility" in flags && defenderItem != abilityShieldItem
+        if (attackerAbility in moldBreakerFamilies && defenderAbility != null && !moveFlagModelsSuppression &&
             defenderAbilityWouldChangeHit(request, defenderAbility, moveType, flags, defenderItem) &&
             defenderItem != abilityShieldItem
         ) {
@@ -103,7 +104,6 @@ internal object HnsGroupCPolicy {
         flags: Set<String>,
         defenderItemId: Int?
     ): Boolean {
-        if ("ignoresTargetAbility" in flags) return false
         // A suppressed ability cannot change a hit that the pinned type chart already
         // guarantees will miss. Ring Target and Iron Ball are included by this resolver, so
         // a rewritten chart zero still proceeds to the ability-specific check below.

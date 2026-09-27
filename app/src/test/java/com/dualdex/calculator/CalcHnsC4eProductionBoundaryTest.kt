@@ -2949,6 +2949,33 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `Ability Shield blocks the pinned move ability bypass and caller overrides cannot spoof it`() {
+        val trust = trustFor(exactSha)
+        val wonderGuard = enemyObservation(abilityId = 25, abilityName = "Wonder Guard", itemId = 758)
+        val spoofedSunsteel = goldenARequest("Sunsteel Strike").copy(
+            moveOverride = CalcMoveOverride(basePower = 1, type = "Normal", category = "Special")
+        )
+        val sunsteel = readyOf(
+            build(trust, spoofedSunsteel, playerObservation(), wonderGuard, randomAbilities = true),
+            "the pinned Sunsteel Strike flag reaches the engine with its protecting Ability Shield"
+        )
+        val sunsteelMove = JSONObject(buildCalcRequestJson(sunsteel.request)).getJSONObject("move")
+        assertEquals(667, sunsteelMove.getInt("hnsMoveId"))
+        assertTrue(sunsteelMove.getJSONArray("hnsMoveFlags").toString().contains("ignoresTargetAbility"))
+
+        val spoofedTackle = goldenARequest("Tackle").copy(
+            moveOverride = CalcMoveOverride(basePower = 100, type = "Steel", category = "Special")
+        )
+        val tackle = readyOf(
+            build(trust, spoofedTackle, playerObservation(), wonderGuard, randomAbilities = true),
+            "caller move metadata cannot add the pinned bypass flag to Tackle"
+        )
+        val tackleMove = JSONObject(buildCalcRequestJson(tackle.request)).getJSONObject("move")
+        assertEquals(33, tackleMove.getInt("hnsMoveId"))
+        assertFalse(tackleMove.getJSONArray("hnsMoveFlags").toString().contains("ignoresTargetAbility"))
+    }
+
+    @Test
     fun `name and numeric ability item identities must agree before neutralization`() {
         val mismatched = goldenARequest().copy(
             attacker = goldenARequest().attacker.copy(

@@ -184,7 +184,7 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-1,373 of 1,379 scenarios match the shipped calculator on all 16 rolls (1,263 production-modelled and
+1,377 of 1,379 scenarios match the shipped calculator on all 16 rolls (1,263 production-modelled and
 116 engine-only). The two remaining exact-vector divergences are registered in
 `known_divergences.json`, each linked to its tracking issue:
 

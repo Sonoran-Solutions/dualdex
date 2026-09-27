@@ -31,7 +31,8 @@ class HnsAbilityContextPolicyTest {
         defenderAbilityObserved: Boolean = true,
         attackerHp: Int? = 14,
         defenderAbilityId: Int? = 0,
-        weatherWord: Int? = 0
+        weatherWord: Int? = 0,
+        switchInEventsSettled: Boolean? = true
     ) = HnsAbilityContextPolicy.Context(
         side = side,
         ordinaryMove = ordinaryMove,
@@ -54,7 +55,8 @@ class HnsAbilityContextPolicyTest {
         defenderAbilityObserved = defenderAbilityObserved,
         attackerHp = attackerHp,
         defenderAbilityId = defenderAbilityId,
-        weatherWord = weatherWord
+        weatherWord = weatherWord,
+        switchInEventsSettled = switchInEventsSettled
     )
 
     private fun relevance(id: Int, context: HnsAbilityContextPolicy.Context?) =
@@ -370,6 +372,26 @@ class HnsAbilityContextPolicyTest {
                 relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = null)))
             assertEquals("ability $id", HnsAbilityRequestRelevance.UNKNOWN,
                 relevance(id, context(side = HnsAbilitySide.DEFENDER, ordinaryMove = false)))
+        }
+    }
+
+    @Test
+    fun `switch-in writers require an observed settled event phase`() {
+        val pending = context(switchInEventsSettled = false)
+        val unread = context(switchInEventsSettled = null)
+        val settled = context(switchInEventsSettled = true)
+        for (id in listOf(22, 2, 16, 36, 222, 223)) {
+            assertEquals("pending ability $id", HnsAbilityRequestRelevance.UNKNOWN, relevance(id, pending))
+            assertEquals("unread phase ability $id", HnsAbilityRequestRelevance.UNKNOWN, relevance(id, unread))
+        }
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(22, settled.copy(side = HnsAbilitySide.DEFENDER)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(2, settled))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(16, settled.copy(side = HnsAbilitySide.DEFENDER)))
+        for (id in listOf(36, 222, 223)) {
+            assertEquals("settled ability rewriter $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, settled.copy(side = HnsAbilitySide.DEFENDER)))
         }
     }
 

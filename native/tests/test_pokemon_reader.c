@@ -5642,6 +5642,62 @@ static void hns_battle_set_gimmick(HnsBattleFixture* fx, uint8_t battler, uint8_
     fx->gba->ewram[(bs_base - 0x02000000u) + off] = gimmick;
 }
 
+/** Write the generated switch-in event counter and active BattlerState.switchIn flags. */
+static void hns_battle_set_switch_in_phase(HnsBattleFixture* fx, uint8_t event_index,
+                                           uint8_t switching_in_mask) {
+    const uint32_t bs_base = 0x02030000u;
+    const size_t bs_offset = bs_base - 0x02000000u;
+    write32_le_t(fx->gba->ewram + fx->cfg->battle_struct_ptr_offset, bs_base);
+    const uint32_t event_bit = fx->cfg->event_state_switch_in_bit;
+    const uint32_t event_byte = event_bit / 8u;
+    const uint32_t event_shift = event_bit % 8u;
+    uint8_t* event_bytes = fx->gba->ewram + bs_offset +
+        fx->cfg->battle_struct_event_state_offset + event_byte;
+    const uint32_t event_value = (uint32_t)event_index << event_shift;
+    for (uint32_t i = 0; i < (event_shift + fx->cfg->event_state_switch_in_width + 7u) / 8u; i++) {
+        event_bytes[i] = (uint8_t)(event_value >> (8u * i));
+    }
+    const uint32_t flag_byte = fx->cfg->battler_state_switch_in_bit / 8u;
+    const uint32_t flag_mask = (uint32_t)1u << (fx->cfg->battler_state_switch_in_bit % 8u);
+    for (uint8_t battler = 0; battler < 2; battler++) {
+        uint8_t* state = fx->gba->ewram + bs_offset + fx->cfg->battle_struct_battler_state_offset +
+            (size_t)battler * fx->cfg->battler_state_size;
+        state[flag_byte] = (switching_in_mask & (1u << battler)) ? (uint8_t)flag_mask : 0;
+    }
+}
+
+static void test_hns_battler_switch_in_phase_requires_event_and_flags(void) {
+    printf("Running test_hns_battler_switch_in_phase_requires_event_and_flags...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+
+    BattlerRuntimeState st;
+    hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "settled phase read succeeds");
+    TEST_ASSERT(st.switch_in_phase_observed && st.switch_in_events_settled,
+                "complete event counter plus clear battler flags proves settled phase");
+
+    hns_battle_set_switch_in_phase(&fx, 4, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "pending event read succeeds");
+    TEST_ASSERT(st.switch_in_phase_observed && !st.switch_in_events_settled,
+                "an intermediate event counter remains pending");
+
+    hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 1u << 1);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "switch-in flag read succeeds");
+    TEST_ASSERT(st.switch_in_phase_observed && !st.switch_in_events_settled,
+                "a still-set BattlerState.switchIn flag keeps the phase pending");
+
+    write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "unreadable phase does not hide battle state");
+    TEST_ASSERT(!st.switch_in_phase_observed && !st.switch_in_events_settled,
+                "null BattleStruct pointer fails the settlement proof closed");
+
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battler_switch_in_phase_requires_event_and_flags" ANSI_RESET "\n");
+}
+
 /* The live `gFieldStatuses` reader must preserve the raw battle-global word: a readable zero
  * stays an observed 0 (never "unread"), every pinned bit and any unexpected high bit survive
  * unchanged, nothing is masked, and both battle-level observations report the same word. */
@@ -6314,6 +6370,7 @@ int main(void) {
     test_hns_badge_state_reading();
     test_hns_battler_state_stats_stages_badges();
     test_hns_battler_state_c4e_live_operands();
+    test_hns_battler_switch_in_phase_requires_event_and_flags();
     test_hns_field_statuses_raw_word();
     test_hns_field_statuses_thor_regression();
     test_hns_battler_state_c4e_field_conditions();

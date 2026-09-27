@@ -67,7 +67,9 @@ object HnsAbilityContextPolicy {
         val defenderAbilityObserved: Boolean = false,
         val attackerHp: Int? = null,
         val defenderAbilityId: Int? = null,
-        val weatherWord: Int? = null
+        val weatherWord: Int? = null,
+        /** Null/false while the authoritative switch-in/event driver is unread or still pending. */
+        val switchInEventsSettled: Boolean? = null
     )
 
     /** Abilities whose only damage-relevant effect is already reflected in live stat stages. */
@@ -100,7 +102,7 @@ object HnsAbilityContextPolicy {
         val c = context ?: return unknown(entry.abilityId ?: abilityId, entry.titleCaseName, side)
         val proof: Proof? = when (abilityId) {
             in LIVE_STAT_STAGE_WRITER_IDS -> if (
-                c.ordinaryMove == true && c.observedBattlersCount == 2 &&
+                c.switchInEventsSettled == true && c.ordinaryMove == true && c.observedBattlersCount == 2 &&
                 c.attackerAbilityObserved && c.defenderAbilityObserved &&
                 validStages(c.attackerStatStages) && validStages(c.defenderStatStages)
             ) {
@@ -114,12 +116,15 @@ object HnsAbilityContextPolicy {
                     "This ability changes only battle stat stages; both active battlers' exact live stages are supplied to the damage engine."
                 )
             } else null
-            in LIVE_RAIN_SUN_SETTER_IDS -> if (weatherSetterStateProven(c)) proof(
+            in LIVE_RAIN_SUN_SETTER_IDS -> if (
+                c.switchInEventsSettled == true && weatherSetterStateProven(c)
+            ) proof(
                 "live_weather_setter_supported_weather", weatherSetterSource(abilityId),
                 "Drizzle/Drought only establish ordinary Rain/Sun. The observed unsuppressed weather is passed to the damage engine, which applies those modifiers."
             ) else null
             in LIVE_TYPE_REWRITER_IDS -> if (
-                c.ordinaryMove == true && c.observedBattlersCount == 2 && abilityObserved(c) &&
+                c.switchInEventsSettled == true && c.ordinaryMove == true &&
+                c.observedBattlersCount == 2 && abilityObserved(c) &&
                 c.dynamicMoveTypeKnownNeutral && c.moveType != null && liveTypesForSide(c) != null
             ) {
                 val liveTypes = liveTypesForSide(c)
@@ -139,7 +144,7 @@ object HnsAbilityContextPolicy {
                 )
             } else null
             in LIVE_ABILITY_REWRITER_IDS -> if (
-                c.ordinaryMove == true && abilityObserved(c)
+                c.switchInEventsSettled == true && c.ordinaryMove == true && abilityObserved(c)
             ) proof(
                 "live_effective_ability_capture_ability_rewriter", abilityRewriterSource(abilityId),
                 "The active battler's effective runtime ability ID is authoritative; a copied/replaced ability is evaluated under that current ID."
@@ -396,7 +401,8 @@ object HnsAbilityContextPolicy {
             defenderAbilityObserved = hasAuthoritativeLiveAbility(request.defender),
             attackerHp = live?.attackerHp,
             defenderAbilityId = request.defender.abilityId,
-            weatherWord = live?.takeIf { it.weatherObserved }?.weatherWord
+            weatherWord = live?.takeIf { it.weatherObserved }?.weatherWord,
+            switchInEventsSettled = live?.switchInEventsSettled
         )
     }
 

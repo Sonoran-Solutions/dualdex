@@ -124,7 +124,9 @@ class CalcHnsC4eProductionBoundaryTest {
         badgesObserved: Boolean = true,
         observedBattlersCount: Int? = 2,
         itemId: Int? = 0,
-        absentBattlerFlags: Int = 0
+        absentBattlerFlags: Int = 0,
+        switchInPhaseObserved: Boolean = true,
+        switchInEventsSettled: Boolean = true
     ): BattlerRuntimeObservation = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
             status = HnsBattlerRuntimeStatus.OBSERVED,
@@ -186,7 +188,9 @@ class CalcHnsC4eProductionBoundaryTest {
             weatherReadable = weatherReadable,
             battleWeather = battleWeather,
             sideStatusesReadable = sideStatusesReadable,
-            sideStatuses = sideStatuses
+            sideStatuses = sideStatuses,
+            switchInPhaseObserved = switchInPhaseObserved,
+            switchInEventsSettled = switchInEventsSettled
         ),
         abilityIdentity = DeclaredAbility.Declared(abilityId, abilityName)
     )
@@ -229,7 +233,9 @@ class CalcHnsC4eProductionBoundaryTest {
         status1: Int = 0,
         observedBattlersCount: Int? = 2,
         itemId: Int? = 0,
-        absentBattlerFlags: Int = 0
+        absentBattlerFlags: Int = 0,
+        switchInPhaseObserved: Boolean = true,
+        switchInEventsSettled: Boolean = true
     ): BattlerRuntimeObservation = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
             status = HnsBattlerRuntimeStatus.OBSERVED,
@@ -285,7 +291,9 @@ class CalcHnsC4eProductionBoundaryTest {
             weatherReadable = weatherReadable,
             battleWeather = battleWeather,
             sideStatusesReadable = sideStatusesReadable,
-            sideStatuses = sideStatuses
+            sideStatuses = sideStatuses,
+            switchInPhaseObserved = switchInPhaseObserved,
+            switchInEventsSettled = switchInEventsSettled
         ),
         abilityIdentity = DeclaredAbility.Declared(abilityId, abilityName)
     )
@@ -416,6 +424,85 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `Group B ability proofs wait for the settled switch-in event phase`() {
+        val trust = trustFor(exactSha)
+        val neutralStages = List(8) { 0 }
+        val intimidateRequest = goldenARequest().copy(
+            defender = goldenARequest().defender.copy(ability = "Intimidate", abilityId = 22)
+        )
+        val pendingIntimidate = refusedOf(
+            build(trust, intimidateRequest,
+                playerObservation(statStages = neutralStages, switchInEventsSettled = false),
+                enemyObservation(abilityId = 22, abilityName = "Intimidate", switchInEventsSettled = false)),
+            "neutral pre-drop stages do not prove Intimidate's entry event has run"
+        )
+        assertTrue(pendingIntimidate.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 22 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+        })
+
+        val settledIntimidate = readyOf(
+            build(trust, intimidateRequest,
+                playerObservation(statStages = neutralStages),
+                enemyObservation(abilityId = 22, abilityName = "Intimidate")),
+            "settled switch-in events make the exact live stage array authoritative"
+        )
+        assertEquals(true, settledIntimidate.request.hnsLiveBattleState?.switchInEventsSettled)
+
+        val drizzleRequest = goldenARequest().copy(
+            attacker = goldenARequest().attacker.copy(ability = "Drizzle", abilityId = 2)
+        )
+        val pendingDrizzle = refusedOf(
+            build(trust, drizzleRequest,
+                playerObservation(abilityId = 2, abilityName = "Drizzle", battleWeather = 0,
+                    switchInEventsSettled = false),
+                enemyObservation(battleWeather = 0, switchInEventsSettled = false)),
+            "clear weather while Drizzle's entry script is pending is not a neutral proof"
+        )
+        assertTrue(pendingDrizzle.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 2 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+        })
+        val settledDrizzle = readyOf(
+            build(trust, drizzleRequest,
+                playerObservation(abilityId = 2, abilityName = "Drizzle", battleWeather = 1),
+                enemyObservation(battleWeather = 1)),
+            "settled Drizzle with observed ordinary Rain is represented by the live weather"
+        )
+        assertEquals("Rain", settledDrizzle.request.field.weather)
+
+        val traceRequest = goldenARequest().copy(
+            defender = goldenARequest().defender.copy(ability = "Trace", abilityId = 36)
+        )
+        val pendingTrace = refusedOf(
+            build(trust, traceRequest, playerObservation(switchInEventsSettled = false),
+                enemyObservation(abilityId = 36, abilityName = "Trace", switchInEventsSettled = false)),
+            "Trace's current identity can still be replaced by its pending switch-in script"
+        )
+        assertTrue(pendingTrace.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 36 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+        })
+        readyOf(
+            build(trust, traceRequest, playerObservation(),
+                enemyObservation(abilityId = 36, abilityName = "Trace")),
+            "settled switch-in events make the current Trace identity authoritative"
+        )
+
+        val unreadPhase = refusedOf(
+            build(trust, traceRequest,
+                playerObservation(switchInPhaseObserved = false),
+                enemyObservation(abilityId = 36, abilityName = "Trace")),
+            "an unread event phase cannot clear a Trace ability proof"
+        )
+        assertTrue(unreadPhase.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 36 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+        })
+        val unreadNeutral = readyOf(
+            build(trust, goldenARequest(), playerObservation(switchInPhaseObserved = false), enemyObservation()),
+            "unread switch-in state does not invent a phase value for otherwise modelled abilities"
+        )
+        assertNull(unreadNeutral.request.hnsLiveBattleState?.switchInEventsSettled)
+    }
+
+    @Test
     fun `live current types override the species default for type rewriting abilities`() {
         val trust = trustFor(exactSha)
         val request = goldenARequest().copy(
@@ -496,36 +583,51 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `Group B held stat items use only live stages and do not hide terrain or missing-stage limits`() {
+    fun `held Terrain Seed and Berserk Gene stay blocked until the current item is consumed`() {
         val trust = trustFor(exactSha)
         val electricTerrain = 1 shl 8
-        val seed = readyOf(
-            build(trust, goldenARequest(move = "Thunder Shock"), playerObservation(fieldStatuses = electricTerrain),
+        val pendingSeed = refusedOf(
+            build(trust, goldenARequest(move = "Thunder Shock"), playerObservation(fieldStatuses = electricTerrain,
+                switchInEventsSettled = false),
                 enemyObservation(itemId = 451, fieldStatuses = electricTerrain,
-                    statStages = listOf(0, 0, 1, 0, 0, 0, 0, 0))),
-            "a current Electric Seed and observed Defense stage clear only the item blocker"
+                    statStages = listOf(0, 0, 1, 0, 0, 0, 0, 0), switchInEventsSettled = false)),
+            "matching terrain and submax Defense cannot prove a held Seed already activated"
         )
-        assertEquals("terrain_seed_live_stat_stage", seed.verdict.hnsItemDecisions.single().rule)
-        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, seed.verdict.hnsItemDecisions.single().relevance)
-        assertFalse(seed.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
-        assertEquals(listOf("Field: Electric Terrain"), seed.verdict.ignoredMechanics.map { it.presentationLine })
+        assertEquals(HnsItemRequestRelevance.UNKNOWN, pendingSeed.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(pendingSeed.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+
+        val consumedSeed = readyOf(
+            build(trust, goldenARequest(move = "Thunder Shock"), playerObservation(fieldStatuses = electricTerrain),
+                enemyObservation(itemId = 0, fieldStatuses = electricTerrain,
+                    statStages = listOf(0, 0, 1, 0, 0, 0, 0, 0))),
+            "ITEM_NONE after activation is authoritative and the live stage is already included"
+        )
+        assertFalse(consumedSeed.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals(listOf("Field: Electric Terrain"), consumedSeed.verdict.ignoredMechanics.map { it.presentationLine })
 
         val unreadSeed = refusedOf(
             build(trust, goldenARequest(), playerObservation(),
                 enemyObservation(itemId = 451, fieldStatuses = electricTerrain, stagesObserved = false)),
-            "an Electric Seed cannot clear without the authoritative holder stage array"
+            "a held Electric Seed remains unknown when its stage array is unread"
         )
         assertEquals(HnsItemRequestRelevance.UNKNOWN, unreadSeed.verdict.hnsItemDecisions.single().relevance)
         assertTrue(unreadSeed.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
 
-        val gene = readyOf(
+        val pendingGene = refusedOf(
             build(trust, goldenARequest(),
-                playerObservation(itemId = 798, statStages = listOf(2, 0, 0, 0, 0, 0, 0, 0)), enemyObservation()),
-            "Berserk Gene's Attack-stage result is already in live state"
+                playerObservation(itemId = 798, switchInEventsSettled = false),
+                enemyObservation(switchInEventsSettled = false)),
+            "a held Berserk Gene during switch-in may still apply its Attack boost"
         )
-        assertEquals("berserk_gene_live_stat_stage", gene.verdict.hnsItemDecisions.single().rule)
-        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, gene.verdict.hnsItemDecisions.single().relevance)
-        assertTrue(gene.verdict.ignoredMechanics.isEmpty())
+        assertEquals(HnsItemRequestRelevance.UNKNOWN, pendingGene.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(pendingGene.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+
+        val consumedGene = readyOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 0, statStages = listOf(2, 0, 0, 0, 0, 0, 0, 0)), enemyObservation()),
+            "ITEM_NONE after Berserk Gene activation leaves its Attack stage in live state"
+        )
+        assertFalse(consumedGene.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
     }
 
     @Test

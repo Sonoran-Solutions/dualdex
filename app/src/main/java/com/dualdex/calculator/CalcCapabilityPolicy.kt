@@ -244,15 +244,15 @@ enum class CalcLimitation {
      * An active H&S battle's mutable damage operands are not authoritatively observed, so the
      * static species/move request is not the live truth (issue #9, Gap C4a R1).
      *
-     * H&S rewrites damage operands during battle that the request shape does not represent:
-     * `SET_BATTLER_TYPE` changes the current effective types (Soak), Power Trick swaps the raw
-     * `gBattleMons` battle stat words with unchanged stat stages and unchanged effect ID, and
-     * `SetTypeBeforeUsingMove` can force the current move's type to Electric (Ion Deluge /
-     * Electrify) without changing its static effect ID. A request that exercises one of these
-     * classes without authoritative live observation cannot be shown to reproduce the running
-     * calculation, so it fails closed here. This gate is deliberately coarse: Gap C4b must
-     * consume effective battler types, battle stat words, the dynamic move type, and transient
-     * damage state before any of these classes may clear (§10.5).
+     * H&S rewrites damage operands during battle that static species/move data cannot establish:
+     * `SET_BATTLER_TYPE` changes current effective types (Soak), Power Trick swaps the raw
+     * `gBattleMons` battle stat words, and `SetTypeBeforeUsingMove` can force the current move's
+     * type to Electric (Ion Deluge / Electrify) without changing its static effect ID. The
+     * boundary supplies effective types and raw battle stat words from the exact-trusted live
+     * reader. A request still fails closed when a required live value is unreadable or a remaining
+     * operand (such as an active dynamic move retype or transient damage state) has no supported
+     * calculation path. The check is per class; see §10.5 and the current production subset in
+     * §14.9.
      */
     HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
 
@@ -919,7 +919,7 @@ data class CalcCapabilityVerdict(
             CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED ->
                 "the pinned H&S damage modifier order and fixed-point rounding differ from the generation III pipeline for this request"
             CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED ->
-                "this is an active battle whose current effective types, battle stat words, or dynamic move type are not authoritatively observed"
+                "this active battle has a damage-relevant live operand that is unreadable or not represented by the calculator"
             CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED ->
                 "this is a Doubles battle whose current target count is not authoritatively observed, so the spread-move reduction cannot be determined"
             CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED ->
@@ -1773,7 +1773,7 @@ object CalcCapabilityPolicy {
         if (!hnsLiveTypesRepresentable(live.defenderTypes)) return true
 
         // 2. Raw battle stat words (Power Trick swaps gBattleMons attack/defense with unchanged
-        //    stages). No runtime reader supplies this yet: C4b.
+        //    stages). The runtime reader supplies these words; missing either observation blocks.
         if (!live.attackerBattleStatWordsObserved || !live.defenderBattleStatWordsObserved) return true
 
         // 3. Dynamic move type (Ion Deluge / Electrify via SetTypeBeforeUsingMove). The move keeps

@@ -708,6 +708,13 @@ object CalcRequestBoundary {
                 enemyBattlerState = enemyBattlerState,
                 isExactVerified = isExactVerified
             ),
+            // The same two boundary-owned observations must agree on the generated H&S event
+            // phase before Group B can treat a live writer's output as settled.
+            switchInEventsSettled = authoritativeSwitchInEventsSettled(
+                playerBattlerState = playerBattlerState,
+                enemyBattlerState = enemyBattlerState,
+                isExactVerified = isExactVerified
+            ),
             fieldStatuses = fieldStatuses,
             attackerElectrified = attackerElectrified,
             defenderGlaiveRush = defenderGlaiveRush,
@@ -896,6 +903,27 @@ object CalcRequestBoundary {
         if (!player.battlersCountReadable || !enemy.battlersCountReadable) return null
         if (player.battlersCount != enemy.battlersCount) return null
         return player.battlersCount
+    }
+
+    /**
+     * The settled switch-in/event-script phase, or null unless both exact runtime observations
+     * read the phase and agree. A readable false is retained: it proves the event driver is still
+     * pending and must not authorize a Group B clearance.
+     */
+    private fun authoritativeSwitchInEventsSettled(
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): Boolean? {
+        if (!isExactVerified) return null
+        val player = playerBattlerState?.state ?: return null
+        val enemy = enemyBattlerState?.state ?: return null
+        if (player.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED ||
+            enemy.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED
+        ) return null
+        if (!player.switchInPhaseObserved || !enemy.switchInPhaseObserved) return null
+        if (player.switchInEventsSettled != enemy.switchInEventsSettled) return null
+        return player.switchInEventsSettled
     }
 
     /**

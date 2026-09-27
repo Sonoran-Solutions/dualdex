@@ -54,12 +54,13 @@ missing, stale, invalid, or mismatched value remains unknown and cannot grant a 
   the selected move's pre-damage state; because `usedProteanLibero` is not read, only the exact
   already-monotyped same-move-type case clears. Trace, Receiver, and Power of Alchemy use the
   authoritative effective runtime ability ID.
-- Terrain Seed and Berserk Gene may clear their own item blocker only with the current item
-  observation and authoritative stage arrays; the field-status dependency is separately evaluated.
+- Terrain Seed and Berserk Gene remain blocked while their current item is held. An active battle
+  can be between switch-in events, and a successful Seed/Gene activation consumes the item, so a
+  stage snapshot cannot prove that a held item has already run. The authoritative current
+  `ITEM_NONE` value after consumption leaves the resulting stage in the live array.
   Booster Energy stays UNKNOWN because its separate activation/stat payload is not read; #92 owns it.
 - Electric/Psychic/Misty/Grassy Surge, Seed Sower, and Hadron Engine stay blocked because terrain is
   decoded but not applied by the damage engine; #91 owns terrain damage modifiers. Wind Power and
   Electromorphosis stay blocked because Charge's flag is read but not consumed; #91 owns that damage
   modifier. Cloud Nine/Air Lock and Flash Fire stay blocked because their live damage-time state or
   suppression semantics are not represented.
-

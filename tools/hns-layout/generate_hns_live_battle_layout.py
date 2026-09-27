@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the H&S 2.0.5 live battle-state layout table (Gap C4e).
+"""Generate the H&S 2.0.5 live battle-state layout table (Gap C4e / switch-in settlement).
 
 This is the authoritative source-check for the runtime readers added in C4e:
 
@@ -14,6 +14,8 @@ This is the authoritative source-check for the runtime readers added in C4e:
     states (`substitute`, `endured`);
   * the offset of `struct BattleStruct.gimmick` and of
     `struct BattleGimmickData.activeGimmick`, plus its side/party strides.
+  * the `BattleStruct.eventState` and `BattlerState` offsets and compiled bit positions used to
+    prove that `SWITCH_IN_EVENTS_COUNT` was reached and every active switch-in flag was cleared.
 
 How: the script compiles a probe translation unit against the pinned headers
 with the pinned ARM toolchain and reads the values back out of the emitted
@@ -90,6 +92,7 @@ def build_probe_c() -> str:
             "   not part of any build. */",
             "#include \"global.h\"",
             "#include \"battle.h\"",
+            "#include \"constants/battle_switch_in.h\"",
             "const unsigned long ddx_sizeof_volatiles = sizeof(struct Volatiles);",
             "const unsigned long ddx_hp_offset =",
             "    __builtin_offsetof(struct BattlePokemon, hp);",
@@ -107,6 +110,16 @@ def build_probe_c() -> str:
             "    __builtin_offsetof(struct BattlePokemon, volatiles);",
             "const unsigned long ddx_gimmick_offset =",
             "    __builtin_offsetof(struct BattleStruct, gimmick);",
+            "const unsigned long ddx_battle_struct_event_state_offset =",
+            "    __builtin_offsetof(struct BattleStruct, eventState);",
+            "const unsigned long ddx_battle_struct_battler_state_offset =",
+            "    __builtin_offsetof(struct BattleStruct, battlerState);",
+            "const unsigned long ddx_battler_state_size = sizeof(struct BattlerState);",
+            "const unsigned long ddx_max_battlers_count = MAX_BATTLERS_COUNT;",
+            "const unsigned long ddx_switch_in_events_count = SWITCH_IN_EVENTS_COUNT;",
+            "const struct EventStates ddx_event_switch_in_one = { .switchIn = 1 };",
+            "const struct EventStates ddx_event_switch_in_all = { .switchIn = (enum SwitchInEvents)0xFF };",
+            "const struct BattlerState ddx_battler_switch_in = { .switchIn = 1 };",
             "const unsigned long ddx_active_gimmick_offset =",
             "    __builtin_offsetof(struct BattleGimmickData, activeGimmick);",
             "const unsigned long ddx_gimmick_side_count = NUM_BATTLE_SIDES;",
@@ -287,7 +300,8 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f" * Compiler:   {Path(arm_gcc).name} (ARM GNU Toolchain 13.2.Rel1)",
         f" * Flags:      {' '.join(ARM_FLAGS)}",
         " *",
-        " * This is the ABI evidence for the C4e live-state readers: the",
+        " * This is the ABI evidence for the C4e live-state readers and the Group B",
+        " * switch-in settlement proof: the",
         " * attacker's HP/maxHP (pinch-ability threshold), status1, the",
         " * BattlePokemon volatile bits, and the gimmick active array. Ordinary",
         " * members are compiled offsetof/sizeof scalars; bitfield members are",
@@ -323,6 +337,12 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f" *   volatile endured bit         = {compiled['volatile_endured_bit']}",
         f" *   volatile read window         = {compiled['volatile_window_bytes']} bytes",
         f" *   BattleStruct.gimmick         = {compiled['gimmick_offset']}",
+        f" *   BattleStruct.eventState      = {compiled['battle_struct_event_state_offset']}",
+        f" *   EventStates.switchIn         = bit {compiled['event_state_switch_in_bit']} width {compiled['event_state_switch_in_width']}",
+        f" *   BattleStruct.battlerState    = {compiled['battle_struct_battler_state_offset']}",
+        f" *   sizeof(struct BattlerState)  = {compiled['battler_state_size']}",
+        f" *   BattlerState.switchIn        = bit {compiled['battler_state_switch_in_bit']}",
+        f" *   SWITCH_IN_EVENTS_COUNT      = {compiled['switch_in_events_count']}",
         f" *   BattleGimmickData.activeGimmick = {compiled['active_gimmick_offset']}",
         "",
         " * Source-text cross-check (compiled ABI wins on disagreement):",
@@ -368,6 +388,14 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_BP_VOLATILE_ENDURED_BIT {compiled['volatile_endured_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_WINDOW_BYTES {compiled['volatile_window_bytes']}",
         f"#define HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET {compiled['gimmick_offset']}",
+        f"#define HNS_LIVE_BATTLE_STRUCT_EVENT_STATE_OFFSET {compiled['battle_struct_event_state_offset']}",
+        f"#define HNS_LIVE_EVENT_STATE_SWITCH_IN_BIT {compiled['event_state_switch_in_bit']}",
+        f"#define HNS_LIVE_EVENT_STATE_SWITCH_IN_WIDTH {compiled['event_state_switch_in_width']}",
+        f"#define HNS_LIVE_BATTLE_STRUCT_BATTLER_STATE_OFFSET {compiled['battle_struct_battler_state_offset']}",
+        f"#define HNS_LIVE_BATTLER_STATE_SIZE {compiled['battler_state_size']}",
+        f"#define HNS_LIVE_BATTLER_STATE_SWITCH_IN_BIT {compiled['battler_state_switch_in_bit']}",
+        f"#define HNS_LIVE_MAX_BATTLERS_COUNT {compiled['max_battlers_count']}",
+        f"#define HNS_LIVE_SWITCH_IN_EVENTS_COUNT {compiled['switch_in_events_count']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET {compiled['active_gimmick_offset']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT {compiled['gimmick_side_count']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT {compiled['gimmick_party_count']}",
@@ -521,6 +549,11 @@ def main() -> None:
             "volatile_substitute_bit": single_bit(blob, base_addr, syms, "ddx_v_substitute"),
             "volatile_endured_bit": single_bit(blob, base_addr, syms, "ddx_v_endured"),
             "gimmick_offset": scalar(blob, base_addr, syms, "ddx_gimmick_offset"),
+            "battle_struct_event_state_offset": scalar(blob, base_addr, syms, "ddx_battle_struct_event_state_offset"),
+            "battle_struct_battler_state_offset": scalar(blob, base_addr, syms, "ddx_battle_struct_battler_state_offset"),
+            "battler_state_size": scalar(blob, base_addr, syms, "ddx_battler_state_size"),
+            "max_battlers_count": scalar(blob, base_addr, syms, "ddx_max_battlers_count"),
+            "switch_in_events_count": scalar(blob, base_addr, syms, "ddx_switch_in_events_count"),
             "active_gimmick_offset": scalar(blob, base_addr, syms, "ddx_active_gimmick_offset"),
             "gimmick_side_count": scalar(blob, base_addr, syms, "ddx_gimmick_side_count"),
             "gimmick_party_count": scalar(blob, base_addr, syms, "ddx_gimmick_party_count"),
@@ -532,6 +565,14 @@ def main() -> None:
         chargebit, chargewidth = multi_bit(blob, base_addr, syms, "ddx_v_charge_timer")
         compiled["volatile_charge_timer_bit"] = chargebit
         compiled["volatile_charge_timer_width"] = chargewidth
+        event_bit, event_width = multi_bit(blob, base_addr, syms, "ddx_event_switch_in_all")
+        compiled["event_state_switch_in_bit"] = event_bit
+        compiled["event_state_switch_in_width"] = event_width
+        compiled["battler_state_switch_in_bit"] = single_bit(
+            blob, base_addr, syms, "ddx_battler_switch_in"
+        )
+        if single_bit(blob, base_addr, syms, "ddx_event_switch_in_one") != event_bit:
+            fail("EventStates.switchIn bit probe disagrees between value 1 and full-width probe")
         # Read window: enough bytes to cover the highest exported volatile bit. Reading only
         # the first 10 bytes was sufficient for the original four bits but silently truncated
         # `tarShot` (and any later damage-relevant volatile), so the window is derived from the

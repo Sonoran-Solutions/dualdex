@@ -72,11 +72,7 @@ object HnsItemContextPolicy {
         val defenderAbilityId: Int? = null,
         val attackerGastroAcid: Boolean? = null,
         val defenderGastroAcid: Boolean? = null,
-        val observedBattlersCount: Int? = null,
-        val attackerStatStages: List<Int>? = null,
-        val defenderStatStages: List<Int>? = null,
-        val attackerHasBattleItemObservation: Boolean = false,
-        val defenderHasBattleItemObservation: Boolean = false
+        val observedBattlersCount: Int? = null
     )
 
     fun assess(itemId: Int, context: Context?): HnsItemRequestDecision {
@@ -107,16 +103,10 @@ object HnsItemContextPolicy {
                     source = "src/battle_util.c:7087",
                     rationale = "Booster Energy sets separate boosterEnergyActivated/paradoxBoostedStat state consumed by Protosynthesis/Quark Drive damage modifiers; those live flags are not observed."
                 )
-                "HOLD_EFFECT_TERRAIN_SEED" -> if (statItemStateProven(c)) proof(
-                    rule = "terrain_seed_live_stat_stage",
-                    source = "src/battle_hold_effects.c:112",
-                    rationale = "Terrain Seeds only change the holder's live Defense or Sp. Def stage and are consumed; both that stage and the triggering field word are authoritative. Active terrain still has its own calculator limitation."
-                ) else null
-                "HOLD_EFFECT_BERSERK_GENE" -> if (statItemStateProven(c)) proof(
-                    rule = "berserk_gene_live_stat_stage",
-                    source = "src/battle_hold_effects.c:145",
-                    rationale = "Berserk Gene activates on switch-in, writes the holder's Attack stage, and removes itself; the live stage is authoritative and confusion has no direct single-hit damage modifier."
-                ) else null
+                // A held item can still be waiting to execute in an active but unsettled
+                // switch-in frame. Successful activation consumes it, so its live stage and
+                // matching terrain cannot prove a still-held item irrelevant.
+                "HOLD_EFFECT_TERRAIN_SEED", "HOLD_EFFECT_BERSERK_GENE" -> null
                 else -> if (c.ordinaryMove == true) proof(
                     rule = "single_hit_item_activation_outside_damage",
                     source = "src/battle_move_resolution.c:2429",
@@ -189,29 +179,8 @@ object HnsItemContextPolicy {
                 ?.takeIf { it.observed }?.gastroAcid,
             defenderGastroAcid = live?.defenderPersistentVolatiles
                 ?.takeIf { it.observed }?.gastroAcid,
-            observedBattlersCount = live?.observedBattlersCount,
-            attackerStatStages = live?.attackerStatStages,
-            defenderStatStages = live?.defenderStatStages,
-            attackerHasBattleItemObservation = request.hnsLiveBattleState != null &&
-                request.attacker.origin == CalcInputOrigin.LIVE_READ &&
-                request.attacker.itemProvenance == CalcItemProvenance.BATTLE_EFFECTIVE,
-            defenderHasBattleItemObservation = request.hnsLiveBattleState != null &&
-                request.defender.origin == CalcInputOrigin.LIVE_READ &&
-                request.defender.itemProvenance == CalcItemProvenance.BATTLE_EFFECTIVE
+            observedBattlersCount = live?.observedBattlersCount
         )
-    }
-
-    private fun statItemStateProven(c: Context): Boolean {
-        if (c.ordinaryMove != true || c.observedBattlersCount != 2 || c.fieldState?.fullyDecoded != true) return false
-        val stages = when (c.side) {
-            HnsItemSide.ATTACKER -> c.attackerStatStages
-            HnsItemSide.DEFENDER -> c.defenderStatStages
-        } ?: return false
-        if (stages.size != 8 || stages.any { it !in -6..6 }) return false
-        return when (c.side) {
-            HnsItemSide.ATTACKER -> c.attackerHasBattleItemObservation
-            HnsItemSide.DEFENDER -> c.defenderHasBattleItemObservation
-        }
     }
 
     private fun attackerOffense(holdEffect: String, itemId: Int, c: Context): Proof? {

@@ -253,6 +253,14 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .side_status_light_screen_mask = (1u << 1), // SIDE_STATUS_LIGHTSCREEN
     .battle_struct_ptr_offset = 0xB4,
     .battle_struct_gimmick_offset = HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET,
+    .battle_struct_event_state_offset = HNS_LIVE_BATTLE_STRUCT_EVENT_STATE_OFFSET,
+    .event_state_switch_in_bit = HNS_LIVE_EVENT_STATE_SWITCH_IN_BIT,
+    .event_state_switch_in_width = HNS_LIVE_EVENT_STATE_SWITCH_IN_WIDTH,
+    .battle_struct_battler_state_offset = HNS_LIVE_BATTLE_STRUCT_BATTLER_STATE_OFFSET,
+    .battler_state_size = HNS_LIVE_BATTLER_STATE_SIZE,
+    .battler_state_switch_in_bit = HNS_LIVE_BATTLER_STATE_SWITCH_IN_BIT,
+    .max_battlers_count = HNS_LIVE_MAX_BATTLERS_COUNT,
+    .switch_in_events_count = HNS_LIVE_SWITCH_IN_EVENTS_COUNT,
     .battle_gimmick_active_offset = HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET,
     .battle_gimmick_side_stride = HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT,
     .battle_gimmick_party_count = HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT,
@@ -2454,10 +2462,95 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
            config->battle_mons_volatile_substitute_bit == HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT &&
            config->battle_mons_volatile_endured_bit == HNS_LIVE_BP_VOLATILE_ENDURED_BIT &&
            config->battle_struct_gimmick_offset == HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET &&
+           config->battle_struct_event_state_offset == HNS_LIVE_BATTLE_STRUCT_EVENT_STATE_OFFSET &&
+           config->event_state_switch_in_bit == HNS_LIVE_EVENT_STATE_SWITCH_IN_BIT &&
+           config->event_state_switch_in_width == HNS_LIVE_EVENT_STATE_SWITCH_IN_WIDTH &&
+           config->battle_struct_battler_state_offset == HNS_LIVE_BATTLE_STRUCT_BATTLER_STATE_OFFSET &&
+           config->battler_state_size == HNS_LIVE_BATTLER_STATE_SIZE &&
+           config->battler_state_switch_in_bit == HNS_LIVE_BATTLER_STATE_SWITCH_IN_BIT &&
+           config->max_battlers_count == HNS_LIVE_MAX_BATTLERS_COUNT &&
+           config->switch_in_events_count == HNS_LIVE_SWITCH_IN_EVENTS_COUNT &&
            config->battle_gimmick_active_offset == HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET &&
            config->battle_gimmick_side_stride == HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT &&
            config->battle_gimmick_party_count == HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT &&
            config->battle_gimmick_count == HNS_LIVE_BATTLE_GIMMICK_COUNT;
+}
+
+/*
+ * Read the pinned switch-in event driver state from the heap-allocated BattleStruct.
+ * `BATTLE_LIFECYCLE_ACTIVE` proves only that the battle topology is valid; it does not prove
+ * that entry scripts have completed. A settled proof requires both the event script sentinel
+ * and every active BattlerState.switchIn flag to be clear. Any missing pointer/byte leaves the
+ * phase unobserved so request policy cannot treat an intermediate frame as settled.
+ */
+static bool read_switch_in_phase(
+    DualDexGbaReadFn read,
+    void* user,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    uint8_t battlers_count,
+    BattlerRuntimeState* out_state
+) {
+    if (!read || !config || !out_state || config->battle_struct_ptr_offset == 0 ||
+        (battlers_count != 2 && battlers_count != 4) ||
+        battlers_count > config->max_battlers_count || config->battler_state_size == 0 ||
+        config->event_state_switch_in_width == 0 || config->event_state_switch_in_width > 16) {
+        return false;
+    }
+
+    uint8_t ptr_bytes[4];
+    if (config->battle_struct_ptr_offset > ewram_size ||
+        sizeof(ptr_bytes) > ewram_size - config->battle_struct_ptr_offset ||
+        !read(user, DUALDEX_GBA_EWRAM_BASE + config->battle_struct_ptr_offset,
+              ptr_bytes, sizeof(ptr_bytes))) {
+        return false;
+    }
+    const uint32_t bs_ptr = read32_le(ptr_bytes);
+    if (bs_ptr < DUALDEX_GBA_EWRAM_BASE) return false;
+    const size_t bs_offset = (size_t)(bs_ptr - DUALDEX_GBA_EWRAM_BASE);
+    if (bs_offset >= ewram_size) return false;
+
+    const uint32_t event_byte_offset = config->event_state_switch_in_bit / 8u;
+    const uint32_t event_bit_offset = config->event_state_switch_in_bit % 8u;
+    const uint32_t event_byte_count = (event_bit_offset + config->event_state_switch_in_width + 7u) / 8u;
+    if (event_byte_count == 0 || event_byte_count > 4 ||
+        bs_offset > ewram_size || config->battle_struct_event_state_offset > ewram_size - bs_offset ||
+        event_byte_offset > ewram_size - bs_offset - config->battle_struct_event_state_offset ||
+        event_byte_count > ewram_size - bs_offset - config->battle_struct_event_state_offset - event_byte_offset) {
+        return false;
+    }
+    uint8_t event_bytes[4] = {0};
+    const uint32_t event_address = DUALDEX_GBA_EWRAM_BASE +
+        (uint32_t)(bs_offset + config->battle_struct_event_state_offset + event_byte_offset);
+    if (!read(user, event_address, event_bytes, event_byte_count)) return false;
+    uint32_t event_word = 0;
+    for (uint32_t i = 0; i < event_byte_count; i++) {
+        event_word |= (uint32_t)event_bytes[i] << (8u * i);
+    }
+    const uint32_t event_mask = (1u << config->event_state_switch_in_width) - 1u;
+    const uint32_t event_index = (event_word >> event_bit_offset) & event_mask;
+
+    bool any_battler_switching_in = false;
+    const uint32_t flag_byte_offset = config->battler_state_switch_in_bit / 8u;
+    const uint32_t flag_bit_offset = config->battler_state_switch_in_bit % 8u;
+    for (uint8_t battler = 0; battler < battlers_count; battler++) {
+        const size_t state_offset = bs_offset + config->battle_struct_battler_state_offset +
+            (size_t)battler * config->battler_state_size;
+        if (state_offset > ewram_size || config->battler_state_size > ewram_size - state_offset ||
+            flag_byte_offset >= config->battler_state_size) {
+            return false;
+        }
+        uint8_t flag_byte = 0;
+        const uint32_t flag_address = DUALDEX_GBA_EWRAM_BASE +
+            (uint32_t)(state_offset + flag_byte_offset);
+        if (!read(user, flag_address, &flag_byte, sizeof(flag_byte))) return false;
+        any_battler_switching_in |= ((flag_byte >> flag_bit_offset) & 1u) != 0;
+    }
+
+    out_state->switch_in_phase_observed = true;
+    out_state->switch_in_events_settled =
+        event_index == config->switch_in_events_count && !any_battler_switching_in;
+    return true;
 }
 
 bool pokemon_read_hns_badge_state_gba(
@@ -2829,6 +2922,8 @@ bool pokemon_read_battler_runtime_state_gba(
     if (battle.counters_readable) {
         out_state->battlers_count = battle.battlers_count;
         out_state->battlers_count_readable = true;
+        (void)read_switch_in_phase(read, user, ewram_size, config,
+                                   battle.battlers_count, out_state);
     }
 
     /* Battle-global `gFieldStatuses`. Read once per observation and stored UNMASKED: every pinned

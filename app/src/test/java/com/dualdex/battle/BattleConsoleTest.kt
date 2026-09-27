@@ -193,7 +193,9 @@ class BattleConsoleTest {
         status1: Int = 0,
         fieldStatuses: Int = 0,
         battleWeather: Int = 0,
-        sideStatuses: Int = 0
+        sideStatuses: Int = 0,
+        switchInPhaseObserved: Boolean = true,
+        switchInEventsSettled: Boolean = true
     ) = BattlerRuntimeObservation(
         state = HnsBattlerRuntimeState(
             status = HnsBattlerRuntimeStatus.OBSERVED,
@@ -239,7 +241,9 @@ class BattleConsoleTest {
             weatherReadable = true,
             battleWeather = battleWeather,
             sideStatusesReadable = true,
-            sideStatuses = sideStatuses
+            sideStatuses = sideStatuses,
+            switchInPhaseObserved = switchInPhaseObserved,
+            switchInEventsSettled = switchInEventsSettled
         ),
         abilityIdentity = if (abilityId == 0) DeclaredAbility.EmptySlot else DeclaredAbility.Declared(abilityId, abilityName)
     )

@@ -10,7 +10,8 @@
  * Compiler:   arm-none-eabi-gcc (ARM GNU Toolchain 13.2.Rel1)
  * Flags:      -DMODERN=1 -DTESTING=0 -DPOKEMON_HNS -DEMERALD -std=gnu17 -mthumb -mthumb-interwork -O2 -mabi=apcs-gnu -mtune=arm7tdmi -march=armv4t
  *
- * This is the ABI evidence for the C4e live-state readers: the
+ * This is the ABI evidence for the C4e live-state readers and the Group B
+ * switch-in settlement proof: the
  * attacker's HP/maxHP (pinch-ability threshold), status1, the
  * BattlePokemon volatile bits, and the gimmick active array. Ordinary
  * members are compiled offsetof/sizeof scalars; bitfield members are
@@ -42,6 +43,12 @@
  *   volatile endured bit         = 322
  *   volatile read window         = 41 bytes
  *   BattleStruct.gimmick         = 668
+ *   BattleStruct.eventState      = 144
+ *   EventStates.switchIn         = bit 76 width 8
+ *   BattleStruct.battlerState    = 0
+ *   sizeof(struct BattlerState)  = 12
+ *   BattlerState.switchIn        = bit 80
+ *   SWITCH_IN_EVENTS_COUNT      = 12
  *   BattleGimmickData.activeGimmick = 11
 
  * Source-text cross-check (compiled ABI wins on disagreement):
@@ -83,6 +90,14 @@
 #define HNS_LIVE_BP_VOLATILE_ENDURED_BIT 322
 #define HNS_LIVE_BP_VOLATILE_WINDOW_BYTES 41
 #define HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET 668
+#define HNS_LIVE_BATTLE_STRUCT_EVENT_STATE_OFFSET 144
+#define HNS_LIVE_EVENT_STATE_SWITCH_IN_BIT 76
+#define HNS_LIVE_EVENT_STATE_SWITCH_IN_WIDTH 8
+#define HNS_LIVE_BATTLE_STRUCT_BATTLER_STATE_OFFSET 0
+#define HNS_LIVE_BATTLER_STATE_SIZE 12
+#define HNS_LIVE_BATTLER_STATE_SWITCH_IN_BIT 80
+#define HNS_LIVE_MAX_BATTLERS_COUNT 4
+#define HNS_LIVE_SWITCH_IN_EVENTS_COUNT 12
 #define HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET 11
 #define HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT 2
 #define HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT 6

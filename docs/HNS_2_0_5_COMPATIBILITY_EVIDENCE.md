@@ -3142,7 +3142,7 @@ given a fabricated positive fixture: H&S applies stages before its fixed-point a
 composition while ADV applies ability modifiers before stages, and the staged-stat rounding is not
 independently proven. The only positive parity cases are neutral-stage physical and special requests.
 
-### 18.5 Live battle state (R1)
+### 18.5 Live battle state (R1; historical pre-C4e snapshot)
 
 `CalcCapabilityPolicy.hnsLiveBattleStateNotModelled` refuses an active H&S battle whose mutable
 damage operands are not authoritatively observed with `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`.

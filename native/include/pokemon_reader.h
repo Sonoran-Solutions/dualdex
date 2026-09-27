@@ -236,6 +236,14 @@ typedef struct {
     uint32_t side_status_light_screen_mask;  // pinned SIDE_STATUS_LIGHTSCREEN bit
     uint32_t battle_struct_ptr_offset;       // EWRAM-relative gBattleStruct pointer, 0 = unavailable
     uint32_t battle_struct_gimmick_offset;   // struct BattleStruct-relative gimmick offset
+    uint32_t battle_struct_event_state_offset; // struct BattleStruct-relative eventState offset
+    uint32_t event_state_switch_in_bit;      // bit offset of EventStates.switchIn
+    uint32_t event_state_switch_in_width;    // bit width of EventStates.switchIn
+    uint32_t battle_struct_battler_state_offset; // struct BattleStruct-relative battlerState offset
+    uint32_t battler_state_size;             // sizeof(struct BattlerState)
+    uint32_t battler_state_switch_in_bit;    // bit offset of BattlerState.switchIn
+    uint32_t max_battlers_count;             // compiled MAX_BATTLERS_COUNT
+    uint32_t switch_in_events_count;         // compiled SWITCH_IN_EVENTS_COUNT sentinel
     uint32_t battle_gimmick_active_offset;   // struct BattleGimmickData-relative activeGimmick
     uint32_t battle_gimmick_side_stride;     // activeGimmick bytes per side (PARTY_SIZE)
     uint32_t battle_gimmick_party_count;     // PARTY_SIZE
@@ -812,6 +820,8 @@ typedef struct {
     uint16_t battle_weather;       // engine's current weather flags word (0 = clear)
     bool     side_statuses_readable; // the observed battler's gSideStatuses[side] was read
     uint32_t side_statuses;        // engine's current status word for the observed battler's side
+    bool     switch_in_phase_observed; // eventState.switchIn and every active BattlerState.switchIn read
+    bool     switch_in_events_settled; // event counter is complete and all battlers exited switch-in
 } BattlerRuntimeState;
 
 /**

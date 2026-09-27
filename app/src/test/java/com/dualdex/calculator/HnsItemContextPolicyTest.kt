@@ -62,16 +62,11 @@ class HnsItemContextPolicyTest {
         defenderAbilityId: Int? = null,
         attackerGastroAcid: Boolean? = null,
         defenderGastroAcid: Boolean? = null,
-        observedBattlersCount: Int? = null,
-        attackerStatStages: List<Int>? = null,
-        defenderStatStages: List<Int>? = null,
-        attackerHasBattleItemObservation: Boolean = false,
-        defenderHasBattleItemObservation: Boolean = false
+        observedBattlersCount: Int? = null
     ) = HnsItemContextPolicy.Context(
         side, ordinaryMove, moveType, moveCategory, fieldStatuses?.let(HnsFieldState::decode), weatherWord,
         attackerAbilityId, defenderHp, defenderMaxHp, defenderAbilityId, attackerGastroAcid,
-        defenderGastroAcid, observedBattlersCount, attackerStatStages, defenderStatStages,
-        attackerHasBattleItemObservation, defenderHasBattleItemObservation
+        defenderGastroAcid, observedBattlersCount
     )
 
     private fun relevance(id: Int, context: HnsItemContextPolicy.Context?) =
@@ -221,60 +216,26 @@ class HnsItemContextPolicyTest {
     }
 
     @Test
-    fun `Terrain Seed and Berserk Gene require current item plus authoritative holder stages`() {
-        val stages = listOf(0, 0, 1, 0, 0, 0, 0, 0)
-        val seed = HnsItemContextPolicy.assess(terrainSeed, ctx(
+    fun `held Terrain Seed and Berserk Gene never clear from stage snapshots`() {
+        val matchingTerrainAndStages = ctx(
             HnsItemSide.ATTACKER,
             fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN,
-            observedBattlersCount = 2,
-            attackerStatStages = stages,
-            attackerHasBattleItemObservation = true
-        ))
-        assertEquals(irrelevant, seed.relevance)
-        assertEquals("terrain_seed_live_stat_stage", seed.rule)
+            observedBattlersCount = 2
+        )
+        val seed = HnsItemContextPolicy.assess(terrainSeed, matchingTerrainAndStages)
+        assertEquals(unknown, seed.relevance)
+        assertEquals(null, seed.rule)
 
-        assertEquals(unknown, relevance(terrainSeed, ctx(
-            HnsItemSide.ATTACKER,
-            fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN,
-            observedBattlersCount = 2,
-            attackerStatStages = null,
-            attackerHasBattleItemObservation = true
-        )))
-        assertEquals(unknown, relevance(terrainSeed, ctx(
-            HnsItemSide.ATTACKER,
-            fieldStatuses = null,
-            observedBattlersCount = 2,
-            attackerStatStages = stages,
-            attackerHasBattleItemObservation = true
-        )))
-        assertEquals(unknown, relevance(terrainSeed, ctx(
-            HnsItemSide.ATTACKER,
-            observedBattlersCount = 2,
-            attackerStatStages = stages
-        )))
-
-        val gene = HnsItemContextPolicy.assess(798, ctx(
-            HnsItemSide.ATTACKER,
-            observedBattlersCount = 2,
-            attackerStatStages = stages,
-            attackerHasBattleItemObservation = true
-        ))
-        assertEquals(irrelevant, gene.relevance)
-        assertEquals("berserk_gene_live_stat_stage", gene.rule)
-        assertEquals(unknown, relevance(798, ctx(
-            HnsItemSide.ATTACKER,
-            observedBattlersCount = 2,
-            attackerStatStages = stages
-        )))
+        val gene = HnsItemContextPolicy.assess(798, matchingTerrainAndStages)
+        assertEquals(unknown, gene.relevance)
+        assertEquals(null, gene.rule)
     }
 
     @Test
     fun `Booster Energy remains blocked because damage time boost flags are not observed`() {
         val decision = HnsItemContextPolicy.assess(boosterEnergy, ctx(
             HnsItemSide.ATTACKER,
-            observedBattlersCount = 2,
-            attackerStatStages = List(8) { 0 },
-            attackerHasBattleItemObservation = true
+            observedBattlersCount = 2
         ))
         assertEquals(unknown, decision.relevance)
         assertEquals("booster_energy_boost_payload_unobserved", decision.rule)
@@ -410,15 +371,11 @@ class HnsItemContextPolicyTest {
             HnsItemContextPolicy.assess(terrainSeed, ctx(
                 HnsItemSide.ATTACKER,
                 fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN,
-                observedBattlersCount = 2,
-                attackerStatStages = List(8) { 0 },
-                attackerHasBattleItemObservation = true
+                observedBattlersCount = 2
             )),
             HnsItemContextPolicy.assess(798, ctx(
                 HnsItemSide.ATTACKER,
-                observedBattlersCount = 2,
-                attackerStatStages = List(8) { 0 },
-                attackerHasBattleItemObservation = true
+                observedBattlersCount = 2
             ))
         ).forEach { it.rule?.let(produced::add) }
         assertEquals(HnsItemAuditData.contextRuleNames, produced)

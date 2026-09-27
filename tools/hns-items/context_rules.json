@@ -497,34 +497,10 @@
     "post_hit_or_residual": {
       "context_rules": [
         {
-          "rule": "post_hit_speed_item_attacker_analytic",
-          "side": "EITHER",
-          "families": [
-            "HOLD_EFFECT_BLUNDER_POLICY",
-            "HOLD_EFFECT_ROOM_SERVICE"
-          ],
-          "predicate": "The selected move is ordinary and the live attacker ability is Analytic (148).",
-          "rationale": "The speed-stage item can affect the turn-order condition Analytic reads on this request, so retain the item when the live attacker has Analytic.",
-          "evidence": [
-            {
-              "source": "src/battle_util.c:6691",
-              "contains": "if (IsLastMonToMove(battlerAtk)"
-            },
-            {
-              "source": "src/battle_hold_effects.c:1058",
-              "contains": "case HOLD_EFFECT_ROOM_SERVICE:"
-            },
-            {
-              "source": "src/battle_hold_effects.c:1109",
-              "contains": "case HOLD_EFFECT_BLUNDER_POLICY:"
-            }
-          ]
-        },
-        {
           "rule": "single_hit_item_activation_outside_damage",
           "side": "EITHER",
           "predicate": "The selected move is ordinary (single hit). Excludes Booster Energy, Terrain Seed, Berserk Gene and the speed-policy items Blunder Policy / Room Service.",
-          "rationale": "These hold effects have no read in the damage computation. Every activation is an ItemBattleEffects call in a MoveEnd handler (after damage is dealt), at end of turn, at switch-in, or from an event script, so for a single-hit ordinary move none can change the hit's damage range. HP restored afterwards, contact recoil to the attacker and later stat changes are outside the displayed single-hit contract. The mixed pre-hit stat writers are excluded pending #88; Blunder Policy and Room Service use the speed dependency rule.",
+          "rationale": "These hold effects have no read in the damage computation. Every activation is an ItemBattleEffects call in a MoveEnd handler (after damage is dealt), at end of turn, at switch-in, or from an event script, so for a single-hit ordinary move none can change the hit's damage range. HP restored afterwards, contact recoil to the attacker and later stat changes are outside the displayed single-hit contract. Terrain Seed and Berserk Gene remain excluded because a held item can signal a pending switch-in activation; successful activation consumes the item, so stage observations cannot clear a still-held item. Blunder Policy and Room Service use the speed dependency rule.",
           "evidence": [
             {
               "source": "src/battle_move_resolution.c:2429",
@@ -583,59 +559,32 @@
               "contains": "case ABILITY_ANALYTIC:"
             }
           ]
-        },
-        {
-          "rule": "terrain_seed_live_stat_stage",
-          "side": "EITHER",
-          "families": [
-            "HOLD_EFFECT_TERRAIN_SEED"
-          ],
-          "predicate": "Exact live active battler, ordinary move, authoritative eight-entry holder stage array, and fully decoded live field-status word.",
-          "rationale": "The seed writes only the holder’s Defense or Sp. Def stage and is consumed. The live stage and terrain trigger are separately authoritative; active terrain still receives its own hard calculator limitation.",
-          "evidence": [
-            {
-              "source": "src/battle_hold_effects.c:98",
-              "contains": "enum ItemEffect TryHandleSeed(enum BattlerId battler, u32 terrainFlag, enum Stat statId)"
-            },
-            {
-              "source": "src/battle_hold_effects.c:100",
-              "contains": "if (gFieldStatuses & terrainFlag && CompareStat(battler, statId, MAX_STAT_STAGE, CMP_LESS_THAN, GetBattlerAbility(battler)))"
-            },
-            {
-              "source": "src/battle_hold_effects.c:103",
-              "contains": "SET_STATCHANGER(statId, 1, FALSE);"
-            },
-            {
-              "source": "src/battle_script_commands.c:14713",
-              "contains": "if (holdEffect == HOLD_EFFECT_TERRAIN_SEED && ItemBattleEffects(battler, 0, holdEffect, IsOnEffectActivation))"
-            }
-          ]
-        },
-        {
-          "rule": "berserk_gene_live_stat_stage",
-          "side": "EITHER",
-          "families": [
-            "HOLD_EFFECT_BERSERK_GENE"
-          ],
-          "predicate": "Exact live active battler, ordinary move, and authoritative eight-entry holder stage array.",
-          "rationale": "Berserk Gene activates on switch-in, writes the holder’s Attack stage, may set confusion, and removes itself. The effective stage is authoritative; confusion has no direct single-hit damage modifier.",
-          "evidence": [
-            {
-              "source": "src/data/hold_effects.h:607",
-              "contains": ".onSwitchIn = TRUE,"
-            },
-            {
-              "source": "src/battle_hold_effects.c:150",
-              "contains": "SET_STATCHANGER(STAT_ATK, 2, FALSE);"
-            },
-            {
-              "source": "data/battle_scripts_1.s:8177",
-              "contains": "removeitem BS_SCRIPTING"
-            }
-          ]
         }
       ],
       "always_blocking": [
+        {
+          "rule": "post_hit_speed_item_attacker_analytic",
+          "families": [
+            "HOLD_EFFECT_BLUNDER_POLICY",
+            "HOLD_EFFECT_ROOM_SERVICE"
+          ],
+          "predicate": "The selected move is ordinary and the live attacker ability is Analytic (148).",
+          "rationale": "The speed-stage item can affect the turn-order condition Analytic reads on this request; retain the item when the live attacker has Analytic.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6691",
+              "contains": "if (IsLastMonToMove(battlerAtk)"
+            },
+            {
+              "source": "src/battle_hold_effects.c:1058",
+              "contains": "case HOLD_EFFECT_ROOM_SERVICE:"
+            },
+            {
+              "source": "src/battle_hold_effects.c:1109",
+              "contains": "case HOLD_EFFECT_BLUNDER_POLICY:"
+            }
+          ]
+        },
         {
           "rule": "booster_energy_boost_payload_unobserved",
           "families": [

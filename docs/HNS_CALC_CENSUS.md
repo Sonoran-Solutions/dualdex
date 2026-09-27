@@ -19,12 +19,13 @@ Every request below is built with the **same production request shape the app us
 
 ## Baseline runtime assumptions
 
-A policy call with no live operands is not a useful measurement, because the production policy correctly refuses a request whose live evidence is missing. The census therefore supplies the fully observed neutral state an ordinary battle has at the start of the fight, and nothing else:
+A policy call with no live operands is not a useful measurement, because the production policy correctly refuses a request whose live evidence is missing. The census therefore supplies the fully observed neutral state after the authoritative switch-in/event phase has settled, and nothing else:
 
 - pinned H&S 2.0.5 profile and data pack, asserted through the existing `RuntimeRomTrust` mechanism at the real exact-trusted ceiling (no trust was weakened);
 - battle topology taken from each trainer's own pinned `Double Battle` setting: `No` -> Singles / `gBattlersCount = 2`, `Yes` -> Doubles / `gBattlersCount = 4`. The topology is stated truthfully rather than chosen to please the policy;
 - challenge settings observed: `optionStyle = PER_MOVE_SPLIT`, Random Types OFF, Random Type Effectiveness OFF, Random Abilities OFF, Random Moves OFF, no base-stat equalizer, no level/IV/EV scaling;
 - no field effect (`gFieldStatuses = 0`), clear weather, no defender screens, every volatile bit observed false, all stat stages zero, no gimmick;
+- switch-in events observed settled: `eventState.switchIn = SWITCH_IN_EVENTS_COUNT` and every active `BattlerState.switchIn` flag clear;
 - both battlers at full HP with `status1 = 0`, so a pinch ability is provably inactive rather than accidentally active;
 - each participant's own item and effective ability from the pinned trainer data, supplied as authoritative observations.
 
@@ -162,7 +163,7 @@ These named abilities and items are neutralized by production policy before the 
 |---|---:|---:|
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 | 3578 |
 | `HNS_ABILITY_EFFECT_NOT_MODELLED` | 304 | 4378 |
-| `HNS_ITEM_EFFECT_NOT_MODELLED` | 96 | 544 |
+| `HNS_ITEM_EFFECT_NOT_MODELLED` | 96 | 552 |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 | 152 |
 | `SPECIES_NOT_IN_PINNED_DATA` | 22 | 336 |
 | `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` | 9 | 352 |

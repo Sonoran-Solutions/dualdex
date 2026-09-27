@@ -168,11 +168,12 @@ Generation III oracle, the shared golden fixture matrix, the production-boundary
 read-only memory layout audit and the corrected vanilla profile hashes are recorded in
 [VANILLA_CALCULATOR_EVIDENCE.md](VANILLA_CALCULATOR_EVIDENCE.md). H&S 2.0.5 calculator support is a **partial, fail-closed
 slice (Gap C4b/PARTIAL, Gap C4c/OPEN)**: the UQ4.12 roll-first damage arithmetic is implemented in QuickJS
-(`calculateHnsDamage`, §11) and host-verified against the native C oracle. After Gap C4e the live
-operands it depends on — current effective types, battle stat words, the dynamic move type, transient
-damage state, the runtime `GetMoveTargetCount` count, the gimmick state, and the attacker's live
-HP/status — are observed from exact-trusted runtime state for the ordinary Singles subset, so that
-subset is published as **Estimated** (§14). Issue #86 adds a second bounded path: when the base
+(`calculateHnsDamage`, §11) and host-verified against the native C oracle. After Gap C4e the supported
+ordinary Singles subset receives current effective types, raw battle stat words, stat stages,
+transient volatiles, gimmick state, and the attacker's live HP/status from exact-trusted runtime
+state. Dynamic move retypes remain refused when active, and a Doubles request still needs the
+runtime `GetMoveTargetCount` value. The supported subset is published as **Estimated** (§14). Issue
+#86 adds a second bounded path: when the base
 request is still trustworthy, a known, relevant but unmodelled ability, item, or supported field
 modifier is removed from the authorized execution request, and its identity is shown with the
 estimate. Unknown ability/item identity, unread state, unsupported move mechanics, Doubles, active
@@ -267,9 +268,11 @@ Only these individual behaviours are source-and-test demonstrated:
 > **Gap C4b status: PARTIAL / OPEN.** With the implementation of `calculateHnsDamage` in
 > `tools/calc-bundler/entry.js` (§11), the H&S UQ4.12 roll-first calculation order is implemented and
 > proven against the native C oracle. That is **SOURCE + HOST VERIFIED arithmetic, not ROM-result
-> validation**. No official H&S 2.0.5 battle result has been compared against the new output, and the
-> remaining live-operand classes (dynamic move type, transient state, battle stat words, and the
-> runtime target count) have no reader. As a result, production requests are fail-closed: a manual /
+> validation**. No official H&S 2.0.5 battle result has been compared against the new output. Raw
+> battle stat words and stat stages have exact-trusted runtime readers. The relevant dynamic move-type
+> causes and selected transient states are also observed, but active retypes and damage modifiers
+> remain unsupported; the Doubles runtime target count still has no reader. As a result,
+> production requests are fail-closed: a manual /
 > out-of-battle request is refused because badge applicability is unspecified, and a Doubles request
 > is refused because the runtime target count is unavailable. C4b stays **PARTIAL / OPEN** until
 > reproducible official-ROM result validation and the remaining live operands are complete.
@@ -1107,7 +1110,8 @@ the request shape, so `BADGE_BOOST_NOT_MODELLED` (Gap C4) keeps H&S strictly ref
    - The Gen-III two-target reduction uses the runtime `GetMoveTargetCount(ctx)` count: a Doubles
      request without an observed `field.targetCount` fails closed with
      `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED` rather than halving every spread move.
-   - The dynamic move type, transient state, battle stat words, and target count have no reader, so
+   - Dynamic-move-type causes and selected transient states are observed, but active retypes and
+     damage modifiers remain unsupported. The Doubles target count still has no reader, so
      production H&S requests remain fail-closed, and no official H&S 2.0.5 battle result has been
      validated against the new output.
    - Unmodelled mechanics, unsupported abilities/items, out-of-range stages, unmodelled weather, active
@@ -1233,11 +1237,14 @@ no positive stage fixture is fabricated.
 `floor(damage · r / 100)` shape, but at a different point in the chain, which is exactly why the
 non-neutral cases diverge.
 
-### 10.5 Live battle state (R1)
+### 10.5 Live battle state (R1; historical pre-C4e snapshot)
 
 `hnsModifierOrderDiverges` evaluates the *static* species/move operands. H&S instead consumes
 battle-mutated operands that the request shape does not carry, so C4a adds
 `HNS_LIVE_BATTLE_STATE_NOT_MODELLED`:
+
+The treatment column records the earlier C4a state. The raw-stat reader was added in C4b; current
+runtime behavior is described in §14.9.
 
 | State class | Pinned H&S mutation | C4a treatment |
 |---|---|---|

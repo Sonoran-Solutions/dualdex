@@ -185,6 +185,77 @@ fixture relies on.
   fractional numbers, exponent forms, nested objects/arrays, escapes, and
   UTF-8 escapes.
 
+## H&S 2.0.5 differential damage oracle (issue #90)
+
+`./ci.sh test` also runs `native/build/test_hns_damage_oracle`: every scenario of the committed golden
+corpus `tools/hns-damage-oracle/corpus.json` is turned into the H&S request production builds
+(`DamageCalculator.kt` `buildCalcRequestJson` shape: pinned species/move overrides, live raw stats,
+stat stages, badge boosts, attacker HP), executed by the same QuickJS engine and bundle as the suite
+above, and compared **roll by roll, all 16, exactly**. Each mismatch prints one
+`HNS_ORACLE_MISMATCH {...}` JSON line (scenario, surface, first differing roll, expected and actual
+vectors, the exact request) and fails the gate unless the scenario is registered in
+`tools/hns-damage-oracle/known_divergences.json` with its tracking issue and its current QuickJS
+16-roll output pinned. Only that exact wrong vector is accepted; a different wrong vector fails even
+for an already registered scenario. A registered scenario that starts to match fails too. The runner
+self-tests its own mismatch detection (one altered roll at each of the 16 indices,
+refused/short/fractional/string responses, duplicate IDs, wrong commit, wrong backend).
+
+**Current result.** 1,324 scenarios (1,209 on the production-modelled surface, 115 engine-only);
+1,313 match all 16 rolls exactly. The 11 registered divergences are tracked in
+[#97](https://github.com/Sonoran-Solutions/dualdex/issues/97) (type-based option style: pinned H&S
+makes Ghost special and Dark physical),
+[#98](https://github.com/Sonoran-Solutions/dualdex/issues/98) (Attack modifiers must be accumulated in
+UQ4.12 before being applied: pinch + badge),
+[#99](https://github.com/Sonoran-Solutions/dualdex/issues/99) (engine-only: Guts boosts special moves)
+and [#100](https://github.com/Sonoran-Solutions/dualdex/issues/100) (engine-only: Doubles spread
+reduction misses post-Generation-III spread moves).
+
+**What the oracle is.** The expected vectors are measured from the **real pinned H&S battle engine**
+(`PokemonHnS-Development/pokehns-expansion` @ `1f42b74dff0e9fe942419845d040663dd829a973`): the pinned
+tree's own pokeemerald-expansion battle test runner, built with `make BUILD=hns TEST=1` and run
+headlessly, executes each hit once per damage roll (`WITH_RNG(RNG_DAMAGE_MODIFIER, v)`, crit forced,
+secondary effects off) and captures the HP-bar damage. See
+[tools/hns-damage-oracle/README.md](../tools/hns-damage-oracle/README.md) for the backend decision
+(Option A; the runtime-probe fallback was not needed), the one harness include-order patch the pinned
+test runner needs to compile, how rolls are captured and verified, and the schema.
+
+**What it is not.** It never calls `calculateHnsDamage`, `calc_bundle.js`, `@smogon/calc` or Kotlin
+damage code, and it uses no ROM, BIOS or save. Normal CI never builds it: CI only *reads* the committed
+corpus.
+
+**Toolchain / upstream dependency.** Regeneration (developer only) needs a clean checkout of the
+pinned commit (`HNS_UPSTREAM_DIR`), the Arm GNU Toolchain 13.2.rel1, a host C/C++ compiler, `make`,
+`patch` and libpng:
+
+```bash
+HNS_UPSTREAM_DIR=<pinned checkout> python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py regenerate
+HNS_UPSTREAM_DIR=<pinned checkout> python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py verify --order reversed
+```
+
+**Provenance rules.** An oracle golden is only valid with its provenance: pinned repository, commit and
+tree; backend kind and build command; SHA-256 of the pinned `mgba-rom-test` binary and of every harness
+patch; the ARM `gcc --version` line and SHA-256 of `arm-none-eabi-gcc` and `cc1`; generator version and
+SHA-256 of the generated test source; schema version. No timestamps and no machine paths are allowed
+(the serialiser rejects them) and the serialisation is canonical, so regeneration is byte-comparable.
+`generate_hns_damage_oracle.py check` (in `./ci.sh test`) rejects a corpus from another commit or
+backend, a non-canonical file, or one that is stale relative to the scenario matrix or the generated
+test source. `HnsDamageOracleAuthorityTest` (Kotlin) proves that the species/move identity, battle
+types, base stats, move power/type/category (both option styles, Fairy on/off), ability and item
+identities and badge-boost verdicts the engine used agree with DualDex's own production sources.
+
+### Three kinds of expected values
+
+| Kind | Where | Authority | Trust |
+|---|---|---|---|
+| **ROM/runtime-observed** | Gap C4d goldens (`tools/hns-runtime-probe/evidence/`), vanilla runtime replays | a real hit in the official release ROM, captured by the developer probe | strongest for *that one hit*, but a single roll and sometimes faint-capped |
+| **Hand-derived, source-backed** | `native/tests/test_js_calc.c` H&S fixtures (C1, C4a, C4b, C4e, C4f); vanilla `gen3_reference.py` | arithmetic written out from the pinned source by a reviewer | exact over 16 rolls, but only as good as the transcription; one PR per mechanic |
+| **Oracle-generated** | `tools/hns-damage-oracle/corpus.json` | the pinned H&S battle code itself, executed | exact over 16 rolls, cheap to extend; trusted because it reproduces the two kinds above |
+
+The oracle does **not** replace the other two. `fixture_crossref.json` maps 33 existing hand-derived,
+ROM-observed and upstream-test fixtures to oracle scenarios and `check` requires the oracle to reproduce
+each one exactly; those fixtures stay in place as independent controls on the oracle itself. An
+oracle/fixture disagreement is investigated, never resolved by editing whichever side is inconvenient.
+
 ## `field.gameType` input contract
 
 `@smogon/calc` compares `field.gameType` **case-sensitively** against

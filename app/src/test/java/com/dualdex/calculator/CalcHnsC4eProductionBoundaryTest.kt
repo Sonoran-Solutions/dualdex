@@ -1726,6 +1726,43 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `Toxic Boost special poison control passes production policy and reaches calculator`() {
+        val ready = readyOf(
+            build(
+                trustFor(exactSha), goldenARequest(move = "Psychic"),
+                playerObservation(abilityId = 137, abilityName = "Toxic Boost", status1 = 0x08),
+                enemyObservation(), randomAbilities = true
+            ),
+            "authoritative Special category makes Toxic Boost irrelevant while poison remains a supported live status"
+        )
+
+        assertEquals("Special", ready.request.moveOverride?.category)
+        assertEquals(0x08, ready.request.hnsLiveBattleState?.attackerStatus1)
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertEquals(
+            HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            ready.verdict.hnsAbilityDecisions.single { it.abilityId == 137 }.relevance
+        )
+
+        var engineRequest: DamageCalculationRequest? = null
+        val response = CalcAuthorizedExecution.calculate(ready.verdict) { request ->
+            engineRequest = request
+            val serialized = JSONObject(buildCalcRequestJson(request))
+            assertEquals(0x08, serialized.getJSONObject("attacker").getInt("status1"))
+            assertEquals(
+                "Special",
+                serialized.getJSONObject("move").getJSONObject("overrides").getString("category")
+            )
+            DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = listOf(1, 1))
+        }
+
+        assertTrue("production-authorized execution should reach the calculator", response.success)
+        assertNotNull(engineRequest)
+    }
+
+    @Test
     fun `Guts missing status1 and special with active status remain fail closed`() {
         val trust = trustFor(exactSha)
         val unread = refusedOf(build(

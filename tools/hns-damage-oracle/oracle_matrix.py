@@ -848,7 +848,7 @@ def _base_power_abilities() -> list[dict]:
     out.extend((
         scenario("group-d-toxic-boost-special-poison-control", ["ability:toxic-boost", "base-power", "negative-control", "status:poison"],
                  attacker("Machamp", spa=151, maxhp=300, status="poison", ability=toxic_boost),
-                 defender("Snorlax", spd=109), "Psychic", surface="engine-only"),
+                 defender("Snorlax", spd=109), "Psychic"),
         scenario("group-d-toxic-boost-defender-control", ["ability:toxic-boost", "base-power", "negative-control"],
                  attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=toxic_boost), "Strength"),
     ))

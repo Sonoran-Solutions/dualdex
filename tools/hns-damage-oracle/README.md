@@ -184,8 +184,8 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-1,408 of 1,411 scenarios match the shipped calculator on all 16 rolls (1,293 production-modelled and
-118 engine-only). Three exact-vector divergences are registered in
+1,408 of 1,411 scenarios match the shipped calculator on all 16 rolls (1,294 production-modelled and
+117 engine-only). Three exact-vector divergences are registered in
 `known_divergences.json`, each linked to its tracking issue:
 
 | Issue | Surface | Scenarios | Defect |
@@ -200,8 +200,11 @@ cases and 32 base-power cases for Technician, Iron Fist, Strong Jaw, Mega Launch
 attacker-side Water Bubble branch, Steelworker, Toxic Boost, and Flare Boost. The Toxic Boost toxic
 case preserves the live toxic counter in `status1`. The Guts Special active-status control remains
 engine-only because production does not need to model a Guts modifier on a Special move. The
-defender-side Water Bubble Fire case deliberately remains engine-only and registered to #91: policy
-keeps that defender condition unknown because this PR adds only Water Bubble's offensive branch.
+Toxic Boost Special-plus-poison control is production-modelled: its authoritative Special category
+proves the boost irrelevant, while the status gate admits the exact poison status; a production
+boundary regression verifies it reaches authorized calculator execution. The defender-side Water
+Bubble Fire case deliberately remains engine-only and registered to #91: policy keeps that defender
+condition unknown because this PR adds only Water Bubble's offensive branch.
 
 Each registered scenario also pins its current 16-roll QuickJS calculator output in
 `known_divergences.json`. The differential test accepts only those exact wrong vectors; a new wrong

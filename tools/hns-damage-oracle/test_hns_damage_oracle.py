@@ -129,7 +129,8 @@ class ScenarioSchemaTest(unittest.TestCase):
             "group-d-strong-jaw-bite", "group-d-mega-launcher-aura-sphere",
             "group-d-sharpness-leaf-blade", "group-d-water-bubble-attacker-waterfall",
             "group-d-steelworker-iron-head", "group-d-toxic-boost-physical-poison",
-            "group-d-toxic-boost-physical-toxic", "group-d-flare-boost-special-burn",
+            "group-d-toxic-boost-physical-toxic", "group-d-toxic-boost-special-poison-control",
+            "group-d-flare-boost-special-burn",
         }
         self.assertTrue(expected.issubset(by_id))
         self.assertTrue(all(by_id[sid]["surface"] == "modelled" for sid in expected))
@@ -137,7 +138,8 @@ class ScenarioSchemaTest(unittest.TestCase):
         self.assertEqual(by_id["group-d-technician-swift"]["move"]["label"], "Swift")
         self.assertEqual(by_id["group-d-technician-sludge"]["move"]["label"], "Sludge")
         self.assertEqual(by_id["group-d-toxic-boost-physical-toxic"]["attacker"]["status"], "toxic")
-        self.assertEqual(by_id["group-d-toxic-boost-special-poison-control"]["surface"], "engine-only")
+        self.assertEqual(by_id["group-d-toxic-boost-special-poison-control"]["move"]["label"], "Psychic")
+        self.assertEqual(by_id["group-d-toxic-boost-special-poison-control"]["attacker"]["status"], "poison")
         self.assertEqual(by_id["group-d-water-bubble-defender-fire-deferred"]["surface"], "engine-only")
 
     def test_duplicate_ids_rejected(self):

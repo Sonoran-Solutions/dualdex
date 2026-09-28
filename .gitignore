@@ -28,3 +28,12 @@ tools/hns-runtime-probe/runtime_battle_probe
 # Python bytecode from the developer-only map-data generator.
 __pycache__/
 *.pyc
+
+# Game files — ROMs, saves, and save states are copyrighted/user data and must never be committed.
+*.gba
+*.gb
+*.gbc
+*.nds
+*.sav
+*.srm
+*.ss[0-9]

@@ -2912,7 +2912,7 @@
           }
         ],
         "predicate": "Authoritative defender has Punk Rock and the selected incoming ordinary move has source-derived MoveInfo.soundMove=true.",
-        "rationale": "GetDefenderAbilitiesModifier applies x0.5 after STAB, type effectiveness, burn, and the accumulated GetOtherModifiers/screen stage, preserving each pinned half-down damage application before the minimum-damage floor.",
+        "rationale": "GetDefenderAbilitiesModifier contributes x0.5 to the accumulated GetOtherModifiers product; screens precede the speed-ordered ability slots. ApplyModifiersAfterDmgRoll applies that completed product after STAB, effectiveness, and burn, before the minimum-damage floor.",
         "rule": "punk_rock_defender_sound_move"
       },
       {

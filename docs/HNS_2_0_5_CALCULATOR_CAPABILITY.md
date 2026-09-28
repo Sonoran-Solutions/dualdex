@@ -35,16 +35,16 @@ attacker-partner branch remains deferred with unsupported Doubles topology.
 | Water Bubble (199), attacker branch only | Attacker uses authoritative effective Water move; ×2 | Attacker non-Water move; defender non-Fire move | Defender Fire reduction and burn prevention remain unsupported and fail closed |
 | Steelworker (200) | Attacker uses authoritative effective Steel move; ×1.5 | Defender or attacker non-Steel move | Unknown effective type stays unknown/refused |
 | Punk Rock (244), attacker | Source-proven sound move; ×1.3 base power composed half-up | Nonsound ordinary move; any defender-side nonsound hit | Unknown/computed sound metadata stays unknown/refused |
-| Punk Rock (244), defender | Incoming source-proven sound move; ×0.5 final damage after `GetOtherModifiers` | Nonsound ordinary incoming move | Unknown/computed sound metadata stays unknown/refused; an attacking Mold Breaker-family ability keeps suppression interactions refused |
+| Punk Rock (244), defender | Incoming source-proven sound move; ×0.5 defender-ability modifier inside the `GetOtherModifiers` product; screens precede that ability slot, and the completed product applies after STAB/effectiveness/burn | Nonsound ordinary incoming move | Unknown/computed sound metadata stays unknown/refused; an attacking Mold Breaker-family ability keeps suppression interactions refused |
 | Steely Spirit (252), holder | Final `HnsMoveAuthority.effectiveType` is Steel; ×1.5 base power composed half-up | Known final non-Steel move; defender-side Singles holder | Unknown final type stays unknown/refused; attacker-partner branch deferred |
+| Toxic Boost (137) | Attacker's authoritative category is Physical and raw `status1 & STATUS1_PSN_ANY != 0`; ×1.5 | Defender, Special move, or known status without either poison bit | Unread/undefined status or conflicting status stays unknown/refused; Toxic Counter bits are allowed only with `STATUS1_TOXIC_POISON` |
+| Flare Boost (138) | Attacker's authoritative category is Special and raw `status1 & STATUS1_BURN != 0`; ×1.5 | Defender, Physical move, or known status without burn | Unread/undefined status or conflicting status stays unknown/refused |
 
 All source-proven damaging sound moves in the pinned ordinary-move surface are Special; the pinned
 corpus contains no supported Physical sound move, so Punk Rock is deliberately not category-gated.
 Howl's computed `soundMove` field stays unknown and is refused. The #106 rewrite targets do not
 include Steel; Normalize rewriting Iron Head from Steel to Normal verifies the negative Steely Spirit
 cross-product, and there is no positive rewrite-into-Steel case in the current supported set.
-| Toxic Boost (137) | Attacker's authoritative category is Physical and raw `status1 & STATUS1_PSN_ANY != 0`; ×1.5 | Defender, Special move, or known status without either poison bit | Unread/undefined status or conflicting status stays unknown/refused; Toxic Counter bits are allowed only with `STATUS1_TOXIC_POISON` |
-| Flare Boost (138) | Attacker's authoritative category is Special and raw `status1 & STATUS1_BURN != 0`; ×1.5 | Defender, Physical move, or known status without burn | Unread/undefined status or conflicting status stays unknown/refused |
 
 ### Canonical census change from the starting-main baseline
 

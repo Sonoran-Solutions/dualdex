@@ -68,7 +68,17 @@ class HnsAbilityContextPolicyTest {
         defenderAbilityId = defenderAbilityId,
         weatherWord = weatherWord,
         switchInEventsSettled = switchInEventsSettled,
-        moveAuthority = moveAuthority
+        moveAuthority = moveAuthority ?: if (dynamicMoveTypeKnownNeutral && moveType != null) {
+            HnsMoveAuthority(
+                sourceType = moveType,
+                preFieldType = moveType,
+                effectiveType = moveType,
+                category = moveCategory,
+                abilityRewriteOutcome = HnsAbilityTypeRewriteOutcome.NOT_USED,
+                ateBoost = false,
+                soundMove = soundMove
+            )
+        } else null
     )
 
     private fun relevance(id: Int, context: HnsAbilityContextPolicy.Context?) =
@@ -358,9 +368,11 @@ class HnsAbilityContextPolicyTest {
             relevance(91, context(side = HnsAbilitySide.DEFENDER, attackerTypes = null,
                 observedBattlersCount = null)))
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
-            relevance(91, context(moveType = PokemonType.NORMAL, attackerTypes = setOf(PokemonType.GRASS))))
+            relevance(91, context(attackerAbilityId = 91, moveType = PokemonType.NORMAL,
+                attackerTypes = setOf(PokemonType.GRASS))))
         assertEquals(HnsAbilityRequestRelevance.RELEVANT,
-            relevance(91, context(moveType = PokemonType.GRASS, attackerTypes = setOf(PokemonType.GRASS))))
+            relevance(91, context(attackerAbilityId = 91, moveType = PokemonType.GRASS,
+                attackerTypes = setOf(PokemonType.GRASS))))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(91, context(moveType = null)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
@@ -489,9 +501,9 @@ class HnsAbilityContextPolicyTest {
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(105, context(isCrit = null)))
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
-            relevance(97, context(isCrit = false)))
+            relevance(97, context(isCrit = false, attackerAbilityId = 97)))
         assertEquals(HnsAbilityRequestRelevance.RELEVANT,
-            relevance(97, context(isCrit = true)))
+            relevance(97, context(isCrit = true, attackerAbilityId = 97)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(196, context(isCrit = false, attackerStatus1 = 0x08)))
     }

@@ -115,7 +115,7 @@ Defined and validated by `oracle_schema.py`. Each scenario names only authoritat
 | Field | Meaning |
 |---|---|
 | `id` | stable, descriptive, `[a-z0-9-]`, unique |
-| `tags`, `surface` | `modelled` (production claims exact) or `engine-only` (production refuses/strips: Doubles, Thick Fat, Guts outside the physical/status path, Huge/Pure Power, Adaptability, type-boost items) |
+| `tags`, `surface` | `modelled` (production claims exact) or `engine-only` (production refuses/strips: Doubles, Thick Fat, Guts outside the physical/status path, Huge/Pure Power, type-boost items, and relevant Mold Breaker suppression cases) |
 | `format`, `attackerSide`, `doubles.defenderPartner` | Singles/Doubles, which side attacks, Doubles target presence |
 | `rules` | H&S challenge settings that change damage: `fairyTypes`, `optionStyle` (`perMoveSplit`/`typeBased`) |
 | `badges` | player badge flags held (1..8) |
@@ -186,8 +186,11 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-The regenerated issue #91 corpus records the effective type and `ateBoost` for each hit. It has
-**1,439 scenarios: 1,322 production-modelled, 117 engine-only, 1,436 exact calculator matches and
+The regenerated issue #91 corpus records the effective type and `ateBoost` for each hit. Starting
+main at `69d5eab757b7ca56e76b6c98369c17ea5eb8c99e` had 1,453 scenarios (1,336 production-modelled,
+117 engine-only). This slice promotes eight Adaptability controls, removes those cases from the
+engine-only set, and adds the low-state final-modifier matrix. The refreshed corpus has
+**1,505 scenarios: 1,392 production-modelled, 113 engine-only, 1,502 exact calculator matches and
 three registered divergences**. The three pre-existing exact-vector divergences remain registered
 in `known_divergences.json`, each linked to its tracking issue:
 
@@ -230,6 +233,7 @@ category divergences now match the pinned `gTypesInfo` categories.
 | `wise-glasses-*`, `badge-*` | 53 | BP rounding, physical/defender negative controls, type-based crossover; badges 1/3/6/7 both sides, pinch+badge modifier accumulation |
 | `fairy-*`, `style-*` | 66 | Fairy on/off typings and move retypes, immunity on/off, type-based categories |
 | `group-c-*` | 43 | source-backed move/ability immunity causes, including attacker/defender and bypass controls |
-| `group-d-*` | 44 | 12 Hustle/Guts attack-stage cases and 32 base-power ability cases with threshold, category, move-flag, type, role, status, and composition controls |
-| `engine-*`, `doubles-*` | 111 | engine-only: Thick Fat, Guts, Huge/Pure Power, Adaptability, 17 type-boost items, Doubles single-target/spread/partner-fainted/screens/Rain |
+| `group-d-*` | 86 | Hustle/Guts attack-stage, base-power, move-type rewrite, Punk Rock, and Steely Spirit cases with threshold, category, move-flag, type, role, status, and composition controls |
+| `engine-*`, `doubles-*` | 103 | engine-only: Thick Fat, Guts, Huge/Pure Power, 17 type-boost items, Doubles single-target/spread/partner-fainted/screens/Rain |
+| `final-*` | 60 | Adaptability STAB rewrites/Fairy toggle; final ability thresholds, roles, 0.5/0.25/2/4 effectiveness, crit, HP/category, immunity, Mold Breaker/Ability Shield, speed order, rounding, and damage-floor controls |
 | `xref-*` | 34 | existing fixture reproductions |

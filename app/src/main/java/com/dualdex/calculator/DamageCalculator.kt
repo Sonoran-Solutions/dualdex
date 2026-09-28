@@ -282,6 +282,19 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("spDefense", raw.spDefense)
                 })
             }
+            request.hnsLiveBattleState?.let { live ->
+                live.defenderHp?.let { put("hpAtHit", it) }
+                live.defenderMaxHp?.let { put("maxHpAtHit", it) }
+            }
+            if (request.typeSystem == "hns_2_0_5") {
+                put(
+                    "hnsAbilityShield",
+                    request.defender.itemId?.let {
+                        com.dualdex.pokemon.hns.HnsItemRegistry.classify(it).data?.holdEffect ==
+                            "HOLD_EFFECT_ABILITY_SHIELD"
+                    } == true
+                )
+            }
             request.hnsLiveBattleState?.defenderStatStages?.let { stages ->
                 put("statStages", JSONArray(stages))
             }

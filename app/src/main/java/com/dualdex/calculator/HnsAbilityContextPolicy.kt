@@ -62,7 +62,8 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
         55, 62, // Hustle / Guts, Group D Attack stage
-        89, 96, 101, 137, 138, 173, 174, 178, 182, 184, 199, 200, 204, 206, 244, 252, 292
+        89, 91, 96, 97, 101, 110, 111, 116, 136, 137, 138, 173, 174, 178, 182, 184,
+        199, 200, 204, 206, 231, 232, 233, 244, 246, 252, 292
         // Normalize / -ate / Liquid Voice, Group D move-type and base-power stage
     )
 
@@ -97,6 +98,8 @@ object HnsAbilityContextPolicy {
         val defenderAbilityObserved: Boolean = false,
         val attackerHp: Int? = null,
         val defenderAbilityId: Int? = null,
+        /** Exact H&S chart result after live effective types and H&S grounding-item rules. */
+        val typeEffectiveness: Double? = null,
         val weatherWord: Int? = null,
         /** Null/false while the authoritative switch-in/event driver is unread or still pending. */
         val switchInEventsSettled: Boolean? = null,
@@ -190,14 +193,22 @@ object HnsAbilityContextPolicy {
                 "Super Luck changes only critical-hit odds; this hit's critical flag is fixed."
             ) else null
             97 -> when {
-                c.ordinaryMove != true || c.isCrit == null -> null
-                c.side == HnsAbilitySide.DEFENDER || !c.isCrit -> proof(
-                    "sniper_without_attacker_critical_hit", "src/battle_util.c:7566",
-                    "Sniper changes only the attacker's critical-hit damage; that condition is absent."
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "sniper_defender_side", "src/battle_util.c:7566",
+                    "Sniper is read only from the attacking ability slot."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId || c.isCrit == null ->
+                    unknownProof(
+                        "sniper_crit_unknown", "src/battle_util.c:7567",
+                        "Sniper requires an authoritative ordinary move, live attacker ability, and fixed critical flag."
+                    )
+                !c.isCrit -> proof(
+                    "sniper_noncritical_hit", "src/battle_util.c:7566",
+                    "The selected hit is not critical, so Sniper is inactive."
                 )
                 else -> relevant(
-                    "sniper_attacker_critical_damage", "src/battle_util.c:7567",
-                    "Sniper multiplies this critical hit's damage."
+                    "sniper_critical_hit", "src/battle_util.c:7567",
+                    "The selected critical hit receives Sniper's additional 1.5 final attacker modifier after the ordinary critical stage."
                 )
             }
             24, 64, 106, 124, 152, 160, 215, 221, 238, 254, 268 ->
@@ -462,15 +473,128 @@ object HnsAbilityContextPolicy {
                     "defender_adaptability_does_not_boost_incoming_damage", "src/battle_util.c:7427",
                     "Adaptability is read only from the attacking battler's STAB modifier."
                 )
-                c.moveType == null || c.attackerTypes == null || !c.dynamicMoveTypeKnownNeutral ||
-                    c.observedBattlersCount != 2 -> null
+                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != 91 ||
+                    c.moveType == null || c.attackerTypes == null || c.moveAuthority?.effectiveType == null ||
+                    c.observedBattlersCount != 2 -> unknownProof(
+                    "adaptability_stab_operands_unknown", "src/battle_util.c:7424-7430",
+                    "Adaptability requires an ordinary move, the live effective ability, exact final move type, live attacker types, and observed Singles topology."
+                )
                 c.moveType !in c.attackerTypes -> proof(
                     "adaptability_without_stab", "src/battle_util.c:7427",
-                    "The observed effective attacker types do not include the effective move type."
+                    "The exact live attacker types do not include HnsMoveAuthority.effectiveType, so the pinned STAB multiplier is 1.0."
                 )
                 else -> relevant(
                     "adaptability_with_stab", "src/battle_util.c:7427",
-                    "Adaptability changes the STAB multiplier for a matching type."
+                    "The exact live attacker types include HnsMoveAuthority.effectiveType; Adaptability uses the pinned 2.0 STAB multiplier."
+                )
+            }
+            110, 233 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    if (abilityId == 110) "tinted_lens_defender_side" else "neuroforce_defender_side",
+                    if (abilityId == 110) "src/battle_util.c:7570" else "src/battle_util.c:7562",
+                    "${entry.titleCaseName} is read only from the attacking ability slot."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
+                    c.typeEffectiveness == null -> unknownProof(
+                    if (abilityId == 110) "tinted_lens_effectiveness_unknown" else "neuroforce_effectiveness_unknown",
+                    if (abilityId == 110) "src/battle_util.c:7571" else "src/battle_util.c:7563",
+                    "${entry.titleCaseName} requires an authoritative ordinary move, live attacker ability, final move type, live defender types, and exact H&S effectiveness."
+                )
+                abilityId == 110 && c.typeEffectiveness <= 0.5 -> relevant(
+                    "tinted_lens_resisted_hit", "src/battle_util.c:7570",
+                    "The exact H&S effectiveness is at most 0.5; Tinted Lens applies its 2.0 final attacker modifier. Immunity remains zero before this stage."
+                )
+                abilityId == 233 && c.typeEffectiveness >= 2.0 -> relevant(
+                    "neuroforce_super_effective_hit", "src/battle_util.c:7562",
+                    "The exact H&S effectiveness is at least 2.0; Neuroforce applies its 1.25 final attacker modifier."
+                )
+                else -> proof(
+                    if (abilityId == 110) "tinted_lens_not_resisted" else "neuroforce_not_super_effective",
+                    if (abilityId == 110) "src/battle_util.c:7570" else "src/battle_util.c:7562",
+                    if (abilityId == 110) "The exact H&S effectiveness is neutral or super-effective, so Tinted Lens is inactive."
+                    else "The exact H&S effectiveness is below 2.0, so Neuroforce is inactive."
+                )
+            }
+            111, 116, 232 -> when {
+                c.side == HnsAbilitySide.ATTACKER -> proof(
+                    when (abilityId) {
+                        111 -> "filter_attacker_side"
+                        116 -> "solid_rock_attacker_side"
+                        else -> "prism_armor_attacker_side"
+                    }, "src/battle_util.c:7595-7597",
+                    "${entry.titleCaseName} is read only from the defender ability slot."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
+                    c.typeEffectiveness == null -> unknownProof(
+                    when (abilityId) {
+                        111 -> "filter_effectiveness_unknown"
+                        116 -> "solid_rock_effectiveness_unknown"
+                        else -> "prism_armor_effectiveness_unknown"
+                    }, "src/battle_util.c:7598",
+                    "${entry.titleCaseName} requires an authoritative ordinary move, live defender ability, final move type, live defender types, and exact H&S effectiveness."
+                )
+                c.typeEffectiveness >= 2.0 -> relevant(
+                    when (abilityId) {
+                        111 -> "filter_super_effective_hit"
+                        116 -> "solid_rock_super_effective_hit"
+                        else -> "prism_armor_super_effective_hit"
+                    }, "src/battle_util.c:7595-7597",
+                    "The exact H&S effectiveness is at least 2.0; ${entry.titleCaseName} applies its 0.75 final defender modifier."
+                )
+                else -> proof(
+                    when (abilityId) {
+                        111 -> "filter_not_super_effective"
+                        116 -> "solid_rock_not_super_effective"
+                        else -> "prism_armor_not_super_effective"
+                    }, "src/battle_util.c:7595-7597",
+                    "The exact H&S effectiveness is below 2.0, so ${entry.titleCaseName} is inactive."
+                )
+            }
+            136, 231 -> when {
+                c.side == HnsAbilitySide.ATTACKER -> proof(
+                    if (abilityId == 136) "multiscale_attacker_side" else "shadow_shield_attacker_side",
+                    if (abilityId == 136) "src/battle_util.c:7587" else "src/battle_util.c:7588",
+                    "${entry.titleCaseName} is read only from the defender ability slot."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId -> unknownProof(
+                    if (abilityId == 136) "multiscale_hp_unknown" else "shadow_shield_hp_unknown",
+                    if (abilityId == 136) "src/battle_util.c:7589" else "src/battle_util.c:7589",
+                    "${entry.titleCaseName} requires an authoritative ordinary move and exact live defender ability."
+                )
+                c.defenderHp == null || c.defenderMaxHp == null || c.defenderMaxHp <= 0 ||
+                    c.defenderHp !in 1..c.defenderMaxHp -> unknownProof(
+                    if (abilityId == 136) "multiscale_hp_unknown" else "shadow_shield_hp_unknown",
+                    if (abilityId == 136) "src/battle_util.c:7589" else "src/battle_util.c:7589",
+                    "Full HP cannot be inferred: exact live defender HP and positive max HP are required."
+                )
+                c.defenderHp == c.defenderMaxHp -> relevant(
+                    if (abilityId == 136) "multiscale_full_hp" else "shadow_shield_full_hp",
+                    if (abilityId == 136) "src/battle_util.c:7587" else "src/battle_util.c:7588",
+                    "Authoritative live defender HP equals max HP; ${entry.titleCaseName} applies its 0.5 final defender modifier."
+                )
+                else -> proof(
+                    if (abilityId == 136) "multiscale_below_full_hp" else "shadow_shield_below_full_hp",
+                    if (abilityId == 136) "src/battle_util.c:7587" else "src/battle_util.c:7588",
+                    "Authoritative live defender HP is below max HP, so ${entry.titleCaseName} is inactive."
+                )
+            }
+            246 -> when {
+                c.side == HnsAbilitySide.ATTACKER -> proof(
+                    "ice_scales_attacker_side", "src/battle_util.c:7623",
+                    "Ice Scales is read only from the defender ability slot."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
+                    c.moveCategory == null -> unknownProof(
+                    "ice_scales_category_unknown", "src/battle_util.c:7624",
+                    "Ice Scales requires an authoritative ordinary move, live defender ability, and HnsMoveAuthority's final category."
+                )
+                c.moveCategory == MoveCategory.SPECIAL -> relevant(
+                    "ice_scales_special_move", "src/battle_util.c:7623",
+                    "HnsMoveAuthority's final move category is Special; Ice Scales applies its 0.5 final defender modifier."
+                )
+                else -> proof(
+                    "ice_scales_physical_move", "src/battle_util.c:7623",
+                    "HnsMoveAuthority's final move category is Physical, so Ice Scales is inactive."
                 )
             }
             4, 75 -> when (c.side) {
@@ -525,6 +649,12 @@ object HnsAbilityContextPolicy {
         val moveId = pinnedMove?.id
         val rawAttackerTypes = live?.attackerTypes
         val rawDefenderTypes = live?.defenderTypes
+        val effectiveMoveType = authority.effectiveType
+        val exactTypeEffectiveness = if (effectiveMoveType != null && parsedTypes(rawDefenderTypes) != null) {
+            HnsGroupCPolicy.typeEffectiveness(request, effectiveMoveType)
+        } else {
+            null
+        }
         return Context(
             side = side,
             ordinaryMove = ordinaryMove,
@@ -561,6 +691,7 @@ object HnsAbilityContextPolicy {
             defenderAbilityObserved = hasAuthoritativeLiveAbility(request.defender),
             attackerHp = live?.attackerHp,
             defenderAbilityId = request.defender.abilityId,
+            typeEffectiveness = exactTypeEffectiveness,
             weatherWord = live?.takeIf { it.weatherObserved }?.weatherWord,
             switchInEventsSettled = live?.switchInEventsSettled,
             moveAuthority = authority
@@ -784,6 +915,10 @@ object HnsAbilityContextPolicy {
 
     private fun relevant(rule: String, source: String, rationale: String) = Proof(
         HnsAbilityRequestRelevance.RELEVANT, rule, source, rationale
+    )
+
+    private fun unknownProof(rule: String, source: String, rationale: String) = Proof(
+        HnsAbilityRequestRelevance.UNKNOWN, rule, source, rationale
     )
 
     private fun singlesProof(c: Context, rule: String, source: String, rationale: String): Proof? =

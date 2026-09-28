@@ -15,7 +15,17 @@ internal object HnsGroupCPolicy {
     private val priorityBlockers = setOf(214, 219, 296)
     internal val moldBreakerAbilityIds = setOf(104, 163, 164)
     private val moldBreakerFamilies = moldBreakerAbilityIds
-    private val abilityShieldItem = 758
+    internal const val ABILITY_SHIELD_ITEM_ID = 758
+    private const val abilityShieldItem = ABILITY_SHIELD_ITEM_ID
+    // Pinned abilities.h breakable flags; Filter/Solid Rock/Multiscale/Ice Scales can be
+    // suppressed, while Prism Armor/Shadow Shield remain effective through Mold Breaker.
+    // Audit witnesses: filter_mold_breaker_unshielded, solid_rock_mold_breaker_unshielded,
+    // multiscale_mold_breaker_unshielded, ice_scales_mold_breaker_unshielded,
+    // prism_armor_mold_breaker_preserves, shadow_shield_mold_breaker_preserves,
+    // filter_ability_shield_preserves, solid_rock_ability_shield_preserves,
+    // multiscale_ability_shield_preserves, ice_scales_ability_shield_preserves.
+    private val finalModifierAbilitiesBreakableByMoldBreaker = setOf(111, 116, 136, 246)
+    private val finalModifierAbilitiesNotBreakableByMoldBreaker = setOf(231, 232)
     private const val ironBallItem = 484
     private const val ringTargetItem = 499
 
@@ -96,11 +106,14 @@ internal object HnsGroupCPolicy {
         }
 
         val moveFlagModelsSuppression = "ignoresTargetAbility" in flags && defenderItem != abilityShieldItem
+        val defenderFinalAbilityIsPinnedUnbreakable = defenderAbility in finalModifierAbilitiesNotBreakableByMoldBreaker
+        val defenderFinalAbilityIsPinnedBreakable = defenderAbility in finalModifierAbilitiesBreakableByMoldBreaker
         if (attackerAbility in moldBreakerFamilies && defenderAbility != null && !moveFlagModelsSuppression &&
             defenderAbilityWouldChangeHit(
                 request, defenderAbility, moveType, flags, moveAuthority.soundMove, defenderItem
             ) &&
-            defenderItem != abilityShieldItem
+            defenderItem != abilityShieldItem &&
+            (defenderFinalAbilityIsPinnedBreakable || !defenderFinalAbilityIsPinnedUnbreakable)
         ) {
             return setOf(CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED)
         }
@@ -129,6 +142,20 @@ internal object HnsGroupCPolicy {
             25 -> typeEffectiveness(request, moveType)?.let { it <= 1.0 } ?: true
             SOUNDPROOF -> soundMove == true
             PUNK_ROCK -> soundMove == true
+            111, 116, 232 -> typeEffectiveness(request, moveType)?.let { it >= 2.0 } ?: true
+            136, 231 -> {
+                val hp = request.hnsLiveBattleState?.defenderHp
+                val maxHp = request.hnsLiveBattleState?.defenderMaxHp
+                when {
+                    hp == null || maxHp == null || maxHp <= 0 || hp !in 1..maxHp -> true
+                    else -> hp == maxHp
+                }
+            }
+            246 -> {
+                val moveId = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return true
+                HnsMoveAuthority.forRequest(request, ordinaryDamageMove(moveId)).category
+                    ?.let { it == com.dualdex.pokemon.MoveCategory.SPECIAL } ?: true
+            }
             BULLETPROOF -> "ballisticMove" in flags
             WIND_RIDER -> "windMove" in flags
             in priorityBlockers -> effectivePriority(
@@ -139,8 +166,8 @@ internal object HnsGroupCPolicy {
         return typeMatch
     }
 
-    /** Pinned H&S type chart plus Ring Target's per-cell zero-to-neutral rewrite. */
-    private fun typeEffectiveness(request: DamageCalculationRequest, moveType: PokemonType): Double? {
+    /** Exact pinned chart after HnsMoveAuthority's final type and observed H&S item rewrites. */
+    internal fun typeEffectiveness(request: DamageCalculationRequest, moveType: PokemonType): Double? {
         val pack = HeartAndSoul205DataPack
         val liveTypes = request.hnsLiveBattleState?.defenderTypes
         val rawTypes = liveTypes ?: request.defenderOverride?.types ?: run {

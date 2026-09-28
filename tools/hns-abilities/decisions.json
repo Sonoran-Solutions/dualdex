@@ -381,8 +381,9 @@
     "rationale": "Pinned stat modifier or ability interaction diverges in ordering/rounding from the embedded calculator; fail closed."
   },
   "91": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned damage/type/stat modifier is not reproduced by the embedded calculator; fail closed."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Adaptability uses the exact live effective type and attacker typings for its STAB-only 2.0 branch; unresolved gimmicks and type authority remain request-local blockers.",
+    "evidence": "src/battle_util.c:7427"
   },
   "137": {
     "category": "MODELLED_HNS_CONDITIONAL",
@@ -578,8 +579,9 @@
     "rationale": "The pinned ordinary-move dynamic-type path rewrites to Normal and sets ateBoost; the pinned Gen-Latest configuration applies the later 1.2 base-power modifier."
   },
   "97": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Sniper is modeled as an additional 1.5 final attacker modifier only for the selected critical hit; the ordinary critical multiplier remains a separate pre-roll stage.",
+    "evidence": "src/battle_util.c:7567"
   },
   "101": {
     "category": "MODELLED_HNS_CONDITIONAL",
@@ -602,12 +604,14 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "110": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Tinted Lens is modeled from exact H&S type effectiveness in the attacker final slot; immunity remains zero before final modifiers.",
+    "evidence": "src/battle_util.c:7571"
   },
   "111": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Filter is modeled from exact H&S type effectiveness in the defender final slot; its breakable metadata keeps Mold Breaker handling request-local.",
+    "evidence": "src/battle_util.c:7595"
   },
   "112": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -622,8 +626,9 @@
     "rationale": "Group C modeled conditionally by the H&S immunity layer: matching Water hits are zeroed; redirection is outside the Singles damage result (src/battle_util.c:2465)."
   },
   "116": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Solid Rock is modeled from exact H&S type effectiveness in the defender final slot; its breakable metadata keeps Mold Breaker handling request-local.",
+    "evidence": "src/battle_util.c:7596"
   },
   "117": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -674,8 +679,9 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "136": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Multiscale is modeled from exact live defender HP/max HP in the defender final slot; its breakable metadata keeps Mold Breaker handling request-local.",
+    "evidence": "src/battle_util.c:7589"
   },
   "138": {
     "category": "MODELLED_HNS_CONDITIONAL",
@@ -954,16 +960,19 @@
     "rationale": "Pinned battle_script_commands.c prevents or reflects a stat-stage decrease; the resulting live stat stages are read before the direct hit. No current-hit damage modifier is applied by this ability."
   },
   "231": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Shadow Shield is modeled from exact live defender HP/max HP in the defender final slot; pinned metadata does not mark it breakable.",
+    "evidence": "src/battle_util.c:7589"
   },
   "232": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Prism Armor is modeled from exact H&S type effectiveness in the defender final slot; pinned metadata does not mark it breakable.",
+    "evidence": "src/battle_util.c:7597"
   },
   "233": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Neuroforce is modeled from exact H&S type effectiveness in the attacker final slot.",
+    "evidence": "src/battle_util.c:7563"
   },
   "234": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -1002,8 +1011,9 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "246": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Ice Scales is modeled from HnsMoveAuthority final category in the defender final slot; its breakable metadata keeps Mold Breaker handling request-local.",
+    "evidence": "src/battle_util.c:7624"
   },
   "247": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",

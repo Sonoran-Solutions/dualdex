@@ -17,13 +17,15 @@ Pinned `ApplyModifiersAfterDmgRoll` applies STAB, type effectiveness, burn, then
 subgroups then use unmodified battler speed to order attacker abilities → defender abilities →
 defender-partner abilities → attacker items → defender items when attacker speed is at least
 defender speed, and defender abilities → defender-partner abilities → attacker abilities →
-defender items → attacker items otherwise. The current Singles slice models Screens and defender
-Punk Rock within those source slots; unsupported partner and other-ability branches remain gated.
+defender items → attacker items otherwise. The current Singles slice models Screens, Punk Rock,
+Neuroforce, Sniper, Tinted Lens, Filter, Solid Rock, Prism Armor, Multiscale, Shadow Shield, and
+Ice Scales in those source slots; unsupported partner and item branches remain gated.
 
-The previous #105 slice added nine base-power ability decisions, and #106 added six move-type
-rewrite decisions. This #91 batch adds Punk Rock's attacker and defender Singles branches plus the
-holder-side Steely Spirit branch. All three use request-local predicates; Steely Spirit's separate
-attacker-partner branch remains deferred with unsupported Doubles topology.
+The #105 slice added nine base-power ability decisions, #106 added six move-type rewrite decisions,
+and #107 added Punk Rock plus holder-side Steely Spirit in the final-stage scaffold. This #91 slice
+fills the attacker/defender final-ability slots above and promotes Adaptability's exact STAB branch.
+All use request-local predicates; Steely Spirit's separate attacker-partner branch remains deferred
+with unsupported Doubles topology.
 
 | Ability | Exact modelled context | Request-local irrelevant contexts | Missing or conflicting evidence |
 |---|---|---|---|
@@ -39,6 +41,14 @@ attacker-partner branch remains deferred with unsupported Doubles topology.
 | Steely Spirit (252), holder | Final `HnsMoveAuthority.effectiveType` is Steel; ×1.5 base power composed half-up | Known final non-Steel move; defender-side Singles holder | Unknown final type stays unknown/refused; attacker-partner branch deferred |
 | Toxic Boost (137) | Attacker's authoritative category is Physical and raw `status1 & STATUS1_PSN_ANY != 0`; ×1.5 | Defender, Special move, or known status without either poison bit | Unread/undefined status or conflicting status stays unknown/refused; Toxic Counter bits are allowed only with `STATUS1_TOXIC_POISON` |
 | Flare Boost (138) | Attacker's authoritative category is Special and raw `status1 & STATUS1_BURN != 0`; ×1.5 | Defender, Physical move, or known status without burn | Unread/undefined status or conflicting status stays unknown/refused |
+| Adaptability (91), STAB | `HnsMoveAuthority.effectiveType` is in authoritative live attacker types; STAB ×2.0 (UQ4.12 8192 / `0x2000`) | Defender side or known nonmatching final type | Unknown move/type/live typing/topology or active unsupported gimmick stays blocked |
+| Tinted Lens (110), attacker slot | Exact H&S effectiveness ≤0.5; ×2.0 (8192 / `0x2000`) | Defender role or effectiveness >0.5 | Unknown effectiveness stays blocked; a type/ability immunity still returns zero |
+| Sniper (97), attacker slot | Selected hit's authoritative calculator crit flag; additional ×1.5 (6144 / `0x1800`) after the normal crit stage | Defender role or selected noncritical hit | Missing crit selection stays blocked; this does not change crit odds or the existing crit multiplier |
+| Neuroforce (233), attacker slot | Exact H&S effectiveness ≥2.0; ×1.25 (5120 / `0x1400`) | Defender role or effectiveness <2.0 | Unknown effectiveness stays blocked |
+| Filter / Solid Rock (111/116), defender slot | Exact H&S effectiveness ≥2.0; ×0.75 (3072 / `0x0C00`) | Attacker role or effectiveness <2.0 | Unknown effectiveness stays blocked; both are breakable and shield-aware (policy below) |
+| Prism Armor (232), defender slot | Exact H&S effectiveness ≥2.0; ×0.75 (3072 / `0x0C00`) | Attacker role or effectiveness <2.0 | Unknown effectiveness stays blocked; pinned metadata does not mark it breakable (policy below) |
+| Multiscale / Shadow Shield (136/231), defender slot | Exact authoritative live `hp == maxHP`; ×0.5 (2048 / `0x0800`) | Attacker role or `0 < hp < maxHP` | Missing/invalid HP stays blocked; Multiscale is breakable, Shadow Shield is not (policy below) |
+| Ice Scales (246), defender slot | `HnsMoveAuthority` final category is Special; ×0.5 (2048 / `0x0800`) | Attacker role or final Physical category | Unknown category stays blocked; it is breakable and shield-aware (policy below) |
 
 All source-proven damaging sound moves in the pinned ordinary-move surface are Special; the pinned
 corpus contains no supported Physical sound move, so Punk Rock is deliberately not category-gated.
@@ -46,41 +56,72 @@ Howl's computed `soundMove` field stays unknown and is refused. The #106 rewrite
 include Steel; Normalize rewriting Iron Head from Steel to Normal verifies the negative Steely Spirit
 cross-product, and there is no positive rewrite-into-Steel case in the current supported set.
 
+The final-slot operands are bound from live battle observations and `HnsMoveAuthority`: exact
+effective type, defender effectiveness, final category, and HP/max HP do not come from caller
+overrides. Sniper uses the calculator's selected-hit critical flag; that selection chooses the
+hypothetical crit damage line and does not claim to predict the game's crit roll.
+
+| Defender ability | Pinned breakable flag | Unshielded Mold Breaker-family attacker | Ability Shield |
+|---|---|---|---|
+| Filter | Breakable | Relevant suppression remains refused by the existing production policy | Preserves Filter and its ×0.75 modifier |
+| Solid Rock | Breakable | Relevant suppression remains refused by the existing production policy | Preserves Solid Rock and its ×0.75 modifier |
+| Multiscale | Breakable | Relevant suppression remains refused by the existing production policy | Preserves Multiscale and its ×0.5 modifier |
+| Ice Scales | Breakable | Relevant suppression remains refused by the existing production policy | Preserves Ice Scales and its ×0.5 modifier |
+| Prism Armor | Not breakable | Does not suppress Prism Armor and adds no Mold Breaker blocker | Preserves Prism Armor and its ×0.75 modifier |
+| Shadow Shield | Not breakable | Does not suppress Shadow Shield and adds no Mold Breaker blocker | Preserves Shadow Shield and its ×0.5 modifier |
+
+Filter, Solid Rock, Prism Armor, Multiscale, Shadow Shield, and Ice Scales are defender-slot
+factors inside the speed-ordered `GetOtherModifiers` product. Adaptability remains in STAB. The
+production boundary does not admit Doubles, partner abilities, final-item branches, unsupported
+gimmicks, or requests missing any operand required by a condition.
+
 ### Canonical census change from the starting-main baseline
 
 `docs/HNS_CALC_CENSUS.md` and `tools/hns-calc-census/census.json.gz` were regenerated from the
 production policy and pinned 651-battle trainer inventory. The baseline is starting `main` at
-`3dfb68d4ed2e7e5ce63f5430b73cac1e63293921` (after #106):
+`69d5eab757b7ca56e76b6c98369c17ea5eb8c99e` (after #108):
 
 | Metric | Starting main | This slice | Change |
 |---|---:|---:|---:|
 | Eligible damaging requests | 24,278 | 24,278 | unchanged |
-| `FULLY_MODELLED` requests | 18,696 | 18,720 | +24 |
-| `CAVEATED_ESTIMATE` requests | 374 | 376 | +2 |
-| `REFUSED` requests | 5,208 | 5,182 | -26 |
-| Fully displaying lead matchups | 370 / 1,302 | 370 / 1,302 | unchanged |
-| Displayable requests in lead matchups | 6,652 | 6,652 | unchanged |
-| Newly displayable trainer requests | 0 | 26 | +26: 24 fully modelled, 2 caveated |
-| Battles gaining a newly displayable request | 0 / 651 | 2 / 651 | `TRAINER_JASMINE_POSTOBC_HNS`: 12; `TRAINER_WESSEL_HNS`: 14 |
+| `FULLY_MODELLED` requests | 18,720 | 18,790 | +70 |
+| `CAVEATED_ESTIMATE` requests | 376 | 370 | -6 |
+| `REFUSED` requests | 5,182 | 5,118 | -64 |
+| Fully displaying lead matchups | 370 / 1,302 | 372 / 1,302 | +2 pairs |
+| Displayable requests in lead matchups | 6,652 | 6,676 | +24 |
+| Newly displayable trainer requests | 0 | 64 | +64; all fully modelled |
+| Battles gaining a newly displayable request | 0 / 651 | 5 / 651 | Clair: 16; Falkner: 14; Lance: 14; Blaine: 10; Blue: 10 |
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 battles / 3,578 requests | 557 / 3,578 | unchanged |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 / 152 | 68 / 152 | unchanged |
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 222 battles / 1,890 requests | 222 / 1,862 | unchanged battles / -28 requests |
-| `HNS_ABILITY_CONDITION_UNVERIFIED` | 76 / 266 | 77 / 268 | +1 battle / +2 requests |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 222 battles / 1,862 requests | 221 / 1,786 | -1 battle / -76 requests |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` | 77 / 268 | 80 / 276 | +3 battles / +8 requests |
 
-The current ten highest-ranked blockers are `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578
-requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228), Intimidate
-(64 / 218), Swift Swim (38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm
-(28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70). The top ten are unchanged from
-starting main; the move and item-dependent move blockers remain the largest limits.
+The current ten highest-ranked blockers remain `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles /
+3,578 requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228),
+Intimidate (64 / 218), Swift Swim (38 / 150), defender Sturdy (29 / 232), attacker Sturdy
+(29 / 176), Swarm (28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70).
 
-Under Random Abilities, weighted request trials changed from 1,523,864 refused / 19,529 caveated /
-2,234,267 clear to 1,503,008 / 19,529 / 2,255,123. Identities with at least one refusal remained
-185; identities with caveated contexts remained 5; clear-only identities remained 122. Punk Rock
-and Steely Spirit each changed from 12,186 refused / 0 caveated / 0 clear trials to 1,758 / 0 /
-10,428. The trainer inventory has no Punk Rock holders. Its two Steely Spirit holders are Perrserker
-in the Wessel and Jasmine parties; the associated trainer blockers fell from 28 weighted requests to
-two nonordinary Gyro Ball attacker requests still refused as condition-unverified. The ambiguous-
-opposite-ability cohort exclusions remain 16,974 attacker-side and 19,396 defender-side requests.
+| Ability | Pinned trainer holders | Trainer request effect | Random Abilities refused / caveated / clear trials, before → after |
+|---|---:|---|---|
+| Adaptability | 3 Porygon-Z | 6 caveated → fully modelled | 80 / 2,709 / 9,397 → 80 / 0 / 12,106 |
+| Tinted Lens | 1 Noctowl | 14 refused → fully modelled | 12,186 / 0 / 0 → 0 / 0 / 12,186 |
+| Sniper | 6 Pokémon | 8 refusals narrowed to unknown-crit condition; still refused | 1,758 / 0 / 10,428 → 0 / 0 / 12,186 |
+| Neuroforce | 0 | No trainer holders | 12,186 / 0 / 0 → 0 / 0 / 12,186 |
+| Filter | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
+| Solid Rock | 2 | 20 refused → fully modelled; 4 still refused by other limits | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
+| Prism Armor | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
+| Multiscale | 2 Dragonite | 30 refused → fully modelled | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
+| Shadow Shield | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
+| Ice Scales | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
+
+Random Abilities weighted request trials changed from 1,503,008 refused / 19,529 caveated /
+2,255,123 clear to 1,414,310 / 16,820 / 2,346,530. Identities with at least one refusal changed
+from 185 to 182; identities with caveated contexts from 5 to 4; clear-only identities from 122 to
+125. The six defender reductions remain refused in 1,758 trials because effectiveness is unknown;
+the other 10,428 trials prove the ability irrelevant. The pinned trainer corpus has two fully
+displayable new lead pairs, both Falkner's, and 64 total request-level refusals became fully modelled.
+The ambiguous-opposite-ability cohort exclusions remain 16,974 attacker-side and 19,396
+defender-side requests.
 
 The preceding Attack-stat slice remains in scope: Hustle (55) applies ×1.5 to an attacker-side
 Physical move; Guts (62) does the same when authoritative raw `status1 & STATUS1_ANY != 0` and
@@ -162,15 +203,17 @@ validates each referenced source line against the same pinned checkout.
 | `PROVEN_NO_DAMAGE_EFFECT` | 84 |
 | `MODELLED_EQUIVALENT` | 0 |
 | `MODELLED_HNS_SPECIFIC` | 0 |
-| `MODELLED_HNS_CONDITIONAL` | 40 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 187 |
+| `MODELLED_HNS_CONDITIONAL` | 50 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 177 |
 | `UNCLASSIFIED` | 0 |
 
-These are the current generated audit totals for all 311 pinned abilities. The 40 conditionally
+These are the current generated audit totals for all 311 pinned abilities. The 50 conditionally
 modelled abilities include the Group C immunity subset, the four pinch abilities, Hustle/Guts, the
-nine #105 base-power abilities, the six #106 move-type abilities, Punk Rock, and holder-side Steely
-Spirit. Conditional classification does not grant blanket support: the request-local predicates and
-their required evidence still gate each use. Steely Spirit's attacker-partner branch is not modeled.
+nine #105 base-power abilities, the six #106 move-type abilities, Punk Rock, holder-side Steely
+Spirit, Adaptability, and the final-damage batch Tinted Lens, Sniper, Neuroforce, Filter, Solid Rock,
+Prism Armor, Multiscale, Shadow Shield, and Ice Scales. Conditional classification does not grant
+blanket support: the request-local predicates and their required evidence still gate each use.
+Steely Spirit's attacker-partner branch is not modeled.
 
 The audit follows the ordinary `EFFECT_HIT` dependency path through attack and defense
 stats, base power, final modifiers, STAB, type effectiveness, effective battler and
@@ -203,9 +246,12 @@ damage; defender Tera Shell clears only when live species proves it is not Terap
 live HP proves the Terastal form is below full HP. Full-HP Terapagos-Terastal remains refused.
 Telepathy, Friend Guard, Plus, and Minus clear only when exact live battler topology proves Singles.
 Levitate (26) now uses the Group C Ground-immunity calculation; Guts and Hustle are modelled only
-at their exact Attack-stat predicates, while Huge/Pure Power, Thick Fat, and Adaptability clear
-only under their source-checked side, effective type/category, live status, current type, and
-topology predicates. Truant on the
+at their exact Attack-stat predicates, while Huge/Pure Power and Thick Fat clear only under their
+source-checked side and move predicates. Adaptability now calculates its pinned STAB branch when
+the final effective type and live attacker types are authoritative; unsupported gimmicks and
+missing type authority remain blocked. Group D also models Tinted Lens, Sniper, Neuroforce, Filter,
+Solid Rock, Prism Armor, Multiscale, Shadow Shield, and Ice Scales in their pinned final-ability
+slots. Truant on the
 attacker remains blocked because `truantCounter` is not observed. Defender Battle Armor and Shell
 Armor clear for a fixed noncritical ordinary hit; a critical request remains relevant because it
 conflicts with their prevention effect. The source-checkable artifact records both clearance rules
@@ -214,7 +260,7 @@ separate condition gate. Group D adds the #105 base-power predicates for Technic
 Strong Jaw, Mega Launcher, Sharpness, attacker Water Bubble, Steelworker, Toxic Boost, and Flare
 Boost; #106 adds Normalize, Refrigerate, Pixilate, Aerilate, Galvanize, and Liquid Voice through the
 shared move-type authority. Exact predicates and fail-closed cases are summarized in the opening
-slice tables and detailed in §§6.3, 11.2, and 17.
+slice tables and detailed in §§6.3–6.4, 11.2, and 17.
 
 In Random Abilities battles, the boundary takes the effective numeric ID from
 `gBattleMons[battler].ability` (or observed suppression), checks the matched live
@@ -365,7 +411,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — type chart is exact and verified in QuickJS. Used by `calculateHnsDamage` for post-roll type effectiveness; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C1/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
-| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy` and Groups C–D. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e / Groups C–D)** — current audit: 84 `PROVEN_NO_DAMAGE_EFFECT`, 40 `MODELLED_HNS_CONDITIONAL`, 187 `UNSUPPORTED_DAMAGE_RELEVANT`, and 0 unclassified. The conditional set includes Group C immunities, pinch abilities, Hustle/Guts, #105's nine base-power abilities, #106's six move-type abilities, Punk Rock, and holder-side Steely Spirit; the Steely Spirit partner branch remains deferred. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
+| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy` and Groups C–D. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e / Groups C–D)** — current audit: 84 `PROVEN_NO_DAMAGE_EFFECT`, 50 `MODELLED_HNS_CONDITIONAL`, 177 `UNSUPPORTED_DAMAGE_RELEVANT`, and 0 unclassified. The conditional set includes Group C immunities, pinch abilities, Hustle/Guts, #105's nine base-power abilities, #106's six move-type abilities, Punk Rock, holder-side Steely Spirit, Adaptability, and this slice's nine final-modifier abilities. Steely Spirit's attacker-partner branch remains deferred. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629`, Wise Glasses `[src/data/items.h:10091]` | **identity yes; damage effects conditionally modelled** — exact item identity and the current battle item are consumed; Wise Glasses modelled specifically for H&S; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (585 neutral / 312 unsupported / 1 modelled / 3 unclassified); a known `RELEVANT` unsupported item may be neutralized and named in a caveated estimate only for an item-independent move. Proven-irrelevant and modelled items keep their existing paths; `UNKNOWN`, unclassified, unread, and unauthoritative identities remain hard. Item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
@@ -442,7 +488,7 @@ Only these individual behaviours are source-and-test demonstrated:
 | Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack/spAttack stat in `calculateHnsDamage` | **HOST-ORACLE MATCHES (Gap C4b partial / open)** |
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
 | Move category rule | per-move default, switchable to type-based via `optionStyle`; TYPE_BASED uses H&S `gTypesInfo` for the final effective type (Ghost Special, Dark Physical) | `move.overrides.category` is explicitly materialized by `CalcDataOverrides` and consumed by `entry.js` | **MATCHES (Gap A/B closed)** |
-| Abilities (supported subset) | 84 `PROVEN_NO_DAMAGE_EFFECT` and 40 `MODELLED_HNS_CONDITIONAL` abilities | Conditional support covers Group C immunities, the four pinch abilities, Hustle/Guts, #105's nine base-power abilities, #106's six move-type abilities, Punk Rock, and holder-side Steely Spirit. The move-type abilities use the shared effective-type and explicit `ateBoost` path in §17; Steely Spirit partner support is deferred. | **CONDITIONALLY AUTHORIZED** under the live operand gates and pinned inventory |
+| Abilities (supported subset) | 84 `PROVEN_NO_DAMAGE_EFFECT` and 50 `MODELLED_HNS_CONDITIONAL` abilities | Conditional support covers Group C immunities, the four pinch abilities, Hustle/Guts, #105's nine base-power abilities, #106's six move-type abilities, Punk Rock, holder-side Steely Spirit, Adaptability, and this slice's nine final modifiers. The move-type abilities use the shared effective-type and explicit `ateBoost` path in §17; Steely Spirit partner support is deferred. | **CONDITIONALLY AUTHORIZED** under the live operand gates and pinned inventory |
 | Abilities (globally unsupported) | Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — known relevant unsupported abilities are named caveats after neutralization; unknown/unread/unclassified abilities remain hard, and proven-irrelevant contexts do not become caveats (§6.3, #86) |
 | Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items, Wise Glasses | identity consumed; Wise Glasses modelled, other damage items unmodelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — a known relevant unsupported item may become a named caveat for an item-independent request; unread/unresolved identity remains hard, and item-dependent moves remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7, #86) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
@@ -707,9 +753,11 @@ request-local rule, `HnsAbilityContextPolicy` assesses the current request using
 damage-time modifier or can become a named #86 caveat after neutralization, and `UNKNOWN` remains a
 hard refusal. This does not clear any unrelated `CalcLimitation`.
 
-The first-wave rules cover Tera Shell (ID 308), Truant (54), Telepathy (140), Levitate (26), Hustle
+The reviewed rules cover Tera Shell (ID 308), Truant (54), Telepathy (140), Levitate (26), Hustle
 (55), Guts (62), Huge Power (37), Pure Power (74), Thick Fat (47), Adaptability (91), Battle Armor (4), Shell
-Armor (75), Friend Guard (132), Plus (57), and Minus (58). The source-checkable predicates are
+Armor (75), Friend Guard (132), Plus (57), Minus (58), and the final-modifier batch Tinted Lens
+(110), Sniper (97), Neuroforce (233), Filter (111), Solid Rock (116), Prism Armor (232), Multiscale
+(136), Shadow Shield (231), and Ice Scales (246). The source-checkable predicates are
 tracked in [`context_rules.json`](../tools/hns-abilities/context_rules.json) and validated against
 the exact pinned commit during `./ci.sh source-check`.
 
@@ -725,7 +773,13 @@ The rule examples are intentionally request-specific:
 | Guts | Defender side; attacker using a Special move; observed neutral status for an authoritative physical move | Statused Physical move is modelled with raw `status1 & STATUS1_ANY`; unread/invalid status or missing category authority |
 | Huge Power, Pure Power | Defender side; attacker using an authoritative Special move | Physical attacker move or missing category/type authority |
 | Thick Fat | Attacker side; defender with a known non-Fire/non-Ice effective move | Fire/Ice move or missing effective-type authority |
-| Adaptability | Defender side; attacker has no STAB for the move in exact live Singles | STAB, unknown attacker types, dynamic type, or unknown topology |
+| Adaptability | Defender side; final effective move type is absent from the exact live attacker types | Missing final type, missing live types, unsupported active gimmick, or unknown topology |
+| Tinted Lens | Defender side; exact effectiveness is above 0.5 | Attacker with effectiveness at or below 0.5; unknown effectiveness |
+| Sniper | Defender side; attacker hit is noncritical | Attacker on a critical hit; unknown critical flag |
+| Neuroforce | Defender side; exact effectiveness is below 2.0 | Attacker on a super-effective hit; unknown effectiveness |
+| Filter, Solid Rock, Prism Armor | Attacker side; exact effectiveness is below 2.0 | Defender on a super-effective hit; unknown effectiveness |
+| Multiscale, Shadow Shield | Attacker side; exact live HP is below maxHP | Defender at full HP; missing/invalid live HP pair |
+| Ice Scales | Attacker side; final category is Physical | Defender hit by a Special move; unknown final category |
 | Battle Armor, Shell Armor | Attacker side; defender on an ordinary fixed noncritical hit | Defender on a critical request; missing move-shape authority |
 
 For Tera Shell, `CalcRequestBoundary` reads the current `BattlePokemon.species` form word from the
@@ -741,6 +795,53 @@ generated from the pinned `SPECIES_TERAPAGOS_TERASTAL` macro (resolved by the AR
 header disagree. The QuickJS host suite proves the Tera Shell + Truant pair reaches the shipped
 `calculateHnsDamage` unmodified (echoed ability names, no default-ability substitution) and equals the
 neutral-control vector and the independent H&S oracle.
+
+### 6.4 Low-state final modifiers (issue #91 slice)
+
+These branches occupy the exact stages in the pinned damage pipeline. Their operands are rebound by
+`CalcRequestBoundary`; no additional memory reader is introduced. `HnsMoveAuthority.effectiveType`
+is shared by STAB, effectiveness, and type-dependent modifiers, while its final category feeds Ice
+Scales.
+
+| Stage / ability | Exact predicate and factor | Relevant side and authority | Mold Breaker metadata / Ability Shield | Unknown remains blocked when |
+|---|---|---|---|---|
+| STAB — Adaptability | Final effective move type is in live attacker types: ×2.0 (`UQ4.12 8192`); ordinary STAB is ×1.5 (`6144`) | Attacker; exact live types plus `HnsMoveAuthority.effectiveType` | Not a defender effect; not applicable | Move/type identity, live attacker types, Singles topology, or inactive gimmick proof is missing |
+| Attacker slot — Tinted Lens | Effectiveness ≤0.5: ×2.0 (`8192`); immune hits still return zero before this slot | Attacker; exact H&S effectiveness from final type, live defender types and observed Ring Target/Iron Ball handling | Not a defender effect; not applicable | Final type or exact effectiveness is unresolved |
+| Attacker slot — Sniper | `isCrit`: ×1.5 (`6144`) in addition to the normal ×2 critical stage | Attacker; selected critical flag and live attacker ability | Not a defender effect; not applicable | Ordinary move, live ability, or selected critical flag is unresolved |
+| Attacker slot — Neuroforce | Effectiveness ≥2.0: ×1.25 (`5120`) | Attacker; exact H&S effectiveness | Not a defender effect; not applicable | Final type or exact effectiveness is unresolved |
+| Defender slot — Filter / Solid Rock | Effectiveness ≥2.0: ×0.75 (`3072`) | Defender; exact H&S effectiveness | `breakable = TRUE`; Ability Shield preserves it. Relevant unshielded Mold Breaker remains hard-refused by the existing suppression policy. | Final type or exact effectiveness is unresolved |
+| Defender slot — Prism Armor | Effectiveness ≥2.0: ×0.75 (`3072`) | Defender; exact H&S effectiveness | Not marked breakable; Mold Breaker does not suppress it. Ability Shield is not needed for this distinction. | Final type or exact effectiveness is unresolved |
+| Defender slot — Multiscale | Live defender HP equals live maxHP: ×0.5 (`2048`) | Defender; exact live integer HP/maxHP pair | `breakable = TRUE`; Ability Shield preserves it. Relevant unshielded Mold Breaker remains hard-refused. | HP/maxHP is unread, invalid, or not authoritative |
+| Defender slot — Shadow Shield | Live defender HP equals live maxHP: ×0.5 (`2048`) | Defender; exact live integer HP/maxHP pair | Not marked breakable; Mold Breaker does not suppress it. Ability Shield is not needed for this distinction. | HP/maxHP is unread, invalid, or not authoritative |
+| Defender slot — Ice Scales | Final category is Special: ×0.5 (`2048`) | Defender; final `HnsMoveAuthority.category`, including TYPE_BASED resolution after a supported type rewrite | `breakable = TRUE`; Ability Shield preserves it. Relevant unshielded Mold Breaker remains hard-refused. | Final move category or live defender ability is unresolved |
+
+Pinned source explicitly distinguishes the defender flags: **Filter, Solid Rock, Multiscale, and Ice
+Scales are breakable; Prism Armor and Shadow Shield are not marked breakable.** The same source's
+`CanBreakThroughAbility` path checks Ability Shield before applying Mold Breaker. The calculator
+models Shield preservation for this batch and continues to refuse the four relevant unshielded
+breakable cases rather than silently applying a modifier the battle would suppress.
+
+High-level order remains:
+
+```text
+pre-roll modifiers → random roll → STAB → effectiveness → burn/frostbite
+→ Z/Max protection → GetOtherModifiers → minimum-damage floor
+```
+
+Within `GetOtherModifiers`, target modifiers and Singles screens precede ability slots, and the
+attacker/defender ability order follows unmodified raw Speed (`attacker ability → defender ability`
+when attacker Speed is greater than or equal; otherwise defender then attacker). Partner and item
+slots retain their pinned positions. The accumulator and final integer application both use the
+pinned half-down UQ4.12 operations. The separate #105 base-power product still uses half-up
+accumulation. Adaptability stays in STAB and never enters `GetOtherModifiers`.
+
+The oracle exercises Tinted Lens ×0.5/×0.25 and immunity, Neuroforce threshold controls, Sniper with
+the normal critical multiplier, each defender reduction and HP/category controls, Mold Breaker and
+Ability Shield distinctions, low-damage flooring, and raw-Speed slot order. Adaptability is tested
+against final Fairy-toggle types. The rewrite matrix exercises Normalize, all four -ate abilities,
+and Liquid Voice with matching and nonmatching live types. Those rewrite abilities are separate
+attacker identities because one battler cannot simultaneously have Adaptability and a second
+rewriting ability. Unsupported active gimmicks continue to refuse.
 
 ---
 
@@ -1187,7 +1288,7 @@ per-ability capability decision:
   cannot override or fabricate authoritative observations.
 - **Conditional ability capability (`HnsAbilityRegistry`):**
   - `PROVEN_NO_DAMAGE_EFFECT` (`ABILITY_NONE`, `KEEN EYE`, `INSOMNIA`, and the audited neutral set above): zero move-damage effect in H&S. Cleared with no ability blocker.
-  - `MODELLED_HNS_CONDITIONAL`: the four starter pinch abilities use the live HP gate (§14.6); Hustle/Guts use the Attack-stat stage only with verified category and (for Guts) status operands; Group C immunities use the request-local conditions in [HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md). Group D includes the nine #105 base-power abilities (Technician, Iron Fist, Strong Jaw, Mega Launcher, Sharpness, attacker Water Bubble, Steelworker, Toxic Boost, and Flare Boost), the six #106 move-type abilities (Normalize, Refrigerate, Pixilate, Aerilate, Galvanize, and Liquid Voice), Punk Rock, and holder-side Steely Spirit; each remains gated by its pinned request predicate. Steely Spirit's attacker-partner branch remains deferred.
+  - `MODELLED_HNS_CONDITIONAL`: the four starter pinch abilities use the live HP gate (§14.6); Hustle/Guts use the Attack-stat stage only with verified category and (for Guts) status operands; Group C immunities use the request-local conditions in [HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md). Group D includes the nine #105 base-power abilities (Technician, Iron Fist, Strong Jaw, Mega Launcher, Sharpness, attacker Water Bubble, Steelworker, Toxic Boost, and Flare Boost), the six #106 move-type abilities (Normalize, Refrigerate, Pixilate, Aerilate, Galvanize, and Liquid Voice), Punk Rock, holder-side Steely Spirit, Adaptability, and the #91 final batch (Tinted Lens, Sniper, Neuroforce, Filter, Solid Rock, Prism Armor, Multiscale, Shadow Shield, and Ice Scales); each remains gated by its pinned request predicate. Steely Spirit's attacker-partner branch remains deferred.
   - `UNSUPPORTED_DAMAGE_RELEVANT` (including Thick Fat, Huge Power, Pure Power, and other abilities without an admitted request rule): damage-relevant but divergent or unmodelled. Fails closed with `HNS_ABILITY_EFFECT_NOT_MODELLED` unless a request-local rule can prove irrelevance.
 - **Default ability substitution prevention:** `@smogon/calc` defaulting to `species.abilities[0]` is prevented
   by setting `options.ability = '(other)'` when ability is omitted, empty, or `"None"` under `typeSystem === 'hns_2_0_5'`.
@@ -1851,7 +1952,7 @@ ordinary `EFFECT_HIT` subset:
 | `GetWeatherDamageModifier` | `battle_util.c:7434` | Rain/Sun carried by `request.field.weather`; any other weather is refused by `hnsModifierOrderDiverges`. |
 | `GetCriticalModifier` | `battle_util.c:7474` | Carried by `request.move.isCrit`; **runtime observed (indirect)** (golden E: the crit bit was not read directly and the faint caps the exact roll). |
 | `GetGlaiveRushModifier` | `battle_util.c:7481` | Defender `volatiles.glaiveRush`, type-agnostic ×2. Unread → **FAIL CLOSED**. |
-| `GetSameTypeAttackBonusModifier` | `battle_util.c:7422` | Attacker types are observed; `Adaptability` is unclassified and refused. |
+| `GetSameTypeAttackBonusModifier` | `battle_util.c:7422` | Uses exact live attacker types and `HnsMoveAuthority.effectiveType`; Adaptability is ×2.0 STAB when they match. |
 | `ctx->typeEffectivenessModifier` | type chart | Handled by the exact H&S chart (Gap C1); **runtime validated** (golden B). |
 | `GetBurnOrFrostBiteModifier` | `battle_util.c:7458` | `brn` is carried by `request.attacker.status`; frostbite is not in `MODELLED_STATUSES` and is refused. |
 | `GetZMaxMoveAgainstProtectionModifier` | `battle_util.c:7488` | Only Z/Max moves; not ordinary `EFFECT_HIT`; gimmick unread. |
@@ -1859,8 +1960,8 @@ ordinary `EFFECT_HIT` subset:
 | `GetUndergroundModifier` / `GetDiveModifier` / `GetAirborneModifier` | `battle_util.c:7506-7525` | Gated by move flags; defender `volatiles.semiInvulnerable` unread → **FAIL CLOSED**. |
 | `GetScreensModifier` | `battle_util.c:7527` | `IsDoubleBattle()` selects `UQ_4_12(0.667)` (Doubles) vs `UQ_4_12(0.5)` (Singles). Carried by `request.field.defenderSide` only after the live format gate confirms the observed Singles topology (§14.7.2); a Doubles battle refuses rather than applying the Singles multiplier. **Runtime not separately validated.** |
 | `GetCollisionCourseElectroDriftModifier` | `battle_util.c:7551` | Only `EFFECT_COLLISION_COURSE`; refused. |
-| `GetAttackerAbilitiesModifier` (`Neuroforce`/`Sniper`/`Tinted Lens`) | `battle_util.c:7558` | A complete, known relevant ability may be neutralized as a named estimate caveat; unclassified identity or unknown relevance remains hard. |
-| `GetDefenderAbilitiesModifier` (`Multiscale`, `Shadow Shield`, `Filter`, `Solid Rock`, `Prism Armor`, `Fluffy`, `Punk Rock`, `Ice Scales`) | `battle_util.c:7580` | A complete, known relevant ability may be neutralized as a named estimate caveat; unclassified identity or unknown relevance remains hard. |
+| `GetAttackerAbilitiesModifier` (`Neuroforce`/`Sniper`/`Tinted Lens`) | `battle_util.c:7558` | Modeled in the attacker final slot using exact effectiveness or the selected critical flag. |
+| `GetDefenderAbilitiesModifier` (`Multiscale`, `Shadow Shield`, `Filter`, `Solid Rock`, `Prism Armor`, `Punk Rock`, `Ice Scales`) | `battle_util.c:7580` | Low-state predicates are calculated in the defender final slot; Fluffy remains out of scope. Mold Breaker follows pinned ability breakability metadata. |
 | `GetDefenderPartnerAbilitiesModifier` (`Friend Guard`) | `battle_util.c:7640` | Doubles-only; format blocked and ability unclassified. |
 | `GetAttackerItemsModifier` (`Metronome`, `Expert Belt`, `Life Orb`) | `battle_util.c:7656` | A known relevant item may be neutralized as a named estimate caveat; unknown item identity or relevance remains hard. |
 | `GetDefenderItemsModifier` (resist berries) | `battle_util.c:7682` | A known relevant item may be neutralized as a named estimate caveat; unknown item identity or relevance remains hard. |
@@ -2472,9 +2573,10 @@ open under #9 is superseded by this accepted bounded scope. Until review/merge, 
 
 Issue #89 extends the request-local supported subset with source-backed Group C immunities and the
 Air Balloon, Iron Ball, and Ring Target rules; the full audit is in
-[HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md). This PR leaves the existing #97–#100
-vectors unchanged and adds one #91 engine-only vector for defender-side Water Bubble on a Fire move;
-production policy keeps that defensive branch unknown and refused.
+[HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md). This PR preserves the existing #97–#100
+vectors and the one #91 engine-only vector for defender-side Water Bubble on a Fire move; production
+policy keeps that defensive branch unknown and refused. The new final-modifier scenarios must match
+the pinned engine and add no registered divergence.
 
 The limits in §14.13 remain unchanged: H&S Doubles, other damage items and unsupported mechanics
 are not newly supported; positive badge runtime Golden D and positive transient transitions are
@@ -2608,10 +2710,10 @@ Consequences:
 - Assault Vest / Metal Powder / Deep Sea Scale need the category and Wonder Room observed inactive.
 - Air Balloon / Iron Ball need no terrain bit.
 
-The ability rules (Guts, Huge/Pure Power, Thick Fat, Levitate, Adaptability) use the same authority,
-so a terrain no longer makes those ability decisions unknown merely because it is active. A known
-relevant ability or item can be ignored only when its full context is known; unknown relevance can
-still keep a request refused.
+The ability rules (Guts, Huge/Pure Power, Thick Fat, Levitate, Adaptability, and the final damage
+modifiers) use the same authority, so a terrain no longer makes those ability decisions unknown
+merely because it is active. A known relevant ability or item can be ignored only when its full
+context is known; unknown relevance can still keep a request refused.
 
 ### 15.5 Request-local field rules (`HnsFieldContextPolicy`)
 

@@ -196,10 +196,10 @@ class CalcHnsAbilityTest {
             assertTrue(entry.category.isSupportedForDamage)
         }
 
-        // Modern ability (e.g. Adaptability = 91)
+        // Adaptability is conditionally supported only through its exact STAB context rule.
         val adaptability = HnsAbilityRegistry.classify(91)
-        assertEquals(HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT, adaptability.category)
-        assertFalse(adaptability.category.isSupportedForDamage)
+        assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL, adaptability.category)
+        assertTrue(adaptability.category.isSupportedForDamage)
     }
 
     // ---------------------------------------------------------------------
@@ -737,7 +737,7 @@ class CalcHnsAbilityTest {
         val trust = exactTrust(heartAndSoul)
         val snapshot = hnsSettingsSnapshot()
 
-        // Malformed observation where runtime ID is 91 (Adaptability, unsupported)
+        // Malformed observation where runtime ID is 91 (Adaptability, conditionally modelled)
         // but identity declared name is "Keen Eye" (supported no-damage name) with matching ID 91
         val malformedObs = BattlerRuntimeObservation(
             state = HnsBattlerRuntimeState(
@@ -776,11 +776,11 @@ class CalcHnsAbilityTest {
         )
 
         val refused = outcome as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("Must be refused due to unsupported Adaptability ability")
+            ?: throw AssertionError("Unknown live Adaptability operands must remain refused")
 
-        // Capability verdict MUST be chosen from the authoritative numeric ID (91 -> Adaptability -> UNSUPPORTED),
+        // Capability verdict MUST be chosen from the authoritative numeric ID (91 -> Adaptability),
         // NEVER from the identity display name string ("Keen Eye")
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
     }
 
     @Test
@@ -854,11 +854,11 @@ class CalcHnsAbilityTest {
             assertEquals("ability $id", HnsAbilityCategory.PROVEN_NO_DAMAGE_EFFECT,
                 HnsAbilityRegistry.classify(id).category)
         }
-        listOf(37, 47, 74, 91, 140, 168, 262, 282).forEach { id ->
+        listOf(37, 47, 74, 140, 168, 262, 282).forEach { id ->
             assertEquals("ability $id", HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
                 HnsAbilityRegistry.classify(id).category)
         }
-        listOf(55, 62).forEach { id ->
+        listOf(55, 62, 91, 97, 110, 111, 116, 136, 231, 232, 233, 246).forEach { id ->
             assertEquals("ability $id", HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
                 HnsAbilityRegistry.classify(id).category)
         }

@@ -2866,5 +2866,127 @@
         ]
       }
     ]
+  },
+  "244": {
+    "always_blocking": [],
+    "context_rules": [
+      {
+        "evidence": [
+          {
+            "contains": "case ABILITY_PUNK_ROCK:",
+            "source": "src/battle_util.c:6734"
+          },
+          {
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].soundMove;",
+            "source": "include/move.h:360"
+          }
+        ],
+        "predicate": "Authoritative effective attacker has Punk Rock, the ordinary move has source-derived MoveInfo.soundMove=true, and the request is Singles.",
+        "rationale": "CalcMoveBasePowerAfterModifiers composes the pinned x1.3 modifier with uq4_12_multiply; the final integer base power is rounded once by the existing half-up accumulator.",
+        "rule": "punk_rock_attacker_sound_move"
+      },
+      {
+        "evidence": [
+          {
+            "contains": "if (IsSoundMove(move))",
+            "source": "src/battle_util.c:6735"
+          },
+          {
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].soundMove;",
+            "source": "include/move.h:360"
+          }
+        ],
+        "predicate": "Authoritative effective attacker has Punk Rock and source-derived MoveInfo.soundMove=false for the ordinary move.",
+        "rationale": "IsSoundMove is false, so the attacker base-power branch does not run.",
+        "rule": "punk_rock_attacker_nonsound_move"
+      },
+      {
+        "evidence": [
+          {
+            "contains": "case ABILITY_PUNK_ROCK:",
+            "source": "src/battle_util.c:7616"
+          },
+          {
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].soundMove;",
+            "source": "include/move.h:360"
+          }
+        ],
+        "predicate": "Authoritative defender has Punk Rock and the selected incoming ordinary move has source-derived MoveInfo.soundMove=true.",
+        "rationale": "GetDefenderAbilitiesModifier applies x0.5 after STAB, type effectiveness, burn, and the accumulated GetOtherModifiers/screen stage, preserving each pinned half-down damage application before the minimum-damage floor.",
+        "rule": "punk_rock_defender_sound_move"
+      },
+      {
+        "evidence": [
+          {
+            "contains": "if (IsSoundMove(ctx->move))",
+            "source": "src/battle_util.c:7617"
+          },
+          {
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].soundMove;",
+            "source": "include/move.h:360"
+          }
+        ],
+        "predicate": "Authoritative defender has Punk Rock and source-derived MoveInfo.soundMove=false for the incoming ordinary move.",
+        "rationale": "IsSoundMove is false, so the defender final-damage branch does not run.",
+        "rule": "punk_rock_defender_nonsound_move"
+      }
+    ],
+    "fallback": "Unknown/computed soundMove metadata, unknown effective ability, nonordinary move shape, or unsupported battle topology remains refused.",
+    "global": "MODELLED_HNS_CONDITIONAL"
+  },
+  "252": {
+    "always_blocking": [],
+    "context_rules": [
+      {
+        "evidence": [
+          {
+            "contains": "case ABILITY_STEELY_SPIRIT:",
+            "source": "src/battle_util.c:6738"
+          }
+        ],
+        "predicate": "Authoritative effective attacker has Steely Spirit and HnsMoveAuthority.effectiveType is Steel for an ordinary Singles move.",
+        "rationale": "The holder-side CalcMoveBasePowerAfterModifiers branch composes x1.5 using the final effective move type, including the #106 type authority.",
+        "rule": "steely_spirit_holder_effective_steel_move"
+      },
+      {
+        "evidence": [
+          {
+            "contains": "if (moveType == TYPE_STEEL)",
+            "source": "src/battle_util.c:6739"
+          }
+        ],
+        "predicate": "Authoritative effective attacker has Steely Spirit and HnsMoveAuthority.effectiveType is known and not Steel.",
+        "rationale": "The holder-side branch checks moveType == TYPE_STEEL; a final non-Steel type is proven inactive even when the pinned source move type was Steel.",
+        "rule": "steely_spirit_holder_effective_nonsteel_move"
+      },
+      {
+        "evidence": [
+          {
+            "contains": "case ABILITY_STEELY_SPIRIT:",
+            "source": "src/battle_util.c:6738"
+          },
+          {
+            "contains": "switch (GetBattlerAbility(BATTLE_PARTNER(battlerAtk)))",
+            "source": "src/battle_util.c:6766"
+          }
+        ],
+        "predicate": "Steely Spirit is the observed ability on the defender of the selected Singles hit.",
+        "rationale": "The holder-only branch boosts the defender’s own attacks. Its separate attacker-partner branch is not an incoming defender modifier and remains deferred with unsupported Doubles topology.",
+        "rule": "steely_spirit_defender_singles_irrelevant"
+      },
+      {
+        "evidence": [
+          {
+            "contains": "switch (GetBattlerAbility(BATTLE_PARTNER(battlerAtk)))",
+            "source": "src/battle_util.c:6766"
+          }
+        ],
+        "predicate": "A Doubles attacker partner, rather than the selected attacker, holds Steely Spirit.",
+        "rationale": "This request surface does not authorize production Doubles or observe authoritative partner ability topology; no partner boost is modeled or implied.",
+        "rule": "steely_spirit_attacker_partner_deferred"
+      }
+    ],
+    "fallback": "Unknown final effective move type, ability identity, nonordinary move shape, or Doubles topology remains refused.",
+    "global": "MODELLED_HNS_CONDITIONAL"
   }
 }

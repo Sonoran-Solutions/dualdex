@@ -60,6 +60,7 @@ MOVES = {
     "Body Slam": ("Normal", "physical", 85), "Mega Kick": ("Normal", "physical", 120),
     "Swift": ("Normal", "special", 60), "Quick Attack": ("Normal", "physical", 40), "Tri Attack": ("Normal", "special", 80),
     "Hyper Voice": ("Normal", "special", 90),
+    "Relic Song": ("Normal", "special", 75),
     "Karate Chop": ("Fighting", "physical", 50), "Sky Uppercut": ("Fighting", "physical", 85),
     "Aura Sphere": ("Fighting", "special", 80), "Focus Blast": ("Fighting", "special", 120),
     "Drill Peck": ("Flying", "physical", 80), "Wing Attack": ("Flying", "physical", 60),
@@ -797,6 +798,10 @@ def _base_power_abilities() -> list[dict]:
     steelworker = ("ABILITY_STEELWORKER", "Steelworker")
     toxic_boost = ("ABILITY_TOXIC_BOOST", "Toxic Boost")
     flare_boost = ("ABILITY_FLARE_BOOST", "Flare Boost")
+    punk_rock = ("ABILITY_PUNK_ROCK", "Punk Rock")
+    steely_spirit = ("ABILITY_STEELY_SPIRIT", "Steely Spirit")
+    normalize = ("ABILITY_NORMALIZE", "Normalize")
+    liquid_voice = ("ABILITY_LIQUID_VOICE", "Liquid Voice")
 
     for move in ("Ember", "Swift", "Sludge"):
         out.append(scenario(
@@ -839,6 +844,56 @@ def _base_power_abilities() -> list[dict]:
                  attacker("Machamp", atk=151, ability=steelworker), defender("Snorlax", dfn=109), "Tackle"),
         scenario("group-d-steelworker-defender-control", ["ability:steelworker", "base-power", "negative-control"],
                  attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=steelworker), "Iron Head"),
+        scenario("group-d-punk-rock-attacker-hyper-voice", ["ability:punk-rock", "base-power", "sound"],
+                 attacker("Machamp", spa=151, ability=punk_rock), defender("Snorlax", spd=109), "Hyper Voice"),
+        scenario("group-d-punk-rock-attacker-nonsound-control",
+                 ["ability:punk-rock", "base-power", "sound", "negative-control"],
+                 attacker("Machamp", atk=151, ability=punk_rock), defender("Snorlax", dfn=109), "Tackle"),
+        scenario("group-d-punk-rock-attacker-wise-glasses-relic-song",
+                 ["ability:punk-rock", "base-power", "sound", "modifier-stacking", "item:wise-glasses", "rounding"],
+                 attacker("Machamp", spa=151, ability=punk_rock, item=("ITEM_WISE_GLASSES", "Wise Glasses")),
+                 defender("Snorlax", spd=109), "Relic Song"),
+        scenario("group-d-punk-rock-defender-hyper-voice",
+                 ["ability:punk-rock", "final-damage", "sound"],
+                 attacker("Machamp", spa=151), defender("Snorlax", spd=109, ability=punk_rock), "Hyper Voice"),
+        scenario("group-d-punk-rock-defender-nonsound-control",
+                 ["ability:punk-rock", "final-damage", "sound", "negative-control"],
+                 attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=punk_rock), "Tackle"),
+        scenario("group-d-punk-rock-defender-light-screen",
+                 ["ability:punk-rock", "final-damage", "sound", "screen", "modifier-stacking"],
+                 attacker("Porygon", spa=151), defender("Snorlax", spd=109, ability=punk_rock), "Hyper Voice",
+                 light_screen=True),
+        scenario("group-d-punk-rock-defender-low-damage-rounding",
+                 ["ability:punk-rock", "final-damage", "sound", "rounding", "minimum-damage"],
+                 attacker("Porygon", level=1, spa=1),
+                 defender("Snorlax", spd=60000, maxhp=60000, ability=punk_rock), "Relic Song"),
+        scenario("group-d-punk-rock-soundproof-immunity",
+                 ["ability:punk-rock", "group-c-immunity", "sound", "ability:soundproof"],
+                 attacker("Machamp", spa=151, ability=punk_rock),
+                 defender("Snorlax", spd=109, ability=("ABILITY_SOUNDPROOF", "Soundproof")), "Hyper Voice",
+                 expect="immune"),
+        scenario("group-d-liquid-voice-punk-rock-defender",
+                 ["ability:liquid-voice", "ability:punk-rock", "final-damage", "sound", "move-type-rewrite"],
+                 attacker("Porygon", spa=151, ability=liquid_voice),
+                 defender("Snorlax", spd=109, ability=punk_rock), "Hyper Voice"),
+        scenario("group-d-liquid-voice-soundproof-immunity",
+                 ["ability:liquid-voice", "group-c-immunity", "sound", "move-type-rewrite", "ability:soundproof"],
+                 attacker("Porygon", spa=151, ability=liquid_voice),
+                 defender("Snorlax", spd=109, ability=("ABILITY_SOUNDPROOF", "Soundproof")), "Hyper Voice",
+                 expect="immune"),
+        scenario("group-d-steely-spirit-iron-head",
+                 ["ability:steely-spirit", "base-power", "effective-type"],
+                 attacker("Machamp", atk=151, ability=steely_spirit), defender("Snorlax", dfn=109), "Iron Head"),
+        scenario("group-d-steely-spirit-nonsteel-control",
+                 ["ability:steely-spirit", "base-power", "effective-type", "negative-control"],
+                 attacker("Machamp", atk=151, ability=steely_spirit), defender("Snorlax", dfn=109), "Tackle"),
+        scenario("group-d-steely-spirit-defender-control",
+                 ["ability:steely-spirit", "base-power", "effective-type", "negative-control", "role:defender"],
+                 attacker("Machamp", atk=151),
+                 defender("Snorlax", dfn=109, ability=steely_spirit), "Iron Head"),
+        scenario("group-d-normalize-steel-source-final-normal",
+                 ["ability:normalize", "move-type-rewrite", "effective-type", "ate-boost", "cross-product"],
+                 attacker("Machamp", atk=151, ability=normalize), defender("Snorlax", dfn=109), "Iron Head"),
     ))
 
     for status in ("poison", "toxic", "none"):

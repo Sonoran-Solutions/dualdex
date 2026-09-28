@@ -2179,6 +2179,167 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `Punk Rock and holder Steely Spirit reach authorized execution from live identities`() {
+        val trust = trustFor(exactSha)
+        fun execute(
+            ready: CalcRequestOutcome.Ready,
+            abilityId: Int,
+            moveFlag: String? = null,
+            side: HnsAbilitySide = HnsAbilitySide.ATTACKER
+        ) {
+            var reached = false
+            val result = CalcAuthorizedExecution.calculate(ready.verdict) { request ->
+                reached = true
+                val observedAbility = if (side == HnsAbilitySide.ATTACKER) {
+                    request.attacker.abilityId
+                } else {
+                    request.defender.abilityId
+                }
+                assertEquals(abilityId, observedAbility)
+                val json = JSONObject(buildCalcRequestJson(request))
+                val move = json.getJSONObject("move")
+                val flags = move.getJSONArray("hnsMoveFlags").toString()
+                if (moveFlag == null) assertFalse(flags.contains("soundMove"))
+                else assertTrue("source move flag missing from authorized request: $flags", flags.contains(moveFlag))
+                DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = List(16) { 1 })
+            }
+            assertTrue("the exact live ability should reach authorized execution", result.success && reached)
+        }
+
+        val callerAbilityAndMoveSpoof = goldenARequest("Hyper Voice").copy(
+            attacker = liveInput("Chikorita", 5, 9, "Static"),
+            moveOverride = CalcMoveOverride(basePower = 1, type = "Fire", category = "Physical")
+        )
+        val punkAttacker = readyOf(
+            build(trust, callerAbilityAndMoveSpoof,
+                playerObservation(abilityId = 244, abilityName = "Punk Rock"), enemyObservation(),
+                randomAbilities = true),
+            "live attacker Punk Rock and the source sound flag should authorize"
+        )
+        assertEquals(244, punkAttacker.request.attacker.abilityId)
+        assertEquals("Punk Rock", punkAttacker.request.attacker.ability)
+        val punkMove = JSONObject(buildCalcRequestJson(punkAttacker.request)).getJSONObject("move")
+        assertEquals("Normal", punkMove.getJSONObject("overrides").getString("type"))
+        assertEquals("Special", punkMove.getJSONObject("overrides").getString("category"))
+        assertEquals(90, punkMove.getJSONObject("overrides").getInt("basePower"))
+        execute(punkAttacker, 244, "soundMove")
+
+        val punkDefender = readyOf(
+            build(trust, goldenARequest("Hyper Voice"), playerObservation(),
+                enemyObservation(abilityId = 244, abilityName = "Punk Rock"), randomAbilities = true),
+            "live defender Punk Rock with a source sound move should authorize"
+        )
+        assertEquals(244, punkDefender.request.defender.abilityId)
+        execute(punkDefender, 244, "soundMove", HnsAbilitySide.DEFENDER)
+
+        val moldBreakerPunkRock = refusedOf(
+            build(trust, goldenARequest("Hyper Voice"),
+                playerObservation(abilityId = 104, abilityName = "Mold Breaker"),
+                enemyObservation(abilityId = 244, abilityName = "Punk Rock"), randomAbilities = true),
+            "Mold Breaker suppression of defender Punk Rock must remain fail-closed"
+        )
+        assertTrue(moldBreakerPunkRock.verdict.limitations.contains(
+            CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED
+        ))
+
+        val nonSoundRequest = goldenARequest("Tackle").copy(
+            attacker = liveInput("Chikorita", 5, 244, "Punk Rock"),
+            moveOverride = CalcMoveOverride(basePower = 250, type = "Steel", category = "Special")
+        )
+        val punkNonSound = readyOf(
+            build(trust, nonSoundRequest,
+                playerObservation(abilityId = 244, abilityName = "Punk Rock"), enemyObservation(),
+                randomAbilities = true),
+            "a caller-supplied move override cannot mark Tackle as sound"
+        )
+        assertTrue(punkNonSound.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 244 && it.relevance == HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+        })
+        val nonSoundJson = buildCalcRequestJson(punkNonSound.request)
+        assertFalse("caller data cannot fabricate source sound metadata", nonSoundJson.contains("soundMove"))
+        execute(punkNonSound, 244)
+
+        val unknownSound = refusedOf(
+            build(trust, goldenARequest("Howl").copy(
+                attacker = liveInput("Chikorita", 5, 244, "Punk Rock")
+            ), playerObservation(abilityId = 244, abilityName = "Punk Rock"), enemyObservation(),
+                randomAbilities = true),
+            "computed sound metadata must not authorize Punk Rock"
+        )
+        assertTrue(unknownSound.verdict.limitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED))
+        val unknownSoundContext = HnsAbilityContextPolicy.contextForRequest(
+            punkAttacker.request.copy(move = CalcMoveInput("Howl")), HnsAbilitySide.ATTACKER, true
+        )
+        assertNull(unknownSoundContext.soundMove)
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            HnsAbilityContextPolicy.assess(244, unknownSoundContext).relevance)
+        val unknownEngine = CalcAuthorizedExecution.calculate(unknownSound.verdict) {
+            throw AssertionError("unknown/computed sound metadata must not reach the calculator")
+        }
+        assertFalse(unknownEngine.success)
+
+        val spoofedSteel = goldenARequest("Iron Head").copy(
+            attacker = liveInput("Chikorita", 5, 9, "Static"),
+            moveOverride = CalcMoveOverride(basePower = 1, type = "Fire", category = "Special")
+        )
+        val steelyAttacker = readyOf(
+            build(trust, spoofedSteel,
+                playerObservation(abilityId = 252, abilityName = "Steely Spirit"), enemyObservation(),
+                randomAbilities = true),
+            "live holder Steely Spirit with an effective Steel move should authorize"
+        )
+        assertTrue(steelyAttacker.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 252 && it.side == HnsAbilitySide.ATTACKER &&
+                it.relevance == HnsAbilityRequestRelevance.RELEVANT
+        })
+        val steelMove = JSONObject(buildCalcRequestJson(steelyAttacker.request)).getJSONObject("move")
+        assertEquals("Steel", steelMove.getJSONObject("overrides").getString("type"))
+        assertEquals("Physical", steelMove.getJSONObject("overrides").getString("category"))
+        execute(steelyAttacker, 252)
+
+        val steelyNonSteel = readyOf(
+            build(trust, goldenARequest("Tackle").copy(
+                attacker = liveInput("Chikorita", 5, 252, "Steely Spirit"),
+                moveOverride = CalcMoveOverride(basePower = 250, type = "Steel", category = "Special")
+            ), playerObservation(abilityId = 252, abilityName = "Steely Spirit"), enemyObservation(),
+                randomAbilities = true),
+            "caller-supplied Steel cannot override Tackle's final Normal type"
+        )
+        assertTrue(steelyNonSteel.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 252 && it.relevance == HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+        })
+        assertEquals("Normal", JSONObject(buildCalcRequestJson(steelyNonSteel.request))
+            .getJSONObject("move").getJSONObject("overrides").getString("type"))
+        execute(steelyNonSteel, 252)
+
+        // Normalize and Steely Spirit are mutually exclusive holder abilities. This ordinary Steel
+        // source move still proves that #106's final Normal type is serialized after Normalize.
+        val normalizedSteelMove = readyOf(
+            build(trust, goldenARequest("Iron Head"),
+                playerObservation(abilityId = 96, abilityName = "Normalize"), enemyObservation(),
+                randomAbilities = true),
+            "Normalize must rewrite the ordinary Steel source move before damage policy"
+        )
+        val normalized = JSONObject(buildCalcRequestJson(normalizedSteelMove.request))
+            .getJSONObject("move").getJSONObject("overrides")
+        assertEquals("Normal", normalized.getString("type"))
+
+        val electrifiedSteely = refusedOf(
+            build(trust, goldenARequest("Iron Head").copy(
+                attacker = liveInput("Chikorita", 5, 252, "Steely Spirit")
+            ), playerObservation(abilityId = 252, abilityName = "Steely Spirit", electrified = true),
+                enemyObservation(), randomAbilities = true),
+            "an active Electrify rewrite must remain blocked by the existing dynamic-type gate"
+        )
+        assertTrue(electrifiedSteely.verdict.limitations.contains(
+            CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED
+        ))
+        assertTrue(electrifiedSteely.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 252 && it.relevance == HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+        })
+    }
+
+    @Test
     fun `live items proven irrelevant clear only their own item blockers and are stripped`() {
         // Your Charcoal cannot boost Normal Tackle; the foe's Choice Band is read only when it attacks.
         val ready = readyOf(

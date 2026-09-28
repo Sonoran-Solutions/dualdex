@@ -48,9 +48,9 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 
 | Tier | Requests |
 |---|---:|
-| `FULLY_MODELLED` | 18696 |
-| `CAVEATED_ESTIMATE` | 374 |
-| `REFUSED` | 5208 |
+| `FULLY_MODELLED` | 18720 |
+| `CAVEATED_ESTIMATE` | 376 |
+| `REFUSED` | 5182 |
 
 ## Denominators
 
@@ -155,16 +155,16 @@ These named abilities and items are neutralized by production policy before the 
 | Expert Belt | attacker | 1 | 2 |
 | Fairy Feather | attacker | 1 | 2 |
 | Icicle Plate | attacker | 1 | 2 |
-| Meadow Plate | attacker | 1 | 2 |
+| Iron Plate | attacker | 1 | 2 |
 
 ### Blocker codes
 
 | Limitation | Battles | Requests |
 |---|---:|---:|
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 | 3578 |
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 222 | 1890 |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 222 | 1862 |
 | `HNS_ITEM_EFFECT_NOT_MODELLED` | 94 | 536 |
-| `HNS_ABILITY_CONDITION_UNVERIFIED` | 76 | 266 |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` | 77 | 268 |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 | 152 |
 | `SPECIES_NOT_IN_PINNED_DATA` | 22 | 336 |
 | `HNS_FLASH_FIRE_BOOST_NOT_MODELLED` | 14 | 58 |
@@ -208,7 +208,7 @@ Under Random Abilities any of the pinned domain's 310 abilities can be installed
 
 Counts are weighted by the cohort's eligible requests; battle counts de-duplicate trainer battles within each disposition. Refusals are attributed only to the exact ability entry in production's blocker list, while caveats use its ignored-mechanic list. Thus an unsupported move can refuse a request without making a caveatable ability look like a blocker. *Rules* lists the reviewed contextual rules that fired.
 
-**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1523864 request trials as refused, 19529 as caveated, and 2234267 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
+**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1503008 request trials as refused, 19529 as caveated, and 2255123 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
 
 ### Abilities that cause refusals
 
@@ -297,7 +297,9 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Receiver | 4 | 2 | 0 | live_effective_ability_capture_ability_rewriter |
 | Power Of Alchemy | 4 | 2 | 0 | live_effective_ability_capture_ability_rewriter |
 | Cotton Down | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
+| Punk Rock | 4 | 2 | 0 | punk_rock_attacker_nonsound_move, punk_rock_defender_nonsound_move |
 | Ripen | 4 | 2 | 0 | attacker_ripen_no_current_hit_modifier, ripen_without_defender_resist_berry |
+| Steely Spirit | 4 | 2 | 0 | steely_spirit_defender_singles_irrelevant, steely_spirit_holder_effective_nonsteel_move |
 | Wandering Spirit | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Quick Draw | 4 | 2 | 0 | speed_ability_without_analytic |
 | Lingering Aroma | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
@@ -351,35 +353,34 @@ The same ability can be clear, caveated, or refused on different sides and in di
 
 | Side | Category | Refusing abilities | Requests refused (max) | Caveated abilities | Requests caveated (max) |
 |---|---|---:|---:|---:|---:|
-| attacker | Physical | 151 | 4565 | 4 | 4565 |
-| attacker | Special | 151 | 2739 | 2 | 2739 |
+| attacker | Physical | 149 | 4565 | 4 | 4565 |
+| attacker | Special | 149 | 2739 | 2 | 2739 |
 | defender | Physical | 184 | 3034 | 1 | 110 |
 | defender | Special | 184 | 1848 | 1 | 276 |
 
-Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 551 rows, `RELEVANT` in 23 rows and `UNKNOWN` in 666 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
+Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 554 rows, `RELEVANT` in 25 rows and `UNKNOWN` in 661 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
 
-## Issue #91 move-type slice comparison
+## Issue #91 Punk Rock / Steely Spirit slice comparison
 
-This fixed comparison records the move-type ability slice against starting `main` at `0c32d156c26bcfdb564382b02593b3176d2a219f` (after #105). Both censuses cover the same 24,278 eligible damaging requests across 651 trainer battles.
+This fixed comparison records the Punk Rock / Steely Spirit slice against starting `main` at `3dfb68d4ed2e7e5ce63f5430b73cac1e63293921` (after #106). Both censuses cover the same 24,278 eligible damaging requests across 651 trainer battles.
 
 | Metric | Starting main | This slice | Change |
 |---|---:|---:|---:|
-| `FULLY_MODELLED` requests | 18,676 | 18,696 | +20 |
-| `CAVEATED_ESTIMATE` requests | 372 | 374 | +2 |
-| `REFUSED` requests | 5,230 | 5,208 | -22 |
+| `FULLY_MODELLED` requests | 18,696 | 18,720 | +24 |
+| `CAVEATED_ESTIMATE` requests | 374 | 376 | +2 |
+| `REFUSED` requests | 5,208 | 5,182 | -26 |
 | Fully displaying lead matchups | 370 / 1,302 | 370 / 1,302 | unchanged |
-| Displayable requests in lead matchups | 6,642 | 6,652 | +10 |
-| Newly displayable trainer requests | 0 | 22 | +22: 20 fully modelled, 2 caveated |
-| Battles gaining a newly displayable request | 0 / 651 | 2 / 651 | TRAINER_BROCK_POSTOBC_HNS: 12; TRAINER_SHIZUKO_HNS: 10 |
+| Displayable requests in lead matchups | 6,652 | 6,652 | unchanged |
+| Newly displayable trainer requests | 0 | 26 | +26: 24 fully modelled, 2 caveated |
+| Battles gaining a newly displayable request | 0 / 651 | 2 / 651 | TRAINER_JASMINE_POSTOBC_HNS: 12; TRAINER_WESSEL_HNS: 14 |
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 battles / 3,578 requests | 557 / 3,578 | unchanged |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 / 152 | 68 / 152 | unchanged |
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 224 / 1,920 | 222 / 1,890 | -2 battles / -30 requests |
-| `HNS_ITEM_EFFECT_NOT_MODELLED` | 96 / 552 | 94 / 536 | -2 / -16 |
-| `HNS_ABILITY_CONDITION_UNVERIFIED` | 42 / 154 | 76 / 266 | +34 / +112 |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 222 battles / 1,890 requests | 222 / 1,862 | unchanged battles / -28 requests |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` | 76 / 266 | 77 / 268 | +1 battle / +2 requests |
 
-The current ten highest-ranked blockers are `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578 requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218), Swift Swim (38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm (28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70). Swarm replaces Guts in the first ten.
+The current ten highest-ranked blockers are `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578 requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218), Swift Swim (38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm (28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70). The top ten are unchanged from starting main.
 
-Random Abilities weighted request trials changed from 1,596,980 refused / 19,529 caveated / 2,161,151 clear to 1,523,864 / 19,529 / 2,234,267. Identities with at least one refusal changed from 191 to 185; identities with a caveated context remained 5; clear-only identities changed from 116 to 122. Ambiguous opposite-ability contexts excluded remain 16,974 attacker-side and 19,396 defender-side requests.
+Random Abilities weighted request trials changed from 1,523,864 refused / 19,529 caveated / 2,234,267 clear to 1,503,008 / 19,529 / 2,255,123. Identities with at least one refusal remained 185; identities with a caveated context remained 5; clear-only identities remained 122. Punk Rock and Steely Spirit each changed from 12,186 refused / 0 caveated / 0 clear trials to 1,758 / 0 / 10,428. The trainer inventory has no Punk Rock holders. Its two Steely Spirit holders are Perrserker in the Wessel and Jasmine parties; their trainer blockers fell from 28 weighted requests to two nonordinary Gyro Ball attacker requests still refused as condition-unverified. Ambiguous opposite-ability contexts excluded remain 16,974 attacker-side and 19,396 defender-side requests.
 
 ## Provenance and reproduction
 

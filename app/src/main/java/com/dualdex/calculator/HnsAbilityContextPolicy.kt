@@ -62,7 +62,7 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
         55, 62, // Hustle / Guts, Group D Attack stage
-        89, 96, 101, 137, 138, 173, 174, 178, 182, 184, 199, 200, 204, 206, 292
+        89, 96, 101, 137, 138, 173, 174, 178, 182, 184, 199, 200, 204, 206, 244, 252, 292
         // Normalize / -ate / Liquid Voice, Group D move-type and base-power stage
     )
 
@@ -85,6 +85,8 @@ object HnsAbilityContextPolicy {
         val moveBasePower: Int? = null,
         val moveAbilityFlags: Set<String>? = null,
         val unknownMoveAbilityFlags: Set<String>? = null,
+        /** Literal pinned MoveInfo.soundMove; null means source metadata is unknown. */
+        val soundMove: Boolean? = null,
         val observedBattlersCount: Int?,
         val dynamicMoveTypeKnownNeutral: Boolean,
         val defenderItemId: Int?,
@@ -277,6 +279,8 @@ object HnsAbilityContextPolicy {
                 "Telepathy zeroes damage only when its holder is the attacker's battle partner.")
             89, 173, 178, 292 -> moveFlagAbilityProof(abilityId, c)
             96, 174, 182, 184, 204, 206 -> moveTypeRewriteAbilityProof(abilityId, c)
+            244 -> punkRockProof(c)
+            252 -> steelySpiritProof(c)
             101 -> when {
                 c.side == HnsAbilitySide.DEFENDER -> proof(
                     "technician_defender_side", "src/battle_util.c:6655",
@@ -541,6 +545,7 @@ object HnsAbilityContextPolicy {
             unknownMoveAbilityFlags = moveId?.let {
                 com.dualdex.pokemon.hns.Hns205MoveEffects.unknownAbilityMoveFlagsById[it].orEmpty()
             },
+            soundMove = authority.soundMove,
             observedBattlersCount = live?.observedBattlersCount,
             dynamicMoveTypeKnownNeutral = authority.effectiveType != null,
             defenderItemId = request.defender.itemId ?: when {
@@ -646,6 +651,59 @@ object HnsAbilityContextPolicy {
         ) else proof(
             negativeRule, "$abilitySource; $moveFlagSource",
             "The pinned $moveFlag MoveInfo bit is clear for this authoritative ordinary move, so $abilityName's base-power branch is inactive."
+        )
+    }
+
+    private fun punkRockProof(c: Context): Proof? {
+        if (c.ordinaryMove != true) return null
+        val soundMove = if (c.moveAuthority != null) c.moveAuthority.soundMove else c.soundMove
+        if (soundMove == null) return null
+        val branchSource = if (c.side == HnsAbilitySide.ATTACKER) {
+            "src/battle_util.c:6735"
+        } else {
+            "src/battle_util.c:7617"
+        }
+        val source = "include/move.h:358-360, $branchSource"
+        return when {
+            c.side == HnsAbilitySide.ATTACKER && soundMove -> relevant(
+                "punk_rock_attacker_sound_move", source,
+                "Pinned IsSoundMove is true for this source move; Punk Rock composes the attacker's 1.3 base-power modifier."
+            )
+            c.side == HnsAbilitySide.ATTACKER -> proof(
+                "punk_rock_attacker_nonsound_move", source,
+                "Pinned IsSoundMove is false for this source move, so the attacker's base-power branch is inactive."
+            )
+            soundMove -> relevant(
+                "punk_rock_defender_sound_move", source,
+                "Pinned IsSoundMove is true for this incoming move; defender Punk Rock applies its 0.5 final-damage modifier."
+            )
+            else -> proof(
+                "punk_rock_defender_nonsound_move", source,
+                "Pinned IsSoundMove is false for this incoming move, so defender Punk Rock is inactive."
+            )
+        }
+    }
+
+    private fun steelySpiritProof(c: Context): Proof? {
+        // "steely_spirit_attacker_partner_deferred": partner identity/topology is not an operand in
+        // this Singles request, so this rule remains documentation and a production-format gate.
+        if (c.ordinaryMove != true) return null
+        if (c.side == HnsAbilitySide.DEFENDER) return proof(
+            "steely_spirit_defender_singles_irrelevant", "src/battle_util.c:6738, src/battle_util.c:6775",
+            "The holder-only branch modifies its own Steel attacks; the partner branch is deferred with unsupported Doubles topology and cannot affect this defender's incoming Singles hit."
+        )
+        val effectiveType = if (c.moveAuthority != null) {
+            c.moveAuthority.effectiveType
+        } else {
+            c.moveType
+        }
+        if (!c.dynamicMoveTypeKnownNeutral || effectiveType == null) return null
+        return if (effectiveType == PokemonType.STEEL) relevant(
+            "steely_spirit_holder_effective_steel_move", "src/battle_util.c:6739",
+            "The final HnsMoveAuthority effective type is Steel; Steely Spirit applies its holder-side 1.5 base-power modifier."
+        ) else proof(
+            "steely_spirit_holder_effective_nonsteel_move", "src/battle_util.c:6739",
+            "The final HnsMoveAuthority effective type is not Steel, so the holder-side base-power branch is inactive."
         )
     }
 

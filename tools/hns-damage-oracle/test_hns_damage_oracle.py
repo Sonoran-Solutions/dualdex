@@ -142,6 +142,33 @@ class ScenarioSchemaTest(unittest.TestCase):
         self.assertEqual(by_id["group-d-toxic-boost-special-poison-control"]["attacker"]["status"], "poison")
         self.assertEqual(by_id["group-d-water-bubble-defender-fire-deferred"]["surface"], "engine-only")
 
+    def test_group_d_punk_rock_and_steely_spirit_matrix(self):
+        by_id = {s["id"]: s for s in SCENARIOS}
+        expected = {
+            "group-d-punk-rock-attacker-hyper-voice",
+            "group-d-punk-rock-attacker-nonsound-control",
+            "group-d-punk-rock-attacker-wise-glasses-relic-song",
+            "group-d-punk-rock-defender-hyper-voice",
+            "group-d-punk-rock-defender-nonsound-control",
+            "group-d-punk-rock-defender-light-screen",
+            "group-d-punk-rock-defender-low-damage-rounding",
+            "group-d-punk-rock-soundproof-immunity",
+            "group-d-liquid-voice-punk-rock-defender",
+            "group-d-liquid-voice-soundproof-immunity",
+            "group-d-steely-spirit-iron-head",
+            "group-d-steely-spirit-nonsteel-control",
+            "group-d-steely-spirit-defender-control",
+            "group-d-normalize-steel-source-final-normal",
+        }
+        self.assertTrue(expected.issubset(by_id))
+        self.assertTrue(all(by_id[sid]["surface"] == "modelled" for sid in expected))
+        self.assertEqual(by_id["group-d-punk-rock-attacker-wise-glasses-relic-song"]["move"]["label"],
+                         "Relic Song")
+        self.assertEqual(by_id["group-d-punk-rock-soundproof-immunity"]["expect"], "immune")
+        self.assertEqual(by_id["group-d-liquid-voice-soundproof-immunity"]["expect"], "immune")
+        self.assertEqual(by_id["group-d-normalize-steel-source-final-normal"]["attacker"]["ability"],
+                         "ABILITY_NORMALIZE")
+
     def test_group_d_move_type_rewrite_matrix_covers_full_ate_and_liquid_voice_behavior(self):
         by_id = {s["id"]: s for s in SCENARIOS}
         expected = {

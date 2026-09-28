@@ -47,7 +47,9 @@ data class HnsMoveAuthority(
     val effectiveType: PokemonType?,
     val category: MoveCategory?,
     val abilityRewriteOutcome: HnsAbilityTypeRewriteOutcome,
-    val ateBoost: Boolean?
+    val ateBoost: Boolean?,
+    /** Source-derived MoveInfo.soundMove fact shared by Liquid Voice, Group C, and Punk Rock. */
+    val soundMove: Boolean?
 ) {
     companion object {
         /** Attacker abilities handled by this pinned dynamic-type stage. */
@@ -69,7 +71,8 @@ data class HnsMoveAuthority(
             effectiveType = null,
             category = null,
             abilityRewriteOutcome = HnsAbilityTypeRewriteOutcome.UNKNOWN,
-            ateBoost = null
+            ateBoost = null,
+            soundMove = null
         )
 
         /**
@@ -85,6 +88,7 @@ data class HnsMoveAuthority(
 
             val sourceType = sourceMoveType(request, move.type)
             val sourceCategory = move.category
+            val sourceSoundMove = soundMove(move.id)
             val live = request.hnsLiveBattleState
             val abilityId = request.attacker.abilityId
 
@@ -108,7 +112,7 @@ data class HnsMoveAuthority(
                         Rewrite(HnsAbilityTypeRewriteOutcome.APPLIED, target, true)
                     }
                 }
-                abilityId == LIQUID_VOICE -> when (soundMove(move.id)) {
+                abilityId == LIQUID_VOICE -> when (sourceSoundMove) {
                     true -> Rewrite(HnsAbilityTypeRewriteOutcome.APPLIED, PokemonType.WATER, false)
                     false -> Rewrite(HnsAbilityTypeRewriteOutcome.PROVEN_NOT_APPLICABLE, sourceType, false)
                     null -> Rewrite(HnsAbilityTypeRewriteOutcome.UNKNOWN, null, null)
@@ -162,7 +166,8 @@ data class HnsMoveAuthority(
                 effectiveType = effectiveType,
                 category = category,
                 abilityRewriteOutcome = rewrite.outcome,
-                ateBoost = ateBoost
+                ateBoost = ateBoost,
+                soundMove = sourceSoundMove
             )
         }
 

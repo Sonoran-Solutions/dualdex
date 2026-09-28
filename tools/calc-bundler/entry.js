@@ -604,10 +604,16 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     case 'Sharpness':
       if (abilityMoveFlags.has('slicingMove')) basePowerModifier.add(6144);
       break;
+    case 'Punk Rock':
+      if (moveFlags.has('soundMove')) basePowerModifier.add(5325);
+      break;
     case 'Water Bubble':
       if (effectiveMoveType === 'Water') basePowerModifier.add(8192);
       break;
     case 'Steelworker':
+      if (effectiveMoveType === 'Steel') basePowerModifier.add(6144);
+      break;
+    case 'Steely Spirit':
       if (effectiveMoveType === 'Steel') basePowerModifier.add(6144);
       break;
     case 'Toxic Boost':
@@ -708,19 +714,47 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   if (screenModifier !== HNS_UQ4_12_ONE && gameType === 'Doubles') screenModifier = 2732;
 
   // GetOtherModifiers is its own pinned UQ4.12 accumulation stage after STAB, effectiveness and
-  // burn. Only the currently supported screen modifier contributes to this product.
+  // burn. Screens, attacker abilities, defender abilities, and items compose inside this product;
+  // its internal order depends on the unmodified battler speeds.
   const otherFinalModifier = createHnsModifierAccumulator();
   otherFinalModifier.add(screenModifier);
+  const rawAttackerSpeed = input.attacker?.rawStats?.speed !== undefined
+    ? input.attacker.rawStats.speed
+    : (attacker.rawStats ? attacker.rawStats.spe : attacker.stats.spe);
+  const rawDefenderSpeed = input.defender?.rawStats?.speed !== undefined
+    ? input.defender.rawStats.speed
+    : (defender.rawStats ? defender.rawStats.spe : defender.stats.spe);
+  // These are named slots in the pinned GetOtherModifiers product. Tinted Lens/Neuroforce/Sniper
+  // can be added to the attacker slot, and Filter/Multiscale/Ice Scales alongside Punk Rock in the
+  // defender slot, preserving the source's speed-dependent order and half-down product arithmetic.
+  const attackerAbilityFinalModifier = HNS_UQ4_12_ONE;
+  const defenderAbilityFinalModifier = defender.ability === 'Punk Rock' && moveFlags.has('soundMove')
+    ? 2048
+    : HNS_UQ4_12_ONE;
+  if (rawAttackerSpeed >= rawDefenderSpeed) {
+    otherFinalModifier.add(attackerAbilityFinalModifier);
+    otherFinalModifier.add(defenderAbilityFinalModifier);
+  } else {
+    otherFinalModifier.add(defenderAbilityFinalModifier);
+    otherFinalModifier.add(attackerAbilityFinalModifier);
+  }
+
+  // ApplyModifiersAfterDmgRoll makes distinct sequential calls in pinned order: STAB, type
+  // effectiveness, burn, and finally the accumulated GetOtherModifiers product.
+  const postRollModifierStages = [];
+  if (hasStab) postRollModifierStages.push(stabMod);
+  if (typeEffectiveness !== 1.0) {
+    postRollModifierStages.push(Math.round(typeEffectiveness * HNS_UQ4_12_ONE));
+  }
+  if (isBurned) postRollModifierStages.push(2048);
+  postRollModifierStages.push(otherFinalModifier.value());
 
   const damageArray = [];
   for (let r = 85; r <= 100; r++) {
     let x = Math.floor((dmg * r) / 100);
-    if (hasStab) x = applyHnsFinalDamageModifiers(x, [stabMod]);
-    if (typeEffectiveness !== 1.0) {
-      x = applyHnsFinalDamageModifiers(x, [Math.round(typeEffectiveness * HNS_UQ4_12_ONE)]);
+    for (const modifier of postRollModifierStages) {
+      x = applyHnsFinalDamageModifiers(x, [modifier]);
     }
-    if (isBurned) x = applyHnsFinalDamageModifiers(x, [2048]);
-    x = applyHnsFinalDamageModifiers(x, [otherFinalModifier.value()]);
     if (x === 0) x = 1;
     damageArray.push(x);
   }

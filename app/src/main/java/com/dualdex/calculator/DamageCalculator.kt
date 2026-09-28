@@ -321,9 +321,15 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 // cannot create or bypass an immunity.
                 pinnedHnsMove?.let { move ->
                     val moveId = move.id
+                    val hnsMoveFlags = com.dualdex.pokemon.hns.Hns205MoveEffects
+                        .immunityFlagsById[moveId].orEmpty().toMutableSet()
+                    when (hnsMoveAuthority?.soundMove) {
+                        true -> hnsMoveFlags += "soundMove"
+                        false, null -> hnsMoveFlags -= "soundMove"
+                    }
                     put("hnsMoveId", moveId)
                     put("hnsMoveFlags", JSONArray(
-                        com.dualdex.pokemon.hns.Hns205MoveEffects.immunityFlagsById[moveId].orEmpty().sorted()
+                        hnsMoveFlags.sorted()
                     ))
                     put("hnsMoveAbilityFlags", JSONArray(
                         com.dualdex.pokemon.hns.Hns205MoveEffects.abilityMoveFlagsById[moveId].orEmpty().sorted()

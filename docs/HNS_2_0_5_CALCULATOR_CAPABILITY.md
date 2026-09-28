@@ -204,7 +204,7 @@ validates each referenced source line against the same pinned checkout.
 | `MODELLED_EQUIVALENT` | 0 |
 | `MODELLED_HNS_SPECIFIC` | 0 |
 | `MODELLED_HNS_CONDITIONAL` | 50 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 187 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 177 |
 | `UNCLASSIFIED` | 0 |
 
 These are the current generated audit totals for all 311 pinned abilities. The 50 conditionally

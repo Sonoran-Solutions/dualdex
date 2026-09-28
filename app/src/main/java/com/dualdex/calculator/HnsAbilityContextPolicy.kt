@@ -62,7 +62,8 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
         55, 62, // Hustle / Guts, Group D Attack stage
-        89, 101, 137, 138, 173, 178, 199, 200, 292 // Group D base-power batch
+        89, 96, 101, 137, 138, 173, 174, 178, 182, 184, 199, 200, 204, 206, 292
+        // Normalize / -ate / Liquid Voice, Group D move-type and base-power stage
     )
 
     fun hasModelledConditionalDamageContext(abilityId: Int?): Boolean =
@@ -96,7 +97,9 @@ object HnsAbilityContextPolicy {
         val defenderAbilityId: Int? = null,
         val weatherWord: Int? = null,
         /** Null/false while the authoritative switch-in/event driver is unread or still pending. */
-        val switchInEventsSettled: Boolean? = null
+        val switchInEventsSettled: Boolean? = null,
+        /** The single pinned effective-type decision shared by policy and engine serialization. */
+        val moveAuthority: HnsMoveAuthority? = null
     )
 
     /** Abilities whose only damage-relevant effect is already reflected in live stat stages. */
@@ -273,6 +276,7 @@ object HnsAbilityContextPolicy {
             140 -> singlesProof(c, "telepathy_singles_no_partner", "src/battle_util.c:8422",
                 "Telepathy zeroes damage only when its holder is the attacker's battle partner.")
             89, 173, 178, 292 -> moveFlagAbilityProof(abilityId, c)
+            96, 174, 182, 184, 204, 206 -> moveTypeRewriteAbilityProof(abilityId, c)
             101 -> when {
                 c.side == HnsAbilitySide.DEFENDER -> proof(
                     "technician_defender_side", "src/battle_util.c:6655",
@@ -553,8 +557,68 @@ object HnsAbilityContextPolicy {
             attackerHp = live?.attackerHp,
             defenderAbilityId = request.defender.abilityId,
             weatherWord = live?.takeIf { it.weatherObserved }?.weatherWord,
-            switchInEventsSettled = live?.switchInEventsSettled
+            switchInEventsSettled = live?.switchInEventsSettled,
+            moveAuthority = authority
         )
+    }
+
+    private fun moveTypeRewriteAbilityProof(abilityId: Int, c: Context): Proof? {
+        if (c.side == HnsAbilitySide.DEFENDER) return proof(
+            "move_type_rewriter_defender_side",
+            "src/battle_main.c:6428",
+            "SetTypeBeforeUsingMove passes the selected attacker battler to GetDynamicMoveType; a defender copy does not rewrite the attacker's move."
+        )
+        if (c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId) return null
+        val authority = c.moveAuthority ?: return null
+        return when (authority.abilityRewriteOutcome) {
+            HnsAbilityTypeRewriteOutcome.APPLIED -> relevant(
+                moveTypeRewriteRule(abilityId, relevant = true),
+                moveTypeRewriteSource(abilityId),
+                moveTypeRewriteRationale(abilityId)
+            )
+            HnsAbilityTypeRewriteOutcome.PROVEN_NOT_APPLICABLE -> proof(
+                moveTypeRewriteRule(abilityId, relevant = false),
+                moveTypeRewriteSource(abilityId),
+                moveTypeRewriteIrrelevantRationale(abilityId)
+            )
+            HnsAbilityTypeRewriteOutcome.NOT_USED,
+            HnsAbilityTypeRewriteOutcome.UNKNOWN -> null
+        }
+    }
+
+    private fun moveTypeRewriteRule(abilityId: Int, relevant: Boolean): String = when (abilityId) {
+        96 -> if (relevant) "normalize_ordinary_move_rewrite" else "normalize_unresolved_move_rewrite"
+        174 -> if (relevant) "refrigerate_normal_move_rewrite" else "refrigerate_non_normal_move"
+        182 -> if (relevant) "pixilate_normal_move_rewrite" else "pixilate_non_normal_move"
+        184 -> if (relevant) "aerilate_normal_move_rewrite" else "aerilate_non_normal_move"
+        204 -> if (relevant) "liquid_voice_sound_move_rewrite" else "liquid_voice_non_sound_move"
+        else -> if (relevant) "galvanize_normal_move_rewrite" else "galvanize_non_normal_move"
+    }
+
+    private fun moveTypeRewriteSource(abilityId: Int): String = when (abilityId) {
+        96 -> "src/battle_main.c:6407-6412"
+        174 -> "src/battle_main.c:6158-6159, src/battle_main.c:6392-6400"
+        182 -> "src/battle_main.c:6155-6156, src/battle_main.c:6392-6400"
+        184 -> "src/battle_main.c:6161-6162, src/battle_main.c:6392-6400"
+        204 -> "include/move.h:358-360, src/battle_main.c:6382-6384"
+        else -> "src/battle_main.c:6164-6165, src/battle_main.c:6392-6400"
+    }
+
+    private fun moveTypeRewriteRationale(abilityId: Int): String = when (abilityId) {
+        96 -> "Normalize rewrites every supported ordinary hit to Normal and sets ateBoost; the pinned Gen-Latest config applies the later x1.2 branch."
+        174 -> "A source Normal ordinary hit becomes Ice, sets ateBoost, and receives the pinned Gen-Latest x1.2 base-power modifier."
+        182 -> "A source Normal ordinary hit becomes Fairy, sets ateBoost, and receives the pinned Gen-Latest x1.2 base-power modifier."
+        184 -> "A source Normal ordinary hit becomes Flying, sets ateBoost, and receives the pinned Gen-Latest x1.2 base-power modifier."
+        204 -> "A source-derived sound ordinary hit becomes Water; the pinned base-power stage has no Liquid Voice modifier."
+        else -> "A source Normal ordinary hit becomes Electric, sets ateBoost, and receives the pinned Gen-Latest x1.2 base-power modifier."
+    }
+
+    private fun moveTypeRewriteIrrelevantRationale(abilityId: Int): String = when (abilityId) {
+        174 -> "The pinned Refrigerate branch runs only when the source move type is Normal."
+        182 -> "The pinned Pixilate branch runs only when the source move type is Normal."
+        184 -> "The pinned Aerilate branch runs only when the source move type is Normal."
+        204 -> "The pinned Liquid Voice branch runs only when the source-derived MoveInfo.soundMove flag is true."
+        else -> "The pinned Galvanize branch runs only when the source move type is Normal."
     }
 
     private fun moveFlagAbilityProof(abilityId: Int, c: Context): Proof? {

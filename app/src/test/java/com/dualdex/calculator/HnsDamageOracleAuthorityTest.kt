@@ -3,6 +3,8 @@ package com.dualdex.calculator
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.hns.HeartAndSoul205DataPack
 import com.dualdex.pokemon.hns.Hns205ItemCatalogue
+import com.dualdex.pokemon.hns.HnsMoveMechanicsCategory
+import com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry
 import com.dualdex.pokemon.hns.HnsOptionStyle
 import com.dualdex.romhack.ProfileLoader
 import com.dualdex.romhack.RomHackProfile
@@ -112,22 +114,50 @@ class HnsDamageOracleAuthorityTest {
             val moveOverride = CalcDataOverrides.buildMoveOverride(moveLabel, HeartAndSoul205DataPack, fairy)
                 ?: throw AssertionError("$id: no production move override for $moveLabel")
             assertEquals("$id: $moveLabel power", oMove.getInt("power"), moveOverride.basePower)
-            assertEquals("$id: $moveLabel type (fairy=$fairy)", oMove.getString("type"), moveOverride.type)
+
+            val ordinaryMove = HnsMoveMechanicsRegistry.classify(move.id).category ==
+                HnsMoveMechanicsCategory.ORDINARY_PROVEN_EQUIVALENT
+            val sourceType = moveOverride.type
+            val attackerAbilityId = observed.getJSONObject("attacker").getInt("abilityId")
+            val flags = oMove.getJSONArray("flags").strings().toSet()
+            val expectedEffectiveType = when (attackerAbilityId) {
+                96 -> if (ordinaryMove) "Normal" else sourceType
+                174 -> if (ordinaryMove && sourceType == "Normal") "Ice" else sourceType
+                182 -> if (ordinaryMove && sourceType == "Normal") "Fairy" else sourceType
+                184 -> if (ordinaryMove && sourceType == "Normal") "Flying" else sourceType
+                204 -> if (ordinaryMove && "soundMove" in flags) "Water" else sourceType
+                206 -> if (ordinaryMove && sourceType == "Normal") "Electric" else sourceType
+                else -> sourceType
+            }
+            assertEquals("$id: $moveLabel effective type (fairy=$fairy)",
+                expectedEffectiveType, oMove.getString("type"))
+            val expectedAteBoost = ordinaryMove && when (attackerAbilityId) {
+                96 -> true
+                174, 182, 184, 206 -> sourceType == "Normal"
+                else -> false
+            }
+            assertEquals("$id: $moveLabel ateBoost", expectedAteBoost, oMove.getBoolean("ateBoost"))
 
             val style = when (rules.getString("optionStyle")) {
                 "perMoveSplit" -> HnsOptionStyle.PER_MOVE_SPLIT
                 "typeBased" -> HnsOptionStyle.TYPE_BASED
                 else -> throw AssertionError("$id: unknown option style")
             }
-            val category = CalcDataOverrides.resolveHnsMoveCategory(
-                moveLabel, heartAndSoul, CalcHnsRuntimeRules(optionStyle = style, fairyTypesEnabled = fairy)
-            )
-            val expected = when (oMove.getString("category")) {
-                "physical" -> MoveCategory.PHYSICAL
-                "special" -> MoveCategory.SPECIAL
-                else -> throw AssertionError("$id: unknown observed category")
+            val expected = when (style) {
+                HnsOptionStyle.PER_MOVE_SPLIT -> {
+                    val perMoveCategory = CalcDataOverrides.resolveHnsMoveCategory(
+                        moveLabel, heartAndSoul,
+                        CalcHnsRuntimeRules(optionStyle = style, fairyTypesEnabled = fairy)
+                    )
+                    assertEquals("$id: $moveLabel PER_MOVE_SPLIT retains its own category",
+                        move.category, perMoveCategory)
+                    perMoveCategory
+                }
+                HnsOptionStyle.TYPE_BASED -> HnsMoveAuthority.categoryForTypeName(expectedEffectiveType)
+                else -> null
             }
-            assertEquals("$id: $moveLabel category under $style", expected, category)
+            assertEquals("$id: $moveLabel pinned category under $style",
+                expected?.displayName?.lowercase(), oMove.getString("category"))
         }
     }
 

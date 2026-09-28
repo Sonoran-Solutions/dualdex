@@ -311,8 +311,14 @@
         "predicate": "Hustle is on the defender.",
         "rationale": "The pinned Hustle branch is in the attacker's Attack-stat modifier switch.",
         "evidence": [
-          {"source": "src/battle_util.c:6912", "contains": "static inline u32 CalcAttackStat"},
-          {"source": "src/battle_util.c:7048", "contains": "case ABILITY_HUSTLE"}
+          {
+            "source": "src/battle_util.c:6912",
+            "contains": "static inline u32 CalcAttackStat"
+          },
+          {
+            "source": "src/battle_util.c:7048",
+            "contains": "case ABILITY_HUSTLE"
+          }
         ]
       },
       {
@@ -320,7 +326,10 @@
         "predicate": "Hustle is on the attacker and the authoritative effective category is Special.",
         "rationale": "The source applies Hustle only when IsBattleMovePhysical(move) is true.",
         "evidence": [
-          {"source": "src/battle_util.c:7049", "contains": "if (IsBattleMovePhysical(move))"}
+          {
+            "source": "src/battle_util.c:7049",
+            "contains": "if (IsBattleMovePhysical(move))"
+          }
         ]
       },
       {
@@ -328,8 +337,14 @@
         "predicate": "Hustle is on the attacker and the authoritative effective category is Physical.",
         "rationale": "The physical branch composes a 1.5 UQ4.12 Attack modifier in CalcAttackStat.",
         "evidence": [
-          {"source": "src/battle_util.c:7049", "contains": "if (IsBattleMovePhysical(move))"},
-          {"source": "src/battle_util.c:7050", "contains": "modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(1.5));"}
+          {
+            "source": "src/battle_util.c:7049",
+            "contains": "if (IsBattleMovePhysical(move))"
+          },
+          {
+            "source": "src/battle_util.c:7050",
+            "contains": "modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(1.5));"
+          }
         ]
       }
     ],
@@ -2086,9 +2101,47 @@
   "89": {
     "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
-      {"rule":"iron_fist_punching_move","predicate":"Attacker has Iron Fist; selected move is authoritative ordinary; pinned punchingMove is true.","rationale":"The pinned MoveInfo punchingMove bit is read by IsPunchingMove and enables the 1.2 base-power modifier.","evidence":[{"source":"src/battle_util.c:6672","contains":"if (IsPunchingMove(move))"},{"source":"include/move.h:345","contains":"return gMovesInfo[SanitizeMoveId(moveId)].punchingMove;"}]},
-      {"rule":"iron_fist_nonpunching_move","predicate":"Attacker has Iron Fist; selected ordinary move's pinned punchingMove bit is false.","rationale":"An authoritative false MoveInfo bit proves the Iron Fist branch is inactive.","evidence":[{"source":"src/battle_util.c:6672","contains":"if (IsPunchingMove(move))"},{"source":"include/move.h:345","contains":"return gMovesInfo[SanitizeMoveId(moveId)].punchingMove;"}]},
-      {"rule":"iron_fist_defender_side","predicate":"Iron Fist is on the defender.","rationale":"The pinned base-power switch reads only abilityAtk.","evidence":[{"source":"src/battle_util.c:6653","contains":"switch (ctx->abilityAtk)"}]}
+      {
+        "rule": "iron_fist_punching_move",
+        "predicate": "Attacker has Iron Fist; selected move is authoritative ordinary; pinned punchingMove is true.",
+        "rationale": "The pinned MoveInfo punchingMove bit is read by IsPunchingMove and enables the 1.2 base-power modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6672",
+            "contains": "if (IsPunchingMove(move))"
+          },
+          {
+            "source": "include/move.h:345",
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].punchingMove;"
+          }
+        ]
+      },
+      {
+        "rule": "iron_fist_nonpunching_move",
+        "predicate": "Attacker has Iron Fist; selected ordinary move's pinned punchingMove bit is false.",
+        "rationale": "An authoritative false MoveInfo bit proves the Iron Fist branch is inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6672",
+            "contains": "if (IsPunchingMove(move))"
+          },
+          {
+            "source": "include/move.h:345",
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].punchingMove;"
+          }
+        ]
+      },
+      {
+        "rule": "iron_fist_defender_side",
+        "predicate": "Iron Fist is on the defender.",
+        "rationale": "The pinned base-power switch reads only abilityAtk.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6653",
+            "contains": "switch (ctx->abilityAtk)"
+          }
+        ]
+      }
     ],
     "always_blocking": [],
     "fallback": "Nonordinary moves, missing move identity, or conditional punchingMove metadata remain UNKNOWN."
@@ -2096,9 +2149,43 @@
   "101": {
     "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
-      {"rule":"technician_attacker_bp_at_most_60","predicate":"Attacker has Technician; selected move is authoritative ordinary and its pinned power is at most 60.","rationale":"Ordinary EFFECT_HIT moves preserve GetMovePower through CalcMoveBasePower, and the exact pinned threshold is inclusive.","evidence":[{"source":"src/battle_util.c:6576","contains":"u32 basePower = CalcMoveBasePower(ctx);"},{"source":"src/battle_util.c:6656","contains":"if (basePower <= 60)"}]},
-      {"rule":"technician_attacker_bp_over_60","predicate":"Attacker has Technician; selected ordinary move's pinned power is above 60.","rationale":"The pinned basePower <= 60 predicate is false for this authoritative move power.","evidence":[{"source":"src/battle_util.c:6656","contains":"if (basePower <= 60)"}]},
-      {"rule":"technician_defender_side","predicate":"Technician is on the defender.","rationale":"The pinned ability branch is attacker-only.","evidence":[{"source":"src/battle_util.c:6653","contains":"switch (ctx->abilityAtk)"}]}
+      {
+        "rule": "technician_attacker_bp_at_most_60",
+        "predicate": "Attacker has Technician; selected move is authoritative ordinary and its pinned power is at most 60.",
+        "rationale": "Ordinary EFFECT_HIT moves preserve GetMovePower through CalcMoveBasePower, and the exact pinned threshold is inclusive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6576",
+            "contains": "u32 basePower = CalcMoveBasePower(ctx);"
+          },
+          {
+            "source": "src/battle_util.c:6656",
+            "contains": "if (basePower <= 60)"
+          }
+        ]
+      },
+      {
+        "rule": "technician_attacker_bp_over_60",
+        "predicate": "Attacker has Technician; selected ordinary move's pinned power is above 60.",
+        "rationale": "The pinned basePower <= 60 predicate is false for this authoritative move power.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6656",
+            "contains": "if (basePower <= 60)"
+          }
+        ]
+      },
+      {
+        "rule": "technician_defender_side",
+        "predicate": "Technician is on the defender.",
+        "rationale": "The pinned ability branch is attacker-only.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6653",
+            "contains": "switch (ctx->abilityAtk)"
+          }
+        ]
+      }
     ],
     "always_blocking": [],
     "fallback": "Nonordinary move shapes or missing pinned move power remain UNKNOWN."
@@ -2106,10 +2193,54 @@
   "137": {
     "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
-      {"rule":"toxic_boost_physical_poison","predicate":"Attacker has Toxic Boost, the authoritative category is Physical, and raw status1 has STATUS1_PSN_ANY.","rationale":"Only the exact poison-or-toxic-poison bits and Physical category enable the pinned 1.5 base-power modifier.","evidence":[{"source":"src/battle_util.c:6664","contains":"status1 & STATUS1_PSN_ANY && IsBattleMovePhysical(move)"},{"source":"include/constants/battle.h:162","contains":"#define STATUS1_PSN_ANY"}]},
-      {"rule":"toxic_boost_physical_without_poison","predicate":"Attacker has Toxic Boost, category is Physical, and an observed valid status1 has no STATUS1_PSN_ANY bit.","rationale":"A valid raw word with both poison bits clear proves the branch inactive.","evidence":[{"source":"src/battle_util.c:6664","contains":"status1 & STATUS1_PSN_ANY && IsBattleMovePhysical(move)"}]},
-      {"rule":"toxic_boost_special_move","predicate":"Toxic Boost is on the attacker and authoritative category is Special.","rationale":"The pinned branch is Physical-only.","evidence":[{"source":"src/battle_util.c:6664","contains":"status1 & STATUS1_PSN_ANY && IsBattleMovePhysical(move)"}]},
-      {"rule":"toxic_boost_defender_side","predicate":"Toxic Boost is on the defender.","rationale":"The pinned base-power branch reads only abilityAtk.","evidence":[{"source":"src/battle_util.c:6653","contains":"switch (ctx->abilityAtk)"}]}
+      {
+        "rule": "toxic_boost_physical_poison",
+        "predicate": "Attacker has Toxic Boost, the authoritative category is Physical, and raw status1 has STATUS1_PSN_ANY.",
+        "rationale": "Only the exact poison-or-toxic-poison bits and Physical category enable the pinned 1.5 base-power modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6664",
+            "contains": "status1 & STATUS1_PSN_ANY && IsBattleMovePhysical(move)"
+          },
+          {
+            "source": "include/constants/battle.h:162",
+            "contains": "#define STATUS1_PSN_ANY"
+          }
+        ]
+      },
+      {
+        "rule": "toxic_boost_physical_without_poison",
+        "predicate": "Attacker has Toxic Boost, category is Physical, and an observed valid status1 has no STATUS1_PSN_ANY bit.",
+        "rationale": "A valid raw word with both poison bits clear proves the branch inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6664",
+            "contains": "status1 & STATUS1_PSN_ANY && IsBattleMovePhysical(move)"
+          }
+        ]
+      },
+      {
+        "rule": "toxic_boost_special_move",
+        "predicate": "Toxic Boost is on the attacker and authoritative category is Special.",
+        "rationale": "The pinned branch is Physical-only.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6664",
+            "contains": "status1 & STATUS1_PSN_ANY && IsBattleMovePhysical(move)"
+          }
+        ]
+      },
+      {
+        "rule": "toxic_boost_defender_side",
+        "predicate": "Toxic Boost is on the defender.",
+        "rationale": "The pinned base-power branch reads only abilityAtk.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6653",
+            "contains": "switch (ctx->abilityAtk)"
+          }
+        ]
+      }
     ],
     "always_blocking": [],
     "fallback": "Missing raw status1/category, invalid status bits, or nonordinary move remains UNKNOWN."
@@ -2117,10 +2248,54 @@
   "138": {
     "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
-      {"rule":"flare_boost_special_burn","predicate":"Attacker has Flare Boost, authoritative category is Special, and raw status1 has STATUS1_BURN.","rationale":"The exact burn bit and Special category enable the pinned 1.5 base-power modifier.","evidence":[{"source":"src/battle_util.c:6660","contains":"status1 & STATUS1_BURN && IsBattleMoveSpecial(move)"},{"source":"include/constants/battle.h:155","contains":"#define STATUS1_BURN"}]},
-      {"rule":"flare_boost_special_without_burn","predicate":"Attacker has Flare Boost, category is Special, and observed valid status1 has STATUS1_BURN clear.","rationale":"The pinned burn predicate is false.","evidence":[{"source":"src/battle_util.c:6660","contains":"status1 & STATUS1_BURN && IsBattleMoveSpecial(move)"}]},
-      {"rule":"flare_boost_physical_move","predicate":"Flare Boost is on the attacker and authoritative category is Physical.","rationale":"The pinned modifier applies only to Special moves.","evidence":[{"source":"src/battle_util.c:6660","contains":"status1 & STATUS1_BURN && IsBattleMoveSpecial(move)"}]},
-      {"rule":"flare_boost_defender_side","predicate":"Flare Boost is on the defender.","rationale":"The pinned base-power branch reads only abilityAtk.","evidence":[{"source":"src/battle_util.c:6653","contains":"switch (ctx->abilityAtk)"}]}
+      {
+        "rule": "flare_boost_special_burn",
+        "predicate": "Attacker has Flare Boost, authoritative category is Special, and raw status1 has STATUS1_BURN.",
+        "rationale": "The exact burn bit and Special category enable the pinned 1.5 base-power modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6660",
+            "contains": "status1 & STATUS1_BURN && IsBattleMoveSpecial(move)"
+          },
+          {
+            "source": "include/constants/battle.h:155",
+            "contains": "#define STATUS1_BURN"
+          }
+        ]
+      },
+      {
+        "rule": "flare_boost_special_without_burn",
+        "predicate": "Attacker has Flare Boost, category is Special, and observed valid status1 has STATUS1_BURN clear.",
+        "rationale": "The pinned burn predicate is false.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6660",
+            "contains": "status1 & STATUS1_BURN && IsBattleMoveSpecial(move)"
+          }
+        ]
+      },
+      {
+        "rule": "flare_boost_physical_move",
+        "predicate": "Flare Boost is on the attacker and authoritative category is Physical.",
+        "rationale": "The pinned modifier applies only to Special moves.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6660",
+            "contains": "status1 & STATUS1_BURN && IsBattleMoveSpecial(move)"
+          }
+        ]
+      },
+      {
+        "rule": "flare_boost_defender_side",
+        "predicate": "Flare Boost is on the defender.",
+        "rationale": "The pinned base-power branch reads only abilityAtk.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6653",
+            "contains": "switch (ctx->abilityAtk)"
+          }
+        ]
+      }
     ],
     "always_blocking": [],
     "fallback": "Missing raw status1/category or nonordinary move remains UNKNOWN."
@@ -2128,9 +2303,47 @@
   "173": {
     "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
-      {"rule":"strong_jaw_biting_move","predicate":"Attacker has Strong Jaw; selected move is authoritative ordinary; pinned bitingMove is true.","rationale":"The pinned MoveInfo bitingMove bit is read by IsBitingMove and enables the 1.5 base-power modifier.","evidence":[{"source":"src/battle_util.c:6699","contains":"if (IsBitingMove(move))"},{"source":"include/move.h:350","contains":"return gMovesInfo[SanitizeMoveId(moveId)].bitingMove;"}]},
-      {"rule":"strong_jaw_nonbiting_move","predicate":"Attacker has Strong Jaw; selected ordinary move's pinned bitingMove bit is false.","rationale":"An authoritative false MoveInfo bit proves the Strong Jaw branch inactive.","evidence":[{"source":"src/battle_util.c:6699","contains":"if (IsBitingMove(move))"},{"source":"include/move.h:350","contains":"return gMovesInfo[SanitizeMoveId(moveId)].bitingMove;"}]},
-      {"rule":"strong_jaw_defender_side","predicate":"Strong Jaw is on the defender.","rationale":"The pinned base-power switch reads only abilityAtk.","evidence":[{"source":"src/battle_util.c:6653","contains":"switch (ctx->abilityAtk)"}]}
+      {
+        "rule": "strong_jaw_biting_move",
+        "predicate": "Attacker has Strong Jaw; selected move is authoritative ordinary; pinned bitingMove is true.",
+        "rationale": "The pinned MoveInfo bitingMove bit is read by IsBitingMove and enables the 1.5 base-power modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6699",
+            "contains": "if (IsBitingMove(move))"
+          },
+          {
+            "source": "include/move.h:350",
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].bitingMove;"
+          }
+        ]
+      },
+      {
+        "rule": "strong_jaw_nonbiting_move",
+        "predicate": "Attacker has Strong Jaw; selected ordinary move's pinned bitingMove bit is false.",
+        "rationale": "An authoritative false MoveInfo bit proves the Strong Jaw branch inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6699",
+            "contains": "if (IsBitingMove(move))"
+          },
+          {
+            "source": "include/move.h:350",
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].bitingMove;"
+          }
+        ]
+      },
+      {
+        "rule": "strong_jaw_defender_side",
+        "predicate": "Strong Jaw is on the defender.",
+        "rationale": "The pinned base-power switch reads only abilityAtk.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6653",
+            "contains": "switch (ctx->abilityAtk)"
+          }
+        ]
+      }
     ],
     "always_blocking": [],
     "fallback": "Nonordinary moves, missing move identity, or conditional bitingMove metadata remain UNKNOWN."
@@ -2138,9 +2351,47 @@
   "178": {
     "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
-      {"rule":"mega_launcher_pulse_move","predicate":"Attacker has Mega Launcher; selected move is authoritative ordinary; pinned pulseMove is true.","rationale":"The pinned MoveInfo pulseMove bit is read by IsPulseMove and enables the 1.5 base-power modifier.","evidence":[{"source":"src/battle_util.c:6703","contains":"if (IsPulseMove(move))"},{"source":"include/move.h:355","contains":"return gMovesInfo[SanitizeMoveId(moveId)].pulseMove;"}]},
-      {"rule":"mega_launcher_nonpulse_move","predicate":"Attacker has Mega Launcher; selected ordinary move's pinned pulseMove bit is false.","rationale":"An authoritative false MoveInfo bit proves the Mega Launcher branch inactive.","evidence":[{"source":"src/battle_util.c:6703","contains":"if (IsPulseMove(move))"},{"source":"include/move.h:355","contains":"return gMovesInfo[SanitizeMoveId(moveId)].pulseMove;"}]},
-      {"rule":"mega_launcher_defender_side","predicate":"Mega Launcher is on the defender.","rationale":"The pinned base-power switch reads only abilityAtk.","evidence":[{"source":"src/battle_util.c:6653","contains":"switch (ctx->abilityAtk)"}]}
+      {
+        "rule": "mega_launcher_pulse_move",
+        "predicate": "Attacker has Mega Launcher; selected move is authoritative ordinary; pinned pulseMove is true.",
+        "rationale": "The pinned MoveInfo pulseMove bit is read by IsPulseMove and enables the 1.5 base-power modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6703",
+            "contains": "if (IsPulseMove(move))"
+          },
+          {
+            "source": "include/move.h:355",
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].pulseMove;"
+          }
+        ]
+      },
+      {
+        "rule": "mega_launcher_nonpulse_move",
+        "predicate": "Attacker has Mega Launcher; selected ordinary move's pinned pulseMove bit is false.",
+        "rationale": "An authoritative false MoveInfo bit proves the Mega Launcher branch inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6703",
+            "contains": "if (IsPulseMove(move))"
+          },
+          {
+            "source": "include/move.h:355",
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].pulseMove;"
+          }
+        ]
+      },
+      {
+        "rule": "mega_launcher_defender_side",
+        "predicate": "Mega Launcher is on the defender.",
+        "rationale": "The pinned base-power switch reads only abilityAtk.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6653",
+            "contains": "switch (ctx->abilityAtk)"
+          }
+        ]
+      }
     ],
     "always_blocking": [],
     "fallback": "Nonordinary moves, missing move identity, or conditional pulseMove metadata remain UNKNOWN."
@@ -2148,21 +2399,95 @@
   "199": {
     "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
-      {"rule":"water_bubble_attacker_water_move","predicate":"Attacker has Water Bubble; selected ordinary move has authoritative effective type Water.","rationale":"The offensive 2.0 base-power branch is modeled for this context only.","evidence":[{"source":"src/battle_util.c:6707","contains":"if (moveType == TYPE_WATER)"}]},
-      {"rule":"water_bubble_attacker_nonwater_move","predicate":"Attacker has Water Bubble; selected ordinary move has an authoritative non-Water effective type.","rationale":"The offensive Water-only branch is proven inactive; this does not clear defender-side or burn-prevention behavior.","evidence":[{"source":"src/battle_util.c:6707","contains":"if (moveType == TYPE_WATER)"}]},
-      {"rule":"water_bubble_defender_nonfire_move","predicate":"Defender has Water Bubble; selected ordinary move has authoritative non-Fire effective type.","rationale":"The unmodeled defender-side reduction is Fire-only, so a known non-Fire move is irrelevant to that branch.","evidence":[{"source":"src/battle_util.c:6789","contains":"if (moveType == TYPE_FIRE)"}]}
+      {
+        "rule": "water_bubble_attacker_water_move",
+        "predicate": "Attacker has Water Bubble; selected ordinary move has authoritative effective type Water.",
+        "rationale": "The offensive 2.0 base-power branch is modeled for this context only.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6707",
+            "contains": "if (moveType == TYPE_WATER)"
+          }
+        ]
+      },
+      {
+        "rule": "water_bubble_attacker_nonwater_move",
+        "predicate": "Attacker has Water Bubble; selected ordinary move has an authoritative non-Water effective type.",
+        "rationale": "The offensive Water-only branch is proven inactive; this does not clear defender-side or burn-prevention behavior.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6707",
+            "contains": "if (moveType == TYPE_WATER)"
+          }
+        ]
+      },
+      {
+        "rule": "water_bubble_defender_nonfire_move",
+        "predicate": "Defender has Water Bubble; selected ordinary move has authoritative non-Fire effective type.",
+        "rationale": "The unmodeled defender-side reduction is Fire-only, so a known non-Fire move is irrelevant to that branch.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6789",
+            "contains": "if (moveType == TYPE_FIRE)"
+          }
+        ]
+      }
     ],
     "always_blocking": [
-      {"rule":"water_bubble_defender_fire_branch_deferred","predicate":"Defender has Water Bubble and the selected move may be Fire, or its effective type is unknown.","rationale":"The pinned 0.5 defender-side Fire reduction is deliberately outside this offensive-only batch and remains fail-closed.","evidence":[{"source":"src/battle_util.c:6788","contains":"case ABILITY_WATER_BUBBLE:"},{"source":"src/battle_util.c:6791","contains":"modifier = uq4_12_multiply(modifier, UQ_4_12(0.5));"}]}
+      {
+        "rule": "water_bubble_defender_fire_branch_deferred",
+        "predicate": "Defender has Water Bubble and the selected move may be Fire, or its effective type is unknown.",
+        "rationale": "The pinned 0.5 defender-side Fire reduction is deliberately outside this offensive-only batch and remains fail-closed.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6788",
+            "contains": "case ABILITY_WATER_BUBBLE:"
+          },
+          {
+            "source": "src/battle_util.c:6791",
+            "contains": "modifier = uq4_12_multiply(modifier, UQ_4_12(0.5));"
+          }
+        ]
+      }
     ],
     "fallback": "Unknown type, nonordinary move, and all defender-side Water Bubble Fire contexts remain UNKNOWN."
   },
   "200": {
     "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
-      {"rule":"steelworker_attacker_steel_move","predicate":"Attacker has Steelworker and the authoritative effective move type is Steel.","rationale":"The pinned effective-type check enables the modeled 1.5 attacker base-power modifier.","evidence":[{"source":"src/battle_util.c:6711","contains":"if (moveType == TYPE_STEEL)"}]},
-      {"rule":"steelworker_attacker_nonsteel_move","predicate":"Attacker has Steelworker and the authoritative effective move type is a known non-Steel type.","rationale":"The pinned Steel-only branch is inactive.","evidence":[{"source":"src/battle_util.c:6711","contains":"if (moveType == TYPE_STEEL)"}]},
-      {"rule":"steelworker_defender_side","predicate":"Steelworker is on the defender.","rationale":"The pinned base-power switch reads only abilityAtk.","evidence":[{"source":"src/battle_util.c:6653","contains":"switch (ctx->abilityAtk)"}]}
+      {
+        "rule": "steelworker_attacker_steel_move",
+        "predicate": "Attacker has Steelworker and the authoritative effective move type is Steel.",
+        "rationale": "The pinned effective-type check enables the modeled 1.5 attacker base-power modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6711",
+            "contains": "if (moveType == TYPE_STEEL)"
+          }
+        ]
+      },
+      {
+        "rule": "steelworker_attacker_nonsteel_move",
+        "predicate": "Attacker has Steelworker and the authoritative effective move type is a known non-Steel type.",
+        "rationale": "The pinned Steel-only branch is inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6711",
+            "contains": "if (moveType == TYPE_STEEL)"
+          }
+        ]
+      },
+      {
+        "rule": "steelworker_defender_side",
+        "predicate": "Steelworker is on the defender.",
+        "rationale": "The pinned base-power switch reads only abilityAtk.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6653",
+            "contains": "switch (ctx->abilityAtk)"
+          }
+        ]
+      }
     ],
     "always_blocking": [],
     "fallback": "Unknown effective type or nonordinary move remains UNKNOWN."
@@ -2170,11 +2495,376 @@
   "292": {
     "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
-      {"rule":"sharpness_slicing_move","predicate":"Attacker has Sharpness; selected move is authoritative ordinary; pinned slicingMove is true.","rationale":"The pinned MoveInfo slicingMove bit is read by IsSlicingMove and enables the 1.5 base-power modifier.","evidence":[{"source":"src/battle_util.c:6743","contains":"if (IsSlicingMove(move))"},{"source":"include/move.h:385","contains":"return gMovesInfo[SanitizeMoveId(moveId)].slicingMove;"}]},
-      {"rule":"sharpness_nonslicing_move","predicate":"Attacker has Sharpness; selected ordinary move's pinned slicingMove bit is false.","rationale":"An authoritative false MoveInfo bit proves the Sharpness branch inactive.","evidence":[{"source":"src/battle_util.c:6743","contains":"if (IsSlicingMove(move))"},{"source":"include/move.h:385","contains":"return gMovesInfo[SanitizeMoveId(moveId)].slicingMove;"}]},
-      {"rule":"sharpness_defender_side","predicate":"Sharpness is on the defender.","rationale":"The pinned base-power switch reads only abilityAtk.","evidence":[{"source":"src/battle_util.c:6653","contains":"switch (ctx->abilityAtk)"}]}
+      {
+        "rule": "sharpness_slicing_move",
+        "predicate": "Attacker has Sharpness; selected move is authoritative ordinary; pinned slicingMove is true.",
+        "rationale": "The pinned MoveInfo slicingMove bit is read by IsSlicingMove and enables the 1.5 base-power modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6743",
+            "contains": "if (IsSlicingMove(move))"
+          },
+          {
+            "source": "include/move.h:385",
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].slicingMove;"
+          }
+        ]
+      },
+      {
+        "rule": "sharpness_nonslicing_move",
+        "predicate": "Attacker has Sharpness; selected ordinary move's pinned slicingMove bit is false.",
+        "rationale": "An authoritative false MoveInfo bit proves the Sharpness branch inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6743",
+            "contains": "if (IsSlicingMove(move))"
+          },
+          {
+            "source": "include/move.h:385",
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].slicingMove;"
+          }
+        ]
+      },
+      {
+        "rule": "sharpness_defender_side",
+        "predicate": "Sharpness is on the defender.",
+        "rationale": "The pinned base-power switch reads only abilityAtk.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6653",
+            "contains": "switch (ctx->abilityAtk)"
+          }
+        ]
+      }
     ],
     "always_blocking": [],
     "fallback": "Nonordinary moves, missing move identity, or conditional slicingMove metadata remain UNKNOWN."
+  },
+  "96": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "fallback": "Unknown move identity, nonordinary move shape, effective attacker ability, gimmick state, or field/type operand retains a hard condition blocker.",
+    "context_rules": [
+      {
+        "rule": "normalize_ordinary_move_rewrite",
+        "predicate": "The authoritative attacker has Normalize, the pinned move is an ordinary EFFECT_HIT, and no gimmick is active; GetDynamicMoveType returns Normal and sets ateBoost even when the source move is already Normal.",
+        "rationale": "The normalizer branch is separate from TrySetAteType and its later 1.2 modifier is gated by ateBoost and the final Normal type.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6411",
+            "contains": "gBattleStruct->battlerState[battler].ateBoost = TRUE;"
+          },
+          {
+            "source": "src/battle_main.c:6412",
+            "contains": "return TYPE_NORMAL;"
+          },
+          {
+            "source": "src/battle_util.c:6731",
+            "contains": "GetConfig(B_ATE_MULTIPLIER) >= GEN_7"
+          },
+          {
+            "source": "include/config/battle.h:198",
+            "contains": "#define B_ATE_MULTIPLIER            GEN_LATEST"
+          }
+        ]
+      },
+      {
+        "rule": "move_type_rewriter_defender_side",
+        "predicate": "The ability is on the defender.",
+        "rationale": "SetTypeBeforeUsingMove passes the selected attacker battler into GetDynamicMoveType.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6428",
+            "contains": "GetDynamicMoveType(GetBattlerMon(battler),"
+          }
+        ]
+      }
+    ]
+  },
+  "174": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "fallback": "Unknown source move type, nonordinary move shape, effective attacker ability, gimmick state, or later field rewrite retains a hard condition blocker.",
+    "context_rules": [
+      {
+        "rule": "refrigerate_normal_move_rewrite",
+        "predicate": "The authoritative attacker has Refrigerate and the pinned ordinary source move type is Normal.",
+        "rationale": "The exact Ice rewrite sets ateBoost and applies the Gen-Latest 1.2 multiplier only while the final type remains Ice.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6158",
+            "contains": "case ABILITY_REFRIGERATE:"
+          },
+          {
+            "source": "src/battle_main.c:6392",
+            "contains": "else if (moveType == TYPE_NORMAL"
+          },
+          {
+            "source": "src/battle_main.c:6399",
+            "contains": "gBattleStruct->battlerState[battler].ateBoost = TRUE;"
+          },
+          {
+            "source": "src/battle_util.c:6723",
+            "contains": "if (moveType == TYPE_ICE && gBattleStruct->battlerState[battlerAtk].ateBoost)"
+          },
+          {
+            "source": "src/battle_util.c:6724",
+            "contains": "GetConfig(B_ATE_MULTIPLIER) >= GEN_7"
+          },
+          {
+            "source": "include/config/battle.h:198",
+            "contains": "#define B_ATE_MULTIPLIER            GEN_LATEST"
+          }
+        ]
+      },
+      {
+        "rule": "refrigerate_non_normal_move",
+        "predicate": "The authoritative source move type is not Normal.",
+        "rationale": "TrySetAteType is reached only from the pinned Normal-type predicate.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6392",
+            "contains": "else if (moveType == TYPE_NORMAL"
+          }
+        ]
+      },
+      {
+        "rule": "move_type_rewriter_defender_side",
+        "predicate": "The ability is on the defender.",
+        "rationale": "SetTypeBeforeUsingMove passes the selected attacker battler into GetDynamicMoveType.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6428",
+            "contains": "GetDynamicMoveType(GetBattlerMon(battler),"
+          }
+        ]
+      }
+    ]
+  },
+  "182": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "fallback": "Unknown source move type, Fairy toggle for a Fairy source move, nonordinary move shape, effective attacker ability, gimmick state, or later field rewrite retains a hard condition blocker.",
+    "context_rules": [
+      {
+        "rule": "pixilate_normal_move_rewrite",
+        "predicate": "The authoritative attacker has Pixilate and the pinned ordinary source move type after GetMoveType/Fairy-toggle handling is Normal.",
+        "rationale": "The exact Fairy rewrite sets ateBoost and the Gen-Latest 1.2 branch reads the final Fairy type plus ateBoost.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6155",
+            "contains": "case ABILITY_PIXILATE:"
+          },
+          {
+            "source": "src/battle_main.c:6392",
+            "contains": "else if (moveType == TYPE_NORMAL"
+          },
+          {
+            "source": "src/battle_main.c:6399",
+            "contains": "gBattleStruct->battlerState[battler].ateBoost = TRUE;"
+          },
+          {
+            "source": "src/battle_util.c:6715",
+            "contains": "if (moveType == TYPE_FAIRY && gBattleStruct->battlerState[battlerAtk].ateBoost)"
+          },
+          {
+            "source": "src/battle_util.c:6716",
+            "contains": "GetConfig(B_ATE_MULTIPLIER) >= GEN_7"
+          },
+          {
+            "source": "include/config/battle.h:198",
+            "contains": "#define B_ATE_MULTIPLIER            GEN_LATEST"
+          }
+        ]
+      },
+      {
+        "rule": "pixilate_non_normal_move",
+        "predicate": "The authoritative source move type after GetMoveType/Fairy-toggle handling is not Normal.",
+        "rationale": "The pinned -ate path is entered only from a Normal move type.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6392",
+            "contains": "else if (moveType == TYPE_NORMAL"
+          }
+        ]
+      },
+      {
+        "rule": "move_type_rewriter_defender_side",
+        "predicate": "The ability is on the defender.",
+        "rationale": "SetTypeBeforeUsingMove passes the selected attacker battler into GetDynamicMoveType.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6428",
+            "contains": "GetDynamicMoveType(GetBattlerMon(battler),"
+          }
+        ]
+      }
+    ]
+  },
+  "184": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "fallback": "Unknown source move type, nonordinary move shape, effective attacker ability, gimmick state, or later field rewrite retains a hard condition blocker.",
+    "context_rules": [
+      {
+        "rule": "aerilate_normal_move_rewrite",
+        "predicate": "The authoritative attacker has Aerilate and the pinned ordinary source move type is Normal.",
+        "rationale": "The exact Flying rewrite sets ateBoost and applies the Gen-Latest 1.2 multiplier only while the final type remains Flying.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6161",
+            "contains": "case ABILITY_AERILATE:"
+          },
+          {
+            "source": "src/battle_main.c:6392",
+            "contains": "else if (moveType == TYPE_NORMAL"
+          },
+          {
+            "source": "src/battle_main.c:6399",
+            "contains": "gBattleStruct->battlerState[battler].ateBoost = TRUE;"
+          },
+          {
+            "source": "src/battle_util.c:6727",
+            "contains": "if (moveType == TYPE_FLYING && gBattleStruct->battlerState[battlerAtk].ateBoost)"
+          },
+          {
+            "source": "src/battle_util.c:6728",
+            "contains": "GetConfig(B_ATE_MULTIPLIER) >= GEN_7"
+          },
+          {
+            "source": "include/config/battle.h:198",
+            "contains": "#define B_ATE_MULTIPLIER            GEN_LATEST"
+          }
+        ]
+      },
+      {
+        "rule": "aerilate_non_normal_move",
+        "predicate": "The authoritative source move type is not Normal.",
+        "rationale": "TrySetAteType is reached only from the pinned Normal-type predicate.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6392",
+            "contains": "else if (moveType == TYPE_NORMAL"
+          }
+        ]
+      },
+      {
+        "rule": "move_type_rewriter_defender_side",
+        "predicate": "The ability is on the defender.",
+        "rationale": "SetTypeBeforeUsingMove passes the selected attacker battler into GetDynamicMoveType.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6428",
+            "contains": "GetDynamicMoveType(GetBattlerMon(battler),"
+          }
+        ]
+      }
+    ]
+  },
+  "204": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "fallback": "Unknown MoveInfo.soundMove, nonordinary move shape, effective attacker ability, or later field rewrite retains a hard condition blocker.",
+    "context_rules": [
+      {
+        "rule": "liquid_voice_sound_move_rewrite",
+        "predicate": "The authoritative attacker has Liquid Voice and the pinned source MoveInfo.soundMove field is true.",
+        "rationale": "IsSoundMove reads MoveInfo.soundMove; a true flag rewrites to Water before the -ate/Normalize branches and never sets ateBoost.",
+        "evidence": [
+          {
+            "source": "include/move.h:360",
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].soundMove;"
+          },
+          {
+            "source": "src/battle_main.c:6382",
+            "contains": "if (IsSoundMove(move) && ability == ABILITY_LIQUID_VOICE)"
+          },
+          {
+            "source": "src/battle_main.c:6384",
+            "contains": "return TYPE_WATER;"
+          }
+        ]
+      },
+      {
+        "rule": "liquid_voice_non_sound_move",
+        "predicate": "The authoritative source-derived soundMove fact is false.",
+        "rationale": "The pinned Liquid Voice branch is guarded by IsSoundMove; omission of a literal flag is zero-initialized false, while conditional/computed flags remain unknown.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6382",
+            "contains": "if (IsSoundMove(move) && ability == ABILITY_LIQUID_VOICE)"
+          },
+          {
+            "source": "include/move.h:360",
+            "contains": "return gMovesInfo[SanitizeMoveId(moveId)].soundMove;"
+          }
+        ]
+      },
+      {
+        "rule": "move_type_rewriter_defender_side",
+        "predicate": "The ability is on the defender.",
+        "rationale": "SetTypeBeforeUsingMove passes the selected attacker battler into GetDynamicMoveType.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6428",
+            "contains": "GetDynamicMoveType(GetBattlerMon(battler),"
+          }
+        ]
+      }
+    ]
+  },
+  "206": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "fallback": "Unknown source move type, nonordinary move shape, effective attacker ability, gimmick state, or later field rewrite retains a hard condition blocker.",
+    "context_rules": [
+      {
+        "rule": "galvanize_normal_move_rewrite",
+        "predicate": "The authoritative attacker has Galvanize and the pinned ordinary source move type is Normal.",
+        "rationale": "The exact Electric rewrite sets ateBoost and applies the Gen-Latest 1.2 multiplier only while the final type remains Electric.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6164",
+            "contains": "case ABILITY_GALVANIZE:"
+          },
+          {
+            "source": "src/battle_main.c:6392",
+            "contains": "else if (moveType == TYPE_NORMAL"
+          },
+          {
+            "source": "src/battle_main.c:6399",
+            "contains": "gBattleStruct->battlerState[battler].ateBoost = TRUE;"
+          },
+          {
+            "source": "src/battle_util.c:6719",
+            "contains": "if (moveType == TYPE_ELECTRIC && gBattleStruct->battlerState[battlerAtk].ateBoost)"
+          },
+          {
+            "source": "src/battle_util.c:6720",
+            "contains": "GetConfig(B_ATE_MULTIPLIER) >= GEN_7"
+          },
+          {
+            "source": "include/config/battle.h:198",
+            "contains": "#define B_ATE_MULTIPLIER            GEN_LATEST"
+          }
+        ]
+      },
+      {
+        "rule": "galvanize_non_normal_move",
+        "predicate": "The authoritative source move type is not Normal.",
+        "rationale": "TrySetAteType is reached only from the pinned Normal-type predicate.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6392",
+            "contains": "else if (moveType == TYPE_NORMAL"
+          }
+        ]
+      },
+      {
+        "rule": "move_type_rewriter_defender_side",
+        "predicate": "The ability is on the defender.",
+        "rationale": "SetTypeBeforeUsingMove passes the selected attacker battler into GetDynamicMoveType.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:6428",
+            "contains": "GetDynamicMoveType(GetBattlerMon(battler),"
+          }
+        ]
+      }
+    ]
   }
 }

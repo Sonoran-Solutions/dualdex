@@ -101,7 +101,7 @@ function validateMoveOverrides(raw) {
   }
 
   for (const key of Object.keys(raw)) {
-    if (key !== 'basePower' && key !== 'type' && key !== 'category') {
+    if (key !== 'basePower' && key !== 'type' && key !== 'category' && key !== 'ateBoost') {
       throw new Error('Unknown field ' + JSON.stringify(key) + ' in move override');
     }
   }
@@ -128,6 +128,13 @@ function validateMoveOverrides(raw) {
       throw new Error('Unsupported move category ' + JSON.stringify(raw.category) + '; expected "Physical", "Special", or "Status"');
     }
     result.category = raw.category;
+  }
+
+  if (raw.ateBoost !== undefined) {
+    if (typeof raw.ateBoost !== 'boolean') {
+      throw new Error('Invalid move ateBoost: expected boolean, got ' + JSON.stringify(raw.ateBoost));
+    }
+    result.ateBoost = raw.ateBoost;
   }
 
   return result;
@@ -577,6 +584,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // unchanged before Technician's `basePower <= 60` check. Matching move flags are generated
   // from the pinned MoveInfo table and rebound by move ID; caller move data cannot set them.
   const abilityMoveFlags = new Set(input.move?.hnsMoveAbilityFlags || []);
+  const ateBoost = input.move?.overrides?.ateBoost === true;
   const status1 = input.attacker?.status1;
   const statusKnown = Number.isInteger(status1) && (status1 & ~0x1fff) === 0;
   const statusHas = (mask) => statusKnown && (status1 & mask) !== 0;
@@ -607,6 +615,21 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       break;
     case 'Flare Boost':
       if (isSpecial && statusHas(0x10)) basePowerModifier.add(6144);
+      break;
+    case 'Refrigerate':
+      if (effectiveMoveType === 'Ice' && ateBoost) basePowerModifier.add(4915);
+      break;
+    case 'Pixilate':
+      if (effectiveMoveType === 'Fairy' && ateBoost) basePowerModifier.add(4915);
+      break;
+    case 'Aerilate':
+      if (effectiveMoveType === 'Flying' && ateBoost) basePowerModifier.add(4915);
+      break;
+    case 'Galvanize':
+      if (effectiveMoveType === 'Electric' && ateBoost) basePowerModifier.add(4915);
+      break;
+    case 'Normalize':
+      if (effectiveMoveType === 'Normal' && ateBoost) basePowerModifier.add(4915);
       break;
     default:
       break;

@@ -2036,6 +2036,7 @@ object CalcCapabilityPolicy {
         limitations: MutableSet<CalcLimitation>,
         decisions: MutableList<HnsAbilityRequestDecision>
     ) {
+        val moveAuthority = HnsMoveAuthority.forRequest(request, ordinaryMove)
         // Mold Breaker only matters when the current defender has an immunity that would
         // otherwise participate. The request-local Group C gate adds a hard blocker for that
         // precise interaction; the global unsupported label alone would incorrectly refuse
@@ -2047,7 +2048,7 @@ object CalcCapabilityPolicy {
         // Flash Fire is deliberately split by role. Defender-side immunity is in the Group C
         // result layer; the attacker's later boost needs `flashFireBoosted`, which #88 does not read.
         if (classification.abilityId == 18) {
-            val moveType = request.moveOverride?.type
+            val moveType = moveAuthority.effectiveType?.displayName
             when {
                 !isAttacker -> return
                 moveType != null && !moveType.equals("Fire", ignoreCase = true) -> return
@@ -2058,11 +2059,23 @@ object CalcCapabilityPolicy {
         val pinchType = classification.abilityId?.let { HNS_PINCH_ABILITY_TYPES[it] }
         if (pinchType != null) {
             if (!isAttacker) return // defender pinch abilities never modify incoming damage
-            val moveType = request.moveOverride?.type
+            val moveType = moveAuthority.effectiveType?.displayName
             if (moveType == null) {
-                // The effective move type could not be resolved from the pinned pack; the
-                // ability's relevance cannot be proven, so fail closed on the ability.
-                limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED)
+                // The ability is classified; what is missing is the final type operand that
+                // decides whether this conditional effect applies. Keep this distinct from an
+                // unclassified ability, even when the source type alone does not match, because
+                // an unresolved dynamic rewrite may still make the move relevant.
+                limitations.add(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED)
+                decisions += HnsAbilityRequestDecision(
+                    abilityId = classification.abilityId,
+                    abilityName = classification.titleCaseName,
+                    side = HnsAbilitySide.ATTACKER,
+                    globalCategory = classification.category,
+                    relevance = HnsAbilityRequestRelevance.UNKNOWN,
+                    rule = "pinch_ability_effective_type_unverified",
+                    source = "src/battle_util.c:7023",
+                    rationale = "The effective move type needed to decide this conditional ability is not authoritative."
+                )
             } else if (!moveType.equals(pinchType, ignoreCase = true)) {
                 // Provably irrelevant for this move's type.
             } else {
@@ -2139,7 +2152,9 @@ object CalcCapabilityPolicy {
         fieldDecisions: MutableList<HnsFieldRequestDecision>
     ) {
         val live = request.hnsLiveBattleState ?: return
-        val staticType = request.moveOverride?.type
+        val moveAuthority = HnsMoveAuthority.forRequest(request, hnsOrdinaryMove(pack, request))
+        val preFieldType = moveAuthority.preFieldType?.displayName
+        val effectiveMoveType = moveAuthority.effectiveType?.displayName
         val fieldStatuses = live.fieldStatuses
         val electrified = live.attackerElectrified
         // Field conditions are decided bit by bit from the raw observed word. A field decision only
@@ -2162,9 +2177,9 @@ object CalcCapabilityPolicy {
                 }
             }
         }
-        if (fieldStatuses != null && electrified != null && staticType != null) {
+        if (fieldStatuses != null && electrified != null) {
             val ionDelugeActive = (fieldStatuses and HNS_STATUS_FIELD_ION_DELUGE) != 0 &&
-                staticType.equals("Normal", ignoreCase = true)
+                preFieldType.equals("Normal", ignoreCase = true)
             if (electrified || ionDelugeActive) {
                 limitations.add(CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED)
             }
@@ -2176,14 +2191,14 @@ object CalcCapabilityPolicy {
         // A zero timer is the observed neutral the first Ready subset requires.
         val chargeTimer = live.attackerChargeTimer
         if (chargeTimer != null && chargeTimer > 0 &&
-            staticType != null && staticType.equals("Electric", ignoreCase = true)
+            effectiveMoveType.equals("Electric", ignoreCase = true)
         ) {
             limitations.add(CalcLimitation.HNS_CHARGE_ACTIVE_NOT_MODELLED)
         }
         // Tar Shot doubles a Fire move against the observed defender; an irrelevant move type
         // cannot be affected, so only the relevant positive case is refused.
         if (live.defenderTarShot == true &&
-            staticType != null && staticType.equals("Fire", ignoreCase = true)
+            effectiveMoveType.equals("Fire", ignoreCase = true)
         ) {
             limitations.add(CalcLimitation.HNS_TAR_SHOT_ACTIVE_NOT_MODELLED)
         }

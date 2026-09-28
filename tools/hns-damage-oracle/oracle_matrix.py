@@ -15,7 +15,8 @@ Surfaces:
 * ``modelled``    -- mechanics the DualDex H&S calculator claims to reproduce exactly in production
                      (ordinary damage, type chart, STAB, crit, stat stages, burn, Rain/Sun, Singles
                      screens, badge boosts, pinch abilities, physical Hustle, statused-physical Guts,
-                     Wise Glasses, Fairy toggle, option style);
+                     Wise Glasses, Fairy toggle, option style, Normalize, the four -ate rewrites and
+                     their explicit ateBoost behavior, and sound-gated Liquid Voice);
 * ``engine-only`` -- arithmetic the calculator *engine* contains but production refuses or strips
                      (Doubles, Thick Fat, Guts contexts outside the admitted physical/status path,
                      Huge/Pure Power, Adaptability, type-boost items).
@@ -864,6 +865,108 @@ def _base_power_abilities() -> list[dict]:
                  defender("Snorlax", dfn=109), "Strength"),
         scenario("group-d-flare-boost-defender-control", ["ability:flare-boost", "base-power", "negative-control"],
                  attacker("Machamp", spa=151), defender("Snorlax", spd=109, ability=flare_boost), "Psychic"),
+    ))
+
+    # Issue #91: the move-type rewrite and the source-set ateBoost bit form one indivisible
+    # mechanic. The pinned oracle records effective type/category/ateBoost after the selected hit;
+    # the production adapter feeds those observations into the same QuickJS request fields.
+    normalize = ("ABILITY_NORMALIZE", "Normalize")
+    refrigerate = ("ABILITY_REFRIGERATE", "Refrigerate")
+    pixilate = ("ABILITY_PIXILATE", "Pixilate")
+    aerilate = ("ABILITY_AERILATE", "Aerilate")
+    galvanize = ("ABILITY_GALVANIZE", "Galvanize")
+    liquid_voice = ("ABILITY_LIQUID_VOICE", "Liquid Voice")
+    for ability, label, target, defender_label in (
+        (refrigerate, "refrigerate", "Ice", "Dragonite"),
+        (pixilate, "pixilate", "Fairy", "Dragonite"),
+        (aerilate, "aerilate", "Flying", "Heracross"),
+        (galvanize, "galvanize", "Electric", "Vaporeon"),
+    ):
+        out.append(scenario(
+            f"group-d-{label}-tackle-positive", [f"ability:{label}", "move-type-rewrite", "ate-boost", "stab", "type-chart"],
+            attacker("Porygon", atk=151, spa=151, ability=ability), defender(defender_label, dfn=109, spd=109), "Tackle"))
+        out.append(scenario(
+            f"group-d-{label}-fire-punch-control", [f"ability:{label}", "move-type-rewrite", "negative-control"],
+            attacker("Porygon", atk=151, spa=151, ability=ability), defender("Snorlax", dfn=109, spd=109), "Fire Punch"))
+
+    out.extend((
+        scenario("group-d-normalize-tackle-same-type-ate-boost",
+                 ["ability:normalize", "move-type-rewrite", "ate-boost", "same-type-target"],
+                 attacker("Porygon", atk=151, ability=normalize), defender("Snorlax", dfn=109), "Tackle"),
+        scenario("group-d-normalize-fire-punch-dry-skin-control",
+                 ["ability:normalize", "move-type-rewrite", "type-sensitive-defender-ability"],
+                 attacker("Machamp", atk=151, ability=normalize),
+                 defender("Snorlax", dfn=109, ability=("ABILITY_DRY_SKIN", "Dry Skin")), "Fire Punch"),
+        scenario("group-d-normalize-hyper-voice-wise-glasses",
+                 ["ability:normalize", "move-type-rewrite", "ate-boost", "modifier-stacking", "item:wise-glasses"],
+                 attacker("Porygon", spa=151, ability=normalize,
+                          item=("ITEM_WISE_GLASSES", "Wise Glasses")),
+                 defender("Snorlax", spd=109), "Hyper Voice"),
+        scenario("group-d-pixilate-type-based-category",
+                 ["ability:pixilate", "move-type-rewrite", "ate-boost", "option-style", "category-shift"],
+                 attacker("Porygon", atk=151, spa=151, ability=pixilate), defender("Snorlax", dfn=109, spd=109),
+                 "Tackle", style="typeBased"),
+        scenario("group-d-pixilate-fairy-toggle-off",
+                 ["ability:pixilate", "move-type-rewrite", "ate-boost", "fairy", "fairy:off"],
+                 attacker("Porygon", atk=151, ability=pixilate), defender("Snorlax", dfn=109), "Tackle", fairy=False),
+        scenario("group-d-pixilate-fairy-wind-fairy-on",
+                 ["ability:pixilate", "move-type-rewrite", "fairy", "fairy:on", "negative-control"],
+                 attacker("Porygon", spa=151, ability=pixilate), defender("Snorlax", spd=109), "Fairy Wind"),
+        scenario("group-d-pixilate-fairy-wind-fairy-off",
+                 ["ability:pixilate", "move-type-rewrite", "ate-boost", "fairy", "fairy:off"],
+                 attacker("Porygon", spa=151, ability=pixilate), defender("Snorlax", spd=109), "Fairy Wind",
+                 fairy=False),
+        scenario("group-d-pixilate-gains-fairy-stab",
+                 ["ability:pixilate", "move-type-rewrite", "ate-boost", "stab"],
+                 attacker("Gardevoir", atk=151, ability=pixilate), defender("Snorlax", dfn=109), "Tackle"),
+        scenario("group-d-pixilate-loses-normal-stab",
+                 ["ability:pixilate", "move-type-rewrite", "ate-boost", "stab", "negative-control"],
+                 attacker("Porygon", atk=151, ability=pixilate), defender("Snorlax", dfn=109), "Tackle"),
+        scenario("group-d-pixilate-super-effective-wonder-guard",
+                 ["ability:pixilate", "move-type-rewrite", "ate-boost", "group-c-immunity", "ability:wonder-guard"],
+                 attacker("Porygon", atk=151, ability=pixilate),
+                 defender("Dragonite", dfn=109, ability=("ABILITY_WONDER_GUARD", "Wonder Guard")),
+                 "Tackle"),
+        scenario("group-d-normal-tackle-wonder-guard-immunity-control",
+                 ["move-type-rewrite", "negative-control", "group-c-immunity", "ability:wonder-guard"],
+                 attacker("Porygon", atk=151),
+                 defender("Dragonite", dfn=109, ability=("ABILITY_WONDER_GUARD", "Wonder Guard")),
+                 "Tackle", expect="immune"),
+        scenario("group-d-refrigerate-removes-normal-immunity",
+                 ["ability:refrigerate", "move-type-rewrite", "ate-boost", "type-immunity"],
+                 attacker("Porygon", atk=151, ability=refrigerate), defender("Banette", dfn=109), "Tackle"),
+        scenario("group-d-normal-tackle-ghost-immunity-control",
+                 ["type-immunity", "negative-control"],
+                 attacker("Porygon", atk=151), defender("Banette", dfn=109), "Tackle", expect="immune"),
+        scenario("group-d-galvanize-ground-immunity",
+                 ["ability:galvanize", "move-type-rewrite", "ate-boost", "type-immunity"],
+                 attacker("Porygon", atk=151, ability=galvanize), defender("Dugtrio", dfn=109), "Tackle",
+                 expect="immune"),
+        scenario("group-d-galvanize-volt-absorb-immunity",
+                 ["ability:galvanize", "move-type-rewrite", "ate-boost", "group-c-immunity", "ability:volt-absorb"],
+                 attacker("Porygon", atk=151, ability=galvanize),
+                 defender("Snorlax", dfn=109, ability=("ABILITY_VOLT_ABSORB", "Volt Absorb")), "Tackle",
+                 expect="immune"),
+        scenario("group-d-liquid-voice-hyper-voice-positive",
+                 ["ability:liquid-voice", "move-type-rewrite", "sound", "group-c-immunity"],
+                 attacker("Porygon", spa=151, ability=liquid_voice), defender("Snorlax", spd=109), "Hyper Voice"),
+        scenario("group-d-liquid-voice-water-absorb-immunity",
+                 ["ability:liquid-voice", "move-type-rewrite", "sound", "group-c-immunity", "ability:water-absorb"],
+                 attacker("Porygon", spa=151, ability=liquid_voice),
+                 defender("Snorlax", spd=109, ability=("ABILITY_WATER_ABSORB", "Water Absorb")), "Hyper Voice",
+                 expect="immune"),
+        scenario("group-d-liquid-voice-nonsound-control",
+                 ["ability:liquid-voice", "move-type-rewrite", "negative-control"],
+                 attacker("Porygon", atk=151, ability=liquid_voice), defender("Snorlax", dfn=109), "Tackle"),
+        scenario("group-d-liquid-voice-defender-control",
+                 ["ability:liquid-voice", "move-type-rewrite", "negative-control", "role:defender"],
+                 attacker("Porygon", atk=151),
+                 defender("Snorlax", dfn=109, ability=liquid_voice), "Tackle"),
+        scenario("group-d-ate-rounding-wise-glasses",
+                 ["ability:normalize", "ate-boost", "modifier-stacking", "item:wise-glasses", "rounding"],
+                 attacker("Porygon", spa=151, ability=normalize,
+                          item=("ITEM_WISE_GLASSES", "Wise Glasses")),
+                 defender("Snorlax", spd=109), "Hyper Voice"),
     ))
     return out
 

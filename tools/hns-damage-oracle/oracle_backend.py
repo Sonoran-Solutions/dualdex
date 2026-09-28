@@ -240,14 +240,19 @@ static void DdxoHit(const char *id, u32 roll, enum Move move, u32 battlerAtk, u3
     ctx.battlerAtk = battlerAtk;
     ctx.battlerDef = battlerDef;
     ctx.move = move;
+    // The battle turn cleanup clears dynamicMoveType/ateBoost before THEN. Re-run the pinned
+    // source entry point with the same live battler/move state so the corpus records the exact
+    // effective type and explicit boost predicate the production adapter must serialize.
+    SetTypeBeforeUsingMove(move, battlerAtk);
     DdxoBattler(id, roll, "A", battlerAtk);
     DdxoBattler(id, roll, "D", battlerDef);
-    Test_MgbaPrintf("DDXO|%%s|%%d|M|%%d|%%s|%%d|%%s|%%s|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d", id, roll, move, DdxoType(GetMoveType(move)),
+    Test_MgbaPrintf("DDXO|%%s|%%d|M|%%d|%%s|%%d|%%s|%%s|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d", id, roll, move, DdxoType(GetBattleMoveType(move)),
         GetMovePower(move), DdxoCategory(GetBattleMoveCategory(move)), DdxoTarget(GetBattlerMoveTargetType(battlerAtk, move)),
         GetMoveTargetCount(&ctx), gLastMoves[battlerAtk], IsSoundMove(move), IsBallisticMove(move), IsWindMove(move),
         IsHealingMove(move), MoveIgnoresTargetAbility(move),
         GetBattleMovePriority(battlerAtk, gBattleMons[battlerAtk].ability, move), GetMoveTarget(move),
-        IsPunchingMove(move), IsBitingMove(move), IsPulseMove(move), IsSlicingMove(move));
+        IsPunchingMove(move), IsBitingMove(move), IsPulseMove(move), IsSlicingMove(move),
+        gBattleStruct->battlerState[battlerAtk].ateBoost);
     Test_MgbaPrintf("DDXO|%%s|%%d|F|%%s|%%d|%%d|%%d|%%d|%%d", id, roll, DdxoWeather(gBattleWeather),
         (gSideStatuses[GetBattlerSide(battlerDef)] & SIDE_STATUS_REFLECT) ? 1 : 0,
         (gSideStatuses[GetBattlerSide(battlerDef)] & SIDE_STATUS_LIGHTSCREEN) ? 1 : 0,
@@ -449,7 +454,7 @@ def _int(text: str, what: str) -> int:
 
 
 LINE_FIELDS = {"A1": 9, "A2": 7, "A3": 4, "A4": 6, "A5": 4, "D1": 9, "D2": 7, "D3": 4, "D4": 6, "D5": 4,
-               "M": 18, "F": 6, "R": 3}
+               "M": 19, "F": 6, "R": 3}
 
 
 def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[int, dict[str, list[str]]]]:
@@ -655,7 +660,8 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             "move": {"id": move_id, "type": m[1], "power": _int(m[2], f"{sid} M"), "category": m[3],
                      "target": m[4], "flags": flags, "abilityFlags": ability_flags,
                      "priority": _int(m[12], f"{sid} M priority"),
-                     "targetClass": _int(m[13], f"{sid} M target class")},
+                     "targetClass": _int(m[13], f"{sid} M target class"),
+                     "ateBoost": _int(m[18], f"{sid} M ateBoost") == 1},
             "targetCount": _int(m[5], f"{sid} M"),
         }
         if canonical is None:

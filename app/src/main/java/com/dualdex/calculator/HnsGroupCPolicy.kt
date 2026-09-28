@@ -4,6 +4,7 @@ import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.hns.HeartAndSoul205DataPack
 import com.dualdex.pokemon.hns.Hns205MoveEffects
 import com.dualdex.pokemon.hns.HnsItemRegistry
+import com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry
 
 /** Request-local integrity gates for the Group C immunity layer. */
 internal object HnsGroupCPolicy {
@@ -26,7 +27,7 @@ internal object HnsGroupCPolicy {
         // this phase proof the static move priority is not necessarily the effective priority.
         if (live.switchInEventsSettled != true) return null
         var priority = Hns205MoveEffects.basePriorityById[moveId] ?: return null
-        val type = PokemonType.fromString(request.moveOverride?.type) ?: return null
+        val type = HnsMoveAuthority.forRequest(request, ordinaryDamageMove(moveId)).effectiveType ?: return null
         val attackerAbility = abilityId(request.attacker)
 
         // GetBattleMovePriority: Gale Wings adds one to Flying moves when the live attacker is at
@@ -59,7 +60,7 @@ internal object HnsGroupCPolicy {
         if (request.typeSystem != "hns_2_0_5") return emptySet()
         val move = HeartAndSoul205DataPack.getMoveByName(request.move.name) ?: return emptySet()
         val moveId = move.id
-        val moveType = PokemonType.fromString(request.moveOverride?.type) ?: return emptySet()
+        val moveType = HnsMoveAuthority.forRequest(request, ordinaryDamageMove(moveId)).effectiveType ?: return emptySet()
         val defenderAbility = abilityId(request.defender)
         val attackerAbility = abilityId(request.attacker)
         val defenderItem = itemId(request.defender)
@@ -150,4 +151,10 @@ internal object HnsGroupCPolicy {
 
     private fun itemId(input: CalcPokemonInput): Int? = input.itemId
         ?: input.item?.let(HnsItemRegistry::resolveIdByName)
+
+    private fun ordinaryDamageMove(moveId: Int): Boolean =
+        HeartAndSoul205DataPack.getMove(moveId)?.let { move ->
+            move.power > 0 && HnsMoveMechanicsRegistry.classify(moveId).category ==
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.ORDINARY_PROVEN_EQUIVALENT
+        } == true
 }

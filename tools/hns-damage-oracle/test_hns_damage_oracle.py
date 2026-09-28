@@ -46,7 +46,7 @@ def observed_for(s: dict) -> dict:
     dfn["status1"] = {"none": 0, "poison": 8, "burn": 16, "toxic": 128}[s["defender"]["status"]]
     return {"attacker": battler, "defender": dfn,
             "move": {"id": 157, "type": "Rock", "power": 75, "category": "physical", "target": "both",
-                     "flags": [], "abilityFlags": [], "priority": 0, "targetClass": 6},
+                     "flags": [], "abilityFlags": [], "priority": 0, "targetClass": 6, "ateBoost": False},
             "targetCount": 1}
 
 
@@ -141,6 +141,37 @@ class ScenarioSchemaTest(unittest.TestCase):
         self.assertEqual(by_id["group-d-toxic-boost-special-poison-control"]["move"]["label"], "Psychic")
         self.assertEqual(by_id["group-d-toxic-boost-special-poison-control"]["attacker"]["status"], "poison")
         self.assertEqual(by_id["group-d-water-bubble-defender-fire-deferred"]["surface"], "engine-only")
+
+    def test_group_d_move_type_rewrite_matrix_covers_full_ate_and_liquid_voice_behavior(self):
+        by_id = {s["id"]: s for s in SCENARIOS}
+        expected = {
+            "group-d-refrigerate-tackle-positive", "group-d-refrigerate-fire-punch-control",
+            "group-d-pixilate-tackle-positive", "group-d-pixilate-fire-punch-control",
+            "group-d-aerilate-tackle-positive", "group-d-aerilate-fire-punch-control",
+            "group-d-galvanize-tackle-positive", "group-d-galvanize-fire-punch-control",
+            "group-d-normalize-tackle-same-type-ate-boost", "group-d-normalize-fire-punch-dry-skin-control",
+            "group-d-normalize-hyper-voice-wise-glasses", "group-d-pixilate-type-based-category",
+            "group-d-pixilate-fairy-toggle-off", "group-d-pixilate-fairy-wind-fairy-on",
+            "group-d-pixilate-fairy-wind-fairy-off", "group-d-pixilate-gains-fairy-stab",
+            "group-d-pixilate-loses-normal-stab", "group-d-pixilate-super-effective-wonder-guard",
+            "group-d-normal-tackle-wonder-guard-immunity-control",
+            "group-d-refrigerate-removes-normal-immunity", "group-d-normal-tackle-ghost-immunity-control",
+            "group-d-galvanize-ground-immunity", "group-d-galvanize-volt-absorb-immunity",
+            "group-d-liquid-voice-hyper-voice-positive", "group-d-liquid-voice-water-absorb-immunity",
+            "group-d-liquid-voice-nonsound-control", "group-d-liquid-voice-defender-control",
+            "group-d-ate-rounding-wise-glasses",
+        }
+        self.assertTrue(expected.issubset(by_id))
+        self.assertTrue(all(by_id[sid]["surface"] == "modelled" for sid in expected))
+        self.assertEqual(by_id["group-d-pixilate-type-based-category"]["rules"]["optionStyle"], "typeBased")
+        self.assertTrue(by_id["group-d-pixilate-fairy-wind-fairy-on"]["rules"]["fairyTypes"])
+        self.assertFalse(by_id["group-d-pixilate-fairy-wind-fairy-off"]["rules"]["fairyTypes"])
+        self.assertEqual(by_id["group-d-liquid-voice-hyper-voice-positive"]["move"]["label"], "Hyper Voice")
+        self.assertEqual(by_id["group-d-liquid-voice-nonsound-control"]["move"]["label"], "Tackle")
+        self.assertEqual(by_id["group-d-galvanize-ground-immunity"]["expect"], "immune")
+        self.assertEqual(by_id["group-d-pixilate-super-effective-wonder-guard"]["expect"], "damage")
+        self.assertEqual(by_id["group-d-normal-tackle-wonder-guard-immunity-control"]["expect"], "immune")
+        self.assertEqual(by_id["group-d-normal-tackle-ghost-immunity-control"]["expect"], "immune")
 
     def test_duplicate_ids_rejected(self):
         with self.assertRaisesRegex(schema.SchemaError, "duplicate scenario id"):
@@ -281,7 +312,7 @@ def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, 
         f"DDXO|{sid}|{rng}|D3|0|{def_stage}|0|0",
         f"DDXO|{sid}|{rng}|D4|160|110|65|65|110|30",
         f"DDXO|{sid}|{rng}|D5|0|0|0|0",
-        "DDXO|{}|{}|M|157|Rock|75|physical|both|1|157|0|0|0|0|0|0|6|{}".format(
+        "DDXO|{}|{}|M|157|Rock|75|physical|both|1|157|0|0|0|0|0|0|6|{}|0".format(
             sid, rng, "|".join("1" if flag in move_ability_flags else "0" for flag in
                                 ("punchingMove", "bitingMove", "pulseMove", "slicingMove"))),
         f"DDXO|{sid}|{rng}|F|none|0|0|0|1|0",
@@ -316,9 +347,14 @@ class RunnerOutputTest(unittest.TestCase):
         self.assertEqual(entry["rolls"], sorted(entry["rolls"]))
         self.assertEqual(entry["observed"]["move"], {"id": 157, "type": "Rock", "power": 75,
                                                      "category": "physical", "target": "both", "flags": [],
-                                                     "abilityFlags": [], "priority": 0, "targetClass": 6})
+                                                     "abilityFlags": [], "priority": 0, "targetClass": 6,
+                                                     "ateBoost": False})
         self.assertEqual(entry["observed"]["defender"]["types"], ["Normal"])
         self.assertEqual(entry["observed"]["attacker"]["status1"], 0)
+
+    def test_generated_runner_records_effective_move_type_and_ate_boost(self):
+        self.assertIn("DdxoType(GetBattleMoveType(move))", backend.C_PRELUDE)
+        self.assertIn("gBattleStruct->battlerState[battlerAtk].ateBoost", backend.C_PRELUDE)
 
     def test_raw_status1_is_parsed_and_retained(self):
         records = backend.parse_runner_output(
@@ -517,6 +553,32 @@ class CommittedCorpusTest(unittest.TestCase):
                 else:
                     expected = {"none": 0, "poison": 8, "burn": 16}[status]
                     self.assertEqual(raw_status, expected, f"{scenario['id']} {role} raw status1")
+
+    def test_group_d_oracle_pins_rewrite_type_category_and_ate_boost(self):
+        doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
+        by_id = {entry["scenario"]["id"]: entry for entry in doc["entries"]}
+
+        expected = {
+            "group-d-refrigerate-tackle-positive": ("Ice", "physical", True),
+            "group-d-refrigerate-fire-punch-control": ("Fire", "physical", False),
+            "group-d-pixilate-tackle-positive": ("Fairy", "physical", True),
+            "group-d-aerilate-tackle-positive": ("Flying", "physical", True),
+            "group-d-galvanize-tackle-positive": ("Electric", "physical", True),
+            "group-d-normalize-tackle-same-type-ate-boost": ("Normal", "physical", True),
+            "group-d-normalize-hyper-voice-wise-glasses": ("Normal", "special", True),
+            "group-d-pixilate-type-based-category": ("Fairy", "special", True),
+            "group-d-pixilate-fairy-wind-fairy-on": ("Fairy", "special", False),
+            "group-d-pixilate-fairy-wind-fairy-off": ("Fairy", "special", True),
+            "group-d-liquid-voice-hyper-voice-positive": ("Water", "special", False),
+            "group-d-liquid-voice-nonsound-control": ("Normal", "physical", False),
+        }
+        for sid, (move_type, category, ate_boost) in expected.items():
+            with self.subTest(scenario=sid):
+                entry = by_id[sid]
+                observed = entry["observed"]["move"]
+                self.assertEqual((observed["type"], observed["category"], observed["ateBoost"]),
+                                 (move_type, category, ate_boost))
+                self.assertEqual(len(entry["rolls"]), schema.ROLL_COUNT)
 
     def test_known_divergences_pin_the_current_calculator_vectors(self):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())

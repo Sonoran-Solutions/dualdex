@@ -15,8 +15,8 @@ pinned H&S battle code (1f42b74d)  ->  this oracle  ->  corpus.json (committed, 
 * **Is:** a generator that builds the pinned H&S tree's own battle test runner and measures, for each
   scenario, the HP actually removed by one hit for each of the 16 damage-roll values. Every roll is a
   separate, fresh battle. The corpus stores the scenario inputs, what the engine reported about the
-  hit (IDs, battle types, base stats, move type/power/category/flags/effective priority/target class,
-  target count, raw `status1` words, badge-boost verdicts)
+  hit (IDs, battle types, base stats, effective move type/power/category/flags/effective priority/
+  target class, explicit `ateBoost`, target count, raw `status1` words, badge-boost verdicts)
   and the 16 measured rolls.
 * **Is not:** `@smogon/calc`, DualDex's `calculateHnsDamage`, `calc_bundle.js` or any Kotlin damage
   code. None of those are imported or executed by the generator. The type tables in
@@ -54,8 +54,10 @@ Two deviations from a stock `make check`, both hashed into the corpus provenance
    `src/` includes are kept). Upstream's damage tests assert English battle messages that H&S changed,
    so they fail on `MESSAGE` matching even though their damage values reproduce.
 
-**Option B (runtime probe) — not needed**, so it was not built. Option A needs no ROM, regenerates the
-whole corpus (1,375 scenarios x 16 rolls = 22,000 battles) and controls every operand directly.
+**Option B (runtime probe) — not needed**, so it was not built. Option A needs no ROM and controls
+every operand directly. After the selected hit, the harness calls pinned `SetTypeBeforeUsingMove`
+again to recapture the exact effective type and `ateBoost`, which battle cleanup clears before the
+test's `THEN` block.
 
 ### Harness boundaries found while building it
 
@@ -106,7 +108,7 @@ minimum roll, 15 the maximum. The generator then verifies, per roll and fail-clo
 
 Any violation aborts regeneration with the scenario ID. Nothing is defaulted or turned into zero.
 
-## Scenario schema (v3)
+## Corpus schema (v5)
 
 Defined and validated by `oracle_schema.py`. Each scenario names only authoritative operands:
 
@@ -123,7 +125,7 @@ Defined and validated by `oracle_schema.py`. Each scenario names only authoritat
 | `expect` | `damage` or `immune` (a declared immunity must remove no HP) |
 
 `observed` (recorded, not chosen): species/ability/item/move IDs, battle types, pinned base stats,
-move type/power/category/target class, `GetMoveTargetCount`, `hpAtHit`, each battler's raw
+effective move type/power/category/target class, explicit `ateBoost`, `GetMoveTargetCount`, `hpAtHit`, each battler's raw
 `BattlePokemon.status1`, and the engine's own `ShouldGetStatBadgeBoost` verdicts per battler.
 
 ## Commands
@@ -184,20 +186,23 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-1,408 of 1,411 scenarios match the shipped calculator on all 16 rolls (1,294 production-modelled and
-117 engine-only). Three exact-vector divergences are registered in
-`known_divergences.json`, each linked to its tracking issue:
+The regenerated issue #91 corpus records the effective type and `ateBoost` for each hit. It has
+**1,439 scenarios: 1,322 production-modelled, 117 engine-only, 1,436 exact calculator matches and
+three registered divergences**. The three pre-existing exact-vector divergences remain registered
+in `known_divergences.json`, each linked to its tracking issue:
 
 | Issue | Surface | Scenarios | Defect |
 |---|---|---:|---|
 | [#100](https://github.com/Sonoran-Solutions/dualdex/issues/100) | engine-only | 2 | Doubles spread reduction misses post-Gen-III spread moves |
-| [#91](https://github.com/Sonoran-Solutions/dualdex/issues/91) | engine-only | 1 | Defender-side Water Bubble Fire reduction remains outside this PR's attacker-only support |
+| [#91](https://github.com/Sonoran-Solutions/dualdex/issues/91) | engine-only | 1 | Defender-side Water Bubble Fire reduction remains unsupported |
 
 The Attack-stat accumulator makes `badge-pinch-overgrow-a255` exact, resolving #98's only registered
 vector. The Guts Physical-category gate makes the burn- and poison-statused Psychic vectors exact,
-resolving #99's two registered vectors. Forty-four Group D scenarios cover the prior 12 Hustle/Guts
-cases and 32 base-power cases for Technician, Iron Fist, Strong Jaw, Mega Launcher, Sharpness, the
-attacker-side Water Bubble branch, Steelworker, Toxic Boost, and Flare Boost. The Toxic Boost toxic
+resolving #99's two registered vectors. The Group D matrix also covers Normalize, Refrigerate,
+Pixilate, Aerilate, Galvanize, and Liquid Voice, including source-set `ateBoost`, Fairy-toggle
+ordering, category changes, STAB, type-chart and Group C interactions, and negative controls. The
+prior Group D scenarios cover Hustle/Guts and base-power cases for Technician, Iron Fist, Strong Jaw,
+Mega Launcher, Sharpness, the attacker-side Water Bubble branch, Steelworker, Toxic Boost, and Flare Boost. The Toxic Boost toxic
 case preserves the live toxic counter in `status1`. The Guts Special active-status control remains
 engine-only because production does not need to model a Guts modifier on a Special move. The
 Toxic Boost Special-plus-poison control is production-modelled: its authoritative Special category

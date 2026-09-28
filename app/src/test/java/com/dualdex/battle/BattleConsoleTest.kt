@@ -1629,7 +1629,7 @@ class BattleConsoleTest {
     }
 
     @Test
-    fun `ability item and mechanic blockers all remain visible together`() {
+    fun `unsupported move remains refused while ability and item limitations are retained`() {
         val sent = mutableListOf<DamageCalculationRequest>()
         val context = hnsContext(
             playerAbilityId = 37,
@@ -1639,14 +1639,12 @@ class BattleConsoleTest {
         )
         val result = buildHnsPresentation(67, context, recordingCalculator(sent)) // Low Kick: weight-based
         assertEquals(DamageConfidence.UNAVAILABLE, result.damageConfidence)
-        assertEquals("3 blockers", result.damageUnavailableReason)
+        assertEquals("Move effect not modelled", result.damageUnavailableReason)
         assertEquals(
-            listOf("You: Huge Power", "You: Choice Band", "Move effect not modelled"),
+            listOf("Move effect not modelled"),
             result.damageBlockers.map { it.detail }
         )
-        assertTrue(result.damageBlockers[0] is DamageBlockerPresentation.Ability)
-        assertTrue(result.damageBlockers[1] is DamageBlockerPresentation.Item)
-        assertTrue(result.damageBlockers[2] is DamageBlockerPresentation.Mechanic)
+        assertTrue(result.damageBlockers[0] is DamageBlockerPresentation.Mechanic)
         assertTrue(result.damageLimitations.containsAll(listOf(
             CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED,
             CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED,

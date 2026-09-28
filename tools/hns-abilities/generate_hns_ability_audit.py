@@ -24,7 +24,7 @@ CONTEXT_CANDIDATES = {
     55, 80, 83, 84, 86, 88, 91, 95, 97, 105, 106, 124, 128, 132, 133, 139, 140, 141,
     146, 152, 153, 154, 155, 160, 167, 168, 172, 192, 195, 201, 202, 215, 221, 222,
     223, 224, 234, 235, 236, 238, 243, 247, 250, 254, 259, 268, 271, 275, 290, 291,
-    220, 264, 265, 270, 308, 89, 96, 101, 137, 138, 173, 174, 178, 182, 184, 199, 200, 204, 206, 292,
+    220, 244, 252, 264, 265, 270, 308, 89, 96, 101, 137, 138, 173, 174, 178, 182, 184, 199, 200, 204, 206, 292,
 }
 POLICY = ROOT / "app/src/main/java/com/dualdex/calculator/HnsAbilityContextPolicy.kt"
 
@@ -126,6 +126,14 @@ def validate_context_rules(upstream, abilities, decisions):
         "water_bubble_attacker_water_move",
         "toxic_boost_physical_poison",
         "flare_boost_special_burn",
+        "punk_rock_attacker_sound_move",
+        "punk_rock_attacker_nonsound_move",
+        "punk_rock_defender_sound_move",
+        "punk_rock_defender_nonsound_move",
+        "steely_spirit_holder_effective_steel_move",
+        "steely_spirit_holder_effective_nonsteel_move",
+        "steely_spirit_defender_singles_irrelevant",
+        "steely_spirit_attacker_partner_deferred",
     }
     if not required <= all_rules:
         raise SystemExit("context rules must retain live-state, type/category, Guts, Hustle, and bypass safety predicates")

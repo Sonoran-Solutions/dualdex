@@ -20,6 +20,8 @@ class HnsAbilityContextPolicyTest {
         moveBasePower: Int? = null,
         moveAbilityFlags: Set<String>? = null,
         unknownMoveAbilityFlags: Set<String>? = null,
+        soundMove: Boolean? = null,
+        moveAuthority: HnsMoveAuthority? = null,
         attackerTypes: Set<PokemonType>? = setOf(PokemonType.GRASS),
         defenderSpeciesId: Int? = 16,
         defenderHp: Int? = 14,
@@ -48,6 +50,7 @@ class HnsAbilityContextPolicyTest {
         moveBasePower = moveBasePower,
         moveAbilityFlags = moveAbilityFlags,
         unknownMoveAbilityFlags = unknownMoveAbilityFlags,
+        soundMove = soundMove,
         attackerTypes = attackerTypes,
         defenderSpeciesId = defenderSpeciesId,
         defenderHp = defenderHp,
@@ -64,7 +67,8 @@ class HnsAbilityContextPolicyTest {
         attackerHp = attackerHp,
         defenderAbilityId = defenderAbilityId,
         weatherWord = weatherWord,
-        switchInEventsSettled = switchInEventsSettled
+        switchInEventsSettled = switchInEventsSettled,
+        moveAuthority = moveAuthority
     )
 
     private fun relevance(id: Int, context: HnsAbilityContextPolicy.Context?) =
@@ -218,6 +222,75 @@ class HnsAbilityContextPolicyTest {
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             bp(138, context(moveCategory = MoveCategory.PHYSICAL, attackerStatus1 = null)))
     }
+
+    @Test
+    fun `Punk Rock consumes the authoritative sound fact on both sides`() {
+        assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(244).category)
+        fun punk(side: HnsAbilitySide, sound: Boolean?, authority: HnsMoveAuthority? = null) =
+            HnsAbilityContextPolicy.assess(244, context(
+                side = side,
+                soundMove = sound,
+                moveAuthority = authority
+            )).relevance
+
+        // This helper defaults to Physical category; Punk Rock follows IsSoundMove alone.
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, punk(HnsAbilitySide.ATTACKER, true))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, punk(HnsAbilitySide.ATTACKER, false))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN, punk(HnsAbilitySide.ATTACKER, null))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, punk(HnsAbilitySide.DEFENDER, true))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, punk(HnsAbilitySide.DEFENDER, false))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN, punk(HnsAbilitySide.DEFENDER, null))
+        assertEquals("an unknown authority overrides an asserted sound flag",
+            HnsAbilityRequestRelevance.UNKNOWN,
+            punk(HnsAbilitySide.ATTACKER, true, HnsMoveAuthority.NONE))
+        assertEquals("the move authority wins over a conflicting direct context field",
+            HnsAbilityRequestRelevance.RELEVANT,
+            punk(HnsAbilitySide.ATTACKER, false,
+                contextMoveAuthority(PokemonType.NORMAL, soundMove = true)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(244, context(ordinaryMove = false, soundMove = true)))
+    }
+
+    @Test
+    fun `Steely Spirit uses final effective type and leaves its partner branch deferred`() {
+        assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(252).category)
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(252, context(moveType = PokemonType.STEEL)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(252, context(moveType = PokemonType.NORMAL)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(252, context(moveType = null, dynamicMoveTypeKnownNeutral = false)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(252, context(side = HnsAbilitySide.DEFENDER, moveType = null)))
+
+        val rewrittenFromSteel = HnsMoveAuthority(
+            sourceType = PokemonType.STEEL,
+            preFieldType = PokemonType.STEEL,
+            effectiveType = PokemonType.ELECTRIC,
+            category = MoveCategory.SPECIAL,
+            abilityRewriteOutcome = HnsAbilityTypeRewriteOutcome.NOT_USED,
+            ateBoost = false,
+            soundMove = false
+        )
+        assertEquals("a known post-field Electric type cannot use a static Steel source type",
+            HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(252, context(moveType = PokemonType.STEEL, moveAuthority = rewrittenFromSteel)))
+        assertEquals("an unknown final type cannot use the static Steel source type",
+            HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(252, context(moveType = PokemonType.STEEL, moveAuthority = HnsMoveAuthority.NONE)))
+    }
+
+    private fun contextMoveAuthority(type: PokemonType, soundMove: Boolean) = HnsMoveAuthority(
+        sourceType = type,
+        preFieldType = type,
+        effectiveType = type,
+        category = MoveCategory.PHYSICAL,
+        abilityRewriteOutcome = HnsAbilityTypeRewriteOutcome.NOT_USED,
+        ateBoost = false,
+        soundMove = soundMove
+    )
 
     @Test
     fun `move flag facts are rebound from exact pinned move name rather than request data`() {

@@ -1113,23 +1113,23 @@ object HnsCalcCensusReport {
                 "detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.\n\n"
         )
 
-        out.append("## Issue #91 move-type slice comparison\n\n")
+        out.append("## Issue #91 Punk Rock / Steely Spirit slice comparison\n\n")
         out.append(
-            "This fixed comparison records the move-type ability slice against starting `main` " +
-                "at `0c32d156c26bcfdb564382b02593b3176d2a219f` (after #105). Both censuses cover " +
+            "This fixed comparison records the Punk Rock / Steely Spirit slice against starting " +
+                "`main` at `3dfb68d4ed2e7e5ce63f5430b73cac1e63293921` (after #106). Both censuses cover " +
                 "the same 24,278 eligible damaging requests across 651 trainer battles.\n\n"
         )
         out.append("| Metric | Starting main | This slice | Change |\n|---|---:|---:|---:|\n")
-        out.append("| `FULLY_MODELLED` requests | 18,676 | 18,696 | +20 |\n")
-        out.append("| `CAVEATED_ESTIMATE` requests | 372 | 374 | +2 |\n")
-        out.append("| `REFUSED` requests | 5,230 | 5,208 | -22 |\n")
+        out.append("| `FULLY_MODELLED` requests | 18,696 | 18,720 | +24 |\n")
+        out.append("| `CAVEATED_ESTIMATE` requests | 374 | 376 | +2 |\n")
+        out.append("| `REFUSED` requests | 5,208 | 5,182 | -26 |\n")
         out.append("| Fully displaying lead matchups | 370 / 1,302 | 370 / 1,302 | unchanged |\n")
-        out.append("| Displayable requests in lead matchups | 6,642 | 6,652 | +10 |\n")
+        out.append("| Displayable requests in lead matchups | 6,652 | 6,652 | unchanged |\n")
         out.append(
-            "| Newly displayable trainer requests | 0 | 22 | +22: 20 fully modelled, 2 caveated |\n"
+            "| Newly displayable trainer requests | 0 | 26 | +26: 24 fully modelled, 2 caveated |\n"
         )
         out.append(
-            "| Battles gaining a newly displayable request | 0 / 651 | 2 / 651 | TRAINER_BROCK_POSTOBC_HNS: 12; TRAINER_SHIZUKO_HNS: 10 |\n"
+            "| Battles gaining a newly displayable request | 0 / 651 | 2 / 651 | TRAINER_JASMINE_POSTOBC_HNS: 12; TRAINER_WESSEL_HNS: 14 |\n"
         )
         out.append(
             "| `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 battles / 3,578 requests | 557 / 3,578 | unchanged |\n"
@@ -1138,27 +1138,29 @@ object HnsCalcCensusReport {
             "| `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 / 152 | 68 / 152 | unchanged |\n"
         )
         out.append(
-            "| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 224 / 1,920 | 222 / 1,890 | -2 battles / -30 requests |\n"
+            "| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 222 battles / 1,890 requests | 222 / 1,862 | unchanged battles / -28 requests |\n"
         )
         out.append(
-            "| `HNS_ITEM_EFFECT_NOT_MODELLED` | 96 / 552 | 94 / 536 | -2 / -16 |\n"
-        )
-        out.append(
-            "| `HNS_ABILITY_CONDITION_UNVERIFIED` | 42 / 154 | 76 / 266 | +34 / +112 |\n\n"
+            "| `HNS_ABILITY_CONDITION_UNVERIFIED` | 76 / 266 | 77 / 268 | +1 battle / +2 requests |\n\n"
         )
         out.append(
             "The current ten highest-ranked blockers are `HNS_MOVE_MECHANICS_NOT_MODELLED` " +
                 "(557 battles / 3,578 requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` " +
                 "(68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218), Swift Swim " +
-                "(38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm " +
-                "(28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70). Swarm replaces " +
-                "Guts in the first ten.\n\n"
+            "(38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm " +
+                "(28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70). The top ten are " +
+                "unchanged from starting main.\n\n"
         )
         out.append(
-            "Random Abilities weighted request trials changed from 1,596,980 refused / " +
-                "19,529 caveated / 2,161,151 clear to 1,523,864 / 19,529 / 2,234,267. " +
-                "Identities with at least one refusal changed from 191 to 185; identities with " +
-                "a caveated context remained 5; clear-only identities changed from 116 to 122. " +
+            "Random Abilities weighted request trials changed from 1,523,864 refused / " +
+                "19,529 caveated / 2,234,267 clear to 1,503,008 / 19,529 / 2,255,123. " +
+                "Identities with at least one refusal remained 185; identities with a caveated " +
+                "context remained 5; clear-only identities remained 122. Punk Rock and Steely " +
+                "Spirit each changed from 12,186 refused / 0 caveated / 0 clear trials to 1,758 / " +
+                "0 / 10,428. The trainer inventory has no Punk Rock holders. Its two Steely " +
+                "Spirit holders are Perrserker in the Wessel and Jasmine parties; their trainer " +
+                "blockers fell from 28 weighted requests to two nonordinary Gyro Ball attacker " +
+                "requests still refused as condition-unverified. " +
                 "Ambiguous opposite-ability contexts excluded remain 16,974 attacker-side and " +
                 "19,396 defender-side requests.\n\n"
         )

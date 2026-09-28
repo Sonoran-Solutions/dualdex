@@ -9,6 +9,7 @@ import com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry
 /** Request-local integrity gates for the Group C immunity layer. */
 internal object HnsGroupCPolicy {
     private const val SOUNDPROOF = 43
+    private const val PUNK_ROCK = 244
     private const val BULLETPROOF = 171
     private const val WIND_RIDER = 274
     private val priorityBlockers = setOf(214, 219, 296)
@@ -55,12 +56,13 @@ internal object HnsGroupCPolicy {
         return priority
     }
 
-    /** Return hard blockers where missing move metadata or Mold Breaker would hide an immunity. */
+    /** Return hard blockers where missing move metadata or Mold Breaker would hide a target effect. */
     fun integrityLimitations(request: DamageCalculationRequest): Set<CalcLimitation> {
         if (request.typeSystem != "hns_2_0_5") return emptySet()
         val move = HeartAndSoul205DataPack.getMoveByName(request.move.name) ?: return emptySet()
         val moveId = move.id
-        val moveType = HnsMoveAuthority.forRequest(request, ordinaryDamageMove(moveId)).effectiveType ?: return emptySet()
+        val moveAuthority = HnsMoveAuthority.forRequest(request, ordinaryDamageMove(moveId))
+        val moveType = moveAuthority.effectiveType ?: return emptySet()
         val defenderAbility = abilityId(request.defender)
         val attackerAbility = abilityId(request.attacker)
         val defenderItem = itemId(request.defender)
@@ -75,7 +77,12 @@ internal object HnsGroupCPolicy {
             WIND_RIDER -> "windMove"
             else -> null
         }
-        if (matchingFlag != null && matchingFlag in unknownFlags && matchingFlag !in flags) {
+        if (defenderAbility == SOUNDPROOF && moveAuthority.soundMove == null) {
+            return setOf(CalcLimitation.HNS_IMMUNITY_CONTEXT_UNVERIFIED)
+        }
+        if (matchingFlag != null && matchingFlag != "soundMove" &&
+            matchingFlag in unknownFlags && matchingFlag !in flags
+        ) {
             return setOf(CalcLimitation.HNS_IMMUNITY_CONTEXT_UNVERIFIED)
         }
 
@@ -90,7 +97,9 @@ internal object HnsGroupCPolicy {
 
         val moveFlagModelsSuppression = "ignoresTargetAbility" in flags && defenderItem != abilityShieldItem
         if (attackerAbility in moldBreakerFamilies && defenderAbility != null && !moveFlagModelsSuppression &&
-            defenderAbilityWouldChangeHit(request, defenderAbility, moveType, flags, defenderItem) &&
+            defenderAbilityWouldChangeHit(
+                request, defenderAbility, moveType, flags, moveAuthority.soundMove, defenderItem
+            ) &&
             defenderItem != abilityShieldItem
         ) {
             return setOf(CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED)
@@ -103,6 +112,7 @@ internal object HnsGroupCPolicy {
         abilityId: Int,
         moveType: PokemonType,
         flags: Set<String>,
+        soundMove: Boolean?,
         defenderItemId: Int?
     ): Boolean {
         // A suppressed ability cannot change a hit that the pinned type chart already
@@ -117,7 +127,8 @@ internal object HnsGroupCPolicy {
             273, 18 -> moveType == PokemonType.FIRE
             26 -> moveType == PokemonType.GROUND && defenderItemId != ironBallItem
             25 -> typeEffectiveness(request, moveType)?.let { it <= 1.0 } ?: true
-            SOUNDPROOF -> "soundMove" in flags
+            SOUNDPROOF -> soundMove == true
+            PUNK_ROCK -> soundMove == true
             BULLETPROOF -> "ballisticMove" in flags
             WIND_RIDER -> "windMove" in flags
             in priorityBlockers -> effectivePriority(

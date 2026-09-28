@@ -17,14 +17,15 @@ internal object HnsGroupCPolicy {
     private val moldBreakerFamilies = moldBreakerAbilityIds
     internal const val ABILITY_SHIELD_ITEM_ID = 758
     private const val abilityShieldItem = ABILITY_SHIELD_ITEM_ID
-    // Pinned abilities.h breakable flags; Filter/Solid Rock/Multiscale/Ice Scales can be
+    // Pinned abilities.h breakable flags for supported defender damage branches; Heatproof,
+    // Water Bubble, Dry Skin, Filter, Solid Rock, Multiscale, Punk Rock, and Ice Scales can be
     // suppressed, while Prism Armor/Shadow Shield remain effective through Mold Breaker.
     // Audit witnesses: filter_mold_breaker_unshielded, solid_rock_mold_breaker_unshielded,
     // multiscale_mold_breaker_unshielded, ice_scales_mold_breaker_unshielded,
     // prism_armor_mold_breaker_preserves, shadow_shield_mold_breaker_preserves,
     // filter_ability_shield_preserves, solid_rock_ability_shield_preserves,
     // multiscale_ability_shield_preserves, ice_scales_ability_shield_preserves.
-    private val finalModifierAbilitiesBreakableByMoldBreaker = setOf(111, 116, 136, 246)
+    private val defenderDamageAbilitiesBreakableByMoldBreaker = setOf(85, 87, 111, 116, 136, 199, 244, 246)
     private val finalModifierAbilitiesNotBreakableByMoldBreaker = setOf(231, 232)
     private const val ironBallItem = 484
     private const val ringTargetItem = 499
@@ -107,7 +108,7 @@ internal object HnsGroupCPolicy {
 
         val moveFlagModelsSuppression = "ignoresTargetAbility" in flags && defenderItem != abilityShieldItem
         val defenderFinalAbilityIsPinnedUnbreakable = defenderAbility in finalModifierAbilitiesNotBreakableByMoldBreaker
-        val defenderFinalAbilityIsPinnedBreakable = defenderAbility in finalModifierAbilitiesBreakableByMoldBreaker
+        val defenderFinalAbilityIsPinnedBreakable = defenderAbility in defenderDamageAbilitiesBreakableByMoldBreaker
         if (attackerAbility in moldBreakerFamilies && defenderAbility != null && !moveFlagModelsSuppression &&
             defenderAbilityWouldChangeHit(
                 request, defenderAbility, moveType, flags, moveAuthority.soundMove, defenderItem
@@ -134,7 +135,9 @@ internal object HnsGroupCPolicy {
         if (typeEffectiveness(request, moveType) == 0.0) return false
         val typeMatch = when (abilityId) {
             10, 31, 78 -> moveType == PokemonType.ELECTRIC
-            11, 114, 87 -> moveType == PokemonType.WATER || (abilityId == 87 && moveType == PokemonType.FIRE)
+            11, 114 -> moveType == PokemonType.WATER
+            87 -> moveType == PokemonType.WATER || moveType == PokemonType.FIRE
+            85, 199 -> moveType == PokemonType.FIRE
             157 -> moveType == PokemonType.GRASS
             297 -> moveType == PokemonType.GROUND
             273, 18 -> moveType == PokemonType.FIRE

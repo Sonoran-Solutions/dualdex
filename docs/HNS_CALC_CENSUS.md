@@ -208,7 +208,7 @@ Under Random Abilities any of the pinned domain's 310 abilities can be installed
 
 Counts are weighted by the cohort's eligible requests; battle counts de-duplicate trainer battles within each disposition. Refusals are attributed only to the exact ability entry in production's blocker list, while caveats use its ignored-mechanic list. Thus an unsupported move can refuse a request without making a caveatable ability look like a blocker. *Rules* lists the reviewed contextual rules that fired.
 
-**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1414310 request trials as refused, 16820 as caveated, and 2346530 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
+**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1403628 request trials as refused, 16820 as caveated, and 2357212 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
 
 ### Abilities that cause refusals
 
@@ -224,13 +224,13 @@ Counts are weighted by the cohort's eligible requests; battle counts de-duplicat
 | 6 | Air Lock | attacker | Physical | 482 | 4565 | - |
 | 7 | Rivalry | attacker | Physical | 482 | 4565 | - |
 | 8 | Gluttony | attacker | Physical | 482 | 4565 | - |
-| 9 | Heatproof | attacker | Physical | 482 | 4565 | - |
-| 10 | Skill Link | attacker | Physical | 482 | 4565 | - |
-| 11 | Solar Power | attacker | Physical | 482 | 4565 | - |
-| 12 | Stall | attacker | Physical | 482 | 4565 | - |
-| 13 | Klutz | attacker | Physical | 482 | 4565 | - |
-| 14 | Unaware | attacker | Physical | 482 | 4565 | - |
-| 15 | Slow Start | attacker | Physical | 482 | 4565 | - |
+| 9 | Skill Link | attacker | Physical | 482 | 4565 | - |
+| 10 | Solar Power | attacker | Physical | 482 | 4565 | - |
+| 11 | Stall | attacker | Physical | 482 | 4565 | - |
+| 12 | Klutz | attacker | Physical | 482 | 4565 | - |
+| 13 | Unaware | attacker | Physical | 482 | 4565 | - |
+| 14 | Slow Start | attacker | Physical | 482 | 4565 | - |
+| 15 | Scrappy | attacker | Physical | 482 | 4565 | - |
 
 (The full ranked table, one row per ability per side per category, is `abilityRefusals` in `census.json`.)
 
@@ -280,6 +280,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Liquid Ooze | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Shell Armor | 4 | 2 | 0 | attacker_critical_hit_armor, defender_armor_fixed_noncritical_hit |
 | Unburden | 4 | 2 | 0 | speed_ability_without_analytic |
+| Heatproof | 4 | 2 | 0 | heatproof_attacker_direct_hit_irrelevant, heatproof_defender_fire_move |
 | Adaptability | 4 | 2 | 0 | adaptability_stab_operands_unknown, defender_adaptability_does_not_boost_incoming_damage |
 | Quick Feet | 4 | 2 | 0 | speed_ability_without_analytic |
 | Super Luck | 4 | 2 | 0 | fixed_crit_stage_only |
@@ -292,7 +293,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Mummy | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Iron Barbs | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Cheek Pouch | 4 | 2 | 0 | berry_recovery_outside_single_hit |
-| Water Bubble | 4 | 2 | 0 | water_bubble_attacker_nonwater_move, water_bubble_defender_nonfire_move |
+| Water Bubble | 4 | 2 | 0 | water_bubble_attacker_nonwater_move, water_bubble_defender_fire_move |
 | Slush Rush | 4 | 2 | 0 | speed_ability_without_analytic |
 | Innards Out | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Tangling Hair | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
@@ -359,49 +360,42 @@ The same ability can be clear, caveated, or refused on different sides and in di
 
 | Side | Category | Refusing abilities | Requests refused (max) | Caveated abilities | Requests caveated (max) |
 |---|---|---:|---:|---:|---:|
-| attacker | Physical | 141 | 4565 | 3 | 4565 |
-| attacker | Special | 141 | 2739 | 1 | 2739 |
+| attacker | Physical | 140 | 4565 | 3 | 4565 |
+| attacker | Special | 140 | 2739 | 1 | 2739 |
 | defender | Physical | 181 | 3034 | 1 | 110 |
 | defender | Special | 181 | 1848 | 1 | 276 |
 
-Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 572 rows, `RELEVANT` in 40 rows and `UNKNOWN` in 628 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
+Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 574 rows, `RELEVANT` in 44 rows and `UNKNOWN` in 622 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
 
-## Issue #91 Group D final-modifier slice comparison
+## Issue #91 defender Fire base-power slice comparison
 
-This fixed comparison records the Group D final-modifier slice against starting `main` at `69d5eab757b7ca56e76b6c98369c17ea5eb8c99e` (after #108). Both censuses cover the same 24,278 eligible damaging requests across 651 trainer battles.
+This fixed comparison records the defender Water Bubble / Heatproof base-power slice against starting `main` at `bc4aff798414c771c06de290481bda17d0aebb2f` (after #109). Both censuses cover the same 24,278 eligible damaging requests across 651 trainer battles.
 
 | Metric | Starting main | This slice | Change |
 |---|---:|---:|---:|
-| `FULLY_MODELLED` requests | 18,720 | 18,790 | +70 |
-| `CAVEATED_ESTIMATE` requests | 376 | 370 | -6 |
-| `REFUSED` requests | 5,182 | 5,118 | -64 |
-| Fully displaying lead matchups | 370 / 1,302 | 372 / 1,302 | +2 pairs |
-| Displayable requests in lead matchups | 6,652 | 6,676 | +24 |
-| Newly displayable trainer requests | 0 | 64 | +64; all fully modelled |
-| Battles gaining a newly displayable request | 0 / 651 | 5 / 651 | Clair: 16; Falkner: 14; Lance: 14; Blaine: 10; Blue: 10 |
+| `FULLY_MODELLED` requests | 18,790 | 18,790 | unchanged |
+| `CAVEATED_ESTIMATE` requests | 370 | 370 | unchanged |
+| `REFUSED` requests | 5,118 | 5,118 | unchanged |
+| Fully displaying lead matchups | 372 / 1,302 | 372 / 1,302 | unchanged |
+| Displayable requests in lead matchups | 6,676 | 6,676 | unchanged |
+| Newly displayable trainer requests | 0 | 0 | unchanged |
+| Battles gaining a newly displayable request | 0 / 651 | 0 / 651 | none; no trainer holds Water Bubble or Heatproof |
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 battles / 3,578 requests | 557 / 3,578 | unchanged |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 / 152 | 68 / 152 | unchanged |
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 222 battles / 1,862 requests | 221 / 1,786 | -1 battle / -76 requests |
-| `HNS_ABILITY_CONDITION_UNVERIFIED` | 77 / 268 | 80 / 276 | +3 battles / +8 requests |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 221 battles / 1,786 requests | 221 / 1,786 | unchanged |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` | 80 battles / 276 requests | 80 / 276 | unchanged |
 
-The current ten highest-ranked blockers remain `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578 requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218), Swift Swim (38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm (28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70).
+The ten highest-ranked blockers are unchanged: `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578 requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218), Swift Swim (38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm (28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70).
 
-Random Abilities weighted request trials changed from 1,503,008 refused / 19,529 caveated / 2,255,123 clear to 1,414,310 / 16,820 / 2,346,530. Identities with at least one refusal changed from 185 to 182; identities with a caveated context from 5 to 4; clear-only identities from 122 to 125. Ambiguous opposite-ability contexts excluded remain 16,974 attacker-side and 19,396 defender-side requests.
+Random Abilities weighted request trials changed from 1,414,310 refused / 16,820 caveated / 2,346,530 clear to 1,403,628 / 16,820 / 2,357,212. Identities with at least one refusal remain 182; identities with a caveated context remain 4; clear-only identities remain 125. Ambiguous opposite-ability contexts remain 16,974 attacker-side and 19,396 defender-side requests.
 
 | Ability | Trainer holders | Trainer request change | Random Abilities refused / caveated / clear, before → after |
 |---|---:|---|---|
-| Adaptability | 3 Porygon-Z | 6 caveated → fully modelled | 80 / 2,709 / 9,397 → 80 / 0 / 12,106 |
-| Tinted Lens | 1 Noctowl | 14 refused → fully modelled | 12,186 / 0 / 0 → 0 / 0 / 12,186 |
-| Sniper | 6 Pokémon | 8 refusals narrowed to unknown-crit condition; still refused | 1,758 / 0 / 10,428 → 0 / 0 / 12,186 |
-| Neuroforce | 0 | No trainer holders | 12,186 / 0 / 0 → 0 / 0 / 12,186 |
-| Filter | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
-| Solid Rock | 2 | 20 refused → fully modelled; 4 still refused by other limits | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
-| Prism Armor | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
-| Multiscale | 2 Dragonite | 30 refused → fully modelled | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
-| Shadow Shield | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
-| Ice Scales | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
+| Water Bubble | 0 | No trainer holders | 2,012 / 0 / 10,174 → 1,758 / 0 / 10,428 |
+| Heatproof | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
+| Dry Skin (control) | 1 Jynx | No newly displayable trainer requests | 0 / 0 / 12,186 → 0 / 0 / 12,186 |
 
-For Random Abilities, Filter / Solid Rock / Prism Armor remain refused in 1,758 trials where effectiveness is unknown; Multiscale / Shadow Shield have 1,758 trials with unknown live HP; and Ice Scales has 1,758 Special-category trials with unknown final category. The remaining 10,428 trials for each ability prove it irrelevant. Trainer counts use actual holders in the pinned party source. Newly displayable counts are request-level refused-to-modelled transitions; the two fully displayable lead pairs are Falkner's physical and special reference matchups.
+Heatproof's attacker requests are irrelevant to the selected outgoing hit; defender requests use the authoritative final type, with Fire relevant and known non-Fire irrelevant. Water Bubble's attacker Water branch was already modelled; this slice clears its defender Fire requests. Trainer holder counts use the pinned party source. The 1,758 refusals remaining for each ability come from independent limitations. Because no trainer carries Water Bubble or Heatproof, these changes affect Random Abilities trials but add no displayable trainer request or matchup. Water Bubble burn prevention/status clearing remains separately deferred.
 
 ## Provenance and reproduction
 

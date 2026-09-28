@@ -344,7 +344,8 @@ const HNS_STAT_STAGE_RATIOS = [
 ];
 
 const HNS_MOLD_BREAKER_FAMILY = new Set(['Mold Breaker', 'Teravolt', 'Turboblaze']);
-const HNS_BREAKABLE_FINAL_DEFENDER_ABILITIES = new Set([
+const HNS_BREAKABLE_DEFENDER_ABILITIES = new Set([
+  'Heatproof', 'Water Bubble', 'Dry Skin',
   'Filter', 'Solid Rock', 'Multiscale', 'Ice Scales', 'Punk Rock'
 ]);
 
@@ -378,10 +379,14 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const defenderAbility = defender.ability || '';
   const moveFlags = new Set(input.move?.hnsMoveFlags || []);
   const ignoresTargetAbility = moveFlags.has('ignoresTargetAbility');
-  // Move-level ability bypass enters the same Mold Breaker path as an attacker ability. The
-  // pinned GetBattlerAbilityInternal() checks Ability Shield before CanBreakThroughAbility(),
-  // so the move flag does not suppress a shielded target ability.
-  const bypassTargetAbility = ignoresTargetAbility && !defenderHasAbilityShield;
+  // Resolve target ability suppression once for every source-backed target branch. The pinned
+  // GetBattlerAbilityInternal() checks Ability Shield before either bypass. Mold Breaker-family
+  // suppression additionally requires the defender's pinned breakable flag; a move-level
+  // ignoresTargetAbility flag bypasses the target ability directly.
+  const defenderAbilitySuppressed = !defenderHasAbilityShield &&
+    (ignoresTargetAbility || (HNS_MOLD_BREAKER_FAMILY.has(attacker.ability) &&
+      HNS_BREAKABLE_DEFENDER_ABILITIES.has(defenderAbility)));
+  const bypassTargetAbility = defenderAbilitySuppressed;
   const hnsDamagingMove = move.category !== 'Status' && move.bp > 0;
   if (hnsDamagingMove && typeEffectiveness === 0) {
     addImmunity('type', 'src/data/types_info.h', 'type-chart');
@@ -647,11 +652,16 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     default:
       break;
   }
-  // H&S combines base-power UQ4.12 modifiers before applying the product to base power. In
-  // particular, the modifier product is composed with uq4_12_multiply (half-up), including
-  // Dry Skin, Wise Glasses, and the newly modelled attacker ability stage.
-  if (!bypassTargetAbility && defenderAbility === 'Dry Skin' && effectiveMoveType === 'Fire') {
-    basePowerModifier.add(5120);
+  // CalcMoveBasePowerAfterModifiers target-ability slot follows attacker, field, and partner
+  // abilities and precedes held items. Compose it into the same half-up product before applying
+  // the completed product once to integer base power.
+  if (!bypassTargetAbility) {
+    if ((defenderAbility === 'Heatproof' || defenderAbility === 'Water Bubble') &&
+        effectiveMoveType === 'Fire') {
+      basePowerModifier.add(2048);
+    } else if (defenderAbility === 'Dry Skin' && effectiveMoveType === 'Fire') {
+      basePowerModifier.add(5120);
+    }
   }
   const item = (input.attacker?.item || attacker.item || '').toLowerCase();
   const typeBoostType = HNS_TYPE_POWER_ITEMS[item];
@@ -755,9 +765,6 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       break;
   }
 
-  const defenderAbilitySuppressed = !defenderHasAbilityShield &&
-    (HNS_MOLD_BREAKER_FAMILY.has(attacker.ability) || moveFlags.has('ignoresTargetAbility')) &&
-    HNS_BREAKABLE_FINAL_DEFENDER_ABILITIES.has(defender.ability);
   const defenderFinalAbility = defenderAbilitySuppressed ? '' : defender.ability;
   let defenderAbilityFinalModifier = HNS_UQ4_12_ONE;
   switch (defenderFinalAbility) {

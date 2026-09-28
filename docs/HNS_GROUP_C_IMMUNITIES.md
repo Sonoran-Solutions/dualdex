@@ -17,7 +17,7 @@ type and flag matches. An immunity is a successful hit result with sixteen zero 
 | Lightning Rod (31) | Electric move | `src/battle_util.c:2461-2464` |
 | Water Absorb (11), Dry Skin (87) | Water move | `src/battle_util.c:2448-2451` |
 | Storm Drain (114) | Water move | `src/battle_util.c:2465-2468` |
-| Dry Skin (87) | Fire damage against the holder is increased by 1.25 | `src/battle_util.c:6796` |
+| Dry Skin (87) | The separate defender Fire move base-power modifier is ×1.25 in the target-ability BP slot | `src/battle_util.c:6796-6798` |
 | Sap Sipper (157) | Grass move | `src/battle_util.c:2469-2472` |
 | Earth Eater (297) | Ground move | `src/battle_util.c:2453-2456` |
 | Well-Baked Body (273) | Fire move | `src/battle_util.c:2473-2476` |

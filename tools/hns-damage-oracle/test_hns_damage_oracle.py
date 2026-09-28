@@ -121,26 +121,41 @@ class ScenarioSchemaTest(unittest.TestCase):
         self.assertEqual(by_id["group-d-guts-poison-physical"]["attacker"]["status"], "poison")
         self.assertEqual(by_id["group-d-guts-physical-no-status-control"]["attacker"]["status"], "none")
 
-    def test_group_d_base_power_matrix_covers_source_predicates_and_deferred_water_bubble(self):
+    def test_group_d_base_power_matrix_covers_source_predicates_water_bubble_and_heatproof(self):
         by_id = {s["id"]: s for s in SCENARIOS}
         expected = {
             "group-d-technician-ember", "group-d-technician-swift", "group-d-technician-sludge",
             "group-d-technician-wise-glasses-dry-skin", "group-d-iron-fist-fire-punch",
             "group-d-strong-jaw-bite", "group-d-mega-launcher-aura-sphere",
             "group-d-sharpness-leaf-blade", "group-d-water-bubble-attacker-waterfall",
+            "group-d-water-bubble-defender-fire-deferred", "group-d-water-bubble-defender-fire-blast",
+            "group-d-water-bubble-defender-nonfire-control",
+            "group-d-water-bubble-defender-iron-fist-composition",
+            "group-d-water-bubble-defender-wise-glasses-rounding",
+            "group-d-water-bubble-defender-ability-shield-mold-breaker",
+            "group-d-heatproof-defender-fire-punch", "group-d-heatproof-defender-fire-blast",
+            "group-d-heatproof-defender-nonfire-control", "group-d-heatproof-attacker-fire-control",
+            "group-d-heatproof-defender-ability-shield-mold-breaker",
+            "group-d-dry-skin-defender-fire-control",
             "group-d-steelworker-iron-head", "group-d-toxic-boost-physical-poison",
             "group-d-toxic-boost-physical-toxic", "group-d-toxic-boost-special-poison-control",
             "group-d-flare-boost-special-burn",
         }
         self.assertTrue(expected.issubset(by_id))
         self.assertTrue(all(by_id[sid]["surface"] == "modelled" for sid in expected))
+        engine_only = {
+            "group-d-water-bubble-defender-mold-breaker-unshielded",
+            "group-d-heatproof-defender-mold-breaker-unshielded",
+        }
+        self.assertTrue(engine_only.issubset(by_id))
+        self.assertTrue(all(by_id[sid]["surface"] == "engine-only" for sid in engine_only))
         self.assertEqual(by_id["group-d-technician-ember"]["move"]["label"], "Ember")
         self.assertEqual(by_id["group-d-technician-swift"]["move"]["label"], "Swift")
         self.assertEqual(by_id["group-d-technician-sludge"]["move"]["label"], "Sludge")
         self.assertEqual(by_id["group-d-toxic-boost-physical-toxic"]["attacker"]["status"], "toxic")
         self.assertEqual(by_id["group-d-toxic-boost-special-poison-control"]["move"]["label"], "Psychic")
         self.assertEqual(by_id["group-d-toxic-boost-special-poison-control"]["attacker"]["status"], "poison")
-        self.assertEqual(by_id["group-d-water-bubble-defender-fire-deferred"]["surface"], "engine-only")
+        self.assertEqual(by_id["group-d-water-bubble-defender-wise-glasses-rounding"]["move"]["label"], "Fire Blast")
 
     def test_group_d_punk_rock_and_steely_spirit_matrix(self):
         by_id = {s["id"]: s for s in SCENARIOS}
@@ -616,7 +631,6 @@ class CommittedCorpusTest(unittest.TestCase):
             {
                 "doubles-dazzling-gleam-partner-present",
                 "doubles-dazzling-gleam-partner-present-crit",
-                "group-d-water-bubble-defender-fire-deferred",
             },
         )
         # The two pre-existing #100 records are deliberately unchanged by this #91 slice.

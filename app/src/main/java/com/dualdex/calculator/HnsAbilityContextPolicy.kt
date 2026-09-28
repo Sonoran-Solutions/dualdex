@@ -63,7 +63,7 @@ object HnsAbilityContextPolicy {
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
         55, 62, // Hustle / Guts, Group D Attack stage
         89, 91, 96, 97, 101, 110, 111, 116, 136, 137, 138, 173, 174, 178, 182, 184,
-        199, 200, 204, 206, 231, 232, 233, 244, 246, 252, 292
+        85, 199, 200, 204, 206, 231, 232, 233, 244, 246, 252, 292
         // Normalize / -ate / Liquid Voice, Group D move-type and base-power stage
     )
 
@@ -119,8 +119,6 @@ object HnsAbilityContextPolicy {
     private val MOVE_TIME_TYPE_REWRITER_IDS = setOf(168, 236) // Protean / Libero
     private val LIVE_ABILITY_REWRITER_IDS = setOf(36, 222, 223) // Trace / Receiver / Power of Alchemy
     private val WEATHER_SUPPRESSOR_IDS = setOf(13, 76) // Cloud Nine / Air Lock
-    private const val WATER_BUBBLE_DEFENDER_FIRE_DEFERRED_RULE = "water_bubble_defender_fire_branch_deferred"
-
     fun assess(abilityId: Int, context: Context?): HnsAbilityRequestDecision {
         val entry = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(abilityId)
         val side = context?.side ?: HnsAbilitySide.ATTACKER
@@ -308,15 +306,34 @@ object HnsAbilityContextPolicy {
                     "The authoritative ordinary move power entering the ability stage exceeds 60, so Technician does not modify this hit."
                 )
             }
-            199 -> when {
-                c.side == HnsAbilitySide.DEFENDER && c.ordinaryMove == true &&
-                    c.dynamicMoveTypeKnownNeutral && c.moveType != null && c.moveType != PokemonType.FIRE -> proof(
-                    "water_bubble_defender_nonfire_move", "src/battle_util.c:6788",
-                    "The unmodeled defender-side Water Bubble damage reduction applies only to Fire moves; this authoritative non-Fire move is outside that branch."
+            85 -> when {
+                c.ordinaryMove != true -> null
+                c.side == HnsAbilitySide.ATTACKER -> proof(
+                    "heatproof_attacker_direct_hit_irrelevant", "src/battle_util.c:6785",
+                    "CalcMoveBasePowerAfterModifiers switches on abilityDef, so attacker Heatproof has no selected outgoing direct-hit modifier; burn residual damage is outside this result."
                 )
-                c.side == HnsAbilitySide.DEFENDER -> null // $WATER_BUBBLE_DEFENDER_FIRE_DEFERRED_RULE remains UNKNOWN.
-                c.ordinaryMove != true || !c.dynamicMoveTypeKnownNeutral || c.moveType == null -> null
-                c.moveType == PokemonType.WATER -> relevant(
+                effectiveMoveType(c) == null -> null
+                effectiveMoveType(c) == PokemonType.FIRE -> relevant(
+                    "heatproof_defender_fire_move", "src/battle_util.c:6787",
+                    "A defender Heatproof and authoritative final Fire move use the pinned 0.5 base-power modifier; other burn and residual behavior remains outside this selected-hit result."
+                )
+                else -> proof(
+                    "heatproof_defender_nonfire_move", "src/battle_util.c:6789",
+                    "The final authoritative move type is not Fire, so the defender Heatproof base-power branch is inactive."
+                )
+            }
+            199 -> when {
+                c.ordinaryMove != true -> null
+                effectiveMoveType(c) == null -> null
+                c.side == HnsAbilitySide.DEFENDER && effectiveMoveType(c) == PokemonType.FIRE -> relevant(
+                    "water_bubble_defender_fire_move", "src/battle_util.c:6788",
+                    "A defender Water Bubble and authoritative final Fire move use the pinned 0.5 base-power modifier; burn prevention and status clearing remain separately deferred."
+                )
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "water_bubble_defender_nonfire_move", "src/battle_util.c:6789",
+                    "The final authoritative move type is not Fire, so the defender Water Bubble base-power branch is inactive; burn prevention and status clearing remain separately deferred."
+                )
+                effectiveMoveType(c) == PokemonType.WATER -> relevant(
                     "water_bubble_attacker_water_move", "src/battle_util.c:6706",
                     "An attacker Water Bubble and an authoritative Water move take the modeled offensive 2.0 base-power branch."
                 )
@@ -628,6 +645,13 @@ object HnsAbilityContextPolicy {
                 proof.relevance, proof.rule, proof.source, proof.rationale
             )
         }
+    }
+
+    /** Prefer the one request-resolved final type; only authority-free unit fixtures use the fallback. */
+    private fun effectiveMoveType(c: Context): PokemonType? = if (c.moveAuthority != null) {
+        c.moveAuthority.effectiveType
+    } else {
+        c.moveType.takeIf { c.dynamicMoveTypeKnownNeutral }
     }
 
     /**

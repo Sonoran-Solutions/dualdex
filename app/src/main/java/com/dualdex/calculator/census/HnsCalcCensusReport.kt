@@ -1113,24 +1113,20 @@ object HnsCalcCensusReport {
                 "detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.\n\n"
         )
 
-        out.append("## Issue #91 Group D final-modifier slice comparison\n\n")
+        out.append("## Issue #91 defender Fire base-power slice comparison\n\n")
         out.append(
-            "This fixed comparison records the Group D final-modifier slice against starting " +
-                "`main` at `69d5eab757b7ca56e76b6c98369c17ea5eb8c99e` (after #108). Both censuses cover " +
+            "This fixed comparison records the defender Water Bubble / Heatproof base-power slice " +
+                "against starting `main` at `bc4aff798414c771c06de290481bda17d0aebb2f` (after #109). Both censuses cover " +
                 "the same 24,278 eligible damaging requests across 651 trainer battles.\n\n"
         )
         out.append("| Metric | Starting main | This slice | Change |\n|---|---:|---:|---:|\n")
-        out.append("| `FULLY_MODELLED` requests | 18,720 | 18,790 | +70 |\n")
-        out.append("| `CAVEATED_ESTIMATE` requests | 376 | 370 | -6 |\n")
-        out.append("| `REFUSED` requests | 5,182 | 5,118 | -64 |\n")
-        out.append("| Fully displaying lead matchups | 370 / 1,302 | 372 / 1,302 | +2 pairs |\n")
-        out.append("| Displayable requests in lead matchups | 6,652 | 6,676 | +24 |\n")
-        out.append(
-            "| Newly displayable trainer requests | 0 | 64 | +64; all fully modelled |\n"
-        )
-        out.append(
-            "| Battles gaining a newly displayable request | 0 / 651 | 5 / 651 | Clair: 16; Falkner: 14; Lance: 14; Blaine: 10; Blue: 10 |\n"
-        )
+        out.append("| `FULLY_MODELLED` requests | 18,790 | 18,790 | unchanged |\n")
+        out.append("| `CAVEATED_ESTIMATE` requests | 370 | 370 | unchanged |\n")
+        out.append("| `REFUSED` requests | 5,118 | 5,118 | unchanged |\n")
+        out.append("| Fully displaying lead matchups | 372 / 1,302 | 372 / 1,302 | unchanged |\n")
+        out.append("| Displayable requests in lead matchups | 6,676 | 6,676 | unchanged |\n")
+        out.append("| Newly displayable trainer requests | 0 | 0 | unchanged |\n")
+        out.append("| Battles gaining a newly displayable request | 0 / 651 | 0 / 651 | none; no trainer holds Water Bubble or Heatproof |\n")
         out.append(
             "| `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 battles / 3,578 requests | 557 / 3,578 | unchanged |\n"
         )
@@ -1138,46 +1134,39 @@ object HnsCalcCensusReport {
             "| `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 / 152 | 68 / 152 | unchanged |\n"
         )
         out.append(
-            "| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 222 battles / 1,862 requests | 221 / 1,786 | -1 battle / -76 requests |\n"
+            "| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 221 battles / 1,786 requests | 221 / 1,786 | unchanged |\n"
         )
         out.append(
-            "| `HNS_ABILITY_CONDITION_UNVERIFIED` | 77 / 268 | 80 / 276 | +3 battles / +8 requests |\n\n"
+            "| `HNS_ABILITY_CONDITION_UNVERIFIED` | 80 battles / 276 requests | 80 / 276 | unchanged |\n\n"
         )
         out.append(
-            "The current ten highest-ranked blockers remain `HNS_MOVE_MECHANICS_NOT_MODELLED` " +
+            "The ten highest-ranked blockers are unchanged: `HNS_MOVE_MECHANICS_NOT_MODELLED` " +
                 "(557 battles / 3,578 requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` " +
                 "(68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218), Swift Swim " +
             "(38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm " +
                 "(28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70).\n\n"
         )
         out.append(
-            "Random Abilities weighted request trials changed from 1,503,008 refused / " +
-                "19,529 caveated / 2,255,123 clear to 1,414,310 / 16,820 / 2,346,530. " +
-                "Identities with at least one refusal changed from 185 to 182; identities with " +
-                "a caveated context from 5 to 4; clear-only identities from 122 to 125. " +
-                "Ambiguous opposite-ability contexts excluded remain 16,974 attacker-side and " +
+            "Random Abilities weighted request trials changed from 1,414,310 refused / " +
+                "16,820 caveated / 2,346,530 clear to 1,403,628 / 16,820 / 2,357,212. " +
+                "Identities with at least one refusal remain 182; identities with a caveated " +
+                "context remain 4; clear-only identities remain 125. " +
+                "Ambiguous opposite-ability contexts remain 16,974 attacker-side and " +
                 "19,396 defender-side requests.\n\n"
         )
         out.append("| Ability | Trainer holders | Trainer request change | Random Abilities refused / caveated / clear, before → after |\n|---|---:|---|---|\n")
-        out.append("| Adaptability | 3 Porygon-Z | 6 caveated → fully modelled | 80 / 2,709 / 9,397 → 80 / 0 / 12,106 |\n")
-        out.append("| Tinted Lens | 1 Noctowl | 14 refused → fully modelled | 12,186 / 0 / 0 → 0 / 0 / 12,186 |\n")
-        out.append("| Sniper | 6 Pokémon | 8 refusals narrowed to unknown-crit condition; still refused | 1,758 / 0 / 10,428 → 0 / 0 / 12,186 |\n")
-        out.append("| Neuroforce | 0 | No trainer holders | 12,186 / 0 / 0 → 0 / 0 / 12,186 |\n")
-        out.append("| Filter | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |\n")
-        out.append("| Solid Rock | 2 | 20 refused → fully modelled; 4 still refused by other limits | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |\n")
-        out.append("| Prism Armor | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |\n")
-        out.append("| Multiscale | 2 Dragonite | 30 refused → fully modelled | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |\n")
-        out.append("| Shadow Shield | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |\n")
-        out.append("| Ice Scales | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |\n\n")
+        out.append("| Water Bubble | 0 | No trainer holders | 2,012 / 0 / 10,174 → 1,758 / 0 / 10,428 |\n")
+        out.append("| Heatproof | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |\n")
+        out.append("| Dry Skin (control) | 1 Jynx | No newly displayable trainer requests | 0 / 0 / 12,186 → 0 / 0 / 12,186 |\n\n")
         out.append(
-            "For Random Abilities, Filter / Solid Rock / Prism Armor remain refused in 1,758 trials " +
-                "where effectiveness is unknown; Multiscale / Shadow Shield have 1,758 trials with " +
-                "unknown live HP; and Ice Scales has 1,758 Special-category trials with unknown " +
-                "final category. The remaining 10,428 trials for each ability prove it irrelevant. " +
-                "Trainer counts use actual holders in the pinned party source. " +
-                "Newly displayable counts are request-level refused-to-modelled transitions; the " +
-                "two fully displayable lead pairs are Falkner's physical and special reference " +
-                "matchups.\n\n"
+            "Heatproof's attacker requests are irrelevant to the selected outgoing hit; defender " +
+                "requests use the authoritative final type, with Fire relevant and known non-Fire " +
+                "irrelevant. Water Bubble's attacker Water branch was already modelled; this slice " +
+                "clears its defender Fire requests. Trainer holder counts use the pinned party " +
+                "source. The 1,758 refusals remaining for each ability come from independent " +
+                "limitations. Because no trainer carries Water Bubble or Heatproof, these changes " +
+                "affect Random Abilities trials but add no displayable trainer request or matchup. Water " +
+                "Bubble burn prevention/status clearing remains separately deferred.\n\n"
         )
 
         out.append("## Provenance and reproduction\n\n")

@@ -45,29 +45,6 @@
    "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/100",
    "scenario": "doubles-dazzling-gleam-partner-present-crit",
    "summary": "Engine-only: Doubles spread reduction relies on @smogon Gen III move targets, so post-Gen-III spread moves are never reduced."
-  },
-  {
-   "calculatorRolls": [
-    19,
-    20,
-    20,
-    20,
-    20,
-    21,
-    21,
-    21,
-    21,
-    22,
-    22,
-    22,
-    22,
-    23,
-    23,
-    23
-   ],
-   "issue": "https://github.com/Sonoran-Solutions/dualdex/issues/91",
-   "scenario": "group-d-water-bubble-defender-fire-deferred",
-   "summary": "Engine-only: the attacker-side Water Bubble boost is in scope, but the pinned defender-side Fire damage reduction remains outside the supported base-power slice."
   }
  ],
  "schemaVersion": 2

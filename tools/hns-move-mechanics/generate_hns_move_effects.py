@@ -81,6 +81,7 @@ STATE_DEPENDENT_FLAGS = (
 
 # Exact pinned MoveInfo flags consumed by Group C's immunity/suppression path.
 IMMUNITY_FLAGS = ("soundMove", "ballisticMove", "windMove", "healingMove", "ignoresTargetAbility")
+ABILITY_MOVE_FLAGS = ("punchingMove", "bitingMove", "pulseMove", "slicingMove")
 
 
 def find_upstream_dir(provided):
@@ -311,15 +312,63 @@ def parse_move_table(text):
             unknown_flags_by_symbol, priority_by_symbol, unknown_priority_symbols)
 
 
+def parse_ability_move_flags(text):
+    """Read the literal source predicates used by four CalcMoveBasePower abilities.
+
+    The fields are bitfields on MoveInfo, read directly by IsPunchingMove, IsBitingMove,
+    IsPulseMove, and IsSlicingMove. Omitted fields are source-proven false (zero-initialized);
+    conditional or computed initializers are unknown and must fail closed.
+    """
+    lines = text.splitlines()
+    start = next((i for i, line in enumerate(lines) if "gMovesInfo[MOVES_COUNT_ALL]" in line), None)
+    if start is None:
+        raise ValueError("Could not find gMovesInfo[MOVES_COUNT_ALL] in the pinned move table")
+    end = next((i for i in range(start, len(lines)) if lines[i].strip() == "};"), None)
+    if end is None:
+        raise ValueError("Could not find the end of the pinned gMovesInfo table")
+
+    flags_by_symbol = {}
+    unknown_by_symbol = {}
+    for symbol, body in _entry_body(lines, start, end):
+        depth = 0
+        values = {}
+        unknown = set()
+        for line in body:
+            stripped = line.strip()
+            if stripped.startswith("#if"):
+                depth += 1
+            for flag in ABILITY_MOVE_FLAGS:
+                found = re.match(rf"\.{re.escape(flag)}\s*=\s*([^,]+)", stripped)
+                if not found:
+                    continue
+                value = found.group(1).strip()
+                if depth != 0:
+                    unknown.add(flag)
+                elif value in ("TRUE", "1"):
+                    values[flag] = True
+                elif value in ("FALSE", "0"):
+                    values[flag] = False
+                else:
+                    unknown.add(flag)
+            if stripped.startswith("#endif"):
+                depth -= 1
+        unknown.update(flag for flag, value in values.items() if flag in unknown)
+        flags_by_symbol[symbol] = {flag for flag, value in values.items() if value and flag not in unknown}
+        unknown_by_symbol[symbol] = unknown
+    return flags_by_symbol, unknown_by_symbol
+
+
 def build_maps(upstream_dir):
     """Resolve the pinned checkout into {move_id: effect} and an ordinary move-ID set."""
     moves_header = os.path.join(upstream_dir, "include/constants/moves.h")
     move_table = os.path.join(upstream_dir, "src/data/moves_info.h")
     ids = parse_move_enum(open(moves_header, encoding="utf-8", errors="replace").read())
+    move_table_text = open(move_table, encoding="utf-8", errors="replace").read()
     (effect_by_symbol, target_by_symbol, ordinary_symbols, unresolved, flags_by_symbol,
      unknown_flags_by_symbol, priority_by_symbol, unknown_priority_symbols) = parse_move_table(
-        open(move_table, encoding="utf-8", errors="replace").read()
+        move_table_text
     )
+    ability_flags_by_symbol, unknown_ability_flags_by_symbol = parse_ability_move_flags(move_table_text)
 
     effect_by_id = {}
     target_by_id = {}
@@ -328,6 +377,8 @@ def build_maps(upstream_dir):
     unknown_flags_by_id = {}
     priority_by_id = {}
     unknown_priority_ids = set()
+    ability_flags_by_id = {}
+    unknown_ability_flags_by_id = {}
     for symbol, effect in effect_by_symbol.items():
         if symbol not in ids:
             raise ValueError(f"Move table references {symbol}, absent from enum Move")
@@ -356,12 +407,20 @@ def build_maps(upstream_dir):
             unknown_priority_ids.add(move_id)
         elif symbol in priority_by_symbol:
             priority_by_id[move_id] = priority_by_symbol[symbol]
+    for symbol, flags in ability_flags_by_symbol.items():
+        if symbol not in ids or ids[symbol] == 0:
+            continue
+        move_id = ids[symbol]
+        ability_flags_by_id[move_id] = flags
+        unknown_ability_flags_by_id[move_id] = unknown_ability_flags_by_symbol[symbol]
     return (effect_by_id, target_by_id, ordinary, unresolved, flags_by_id, unknown_flags_by_id,
-            priority_by_id, unknown_priority_ids)
+            priority_by_id, unknown_priority_ids, ability_flags_by_id,
+            unknown_ability_flags_by_id)
 
 
 def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_flags_by_id,
-                    priority_by_id, unknown_priority_ids):
+                    priority_by_id, unknown_priority_ids, ability_flags_by_id,
+                    unknown_ability_flags_by_id):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
     # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
     # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
@@ -429,6 +488,21 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     for move_id in sorted(effect_by_id):
         lines.append(f'        put({move_id}, "{effect_by_id[move_id]}")')
     lines.append("    }")
+    lines.append("    /** Exact source-derived flags used by Iron Fist, Strong Jaw, Mega Launcher, and Sharpness. */")
+    lines.append("    val abilityMoveFlagsById: Map<Int, Set<String>> = buildMap {")
+    for move_id, flags in sorted(ability_flags_by_id.items()):
+        if flags:
+            encoded = ", ".join(json.dumps(flag) for flag in sorted(flags))
+            lines.append(f"        put({move_id}, setOf({encoded}))")
+    lines.append("    }")
+    lines.append("    /** Conditional/config-derived ability flags are not treated as false. */")
+    lines.append("    val unknownAbilityMoveFlagsById: Map<Int, Set<String>> = buildMap {")
+    for move_id, flags in sorted(unknown_ability_flags_by_id.items()):
+        if flags:
+            encoded = ", ".join(json.dumps(flag) for flag in sorted(flags))
+            lines.append(f"        put({move_id}, setOf({encoded}))")
+    lines.append("    }")
+    lines.append("")
     lines.append("")
     lines.append("    /** Moves proven to be ordinary fixed-base-power attacks in the pinned source. */")
     lines.append("    val ordinaryMoveIds: Set<Int> = setOf(")
@@ -499,9 +573,11 @@ def main():
     upstream_dir = find_upstream_dir(args.upstream_dir)
     verify_git_commit(upstream_dir)
     (effect_by_id, target_by_id, ordinary, unresolved, flags_by_id, unknown_flags_by_id,
-     priority_by_id, unknown_priority_ids) = build_maps(upstream_dir)
+     priority_by_id, unknown_priority_ids, ability_flags_by_id,
+     unknown_ability_flags_by_id) = build_maps(upstream_dir)
     generated = generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id,
-                                unknown_flags_by_id, priority_by_id, unknown_priority_ids)
+                                unknown_flags_by_id, priority_by_id, unknown_priority_ids,
+                                ability_flags_by_id, unknown_ability_flags_by_id)
 
     if args.verify:
         if not os.path.isfile(args.output):

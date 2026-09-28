@@ -312,8 +312,14 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("hnsMoveFlags", JSONArray(
                         com.dualdex.pokemon.hns.Hns205MoveEffects.immunityFlagsById[moveId].orEmpty().sorted()
                     ))
+                    put("hnsMoveAbilityFlags", JSONArray(
+                        com.dualdex.pokemon.hns.Hns205MoveEffects.abilityMoveFlagsById[moveId].orEmpty().sorted()
+                    ))
                     com.dualdex.pokemon.hns.Hns205MoveEffects.unknownImmunityFlagsById[moveId]?.let {
                         put("hnsUnknownMoveFlags", JSONArray(it.sorted()))
+                    }
+                    com.dualdex.pokemon.hns.Hns205MoveEffects.unknownAbilityMoveFlagsById[moveId]?.let {
+                        put("hnsUnknownMoveAbilityFlags", JSONArray(it.sorted()))
                     }
                     com.dualdex.pokemon.hns.Hns205MoveEffects.targetClassByMoveId[moveId]?.let {
                         put("hnsTargetClass", it)

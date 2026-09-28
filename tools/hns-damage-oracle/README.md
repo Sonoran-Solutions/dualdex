@@ -184,20 +184,24 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-1,377 of 1,379 scenarios match the shipped calculator on all 16 rolls (1,263 production-modelled and
-116 engine-only). The two remaining exact-vector divergences are registered in
+1,408 of 1,411 scenarios match the shipped calculator on all 16 rolls (1,293 production-modelled and
+118 engine-only). Three exact-vector divergences are registered in
 `known_divergences.json`, each linked to its tracking issue:
 
 | Issue | Surface | Scenarios | Defect |
 |---|---|---:|---|
 | [#100](https://github.com/Sonoran-Solutions/dualdex/issues/100) | engine-only | 2 | Doubles spread reduction misses post-Gen-III spread moves |
+| [#91](https://github.com/Sonoran-Solutions/dualdex/issues/91) | engine-only | 1 | Defender-side Water Bubble Fire reduction remains outside this PR's attacker-only support |
 
 The Attack-stat accumulator makes `badge-pinch-overgrow-a255` exact, resolving #98's only registered
 vector. The Guts Physical-category gate makes the burn- and poison-statused Psychic vectors exact,
-resolving #99's two registered vectors. Twelve Group D scenarios exercise Hustle and Guts contexts,
-including physical/special and attacker/defender controls, status, badges, critical hits, and
-TYPE_BASED Ghost/Dark moves. The Guts Special active-status control remains engine-only because
-production does not need to model a Guts modifier on a Special move.
+resolving #99's two registered vectors. Forty-four Group D scenarios cover the prior 12 Hustle/Guts
+cases and 32 base-power cases for Technician, Iron Fist, Strong Jaw, Mega Launcher, Sharpness, the
+attacker-side Water Bubble branch, Steelworker, Toxic Boost, and Flare Boost. The Toxic Boost toxic
+case preserves the live toxic counter in `status1`. The Guts Special active-status control remains
+engine-only because production does not need to model a Guts modifier on a Special move. The
+defender-side Water Bubble Fire case deliberately remains engine-only and registered to #91: policy
+keeps that defender condition unknown because this PR adds only Water Bubble's offensive branch.
 
 Each registered scenario also pins its current 16-roll QuickJS calculator output in
 `known_divergences.json`. The differential test accepts only those exact wrong vectors; a new wrong
@@ -217,6 +221,7 @@ category divergences now match the pinned `gTypesInfo` categories.
 | `pinch-*` | 76 | Overgrow/Blaze/Torrent/Swarm at HP floor(max/3) and +1 for four max-HP values, off-type, crit |
 | `wise-glasses-*`, `badge-*` | 53 | BP rounding, physical/defender negative controls, type-based crossover; badges 1/3/6/7 both sides, pinch+badge modifier accumulation |
 | `fairy-*`, `style-*` | 66 | Fairy on/off typings and move retypes, immunity on/off, type-based categories |
-| `group-d-*` | 8 | Hustle and Guts physical/special, attacker/defender, status, badge, and critical-hit controls |
+| `group-c-*` | 43 | source-backed move/ability immunity causes, including attacker/defender and bypass controls |
+| `group-d-*` | 44 | 12 Hustle/Guts attack-stage cases and 32 base-power ability cases with threshold, category, move-flag, type, role, status, and composition controls |
 | `engine-*`, `doubles-*` | 111 | engine-only: Thick Fat, Guts, Huge/Pure Power, Adaptability, 17 type-boost items, Doubles single-target/spread/partner-fainted/screens/Rain |
 | `xref-*` | 34 | existing fixture reproductions |

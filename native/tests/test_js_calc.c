@@ -3789,6 +3789,99 @@ static void check_group_d_attack_modifier_accumulation(void) {
     }
 }
 
+static long hns_uq12_compose_half_up(long modifier, long factor) {
+    return (modifier * factor + 2048) / 4096;
+}
+
+static void check_group_d_base_power_stage(void) {
+    printf("-- Group D: base-power abilities, threshold, and UQ4.12 composition --\n");
+    double engine[ROLL_COUNT];
+    long expected[ROLL_COUNT];
+    long wrong_rounding[ROLL_COUNT];
+
+    /* The source move Swift is exactly 60 BP. Technician checks <= 60 before composing x1.5. */
+    const char* technician_60 =
+        "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+        "\"attacker\":{\"species\":\"Porygon\",\"level\":10,\"ability\":\"Technician\","
+        "\"rawStats\":{\"attack\":15,\"defense\":17,\"speed\":12,\"spAttack\":22,\"spDefense\":19},"
+        "\"statStages\":[0,0,0,0,0,0,0,0]},"
+        "\"defender\":{\"species\":\"Croconaw\",\"level\":10,\"ability\":\"(other)\","
+        "\"overrides\":{\"types\":[\"Water\"]},"
+        "\"rawStats\":{\"attack\":21,\"defense\":20,\"speed\":16,\"spAttack\":17,\"spDefense\":18},"
+        "\"statStages\":[0,0,0,0,0,0,0,0]},"
+        "\"move\":{\"name\":\"Swift\",\"overrides\":{\"basePower\":60,\"type\":\"Normal\",\"category\":\"Special\"}},"
+        "\"field\":{\"gameType\":\"Singles\"}}";
+    g_fixture = "group_d_technician_exact_60_boosts_to_90";
+    if (hns_request_rolls(technician_60, engine)) {
+        hns_ordinary_rolls(10, 90, 22, 18, 1, 1.0, 0, 0, expected);
+        hns_ordinary_rolls(10, 60, 22, 18, 1, 1.0, 0, 0, wrong_rounding);
+        check_condition("Technician at exactly 60 BP matches the independent x1.5 vector",
+                        rolls_equal(engine, expected));
+        check_condition("Technician at 60 BP differs from the no-boost control",
+                        !rolls_equal(engine, wrong_rounding));
+    } else {
+        check_condition("Technician 60 BP request produced a response", 0);
+    }
+
+    /* There is no pinned ordinary move at 61 BP. This low-level engine vector isolates the strict
+     * threshold boundary; production rebuilds power from the pinned move ID and does not trust this
+     * caller override. At 61, Technician is inactive. */
+    const char* technician_61 =
+        "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+        "\"attacker\":{\"species\":\"Porygon\",\"level\":10,\"ability\":\"Technician\","
+        "\"rawStats\":{\"attack\":15,\"defense\":17,\"speed\":12,\"spAttack\":22,\"spDefense\":19},"
+        "\"statStages\":[0,0,0,0,0,0,0,0]},"
+        "\"defender\":{\"species\":\"Croconaw\",\"level\":10,\"ability\":\"(other)\","
+        "\"overrides\":{\"types\":[\"Water\"]},"
+        "\"rawStats\":{\"attack\":21,\"defense\":20,\"speed\":16,\"spAttack\":17,\"spDefense\":18},"
+        "\"statStages\":[0,0,0,0,0,0,0,0]},"
+        "\"move\":{\"name\":\"Swift\",\"overrides\":{\"basePower\":61,\"type\":\"Normal\",\"category\":\"Special\"}},"
+        "\"field\":{\"gameType\":\"Singles\"}}";
+    g_fixture = "group_d_technician_one_above_cutoff_61_is_unmodified";
+    if (hns_request_rolls(technician_61, engine)) {
+        hns_ordinary_rolls(10, 61, 22, 18, 1, 1.0, 0, 0, expected);
+        hns_ordinary_rolls(10, 92, 22, 18, 1, 1.0, 0, 0, wrong_rounding);
+        check_condition("Technician at 61 BP matches the unmodified vector",
+                        rolls_equal(engine, expected));
+        check_condition("Technician at 61 BP differs from an erroneous x1.5 vector",
+                        !rolls_equal(engine, wrong_rounding));
+    } else {
+        check_condition("Technician 61 BP boundary request produced a response", 0);
+    }
+
+    /* Discriminating UQ4.12 cross-product: Flare Boost x1.5 then Wise Glasses x1.1 gives
+     * uq4_12_multiply(6144, 4505) = 6758 (half-up); half-down would give 6757. Applied to this
+     * synthetic 147-power engine input, the pinned integer-half-down conversion yields 243 instead
+     * of 242. The source oracle separately covers the real Flare Boost + Wise Glasses combination. */
+    const char* flare_wise_rounding =
+        "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+        "\"attacker\":{\"species\":\"Porygon\",\"level\":50,\"ability\":\"Flare Boost\","
+        "\"item\":\"Wise Glasses\",\"status\":\"brn\",\"status1\":16,"
+        "\"rawStats\":{\"attack\":100,\"defense\":100,\"speed\":100,\"spAttack\":200,\"spDefense\":100},"
+        "\"statStages\":[0,0,0,0,0,0,0,0]},"
+        "\"defender\":{\"species\":\"Croconaw\",\"level\":50,\"ability\":\"(other)\","
+        "\"rawStats\":{\"attack\":100,\"defense\":100,\"speed\":100,\"spAttack\":100,\"spDefense\":30},"
+        "\"statStages\":[0,0,0,0,0,0,0,0]},"
+        "\"move\":{\"name\":\"Psybeam\",\"overrides\":{\"basePower\":147,\"type\":\"Psychic\",\"category\":\"Special\"}},"
+        "\"field\":{\"gameType\":\"Singles\"}}";
+    long combined = hns_uq12_compose_half_up(4096, 6144);
+    combined = hns_uq12_compose_half_up(combined, 4505);
+    long bp_half_up = hns_int_half_down(combined, 147);
+    long bp_if_composed_half_down = hns_int_half_down(hns_int_half_down(4505, 6144), 147);
+    hns_ordinary_rolls(50, bp_half_up, 200, 30, 0, 1.0, 0, 0, expected);
+    hns_ordinary_rolls(50, bp_if_composed_half_down, 200, 30, 0, 1.0, 0, 0, wrong_rounding);
+    g_fixture = "group_d_flare_boost_wise_glasses_half_up_composition";
+    if (hns_request_rolls(flare_wise_rounding, engine)) {
+        check_condition("Flare Boost plus Wise Glasses uses half-up modifier composition",
+                        bp_half_up == 243 && bp_if_composed_half_down == 242 &&
+                        rolls_equal(engine, expected));
+        check_condition("the rounding fixture rejects half-down modifier composition",
+                        !rolls_equal(engine, wrong_rounding));
+    } else {
+        check_condition("Flare Boost and Wise Glasses request produced a response", 0);
+    }
+}
+
 
 /* ------------------------------------------------------------------ */
 /* PR #78 / C3 follow-up: Tera Shell + Truant and stripped items       */
@@ -4164,6 +4257,7 @@ int main(void) {
     check_gap_c4e_pinch_abilities();
 
     check_group_d_attack_modifier_accumulation();
+    check_group_d_base_power_stage();
 
     printf("-- PR #78 follow-up: Tera Shell + Truant defense in depth; stripped H&S items --\n");
     check_pr78_tera_shell_truant_and_item_stripping();

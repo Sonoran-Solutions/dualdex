@@ -276,6 +276,10 @@ function halfDown(mod, val) {
   return Math.floor((mod * val + 2047) / 4096);
 }
 
+function halfUp(mod, val) {
+  return Math.floor((mod * val + 2048) / 4096);
+}
+
 const HNS_UQ4_12_ONE = 4096;
 const HNS_STATUS1_ANY_MASK = 0x10ff; // pinned include/constants/battle.h: STATUS1_ANY
 const HNS_STATUS1_BURN_MASK = 0x10; // pinned include/constants/battle.h: STATUS1_BURN
@@ -287,14 +291,14 @@ const HNS_TYPE_POWER_ITEMS = {
   'black glasses': 'Dark'
 };
 
-// CalcMoveBasePowerAfterModifiers, CalcAttackStat and CalcDefenseStat accumulate UQ4.12
-// multipliers in order. Keep the fixed-point product separate from the integer operand so we
-// round the stat/base power once, at the pinned stage boundary.
-function createHnsModifierAccumulator() {
+// The stat stages accumulate UQ4.12 with half-down multiplication. The BP stage uses the
+// pinned uq4_12_multiply (half-up) for modifier composition, then half-down for integer BP.
+// Keep both behaviors explicit; the stage product is converted to its integer operand once.
+function createHnsModifierAccumulator(multiply = halfDown) {
   let modifier = HNS_UQ4_12_ONE;
   return {
     add(next) {
-      modifier = halfDown(next, modifier);
+      modifier = multiply(next, modifier);
     },
     value() {
       return modifier;
@@ -567,9 +571,49 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
 
   // CalcMoveBasePowerAfterModifiers has a separate fixed-point accumulator from the two stat
   // stages. Preserve the Group C Dry Skin × Wise Glasses composition correction.
-  const basePowerModifier = createHnsModifierAccumulator();
+  const basePowerModifier = createHnsModifierAccumulator(halfUp);
+  // `move.bp` is the authoritative H&S move power supplied by the boundary. The ordinary
+  // allow-list proves `GetMoveEffect(move) == EFFECT_HIT`, so `CalcMoveBasePower` leaves it
+  // unchanged before Technician's `basePower <= 60` check. Matching move flags are generated
+  // from the pinned MoveInfo table and rebound by move ID; caller move data cannot set them.
+  const abilityMoveFlags = new Set(input.move?.hnsMoveAbilityFlags || []);
+  const status1 = input.attacker?.status1;
+  const statusKnown = Number.isInteger(status1) && (status1 & ~0x1fff) === 0;
+  const statusHas = (mask) => statusKnown && (status1 & mask) !== 0;
+  switch (attacker.ability) {
+    case 'Technician':
+      if (move.bp <= 60) basePowerModifier.add(6144);
+      break;
+    case 'Iron Fist':
+      if (abilityMoveFlags.has('punchingMove')) basePowerModifier.add(4915);
+      break;
+    case 'Strong Jaw':
+      if (abilityMoveFlags.has('bitingMove')) basePowerModifier.add(6144);
+      break;
+    case 'Mega Launcher':
+      if (abilityMoveFlags.has('pulseMove')) basePowerModifier.add(6144);
+      break;
+    case 'Sharpness':
+      if (abilityMoveFlags.has('slicingMove')) basePowerModifier.add(6144);
+      break;
+    case 'Water Bubble':
+      if (effectiveMoveType === 'Water') basePowerModifier.add(8192);
+      break;
+    case 'Steelworker':
+      if (effectiveMoveType === 'Steel') basePowerModifier.add(6144);
+      break;
+    case 'Toxic Boost':
+      if (isPhysical && statusHas(0x88)) basePowerModifier.add(6144);
+      break;
+    case 'Flare Boost':
+      if (isSpecial && statusHas(0x10)) basePowerModifier.add(6144);
+      break;
+    default:
+      break;
+  }
   // H&S combines base-power UQ4.12 modifiers before applying the product to base power. In
-  // particular, Dry Skin and Wise Glasses together produce 5631 (not two rounded BP steps).
+  // particular, the modifier product is composed with uq4_12_multiply (half-up), including
+  // Dry Skin, Wise Glasses, and the newly modelled attacker ability stage.
   if (!bypassTargetAbility && defenderAbility === 'Dry Skin' && effectiveMoveType === 'Fire') {
     basePowerModifier.add(5120);
   }

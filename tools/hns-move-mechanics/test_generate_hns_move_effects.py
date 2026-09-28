@@ -194,6 +194,37 @@ class ParseMoveTableTest(unittest.TestCase):
         _, _, _, _, _, _, _, unknown_priorities = gen.parse_move_table(_table(entry))
         self.assertIn("MOVE_TACKLE", unknown_priorities)
 
+    def test_ability_move_flags_are_source_derived(self):
+        entry = """    [MOVE_POUND] =
+    {
+        .effect = EFFECT_HIT,
+        .punchingMove = TRUE,
+        .bitingMove = FALSE,
+        .pulseMove = 1,
+    },"""
+        flags, unknown = gen.parse_ability_move_flags(_table(entry))
+        self.assertEqual(flags["MOVE_POUND"], {"punchingMove", "pulseMove"})
+        self.assertEqual(unknown["MOVE_POUND"], set())
+
+    def test_conditional_or_computed_ability_move_flags_remain_unknown(self):
+        entry = """    [MOVE_POUND] =
+    {
+        .effect = EFFECT_HIT,
+    #if B_EXPANDED_MOVE_FLAGS
+        .slicingMove = TRUE,
+    #endif
+        .pulseMove = B_CUSTOM_PULSE_FLAG,
+    },"""
+        flags, unknown = gen.parse_ability_move_flags(_table(entry))
+        self.assertNotIn("slicingMove", flags["MOVE_POUND"])
+        self.assertNotIn("pulseMove", flags["MOVE_POUND"])
+        self.assertEqual(unknown["MOVE_POUND"], {"slicingMove", "pulseMove"})
+
+    def test_uninitialized_ability_flags_are_known_false(self):
+        flags, unknown = gen.parse_ability_move_flags(_table(PLAIN))
+        self.assertEqual(flags["MOVE_POUND"], set())
+        self.assertEqual(unknown["MOVE_POUND"], set())
+
 
 class CommittedArtifactTest(unittest.TestCase):
     """The committed Kotlin artifact must reflect the pinned ordinary set invariants."""

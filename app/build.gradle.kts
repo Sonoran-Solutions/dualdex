@@ -145,6 +145,9 @@ android {
             val censusGenerate =
                 (project.findProperty("dualdex.census.generate") as String?) ?: "false"
             it.systemProperty("dualdex.census.generate", censusGenerate)
+            val censusFull =
+                (project.findProperty("dualdex.census.full") as String?) ?: "false"
+            it.systemProperty("dualdex.census.full", censusFull)
         }
     }
 

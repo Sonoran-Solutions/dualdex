@@ -467,9 +467,9 @@ enum class CalcLimitation {
     HNS_GIMMICK_ACTIVE_NOT_MODELLED,
 
     /**
-     * The attacker's authoritative live `status1` is active outside the exact modelled Guts
-     * physical path, or could not be read. Other live statuses fail closed rather than letting a
-     * stale party snapshot decide (issue #9, Gap C4e).
+     * The attacker's authoritative live `status1` is active outside the exact modelled Guts,
+     * Toxic Boost, or Flare Boost damage paths, or could not be read. Other live statuses fail
+     * closed rather than letting a stale party snapshot decide (issue #9, Gap C4e).
      */
     HNS_LIVE_STATUS_NOT_MODELLED,
 
@@ -2084,9 +2084,11 @@ object CalcCapabilityPolicy {
             }
             return
         }
-        val modelledAttackStatContext = classification.abilityId == 55 || classification.abilityId == 62
+        val modelledConditionalContext =
+            classification.category == com.dualdex.pokemon.hns.HnsAbilityCategory.MODELLED_HNS_CONDITIONAL &&
+                HnsAbilityContextPolicy.hasModelledConditionalDamageContext(classification.abilityId)
         if (classification.category == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT ||
-            modelledAttackStatContext
+            modelledConditionalContext
         ) {
             val side = if (isAttacker) HnsAbilitySide.ATTACKER else HnsAbilitySide.DEFENDER
             val decision = HnsAbilityContextPolicy.assess(
@@ -2098,9 +2100,9 @@ object CalcCapabilityPolicy {
                 decision.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
             ) {
                 limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
-            } else if (modelledAttackStatContext && decision.relevance == HnsAbilityRequestRelevance.UNKNOWN) {
-                // Hustle/Guts are exact only where their Attack-stage operands are authoritative.
-                // A missing effective category or Guts status1 still blocks instead of guessing.
+            } else if (modelledConditionalContext && decision.relevance == HnsAbilityRequestRelevance.UNKNOWN) {
+                // Group D conditional stages are exact only where their required type/category,
+                // source move metadata, and live status operands are authoritative.
                 limitations.add(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED)
             }
         } else if (!classification.category.isSupportedForDamage) {
@@ -2127,8 +2129,8 @@ object CalcCapabilityPolicy {
      *  - an active dynamic-type retype (Electrify, or Ion Deluge on a Normal move) blocks;
      *  - an active defender Glaive Rush volatile blocks (x2 not modelled);
      *  - an unread gimmick blocks; an active gimmick blocks;
-     *  - an unread live attacker status blocks; a positive status is accepted only for modelled
-     *    physical Guts, with the raw STATUS1_ANY word bound by the boundary.
+     *  - an unread live attacker status blocks; positive status is accepted only for exact
+     *    modelled physical Guts, poison-only Toxic Boost, and Special burn Flare Boost paths.
      */
     private fun collectHnsLiveOperandLimitations(
         pack: GameDataPack,
@@ -2199,7 +2201,13 @@ object CalcCapabilityPolicy {
             status1 != null &&
             (status1 and 0x1fff.inv()) == 0 &&
             (status1 and 0x10ff) != 0
-        if (status1 == null || status1 != 0 && !gutsPhysicalStatusIsModelled) {
+        val toxicBoostPoisonIsModelled = request.attacker.abilityId == 137 &&
+            hnsCategory != null && status1 != null && hasOnlyPinnedPoisonStatus(status1)
+        val flareBoostBurnIsModelled = request.attacker.abilityId == 138 &&
+            hnsCategory != null && status1 == 0x10
+        if (status1 == null || status1 != 0 && !gutsPhysicalStatusIsModelled &&
+            !toxicBoostPoisonIsModelled && !flareBoostBurnIsModelled
+        ) {
             limitations.add(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED)
         }
         // Live field conditions (Gap C4e correction). The boundary binds these from the observed
@@ -2253,6 +2261,19 @@ object CalcCapabilityPolicy {
                 limitations.add(CalcLimitation.HNS_ENDURED_ACTIVE_NOT_MODELLED)
             }
         }
+    }
+
+    /** The pinned `STATUS1_PSN_ANY` predicate plus only the toxic counter bits it owns. */
+    private fun hasOnlyPinnedPoisonStatus(status1: Int): Boolean {
+        val definedMask = 0x1fff // include/constants/battle.h:163
+        val poisonAnyMask = 0x88 // STATUS1_POISON | STATUS1_TOXIC_POISON, line 162
+        val toxicPoisonMask = 0x80 // STATUS1_TOXIC_POISON, line 158
+        val toxicCounterMask = 0x0f00 // STATUS1_TOXIC_COUNTER, line 159
+        if (status1 < 0 || (status1 and definedMask.inv()) != 0 ||
+            (status1 and poisonAnyMask) == 0
+        ) return false
+        val allowedToxicCounter = if (status1 and toxicPoisonMask != 0) toxicCounterMask else 0
+        return (status1 and poisonAnyMask.inv() and allowedToxicCounter.inv()) == 0
     }
 
     /**

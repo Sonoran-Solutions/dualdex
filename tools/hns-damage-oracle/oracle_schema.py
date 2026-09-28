@@ -23,7 +23,7 @@ import json
 import re
 from typing import Any
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 ROLL_COUNT = 16
 
 HNS_REPOSITORY = "PokemonHnS-Development/pokehns-expansion"
@@ -31,7 +31,7 @@ HNS_PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
 HNS_PINNED_TREE = "586946f21e9322e8d837654d9e07cf6b8239feed"
 
 ORACLE_BACKEND_KIND = "pinned-expansion-battle-test-runner"
-ORACLE_TOOL_VERSION = 4
+ORACLE_TOOL_VERSION = 5
 
 ROLL_ORDER = (
     "rolls[k] is the damage at random factor (85+k)%, i.e. the pinned hit measured with "
@@ -67,7 +67,7 @@ OPTION_STYLES = ("perMoveSplit", "typeBased")
 SURFACES = ("modelled", "engine-only")
 FORMATS = ("singles", "doubles")
 SIDES = ("player", "opponent")
-STATUSES = ("none", "burn", "poison")
+STATUSES = ("none", "burn", "poison", "toxic")
 WEATHERS = ("none", "rain", "sun")
 EXPECTS = ("damage", "immune")
 BATTLER_KEYS = (
@@ -85,8 +85,9 @@ OBSERVED_KEYS = ("attacker", "defender", "move", "targetCount")
 OBSERVED_BATTLER_KEYS = ("speciesId", "types", "baseStats", "abilityId", "itemId", "hpAtHit", "status1", "badgeBoosts")
 BASE_STAT_KEYS = ("hp", "attack", "defense", "spAttack", "spDefense", "speed")
 BADGE_BOOST_KEYS = ("attack", "defense", "spAttack", "spDefense")
-OBSERVED_MOVE_KEYS = ("id", "type", "power", "category", "target", "flags", "priority", "targetClass")
+OBSERVED_MOVE_KEYS = ("id", "type", "power", "category", "target", "flags", "abilityFlags", "priority", "targetClass")
 MOVE_IMMUNITY_FLAGS = ("soundMove", "ballisticMove", "windMove", "healingMove", "ignoresTargetAbility")
+MOVE_ABILITY_FLAGS = ("punchingMove", "bitingMove", "pulseMove", "slicingMove")
 CATEGORIES = ("physical", "special")
 MOVE_TARGETS = ("selected", "both", "foesAndAlly", "other")
 
@@ -284,6 +285,11 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
         _fail(f"{path}.move.flags", f"expected a list of supported immunity flags, got {flags!r}")
     if flags != sorted(set(flags)):
         _fail(f"{path}.move.flags", "flags must be sorted and unique")
+    ability_flags = move["abilityFlags"]
+    if not isinstance(ability_flags, list) or any(flag not in MOVE_ABILITY_FLAGS for flag in ability_flags):
+        _fail(f"{path}.move.abilityFlags", f"expected a list of supported base-power ability flags, got {ability_flags!r}")
+    if ability_flags != sorted(set(ability_flags)):
+        _fail(f"{path}.move.abilityFlags", "abilityFlags must be sorted and unique")
     _require_int(move["priority"], f"{path}.move.priority", -8, 10)
     _require_int(move["targetClass"], f"{path}.move.targetClass", 0, 255)
     # The raw pinned GetMoveTargetCount. The engine consults it only inside IsDoubleBattle()

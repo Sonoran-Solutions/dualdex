@@ -16,6 +16,10 @@ class HnsAbilityContextPolicyTest {
         attackerAbilityId: Int? = 0,
         moveType: PokemonType? = PokemonType.NORMAL,
         moveCategory: MoveCategory? = MoveCategory.PHYSICAL,
+        moveId: Int? = null,
+        moveBasePower: Int? = null,
+        moveAbilityFlags: Set<String>? = null,
+        unknownMoveAbilityFlags: Set<String>? = null,
         attackerTypes: Set<PokemonType>? = setOf(PokemonType.GRASS),
         defenderSpeciesId: Int? = 16,
         defenderHp: Int? = 14,
@@ -40,6 +44,10 @@ class HnsAbilityContextPolicyTest {
         attackerAbilityId = attackerAbilityId,
         moveType = moveType,
         moveCategory = moveCategory,
+        moveId = moveId,
+        moveBasePower = moveBasePower,
+        moveAbilityFlags = moveAbilityFlags,
+        unknownMoveAbilityFlags = unknownMoveAbilityFlags,
         attackerTypes = attackerTypes,
         defenderSpeciesId = defenderSpeciesId,
         defenderHp = defenderHp,
@@ -139,6 +147,93 @@ class HnsAbilityContextPolicyTest {
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             relevance(62, context(moveCategory = MoveCategory.SPECIAL, attackerStatus1 = 0x10,
                 moveType = null, dynamicMoveTypeKnownNeutral = false)))
+    }
+
+    @Test
+    fun `base-power abilities require pinned move operands and preserve exact source conditions`() {
+        fun bp(id: Int, c: HnsAbilityContextPolicy.Context) =
+            HnsAbilityContextPolicy.assess(id, c).relevance
+
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            bp(101, context(moveId = 1, moveBasePower = 60)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(101, context(moveId = 1, moveBasePower = 65)))
+        assertEquals("one power above Technician's cutoff",
+            HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(101, context(moveId = 1, moveBasePower = 61)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            bp(101, context(moveId = 1, moveBasePower = null)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(101, context(side = HnsAbilitySide.DEFENDER, moveBasePower = null)))
+
+        val moveFlags = mapOf(
+            89 to "punchingMove", 173 to "bitingMove", 178 to "pulseMove", 292 to "slicingMove"
+        )
+        for ((id, flag) in moveFlags) {
+            assertEquals("positive pinned $flag", HnsAbilityRequestRelevance.RELEVANT,
+                bp(id, context(moveId = 7, moveAbilityFlags = setOf(flag))))
+            assertEquals("negative pinned $flag", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                bp(id, context(moveId = 44, moveAbilityFlags = emptySet())))
+            assertEquals("unknown $flag", HnsAbilityRequestRelevance.UNKNOWN,
+                bp(id, context(moveId = 7, moveAbilityFlags = null)))
+            assertEquals("conditional source $flag", HnsAbilityRequestRelevance.UNKNOWN,
+                bp(id, context(moveId = 7, moveAbilityFlags = emptySet(),
+                    unknownMoveAbilityFlags = setOf(flag))))
+            assertEquals("defender $flag", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                bp(id, context(side = HnsAbilitySide.DEFENDER, moveId = null)))
+        }
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            bp(199, context(moveType = PokemonType.WATER)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(199, context(moveType = PokemonType.FIRE)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(199, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.NORMAL)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            bp(199, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.FIRE)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            bp(200, context(moveType = PokemonType.STEEL)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(200, context(moveType = PokemonType.NORMAL)))
+
+        for (status in listOf(0x08, 0x80, 0x180)) {
+            assertEquals("Toxic Boost poison status $status", HnsAbilityRequestRelevance.RELEVANT,
+                bp(137, context(attackerStatus1 = status)))
+        }
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(137, context(attackerStatus1 = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(137, context(moveCategory = MoveCategory.SPECIAL, attackerStatus1 = null)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(137, context(attackerStatus1 = 0x10)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            bp(137, context(attackerStatus1 = 0x08 or 0x10)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            bp(137, context(attackerStatus1 = 0x08 or 0x80)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            bp(138, context(moveCategory = MoveCategory.SPECIAL, attackerStatus1 = 0x10)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            bp(138, context(moveCategory = MoveCategory.SPECIAL, attackerStatus1 = 0x10 or 0x08)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(138, context(moveCategory = MoveCategory.SPECIAL, attackerStatus1 = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(138, context(moveCategory = MoveCategory.PHYSICAL, attackerStatus1 = null)))
+    }
+
+    @Test
+    fun `move flag facts are rebound from exact pinned move name rather than request data`() {
+        val request = DamageCalculationRequest(
+            attacker = CalcPokemonInput(species = "Machamp"),
+            defender = CalcPokemonInput(species = "Snorlax"),
+            move = CalcMoveInput("Fire Punch")
+        )
+        val context = HnsAbilityContextPolicy.contextForRequest(request, HnsAbilitySide.ATTACKER, true)
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            HnsAbilityContextPolicy.assess(89, context).relevance)
+
+        val control = request.copy(move = CalcMoveInput("Tackle"))
+        val controlContext = HnsAbilityContextPolicy.contextForRequest(control, HnsAbilitySide.ATTACKER, true)
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            HnsAbilityContextPolicy.assess(89, controlContext).relevance)
     }
 
     @Test

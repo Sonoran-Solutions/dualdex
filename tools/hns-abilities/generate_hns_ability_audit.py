@@ -24,9 +24,11 @@ CONTEXT_CANDIDATES = {
     55, 80, 83, 84, 86, 88, 91, 95, 97, 105, 106, 124, 128, 132, 133, 139, 140, 141,
     146, 152, 153, 154, 155, 160, 167, 168, 172, 192, 195, 201, 202, 215, 221, 222,
     223, 224, 234, 235, 236, 238, 243, 247, 250, 254, 259, 268, 271, 275, 290, 291,
-    220, 244, 252, 264, 265, 270, 308, 89, 96, 101, 137, 138, 173, 174, 178, 182, 184, 199, 200, 204, 206, 292,
+    220, 244, 252, 264, 265, 270, 308, 89, 96, 101, 110, 111, 116, 136, 137, 138, 173, 174,
+    178, 182, 184, 199, 200, 204, 206, 231, 232, 233, 246, 292,
 }
 POLICY = ROOT / "app/src/main/java/com/dualdex/calculator/HnsAbilityContextPolicy.kt"
+GROUP_C_POLICY = ROOT / "app/src/main/java/com/dualdex/calculator/HnsGroupCPolicy.kt"
 
 
 def pinned_species_constant(cpp_bin, upstream, macro):
@@ -70,7 +72,7 @@ def validate_context_rules(upstream, abilities, decisions):
     data = json.loads(CONTEXT_RULES.read_text())
     if set(map(int, data)) != CONTEXT_CANDIDATES:
         raise SystemExit("context_rules.json must cover exactly the reviewed first-wave abilities")
-    policy = (ROOT / "app/src/main/java/com/dualdex/calculator/HnsAbilityContextPolicy.kt").read_text()
+    policy = POLICY.read_text() + "\n" + GROUP_C_POLICY.read_text()
     all_rules = set()
     seen_rules = set()
     for raw_id, entry in data.items():
@@ -93,8 +95,8 @@ def validate_context_rules(upstream, abilities, decisions):
                 raise SystemExit(f"missing or duplicate contextual rule name: {name!r}")
             seen_rules.add((aid, name))
             all_rules.add(name)
-            if f'"{name}"' not in policy:
-                raise SystemExit(f"context rule {name} is not implemented in HnsAbilityContextPolicy.kt")
+            if f'"{name}"' not in policy and name not in policy:
+                raise SystemExit(f"context rule {name} is not implemented in a reviewed H&S ability policy")
             if not rule.get("predicate") or not rule.get("rationale"):
                 raise SystemExit(f"context rule {name} needs a predicate and source rationale")
             evidence = rule.get("evidence", [])
@@ -113,6 +115,12 @@ def validate_context_rules(upstream, abilities, decisions):
                     raise SystemExit(f"source line out of range for {name}: {item['source']}")
                 if item.get("contains", "") not in source_lines[line_no - 1]:
                     raise SystemExit(f"pinned source evidence changed for {name}: {item['source']}")
+                if "absentWithin" in item:
+                    end_line = item.get("endLine")
+                    if not isinstance(end_line, int) or end_line < line_no or end_line > len(source_lines):
+                        raise SystemExit(f"invalid absence range for {name}: {item['source']}..{end_line}")
+                    if any(item["absentWithin"] in line for line in source_lines[line_no - 1:end_line]):
+                        raise SystemExit(f"pinned absence evidence changed for {name}: {item['source']}..{end_line}")
 
     required = {
         "attacker_move_execution_state_unobserved",
@@ -134,6 +142,56 @@ def validate_context_rules(upstream, abilities, decisions):
         "steely_spirit_holder_effective_nonsteel_move",
         "steely_spirit_defender_singles_irrelevant",
         "steely_spirit_attacker_partner_deferred",
+        "adaptability_without_stab",
+        "adaptability_with_stab",
+        "adaptability_stab_operands_unknown",
+        "defender_adaptability_does_not_boost_incoming_damage",
+        "sniper_critical_hit",
+        "sniper_noncritical_hit",
+        "sniper_defender_side",
+        "sniper_crit_unknown",
+        "tinted_lens_resisted_hit",
+        "tinted_lens_not_resisted",
+        "tinted_lens_defender_side",
+        "tinted_lens_effectiveness_unknown",
+        "neuroforce_super_effective_hit",
+        "neuroforce_not_super_effective",
+        "neuroforce_defender_side",
+        "neuroforce_effectiveness_unknown",
+        "filter_super_effective_hit",
+        "filter_not_super_effective",
+        "filter_attacker_side",
+        "filter_effectiveness_unknown",
+        "solid_rock_super_effective_hit",
+        "solid_rock_not_super_effective",
+        "solid_rock_attacker_side",
+        "solid_rock_effectiveness_unknown",
+        "prism_armor_super_effective_hit",
+        "prism_armor_not_super_effective",
+        "prism_armor_attacker_side",
+        "prism_armor_effectiveness_unknown",
+        "multiscale_full_hp",
+        "multiscale_below_full_hp",
+        "multiscale_attacker_side",
+        "multiscale_hp_unknown",
+        "shadow_shield_full_hp",
+        "shadow_shield_below_full_hp",
+        "shadow_shield_attacker_side",
+        "shadow_shield_hp_unknown",
+        "ice_scales_special_move",
+        "ice_scales_physical_move",
+        "ice_scales_attacker_side",
+        "ice_scales_category_unknown",
+        "filter_mold_breaker_unshielded",
+        "filter_ability_shield_preserves",
+        "solid_rock_mold_breaker_unshielded",
+        "solid_rock_ability_shield_preserves",
+        "multiscale_mold_breaker_unshielded",
+        "multiscale_ability_shield_preserves",
+        "prism_armor_mold_breaker_preserves",
+        "shadow_shield_mold_breaker_preserves",
+        "ice_scales_mold_breaker_unshielded",
+        "ice_scales_ability_shield_preserves",
     }
     if not required <= all_rules:
         raise SystemExit("context rules must retain live-state, type/category, Guts, Hustle, and bypass safety predicates")

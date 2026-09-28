@@ -1525,7 +1525,7 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `known relevant Adaptability becomes a caveated estimate after boundary identity wins`() {
+    fun `known relevant Adaptability calculates exact STAB after boundary identity wins`() {
         val ready = readyOf(
             build(
                 trustFor(exactSha),
@@ -1533,11 +1533,11 @@ class CalcHnsC4eProductionBoundaryTest {
                 playerObservation(abilityId = 91, abilityName = "Adaptability"),
                 enemyObservation()
             ),
-            "known relevant Adaptability should be ignored only as a named caveat"
+            "known relevant Adaptability should use the exact live effective type and typings"
         )
-        assertEquals(listOf("You: Adaptability"), ready.verdict.ignoredMechanics.map { it.presentationLine })
-        assertEquals("(other)", ready.request.attacker.ability)
-        assertNull(ready.request.attacker.abilityId)
+        assertTrue(ready.verdict.ignoredMechanics.isEmpty())
+        assertEquals("Adaptability", ready.request.attacker.ability)
+        assertEquals(91, ready.request.attacker.abilityId)
     }
 
     @Test
@@ -1994,7 +1994,8 @@ class CalcHnsC4eProductionBoundaryTest {
 
     @Test
     fun `caller-spoofed ability is overridden by the authoritative runtime ID`() {
-        // The caller claims Overgrow, but the engine reports Adaptability (91, unsupported).
+        // The caller claims Overgrow, but the engine reports Adaptability (91). Its exact STAB
+        // branch is authorized only from the reconciled live ability and live type operands.
         val trust = trustFor(exactSha)
         val spoofed = goldenARequest().copy(
             attacker = liveInput("Chikorita", 5, 0, "Overgrow"),
@@ -2002,12 +2003,225 @@ class CalcHnsC4eProductionBoundaryTest {
         )
         val ready = readyOf(
             build(trust, spoofed, playerObservation(abilityId = 91, abilityName = "Adaptability"), enemyObservation()),
-            "the live Adaptability identity wins and its relevant effect becomes a caveat"
+            "the live Adaptability identity wins and its exact STAB branch is modelled"
         )
         assertEquals(91, ready.verdict.hnsAbilityDecisions.single().abilityId)
-        assertEquals(listOf("You: Adaptability"), ready.verdict.ignoredMechanics.map { it.presentationLine })
-        assertEquals("(other)", ready.request.attacker.ability)
-        assertNull(ready.request.attacker.abilityId)
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, ready.verdict.hnsAbilityDecisions.single().relevance)
+        assertTrue(ready.verdict.ignoredMechanics.isEmpty())
+        assertEquals("Adaptability", ready.request.attacker.ability)
+        assertEquals(91, ready.request.attacker.abilityId)
+        val engineInput = JSONObject(buildCalcRequestJson(ready.request))
+        assertEquals("Adaptability", engineInput.getJSONObject("attacker").getString("ability"))
+        assertEquals("Grass", engineInput.getJSONObject("move").getJSONObject("overrides").getString("type"))
+
+        var reachedEngine = false
+        val result = CalcAuthorizedExecution.calculate(ready.verdict) { request ->
+            reachedEngine = true
+            assertEquals(91, request.attacker.abilityId)
+            assertTrue(JSONObject(buildCalcRequestJson(request)).getJSONObject("move")
+                .getJSONObject("overrides").has("type"))
+            DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = List(16) { 1 })
+        }
+        assertTrue("exact Adaptability STAB should reach authorized calculation", result.success && reachedEngine)
+    }
+
+    @Test
+    fun `final modifier abilities use exact live operands and preserve breakability distinctions`() {
+        val trust = trustFor(exactSha)
+        fun relevance(outcome: CalcRequestOutcome, abilityId: Int): HnsAbilityRequestRelevance =
+            readyOf(outcome, "ability $abilityId should be authorized").verdict.hnsAbilityDecisions
+                .first { it.abilityId == abilityId }.relevance
+
+        val tintedResisted = readyOf(
+            build(trust, goldenARequest("Fire Punch"),
+                playerObservation(abilityId = 110, abilityName = "Tinted Lens"),
+                enemyObservation(speciesId = 134, types = listOf(11)), randomAbilities = true),
+            "Tinted Lens reads exact live Water effectiveness"
+        )
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            tintedResisted.verdict.hnsAbilityDecisions.first { it.abilityId == 110 }.relevance)
+
+        val tintedNeutral = build(trust, goldenARequest("Tackle"),
+            playerObservation(abilityId = 110, abilityName = "Tinted Lens"),
+            enemyObservation(types = listOf(1)), randomAbilities = true)
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(tintedNeutral, 110))
+
+        val neuroforce = build(trust, goldenARequest("Karate Chop"),
+            playerObservation(abilityId = 233, abilityName = "Neuroforce"),
+            enemyObservation(speciesId = 143, types = listOf(1)), randomAbilities = true)
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, relevance(neuroforce, 233))
+
+        val sniper = readyOf(
+            build(trust, goldenARequest("Karate Chop").copy(move = CalcMoveInput("Karate Chop", isCrit = true)),
+                playerObservation(abilityId = 97, abilityName = "Sniper"),
+                enemyObservation(speciesId = 143, types = listOf(1)), randomAbilities = true),
+            "the selected critical hit carries the live Sniper final modifier"
+        )
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            sniper.verdict.hnsAbilityDecisions.first { it.abilityId == 97 }.relevance)
+        assertTrue(JSONObject(buildCalcRequestJson(sniper.request)).getJSONObject("move").getBoolean("isCrit"))
+        val sniperControl = build(trust, goldenARequest("Karate Chop"),
+            playerObservation(abilityId = 97, abilityName = "Sniper"),
+            enemyObservation(speciesId = 143, types = listOf(1)), randomAbilities = true)
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(sniperControl, 97))
+
+        for ((id, name) in listOf(111 to "Filter", 116 to "Solid Rock", 232 to "Prism Armor")) {
+            val hit = build(trust, goldenARequest("Karate Chop"), playerObservation(),
+                enemyObservation(speciesId = 143, types = listOf(1), abilityId = id, abilityName = name),
+                randomAbilities = true)
+            assertEquals(HnsAbilityRequestRelevance.RELEVANT, relevance(hit, id))
+            val neutral = build(trust, goldenARequest("Tackle"), playerObservation(),
+                enemyObservation(speciesId = 143, types = listOf(1), abilityId = id, abilityName = name),
+                randomAbilities = true)
+            assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(neutral, id))
+        }
+
+        for ((id, name) in listOf(136 to "Multiscale", 231 to "Shadow Shield")) {
+            val full = readyOf(
+                build(trust, goldenARequest("Tackle"), playerObservation(),
+                    enemyObservation(speciesId = 143, types = listOf(1), abilityId = id, abilityName = name,
+                        hp = 60000, maxHp = 60000), randomAbilities = true),
+                "$name reads exact full HP"
+            )
+            assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+                full.verdict.hnsAbilityDecisions.first { it.abilityId == id }.relevance)
+            val defenderJson = JSONObject(buildCalcRequestJson(full.request)).getJSONObject("defender")
+            assertEquals(60000, defenderJson.getInt("hpAtHit"))
+            assertEquals(60000, defenderJson.getInt("maxHpAtHit"))
+
+            for (hp in listOf(59999, 1)) {
+                val below = build(trust, goldenARequest("Tackle"), playerObservation(),
+                    enemyObservation(speciesId = 143, types = listOf(1), abilityId = id, abilityName = name,
+                        hp = hp, maxHp = 60000), randomAbilities = true)
+                assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(below, id))
+            }
+            for ((hp, maxHp) in listOf(0 to 60000, 60001 to 60000, 1 to 0)) {
+                val invalid = build(trust, goldenARequest("Tackle"), playerObservation(),
+                    enemyObservation(speciesId = 143, types = listOf(1), abilityId = id, abilityName = name,
+                        hp = hp, maxHp = maxHp), randomAbilities = true)
+                assertTrue("$name must keep invalid HP evidence unknown",
+                    refusedOf(invalid, "$name invalid HP remains unknown").verdict.limitations.any {
+                        it == CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED ||
+                            it == CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN
+                    })
+            }
+            val unread = build(trust, goldenARequest("Tackle"), playerObservation(),
+                enemyObservation(speciesId = 143, types = listOf(1), abilityId = id, abilityName = name,
+                    hpObserved = false), randomAbilities = true)
+            assertTrue("$name must fail closed when HP is unread",
+                refusedOf(unread, "$name's unread HP remains unknown").verdict.limitations.any {
+                    it == CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED ||
+                        it == CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN
+                })
+        }
+
+        val iceScales = build(trust, goldenARequest("Ember"), playerObservation(),
+            enemyObservation(abilityId = 246, abilityName = "Ice Scales"), randomAbilities = true)
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, relevance(iceScales, 246))
+        val iceScalesTypeBased = readyOf(
+            build(trust, goldenARequest("Tackle"),
+                playerObservation(abilityId = 182, abilityName = "Pixilate"),
+                enemyObservation(abilityId = 246, abilityName = "Ice Scales"),
+                randomAbilities = true, optionStyle = 1),
+            "Ice Scales consumes the post-rewrite TYPE_BASED category"
+        )
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            iceScalesTypeBased.verdict.hnsAbilityDecisions.first { it.abilityId == 246 }.relevance)
+        val rewritten = JSONObject(buildCalcRequestJson(iceScalesTypeBased.request))
+            .getJSONObject("move").getJSONObject("overrides")
+        assertEquals("Fairy", rewritten.getString("type"))
+        assertEquals("Special", rewritten.getString("category"))
+
+        val moldBreaker = playerObservation(abilityId = 104, abilityName = "Mold Breaker")
+        val moldFilter = refusedOf(
+            build(trust, goldenARequest("Karate Chop"), moldBreaker,
+                enemyObservation(speciesId = 143, types = listOf(1), abilityId = 111, abilityName = "Filter"),
+                randomAbilities = true),
+            "Mold Breaker must retain the existing fail-closed path for breakable Filter"
+        )
+        assertTrue(moldFilter.verdict.limitations.contains(
+            CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED))
+        val moldSolidRock = refusedOf(
+            build(trust, goldenARequest("Karate Chop"), moldBreaker,
+                enemyObservation(speciesId = 143, types = listOf(1), abilityId = 116, abilityName = "Solid Rock"),
+                randomAbilities = true),
+            "Mold Breaker must retain the existing fail-closed path for breakable Solid Rock"
+        )
+        assertTrue(moldSolidRock.verdict.limitations.contains(
+            CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED))
+        val moldMultiscale = refusedOf(
+            build(trust, goldenARequest("Tackle"), moldBreaker,
+                enemyObservation(speciesId = 143, types = listOf(1), abilityId = 136, abilityName = "Multiscale",
+                    hp = 15, maxHp = 15), randomAbilities = true),
+            "Mold Breaker must retain the existing fail-closed path for breakable Multiscale"
+        )
+        assertTrue(moldMultiscale.verdict.limitations.contains(
+            CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED))
+        val moldIceScales = refusedOf(
+            build(trust, goldenARequest("Ember"), moldBreaker,
+                enemyObservation(speciesId = 143, types = listOf(1), abilityId = 246, abilityName = "Ice Scales"),
+                randomAbilities = true),
+            "Mold Breaker must retain the existing fail-closed path for breakable Ice Scales"
+        )
+        assertTrue(moldIceScales.verdict.limitations.contains(
+            CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED))
+
+        val moldPrism = readyOf(
+            build(trust, goldenARequest("Karate Chop"), moldBreaker,
+                enemyObservation(speciesId = 143, types = listOf(1), abilityId = 232, abilityName = "Prism Armor"),
+                randomAbilities = true),
+            "Mold Breaker cannot suppress pinned-unbreakable Prism Armor"
+        )
+        assertEquals("Prism Armor", JSONObject(buildCalcRequestJson(moldPrism.request))
+            .getJSONObject("defender").getString("ability"))
+        val moldShadow = readyOf(
+            build(trust, goldenARequest("Tackle"), moldBreaker,
+                enemyObservation(speciesId = 143, types = listOf(1), abilityId = 231, abilityName = "Shadow Shield",
+                    hp = 15, maxHp = 15), randomAbilities = true),
+            "Mold Breaker cannot suppress pinned-unbreakable Shadow Shield"
+        )
+        assertEquals("Shadow Shield", JSONObject(buildCalcRequestJson(moldShadow.request))
+            .getJSONObject("defender").getString("ability"))
+
+        val shieldedFilter = readyOf(
+            build(trust, goldenARequest("Karate Chop"), moldBreaker,
+                enemyObservation(speciesId = 143, types = listOf(1), abilityId = 111, abilityName = "Filter",
+                    itemId = 758), randomAbilities = true),
+            "Ability Shield preserves a breakable Filter against Mold Breaker"
+        )
+        val shieldedJson = JSONObject(buildCalcRequestJson(shieldedFilter.request)).getJSONObject("defender")
+        assertTrue(shieldedJson.getBoolean("hnsAbilityShield"))
+        assertEquals("Filter", shieldedJson.getString("ability"))
+
+        // Caller overrides cannot replace exact live HP/types or HnsMoveAuthority's final type and
+        // category. The chosen crit bit is an explicit calculator input, carried unchanged into
+        // the authorized request; no secondary caller-side modifier is introduced for Sniper.
+        val spoofedOperands = goldenARequest("Karate Chop").copy(
+            move = CalcMoveInput("Karate Chop", isCrit = true),
+            attacker = goldenARequest().attacker.copy(curHP = 1),
+            defender = goldenARequest().defender.copy(curHP = 1),
+            attackerOverride = CalcSpeciesOverride(StatBlock(hp = 1, atk = 1), listOf("Fire")),
+            defenderOverride = CalcSpeciesOverride(StatBlock(hp = 1, def = 1), listOf("Flying")),
+            moveOverride = CalcMoveOverride(basePower = 1, type = "Electric", category = "Special")
+        )
+        val liveWins = readyOf(
+            build(trust, spoofedOperands,
+                playerObservation(abilityId = 97, abilityName = "Sniper", hp = 14, maxHp = 20, types = listOf(13)),
+                enemyObservation(speciesId = 143, types = listOf(1), hp = 60000, maxHp = 60000,
+                    abilityId = 232, abilityName = "Prism Armor"), randomAbilities = true),
+            "all type, HP, and category values must bind from the trusted live request"
+        )
+        val json = JSONObject(buildCalcRequestJson(liveWins.request))
+        assertEquals(60000, json.getJSONObject("defender").getInt("hpAtHit"))
+        assertEquals(60000, json.getJSONObject("defender").getInt("maxHpAtHit"))
+        assertEquals("Normal", json.getJSONObject("defender").getJSONObject("overrides")
+            .getJSONArray("types").getString(0))
+        assertEquals("Grass", json.getJSONObject("attacker").getJSONObject("overrides")
+            .getJSONArray("types").getString(0))
+        val authoritativeMove = json.getJSONObject("move").getJSONObject("overrides")
+        assertEquals("Fighting", authoritativeMove.getString("type"))
+        assertEquals("Physical", authoritativeMove.getString("category"))
+        assertEquals(true, json.getJSONObject("move").getBoolean("isCrit"))
     }
 
     // ------------------------------------------------ held items: request-local relevance

@@ -1252,7 +1252,7 @@ class CalcCapabilityPolicyTest {
         // enforced by the policy before a request may proceed).
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Overgrow"))
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Torrent"))
-        assertFalse(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Adaptability"))
+        assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.HNS_2_0_5, "Adaptability"))
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.VANILLA_GEN3, "Thick Fat"))
         assertTrue(CalcCapabilityPolicy.isAbilityModelled(CalcRuleset.VANILLA_GEN3, "thick fat"))
         // The engine compares exactly, so a differently-cased name is only usable once it has been

@@ -16,10 +16,11 @@ Surfaces:
                      (ordinary damage, type chart, STAB, crit, stat stages, burn, Rain/Sun, Singles
                      screens, badge boosts, pinch abilities, physical Hustle, statused-physical Guts,
                      Wise Glasses, Fairy toggle, option style, Normalize, the four -ate rewrites and
-                     their explicit ateBoost behavior, and sound-gated Liquid Voice);
+                     their explicit ateBoost behavior, sound-gated Liquid Voice, Adaptability STAB,
+                     and the first low-state final ability modifiers);
 * ``engine-only`` -- arithmetic the calculator *engine* contains but production refuses or strips
                      (Doubles, Thick Fat, Guts contexts outside the admitted physical/status path,
-                     Huge/Pure Power, Adaptability, type-boost items).
+                     Huge/Pure Power, type-boost items).
 """
 
 from __future__ import annotations
@@ -175,17 +176,17 @@ def slug(text: str) -> str:
     return out.strip("-")
 
 
-def battler(label: str, *, level: int = 50, maxhp: int = 200, hp: int | None = None,
+def battler(label: str, *, level: int = 50, maxhp: int | None = None, hp: int | None = None,
             atk: int = 100, dfn: int = 100, spa: int = 100, spd: int = 100, spe: int = 80,
             ability: tuple[str, str] = NEUTRAL_ABILITY, item: tuple[str, str] | None = None,
             status: str = "none", stages: dict | None = None, role: str) -> dict:
     if label not in SPECIES:
         raise KeyError(f"species {label!r} is not in the reviewed catalogue")
     if role == "defender":
-        maxhp = DEFENDER_HP
-        hp = DEFENDER_HP
+        maxhp = DEFENDER_HP if maxhp is None else maxhp
         default_stages = {"defense": 0, "spDefense": 0}
     else:
+        maxhp = 200 if maxhp is None else maxhp
         default_stages = {"attack": 0, "spAttack": 0}
     merged = dict(default_stages)
     for key, value in (stages or {}).items():
@@ -1084,13 +1085,164 @@ def _engine_abilities() -> list[dict]:
                 out.append(scenario(f"engine-{slug(ab_label)}-{slug(move)}-a{a}", [f"ability:{slug(ab_label)}"],
                                     attacker("Machamp", atk=a, spa=a, ability=(ab_sym, ab_label)),
                                     defender("Snorlax", dfn=109, spd=109), move, surface="engine-only"))
-    adapt = ("ABILITY_ADAPTABILITY", "Adaptability")
-    for move in ("Karate Chop", "Aura Sphere", "Strength", "Swift"):
-        for crit in (False, True):
-            out.append(scenario(f"engine-adaptability-{slug(move)}{'-crit' if crit else ''}",
-                                ["ability:adaptability"] + (["crit"] if crit else []),
-                                attacker("Machamp", atk=144, spa=144, ability=adapt),
-                                defender("Snorlax", dfn=111, spd=111), move, crit=crit, surface="engine-only"))
+    return out
+
+
+def _final_modifiers_and_stab() -> list[dict]:
+    """Low-state final slots and Adaptability's pinned STAB-stage branch."""
+    out = []
+    tinted = ("ABILITY_TINTED_LENS", "Tinted Lens")
+    neuro = ("ABILITY_NEUROFORCE", "Neuroforce")
+    sniper = ("ABILITY_SNIPER", "Sniper")
+    filter_ability = ("ABILITY_FILTER", "Filter")
+    solid_rock = ("ABILITY_SOLID_ROCK", "Solid Rock")
+    prism = ("ABILITY_PRISM_ARMOR", "Prism Armor")
+    multiscale = ("ABILITY_MULTISCALE", "Multiscale")
+    shadow = ("ABILITY_SHADOW_SHIELD", "Shadow Shield")
+    ice_scales = ("ABILITY_ICE_SCALES", "Ice Scales")
+    adaptability = ("ABILITY_ADAPTABILITY", "Adaptability")
+    mold_breaker = ("ABILITY_MOLD_BREAKER", "Mold Breaker")
+
+    out.append(scenario("final-tinted-lens-resisted-half", ["ability:tinted-lens", "final-modifier"],
+                        attacker("Magmar", atk=140, ability=tinted), defender("Vaporeon", dfn=110), "Fire Punch"))
+    out.append(scenario("final-tinted-lens-resisted-quarter", ["ability:tinted-lens", "final-modifier"],
+                        attacker("Chikorita", atk=140, ability=tinted), defender("Dragonite", dfn=110), "Leaf Blade"))
+    out.append(scenario("final-tinted-lens-neutral-control", ["ability:tinted-lens", "final-modifier", "negative-control"],
+                        attacker("Magmar", atk=140, ability=tinted), defender("Snorlax", dfn=110), "Fire Punch"))
+    out.append(scenario("final-tinted-lens-super-effective-control", ["ability:tinted-lens", "final-modifier", "negative-control"],
+                        attacker("Magmar", atk=140, ability=tinted), defender("Tangela", dfn=110), "Fire Punch"))
+    out.append(scenario("final-tinted-lens-defender-control", ["ability:tinted-lens", "final-modifier", "negative-control", "role:defender"],
+                        attacker("Machamp", atk=140), defender("Vaporeon", dfn=110, ability=tinted), "Thunderbolt"))
+    out.append(scenario("final-tinted-lens-immunity-control", ["ability:tinted-lens", "final-modifier", "immune", "negative-control"],
+                        attacker("Dragonite", atk=140, ability=tinted), defender("Clefable", dfn=110), "Dragon Claw",
+                        expect="immune"))
+
+    out.append(scenario("final-neuroforce-super-effective", ["ability:neuroforce", "final-modifier"],
+                        attacker("Machamp", atk=145, ability=neuro), defender("Snorlax", dfn=110), "Karate Chop"))
+    out.append(scenario("final-neuroforce-neutral-control", ["ability:neuroforce", "final-modifier", "negative-control"],
+                        attacker("Machamp", atk=145, ability=neuro), defender("Snorlax", dfn=110), "Tackle"))
+    out.append(scenario("final-neuroforce-defender-control", ["ability:neuroforce", "final-modifier", "negative-control", "role:defender"],
+                        attacker("Machamp", atk=145), defender("Snorlax", dfn=110, ability=neuro), "Karate Chop"))
+    out.append(scenario("final-sniper-critical", ["ability:sniper", "crit", "final-modifier"],
+                        attacker("Machamp", atk=145, ability=sniper), defender("Snorlax", dfn=110), "Karate Chop", crit=True))
+    out.append(scenario("final-sniper-noncritical-control", ["ability:sniper", "final-modifier", "negative-control"],
+                        attacker("Machamp", atk=145, ability=sniper), defender("Snorlax", dfn=110), "Karate Chop"))
+    out.append(scenario("final-sniper-crit-filter-cross-product", ["ability:sniper", "ability:filter", "crit", "modifier-stacking"],
+                        attacker("Machamp", atk=145, ability=sniper),
+                        defender("Snorlax", dfn=110, ability=filter_ability), "Karate Chop", crit=True))
+
+    for ab, name in ((filter_ability, "filter"), (solid_rock, "solid-rock"), (prism, "prism-armor")):
+        out.append(scenario(f"final-{name}-super-effective", [f"ability:{name}", "final-modifier"],
+                            attacker("Magmar", atk=145), defender("Tangela", dfn=110, ability=ab), "Fire Punch"))
+        out.append(scenario(f"final-{name}-neutral-control", [f"ability:{name}", "final-modifier", "negative-control"],
+                            attacker("Machamp", atk=145), defender("Snorlax", dfn=110, ability=ab), "Tackle"))
+        out.append(scenario(f"final-{name}-resisted-control", [f"ability:{name}", "final-modifier", "negative-control"],
+                            attacker("Magmar", atk=145), defender("Vaporeon", dfn=110, ability=ab), "Fire Punch"))
+        out.append(scenario(f"final-{name}-attacker-control", [f"ability:{name}", "final-modifier", "negative-control", "role:attacker"],
+                            attacker("Machamp", atk=145, ability=ab), defender("Snorlax", dfn=110), "Karate Chop"))
+    out.append(scenario("final-filter-four-times", ["ability:filter", "final-modifier", "type-effectiveness:4"],
+                        attacker("Lapras", atk=145), defender("Dragonite", dfn=110, ability=filter_ability), "Ice Punch"))
+
+    # The pinned ability table marks Filter/Multiscale breakable but Prism Armor/Shadow Shield
+    # unbreakable. The first two are engine-only because the production boundary deliberately
+    # refuses unshielded Mold Breaker suppression; the non-breakable and Shield paths are admitted.
+    out.append(scenario("final-mold-breaker-filter-suppressed", ["ability:mold-breaker", "ability:filter", "mold-breaker"],
+                        attacker("Machamp", atk=145, ability=mold_breaker),
+                        defender("Snorlax", dfn=110, ability=filter_ability), "Karate Chop", surface="engine-only"))
+    out.append(scenario("final-mold-breaker-solid-rock-suppressed", ["ability:mold-breaker", "ability:solid-rock", "mold-breaker"],
+                        attacker("Machamp", atk=145, ability=mold_breaker),
+                        defender("Snorlax", dfn=110, ability=solid_rock), "Karate Chop", surface="engine-only"))
+    out.append(scenario("final-mold-breaker-filter-ability-shield-preserved", ["ability:mold-breaker", "ability:filter", "ability-shield"],
+                        attacker("Machamp", atk=145, ability=mold_breaker),
+                        defender("Snorlax", dfn=110, ability=filter_ability,
+                                 item=("ITEM_ABILITY_SHIELD", "Ability Shield")), "Karate Chop"))
+    out.append(scenario("final-mold-breaker-multiscale-suppressed", ["ability:mold-breaker", "ability:multiscale", "mold-breaker"],
+                        attacker("Machamp", atk=145, ability=mold_breaker),
+                        defender("Snorlax", dfn=110, ability=multiscale), "Tackle", surface="engine-only"))
+    out.append(scenario("final-mold-breaker-ice-scales-suppressed", ["ability:mold-breaker", "ability:ice-scales", "mold-breaker"],
+                        attacker("Alakazam", spa=145, ability=mold_breaker),
+                        defender("Snorlax", spd=110, ability=ice_scales), "Swift", surface="engine-only"))
+    out.append(scenario("final-mold-breaker-prism-armor-preserved", ["ability:mold-breaker", "ability:prism-armor", "mold-breaker"],
+                        attacker("Machamp", atk=145, ability=mold_breaker),
+                        defender("Snorlax", dfn=110, ability=prism), "Karate Chop"))
+    out.append(scenario("final-mold-breaker-shadow-shield-preserved", ["ability:mold-breaker", "ability:shadow-shield", "mold-breaker"],
+                        attacker("Machamp", atk=145, ability=mold_breaker),
+                        defender("Snorlax", dfn=110, ability=shadow), "Tackle"))
+
+    # Speed swaps prove the source's attacker/defender ability slots remain in distinct orders.
+    for order, atk_spe, def_spe in (("attacker-first", 80, 40), ("defender-first", 30, 90)):
+        out.append(scenario(f"final-neuroforce-filter-{order}", ["ability:neuroforce", "ability:filter", "final-modifier", "speed-order"],
+                            attacker("Machamp", atk=145, spe=atk_spe, ability=neuro),
+                            defender("Snorlax", dfn=110, spe=def_spe, ability=filter_ability), "Karate Chop"))
+    # The UQ4.12 product (1.25 x 0.75 = 0.9375) is applied once with half-down integer
+    # multiplication. At this low base damage, applying the two factors separately changes a
+    # 2-damage pre-final roll to 1; the pinned accumulated factor keeps it at 2.
+    out.append(scenario("final-neuroforce-filter-half-down-rounding", ["ability:neuroforce", "ability:filter", "final-modifier", "rounding", "low-damage"],
+                        attacker("Alakazam", level=1, atk=1, spe=80, ability=neuro),
+                        defender("Snorlax", dfn=65535, spe=40, ability=filter_ability), "Karate Chop"))
+
+    for ab, name in ((multiscale, "multiscale"), (shadow, "shadow-shield")):
+        out.append(scenario(f"final-{name}-full-hp", [f"ability:{name}", "final-modifier", "full-hp"],
+                            attacker("Machamp", atk=145), defender("Snorlax", dfn=110, ability=ab), "Tackle"))
+        out.append(scenario(f"final-{name}-one-below-max", [f"ability:{name}", "final-modifier", "negative-control"],
+                            attacker("Machamp", atk=145),
+                            defender("Snorlax", dfn=110, maxhp=60000, hp=59999, ability=ab), "Tackle"))
+        out.append(scenario(f"final-{name}-low-damage-floor", [f"ability:{name}", "final-modifier", "low-damage", "damage-floor"],
+                            attacker("Alakazam", level=1, atk=1, spa=1),
+                            defender("Snorlax", dfn=5000, spd=5000, ability=ab), "Tackle"))
+
+    out.append(scenario("final-ice-scales-special", ["ability:ice-scales", "final-modifier", "special"],
+                        attacker("Alakazam", spa=145), defender("Snorlax", spd=110, ability=ice_scales), "Swift"))
+    out.append(scenario("final-ice-scales-low-damage-floor", ["ability:ice-scales", "final-modifier", "low-damage", "damage-floor"],
+                        attacker("Alakazam", level=1, spa=1),
+                        defender("Snorlax", spd=5000, ability=ice_scales), "Swift"))
+    out.append(scenario("final-ice-scales-physical-control", ["ability:ice-scales", "final-modifier", "negative-control", "physical"],
+                        attacker("Machamp", atk=145), defender("Snorlax", dfn=110, ability=ice_scales), "Tackle"))
+    out.append(scenario("final-ice-scales-type-based-pixilate", ["ability:ice-scales", "ability:pixilate", "final-modifier", "type-rewrite", "type-based"],
+                        attacker("Gardevoir", spa=145, ability=("ABILITY_PIXILATE", "Pixilate")),
+                        defender("Snorlax", spd=110, ability=ice_scales), "Tackle", style="typeBased"))
+    out.append(scenario("final-ice-scales-attacker-control", ["ability:ice-scales", "final-modifier", "negative-control", "role:attacker"],
+                        attacker("Alakazam", spa=145, ability=ice_scales), defender("Snorlax", spd=110), "Swift"))
+
+    out.append(scenario("final-adaptability-stab", ["ability:adaptability", "stab", "final-modifier"],
+                        attacker("Hariyama", atk=145, ability=adaptability), defender("Snorlax", dfn=110), "Karate Chop"))
+    out.append(scenario("final-adaptability-no-stab-control", ["ability:adaptability", "negative-control", "stab"],
+                        attacker("Hariyama", atk=145, ability=adaptability), defender("Snorlax", dfn=110), "Tackle"))
+    out.append(scenario("final-adaptability-defender-control", ["ability:adaptability", "negative-control", "role:defender"],
+                        attacker("Hariyama", atk=145), defender("Snorlax", dfn=110, ability=adaptability), "Karate Chop"))
+    out.append(scenario("final-adaptability-fairy-on-no-dark-stab", ["ability:adaptability", "fairy", "negative-control", "stab"],
+                        attacker("Houndoom", spa=145, ability=adaptability), defender("Snorlax", spd=110), "Moonblast", fairy=True))
+    out.append(scenario("final-adaptability-fairy-off-dark-stab", ["ability:adaptability", "fairy", "stab", "type-rewrite"],
+                        attacker("Houndoom", spa=145, ability=adaptability), defender("Snorlax", spd=110), "Moonblast", fairy=False))
+
+    # Dynamic-type ability cross-products prove that the engine's STAB check reads its final
+    # effective type and observed attacker typing. These are separate cases because the holder can
+    # have only one attacker ability; Adaptability cannot coexist with a type-rewriting ability.
+    rewrites = (
+        ("normalize", "ABILITY_NORMALIZE", "Normalize", "Kecleon", "Karate Chop"),
+        ("pixilate", "ABILITY_PIXILATE", "Pixilate", "Gardevoir", "Tackle"),
+        ("refrigerate", "ABILITY_REFRIGERATE", "Refrigerate", "Glaceon", "Tackle"),
+        ("aerilate", "ABILITY_AERILATE", "Aerilate", "Corvisquire", "Tackle"),
+        ("galvanize", "ABILITY_GALVANIZE", "Galvanize", "Electabuzz", "Tackle"),
+    )
+    for slug_name, ab_id, ab_name, mon, move in rewrites:
+        out.append(scenario(f"final-stab-rewrite-{slug_name}-matching-live-type",
+                            [f"ability:{slug_name}", "stab", "type-rewrite"],
+                            attacker(mon, atk=145, spa=145, ability=(ab_id, ab_name)),
+                            defender("Snorlax", dfn=110, spd=110), move))
+    out.append(scenario("final-stab-rewrite-normalize-removes-fighting-stab",
+                        ["ability:normalize", "negative-control", "stab", "type-rewrite"],
+                        attacker("Hariyama", atk=145, ability=("ABILITY_NORMALIZE", "Normalize")),
+                        defender("Snorlax", dfn=110), "Karate Chop"))
+    out.append(scenario("final-stab-rewrite-pixilate-no-matching-fairy-type",
+                        ["ability:pixilate", "negative-control", "stab", "type-rewrite"],
+                        attacker("Porygon", spa=145, ability=("ABILITY_PIXILATE", "Pixilate")),
+                        defender("Snorlax", spd=110), "Tackle"))
+    liquid_voice = ("ABILITY_LIQUID_VOICE", "Liquid Voice")
+    for mon, tag in (("Blastoise", "matching"), ("Porygon", "nonmatching")):
+        out.append(scenario(f"final-stab-rewrite-liquid-voice-{tag}-live-type",
+                            ["ability:liquid-voice", "stab", "type-rewrite", "sound"],
+                            attacker(mon, spa=145, ability=liquid_voice), defender("Snorlax", spd=110), "Hyper Voice"))
     return out
 
 
@@ -1143,7 +1295,7 @@ def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
-              _base_power_abilities, _rules, _engine_abilities,
+              _base_power_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

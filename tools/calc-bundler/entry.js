@@ -343,6 +343,11 @@ const HNS_STAT_STAGE_RATIOS = [
   [40, 10]  // +6
 ];
 
+const HNS_MOLD_BREAKER_FAMILY = new Set(['Mold Breaker', 'Teravolt', 'Turboblaze']);
+const HNS_BREAKABLE_FINAL_DEFENDER_ABILITIES = new Set([
+  'Filter', 'Solid Rock', 'Multiscale', 'Ice Scales', 'Punk Rock'
+]);
+
 function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // The H&S request adapter supplies the already-authorized effective type here. Keep the
   // stage operand named explicitly so every type-sensitive modifier reads the same value.
@@ -351,6 +356,8 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const moveTypeRecord = gen.types.get(toID(effectiveMoveType));
   const defenderItem = String(input.defender?.item || defender.item || '').toLowerCase();
   const ringTarget = defenderItem === 'ring target';
+  const defenderHasAbilityShield = input.defender?.hnsAbilityShield === true ||
+    defenderItem === 'ability shield';
   if (moveTypeRecord && defender.types) {
     for (const defType of defender.types) {
       if (defType && moveTypeRecord.effectiveness[defType] !== undefined) {
@@ -374,7 +381,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // Move-level ability bypass enters the same Mold Breaker path as an attacker ability. The
   // pinned GetBattlerAbilityInternal() checks Ability Shield before CanBreakThroughAbility(),
   // so the move flag does not suppress a shielded target ability.
-  const bypassTargetAbility = ignoresTargetAbility && defenderItem !== 'ability shield';
+  const bypassTargetAbility = ignoresTargetAbility && !defenderHasAbilityShield;
   const hnsDamagingMove = move.category !== 'Status' && move.bp > 0;
   if (hnsDamagingMove && typeEffectiveness === 0) {
     addImmunity('type', 'src/data/types_info.h', 'type-chart');
@@ -714,10 +721,18 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   if (screenModifier !== HNS_UQ4_12_ONE && gameType === 'Doubles') screenModifier = 2732;
 
   // GetOtherModifiers is its own pinned UQ4.12 accumulation stage after STAB, effectiveness and
-  // burn. Screens, attacker abilities, defender abilities, and items compose inside this product;
-  // its internal order depends on the unmodified battler speeds.
+  // burn. Keep each named source slot in order, including neutral slots that this production
+  // subset does not model: target state, screens, Collision Course/Electro Drift, ability slots,
+  // defender partner, then item slots. The ability and item order depends on unmodified speeds.
   const otherFinalModifier = createHnsModifierAccumulator();
+  const targetStateFinalModifier = HNS_UQ4_12_ONE; // Active Glaive Rush/Tar Shot contexts fail closed.
+  const collisionCourseFinalModifier = HNS_UQ4_12_ONE; // Collision Course/Electro Drift are out of the ordinary move allow-list.
+  const defenderPartnerAbilityFinalModifier = HNS_UQ4_12_ONE; // Doubles is not production-authorized.
+  const attackerItemFinalModifier = HNS_UQ4_12_ONE; // No final attacker-item branch is admitted here.
+  const defenderItemFinalModifier = HNS_UQ4_12_ONE; // No final defender-item branch is admitted here.
+  otherFinalModifier.add(targetStateFinalModifier);
   otherFinalModifier.add(screenModifier);
+  otherFinalModifier.add(collisionCourseFinalModifier);
   const rawAttackerSpeed = input.attacker?.rawStats?.speed !== undefined
     ? input.attacker.rawStats.speed
     : (attacker.rawStats ? attacker.rawStats.spe : attacker.stats.spe);
@@ -725,18 +740,59 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     ? input.defender.rawStats.speed
     : (defender.rawStats ? defender.rawStats.spe : defender.stats.spe);
   // These are named slots in the pinned GetOtherModifiers product. Tinted Lens/Neuroforce/Sniper
-  // can be added to the attacker slot, and Filter/Multiscale/Ice Scales alongside Punk Rock in the
-  // defender slot, preserving the source's speed-dependent order and half-down product arithmetic.
-  const attackerAbilityFinalModifier = HNS_UQ4_12_ONE;
-  const defenderAbilityFinalModifier = defender.ability === 'Punk Rock' && moveFlags.has('soundMove')
-    ? 2048
-    : HNS_UQ4_12_ONE;
+  // use the attacker slot; Filter/Solid Rock/Prism Armor/Multiscale/Shadow Shield/Ice Scales join
+  // Punk Rock in the defender slot, preserving source speed order and half-down product arithmetic.
+  let attackerAbilityFinalModifier = HNS_UQ4_12_ONE;
+  switch (attacker.ability) {
+    case 'Neuroforce':
+      if (typeEffectiveness >= 2.0) attackerAbilityFinalModifier = 5120;
+      break;
+    case 'Sniper':
+      if (move.isCrit) attackerAbilityFinalModifier = 6144;
+      break;
+    case 'Tinted Lens':
+      if (typeEffectiveness <= 0.5) attackerAbilityFinalModifier = 8192;
+      break;
+  }
+
+  const defenderAbilitySuppressed = !defenderHasAbilityShield &&
+    (HNS_MOLD_BREAKER_FAMILY.has(attacker.ability) || moveFlags.has('ignoresTargetAbility')) &&
+    HNS_BREAKABLE_FINAL_DEFENDER_ABILITIES.has(defender.ability);
+  const defenderFinalAbility = defenderAbilitySuppressed ? '' : defender.ability;
+  let defenderAbilityFinalModifier = HNS_UQ4_12_ONE;
+  switch (defenderFinalAbility) {
+    case 'Punk Rock':
+      if (moveFlags.has('soundMove')) defenderAbilityFinalModifier = 2048;
+      break;
+    case 'Filter':
+    case 'Solid Rock':
+    case 'Prism Armor':
+      if (typeEffectiveness >= 2.0) defenderAbilityFinalModifier = 3072;
+      break;
+    case 'Multiscale':
+    case 'Shadow Shield': {
+      const hpAtHit = input.defender?.hpAtHit;
+      const maxHpAtHit = input.defender?.maxHpAtHit;
+      if (Number.isInteger(hpAtHit) && Number.isInteger(maxHpAtHit) && maxHpAtHit > 0 &&
+          hpAtHit === maxHpAtHit) defenderAbilityFinalModifier = 2048;
+      break;
+    }
+    case 'Ice Scales':
+      if (move.category === 'Special') defenderAbilityFinalModifier = 2048;
+      break;
+  }
   if (rawAttackerSpeed >= rawDefenderSpeed) {
     otherFinalModifier.add(attackerAbilityFinalModifier);
     otherFinalModifier.add(defenderAbilityFinalModifier);
+    otherFinalModifier.add(defenderPartnerAbilityFinalModifier);
+    otherFinalModifier.add(attackerItemFinalModifier);
+    otherFinalModifier.add(defenderItemFinalModifier);
   } else {
     otherFinalModifier.add(defenderAbilityFinalModifier);
+    otherFinalModifier.add(defenderPartnerAbilityFinalModifier);
     otherFinalModifier.add(attackerAbilityFinalModifier);
+    otherFinalModifier.add(defenderItemFinalModifier);
+    otherFinalModifier.add(attackerItemFinalModifier);
   }
 
   // ApplyModifiersAfterDmgRoll makes distinct sequential calls in pinned order: STAB, type

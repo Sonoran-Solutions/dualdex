@@ -537,41 +537,63 @@
     "fallback": "Unknown move or attacker ability remains UNKNOWN."
   },
   "91": {
-    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
       {
         "rule": "defender_adaptability_does_not_boost_incoming_damage",
-        "predicate": "Ability is on the defender.",
-        "rationale": "Adaptability only changes the attacker's same-type attack bonus multiplier.",
+        "predicate": "Adaptability is on the defender.",
+        "rationale": "GetSameTypeAttackBonusModifier reads only abilityAtk.",
         "evidence": [
           {
             "source": "src/battle_util.c:7427",
             "contains": "ctx->abilityAtk == ABILITY_ADAPTABILITY"
-          },
-          {
-            "source": "src/battle_util.c:7428",
-            "contains": "!IS_BATTLER_OF_TYPE(ctx->battlerAtk, ctx->moveType)"
           }
         ]
       },
       {
         "rule": "adaptability_without_stab",
-        "predicate": "Ability is on the attacker, exact live Singles is observed, and the effective move type is absent from observed current attacker types.",
-        "rationale": "The non-STAB branch returns a 1.0 multiplier before Adaptability is consulted.",
+        "predicate": "Live attacker types do not contain HnsMoveAuthority.effectiveType.",
+        "rationale": "The pinned non-STAB branch returns 1.0 before consulting Adaptability.",
         "evidence": [
           {
             "source": "src/battle_util.c:7428",
             "contains": "!IS_BATTLER_OF_TYPE(ctx->battlerAtk, ctx->moveType)"
           },
           {
+            "source": "src/battle_util.c:7429",
+            "contains": "return UQ_4_12(1.0);"
+          }
+        ]
+      },
+      {
+        "rule": "adaptability_with_stab",
+        "predicate": "Authoritative live attacker types contain HnsMoveAuthority.effectiveType on an ordinary Singles hit.",
+        "rationale": "The pinned ordinary STAB branch uses ×2.0 for Adaptability, after the final move type is selected.",
+        "evidence": [
+          {
             "source": "src/battle_util.c:7430",
             "contains": "ctx->abilityAtk == ABILITY_ADAPTABILITY"
+          }
+        ]
+      },
+      {
+        "rule": "adaptability_stab_operands_unknown",
+        "predicate": "Move shape, effective ability, final effective move type, live attacker types, or Singles topology is missing/unsupported.",
+        "rationale": "STAB remains UNKNOWN unless the same live type operands consumed by the engine are authoritative.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7424",
+            "contains": "if (ctx->moveType == TYPE_MYSTERY)"
+          },
+          {
+            "source": "src/battle_util.c:7428",
+            "contains": "!IS_BATTLER_OF_TYPE(ctx->battlerAtk, ctx->moveType)"
           }
         ]
       }
     ],
     "always_blocking": [],
-    "fallback": "STAB, unknown type, or unknown battle topology remains blocked."
+    "fallback": "UNKNOWN/fail closed when move shape, active gimmick, effective type, live attacker types, or topology cannot be resolved."
   },
   "95": {
     "global": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -604,12 +626,49 @@
     "fallback": "Unknown move or attacker ability remains UNKNOWN."
   },
   "97": {
-    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
       {
-        "rule": "sniper_without_attacker_critical_hit",
-        "predicate": "Defender Sniper or attacker Sniper with isCrit=false on an ordinary move.",
-        "rationale": "Sniper multiplies only an attacking critical hit.",
+        "rule": "sniper_critical_hit",
+        "predicate": "Attacker Sniper and the selected authoritative hit is critical.",
+        "rationale": "Sniper adds ×1.5 in the attacker final slot after the regular critical stage.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7567",
+            "contains": "if (isCrit)"
+          },
+          {
+            "source": "src/battle_util.c:7568",
+            "contains": "return UQ_4_12(1.5);"
+          }
+        ]
+      },
+      {
+        "rule": "sniper_noncritical_hit",
+        "predicate": "Attacker Sniper and the selected hit is not critical.",
+        "rationale": "The pinned branch leaves the attacker final modifier at 1.0.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7567",
+            "contains": "if (isCrit)"
+          }
+        ]
+      },
+      {
+        "rule": "sniper_defender_side",
+        "predicate": "Sniper is on the defender.",
+        "rationale": "GetAttackerAbilitiesModifier reads Sniper; a defender copy does not affect this hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7566",
+            "contains": "case ABILITY_SNIPER:"
+          }
+        ]
+      },
+      {
+        "rule": "sniper_crit_unknown",
+        "predicate": "Ordinary move, effective attacker ability, or fixed crit operand is unknown.",
+        "rationale": "The critical flag is a required operand; an unresolved critical state remains UNKNOWN.",
         "evidence": [
           {
             "source": "src/battle_util.c:7567",
@@ -618,20 +677,8 @@
         ]
       }
     ],
-    "always_blocking": [
-      {
-        "rule": "sniper_attacker_critical_damage",
-        "predicate": "Attacker Sniper with isCrit=true.",
-        "rationale": "Sniper directly multiplies the selected critical hit.",
-        "evidence": [
-          {
-            "source": "src/battle_util.c:7568",
-            "contains": "return UQ_4_12(1.5)"
-          }
-        ]
-      }
-    ],
-    "fallback": "Unknown move shape or crit flag remains UNKNOWN."
+    "always_blocking": [],
+    "fallback": "UNKNOWN/fail closed when move shape, live ability, or fixed critical flag is unavailable."
   },
   "105": {
     "global": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -2988,5 +3035,599 @@
     ],
     "fallback": "Unknown final effective move type, ability identity, nonordinary move shape, or Doubles topology remains refused.",
     "global": "MODELLED_HNS_CONDITIONAL"
+  },
+  "110": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "tinted_lens_resisted_hit",
+        "predicate": "Attacker Tinted Lens and exact H&S type effectiveness is at most ×0.5.",
+        "rationale": "The attacker final slot multiplies the resisted hit by ×2.0; type/ability immunity still exits at zero.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7571",
+            "contains": "if (typeEffectivenessModifier <= UQ_4_12(0.5))"
+          },
+          {
+            "source": "src/battle_util.c:7572",
+            "contains": "return UQ_4_12(2.0);"
+          }
+        ]
+      },
+      {
+        "rule": "tinted_lens_not_resisted",
+        "predicate": "Attacker Tinted Lens with neutral or super-effective exact H&S effectiveness.",
+        "rationale": "Effectiveness above ×0.5 proves the Tinted Lens branch inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7571",
+            "contains": "if (typeEffectivenessModifier <= UQ_4_12(0.5))"
+          }
+        ]
+      },
+      {
+        "rule": "tinted_lens_defender_side",
+        "predicate": "Tinted Lens is on the defender.",
+        "rationale": "The pinned branch reads only abilityAtk.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7570",
+            "contains": "case ABILITY_TINTED_LENS:"
+          }
+        ]
+      },
+      {
+        "rule": "tinted_lens_effectiveness_unknown",
+        "predicate": "Final effective type, live defender types, type-system state, or exact chart result is unresolved.",
+        "rationale": "Text labels such as “resisted” do not prove the numeric predicate.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7571",
+            "contains": "if (typeEffectivenessModifier <= UQ_4_12(0.5))"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "UNKNOWN/fail closed when final type, live defender types, or exact H&S effectiveness is unavailable."
+  },
+  "111": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "filter_super_effective_hit",
+        "predicate": "Defender Filter and exact H&S effectiveness is at least ×2.0.",
+        "rationale": "The defender final slot applies ×0.75.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7595",
+            "contains": "case ABILITY_FILTER:"
+          },
+          {
+            "source": "src/battle_util.c:7598",
+            "contains": "if (ctx->typeEffectivenessModifier >= UQ_4_12(2.0))"
+          },
+          {
+            "source": "src/battle_util.c:7600",
+            "contains": "modifier = UQ_4_12(0.75);"
+          }
+        ]
+      },
+      {
+        "rule": "filter_not_super_effective",
+        "predicate": "Defender Filter and exact H&S effectiveness is below ×2.0.",
+        "rationale": "The pinned defender branch remains ×1.0.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7598",
+            "contains": "if (ctx->typeEffectivenessModifier >= UQ_4_12(2.0))"
+          }
+        ]
+      },
+      {
+        "rule": "filter_attacker_side",
+        "predicate": "Filter is on the attacker.",
+        "rationale": "The pinned Filter case is in GetDefenderAbilitiesModifier only.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7585",
+            "contains": "switch (ctx->abilityDef)"
+          }
+        ]
+      },
+      {
+        "rule": "filter_effectiveness_unknown",
+        "predicate": "Final type, live defender types, or exact H&S effectiveness is unresolved.",
+        "rationale": "Unknown effectiveness fails closed.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7598",
+            "contains": "if (ctx->typeEffectivenessModifier >= UQ_4_12(2.0))"
+          }
+        ]
+      },
+      {
+        "rule": "filter_mold_breaker_unshielded",
+        "predicate": "Attacking Mold Breaker-family ability, relevant defender Filter, and no Ability Shield.",
+        "rationale": "Filter is breakable; because the final-stage path does not model suppression, production refuses this combination.",
+        "evidence": [
+          {
+            "source": "src/data/abilities.h:834",
+            "contains": ".breakable = TRUE,"
+          },
+          {
+            "source": "src/battle_util.c:4978",
+            "contains": "return gBattleStruct->moldBreakerActive && gAbilitiesInfo[gBattleMons[battlerDef].ability].breakable;"
+          }
+        ]
+      },
+      {
+        "rule": "filter_ability_shield_preserves",
+        "predicate": "Relevant Filter is held with an observed Ability Shield against Mold Breaker.",
+        "rationale": "The pinned suppression check explicitly lets Ability Shield preserve a breakable ability.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4976",
+            "contains": "if (hasAbilityShield || ignoreMoldBreaker || battlerDef == battlerAtk)"
+          },
+          {
+            "source": "src/battle_util.c:4998",
+            "contains": "bool32 hasAbilityShield = !noAbilityShield && GetBattlerHoldEffectIgnoreAbility(battler) == HOLD_EFFECT_ABILITY_SHIELD;"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "UNKNOWN/fail closed when effectiveness or suppression state is not authoritative."
+  },
+  "116": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "solid_rock_super_effective_hit",
+        "predicate": "Defender Solid Rock and exact H&S effectiveness is at least ×2.0.",
+        "rationale": "The defender final slot applies ×0.75.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7596",
+            "contains": "case ABILITY_SOLID_ROCK:"
+          },
+          {
+            "source": "src/battle_util.c:7598",
+            "contains": "if (ctx->typeEffectivenessModifier >= UQ_4_12(2.0))"
+          },
+          {
+            "source": "src/battle_util.c:7600",
+            "contains": "modifier = UQ_4_12(0.75);"
+          }
+        ]
+      },
+      {
+        "rule": "solid_rock_not_super_effective",
+        "predicate": "Defender Solid Rock and exact H&S effectiveness is below ×2.0.",
+        "rationale": "The pinned defender branch remains ×1.0.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7598",
+            "contains": "if (ctx->typeEffectivenessModifier >= UQ_4_12(2.0))"
+          }
+        ]
+      },
+      {
+        "rule": "solid_rock_attacker_side",
+        "predicate": "Solid Rock is on the attacker.",
+        "rationale": "The pinned Solid Rock case is in GetDefenderAbilitiesModifier only.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7585",
+            "contains": "switch (ctx->abilityDef)"
+          }
+        ]
+      },
+      {
+        "rule": "solid_rock_effectiveness_unknown",
+        "predicate": "Final type, live defender types, or exact H&S effectiveness is unresolved.",
+        "rationale": "Unknown effectiveness fails closed.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7598",
+            "contains": "if (ctx->typeEffectivenessModifier >= UQ_4_12(2.0))"
+          }
+        ]
+      },
+      {
+        "rule": "solid_rock_mold_breaker_unshielded",
+        "predicate": "Attacking Mold Breaker-family ability, relevant defender Solid Rock, and no Ability Shield.",
+        "rationale": "Solid Rock is breakable; production refuses until the final-stage suppression path is exact.",
+        "evidence": [
+          {
+            "source": "src/data/abilities.h:871",
+            "contains": ".breakable = TRUE,"
+          },
+          {
+            "source": "src/battle_util.c:4978",
+            "contains": "return gBattleStruct->moldBreakerActive && gAbilitiesInfo[gBattleMons[battlerDef].ability].breakable;"
+          }
+        ]
+      },
+      {
+        "rule": "solid_rock_ability_shield_preserves",
+        "predicate": "Relevant Solid Rock is held with an observed Ability Shield against Mold Breaker.",
+        "rationale": "Ability Shield prevents the pinned suppression check.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4976",
+            "contains": "if (hasAbilityShield || ignoreMoldBreaker || battlerDef == battlerAtk)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "UNKNOWN/fail closed when effectiveness or suppression state is not authoritative."
+  },
+  "136": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "multiscale_full_hp",
+        "predicate": "Defender Multiscale with exact live HP equal to exact live max HP.",
+        "rationale": "The defender final slot applies ×0.5.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7589",
+            "contains": "if (IsBattlerAtMaxHp(ctx->battlerDef))"
+          },
+          {
+            "source": "src/battle_util.c:7591",
+            "contains": "modifier = UQ_4_12(0.5);"
+          }
+        ]
+      },
+      {
+        "rule": "multiscale_below_full_hp",
+        "predicate": "Defender Multiscale with valid live HP below max HP.",
+        "rationale": "The exact inequality proves the full-HP branch inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7589",
+            "contains": "if (IsBattlerAtMaxHp(ctx->battlerDef))"
+          }
+        ]
+      },
+      {
+        "rule": "multiscale_attacker_side",
+        "predicate": "Multiscale is on the attacker.",
+        "rationale": "The pinned case reads only abilityDef.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7585",
+            "contains": "switch (ctx->abilityDef)"
+          }
+        ]
+      },
+      {
+        "rule": "multiscale_hp_unknown",
+        "predicate": "Live HP/max HP is unread, invalid, or out of range.",
+        "rationale": "Full HP is never inferred from a displayed percentage.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7589",
+            "contains": "if (IsBattlerAtMaxHp(ctx->battlerDef))"
+          }
+        ]
+      },
+      {
+        "rule": "multiscale_mold_breaker_unshielded",
+        "predicate": "Attacking Mold Breaker-family ability, full-HP defender Multiscale, and no Ability Shield.",
+        "rationale": "Multiscale is breakable; production refuses this unsupported suppression interaction.",
+        "evidence": [
+          {
+            "source": "src/data/abilities.h:1029",
+            "contains": ".breakable = TRUE,"
+          },
+          {
+            "source": "src/battle_util.c:4978",
+            "contains": "return gBattleStruct->moldBreakerActive && gAbilitiesInfo[gBattleMons[battlerDef].ability].breakable;"
+          }
+        ]
+      },
+      {
+        "rule": "multiscale_ability_shield_preserves",
+        "predicate": "Relevant Multiscale is held with observed Ability Shield against Mold Breaker.",
+        "rationale": "Ability Shield prevents the pinned suppression check.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4976",
+            "contains": "if (hasAbilityShield || ignoreMoldBreaker || battlerDef == battlerAtk)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "UNKNOWN/fail closed when exact HP/max HP or suppression state is unavailable."
+  },
+  "231": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "shadow_shield_full_hp",
+        "predicate": "Defender Shadow Shield with exact live HP equal to exact live max HP.",
+        "rationale": "The defender final slot applies ×0.5.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7589",
+            "contains": "if (IsBattlerAtMaxHp(ctx->battlerDef))"
+          },
+          {
+            "source": "src/battle_util.c:7591",
+            "contains": "modifier = UQ_4_12(0.5);"
+          }
+        ]
+      },
+      {
+        "rule": "shadow_shield_below_full_hp",
+        "predicate": "Defender Shadow Shield with valid live HP below max HP.",
+        "rationale": "The exact inequality proves the full-HP branch inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7589",
+            "contains": "if (IsBattlerAtMaxHp(ctx->battlerDef))"
+          }
+        ]
+      },
+      {
+        "rule": "shadow_shield_attacker_side",
+        "predicate": "Shadow Shield is on the attacker.",
+        "rationale": "The pinned case reads only abilityDef.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7585",
+            "contains": "switch (ctx->abilityDef)"
+          }
+        ]
+      },
+      {
+        "rule": "shadow_shield_hp_unknown",
+        "predicate": "Live HP/max HP is unread, invalid, or out of range.",
+        "rationale": "Full HP is never inferred from a displayed percentage.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7589",
+            "contains": "if (IsBattlerAtMaxHp(ctx->battlerDef))"
+          }
+        ]
+      },
+      {
+        "rule": "shadow_shield_mold_breaker_preserves",
+        "predicate": "Attacking Mold Breaker-family ability against Shadow Shield.",
+        "rationale": "Pinned gAbilitiesInfo does not mark Shadow Shield breakable, so Mold Breaker does not suppress it.",
+        "evidence": [
+          {
+            "source": "src/data/abilities.h:1772",
+            "contains": "[ABILITY_SHADOW_SHIELD] =",
+            "absentWithin": ".breakable = TRUE",
+            "endLine": 1777
+          },
+          {
+            "source": "src/battle_util.c:4978",
+            "contains": "return gBattleStruct->moldBreakerActive && gAbilitiesInfo[gBattleMons[battlerDef].ability].breakable;"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "UNKNOWN/fail closed when exact HP/max HP or suppression context is unavailable."
+  },
+  "232": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "prism_armor_super_effective_hit",
+        "predicate": "Defender Prism Armor and exact H&S effectiveness is at least ×2.0.",
+        "rationale": "The defender final slot applies ×0.75.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7597",
+            "contains": "case ABILITY_PRISM_ARMOR:"
+          },
+          {
+            "source": "src/battle_util.c:7598",
+            "contains": "if (ctx->typeEffectivenessModifier >= UQ_4_12(2.0))"
+          },
+          {
+            "source": "src/battle_util.c:7600",
+            "contains": "modifier = UQ_4_12(0.75);"
+          }
+        ]
+      },
+      {
+        "rule": "prism_armor_not_super_effective",
+        "predicate": "Defender Prism Armor and exact H&S effectiveness is below ×2.0.",
+        "rationale": "The pinned defender branch remains ×1.0.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7598",
+            "contains": "if (ctx->typeEffectivenessModifier >= UQ_4_12(2.0))"
+          }
+        ]
+      },
+      {
+        "rule": "prism_armor_attacker_side",
+        "predicate": "Prism Armor is on the attacker.",
+        "rationale": "The pinned case is in GetDefenderAbilitiesModifier only.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7585",
+            "contains": "switch (ctx->abilityDef)"
+          }
+        ]
+      },
+      {
+        "rule": "prism_armor_effectiveness_unknown",
+        "predicate": "Final type, live defender types, or exact H&S effectiveness is unresolved.",
+        "rationale": "Unknown effectiveness fails closed.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7598",
+            "contains": "if (ctx->typeEffectivenessModifier >= UQ_4_12(2.0))"
+          }
+        ]
+      },
+      {
+        "rule": "prism_armor_mold_breaker_preserves",
+        "predicate": "Attacking Mold Breaker-family ability against Prism Armor.",
+        "rationale": "Pinned gAbilitiesInfo does not mark Prism Armor breakable, so Mold Breaker does not suppress its final modifier.",
+        "evidence": [
+          {
+            "source": "src/data/abilities.h:1779",
+            "contains": "[ABILITY_PRISM_ARMOR] =",
+            "absentWithin": ".breakable = TRUE",
+            "endLine": 1784
+          },
+          {
+            "source": "src/battle_util.c:4978",
+            "contains": "return gBattleStruct->moldBreakerActive && gAbilitiesInfo[gBattleMons[battlerDef].ability].breakable;"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "UNKNOWN/fail closed when effectiveness or suppression context is unresolved."
+  },
+  "233": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "neuroforce_super_effective_hit",
+        "predicate": "Attacker Neuroforce and exact H&S effectiveness is at least ×2.0.",
+        "rationale": "The attacker final slot multiplies the super-effective hit by ×1.25.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7563",
+            "contains": "if (typeEffectivenessModifier >= UQ_4_12(2.0))"
+          },
+          {
+            "source": "src/battle_util.c:7564",
+            "contains": "return UQ_4_12(1.25);"
+          }
+        ]
+      },
+      {
+        "rule": "neuroforce_not_super_effective",
+        "predicate": "Attacker Neuroforce and exact H&S effectiveness is below ×2.0.",
+        "rationale": "The pinned attacker branch returns ×1.0 unless the threshold is met.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7563",
+            "contains": "if (typeEffectivenessModifier >= UQ_4_12(2.0))"
+          }
+        ]
+      },
+      {
+        "rule": "neuroforce_defender_side",
+        "predicate": "Neuroforce is on the defender.",
+        "rationale": "The pinned branch reads only abilityAtk.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7562",
+            "contains": "case ABILITY_NEUROFORCE:"
+          }
+        ]
+      },
+      {
+        "rule": "neuroforce_effectiveness_unknown",
+        "predicate": "Final effective type, live defender types, type-system state, or exact chart result is unresolved.",
+        "rationale": "No textual matchup label can substitute for exact numeric effectiveness.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7563",
+            "contains": "if (typeEffectivenessModifier >= UQ_4_12(2.0))"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "UNKNOWN/fail closed when final type, live defender types, or exact H&S effectiveness is unavailable."
+  },
+  "246": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "ice_scales_special_move",
+        "predicate": "Defender Ice Scales and HnsMoveAuthority final category is Special.",
+        "rationale": "The defender final slot applies ×0.5 after category resolution, including TYPE_BASED mode.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7624",
+            "contains": "if (IsBattleMoveSpecial(ctx->move))"
+          },
+          {
+            "source": "src/battle_util.c:7626",
+            "contains": "modifier =  UQ_4_12(0.5);"
+          }
+        ]
+      },
+      {
+        "rule": "ice_scales_physical_move",
+        "predicate": "Defender Ice Scales and HnsMoveAuthority final category is Physical.",
+        "rationale": "Physical category proves the special-only branch inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7624",
+            "contains": "if (IsBattleMoveSpecial(ctx->move))"
+          }
+        ]
+      },
+      {
+        "rule": "ice_scales_attacker_side",
+        "predicate": "Ice Scales is on the attacker.",
+        "rationale": "The pinned Ice Scales case reads only abilityDef.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7585",
+            "contains": "switch (ctx->abilityDef)"
+          }
+        ]
+      },
+      {
+        "rule": "ice_scales_category_unknown",
+        "predicate": "Final move category is unresolved.",
+        "rationale": "The static source category is not substituted for TYPE_BASED HnsMoveAuthority category.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7624",
+            "contains": "if (IsBattleMoveSpecial(ctx->move))"
+          }
+        ]
+      },
+      {
+        "rule": "ice_scales_mold_breaker_unshielded",
+        "predicate": "Attacking Mold Breaker-family ability, Special hit, defender Ice Scales, and no Ability Shield.",
+        "rationale": "Ice Scales is breakable; production refuses this unsupported suppression interaction.",
+        "evidence": [
+          {
+            "source": "src/data/abilities.h:1889",
+            "contains": ".breakable = TRUE,"
+          },
+          {
+            "source": "src/battle_util.c:4978",
+            "contains": "return gBattleStruct->moldBreakerActive && gAbilitiesInfo[gBattleMons[battlerDef].ability].breakable;"
+          }
+        ]
+      },
+      {
+        "rule": "ice_scales_ability_shield_preserves",
+        "predicate": "Relevant Ice Scales is held with observed Ability Shield against Mold Breaker.",
+        "rationale": "Ability Shield prevents the pinned suppression check.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4976",
+            "contains": "if (hasAbilityShield || ignoreMoldBreaker || battlerDef == battlerAtk)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "UNKNOWN/fail closed when final category or suppression state is unavailable."
   }
 }

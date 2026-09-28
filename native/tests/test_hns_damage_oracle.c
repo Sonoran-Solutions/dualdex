@@ -270,6 +270,7 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
               b_hp, b_atk, b_def, b_spa, b_spd, b_spe);
     long status1;
     if (!get_int(obs_b, "status1", 0, 65535, &status1, err)) return 0;
+    sb_append(sb, ",\"hpAtHit\":%ld,\"maxHpAtHit\":%ld", hp_at_hit, max_hp);
     if (strcmp(role, "attacker") == 0) sb_append(sb, ",\"hp\":%ld,\"maxHP\":%ld", hp_at_hit, max_hp);
     sb_append(sb, ",\"status1\":%ld", status1);
     sb_append(sb, ",\"rawStats\":{\"attack\":%ld,\"defense\":%ld,\"speed\":%ld,\"spAttack\":%ld,\"spDefense\":%ld}",

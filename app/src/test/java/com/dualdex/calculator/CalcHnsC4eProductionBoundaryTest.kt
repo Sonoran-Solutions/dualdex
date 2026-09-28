@@ -3789,6 +3789,46 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `move level ability bypass respects pinned defender breakability`() {
+        val trust = trustFor(exactSha)
+
+        val prism = readyOf(
+            build(trust, goldenARequest("Sunsteel Strike"), playerObservation(),
+                enemyObservation(speciesId = 185, types = listOf(6), abilityId = 232, abilityName = "Prism Armor"),
+                randomAbilities = true),
+            "Sunsteel Strike must retain unbreakable Prism Armor"
+        )
+        val prismJson = JSONObject(buildCalcRequestJson(prism.request))
+        assertEquals("Prism Armor", prismJson.getJSONObject("defender").getString("ability"))
+        assertTrue(prismJson.getJSONObject("move").getJSONArray("hnsMoveFlags")
+            .toString().contains("ignoresTargetAbility"))
+
+        val shadow = readyOf(
+            build(trust, goldenARequest("Moongeist Beam"), playerObservation(),
+                enemyObservation(speciesId = 65, types = listOf(15), abilityId = 231, abilityName = "Shadow Shield",
+                    hp = 60000, maxHp = 60000), randomAbilities = true),
+            "Moongeist Beam must retain full-HP unbreakable Shadow Shield"
+        )
+        val shadowJson = JSONObject(buildCalcRequestJson(shadow.request))
+        assertEquals("Shadow Shield", shadowJson.getJSONObject("defender").getString("ability"))
+        assertEquals(60000, shadowJson.getJSONObject("defender").getInt("hpAtHit"))
+        assertEquals(60000, shadowJson.getJSONObject("defender").getInt("maxHpAtHit"))
+        assertTrue(shadowJson.getJSONObject("move").getJSONArray("hnsMoveFlags")
+            .toString().contains("ignoresTargetAbility"))
+
+        val filter = readyOf(
+            build(trust, goldenARequest("Sunsteel Strike"), playerObservation(),
+                enemyObservation(speciesId = 185, types = listOf(6), abilityId = 111, abilityName = "Filter"),
+                randomAbilities = true),
+            "Sunsteel Strike's move-level bypass must suppress breakable Filter"
+        )
+        val filterJson = JSONObject(buildCalcRequestJson(filter.request))
+        assertEquals("Filter", filterJson.getJSONObject("defender").getString("ability"))
+        assertTrue(filterJson.getJSONObject("move").getJSONArray("hnsMoveFlags")
+            .toString().contains("ignoresTargetAbility"))
+    }
+
+    @Test
     fun `Ability Shield blocks the pinned move ability bypass and caller overrides cannot spoof it`() {
         val trust = trustFor(exactSha)
         val wonderGuard = enemyObservation(abilityId = 25, abilityName = "Wonder Guard", itemId = 758)

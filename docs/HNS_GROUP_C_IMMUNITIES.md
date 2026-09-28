@@ -58,14 +58,16 @@ cannot be proved for a priority-blocking defender, the boundary refuses the requ
 
 Mold Breaker (104), Teravolt (164), and Turboblaze (163) are hard blockers only when a relevant
 defender immunity would otherwise participate and Ability Shield does not prevent suppression.
-The pinned `ignoresTargetAbility` move flag sets the same ability-suppression state, so it normally
-bypasses defender abilities but Ability Shield preserves the holder's ability. For example,
-Sunsteel Strike bypasses Wonder Guard without Ability Shield and is blocked by Wonder Guard when
-the target holds Ability Shield. Only literal source-backed move flags are admitted; conditional or
-computed bypass cases remain fail-closed. Unrelated defenders and moves do not receive an ability
-bypass blocker. `flashFireBoosted` is not part of the current live state: Flash Fire's defender-side
-immunity is modeled, but an attacker with Flash Fire using a Fire move is refused until issue #91
-supplies that boost state.
+The pinned `ignoresTargetAbility` move flag sets the same `moldBreakerActive` state, so both bypass
+sources still require the target ability's pinned `breakable` flag. Ability Shield preserves a
+breakable ability; unbreakable Prism Armor and Shadow Shield remain active through both bypasses.
+For example, Sunsteel Strike bypasses breakable Wonder Guard without Ability Shield and is blocked
+by Wonder Guard when the target holds Ability Shield, while its move-level flag does not suppress
+Prism Armor. Only literal source-backed move flags are admitted; conditional or computed bypass
+cases remain fail-closed. Unrelated defenders and moves do not receive an ability bypass blocker.
+`flashFireBoosted` is not part of the current live state: Flash Fire's defender-side immunity is
+modeled, but an attacker with Flash Fire using a Fire move is refused until issue #91 supplies that
+boost state.
 
 Purifying Salt's Ghost damage reduction is deferred to issue #91. Air Balloon, Iron Ball, Ring
 Target, and Float Stone do not claim generic ordinary damage multipliers.

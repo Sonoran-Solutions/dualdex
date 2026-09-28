@@ -215,6 +215,25 @@ class ScenarioSchemaTest(unittest.TestCase):
         self.assertEqual(by_id["group-d-normal-tackle-wonder-guard-immunity-control"]["expect"], "immune")
         self.assertEqual(by_id["group-d-normal-tackle-ghost-immunity-control"]["expect"], "immune")
 
+    def test_move_level_ability_bypass_respects_pinned_breakability(self):
+        by_id = {s["id"]: s for s in SCENARIOS}
+        expected = {
+            "final-move-bypass-prism-armor-preserved": "Prism Armor",
+            "final-move-bypass-shadow-shield-preserved": "Shadow Shield",
+            "final-move-bypass-filter-suppressed": "Filter",
+        }
+        self.assertTrue(set(expected).issubset(by_id))
+        for sid, ability in expected.items():
+            with self.subTest(scenario=sid):
+                scenario = by_id[sid]
+                self.assertEqual(scenario["surface"], "modelled")
+                self.assertEqual(scenario["defender"]["abilityLabel"], ability)
+                expected_move = "Moongeist Beam" if "shadow" in sid else "Sunsteel Strike"
+                self.assertEqual(scenario["move"]["label"], expected_move)
+                self.assertIn("move-ability-bypass", scenario["tags"])
+        shadow = by_id["final-move-bypass-shadow-shield-preserved"]["defender"]["stats"]
+        self.assertEqual(shadow["hp"], shadow["maxHp"])
+
     def test_duplicate_ids_rejected(self):
         with self.assertRaisesRegex(schema.SchemaError, "duplicate scenario id"):
             schema.validate_scenarios([a_scenario(), a_scenario()])

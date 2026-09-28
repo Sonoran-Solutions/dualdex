@@ -19,7 +19,8 @@ internal object HnsGroupCPolicy {
     private const val abilityShieldItem = ABILITY_SHIELD_ITEM_ID
     // Pinned abilities.h breakable flags for supported defender damage branches; Heatproof,
     // Water Bubble, Dry Skin, Filter, Solid Rock, Multiscale, Punk Rock, and Ice Scales can be
-    // suppressed, while Prism Armor/Shadow Shield remain effective through Mold Breaker.
+    // suppressed by either Mold Breaker or a literal ignoresTargetAbility move flag, while Prism
+    // Armor/Shadow Shield remain effective through both bypass sources.
     // Audit witnesses: filter_mold_breaker_unshielded, solid_rock_mold_breaker_unshielded,
     // multiscale_mold_breaker_unshielded, ice_scales_mold_breaker_unshielded,
     // prism_armor_mold_breaker_preserves, shadow_shield_mold_breaker_preserves,

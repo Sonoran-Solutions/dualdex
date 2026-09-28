@@ -75,7 +75,7 @@ MOVES = {
     "X-Scissor": ("Bug", "physical", 80), "Megahorn": ("Bug", "physical", 120),
     "Bug Buzz": ("Bug", "special", 90), "Signal Beam": ("Bug", "special", 75),
     "Shadow Claw": ("Ghost", "physical", 70), "Shadow Punch": ("Ghost", "physical", 60),
-    "Shadow Ball": ("Ghost", "special", 80),
+    "Shadow Ball": ("Ghost", "special", 80), "Moongeist Beam": ("Ghost", "special", 100),
     "Iron Head": ("Steel", "physical", 80), "Meteor Mash": ("Steel", "physical", 90),
     "Flash Cannon": ("Steel", "special", 80), "Mirror Shot": ("Steel", "special", 65),
     "Sunsteel Strike": ("Steel", "physical", 100),
@@ -1220,6 +1220,22 @@ def _final_modifiers_and_stab() -> list[dict]:
     out.append(scenario("final-mold-breaker-shadow-shield-preserved", ["ability:mold-breaker", "ability:shadow-shield", "mold-breaker"],
                         attacker("Machamp", atk=145, ability=mold_breaker),
                         defender("Snorlax", dfn=110, ability=shadow), "Tackle"))
+
+    # Literal move-level bypasses set moldBreakerActive too, so only pinned breakable target
+    # abilities are suppressed. Prism Armor and full-HP Shadow Shield are controls for the two
+    # unbreakable final modifiers; Filter proves the breakable defender control.
+    out.append(scenario("final-move-bypass-prism-armor-preserved",
+                        ["ability:prism-armor", "final-modifier", "move-ability-bypass"],
+                        attacker("Machamp", atk=145),
+                        defender("Sudowoodo", dfn=110, ability=prism), "Sunsteel Strike"))
+    out.append(scenario("final-move-bypass-shadow-shield-preserved",
+                        ["ability:shadow-shield", "final-modifier", "move-ability-bypass", "full-hp"],
+                        attacker("Machamp", atk=145),
+                        defender("Alakazam", spd=110, hp=60000, maxhp=60000, ability=shadow), "Moongeist Beam"))
+    out.append(scenario("final-move-bypass-filter-suppressed",
+                        ["ability:filter", "final-modifier", "move-ability-bypass"],
+                        attacker("Machamp", atk=145),
+                        defender("Sudowoodo", dfn=110, ability=filter_ability), "Sunsteel Strike"))
 
     # Speed swaps prove the source's attacker/defender ability slots remain in distinct orders.
     for order, atk_spe, def_spe in (("attacker-first", 80, 40), ("defender-first", 30, 90)):

@@ -344,8 +344,16 @@ const HNS_STAT_STAGE_RATIOS = [
 ];
 
 const HNS_MOLD_BREAKER_FAMILY = new Set(['Mold Breaker', 'Teravolt', 'Turboblaze']);
+// Explicit modeled subset whose pinned gAbilitiesInfo entries have `.breakable = TRUE`.
+// Prism Armor and Shadow Shield are intentionally absent: both remain active through
+// Mold Breaker and literal move-level ignoresTargetAbility bypasses.
 const HNS_BREAKABLE_DEFENDER_ABILITIES = new Set([
-  'Heatproof', 'Water Bubble', 'Dry Skin',
+  'Levitate', 'Wonder Guard',
+  'Volt Absorb', 'Motor Drive', 'Lightning Rod', 'Water Absorb', 'Storm Drain', 'Dry Skin',
+  'Sap Sipper', 'Earth Eater', 'Well-Baked Body', 'Flash Fire',
+  'Soundproof', 'Bulletproof', 'Wind Rider',
+  'Queenly Majesty', 'Dazzling', 'Armor Tail',
+  'Heatproof', 'Water Bubble',
   'Filter', 'Solid Rock', 'Multiscale', 'Ice Scales', 'Punk Rock'
 ]);
 
@@ -381,11 +389,11 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const ignoresTargetAbility = moveFlags.has('ignoresTargetAbility');
   // Resolve target ability suppression once for every source-backed target branch. The pinned
   // GetBattlerAbilityInternal() checks Ability Shield before either bypass. Mold Breaker-family
-  // suppression additionally requires the defender's pinned breakable flag; a move-level
-  // ignoresTargetAbility flag bypasses the target ability directly.
+  // and literal move-level bypasses both set moldBreakerActive; suppression then additionally
+  // requires the defender's pinned breakable flag.
   const defenderAbilitySuppressed = !defenderHasAbilityShield &&
-    (ignoresTargetAbility || (HNS_MOLD_BREAKER_FAMILY.has(attacker.ability) &&
-      HNS_BREAKABLE_DEFENDER_ABILITIES.has(defenderAbility)));
+    HNS_BREAKABLE_DEFENDER_ABILITIES.has(defenderAbility) &&
+    (ignoresTargetAbility || HNS_MOLD_BREAKER_FAMILY.has(attacker.ability));
   const bypassTargetAbility = defenderAbilitySuppressed;
   const hnsDamagingMove = move.category !== 'Status' && move.bp > 0;
   if (hnsDamagingMove && typeEffectiveness === 0) {

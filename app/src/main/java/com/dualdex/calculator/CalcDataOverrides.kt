@@ -152,6 +152,28 @@ object CalcDataOverrides {
     }
 
     /**
+     * Materialize the exact [HnsMoveAuthority] result into the boundary-owned engine move. The
+     * authority resolves the pinned move record and live attacker ability itself; neither a
+     * caller-supplied type nor caller move flags can claim a rewrite.
+     */
+    fun applyHnsMoveAuthority(request: DamageCalculationRequest): DamageCalculationRequest {
+        if (request.typeSystem != "hns_2_0_5") return request
+        val move = HeartAndSoul205DataPack.getMoveByName(request.move.name) ?: return request
+        if (!HeartAndSoul205DataPack.isMoveAuthoritative(move.id)) return request
+        val ordinaryMove = move.power > 0 &&
+            com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(move.id).category ==
+            com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.ORDINARY_PROVEN_EQUIVALENT
+        val authority = HnsMoveAuthority.forRequest(request, ordinaryMove)
+        val base = request.moveOverride ?: return request
+        return request.copy(
+            moveOverride = base.copy(
+                type = authority.effectiveType?.displayName ?: base.type,
+                category = authority.category?.displayName ?: base.category
+            )
+        )
+    }
+
+    /**
      * Enriches [request] with authoritative species and move overrides for [profile], taking into
      * account boundary-resolved [hnsRuntimeRules].
      *

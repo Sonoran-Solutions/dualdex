@@ -298,6 +298,20 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
         put("defender", defObj)
 
         // Move
+        val pinnedHnsMove = if (request.typeSystem == "hns_2_0_5") {
+            com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)
+        } else {
+            null
+        }
+        val hnsOrdinaryMove = pinnedHnsMove?.let { move ->
+            move.power > 0 && com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(move.id).category ==
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.ORDINARY_PROVEN_EQUIVALENT
+        }
+        val hnsMoveAuthority = if (request.typeSystem == "hns_2_0_5") {
+            HnsMoveAuthority.forRequest(request, hnsOrdinaryMove)
+        } else {
+            null
+        }
         val moveObj = JSONObject().apply {
             put("name", request.move.name)
             put("isCrit", request.move.isCrit)
@@ -305,8 +319,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 // Group C metadata is looked up by the exact pinned move name -> move ID. The
                 // request has no caller-owned flags/priority field, so fabricated JSON operands
                 // cannot create or bypass an immunity.
-                val pinnedMove = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)
-                pinnedMove?.let { move ->
+                pinnedHnsMove?.let { move ->
                     val moveId = move.id
                     put("hnsMoveId", moveId)
                     put("hnsMoveFlags", JSONArray(
@@ -332,8 +345,11 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             request.moveOverride?.let { override ->
                 put("overrides", JSONObject().apply {
                     put("basePower", override.basePower)
-                    put("type", override.type)
-                    override.category?.let { put("category", it) }
+                    put("type", hnsMoveAuthority?.effectiveType?.displayName ?: override.type)
+                    (hnsMoveAuthority?.category?.displayName ?: override.category)?.let {
+                        put("category", it)
+                    }
+                    hnsMoveAuthority?.ateBoost?.let { put("ateBoost", it) }
                 })
             }
         }

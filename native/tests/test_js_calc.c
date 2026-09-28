@@ -2062,6 +2062,24 @@ static void check_gap_b_data_overrides(void) {
         }
         free(out_bc);
 
+        /* The explicit ateBoost authority must be boolean, never a truthy caller value. */
+        const char* req_bad_ate_boost =
+            "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+            "\"attacker\":{\"species\":\"Arbok\",\"level\":50},"
+            "\"defender\":{\"species\":\"Swampert\",\"level\":50},"
+            "\"move\":{\"name\":\"Tackle\",\"overrides\":{\"ateBoost\":\"true\"}}}";
+        char* out_bad_ate_boost = js_calc_calculate(req_bad_ate_boost);
+        check_condition("malformed ateBoost returns response", out_bad_ate_boost != NULL);
+        if (out_bad_ate_boost) {
+            jl_value* doc = jl_parse(out_bad_ate_boost);
+            if (doc) {
+                check_condition("malformed ateBoost is rejected with success=false", jl_bool(jl_get(doc, "success")) == 0);
+                check_string_present("malformed ateBoost error string", jl_get(doc, "error"));
+            }
+            jl_free(doc);
+        }
+        free(out_bad_ate_boost);
+
         /* Extra unknown field in override */
         const char* req_extra_field =
             "{\"gen\":3,"

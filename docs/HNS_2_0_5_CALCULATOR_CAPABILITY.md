@@ -12,9 +12,10 @@ composition, including combined ability, Dry Skin, and Wise Glasses cases. Final
 round in their pinned sequence; only modifiers that upstream itself combines inside
 `GetOtherModifiers` use a final-stage accumulator.
 
-This PR owns the **base-power stage** and adds nine globally conditional ability decisions. All
-positive branches are attacker-side; the ability table and request rules retain explicit defender,
-negative, and missing-evidence outcomes.
+The previous #105 slice owned the **base-power stage** and added nine conditional ability decisions.
+This #91 slice adds the move-type rewrite stage and six conditional ability decisions. All positive
+branches are attacker-side; the ability table and request rules retain explicit defender, negative,
+and missing-evidence outcomes.
 
 | Ability | Exact modelled context | Request-local irrelevant contexts | Missing or conflicting evidence |
 |---|---|---|---|
@@ -28,33 +29,39 @@ negative, and missing-evidence outcomes.
 | Toxic Boost (137) | Attacker's authoritative category is Physical and raw `status1 & STATUS1_PSN_ANY != 0`; ×1.5 | Defender, Special move, or known status without either poison bit | Unread/undefined status or conflicting status stays unknown/refused; Toxic Counter bits are allowed only with `STATUS1_TOXIC_POISON` |
 | Flare Boost (138) | Attacker's authoritative category is Special and raw `status1 & STATUS1_BURN != 0`; ×1.5 | Defender, Physical move, or known status without burn | Unread/undefined status or conflicting status stays unknown/refused |
 
-### Canonical census change from the post-#104 baseline
+### Canonical census change from the starting-main baseline
 
 `docs/HNS_CALC_CENSUS.md` and `tools/hns-calc-census/census.json.gz` were regenerated from the
-production policy and pinned 651-battle trainer inventory. Compared with starting `main` at
-`d2798b27409d2c5af5843e6878f94b4688db613f`:
+production policy and pinned 651-battle trainer inventory. The baseline is starting `main` at
+`0c32d156c26bcfdb564382b02593b3176d2a219f` (after #105):
 
-| Metric | Post-#104 baseline | This slice | Change |
+| Metric | Starting main | This slice | Change |
 |---|---:|---:|---:|
-| `FULLY_MODELLED` requests | 18,548 | 18,676 | +128 |
-| `CAVEATED_ESTIMATE` requests | 370 | 372 | +2 |
-| `REFUSED` requests | 5,360 | 5,230 | -130 |
+| Eligible damaging requests | 24,278 | 24,278 | unchanged |
+| `FULLY_MODELLED` requests | 18,676 | 18,696 | +20 |
+| `CAVEATED_ESTIMATE` requests | 372 | 374 | +2 |
+| `REFUSED` requests | 5,230 | 5,208 | -22 |
 | Fully displaying lead matchups | 370 / 1,302 | 370 / 1,302 | unchanged |
-| Displayable requests in lead matchups | 6,604 | 6,642 | +38 |
-| Trainer battles gaining at least one newly displayable request | — | 11 / 651 | 130 requests: 128 fully modelled, 2 caveated |
+| Displayable requests in lead matchups | 6,642 | 6,652 | +10 |
+| Newly displayable trainer requests | 0 | 22 | +22: 20 fully modelled, 2 caveated |
+| Battles gaining a newly displayable request | 0 / 651 | 2 / 651 | `TRAINER_BROCK_POSTOBC_HNS`: 12 (10 full, 2 caveated); `TRAINER_SHIZUKO_HNS`: 10 full |
+| `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 battles / 3,578 requests | 557 / 3,578 | unchanged |
+| `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 / 152 | 68 / 152 | unchanged |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 224 / 1,920 | 222 / 1,890 | -2 battles / -30 requests |
+| `HNS_ITEM_EFFECT_NOT_MODELLED` | 96 / 552 | 94 / 536 | -2 / -16 |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` | 42 / 154 | 76 / 266 | +34 / +112 |
 
-The leading remaining hard-blocker codes are `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578
-requests), `HNS_ABILITY_EFFECT_NOT_MODELLED` (224 / 1,920), `HNS_ITEM_EFFECT_NOT_MODELLED` (96 / 552),
-`HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), and `HNS_ABILITY_CONDITION_UNVERIFIED` (42 / 154).
-The generic ability-effect blocker moved from 227 battles / 2,086 requests; the unverified-condition
-blocker moved from 35 / 126 because its unknown contexts remain separate from proven-inactive
-branches.
+The current ten highest-ranked blockers are `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578
+requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228), Intimidate
+(64 / 218), Swift Swim (38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm
+(28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70). Swarm replaces Guts in the first ten;
+the unchanged move and item-dependent move blockers remain the largest limits.
 
-Under Random Abilities, weighted request trials changed from 1,704,642 refused / 19,529 caveated /
-2,053,489 clear to 1,596,980 / 19,529 / 2,161,151. Identities with at least one refusal fell from
-199 to 191; identities with caveated contexts stayed at 5; clear-only identities rose from 108 to
-116. Two identities have both refusal and caveated contexts. The ambiguous-opposite-ability cohort
-exclusions remain 16,974 attacker-side and 19,396 defender-side requests.
+Under Random Abilities, weighted request trials changed from 1,596,980 refused / 19,529 caveated /
+2,161,151 clear to 1,523,864 / 19,529 / 2,234,267. Identities with at least one refusal fell from
+191 to 185; identities with caveated contexts stayed at 5; clear-only identities rose from 116 to
+122. The ambiguous-opposite-ability cohort exclusions remain 16,974 attacker-side and 19,396
+defender-side requests.
 
 The preceding Attack-stat slice remains in scope: Hustle (55) applies ×1.5 to an attacker-side
 Physical move; Guts (62) does the same when authoritative raw `status1 & STATUS1_ANY != 0` and
@@ -97,7 +104,7 @@ Candidate audit for later #91 slices:
 | Supreme Overlord | Defer — fainted-party count missing | Its modifier reads `GetSupremeOverlordModifier` (`src/battle_util.c:6746-6748`), sourced from the active side's faint counter. |
 | Battery, Power Spot, partner Steely Spirit | Defer — partner/Doubles state | The partner modifier reads the alive battle partner's effective ability (`src/battle_util.c:6762-6785`); production Doubles/partner topology remains refused. |
 | Dark Aura, Fairy Aura, Aura Break | Defer — field-wide ability interaction | `IsAbilityOnField` combines multiple active battlers and the Aura Break override (`src/battle_util.c:6753-6760`); those field-wide identities are not authoritative inputs. |
-| Normalize, Refrigerate, Pixilate, Aerilate, Galvanize, Liquid Voice | Defer — move-type stage plus later BP branch | The type rewrite is resolved before base power; Refrigerate/Pixilate/Aerilate/Galvanize also use `ateBoost` in this function (`src/battle_util.c:6715-6732`). Liquid Voice uses the earlier type rewrite. Each ability's full type transformation and any later BP multiplier must be proven together. |
+| Normalize, Refrigerate, Pixilate, Aerilate, Galvanize, Liquid Voice | Implemented in the #91 move-type slice (§17) | The pinned dynamic type, later field rewrite, TYPE_BASED category and explicit `ateBoost` now share `HnsMoveAuthority`; the ordinary move gate remains in force. |
 | Punk Rock / attacker Steely Spirit | Defer — next targeted batch | They use sound-move or effective Steel predicates (`src/battle_util.c:6734-6743`), but are outside this selected first batch; partner Steely Spirit also has separate Doubles behavior. |
 
 The pinned ordinary move table has no 61-power move. The threshold boundary is therefore covered at
@@ -135,9 +142,15 @@ validates each referenced source line against the same pinned checkout.
 | `PROVEN_NO_DAMAGE_EFFECT` | 84 |
 | `MODELLED_EQUIVALENT` | 0 |
 | `MODELLED_HNS_SPECIFIC` | 0 |
-| `MODELLED_HNS_CONDITIONAL` | 32 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 195 |
+| `MODELLED_HNS_CONDITIONAL` | 38 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 189 |
 | `UNCLASSIFIED` | 0 |
+
+These are the current generated audit totals for all 311 pinned abilities. The 38 conditionally
+modelled abilities include the Group C immunity subset, the four pinch abilities, Hustle/Guts, the
+nine #105 base-power abilities, and the six #106 move-type abilities. Conditional classification
+does not grant blanket support: the request-local predicates and their required evidence still gate
+each use.
 
 The audit follows the ordinary `EFFECT_HIT` dependency path through attack and defense
 stats, base power, final modifiers, STAB, type effectiveness, effective battler and
@@ -158,7 +171,8 @@ Prankster (status-move priority). Group C adds request-local immunity support fo
 move flags, priority blockers, Wonder Guard, Levitate, and the relevant grounding items; see
 [`HNS_GROUP_C_IMMUNITIES.md`](HNS_GROUP_C_IMMUNITIES.md). Group A changes only Pickpocket's global category from
 `UNCLASSIFIED` to `UNSUPPORTED_DAMAGE_RELEVANT`; Group C later promoted the specifically audited
-immunity abilities listed in its audit. Other global decisions stay fixed. A separate
+immunity abilities listed in its audit, and Group D later added only abilities with reviewed
+request-local rules. A separate
 `HnsAbilityContextPolicy` now makes a three-state decision (`PROVEN_IRRELEVANT`, `RELEVANT`, or
 `UNKNOWN`) for reviewed globally unsupported IDs. Only a source-backed proof using operands rebound by `CalcRequestBoundary` removes that one
 ability's blocker; unknown context still refuses, and all independent calculation limitations still
@@ -175,8 +189,12 @@ topology predicates. Truant on the
 attacker remains blocked because `truantCounter` is not observed. Defender Battle Armor and Shell
 Armor clear for a fixed noncritical ordinary hit; a critical request remains relevant because it
 conflicts with their prevention effect. The source-checkable artifact records both clearance rules
-and deliberately blocked contexts. The four conditional pinch abilities retain their
-existing separate condition gate.
+and deliberately blocked contexts. The four conditional pinch abilities retain their existing
+separate condition gate. Group D adds the #105 base-power predicates for Technician, Iron Fist,
+Strong Jaw, Mega Launcher, Sharpness, attacker Water Bubble, Steelworker, Toxic Boost, and Flare
+Boost; #106 adds Normalize, Refrigerate, Pixilate, Aerilate, Galvanize, and Liquid Voice through the
+shared move-type authority. Exact predicates and fail-closed cases are summarized in the opening
+slice tables and detailed in §§6.3, 11.2, and 17.
 
 In Random Abilities battles, the boundary takes the effective numeric ID from
 `gBattleMons[battler].ability` (or observed suppression), checks the matched live
@@ -327,7 +345,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — type chart is exact and verified in QuickJS. Used by `calculateHnsDamage` for post-roll type effectiveness; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C1/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
-| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy` and Group C. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e / Group C)** — 84 proven-neutral abilities and 21 conditional abilities have audited request rules. Modeled Group C defender immunities return exact zero results; relevant Mold Breaker-family suppression remains a hard blocker unless Ability Shield preserves the defender ability. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
+| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy` and Groups C–D. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e / Groups C–D)** — current audit: 84 `PROVEN_NO_DAMAGE_EFFECT`, 38 `MODELLED_HNS_CONDITIONAL`, 189 `UNSUPPORTED_DAMAGE_RELEVANT`, and 0 unclassified. The conditional set includes Group C immunities, pinch abilities, Hustle/Guts, #105's nine base-power abilities, and #106's six move-type abilities. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629`, Wise Glasses `[src/data/items.h:10091]` | **identity yes; damage effects conditionally modelled** — exact item identity and the current battle item are consumed; Wise Glasses modelled specifically for H&S; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (585 neutral / 312 unsupported / 1 modelled / 3 unclassified); a known `RELEVANT` unsupported item may be neutralized and named in a caveated estimate only for an item-independent move. Proven-irrelevant and modelled items keep their existing paths; `UNKNOWN`, unclassified, unread, and unauthoritative identities remain hard. Item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
@@ -403,8 +421,8 @@ Only these individual behaviours are source-and-test demonstrated:
 | Two-target reduction | ×0.5 only when `GetMoveTargetCount(ctx) == 2` (`B_MULTIPLE_TARGETS_DMG GEN_3`) `[include/config/battle.h:47]` | ×0.5 pre-roll UQ4.12 `halfDown(2048, dmg)` only with an explicit `field.targetCount == 2`; missing count refuses | **HOST-ORACLE MATCHES, RUNTIME COUNT UNAVAILABLE (Gap C4b partial / open)** |
 | Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack/spAttack stat in `calculateHnsDamage` | **HOST-ORACLE MATCHES (Gap C4b partial / open)** |
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
-| Move category rule | per-move default, switchable to type-based via `optionStyle` | `move.overrides.category` handling in `entry.js` | **MATCHES (Gap A/B closed)** |
-| Abilities (supported subset) | 84 proven-neutral abilities and 23 conditional abilities, including four pinch abilities, Hustle, Guts, and Group C immunities | Neutral abilities add no modifier; pinch, Hustle, and Guts use the H&S Attack-stat UQ4.12 stage; Group C immunity conditions are described in [HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md) | **CONDITIONALLY AUTHORIZED** under the live operand gates (§14.6, Group C audit, and pinned inventory) |
+| Move category rule | per-move default, switchable to type-based via `optionStyle`; TYPE_BASED uses H&S `gTypesInfo` for the final effective type (Ghost Special, Dark Physical) | `move.overrides.category` is explicitly materialized by `CalcDataOverrides` and consumed by `entry.js` | **MATCHES (Gap A/B closed)** |
+| Abilities (supported subset) | 84 `PROVEN_NO_DAMAGE_EFFECT` and 38 `MODELLED_HNS_CONDITIONAL` abilities | Conditional support covers Group C immunities, the four pinch abilities, Hustle/Guts, #105's nine base-power abilities, and #106's six move-type abilities. The latter use the shared effective-type and explicit `ateBoost` path in §17. | **CONDITIONALLY AUTHORIZED** under the live operand gates and pinned inventory |
 | Abilities (globally unsupported) | Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — known relevant unsupported abilities are named caveats after neutralization; unknown/unread/unclassified abilities remain hard, and proven-irrelevant contexts do not become caveats (§6.3, #86) |
 | Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items, Wise Glasses | identity consumed; Wise Glasses modelled, other damage items unmodelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — a known relevant unsupported item may become a named caveat for an item-independent request; unread/unresolved identity remains hard, and item-dependent moves remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7, #86) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
@@ -491,7 +509,7 @@ Two properties make challenge settings decisive rather than a caveat:
 
 | Field | Default | What it changes |
 |---|---|---|
-| `optionStyle` | 0 = per-move split `[src/new_game.c:128]` | `GetBattleMoveCategory` `[src/battle_util.c:9183]`: when 1, the move's **type** decides physical/special, as in Generation III. Bound to the "PHYS/SP SPLIT" row `[src/challenge_menu.c:486]`, `:1973`. The *same* species, move and level has two different correct answers. |
+| `optionStyle` | 0 = per-move split `[src/new_game.c:128]` | `GetBattleMoveCategory` `[src/battle_util.c:9183]`: when 1, H&S uses its pinned `gTypesInfo` category for the effective move type. This is not the classic Generation III split: H&S assigns Ghost to Special and Dark to Physical. Bound to the "PHYS/SP SPLIT" row `[src/challenge_menu.c:486]`, `:1973`. The *same* species, move and level has two different correct answers. |
 | `tx_Mode_Fairy_Types` | 1 = ON `[src/new_game.c:146]` | When 0 the Fairy type is deleted: species revert to pre-Fairy typings via `sPreFairyTypes` `[src/pokemon.c:5734]`, and Fairy moves are retyped via `sFairyMoveAltTypes` (Moonblast → Dark) `[src/pokemon.c:5788]`. Bound to "ADD FAIRY TYPE" `[src/challenge_menu.c:456]`. |
 | `tx_Random_Type` | 0 `[include/global.h:283]` | `GetSpeciesType` returns a randomized type `[src/pokemon.c:5731]`, `[include/randomizer.h:91]`. |
 | `tx_Random_TypeEffectiveness` | 0 `[include/global.h:284]` | `GetTypeModifier` remaps the **attacking** type inside the chart at damage time `[src/battle_util.c:8533]`. |
@@ -509,9 +527,10 @@ The calculator truthfully distinguishes three states:
 2. **Observed and modelled:**
    - `optionStyle == 0` (`PER_MOVE_SPLIT`): The boundary-owned H&S move override retains its explicit
      pinned category (`category = "Physical" / "Special" / "Status"`).
-   - `optionStyle == 1` (`TYPE_BASED`): Status moves retain `"Status"` (Status wins before `optionStyle` in H&S),
-     while non-status moves omit category (`category = null`), letting the engine derive Physical or Special
-     from the effective move type.
+   - `optionStyle == 1` (`TYPE_BASED`): Status moves retain `"Status"` (Status wins before `optionStyle` in H&S).
+     For non-status moves, `CalcDataOverrides` explicitly sets category from pinned
+     `gTypesInfo[effectiveType].damageCategory` after the ability and later field type rewrites; the
+     engine does not derive it from the original type or a Gen III split.
    - `tx_Mode_Fairy_Types`: Observed ON (1) or OFF (0); species and moves are retyped according to H&S source mappings
      when OFF (`sPreFairyTypes`, `sFairyMoveAltTypes`), and `typeSystem: "hns_2_0_5"` selects the modern 19x19 type chart (Gap C1 closed).
      Under exact trust, observed rules, randomizers OFF, representable types, and `request.typeSystem == "hns_2_0_5"`,
@@ -927,12 +946,12 @@ observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` re
 
 * **ordinary move** — `HnsMoveMechanicsRegistry` `ORDINARY_PROVEN_EQUIVALENT` (single hit) and no
   move/item interaction;
-* **effective type / category** — from `HnsMoveAuthority`, each with only the evidence it needs (§15.4):
-  the type needs an ordinary move, an observed GIMMICK_NONE attacker, a known attacker ability that
-  `GetDynamicMoveType` does not read (Normalize, Refrigerate, Pixilate, Aerilate, Liquid Voice,
-  Galvanize), Electrify observed false and a fully decoded field word without Ion Deluge on a Normal
-  move; the category is the pinned per-move category under PER_MOVE_SPLIT (no field bit changes it)
-  and the effective type's category under TYPE_BASED. An unrelated field bit (terrain, a room,
+* **effective type / category** — from `HnsMoveAuthority`, each with only the evidence it needs (§17):
+  the type needs an ordinary move, an observed GIMMICK_NONE attacker, an authoritative ability and
+  source move metadata, Electrify observed false and a fully decoded field word; the ability stage
+  applies the pinned Normalize, -ate or Liquid Voice predicate before the later field stage. Active
+  Electrify and relevant Ion Deluge remain refused. The category is the pinned per-move category
+  under PER_MOVE_SPLIT and the effective type's pinned category under TYPE_BASED. An unrelated field bit (terrain, a room,
   Gravity, ...) no longer makes either unknown;
 * the decoded live `gFieldStatuses` word (Wonder Room / terrain bits where a rule actually reads them),
   `gBattleWeather`, defender HP/maxHP, and the effective attacker ability ID.
@@ -1098,8 +1117,10 @@ asserts that overrides modify damage arithmetic, type effectiveness, and stat sc
 **Category behavior under Gen 3:**
 In `@smogon/calc` 0.11.0, `Move` stores `options.overrides.category`. When `category` is explicitly
 provided in `overrides`, the Gen 3 ADV pipeline (`calculateADV`) uses `move.category` to select
-`atk`/`def` vs `spa`/`spd`. When `category` is omitted from `overrides`, it falls back to Gen 3
-type-based category derivation (`SPECIAL.includes(data.type)`).
+`atk`/`def` vs `spa`/`spd`. For a generic caller that omits category, that library falls back to its
+Gen 3 type-based derivation (`SPECIAL.includes(data.type)`). The current H&S path does not use that
+fallback: since #104, `CalcDataOverrides` explicitly materializes TYPE_BASED category from pinned
+H&S `gTypesInfo` after resolving the effective move type.
 
 **Why H&S calculations remained refused after Gap B (historical):**
 Gap B closed data-consumption plumbing only. At the time of Gap B, calculations remained refused
@@ -1146,8 +1167,8 @@ per-ability capability decision:
   cannot override or fabricate authoritative observations.
 - **Conditional ability capability (`HnsAbilityRegistry`):**
   - `PROVEN_NO_DAMAGE_EFFECT` (`ABILITY_NONE`, `KEEN EYE`, `INSOMNIA`, and the audited neutral set above): zero move-damage effect in H&S. Cleared with no ability blocker.
-  - `MODELLED_HNS_CONDITIONAL`: the four starter pinch abilities use the live HP gate (§14.6); Hustle/Guts use the Attack-stat stage only with verified move category and (for Guts) status operands; Group C absorbers, flag blockers, priority blockers, Wonder Guard, and Levitate use the request-local conditions in [HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md).
-  - `UNSUPPORTED_DAMAGE_RELEVANT` (`THICK FAT`, `HUGE POWER`, `PURE POWER`, modern modifiers): damage-relevant but divergent or unmodelled. Fails closed with `HNS_ABILITY_EFFECT_NOT_MODELLED` unless a request-local rule can prove irrelevance.
+  - `MODELLED_HNS_CONDITIONAL`: the four starter pinch abilities use the live HP gate (§14.6); Hustle/Guts use the Attack-stat stage only with verified category and (for Guts) status operands; Group C immunities use the request-local conditions in [HNS_GROUP_C_IMMUNITIES.md](HNS_GROUP_C_IMMUNITIES.md). Group D includes the nine #105 base-power abilities (Technician, Iron Fist, Strong Jaw, Mega Launcher, Sharpness, attacker Water Bubble, Steelworker, Toxic Boost, and Flare Boost) and the six #106 move-type abilities (Normalize, Refrigerate, Pixilate, Aerilate, Galvanize, and Liquid Voice); each remains gated by its pinned request predicate.
+  - `UNSUPPORTED_DAMAGE_RELEVANT` (including Thick Fat, Huge Power, Pure Power, and other abilities without an admitted request rule): damage-relevant but divergent or unmodelled. Fails closed with `HNS_ABILITY_EFFECT_NOT_MODELLED` unless a request-local rule can prove irrelevance.
 - **Default ability substitution prevention:** `@smogon/calc` defaulting to `species.abilities[0]` is prevented
   by setting `options.ability = '(other)'` when ability is omitted, empty, or `"None"` under `typeSystem === 'hns_2_0_5'`.
 - Verified via QuickJS host tests (`native/tests/test_js_calc.c:check_gap_c2_abilities`) and Kotlin unit tests (`CalcHnsAbilityTest.kt`).
@@ -1468,9 +1489,9 @@ Rather than relying on `@smogon/calc`'s ADV `calculateADV` (which applies STAB a
    - Uses `rawStats` if observed, otherwise computes from base stats, IVs, EVs, and nature.
    - Applies stat stages (-6..+6) using upstream `HNS_STAT_STAGE_RATIOS` with crit drop-ignore rules (target defensive boosts ignored, attacker offensive drops ignored).
    - Uses the effective move type resolved by `GetBattleMoveType` as the shared operand for type-sensitive stages.
-   - Composes supported Attack modifiers (Huge/Pure Power, pinch abilities, Hustle, Guts, and the existing engine-only Thick Fat path) and the offensive badge in one UQ4.12 accumulator in `CalcAttackStat` order, then applies once to the integer stage-adjusted Attack stat. Guts is physical-only and tests the exact observed `status1 & STATUS1_ANY` word; Hustle is physical-only.
+   - The engine composes Attack-modifier branches (Huge/Pure Power, pinch abilities, Hustle, Guts, and its existing Thick Fat path) and the offensive badge in one UQ4.12 accumulator in `CalcAttackStat` order, then applies once to the integer stage-adjusted Attack stat. Production capability remains narrower: Huge/Pure Power and Thick Fat are still unsupported; the authorized pinch and Hustle/Guts cases require their exact live/category predicates. Guts is physical-only and tests the exact observed `status1 & STATUS1_ANY` word; Hustle is physical-only.
    - Composes Defense-stage modifiers and the defensive badge in their own UQ4.12 accumulator, then applies once to the integer stage-adjusted Defense stat.
-   - Composes base-power modifiers in a separate accumulator using pinned `uq4_12_multiply` half-up product composition, then applies the product once to source base power with `uq4_12_multiply_by_int_half_down`. The admitted ability order is attacker ability, defender Dry Skin, then attacker held-item modifier. Source move flags come from the generated pinned move-ID map.
+   - Composes base-power modifiers in a separate accumulator using pinned `uq4_12_multiply` half-up product composition, then applies the product once to source base power with `uq4_12_multiply_by_int_half_down`. The admitted ability modifiers include #105's Technician, Iron Fist, Strong Jaw, Mega Launcher, Sharpness, attacker Water Bubble, Steelworker, Toxic Boost, and Flare Boost, plus #106's explicit Normalize/-ate `ateBoost`; Liquid Voice has no BP multiplier. Their pinned predicates gate production authorization. The admitted modifier order remains attacker ability, defender Dry Skin, then attacker held-item modifier. Source move flags come from the generated pinned move-ID map, and the move type/category comes from the shared `HnsMoveAuthority` (§17).
 2. **Base Damage:**
    - The named base-damage helper follows the pinned integer order: `floor(floor(floor(bp * attack * (floor(2 * level / 5) + 2)) / defense) / 50) + 2`.
 3. **Pre-Roll Modifiers (applied to damage including +2):**
@@ -1743,9 +1764,14 @@ in §13.8 remain, so C4 remains **PARTIAL / OPEN**.
 * **HOST VERIFIED** — DualDex calculator agrees with the independent host/native oracle.
 * **RUNTIME VERIFIED** — observed on the exact official H&S 2.0.5 release ROM.
 * **PRODUCTION AUTHORIZED** — all operands for the exact request are boundary-owned and proven
-  enough to expose an executable request. **No H&S request is production authorized after C4d.**
+  enough to expose an executable request. The historical post-C4d state is superseded by the C4e
+  authorization in §14; the #91 move-type extension is documented in §17.
 
 ### 13.2 Full dynamic-move-type path audit
+
+This mechanism audit began in C4c. The table below now includes the current #91 disposition for
+Normalize, the four -ate abilities, Liquid Voice, Ion Deluge and Electrify; §17 gives their exact
+predicates and source evidence.
 
 `SetTypeBeforeUsingMove(move, battler)` (`src/battle_main.c:6418`) is the only writer of
 `gBattleStruct->dynamicMoveType`. It:
@@ -1774,19 +1800,19 @@ following mechanisms. Each is dispositioned for the already-supported ordinary `
 | `EFFECT_RAGING_BULL`, `EFFECT_IVY_CUDGEL` | species form | Non-`EFFECT_HIT`; refused. |
 | `EFFECT_NATURAL_GIFT`, `EFFECT_TERRAIN_PULSE`, `EFFECT_NATURE_POWER` | berry / terrain / map | Non-`EFFECT_HIT`; refused. |
 | `EFFECT_TERA_BLAST`, `EFFECT_TERA_STARSTORM` | Tera gimmick / species | Non-`EFFECT_HIT`; refused. |
-| `ABILITY_LIQUID_VOICE` (sound moves) | attacker ability | Ability unclassified in `HnsAbilityRegistry`; `HNS_ABILITY_EFFECT_NOT_MODELLED` refuses it before the type question. |
+| `ABILITY_LIQUID_VOICE` (sound moves) | attacker ability | #91 models Water rewrite only for source-proven sound moves; unknown sound metadata stays fail-closed. |
 | `EFFECT_AURA_WHEEL` + Morpeko-Hangry | species + ability | Non-`EFFECT_HIT`; refused. |
-| ate-type abilities (`Pixilate`, `Refrigerate`, `Aerilate`, `Galvanize` via `TrySetAteType`, `src/battle_main.c:6128`) | attacker ability | Abilities unclassified; ability gate refuses them. |
-| `ABILITY_NORMALIZE` | attacker ability | Damage relevant and unsupported; ability gate refuses it. |
-| **Ion Deluge (`gFieldStatuses & STATUS_FIELD_ION_DELUGE`)** | field status | **Relevant to an otherwise-supported Normal `EFFECT_HIT` move. The field word is not read → FAIL CLOSED.** |
-| **`gBattleMons[battler].volatiles.electrified`** (Electrify) | attacker volatile | **Relevant to ANY otherwise-supported move (the volatile has no type check) → FAIL CLOSED.** |
+| ate-type abilities (`Pixilate`, `Refrigerate`, `Aerilate`, `Galvanize` via `TrySetAteType`, `src/battle_main.c:6128`) | attacker ability | #91 models Normal source type → pinned target type and carries the explicit `ateBoost` result. |
+| `ABILITY_NORMALIZE` | attacker ability | #91 models the supported ordinary path as Normal with explicit `ateBoost`, subject to the pinned exclusions. |
+| **Ion Deluge (`gFieldStatuses & STATUS_FIELD_ION_DELUGE`)** | field status | **Read from boundary-owned decoded field status; rewrites pre-field Normal to Electric. Unknown or unsupported field bits remain fail-closed.** |
+| **`gBattleMons[battler].volatiles.electrified`** (Electrify) | attacker volatile | **Read from the boundary-owned live volatile and rewrites any pre-field type to Electric. Missing state remains fail-closed.** |
 | Tera/Dynamax/Z gimmick | `GetActiveGimmick` | Gimmick state is not carried by the request and not read → FAIL CLOSED. |
 
-The C4c conclusion is unchanged and is now proven mechanism-by-mechanism: the only dynamic-type
-mechanisms that remain relevant to an otherwise-supported ordinary request are Ion Deluge and the
-Electrify volatile, plus the gimmick gate. Because `gFieldStatuses` and
-`gBattleMons[battler].volatiles.electrified` are not read, `dynamicMoveTypeObserved` stays false and
-`HNS_LIVE_BATTLE_STATE_NOT_MODELLED` remains for every active battle.
+At C4c, dynamic move type was deliberately refused because its operands were unavailable. C4e added
+boundary-owned field and volatile authority; issue #91 then added the six supported ability
+rewrites. The remaining dynamic-type gate is the active gimmick: any non-none or unavailable
+attacker gimmick still refuses the request. The request-local `HnsMoveAuthority` resolves the
+supported ability and later field stages once, and unknown operands still fail closed.
 
 `gBattleStruct->dynamicMoveType` itself is **not** used as an authority: it survives from the last
 executed move (`SetTypeBeforeUsingMove` is what rewrites it), so it describes a past action, not the
@@ -1941,9 +1967,10 @@ three classes it left open:
    move-mechanics allow-list:
    * `gFieldStatuses & STATUS_FIELD_ION_DELUGE && GetBattleMoveType(move) == TYPE_NORMAL` (Normal-only);
    * `gBattleMons[battler].volatiles.electrified` (any type).
-   Both are now read. Every other non-`TYPE_NONE` return of `GetDynamicMoveType` requires either a
-   non-`EFFECT_HIT` effect (refused by `ordinaryMoveIds`) or an unclassified ability
-   (`Liquid Voice`, `Normalize`, the ate abilities) that the ability gate refuses.
+   Both are read. C4e originally left `Liquid Voice`, `Normalize` and the ate abilities outside the
+   modelled set; issue #91 now models those six ability branches for the proven ordinary subset.
+   Other non-`TYPE_NONE` returns still require a non-`EFFECT_HIT` effect (refused by
+   `ordinaryMoveIds`) or an unsupported ability/effect and remain fail-closed.
 2. **Transient damage state.** Three generic modifiers apply to ordinary `EFFECT_HIT` moves
    independently of the move allow-list and are now all read:
    * `GetGlaiveRushModifier` (`src/battle_util.c:7481`) doubles any incoming move from the
@@ -1961,11 +1988,11 @@ three classes it left open:
    `EFFECT_HIT`: `STATUS_FIELD_WONDER_ROOM` swaps Defense / Sp.Def inside `CalcDefenseStat`, the four
    terrains apply a x1.3 / x0.5 type modifier, `STATUS_FIELD_MUDSPORT` / `STATUS_FIELD_WATERSPORT`
    reduce their type, `STATUS_FIELD_GRAVITY` changes Ground immunity / groundedness, and the
-   Trick/Magic Room / Fairy Lock bits gate abilities and items. C4e therefore defines an **explicit
-   supported field-status mask** equal to `STATUS_FIELD_ION_DELUGE` only: `fieldStatuses == 0` is
-   eligible, the Ion Deluge bit keeps its existing Normal-only logic, and **any other bit** refuses
-   with `HNS_FIELD_STATUS_NOT_MODELLED` rather than silently clearing the Ion Deluge check (Gap C4e
-   correction).
+   Trick/Magic Room / Fairy Lock bits gate abilities and items. The original C4e rule admitted only
+   `STATUS_FIELD_ION_DELUGE`; §15 supersedes that mask with a source-backed decision for each active
+   bit. Ion Deluge keeps its Normal-only rewrite and hard refusal when relevant. Other bits are
+   cleared only when their own effect is source-proven irrelevant; relevant unmodelled effects and
+   unknown bits still refuse with `HNS_FIELD_STATUS_NOT_MODELLED`.
 4. **Weather variants.** Pinned `B_WEATHER_RAIN` (0x7) and `B_WEATHER_SUN` (0x18) are aggregate
    masks that include the Primal variants (`Primordial Sea` / `Desolate Land`). The engine treats
    those specially (Water blocked under extreme sun, Fire blocked under heavy rain), so the modelled
@@ -2548,9 +2575,11 @@ need.
 
 | Operand | Authoritative when | Why (pinned) |
 |---|---|---|
-| `preFieldType` | ordinary move, live state, attacker gimmick observed `GIMMICK_NONE`, attacker ability known and not Normalize/Refrigerate/Pixilate/Aerilate/Liquid Voice/Galvanize | `GetDynamicMoveType` rewrites an ordinary move only through those abilities or a Dynamax/Z gimmick |
-| `effectiveType` | `preFieldType` known, Electrify observed false, field word read and fully decoded, and not (Ion Deluge ∧ Normal) | `SetTypeBeforeUsingMove`: only Electrify and Ion-Deluge-on-Normal retype an ordinary move; Terrain Pulse / Weather Ball are never ordinary; an unknown bit is never assumed harmless |
-| `category` | **PER_MOVE_SPLIT**: ordinary move, live state, GIMMICK_NONE → the pinned per-move category. **TYPE_BASED**: `gTypesInfo[effectiveType].damageCategory` | `GetBattleMoveCategory`: only Z/Max moves and the category-swapping effects (none ordinary) change it; `optionStyle == 1` uses the dynamic type |
+| `sourceType` | Pinned move identity plus the observed Fairy toggle; Fairy moves use their pinned alternate type when Fairy is OFF | `GetMoveType` and `sFairyMoveAltTypes` |
+| `preFieldType` | Ordinary move, live state, observed `GIMMICK_NONE`, authoritative attacker ability, and source metadata; pinned ability predicate is either applied or proven inactive | `GetDynamicMoveType`: Normalize, the four -ate abilities and Liquid Voice run before the field rewrite; unsupported effects remain outside the ordinary allow-list |
+| `effectiveType` | `preFieldType` known, Electrify observed false, field word read and fully decoded; active Electrify and relevant Ion Deluge remain refused by policy | `SetTypeBeforeUsingMove` later Electrify / Ion Deluge ordering remains represented; unknown field bits are never assumed harmless |
+| `category` | **PER_MOVE_SPLIT**: pinned source move category. **TYPE_BASED**: `gTypesInfo[effectiveType].damageCategory` | `GetBattleMoveCategory` consumes the final effective type |
+| `ateBoost` | Explicit result from the ability branch; false for Liquid Voice and proven-inactive predicates, unknown when required authority is missing | `SetTypeBeforeUsingMove` clears it; `GetDynamicMoveType` sets it; the later base-power stage consumes it with the final type |
 
 Consequences:
 - Choice Band / Wise Glasses / Muscle Band need only the category.
@@ -2747,3 +2776,57 @@ calculated effects. The matrix records the exact deferrals to #91 (weather, terr
 Flash Fire modifiers) and #92 (Booster Energy's unread paradox payload). Protean/Libero are
 narrower than Color Change/Mimicry because their pre-damage type change can occur after the state
 snapshot and `usedProteanLibero` is not observed.
+
+## 17. Issue #91 — move-type rewrites and `ateBoost`
+
+This section records the current implementation after the #91 move-type slice. The pinned source
+audit follows the actual H&S order:
+
+```text
+selected move
+→ GetMoveType source type (including Fairy-off alternate)
+→ GetDynamicMoveType ability rewrite
+→ SetTypeBeforeUsingMove later Electrify / Ion Deluge rewrite
+→ GetBattleMoveType effective type
+→ GetBattleMoveCategory (TYPE_BASED reads the effective type)
+→ CalcMoveBasePowerAfterModifiers (explicit ateBoost)
+→ STAB and type effectiveness in the damage path
+```
+
+The request-local `HnsMoveAuthority` resolves the pinned move identity, source type, authoritative
+live attacker ability, source-derived move flags, and live rewrite operands once. Its effective type
+flows through ability relevance, QuickJS JSON, TYPE_BASED category, STAB, type effectiveness,
+Group C immunity, type-sensitive base-power abilities, and supported type-power items. The engine
+input includes the exact `ateBoost` fact; QuickJS does not infer it from ability name and final type.
+
+Pinned H&S behavior is:
+
+| Ability | Source predicate on the supported ordinary `EFFECT_HIT` path | Result | `ateBoost` |
+|---|---|---|---|
+| Normalize | Its own branch, except the pinned item / terrain / variable-type effects and Z moves | Normal, even when the source type is already Normal | Set; the configured multiplier branch applies |
+| Refrigerate | Source type is Normal | Ice | Set only when rewritten |
+| Pixilate | Source type is Normal | Fairy | Set only when rewritten |
+| Aerilate | Source type is Normal | Flying | Set only when rewritten |
+| Galvanize | Source type is Normal | Electric | Set only when rewritten |
+| Liquid Voice | Pinned `IsSoundMove(move)` (`MoveInfo.soundMove`) | Water | Not set; no separate BP multiplier exists |
+
+Pinned source references: `GetDynamicMoveType`, `TrySetAteType` and `SetTypeBeforeUsingMove`
+ordering are in `src/battle_main.c:6128-6412, 6418-6449`; `IsSoundMove` reads the source
+`soundMove` field in `include/move.h:358-360`; `GetBattleMoveCategory` is in
+`src/battle_util.c:9171-9184`; the -ate and Normalize base-power predicates are in
+`src/battle_util.c:6715-6732`. The pinned config defines `B_ATE_MULTIPLIER GEN_LATEST`
+(`include/config/battle.h:198`), so both the -ate branch and Normalize's Gen-7-or-later branch use
+×1.2. `entry.js` composes this with the existing half-up UQ4.12 base-power accumulator before it
+applies the integer source power.
+
+Every supported rewrite still requires a source-proven ordinary damaging move. Hidden Power,
+Weather Ball, Natural Gift, Terrain Pulse, item-typed effects and other nonordinary move effects
+remain blocked by the existing move-mechanics gate. Active/unread Z, Max or Tera gimmicks remain
+unknown/refused. Conditional or computed `soundMove` metadata remains UNKNOWN; literal true and
+zero-initialized omitted false values reuse the existing generated `Hns205MoveEffects` inventory.
+
+Fairy mode is applied before the ability predicate. Fairy Wind's pinned Fairy-off alternate is
+Normal, so Pixilate rewrites it to Fairy and sets `ateBoost`; with Fairy enabled, the source move is
+already Fairy, so Pixilate does not run and `ateBoost` stays false. Pixilate's target remains Fairy
+when Fairy mode is OFF. Electrify and Ion Deluge remain later in the authority ordering, and their
+active production blockers are unchanged.

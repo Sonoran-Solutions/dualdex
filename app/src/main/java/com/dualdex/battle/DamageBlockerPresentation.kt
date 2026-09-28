@@ -255,13 +255,14 @@ sealed interface DamageBlockerPresentation {
             }
 
             val abilityLimitation = take(setOf(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+            val abilityConditionLimitations = take(setOf(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
             val abilityIdentityLimitations = take(setOf(
                 CalcLimitation.HNS_ABILITY_EFFECT_UNCLASSIFIED,
                 CalcLimitation.HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE
             ))
             // If one ability is UNKNOWN, the soft limitation blocks the request, but other
             // RELEVANT abilities still have complete caveat evidence and are not blockers.
-            val abilities = verdict.hnsAbilityDecisions
+            val unsupportedAbilities = verdict.hnsAbilityDecisions
                 .filter {
                     when {
                         it.globalCategory == HnsAbilityCategory.UNCLASSIFIED ->
@@ -272,8 +273,22 @@ sealed interface DamageBlockerPresentation {
                     }
                 }
                 .map(::Ability)
+            val conditionalAbilities = if (abilityConditionLimitations.isNotEmpty()) {
+                verdict.hnsAbilityDecisions
+                    .filter {
+                        it.globalCategory == HnsAbilityCategory.MODELLED_HNS_CONDITIONAL &&
+                            it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+                    }
+                    .map(::Ability)
+            } else {
+                emptyList()
+            }
+            val abilities = unsupportedAbilities + conditionalAbilities
             if (abilityLimitation.isNotEmpty() && abilities.isEmpty()) {
                 mechanics += Mechanic("Ability effect not modelled", abilityLimitation)
+            }
+            if (abilityConditionLimitations.isNotEmpty() && conditionalAbilities.isEmpty()) {
+                mechanics += Mechanic("Ability condition not verified", abilityConditionLimitations)
             }
             if (abilityIdentityLimitations.isNotEmpty() && abilities.isEmpty()) {
                 mechanics += Mechanic("Ability identity/capability not authoritative", abilityIdentityLimitations)

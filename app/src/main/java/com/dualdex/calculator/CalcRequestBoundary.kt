@@ -1355,9 +1355,11 @@ object CalcRequestBoundary {
         // The live field conditions (weather, defender-side screens) are boundary-owned too: in an
         // active battle they are rebound from the observed words so a caller's clear/no-screens
         // default can never stand in for an unobserved live state.
-        val liveBound = reconcileLiveFieldConditions(
-            request = withLiveState,
-            live = withLiveState.hnsLiveBattleState
+        val liveBound = CalcDataOverrides.applyHnsMoveAuthority(
+            reconcileLiveFieldConditions(
+                request = withLiveState,
+                live = withLiveState.hnsLiveBattleState
+            )
         )
         // Live provenance is a property of the request. The hint may add it, never remove it.
         val isLiveRead = liveReadHint || liveBound.isFromLiveRead()

@@ -59,10 +59,14 @@ class CalcHnsC4eProductionBoundaryTest {
         )
     }
 
-    private fun settings(randomAbilities: Boolean = false, optionStyle: Int = 0): HnsChallengeSettingsSnapshot = HnsChallengeSettingsSnapshot(
+    private fun settings(
+        randomAbilities: Boolean = false,
+        optionStyle: Int = 0,
+        fairyTypes: Boolean = true
+    ): HnsChallengeSettingsSnapshot = HnsChallengeSettingsSnapshot(
         status = HnsChallengeSettingsStatus.OBSERVED,
         optionStyle = HnsChallengeField(observed = true, raw = optionStyle, outOfDomain = false),
-        txModeFairyTypes = HnsChallengeField(observed = true, raw = 1, outOfDomain = false),
+        txModeFairyTypes = HnsChallengeField(observed = true, raw = if (fairyTypes) 1 else 0, outOfDomain = false),
         txRandomType = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
         txRandomTypeEffectiveness = HnsChallengeField(observed = true, raw = 0, outOfDomain = false),
         txRandomAbilities = HnsChallengeField(observed = true, raw = if (randomAbilities) 1 else 0, outOfDomain = false),
@@ -341,12 +345,13 @@ class CalcHnsC4eProductionBoundaryTest {
         enemy: BattlerRuntimeObservation?,
         activeBattle: Boolean = true,
         randomAbilities: Boolean = false,
-        optionStyle: Int = 0
+        optionStyle: Int = 0,
+        fairyTypes: Boolean = true
     ): CalcRequestOutcome = CalcRequestBoundary.build(
         profile = heartAndSoul,
         trust = trust,
         request = request,
-        challengeSettings = settings(randomAbilities, optionStyle),
+        challengeSettings = settings(randomAbilities, optionStyle, fairyTypes),
         playerBattlerState = player,
         enemyBattlerState = enemy,
         activeBattle = activeBattle
@@ -1237,14 +1242,20 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `an unmodelled field status does not launder the Ion Deluge bit`() {
-        // Both Ion Deluge and Gravity (bit 5) set: the unsupported-bit gate must still refuse,
-        // even though Ion Deluge on a Normal move is handled separately.
-        refusedWith(
-            expected = CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED,
-            player = playerObservation(fieldStatuses = (1 shl 10) or (1 shl 5)),
-            enemy = enemyObservation(fieldStatuses = (1 shl 10) or (1 shl 5))
+    fun `Ion Deluge remains blocked when Gravity is irrelevant to the rewritten type`() {
+        // Both Ion Deluge and Gravity (bit 5) set. The single effective type proves Gravity
+        // irrelevant to Electric, but the active Ion Deluge dynamic-type blocker remains.
+        val outcome = refusedOf(
+            build(
+                trustFor(exactSha), goldenARequest(),
+                playerObservation(fieldStatuses = (1 shl 10) or (1 shl 5)),
+                enemyObservation(fieldStatuses = (1 shl 10) or (1 shl 5))
+            ),
+            "the active Ion Deluge path stays refused"
         )
+        assertTrue(outcome.verdict.limitations.contains(CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED))
+        assertEquals(HnsFieldRequestRelevance.PROVEN_IRRELEVANT,
+            fieldDecision(outcome, HnsFieldStatus.GRAVITY).relevance)
     }
 
     @Test
@@ -2008,6 +2019,166 @@ class CalcHnsC4eProductionBoundaryTest {
         outcome as? CalcRequestOutcome.Refused ?: throw AssertionError("$why, got $outcome")
 
     @Test
+    fun `observed attacker ability owns the dynamic type and serialized ate boost`() {
+        val trust = trustFor(exactSha)
+        val spoofed = goldenARequest().copy(
+            attacker = goldenARequest().attacker.copy(ability = "Galvanize", abilityId = 206),
+            moveOverride = CalcMoveOverride(basePower = 250, type = "Fire", category = "Special")
+        )
+        val pixilate = readyOf(
+            build(trust, spoofed,
+                playerObservation(abilityId = 182, abilityName = "Pixilate"), enemyObservation(),
+                randomAbilities = true),
+            "the exact live Pixilate identity must own the rewrite instead of caller ability/type overrides"
+        )
+        assertEquals(182, pixilate.request.attacker.abilityId)
+        assertEquals("Pixilate", pixilate.request.attacker.ability)
+        assertEquals(40, pixilate.request.moveOverride?.basePower)
+        assertEquals("Fairy", pixilate.request.moveOverride?.type)
+        assertEquals("Physical", pixilate.request.moveOverride?.category)
+
+        val liveJson = JSONObject(buildCalcRequestJson(pixilate.request))
+        val serializedMove = liveJson.getJSONObject("move")
+        val serializedOverride = serializedMove.getJSONObject("overrides")
+        assertEquals("Fairy", serializedOverride.getString("type"))
+        assertEquals("Physical", serializedOverride.getString("category"))
+        assertTrue(serializedOverride.getBoolean("ateBoost"))
+
+        var reachedEngine = false
+        val result = CalcAuthorizedExecution.calculate(pixilate.verdict) { request ->
+            reachedEngine = true
+            assertEquals("Fairy", JSONObject(buildCalcRequestJson(request))
+                .getJSONObject("move").getJSONObject("overrides").getString("type"))
+            DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = listOf(1, 1))
+        }
+        assertTrue("an authorized rewrite must reach the calculator", result.success && reachedEngine)
+
+        val typeBased = readyOf(
+            build(trust, goldenARequest(),
+                playerObservation(abilityId = 182, abilityName = "Pixilate"), enemyObservation(),
+                randomAbilities = true, optionStyle = 1),
+            "TYPE_BASED must resolve category from the rewritten Fairy type"
+        )
+        val typeBasedOverride = JSONObject(buildCalcRequestJson(typeBased.request))
+            .getJSONObject("move").getJSONObject("overrides")
+        assertEquals("Fairy", typeBasedOverride.getString("type"))
+        assertEquals("Special", typeBasedOverride.getString("category"))
+    }
+
+    @Test
+    fun `all move type abilities use authoritative predicates and fail closed when operands are unknown`() {
+        val trust = trustFor(exactSha)
+        data class AbilityCase(
+            val id: Int,
+            val name: String,
+            val move: String,
+            val expectedType: String,
+            val expectedAteBoost: Boolean
+        )
+        for ((id, name, move, expectedType, expectedAteBoost) in listOf(
+            AbilityCase(96, "Normalize", "Tackle", "Normal", true),
+            AbilityCase(174, "Refrigerate", "Tackle", "Ice", true),
+            AbilityCase(182, "Pixilate", "Tackle", "Fairy", true),
+            AbilityCase(184, "Aerilate", "Tackle", "Flying", true),
+            AbilityCase(206, "Galvanize", "Tackle", "Electric", true),
+            AbilityCase(204, "Liquid Voice", "Hyper Voice", "Water", false)
+        )) {
+            val ready = readyOf(
+                build(trust, goldenARequest(move), playerObservation(abilityId = id, abilityName = name),
+                    enemyObservation(), randomAbilities = true),
+                "$name should model its pinned rewrite for $move"
+            )
+            val moveJson = JSONObject(buildCalcRequestJson(ready.request)).getJSONObject("move")
+            val overrides = moveJson.getJSONObject("overrides")
+            assertEquals(name, expectedType, overrides.getString("type"))
+            assertEquals(name, expectedAteBoost, overrides.getBoolean("ateBoost"))
+        }
+
+        for ((id, name) in listOf(
+            174 to "Refrigerate", 182 to "Pixilate", 184 to "Aerilate", 206 to "Galvanize"
+        )) {
+            val nonNormal = readyOf(
+                build(trust, goldenARequest("Fire Punch"),
+                    playerObservation(abilityId = id, abilityName = name), enemyObservation(), randomAbilities = true),
+                "$name is proven inactive for an authoritative non-Normal source move"
+            )
+            val overrides = JSONObject(buildCalcRequestJson(nonNormal.request)).getJSONObject("move")
+                .getJSONObject("overrides")
+            assertEquals("Fire", overrides.getString("type"))
+            assertFalse(overrides.getBoolean("ateBoost"))
+        }
+
+        val fairyOff = readyOf(
+            build(trust, goldenARequest("Fairy Wind"),
+                playerObservation(abilityId = 182, abilityName = "Pixilate"), enemyObservation(),
+                randomAbilities = true, fairyTypes = false),
+            "Fairy-off maps Fairy Wind to Normal before Pixilate's pinned Normal predicate"
+        )
+        val fairyOffMove = JSONObject(buildCalcRequestJson(fairyOff.request)).getJSONObject("move")
+            .getJSONObject("overrides")
+        assertEquals("Fairy", fairyOffMove.getString("type"))
+        assertTrue(fairyOffMove.getBoolean("ateBoost"))
+
+        val fairyOn = readyOf(
+            build(trust, goldenARequest("Fairy Wind"),
+                playerObservation(abilityId = 182, abilityName = "Pixilate"), enemyObservation(),
+                randomAbilities = true, fairyTypes = true),
+            "Pixilate does not rewrite a source Fairy move when Fairy types are enabled"
+        )
+        val fairyOnMove = JSONObject(buildCalcRequestJson(fairyOn.request)).getJSONObject("move")
+            .getJSONObject("overrides")
+        assertEquals("Fairy", fairyOnMove.getString("type"))
+        assertFalse(fairyOnMove.getBoolean("ateBoost"))
+
+        val liquidVoiceNonSound = readyOf(
+            build(trust, goldenARequest("Tackle"),
+                playerObservation(abilityId = 204, abilityName = "Liquid Voice"), enemyObservation(),
+                randomAbilities = true),
+            "Liquid Voice is proven irrelevant for a source-known nonsound move"
+        )
+        val nonSoundMove = JSONObject(buildCalcRequestJson(liquidVoiceNonSound.request)).getJSONObject("move")
+            .getJSONObject("overrides")
+        assertEquals("Normal", nonSoundMove.getString("type"))
+        assertFalse(nonSoundMove.getBoolean("ateBoost"))
+
+        val defenderCopy = readyOf(
+            build(trust, goldenARequest(), playerObservation(),
+                enemyObservation(abilityId = 204, abilityName = "Liquid Voice"), randomAbilities = true),
+            "a defender-side Liquid Voice must not rewrite the attacker's move"
+        )
+        assertEquals("Normal", JSONObject(buildCalcRequestJson(defenderCopy.request)).getJSONObject("move")
+            .getJSONObject("overrides").getString("type"))
+
+        val unknownSound = refusedOf(
+            build(trust, goldenARequest("Howl"),
+                playerObservation(abilityId = 204, abilityName = "Liquid Voice"), enemyObservation(),
+                randomAbilities = true),
+            "conditional sound metadata on nonordinary Howl must not authorize a move"
+        )
+        assertTrue(unknownSound.verdict.limitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED))
+        val conditionalSoundAuthority = HnsMoveAuthority.forRequest(
+            liquidVoiceNonSound.request.copy(move = CalcMoveInput(name = "Howl")), ordinaryMove = true
+        )
+        assertEquals(HnsAbilityTypeRewriteOutcome.UNKNOWN, conditionalSoundAuthority.abilityRewriteOutcome)
+
+        val electrifiedState = fairyOff.request.hnsLiveBattleState!!.copy(attackerElectrified = true)
+        val stackedAuthority = HnsMoveAuthority.forRequest(
+            fairyOff.request.copy(hnsLiveBattleState = electrifiedState), ordinaryMove = true
+        )
+        assertEquals("Fairy", stackedAuthority.preFieldType?.displayName)
+        assertEquals("Electric", stackedAuthority.effectiveType?.displayName)
+        assertTrue(stackedAuthority.ateBoost == true)
+
+        val missingGimmick = refusedOf(
+            build(trust, goldenARequest(),
+                playerObservation(abilityId = 182, abilityName = "Pixilate", gimmickObserved = false),
+                enemyObservation(), randomAbilities = true),
+            "missing gimmick state leaves the dynamic type path unknown"
+        )
+        assertTrue(missingGimmick.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+    }
+
+    @Test
     fun `live items proven irrelevant clear only their own item blockers and are stripped`() {
         // Your Charcoal cannot boost Normal Tackle; the foe's Choice Band is read only when it attacks.
         val ready = readyOf(
@@ -2062,16 +2233,16 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `missing effective-type authority keeps a type item unknown and blocked`() {
-        // Electrify rewrites the move to Electric, so the effective type is not authoritative and
-        // Charcoal cannot be cleared even though Tackle's pinned type is Normal.
+    fun `Electrify supplies effective type relevance while its active path remains blocked`() {
+        // Electrify's later source rewrite makes the effective type Electric, proving Charcoal
+        // irrelevant; the existing dynamic-type limitation still refuses the request.
         val refused = refusedOf(
             build(trustFor(exactSha), goldenARequest(),
                 playerObservation(itemId = 426, electrified = true), enemyObservation()),
-            "an unproven effective type must not clear a type item"
+            "an active Electrify rewrite must remain refused"
         )
-        assertEquals(HnsItemRequestRelevance.UNKNOWN, refused.verdict.hnsItemDecisions.single().relevance)
-        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, refused.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED))
         // An unknown field bit also removes effective-type authority (it is never assumed harmless).
         val unknownBit = refusedOf(
             build(trustFor(exactSha), goldenARequest(),
@@ -2186,7 +2357,7 @@ class CalcHnsC4eProductionBoundaryTest {
             "unsupported move shape remains refused"
         )
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            nonordinary.verdict.hnsAbilityDecisions.single().relevance)
+            nonordinary.verdict.hnsAbilityDecisions.single { it.abilityId == 24 }.relevance)
     }
 
     @Test
@@ -2432,12 +2603,14 @@ class CalcHnsC4eProductionBoundaryTest {
             "Wonder Room is a named field caveat"
         )
         assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, physical.verdict.hnsItemDecisions.single().relevance)
-        // Ion Deluge rewrites Normal Tackle to Electric: type (and so TYPE_BASED category) is unknown.
+        // Ion Deluge resolves the effective Electric type and its Special TYPE_BASED category,
+        // while the existing dynamic-type blocker still refuses execution.
         val ionDeluge = refusedOf(
             fieldBuild(HnsFieldStatus.ION_DELUGE.mask, attackerItem = wiseGlasses, optionStyle = 1),
             "Ion Deluge on a Normal move stays refused"
         )
-        assertEquals(HnsItemRequestRelevance.UNKNOWN, ionDeluge.verdict.hnsItemDecisions.single().relevance)
+        assertEquals(HnsItemRequestRelevance.MODELLED, ionDeluge.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(ionDeluge.verdict.limitations.contains(CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED))
         // Under PER_MOVE_SPLIT the category does not depend on the type rewrite.
         val perMove = refusedOf(
             fieldBuild(HnsFieldStatus.ION_DELUGE.mask, attackerItem = wiseGlasses),
@@ -2458,7 +2631,8 @@ class CalcHnsC4eProductionBoundaryTest {
             fieldBuild(HnsFieldStatus.TRICK_ROOM.mask, attackerItem = 426, electrified = true),
             "Electrify removes effective-type authority"
         )
-        assertEquals(HnsItemRequestRelevance.UNKNOWN, electrified.verdict.hnsItemDecisions.single().relevance)
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, electrified.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(electrified.verdict.limitations.contains(CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED))
     }
 
     @Test
@@ -2470,14 +2644,22 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals(HnsFieldRequestRelevance.UNKNOWN, decision.relevance)
         assertEquals("unknown_field_bits", decision.rule)
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
-        assertEquals("Damage unavailable · Unknown field state 0x00002000\nField: Unknown bits 0x00002000", cardText(refused))
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+        assertEquals(
+            "Damage unavailable · 2 blockers\nField: Unknown bits 0x00002000\nYou: Overgrow",
+            cardText(refused)
+        )
+        assertEquals(
+            "pinch_ability_effective_type_unverified",
+            refused.verdict.hnsAbilityDecisions.single().rule
+        )
 
         // An unknown bit also removes effective-type authority, so a co-set terrain cannot be cleared.
         val mixed = refusedOf(fieldBuild(0x2000 or HnsFieldStatus.ELECTRIC_TERRAIN.mask), "unknown bit blocks")
         assertEquals(0x2100, mixed.verdict.hnsFieldDiagnostics?.fieldState?.raw)
         assertEquals(HnsFieldRequestRelevance.UNKNOWN, fieldDecision(mixed, HnsFieldStatus.ELECTRIC_TERRAIN).relevance)
         assertEquals(
-            "Damage unavailable · 2 field blockers\nElectric Terrain (0x00000100)\nUnknown bits 0x00002000",
+            "Damage unavailable · 3 blockers\nField: Electric Terrain (0x00000100)\nField: Unknown bits 0x00002000\nYou: Overgrow",
             cardText(mixed)
         )
     }
@@ -2570,22 +2752,24 @@ class CalcHnsC4eProductionBoundaryTest {
                 playerObservation(itemId = 426, electrified = true),
                 enemyObservation(itemId = 481, hp = 15, maxHp = 15)
             ),
-            "unknown Charcoal relevance blocks while the foe's Focus Sash has caveat evidence"
+            "Electrify blocks execution while the foe's Focus Sash has caveat evidence"
         )
         assertTrue(mixedItems.verdict.hnsItemDecisions.any {
-            it.itemName == "Charcoal" && it.relevance == HnsItemRequestRelevance.UNKNOWN
+            it.itemName == "Charcoal" && it.relevance == HnsItemRequestRelevance.PROVEN_IRRELEVANT
         })
+        assertTrue(mixedItems.verdict.limitations.contains(CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED))
         assertTrue(mixedItems.verdict.ignoredMechanics.any {
             it.presentationLine == "Foe: Focus Sash"
         })
         val itemDetails = com.dualdex.battle.DamageBlockerPresentation.detailLines(
             com.dualdex.battle.DamageBlockerPresentation.from(mixedItems.verdict, false)
         )
-        assertTrue(itemDetails.any { it == "You: Charcoal" })
+        assertFalse(itemDetails.any { it == "You: Charcoal" })
         assertFalse(itemDetails.any { it == "Foe: Focus Sash" })
 
         val mixedFields = refusedOf(
-            fieldBuild(HnsFieldStatus.WONDER_ROOM.mask or 0x2000),
+            fieldBuild(HnsFieldStatus.WONDER_ROOM.mask or 0x2000,
+                attackerAbility = 0 to "None"),
             "unknown field bits block while Wonder Room has caveat evidence"
         )
         assertEquals(
@@ -2881,7 +3065,10 @@ class CalcHnsC4eProductionBoundaryTest {
             "manual H&S needs an authoritative badge observation"
         )
         assertTrue(refused.verdict.blockingLimitations.contains(CalcLimitation.BADGE_BOOST_NOT_MODELLED))
-        assertTrue(refused.verdict.ignoredMechanics.isEmpty())
+        assertEquals(
+            listOf("You: Huge Power"),
+            refused.verdict.ignoredMechanics.map { it.presentationLine }
+        )
         assertTrue(
             CalcResultPresentation.forVerdict(refused.verdict).headline
                 .startsWith(CalcResultPresentation.UNSUPPORTED_PREFIX)

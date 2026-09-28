@@ -28,7 +28,7 @@
 
 #define ROLL_COUNT 16
 #define HNS_PINNED_COMMIT "1f42b74dff0e9fe942419845d040663dd829a973"
-#define ORACLE_SCHEMA_VERSION 3
+#define ORACLE_SCHEMA_VERSION 4
 #define MAX_DIVERGENCES 512
 
 static int g_failures = 0;
@@ -257,6 +257,7 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
     }
     if (strcmp(status, "burn") == 0) sb_append(sb, ",\"status\":\"brn\"");
     else if (strcmp(status, "poison") == 0) sb_append(sb, ",\"status\":\"psn\"");
+    else if (strcmp(status, "toxic") == 0) sb_append(sb, ",\"status\":\"psn\"");
     else if (strcmp(status, "none") != 0) return set_err(err, "%s status %s unsupported", role, status);
     sb_append(sb, ",\"overrides\":{\"types\":[");
     for (int i = 0; i < jl_len(types); i++) {
@@ -326,6 +327,15 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     for (int i = 0; i < jl_len(move_flags); i++) {
         const char* flag = jl_str(jl_at(move_flags, i));
         if (!flag) return set_err(err, "oracle move flag %d is not a string", i);
+        if (i) sb_append(sb, ",");
+        sb_json_string(sb, flag);
+    }
+    sb_append(sb, "],\"hnsMoveAbilityFlags\":[");
+    const jl_value* move_ability_flags = jl_get(o_move, "abilityFlags");
+    if (!jl_is_arr(move_ability_flags)) return set_err(err, "oracle move ability metadata is malformed");
+    for (int i = 0; i < jl_len(move_ability_flags); i++) {
+        const char* flag = jl_str(jl_at(move_ability_flags, i));
+        if (!flag) return set_err(err, "oracle move ability flag %d is not a string", i);
         if (i) sb_append(sb, ",");
         sb_json_string(sb, flag);
     }
@@ -577,7 +587,7 @@ static void self_tests(const jl_value* doc) {
                a[15] == 16);
 
     /* Corpus header / entry validation. */
-    const char* base_head = "{\"schemaVersion\":3,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT
+    const char* base_head = "{\"schemaVersion\":4,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT
                             "\"},\"backend\":{\"kind\":\"pinned-expansion-battle-test-runner\"}},\"entries\":[";
     const char* rolls16 = "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]";
     const char* rolls15 = "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]";
@@ -597,13 +607,13 @@ static void self_tests(const jl_value* doc) {
     self_check("an entry with 15 rolls is rejected", !validate_header(short_rolls, &err));
     jl_free(short_rolls);
     jl_value* wrong_commit = jl_parse(
-        "{\"schemaVersion\":3,\"provenance\":{\"hnsUpstream\":{\"commit\":\"0000000000000000000000000000000000000000\"},"
+        "{\"schemaVersion\":4,\"provenance\":{\"hnsUpstream\":{\"commit\":\"0000000000000000000000000000000000000000\"},"
         "\"backend\":{\"kind\":\"pinned-expansion-battle-test-runner\"}},\"entries\":[{\"scenario\":{\"id\":\"a\"},"
         "\"rolls\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}]}");
     self_check("a corpus from another H&S commit is rejected", !validate_header(wrong_commit, &err));
     jl_free(wrong_commit);
     jl_value* wrong_backend = jl_parse(
-        "{\"schemaVersion\":3,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT "\"},"
+        "{\"schemaVersion\":4,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT "\"},"
         "\"backend\":{\"kind\":\"smogon-calc\"}},\"entries\":[{\"scenario\":{\"id\":\"a\"},"
         "\"rolls\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}]}");
     self_check("a corpus from a non-oracle backend is rejected", !validate_header(wrong_backend, &err));

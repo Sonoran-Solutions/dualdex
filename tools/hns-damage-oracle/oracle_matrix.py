@@ -784,6 +784,90 @@ def _attack_stat_abilities() -> list[dict]:
     return out
 
 
+def _base_power_abilities() -> list[dict]:
+    """Group D source-ordered base-power ability modifiers (issue #91)."""
+    out = []
+    technician = ("ABILITY_TECHNICIAN", "Technician")
+    iron_fist = ("ABILITY_IRON_FIST", "Iron Fist")
+    strong_jaw = ("ABILITY_STRONG_JAW", "Strong Jaw")
+    mega_launcher = ("ABILITY_MEGA_LAUNCHER", "Mega Launcher")
+    sharpness = ("ABILITY_SHARPNESS", "Sharpness")
+    water_bubble = ("ABILITY_WATER_BUBBLE", "Water Bubble")
+    steelworker = ("ABILITY_STEELWORKER", "Steelworker")
+    toxic_boost = ("ABILITY_TOXIC_BOOST", "Toxic Boost")
+    flare_boost = ("ABILITY_FLARE_BOOST", "Flare Boost")
+
+    for move in ("Ember", "Swift", "Sludge"):
+        out.append(scenario(
+            f"group-d-technician-{slug(move)}", ["ability:technician", "base-power"],
+            attacker("Porygon", spa=151, ability=technician), defender("Snorlax", spd=109), move))
+    out.append(scenario(
+        "group-d-technician-wise-glasses-dry-skin", ["ability:technician", "base-power", "modifier-stacking"],
+        attacker("Porygon", spa=151, ability=technician, item=("ITEM_WISE_GLASSES", "Wise Glasses")),
+        defender("Snorlax", spd=109, ability=("ABILITY_DRY_SKIN", "Dry Skin")), "Ember"))
+    out.append(scenario(
+        "group-d-technician-defender-control", ["ability:technician", "base-power", "negative-control"],
+        attacker("Porygon", spa=151), defender("Snorlax", spd=109, ability=technician), "Ember"))
+
+    for ability, name, move, flag in (
+        (iron_fist, "iron-fist", "Fire Punch", "punching"),
+        (strong_jaw, "strong-jaw", "Bite", "biting"),
+        (mega_launcher, "mega-launcher", "Aura Sphere", "pulse"),
+        (sharpness, "sharpness", "Leaf Blade", "slicing"),
+    ):
+        out.append(scenario(
+            f"group-d-{name}-{slug(move)}", [f"ability:{name}", "base-power", f"move-flag:{flag}"],
+            attacker("Machamp", atk=151, spa=151, ability=ability), defender("Snorlax", dfn=109, spd=109), move))
+        out.append(scenario(
+            f"group-d-{name}-nonmatching-control", [f"ability:{name}", "base-power", "negative-control"],
+            attacker("Machamp", atk=151, spa=151, ability=ability), defender("Snorlax", dfn=109, spd=109), "Tackle"))
+        out.append(scenario(
+            f"group-d-{name}-defender-control", [f"ability:{name}", "base-power", "negative-control"],
+            attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=ability), move))
+
+    out.extend((
+        scenario("group-d-water-bubble-attacker-waterfall", ["ability:water-bubble", "base-power"],
+                 attacker("Blastoise", atk=151, spa=151, ability=water_bubble), defender("Snorlax", dfn=109, spd=109), "Waterfall"),
+        scenario("group-d-water-bubble-attacker-nonwater-control", ["ability:water-bubble", "base-power", "negative-control"],
+                 attacker("Blastoise", atk=151, ability=water_bubble), defender("Snorlax", dfn=109), "Fire Punch"),
+        scenario("group-d-water-bubble-defender-fire-deferred", ["ability:water-bubble", "base-power", "deferred-context"],
+                 attacker("Machamp", atk=151), defender("Blastoise", dfn=109, ability=water_bubble), "Fire Punch", surface="engine-only"),
+        scenario("group-d-steelworker-iron-head", ["ability:steelworker", "base-power"],
+                 attacker("Machamp", atk=151, ability=steelworker), defender("Snorlax", dfn=109), "Iron Head"),
+        scenario("group-d-steelworker-nonsteel-control", ["ability:steelworker", "base-power", "negative-control"],
+                 attacker("Machamp", atk=151, ability=steelworker), defender("Snorlax", dfn=109), "Tackle"),
+        scenario("group-d-steelworker-defender-control", ["ability:steelworker", "base-power", "negative-control"],
+                 attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=steelworker), "Iron Head"),
+    ))
+
+    for status in ("poison", "toxic", "none"):
+        out.append(scenario(
+            f"group-d-toxic-boost-physical-{status}", ["ability:toxic-boost", "base-power", f"status:{status}"],
+            attacker("Machamp", atk=151, maxhp=300, status=status, ability=toxic_boost),
+            defender("Snorlax", dfn=109), "Strength"))
+    out.extend((
+        scenario("group-d-toxic-boost-special-poison-control", ["ability:toxic-boost", "base-power", "negative-control", "status:poison"],
+                 attacker("Machamp", spa=151, maxhp=300, status="poison", ability=toxic_boost),
+                 defender("Snorlax", spd=109), "Psychic"),
+        scenario("group-d-toxic-boost-defender-control", ["ability:toxic-boost", "base-power", "negative-control"],
+                 attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=toxic_boost), "Strength"),
+    ))
+    out.extend((
+        scenario("group-d-flare-boost-special-burn", ["ability:flare-boost", "base-power", "status:burn"],
+                 attacker("Machamp", spa=151, maxhp=300, status="burn", ability=flare_boost),
+                 defender("Snorlax", spd=109), "Psychic"),
+        scenario("group-d-flare-boost-special-no-burn-control", ["ability:flare-boost", "base-power", "negative-control"],
+                 attacker("Machamp", spa=151, maxhp=300, ability=flare_boost),
+                 defender("Snorlax", spd=109), "Psychic"),
+        scenario("group-d-flare-boost-physical-burn-control", ["ability:flare-boost", "base-power", "negative-control", "status:burn"],
+                 attacker("Machamp", atk=151, maxhp=300, status="burn", ability=flare_boost),
+                 defender("Snorlax", dfn=109), "Strength"),
+        scenario("group-d-flare-boost-defender-control", ["ability:flare-boost", "base-power", "negative-control"],
+                 attacker("Machamp", spa=151), defender("Snorlax", spd=109, ability=flare_boost), "Psychic"),
+    ))
+    return out
+
+
 def _rules() -> list[dict]:
     out = []
     fairy_moves = ("Moonblast", "Play Rough", "Dazzling Gleam", "Fairy Wind")
@@ -900,7 +984,8 @@ def _doubles() -> list[dict]:
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
-              _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities, _rules, _engine_abilities,
+              _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
+              _base_power_abilities, _rules, _engine_abilities,
               _engine_items, _doubles)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

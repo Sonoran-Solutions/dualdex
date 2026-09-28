@@ -39,6 +39,16 @@ data class HnsAbilityRequestDecision(
  * absent or uncertain returns UNKNOWN and remains a hard refusal.
  */
 object HnsAbilityContextPolicy {
+    private data class MoveFlagAbilityRule(
+        val moveFlag: String,
+        val abilitySource: String,
+        val moveFlagSource: String,
+        val positiveRule: String,
+        val negativeRule: String,
+        val abilityName: String,
+        val defenderRule: String
+    )
+
     /**
      * The exact pinned SPECIES_TERAPAGOS_TERASTAL, generated from the pinned species header by
      * tools/hns-abilities/generate_hns_ability_audit.py (source-check fails on any drift).
@@ -46,7 +56,17 @@ object HnsAbilityContextPolicy {
     const val TERAPAGOS_TERASTAL_SPECIES_ID = HnsAbilityAuditData.TERAPAGOS_TERASTAL_SPECIES_ID
     private const val HNS_STATUS1_DEFINED_MASK = 0x1fff
     private const val HNS_STATUS1_ANY_MASK = 0x10ff // pinned STATUS1_ANY, include/constants/battle.h:163
-    private val MODELLED_ATTACK_STAT_ABILITY_IDS = setOf(55, 62) // Hustle / Guts, Group D stage 1
+    private const val HNS_STATUS1_BURN_MASK = 0x10 // pinned STATUS1_BURN, include/constants/battle.h:155
+    private const val HNS_STATUS1_POISON_ANY_MASK = 0x88 // STATUS1_POISON | STATUS1_TOXIC_POISON
+    private const val HNS_STATUS1_TOXIC_POISON_MASK = 0x80
+    private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
+    private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
+        55, 62, // Hustle / Guts, Group D Attack stage
+        89, 101, 137, 138, 173, 178, 199, 200, 292 // Group D base-power batch
+    )
+
+    fun hasModelledConditionalDamageContext(abilityId: Int?): Boolean =
+        abilityId != null && abilityId in MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS
 
     data class Context(
         val side: HnsAbilitySide,
@@ -60,6 +80,10 @@ object HnsAbilityContextPolicy {
         val defenderHp: Int?,
         val defenderMaxHp: Int?,
         val attackerStatus1: Int?,
+        val moveId: Int? = null,
+        val moveBasePower: Int? = null,
+        val moveAbilityFlags: Set<String>? = null,
+        val unknownMoveAbilityFlags: Set<String>? = null,
         val observedBattlersCount: Int?,
         val dynamicMoveTypeKnownNeutral: Boolean,
         val defenderItemId: Int?,
@@ -87,12 +111,14 @@ object HnsAbilityContextPolicy {
     private val MOVE_TIME_TYPE_REWRITER_IDS = setOf(168, 236) // Protean / Libero
     private val LIVE_ABILITY_REWRITER_IDS = setOf(36, 222, 223) // Trace / Receiver / Power of Alchemy
     private val WEATHER_SUPPRESSOR_IDS = setOf(13, 76) // Cloud Nine / Air Lock
+    private const val WATER_BUBBLE_DEFENDER_FIRE_DEFERRED_RULE = "water_bubble_defender_fire_branch_deferred"
 
     fun assess(abilityId: Int, context: Context?): HnsAbilityRequestDecision {
         val entry = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(abilityId)
         val side = context?.side ?: HnsAbilitySide.ATTACKER
         if (entry.category != HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
-            !(entry.category == HnsAbilityCategory.MODELLED_HNS_CONDITIONAL && abilityId in MODELLED_ATTACK_STAT_ABILITY_IDS)
+            !(entry.category == HnsAbilityCategory.MODELLED_HNS_CONDITIONAL &&
+                abilityId in MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS)
         ) {
             return decision(
                 entry.abilityId ?: abilityId,
@@ -246,6 +272,99 @@ object HnsAbilityContextPolicy {
             )
             140 -> singlesProof(c, "telepathy_singles_no_partner", "src/battle_util.c:8422",
                 "Telepathy zeroes damage only when its holder is the attacker's battle partner.")
+            89, 173, 178, 292 -> moveFlagAbilityProof(abilityId, c)
+            101 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "technician_defender_side", "src/battle_util.c:6655",
+                    "Technician is checked only for abilityAtk and cannot modify the selected incoming hit."
+                )
+                c.ordinaryMove != true || c.moveId == null -> null
+                c.moveBasePower == null || c.moveBasePower !in 1..255 -> null
+                c.moveBasePower <= 60 -> relevant(
+                    "technician_attacker_bp_at_most_60", "src/battle_util.c:6655",
+                    "The pinned ordinary EFFECT_HIT path preserves source move power before Technician's <=60 check; this move receives the modeled 1.5 base-power modifier."
+                )
+                else -> proof(
+                    "technician_attacker_bp_over_60", "src/battle_util.c:6655",
+                    "The authoritative ordinary move power entering the ability stage exceeds 60, so Technician does not modify this hit."
+                )
+            }
+            199 -> when {
+                c.side == HnsAbilitySide.DEFENDER && c.ordinaryMove == true &&
+                    c.dynamicMoveTypeKnownNeutral && c.moveType != null && c.moveType != PokemonType.FIRE -> proof(
+                    "water_bubble_defender_nonfire_move", "src/battle_util.c:6788",
+                    "The unmodeled defender-side Water Bubble damage reduction applies only to Fire moves; this authoritative non-Fire move is outside that branch."
+                )
+                c.side == HnsAbilitySide.DEFENDER -> null // $WATER_BUBBLE_DEFENDER_FIRE_DEFERRED_RULE remains UNKNOWN.
+                c.ordinaryMove != true || !c.dynamicMoveTypeKnownNeutral || c.moveType == null -> null
+                c.moveType == PokemonType.WATER -> relevant(
+                    "water_bubble_attacker_water_move", "src/battle_util.c:6706",
+                    "An attacker Water Bubble and an authoritative Water move take the modeled offensive 2.0 base-power branch."
+                )
+                else -> proof(
+                    "water_bubble_attacker_nonwater_move", "src/battle_util.c:6706",
+                    "The attacker's offensive Water Bubble modifier is proven inactive for this authoritative non-Water move."
+                )
+            }
+            200 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "steelworker_defender_side", "src/battle_util.c:6710",
+                    "Steelworker is checked only for abilityAtk and cannot modify the selected incoming hit."
+                )
+                c.ordinaryMove != true || !c.dynamicMoveTypeKnownNeutral || c.moveType == null -> null
+                c.moveType == PokemonType.STEEL -> relevant(
+                    "steelworker_attacker_steel_move", "src/battle_util.c:6710",
+                    "Steelworker's attacker-side 1.5 base-power branch uses the authoritative effective move type."
+                )
+                else -> proof(
+                    "steelworker_attacker_nonsteel_move", "src/battle_util.c:6710",
+                    "The authoritative effective move type is not Steel, so Steelworker's base-power branch is inactive."
+                )
+            }
+            137 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "toxic_boost_defender_side", "src/battle_util.c:6663",
+                    "Toxic Boost is checked only for the attacker and cannot modify incoming damage."
+                )
+                c.ordinaryMove != true -> null
+                c.moveCategory == null -> null
+                c.moveCategory != MoveCategory.PHYSICAL -> proof(
+                    "toxic_boost_special_move", "src/battle_util.c:6663",
+                    "Toxic Boost's pinned branch requires a Physical move; the authoritative category is not Physical."
+                )
+                c.attackerStatus1 == null || !validStatusWord(c.attackerStatus1) -> null
+                hasPoisonOnlyStatus(c.attackerStatus1) -> relevant(
+                    "toxic_boost_physical_poison", "src/battle_util.c:6663",
+                    "The exact STATUS1_PSN_ANY mask is set on the attacker and the authoritative category is Physical."
+                )
+                c.attackerStatus1 and HNS_STATUS1_POISON_ANY_MASK != 0 -> null
+                else -> proof(
+                    "toxic_boost_physical_without_poison", "src/battle_util.c:6663",
+                    "No bit in the pinned STATUS1_PSN_ANY mask is set, so Toxic Boost is inactive for this Physical move."
+                )
+            }
+            138 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "flare_boost_defender_side", "src/battle_util.c:6659",
+                    "Flare Boost is checked only for the attacker and cannot modify incoming damage."
+                )
+                c.ordinaryMove != true -> null
+                c.moveCategory == null -> null
+                c.moveCategory != MoveCategory.SPECIAL -> proof(
+                    "flare_boost_physical_move", "src/battle_util.c:6659",
+                    "Flare Boost's pinned branch requires a Special move; the authoritative category is not Special."
+                )
+                c.attackerStatus1 == null || !validStatusWord(c.attackerStatus1) -> null
+                hasBurnOnlyStatus(c.attackerStatus1) -> relevant(
+                    "flare_boost_special_burn", "src/battle_util.c:6659",
+                    "The exact STATUS1_BURN bit is set on the attacker and the authoritative category is Special."
+                )
+                c.attackerStatus1 and HNS_STATUS1_BURN_MASK != 0 -> null
+                else -> proof(
+                    "flare_boost_special_without_burn", "src/battle_util.c:6659",
+                    "The pinned STATUS1_BURN bit is clear, so Flare Boost is inactive for this Special move."
+                )
+            }
             26 -> when (c.side) {
                 HnsAbilitySide.ATTACKER -> proof(
                     "attacker_levitate_does_not_change_outgoing_damage", "src/battle_util.c:8385",
@@ -394,6 +513,8 @@ object HnsAbilityContextPolicy {
     ): Context {
         val live = request.hnsLiveBattleState
         val authority = HnsMoveAuthority.forRequest(request, ordinaryMove)
+        val pinnedMove = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)
+        val moveId = pinnedMove?.id
         val rawAttackerTypes = live?.attackerTypes
         val rawDefenderTypes = live?.defenderTypes
         return Context(
@@ -408,6 +529,14 @@ object HnsAbilityContextPolicy {
             defenderHp = live?.defenderHp,
             defenderMaxHp = live?.defenderMaxHp,
             attackerStatus1 = live?.attackerStatus1,
+            moveId = moveId,
+            moveBasePower = pinnedMove?.power,
+            moveAbilityFlags = moveId?.let {
+                com.dualdex.pokemon.hns.Hns205MoveEffects.abilityMoveFlagsById[it].orEmpty()
+            },
+            unknownMoveAbilityFlags = moveId?.let {
+                com.dualdex.pokemon.hns.Hns205MoveEffects.unknownAbilityMoveFlagsById[it].orEmpty()
+            },
             observedBattlersCount = live?.observedBattlersCount,
             dynamicMoveTypeKnownNeutral = authority.effectiveType != null,
             defenderItemId = request.defender.itemId ?: when {
@@ -426,6 +555,58 @@ object HnsAbilityContextPolicy {
             weatherWord = live?.takeIf { it.weatherObserved }?.weatherWord,
             switchInEventsSettled = live?.switchInEventsSettled
         )
+    }
+
+    private fun moveFlagAbilityProof(abilityId: Int, c: Context): Proof? {
+        val rule = when (abilityId) {
+            89 -> MoveFlagAbilityRule("punchingMove", "src/battle_util.c:6671", "include/move.h:343",
+                "iron_fist_punching_move", "iron_fist_nonpunching_move", "Iron Fist", "iron_fist_defender_side")
+            173 -> MoveFlagAbilityRule("bitingMove", "src/battle_util.c:6698", "include/move.h:348",
+                "strong_jaw_biting_move", "strong_jaw_nonbiting_move", "Strong Jaw", "strong_jaw_defender_side")
+            178 -> MoveFlagAbilityRule("pulseMove", "src/battle_util.c:6702", "include/move.h:353",
+                "mega_launcher_pulse_move", "mega_launcher_nonpulse_move", "Mega Launcher", "mega_launcher_defender_side")
+            else -> MoveFlagAbilityRule("slicingMove", "src/battle_util.c:6742", "include/move.h:383",
+                "sharpness_slicing_move", "sharpness_nonslicing_move", "Sharpness", "sharpness_defender_side")
+        }
+        val (moveFlag, abilitySource, moveFlagSource, positiveRule, negativeRule, abilityName, defenderRule) = rule
+        if (c.side == HnsAbilitySide.DEFENDER) return proof(
+            defenderRule, abilitySource,
+            "$abilityName is checked only for the attacker and cannot modify the selected incoming hit."
+        )
+        if (c.ordinaryMove != true || c.moveId == null) return null
+        if (c.unknownMoveAbilityFlags?.contains(moveFlag) == true) return null
+        val flags = c.moveAbilityFlags ?: return null
+        return if (moveFlag in flags) relevant(
+            positiveRule, "$abilitySource; $moveFlagSource",
+            "The pinned $moveFlag MoveInfo bit is set for this authoritative ordinary move; $abilityName's base-power branch is modeled."
+        ) else proof(
+            negativeRule, "$abilitySource; $moveFlagSource",
+            "The pinned $moveFlag MoveInfo bit is clear for this authoritative ordinary move, so $abilityName's base-power branch is inactive."
+        )
+    }
+
+    private fun validStatusWord(status1: Int): Boolean =
+        status1 >= 0 && (status1 and HNS_STATUS1_DEFINED_MASK.inv()) == 0
+
+    private fun hasPoisonOnlyStatus(status1: Int): Boolean {
+        val poisonBits = status1 and HNS_STATUS1_POISON_ANY_MASK
+        if (!validStatusWord(status1) || poisonBits !in setOf(0x08, HNS_STATUS1_TOXIC_POISON_MASK)) return false
+        if ((status1 and HNS_STATUS1_ANY_MASK and HNS_STATUS1_POISON_ANY_MASK.inv()) != 0) return false
+        val allowedToxicCounter = if (status1 and HNS_STATUS1_TOXIC_POISON_MASK != 0) {
+            HNS_STATUS1_TOXIC_COUNTER_MASK
+        } else {
+            0
+        }
+        return (status1 and HNS_STATUS1_POISON_ANY_MASK.inv() and allowedToxicCounter.inv()) == 0
+    }
+
+    private fun hasBurnOnlyStatus(status1: Int): Boolean {
+        if (!validStatusWord(status1) || (status1 and HNS_STATUS1_BURN_MASK) == 0) return false
+        if ((status1 and HNS_STATUS1_ANY_MASK and HNS_STATUS1_BURN_MASK.inv()) != 0) return false
+        val toxicCounterWithoutToxic =
+            (status1 and HNS_STATUS1_TOXIC_COUNTER_MASK) != 0 &&
+                (status1 and HNS_STATUS1_TOXIC_POISON_MASK) == 0
+        return !toxicCounterWithoutToxic
     }
 
     private fun parsedTypes(rawTypes: List<String>?): Set<PokemonType>? {

@@ -173,6 +173,8 @@ static inline const char *DdxoStatus(u32 status1)
         return "none";
     if (status1 == STATUS1_BURN)
         return "burn";
+    if (status1 & STATUS1_TOXIC_POISON)
+        return "toxic";
     if (status1 == STATUS1_POISON)
         return "poison";
     return "other";
@@ -240,11 +242,12 @@ static void DdxoHit(const char *id, u32 roll, enum Move move, u32 battlerAtk, u3
     ctx.move = move;
     DdxoBattler(id, roll, "A", battlerAtk);
     DdxoBattler(id, roll, "D", battlerDef);
-    Test_MgbaPrintf("DDXO|%%s|%%d|M|%%d|%%s|%%d|%%s|%%s|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d", id, roll, move, DdxoType(GetMoveType(move)),
+    Test_MgbaPrintf("DDXO|%%s|%%d|M|%%d|%%s|%%d|%%s|%%s|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d", id, roll, move, DdxoType(GetMoveType(move)),
         GetMovePower(move), DdxoCategory(GetBattleMoveCategory(move)), DdxoTarget(GetBattlerMoveTargetType(battlerAtk, move)),
         GetMoveTargetCount(&ctx), gLastMoves[battlerAtk], IsSoundMove(move), IsBallisticMove(move), IsWindMove(move),
         IsHealingMove(move), MoveIgnoresTargetAbility(move),
-        GetBattleMovePriority(battlerAtk, gBattleMons[battlerAtk].ability, move), GetMoveTarget(move));
+        GetBattleMovePriority(battlerAtk, gBattleMons[battlerAtk].ability, move), GetMoveTarget(move),
+        IsPunchingMove(move), IsBitingMove(move), IsPulseMove(move), IsSlicingMove(move));
     Test_MgbaPrintf("DDXO|%%s|%%d|F|%%s|%%d|%%d|%%d|%%d|%%d", id, roll, DdxoWeather(gBattleWeather),
         (gSideStatuses[GetBattlerSide(battlerDef)] & SIDE_STATUS_REFLECT) ? 1 : 0,
         (gSideStatuses[GetBattlerSide(battlerDef)] & SIDE_STATUS_LIGHTSCREEN) ? 1 : 0,
@@ -254,7 +257,8 @@ static void DdxoHit(const char *id, u32 roll, enum Move move, u32 battlerAtk, u3
 }
 '''
 
-STATUS_C = {"none": "0", "burn": "STATUS1_BURN", "poison": "STATUS1_POISON"}
+STATUS_C = {"none": "0", "burn": "STATUS1_BURN", "poison": "STATUS1_POISON",
+            "toxic": "STATUS1_TOXIC_POISON"}
 BADGE_FLAG_C = "FLAG_BADGE0%d_GET"
 
 
@@ -347,7 +351,7 @@ def render_scenario(s: dict) -> str:
         hit = hit[:-2] + f", target: {def_ref});"
     turns.append("TURN { " + hit + " }")
 
-    ticking = s["attacker"]["status"] in ("burn", "poison")
+    ticking = s["attacker"]["status"] in ("burn", "poison", "toxic")
     setup_turns = len(atk_actions)
     scene = []
     if ticking:
@@ -445,7 +449,7 @@ def _int(text: str, what: str) -> int:
 
 
 LINE_FIELDS = {"A1": 9, "A2": 7, "A3": 4, "A4": 6, "A5": 4, "D1": 9, "D2": 7, "D3": 4, "D4": 6, "D5": 4,
-               "M": 14, "F": 6, "R": 3}
+               "M": 18, "F": 6, "R": 3}
 
 
 def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[int, dict[str, list[str]]]]:
@@ -539,9 +543,17 @@ def _check_battler(sid: str, role: str, scen: dict, seen: dict,
             raise OracleError(f"{what}: battle {key} {seen[key]} != scenario {st[key]}")
     if seen["status"] != scen["status"]:
         raise OracleError(f"{what}: battle status {seen['status']!r} != scenario {scen['status']!r}")
-    expected_status1 = {"none": 0, "poison": 8, "burn": 16}[scen["status"]]
-    if seen["status1"] != expected_status1:
-        raise OracleError(f"{what}: raw status1 {seen['status1']} != expected pinned status1 {expected_status1}")
+    if scen["status"] == "toxic":
+        # The test runner's setup status is STATUS1_TOXIC_POISON. Before the selected hit,
+        # H&S advances the toxic counter once; only its 0x80 poison bit and 0x0f00 counter bits
+        # are expected at this observation point.
+        toxic_word = seen["status1"]
+        if toxic_word & 0x80 == 0 or toxic_word & ~(0x80 | 0x0f00) != 0:
+            raise OracleError(f"{what}: invalid pinned toxic status word {toxic_word}")
+    else:
+        expected_status1 = {"none": 0, "poison": 8, "burn": 16}[scen["status"]]
+        if seen["status1"] != expected_status1:
+            raise OracleError(f"{what}: raw status1 {seen['status1']} != expected pinned status1 {expected_status1}")
     post_hit_stage_deltas = post_hit_stage_deltas or {}
     for stat, value in scen["stages"].items():
         # The runner reports battler stages after the move's hit hooks. These exact H&S
@@ -612,7 +624,12 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
         flags = sorted(
             name for name, present in zip(
                 ("soundMove", "ballisticMove", "windMove", "healingMove", "ignoresTargetAbility"), m[7:12]
-            ) if _int(present, f"{sid} M flags") == 1
+        ) if _int(present, f"{sid} M flags") == 1
+        )
+        ability_flags = sorted(
+            name for name, present in zip(
+                ("punchingMove", "bitingMove", "pulseMove", "slicingMove"), m[14:18]
+            ) if _int(present, f"{sid} M ability flags") == 1
         )
         weather, reflect, light_screen, is_doubles, fairy, style = f
         field = scenario["field"]
@@ -636,7 +653,8 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
                          "hpAtHit": scenario["defender"]["stats"]["hp"], "status1": dfn["status1"],
                          "badgeBoosts": dfn["badgeBoosts"]},
             "move": {"id": move_id, "type": m[1], "power": _int(m[2], f"{sid} M"), "category": m[3],
-                     "target": m[4], "flags": flags, "priority": _int(m[12], f"{sid} M priority"),
+                     "target": m[4], "flags": flags, "abilityFlags": ability_flags,
+                     "priority": _int(m[12], f"{sid} M priority"),
                      "targetClass": _int(m[13], f"{sid} M target class")},
             "targetCount": _int(m[5], f"{sid} M"),
         }

@@ -285,7 +285,8 @@ data class CalcHnsLiveBattleState(
     val defenderSpeciesId: Int? = null,
     /**
      * The attacker's authoritative `status1` word, or null when unread. 0 is an observed
-     * "no status"; the ordinary subset requires that (a non-zero live status is not modelled here).
+     * "no status". Positive values are usable only for the exact Guts, Toxic Boost, and Flare
+     * Boost damage contexts that the request-local ability policy proves.
      */
     val attackerStatus1: Int? = null,
     // --- Gap C4e correction: live field conditions -------------------------------------------

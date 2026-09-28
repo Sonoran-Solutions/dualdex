@@ -39,14 +39,14 @@ def observed_for(s: dict) -> dict:
     battler = {"speciesId": 68, "types": ["Fighting"],
                "baseStats": {"hp": 90, "attack": 130, "defense": 80, "spAttack": 65, "spDefense": 85, "speed": 55},
                "abilityId": 15, "itemId": 0, "hpAtHit": s["attacker"]["stats"]["hp"],
-               "status1": {"none": 0, "poison": 8, "burn": 16}[s["attacker"]["status"]],
+               "status1": {"none": 0, "poison": 8, "burn": 16, "toxic": 128}[s["attacker"]["status"]],
                "badgeBoosts": {"attack": False, "defense": False, "spAttack": False, "spDefense": False}}
     dfn = copy.deepcopy(battler)
     dfn["hpAtHit"] = s["defender"]["stats"]["hp"]
-    dfn["status1"] = {"none": 0, "poison": 8, "burn": 16}[s["defender"]["status"]]
+    dfn["status1"] = {"none": 0, "poison": 8, "burn": 16, "toxic": 128}[s["defender"]["status"]]
     return {"attacker": battler, "defender": dfn,
             "move": {"id": 157, "type": "Rock", "power": 75, "category": "physical", "target": "both",
-                     "flags": [], "priority": 0, "targetClass": 6},
+                     "flags": [], "abilityFlags": [], "priority": 0, "targetClass": 6},
             "targetCount": 1}
 
 
@@ -120,6 +120,27 @@ class ScenarioSchemaTest(unittest.TestCase):
         self.assertEqual(by_id["group-d-guts-burn-physical-badge-crit-a255"]["attacker"]["status"], "burn")
         self.assertEqual(by_id["group-d-guts-poison-physical"]["attacker"]["status"], "poison")
         self.assertEqual(by_id["group-d-guts-physical-no-status-control"]["attacker"]["status"], "none")
+
+    def test_group_d_base_power_matrix_covers_source_predicates_and_deferred_water_bubble(self):
+        by_id = {s["id"]: s for s in SCENARIOS}
+        expected = {
+            "group-d-technician-ember", "group-d-technician-swift", "group-d-technician-sludge",
+            "group-d-technician-wise-glasses-dry-skin", "group-d-iron-fist-fire-punch",
+            "group-d-strong-jaw-bite", "group-d-mega-launcher-aura-sphere",
+            "group-d-sharpness-leaf-blade", "group-d-water-bubble-attacker-waterfall",
+            "group-d-steelworker-iron-head", "group-d-toxic-boost-physical-poison",
+            "group-d-toxic-boost-physical-toxic", "group-d-toxic-boost-special-poison-control",
+            "group-d-flare-boost-special-burn",
+        }
+        self.assertTrue(expected.issubset(by_id))
+        self.assertTrue(all(by_id[sid]["surface"] == "modelled" for sid in expected))
+        self.assertEqual(by_id["group-d-technician-ember"]["move"]["label"], "Ember")
+        self.assertEqual(by_id["group-d-technician-swift"]["move"]["label"], "Swift")
+        self.assertEqual(by_id["group-d-technician-sludge"]["move"]["label"], "Sludge")
+        self.assertEqual(by_id["group-d-toxic-boost-physical-toxic"]["attacker"]["status"], "toxic")
+        self.assertEqual(by_id["group-d-toxic-boost-special-poison-control"]["move"]["label"], "Psychic")
+        self.assertEqual(by_id["group-d-toxic-boost-special-poison-control"]["attacker"]["status"], "poison")
+        self.assertEqual(by_id["group-d-water-bubble-defender-fire-deferred"]["surface"], "engine-only")
 
     def test_duplicate_ids_rejected(self):
         with self.assertRaisesRegex(schema.SchemaError, "duplicate scenario id"):
@@ -245,7 +266,8 @@ class CorpusSchemaTest(unittest.TestCase):
 
 
 def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, types=("Fighting", "Fighting"),
-                 def_stage=0, atk_status="none", atk_status1=0, def_status="none", def_status1=0) -> list[str]:
+                 def_stage=0, atk_status="none", atk_status1=0, def_status="none", def_status1=0,
+                 move_ability_flags=()) -> list[str]:
     delta = damage if delta is None else delta
     t = f"{types[0]}|{types[1]}|Mystery"
     return [
@@ -259,21 +281,25 @@ def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, 
         f"DDXO|{sid}|{rng}|D3|0|{def_stage}|0|0",
         f"DDXO|{sid}|{rng}|D4|160|110|65|65|110|30",
         f"DDXO|{sid}|{rng}|D5|0|0|0|0",
-        f"DDXO|{sid}|{rng}|M|157|Rock|75|physical|both|1|157|0|0|0|0|0|0|6",
+        "DDXO|{}|{}|M|157|Rock|75|physical|both|1|157|0|0|0|0|0|0|6|{}".format(
+            sid, rng, "|".join("1" if flag in move_ability_flags else "0" for flag in
+                                ("punchingMove", "bitingMove", "pulseMove", "slicingMove"))),
         f"DDXO|{sid}|{rng}|F|none|0|0|0|1|0",
         f"DDXO|{sid}|{rng}|R|{damage}|{delta}|{hp_at_hit}",
     ]
 
 
 def runner_output(sid: str, *, result="PASS", skip_rng=None, extra=None, damage_for=None,
-                  atk_status="none", atk_status1=0, def_status="none", def_status1=0) -> str:
+                  atk_status="none", atk_status1=0, def_status="none", def_status1=0,
+                  move_ability_flags=()) -> str:
     lines = [f"[0] DDXO {sid}: \x1b[32m{result}\x1b[0m"]
     for rng in range(16):
         if rng == skip_rng:
             continue
         damage = damage_for(rng) if damage_for else 60 - rng // 2
         lines += runner_lines(sid, rng, damage, atk_status=atk_status, atk_status1=atk_status1,
-                              def_status=def_status, def_status1=def_status1)
+                              def_status=def_status, def_status1=def_status1,
+                              move_ability_flags=move_ability_flags)
     lines += extra or []
     return "\n".join(lines) + "\n"
 
@@ -290,7 +316,7 @@ class RunnerOutputTest(unittest.TestCase):
         self.assertEqual(entry["rolls"], sorted(entry["rolls"]))
         self.assertEqual(entry["observed"]["move"], {"id": 157, "type": "Rock", "power": 75,
                                                      "category": "physical", "target": "both", "flags": [],
-                                                     "priority": 0, "targetClass": 6})
+                                                     "abilityFlags": [], "priority": 0, "targetClass": 6})
         self.assertEqual(entry["observed"]["defender"]["types"], ["Normal"])
         self.assertEqual(entry["observed"]["attacker"]["status1"], 0)
 
@@ -302,6 +328,12 @@ class RunnerOutputTest(unittest.TestCase):
         scenario["attacker"]["status"] = "burn"
         entry = backend.assemble_entry(scenario, records[self.sid])
         self.assertEqual(entry["observed"]["attacker"]["status1"], 16)
+
+    def test_source_move_ability_flags_are_parsed_as_separate_metadata(self):
+        records = backend.parse_runner_output(
+            runner_output(self.sid, move_ability_flags={"punchingMove", "slicingMove"}), [self.sid])
+        entry = backend.assemble_entry(a_scenario(), records[self.sid])
+        self.assertEqual(entry["observed"]["move"]["abilityFlags"], ["punchingMove", "slicingMove"])
 
     def test_failed_or_missing_test_result_is_fatal(self):
         for result in ("FAIL", "ASSUMPTIONS_FAILED", "TO_DO"):
@@ -476,15 +508,38 @@ class CommittedCorpusTest(unittest.TestCase):
         for entry in doc["entries"]:
             scenario = entry["scenario"]
             for role in ("attacker", "defender"):
-                expected = {"none": 0, "poison": 8, "burn": 16}[scenario[role]["status"]]
-                self.assertEqual(entry["observed"][role]["status1"], expected,
-                                 f"{scenario['id']} {role} raw status1")
+                raw_status = entry["observed"][role]["status1"]
+                status = scenario[role]["status"]
+                if status == "toxic":
+                    self.assertEqual(raw_status & 0x80, 0x80, f"{scenario['id']} {role} toxic bit")
+                    self.assertEqual(raw_status & ~(0x80 | 0x0f00), 0,
+                                     f"{scenario['id']} {role} unrelated status bits")
+                else:
+                    expected = {"none": 0, "poison": 8, "burn": 16}[status]
+                    self.assertEqual(raw_status, expected, f"{scenario['id']} {role} raw status1")
 
     def test_known_divergences_pin_the_current_calculator_vectors(self):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
         by_id = {entry["scenario"]["id"]: entry for entry in doc["entries"]}
         divergences = cli.load_divergences(by_id)
-        self.assertEqual(len(divergences), 2)
+        self.assertEqual(
+            {record["scenario"] for record in divergences},
+            {
+                "doubles-dazzling-gleam-partner-present",
+                "doubles-dazzling-gleam-partner-present-crit",
+                "group-d-water-bubble-defender-fire-deferred",
+            },
+        )
+        # The two pre-existing #100 records are deliberately unchanged by this #91 slice.
+        prior_100_vectors = {
+            "doubles-dazzling-gleam-partner-present": [41, 42, 42, 43, 43, 44, 44, 45,
+                                                        45, 46, 46, 47, 47, 48, 48, 49],
+            "doubles-dazzling-gleam-partner-present-crit": [83, 84, 85, 86, 87, 88, 89, 90,
+                                                             91, 92, 93, 94, 95, 96, 97, 98],
+        }
+        for record in divergences:
+            if record["scenario"] in prior_100_vectors:
+                self.assertEqual(record["calculatorRolls"], prior_100_vectors[record["scenario"]])
         for record in divergences:
             with self.subTest(scenario=record["scenario"]):
                 self.assertEqual(len(record["calculatorRolls"]), schema.ROLL_COUNT)

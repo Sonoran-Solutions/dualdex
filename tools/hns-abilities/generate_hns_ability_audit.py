@@ -24,7 +24,7 @@ CONTEXT_CANDIDATES = {
     55, 80, 83, 84, 86, 88, 91, 95, 97, 105, 106, 124, 128, 132, 133, 139, 140, 141,
     146, 152, 153, 154, 155, 160, 167, 168, 172, 192, 195, 201, 202, 215, 221, 222,
     223, 224, 234, 235, 236, 238, 243, 247, 250, 254, 259, 268, 271, 275, 290, 291,
-    220, 264, 265, 270, 308,
+    220, 264, 265, 270, 308, 89, 101, 137, 138, 173, 178, 199, 200, 292,
 }
 POLICY = ROOT / "app/src/main/java/com/dualdex/calculator/HnsAbilityContextPolicy.kt"
 
@@ -121,6 +121,11 @@ def validate_context_rules(upstream, abilities, decisions):
         "terapagos_full_hp_relevant",
         "hustle_physical_move",
         "guts_physical_move_with_status",
+        "technician_attacker_bp_at_most_60",
+        "iron_fist_punching_move",
+        "water_bubble_attacker_water_move",
+        "toxic_boost_physical_poison",
+        "flare_boost_special_burn",
     }
     if not required <= all_rules:
         raise SystemExit("context rules must retain live-state, type/category, Guts, Hustle, and bypass safety predicates")
@@ -158,8 +163,8 @@ def main():
     categories = {"PROVEN_NO_DAMAGE_EFFECT", "MODELLED_EQUIVALENT", "MODELLED_HNS_SPECIFIC",
                   "MODELLED_HNS_CONDITIONAL", "UNSUPPORTED_DAMAGE_RELEVANT", "UNCLASSIFIED"}
     baseline_safe = {0, 15, 51, 77}
-    baseline_conditional = {65, 66, 67, 68}
-    baseline_unsupported = {37, 47, 55, 62, 74, 91, 137, 168, 255, 262, 282}
+    baseline_conditional = {65, 66, 67, 68, 55, 62, 89, 101, 137, 138, 173, 178, 199, 200, 292}
+    baseline_unsupported = {37, 47, 74, 91, 168, 255, 262, 282}
     rows = []
     for aid, ability in sorted(abilities.items()):
         decision = decisions.get(str(aid), {})

@@ -305,11 +305,14 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     const char* weather = get_str(field, "weather", err);
     long power = 0, target_count = 0, field_statuses = 0;
     int ate_boost = 0;
+    int attacker_terrain_affected = 0, defender_terrain_affected = 0;
     int crit = 0, reflect = 0, light_screen = 0;
     if (!move_label || !move_type || !category || !style || !weather) return 0;
     if (!get_int(o_move, "power", 1, 255, &power, err) || !get_bool(o_move, "ateBoost", &ate_boost, err) ||
         !get_int(obs, "targetCount", 1, 3, &target_count, err) ||
         !get_int(obs, "fieldStatuses", 0, 0xFFF, &field_statuses, err) ||
+        !get_bool(o_atk, "terrainAffected", &attacker_terrain_affected, err) ||
+        !get_bool(o_def, "terrainAffected", &defender_terrain_affected, err) ||
         !get_bool(scen, "crit", &crit, err) || !get_bool(field, "reflect", &reflect, err) ||
         !get_bool(field, "lightScreen", &light_screen, err))
         return 0;
@@ -359,6 +362,9 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     else if (strcmp(weather, "sun") == 0) sb_append(sb, ",\"weather\":\"Sun\"");
     else if (strcmp(weather, "none") != 0) return set_err(err, "unknown weather %s", weather);
     sb_append(sb, ",\"hnsFieldStatuses\":%ld", field_statuses);
+    sb_append(sb, ",\"hnsTerrainAttackerAffected\":%s,\"hnsTerrainDefenderAffected\":%s",
+              attacker_terrain_affected ? "true" : "false",
+              defender_terrain_affected ? "true" : "false");
     if (doubles) sb_append(sb, ",\"targetCount\":%ld", target_count);
     if (reflect || light_screen) {
         sb_append(sb, ",\"defenderSide\":{");

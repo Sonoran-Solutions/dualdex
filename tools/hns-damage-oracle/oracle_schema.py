@@ -77,13 +77,13 @@ BATTLER_KEYS = (
 STAT_KEYS = ("maxHp", "hp", "attack", "defense", "spAttack", "spDefense", "speed")
 ATTACKER_STAGE_KEYS = ("attack", "spAttack")
 DEFENDER_STAGE_KEYS = ("defense", "spDefense")
-FIELD_KEYS = ("weather", "reflect", "lightScreen", "terrain")
-TERRAINS = ("none", "grassy", "electric")
+FIELD_KEYS = ("weather", "reflect", "lightScreen", "terrain", "gravity")
+TERRAINS = ("none", "grassy", "electric", "misty", "psychic")
 DOUBLES_KEYS = ("defenderPartner",)
 DEFENDER_PARTNER_STATES = ("present", "fainted")
 
 OBSERVED_KEYS = ("attacker", "defender", "move", "targetCount", "fieldStatuses")
-OBSERVED_BATTLER_KEYS = ("speciesId", "types", "baseStats", "abilityId", "itemId", "hpAtHit", "status1", "badgeBoosts")
+OBSERVED_BATTLER_KEYS = ("speciesId", "types", "baseStats", "abilityId", "itemId", "hpAtHit", "status1", "badgeBoosts", "terrainAffected")
 BASE_STAT_KEYS = ("hp", "attack", "defense", "spAttack", "spDefense", "speed")
 BADGE_BOOST_KEYS = ("attack", "defense", "spAttack", "spDefense")
 OBSERVED_MOVE_KEYS = ("id", "type", "power", "category", "target", "flags", "abilityFlags", "priority", "targetClass", "ateBoost")
@@ -227,6 +227,7 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
     _require_bool(s["field"]["reflect"], f"{path}.field.reflect")
     _require_bool(s["field"]["lightScreen"], f"{path}.field.lightScreen")
     _require_enum(s["field"]["terrain"], TERRAINS, f"{path}.field.terrain")
+    _require_bool(s["field"]["gravity"], f"{path}.field.gravity")
     if s["format"] == "doubles":
         _require_keys(s["doubles"], DOUBLES_KEYS, f"{path}.doubles")
         _require_enum(s["doubles"]["defenderPartner"], DEFENDER_PARTNER_STATES, f"{path}.doubles.defenderPartner")
@@ -266,6 +267,7 @@ def _validate_observed_battler(b: Any, path: str) -> None:
     _require_int(b["itemId"], f"{path}.itemId", 0, 65535)
     _require_int(b["hpAtHit"], f"{path}.hpAtHit", 1, 65535)
     _require_int(b["status1"], f"{path}.status1", 0, 65535)
+    _require_bool(b["terrainAffected"], f"{path}.terrainAffected")
     _require_keys(b["badgeBoosts"], BADGE_BOOST_KEYS, f"{path}.badgeBoosts")
     for key in BADGE_BOOST_KEYS:
         _require_bool(b["badgeBoosts"][key], f"{path}.badgeBoosts.{key}")
@@ -299,7 +301,10 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
     # (GetTargetDamageModifier); in Singles a spread move still reports its empty partner slot.
     _require_int(observed["targetCount"], f"{path}.targetCount", 1, 3)
     _require_int(observed["fieldStatuses"], f"{path}.fieldStatuses", 0, 0xFFF)
-    expected_terrain = {"none": 0, "grassy": 1 << 6, "electric": 1 << 8}[scenario["field"]["terrain"]]
+    expected_terrain = {"none": 0, "grassy": 1 << 6, "electric": 1 << 8,
+                        "misty": 1 << 7, "psychic": 1 << 9}[scenario["field"]["terrain"]]
+    if scenario["field"]["gravity"]:
+        expected_terrain |= 1 << 5
     if observed["fieldStatuses"] != expected_terrain:
         _fail(f"{path}.fieldStatuses", f"observed field word {observed['fieldStatuses']:#x} != scenario terrain {expected_terrain:#x}")
     if observed["attacker"]["hpAtHit"] > scenario["attacker"]["stats"]["hp"]:

@@ -486,7 +486,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 10 | Snow | Ice Defense ×1.5 `[src/battle_util.c:7389]`; Snow never chips, Hail chips 1/16 `[src/battle_end_turn.c:155]` | **no** | **REFUSED** when asked for — fails closed |
-| 11 | Terrain | Implemented; ×1.3 (`B_TERRAIN_TYPE_BOOST GEN_LATEST`) `[src/battle_util.c:6640]` | accepted but dead | **REFUSED** when asked for — fails closed |
+| 11 | Terrain | Grassy/Electric/Psychic attacker-type ×1.3 and Misty Dragon-vs-defender ×0.5 when `IsBattlerTerrainAffected`; `B_TERRAIN_TYPE_BOOST GEN_LATEST` `[src/battle_util.c:6639-6645]`, `[include/config/battle.h:325]` | yes — raw field word plus boundary-derived per-battler terrain applicability | **CONDITIONALLY MODELLED** for exact ordinary selected hits; independent priority, ability, move and live-state limitations remain gated (§15.5) |
 | 12 | Reflect / Light Screen | ×0.5 singles, ×0.667 doubles `[src/battle_util.c:7544]` | yes — the defender-side status word is boundary-owned via the `gSideStatuses[side]` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — singles (2048) / doubles (2732) evaluated post-roll via UQ4.12 `halfDown` in `calculateHnsDamage`. Pinned in `test_js_calc.c`. For the §14 subset `CalcRequestBoundary` rebinds `field.defenderSide` from the observed defender-side `gSideStatuses[side]` word; an unread word refuses with `HNS_LIVE_SCREENS_UNKNOWN` and an unmodelled bit refuses with `HNS_LIVE_SIDE_STATUS_NOT_MODELLED`, so screenless can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 13 | Multi-target reduction | Generation III value: ×0.5 when `GetMoveTargetCount(ctx) == 2` (`B_MULTIPLE_TARGETS_DMG GEN_3`) `[include/config/battle.h:47]`, `[src/battle_util.c:7403]` — the runtime count, not the static move class | **only with an authoritative runtime target count** (no reader supplies it yet) | **BLOCKED / GAP C4b PARTIAL / OPEN** — `calculateHnsDamage` applies `halfDown(2048, dmg)` only for an explicit `field.targetCount == 2`; a Doubles request without an observed count is refused with `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED` rather than halving every spread move |
 | 14 | Badge boost | Active: player-side ×1.1 Atk/SpA/Def/SpD/Speed (`B_BADGE_BOOST GEN_3`) `[include/config/battle.h:253]`, eligibility-gated `[src/battle_util.c:9143]` — player battler only (`IsOnPlayerSide`); enemy never boosted | **only in an active battle with authoritative SaveBlock1 badge state** | **CONDITIONALLY MODELLED / GAP C4b PARTIAL / OPEN** — player-side badge boost flags are read from SaveBlock1 bytes `0x1A98`+`0x1A99` and evaluated via UQ4.12 `halfDown(4506, stat)` in QuickJS. A manual/out-of-battle request has no authoritative applicability, so missing badge state is **not** read as "badges off": it fails closed with `BADGE_BOOST_NOT_MODELLED` (§11) |
@@ -1170,7 +1170,7 @@ observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` re
 | Blunder Policy, Room Service | Ordinary move with known non-Analytic attacker | Analytic or unknown attacker ability; nonordinary move |
 | Turn order (Choice Scarf, Quick Claw, Custap Berry, Lagging Tail, Macho Brace, Power items, Quick Powder) | Either side for an ordinary move when the live attacker ability is known and not Analytic | Attacker Analytic; unknown ability; non-ordinary move |
 | Float Stone | Either side for an ordinary move | Non-ordinary move |
-| Air Balloon, Iron Ball | Attacker with no terrain bit; defender with no terrain bit and a non-Ground effective move (Iron Ball also needs the turn-order predicate) | Ground move; an active/unread terrain or unknown field bit; unknown type |
+| Air Balloon, Iron Ball | Terrain applicability is resolved from observed grounding when terrain is active; Iron Ball's separate turn-order effect remains gated | Ground move; unread battler/field state; unknown grounding authority (Iron Ball also needs its turn-order predicate) |
 | Utility Umbrella | Either side for an ordinary move with observed clear weather | Sun/rain; unobserved weather |
 
 Survival items are handled conservatively: a defender Focus Sash at full HP and any defender Focus Band
@@ -2802,15 +2802,26 @@ refusal. A non-ordinary or unknown move leaves every contextual bit `UNKNOWN` (t
 applies independently). A terrain is never `MODELLED` when one applicable effect remains outside the
 request's exact model.
 
-For example, Grassy Terrain is `MODELLED` for a non-Grass ordinary Physical hit into an effective
-Grass Pelt defender with Wonder Room inactive: Grass Pelt is the only applicable terrain damage
-effect and its pinned Defense-stat branch is exact. Grassy Terrain remains `RELEVANT` for a Grass
-move because the direct terrain move modifier is deferred. Electric Terrain is `MODELLED` for a
-non-Electric ordinary Special hit from an effective Hadron Engine attacker when Quark Drive and
-Analytic do not add another terrain dependency. It remains `RELEVANT` for an Electric move because
-the direct Electric terrain modifier is deferred. The raw `gFieldStatuses` word reaches the H&S
-engine only as boundary-owned `field.hnsFieldStatuses`; caller terrain text never activates these
-branches.
+The four direct move modifiers are now evaluated with boundary-owned operands: Grassy boosts a
+terrain-affected attacker's Grass move by 1.3; Misty halves a Dragon move against a terrain-affected
+defender; Electric boosts a terrain-affected attacker's Electric move by 1.3; Psychic boosts a
+terrain-affected attacker's Psychic move by 1.3. The pinned source uses `uq4_12_multiply` for each
+modifier (`src/battle_util.c:6639-6645`), with `UQ_4_12(1.3) == 5325` and `UQ_4_12(0.5) == 2048`
+under `include/fpmath.h:15` and `B_TERRAIN_TYPE_BOOST GEN_LATEST` in
+`include/config/battle.h:325`. The JavaScript pipeline composes these with the existing base-power
+modifiers using half-up UQ4.12 arithmetic before the base power enters the ordinary damage formula.
+Raw `gFieldStatuses` reaches the engine only as boundary-owned `field.hnsFieldStatuses`; terrain
+applicability booleans are derived from observed battler state, never caller terrain text.
+Misty Terrain's status prevention, confusion prevention, and Yawn behavior do not change the
+selected-hit damage range and are outside this arithmetic slice.
+
+`HnsTerrainAuthority` follows the pinned grounding precedence and fails closed when the runtime
+reader cannot prove the result. It requires observed ability, item, types, and volatile state; any
+active semi-invulnerability or existing grounding volatile gate is `UNKNOWN`. Iron Ball and Gravity
+ground before Air Balloon, Levitate, or Flying type can exempt a battler. Magic Room suppresses the
+two grounding items; when their active/suppressed state is uncertain, applicability is unknown.
+Levitate under Neutralizing Gas or an unknown opposing effective ability also remains unknown.
+The same authority is shared by terrain, Levitate, and grounding-item request rules.
 
 | Condition | Proven irrelevant or exact-modelled case (rule) | Relevant effect / current handling |
 |---|---|---|
@@ -2818,11 +2829,11 @@ branches.
 | Trick Room | attacker's effective ability known and not Analytic (`trick_room_attacker_not_analytic`) | Known Analytic makes Trick Room relevant; the ability's own unknown effect can independently keep the request hard. |
 | Wonder Room | — | Always relevant (`wonder_room_swaps_defensive_stat`); cleared and named as a caveat when the rest of the request is complete. |
 | Mud Sport / Water Sport | effective type not Electric / not Fire | Electric / Fire; cleared and named as a caveat when complete. |
-| Gravity | effective type not Ground and the move not `gravityBanned` | Ground move; Floaty Fall; cleared and named as a caveat when complete. |
-| Grassy Terrain | effective type not Grass, no defender Grass Pelt or attacker Analytic; or the exact non-Grass Physical + defender Grass Pelt case | Grass move; Analytic (Grassy Glide priority); unsupported Defense selection; known relevant field effects are caveated. |
-| Misty Terrain | effective type not Dragon | Dragon; cleared and named as a caveat when complete. |
-| Electric Terrain | effective type not Electric, no Quark Drive or attacker Analytic; or the exact non-Electric Special + attacker Hadron Engine case | Electric move; Quark Drive; unknown ability relevance remains hard even when the field bit is known. |
-| Psychic Terrain | effective type not Psychic, pinned priority provably ≤ 0 (not a healing move), attacker ability known and not Gale Wings | Psychic move; positive-priority move; Gale Wings attacker (UNKNOWN). |
+| Gravity | effective type not Ground and the move not `gravityBanned`; or Gravity is the authoritative reason the selected terrain modifier applies | Ground move; Floaty Fall. Gravity's accuracy change does not alter the damage range. |
+| Grassy Terrain | direct Grass move modifier and Grass Pelt's physical Defense branch compose exactly when applicable | Analytic remains relevant because Grassy Glide priority can change its turn order; unknown terrain applicability remains hard. |
+| Misty Terrain | Dragon move against a terrain-affected or proven ungrounded defender | Unknown defender terrain applicability remains hard. |
+| Electric Terrain | direct Electric move modifier and Hadron Engine's Special Attack branch compose exactly when applicable | Quark Drive and Analytic remain relevant; unknown attacker terrain applicability remains hard for Electric moves. |
+| Psychic Terrain | direct Psychic modifier when applicable and priority is proven non-positive | Positive-priority move; Gale Wings attacker (UNKNOWN); unknown attacker terrain applicability remains hard for Psychic moves. |
 | Ion Deluge | pre-field type not Normal (`ion_deluge_non_normal_move`) | Normal move changes effective move type and remains hard with `HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED`. |
 | Fairy Lock | always (`fairy_lock_escape_only`) | — |
 | any bit outside `0x00000FFF` | — | always UNKNOWN (`unknown_field_bits`), mask preserved |
@@ -2850,14 +2861,18 @@ challenge or species/type limitation. A neutralized item or ability never clears
 hard limitation remains, the policy refuses the whole request while retaining known caveats for
 diagnostics.
 
-**Still unmodelled.** Caveat mode can display a known relevant modifier without applying it. Direct
-terrain move modifiers, Quark Drive, turn-order terrain effects, terrain-dependent moves and other
-terrain consequences remain unmodelled. The implemented Grass Pelt and Hadron Engine branches do not
-clear a second applicable effect of their terrain. Wonder Room arithmetic, Magic Room suppression of
-damage-relevant items, Trick Room turn simulation for Analytic, Gravity on Ground moves, Ion Deluge's
-active Electric rewrite, positive-priority moves under Psychic Terrain, and unknown field bits also
-remain unmodelled. Unknown or base-shape limitations remain hard. Weather and side statuses keep
-their own C4e rules (§14.7.1). Doubles remains refused.
+**Still unmodelled.** Caveat mode can display a known relevant modifier without applying it. Quark
+Drive, Booster Energy, Analytic itself, terrain-dependent moves (including Terrain Pulse, Nature
+Power, Rising Voltage, Expanding Force, Psyblade and Misty Explosion), Grassy Terrain's
+Earthquake/Magnitude halving, terrain seeds, Surge Surfer, and terrain turn-order effects remain
+outside this slice. Grassy Glide is exact only for the direct damage modifier; Analytic keeps Grassy
+Terrain relevant because priority can change its turn-order predicate. Grass Pelt, Hadron Engine,
+and each direct move modifier compose only when every applicable consequence is covered.
+Wonder Room arithmetic, Magic Room suppression of damage-relevant items, Trick Room turn simulation
+for Analytic, Gravity on Ground moves, Ion Deluge's active Electric rewrite, positive-priority moves
+under Psychic Terrain, and unknown field bits also remain unmodelled. Unknown or base-shape
+limitations remain hard. Weather and side statuses keep their own C4e rules (§14.7.1). Doubles
+remains refused.
 
 ### 15.6 Wise Glasses regression (the Thor symptom)
 
@@ -3060,3 +3075,63 @@ Normal, so Pixilate rewrites it to Fairy and sets `ateBoost`; with Fairy enabled
 already Fairy, so Pixilate does not run and `ateBoost` stays false. Pixilate's target remains Fairy
 when Fairy mode is OFF. Electrify and Ion Deluge remain later in the authority ordering, and their
 active production blockers are unchanged.
+
+## 18. Ordinary terrain move modifiers (request-local)
+
+Terrain support remains request-local; it is not a general terrain simulation. The selected-hit
+base-power stage now models the four pinned `CalcMoveBasePowerAfterModifiers` terrain branches when
+the live H&S field word and the relevant battler's terrain applicability are authoritative:
+
+| Terrain | Subject checked by H&S | Final effective move type | UQ4.12 factor | Pinned source |
+|---|---|---|---:|---|
+| Grassy | attacker | Grass | `addHalfUp(5325)` (×1.3) | `src/battle_util.c:6639` |
+| Misty | defender | Dragon | `addHalfUp(2048)` (×0.5) | `src/battle_util.c:6641` |
+| Electric | attacker | Electric | `addHalfUp(5325)` (×1.3) | `src/battle_util.c:6643` |
+| Psychic | attacker | Psychic | `addHalfUp(5325)` (×1.3) | `src/battle_util.c:6645` |
+
+The pinned `B_TERRAIN_TYPE_BOOST` is `GEN_LATEST`; the source's `UQ_4_12(1.3)` therefore resolves
+to 5325, while Misty's `UQ_4_12(0.5)` is 2048. Each factor is composed by the existing half-up
+UQ4.12 accumulator before conversion to integer base power. The modifiers use the boundary-owned
+`field.hnsFieldStatuses` and do not consult caller terrain strings or terrain-setting abilities.
+
+`HnsTerrainAuthority` is the shared `IsBattlerTerrainAffected` authority for field, ability, and
+item policies. It requires an active raw terrain bit, observed battler ability/item/effective types
+and volatile state, and no semi-invulnerable state. The pinned `IsBattlerGrounded` precedence is
+preserved for supported neutral volatile states: Iron Ball grounds first, Gravity grounds before
+Air Balloon/Levitate/Flying, then Air Balloon and Levitate unground, then Flying type; otherwise
+the battler is grounded. Gravity therefore overrides Levitate, Air Balloon, and Flying typing.
+Positive root, Smack Down, Telekinesis, Magnet Rise, Gastro Acid, Roost, and semi-invulnerable
+observations remain fail-closed under the existing volatile gate. The ordinary-move allow-list does
+not prove a defender cannot retain a semi-invulnerable state from another turn, so an observed
+semi-invulnerable flag returns UNKNOWN rather than assuming false. Levitate suppression and
+Magic Room's unresolved grounding-item suppression also remain UNKNOWN where those operands are
+ambiguous.
+
+The whole-bit field contract still applies: Psychic Terrain remains relevant for unproven positive
+priority; Grassy Glide's turn-order effect remains deferred; Gravity is modelled only when its
+grounding override is the exact terrain consequence and no other Gravity consequence applies.
+Electric Terrain can compose with Hadron Engine's raw-bit Special Attack effect independently of
+grounding. Grassy Terrain can compose with Grass Pelt when both are exact. Remaining deferred
+terrain mechanics include terrain priority blocking, Grassy Glide, Rising Voltage, Expanding
+Force, Terrain Pulse, Misty Explosion, Psyblade, terrain-dependent Nature Power, Grassy Terrain's
+Earthquake/Magnitude reduction, terrain seeds, Surge Surfer, Quark Drive, Booster Energy, Analytic
+and turn-order effects, terrain-setting ability events, and expiration/timer simulation.
+
+### Census impact
+
+The full census regenerated from starting `main` SHA
+`5883f129213c1fdd1671982853f5395584de1764` is unchanged by this runtime slice. The fixed trainer
+inventory has no active terrain, so the checked-in machine-readable census bytes remain identical
+after regeneration.
+
+| Metric | Starting main | This slice | Change |
+|---|---:|---:|---:|
+| `FULLY_MODELLED` / `CAVEATED_ESTIMATE` / `REFUSED` | 18,800 / 372 / 5,106 | 18,800 / 372 / 5,106 | unchanged |
+| Fully displaying lead matchups | 372 / 1,302 | 372 / 1,302 | unchanged |
+| Displayable lead requests | 6,676 | 6,676 | unchanged |
+| `HNS_FIELD_STATUS_NOT_MODELLED` | 0 battles / 0 requests | 0 / 0 | unchanged |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 247 battles / 1,870 requests | 247 / 1,870 | unchanged |
+| Random Abilities trials (refused / caveated / clear) | 1,297,908 / 16,820 / 2,462,932 | 1,297,908 / 16,820 / 2,462,932 | unchanged |
+
+Item blockers are unchanged as well. The JSON gzip was regenerated by the canonical full-census run;
+its bytes match starting `main`, so there is no machine-readable census file change to commit.

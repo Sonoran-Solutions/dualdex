@@ -30,10 +30,12 @@ class HnsFieldContextPolicyTest {
         attackerItem: Int? = 0,
         defenderItem: Int? = 0,
         category: MoveCategory? = MoveCategory.PHYSICAL,
-        fieldStatuses: Int? = 0
+        fieldStatuses: Int? = 0,
+        attackerTerrain: HnsTerrainApplicability? = HnsTerrainApplicability.AFFECTED,
+        defenderTerrain: HnsTerrainApplicability? = HnsTerrainApplicability.AFFECTED
     ) = HnsFieldContextPolicy.Context(
         ordinaryMove, moveId, preField, effective, attackerAbility, defenderAbility, attackerItem, defenderItem,
-        category, fieldStatuses
+        category, fieldStatuses, attackerTerrain, defenderTerrain
     )
 
     private fun decide(status: HnsFieldStatus, context: HnsFieldContextPolicy.Context?): HnsFieldRequestDecision =
@@ -107,23 +109,28 @@ class HnsFieldContextPolicyTest {
     }
 
     @Test
-    fun `Gravity needs a non-Ground type and an unbanned move`() {
+    fun `Gravity models its terrain grounding contribution when terrain is exact`() {
         assertEquals(setOf(floatyFall), HnsFieldStatusData.gravityBannedOrdinaryMoveIds)
         assertRule(irrelevant, "gravity_non_ground_unbanned_move", decide(HnsFieldStatus.GRAVITY, ctx()))
         assertRule(relevant, "gravity_ground_move", decide(HnsFieldStatus.GRAVITY, ctx(effective = PokemonType.GROUND)))
         assertRule(relevant, "gravity_banned_move", decide(HnsFieldStatus.GRAVITY, ctx(moveId = floatyFall)))
         assertRule(unknown, null, decide(HnsFieldStatus.GRAVITY, ctx(effective = null)))
         assertRule(unknown, null, decide(HnsFieldStatus.GRAVITY, ctx(moveId = null)))
+        assertRule(modelled, "gravity_terrain_modifier_modelled", HnsFieldContextPolicy.assess(
+            HnsFieldState.decode(HnsFieldStatus.GRAVITY.mask),
+            ctx(effective = PokemonType.GRASS, fieldStatuses = HnsFieldStatus.GRAVITY.mask or
+                HnsFieldStatus.GRASSY_TERRAIN.mask)
+        ).single())
     }
 
     @Test
-    fun `Grassy Terrain is modelled only when Grass Pelt is its only applicable effect`() {
-        assertRule(irrelevant, "grassy_terrain_non_grass_move", decide(HnsFieldStatus.GRASSY_TERRAIN, ctx()))
-        assertRule(relevant, "grassy_terrain_grass_move",
+    fun `Grassy Terrain models the direct modifier and Grass Pelt composition`() {
+        assertRule(modelled, "grassy_terrain_no_unmodelled_consequence", decide(HnsFieldStatus.GRASSY_TERRAIN, ctx()))
+        assertRule(modelled, "grassy_terrain_grounded_attacker_grass_move",
             decide(HnsFieldStatus.GRASSY_TERRAIN, ctx(effective = PokemonType.GRASS)))
-        assertRule(modelled, "grassy_terrain_grass_pelt_only",
+        assertRule(modelled, "grassy_terrain_grass_pelt_physical_composition",
             decide(HnsFieldStatus.GRASSY_TERRAIN, ctx(defenderAbility = HnsFieldStatusData.ABILITY_GRASS_PELT)))
-        assertRule(irrelevant, "grassy_terrain_grass_pelt_not_using_defense",
+        assertRule(modelled, "grassy_terrain_grass_pelt_special_no_effect",
             decide(HnsFieldStatus.GRASSY_TERRAIN, ctx(
                 defenderAbility = HnsFieldStatusData.ABILITY_GRASS_PELT, category = MoveCategory.SPECIAL
             )))
@@ -133,6 +140,10 @@ class HnsFieldContextPolicyTest {
                 fieldStatuses = HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM
             )))
         assertRule(relevant, "grassy_terrain_attacker_analytic",
+            decide(HnsFieldStatus.GRASSY_TERRAIN, ctx(
+                attackerAbility = analytic, moveId = HnsFieldStatusData.GRASSY_GLIDE_MOVE_ID
+            )))
+        assertRule(modelled, "grassy_terrain_no_unmodelled_consequence",
             decide(HnsFieldStatus.GRASSY_TERRAIN, ctx(attackerAbility = analytic)))
         for (missing in listOf(ctx(effective = null), ctx(attackerAbility = null), ctx(defenderAbility = null))) {
             assertRule(unknown, null, decide(HnsFieldStatus.GRASSY_TERRAIN, missing))
@@ -140,22 +151,35 @@ class HnsFieldContextPolicyTest {
     }
 
     @Test
-    fun `Misty Terrain needs the effective type`() {
+    fun `Misty Terrain uses defender applicability for Dragon moves`() {
         assertRule(irrelevant, "misty_terrain_non_dragon_move", decide(HnsFieldStatus.MISTY_TERRAIN, ctx()))
-        assertRule(relevant, "misty_terrain_dragon_move",
+        assertRule(modelled, "misty_terrain_grounded_defender_dragon",
             decide(HnsFieldStatus.MISTY_TERRAIN, ctx(effective = PokemonType.DRAGON)))
+        assertRule(modelled, "misty_terrain_ungrounded_defender_dragon",
+            decide(HnsFieldStatus.MISTY_TERRAIN, ctx(
+                effective = PokemonType.DRAGON, defenderTerrain = HnsTerrainApplicability.NOT_AFFECTED
+            )))
+        assertRule(unknown, null, decide(HnsFieldStatus.MISTY_TERRAIN, ctx(
+            effective = PokemonType.DRAGON, defenderTerrain = HnsTerrainApplicability.UNKNOWN
+        )))
         assertRule(unknown, null, decide(HnsFieldStatus.MISTY_TERRAIN, ctx(effective = null)))
     }
 
     @Test
-    fun `Electric Terrain is modelled only when Hadron Engine is its only applicable effect`() {
-        assertRule(irrelevant, "electric_terrain_non_electric_move", decide(HnsFieldStatus.ELECTRIC_TERRAIN, ctx()))
-        assertRule(relevant, "electric_terrain_electric_move",
+    fun `Electric Terrain models its direct modifier and Hadron Engine composition`() {
+        assertRule(modelled, "electric_terrain_other_move", decide(HnsFieldStatus.ELECTRIC_TERRAIN, ctx()))
+        assertRule(modelled, "electric_terrain_grounded_electric_move",
             decide(HnsFieldStatus.ELECTRIC_TERRAIN, ctx(effective = PokemonType.ELECTRIC)))
-        assertRule(modelled, "electric_terrain_hadron_engine_only", decide(HnsFieldStatus.ELECTRIC_TERRAIN,
+        assertRule(modelled, "electric_terrain_hadron_engine_special", decide(HnsFieldStatus.ELECTRIC_TERRAIN,
             ctx(attackerAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE, category = MoveCategory.SPECIAL)))
         assertRule(irrelevant, "electric_terrain_hadron_engine_physical", decide(HnsFieldStatus.ELECTRIC_TERRAIN,
             ctx(attackerAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE, category = MoveCategory.PHYSICAL)))
+        assertRule(modelled, "electric_terrain_grounded_electric_hadron_special",
+            decide(HnsFieldStatus.ELECTRIC_TERRAIN, ctx(effective = PokemonType.ELECTRIC,
+                attackerAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE, category = MoveCategory.SPECIAL)))
+        assertRule(modelled, "electric_terrain_ungrounded_electric_move",
+            decide(HnsFieldStatus.ELECTRIC_TERRAIN, ctx(effective = PokemonType.ELECTRIC,
+                attackerTerrain = HnsTerrainApplicability.NOT_AFFECTED)))
         for (paradox in listOf(
             ctx(attackerAbility = HnsFieldStatusData.ABILITY_QUARK_DRIVE),
             ctx(defenderAbility = HnsFieldStatusData.ABILITY_QUARK_DRIVE)
@@ -163,7 +187,7 @@ class HnsFieldContextPolicyTest {
             assertRule(relevant, "electric_terrain_paradox_ability", decide(HnsFieldStatus.ELECTRIC_TERRAIN, paradox))
         }
         // A defender's Hadron Engine only boosts its own attacks.
-        assertRule(irrelevant, "electric_terrain_non_electric_move",
+        assertRule(modelled, "electric_terrain_other_move",
             decide(HnsFieldStatus.ELECTRIC_TERRAIN, ctx(defenderAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE)))
         assertRule(relevant, "electric_terrain_attacker_analytic",
             decide(HnsFieldStatus.ELECTRIC_TERRAIN, ctx(attackerAbility = analytic)))
@@ -175,9 +199,9 @@ class HnsFieldContextPolicyTest {
     @Test
     fun `Psychic Terrain needs the type, the pinned priority and the attacker ability`() {
         assertTrue(quickAttack in HnsFieldStatusData.positivePriorityOrdinaryMoveIds)
-        assertRule(irrelevant, "psychic_terrain_non_psychic_non_priority_move",
+        assertRule(irrelevant, "psychic_terrain_non_psychic_nonpriority_move",
             decide(HnsFieldStatus.PSYCHIC_TERRAIN, ctx()))
-        assertRule(relevant, "psychic_terrain_psychic_move",
+        assertRule(modelled, "psychic_terrain_grounded_attacker_nonpriority_move",
             decide(HnsFieldStatus.PSYCHIC_TERRAIN, ctx(effective = PokemonType.PSYCHIC)))
         assertRule(relevant, "psychic_terrain_priority_move",
             decide(HnsFieldStatus.PSYCHIC_TERRAIN, ctx(moveId = quickAttack)))
@@ -220,6 +244,13 @@ class HnsFieldContextPolicyTest {
             ctx(effective = PokemonType.DRAGON), ctx(attackerAbility = HnsFieldStatusData.ABILITY_QUARK_DRIVE),
             ctx(attackerAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE, category = MoveCategory.SPECIAL),
             ctx(attackerAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE, category = MoveCategory.PHYSICAL),
+            ctx(effective = PokemonType.ELECTRIC, attackerAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE,
+                category = MoveCategory.SPECIAL),
+            ctx(effective = PokemonType.ELECTRIC, attackerTerrain = HnsTerrainApplicability.NOT_AFFECTED),
+            ctx(effective = PokemonType.DRAGON, defenderTerrain = HnsTerrainApplicability.NOT_AFFECTED),
+            ctx(effective = PokemonType.GRASS, fieldStatuses = HnsFieldStatus.GRASSY_TERRAIN.mask or
+                HnsFieldStatus.GRAVITY.mask),
+            ctx(moveId = HnsFieldStatusData.GRASSY_GLIDE_MOVE_ID, attackerAbility = analytic),
             ctx(effective = PokemonType.PSYCHIC), ctx(moveId = quickAttack),
             ctx(preField = PokemonType.WATER, effective = PokemonType.WATER)
         )

@@ -31,6 +31,7 @@ import pathlib
 import re
 import subprocess
 import sys
+from decimal import Decimal
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 HERE = pathlib.Path(__file__).resolve().parent
@@ -247,6 +248,49 @@ def check_statuses(upstream, audit, policy_text):
     return rule_names
 
 
+def check_terrain_authority(upstream, audit):
+    """Pin the shared terrain applicability predicate, source order, and UQ4.12 factors."""
+    authority = audit.get("terrain_applicability", {})
+    expected_subjects = {
+        "grassy": "attacker", "electric": "attacker", "psychic": "attacker", "misty": "defender"
+    }
+    if authority.get("authority") != "HnsTerrainAuthority.resolve":
+        raise AuditError("terrain applicability must use HnsTerrainAuthority.resolve")
+    if authority.get("subjects") != expected_subjects:
+        raise AuditError(f"terrain subject mapping changed: {authority.get('subjects')}")
+    if "boundary-owned raw gFieldStatuses" not in authority.get("live_field", ""):
+        raise AuditError("terrain authority must be based on boundary-owned raw gFieldStatuses")
+    if "IsSemiInvulnerable" not in authority.get("predicate", "") or "IsBattlerGrounded" not in authority.get("predicate", ""):
+        raise AuditError("terrain predicate must pin semi-invulnerability and groundedness")
+    check_evidence(upstream, "terrain_applicability", authority.get("source_order_evidence", []))
+    config = (upstream / "include/config/battle.h").read_text(errors="replace")
+    fpmath = (upstream / "include/fpmath.h").read_text(errors="replace")
+    if not re.search(r"^#define\s+B_TERRAIN_TYPE_BOOST\s+GEN_LATEST\b", config, re.M):
+        raise AuditError("pinned B_TERRAIN_TYPE_BOOST no longer selects GEN_LATEST")
+    if not re.search(r"^#define\s+UQ_4_12\(n\).*\* 4096 \+ 0\.5", fpmath, re.M):
+        raise AuditError("pinned UQ_4_12 conversion changed")
+    factors = authority.get("fixed_point", {}).get("modifiers", {})
+    expected = {"grassy": ("attacker", "Grass", "UQ_4_12(1.3)", 5325),
+                "electric": ("attacker", "Electric", "UQ_4_12(1.3)", 5325),
+                "psychic": ("attacker", "Psychic", "UQ_4_12(1.3)", 5325),
+                "misty": ("defender", "Dragon", "UQ_4_12(0.5)", 2048)}
+    if set(factors) != set(expected):
+        raise AuditError(f"terrain modifier audit changed: {sorted(factors)}")
+    for name, (subject, move_type, factor, value) in expected.items():
+        item = factors[name]
+        if (item.get("subject"), item.get("type"), item.get("factor")) != (subject, move_type, factor):
+            raise AuditError(f"{name} terrain subject/type/factor changed")
+        computed = int(Decimal(factor.removeprefix("UQ_4_12(").removesuffix(")")) * 4096 + Decimal("0.5"))
+        if item.get("uq4_12", value) != value or computed != value:
+            raise AuditError(f"{name} UQ4.12 value changed: expected {value}, computed {computed}")
+        if item.get("operator") != "uq4_12_multiply":
+            raise AuditError(f"{name} must use uq4_12_multiply")
+        check_evidence(upstream, f"{name}_terrain_modifier", [{
+            "source": item.get("source", ""),
+            "contains": "uq4_12_multiply(modifier,"
+        }])
+
+
 def parse_ability_ids(abilities_h, wanted):
     ids = {}
     for line in abilities_h.splitlines():
@@ -296,10 +340,13 @@ def move_facts(upstream):
             terrain.add(move_id)
     if ordinary_count == 0:
         raise AuditError("no ordinary moves parsed from the pinned move table")
-    return sorted(gravity), sorted(priority), sorted(terrain)
+    grassy_glide = ids.get("MOVE_GRASSY_GLIDE")
+    if grassy_glide is None:
+        raise AuditError("MOVE_GRASSY_GLIDE not found in the pinned Move enum")
+    return sorted(gravity), sorted(priority), sorted(terrain), grassy_glide
 
 
-def render_kotlin(audit, bits, compositions, ability_ids, gravity, priority, rule_names):
+def render_kotlin(audit, bits, compositions, ability_ids, gravity, priority, grassy_glide, rule_names):
     known = 0
     for bit in bits.values():
         known |= 1 << bit
@@ -351,6 +398,9 @@ def render_kotlin(audit, bits, compositions, ability_ids, gravity, priority, rul
         "    /** Ordinary moves whose pinned priority is positive, not a provable literal <= 0, or a Triage healing move. */",
         "    val positivePriorityOrdinaryMoveIds: Set<Int> = setOf(" + ", ".join(map(str, priority)) + ")",
         "",
+        "    /** Pinned move whose priority changes under Grassy Terrain (turn order only). */",
+        f"    const val GRASSY_GLIDE_MOVE_ID: Int = {grassy_glide}",
+        "",
         "    /** Every reviewed request-local field rule name (implemented by HnsFieldContextPolicy). */",
         "    val contextRuleNames: Set<String> = setOf(",
     ]
@@ -399,12 +449,13 @@ def build(upstream, audit, policy_text):
     check_bit_table(bits, compositions, audit)
     check_reference_sites(scan_reference_sites(upstream), audit)
     rule_names = check_statuses(upstream, audit, policy_text)
+    check_terrain_authority(upstream, audit)
     ability_ids = parse_ability_ids((upstream / ABILITIES_H).read_text(errors="replace"),
                                     audit["rule_abilities"])
-    gravity, priority, terrain = move_facts(upstream)
+    gravity, priority, terrain, grassy_glide = move_facts(upstream)
     if terrain:
         raise AuditError(f"ordinary moves declare a terrain boost {terrain}; the terrain rules assume none")
-    return (render_kotlin(audit, bits, compositions, ability_ids, gravity, priority, rule_names),
+    return (render_kotlin(audit, bits, compositions, ability_ids, gravity, priority, grassy_glide, rule_names),
             render_header(audit, bits, compositions), gravity, priority, rule_names)
 
 

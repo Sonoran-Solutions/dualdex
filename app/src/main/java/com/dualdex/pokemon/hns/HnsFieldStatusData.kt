@@ -47,6 +47,8 @@ internal object HnsFieldStatusData {
     const val ABILITY_GALE_WINGS: Int = 177
     const val ABILITY_GRASS_PELT: Int = 179
     const val ABILITY_HADRON_ENGINE: Int = 289
+    const val ABILITY_LEVITATE: Int = 26
+    const val ABILITY_NEUTRALIZING_GAS: Int = 256
     const val ABILITY_QUARK_DRIVE: Int = 282
 
     /** Ordinary moves whose pinned `gravityBanned` is not FALSE (Gravity makes them fail). */
@@ -54,6 +56,9 @@ internal object HnsFieldStatusData {
 
     /** Ordinary moves whose pinned priority is positive, not a provable literal <= 0, or a Triage healing move. */
     val positivePriorityOrdinaryMoveIds: Set<Int> = setOf(98, 183, 245, 364, 410, 418, 420, 425, 453, 663, 785)
+
+    /** Pinned move whose priority changes under Grassy Terrain (turn order only). */
+    const val GRASSY_GLIDE_MOVE_ID: Int = 731
 
     /** Every reviewed request-local field rule name (implemented by HnsFieldContextPolicy). */
     val contextRuleNames: Set<String> = setOf(
@@ -68,21 +73,25 @@ internal object HnsFieldStatusData {
         "gravity_non_ground_unbanned_move",
         "gravity_ground_move",
         "gravity_banned_move",
-        "grassy_terrain_non_grass_move",
-        "grassy_terrain_grass_move",
+        "gravity_terrain_modifier_modelled",
+        "grassy_terrain_grounded_attacker_grass_move",
+        "grassy_terrain_no_unmodelled_consequence",
         "grassy_terrain_attacker_analytic",
-        "grassy_terrain_grass_pelt_only",
-        "grassy_terrain_grass_pelt_not_using_defense",
+        "grassy_terrain_grass_pelt_physical_composition",
+        "grassy_terrain_grass_pelt_special_no_effect",
         "misty_terrain_non_dragon_move",
-        "misty_terrain_dragon_move",
-        "electric_terrain_non_electric_move",
-        "electric_terrain_electric_move",
+        "misty_terrain_grounded_defender_dragon",
+        "misty_terrain_ungrounded_defender_dragon",
+        "electric_terrain_grounded_electric_move",
+        "electric_terrain_ungrounded_electric_move",
+        "electric_terrain_other_move",
         "electric_terrain_paradox_ability",
         "electric_terrain_attacker_analytic",
-        "electric_terrain_hadron_engine_only",
+        "electric_terrain_grounded_electric_hadron_special",
+        "electric_terrain_hadron_engine_special",
         "electric_terrain_hadron_engine_physical",
-        "psychic_terrain_non_psychic_non_priority_move",
-        "psychic_terrain_psychic_move",
+        "psychic_terrain_grounded_attacker_nonpriority_move",
+        "psychic_terrain_non_psychic_nonpriority_move",
         "psychic_terrain_priority_move",
         "ion_deluge_non_normal_move",
         "ion_deluge_normal_move",

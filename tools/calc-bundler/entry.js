@@ -660,6 +660,26 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const status1 = input.attacker?.status1;
   const statusKnown = Number.isInteger(status1) && (status1 & ~0x1fff) === 0;
   const statusHas = (mask) => statusKnown && (status1 & mask) !== 0;
+  // Pinned CalcMoveBasePowerAfterModifiers terrain subgroup (src/battle_util.c:6639-6645).
+  // The masks are from the boundary-owned gFieldStatuses word; applicability booleans come from
+  // HnsTerrainAuthority, which shares IsBattlerTerrainAffected's live grounding contract with the
+  // Kotlin field/ability/item policies. Caller `field.terrain` text never enters this path.
+  if ((hnsFieldStatuses & 0x40) !== 0 &&
+      input.field?.hnsTerrainAttackerAffected === true && effectiveMoveType === 'Grass') {
+    basePowerModifier.addHalfUp(5325);
+  }
+  if ((hnsFieldStatuses & 0x80) !== 0 &&
+      input.field?.hnsTerrainDefenderAffected === true && effectiveMoveType === 'Dragon') {
+    basePowerModifier.addHalfUp(2048);
+  }
+  if ((hnsFieldStatuses & 0x100) !== 0 &&
+      input.field?.hnsTerrainAttackerAffected === true && effectiveMoveType === 'Electric') {
+    basePowerModifier.addHalfUp(5325);
+  }
+  if ((hnsFieldStatuses & 0x200) !== 0 &&
+      input.field?.hnsTerrainAttackerAffected === true && effectiveMoveType === 'Psychic') {
+    basePowerModifier.addHalfUp(5325);
+  }
   switch (attacker.ability) {
     case 'Technician':
       if (move.bp <= 60) basePowerModifier.add(6144);

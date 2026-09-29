@@ -87,6 +87,7 @@ MOVES = {
     "Surf": ("Water", "special", 90), "Water Gun": ("Water", "special", 40),
     "Hydro Pump": ("Water", "special", 110), "Bubble Beam": ("Water", "special", 65),
     "Leaf Blade": ("Grass", "physical", 90), "Razor Leaf": ("Grass", "physical", 55),
+    "Vine Whip": ("Grass", "physical", 45),
     "Seed Bomb": ("Grass", "physical", 80), "Bullet Seed": ("Grass", "physical", 25), "Energy Ball": ("Grass", "special", 90),
     "Magical Leaf": ("Grass", "special", 60),
     "Thunder Punch": ("Electric", "physical", 75), "Spark": ("Electric", "physical", 65),
@@ -220,7 +221,7 @@ def defender(label: str, **kw) -> dict:
 
 def scenario(sid: str, tags: list[str], atk: dict, dfn: dict, move: str, *, crit: bool = False,
              weather: str = "none", reflect: bool = False, light_screen: bool = False,
-             terrain: str = "none",
+             terrain: str = "none", gravity: bool = False,
              fairy: bool = True, style: str = "perMoveSplit", badges: tuple[int, ...] = (),
              side: str = "player", doubles: str | None = None, expect: str = "damage",
              surface: str = "modelled") -> dict:
@@ -238,7 +239,8 @@ def scenario(sid: str, tags: list[str], atk: dict, dfn: dict, move: str, *, crit
         "defender": dfn,
         "move": {"symbol": symbol("MOVE", move), "label": move},
         "crit": crit,
-        "field": {"weather": weather, "reflect": reflect, "lightScreen": light_screen, "terrain": terrain},
+        "field": {"weather": weather, "reflect": reflect, "lightScreen": light_screen,
+                  "terrain": terrain, "gravity": gravity},
         "doubles": {"defenderPartner": doubles} if doubles else None,
         "expect": expect,
     }
@@ -902,6 +904,55 @@ def _field_backed_stat_abilities() -> list[dict]:
     return out
 
 
+def _terrain_move_modifiers() -> list[dict]:
+    """Ordinary move type factors, grounding controls, and modifier compositions."""
+    neutral = ("ABILITY_INSOMNIA", "Insomnia")
+    levitate = ("ABILITY_LEVITATE", "Levitate")
+    balloon = ("ITEM_AIR_BALLOON", "Air Balloon")
+    iron_ball = ("ITEM_IRON_BALL", "Iron Ball")
+    technician = ("ABILITY_TECHNICIAN", "Technician")
+    return [
+        scenario("terrain-grassy-grass-attacker", ["terrain:grassy", "move-modifier", "attacker-grounded"],
+                 attacker("Tangela", atk=153), defender("Dragonite", dfn=109), "Vine Whip", terrain="grassy"),
+        scenario("terrain-grassy-no-terrain-control", ["terrain:grassy", "move-modifier", "negative-control"],
+                 attacker("Tangela", atk=153), defender("Dragonite", dfn=109), "Vine Whip"),
+        scenario("terrain-grassy-grass-pelt-composition", ["terrain:grassy", "ability:grass-pelt", "modifier-stacking"],
+                 attacker("Tangela", atk=153), defender("Dragonite", dfn=109, ability=("ABILITY_GRASS_PELT", "Grass Pelt")),
+                 "Vine Whip", terrain="grassy"),
+        scenario("terrain-electric-electric-attacker", ["terrain:electric", "move-modifier", "attacker-grounded"],
+                 attacker("Electabuzz", spa=153), defender("Snorlax", spd=109), "Thunder Shock", terrain="electric"),
+        scenario("terrain-electric-no-terrain-control", ["terrain:electric", "move-modifier", "negative-control"],
+                 attacker("Electabuzz", spa=153), defender("Snorlax", spd=109), "Thunder Shock"),
+        scenario("terrain-electric-levitate-control", ["terrain:electric", "grounding", "negative-control"],
+                 attacker("Electabuzz", spa=153, ability=levitate), defender("Snorlax", spd=109), "Thunder Shock", terrain="electric"),
+        scenario("terrain-electric-hadron-composition", ["terrain:electric", "ability:hadron-engine", "modifier-stacking"],
+                 attacker("Alakazam", spa=153, ability=("ABILITY_HADRON_ENGINE", "Hadron Engine")),
+                 defender("Snorlax", spd=109), "Thunder Shock", terrain="electric"),
+        scenario("terrain-misty-dragon-defender", ["terrain:misty", "move-modifier", "defender-grounded"],
+                 attacker("Dragonite", spa=153), defender("Snorlax", spd=109), "Dragon Breath", terrain="misty"),
+        scenario("terrain-misty-no-terrain-control", ["terrain:misty", "move-modifier", "negative-control"],
+                 attacker("Dragonite", spa=153), defender("Snorlax", spd=109), "Dragon Breath"),
+        scenario("terrain-misty-flying-defender-control", ["terrain:misty", "grounding", "negative-control"],
+                 attacker("Dragonite", spa=153), defender("Dragonite", spd=109), "Dragon Breath", terrain="misty"),
+        scenario("terrain-psychic-psychic-attacker", ["terrain:psychic", "move-modifier", "attacker-grounded"],
+                 attacker("Alakazam", spa=153), defender("Snorlax", spd=109), "Confusion", terrain="psychic"),
+        scenario("terrain-psychic-no-terrain-control", ["terrain:psychic", "move-modifier", "negative-control"],
+                 attacker("Alakazam", spa=153), defender("Snorlax", spd=109), "Confusion"),
+        scenario("terrain-psychic-air-balloon-control", ["terrain:psychic", "grounding", "negative-control"],
+                 attacker("Alakazam", spa=153, item=balloon), defender("Snorlax", spd=109), "Confusion", terrain="psychic"),
+        scenario("terrain-grassy-iron-ball-overrides-flying", ["terrain:grassy", "grounding", "iron-ball"],
+                 attacker("Charizard", atk=153, item=iron_ball), defender("Dragonite", dfn=109), "Vine Whip", terrain="grassy"),
+        scenario("terrain-electric-gravity-overrides-levitate", ["terrain:electric", "grounding", "gravity"],
+                 attacker("Electabuzz", spa=153, ability=levitate), defender("Snorlax", spd=109), "Thunder Shock",
+                 terrain="electric", gravity=True),
+        scenario("terrain-psychic-gravity-overrides-balloon", ["terrain:psychic", "grounding", "gravity"],
+                 attacker("Alakazam", spa=153, item=balloon), defender("Snorlax", spd=109), "Confusion",
+                 terrain="psychic", gravity=True),
+        scenario("terrain-electric-technician-composition", ["terrain:electric", "ability:technician", "modifier-stacking"],
+                 attacker("Electabuzz", spa=153, ability=technician), defender("Snorlax", spd=109), "Thunder Shock", terrain="electric"),
+    ]
+
+
 def _mixed_rounding_attack_stat_abilities() -> list[dict]:
     """Group D final-type Attack-stat branches with pinned half-up composition (issue #91)."""
     transistor = ("ABILITY_TRANSISTOR", "Transistor")
@@ -1536,6 +1587,7 @@ def build_scenarios() -> list[dict]:
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
-              _engine_items, _doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities)
+              _engine_items, _doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
+              _terrain_move_modifiers)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

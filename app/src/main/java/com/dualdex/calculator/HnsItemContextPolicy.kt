@@ -74,6 +74,8 @@ object HnsItemContextPolicy {
         val attackerGastroAcid: Boolean? = null,
         val defenderGastroAcid: Boolean? = null,
         val observedBattlersCount: Int? = null,
+        val attackerTerrainApplicability: HnsTerrainApplicability? = null,
+        val defenderTerrainApplicability: HnsTerrainApplicability? = null,
         /** True only when the pinned selected move carries the `ignoresTargetAbility` flag. */
         val moveIgnoresTargetAbility: Boolean = false
     )
@@ -191,6 +193,8 @@ object HnsItemContextPolicy {
                 ?.takeIf { it.observed }?.gastroAcid,
             defenderGastroAcid = live?.defenderPersistentVolatiles
                 ?.takeIf { it.observed }?.gastroAcid,
+            attackerTerrainApplicability = live?.attackerTerrainApplicability,
+            defenderTerrainApplicability = live?.defenderTerrainApplicability,
             observedBattlersCount = live?.observedBattlersCount,
             moveIgnoresTargetAbility = moveIgnoresTargetAbility
         )
@@ -478,7 +482,25 @@ object HnsItemContextPolicy {
         // Groundedness reaches an ordinary hit through the Ground-move branches and the terrain
         // checks (IsBattlerTerrainAffected returns FALSE without a terrain bit, src/battle_util.c:5142).
         val noTerrain = c.fieldState?.let { it.fullyDecoded && !it.terrainActive } == true
-        if (c.ordinaryMove != true || !noTerrain) return null
+        if (c.ordinaryMove != true) return null
+        if (c.fieldState?.let { it.fullyDecoded && it.terrainActive } == true) {
+            val applicability = when (c.side) {
+                HnsItemSide.ATTACKER -> c.attackerTerrainApplicability
+                HnsItemSide.DEFENDER -> c.defenderTerrainApplicability
+            } ?: return null
+            if (applicability == HnsTerrainApplicability.UNKNOWN) return null
+            if (holdEffect == "HOLD_EFFECT_IRON_BALL") {
+                val speed = turnOrder(c) ?: return null
+                if (speed.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT) return speed
+            }
+            return modelled(
+                rule = if (c.side == HnsItemSide.ATTACKER)
+                    "grounding_item_attacker_terrain_authority" else "grounding_item_defender_terrain_authority",
+                source = "src/battle_util.c:6021-6036,6639-6645",
+                rationale = "The live Air Balloon or Iron Ball identity is an operand of the shared HnsTerrainAuthority; its exact AFFECTED/NOT_AFFECTED result controls the ordinary terrain modifier."
+            )
+        }
+        if (!noTerrain) return null
         if (holdEffect == "HOLD_EFFECT_IRON_BALL") {
             val speed = turnOrder(c) ?: return null
             if (speed.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT) return speed

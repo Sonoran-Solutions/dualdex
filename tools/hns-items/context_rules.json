@@ -715,6 +715,54 @@
               "contains": "IsMistyTerrainAffected(battlerDef"
             }
           ]
+        },
+        {
+          "rule": "grounding_item_attacker_terrain_authority",
+          "side": "ATTACKER",
+          "predicate": "Ordinary move, active terrain, and the shared HnsTerrainAuthority result for the holder is exact; for Iron Ball the separate turn-order predicate also holds.",
+          "rationale": "Air Balloon and Iron Ball feed the exact IsBattlerGrounded result used for the four selected-hit terrain modifiers. Gravity takes precedence; Magic Room and unsupported active grounding volatiles remain unknown.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6021",
+              "contains": "if (holdEffect == HOLD_EFFECT_IRON_BALL)"
+            },
+            {
+              "source": "src/battle_util.c:6023",
+              "contains": "if (gFieldStatuses & STATUS_FIELD_GRAVITY && isAnticipation == FALSE)"
+            },
+            {
+              "source": "src/battle_util.c:6029",
+              "contains": "if (IsBattlerUngroundedByAbilityItemOrEffect(battler, ability, holdEffect))"
+            },
+            {
+              "source": "src/battle_util.c:5147",
+              "contains": "return IsBattlerGrounded(battler, ability, holdEffect);"
+            }
+          ]
+        },
+        {
+          "rule": "grounding_item_defender_terrain_authority",
+          "side": "DEFENDER",
+          "predicate": "Ordinary move, active terrain, and the shared HnsTerrainAuthority result for the holder is exact; for Iron Ball the separate turn-order predicate also holds.",
+          "rationale": "Air Balloon and Iron Ball feed the exact IsBattlerGrounded result used for the four selected-hit terrain modifiers. Gravity takes precedence; Magic Room and unsupported active grounding volatiles remain unknown.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6021",
+              "contains": "if (holdEffect == HOLD_EFFECT_IRON_BALL)"
+            },
+            {
+              "source": "src/battle_util.c:6023",
+              "contains": "if (gFieldStatuses & STATUS_FIELD_GRAVITY && isAnticipation == FALSE)"
+            },
+            {
+              "source": "src/battle_util.c:6029",
+              "contains": "if (IsBattlerUngroundedByAbilityItemOrEffect(battler, ability, holdEffect))"
+            },
+            {
+              "source": "src/battle_util.c:5147",
+              "contains": "return IsBattlerGrounded(battler, ability, holdEffect);"
+            }
+          ]
         }
       ],
       "always_blocking": [
@@ -730,7 +778,7 @@
           ]
         }
       ],
-      "fallback": "An active or unread terrain, an unknown field bit, unknown type or non-ordinary move never clears."
+      "fallback": "Unread applicability, Magic Room suppression, active unsupported grounding volatiles, unknown type or non-ordinary move never clears."
     },
     "weather_shield": {
       "context_rules": [

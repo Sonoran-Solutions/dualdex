@@ -242,6 +242,10 @@ data class CalcHnsLiveBattleState(
      * request by [HnsFieldContextPolicy].
      */
     val fieldStatuses: Int? = null,
+    /** Shared source-backed result of IsBattlerTerrainAffected for the attacker. */
+    val attackerTerrainApplicability: HnsTerrainApplicability? = null,
+    /** Shared source-backed result of IsBattlerTerrainAffected for the defender. */
+    val defenderTerrainApplicability: HnsTerrainApplicability? = null,
     /**
      * `gBattleMons[attacker].volatiles.electrified` (Electrify), or null when unread. Electrify
      * retypes any move to Electric, so it must be observed false for the ordinary subset.

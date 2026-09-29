@@ -610,7 +610,8 @@ class CalcHnsC4eProductionBoundaryTest {
             "ITEM_NONE after activation is authoritative and the live stage is already included"
         )
         assertFalse(consumedSeed.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
-        assertEquals(listOf("Field: Electric Terrain"), consumedSeed.verdict.ignoredMechanics.map { it.presentationLine })
+        assertTrue(consumedSeed.verdict.ignoredMechanics.none { it is IgnoredCalcMechanic.Field &&
+            it.decision.status == HnsFieldStatus.ELECTRIC_TERRAIN })
 
         val unreadSeed = refusedOf(
             build(trust, goldenARequest(), playerObservation(),
@@ -1230,23 +1231,22 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `active terrain field status is caveated for the boosted type only`() {
-        // Grassy Terrain's known modifier is removed and identified; it is not substituted with a
-        // guessed boosted value.
-        val caveated = readyOf(
+    fun `active terrain field status is retained for exact supported moves`() {
+        val exact = readyOf(
             build(trustFor(exactSha), goldenARequest(move = "Vine Whip"),
                 playerObservation(fieldStatuses = 1 shl 6), enemyObservation(fieldStatuses = 1 shl 6)),
-            "a known Grass terrain modifier can be named and removed"
+            "the direct Grass terrain modifier is exact"
         )
-        assertEquals(listOf("Field: Grassy Terrain"), caveated.verdict.ignoredMechanics.map { it.presentationLine })
-        // Normal Tackle is untouched by Grassy Terrain (no Grass Pelt, no Analytic): the field
-        // decision is proven irrelevant and the request stays Ready.
+        assertEquals(HnsFieldRequestRelevance.MODELLED,
+            fieldDecision(exact, HnsFieldStatus.GRASSY_TERRAIN).relevance)
+        assertEquals(1 shl 6, exact.request.hnsLiveBattleState?.fieldStatuses)
+        assertTrue(exact.verdict.ignoredMechanics.none { it is IgnoredCalcMechanic.Field })
         val ready = readyOf(
             build(trustFor(exactSha), goldenARequest(), playerObservation(fieldStatuses = 1 shl 6),
                 enemyObservation(fieldStatuses = 1 shl 6)),
             "Grassy Terrain cannot change Tackle"
         )
-        assertEquals("grassy_terrain_non_grass_move", ready.verdict.hnsFieldDecisions.single().rule)
+        assertEquals("grassy_terrain_no_unmodelled_consequence", ready.verdict.hnsFieldDecisions.single().rule)
     }
 
     @Test
@@ -3166,12 +3166,12 @@ class CalcHnsC4eProductionBoundaryTest {
             estimate.verdict.hnsFieldDecisions.map { it.status }
         )
         assertEquals(
-            listOf(HnsFieldRequestRelevance.RELEVANT, HnsFieldRequestRelevance.PROVEN_IRRELEVANT,
+            listOf(HnsFieldRequestRelevance.RELEVANT, HnsFieldRequestRelevance.MODELLED,
                 HnsFieldRequestRelevance.PROVEN_IRRELEVANT),
             estimate.verdict.hnsFieldDecisions.map { it.relevance }
         )
         assertEquals(
-            listOf("wonder_room_swaps_defensive_stat", "electric_terrain_non_electric_move", "fairy_lock_escape_only"),
+            listOf("wonder_room_swaps_defensive_stat", "electric_terrain_other_move", "fairy_lock_escape_only"),
             estimate.verdict.hnsFieldDecisions.map { it.rule }
         )
         assertTrue(estimate.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
@@ -3260,12 +3260,12 @@ class CalcHnsC4eProductionBoundaryTest {
         val terrain = HnsFieldStatus.ELECTRIC_TERRAIN.mask
         val tackle = readyOf(fieldBuild(terrain, attackerItem = wiseGlasses),
             "neither Electric Terrain nor Wise Glasses can change Physical Tackle")
-        assertEquals("electric_terrain_non_electric_move", fieldDecision(tackle, HnsFieldStatus.ELECTRIC_TERRAIN).rule)
+        assertEquals("electric_terrain_other_move", fieldDecision(tackle, HnsFieldStatus.ELECTRIC_TERRAIN).rule)
         assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT, tackle.verdict.hnsItemDecisions.single().relevance)
 
         val waterGun = readyOf(fieldBuild(terrain, move = "Water Gun", attackerItem = wiseGlasses),
             "Electric Terrain is irrelevant to Water Gun and Wise Glasses is modelled")
-        assertEquals(HnsFieldRequestRelevance.PROVEN_IRRELEVANT,
+        assertEquals(HnsFieldRequestRelevance.MODELLED,
             fieldDecision(waterGun, HnsFieldStatus.ELECTRIC_TERRAIN).relevance)
         assertFalse(waterGun.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
         assertFalse(waterGun.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
@@ -3274,10 +3274,10 @@ class CalcHnsC4eProductionBoundaryTest {
 
         val thunderShock = readyOf(fieldBuild(terrain, move = "Thunder Shock", attackerItem = wiseGlasses),
             "Electric Terrain is named and ignored while Wise Glasses is modelled")
-        assertEquals("electric_terrain_electric_move", fieldDecision(thunderShock, HnsFieldStatus.ELECTRIC_TERRAIN).rule)
+        assertEquals("electric_terrain_grounded_electric_move", fieldDecision(thunderShock, HnsFieldStatus.ELECTRIC_TERRAIN).rule)
         assertFalse(thunderShock.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
-        assertEquals("\nIgnores:\nField: Electric Terrain", ignoredText(thunderShock))
-        assertEquals(0, thunderShock.request.hnsLiveBattleState?.fieldStatuses)
+        assertEquals("", ignoredText(thunderShock))
+        assertEquals(terrain, thunderShock.request.hnsLiveBattleState?.fieldStatuses)
 
         // Hadron Engine now consumes the authoritative Electric Terrain word for its exact
         // Special Attack-stat branch. Electric moves remain a field caveat until the direct
@@ -3296,16 +3296,15 @@ class CalcHnsC4eProductionBoundaryTest {
             .getInt("hnsFieldStatuses"))
 
         val hadronElectric = readyOf(fieldBuild(terrain, move = "Thunderbolt", attackerAbility = 289 to "Hadron Engine"),
-            "Electric Terrain's direct Electric move modifier is still deferred")
-        assertEquals(HnsFieldRequestRelevance.RELEVANT,
+            "Electric Terrain and Hadron Engine compose on an Electric Special move")
+        assertEquals(HnsFieldRequestRelevance.MODELLED,
             fieldDecision(hadronElectric, HnsFieldStatus.ELECTRIC_TERRAIN).relevance)
-        assertEquals(listOf("Field: Electric Terrain"),
-            hadronElectric.verdict.ignoredMechanics.map { it.presentationLine })
-        assertEquals(0, hadronElectric.request.hnsLiveBattleState?.fieldStatuses)
+        assertTrue(hadronElectric.verdict.ignoredMechanics.none { it is IgnoredCalcMechanic.Field })
+        assertEquals(terrain, hadronElectric.request.hnsLiveBattleState?.fieldStatuses)
     }
 
     @Test
-    fun `MODELLED Grassy Terrain keeps its live bit while the Grass move overlap remains caveated`() {
+    fun `MODELLED Grassy Terrain composes with Grass Pelt and keeps the live bit`() {
         val grassy = HnsFieldStatus.GRASSY_TERRAIN.mask
         val pelt = readyOf(fieldBuild(grassy, defenderAbility = 179 to "Grass Pelt"),
             "Grassy Terrain plus defender Grass Pelt exactly models a non-Grass Physical hit")
@@ -3329,16 +3328,15 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals(grassy, peltWithItemCaveat.request.hnsLiveBattleState?.fieldStatuses)
 
         val grassMove = readyOf(fieldBuild(grassy, move = "Razor Leaf", defenderAbility = 179 to "Grass Pelt"),
-            "the unimplemented direct Grass move boost remains a named estimate caveat")
-        assertEquals(HnsFieldRequestRelevance.RELEVANT,
+            "the direct Grass boost and Grass Pelt compose exactly")
+        assertEquals(HnsFieldRequestRelevance.MODELLED,
             fieldDecision(grassMove, HnsFieldStatus.GRASSY_TERRAIN).relevance)
-        assertEquals(listOf("Field: Grassy Terrain"),
-            grassMove.verdict.ignoredMechanics.map { it.presentationLine })
-        assertEquals(0, grassMove.request.hnsLiveBattleState?.fieldStatuses)
+        assertTrue(grassMove.verdict.ignoredMechanics.none { it is IgnoredCalcMechanic.Field })
+        assertEquals(grassy, grassMove.request.hnsLiveBattleState?.fieldStatuses)
     }
 
     @Test
-    fun `caller terrain text cannot create either live terrain ability modifier`() {
+    fun `caller terrain text cannot create any live terrain modifier`() {
         val trust = trustFor(exactSha)
         val electricRequest = goldenARequest("Psychic").copy(
             field = CalcFieldInput(terrain = "Electric"),
@@ -3367,6 +3365,19 @@ class CalcHnsC4eProductionBoundaryTest {
         val grassyJson = JSONObject(buildCalcRequestJson(grassy.request)).getJSONObject("field")
         assertEquals(0, grassyJson.getInt("hnsFieldStatuses"))
         assertEquals("Grassy", grassyJson.getString("terrain"))
+
+        for ((terrain, move) in listOf(
+            "Misty" to "Dragon Breath",
+            "Psychic" to "Confusion"
+        )) {
+            val request = goldenARequest(move).copy(field = CalcFieldInput(terrain = terrain))
+            val outcome = readyOf(build(trust, request,
+                playerObservation(fieldStatuses = 0), enemyObservation(fieldStatuses = 0), randomAbilities = true),
+                "caller $terrain terrain cannot replace an observed zero field word")
+            val field = JSONObject(buildCalcRequestJson(outcome.request)).getJSONObject("field")
+            assertEquals(0, field.getInt("hnsFieldStatuses"))
+            assertEquals(terrain, field.getString("terrain"))
+        }
     }
 
     @Test
@@ -3456,7 +3467,7 @@ class CalcHnsC4eProductionBoundaryTest {
     fun `clearing a field bit never clears another limitation and vice versa`() {
         // Electric Terrain is irrelevant to Tackle, but the live attacker status still blocks.
         val status = refusedOf(fieldBuild(HnsFieldStatus.ELECTRIC_TERRAIN.mask, status1 = 0x10), "status blocks")
-        assertEquals(HnsFieldRequestRelevance.PROVEN_IRRELEVANT,
+        assertEquals(HnsFieldRequestRelevance.MODELLED,
             fieldDecision(status, HnsFieldStatus.ELECTRIC_TERRAIN).relevance)
         assertFalse(status.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
         assertTrue(status.verdict.limitations.contains(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED))
@@ -3580,28 +3591,98 @@ class CalcHnsC4eProductionBoundaryTest {
     @Test
     fun `terrain type rules block the boosted or weakened type and clear the rest`() {
         val cases = listOf(
-            Triple(HnsFieldStatus.MISTY_TERRAIN, "Dragon Breath", "misty_terrain_dragon_move"),
+            Triple(HnsFieldStatus.MISTY_TERRAIN, "Dragon Breath", "misty_terrain_ungrounded_defender_dragon"),
             Triple(HnsFieldStatus.MISTY_TERRAIN, "Tackle", "misty_terrain_non_dragon_move"),
-            Triple(HnsFieldStatus.PSYCHIC_TERRAIN, "Confusion", "psychic_terrain_psychic_move"),
+            Triple(HnsFieldStatus.PSYCHIC_TERRAIN, "Confusion", "psychic_terrain_grounded_attacker_nonpriority_move"),
             Triple(HnsFieldStatus.PSYCHIC_TERRAIN, "Quick Attack", "psychic_terrain_priority_move"),
-            Triple(HnsFieldStatus.PSYCHIC_TERRAIN, "Tackle", "psychic_terrain_non_psychic_non_priority_move"),
+            Triple(HnsFieldStatus.PSYCHIC_TERRAIN, "Tackle", "psychic_terrain_non_psychic_nonpriority_move"),
             Triple(HnsFieldStatus.WATER_SPORT, "Ember", "water_sport_fire_move"),
-            Triple(HnsFieldStatus.GRASSY_TERRAIN, "Vine Whip", "grassy_terrain_grass_move")
+            Triple(HnsFieldStatus.GRASSY_TERRAIN, "Vine Whip", "grassy_terrain_grounded_attacker_grass_move")
         )
         for ((status, move, rule) in cases) {
             val outcome = fieldBuild(status.mask, move = move)
             assertEquals("$status / $move", rule, fieldDecision(outcome, status).rule)
             val blocks = outcome.verdict().limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED)
-            assertEquals("$status / $move", !rule.contains("non_"), blocks)
+            assertEquals("$status / $move",
+                (status == HnsFieldStatus.PSYCHIC_TERRAIN && move == "Quick Attack") ||
+                    (status == HnsFieldStatus.WATER_SPORT && move == "Ember"), blocks)
         }
         // Grass Pelt reads Grassy Terrain even for a non-Grass move.
         val pelt = fieldBuild(HnsFieldStatus.GRASSY_TERRAIN.mask, defenderAbility = 179 to "Grass Pelt")
-        assertEquals("grassy_terrain_grass_pelt_only", fieldDecision(pelt, HnsFieldStatus.GRASSY_TERRAIN).rule)
+        assertEquals("grassy_terrain_grass_pelt_physical_composition", fieldDecision(pelt, HnsFieldStatus.GRASSY_TERRAIN).rule)
         assertEquals(HnsFieldRequestRelevance.MODELLED,
             fieldDecision(pelt, HnsFieldStatus.GRASSY_TERRAIN).relevance)
         // Gale Wings can grant Flying priority: Psychic Terrain stays unknown.
         val gale = fieldBuild(HnsFieldStatus.PSYCHIC_TERRAIN.mask, attackerAbility = 177 to "Gale Wings")
         assertEquals(HnsFieldRequestRelevance.UNKNOWN, fieldDecision(gale, HnsFieldStatus.PSYCHIC_TERRAIN).relevance)
+    }
+
+    @Test
+    fun `Misty and Psychic terrain exact cases keep their live bit without a field caveat`() {
+        for ((status, move) in listOf(
+            HnsFieldStatus.MISTY_TERRAIN to "Dragon Breath",
+            HnsFieldStatus.PSYCHIC_TERRAIN to "Confusion"
+        )) {
+            val outcome = readyOf(fieldBuild(status.mask, move = move), "$status direct modifier is exact")
+            assertEquals(HnsFieldRequestRelevance.MODELLED, fieldDecision(outcome, status).relevance)
+            assertFalse(outcome.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+            assertTrue(outcome.verdict.ignoredMechanics.none { it is IgnoredCalcMechanic.Field })
+            assertEquals(status.mask, outcome.request.hnsLiveBattleState?.fieldStatuses)
+            assertEquals(status.mask, JSONObject(buildCalcRequestJson(outcome.request)).getJSONObject("field")
+                .getInt("hnsFieldStatuses"))
+        }
+    }
+
+    @Test
+    fun `Mold Breaker suppression of defender Levitate fails closed and Ability Shield preserves it`() {
+        val trust = trustFor(exactSha)
+        val terrain = HnsFieldStatus.MISTY_TERRAIN.mask
+        val request = matchupRequest("Dragon Breath", "Snorlax").copy(
+            attacker = liveInput("Chikorita", 5, 104, "Mold Breaker"),
+            defender = liveInput("Snorlax", 3, 26, "Levitate")
+        )
+        val moldBreaker = playerObservation(
+            abilityId = 104, abilityName = "Mold Breaker", fieldStatuses = terrain
+        )
+        val levitate = enemyObservation(
+            speciesId = 143, types = listOf(1), abilityId = 26, abilityName = "Levitate",
+            fieldStatuses = terrain
+        )
+        val unshielded = refusedOf(
+            build(trust, request, moldBreaker, levitate, randomAbilities = true),
+            "Mold Breaker can suppress breakable defender Levitate, changing Misty Terrain grounding"
+        )
+        assertEquals(HnsFieldRequestRelevance.UNKNOWN,
+            fieldDecision(unshielded, HnsFieldStatus.MISTY_TERRAIN).relevance)
+        assertTrue(unshielded.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+
+        val shielded = readyOf(
+            build(trust, request, moldBreaker,
+                levitate.copy(state = levitate.state.copy(itemId = 758)), randomAbilities = true),
+            "Ability Shield preserves defender Levitate against Mold Breaker"
+        )
+        assertEquals(HnsTerrainApplicability.NOT_AFFECTED,
+            shielded.request.hnsLiveBattleState?.defenderTerrainApplicability)
+        assertEquals(HnsFieldRequestRelevance.MODELLED,
+            fieldDecision(shielded, HnsFieldStatus.MISTY_TERRAIN).relevance)
+        val fieldJson = JSONObject(buildCalcRequestJson(shielded.request)).getJSONObject("field")
+        assertEquals(terrain, fieldJson.getInt("hnsFieldStatuses"))
+        assertFalse(fieldJson.getBoolean("hnsTerrainDefenderAffected"))
+        assertTrue(JSONObject(buildCalcRequestJson(shielded.request)).getJSONObject("defender")
+            .getBoolean("hnsAbilityShield"))
+    }
+
+    @Test
+    fun `attacker Levitate is irrelevant to a nonmatching move under Grassy Terrain`() {
+        val ready = readyOf(fieldBuild(
+            HnsFieldStatus.GRASSY_TERRAIN.mask,
+            move = "Water Gun",
+            attackerAbility = 26 to "Levitate"
+        ), "attacker Levitate cannot affect a non-Grass move under Grassy Terrain")
+        assertTrue(ready.verdict.hnsAbilityDecisions.none { it.abilityId == 26 })
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+        assertEquals(HnsFieldRequestRelevance.MODELLED,
+            fieldDecision(ready, HnsFieldStatus.GRASSY_TERRAIN).relevance)
     }
 
     @Test

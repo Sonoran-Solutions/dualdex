@@ -24,6 +24,8 @@
     "ABILITY_ANALYTIC",
     "ABILITY_GALE_WINGS",
     "ABILITY_GRASS_PELT",
+    "ABILITY_LEVITATE",
+    "ABILITY_NEUTRALIZING_GAS",
     "ABILITY_QUARK_DRIVE",
     "ABILITY_HADRON_ENGINE"
   ],
@@ -548,7 +550,10 @@
       "request_operands": [
         "ordinary_move",
         "effective_move_type",
-        "move_id"
+        "move_id",
+        "attacker_terrain_applicability",
+        "defender_terrain_applicability",
+        "field_statuses"
       ],
       "rules": [
         {
@@ -559,7 +564,7 @@
             "effective_move_type",
             "move_id"
           ],
-          "predicate": "Ordinary move whose authoritative effective type is not Ground and whose pinned gravityBanned is FALSE.",
+          "predicate": "The move is not Ground, not Gravity-banned, and no active direct terrain modifier consumes Gravity-groundedness.",
           "evidence": [
             {
               "source": "src/battle_util.c:8379",
@@ -604,6 +609,24 @@
             {
               "source": "src/battle_move_resolution.c:334",
               "contains": "else if (gFieldStatuses & STATUS_FIELD_GRAVITY && IsGravityPreventingMove(ctx->move))"
+            }
+          ]
+        },
+        {
+          "rule": "gravity_terrain_modifier_modelled",
+          "relevance": "MODELLED",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "Gravity is the exact groundedness override for a supported direct terrain modifier, and the same live applicability result is used by the terrain policy.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6023",
+              "contains": "if (gFieldStatuses & STATUS_FIELD_GRAVITY && isAnticipation == FALSE)"
+            },
+            {
+              "source": "src/battle_util.c:8379",
+              "contains": "else if (ctx->moveType == TYPE_GROUND"
             }
           ]
         }
@@ -684,17 +707,35 @@
           "contains": "&& IsGrassyTerrainAffected(battler, ability, GetBattlerHoldEffect(battler), gFieldStatuses)"
         }
       ],
-      "rationale": "For an ordinary selected hit, the direct Grass move modifier and terrain-sensitive turn-order branch remain outside this slice. The only request-local terrain consequence promoted here is Grass Pelt when the effective move is non-Grass, the defender's effective ability is Grass Pelt, the final category selects Defense, and Wonder Room is inactive. That exact request is MODELLED; this does not declare Grassy Terrain globally supported.",
+      "rationale": "The direct attacker-side Grass modifier is exact when applicability is authoritative; Grass Pelt can compose exactly when its Defense predicate is known. Analytic/Grassy Glide and unsupported terrain move effects remain deferred. Support is request-local.",
       "request_operands": [
         "ordinary_move",
         "effective_move_type",
         "attacker_ability",
-        "defender_ability"
+        "defender_ability",
+        "move_category",
+        "field_statuses",
+        "attacker_terrain_applicability",
+        "defender_terrain_applicability"
       ],
       "rules": [
         {
-          "rule": "grassy_terrain_non_grass_move",
-          "relevance": "PROVEN_IRRELEVANT",
+          "rule": "grassy_terrain_grounded_attacker_grass_move",
+          "relevance": "MODELLED",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The final effective type is Grass and the shared live terrain authority returns AFFECTED for the attacker.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6639",
+              "contains": "if (IsGrassyTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_GRASS)"
+            }
+          ]
+        },
+        {
+          "rule": "grassy_terrain_no_unmodelled_consequence",
+          "relevance": "MODELLED",
           "operands": [
             "ordinary_move",
             "effective_move_type",
@@ -722,20 +763,6 @@
           ]
         },
         {
-          "rule": "grassy_terrain_grass_move",
-          "relevance": "RELEVANT",
-          "operands": [
-            "effective_move_type"
-          ],
-          "predicate": "The authoritative effective move type is Grass.",
-          "evidence": [
-            {
-              "source": "src/battle_util.c:6639",
-              "contains": "if (IsGrassyTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_GRASS)"
-            }
-          ]
-        },
-        {
           "rule": "grassy_terrain_attacker_analytic",
           "relevance": "RELEVANT",
           "operands": [
@@ -758,7 +785,7 @@
           ]
         },
         {
-          "rule": "grassy_terrain_grass_pelt_only",
+          "rule": "grassy_terrain_grass_pelt_physical_composition",
           "relevance": "MODELLED",
           "operands": [
             "ordinary_move",
@@ -789,7 +816,7 @@
           ]
         },
         {
-          "rule": "grassy_terrain_grass_pelt_not_using_defense",
+          "rule": "grassy_terrain_grass_pelt_special_no_effect",
           "relevance": "PROVEN_IRRELEVANT",
           "operands": [
             "ordinary_move",
@@ -880,7 +907,8 @@
       "rationale": "Misty Terrain's only ordinary-damage read halves a Dragon move against a grounded defender; its other reads prevent status/confusion, pick Terrain Pulse/Nature Power/Camouflage behaviour or activate seeds.",
       "request_operands": [
         "ordinary_move",
-        "effective_move_type"
+        "effective_move_type",
+        "defender_terrain_applicability"
       ],
       "rules": [
         {
@@ -899,8 +927,22 @@
           ]
         },
         {
-          "rule": "misty_terrain_dragon_move",
-          "relevance": "RELEVANT",
+          "rule": "misty_terrain_grounded_defender_dragon",
+          "relevance": "MODELLED",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The authoritative effective move type is Dragon.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6641",
+              "contains": "if (IsMistyTerrainAffected(battlerDef, ctx->abilityDef, ctx->holdEffectDef, ctx->fieldStatuses) && moveType == TYPE_DRAGON)"
+            }
+          ]
+        },
+        {
+          "rule": "misty_terrain_ungrounded_defender_dragon",
+          "relevance": "MODELLED",
           "operands": [
             "effective_move_type"
           ],
@@ -1002,12 +1044,43 @@
         "ordinary_move",
         "effective_move_type",
         "attacker_ability",
-        "defender_ability"
+        "defender_ability",
+        "move_category",
+        "field_statuses",
+        "attacker_terrain_applicability"
       ],
       "rules": [
         {
-          "rule": "electric_terrain_non_electric_move",
-          "relevance": "PROVEN_IRRELEVANT",
+          "rule": "electric_terrain_grounded_electric_move",
+          "relevance": "MODELLED",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The authoritative effective move type is Electric.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6643",
+              "contains": "if (IsElectricTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_ELECTRIC)"
+            }
+          ]
+        },
+        {
+          "rule": "electric_terrain_ungrounded_electric_move",
+          "relevance": "MODELLED",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The authoritative effective move type is Electric.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6643",
+              "contains": "if (IsElectricTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_ELECTRIC)"
+            }
+          ]
+        },
+        {
+          "rule": "electric_terrain_other_move",
+          "relevance": "MODELLED",
           "operands": [
             "ordinary_move",
             "effective_move_type",
@@ -1039,20 +1112,6 @@
             {
               "source": "src/battle_util.c:6691",
               "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
-            }
-          ]
-        },
-        {
-          "rule": "electric_terrain_electric_move",
-          "relevance": "RELEVANT",
-          "operands": [
-            "effective_move_type"
-          ],
-          "predicate": "The authoritative effective move type is Electric.",
-          "evidence": [
-            {
-              "source": "src/battle_util.c:6643",
-              "contains": "if (IsElectricTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_ELECTRIC)"
             }
           ]
         },
@@ -1102,7 +1161,29 @@
           ]
         },
         {
-          "rule": "electric_terrain_hadron_engine_only",
+          "rule": "electric_terrain_grounded_electric_hadron_special",
+          "relevance": "MODELLED",
+          "operands": [
+            "ordinary_move",
+            "effective_move_type",
+            "attacker_ability",
+            "move_category",
+            "field_statuses"
+          ],
+          "predicate": "Ordinary non-Electric Special move; effective attacker Hadron Engine; authoritative observed Electric Terrain; no Quark Drive, Analytic or other applicable field effect.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7111",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN && IsBattleMoveSpecial(move))"
+            },
+            {
+              "source": "src/battle_util.c:7112",
+              "contains": "modifier = uq4_12_multiply(modifier, UQ_4_12(1.3333));"
+            }
+          ]
+        },
+        {
+          "rule": "electric_terrain_hadron_engine_special",
           "relevance": "MODELLED",
           "operands": [
             "ordinary_move",
@@ -1214,11 +1295,27 @@
         "ordinary_move",
         "effective_move_type",
         "move_id",
-        "attacker_ability"
+        "attacker_ability",
+        "attacker_terrain_applicability",
+        "defender_terrain_applicability"
       ],
       "rules": [
         {
-          "rule": "psychic_terrain_non_psychic_non_priority_move",
+          "rule": "psychic_terrain_grounded_attacker_nonpriority_move",
+          "relevance": "MODELLED",
+          "operands": [
+            "effective_move_type"
+          ],
+          "predicate": "The authoritative effective move type is Psychic.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6645",
+              "contains": "if (IsPsychicTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_PSYCHIC)"
+            }
+          ]
+        },
+        {
+          "rule": "psychic_terrain_non_psychic_nonpriority_move",
           "relevance": "PROVEN_IRRELEVANT",
           "operands": [
             "ordinary_move",
@@ -1239,20 +1336,6 @@
             {
               "source": "src/battle_main.c:5032",
               "contains": "else if (ability == ABILITY_GALE_WINGS"
-            }
-          ]
-        },
-        {
-          "rule": "psychic_terrain_psychic_move",
-          "relevance": "RELEVANT",
-          "operands": [
-            "effective_move_type"
-          ],
-          "predicate": "The authoritative effective move type is Psychic.",
-          "evidence": [
-            {
-              "source": "src/battle_util.c:6645",
-              "contains": "if (IsPsychicTerrainAffected(battlerAtk, ctx->abilityAtk, ctx->holdEffectAtk, ctx->fieldStatuses) && moveType == TYPE_PSYCHIC)"
             }
           ]
         },
@@ -2979,6 +3062,133 @@
         "STATUS_FIELD_ION_DELUGE",
         "STATUS_FIELD_FAIRY_LOCK"
       ]
+    }
+  },
+  "terrain_applicability": {
+    "authority": "HnsTerrainAuthority.resolve",
+    "live_field": "Only the boundary-owned raw gFieldStatuses word is used; caller terrain strings and setter abilities are ignored.",
+    "predicate": "Requested terrain bit active, IsSemiInvulnerable returns false for the battler, and IsBattlerGrounded returns true. Unread operands, active unsupported grounding volatiles, Gastro Acid/Roost, or semi-invulnerability return UNKNOWN.",
+    "subjects": {
+      "grassy": "attacker",
+      "electric": "attacker",
+      "psychic": "attacker",
+      "misty": "defender"
+    },
+    "grounded_order": [
+      "Iron Ball",
+      "Gravity",
+      "root/Ingrain",
+      "Smack Down",
+      "Telekinesis",
+      "Magnet Rise",
+      "Air Balloon",
+      "Levitate",
+      "Flying effective type",
+      "otherwise grounded"
+    ],
+    "source_order_evidence": [
+      {
+        "source": "src/battle_util.c:5140",
+        "contains": "bool32 IsBattlerTerrainAffected("
+      },
+      {
+        "source": "src/battle_util.c:5142",
+        "contains": "if (!(fieldStatus & terrainFlag))"
+      },
+      {
+        "source": "src/battle_util.c:5144",
+        "contains": "if (IsSemiInvulnerable(battler, CHECK_ALL))"
+      },
+      {
+        "source": "src/battle_util.c:5147",
+        "contains": "return IsBattlerGrounded(battler, ability, holdEffect);"
+      },
+      {
+        "source": "src/battle_util.c:6021",
+        "contains": "if (holdEffect == HOLD_EFFECT_IRON_BALL)"
+      },
+      {
+        "source": "src/battle_util.c:6023",
+        "contains": "if (gFieldStatuses & STATUS_FIELD_GRAVITY && isAnticipation == FALSE)"
+      },
+      {
+        "source": "src/battle_util.c:6025",
+        "contains": "if (B_ROOTED_GROUNDING >= GEN_4 && gBattleMons[battler].volatiles.root)"
+      },
+      {
+        "source": "src/battle_util.c:6027",
+        "contains": "if (gBattleMons[battler].volatiles.smackDown)"
+      },
+      {
+        "source": "src/battle_util.c:6029",
+        "contains": "if (IsBattlerUngroundedByAbilityItemOrEffect(battler, ability, holdEffect))"
+      },
+      {
+        "source": "src/battle_util.c:6031",
+        "contains": "if (IS_BATTLER_OF_TYPE(battler, TYPE_FLYING)"
+      },
+      {
+        "source": "src/battle_util.c:6008",
+        "contains": "if (gBattleMons[battler].volatiles.telekinesis)"
+      },
+      {
+        "source": "src/battle_util.c:6010",
+        "contains": "if (gBattleMons[battler].volatiles.magnetRise)"
+      },
+      {
+        "source": "src/battle_util.c:6012",
+        "contains": "if (holdEffect == HOLD_EFFECT_AIR_BALLOON)"
+      },
+      {
+        "source": "src/battle_util.c:6014",
+        "contains": "if (ability == ABILITY_LEVITATE)"
+      },
+      {
+        "source": "src/battle_util.c:6016",
+        "contains": "return FALSE;"
+      }
+    ],
+    "semi_invulnerability": "The runtime reader already observes semiInvulnerable, but the calculator boundary does not assume neutral. Nonzero or unread state fails closed for an active terrain request.",
+    "fixed_point": {
+      "operator": "uq4_12_multiply (half-up)",
+      "configuration_source": "include/config/battle.h:325 B_TERRAIN_TYPE_BOOST = GEN_LATEST",
+      "conversion_source": "include/fpmath.h:15 UQ_4_12(n) = (uq4_12_t)((n) * 4096 + 0.5)",
+      "boost_value": 5325,
+      "reduction_value": 2048,
+      "modifiers": {
+        "grassy": {
+          "source": "src/battle_util.c:6640",
+          "subject": "attacker",
+          "type": "Grass",
+          "factor": "UQ_4_12(1.3)",
+          "uq4_12": 5325,
+          "operator": "uq4_12_multiply"
+        },
+        "electric": {
+          "source": "src/battle_util.c:6644",
+          "subject": "attacker",
+          "type": "Electric",
+          "factor": "UQ_4_12(1.3)",
+          "uq4_12": 5325,
+          "operator": "uq4_12_multiply"
+        },
+        "psychic": {
+          "source": "src/battle_util.c:6646",
+          "subject": "attacker",
+          "type": "Psychic",
+          "factor": "UQ_4_12(1.3)",
+          "uq4_12": 5325,
+          "operator": "uq4_12_multiply"
+        },
+        "misty": {
+          "source": "src/battle_util.c:6642",
+          "subject": "defender",
+          "type": "Dragon",
+          "factor": "UQ_4_12(0.5)",
+          "uq4_12": 2048,
+          "operator": "uq4_12_multiply"
+        }
+      }
     }
   }
 }

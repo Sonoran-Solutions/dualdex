@@ -717,6 +717,22 @@ object CalcRequestBoundary {
                 isExactVerified = isExactVerified
             ),
             fieldStatuses = fieldStatuses,
+            attackerTerrainApplicability = authoritativeTerrainApplicability(
+                participantPartySlot = request.attacker.partySlot,
+                observation = playerBattlerState,
+                opposingObservation = enemyBattlerState,
+                fieldStatuses = fieldStatuses,
+                battlerIsDefender = false,
+                isExactVerified = isExactVerified
+            ),
+            defenderTerrainApplicability = authoritativeTerrainApplicability(
+                participantPartySlot = request.defender.partySlot,
+                observation = enemyBattlerState,
+                opposingObservation = playerBattlerState,
+                fieldStatuses = fieldStatuses,
+                battlerIsDefender = true,
+                isExactVerified = isExactVerified
+            ),
             attackerElectrified = attackerElectrified,
             defenderGlaiveRush = defenderGlaiveRush,
             attackerChargeTimer = attackerChargeTimer,
@@ -1216,6 +1232,27 @@ object CalcRequestBoundary {
             roostActive = state.volatileRoostActive,
             substitute = state.volatileSubstitute,
             endured = state.volatileEndured
+        )
+    }
+
+    /** One boundary-owned terrain result shared by the field policy and the QuickJS engine. */
+    private fun authoritativeTerrainApplicability(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        opposingObservation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        fieldStatuses: Int?,
+        battlerIsDefender: Boolean,
+        isExactVerified: Boolean
+    ): HnsTerrainApplicability? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        val opposing = opposingObservation?.state?.takeIf {
+            it.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED
+        } ?: return null
+        return HnsTerrainAuthority.resolve(
+            fieldStatuses, state, opposing.effectiveAbilityId, battlerIsDefender
         )
     }
 

@@ -63,7 +63,9 @@ object HnsFieldContextPolicy {
         /** Authoritative final category, or null when the selected-hit category is unknown. */
         val moveCategory: MoveCategory? = null,
         /** Authoritative raw field word used to exclude unsupported Wonder Room stat selection. */
-        val fieldStatuses: Int? = null
+        val fieldStatuses: Int? = null,
+        val attackerTerrainApplicability: HnsTerrainApplicability? = null,
+        val defenderTerrainApplicability: HnsTerrainApplicability? = null
     )
 
     fun assess(state: HnsFieldState, context: Context?): List<HnsFieldRequestDecision> {
@@ -94,6 +96,8 @@ object HnsFieldContextPolicy {
             effectiveMoveType = authority.effectiveType,
             moveCategory = authority.category,
             fieldStatuses = request.hnsLiveBattleState?.fieldStatuses,
+            attackerTerrainApplicability = request.hnsLiveBattleState?.attackerTerrainApplicability,
+            defenderTerrainApplicability = request.hnsLiveBattleState?.defenderTerrainApplicability,
             attackerAbilityId = liveAbility(request.attacker),
             defenderAbilityId = liveAbility(request.defender),
             attackerItemId = liveItem(request.attacker),
@@ -185,6 +189,11 @@ object HnsFieldContextPolicy {
                     source = "src/battle_util.c:8379",
                     rationale = "Gravity grounds every battler, which can remove a Ground move's immunity."
                 )
+                gravityTerrainModifierIsModelled(c) -> modelled(
+                    rule = "gravity_terrain_modifier_modelled",
+                    source = "src/battle_util.c:6021-6036,6639-6645",
+                    rationale = "Gravity's groundedness override is the exact reason the active terrain modifier applies; the same live terrain authority is used by the terrain bit decision."
+                )
                 else -> proof(
                     rule = "gravity_non_ground_unbanned_move",
                     source = "src/battle_util.c:8379",
@@ -193,51 +202,31 @@ object HnsFieldContextPolicy {
                 )
             }
             HnsFieldStatus.GRASSY_TERRAIN -> when {
-                type == PokemonType.GRASS -> relevant(
-                    rule = "grassy_terrain_grass_move",
-                    source = "src/battle_util.c:6639",
-                    rationale = "Grassy Terrain's direct Grass-move modifier is not implemented in this slice."
-                )
-                attacker == HnsFieldStatusData.ABILITY_ANALYTIC -> relevant(
+                attacker == HnsFieldStatusData.ABILITY_ANALYTIC &&
+                    c.moveId == HnsFieldStatusData.GRASSY_GLIDE_MOVE_ID -> relevant(
                     rule = "grassy_terrain_attacker_analytic",
                     source = "src/battle_main.c:5044",
                     rationale = "Grassy Glide's terrain priority can change the turn order the attacker's Analytic reads."
                 )
                 type == null || attacker == null || defender == null -> null
-                defender == HnsFieldStatusData.ABILITY_GRASS_PELT -> when {
-                    c.moveCategory == null -> null
-                    c.fieldStatuses == null -> null
-                    c.fieldStatuses and HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0 -> null
-                    c.moveCategory == MoveCategory.PHYSICAL -> modelled(
-                        rule = "grassy_terrain_grass_pelt_only",
-                        source = "src/battle_util.c:7296",
-                        rationale = "This ordinary non-Grass Physical hit selects Defense with Wonder Room inactive; Grass Pelt is the only applicable Grassy Terrain damage effect and its Defense-stage branch is implemented exactly."
-                    )
-                    else -> proof(
-                        rule = "grassy_terrain_grass_pelt_not_using_defense",
-                        source = "src/battle_util.c:7296",
-                        rationale = "This ordinary Special hit selects Sp. Def with Wonder Room inactive, so Grass Pelt's usesDefStat branch does not run."
-                    )
-                }
-                type == null || attacker == null || defender == null -> null
-                else -> proof(
-                    rule = "grassy_terrain_non_grass_move",
-                    source = "src/battle_util.c:6639",
-                    rationale = "This ordinary non-Grass hit has no Grass Pelt or Analytic dependency; the other Grassy Terrain damage effects are outside the supported ordinary-hit path."
+                else -> grassyTerrainProof(c, type, defender)
+            }
+            HnsFieldStatus.MISTY_TERRAIN -> when {
+                type == null -> null
+                type != PokemonType.DRAGON -> proof(
+                    "misty_terrain_non_dragon_move", "src/battle_util.c:6641",
+                    "Only Dragon moves query Misty Terrain for ordinary selected-hit damage."
+                )
+                c.defenderTerrainApplicability == null ||
+                    c.defenderTerrainApplicability == HnsTerrainApplicability.UNKNOWN -> null
+                else -> modelled(
+                    if (c.defenderTerrainApplicability == HnsTerrainApplicability.AFFECTED)
+                        "misty_terrain_grounded_defender_dragon" else "misty_terrain_ungrounded_defender_dragon",
+                    "src/battle_util.c:6641",
+                    "Misty Terrain checks the defender's authoritative IsBattlerTerrainAffected result; the Dragon reduction is applied only when it is AFFECTED."
                 )
             }
-            HnsFieldStatus.MISTY_TERRAIN -> typeRule(
-                type, PokemonType.DRAGON,
-                irrelevant = "misty_terrain_non_dragon_move" to "src/battle_util.c:6641",
-                matching = "misty_terrain_dragon_move" to "src/battle_util.c:6641",
-                what = "Misty Terrain weakens only Dragon moves against a grounded target"
-            )
             HnsFieldStatus.ELECTRIC_TERRAIN -> when {
-                type == PokemonType.ELECTRIC -> relevant(
-                    rule = "electric_terrain_electric_move",
-                    source = "src/battle_util.c:6643",
-                    rationale = "Electric Terrain's direct Electric-move modifier is not implemented in this slice."
-                )
                 attacker == HnsFieldStatusData.ABILITY_QUARK_DRIVE ||
                     defender == HnsFieldStatusData.ABILITY_QUARK_DRIVE -> relevant(
                     rule = "electric_terrain_paradox_ability",
@@ -250,32 +239,33 @@ object HnsFieldContextPolicy {
                     rationale = "Surge Surfer / Quark Drive speed can change the turn order the attacker's Analytic reads."
                 )
                 type == null || attacker == null || defender == null -> null
-                attacker == HnsFieldStatusData.ABILITY_HADRON_ENGINE -> when (c.moveCategory) {
-                    null -> null
-                    MoveCategory.SPECIAL -> modelled(
-                        rule = "electric_terrain_hadron_engine_only",
-                        source = "src/battle_util.c:7111",
-                        rationale = "This ordinary non-Electric Special hit has Hadron Engine as its only applicable Electric Terrain damage effect; its Attack-stat branch is implemented exactly."
-                    )
-                    MoveCategory.PHYSICAL -> proof(
-                        rule = "electric_terrain_hadron_engine_physical",
-                        source = "src/battle_util.c:7111",
-                        rationale = "Hadron Engine's Attack-stat branch applies only to Special moves; this final category is Physical."
-                    )
-                    MoveCategory.STATUS -> null
-                }
-                else -> proof(
-                    rule = "electric_terrain_non_electric_move",
-                    source = "src/battle_util.c:6643",
-                    rationale = "This ordinary non-Electric hit has no Quark Drive, Hadron Engine or Analytic dependency; other Electric Terrain effects are outside the supported request."
+                type == PokemonType.ELECTRIC && c.attackerTerrainApplicability == null -> null
+                type == PokemonType.ELECTRIC && c.attackerTerrainApplicability == HnsTerrainApplicability.UNKNOWN -> null
+                attacker == HnsFieldStatusData.ABILITY_HADRON_ENGINE && c.moveCategory == null -> null
+                attacker == HnsFieldStatusData.ABILITY_HADRON_ENGINE && c.moveCategory == MoveCategory.STATUS -> null
+                attacker == HnsFieldStatusData.ABILITY_HADRON_ENGINE &&
+                    c.moveCategory == MoveCategory.PHYSICAL && type != PokemonType.ELECTRIC -> proof(
+                    "electric_terrain_hadron_engine_physical", "src/battle_util.c:7111",
+                    "Hadron Engine's Attack-stat branch applies only to Special moves, and this move is not Electric."
+                )
+                else -> modelled(
+                    when {
+                        type == PokemonType.ELECTRIC && c.attackerTerrainApplicability == HnsTerrainApplicability.AFFECTED &&
+                            attacker == HnsFieldStatusData.ABILITY_HADRON_ENGINE && c.moveCategory == MoveCategory.SPECIAL ->
+                            "electric_terrain_grounded_electric_hadron_special"
+                        type == PokemonType.ELECTRIC && c.attackerTerrainApplicability == HnsTerrainApplicability.AFFECTED ->
+                            "electric_terrain_grounded_electric_move"
+                        type == PokemonType.ELECTRIC -> "electric_terrain_ungrounded_electric_move"
+                        attacker == HnsFieldStatusData.ABILITY_HADRON_ENGINE && c.moveCategory == MoveCategory.SPECIAL ->
+                            "electric_terrain_hadron_engine_special"
+                        attacker == HnsFieldStatusData.ABILITY_HADRON_ENGINE -> "electric_terrain_hadron_engine_physical"
+                        else -> "electric_terrain_other_move"
+                    },
+                    "src/battle_util.c:6643",
+                    "The ordinary Electric Terrain move modifier uses attacker terrain applicability; Hadron Engine independently reads the live Electric Terrain bit for Special moves."
                 )
             }
             HnsFieldStatus.PSYCHIC_TERRAIN -> when {
-                type == PokemonType.PSYCHIC -> relevant(
-                    rule = "psychic_terrain_psychic_move",
-                    source = "src/battle_util.c:6645",
-                    rationale = "Psychic Terrain boosts a grounded attacker's Psychic move."
-                )
                 c.moveId == null -> null
                 c.moveId in HnsFieldStatusData.positivePriorityOrdinaryMoveIds -> relevant(
                     rule = "psychic_terrain_priority_move",
@@ -283,11 +273,17 @@ object HnsFieldContextPolicy {
                     rationale = "Psychic Terrain makes a positive-priority move fail against a grounded target."
                 )
                 type == null || attacker == null || attacker == HnsFieldStatusData.ABILITY_GALE_WINGS -> null
-                else -> proof(
-                    rule = "psychic_terrain_non_psychic_non_priority_move",
-                    source = "src/battle_util.c:6645",
-                    rationale = "The move is not Psychic and cannot gain priority (pinned priority <= 0, not a healing " +
-                        "move, no Gale Wings), so Psychic Terrain neither boosts nor blocks it."
+                type == PokemonType.PSYCHIC && (c.attackerTerrainApplicability == null ||
+                    c.attackerTerrainApplicability == HnsTerrainApplicability.UNKNOWN) -> null
+                else -> if (type == PokemonType.PSYCHIC &&
+                    c.attackerTerrainApplicability == HnsTerrainApplicability.AFFECTED) {
+                    modelled(
+                        "psychic_terrain_grounded_attacker_nonpriority_move", "src/battle_util.c:6645",
+                        "The attacker is terrain-affected and the ordinary Psychic move has pinned non-positive priority, so the boost applies and priority blocking is proven irrelevant."
+                    )
+                } else proof(
+                    "psychic_terrain_non_psychic_nonpriority_move", "src/battle_util.c:2394",
+                    "The move cannot be blocked by Psychic Terrain and is either non-Psychic or its attacker is proven ungrounded."
                 )
             }
             HnsFieldStatus.ION_DELUGE -> when (val preField = c.preFieldMoveType) {
@@ -323,6 +319,52 @@ object HnsFieldContextPolicy {
             HnsFieldRequestRelevance.PROVEN_IRRELEVANT, irrelevant.first, irrelevant.second,
             "$what; the effective move type is ${type.displayName}."
         )
+    }
+
+    private fun grassyTerrainProof(
+        c: Context,
+        type: PokemonType,
+        defender: Int
+    ): Proof? {
+        val directApplies = type == PokemonType.GRASS
+        if (directApplies && (c.attackerTerrainApplicability == null ||
+                c.attackerTerrainApplicability == HnsTerrainApplicability.UNKNOWN)) return null
+        if (defender == HnsFieldStatusData.ABILITY_GRASS_PELT) {
+            val category = c.moveCategory ?: return null
+            val field = c.fieldStatuses ?: return null
+            if (field and HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0) return null
+            return modelled(
+                if (category == MoveCategory.PHYSICAL) "grassy_terrain_grass_pelt_physical_composition"
+                else "grassy_terrain_grass_pelt_special_no_effect",
+                "src/battle_util.c:6639,7296",
+                "The direct Grass move modifier (when terrain affects the attacker) and Grass Pelt's Defense-stage branch are both evaluated exactly with Wonder Room inactive."
+            )
+        }
+        return modelled(
+            if (directApplies && c.attackerTerrainApplicability == HnsTerrainApplicability.AFFECTED)
+                "grassy_terrain_grounded_attacker_grass_move" else "grassy_terrain_no_unmodelled_consequence",
+            "src/battle_util.c:6639",
+            if (directApplies)
+                "Grassy Terrain checks the attacker's authoritative terrain-applicability result before applying the Grass boost."
+            else
+                "The move is non-Grass, or the attacker is proven not terrain-affected; the direct Grassy modifier is inactive and no supported Grass Pelt consequence applies."
+        )
+    }
+
+    private fun gravityTerrainModifierIsModelled(c: Context): Boolean {
+        val field = c.fieldStatuses ?: return false
+        val type = c.effectiveMoveType ?: return false
+        return when (type) {
+            PokemonType.GRASS -> field and HnsFieldStatusData.STATUS_FIELD_GRASSY_TERRAIN != 0 &&
+                c.attackerTerrainApplicability == HnsTerrainApplicability.AFFECTED
+            PokemonType.ELECTRIC -> field and HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN != 0 &&
+                c.attackerTerrainApplicability == HnsTerrainApplicability.AFFECTED
+            PokemonType.PSYCHIC -> field and HnsFieldStatusData.STATUS_FIELD_PSYCHIC_TERRAIN != 0 &&
+                c.attackerTerrainApplicability == HnsTerrainApplicability.AFFECTED
+            PokemonType.DRAGON -> field and HnsFieldStatusData.STATUS_FIELD_MISTY_TERRAIN != 0 &&
+                c.defenderTerrainApplicability == HnsTerrainApplicability.AFFECTED
+            else -> false
+        }
     }
 
     private const val ITEM_NONE = 0

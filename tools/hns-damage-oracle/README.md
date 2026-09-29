@@ -90,8 +90,10 @@ with sixteen `PARAMETRIZE` runs. Run `i`:
 3. in Doubles with a fainted defender partner, KOs that partner on the first setup turn;
 4. executes the measured move with `WITH_RNG(RNG_DAMAGE_MODIFIER, i)`, `criticalHit` forced and
    `secondaryEffect: FALSE`;
-5. captures the HP-bar damage (and, for a burned/poisoned attacker, its HP after the last setup-turn
-   tick, i.e. the HP at the hit) and prints the battle state it was computed from.
+5. captures the HP-bar damage and the attacker's HP after setup-turn damage ticks (status damage and,
+   for an affected Solar Power attacker in Sun, its maxHP/8 loss), so `hpAtHit` is the actual live HP
+   at the measured move. It then validates only the separate post-hit Solar Power residual and
+   prints the battle state used for the damage calculation.
 
 `rolls[k]` in the corpus is the hit at random factor `(85+k)%` = `WITH_RNG(..., 15-k)`. Index 0 is the
 minimum roll, 15 the maximum. The generator then verifies, per roll and fail-closed:

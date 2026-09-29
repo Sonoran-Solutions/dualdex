@@ -519,6 +519,21 @@ class SetupPlannerTest(unittest.TestCase):
         self.assertEqual(len(atk), len(dfn))
         self.assertFalse(ko)
 
+    def test_solar_power_setup_residual_is_captured_as_hp_at_hit(self):
+        scenario = next(s for s in SCENARIOS if s["id"] == "group-d-solar-power-special-sun-crit-negative-stage")
+        atk_actions, def_actions, _ = backend.plan_setup(scenario)
+        setup_turns = max(len(atk_actions), len(def_actions))
+        self.assertEqual(setup_turns, 1)
+        self.assertEqual(backend._solar_power_setup_ticks(scenario, setup_turns), 1)
+
+        source = backend.render_scenario(scenario)
+        self.assertEqual(source.count("HP_BAR(player, captureHP: &results[i].hpAtHit);"), 1)
+        self.assertIn("results[i].hpAtHit", source)
+
+        corpus = json.loads(cli.CORPUS_PATH.read_text())
+        entry = next(e for e in corpus["entries"] if e["scenario"]["id"] == scenario["id"])
+        self.assertEqual(entry["observed"]["attacker"]["hpAtHit"], 175)
+
     def test_generated_tests_capture_all_rolls_and_force_crit(self):
         files = backend.render_sources(SCENARIOS)
         self.assertEqual(files, backend.render_sources(matrix.build_scenarios()))

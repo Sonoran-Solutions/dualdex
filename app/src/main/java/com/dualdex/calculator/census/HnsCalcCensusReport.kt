@@ -1138,7 +1138,7 @@ object HnsCalcCensusReport {
             "| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 221 battles / 1,786 requests | 221 / 1,772 | -14 requests |\n"
         )
         out.append(
-            "| `HNS_ABILITY_CONDITION_UNVERIFIED` | 91 battles / 276 requests | 91 / 276 | unchanged |\n\n"
+            "| `HNS_ABILITY_CONDITION_UNVERIFIED` | 80 battles / 276 requests | 80 / 276 | unchanged |\n\n"
         )
         out.append(
             "The leading blockers are unchanged: `HNS_MOVE_MECHANICS_NOT_MODELLED` " +

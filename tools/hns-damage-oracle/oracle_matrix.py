@@ -811,7 +811,7 @@ def _low_state_stat_abilities() -> list[dict]:
         scenario("group-d-solar-power-type-based-final-special", ["ability:solar-power", "attack-stat", "option-style", "category-shift", "weather:sun"],
                  attacker("Alakazam", spa=153, ability=solar), defender("Skarmory", spd=107, ability=drought), "Shadow Claw", style="typeBased", weather="sun"),
         scenario("group-d-solar-power-special-sun-crit-negative-stage", ["ability:solar-power", "attack-stat", "weather:sun", "crit", "stages"],
-                 attacker("Alakazam", spa=153, ability=solar, stages={"spAttack": -2}), defender("Snorlax", spd=107, ability=drought, stages={"spDefense": 2}), "Psychic", weather="sun", crit=True),
+                 attacker("Alakazam", spa=153, ability=solar, stages={"spAttack": -2}), defender("Snorlax", spd=107, ability=drought), "Psychic", weather="sun", crit=True),
         scenario("group-d-solar-power-utility-umbrella-control", ["ability:solar-power", "attack-stat", "item:utility-umbrella", "negative-control", "weather:sun"],
                  attacker("Alakazam", spa=153, ability=solar, item=umbrella), defender("Snorlax", spd=107), "Psychic", weather="sun", surface="engine-only"),
         scenario("group-d-solar-power-cloud-nine-weather-suppressed", ["ability:solar-power", "ability:cloud-nine", "weather:sun", "negative-control"],

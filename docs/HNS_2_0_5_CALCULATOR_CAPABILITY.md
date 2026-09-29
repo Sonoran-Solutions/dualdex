@@ -172,7 +172,11 @@ preserves relative order for the modifiers it calculates: attacker ability, exis
 Skin, then held-item modifier. Move-effect/general-state, aura/partner, other defender-ability,
 unsupported item, and Tera contexts remain fail-closed under their existing gates.
 
-Candidate audit for later #91 slices:
+### Historical candidate audit (before PR #111)
+
+This table records the pre-#111 triage snapshot and is not the current implementation status. Solar
+Power, Defeatist, and Fur Coat were implemented in PR #111 as documented in the current stat-stage
+table above; the remaining entries below are still deferred candidates.
 
 | Candidate | Decision | Source-backed reason |
 |---|---|---|

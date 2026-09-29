@@ -146,6 +146,27 @@ def plan_setup(scenario: dict) -> tuple[list[str], list[str], bool]:
     return atk_actions, def_actions, partner_ko
 
 
+def _solar_power_weather_affected(scenario: dict) -> bool:
+    battlers = (scenario["attacker"], scenario["defender"])
+    return (
+        scenario["attacker"]["ability"] == "ABILITY_SOLAR_POWER"
+        and scenario["field"]["weather"] == "sun"
+        and not any(b["ability"] in ("ABILITY_CLOUD_NINE", "ABILITY_AIR_LOCK") for b in battlers)
+        and scenario["attacker"]["item"] != "ITEM_UTILITY_UMBRELLA"
+    )
+
+
+def _solar_power_setup_ticks(scenario: dict, setup_turns: int) -> int:
+    """Solar Power EOT ticks before the measured attack, for HP-at-hit capture planning."""
+    if setup_turns <= 0 or not _solar_power_weather_affected(scenario):
+        return 0
+    battlers = (scenario["attacker"], scenario["defender"])
+    if any(b["ability"] == "ABILITY_DROUGHT" for b in battlers):
+        return setup_turns
+    # Without Drought the planner establishes Sun with Sunny Day as its last setup action.
+    return 1
+
+
 # --------------------------------------------------------------------------------------------
 # C test generation
 # --------------------------------------------------------------------------------------------
@@ -366,14 +387,15 @@ def render_scenario(s: dict) -> str:
     ticking = s["attacker"]["status"] in ("burn", "poison", "toxic")
     setup_turns = len(atk_actions)
     scene = []
-    if ticking:
-        scene += [f"HP_BAR({atk_ref}, captureHP: &results[i].hpAtHit);"] * setup_turns
+    solar_setup_ticks = _solar_power_setup_ticks(s, setup_turns)
+    hp_capture_events = (setup_turns if ticking else 0) + solar_setup_ticks
+    scene += [f"HP_BAR({atk_ref}, captureHP: &results[i].hpAtHit);"] * hp_capture_events
     if s["expect"] == "immune":
         scene.append(f"NONE_OF {{ HP_BAR({def_ref}); }}")
     else:
         scene.append(f"HP_BAR({def_ref}, captureDamage: &results[i].damage);")
     hp0 = s["attacker"]["stats"]["hp"]
-    hp_expr = "results[i].hpAtHit" if ticking and setup_turns else str(hp0)
+    hp_expr = "results[i].hpAtHit" if hp_capture_events else str(hp0)
     def_hp = s["defender"]["stats"]["hp"]
     damage_expr = "results[i].damage" if s["expect"] == "damage" else "0"
     rules = s["rules"]
@@ -624,26 +646,10 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
                        _defender_post_hit_stage_deltas(scenario, m))
         if scenario["attacker"]["status"] == "none":
             # Solar Power's end-of-turn passive damage is outside the selected-hit damage
-            # contract. Permit only its exact post-hit 1/8 max HP loss; hpAtHit still records
-            # the live HP at the measured hit, so this residual cannot affect the oracle value.
-            solar_residual_ticks = 0
-            battlers = (scenario["attacker"], scenario["defender"])
-            solar_residual_applies = (
-                scenario["attacker"]["ability"] == "ABILITY_SOLAR_POWER"
-                and scenario["field"]["weather"] == "sun"
-                and not any(b["ability"] in ("ABILITY_CLOUD_NINE", "ABILITY_AIR_LOCK") for b in battlers)
-                and scenario["attacker"]["item"] != "ITEM_UTILITY_UMBRELLA"
-            )
-            if solar_residual_applies:
-                solar_setter = any(b["ability"] == "ABILITY_DROUGHT" for b in battlers)
-                if solar_setter:
-                    atk_actions, def_actions, _ = plan_setup(scenario)
-                    solar_residual_ticks = max(len(atk_actions), len(def_actions)) + 1
-                else:
-                    # Sunny Day is the final setup action, so it can tick once on that turn
-                    # and again after the measured attack, regardless of earlier stage setup.
-                    solar_residual_ticks = 2
-            solar_residual = (scenario["attacker"]["stats"]["maxHp"] // 8) * solar_residual_ticks
+            # contract. hpAtHit is captured after the setup turns; permit only the exact single
+            # post-hit 1/8 max HP loss, which cannot affect the measured damage value.
+            solar_residual = (scenario["attacker"]["stats"]["maxHp"] // 8
+                              if _solar_power_weather_affected(scenario) else 0)
             expected_hp = hp_at_hit - solar_residual
             if atk["hp"] != expected_hp:
                 raise OracleError(f"{sid}: attacker HP changed without a status or exact Solar Power residual ({atk['hp']}, expected {expected_hp})")

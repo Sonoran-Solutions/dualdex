@@ -387,7 +387,7 @@ This fixed comparison records the Solar Power / Defeatist / Fur Coat stat-stage 
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 battles / 3,578 requests | 557 / 3,578 | unchanged |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 / 152 | 68 / 152 | unchanged |
 | `HNS_ABILITY_EFFECT_NOT_MODELLED` | 221 battles / 1,786 requests | 221 / 1,772 | -14 requests |
-| `HNS_ABILITY_CONDITION_UNVERIFIED` | 91 battles / 276 requests | 91 / 276 | unchanged |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` | 80 battles / 276 requests | 80 / 276 | unchanged |
 
 The leading blockers are unchanged: `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578 requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218), Swift Swim (38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm (28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70).
 

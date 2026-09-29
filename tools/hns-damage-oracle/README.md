@@ -190,8 +190,8 @@ The regenerated issue #91 corpus records the effective type and `ateBoost` for e
 main at `bc4aff798414c771c06de290481bda17d0aebb2f` had 1,505 scenarios (1,392 production-modelled,
 113 engine-only). This slice adds the defender Water Bubble and Heatproof base-power vectors, keeps
 the Water Bubble Fire scenario's stable ID, promotes it after exact parity, and retains the
-engine-only Mold Breaker controls. The refreshed corpus has **1,518 scenarios: 1,404
-production-modelled, 114 engine-only, 1,516 exact calculator matches and two registered
+engine-only Mold Breaker controls. The refreshed corpus has **1,521 scenarios: 1,407
+production-modelled, 114 engine-only, 1,519 exact calculator matches and two registered
 divergences**. Both remaining exact-vector divergences are linked to #100 in
 `known_divergences.json`:
 

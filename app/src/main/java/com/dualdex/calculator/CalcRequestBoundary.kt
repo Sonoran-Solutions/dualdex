@@ -597,9 +597,19 @@ object CalcRequestBoundary {
             observation = enemyBattlerState,
             isExactVerified = isExactVerified
         )
+        val attackerSpeciesId = authoritativeObservedSpecies(
+            participantPartySlot = request.attacker.partySlot,
+            observation = playerBattlerState,
+            isExactVerified = isExactVerified
+        )
         val attackerStatus1 = authoritativeObservedStatus1(
             participantPartySlot = request.attacker.partySlot,
             observation = playerBattlerState,
+            isExactVerified = isExactVerified
+        )
+        val defenderStatus1 = authoritativeObservedStatus1(
+            participantPartySlot = request.defender.partySlot,
+            observation = enemyBattlerState,
             isExactVerified = isExactVerified
         )
         val fieldStatuses = authoritativeObservedFieldStatuses(
@@ -746,7 +756,9 @@ object CalcRequestBoundary {
             defenderHp = defenderHpPair?.first,
             defenderMaxHp = defenderHpPair?.second,
             defenderSpeciesId = defenderSpeciesId,
+            attackerSpeciesId = attackerSpeciesId,
             attackerStatus1 = attackerStatus1,
+            defenderStatus1 = defenderStatus1,
             weatherObserved = weather != null,
             weatherWord = weather ?: 0,
             defenderScreensObserved = defenderSideStatuses != null,

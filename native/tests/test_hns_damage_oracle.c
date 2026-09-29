@@ -213,7 +213,8 @@ static const char* capitalised_category(const char* c) {
 
 /* One battler of the production H&S request. `role` is "attacker" or "defender". */
 static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b, const char* role, err_t* err) {
-    long level, max_hp, hp_at_hit, atk, def, spa, spd, spe, atk_stage = 0, spa_stage = 0, def_stage = 0, spd_stage = 0;
+    long level, max_hp, hp_at_hit, atk, def, spa, spd, spe, species_id, item_id;
+    long atk_stage = 0, spa_stage = 0, def_stage = 0, spd_stage = 0;
     const jl_value* stats = get_obj(scen_b, "stats", err);
     const jl_value* stages = get_obj(scen_b, "stages", err);
     const jl_value* base = get_obj(obs_b, "baseStats", err);
@@ -225,7 +226,9 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
     const char* item_label = jl_str(jl_get(scen_b, "itemLabel"));
     if (!stats || !stages || !base || !badges || !species || !ability || !status) return 0;
     if (!jl_is_arr(types) || jl_len(types) < 1 || jl_len(types) > 2) return set_err(err, "%s types malformed", role);
-    if (!get_int(scen_b, "level", 1, 100, &level, err) || !get_int(stats, "maxHp", 1, 65535, &max_hp, err) ||
+    if (!get_int(obs_b, "speciesId", 1, 65535, &species_id, err) ||
+        !get_int(obs_b, "itemId", 0, 65535, &item_id, err) ||
+        !get_int(scen_b, "level", 1, 100, &level, err) || !get_int(stats, "maxHp", 1, 65535, &max_hp, err) ||
         !get_int(obs_b, "hpAtHit", 1, 65535, &hp_at_hit, err) || !get_int(stats, "attack", 1, 65535, &atk, err) ||
         !get_int(stats, "defense", 1, 65535, &def, err) || !get_int(stats, "spAttack", 1, 65535, &spa, err) ||
         !get_int(stats, "spDefense", 1, 65535, &spd, err) || !get_int(stats, "speed", 1, 65535, &spe, err))
@@ -258,6 +261,7 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
     if (strcmp(status, "burn") == 0) sb_append(sb, ",\"status\":\"brn\"");
     else if (strcmp(status, "poison") == 0) sb_append(sb, ",\"status\":\"psn\"");
     else if (strcmp(status, "toxic") == 0) sb_append(sb, ",\"status\":\"psn\"");
+    else if (strcmp(status, "paralysis") == 0) sb_append(sb, ",\"status\":\"par\"");
     else if (strcmp(status, "none") != 0) return set_err(err, "%s status %s unsupported", role, status);
     sb_append(sb, ",\"overrides\":{\"types\":[");
     for (int i = 0; i < jl_len(types); i++) {
@@ -273,6 +277,7 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
     sb_append(sb, ",\"hpAtHit\":%ld,\"maxHpAtHit\":%ld", hp_at_hit, max_hp);
     if (strcmp(role, "attacker") == 0) sb_append(sb, ",\"hp\":%ld,\"maxHP\":%ld", hp_at_hit, max_hp);
     sb_append(sb, ",\"status1\":%ld", status1);
+    sb_append(sb, ",\"hnsSpeciesId\":%ld,\"hnsEffectiveItemId\":%ld", species_id, item_id);
     sb_append(sb, ",\"rawStats\":{\"attack\":%ld,\"defense\":%ld,\"speed\":%ld,\"spAttack\":%ld,\"spDefense\":%ld}",
               atk, def, spe, spa, spd);
     /* gBattleMons statStages order: HP, Atk, Def, Speed, SpAtk, SpDef, Acc, Evasion (relative). */
@@ -346,7 +351,25 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         if (i) sb_append(sb, ",");
         sb_json_string(sb, flag);
     }
-    sb_append(sb, "],\"effectivePriority\":%ld,\"hnsTargetClass\":%ld,\"overrides\":{\"basePower\":%ld,\"type\":",
+    const char* source_effect = get_str(o_move, "effect", err);
+    const jl_value* ordinary = jl_get(o_move, "ordinary");
+    const jl_value* makes_contact = jl_get(o_move, "makesContact");
+    const jl_value* punching_move = jl_get(o_move, "punchingMove");
+    const jl_value* sheer_force = jl_get(o_move, "sheerForceAffected");
+    if (!source_effect || !jl_is_bool(ordinary)) return set_err(err, "oracle source move metadata is malformed");
+    sb_append(sb, "],\"hnsMoveId\":%ld,\"hnsMoveEffect\":", jl_num(jl_get(o_move, "id")));
+    sb_json_string(sb, source_effect);
+    sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsMakesContact\":",
+              jl_bool(ordinary) ? "true" : "false");
+    if (jl_is_bool(makes_contact)) sb_append(sb, "%s", jl_bool(makes_contact) ? "true" : "false");
+    else sb_append(sb, "null");
+    sb_append(sb, ",\"hnsUnknownContact\":%s,\"hnsUnknownPunching\":%s,\"hnsSheerForceAffected\":",
+              jl_is_bool(makes_contact) ? "false" : "true",
+              jl_is_bool(punching_move) ? "false" : "true");
+    if (jl_is_bool(sheer_force)) sb_append(sb, "%s", jl_bool(sheer_force) ? "true" : "false");
+    else sb_append(sb, "null");
+    sb_append(sb, ",\"hnsUnknownSheerForce\":%s,\"effectivePriority\":%ld,\"hnsTargetClass\":%ld,\"overrides\":{\"basePower\":%ld,\"type\":",
+              jl_is_bool(sheer_force) ? "false" : "true",
               priority, target_class, power);
     sb_json_string(sb, move_type);
     /* Production serializes the category resolved from the pinned H&S source. Under TYPE_BASED
@@ -358,10 +381,13 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     if (!cap) return set_err(err, "unknown move category %s", category);
     sb_append(sb, ",\"category\":\"%s\",\"ateBoost\":%s", cap, ate_boost ? "true" : "false");
     sb_append(sb, "}},\"field\":{\"gameType\":\"%s\"", doubles ? "Doubles" : "Singles");
-    if (strcmp(weather, "rain") == 0) sb_append(sb, ",\"weather\":\"Rain\"");
-    else if (strcmp(weather, "sun") == 0) sb_append(sb, ",\"weather\":\"Sun\"");
+    long weather_word = 0;
+    if (strcmp(weather, "rain") == 0) { sb_append(sb, ",\"weather\":\"Rain\""); weather_word = 1; }
+    else if (strcmp(weather, "sun") == 0) { sb_append(sb, ",\"weather\":\"Sun\""); weather_word = 8; }
+    else if (strcmp(weather, "sandstorm") == 0) { sb_append(sb, ",\"weather\":\"Sandstorm\""); weather_word = 32; }
     else if (strcmp(weather, "none") != 0) return set_err(err, "unknown weather %s", weather);
     sb_append(sb, ",\"hnsFieldStatuses\":%ld", field_statuses);
+    sb_append(sb, ",\"hnsWeatherWord\":%ld", weather_word);
     sb_append(sb, ",\"hnsTerrainAttackerAffected\":%s,\"hnsTerrainDefenderAffected\":%s",
               attacker_terrain_affected ? "true" : "false",
               defender_terrain_affected ? "true" : "false");

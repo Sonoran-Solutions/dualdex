@@ -26,6 +26,7 @@ CONTEXT_CANDIDATES = {
     223, 224, 234, 235, 236, 238, 243, 247, 250, 254, 259, 268, 271, 275, 290, 291,
     220, 244, 252, 264, 265, 270, 308, 89, 94, 96, 101, 110, 111, 116, 129, 136, 137, 138, 169, 173, 174, 179,
     178, 182, 184, 199, 200, 204, 206, 231, 232, 233, 246, 262, 263, 276, 288, 289, 292,
+    63, 120, 122, 125, 159, 181, 217, 218, 249,
 }
 POLICY = ROOT / "app/src/main/java/com/dualdex/calculator/HnsAbilityContextPolicy.kt"
 GROUP_C_POLICY = ROOT / "app/src/main/java/com/dualdex/calculator/HnsGroupCPolicy.kt"
@@ -226,6 +227,8 @@ def main():
     validate_context_rules(upstream, abilities, decisions)
     terapagos_terastal = pinned_species_constant(
         extractor.find_cpp_bin(args.cpp_bin), upstream, "SPECIES_TERAPAGOS_TERASTAL")
+    cherrim_sunshine = pinned_species_constant(
+        extractor.find_cpp_bin(args.cpp_bin), upstream, "SPECIES_CHERRIM_SUNSHINE")
     if "TERAPAGOS_TERASTAL_SPECIES_ID = HnsAbilityAuditData.TERAPAGOS_TERASTAL_SPECIES_ID" not in POLICY.read_text():
         raise SystemExit("HnsAbilityContextPolicy must take the Terapagos-Terastal ID from the generated audit data")
     source_refs = {}
@@ -286,6 +289,8 @@ def main():
               "internal object HnsAbilityAuditData {",
               "    /** Pinned SPECIES_TERAPAGOS_TERASTAL (include/constants/species.h), resolved by the ARM preprocessor. */",
               f"    const val TERAPAGOS_TERASTAL_SPECIES_ID: Int = {terapagos_terastal}",
+              "    /** Pinned SPECIES_CHERRIM_SUNSHINE (include/constants/species.h), resolved by the ARM preprocessor. */",
+              f"    const val CHERRIM_SUNSHINE_SPECIES_ID: Int = {cherrim_sunshine}",
               "",
               "    val entries: List<HnsAbilityEntry> = listOf("]
     for aid, symbol, display, current, cat, evidence, rationale in rows:

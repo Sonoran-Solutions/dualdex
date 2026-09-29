@@ -164,6 +164,38 @@ class ParseMoveTableTest(unittest.TestCase):
         self.assertNotIn("MOVE_GROWTH", effects)
         self.assertIn("MOVE_GROWTH", unresolved)
 
+    def test_contact_and_punching_facts_are_source_literals(self):
+        contact, unknown, _, _ = gen.parse_contact_and_sheer_force(_table(
+            PLAIN.replace('.power = 40,', '.power = 40,\n        .makesContact = TRUE,\n        .punchingMove = TRUE,')
+        ))
+        self.assertEqual(contact["MOVE_POUND"], {"makesContact", "punchingMove"})
+        self.assertEqual(unknown["MOVE_POUND"], set())
+
+    def test_conditional_contact_fails_closed(self):
+        entry = PLAIN.replace('.power = 40,', '#if OPTION\n        .makesContact = TRUE,\n#endif\n        .power = 40,')
+        contact, unknown, _, _ = gen.parse_contact_and_sheer_force(_table(entry))
+        self.assertNotIn("makesContact", contact["MOVE_POUND"])
+        self.assertIn("makesContact", unknown["MOVE_POUND"])
+
+    def test_sheer_force_matches_pinned_chance_override_xor(self):
+        yes = PLAIN.replace('.power = 40,', '.power = 40,\n        .additionalEffects = ADDITIONAL_EFFECTS({ .chance = 30 }),')
+        versioned_positive = PLAIN.replace('MOVE_POUND', 'MOVE_FIRE_BLAST').replace(
+            '.power = 40,', '.power = 40,\n        .additionalEffects = ADDITIONAL_EFFECTS({ .chance = B_UPDATED_MOVE_DATA >= GEN_2 ? 10 : 30 }),')
+        overridden = PLAIN.replace('MOVE_POUND', 'MOVE_TACKLE').replace('.power = 40,', '.power = 40,\n        .additionalEffects = ADDITIONAL_EFFECTS({ .chance = 30, .sheerForceOverride = TRUE }),')
+        certain = PLAIN.replace('MOVE_POUND', 'MOVE_DOUBLE_SLAP').replace('.power = 40,', '.power = 40,\n        .additionalEffects = ADDITIONAL_EFFECTS({ .chance = 0 }),')
+        _, _, sheers, unknown = gen.parse_contact_and_sheer_force(_table(yes, versioned_positive, overridden, certain))
+        self.assertTrue(sheers["MOVE_POUND"])
+        self.assertTrue(sheers["MOVE_FIRE_BLAST"])
+        self.assertFalse(sheers["MOVE_TACKLE"])
+        self.assertFalse(sheers["MOVE_DOUBLE_SLAP"])
+        self.assertNotIn("MOVE_POUND", unknown)
+
+    def test_conditional_additional_effect_fails_closed(self):
+        entry = PLAIN.replace('.power = 40,', '.power = 40,\n#if OPTION\n        .additionalEffects = ADDITIONAL_EFFECTS({ .chance = 30 }),\n#endif')
+        _, _, sheers, unknown = gen.parse_contact_and_sheer_force(_table(entry))
+        self.assertFalse(sheers)
+        self.assertTrue(unknown["MOVE_POUND"])
+
     def test_zmove_effect_is_ignored(self):
         effects, targets, ordinary, _, _, _, _, _ = gen.parse_move_table(_table(Z_MOVE))
         self.assertEqual(effects["MOVE_SWORDS_DANCE"], "EFFECT_ATTACK_UP_2")
@@ -238,7 +270,14 @@ class CommittedArtifactTest(unittest.TestCase):
     def setUpClass(cls):
         with open(cls.ARTIFACT, encoding="utf-8") as handle:
             cls.text = handle.read()
-        cls.ordinary = set(int(x) for x in re.findall(r"^        (\d+),$", cls.text, re.M))
+        ordinary_block = re.search(
+            r"val ordinaryMoveIds: Set<Int> = setOf\((.*?)^    \)",
+            cls.text,
+            re.M | re.S,
+        )
+        if ordinary_block is None:
+            raise AssertionError("generated ordinaryMoveIds block is missing")
+        cls.ordinary = set(int(x) for x in re.findall(r"^        (\d+),$", ordinary_block.group(1), re.M))
         cls.effects = dict(
             (int(i), e)
             for i, e in re.findall(r'put\((\d+), "([A-Z0-9_]+)"\)', cls.text)

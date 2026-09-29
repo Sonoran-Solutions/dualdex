@@ -15,14 +15,22 @@ pinned H&S battle code (1f42b74d)  ->  this oracle  ->  corpus.json (committed, 
 * **Is:** a generator that builds the pinned H&S tree's own battle test runner and measures, for each
   scenario, the HP actually removed by one hit for each of the 16 damage-roll values. Every roll is a
   separate, fresh battle. The corpus stores the scenario inputs, what the engine reported about the
-  hit (IDs, battle types, base stats, effective move type/power/category/flags/effective priority/
-  target class, explicit `ateBoost`, target count, raw `status1` words, badge-boost verdicts)
-  and the 16 measured rolls.
+  hit (IDs including live species/form and effective item IDs, battle types, base stats, effective
+  move type/power/category/effect/contact/punching/Sheer Force metadata/effective priority/target
+  class, explicit `ateBoost`, target count, raw `status1` words, badge-boost verdicts) and the 16
+  measured rolls.
 * **Is not:** `@smogon/calc`, DualDex's `calculateHnsDamage`, `calc_bundle.js` or any Kotlin damage
   code. None of those are imported or executed by the generator. The type tables in
   `oracle_matrix.py` only choose interesting scenarios; they are never expected values.
 * **Is not** a ROM runtime probe. No ROM, BIOS, save file or commercial binary is used, read or
   committed. The test ELF is compiled from the pinned source in a scratch directory and never leaves it.
+
+Move contact and Sheer Force values in `observed.move` are emitted by the pinned runner and checked
+against source-generated move metadata. The metadata generator verifies `MoveMakesContact`,
+`IsPunchingMove`, `MoveIsAffectedBySheerForce`, and `IsMoveMakingContact` source contracts; unknown
+conditional entries stay unknown. Raw Sandstorm is accepted by the oracle schema for isolated
+engine-only Sand Force vectors, while production weather authority remains limited to its existing
+supported contexts.
 
 ## Backend choice: Option A (pinned expansion test runner)
 
@@ -191,14 +199,12 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-The regenerated issue #91 corpus records the effective type and `ateBoost` for each hit. Starting
-main at `6f3a50683724bb3fd539bb062e63238d36ed1e6f` had 1,521 scenarios (1,407 production-modelled,
-114 engine-only). This slice adds Solar Power, Defeatist, and Fur Coat low-state stat-stage coverage,
-including exact Sun suppression, integer HP threshold, final move category, Wonder Room, Mold
-Breaker, and Ability Shield controls. This Group D addition contributes 16 production-modelled
-and two engine-only cases. The refreshed corpus has **1,562 scenarios: 1,443
-production-modelled, 119 engine-only, 1,560 exact calculator matches and two registered
-divergences**. Both remaining exact-vector divergences are linked to #100 in
+The issue #91 corpus records the effective type and `ateBoost` for each hit. Starting `main` at
+`f822410fdb7d7798ca23b757a0cdc313266ec74f` had 1,589 scenarios (1,470 production-modelled,
+119 engine-only). This slice adds 38 scenarios for Marvel Scale, holder-side Singles Flower Gift,
+Sheer Force, Tough Claws, Fluffy, and request-local controls for Reckless, Sand Force, Battery, and
+Power Spot. The current corpus has **1,627 scenarios: 1,502 production-modelled, 125 engine-only,
+1,625 exact calculator matches and the same two registered divergences**. Both remaining exact-vector divergences are linked to #100 in
 `known_divergences.json`:
 
 | Issue | Surface | Scenarios | Defect |
@@ -214,7 +220,7 @@ prior Group D scenarios cover Hustle/Guts and base-power cases for Technician, I
 Mega Launcher, Sharpness, both direct-damage Water Bubble branches, defender Heatproof, Dry Skin's
 distinct Fire ×1.25 control, Steelworker, Toxic Boost, and Flare Boost. The stat-ability slices add
 23 vectors for Solar Power, Defeatist, and Fur Coat, plus 18 for Transistor, Dragon's Maw, Rocky
-Payload, and Orichalcum Pulse; Group D now contains 140 scenarios (132 production-modelled and 8
+Payload, and Orichalcum Pulse. Group D now contains 178 scenarios (164 production-modelled and 14
 engine-only). Solar Power's after-turn HP loss remains outside the selected-hit damage contract.
 Water Bubble burn prevention and status clearing remain separately deferred. The Toxic Boost toxic
 case preserves the live toxic counter in `status1`. The Guts Special active-status control remains
@@ -243,7 +249,7 @@ category divergences now match the pinned `gTypesInfo` categories.
 | `wise-glasses-*`, `badge-*` | 53 | BP rounding, physical/defender negative controls, type-based crossover; badges 1/3/6/7 both sides, pinch+badge modifier accumulation |
 | `fairy-*`, `style-*` | 66 | Fairy on/off typings and move retypes, immunity on/off, type-based categories |
 | `group-c-*` | 43 | source-backed move/ability immunity causes, including attacker/defender and bypass controls |
-| `group-d-*` | 86 | Hustle/Guts attack-stage, base-power, move-type rewrite, Punk Rock, and Steely Spirit cases with threshold, category, move-flag, type, role, status, and composition controls |
+| `group-d-*` | 178 | Hustle/Guts, stat and base-power abilities, terrain and type rewrites, contact, weather, status, suppression, and composition controls |
 | `engine-*`, `doubles-*` | 103 | engine-only: Thick Fat, Guts, Huge/Pure Power, 17 type-boost items, Doubles single-target/spread/partner-fainted/screens/Rain |
 | `final-*` | 60 | Adaptability STAB rewrites/Fairy toggle; final ability thresholds, roles, 0.5/0.25/2/4 effectiveness, crit, HP/category, immunity, Mold Breaker/Ability Shield, speed order, rounding, and damage-floor controls |
 | `xref-*` | 34 | existing fixture reproductions |

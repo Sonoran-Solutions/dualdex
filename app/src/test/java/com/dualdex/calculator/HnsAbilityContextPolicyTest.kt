@@ -3,6 +3,7 @@ package com.dualdex.calculator
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.hns.HnsAbilityCategory
+import com.dualdex.pokemon.hns.HnsAbilityAuditData
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -20,13 +21,16 @@ class HnsAbilityContextPolicyTest {
         moveBasePower: Int? = null,
         moveAbilityFlags: Set<String>? = null,
         unknownMoveAbilityFlags: Set<String>? = null,
+        sheerForceAffected: Boolean? = null,
         soundMove: Boolean? = null,
         moveAuthority: HnsMoveAuthority? = null,
         attackerTypes: Set<PokemonType>? = setOf(PokemonType.GRASS),
         defenderSpeciesId: Int? = 16,
+        attackerSpeciesId: Int? = null,
         defenderHp: Int? = 14,
         defenderMaxHp: Int? = 15,
         attackerStatus1: Int? = 0,
+        defenderStatus1: Int? = 0,
         observedBattlersCount: Int? = 2,
         dynamicMoveTypeKnownNeutral: Boolean = true,
         defenderItemId: Int? = 0,
@@ -56,12 +60,15 @@ class HnsAbilityContextPolicyTest {
         moveBasePower = moveBasePower,
         moveAbilityFlags = moveAbilityFlags,
         unknownMoveAbilityFlags = unknownMoveAbilityFlags,
+        sheerForceAffected = sheerForceAffected,
         soundMove = soundMove,
         attackerTypes = attackerTypes,
         defenderSpeciesId = defenderSpeciesId,
+        attackerSpeciesId = attackerSpeciesId,
         defenderHp = defenderHp,
         defenderMaxHp = defenderMaxHp,
         attackerStatus1 = attackerStatus1,
+        defenderStatus1 = defenderStatus1,
         observedBattlersCount = observedBattlersCount,
         dynamicMoveTypeKnownNeutral = dynamicMoveTypeKnownNeutral,
         defenderItemId = defenderItemId,
@@ -416,6 +423,90 @@ class HnsAbilityContextPolicyTest {
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             relevance(94, context(attackerAbilityId = 94, moveCategory = MoveCategory.SPECIAL,
                 weatherWord = sun, defenderAbilityId = 13)))
+    }
+
+    @Test
+    fun `Marvel Scale reads defender raw status and Defense selection only`() {
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, relevance(63, context(
+            side = HnsAbilitySide.DEFENDER, defenderAbilityId = 63, moveCategory = MoveCategory.PHYSICAL,
+            defenderStatus1 = 0x20, fieldStatuses = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(63, context(
+            side = HnsAbilitySide.DEFENDER, defenderAbilityId = 63, moveCategory = MoveCategory.PHYSICAL,
+            defenderStatus1 = 0, fieldStatuses = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(63, context(
+            side = HnsAbilitySide.DEFENDER, defenderAbilityId = 63, moveCategory = MoveCategory.SPECIAL,
+            defenderStatus1 = 0x20, fieldStatuses = 0)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN, relevance(63, context(
+            side = HnsAbilitySide.DEFENDER, defenderAbilityId = 63, defenderStatus1 = null, fieldStatuses = 0)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN, relevance(63, context(
+            side = HnsAbilitySide.DEFENDER, defenderAbilityId = 63, defenderStatus1 = 0x20, fieldStatuses = 0x4)))
+    }
+
+    @Test
+    fun `Flower Gift uses live Cherrim form and the holder's Umbrella`() {
+        val form = HnsAbilityAuditData.CHERRIM_SUNSHINE_SPECIES_ID
+        val umbrella = com.dualdex.pokemon.hns.HnsItemRegistry.resolveIdByName("Utility Umbrella")
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, relevance(122, context(
+            side = HnsAbilitySide.DEFENDER, defenderAbilityId = 122, defenderSpeciesId = form,
+            moveCategory = MoveCategory.SPECIAL, weatherWord = 8, defenderItemId = 0)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, relevance(122, context(
+            side = HnsAbilitySide.DEFENDER, defenderAbilityId = 122, defenderSpeciesId = form,
+            moveCategory = MoveCategory.SPECIAL, weatherWord = 8, attackerItemId = umbrella, defenderItemId = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(122, context(
+            side = HnsAbilitySide.DEFENDER, defenderAbilityId = 122, defenderSpeciesId = form,
+            moveCategory = MoveCategory.SPECIAL, weatherWord = 0, defenderItemId = umbrella)))
+    }
+
+    @Test
+    fun `Tough Claws and Fluffy share pinned contact decisions`() {
+        val firePunch = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName("Fire Punch")!!.id
+        val tackle = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName("Tackle")!!.id
+        val punchGlove = com.dualdex.pokemon.hns.HnsItemRegistry.resolveIdByName("Punching Glove")
+        val pads = com.dualdex.pokemon.hns.HnsItemRegistry.resolveIdByName("Protective Pads")
+        assertEquals(HnsContactAuthority.CONTACT, HnsContactRules.assess(firePunch, true, 181, true, pads))
+        assertEquals(HnsContactAuthority.NON_CONTACT, HnsContactRules.assess(firePunch, true, 0, true, punchGlove))
+        assertEquals(HnsContactAuthority.NON_CONTACT, HnsContactRules.assess(firePunch, true, 203, true, 0))
+        assertEquals(HnsContactAuthority.CONTACT, HnsContactRules.assess(tackle, true, 0, true, 0))
+        assertEquals(HnsContactAuthority.UNKNOWN, HnsContactRules.assess(firePunch, true, null, false, 0))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, relevance(181, context(
+            attackerAbilityId = 181, moveId = firePunch, attackerItemId = pads)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(181, context(
+            attackerAbilityId = 181, moveId = firePunch, attackerItemId = punchGlove)))
+    }
+
+    @Test
+    fun `Sheer Force consumes source generated helper result`() {
+        val scald = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName("Scald")!!.id
+        val payDay = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName("Pay Day")!!.id
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, relevance(125, context(
+            attackerAbilityId = 125, moveId = scald,
+            sheerForceAffected = com.dualdex.pokemon.hns.Hns205MoveEffects.sheerForceAffectedById[scald])))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(125, context(
+            attackerAbilityId = 125, moveId = payDay,
+            sheerForceAffected = com.dualdex.pokemon.hns.Hns205MoveEffects.sheerForceAffectedById[payDay])))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN, relevance(125, context(
+            attackerAbilityId = 125, moveId = scald, sheerForceAffected = null)))
+    }
+
+    @Test
+    fun `Fluffy applies exact four cell Fire contact matrix`() {
+        fun fluffy(move: String, type: PokemonType) = relevance(218, context(
+            side = HnsAbilitySide.DEFENDER, defenderAbilityId = 218,
+            moveId = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(move)!!.id,
+            moveType = type, moveCategory = if (type == PokemonType.FIRE) MoveCategory.PHYSICAL else MoveCategory.PHYSICAL))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, fluffy("Fire Punch", PokemonType.FIRE))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, fluffy("Fire Blast", PokemonType.FIRE))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, fluffy("Tackle", PokemonType.NORMAL))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, fluffy("Psychic", PokemonType.PSYCHIC))
+    }
+
+    @Test
+    fun `Reckless Sand Force Battery and Power Spot clear only proven inactive requests`() {
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(120, context(attackerAbilityId = 120)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(159, context(attackerAbilityId = 159, weatherWord = 0)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, relevance(159, context(attackerAbilityId = 159, weatherWord = 0x20, moveType = PokemonType.GROUND)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(217, context(attackerAbilityId = 217, observedBattlersCount = 2)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(249, context(attackerAbilityId = 249, observedBattlersCount = 2)))
     }
 
     @Test

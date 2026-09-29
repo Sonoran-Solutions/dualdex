@@ -58,10 +58,19 @@ class HnsDamageOracleAuthorityTest {
 
     private fun checkBattler(id: String, scenario: JSONObject, observed: JSONObject, fairy: Boolean) {
         val label = scenario.getString("speciesLabel")
-        val species = HeartAndSoul205DataPack.getSpeciesByName(label)
-            ?: throw AssertionError("$id: data pack has no species named $label")
-        assertEquals("$id: $label species ID", observed.getInt("speciesId"), species.id)
-        val override = CalcDataOverrides.buildSpeciesOverride(label, HeartAndSoul205DataPack, fairy)
+        // Cherrim-Sunshine is a live H&S form ID (1061) absent from the species name table;
+        // the calculator uses the base Cherrim stat/type record while the boundary carries the
+        // observed form ID separately for Flower Gift's source predicate.
+        val dataPackLabel = if (label == "Cherrim-Sunshine") "Cherrim" else label
+        val species = HeartAndSoul205DataPack.getSpeciesByName(dataPackLabel)
+            ?: throw AssertionError("$id: data pack has no species named $dataPackLabel")
+        if (label == "Cherrim-Sunshine") {
+            assertEquals("$id: live Sunshine form species ID", 1061, observed.getInt("speciesId"))
+            assertEquals("$id: base Cherrim species ID", 421, species.id)
+        } else {
+            assertEquals("$id: $label species ID", observed.getInt("speciesId"), species.id)
+        }
+        val override = CalcDataOverrides.buildSpeciesOverride(dataPackLabel, HeartAndSoul205DataPack, fairy)
             ?: throw AssertionError("$id: no production species override for $label")
         assertEquals("$id: $label battle types (fairy=$fairy)", observed.getJSONArray("types").strings(), override.types)
         val base = observed.getJSONObject("baseStats")

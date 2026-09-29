@@ -287,12 +287,16 @@ data class CalcHnsLiveBattleState(
     val defenderMaxHp: Int? = null,
     /** Boundary-owned current defender battle species/form ID; null means it was not observed. */
     val defenderSpeciesId: Int? = null,
+    /** Boundary-owned current attacker battle species/form from its existing live observation. */
+    val attackerSpeciesId: Int? = null,
     /**
      * The attacker's authoritative `status1` word, or null when unread. 0 is an observed
      * "no status". Positive values are usable only for the exact Guts, Toxic Boost, and Flare
      * Boost damage contexts that the request-local ability policy proves.
      */
     val attackerStatus1: Int? = null,
+    /** Boundary-owned defender status1 word; 0 is observed status-free. */
+    val defenderStatus1: Int? = null,
     // --- Gap C4e correction: live field conditions -------------------------------------------
     /**
      * The battle-global `gBattleWeather` flags word, or null when it was not read. The boundary

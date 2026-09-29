@@ -198,12 +198,41 @@ class HnsAbilityContextPolicyTest {
         }
         assertEquals(HnsAbilityRequestRelevance.RELEVANT,
             bp(199, context(moveType = PokemonType.WATER)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            bp(199, context(moveType = null, dynamicMoveTypeKnownNeutral = false)))
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             bp(199, context(moveType = PokemonType.FIRE)))
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             bp(199, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.NORMAL)))
-        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
             bp(199, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.FIRE)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            bp(199, context(side = HnsAbilitySide.DEFENDER, moveType = null,
+                dynamicMoveTypeKnownNeutral = false)))
+        assertEquals("an unresolved authority cannot fall back to a source Fire type",
+            HnsAbilityRequestRelevance.UNKNOWN,
+            bp(199, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.FIRE,
+                moveAuthority = HnsMoveAuthority.NONE)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            bp(85, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.FIRE,
+                moveCategory = MoveCategory.SPECIAL)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            bp(85, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.FIRE,
+                moveCategory = MoveCategory.PHYSICAL)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(85, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.NORMAL)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            bp(85, context(side = HnsAbilitySide.ATTACKER, moveType = PokemonType.FIRE)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            bp(85, context(side = HnsAbilitySide.DEFENDER, moveType = null,
+                dynamicMoveTypeKnownNeutral = false)))
+        assertEquals("Heatproof requires the final authoritative type",
+            HnsAbilityRequestRelevance.UNKNOWN,
+            bp(85, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.FIRE,
+                moveAuthority = HnsMoveAuthority.NONE)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            bp(85, context(side = HnsAbilitySide.DEFENDER, ordinaryMove = false,
+                moveType = PokemonType.FIRE)))
         assertEquals(HnsAbilityRequestRelevance.RELEVANT,
             bp(200, context(moveType = PokemonType.STEEL)))
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,

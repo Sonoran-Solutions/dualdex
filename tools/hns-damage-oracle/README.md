@@ -187,17 +187,17 @@ minimise the case and investigate.
 ## Current result and known divergences
 
 The regenerated issue #91 corpus records the effective type and `ateBoost` for each hit. Starting
-main at `69d5eab757b7ca56e76b6c98369c17ea5eb8c99e` had 1,453 scenarios (1,336 production-modelled,
-117 engine-only). This slice promotes eight Adaptability controls, removes those cases from the
-engine-only set, and adds the low-state final-modifier matrix. The refreshed corpus has
-**1,505 scenarios: 1,392 production-modelled, 113 engine-only, 1,502 exact calculator matches and
-three registered divergences**. The three pre-existing exact-vector divergences remain registered
-in `known_divergences.json`, each linked to its tracking issue:
+main at `bc4aff798414c771c06de290481bda17d0aebb2f` had 1,505 scenarios (1,392 production-modelled,
+113 engine-only). This slice adds the defender Water Bubble and Heatproof base-power vectors, keeps
+the Water Bubble Fire scenario's stable ID, promotes it after exact parity, and retains the
+engine-only Mold Breaker controls. The refreshed corpus has **1,521 scenarios: 1,407
+production-modelled, 114 engine-only, 1,519 exact calculator matches and two registered
+divergences**. Both remaining exact-vector divergences are linked to #100 in
+`known_divergences.json`:
 
 | Issue | Surface | Scenarios | Defect |
 |---|---|---:|---|
 | [#100](https://github.com/Sonoran-Solutions/dualdex/issues/100) | engine-only | 2 | Doubles spread reduction misses post-Gen-III spread moves |
-| [#91](https://github.com/Sonoran-Solutions/dualdex/issues/91) | engine-only | 1 | Defender-side Water Bubble Fire reduction remains unsupported |
 
 The Attack-stat accumulator makes `badge-pinch-overgrow-a255` exact, resolving #98's only registered
 vector. The Guts Physical-category gate makes the burn- and poison-statused Psychic vectors exact,
@@ -205,14 +205,15 @@ resolving #99's two registered vectors. The Group D matrix also covers Normalize
 Pixilate, Aerilate, Galvanize, and Liquid Voice, including source-set `ateBoost`, Fairy-toggle
 ordering, category changes, STAB, type-chart and Group C interactions, and negative controls. The
 prior Group D scenarios cover Hustle/Guts and base-power cases for Technician, Iron Fist, Strong Jaw,
-Mega Launcher, Sharpness, the attacker-side Water Bubble branch, Steelworker, Toxic Boost, and Flare Boost. The Toxic Boost toxic
+Mega Launcher, Sharpness, both direct-damage Water Bubble branches, defender Heatproof, Dry Skin's
+distinct Fire ×1.25 control, Steelworker, Toxic Boost, and Flare Boost. Water Bubble burn prevention
+and status clearing remain separately deferred. The Toxic Boost toxic
 case preserves the live toxic counter in `status1`. The Guts Special active-status control remains
 engine-only because production does not need to model a Guts modifier on a Special move. The
 Toxic Boost Special-plus-poison control is production-modelled: its authoritative Special category
 proves the boost irrelevant, while the status gate admits the exact poison status; a production
 boundary regression verifies it reaches authorized calculator execution. The defender-side Water
-Bubble Fire case deliberately remains engine-only and registered to #91: policy keeps that defender
-condition unknown because this PR adds only Water Bubble's offensive branch.
+Bubble Fire scenario now matches the pinned engine across all 16 rolls and is production-modelled.
 
 Each registered scenario also pins its current 16-roll QuickJS calculator output in
 `known_divergences.json`. The differential test accepts only those exact wrong vectors; a new wrong

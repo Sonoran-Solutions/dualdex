@@ -536,6 +536,41 @@
     ],
     "fallback": "Unknown move or attacker ability remains UNKNOWN."
   },
+  "85": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "heatproof_attacker_direct_hit_irrelevant",
+        "predicate": "Heatproof is the attacker ability on a selected ordinary outgoing hit.",
+        "rationale": "CalcMoveBasePowerAfterModifiers checks the target ability in this branch; attacker Heatproof does not change the selected outgoing direct hit. Burn residual and AI behavior are outside this result.",
+        "evidence": [
+          { "source": "src/battle_util.c:6785", "contains": "switch (ctx->abilityDef)" },
+          { "source": "src/data/abilities.h:647", "contains": ".breakable = TRUE," }
+        ]
+      },
+      {
+        "rule": "heatproof_defender_fire_move",
+        "predicate": "Defender has Heatproof and the final authoritative type of the selected ordinary move is Fire.",
+        "rationale": "The pinned target-ability base-power slot applies UQ4.12 0.5 to Fire moves without checking category. Other burn, residual, status, and switch-AI behavior is outside the selected-hit calculator result.",
+        "evidence": [
+          { "source": "src/battle_util.c:6787", "contains": "case ABILITY_HEATPROOF:" },
+          { "source": "src/battle_util.c:6789", "contains": "if (moveType == TYPE_FIRE)" },
+          { "source": "src/battle_util.c:6791", "contains": "modifier = uq4_12_multiply(modifier, UQ_4_12(0.5));" },
+          { "source": "src/data/abilities.h:647", "contains": ".breakable = TRUE," }
+        ]
+      },
+      {
+        "rule": "heatproof_defender_nonfire_move",
+        "predicate": "Defender has Heatproof and the final authoritative type of the selected ordinary move is known not to be Fire.",
+        "rationale": "The target-ability modifier is nested under the exact Fire type predicate, so an authoritative non-Fire move is irrelevant to this selected-hit branch.",
+        "evidence": [
+          { "source": "src/battle_util.c:6789", "contains": "if (moveType == TYPE_FIRE)" }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Nonordinary moves, unknown final type or unknown effective ability remain UNKNOWN; burn residual, status, and switch-AI behavior are outside this direct-hit rule."
+  },
   "91": {
     "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
@@ -2448,19 +2483,23 @@
     "context_rules": [
       {
         "rule": "water_bubble_attacker_water_move",
-        "predicate": "Attacker has Water Bubble; selected ordinary move has authoritative effective type Water.",
-        "rationale": "The offensive 2.0 base-power branch is modeled for this context only.",
+        "predicate": "Attacker has Water Bubble; selected ordinary move has authoritative final effective type Water.",
+        "rationale": "The offensive 2.0 base-power branch is modelled for this context; this is one of Water Bubble’s two direct damage branches.",
         "evidence": [
           {
             "source": "src/battle_util.c:6707",
             "contains": "if (moveType == TYPE_WATER)"
+          },
+          {
+            "source": "src/data/abilities.h:1509",
+            "contains": ".breakable = TRUE,"
           }
         ]
       },
       {
         "rule": "water_bubble_attacker_nonwater_move",
-        "predicate": "Attacker has Water Bubble; selected ordinary move has an authoritative non-Water effective type.",
-        "rationale": "The offensive Water-only branch is proven inactive; this does not clear defender-side or burn-prevention behavior.",
+        "predicate": "Attacker has Water Bubble; selected ordinary move has an authoritative final effective type other than Water.",
+        "rationale": "The offensive Water-only branch is inactive. Water Bubble’s defender Fire branch is assessed separately; burn prevention and status clearing remain deferred.",
         "evidence": [
           {
             "source": "src/battle_util.c:6707",
@@ -2469,9 +2508,40 @@
         ]
       },
       {
+        "rule": "water_bubble_defender_fire_move",
+        "predicate": "Defender has Water Bubble; selected ordinary move has final authoritative effective type Fire.",
+        "rationale": "The target-ability slot applies UQ4.12 0.5 to the base-power accumulator for this incoming Fire move. Water Bubble burn prevention and status clearing are a separate status path and remain deferred.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6788",
+            "contains": "case ABILITY_WATER_BUBBLE:"
+          },
+          {
+            "source": "src/battle_util.c:6789",
+            "contains": "if (moveType == TYPE_FIRE)"
+          },
+          {
+            "source": "src/battle_util.c:6791",
+            "contains": "modifier = uq4_12_multiply(modifier, UQ_4_12(0.5));"
+          },
+          {
+            "source": "src/data/abilities.h:1509",
+            "contains": ".breakable = TRUE,"
+          },
+          {
+            "source": "src/battle_util.c:9079",
+            "contains": "case ABILITY_WATER_BUBBLE:"
+          },
+          {
+            "source": "src/battle_util.c:9081",
+            "contains": "if (gBattleMons[battler].status1 & STATUS1_BURN)"
+          }
+        ]
+      },
+      {
         "rule": "water_bubble_defender_nonfire_move",
-        "predicate": "Defender has Water Bubble; selected ordinary move has authoritative non-Fire effective type.",
-        "rationale": "The unmodeled defender-side reduction is Fire-only, so a known non-Fire move is irrelevant to that branch.",
+        "predicate": "Defender has Water Bubble; selected ordinary move has authoritative final effective type other than Fire.",
+        "rationale": "The defender base-power branch is nested under the Fire type predicate and is inactive here. This does not claim Water Bubble’s separate burn prevention or status-clearing path is modelled.",
         "evidence": [
           {
             "source": "src/battle_util.c:6789",
@@ -2480,24 +2550,8 @@
         ]
       }
     ],
-    "always_blocking": [
-      {
-        "rule": "water_bubble_defender_fire_branch_deferred",
-        "predicate": "Defender has Water Bubble and the selected move may be Fire, or its effective type is unknown.",
-        "rationale": "The pinned 0.5 defender-side Fire reduction is deliberately outside this offensive-only batch and remains fail-closed.",
-        "evidence": [
-          {
-            "source": "src/battle_util.c:6788",
-            "contains": "case ABILITY_WATER_BUBBLE:"
-          },
-          {
-            "source": "src/battle_util.c:6791",
-            "contains": "modifier = uq4_12_multiply(modifier, UQ_4_12(0.5));"
-          }
-        ]
-      }
-    ],
-    "fallback": "Unknown type, nonordinary move, and all defender-side Water Bubble Fire contexts remain UNKNOWN."
+    "always_blocking": [],
+    "fallback": "Nonordinary moves, unknown final type, or unknown effective ability remain UNKNOWN. Water Bubble burn prevention and status clearing remain separately deferred."
   },
   "200": {
     "global": "MODELLED_HNS_CONDITIONAL",

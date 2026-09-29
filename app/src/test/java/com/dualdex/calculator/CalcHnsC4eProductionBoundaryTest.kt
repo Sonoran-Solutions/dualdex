@@ -2233,6 +2233,124 @@ class CalcHnsC4eProductionBoundaryTest {
         outcome as? CalcRequestOutcome.Refused ?: throw AssertionError("$why, got $outcome")
 
     @Test
+    fun `defender Fire base-power abilities use boundary-owned final type and reach authorized execution`() {
+        val trust = trustFor(exactSha)
+        val fireCases = listOf(
+            Triple(199, "Water Bubble", "Fire Punch"),
+            Triple(85, "Heatproof", "Fire Blast"),
+            Triple(87, "Dry Skin", "Fire Punch")
+        )
+        for ((abilityId, abilityName, move) in fireCases) {
+            val ready = readyOf(build(
+                trust, goldenARequest(move), playerObservation(),
+                enemyObservation(abilityId = abilityId, abilityName = abilityName),
+                randomAbilities = true
+            ), "defender $abilityName with an authoritative Fire move")
+            val decision = ready.verdict.hnsAbilityDecisions.singleOrNull { it.abilityId == abilityId }
+            if (abilityId == 85 || abilityId == 199) {
+                assertEquals("$abilityName should be relevant for the Fire hit",
+                    HnsAbilityRequestRelevance.RELEVANT, decision?.relevance)
+            }
+            val response = CalcAuthorizedExecution.calculate(ready.verdict) { request ->
+                val json = JSONObject(buildCalcRequestJson(request))
+                assertEquals("Fire", json.getJSONObject("move").getJSONObject("overrides").getString("type"))
+                DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = listOf(1, 1))
+            }
+            assertTrue("$abilityName Fire request must reach authorized execution", response.success)
+        }
+
+        for ((abilityId, abilityName) in listOf(199 to "Water Bubble", 85 to "Heatproof")) {
+            val ready = readyOf(build(
+                trust, goldenARequest("Tackle"), playerObservation(),
+                enemyObservation(abilityId = abilityId, abilityName = abilityName),
+                randomAbilities = true
+            ), "defender $abilityName with a known non-Fire move")
+            assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                ready.verdict.hnsAbilityDecisions.single { it.abilityId == abilityId }.relevance)
+        }
+
+        val attackerHeatproof = readyOf(build(
+            trust, goldenARequest("Fire Punch"),
+            playerObservation(abilityId = 85, abilityName = "Heatproof"), enemyObservation(),
+            randomAbilities = true
+        ), "attacker Heatproof on an ordinary outgoing hit")
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            attackerHeatproof.verdict.hnsAbilityDecisions.single { it.abilityId == 85 }.relevance)
+
+        // A source Fire move rewritten by the supported Normalize ability ends as Normal before
+        // the defender predicate. The defender Water Bubble branch follows that final authority.
+        val rewritten = readyOf(build(
+            trust, goldenARequest("Fire Punch"),
+            playerObservation(abilityId = 96, abilityName = "Normalize"),
+            enemyObservation(abilityId = 199, abilityName = "Water Bubble"),
+            randomAbilities = true
+        ), "Normalize must rewrite Fire before defender ability checks")
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            rewritten.verdict.hnsAbilityDecisions.single { it.abilityId == 199 }.relevance)
+        val rewrittenResponse = CalcAuthorizedExecution.calculate(rewritten.verdict) { request ->
+            val json = JSONObject(buildCalcRequestJson(request))
+            assertEquals("Normal", json.getJSONObject("move").getJSONObject("overrides").getString("type"))
+            DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = listOf(1, 1))
+        }
+        assertTrue(rewrittenResponse.success)
+
+        // A caller-provided moveOverride cannot turn source Tackle into a Fire move for policy or
+        // engine serialization. The final authoritative type remains Normal.
+        val spoofedTypeRequest = goldenARequest("Tackle").copy(
+            moveOverride = CalcMoveOverride(basePower = 40, type = "Fire", category = "Physical")
+        )
+        val spoofedType = readyOf(build(
+            trust, spoofedTypeRequest, playerObservation(),
+            enemyObservation(abilityId = 199, abilityName = "Water Bubble"),
+            randomAbilities = true
+        ), "caller moveOverride cannot create a defender Fire branch")
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            spoofedType.verdict.hnsAbilityDecisions.single { it.abilityId == 199 }.relevance)
+        val spoofedResponse = CalcAuthorizedExecution.calculate(spoofedType.verdict) { request ->
+            val json = JSONObject(buildCalcRequestJson(request))
+            assertEquals("Normal", json.getJSONObject("move").getJSONObject("overrides").getString("type"))
+            DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = listOf(1, 1))
+        }
+        assertTrue(spoofedResponse.success)
+    }
+
+    @Test
+    fun `breakable defender Fire abilities refuse Mold Breaker and Ability Shield preserves them`() {
+        val trust = trustFor(exactSha)
+        for ((abilityId, abilityName) in listOf(199 to "Water Bubble", 85 to "Heatproof")) {
+            val attacker = playerObservation(abilityId = 104, abilityName = "Mold Breaker")
+            val fireRequest = goldenARequest("Fire Punch")
+            val unshielded = refusedOf(build(
+                trust, fireRequest, attacker,
+                enemyObservation(abilityId = abilityId, abilityName = abilityName),
+                randomAbilities = true
+            ), "unshielded Mold Breaker against defender $abilityName")
+            assertTrue(unshielded.verdict.limitations.contains(
+                CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED
+            ))
+            val refusedExecution = CalcAuthorizedExecution.calculate(unshielded.verdict) {
+                throw AssertionError("a refused Mold Breaker interaction must not reach the engine")
+            }
+            assertFalse(refusedExecution.success)
+
+            val shielded = readyOf(build(
+                trust, fireRequest, attacker,
+                enemyObservation(abilityId = abilityId, abilityName = abilityName, itemId = 758),
+                randomAbilities = true
+            ), "Ability Shield must preserve defender $abilityName")
+            val shieldedExecution = CalcAuthorizedExecution.calculate(shielded.verdict) { request ->
+                val json = JSONObject(buildCalcRequestJson(request))
+                assertEquals("Fire", json.getJSONObject("move").getJSONObject("overrides").getString("type"))
+                val defender = json.getJSONObject("defender")
+                assertTrue(defender.getBoolean("hnsAbilityShield"))
+                assertEquals(abilityName, defender.getString("ability"))
+                DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = listOf(1, 1))
+            }
+            assertTrue("Ability Shield must keep the $abilityName modifier active", shieldedExecution.success)
+        }
+    }
+
+    @Test
     fun `observed attacker ability owns the dynamic type and serialized ate boost`() {
         val trust = trustFor(exactSha)
         val spoofed = goldenARequest().copy(
@@ -3668,6 +3786,46 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals(85, move.getInt("hnsMoveId"))
         assertFalse(move.getJSONArray("hnsMoveFlags").toString().contains("soundMove"))
         assertFalse(move.has("hnsUnknownMoveFlags"))
+    }
+
+    @Test
+    fun `move level ability bypass respects pinned defender breakability`() {
+        val trust = trustFor(exactSha)
+
+        val prism = readyOf(
+            build(trust, goldenARequest("Sunsteel Strike"), playerObservation(),
+                enemyObservation(speciesId = 185, types = listOf(6), abilityId = 232, abilityName = "Prism Armor"),
+                randomAbilities = true),
+            "Sunsteel Strike must retain unbreakable Prism Armor"
+        )
+        val prismJson = JSONObject(buildCalcRequestJson(prism.request))
+        assertEquals("Prism Armor", prismJson.getJSONObject("defender").getString("ability"))
+        assertTrue(prismJson.getJSONObject("move").getJSONArray("hnsMoveFlags")
+            .toString().contains("ignoresTargetAbility"))
+
+        val shadow = readyOf(
+            build(trust, goldenARequest("Moongeist Beam"), playerObservation(),
+                enemyObservation(speciesId = 65, types = listOf(15), abilityId = 231, abilityName = "Shadow Shield",
+                    hp = 60000, maxHp = 60000), randomAbilities = true),
+            "Moongeist Beam must retain full-HP unbreakable Shadow Shield"
+        )
+        val shadowJson = JSONObject(buildCalcRequestJson(shadow.request))
+        assertEquals("Shadow Shield", shadowJson.getJSONObject("defender").getString("ability"))
+        assertEquals(60000, shadowJson.getJSONObject("defender").getInt("hpAtHit"))
+        assertEquals(60000, shadowJson.getJSONObject("defender").getInt("maxHpAtHit"))
+        assertTrue(shadowJson.getJSONObject("move").getJSONArray("hnsMoveFlags")
+            .toString().contains("ignoresTargetAbility"))
+
+        val filter = readyOf(
+            build(trust, goldenARequest("Sunsteel Strike"), playerObservation(),
+                enemyObservation(speciesId = 185, types = listOf(6), abilityId = 111, abilityName = "Filter"),
+                randomAbilities = true),
+            "Sunsteel Strike's move-level bypass must suppress breakable Filter"
+        )
+        val filterJson = JSONObject(buildCalcRequestJson(filter.request))
+        assertEquals("Filter", filterJson.getJSONObject("defender").getString("ability"))
+        assertTrue(filterJson.getJSONObject("move").getJSONArray("hnsMoveFlags")
+            .toString().contains("ignoresTargetAbility"))
     }
 
     @Test

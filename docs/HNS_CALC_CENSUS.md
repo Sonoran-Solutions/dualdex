@@ -370,72 +370,36 @@ The same ability can be clear, caveated, or refused on different sides and in di
 
 Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 582 rows, `RELEVANT` in 45 rows and `UNKNOWN` in 613 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
 
-## Issue #91 defender Fire base-power slice comparison
+## Issue #91 low-state stat ability slice comparison
 
-This fixed comparison records the defender Water Bubble / Heatproof base-power slice against starting `main` at `bc4aff798414c771c06de290481bda17d0aebb2f` (after #109). Both censuses cover the same 24,278 eligible damaging requests across 651 trainer battles.
+This fixed comparison records the Solar Power / Defeatist / Fur Coat stat-stage slice against starting `main` at `6f3a50683724bb3fd539bb062e63238d36ed1e6f` (after #110). Both censuses cover the same 24,278 eligible damaging requests across 651 trainer battles.
 
 | Metric | Starting main | This slice | Change |
 |---|---:|---:|---:|
-| `FULLY_MODELLED` requests | 18,790 | 18,790 | unchanged |
-| `CAVEATED_ESTIMATE` requests | 370 | 370 | unchanged |
-| `REFUSED` requests | 5,118 | 5,118 | unchanged |
+| `FULLY_MODELLED` requests | 18,790 | 18,800 | +10 |
+| `CAVEATED_ESTIMATE` requests | 370 | 372 | +2 |
+| `REFUSED` requests | 5,118 | 5,106 | -12 |
 | Fully displaying lead matchups | 372 / 1,302 | 372 / 1,302 | unchanged |
 | Displayable requests in lead matchups | 6,676 | 6,676 | unchanged |
-| Newly displayable trainer requests | 0 | 0 | unchanged |
-| Battles gaining a newly displayable request | 0 / 651 | 0 / 651 | none; no trainer holds Water Bubble or Heatproof |
+| Trainer requests improving from refused | 0 | 12 | +12 |
+| Trainer battles with at least one improved request | 0 / 651 | 1 / 651 | +1 |
+| Battles gaining a fully displayable lead matchup | 0 / 651 | 0 / 651 | none |
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 battles / 3,578 requests | 557 / 3,578 | unchanged |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 / 152 | 68 / 152 | unchanged |
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 221 battles / 1,786 requests | 221 / 1,786 | unchanged |
-| `HNS_ABILITY_CONDITION_UNVERIFIED` | 80 battles / 276 requests | 80 / 276 | unchanged |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 221 battles / 1,786 requests | 221 / 1,772 | -14 requests |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` | 91 battles / 276 requests | 91 / 276 | unchanged |
 
-The ten highest-ranked blockers are unchanged: `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578 requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218), Swift Swim (38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm (28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70).
+The leading blockers are unchanged: `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578 requests), `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218), Swift Swim (38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm (28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70).
 
-Random Abilities weighted request trials changed from 1,414,310 refused / 16,820 caveated / 2,346,530 clear to 1,403,628 / 16,820 / 2,357,212. Identities with at least one refusal remain 182; identities with a caveated context remain 4; clear-only identities remain 125. Ambiguous opposite-ability contexts remain 16,974 attacker-side and 19,396 defender-side requests.
+Random Abilities weighted request trials changed from 1,403,628 refused / 16,820 caveated / 2,357,212 clear to 1,368,946 / 16,820 / 2,391,894. Identities with at least one refusal changed from 182 to 181; caveated identities remain 4; clear-only identities changed from 125 to 126. Ambiguous opposite-ability contexts remain 16,974 attacker-side and 19,396 defender-side requests.
 
 | Ability | Trainer holders | Trainer request change | Random Abilities refused / caveated / clear, before → after |
 |---|---:|---|---|
-| Water Bubble | 0 | No trainer holders | 2,012 / 0 / 10,174 → 1,758 / 0 / 10,428 |
-| Heatproof | 0 | No trainer holders | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
-| Dry Skin (control) | 1 Jynx | No newly displayable trainer requests | 0 / 0 / 12,186 → 0 / 0 / 12,186 |
+| Solar Power | 0 | No Sun in neutral trainer census | 12,186 / 0 / 0 → 80 / 0 / 12,106 |
+| Defeatist | 0 | No below-half-HP trainer cases | 12,186 / 0 / 0 → 0 / 0 / 12,186 |
+| Fur Coat | 1 Persian-A | 12 requests improve in 1 trainer battle | 12,186 / 0 / 0 → 1,796 / 0 / 10,390 |
 
-Heatproof's attacker requests are irrelevant to the selected outgoing hit; defender requests use the authoritative final type, with Fire relevant and known non-Fire irrelevant. Water Bubble's attacker Water branch was already modelled; this slice clears its defender Fire requests. Trainer holder counts use the pinned party source. The 1,758 refusals remaining for each ability come from independent limitations. Because no trainer carries Water Bubble or Heatproof, these changes affect Random Abilities trials but add no displayable trainer request or matchup. Water Bubble burn prevention/status clearing remains separately deferred.
-
-## Issue #91 low-state stat ability slice comparison
-
-This slice models Solar Power, Defeatist, and Fur Coat from the pinned live operands. The trainer
-census starts both sides at full HP, clear weather, and neutral field status, so it measures proven
-inactive conditions for Solar Power and Defeatist; the selected-hit and threshold-active cases are
-covered by the separate oracle and production-boundary tests.
-
-| Measure | Before | After |
-|---|---:|---:|
-| `FULLY_MODELLED` requests | 18,790 | 18,800 |
-| `CAVEATED_ESTIMATE` requests | 370 | 372 |
-| `REFUSED` requests | 5,118 | 5,106 |
-| Displayable lead pairs | 372 / 1,302 | 372 / 1,302 |
-| Displayable lead requests | 6,676 / 8,450 | 6,676 / 8,450 |
-| Trainer battles gaining a fully displayable lead matchup | 0 | 0 |
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` requests | 1,786 | 1,772 |
-| `HNS_ABILITY_CONDITION_UNVERIFIED` requests | 276 | 276 |
-
-The top blocker remains `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578 requests), followed
-by `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218),
-Swift Swim (38 / 150), and Sturdy on defender and attacker sides (29 / 232 and 29 / 176). Random
-Abilities weighted request-trials changed from 1,403,628 refused / 16,820 caveated / 2,357,212 clear
-to 1,368,946 refused / 16,820 caveated / 2,391,894 clear. Abilities with any refusal fell from 182
-to 181; caveated identities stayed at 4; clear-only identities rose from 125 to 126. Ambiguous
-opposite-side exclusions were unchanged at 16,974 attacker-side and 19,396 defender-side trials.
-
-| Ability | Trainer holders | Random Abilities before → after | Slice result in the neutral census |
-|---|---|---|---|
-| Solar Power | 0 | 12,186 refused → 80 refused, 12,106 clear | No Sun means no relevant boost request; the remaining 80 are unknown live-ability trials. |
-| Defeatist | 0 | 12,186 refused → 0 refused, 12,186 clear | Full HP is above the integer half threshold in every census request. |
-| Fur Coat | 1 (`TRAINER_KAREN_POSTOBC_HNS`) | 12,186 refused → 1,796 refused, 10,390 clear | Attacker-side use clears; physical defender use is relevant, while unknown field status keeps unresolved Defense selection fail-closed. |
-
-The 1,796 Fur Coat-related Random Abilities refusals arise from unresolved field/selection context;
-the trainer inventory has no Mold Breaker interaction to count. The oracle separately verifies
-unshielded Mold Breaker and literal bypass refusal, and Ability Shield preservation. These three
-abilities add no newly fully displayable trainer lead matchup.
+Solar Power has no relevant branch in this full-HP, clear-weather census; 80 requests remain unknown because the live effective attacker ability is unread, while the other inactive cases clear. Defeatist is above its exact integer half threshold in every census request. Fur Coat clears attacker-side requests; 1,370 physical defender requests are relevant but remain refused while field/Defense selection is unknown, and 426 special defender requests remain unknown for the same field-state reason. The trainer inventory has no Mold Breaker or literal-bypass suppression requests; those refusals are covered by engine-only oracle controls. Fur Coat is held by one Persian-A in `TRAINER_KAREN_POSTOBC_HNS`. None of the three abilities adds a fully displayable lead matchup.
 
 ## Provenance and reproduction
 

@@ -654,7 +654,6 @@ class CalcHnsC4eProductionBoundaryTest {
             Candidate(189, "Primordial Sea", weather = 1 shl 1),
             Candidate(190, "Desolate Land", weather = 1 shl 4),
             Candidate(191, "Delta Stream", weather = 1 shl 9),
-            Candidate(288, "Orichalcum Pulse", weather = 1 shl 3),
             Candidate(226, "Electric Surge", "Thunder Shock", field = 1 shl 8),
             Candidate(227, "Psychic Surge", "Psybeam", field = 1 shl 9),
             Candidate(228, "Misty Surge", "Dragon Breath", field = 1 shl 10),
@@ -679,6 +678,16 @@ class CalcHnsC4eProductionBoundaryTest {
             assertTrue("${candidate.name} must retain its ability limitation",
                 refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
         }
+
+        val observedSun = readyOf(build(
+            trust, goldenARequest("Tackle"),
+            playerObservation(abilityId = 288, abilityName = "Orichalcum Pulse", battleWeather = 1 shl 3),
+            enemyObservation(battleWeather = 1 shl 3)
+        ), "Orichalcum Pulse's weather setter is represented by the observed raw Sun word")
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            observedSun.verdict.hnsAbilityDecisions.single { it.abilityId == 288 }.relevance)
+        val observedSunJson = JSONObject(buildCalcRequestJson(observedSun.request))
+        assertEquals(1 shl 3, observedSunJson.getJSONObject("field").getInt("hnsWeatherWord"))
 
         for ((id, name) in listOf(277 to "Wind Power", 280 to "Electromorphosis")) {
             val request = goldenARequest(move = "Thunder Shock").copy(
@@ -1956,6 +1965,66 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals("Special", specialControl.request.moveOverride?.category)
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             specialControl.verdict.hnsAbilityDecisions.single { it.abilityId == 169 }.relevance)
+    }
+
+    @Test
+    fun `new Attack-stat branches ignore caller type category weather ability and item claims`() {
+        val trust = trustFor(exactSha)
+
+        val transistorRequest = goldenARequest("Tackle").copy(
+            moveOverride = CalcMoveOverride(basePower = 120, type = "Electric", category = "Special")
+        )
+        val transistor = readyOf(build(
+            trust, transistorRequest,
+            playerObservation(abilityId = 262, abilityName = "Transistor"), enemyObservation(),
+            randomAbilities = true
+        ), "live Transistor with caller-forged Electric Tackle inputs")
+        assertEquals("Normal", transistor.request.moveOverride?.type)
+        assertEquals("Physical", transistor.request.moveOverride?.category)
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            transistor.verdict.hnsAbilityDecisions.single { it.abilityId == 262 }.relevance)
+
+        val orichalcumRequest = goldenARequest("Psychic").copy(
+            field = CalcFieldInput(weather = "Sun"),
+            moveOverride = CalcMoveOverride(basePower = 120, type = "Electric", category = "Physical"),
+            attacker = goldenARequest("Psychic").attacker.copy(item = null, itemId = null)
+        )
+        val orichalcum = build(
+            trust, orichalcumRequest,
+            playerObservation(abilityId = 288, abilityName = "Orichalcum Pulse", itemId = 513),
+            enemyObservation(), randomAbilities = true
+        )
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            orichalcum.verdict().hnsAbilityDecisions.single { it.abilityId == 288 }.relevance)
+        (orichalcum as? CalcRequestOutcome.Ready)?.let { ready ->
+            assertNull(ready.request.field.weather)
+            assertEquals("Psychic", ready.request.moveOverride?.type)
+            assertEquals("Special", ready.request.moveOverride?.category)
+            assertEquals(513, ready.request.attacker.itemId)
+            val serialized = JSONObject(buildCalcRequestJson(ready.request))
+            assertEquals(513, serialized.getJSONObject("attacker").getInt("hnsEffectiveItemId"))
+            assertEquals(0, serialized.getJSONObject("field").getInt("hnsWeatherWord"))
+            assertEquals("Psychic", serialized.getJSONObject("move").getJSONObject("overrides").getString("type"))
+            assertEquals("Special", serialized.getJSONObject("move").getJSONObject("overrides").getString("category"))
+        }
+
+        val callerOmitsUmbrella = goldenARequest("Strength").copy(
+            attacker = goldenARequest("Strength").attacker.copy(item = null, itemId = null)
+        )
+        val liveUmbrella = build(
+            trust, callerOmitsUmbrella,
+            playerObservation(abilityId = 288, abilityName = "Orichalcum Pulse", itemId = 513,
+                battleWeather = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN_NORMAL),
+            enemyObservation(battleWeather = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN_NORMAL),
+            randomAbilities = true
+        )
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            liveUmbrella.verdict().hnsAbilityDecisions.single { it.abilityId == 288 }.relevance)
+        (liveUmbrella as? CalcRequestOutcome.Ready)?.let { ready ->
+            val serialized = JSONObject(buildCalcRequestJson(ready.request))
+            assertEquals(com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN_NORMAL,
+                serialized.getJSONObject("field").getInt("hnsWeatherWord"))
+        }
     }
 
     @Test

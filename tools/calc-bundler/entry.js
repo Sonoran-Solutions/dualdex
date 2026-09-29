@@ -279,13 +279,7 @@ globalThis.DualDexCalc = {
       if (input.field?.attackerSide) fieldOptions.attackerSide = new Side(input.field.attackerSide);
       if (input.field?.defenderSide) fieldOptions.defenderSide = new Side(input.field.defenderSide);
 
-function halfDown(mod, val) {
-  return Math.floor((mod * val + 2047) / 4096);
-}
-
-function halfUp(mod, val) {
-  return Math.floor((mod * val + 2048) / 4096);
-}
+const { halfDown, halfUp, createHnsModifierAccumulator } = require('./hns-fixed-point');
 
 const HNS_UQ4_12_ONE = 4096;
 const HNS_STATUS1_ANY_MASK = 0x10ff; // pinned include/constants/battle.h: STATUS1_ANY
@@ -297,24 +291,6 @@ const HNS_TYPE_POWER_ITEMS = {
   'metal coat': 'Steel', 'twisted spoon': 'Psychic', 'never-melt ice': 'Ice', 'dragon fang': 'Dragon',
   'black glasses': 'Dark'
 };
-
-// The stat stages accumulate UQ4.12 with half-down multiplication. The BP stage uses the
-// pinned uq4_12_multiply (half-up) for modifier composition, then half-down for integer BP.
-// Keep both behaviors explicit; the stage product is converted to its integer operand once.
-function createHnsModifierAccumulator(multiply = halfDown) {
-  let modifier = HNS_UQ4_12_ONE;
-  return {
-    add(next) {
-      modifier = multiply(next, modifier);
-    },
-    value() {
-      return modifier;
-    },
-    apply(integer) {
-      return halfDown(modifier, integer);
-    }
-  };
-}
 
 function applyHnsFinalDamageModifiers(damage, modifiers) {
   // These are intentionally applied in sequence: the pinned damage path rounds after each
@@ -550,29 +526,29 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     ? (rawStatus1 & HNS_STATUS1_ANY_MASK) !== 0
     : attackerStatus !== '';
 
-  // CalcAttackStat's order: attacker ability modifiers, target ability modifiers, then the
-  // offensive badge. Compose their UQ4.12 values in that order and apply once to the integer stat
-  // after the ordinary stage ratio has been rounded.
+  // CalcAttackStat's order: attacker ability modifiers, target ability modifiers, ally ability,
+  // Ruin field effects, attacker hold effect, then the offensive badge. Each source keeps its
+  // own UQ4.12 composition operator; the completed product is applied once to the staged integer.
   const attackModifier = createHnsModifierAccumulator();
   if (isPhysical && (attacker.ability === 'Huge Power' || attacker.ability === 'Pure Power')) {
-    attackModifier.add(8192);
+    attackModifier.addHalfDown(8192);
   }
   if (attacker.ability === 'Guts' && isPhysical && hasStatusForGuts) {
-    attackModifier.add(6144);
+    attackModifier.addHalfDown(6144);
   }
   if (attacker.ability === 'Hustle' && isPhysical) {
-    attackModifier.add(6144);
+    attackModifier.addHalfDown(6144);
   }
   if (attacker.ability === 'Solar Power' && isSpecial &&
       isBattlerWeatherAffected(attacker, 'Sun', field, attacker, defender, input)) {
-    attackModifier.add(6144);
+    attackModifier.addHalfDown(6144);
   }
   const attackerHp = input.attacker?.hp;
   const attackerMaxHp = input.attacker?.maxHP;
   if (attacker.ability === 'Defeatist' && Number.isInteger(attackerHp) &&
       Number.isInteger(attackerMaxHp) && attackerMaxHp > 0 && attackerHp >= 0 &&
       attackerHp <= attackerMaxHp && attackerHp <= Math.floor(attackerMaxHp / 2)) {
-    attackModifier.add(2048);
+    attackModifier.addHalfDown(2048);
   }
 
   // H&S 2.0.5 pinch abilities (src/battle_util.c CalcAttackStat): the attacker's ability
@@ -589,15 +565,59 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const pinchMaxHp = input.attacker?.maxHP;
   if (pinchType && effectiveMoveType === pinchType && Number.isInteger(pinchHp) && Number.isInteger(pinchMaxHp) &&
       pinchMaxHp > 0 && pinchHp <= Math.floor(pinchMaxHp / 3)) {
-    attackModifier.add(6144);
+    attackModifier.addHalfDown(6144);
+  }
+
+  // Pinned CalcAttackStat modern ability branches use uq4_12_multiply (half-up), while the
+  // older Attack-stat branches above use uq4_12_multiply_half_down. moveType/category here are
+  // already the HnsMoveAuthority-resolved final values. Transistor is ×1.3 because the pinned
+  // B_TRANSISTOR_BOOST config is GEN_LATEST; UQ_4_12(1.3) expands to 5325.
+  switch (attacker.ability) {
+    case 'Transistor':
+      if (effectiveMoveType === 'Electric') attackModifier.addHalfUp(5325);
+      break;
+    case "Dragon's Maw":
+      if (effectiveMoveType === 'Dragon') attackModifier.addHalfUp(6144);
+      break;
+    case 'Rocky Payload':
+      if (effectiveMoveType === 'Rock') attackModifier.addHalfUp(6144);
+      break;
+    case 'Orichalcum Pulse': {
+      // CalcAttackStat checks ctx->weather directly, unlike Solar Power's per-battler predicate.
+      // However CalculateAndSetMoveDamage initializes ctx.weather through GetWeather(), which
+      // globally returns NONE when HasWeatherEffect() is false (live Cloud Nine / Air Lock).
+      const weatherStr = (field.weather || input.field?.weather || '').toLowerCase();
+      const hasUtilityUmbrella = input.attacker?.hnsEffectiveItemId === 513 ||
+        String(attacker.item || '').toLowerCase() === 'utility umbrella';
+      // B_WEATHER_SUN includes both ordinary and primal Sun bits (pinned battle.h:448).
+      // The fallback is for the independent oracle harness, whose scenarios express this raw
+      // word using its exact weather case; production sends hnsWeatherWord from the live reader.
+      const rawWeather = input.field?.hnsWeatherWord;
+      const hasRawSun = Number.isInteger(rawWeather)
+        ? (rawWeather & 0x18) !== 0
+        : weatherStr.includes('sun');
+      // CalculateAndSetMoveDamage supplies ctx.weather from GetWeather(); GetWeather returns
+      // B_WEATHER_NONE when HasWeatherEffect() is false (Cloud Nine / Air Lock on any live battler).
+      const hasWeatherEffect = ![input.attacker, input.defender].some(source => {
+        const hp = [source?.hpAtHit, source?.hp, source?.curHP].find(Number.isInteger);
+        return ['Cloud Nine', 'Air Lock'].includes(source?.ability) && Number.isInteger(hp) && hp > 0;
+      });
+      if (isPhysical && hasRawSun && hasWeatherEffect && !hasUtilityUmbrella) {
+        // UQ_4_12(1.3333) is 5461, not a rational 4/3 replacement.
+        attackModifier.addHalfUp(5461);
+      }
+      break;
+    }
+    default:
+      break;
   }
 
   if (defender.ability === 'Thick Fat' && (effectiveMoveType === 'Fire' || effectiveMoveType === 'Ice')) {
-    attackModifier.add(2048);
+    attackModifier.addHalfDown(2048);
   }
 
   const atkBadge = isPhysical ? !!input.attacker?.badgeBoosts?.atk : !!input.attacker?.badgeBoosts?.spa;
-  if (atkBadge) attackModifier.add(4506);
+  if (atkBadge) attackModifier.addHalfDown(4506);
   const userFinalAttack = Math.max(1, attackModifier.apply(attackAfterStages));
 
   // Defense-stage modifiers have their own accumulator so future defense abilities/items can be

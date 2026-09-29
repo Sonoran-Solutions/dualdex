@@ -151,6 +151,8 @@ calc_goldens_check() {
 # never invent a sequential ID, and the ABILITIES_COUNT_GEN* anchor pattern of
 # the pinned header must resolve explicitly instead of by counter coincidence.
 hns_generator_test() {
+  echo "== H&S fixed-point accumulator tests =="
+  node tools/calc-bundler/test_fixed_point.js
   echo "== H&S data-pack generator tests =="
   (cd tools/hns-data-pack && python3 -m unittest test_generate_hns_data_pack -v)
   echo "== H&S type-system generator tests =="

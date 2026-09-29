@@ -858,6 +858,64 @@ def _low_state_stat_abilities() -> list[dict]:
     return out
 
 
+def _mixed_rounding_attack_stat_abilities() -> list[dict]:
+    """Group D final-type Attack-stat branches with pinned half-up composition (issue #91)."""
+    transistor = ("ABILITY_TRANSISTOR", "Transistor")
+    dragons_maw = ("ABILITY_DRAGONS_MAW", "Dragon's Maw")
+    rocky_payload = ("ABILITY_ROCKY_PAYLOAD", "Rocky Payload")
+    orichalcum = ("ABILITY_ORICHALCUM_PULSE", "Orichalcum Pulse")
+    umbrella = ("ITEM_UTILITY_UMBRELLA", "Utility Umbrella")
+    cloud_nine = ("ABILITY_CLOUD_NINE", "Cloud Nine")
+    sun_drought = ("ABILITY_DROUGHT", "Drought")
+    badge = (1,)
+    return [
+        scenario("group-d-transistor-electric-physical", ["ability:transistor", "attack-stat", "effective-type"],
+                 attacker("Electabuzz", atk=153, ability=transistor), defender("Snorlax", dfn=107), "Spark"),
+        scenario("group-d-transistor-electric-special", ["ability:transistor", "attack-stat", "effective-type", "special"],
+                 attacker("Electabuzz", spa=153, ability=transistor), defender("Snorlax", spd=107), "Thunderbolt"),
+        scenario("group-d-transistor-non-electric-control", ["ability:transistor", "attack-stat", "negative-control"],
+                 attacker("Electabuzz", atk=153, ability=transistor), defender("Snorlax", dfn=107), "Fire Punch"),
+        scenario("group-d-transistor-badge-composition", ["ability:transistor", "attack-stat", "badge", "modifier-stacking", "rounding"],
+                 attacker("Electabuzz", atk=153, ability=transistor), defender("Snorlax", dfn=107), "Spark", badges=badge),
+        scenario("group-d-transistor-crit-negative-stage", ["ability:transistor", "attack-stat", "crit", "stages"],
+                 attacker("Electabuzz", atk=153, ability=transistor, stages={"attack": -2}),
+                 defender("Snorlax", dfn=107), "Spark", crit=True),
+        scenario("group-d-dragons-maw-dragon-physical", ["ability:dragons-maw", "attack-stat", "effective-type"],
+                 attacker("Dragonite", atk=153, ability=dragons_maw), defender("Snorlax", dfn=107), "Dragon Claw"),
+        scenario("group-d-dragons-maw-dragon-special", ["ability:dragons-maw", "attack-stat", "effective-type", "special"],
+                 attacker("Dragonite", spa=153, ability=dragons_maw), defender("Snorlax", spd=107), "Dragon Pulse"),
+        scenario("group-d-dragons-maw-non-dragon-control", ["ability:dragons-maw", "attack-stat", "negative-control"],
+                 attacker("Dragonite", atk=153, ability=dragons_maw), defender("Snorlax", dfn=107), "Strength"),
+        scenario("group-d-dragons-maw-stage-badge", ["ability:dragons-maw", "attack-stat", "badge", "stages", "modifier-stacking"],
+                 attacker("Dragonite", atk=153, ability=dragons_maw, stages={"attack": 1}),
+                 defender("Snorlax", dfn=107), "Dragon Claw", badges=badge),
+        scenario("group-d-rocky-payload-rock-physical", ["ability:rocky-payload", "attack-stat", "effective-type"],
+                 attacker("Golem", atk=153, ability=rocky_payload), defender("Snorlax", dfn=107), "Rock Slide"),
+        scenario("group-d-rocky-payload-non-rock-control", ["ability:rocky-payload", "attack-stat", "negative-control"],
+                 attacker("Golem", atk=153, ability=rocky_payload), defender("Snorlax", dfn=107), "Strength"),
+        scenario("group-d-rocky-payload-stage", ["ability:rocky-payload", "attack-stat", "stages", "modifier-stacking"],
+                 attacker("Golem", atk=153, ability=rocky_payload, stages={"attack": -1}),
+                 defender("Snorlax", dfn=107), "Rock Slide"),
+        scenario("group-d-orichalcum-pulse-physical-sun", ["ability:orichalcum-pulse", "attack-stat", "weather:sun"],
+                 attacker("Machamp", atk=153, ability=orichalcum), defender("Snorlax", dfn=107, ability=sun_drought),
+                 "Strength", weather="sun"),
+        scenario("group-d-orichalcum-pulse-physical-sun-badge", ["ability:orichalcum-pulse", "attack-stat", "weather:sun", "badge", "modifier-stacking"],
+                 attacker("Machamp", atk=153, ability=orichalcum), defender("Snorlax", dfn=107, ability=sun_drought),
+                 "Strength", weather="sun", badges=badge),
+        scenario("group-d-orichalcum-pulse-no-sun-control", ["ability:orichalcum-pulse", "attack-stat", "weather:rain", "negative-control"],
+                 attacker("Machamp", atk=153, ability=orichalcum), defender("Snorlax", dfn=107),
+                 "Strength", weather="rain"),
+        scenario("group-d-orichalcum-pulse-special-sun-control", ["ability:orichalcum-pulse", "attack-stat", "weather:sun", "negative-control"],
+                 attacker("Alakazam", spa=153, ability=orichalcum), defender("Snorlax", spd=107), "Swift", weather="sun"),
+        scenario("group-d-orichalcum-pulse-utility-umbrella", ["ability:orichalcum-pulse", "attack-stat", "item:utility-umbrella", "negative-control"],
+                 attacker("Machamp", atk=153, ability=orichalcum, item=umbrella), defender("Snorlax", dfn=107),
+                 "Strength", weather="sun", surface="engine-only"),
+        scenario("group-d-orichalcum-pulse-cloud-nine-raw-sun", ["ability:orichalcum-pulse", "ability:cloud-nine", "weather:sun", "raw-weather"],
+                 attacker("Machamp", atk=153, ability=orichalcum), defender("Snorlax", dfn=107, ability=cloud_nine),
+                 "Strength", weather="sun", surface="engine-only"),
+    ]
+
+
 def _base_power_abilities() -> list[dict]:
     """Group D source-ordered base-power ability modifiers (issue #91)."""
     out = []
@@ -1434,6 +1492,6 @@ def build_scenarios() -> list[dict]:
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
-              _engine_items, _doubles)
+              _engine_items, _doubles, _mixed_rounding_attack_stat_abilities)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

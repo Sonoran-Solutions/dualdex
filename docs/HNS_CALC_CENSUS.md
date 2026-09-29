@@ -208,7 +208,7 @@ Under Random Abilities any of the pinned domain's 310 abilities can be installed
 
 Counts are weighted by the cohort's eligible requests; battle counts de-duplicate trainer battles within each disposition. Refusals are attributed only to the exact ability entry in production's blocker list, while caveats use its ignored-mechanic list. Thus an unsupported move can refuse a request without making a caveatable ability look like a blocker. *Rules* lists the reviewed contextual rules that fired.
 
-**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1368946 request trials as refused, 16820 as caveated, and 2391894 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
+**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1320522 request trials as refused, 16820 as caveated, and 2440318 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
 
 ### Abilities that cause refusals
 
@@ -308,7 +308,11 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Steely Spirit | 4 | 2 | 0 | steely_spirit_defender_singles_irrelevant, steely_spirit_holder_effective_nonsteel_move |
 | Wandering Spirit | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Quick Draw | 4 | 2 | 0 | speed_ability_without_analytic |
+| Transistor | 4 | 2 | 0 | attack_stat_type_ability_defender_side, attack_stat_type_ability_live_state_unknown |
+| Dragon's Maw | 4 | 2 | 0 | attack_stat_type_ability_defender_side, attack_stat_type_ability_live_state_unknown |
 | Lingering Aroma | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
+| Rocky Payload | 4 | 2 | 0 | attack_stat_type_ability_defender_side, attack_stat_type_ability_live_state_unknown |
+| Orichalcum Pulse | 4 | 2 | 0 | orichalcum_pulse_defender_side, orichalcum_pulse_live_state_unknown |
 | Cud Chew | 4 | 2 | 0 | berry_recovery_outside_single_hit |
 | Drizzle | 4 | 4 | 0 | live_weather_setter_supported_weather |
 | Speed Boost | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
@@ -365,10 +369,10 @@ The same ability can be clear, caveated, or refused on different sides and in di
 |---|---|---:|---:|---:|---:|
 | attacker | Physical | 138 | 4565 | 3 | 4565 |
 | attacker | Special | 138 | 2739 | 1 | 2739 |
-| defender | Physical | 179 | 3034 | 1 | 110 |
-| defender | Special | 179 | 1848 | 1 | 276 |
+| defender | Physical | 175 | 3034 | 1 | 110 |
+| defender | Special | 175 | 1848 | 1 | 276 |
 
-Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 582 rows, `RELEVANT` in 45 rows and `UNKNOWN` in 613 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
+Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 590 rows, `RELEVANT` in 45 rows and `UNKNOWN` in 605 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
 
 ## Issue #91 low-state stat ability slice comparison
 
@@ -400,6 +404,36 @@ Random Abilities weighted request trials changed from 1,403,628 refused / 16,820
 | Fur Coat | 1 Persian-A | 12 requests improve in 1 trainer battle | 12,186 / 0 / 0 → 1,796 / 0 / 10,390 |
 
 Solar Power has no relevant branch in this full-HP, clear-weather census; 80 requests remain unknown because the live effective attacker ability is unread, while the other inactive cases clear. Defeatist is above its exact integer half threshold in every census request. Fur Coat clears attacker-side requests; 1,370 physical defender requests are relevant but remain refused while field/Defense selection is unknown, and 426 special defender requests remain unknown for the same field-state reason. The trainer inventory has no Mold Breaker or literal-bypass suppression requests; those refusals are covered by engine-only oracle controls. Fur Coat is held by one Persian-A in `TRAINER_KAREN_POSTOBC_HNS`. None of the three abilities adds a fully displayable lead matchup.
+
+## Issue #91 Group D mixed-rounding Attack-stat slice comparison
+
+This comparison uses the exact starting `main` SHA `4448b8df00e9ff4058a6276867a3eb8a9f914545` (PR #111 merged). Both runs cover the same 24,278 eligible damaging requests across 651 trainer battles.
+
+| Metric | Starting main | This slice | Change |
+|---|---:|---:|---:|
+| `FULLY_MODELLED` requests | 18,800 | 18,800 | unchanged |
+| `CAVEATED_ESTIMATE` requests | 372 | 372 | unchanged |
+| `REFUSED` requests | 5,106 | 5,106 | unchanged |
+| Fully displaying lead matchups | 372 / 1,302 | 372 / 1,302 | unchanged |
+| Displayable requests in lead matchups | 6,676 | 6,676 | unchanged |
+| Trainer requests improving from refused | 0 | 0 | unchanged |
+| Trainer battles with at least one improved request | 0 / 651 | 0 / 651 | unchanged |
+| Battles gaining a fully displayable lead matchup | 0 / 651 | 0 / 651 | none |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 221 battles / 1,772 requests | 221 / 1,772 | unchanged |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` | 80 battles / 276 requests | 80 / 276 | unchanged |
+
+The top blockers remain move mechanics (557 battles / 3,578 requests), item-dependent moves (68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218), Swift Swim (38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm (28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70). None of the four abilities has a holder in the pinned trainer inventory, so trainer requests and display coverage do not change.
+
+Random Abilities weighted trials change from 1,368,946 refused / 16,820 caveated / 2,391,894 clear to 1,320,522 / 16,820 / 2,440,318. Identities with at least one refusal remain 181; caveated identities remain 4; clear-only identities remain 126. Ambiguous opposite-ability exclusions remain 16,974 attacker-side and 19,396 defender-side requests.
+
+| Ability | Trainer holders | Trainer request change | Random Abilities refused / caveated / clear, before → after |
+|---|---:|---|---|
+| Transistor | 0 | No trainer requests | 12,186 / 0 / 0 → 80 / 0 / 12,106 |
+| Dragon's Maw | 0 | No trainer requests | 12,186 / 0 / 0 → 80 / 0 / 12,106 |
+| Rocky Payload | 0 | No trainer requests | 12,186 / 0 / 0 → 80 / 0 / 12,106 |
+| Orichalcum Pulse | 0 | No trainer requests | 12,186 / 0 / 0 → 80 / 0 / 12,106 |
+
+Each ability still has 80 unknown attacker-side contexts because the census does not establish its required live type, category, weather, or item operand; the remaining 12,106 attacker-side contexts and all defender-side contexts are proven irrelevant and clear. Each adds 12,106 clear Random Abilities trials without caveats; 80 requests remain refused per ability.
 
 ## Provenance and reproduction
 

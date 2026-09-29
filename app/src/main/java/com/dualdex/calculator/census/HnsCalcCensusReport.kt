@@ -1172,6 +1172,51 @@ object HnsCalcCensusReport {
                 "fully displayable lead matchup.\n\n"
         )
 
+        out.append("## Issue #91 Group D mixed-rounding Attack-stat slice comparison\n\n")
+        out.append(
+            "This comparison uses the exact starting `main` SHA " +
+                "`4448b8df00e9ff4058a6276867a3eb8a9f914545` (PR #111 merged). Both runs cover " +
+                "the same 24,278 eligible damaging requests across 651 trainer battles.\n\n"
+        )
+        out.append("| Metric | Starting main | This slice | Change |\n|---|---:|---:|---:|\n")
+        out.append("| `FULLY_MODELLED` requests | 18,800 | 18,800 | unchanged |\n")
+        out.append("| `CAVEATED_ESTIMATE` requests | 372 | 372 | unchanged |\n")
+        out.append("| `REFUSED` requests | 5,106 | 5,106 | unchanged |\n")
+        out.append("| Fully displaying lead matchups | 372 / 1,302 | 372 / 1,302 | unchanged |\n")
+        out.append("| Displayable requests in lead matchups | 6,676 | 6,676 | unchanged |\n")
+        out.append("| Trainer requests improving from refused | 0 | 0 | unchanged |\n")
+        out.append("| Trainer battles with at least one improved request | 0 / 651 | 0 / 651 | unchanged |\n")
+        out.append("| Battles gaining a fully displayable lead matchup | 0 / 651 | 0 / 651 | none |\n")
+        out.append("| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 221 battles / 1,772 requests | 221 / 1,772 | unchanged |\n")
+        out.append("| `HNS_ABILITY_CONDITION_UNVERIFIED` | 80 battles / 276 requests | 80 / 276 | unchanged |\n\n")
+        out.append(
+            "The top blockers remain move mechanics (557 battles / 3,578 requests), item-dependent " +
+                "moves (68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218), Swift Swim " +
+                "(38 / 150), defender Sturdy (29 / 232), attacker Sturdy (29 / 176), Swarm " +
+                "(28 / 118), Quick Claw (28 / 78), and Leftovers (25 / 70). None of the four " +
+                "abilities has a holder in the pinned trainer inventory, so trainer requests and " +
+                "display coverage do not change.\n\n"
+        )
+        out.append(
+            "Random Abilities weighted trials change from 1,368,946 refused / 16,820 caveated / " +
+                "2,391,894 clear to 1,320,522 / 16,820 / 2,440,318. Identities with at least one " +
+                "refusal remain 181; caveated identities remain 4; clear-only identities remain " +
+                "126. Ambiguous opposite-ability exclusions remain 16,974 attacker-side and " +
+                "19,396 defender-side requests.\n\n"
+        )
+        out.append("| Ability | Trainer holders | Trainer request change | Random Abilities refused / caveated / clear, before → after |\n|---|---:|---|---|\n")
+        out.append("| Transistor | 0 | No trainer requests | 12,186 / 0 / 0 → 80 / 0 / 12,106 |\n")
+        out.append("| Dragon's Maw | 0 | No trainer requests | 12,186 / 0 / 0 → 80 / 0 / 12,106 |\n")
+        out.append("| Rocky Payload | 0 | No trainer requests | 12,186 / 0 / 0 → 80 / 0 / 12,106 |\n")
+        out.append("| Orichalcum Pulse | 0 | No trainer requests | 12,186 / 0 / 0 → 80 / 0 / 12,106 |\n\n")
+        out.append(
+            "Each ability still has 80 unknown attacker-side contexts because the census does not " +
+                "establish its required live type, category, weather, or item operand; the remaining " +
+                "12,106 attacker-side contexts and all defender-side contexts are proven irrelevant " +
+                "and clear. Each adds 12,106 clear Random Abilities trials without caveats; 80 " +
+                "requests remain refused per ability.\n\n"
+        )
+
         out.append("## Provenance and reproduction\n\n")
         out.append(
             "The census is deterministic and offline: no ROM, no emulator, no network at report " +

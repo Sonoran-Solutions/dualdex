@@ -450,6 +450,61 @@ class HnsAbilityContextPolicyTest {
     }
 
     @Test
+    fun `final type Attack-stat abilities use authorized final type and Orichalcum GetWeather semantics`() {
+        val cases = listOf(
+            262 to PokemonType.ELECTRIC,
+            263 to PokemonType.DRAGON,
+            276 to PokemonType.ROCK
+        )
+        for ((id, matchingType) in cases) {
+            assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+                com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(id).category)
+            assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+                relevance(id, context(attackerAbilityId = id, moveType = matchingType)))
+            assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context(attackerAbilityId = id, moveType = PokemonType.FIRE)))
+            assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+                relevance(id, context(attackerAbilityId = id, moveType = null,
+                    dynamicMoveTypeKnownNeutral = false, moveAuthority = null)))
+            assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = id,
+                    attackerAbilityId = 0, moveType = null)))
+        }
+
+        val sun = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN_NORMAL
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(288, context(attackerAbilityId = 288, moveCategory = MoveCategory.PHYSICAL,
+                weatherWord = sun, attackerItemId = 0)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(288, context(attackerAbilityId = 288, moveCategory = MoveCategory.PHYSICAL,
+                weatherWord = sun or (1 shl 4), attackerItemId = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(288, context(attackerAbilityId = 288, moveCategory = MoveCategory.SPECIAL,
+                weatherWord = sun)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(288, context(attackerAbilityId = 288, moveCategory = MoveCategory.PHYSICAL,
+                weatherWord = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(288, context(attackerAbilityId = 288, moveCategory = MoveCategory.PHYSICAL,
+                weatherWord = sun,
+                attackerItemId = com.dualdex.pokemon.hns.HnsItemRegistry.resolveIdByName("Utility Umbrella"))))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(288, context(attackerAbilityId = 288, moveCategory = MoveCategory.PHYSICAL,
+                weatherWord = sun, attackerItemId = null)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(288, context(attackerAbilityId = 288, moveCategory = MoveCategory.PHYSICAL,
+                weatherWord = null, weatherObserved = false)))
+        // CalcAttackStat reads ctx->weather, but battle_script_commands.c initializes it through
+        // GetWeather(), which returns NONE when HasWeatherEffect() is false.
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(288, context(attackerAbilityId = 288, moveCategory = MoveCategory.PHYSICAL,
+                weatherWord = sun, defenderAbilityId = 13)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(288, context(attackerAbilityId = 288, moveCategory = MoveCategory.PHYSICAL,
+                weatherWord = sun, attackerHp = null, defenderHp = null)))
+    }
+
+    @Test
     fun `Huge and Pure Power clear defender and Special move cases only`() {
         for (id in listOf(37, 74)) {
             assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,

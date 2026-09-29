@@ -854,11 +854,12 @@ class CalcHnsAbilityTest {
             assertEquals("ability $id", HnsAbilityCategory.PROVEN_NO_DAMAGE_EFFECT,
                 HnsAbilityRegistry.classify(id).category)
         }
-        listOf(37, 47, 74, 140, 168, 262, 282).forEach { id ->
+        listOf(37, 47, 74, 140, 168, 282).forEach { id ->
             assertEquals("ability $id", HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
                 HnsAbilityRegistry.classify(id).category)
         }
-        listOf(55, 62, 85, 91, 97, 110, 111, 116, 136, 199, 231, 232, 233, 246).forEach { id ->
+        listOf(55, 62, 85, 91, 97, 110, 111, 116, 136, 199, 231, 232, 233, 246,
+            262, 263, 276, 288).forEach { id ->
             assertEquals("ability $id", HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
                 HnsAbilityRegistry.classify(id).category)
         }

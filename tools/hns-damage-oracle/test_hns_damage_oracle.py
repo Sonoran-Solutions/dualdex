@@ -121,6 +121,30 @@ class ScenarioSchemaTest(unittest.TestCase):
         self.assertEqual(by_id["group-d-guts-poison-physical"]["attacker"]["status"], "poison")
         self.assertEqual(by_id["group-d-guts-physical-no-status-control"]["attacker"]["status"], "none")
 
+    def test_group_d_mixed_rounding_attack_stat_abilities(self):
+        by_id = {s["id"]: s for s in SCENARIOS}
+        expected_modelled = {
+            "group-d-transistor-electric-physical", "group-d-transistor-electric-special",
+            "group-d-transistor-non-electric-control", "group-d-transistor-badge-composition",
+            "group-d-transistor-crit-negative-stage", "group-d-dragons-maw-dragon-physical",
+            "group-d-dragons-maw-dragon-special", "group-d-dragons-maw-non-dragon-control",
+            "group-d-dragons-maw-stage-badge", "group-d-rocky-payload-rock-physical",
+            "group-d-rocky-payload-non-rock-control", "group-d-rocky-payload-stage",
+            "group-d-orichalcum-pulse-physical-sun", "group-d-orichalcum-pulse-physical-sun-badge",
+            "group-d-orichalcum-pulse-no-sun-control",
+            "group-d-orichalcum-pulse-special-sun-control",
+        }
+        expected_engine_only = {
+            "group-d-orichalcum-pulse-utility-umbrella",
+            "group-d-orichalcum-pulse-cloud-nine-raw-sun",
+        }
+        self.assertTrue(expected_modelled.union(expected_engine_only).issubset(by_id))
+        self.assertTrue(all(by_id[sid]["surface"] == "modelled" for sid in expected_modelled))
+        self.assertTrue(all(by_id[sid]["surface"] == "engine-only" for sid in expected_engine_only))
+        self.assertTrue(by_id["group-d-transistor-badge-composition"]["badges"])
+        self.assertTrue(by_id["group-d-transistor-crit-negative-stage"]["crit"])
+        self.assertTrue(by_id["group-d-orichalcum-pulse-cloud-nine-raw-sun"]["field"]["weather"] == "sun")
+
     def test_group_d_base_power_matrix_covers_source_predicates_water_bubble_and_heatproof(self):
         by_id = {s["id"]: s for s in SCENARIOS}
         expected = {

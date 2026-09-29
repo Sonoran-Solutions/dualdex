@@ -62,11 +62,13 @@ class HnsItemContextPolicyTest {
         defenderAbilityId: Int? = null,
         attackerGastroAcid: Boolean? = null,
         defenderGastroAcid: Boolean? = null,
-        observedBattlersCount: Int? = null
+        observedBattlersCount: Int? = null,
+        attackerTerrainApplicability: HnsTerrainApplicability? = null,
+        defenderTerrainApplicability: HnsTerrainApplicability? = null
     ) = HnsItemContextPolicy.Context(
         side, ordinaryMove, moveType, moveCategory, fieldStatuses?.let(HnsFieldState::decode), weatherWord,
         attackerAbilityId, defenderHp, defenderMaxHp, defenderAbilityId, attackerGastroAcid,
-        defenderGastroAcid, observedBattlersCount
+        defenderGastroAcid, observedBattlersCount, attackerTerrainApplicability, defenderTerrainApplicability
     )
 
     private fun relevance(id: Int, context: HnsItemContextPolicy.Context?) =
@@ -301,13 +303,17 @@ class HnsItemContextPolicyTest {
     }
 
     @Test
-    fun `grounding items need no terrain and a non-Ground move on the defender`() {
+    fun `grounding items use authoritative terrain applicability`() {
         assertEquals(irrelevant, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, moveType = PokemonType.WATER)))
         assertEquals(modelled, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, moveType = PokemonType.GROUND)))
         // A terrain reads groundedness; an unread word or an unknown bit is not assumed terrain-free.
         for (terrain in listOf(1 shl 6, 1 shl 7, 1 shl 8, 1 shl 9)) {
             assertEquals(unknown, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, fieldStatuses = terrain)))
             assertEquals(unknown, relevance(airBalloon, ctx(HnsItemSide.ATTACKER, fieldStatuses = terrain)))
+            assertEquals(modelled, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, fieldStatuses = terrain,
+                defenderTerrainApplicability = HnsTerrainApplicability.NOT_AFFECTED)))
+            assertEquals(modelled, relevance(airBalloon, ctx(HnsItemSide.ATTACKER, fieldStatuses = terrain,
+                attackerTerrainApplicability = HnsTerrainApplicability.NOT_AFFECTED)))
         }
         assertEquals(unknown, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, fieldStatuses = null)))
         assertEquals(unknown, relevance(airBalloon, ctx(HnsItemSide.DEFENDER, fieldStatuses = 1 shl 13)))
@@ -377,6 +383,18 @@ class HnsItemContextPolicyTest {
                 attackerGastroAcid = true, defenderGastroAcid = false, observedBattlersCount = 2)
         ).forEach { HnsItemContextPolicy.assess(758, it).rule?.let(produced::add) }
         listOf(
+            HnsItemContextPolicy.assess(airBalloon, ctx(
+                HnsItemSide.ATTACKER,
+                fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_GRASSY_TERRAIN,
+                attackerTerrainApplicability = HnsTerrainApplicability.NOT_AFFECTED,
+                observedBattlersCount = 2
+            )),
+            HnsItemContextPolicy.assess(airBalloon, ctx(
+                HnsItemSide.DEFENDER,
+                fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_MISTY_TERRAIN,
+                defenderTerrainApplicability = HnsTerrainApplicability.AFFECTED,
+                observedBattlersCount = 2
+            )),
             HnsItemContextPolicy.assess(terrainSeed, ctx(
                 HnsItemSide.ATTACKER,
                 fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN,

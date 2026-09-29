@@ -5,6 +5,7 @@ import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.hns.HnsAbilityAuditData
 import com.dualdex.pokemon.hns.HnsAbilityCategory
 import com.dualdex.pokemon.hns.HnsItemRegistry
+import com.dualdex.pokemon.hns.HnsFieldStatusData
 
 /** Which request participant owns an effective live ability. */
 enum class HnsAbilitySide { ATTACKER, DEFENDER }
@@ -106,6 +107,8 @@ object HnsAbilityContextPolicy {
         val weatherWord: Int? = null,
         val weatherObserved: Boolean = false,
         val fieldStatuses: Int? = null,
+        val attackerTerrainApplicability: HnsTerrainApplicability? = null,
+        val defenderTerrainApplicability: HnsTerrainApplicability? = null,
         /** Null/false while the authoritative switch-in/event driver is unread or still pending. */
         val switchInEventsSettled: Boolean? = null,
         /** The single pinned effective-type decision shared by policy and engine serialization. */
@@ -625,11 +628,42 @@ object HnsAbilityContextPolicy {
                 )
             }
             26 -> when (c.side) {
-                HnsAbilitySide.ATTACKER -> proof(
-                    "attacker_levitate_does_not_change_outgoing_damage", "src/battle_util.c:8385",
-                    "Levitate is checked on the defending battler in type effectiveness."
-                )
+                HnsAbilitySide.ATTACKER -> when {
+                    c.fieldStatuses == null -> null
+                    c.fieldStatuses and HnsFieldStatusData.STATUS_FIELD_GRAVITY != 0 -> proof(
+                        "levitate_attacker_gravity_override", "src/battle_util.c:6021-6036",
+                        "Gravity returns grounded before the pinned Levitate ungrounding check; the shared terrain authority therefore reports the attacker terrain-affected."
+                    )
+                    c.fieldStatuses and (HnsFieldStatusData.STATUS_FIELD_GRASSY_TERRAIN or
+                        HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN or
+                        HnsFieldStatusData.STATUS_FIELD_PSYCHIC_TERRAIN) != 0 &&
+                        c.attackerTerrainApplicability == HnsTerrainApplicability.NOT_AFFECTED &&
+                        c.moveType in setOf(PokemonType.GRASS, PokemonType.ELECTRIC, PokemonType.PSYCHIC) -> proof(
+                        "levitate_attacker_terrain_unaffected", "src/battle_util.c:6028-6034,6639-6645",
+                        "The live Levitate identity is consumed by HnsTerrainAuthority, which proves the attacker ungrounded and suppresses the matching attacker-side terrain modifier."
+                    )
+                    c.fieldStatuses and HnsFieldStatusData.STATUS_FIELD_TERRAIN_ANY == 0 -> proof(
+                        "attacker_levitate_no_terrain", "src/battle_util.c:5141",
+                        "No terrain bit is active, so Levitate's groundedness cannot affect this ordinary selected hit."
+                    )
+                    else -> null
+                }
                 HnsAbilitySide.DEFENDER -> when {
+                    c.fieldStatuses == null -> null
+                    c.fieldStatuses and HnsFieldStatusData.STATUS_FIELD_GRAVITY != 0 -> proof(
+                        "levitate_defender_gravity_override", "src/battle_util.c:6021-6036",
+                        "Gravity returns grounded before the pinned Levitate ungrounding check; the shared terrain authority reports the defender terrain-affected."
+                    )
+                    c.moveType == PokemonType.DRAGON &&
+                        c.fieldStatuses and HnsFieldStatusData.STATUS_FIELD_MISTY_TERRAIN != 0 &&
+                        c.defenderTerrainApplicability == HnsTerrainApplicability.NOT_AFFECTED -> proof(
+                        "levitate_defender_misty_unaffected", "src/battle_util.c:6028-6034,6641",
+                        "The live Levitate identity is consumed by HnsTerrainAuthority, which proves the defender ungrounded and suppresses Misty Terrain's Dragon reduction."
+                    )
+                    c.fieldStatuses and HnsFieldStatusData.STATUS_FIELD_TERRAIN_ANY == 0 -> proof(
+                        "defender_levitate_no_terrain", "src/battle_util.c:5141",
+                        "No terrain bit is active; Levitate retains its existing Ground-move-only type-effectiveness behavior."
+                    )
                     c.moveType == null || !c.dynamicMoveTypeKnownNeutral -> null
                     c.moveType != PokemonType.GROUND -> proof(
                         "defender_levitate_non_ground_move", "src/battle_util.c:8385",
@@ -955,6 +989,8 @@ object HnsAbilityContextPolicy {
             weatherWord = live?.takeIf { it.weatherObserved }?.weatherWord,
             weatherObserved = live?.weatherObserved == true,
             fieldStatuses = live?.fieldStatuses,
+            attackerTerrainApplicability = live?.attackerTerrainApplicability,
+            defenderTerrainApplicability = live?.defenderTerrainApplicability,
             switchInEventsSettled = live?.switchInEventsSettled,
             moveAuthority = authority
         )

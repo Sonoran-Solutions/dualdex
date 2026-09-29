@@ -143,6 +143,12 @@ def plan_setup(scenario: dict) -> tuple[list[str], list[str], bool]:
         atk_actions.append("MOVE_GRASSY_TERRAIN")
     elif scenario["field"]["terrain"] == "electric":
         atk_actions.append("MOVE_ELECTRIC_TERRAIN")
+    elif scenario["field"]["terrain"] == "misty":
+        atk_actions.append("MOVE_MISTY_TERRAIN")
+    elif scenario["field"]["terrain"] == "psychic":
+        atk_actions.append("MOVE_PSYCHIC_TERRAIN")
+    if scenario["field"]["gravity"]:
+        atk_actions.append("MOVE_GRAVITY")
     partner_ko = scenario["format"] == "doubles" and scenario["doubles"]["defenderPartner"] == "fainted"
     turns = max(len(atk_actions), len(def_actions), 1 if partner_ko else 0)
     atk_actions = [""] * (turns - len(atk_actions)) + atk_actions
@@ -263,6 +269,9 @@ static void DdxoBattler(const char *id, u32 roll, const char *role, u32 battler)
         ShouldGetStatBadgeBoost(B_FLAG_BADGE_BOOST_DEFENSE, battler) ? 1 : 0,
         ShouldGetStatBadgeBoost(B_FLAG_BADGE_BOOST_SPATK, battler) ? 1 : 0,
         ShouldGetStatBadgeBoost(B_FLAG_BADGE_BOOST_SPDEF, battler) ? 1 : 0);
+    Test_MgbaPrintf("DDXO|%%s|%%d|%%s6|%%d", id, roll, role,
+        IsBattlerTerrainAffected(battler, GetBattlerAbility(battler), GetBattlerHoldEffect(battler),
+                                 gFieldStatuses, STATUS_FIELD_TERRAIN_ANY) ? 1 : 0);
 }
 
 static void DdxoHit(const char *id, u32 roll, enum Move move, u32 battlerAtk, u32 battlerDef, s32 damage,
@@ -490,7 +499,8 @@ def _int(text: str, what: str) -> int:
     return int(text)
 
 
-LINE_FIELDS = {"A1": 9, "A2": 7, "A3": 4, "A4": 6, "A5": 4, "D1": 9, "D2": 7, "D3": 4, "D4": 6, "D5": 4,
+LINE_FIELDS = {"A1": 9, "A2": 7, "A3": 4, "A4": 6, "A5": 4, "A6": 1,
+               "D1": 9, "D2": 7, "D3": 4, "D4": 6, "D5": 4, "D6": 1,
                "M": 19, "F": 7, "R": 3}
 
 
@@ -550,7 +560,7 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
 
 
 def _battler_view(slot: dict[str, list[str]], role: str, sid: str) -> dict:
-    f1, f2, f3, f4, f5 = (slot[f"{role}{n}"] for n in range(1, 6))
+    f1, f2, f3, f4, f5, f6 = (slot[f"{role}{n}"] for n in range(1, 7))
     what = f"{sid} {role}"
     types = list(f1[2:5])
     if types[2] != "Mystery":
@@ -571,6 +581,7 @@ def _battler_view(slot: dict[str, list[str]], role: str, sid: str) -> dict:
         "baseStats": {"hp": _int(f4[0], what), "attack": _int(f4[1], what), "defense": _int(f4[2], what),
                       "spAttack": _int(f4[3], what), "spDefense": _int(f4[4], what), "speed": _int(f4[5], what)},
         "badgeBoosts": {k: _int(v, what) == 1 for k, v in zip(("attack", "defense", "spAttack", "spDefense"), f5)},
+        "terrainAffected": _int(f6[0], what) == 1,
     }
 
 
@@ -685,7 +696,10 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
         if weather != field["weather"]:
             raise OracleError(f"{sid}: battle weather {weather!r} != scenario {field['weather']!r}")
         observed_field_statuses = _int(field_statuses, f"{sid} F fieldStatuses")
-        expected_field_statuses = {"none": 0, "grassy": 1 << 6, "electric": 1 << 8}[field["terrain"]]
+        expected_field_statuses = {"none": 0, "grassy": 1 << 6, "electric": 1 << 8,
+                                   "misty": 1 << 7, "psychic": 1 << 9}[field["terrain"]]
+        if field["gravity"]:
+            expected_field_statuses |= 1 << 5
         if observed_field_statuses != expected_field_statuses:
             raise OracleError(f"{sid}: battle field word {observed_field_statuses:#x} != scenario {expected_field_statuses:#x}")
         if (reflect == "1") != field["reflect"] or (light_screen == "1") != field["lightScreen"]:
@@ -700,11 +714,11 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             "attacker": {"speciesId": atk["speciesId"], "types": atk["types"], "baseStats": atk["baseStats"],
                          "abilityId": atk["abilityId"], "itemId": atk["itemId"], "hpAtHit": hp_at_hit,
                          "status1": atk["status1"],
-                         "badgeBoosts": atk["badgeBoosts"]},
+                         "badgeBoosts": atk["badgeBoosts"], "terrainAffected": atk["terrainAffected"]},
             "defender": {"speciesId": dfn["speciesId"], "types": dfn["types"], "baseStats": dfn["baseStats"],
                          "abilityId": dfn["abilityId"], "itemId": dfn["itemId"],
                          "hpAtHit": scenario["defender"]["stats"]["hp"], "status1": dfn["status1"],
-                         "badgeBoosts": dfn["badgeBoosts"]},
+                         "badgeBoosts": dfn["badgeBoosts"], "terrainAffected": dfn["terrainAffected"]},
             "move": {"id": move_id, "type": m[1], "power": _int(m[2], f"{sid} M"), "category": m[3],
                      "target": m[4], "flags": flags, "abilityFlags": ability_flags,
                      "priority": _int(m[12], f"{sid} M priority"),

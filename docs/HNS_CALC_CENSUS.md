@@ -464,6 +464,30 @@ Random Abilities weighted request trials changed from 1,320,522 refused / 16,820
 
 The global ability audit moves from 58 `MODELLED_HNS_CONDITIONAL` and 169 `UNSUPPORTED_DAMAGE_RELEVANT` abilities to 60 and 167, respectively; the 84 `PROVEN_NO_DAMAGE_EFFECT` abilities are unchanged.
 
+## Issue #83 / PR #113 terrain move-modifier slice comparison
+
+This comparison uses the exact starting `main` SHA
+`5883f129213c1fdd1671982853f5395584de1764` (PR #113 merged). Both runs cover the same 24,278
+eligible damaging requests across 651 trainer battles. The trainer inventory has no starting
+terrain in its fixed census state, so request coverage and blockers are unchanged; this slice adds
+runtime support for observed terrain rather than a static-census improvement.
+
+| Metric | Starting main | This slice | Change |
+|---|---:|---:|---:|
+| `FULLY_MODELLED` requests | 18,800 | 18,800 | unchanged |
+| `CAVEATED_ESTIMATE` requests | 372 | 372 | unchanged |
+| `REFUSED` requests | 5,106 | 5,106 | unchanged |
+| Fully displaying lead matchups | 372 / 1,302 | 372 / 1,302 | unchanged |
+| Displayable requests in lead matchups | 6,676 | 6,676 | unchanged |
+| `HNS_FIELD_STATUS_NOT_MODELLED` | 0 battles / 0 requests | 0 / 0 | unchanged |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 247 battles / 1,870 requests | 247 / 1,870 | unchanged |
+| Item blockers | unchanged | unchanged | no terrain-bearing census requests |
+
+Random Abilities weighted request trials also remain unchanged at 1,297,908 refused / 16,820
+caveated / 2,462,932 clear. The machine-readable census comparison confirms identical result tiers,
+lead coverage, field/ability blockers, item blockers, and ability-trial rows at starting `main`
+and this branch. Terrain-grounding changes therefore alter no trainer or synthetic census outcome.
+
 ## Provenance and reproduction
 
 The census is deterministic and offline: no ROM, no emulator, no network at report time, no randomness, and no generation timestamp or absolute path in either artifact. Regenerate both artifacts with:

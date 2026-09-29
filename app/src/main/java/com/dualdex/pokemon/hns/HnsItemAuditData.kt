@@ -273,6 +273,8 @@ internal object HnsItemAuditData {
         "weight_item_ordinary_move",
         "grounding_item_attacker_no_terrain",
         "grounding_item_defender_non_ground_move_no_terrain",
+        "grounding_item_attacker_terrain_authority",
+        "grounding_item_defender_terrain_authority",
         "grounding_item_defender_ground_move",
         "umbrella_clear_weather",
         "umbrella_sun_or_rain",

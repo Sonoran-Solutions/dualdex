@@ -179,7 +179,8 @@ class CommittedArtifactTests(unittest.TestCase):
         self.assertEqual(gen.HEADER_OUT.read_text(), header)
         kotlin = gen.render_kotlin(audit(), bits, compositions,
                                    self.committed_abilities(), self.committed_set("gravityBannedOrdinaryMoveIds"),
-                                   self.committed_set("positivePriorityOrdinaryMoveIds"), self.committed_rules())
+                                   self.committed_set("positivePriorityOrdinaryMoveIds"),
+                                   self.committed_grassy_glide(), self.committed_rules())
         self.assertEqual(gen.KOTLIN_OUT.read_text(), kotlin)
 
     @staticmethod
@@ -197,6 +198,11 @@ class CommittedArtifactTests(unittest.TestCase):
         block = gen.KOTLIN_OUT.read_text().split("val contextRuleNames: Set<String> = setOf(")[1]
         return re.findall(r'"([a-z0-9_]+)"', block)
 
+    @staticmethod
+    def committed_grassy_glide():
+        match = re.search(r"const val GRASSY_GLIDE_MOVE_ID: Int = (\d+)", gen.KOTLIN_OUT.read_text())
+        return int(match.group(1))
+
 
 class MoveFactTests(unittest.TestCase):
     def test_ordinary_move_facts(self):
@@ -204,7 +210,7 @@ class MoveFactTests(unittest.TestCase):
         (root / "include/constants").mkdir(parents=True)
         (root / "src/data").mkdir(parents=True)
         (root / "include/constants/moves.h").write_text(
-            "enum Move\n{\n    MOVE_NONE = 0,\n    MOVE_A,\n    MOVE_B,\n    MOVE_C,\n    MOVE_D,\n    MOVE_E,\n};\n")
+            "enum Move\n{\n    MOVE_NONE = 0,\n    MOVE_A,\n    MOVE_B,\n    MOVE_C,\n    MOVE_D,\n    MOVE_E,\n    MOVE_GRASSY_GLIDE,\n};\n")
         entry = "    [{sym}] =\n    {{\n        .effect = {eff},\n{extra}    }},\n"
         table = "const struct MoveInfo gMovesInfo[MOVES_COUNT_ALL] =\n{\n" + "".join([
             entry.format(sym="MOVE_A", eff="EFFECT_HIT", extra="        .priority = 1,\n"),
@@ -214,10 +220,11 @@ class MoveFactTests(unittest.TestCase):
             entry.format(sym="MOVE_E", eff="EFFECT_GRAV_APPLE", extra="        .gravityBanned = TRUE,\n"),
         ]) + "};\n"
         (root / "src/data/moves_info.h").write_text(table)
-        gravity, priority, terrain = gen.move_facts(root)
+        gravity, priority, terrain, grassy_glide = gen.move_facts(root)
         self.assertEqual([2], gravity)          # MOVE_E is not ordinary
         self.assertEqual([1, 3, 4], priority)   # literal +1, unprovable expression, Triage healing move
         self.assertEqual([], terrain)
+        self.assertEqual(6, grassy_glide)
 
 
 if __name__ == "__main__":

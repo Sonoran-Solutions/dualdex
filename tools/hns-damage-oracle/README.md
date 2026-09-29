@@ -110,7 +110,7 @@ minimum roll, 15 the maximum. The generator then verifies, per roll and fail-clo
 
 Any violation aborts regeneration with the scenario ID. Nothing is defaulted or turned into zero.
 
-## Corpus schema (v5)
+## Corpus schema (v6)
 
 Defined and validated by `oracle_schema.py`. Each scenario names only authoritative operands:
 
@@ -123,12 +123,15 @@ Defined and validated by `oracle_schema.py`. Each scenario names only authoritat
 | `badges` | player badge flags held (1..8) |
 | `attacker`/`defender` | pinned `SPECIES_*`/`ABILITY_*`/`ITEM_*` symbols + labels, level, raw stats incl. HP/max HP, status, relevant stat stages |
 | `move` | pinned `MOVE_*` symbol + label |
-| `crit`, `field` | forced crit flag; weather (`none`/`rain`/`sun`), Reflect, Light Screen |
+| `crit`, `field` | forced crit flag; weather (`none`/`rain`/`sun`), Reflect, Light Screen, one of four terrains, and Gravity |
 | `expect` | `damage` or `immune` (a declared immunity must remove no HP) |
 
 `observed` (recorded, not chosen): species/ability/item/move IDs, battle types, pinned base stats,
 effective move type/power/category/target class, explicit `ateBoost`, `GetMoveTargetCount`, `hpAtHit`, each battler's raw
-`BattlePokemon.status1`, and the engine's own `ShouldGetStatBadgeBoost` verdicts per battler.
+`BattlePokemon.status1`, the engine's own `ShouldGetStatBadgeBoost` verdicts, and the pinned engine's
+`IsBattlerTerrainAffected` result for each battler. Terrain applicability and Gravity are validated
+from the live battle field word; the differential corpus includes the four direct modifier types,
+grounding controls, Gravity overrides, and modifier compositions.
 
 ## Commands
 

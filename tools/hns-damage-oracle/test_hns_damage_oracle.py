@@ -40,7 +40,8 @@ def observed_for(s: dict) -> dict:
                "baseStats": {"hp": 90, "attack": 130, "defense": 80, "spAttack": 65, "spDefense": 85, "speed": 55},
                "abilityId": 15, "itemId": 0, "hpAtHit": s["attacker"]["stats"]["hp"],
                "status1": {"none": 0, "poison": 8, "burn": 16, "toxic": 128}[s["attacker"]["status"]],
-               "badgeBoosts": {"attack": False, "defense": False, "spAttack": False, "spDefense": False}}
+               "badgeBoosts": {"attack": False, "defense": False, "spAttack": False, "spDefense": False},
+               "terrainAffected": s["field"]["terrain"] != "none"}
     dfn = copy.deepcopy(battler)
     dfn["hpAtHit"] = s["defender"]["stats"]["hp"]
     dfn["status1"] = {"none": 0, "poison": 8, "burn": 16, "toxic": 128}[s["defender"]["status"]]
@@ -48,7 +49,9 @@ def observed_for(s: dict) -> dict:
             "move": {"id": 157, "type": "Rock", "power": 75, "category": "physical", "target": "both",
                      "flags": [], "abilityFlags": [], "priority": 0, "targetClass": 6, "ateBoost": False},
             "targetCount": 1,
-            "fieldStatuses": {"none": 0, "grassy": 1 << 6, "electric": 1 << 8}[s["field"]["terrain"]]}
+            "fieldStatuses": ({"none": 0, "grassy": 1 << 6, "electric": 1 << 8,
+                               "misty": 1 << 7, "psychic": 1 << 9}[s["field"]["terrain"]]
+                              | ((1 << 5) if s["field"]["gravity"] else 0))}
 
 
 ROLLS = [51, 51, 52, 52, 53, 54, 54, 55, 55, 56, 57, 57, 58, 58, 59, 60]
@@ -400,7 +403,7 @@ class CorpusSchemaTest(unittest.TestCase):
 
 def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, types=("Fighting", "Fighting"),
                  def_stage=0, atk_status="none", atk_status1=0, def_status="none", def_status1=0,
-                 move_ability_flags=(), field_statuses=0) -> list[str]:
+                 move_ability_flags=(), field_statuses=0, terrain_affected=True) -> list[str]:
     delta = damage if delta is None else delta
     t = f"{types[0]}|{types[1]}|Mystery"
     return [
@@ -409,11 +412,13 @@ def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, 
         f"DDXO|{sid}|{rng}|A3|0|0|0|0",
         f"DDXO|{sid}|{rng}|A4|90|130|80|65|85|55",
         f"DDXO|{sid}|{rng}|A5|0|0|0|0",
+        f"DDXO|{sid}|{rng}|A6|{1 if terrain_affected else 0}",
         f"DDXO|{sid}|{rng}|D1|143|50|Normal|Normal|Mystery|15|0|{def_status}|{def_status1}",
         f"DDXO|{sid}|{rng}|D2|{60000 - delta}|60000|100|85|100|130|40",
         f"DDXO|{sid}|{rng}|D3|0|{def_stage}|0|0",
         f"DDXO|{sid}|{rng}|D4|160|110|65|65|110|30",
         f"DDXO|{sid}|{rng}|D5|0|0|0|0",
+        f"DDXO|{sid}|{rng}|D6|{1 if terrain_affected else 0}",
         "DDXO|{}|{}|M|157|Rock|75|physical|both|1|157|0|0|0|0|0|0|6|{}|0".format(
             sid, rng, "|".join("1" if flag in move_ability_flags else "0" for flag in
                                 ("punchingMove", "bitingMove", "pulseMove", "slicingMove"))),
@@ -704,6 +709,26 @@ class CommittedCorpusTest(unittest.TestCase):
                 self.assertEqual((observed["type"], observed["category"], observed["ateBoost"]),
                                  (move_type, category, ate_boost))
                 self.assertEqual(len(entry["rolls"]), schema.ROLL_COUNT)
+
+    def test_pinned_terrain_applicability_controls_and_gravity_overrides(self):
+        doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
+        by_id = {entry["scenario"]["id"]: entry["observed"] for entry in doc["entries"]}
+        expected = {
+            "terrain-grassy-grass-attacker": (True, False),
+            "terrain-grassy-iron-ball-overrides-flying": (True, False),
+            "terrain-grassy-no-terrain-control": (False, False),
+            "terrain-electric-levitate-control": (False, True),
+            "terrain-electric-gravity-overrides-levitate": (True, True),
+            "terrain-misty-flying-defender-control": (False, False),
+            "terrain-psychic-air-balloon-control": (False, True),
+            "terrain-psychic-gravity-overrides-balloon": (True, True),
+        }
+        for sid, pair in expected.items():
+            with self.subTest(scenario=sid):
+                self.assertEqual(
+                    (by_id[sid]["attacker"]["terrainAffected"], by_id[sid]["defender"]["terrainAffected"]),
+                    pair,
+                )
 
     def test_known_divergences_pin_the_current_calculator_vectors(self):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())

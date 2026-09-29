@@ -354,7 +354,7 @@ const HNS_BREAKABLE_DEFENDER_ABILITIES = new Set([
   'Soundproof', 'Bulletproof', 'Wind Rider',
   'Queenly Majesty', 'Dazzling', 'Armor Tail',
   'Heatproof', 'Water Bubble',
-  'Filter', 'Solid Rock', 'Multiscale', 'Ice Scales', 'Punk Rock'
+  'Filter', 'Solid Rock', 'Multiscale', 'Ice Scales', 'Punk Rock', 'Fur Coat'
 ]);
 
 function calculateHnsDamage(gen, attacker, defender, move, field, input) {
@@ -563,6 +563,17 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   if (attacker.ability === 'Hustle' && isPhysical) {
     attackModifier.add(6144);
   }
+  if (attacker.ability === 'Solar Power' && isSpecial &&
+      isBattlerWeatherAffected(attacker, 'Sun', field, attacker, defender, input)) {
+    attackModifier.add(6144);
+  }
+  const attackerHp = input.attacker?.hp;
+  const attackerMaxHp = input.attacker?.maxHP;
+  if (attacker.ability === 'Defeatist' && Number.isInteger(attackerHp) &&
+      Number.isInteger(attackerMaxHp) && attackerMaxHp > 0 && attackerHp >= 0 &&
+      attackerHp <= attackerMaxHp && attackerHp <= Math.floor(attackerMaxHp / 2)) {
+    attackModifier.add(2048);
+  }
 
   // H&S 2.0.5 pinch abilities (src/battle_util.c CalcAttackStat): the attacker's ability
   // modifier is x1.5 when the effective move type matches the boosted type AND the live HP is at
@@ -592,6 +603,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // Defense-stage modifiers have their own accumulator so future defense abilities/items can be
   // inserted at the pinned CalcDefenseStat stage without changing base or final damage ordering.
   const defenseModifier = createHnsModifierAccumulator();
+  if (defender.ability === 'Fur Coat' && isPhysical && !defenderAbilitySuppressed) {
+    defenseModifier.add(8192);
+  }
   const defBadge = isPhysical ? !!input.defender?.badgeBoosts?.def : !!input.defender?.badgeBoosts?.spd;
   if (defBadge) defenseModifier.add(4506);
   const targetFinalDefense = Math.max(1, defenseModifier.apply(defenseAfterStages));
@@ -862,6 +876,19 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     attackerItem: attacker.item || null,
     defenderItem: defender.item || null
   };
+}
+
+// Source-equivalent subset of IsBattlerWeatherAffected for the request-local weather branch.
+// The boundary has already rebound ordinary weather and effective abilities/items from live state.
+function isBattlerWeatherAffected(battler, requestedWeather, field, attacker, defender, input) {
+  if (field.weather !== requestedWeather) return false;
+  const liveAbilities = [attacker.ability || '', defender.ability || ''];
+  if (liveAbilities.includes('Cloud Nine') || liveAbilities.includes('Air Lock')) return false;
+  // Utility Umbrella is consumed here only to decide the holder's weather-affected predicate;
+  // the separate item capability policy remains responsible for its independent limitation.
+  const item = String(input.attacker?.item || battler.item || '').toLowerCase();
+  if (input.attacker?.hnsEffectiveItemId === 513 || item === 'utility umbrella') return false;
+  return true;
 }
 
       const field = new Field(fieldOptions);

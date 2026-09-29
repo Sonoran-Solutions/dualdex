@@ -139,6 +139,9 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             put("species", request.attacker.species)
             put("level", request.attacker.level)
             request.attacker.item?.let { put("item", it) }
+            if (request.attacker.itemProvenance == CalcItemProvenance.BATTLE_EFFECTIVE) {
+                request.attacker.itemId?.let { put("hnsEffectiveItemId", it) }
+            }
             request.attacker.nature?.let { put("nature", it) }
             request.attacker.ability?.let { put("ability", it) }
             request.attacker.curHP?.let { put("curHP", it) }

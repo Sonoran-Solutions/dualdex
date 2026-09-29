@@ -788,6 +788,76 @@ def _attack_stat_abilities() -> list[dict]:
     return out
 
 
+def _low_state_stat_abilities() -> list[dict]:
+    """Group D low-state Attack/Defense stat-stage abilities."""
+    out = []
+    solar = ("ABILITY_SOLAR_POWER", "Solar Power")
+    defeatist = ("ABILITY_DEFEATIST", "Defeatist")
+    fur_coat = ("ABILITY_FUR_COAT", "Fur Coat")
+    mold_breaker = ("ABILITY_MOLD_BREAKER", "Mold Breaker")
+    ability_shield = ("ITEM_ABILITY_SHIELD", "Ability Shield")
+    umbrella = ("ITEM_UTILITY_UMBRELLA", "Utility Umbrella")
+    drought = ("ABILITY_DROUGHT", "Drought")
+
+    out.extend((
+        scenario("group-d-solar-power-special-sun-rounding", ["ability:solar-power", "attack-stat", "weather:sun", "rounding"],
+                 attacker("Alakazam", spa=153, ability=solar), defender("Snorlax", spd=107, ability=drought), "Psychic", weather="sun"),
+        scenario("group-d-solar-power-special-clear-control", ["ability:solar-power", "attack-stat", "negative-control"],
+                 attacker("Alakazam", spa=153, ability=solar), defender("Snorlax", spd=107), "Psychic"),
+        scenario("group-d-solar-power-special-rain-control", ["ability:solar-power", "attack-stat", "negative-control", "weather:rain"],
+                 attacker("Alakazam", spa=153, ability=solar), defender("Snorlax", spd=107), "Psychic", weather="rain"),
+        scenario("group-d-solar-power-physical-sun-control", ["ability:solar-power", "attack-stat", "negative-control", "weather:sun"],
+                 attacker("Machamp", atk=153, ability=solar), defender("Snorlax", dfn=107, ability=drought), "Strength", weather="sun"),
+        scenario("group-d-solar-power-type-based-final-special", ["ability:solar-power", "attack-stat", "option-style", "category-shift", "weather:sun"],
+                 attacker("Alakazam", spa=153, ability=solar), defender("Skarmory", spd=107, ability=drought), "Shadow Claw", style="typeBased", weather="sun"),
+        scenario("group-d-solar-power-special-sun-crit-negative-stage", ["ability:solar-power", "attack-stat", "weather:sun", "crit", "stages"],
+                 attacker("Alakazam", spa=153, ability=solar, stages={"spAttack": -2}), defender("Snorlax", spd=107, ability=drought), "Psychic", weather="sun", crit=True),
+        scenario("group-d-solar-power-utility-umbrella-control", ["ability:solar-power", "attack-stat", "item:utility-umbrella", "negative-control", "weather:sun"],
+                 attacker("Alakazam", spa=153, ability=solar, item=umbrella), defender("Snorlax", spd=107), "Psychic", weather="sun", surface="engine-only"),
+        scenario("group-d-solar-power-cloud-nine-weather-suppressed", ["ability:solar-power", "ability:cloud-nine", "weather:sun", "negative-control"],
+                 attacker("Alakazam", spa=153, ability=solar), defender("Snorlax", spd=107, ability=("ABILITY_CLOUD_NINE", "Cloud Nine")), "Psychic", weather="sun", surface="engine-only"),
+    ))
+
+    out.extend((
+        scenario("group-d-defeatist-physical-even-half", ["ability:defeatist", "attack-stat", "hp:half", "rounding"],
+                 attacker("Machamp", atk=153, maxhp=20, hp=10, ability=defeatist), defender("Snorlax", dfn=107), "Strength"),
+        scenario("group-d-defeatist-special-odd-half", ["ability:defeatist", "attack-stat", "hp:half", "rounding"],
+                 attacker("Alakazam", spa=153, maxhp=15, hp=7, ability=defeatist), defender("Snorlax", spd=107), "Psychic"),
+        scenario("group-d-defeatist-odd-above-half-control", ["ability:defeatist", "attack-stat", "negative-control"],
+                 attacker("Alakazam", spa=153, maxhp=15, hp=8, ability=defeatist), defender("Snorlax", spd=107), "Psychic"),
+        scenario("group-d-defeatist-physical-crit-negative-stage", ["ability:defeatist", "attack-stat", "crit", "stages"],
+                 attacker("Machamp", atk=153, maxhp=20, hp=10, ability=defeatist, stages={"attack": -2}),
+                 defender("Snorlax", dfn=107, stages={"defense": 2}), "Strength", crit=True),
+        scenario("group-d-defeatist-special-stage-composition", ["ability:defeatist", "attack-stat", "stages", "modifier-stacking"],
+                 attacker("Alakazam", spa=153, maxhp=20, hp=9, ability=defeatist, stages={"spAttack": 1}),
+                 defender("Snorlax", spd=107), "Psychic"),
+        scenario("group-d-defeatist-one-hp", ["ability:defeatist", "attack-stat", "hp:low"],
+                 attacker("Machamp", atk=153, maxhp=20, hp=1, ability=defeatist), defender("Snorlax", dfn=107), "Strength"),
+        scenario("group-d-defeatist-full-hp-control", ["ability:defeatist", "attack-stat", "negative-control", "hp:full"],
+                 attacker("Machamp", atk=153, maxhp=20, hp=20, ability=defeatist), defender("Snorlax", dfn=107), "Strength"),
+    ))
+
+    out.extend((
+        scenario("group-d-fur-coat-physical-defense-stage", ["ability:fur-coat", "defense-stat", "rounding"],
+                 attacker("Machamp", atk=153), defender("Snorlax", dfn=107, ability=fur_coat), "Strength"),
+        scenario("group-d-fur-coat-special-spdef-control", ["ability:fur-coat", "defense-stat", "negative-control"],
+                 attacker("Alakazam", spa=153), defender("Snorlax", spd=107, ability=fur_coat), "Psychic"),
+        scenario("group-d-fur-coat-type-based-physical", ["ability:fur-coat", "defense-stat", "option-style", "category-shift"],
+                 attacker("Machamp", atk=153), defender("Snorlax", dfn=107, ability=fur_coat), "Rock Slide", style="typeBased"),
+        scenario("group-d-fur-coat-physical-crit-positive-stage", ["ability:fur-coat", "defense-stat", "crit", "stages"],
+                 attacker("Machamp", atk=153), defender("Snorlax", dfn=107, ability=fur_coat, stages={"defense": 2}), "Strength", crit=True),
+        scenario("group-d-fur-coat-defense-stage-composition", ["ability:fur-coat", "defense-stat", "stages", "modifier-stacking"],
+                 attacker("Machamp", atk=153), defender("Snorlax", dfn=107, ability=fur_coat, stages={"defense": -1}), "Strength"),
+        scenario("group-d-fur-coat-ability-shield", ["ability:fur-coat", "defense-stat", "ability-shield"],
+                 attacker("Machamp", atk=153, ability=mold_breaker), defender("Snorlax", dfn=107, ability=fur_coat, item=ability_shield), "Strength"),
+        scenario("group-d-fur-coat-mold-breaker-engine-control", ["ability:fur-coat", "ability:mold-breaker", "mold-breaker", "defense-stat"],
+                 attacker("Machamp", atk=153, ability=mold_breaker), defender("Snorlax", dfn=107, ability=fur_coat), "Strength", surface="engine-only"),
+        scenario("group-d-fur-coat-literal-bypass", ["ability:fur-coat", "move-ability-bypass", "defense-stat"],
+                 attacker("Machamp", atk=153), defender("Snorlax", dfn=107, ability=fur_coat), "Sunsteel Strike"),
+    ))
+    return out
+
+
 def _base_power_abilities() -> list[dict]:
     """Group D source-ordered base-power ability modifiers (issue #91)."""
     out = []
@@ -1363,7 +1433,7 @@ def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
-              _base_power_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
+              _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

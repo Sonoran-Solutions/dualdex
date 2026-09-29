@@ -36,8 +36,12 @@ class HnsAbilityContextPolicyTest {
         attackerAbilityObserved: Boolean = true,
         defenderAbilityObserved: Boolean = true,
         attackerHp: Int? = 14,
+        attackerMaxHp: Int? = 15,
+        attackerItemId: Int? = 0,
         defenderAbilityId: Int? = 0,
         weatherWord: Int? = 0,
+        weatherObserved: Boolean = true,
+        fieldStatuses: Int? = 0,
         switchInEventsSettled: Boolean? = true
     ) = HnsAbilityContextPolicy.Context(
         side = side,
@@ -65,8 +69,12 @@ class HnsAbilityContextPolicyTest {
         attackerAbilityObserved = attackerAbilityObserved,
         defenderAbilityObserved = defenderAbilityObserved,
         attackerHp = attackerHp,
+        attackerMaxHp = attackerMaxHp,
+        attackerItemId = attackerItemId,
         defenderAbilityId = defenderAbilityId,
         weatherWord = weatherWord,
+        weatherObserved = weatherObserved,
+        fieldStatuses = fieldStatuses,
         switchInEventsSettled = switchInEventsSettled,
         moveAuthority = moveAuthority ?: if (dynamicMoveTypeKnownNeutral && moveType != null) {
             HnsMoveAuthority(
@@ -360,6 +368,85 @@ class HnsAbilityContextPolicyTest {
             relevance(55, context(side = HnsAbilitySide.DEFENDER, moveCategory = null)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(55, context(moveCategory = null)))
+    }
+
+    @Test
+    fun `Solar Power consumes final category and authoritative affected Sun prerequisites`() {
+        val sun = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN_NORMAL
+        assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(94).category)
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(94, context(attackerAbilityId = 94, moveCategory = MoveCategory.SPECIAL,
+                weatherWord = sun, attackerItemId = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(94, context(attackerAbilityId = 94, moveCategory = MoveCategory.PHYSICAL,
+                weatherWord = sun)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(94, context(attackerAbilityId = 94, moveCategory = MoveCategory.SPECIAL,
+                weatherWord = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(94, context(attackerAbilityId = 94, moveCategory = MoveCategory.SPECIAL,
+                weatherWord = sun, attackerItemId = 513)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(94, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = 0,
+                defenderAbilityId = 94, moveCategory = null)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(94, context(attackerAbilityId = 94, moveCategory = null, weatherWord = sun)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(94, context(attackerAbilityId = 94, moveCategory = MoveCategory.SPECIAL,
+                weatherWord = null, weatherObserved = false)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(94, context(attackerAbilityId = 94, moveCategory = MoveCategory.SPECIAL,
+                weatherWord = sun, attackerItemId = null)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(94, context(attackerAbilityId = 94, moveCategory = MoveCategory.SPECIAL,
+                weatherWord = sun, defenderAbilityId = 13)))
+    }
+
+    @Test
+    fun `Defeatist uses inclusive integer half of valid live HP independent of category`() {
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(129, context(attackerAbilityId = 129, attackerHp = 10, attackerMaxHp = 20,
+                moveCategory = MoveCategory.PHYSICAL)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(129, context(attackerAbilityId = 129, attackerHp = 11, attackerMaxHp = 20)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(129, context(attackerAbilityId = 129, attackerHp = 7, attackerMaxHp = 15,
+                moveCategory = MoveCategory.SPECIAL)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(129, context(attackerAbilityId = 129, attackerHp = 8, attackerMaxHp = 15)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(129, context(attackerAbilityId = 129, attackerHp = 1, attackerMaxHp = 20)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(129, context(attackerAbilityId = 129, attackerHp = 20, attackerMaxHp = 20)))
+        for ((hp, maxHp) in listOf(null to 20, 1 to null, 21 to 20, -1 to 20, 1 to 0)) {
+            assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+                relevance(129, context(attackerAbilityId = 129, attackerHp = hp, attackerMaxHp = maxHp)))
+        }
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(129, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = 129)))
+    }
+
+    @Test
+    fun `Fur Coat uses Defense only with known ordinary category and Wonder Room off`() {
+        val wonderRoom = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM
+        assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+            com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(169).category)
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(169, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = 169,
+                moveCategory = MoveCategory.PHYSICAL)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(169, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = 169,
+                moveCategory = MoveCategory.SPECIAL)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(169, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = 169,
+                fieldStatuses = wonderRoom)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(169, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = 169,
+                fieldStatuses = null)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(169, context(side = HnsAbilitySide.ATTACKER, attackerAbilityId = 169,
+                moveCategory = null)))
     }
 
     @Test

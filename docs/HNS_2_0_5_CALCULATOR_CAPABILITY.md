@@ -12,6 +12,24 @@ composition, including combined ability, Dry Skin, and Wise Glasses cases. Final
 round in their pinned sequence; only modifiers that upstream itself combines inside
 `GetOtherModifiers` use a final-stage accumulator.
 
+This slice extends the stat-stage accumulators. Each ability factor uses
+`uq4_12_multiply_half_down` in source order and the completed modifier is applied once to the
+integer staged stat with `uq4_12_multiply_by_int_half_down`:
+
+| Ability | Stage | Predicate | Modifier |
+|---|---|---|---|
+| Solar Power | Attack stat | Final authoritative category is Special and the attacker is affected by ordinary Sun | ×1.5 |
+| Defeatist | Attack stat | Authoritative live HP `<= floor(maxHP/2)` | ×0.5 |
+| Fur Coat | Defense stat | The supported hit uses Defense | ×2.0 |
+
+Solar Power's selected-hit Special Attack boost is modelled; its end-of-turn HP loss is outside the
+displayed single-hit result. Its weather predicate honors weather suppression by Cloud Nine/Air Lock
+and attacker Utility Umbrella. Those identities are consumed only to evaluate this predicate:
+Utility Umbrella is not promoted, and the suppressors' independent capability rules remain active.
+Fur Coat is breakable under the centralized Mold Breaker and literal `ignoresTargetAbility`
+authority; unshielded relevant suppression remains refused, while Ability Shield preserves it.
+Active Wonder Room and nonordinary alternate-defense selections remain blocked.
+
 Pinned `ApplyModifiersAfterDmgRoll` applies STAB, type effectiveness, burn, then the accumulated
 `GetOtherModifiers` value. That product starts with target/screen modifiers; the ability and item
 subgroups then use unmodified battler speed to order attacker abilities → defender abilities →
@@ -28,6 +46,11 @@ exact STAB branch. Water Bubble's attacker Water ×2 and defender Fire ×0.5 bra
 its burn-prevention/status-clearing path is still deferred. Heatproof's burn residual and switch-AI
 behavior remain outside the selected-hit result. Steely Spirit's separate attacker-partner branch
 remains deferred with unsupported Doubles topology.
+
+This low-state stat slice adds Solar Power, Defeatist, and Fur Coat to the Attack/Defense accumulators
+above. It consumes only boundary-owned live HP, item, ability, weather, field, and final move-category
+facts. It does not model Solar Power residual damage, Utility Umbrella as a general damage item, or
+Fur Coat under Wonder Room or nonordinary alternate-defense selection.
 
 | Ability | Exact modelled context | Request-local irrelevant contexts | Missing or conflicting evidence |
 |---|---|---|---|
@@ -53,6 +76,9 @@ remains deferred with unsupported Doubles topology.
 | Prism Armor (232), defender slot | Exact H&S effectiveness ≥2.0; ×0.75 (3072 / `0x0C00`) | Attacker role or effectiveness <2.0 | Unknown effectiveness stays blocked; pinned metadata does not mark it breakable (policy below) |
 | Multiscale / Shadow Shield (136/231), defender slot | Exact authoritative live `hp == maxHP`; ×0.5 (2048 / `0x0800`) | Attacker role or `0 < hp < maxHP` | Missing/invalid HP stays blocked; Multiscale is breakable, Shadow Shield is not (policy below) |
 | Ice Scales (246), defender slot | `HnsMoveAuthority` final category is Special; ×0.5 (2048 / `0x0800`) | Attacker role or final Physical category | Unknown category stays blocked; it is breakable and shield-aware (policy below) |
+| Solar Power (94), attacker Attack-stat slot | `HnsMoveAuthority` final category is Special and live `IsBattlerWeatherAffected(attacker, B_WEATHER_SUN)` is true; ×1.5 Sp. Atk (6144 / `0x1800`) | Defender role, final Physical category, no ordinary Sun, Cloud Nine/Air Lock suppression, or attacker Utility Umbrella | Missing live weather/category/ability/item evidence stays unknown; Utility Umbrella's independent item limitation and weather-suppressor limitations remain; residual maxHP/8 loss is outside selected-hit output |
+| Defeatist (129), attacker Attack-stat slot | Authoritative live HP `<= floor(maxHP/2)`; ×0.5 to selected Attack or Sp. Atk (2048 / `0x0800`) | Defender role or valid live HP above integer half | Missing, invalid, or out-of-range HP/maxHP stays unknown |
+| Fur Coat (169), defender Defense-stat slot | Ordinary move, authoritative final Physical category, Wonder Room inactive; ×2.0 Defense (8192 / `0x2000`) | Attacker role or final Special category selecting Sp. Def | Wonder Room and nonordinary alternate-defense selection stay blocked; Fur Coat is breakable, with unshielded suppression refused and Ability Shield preserving it |
 
 All source-proven damaging sound moves in the pinned ordinary-move surface are Special; the pinned
 corpus contains no supported Physical sound move, so Punk Rock is deliberately not category-gated.
@@ -146,7 +172,11 @@ preserves relative order for the modifiers it calculates: attacker ability, exis
 Skin, then held-item modifier. Move-effect/general-state, aura/partner, other defender-ability,
 unsupported item, and Tera contexts remain fail-closed under their existing gates.
 
-Candidate audit for later #91 slices:
+### Historical candidate audit (before PR #111)
+
+This table records the pre-#111 triage snapshot and is not the current implementation status. Solar
+Power, Defeatist, and Fur Coat were implemented in PR #111 as documented in the current stat-stage
+table above; the remaining entries below are still deferred candidates.
 
 | Candidate | Decision | Source-backed reason |
 |---|---|---|
@@ -417,7 +447,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — type chart is exact and verified in QuickJS. Used by `calculateHnsDamage` for post-roll type effectiveness; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C1/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
-| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy` and Groups C–D. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e / Groups C–D)** — current audit: 84 `PROVEN_NO_DAMAGE_EFFECT`, 51 `MODELLED_HNS_CONDITIONAL`, 176 `UNSUPPORTED_DAMAGE_RELEVANT`, and 0 unclassified. The conditional set includes Group C immunities, pinch abilities, Hustle/Guts, #105's nine base-power abilities plus defender Water Bubble and Heatproof, #106's six move-type abilities, Punk Rock, holder-side Steely Spirit, Adaptability, and this slice's nine final-modifier abilities. Water Bubble burn prevention/status clearing and Steely Spirit's attacker-partner branch remain deferred. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
+| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy` and Groups C–D. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e / Groups C–D)** — current audit: 84 `PROVEN_NO_DAMAGE_EFFECT`, 54 `MODELLED_HNS_CONDITIONAL`, 173 `UNSUPPORTED_DAMAGE_RELEVANT`, and 0 unclassified. The conditional set includes Group C immunities, pinch abilities, Hustle/Guts, #105's nine base-power abilities plus defender Water Bubble and Heatproof, #106's six move-type abilities, Punk Rock, holder-side Steely Spirit, Adaptability, the nine final-modifier abilities, and Solar Power, Defeatist, and Fur Coat. Water Bubble burn prevention/status clearing and Steely Spirit's attacker-partner branch remain deferred. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629`, Wise Glasses `[src/data/items.h:10091]` | **identity yes; damage effects conditionally modelled** — exact item identity and the current battle item are consumed; Wise Glasses modelled specifically for H&S; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (585 neutral / 312 unsupported / 1 modelled / 3 unclassified); a known `RELEVANT` unsupported item may be neutralized and named in a caveated estimate only for an item-independent move. Proven-irrelevant and modelled items keep their existing paths; `UNKNOWN`, unclassified, unread, and unauthoritative identities remain hard. Item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
@@ -494,7 +524,7 @@ Only these individual behaviours are source-and-test demonstrated:
 | Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack/spAttack stat in `calculateHnsDamage` | **HOST-ORACLE MATCHES (Gap C4b partial / open)** |
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
 | Move category rule | per-move default, switchable to type-based via `optionStyle`; TYPE_BASED uses H&S `gTypesInfo` for the final effective type (Ghost Special, Dark Physical) | `move.overrides.category` is explicitly materialized by `CalcDataOverrides` and consumed by `entry.js` | **MATCHES (Gap A/B closed)** |
-| Abilities (supported subset) | 84 `PROVEN_NO_DAMAGE_EFFECT` and 51 `MODELLED_HNS_CONDITIONAL` abilities | Conditional support covers Group C immunities, the four pinch abilities, Hustle/Guts, #105's nine base-power abilities plus defender Water Bubble and Heatproof, #106's six move-type abilities, Punk Rock, holder-side Steely Spirit, Adaptability, and this slice's nine final modifiers. Water Bubble burn prevention/status clearing and Steely Spirit partner support remain deferred. | **CONDITIONALLY AUTHORIZED** under the live operand gates and pinned inventory |
+| Abilities (supported subset) | 84 `PROVEN_NO_DAMAGE_EFFECT` and 54 `MODELLED_HNS_CONDITIONAL` abilities | Conditional support covers Group C immunities, the four pinch abilities, Hustle/Guts, #105's nine base-power abilities plus defender Water Bubble and Heatproof, #106's six move-type abilities, Punk Rock, holder-side Steely Spirit, Adaptability, the nine final modifiers, Solar Power, Defeatist, and Fur Coat. Water Bubble burn prevention/status clearing and Steely Spirit partner support remain deferred. | **CONDITIONALLY AUTHORIZED** under the live operand gates and pinned inventory |
 | Abilities (globally unsupported) | Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — known relevant unsupported abilities are named caveats after neutralization; unknown/unread/unclassified abilities remain hard, and proven-irrelevant contexts do not become caveats (§6.3, #86) |
 | Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items, Wise Glasses | identity consumed; Wise Glasses modelled, other damage items unmodelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — a known relevant unsupported item may become a named caveat for an item-independent request; unread/unresolved identity remains hard, and item-dependent moves remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7, #86) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
@@ -759,7 +789,7 @@ request-local rule, `HnsAbilityContextPolicy` assesses the current request using
 damage-time modifier or can become a named #86 caveat after neutralization, and `UNKNOWN` remains a
 hard refusal. This does not clear any unrelated `CalcLimitation`.
 
-The reviewed rules cover Tera Shell (ID 308), Truant (54), Telepathy (140), Levitate (26), Hustle
+The reviewed rules cover Solar Power (94), Defeatist (129), Fur Coat (169), Tera Shell (ID 308), Truant (54), Telepathy (140), Levitate (26), Hustle
 (55), Guts (62), Huge Power (37), Pure Power (74), Thick Fat (47), Adaptability (91), Battle Armor (4), Shell
 Armor (75), Friend Guard (132), Plus (57), Minus (58), and the final-modifier batch Tinted Lens
 (110), Sniper (97), Neuroforce (233), Filter (111), Solid Rock (116), Prism Armor (232), Multiscale
@@ -776,6 +806,9 @@ The rule examples are intentionally request-specific:
 | Telepathy, Friend Guard, Plus, Minus | Exact live battler count is two (authoritative Singles, no partner) | Doubles or unknown topology |
 | Levitate | Attacker side; defender with an authoritative non-Ground effective move | Defender versus Ground or unknown effective move type |
 | Hustle | Defender side or authoritative Special move | Physical attacker move; missing category authority |
+| Solar Power | Defender side, final Physical category, or authoritative no-Sun / suppressed-Sun context | Special move in Sun with missing live weather, either effective active ability, attacker item, or liveness evidence |
+| Defeatist | Defender side or valid live HP above `floor(maxHP/2)` | Attacker at/below threshold is modelled; missing/invalid live HP pair |
+| Fur Coat | Attacker side or final Special category with Wonder Room off | Physical defender hit with Wonder Room active/unread or nonordinary alternate defense selection |
 | Guts | Defender side; attacker using a Special move; observed neutral status for an authoritative physical move | Statused Physical move is modelled with raw `status1 & STATUS1_ANY`; unread/invalid status or missing category authority |
 | Huge Power, Pure Power | Defender side; attacker using an authoritative Special move | Physical attacker move or missing category/type authority |
 | Thick Fat | Attacker side; defender with a known non-Fire/non-Ice effective move | Fire/Ice move or missing effective-type authority |

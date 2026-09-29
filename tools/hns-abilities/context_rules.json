@@ -544,8 +544,14 @@
         "predicate": "Heatproof is the attacker ability on a selected ordinary outgoing hit.",
         "rationale": "CalcMoveBasePowerAfterModifiers checks the target ability in this branch; attacker Heatproof does not change the selected outgoing direct hit. Burn residual and AI behavior are outside this result.",
         "evidence": [
-          { "source": "src/battle_util.c:6785", "contains": "switch (ctx->abilityDef)" },
-          { "source": "src/data/abilities.h:647", "contains": ".breakable = TRUE," }
+          {
+            "source": "src/battle_util.c:6785",
+            "contains": "switch (ctx->abilityDef)"
+          },
+          {
+            "source": "src/data/abilities.h:647",
+            "contains": ".breakable = TRUE,"
+          }
         ]
       },
       {
@@ -553,10 +559,22 @@
         "predicate": "Defender has Heatproof and the final authoritative type of the selected ordinary move is Fire.",
         "rationale": "The pinned target-ability base-power slot applies UQ4.12 0.5 to Fire moves without checking category. Other burn, residual, status, and switch-AI behavior is outside the selected-hit calculator result.",
         "evidence": [
-          { "source": "src/battle_util.c:6787", "contains": "case ABILITY_HEATPROOF:" },
-          { "source": "src/battle_util.c:6789", "contains": "if (moveType == TYPE_FIRE)" },
-          { "source": "src/battle_util.c:6791", "contains": "modifier = uq4_12_multiply(modifier, UQ_4_12(0.5));" },
-          { "source": "src/data/abilities.h:647", "contains": ".breakable = TRUE," }
+          {
+            "source": "src/battle_util.c:6787",
+            "contains": "case ABILITY_HEATPROOF:"
+          },
+          {
+            "source": "src/battle_util.c:6789",
+            "contains": "if (moveType == TYPE_FIRE)"
+          },
+          {
+            "source": "src/battle_util.c:6791",
+            "contains": "modifier = uq4_12_multiply(modifier, UQ_4_12(0.5));"
+          },
+          {
+            "source": "src/data/abilities.h:647",
+            "contains": ".breakable = TRUE,"
+          }
         ]
       },
       {
@@ -564,7 +582,10 @@
         "predicate": "Defender has Heatproof and the final authoritative type of the selected ordinary move is known not to be Fire.",
         "rationale": "The target-ability modifier is nested under the exact Fire type predicate, so an authoritative non-Fire move is irrelevant to this selected-hit branch.",
         "evidence": [
-          { "source": "src/battle_util.c:6789", "contains": "if (moveType == TYPE_FIRE)" }
+          {
+            "source": "src/battle_util.c:6789",
+            "contains": "if (moveType == TYPE_FIRE)"
+          }
         ]
       }
     ],
@@ -603,7 +624,7 @@
       {
         "rule": "adaptability_with_stab",
         "predicate": "Authoritative live attacker types contain HnsMoveAuthority.effectiveType on an ordinary Singles hit.",
-        "rationale": "The pinned ordinary STAB branch uses ×2.0 for Adaptability, after the final move type is selected.",
+        "rationale": "The pinned ordinary STAB branch uses \u00d72.0 for Adaptability, after the final move type is selected.",
         "evidence": [
           {
             "source": "src/battle_util.c:7430",
@@ -666,7 +687,7 @@
       {
         "rule": "sniper_critical_hit",
         "predicate": "Attacker Sniper and the selected authoritative hit is critical.",
-        "rationale": "Sniper adds ×1.5 in the attacker final slot after the regular critical stage.",
+        "rationale": "Sniper adds \u00d71.5 in the attacker final slot after the regular critical stage.",
         "evidence": [
           {
             "source": "src/battle_util.c:7567",
@@ -2484,7 +2505,7 @@
       {
         "rule": "water_bubble_attacker_water_move",
         "predicate": "Attacker has Water Bubble; selected ordinary move has authoritative final effective type Water.",
-        "rationale": "The offensive 2.0 base-power branch is modelled for this context; this is one of Water Bubble’s two direct damage branches.",
+        "rationale": "The offensive 2.0 base-power branch is modelled for this context; this is one of Water Bubble\u2019s two direct damage branches.",
         "evidence": [
           {
             "source": "src/battle_util.c:6707",
@@ -2499,7 +2520,7 @@
       {
         "rule": "water_bubble_attacker_nonwater_move",
         "predicate": "Attacker has Water Bubble; selected ordinary move has an authoritative final effective type other than Water.",
-        "rationale": "The offensive Water-only branch is inactive. Water Bubble’s defender Fire branch is assessed separately; burn prevention and status clearing remain deferred.",
+        "rationale": "The offensive Water-only branch is inactive. Water Bubble\u2019s defender Fire branch is assessed separately; burn prevention and status clearing remain deferred.",
         "evidence": [
           {
             "source": "src/battle_util.c:6707",
@@ -2541,7 +2562,7 @@
       {
         "rule": "water_bubble_defender_nonfire_move",
         "predicate": "Defender has Water Bubble; selected ordinary move has authoritative final effective type other than Fire.",
-        "rationale": "The defender base-power branch is nested under the Fire type predicate and is inactive here. This does not claim Water Bubble’s separate burn prevention or status-clearing path is modelled.",
+        "rationale": "The defender base-power branch is nested under the Fire type predicate and is inactive here. This does not claim Water Bubble\u2019s separate burn prevention or status-clearing path is modelled.",
         "evidence": [
           {
             "source": "src/battle_util.c:6789",
@@ -3072,7 +3093,7 @@
           }
         ],
         "predicate": "Steely Spirit is the observed ability on the defender of the selected Singles hit.",
-        "rationale": "The holder-only branch boosts the defender’s own attacks. Its separate attacker-partner branch is not an incoming defender modifier and remains deferred with unsupported Doubles topology.",
+        "rationale": "The holder-only branch boosts the defender\u2019s own attacks. Its separate attacker-partner branch is not an incoming defender modifier and remains deferred with unsupported Doubles topology.",
         "rule": "steely_spirit_defender_singles_irrelevant"
       },
       {
@@ -3095,8 +3116,8 @@
     "context_rules": [
       {
         "rule": "tinted_lens_resisted_hit",
-        "predicate": "Attacker Tinted Lens and exact H&S type effectiveness is at most ×0.5.",
-        "rationale": "The attacker final slot multiplies the resisted hit by ×2.0; type/ability immunity still exits at zero.",
+        "predicate": "Attacker Tinted Lens and exact H&S type effectiveness is at most \u00d70.5.",
+        "rationale": "The attacker final slot multiplies the resisted hit by \u00d72.0; type/ability immunity still exits at zero.",
         "evidence": [
           {
             "source": "src/battle_util.c:7571",
@@ -3111,7 +3132,7 @@
       {
         "rule": "tinted_lens_not_resisted",
         "predicate": "Attacker Tinted Lens with neutral or super-effective exact H&S effectiveness.",
-        "rationale": "Effectiveness above ×0.5 proves the Tinted Lens branch inactive.",
+        "rationale": "Effectiveness above \u00d70.5 proves the Tinted Lens branch inactive.",
         "evidence": [
           {
             "source": "src/battle_util.c:7571",
@@ -3133,7 +3154,7 @@
       {
         "rule": "tinted_lens_effectiveness_unknown",
         "predicate": "Final effective type, live defender types, type-system state, or exact chart result is unresolved.",
-        "rationale": "Text labels such as “resisted” do not prove the numeric predicate.",
+        "rationale": "Text labels such as \u201cresisted\u201d do not prove the numeric predicate.",
         "evidence": [
           {
             "source": "src/battle_util.c:7571",
@@ -3150,8 +3171,8 @@
     "context_rules": [
       {
         "rule": "filter_super_effective_hit",
-        "predicate": "Defender Filter and exact H&S effectiveness is at least ×2.0.",
-        "rationale": "The defender final slot applies ×0.75.",
+        "predicate": "Defender Filter and exact H&S effectiveness is at least \u00d72.0.",
+        "rationale": "The defender final slot applies \u00d70.75.",
         "evidence": [
           {
             "source": "src/battle_util.c:7595",
@@ -3169,8 +3190,8 @@
       },
       {
         "rule": "filter_not_super_effective",
-        "predicate": "Defender Filter and exact H&S effectiveness is below ×2.0.",
-        "rationale": "The pinned defender branch remains ×1.0.",
+        "predicate": "Defender Filter and exact H&S effectiveness is below \u00d72.0.",
+        "rationale": "The pinned defender branch remains \u00d71.0.",
         "evidence": [
           {
             "source": "src/battle_util.c:7598",
@@ -3239,8 +3260,8 @@
     "context_rules": [
       {
         "rule": "solid_rock_super_effective_hit",
-        "predicate": "Defender Solid Rock and exact H&S effectiveness is at least ×2.0.",
-        "rationale": "The defender final slot applies ×0.75.",
+        "predicate": "Defender Solid Rock and exact H&S effectiveness is at least \u00d72.0.",
+        "rationale": "The defender final slot applies \u00d70.75.",
         "evidence": [
           {
             "source": "src/battle_util.c:7596",
@@ -3258,8 +3279,8 @@
       },
       {
         "rule": "solid_rock_not_super_effective",
-        "predicate": "Defender Solid Rock and exact H&S effectiveness is below ×2.0.",
-        "rationale": "The pinned defender branch remains ×1.0.",
+        "predicate": "Defender Solid Rock and exact H&S effectiveness is below \u00d72.0.",
+        "rationale": "The pinned defender branch remains \u00d71.0.",
         "evidence": [
           {
             "source": "src/battle_util.c:7598",
@@ -3325,7 +3346,7 @@
       {
         "rule": "multiscale_full_hp",
         "predicate": "Defender Multiscale with exact live HP equal to exact live max HP.",
-        "rationale": "The defender final slot applies ×0.5.",
+        "rationale": "The defender final slot applies \u00d70.5.",
         "evidence": [
           {
             "source": "src/battle_util.c:7589",
@@ -3406,7 +3427,7 @@
       {
         "rule": "shadow_shield_full_hp",
         "predicate": "Defender Shadow Shield with exact live HP equal to exact live max HP.",
-        "rationale": "The defender final slot applies ×0.5.",
+        "rationale": "The defender final slot applies \u00d70.5.",
         "evidence": [
           {
             "source": "src/battle_util.c:7589",
@@ -3477,8 +3498,8 @@
     "context_rules": [
       {
         "rule": "prism_armor_super_effective_hit",
-        "predicate": "Defender Prism Armor and exact H&S effectiveness is at least ×2.0.",
-        "rationale": "The defender final slot applies ×0.75.",
+        "predicate": "Defender Prism Armor and exact H&S effectiveness is at least \u00d72.0.",
+        "rationale": "The defender final slot applies \u00d70.75.",
         "evidence": [
           {
             "source": "src/battle_util.c:7597",
@@ -3496,8 +3517,8 @@
       },
       {
         "rule": "prism_armor_not_super_effective",
-        "predicate": "Defender Prism Armor and exact H&S effectiveness is below ×2.0.",
-        "rationale": "The pinned defender branch remains ×1.0.",
+        "predicate": "Defender Prism Armor and exact H&S effectiveness is below \u00d72.0.",
+        "rationale": "The pinned defender branch remains \u00d71.0.",
         "evidence": [
           {
             "source": "src/battle_util.c:7598",
@@ -3553,8 +3574,8 @@
     "context_rules": [
       {
         "rule": "neuroforce_super_effective_hit",
-        "predicate": "Attacker Neuroforce and exact H&S effectiveness is at least ×2.0.",
-        "rationale": "The attacker final slot multiplies the super-effective hit by ×1.25.",
+        "predicate": "Attacker Neuroforce and exact H&S effectiveness is at least \u00d72.0.",
+        "rationale": "The attacker final slot multiplies the super-effective hit by \u00d71.25.",
         "evidence": [
           {
             "source": "src/battle_util.c:7563",
@@ -3568,8 +3589,8 @@
       },
       {
         "rule": "neuroforce_not_super_effective",
-        "predicate": "Attacker Neuroforce and exact H&S effectiveness is below ×2.0.",
-        "rationale": "The pinned attacker branch returns ×1.0 unless the threshold is met.",
+        "predicate": "Attacker Neuroforce and exact H&S effectiveness is below \u00d72.0.",
+        "rationale": "The pinned attacker branch returns \u00d71.0 unless the threshold is met.",
         "evidence": [
           {
             "source": "src/battle_util.c:7563",
@@ -3609,7 +3630,7 @@
       {
         "rule": "ice_scales_special_move",
         "predicate": "Defender Ice Scales and HnsMoveAuthority final category is Special.",
-        "rationale": "The defender final slot applies ×0.5 after category resolution, including TYPE_BASED mode.",
+        "rationale": "The defender final slot applies \u00d70.5 after category resolution, including TYPE_BASED mode.",
         "evidence": [
           {
             "source": "src/battle_util.c:7624",
@@ -3683,5 +3704,194 @@
     ],
     "always_blocking": [],
     "fallback": "UNKNOWN/fail closed when final category or suppression state is unavailable."
+  },
+  "94": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "solar_power_special_move_in_sun",
+        "predicate": "Attacker Solar Power; authoritative ordinary move; HnsMoveAuthority category Special; live ordinary Sun; no active Cloud Nine/Air Lock; attacker not holding Utility Umbrella.",
+        "rationale": "The pinned Attack-stat accumulator applies Solar Power \u00d71.5 only for a Special move whose attacker is affected by Sun. Residual loss remains outside the single-hit output.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6999",
+            "contains": "if (IsBattleMoveSpecial(move) && IsBattlerWeatherAffected(battlerAtk, B_WEATHER_SUN))"
+          },
+          {
+            "source": "src/battle_util.c:7000",
+            "contains": "modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(1.5));"
+          },
+          {
+            "source": "src/battle_util.c:9527",
+            "contains": "if (gBattleWeather & weatherFlags && HasWeatherEffect())"
+          }
+        ]
+      },
+      {
+        "rule": "solar_power_physical_move",
+        "predicate": "HnsMoveAuthority proves final category Physical.",
+        "rationale": "The pinned ability checks IsBattleMoveSpecial before applying the stat modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6999",
+            "contains": "IsBattleMoveSpecial(move)"
+          }
+        ]
+      },
+      {
+        "rule": "solar_power_without_ordinary_sun",
+        "predicate": "Live weather is authoritatively observed and proves ordinary Sun absent.",
+        "rationale": "The source predicate requires Sun; other weather is independently evaluated by field/item policy.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6999",
+            "contains": "B_WEATHER_SUN"
+          }
+        ]
+      },
+      {
+        "rule": "solar_power_weather_suppressed",
+        "predicate": "Cloud Nine or Air Lock is an authoritative effective ability on either active battler.",
+        "rationale": "HasWeatherEffect must be true for Solar Power; suppressor capability is independently retained.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:9527",
+            "contains": "HasWeatherEffect()"
+          },
+          {
+            "source": "src/battle_util.c:10063",
+            "contains": "case ABILITY_CLOUD_NINE:"
+          },
+          {
+            "source": "src/battle_util.c:10064",
+            "contains": "case ABILITY_AIR_LOCK:"
+          }
+        ]
+      },
+      {
+        "rule": "solar_power_utility_umbrella",
+        "predicate": "Attacker\u2019s effective item is Utility Umbrella while Sun is active.",
+        "rationale": "The helper returns false for a holder shielded from Sun/Rain; this does not promote the item family.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:9530",
+            "contains": "HOLD_EFFECT_UTILITY_UMBRELLA"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing authoritative move category, weather observation, active abilities, or item evidence remains UNKNOWN; the umbrella item policy and suppressor policy remain independent."
+  },
+  "129": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "defeatist_at_or_below_integer_half",
+        "predicate": "Attacker Defeatist and valid live attacker HP/maxHP with hp <= floor(maxHP/2), independent of final category.",
+        "rationale": "The pinned source uses integer division on maxHP and applies the factor to selected Attack or Sp. Atk.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7003",
+            "contains": "if (gBattleMons[battlerAtk].hp <= (gBattleMons[battlerAtk].maxHP / 2))"
+          },
+          {
+            "source": "src/battle_util.c:7004",
+            "contains": "modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(0.5));"
+          }
+        ]
+      },
+      {
+        "rule": "defeatist_above_integer_half",
+        "predicate": "Valid live attacker HP is above floor(maxHP/2).",
+        "rationale": "The pinned threshold is inclusive at integer half.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7003",
+            "contains": "maxHP / 2"
+          }
+        ]
+      },
+      {
+        "rule": "defeatist_defender_side",
+        "predicate": "Defeatist is the defender\u2019s effective ability for the incoming selected hit.",
+        "rationale": "The source branch reads only the attacker battle mon.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7003",
+            "contains": "gBattleMons[battlerAtk].hp"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing, invalid, negative, or out-of-range authoritative live HP/maxHP remains UNKNOWN."
+  },
+  "169": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "fur_coat_physical_uses_defense",
+        "predicate": "Defender Fur Coat; ordinary move; final category Physical; Wonder Room authoritatively inactive.",
+        "rationale": "With supported ordinary Defense selection, usesDefStat is true and the Defense-stage accumulator doubles the operand. Fur Coat is breakable.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7287",
+            "contains": "case ABILITY_FUR_COAT:"
+          },
+          {
+            "source": "src/battle_util.c:7288",
+            "contains": "if (usesDefStat)"
+          },
+          {
+            "source": "src/battle_util.c:7290",
+            "contains": "modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(2.0));"
+          },
+          {
+            "source": "src/data/abilities.h:1280",
+            "contains": ".breakable = TRUE,"
+          }
+        ]
+      },
+      {
+        "rule": "fur_coat_special_uses_spdef",
+        "predicate": "Defender Fur Coat; final category Special; Wonder Room authoritatively inactive.",
+        "rationale": "The supported ordinary special path uses Sp. Def, so usesDefStat is false.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7288",
+            "contains": "if (usesDefStat)"
+          }
+        ]
+      },
+      {
+        "rule": "fur_coat_attacker_side",
+        "predicate": "Fur Coat is the attacker\u2019s effective ability.",
+        "rationale": "CalcDefenseStat reads the defender ability slot.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7287",
+            "contains": "case ABILITY_FUR_COAT:"
+          }
+        ]
+      },
+      {
+        "rule": "fur_coat_wonder_room_active",
+        "predicate": "The authoritative field word contains STATUS_FIELD_WONDER_ROOM.",
+        "rationale": "Wonder Room swaps the selected defense stat and the supported branch refuses this field shape.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7226",
+            "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM)"
+          },
+          {
+            "source": "src/battle_util.c:7288",
+            "contains": "if (usesDefStat)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Missing final category, field word, or live defender ability; active Wonder Room; and nonordinary alternate-defense shapes remain blocked."
   }
 }

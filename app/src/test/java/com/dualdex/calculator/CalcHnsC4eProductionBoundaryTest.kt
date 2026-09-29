@@ -1865,6 +1865,100 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `Solar Power Defeatist and Fur Coat branches use live authority at authorized execution`() {
+        val trust = trustFor(exactSha)
+        val sun = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN_NORMAL
+
+        val solar = readyOf(build(
+            trust,
+            goldenARequest("Psychic").copy(
+                attacker = goldenARequest("Psychic").attacker.copy(curHP = 1),
+                field = CalcFieldInput(weather = "Rain"),
+                moveOverride = CalcMoveOverride(basePower = 40, type = "Normal", category = "Physical")
+            ),
+            playerObservation(abilityId = 94, abilityName = "Solar Power", hp = 10, maxHp = 20, battleWeather = sun),
+            enemyObservation(battleWeather = sun), randomAbilities = true
+        ), "live Solar Power, ordinary Sun, and final Special category must be admitted")
+        assertEquals(94, solar.request.attacker.abilityId)
+        assertEquals("Sun", solar.request.field.weather)
+        assertEquals("Special", solar.request.moveOverride?.category)
+        assertEquals("Psychic", solar.request.moveOverride?.type)
+        assertEquals(10, solar.request.hnsLiveBattleState?.attackerHp)
+        var solarReached = false
+        val solarResult = CalcAuthorizedExecution.calculate(solar.verdict) { request ->
+            solarReached = true
+            val json = JSONObject(buildCalcRequestJson(request))
+            assertEquals("Solar Power", json.getJSONObject("attacker").getString("ability"))
+            assertEquals("Sun", json.getJSONObject("field").getString("weather"))
+            assertEquals("Psychic", json.getJSONObject("move").getJSONObject("overrides").getString("type"))
+            assertEquals("Special", json.getJSONObject("move").getJSONObject("overrides").getString("category"))
+            DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = listOf(1, 1))
+        }
+        assertTrue(solarResult.success && solarReached)
+
+        val defeatistRequest = goldenARequest("Tackle").copy(
+            attacker = goldenARequest("Tackle").attacker.copy(curHP = 20)
+        )
+        val defeatist = readyOf(build(
+            trust, defeatistRequest,
+            playerObservation(abilityId = 129, abilityName = "Defeatist", hp = 10, maxHp = 20),
+            enemyObservation(), randomAbilities = true
+        ), "live HP at floor(maxHP/2) must activate Defeatist despite caller HP")
+        assertEquals(10, defeatist.request.hnsLiveBattleState?.attackerHp)
+        assertEquals(20, defeatist.request.hnsLiveBattleState?.attackerMaxHp)
+        var defeatistReached = false
+        CalcAuthorizedExecution.calculate(defeatist.verdict) { request ->
+            defeatistReached = true
+            assertEquals(10, JSONObject(buildCalcRequestJson(request)).getJSONObject("attacker").getInt("hp"))
+            DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = listOf(1, 1))
+        }
+        assertTrue(defeatistReached)
+
+        val defeatistAboveHalf = readyOf(build(
+            trust,
+            goldenARequest("Psychic").copy(attacker = goldenARequest("Psychic").attacker.copy(curHP = 1)),
+            playerObservation(abilityId = 129, abilityName = "Defeatist", hp = 11, maxHp = 20),
+            enemyObservation(), randomAbilities = true
+        ), "live HP above floor(maxHP/2) must prove Defeatist inactive despite caller HP")
+        assertEquals(11, defeatistAboveHalf.request.hnsLiveBattleState?.attackerHp)
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            defeatistAboveHalf.verdict.hnsAbilityDecisions.single { it.abilityId == 129 }.relevance)
+
+        val furCoatPhysical = readyOf(build(
+            trust, goldenARequest("Tackle"), playerObservation(),
+            enemyObservation(abilityId = 169, abilityName = "Fur Coat"), randomAbilities = true
+        ), "live defender Fur Coat and ordinary Physical final category must be admitted")
+        assertEquals(169, furCoatPhysical.request.defender.abilityId)
+        assertEquals("Physical", furCoatPhysical.request.moveOverride?.category)
+        val physicalExecution = CalcAuthorizedExecution.calculate(furCoatPhysical.verdict) { request ->
+            val json = JSONObject(buildCalcRequestJson(request))
+            assertEquals("Fur Coat", json.getJSONObject("defender").getString("ability"))
+            DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = listOf(1, 1))
+        }
+        assertTrue(physicalExecution.success)
+
+        val callerFurCoat = goldenARequest("Tackle").copy(
+            defender = goldenARequest("Tackle").defender.copy(ability = "Fur Coat", abilityId = 169)
+        )
+        val liveNonFurCoat = readyOf(build(
+            trust, callerFurCoat, playerObservation(), enemyObservation(), randomAbilities = true
+        ), "caller defender Fur Coat must not replace the live Tangled Feet identity")
+        assertEquals(77, liveNonFurCoat.request.defender.abilityId)
+        assertFalse(liveNonFurCoat.verdict.hnsAbilityDecisions.any { it.abilityId == 169 })
+
+        val callerOverride = goldenARequest("Psychic").copy(
+            moveOverride = CalcMoveOverride(basePower = 40, type = "Normal", category = "Physical")
+        )
+        val specialControl = readyOf(build(
+            trust, callerOverride, playerObservation(),
+            enemyObservation(abilityId = 169, abilityName = "Fur Coat"), randomAbilities = true
+        ), "caller Physical override must not fabricate a Defense-using category")
+        assertEquals("Special", specialControl.request.moveOverride?.category)
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            specialControl.verdict.hnsAbilityDecisions.single { it.abilityId == 169 }.relevance)
+    }
+
+    @Test
     fun `manual Hustle identity mismatch does not authorize the modeled ability`() {
         val mismatched = goldenARequest().copy(
             attacker = CalcPokemonInput(
@@ -2348,6 +2442,47 @@ class CalcHnsC4eProductionBoundaryTest {
             }
             assertTrue("Ability Shield must keep the $abilityName modifier active", shieldedExecution.success)
         }
+    }
+
+    @Test
+    fun `Fur Coat uses centralized breakability for Mold Breaker and literal move bypass`() {
+        val trust = trustFor(exactSha)
+        val attacker = playerObservation(abilityId = 104, abilityName = "Mold Breaker")
+        val furCoat = enemyObservation(abilityId = 169, abilityName = "Fur Coat")
+        val suppressed = refusedOf(build(
+            trust, goldenARequest("Tackle"), attacker, furCoat, randomAbilities = true
+        ), "unshielded Mold Breaker must retain the Fur Coat suppression limitation")
+        assertTrue(suppressed.verdict.limitations.contains(CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED))
+
+        val shielded = readyOf(build(
+            trust, goldenARequest("Tackle"), attacker,
+            enemyObservation(abilityId = 169, abilityName = "Fur Coat", itemId = 758), randomAbilities = true
+        ), "Ability Shield preserves breakable Fur Coat")
+        assertEquals(169, shielded.request.defender.abilityId)
+        assertTrue(CalcAuthorizedExecution.calculate(shielded.verdict) { request ->
+            val defender = JSONObject(buildCalcRequestJson(request)).getJSONObject("defender")
+            assertTrue(defender.getBoolean("hnsAbilityShield"))
+            assertEquals("Fur Coat", defender.getString("ability"))
+            DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = listOf(1, 1))
+        }.success)
+
+        val literalBypass = readyOf(build(
+            trust, goldenARequest("Sunsteel Strike"), playerObservation(), furCoat, randomAbilities = true
+        ), "literal ignoresTargetAbility bypass is source-correct for breakable Fur Coat")
+        assertTrue(CalcAuthorizedExecution.calculate(literalBypass.verdict) { request ->
+            val move = JSONObject(buildCalcRequestJson(request)).getJSONObject("move")
+            assertTrue(move.getJSONArray("hnsMoveFlags").toString().contains("ignoresTargetAbility"))
+            DamageCalculationResponse(success = true, minDamage = 1, maxDamage = 1, range = listOf(1, 1))
+        }.success)
+
+        val wonderRoom = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM
+        val wonderRoomFurCoat = refusedOf(build(
+            trust, goldenARequest("Tackle"),
+            playerObservation(fieldStatuses = wonderRoom),
+            enemyObservation(abilityId = 169, abilityName = "Fur Coat", fieldStatuses = wonderRoom),
+            randomAbilities = true
+        ), "Wonder Room remains outside supported Fur Coat defense selection")
+        assertTrue(wonderRoomFurCoat.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
     }
 
     @Test

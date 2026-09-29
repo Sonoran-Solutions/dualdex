@@ -62,6 +62,7 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
         55, 62, // Hustle / Guts, Group D Attack stage
+        94, 129, 169, // Solar Power / Defeatist / Fur Coat, Group D stat stages
         89, 91, 96, 97, 101, 110, 111, 116, 136, 137, 138, 173, 174, 178, 182, 184,
         85, 199, 200, 204, 206, 231, 232, 233, 244, 246, 252, 292
         // Normalize / -ate / Liquid Voice, Group D move-type and base-power stage
@@ -97,10 +98,14 @@ object HnsAbilityContextPolicy {
         val attackerAbilityObserved: Boolean = false,
         val defenderAbilityObserved: Boolean = false,
         val attackerHp: Int? = null,
+        val attackerMaxHp: Int? = null,
         val defenderAbilityId: Int? = null,
+        val attackerItemId: Int? = null,
         /** Exact H&S chart result after live effective types and H&S grounding-item rules. */
         val typeEffectiveness: Double? = null,
         val weatherWord: Int? = null,
+        val weatherObserved: Boolean = false,
+        val fieldStatuses: Int? = null,
         /** Null/false while the authoritative switch-in/event driver is unread or still pending. */
         val switchInEventsSettled: Boolean? = null,
         /** The single pinned effective-type decision shared by policy and engine serialization. */
@@ -320,6 +325,99 @@ object HnsAbilityContextPolicy {
                 else -> proof(
                     "heatproof_defender_nonfire_move", "src/battle_util.c:6789",
                     "The final authoritative move type is not Fire, so the defender Heatproof base-power branch is inactive."
+                )
+            }
+            94 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "solar_power_defender_side", "src/battle_util.c:6998",
+                    "Solar Power is checked only in the attacker ability slot for this selected hit."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
+                    !c.attackerAbilityObserved || !c.defenderAbilityObserved || c.observedBattlersCount != 2 ->
+                    unknownProof(
+                        "solar_power_live_ability_unknown", "src/battle_util.c:6998",
+                        "Solar Power requires an authoritative ordinary move and both active effective abilities."
+                    )
+                c.moveCategory == null -> unknownProof(
+                    "solar_power_category_unknown", "src/battle_util.c:6998",
+                    "Solar Power consumes HnsMoveAuthority's final category, not the move's static category."
+                )
+                c.moveCategory == MoveCategory.PHYSICAL -> proof(
+                    "solar_power_physical_move", "src/battle_util.c:6998",
+                    "The authoritative final category is Physical; Solar Power's Special-only Attack-stat branch is inactive."
+                )
+                !c.weatherObserved || c.weatherWord == null -> unknownProof(
+                    "solar_power_weather_unknown", "src/battle_util.c:6998, src/battle_util.c:3792",
+                    "The live weather word and the prerequisites of IsBattlerWeatherAffected must be authoritative."
+                )
+                !ordinarySunObserved(c.weatherWord) -> proof(
+                    "solar_power_without_ordinary_sun", "src/battle_util.c:6998",
+                    "The live weather word proves ordinary Sun is inactive; primal and unsupported weather remain governed by their own blockers."
+                )
+                c.attackerHp == null || c.attackerHp <= 0 || c.defenderHp == null || c.defenderHp <= 0 -> unknownProof(
+                    "solar_power_battler_liveness_unknown", "src/battle_util.c:10053",
+                    "HasWeatherEffect ignores fainted battlers; positive live HP is required to prove the active suppression set."
+                )
+                c.attackerAbilityId in WEATHER_SUPPRESSOR_IDS || c.defenderAbilityId in WEATHER_SUPPRESSOR_IDS -> proof(
+                    "solar_power_weather_suppressed", "src/battle_util.c:6999, src/battle_util.c:10053-10069",
+                    "Cloud Nine or Air Lock makes HasWeatherEffect false; that suppressor's independent capability rule still applies."
+                )
+                c.attackerItemId == null -> unknownProof(
+                    "solar_power_attacker_item_unknown", "src/battle_util.c:9530",
+                    "IsBattlerWeatherAffected requires the attacker's exact live item to rule out Utility Umbrella."
+                )
+                c.attackerItemId == HnsItemRegistry.resolveIdByName("Utility Umbrella") -> proof(
+                    "solar_power_utility_umbrella", "src/battle_util.c:6999, src/battle_util.c:9527-9531",
+                    "Utility Umbrella shields its holder from Sun for this predicate; the item's separate unsupported-item limitation remains independent."
+                )
+                else -> relevant(
+                    "solar_power_special_move_in_sun", "src/battle_util.c:6998",
+                    "The authoritative final category is Special and the live ordinary Sun affects the attacker; Solar Power multiplies the selected Sp. Atk stat. Residual HP loss is outside this selected-hit result."
+                )
+            }
+            129 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "defeatist_defender_side", "src/battle_util.c:7002",
+                    "Defeatist changes only its holder's selected attacking stat, not incoming damage."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId -> null
+                c.attackerHp == null || c.attackerMaxHp == null || c.attackerMaxHp <= 0 ||
+                    c.attackerHp !in 0..c.attackerMaxHp -> unknownProof(
+                    "defeatist_live_hp_unknown", "src/battle_util.c:7002",
+                    "Defeatist requires valid authoritative live attacker HP and max HP; caller HP and percentages are not accepted."
+                )
+                c.attackerHp <= c.attackerMaxHp / 2 -> relevant(
+                    "defeatist_at_or_below_integer_half", "src/battle_util.c:7002",
+                    "Live attacker HP is at or below integer floor(maxHP/2); Defeatist halves either selected attacking stat."
+                )
+                else -> proof(
+                    "defeatist_above_integer_half", "src/battle_util.c:7002",
+                    "Live attacker HP is above integer floor(maxHP/2), so Defeatist is inactive."
+                )
+            }
+            169 -> when {
+                c.side == HnsAbilitySide.ATTACKER -> proof(
+                    "fur_coat_attacker_side", "src/battle_util.c:7287",
+                    "Fur Coat is read only in CalcDefenseStat for the defender."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
+                    c.observedBattlersCount != 2 || c.moveCategory == null || c.fieldStatuses == null ->
+                    unknownProof(
+                        "fur_coat_defense_selection_unknown", "src/battle_util.c:7226, src/battle_util.c:7287",
+                        "Fur Coat requires an authoritative ordinary move, final category, live defender ability, and observed field word."
+                    )
+                c.fieldStatuses and com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0 ->
+                    unknownProof(
+                        "fur_coat_wonder_room_active", "src/battle_util.c:7226, src/battle_util.c:7287",
+                        "Wonder Room changes usesDefStat selection and remains outside the supported shape."
+                    )
+                c.moveCategory == MoveCategory.PHYSICAL -> relevant(
+                    "fur_coat_physical_uses_defense", "src/battle_util.c:7287",
+                    "With Wonder Room inactive, this supported ordinary Physical hit uses Defense; Fur Coat doubles that Defense-stage operand."
+                )
+                else -> proof(
+                    "fur_coat_special_uses_spdef", "src/battle_util.c:7287",
+                    "With Wonder Room inactive, this supported ordinary Special hit uses Sp. Def, so the usesDefStat Fur Coat branch is inactive."
                 )
             }
             199 -> when {
@@ -714,9 +812,17 @@ object HnsAbilityContextPolicy {
             attackerAbilityObserved = hasAuthoritativeLiveAbility(request.attacker),
             defenderAbilityObserved = hasAuthoritativeLiveAbility(request.defender),
             attackerHp = live?.attackerHp,
+            attackerMaxHp = live?.attackerMaxHp,
             defenderAbilityId = request.defender.abilityId,
+            attackerItemId = request.attacker.itemId ?: when {
+                !request.attacker.item.isNullOrBlank() -> HnsItemRegistry.resolveIdByName(request.attacker.item)
+                request.attacker.origin == CalcInputOrigin.MANUAL -> 0
+                else -> null
+            },
             typeEffectiveness = exactTypeEffectiveness,
             weatherWord = live?.takeIf { it.weatherObserved }?.weatherWord,
+            weatherObserved = live?.weatherObserved == true,
+            fieldStatuses = live?.fieldStatuses,
             switchInEventsSettled = live?.switchInEventsSettled,
             moveAuthority = authority
         )
@@ -925,6 +1031,9 @@ object HnsAbilityContextPolicy {
         return c.attackerAbilityId !in WEATHER_SUPPRESSOR_IDS &&
             c.defenderAbilityId !in WEATHER_SUPPRESSOR_IDS
     }
+
+    private fun ordinarySunObserved(rawWeather: Int): Boolean =
+        rawWeather == com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN_NORMAL
 
     private data class Proof(
         val relevance: HnsAbilityRequestRelevance,

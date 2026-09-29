@@ -124,9 +124,16 @@ def plan_setup(scenario: dict) -> tuple[list[str], list[str], bool]:
             for actor, move in _stage_actions(role, stat, stats[stat]):
                 (atk_actions if actor == "attacker" else def_actions).append(move)
     weather = scenario["field"]["weather"]
+    # A live Drought holder establishes Sun on entry without a setup turn. This matters for
+    # Solar Power oracle vectors: spending a turn on Sunny Day would trigger Solar Power's
+    # explicitly out-of-scope end-of-turn HP loss before the selected hit is measured.
+    drought_establishes_sun = weather == "sun" and any(
+        battler["ability"] == "ABILITY_DROUGHT"
+        for battler in (scenario["attacker"], scenario["defender"])
+    )
     if weather == "rain":
         atk_actions.append("MOVE_RAIN_DANCE")
-    elif weather == "sun":
+    elif weather == "sun" and not drought_establishes_sun:
         atk_actions.append("MOVE_SUNNY_DAY")
     if scenario["field"]["reflect"]:
         def_actions.append("MOVE_REFLECT")
@@ -137,6 +144,27 @@ def plan_setup(scenario: dict) -> tuple[list[str], list[str], bool]:
     atk_actions = [""] * (turns - len(atk_actions)) + atk_actions
     def_actions = [""] * (turns - len(def_actions)) + def_actions
     return atk_actions, def_actions, partner_ko
+
+
+def _solar_power_weather_affected(scenario: dict) -> bool:
+    battlers = (scenario["attacker"], scenario["defender"])
+    return (
+        scenario["attacker"]["ability"] == "ABILITY_SOLAR_POWER"
+        and scenario["field"]["weather"] == "sun"
+        and not any(b["ability"] in ("ABILITY_CLOUD_NINE", "ABILITY_AIR_LOCK") for b in battlers)
+        and scenario["attacker"]["item"] != "ITEM_UTILITY_UMBRELLA"
+    )
+
+
+def _solar_power_setup_ticks(scenario: dict, setup_turns: int) -> int:
+    """Solar Power EOT ticks before the measured attack, for HP-at-hit capture planning."""
+    if setup_turns <= 0 or not _solar_power_weather_affected(scenario):
+        return 0
+    battlers = (scenario["attacker"], scenario["defender"])
+    if any(b["ability"] == "ABILITY_DROUGHT" for b in battlers):
+        return setup_turns
+    # Without Drought the planner establishes Sun with Sunny Day as its last setup action.
+    return 1
 
 
 # --------------------------------------------------------------------------------------------
@@ -359,14 +387,15 @@ def render_scenario(s: dict) -> str:
     ticking = s["attacker"]["status"] in ("burn", "poison", "toxic")
     setup_turns = len(atk_actions)
     scene = []
-    if ticking:
-        scene += [f"HP_BAR({atk_ref}, captureHP: &results[i].hpAtHit);"] * setup_turns
+    solar_setup_ticks = _solar_power_setup_ticks(s, setup_turns)
+    hp_capture_events = (setup_turns if ticking else 0) + solar_setup_ticks
+    scene += [f"HP_BAR({atk_ref}, captureHP: &results[i].hpAtHit);"] * hp_capture_events
     if s["expect"] == "immune":
         scene.append(f"NONE_OF {{ HP_BAR({def_ref}); }}")
     else:
         scene.append(f"HP_BAR({def_ref}, captureDamage: &results[i].damage);")
     hp0 = s["attacker"]["stats"]["hp"]
-    hp_expr = "results[i].hpAtHit" if ticking and setup_turns else str(hp0)
+    hp_expr = "results[i].hpAtHit" if hp_capture_events else str(hp0)
     def_hp = s["defender"]["stats"]["hp"]
     damage_expr = "results[i].damage" if s["expect"] == "damage" else "0"
     rules = s["rules"]
@@ -615,8 +644,15 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
         _check_battler(sid, "A", scenario["attacker"], atk)
         _check_battler(sid, "D", scenario["defender"], dfn,
                        _defender_post_hit_stage_deltas(scenario, m))
-        if scenario["attacker"]["status"] == "none" and atk["hp"] != scenario["attacker"]["stats"]["hp"]:
-            raise OracleError(f"{sid}: attacker HP changed without a status ({atk['hp']})")
+        if scenario["attacker"]["status"] == "none":
+            # Solar Power's end-of-turn passive damage is outside the selected-hit damage
+            # contract. hpAtHit is captured after the setup turns; permit only the exact single
+            # post-hit 1/8 max HP loss, which cannot affect the measured damage value.
+            solar_residual = (scenario["attacker"]["stats"]["maxHp"] // 8
+                              if _solar_power_weather_affected(scenario) else 0)
+            expected_hp = hp_at_hit - solar_residual
+            if atk["hp"] != expected_hp:
+                raise OracleError(f"{sid}: attacker HP changed without a status or exact Solar Power residual ({atk['hp']}, expected {expected_hp})")
         if hp_at_hit <= 0 or hp_at_hit > scenario["attacker"]["stats"]["hp"]:
             raise OracleError(f"{sid}: implausible attacker HP at the hit {hp_at_hit}")
         move_id = _int(m[0], f"{sid} M")

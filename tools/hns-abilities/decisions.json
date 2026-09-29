@@ -567,8 +567,8 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "94": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Solar Power\u2019s Special Attack-stat \u00d71.5 is modelled in the Attack-stat accumulator only when HnsMoveAuthority proves a Special ordinary move and the live IsBattlerWeatherAffected predicate proves ordinary Sun affects the attacker. Utility Umbrella remains independently unsupported; weather-suppressor limitations remain independent. End-of-turn maxHP/8 residual loss is outside the selected-hit result."
   },
   "95": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -659,8 +659,8 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "129": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Defeatist\u2019s \u00d70.5 selected attacking-stat modifier is modelled for either final category only from valid authoritative live attacker HP and maxHP using hp <= floor(maxHP/2); missing or invalid live HP remains unknown."
   },
   "132": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -756,8 +756,8 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "169": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Fur Coat\u2019s Defense-stage \u00d72.0 branch is modelled only for ordinary moves with authoritative final category and Wonder Room inactive. Wonder Room and nonordinary alternate-defense selection remain blocked; the breakable ability follows centralized Mold Breaker/literal-bypass and Ability Shield policy."
   },
   "170": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",

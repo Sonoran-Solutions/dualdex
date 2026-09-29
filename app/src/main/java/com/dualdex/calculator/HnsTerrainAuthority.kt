@@ -22,7 +22,8 @@ object HnsTerrainAuthority {
     fun resolve(
         fieldStatuses: Int?,
         battler: HnsBattlerRuntimeState?,
-        opposingAbilityId: Int? = 0
+        opposingAbilityId: Int? = 0,
+        battlerIsDefender: Boolean = false
     ): HnsTerrainApplicability {
         val field = fieldStatuses ?: return HnsTerrainApplicability.UNKNOWN
         if (field and HnsFieldStatusData.STATUS_FIELD_TERRAIN_ANY == 0) {
@@ -57,6 +58,15 @@ object HnsTerrainAuthority {
         if (magicRoom && live.itemId in setOf(IRON_BALL_ID, AIR_BALLOON_ID)) {
             return HnsTerrainApplicability.UNKNOWN
         }
+        if (battlerIsDefender && live.abilityId == HnsFieldStatusData.ABILITY_LEVITATE &&
+            opposingAbilityId in MOLD_BREAKER_FAMILY_IDS
+        ) {
+            // CalcDamage's ctx->abilityDef uses GetBattlerAbility(defender), which returns NONE
+            // when Mold Breaker suppresses breakable Levitate. Ability Shield preserves Levitate,
+            // but Magic Room suppresses the shield item. Without an authoritative active shield,
+            // do not guess whether this target is grounded.
+            if (live.itemId != ABILITY_SHIELD_ID || magicRoom) return HnsTerrainApplicability.UNKNOWN
+        }
         if (airBalloon || live.abilityId == HnsFieldStatusData.ABILITY_LEVITATE) {
             return HnsTerrainApplicability.NOT_AFFECTED
         }
@@ -67,4 +77,6 @@ object HnsTerrainAuthority {
 
     private val IRON_BALL_ID = HnsItemRegistry.resolveIdByName("Iron Ball")
     private val AIR_BALLOON_ID = HnsItemRegistry.resolveIdByName("Air Balloon")
+    private val ABILITY_SHIELD_ID = HnsItemRegistry.resolveIdByName("Ability Shield")
+    private val MOLD_BREAKER_FAMILY_IDS = setOf(104, 163, 164)
 }

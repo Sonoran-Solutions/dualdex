@@ -3634,6 +3634,58 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `Mold Breaker suppression of defender Levitate fails closed and Ability Shield preserves it`() {
+        val trust = trustFor(exactSha)
+        val terrain = HnsFieldStatus.MISTY_TERRAIN.mask
+        val request = matchupRequest("Dragon Breath", "Snorlax").copy(
+            attacker = liveInput("Chikorita", 5, 104, "Mold Breaker"),
+            defender = liveInput("Snorlax", 3, 26, "Levitate")
+        )
+        val moldBreaker = playerObservation(
+            abilityId = 104, abilityName = "Mold Breaker", fieldStatuses = terrain
+        )
+        val levitate = enemyObservation(
+            speciesId = 143, types = listOf(1), abilityId = 26, abilityName = "Levitate",
+            fieldStatuses = terrain
+        )
+        val unshielded = refusedOf(
+            build(trust, request, moldBreaker, levitate, randomAbilities = true),
+            "Mold Breaker can suppress breakable defender Levitate, changing Misty Terrain grounding"
+        )
+        assertEquals(HnsFieldRequestRelevance.UNKNOWN,
+            fieldDecision(unshielded, HnsFieldStatus.MISTY_TERRAIN).relevance)
+        assertTrue(unshielded.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+
+        val shielded = readyOf(
+            build(trust, request, moldBreaker,
+                levitate.copy(state = levitate.state.copy(itemId = 758)), randomAbilities = true),
+            "Ability Shield preserves defender Levitate against Mold Breaker"
+        )
+        assertEquals(HnsTerrainApplicability.NOT_AFFECTED,
+            shielded.request.hnsLiveBattleState?.defenderTerrainApplicability)
+        assertEquals(HnsFieldRequestRelevance.MODELLED,
+            fieldDecision(shielded, HnsFieldStatus.MISTY_TERRAIN).relevance)
+        val fieldJson = JSONObject(buildCalcRequestJson(shielded.request)).getJSONObject("field")
+        assertEquals(terrain, fieldJson.getInt("hnsFieldStatuses"))
+        assertFalse(fieldJson.getBoolean("hnsTerrainDefenderAffected"))
+        assertTrue(JSONObject(buildCalcRequestJson(shielded.request)).getJSONObject("defender")
+            .getBoolean("hnsAbilityShield"))
+    }
+
+    @Test
+    fun `attacker Levitate is irrelevant to a nonmatching move under Grassy Terrain`() {
+        val ready = readyOf(fieldBuild(
+            HnsFieldStatus.GRASSY_TERRAIN.mask,
+            move = "Water Gun",
+            attackerAbility = 26 to "Levitate"
+        ), "attacker Levitate cannot affect a non-Grass move under Grassy Terrain")
+        assertTrue(ready.verdict.hnsAbilityDecisions.none { it.abilityId == 26 })
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+        assertEquals(HnsFieldRequestRelevance.MODELLED,
+            fieldDecision(ready, HnsFieldStatus.GRASSY_TERRAIN).relevance)
+    }
+
+    @Test
     fun `Magic Room clears only when both live items are absent or globally neutral`() {
         readyOf(fieldBuild(HnsFieldStatus.MAGIC_ROOM.mask), "no held items")
         val neutral = readyOf(fieldBuild(HnsFieldStatus.MAGIC_ROOM.mask, attackerItem = everstone, defenderItem = everstone),

@@ -130,6 +130,20 @@ object HnsAbilityContextPolicy {
     fun assess(abilityId: Int, context: Context?): HnsAbilityRequestDecision {
         val entry = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(abilityId)
         val side = context?.side ?: HnsAbilitySide.ATTACKER
+        if (abilityId == 26 && context != null) {
+            attackerLevitateTerrainProof(context)?.let { proof ->
+                return decision(
+                    entry.abilityId ?: abilityId,
+                    entry.titleCaseName,
+                    side,
+                    entry.category,
+                    proof.relevance,
+                    proof.rule,
+                    proof.source,
+                    proof.rationale
+                )
+            }
+        }
         if (entry.category != HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
             !(entry.category == HnsAbilityCategory.MODELLED_HNS_CONDITIONAL &&
                 abilityId in MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS)
@@ -646,6 +660,10 @@ object HnsAbilityContextPolicy {
                         "attacker_levitate_no_terrain", "src/battle_util.c:5141",
                         "No terrain bit is active, so Levitate's groundedness cannot affect this ordinary selected hit."
                     )
+                    !attackerLevitateTerrainModifierCanApply(c) -> proof(
+                        "levitate_attacker_no_matching_terrain_modifier", "src/battle_util.c:6028-6034,6639-6645",
+                        "Levitate only changes attacker-side Grassy, Electric, or Psychic modifiers when the final move type matches that active terrain; no such branch applies to this request."
+                    )
                     else -> null
                 }
                 HnsAbilitySide.DEFENDER -> when {
@@ -1158,6 +1176,40 @@ object HnsAbilityContextPolicy {
             (status1 and HNS_STATUS1_TOXIC_COUNTER_MASK) != 0 &&
                 (status1 and HNS_STATUS1_TOXIC_POISON_MASK) == 0
         return !toxicCounterWithoutToxic
+    }
+
+    private fun attackerLevitateTerrainModifierCanApply(c: Context): Boolean {
+        val field = c.fieldStatuses ?: return true
+        val type = c.moveType ?: return true
+        return (field and HnsFieldStatusData.STATUS_FIELD_GRASSY_TERRAIN != 0 && type == PokemonType.GRASS) ||
+            (field and HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN != 0 && type == PokemonType.ELECTRIC) ||
+            (field and HnsFieldStatusData.STATUS_FIELD_PSYCHIC_TERRAIN != 0 && type == PokemonType.PSYCHIC)
+    }
+
+    /** Levitate only changes the three attacker-side direct terrain checks on an ordinary hit. */
+    private fun attackerLevitateTerrainProof(c: Context): Proof? {
+        if (c.side != HnsAbilitySide.ATTACKER || c.ordinaryMove != true) return null
+        val field = c.fieldStatuses ?: return null
+        if (field and HnsFieldStatusData.KNOWN_MASK.inv() != 0) return null
+        val type = effectiveMoveType(c) ?: return null
+        val grassy = field and HnsFieldStatusData.STATUS_FIELD_GRASSY_TERRAIN != 0 && type == PokemonType.GRASS
+        val electric = field and HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN != 0 && type == PokemonType.ELECTRIC
+        val psychic = field and HnsFieldStatusData.STATUS_FIELD_PSYCHIC_TERRAIN != 0 && type == PokemonType.PSYCHIC
+        if (!grassy && !electric && !psychic) return proof(
+            "levitate_attacker_no_matching_terrain_modifier", "src/battle_util.c:5142,6639-6645",
+            "Levitate only changes attacker-side Grassy, Electric, or Psychic terrain modifiers when the final move type matches that active terrain; this request has no matching branch."
+        )
+        return when (c.attackerTerrainApplicability) {
+            HnsTerrainApplicability.AFFECTED -> proof(
+                "levitate_attacker_terrain_grounded", "src/battle_util.c:6021-6036,6639-6645",
+                "The shared terrain authority proves the attacker affected, so the matching direct terrain modifier is applied exactly."
+            )
+            HnsTerrainApplicability.NOT_AFFECTED -> proof(
+                "levitate_attacker_terrain_unaffected", "src/battle_util.c:6028-6034,6639-6645",
+                "The shared terrain authority proves the attacker ungrounded, so the matching direct terrain modifier is omitted exactly."
+            )
+            HnsTerrainApplicability.UNKNOWN, null -> null
+        }
     }
 
     private fun parsedTypes(rawTypes: List<String>?): Set<PokemonType>? {

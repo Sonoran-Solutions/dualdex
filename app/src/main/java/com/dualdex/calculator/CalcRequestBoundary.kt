@@ -722,6 +722,7 @@ object CalcRequestBoundary {
                 observation = playerBattlerState,
                 opposingObservation = enemyBattlerState,
                 fieldStatuses = fieldStatuses,
+                battlerIsDefender = false,
                 isExactVerified = isExactVerified
             ),
             defenderTerrainApplicability = authoritativeTerrainApplicability(
@@ -729,6 +730,7 @@ object CalcRequestBoundary {
                 observation = enemyBattlerState,
                 opposingObservation = playerBattlerState,
                 fieldStatuses = fieldStatuses,
+                battlerIsDefender = true,
                 isExactVerified = isExactVerified
             ),
             attackerElectrified = attackerElectrified,
@@ -1239,6 +1241,7 @@ object CalcRequestBoundary {
         observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
         opposingObservation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
         fieldStatuses: Int?,
+        battlerIsDefender: Boolean,
         isExactVerified: Boolean
     ): HnsTerrainApplicability? {
         if (!isExactVerified) return null
@@ -1248,7 +1251,9 @@ object CalcRequestBoundary {
         val opposing = opposingObservation?.state?.takeIf {
             it.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED
         } ?: return null
-        return HnsTerrainAuthority.resolve(fieldStatuses, state, opposing.effectiveAbilityId)
+        return HnsTerrainAuthority.resolve(
+            fieldStatuses, state, opposing.effectiveAbilityId, battlerIsDefender
+        )
     }
 
     /** `gBattleStruct->gimmick.activeGimmick[side][slot]`, or null when the slot-matched value was not read. */

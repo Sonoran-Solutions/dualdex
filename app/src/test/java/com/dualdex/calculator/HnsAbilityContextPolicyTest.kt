@@ -42,6 +42,8 @@ class HnsAbilityContextPolicyTest {
         weatherWord: Int? = 0,
         weatherObserved: Boolean = true,
         fieldStatuses: Int? = 0,
+        attackerTerrainApplicability: HnsTerrainApplicability? = null,
+        defenderTerrainApplicability: HnsTerrainApplicability? = null,
         switchInEventsSettled: Boolean? = true
     ) = HnsAbilityContextPolicy.Context(
         side = side,
@@ -75,6 +77,8 @@ class HnsAbilityContextPolicyTest {
         weatherWord = weatherWord,
         weatherObserved = weatherObserved,
         fieldStatuses = fieldStatuses,
+        attackerTerrainApplicability = attackerTerrainApplicability,
+        defenderTerrainApplicability = defenderTerrainApplicability,
         switchInEventsSettled = switchInEventsSettled,
         moveAuthority = moveAuthority ?: if (dynamicMoveTypeKnownNeutral && moveType != null) {
             HnsMoveAuthority(
@@ -141,6 +145,17 @@ class HnsAbilityContextPolicyTest {
             com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(26).category)
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(26, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.GROUND)))
+    }
+
+    @Test
+    fun `attacker Levitate is irrelevant to active unrelated terrain and move types`() {
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(26, context(
+                side = HnsAbilitySide.ATTACKER,
+                moveType = PokemonType.WATER,
+                fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_GRASSY_TERRAIN,
+                attackerTerrainApplicability = HnsTerrainApplicability.NOT_AFFECTED
+            )))
     }
 
     @Test

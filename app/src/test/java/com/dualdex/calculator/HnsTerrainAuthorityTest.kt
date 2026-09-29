@@ -80,6 +80,29 @@ class HnsTerrainAuthorityTest {
     }
 
     @Test
+    fun `Mold Breaker can suppress defender Levitate but Ability Shield preserves it`() {
+        val levitate = battler(ability = 26)
+        assertEquals(HnsTerrainApplicability.UNKNOWN,
+            HnsTerrainAuthority.resolve(activeTerrain, levitate, opposingAbilityId = 104,
+                battlerIsDefender = true))
+        assertEquals(HnsTerrainApplicability.NOT_AFFECTED,
+            HnsTerrainAuthority.resolve(activeTerrain,
+                battler(item = HnsItemRegistry.resolveIdByName("Ability Shield")!!, ability = 26),
+                opposingAbilityId = 104, battlerIsDefender = true))
+        assertEquals(HnsTerrainApplicability.UNKNOWN,
+            HnsTerrainAuthority.resolve(activeTerrain or HnsFieldStatusData.STATUS_FIELD_MAGIC_ROOM,
+                battler(item = HnsItemRegistry.resolveIdByName("Ability Shield")!!, ability = 26),
+                opposingAbilityId = 104, battlerIsDefender = true))
+        assertEquals(HnsTerrainApplicability.AFFECTED,
+            HnsTerrainAuthority.resolve(activeTerrain or HnsFieldStatusData.STATUS_FIELD_GRAVITY,
+                levitate, opposingAbilityId = 104, battlerIsDefender = true))
+        // Mold Breaker does not suppress the attacker's own Levitate.
+        assertEquals(HnsTerrainApplicability.NOT_AFFECTED,
+            HnsTerrainAuthority.resolve(activeTerrain, levitate, opposingAbilityId = 104,
+                battlerIsDefender = false))
+    }
+
+    @Test
     fun `no live terrain means the battler is not terrain affected`() {
         assertEquals(HnsTerrainApplicability.NOT_AFFECTED,
             HnsTerrainAuthority.resolve(0, null))

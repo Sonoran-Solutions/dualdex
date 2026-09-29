@@ -115,6 +115,52 @@
         ]
       },
       {
+        "rule": "levitate_attacker_no_matching_terrain_modifier",
+        "predicate": "The effective move type matches none of the active attacker-side Grassy, Electric, or Psychic terrain modifiers.",
+        "rationale": "Levitate cannot change this ordinary hit because its only attacker-side damage consequence is the matching grounded-terrain base-power branch.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:5142",
+            "contains": "if (!(fieldStatus & terrainFlag))"
+          },
+          {
+            "source": "src/battle_util.c:6639",
+            "contains": "IsGrassyTerrainAffected(battlerAtk"
+          },
+          {
+            "source": "src/battle_util.c:6643",
+            "contains": "IsElectricTerrainAffected(battlerAtk"
+          },
+          {
+            "source": "src/battle_util.c:6645",
+            "contains": "IsPsychicTerrainAffected(battlerAtk"
+          }
+        ]
+      },
+      {
+        "rule": "levitate_attacker_terrain_grounded",
+        "predicate": "A matching attacker-side terrain is active and shared terrain authority proves the Levitate holder AFFECTED.",
+        "rationale": "The boundary-owned terrain result is exact, so the matching base-power modifier is applied without an additional Levitate blocker.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:5147",
+            "contains": "return IsBattlerGrounded(battler, ability, holdEffect);"
+          },
+          {
+            "source": "src/battle_util.c:6639",
+            "contains": "IsGrassyTerrainAffected(battlerAtk"
+          },
+          {
+            "source": "src/battle_util.c:6643",
+            "contains": "IsElectricTerrainAffected(battlerAtk"
+          },
+          {
+            "source": "src/battle_util.c:6645",
+            "contains": "IsPsychicTerrainAffected(battlerAtk"
+          }
+        ]
+      },
+      {
         "rule": "levitate_defender_gravity_override",
         "predicate": "Gravity is active, so IsBattlerGrounded returns true before checking Levitate.",
         "rationale": "The shared terrain authority applies Gravity before the Levitate ungrounding branch.",

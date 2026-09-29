@@ -381,6 +381,9 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
         val fieldObj = JSONObject().apply {
             put("gameType", request.field.gameType)
             request.field.weather?.let { put("weather", it) }
+            request.hnsLiveBattleState?.takeIf { it.weatherObserved }?.let {
+                put("hnsWeatherWord", it.weatherWord)
+            }
             request.field.terrain?.let { put("terrain", it) }
             // Boundary-owned live target count (GetMoveTargetCount). Absent today because no reader
             // supplies it; when absent the H&S engine fails closed for Doubles spread moves.

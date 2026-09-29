@@ -62,7 +62,7 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
         55, 62, // Hustle / Guts, Group D Attack stage
-        94, 129, 169, // Solar Power / Defeatist / Fur Coat, Group D stat stages
+        94, 129, 169, 262, 263, 276, 288, // Group D stat stages
         89, 91, 96, 97, 101, 110, 111, 116, 136, 137, 138, 173, 174, 178, 182, 184,
         85, 199, 200, 204, 206, 231, 232, 233, 244, 246, 252, 292
         // Normalize / -ate / Liquid Voice, Group D move-type and base-power stage
@@ -373,6 +373,78 @@ object HnsAbilityContextPolicy {
                 else -> relevant(
                     "solar_power_special_move_in_sun", "src/battle_util.c:6998",
                     "The authoritative final category is Special and the live ordinary Sun affects the attacker; Solar Power multiplies the selected Sp. Atk stat. Residual HP loss is outside this selected-hit result."
+                )
+            }
+            262, 263, 276 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "attack_stat_type_ability_defender_side", "src/battle_util.c:7060-7079",
+                    "Transistor, Dragon's Maw, and Rocky Payload are read only from CalcAttackStat's attacker ability slot."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
+                    !c.attackerAbilityObserved || !c.defenderAbilityObserved || c.observedBattlersCount != 2 ->
+                    unknownProof(
+                        "attack_stat_type_ability_live_state_unknown", "src/battle_util.c:7058-7080",
+                        "The type-based Attack-stat branch requires an authoritative ordinary move and live effective abilities for both battlers."
+                    )
+                effectiveMoveType(c) == null -> unknownProof(
+                    "attack_stat_type_ability_move_type_unknown", "src/battle_util.c:7060-7080",
+                    "The branch consumes HnsMoveAuthority's final effective move type."
+                )
+                effectiveMoveType(c) != attackStatAbilityType(abilityId) -> proof(
+                    "attack_stat_type_ability_nonmatching_type", "src/battle_util.c:7060-7080",
+                    "The authoritative final move type does not match this ability's exact CalcAttackStat type predicate."
+                )
+                else -> relevant(
+                    "attack_stat_type_ability_matching_type", "src/battle_util.c:7060-7080",
+                    "The authoritative final move type matches this Attack-stat ability's pinned branch."
+                )
+            }
+            288 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "orichalcum_pulse_defender_side", "src/battle_util.c:7105-7107",
+                    "Orichalcum Pulse is read only from CalcAttackStat's attacker ability slot."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
+                    !c.attackerAbilityObserved || !c.defenderAbilityObserved || c.observedBattlersCount != 2 ->
+                    unknownProof(
+                        "orichalcum_pulse_live_state_unknown", "src/battle_util.c:7105-7107",
+                        "The branch requires an authoritative ordinary move and live effective abilities for both battlers."
+                    )
+                c.moveCategory == null -> unknownProof(
+                    "orichalcum_pulse_category_unknown", "src/battle_util.c:7105-7106",
+                    "Orichalcum Pulse consumes HnsMoveAuthority's final category."
+                )
+                !c.weatherObserved || c.weatherWord == null -> unknownProof(
+                    "orichalcum_pulse_weather_unknown", "src/battle_script_commands.c:1300, src/battle_util.c:7105",
+                    "The authoritative live weather word supplied to GetWeather is required; the ability branch reads ctx->weather directly rather than calling IsBattlerWeatherAffected."
+                )
+                c.attackerItemId == null -> unknownProof(
+                    "orichalcum_pulse_attacker_item_unknown", "src/battle_util.c:7106",
+                    "The authoritative current attacker item is required to evaluate the Utility Umbrella exclusion."
+                )
+                c.moveCategory != MoveCategory.PHYSICAL -> proof(
+                    "orichalcum_pulse_special_move", "src/battle_util.c:7105-7106",
+                    "The authoritative final category is Special; Orichalcum Pulse is Physical-only."
+                )
+                (c.weatherWord and com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN) == 0 -> proof(
+                    "orichalcum_pulse_without_raw_sun", "src/battle_util.c:7105",
+                    "The observed weather supplied to GetWeather has no B_WEATHER_SUN bit, so the Attack-stat branch is inactive."
+                )
+                c.attackerHp == null || c.attackerHp <= 0 || c.defenderHp == null || c.defenderHp <= 0 -> unknownProof(
+                    "orichalcum_pulse_battler_liveness_unknown", "src/battle_script_commands.c:1300, src/battle_util.c:10053-10069",
+                    "GetWeather calls HasWeatherEffect, which ignores fainted battlers; positive live HP is required to evaluate Cloud Nine/Air Lock suppression."
+                )
+                c.attackerAbilityId in WEATHER_SUPPRESSOR_IDS || c.defenderAbilityId in WEATHER_SUPPRESSOR_IDS -> proof(
+                    "orichalcum_pulse_weather_suppressed", "src/battle_script_commands.c:1300, src/battle_util.c:10053-10069",
+                    "GetWeather returns B_WEATHER_NONE when a live Cloud Nine or Air Lock makes HasWeatherEffect false, before CalcAttackStat reads ctx->weather; the suppressor's independent capability rule still applies."
+                )
+                c.attackerItemId == HnsItemRegistry.resolveIdByName("Utility Umbrella") -> proof(
+                    "orichalcum_pulse_utility_umbrella", "src/battle_util.c:7106",
+                    "The authoritative attacker hold effect is Utility Umbrella, which explicitly disables this ability branch; its general item limitation remains independent."
+                )
+                else -> relevant(
+                    "orichalcum_pulse_physical_raw_sun", "src/battle_util.c:7105-7106",
+                    "The final category is Physical, GetWeather supplies Sun after HasWeatherEffect checks, and the attacker does not hold Utility Umbrella. The separate weather-setting event is not inferred."
                 )
             }
             129 -> when {
@@ -750,6 +822,13 @@ object HnsAbilityContextPolicy {
         c.moveAuthority.effectiveType
     } else {
         c.moveType.takeIf { c.dynamicMoveTypeKnownNeutral }
+    }
+
+    private fun attackStatAbilityType(abilityId: Int): PokemonType = when (abilityId) {
+        262 -> PokemonType.ELECTRIC
+        263 -> PokemonType.DRAGON
+        276 -> PokemonType.ROCK
+        else -> error("No type predicate for attack-stat ability $abilityId")
     }
 
     /**

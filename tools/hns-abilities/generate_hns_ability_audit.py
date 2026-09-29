@@ -25,7 +25,7 @@ CONTEXT_CANDIDATES = {
     146, 152, 153, 154, 155, 160, 167, 168, 172, 192, 195, 201, 202, 215, 221, 222,
     223, 224, 234, 235, 236, 238, 243, 247, 250, 254, 259, 268, 271, 275, 290, 291,
     220, 244, 252, 264, 265, 270, 308, 89, 94, 96, 101, 110, 111, 116, 129, 136, 137, 138, 169, 173, 174,
-    178, 182, 184, 199, 200, 204, 206, 231, 232, 233, 246, 292,
+    178, 182, 184, 199, 200, 204, 206, 231, 232, 233, 246, 262, 263, 276, 288, 292,
 }
 POLICY = ROOT / "app/src/main/java/com/dualdex/calculator/HnsAbilityContextPolicy.kt"
 GROUP_C_POLICY = ROOT / "app/src/main/java/com/dualdex/calculator/HnsGroupCPolicy.kt"
@@ -192,6 +192,14 @@ def validate_context_rules(upstream, abilities, decisions):
         "shadow_shield_mold_breaker_preserves",
         "ice_scales_mold_breaker_unshielded",
         "ice_scales_ability_shield_preserves",
+        "attack_stat_type_ability_defender_side",
+        "attack_stat_type_ability_nonmatching_type",
+        "attack_stat_type_ability_matching_type",
+        "orichalcum_pulse_defender_side",
+        "orichalcum_pulse_special_move",
+        "orichalcum_pulse_without_raw_sun",
+        "orichalcum_pulse_utility_umbrella",
+        "orichalcum_pulse_physical_raw_sun",
     }
     if not required <= all_rules:
         raise SystemExit("context rules must retain live-state, type/category, Guts, Hustle, and bypass safety predicates")

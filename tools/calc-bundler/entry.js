@@ -275,7 +275,9 @@ globalThis.DualDexCalc = {
         gameType: normalizeGameType(input.field?.gameType)
       };
       if (input.field?.weather) fieldOptions.weather = input.field.weather;
-      if (input.field?.terrain) fieldOptions.terrain = input.field.terrain;
+      // Caller-owned terrain text is supported only for generic @smogon/calc. H&S terrain
+      // damage abilities use the separate boundary-owned field.hnsFieldStatuses word below.
+      if (input.field?.terrain && input.typeSystem !== 'hns_2_0_5') fieldOptions.terrain = input.field.terrain;
       if (input.field?.attackerSide) fieldOptions.attackerSide = new Side(input.field.attackerSide);
       if (input.field?.defenderSide) fieldOptions.defenderSide = new Side(input.field.defenderSide);
 
@@ -530,6 +532,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // Ruin field effects, attacker hold effect, then the offensive badge. Each source keeps its
   // own UQ4.12 composition operator; the completed product is applied once to the staged integer.
   const attackModifier = createHnsModifierAccumulator();
+  const hnsFieldStatuses = Number.isInteger(input.field?.hnsFieldStatuses)
+    ? input.field.hnsFieldStatuses
+    : 0;
   if (isPhysical && (attacker.ability === 'Huge Power' || attacker.ability === 'Pure Power')) {
     attackModifier.addHalfDown(8192);
   }
@@ -608,6 +613,12 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       }
       break;
     }
+    case 'Hadron Engine':
+      if ((hnsFieldStatuses & 0x100) !== 0 && isSpecial) {
+        // Pinned CalcAttackStat uses uq4_12_multiply with UQ_4_12(1.3333) = 5461.
+        attackModifier.addHalfUp(5461);
+      }
+      break;
     default:
       break;
   }
@@ -625,6 +636,13 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const defenseModifier = createHnsModifierAccumulator();
   if (defender.ability === 'Fur Coat' && isPhysical && !defenderAbilitySuppressed) {
     defenseModifier.add(8192);
+  }
+  const wonderRoomActive = (hnsFieldStatuses & 0x4) !== 0;
+  const usesDefStat = wonderRoomActive ? isSpecial : isPhysical;
+  if (defender.ability === 'Grass Pelt' && !defenderAbilitySuppressed &&
+      (hnsFieldStatuses & 0x40) !== 0 && usesDefStat) {
+    // Pinned CalcDefenseStat applies Grass Pelt after Fur Coat with the half-down operator.
+    defenseModifier.addHalfDown(6144);
   }
   const defBadge = isPhysical ? !!input.defender?.badgeBoosts?.def : !!input.defender?.badgeBoosts?.spd;
   if (defBadge) defenseModifier.add(4506);

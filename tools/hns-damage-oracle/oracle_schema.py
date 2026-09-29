@@ -23,7 +23,7 @@ import json
 import re
 from typing import Any
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 ROLL_COUNT = 16
 
 HNS_REPOSITORY = "PokemonHnS-Development/pokehns-expansion"
@@ -31,7 +31,7 @@ HNS_PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
 HNS_PINNED_TREE = "586946f21e9322e8d837654d9e07cf6b8239feed"
 
 ORACLE_BACKEND_KIND = "pinned-expansion-battle-test-runner"
-ORACLE_TOOL_VERSION = 5
+ORACLE_TOOL_VERSION = 6
 
 ROLL_ORDER = (
     "rolls[k] is the damage at random factor (85+k)%, i.e. the pinned hit measured with "
@@ -77,11 +77,12 @@ BATTLER_KEYS = (
 STAT_KEYS = ("maxHp", "hp", "attack", "defense", "spAttack", "spDefense", "speed")
 ATTACKER_STAGE_KEYS = ("attack", "spAttack")
 DEFENDER_STAGE_KEYS = ("defense", "spDefense")
-FIELD_KEYS = ("weather", "reflect", "lightScreen")
+FIELD_KEYS = ("weather", "reflect", "lightScreen", "terrain")
+TERRAINS = ("none", "grassy", "electric")
 DOUBLES_KEYS = ("defenderPartner",)
 DEFENDER_PARTNER_STATES = ("present", "fainted")
 
-OBSERVED_KEYS = ("attacker", "defender", "move", "targetCount")
+OBSERVED_KEYS = ("attacker", "defender", "move", "targetCount", "fieldStatuses")
 OBSERVED_BATTLER_KEYS = ("speciesId", "types", "baseStats", "abilityId", "itemId", "hpAtHit", "status1", "badgeBoosts")
 BASE_STAT_KEYS = ("hp", "attack", "defense", "spAttack", "spDefense", "speed")
 BADGE_BOOST_KEYS = ("attack", "defense", "spAttack", "spDefense")
@@ -225,6 +226,7 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
     _require_enum(s["field"]["weather"], WEATHERS, f"{path}.field.weather")
     _require_bool(s["field"]["reflect"], f"{path}.field.reflect")
     _require_bool(s["field"]["lightScreen"], f"{path}.field.lightScreen")
+    _require_enum(s["field"]["terrain"], TERRAINS, f"{path}.field.terrain")
     if s["format"] == "doubles":
         _require_keys(s["doubles"], DOUBLES_KEYS, f"{path}.doubles")
         _require_enum(s["doubles"]["defenderPartner"], DEFENDER_PARTNER_STATES, f"{path}.doubles.defenderPartner")
@@ -296,6 +298,10 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
     # The raw pinned GetMoveTargetCount. The engine consults it only inside IsDoubleBattle()
     # (GetTargetDamageModifier); in Singles a spread move still reports its empty partner slot.
     _require_int(observed["targetCount"], f"{path}.targetCount", 1, 3)
+    _require_int(observed["fieldStatuses"], f"{path}.fieldStatuses", 0, 0xFFF)
+    expected_terrain = {"none": 0, "grassy": 1 << 6, "electric": 1 << 8}[scenario["field"]["terrain"]]
+    if observed["fieldStatuses"] != expected_terrain:
+        _fail(f"{path}.fieldStatuses", f"observed field word {observed['fieldStatuses']:#x} != scenario terrain {expected_terrain:#x}")
     if observed["attacker"]["hpAtHit"] > scenario["attacker"]["stats"]["hp"]:
         _fail(f"{path}.attacker.hpAtHit", "attacker HP cannot rise before the measured hit")
     if observed["defender"]["hpAtHit"] != scenario["defender"]["stats"]["hp"]:

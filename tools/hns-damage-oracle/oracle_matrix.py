@@ -220,6 +220,7 @@ def defender(label: str, **kw) -> dict:
 
 def scenario(sid: str, tags: list[str], atk: dict, dfn: dict, move: str, *, crit: bool = False,
              weather: str = "none", reflect: bool = False, light_screen: bool = False,
+             terrain: str = "none",
              fairy: bool = True, style: str = "perMoveSplit", badges: tuple[int, ...] = (),
              side: str = "player", doubles: str | None = None, expect: str = "damage",
              surface: str = "modelled") -> dict:
@@ -237,7 +238,7 @@ def scenario(sid: str, tags: list[str], atk: dict, dfn: dict, move: str, *, crit
         "defender": dfn,
         "move": {"symbol": symbol("MOVE", move), "label": move},
         "crit": crit,
-        "field": {"weather": weather, "reflect": reflect, "lightScreen": light_screen},
+        "field": {"weather": weather, "reflect": reflect, "lightScreen": light_screen, "terrain": terrain},
         "doubles": {"defenderPartner": doubles} if doubles else None,
         "expect": expect,
     }
@@ -855,6 +856,49 @@ def _low_state_stat_abilities() -> list[dict]:
         scenario("group-d-fur-coat-literal-bypass", ["ability:fur-coat", "move-ability-bypass", "defense-stat"],
                  attacker("Machamp", atk=153), defender("Snorlax", dfn=107, ability=fur_coat), "Sunsteel Strike"),
     ))
+    return out
+
+
+def _field_backed_stat_abilities() -> list[dict]:
+    """Request-local Grassy Terrain / Electric Terrain stat-stage ability slice."""
+    grass_pelt = ("ABILITY_GRASS_PELT", "Grass Pelt")
+    hadron = ("ABILITY_HADRON_ENGINE", "Hadron Engine")
+    neutral = ("ABILITY_INSOMNIA", "Insomnia")
+    out = [
+        scenario("field-grass-pelt-grassy-physical", ["ability:grass-pelt", "field:grassy", "defense-stat"],
+                 attacker("Machamp", atk=151, ability=neutral),
+                 defender("Dragonite", dfn=109, ability=grass_pelt), "Strength", terrain="grassy"),
+        scenario("field-grass-pelt-no-terrain", ["ability:grass-pelt", "field:grassy", "negative-control"],
+                 attacker("Machamp", atk=151, ability=neutral),
+                 defender("Dragonite", dfn=109, ability=grass_pelt), "Strength"),
+        scenario("field-grass-pelt-special-control", ["ability:grass-pelt", "field:grassy", "negative-control"],
+                 attacker("Alakazam", spa=151, ability=neutral),
+                 defender("Dragonite", spd=109, ability=grass_pelt), "Psychic", terrain="grassy"),
+        scenario("field-grass-pelt-attacker-control", ["ability:grass-pelt", "field:grassy", "negative-control"],
+                 attacker("Machamp", atk=151, ability=grass_pelt),
+                 defender("Dragonite", dfn=109, ability=neutral), "Strength", terrain="grassy"),
+        scenario("field-grass-pelt-defense-stage-composition",
+                 ["ability:grass-pelt", "field:grassy", "defense-stat", "modifier-stacking", "stages"],
+                 attacker("Machamp", atk=151, ability=neutral),
+                 defender("Dragonite", dfn=109, ability=grass_pelt, stages={"defense": 1}),
+                 "Strength", terrain="grassy"),
+        scenario("field-hadron-electric-special", ["ability:hadron-engine", "field:electric", "attack-stat"],
+                 attacker("Alakazam", spa=153, ability=hadron),
+                 defender("Snorlax", spd=109, ability=neutral), "Psychic", terrain="electric"),
+        scenario("field-hadron-terrain-replaced", ["ability:hadron-engine", "field:electric", "negative-control"],
+                 attacker("Alakazam", spa=153, ability=hadron),
+                 defender("Dragonite", spd=109, ability=neutral), "Psychic", terrain="grassy"),
+        scenario("field-hadron-physical-control", ["ability:hadron-engine", "field:electric", "negative-control"],
+                 attacker("Machamp", atk=153, ability=hadron),
+                 defender("Snorlax", dfn=109, ability=neutral), "Strength", terrain="electric"),
+        scenario("field-hadron-defender-control", ["ability:hadron-engine", "field:electric", "negative-control"],
+                 attacker("Alakazam", spa=153, ability=neutral),
+                 defender("Snorlax", spd=109, ability=hadron), "Psychic", terrain="electric"),
+        scenario("field-hadron-special-badge-composition",
+                 ["ability:hadron-engine", "attack-stat", "badge", "field:electric", "modifier-stacking"],
+                 attacker("Alakazam", spa=153, ability=hadron),
+                 defender("Snorlax", spd=109, ability=neutral), "Psychic", terrain="electric", badges=(1,)),
+    ]
     return out
 
 
@@ -1492,6 +1536,6 @@ def build_scenarios() -> list[dict]:
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
-              _engine_items, _doubles, _mixed_rounding_attack_stat_abilities)
+              _engine_items, _doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

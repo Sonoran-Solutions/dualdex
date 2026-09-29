@@ -28,7 +28,7 @@
 
 #define ROLL_COUNT 16
 #define HNS_PINNED_COMMIT "1f42b74dff0e9fe942419845d040663dd829a973"
-#define ORACLE_SCHEMA_VERSION 5
+#define ORACLE_SCHEMA_VERSION 6
 #define MAX_DIVERGENCES 512
 
 static int g_failures = 0;
@@ -303,12 +303,13 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     const char* category = get_str(o_move, "category", err);
     const char* style = get_str(rules, "optionStyle", err);
     const char* weather = get_str(field, "weather", err);
-    long power = 0, target_count = 0;
+    long power = 0, target_count = 0, field_statuses = 0;
     int ate_boost = 0;
     int crit = 0, reflect = 0, light_screen = 0;
     if (!move_label || !move_type || !category || !style || !weather) return 0;
     if (!get_int(o_move, "power", 1, 255, &power, err) || !get_bool(o_move, "ateBoost", &ate_boost, err) ||
         !get_int(obs, "targetCount", 1, 3, &target_count, err) ||
+        !get_int(obs, "fieldStatuses", 0, 0xFFF, &field_statuses, err) ||
         !get_bool(scen, "crit", &crit, err) || !get_bool(field, "reflect", &reflect, err) ||
         !get_bool(field, "lightScreen", &light_screen, err))
         return 0;
@@ -357,6 +358,7 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     if (strcmp(weather, "rain") == 0) sb_append(sb, ",\"weather\":\"Rain\"");
     else if (strcmp(weather, "sun") == 0) sb_append(sb, ",\"weather\":\"Sun\"");
     else if (strcmp(weather, "none") != 0) return set_err(err, "unknown weather %s", weather);
+    sb_append(sb, ",\"hnsFieldStatuses\":%ld", field_statuses);
     if (doubles) sb_append(sb, ",\"targetCount\":%ld", target_count);
     if (reflect || light_screen) {
         sb_append(sb, ",\"defenderSide\":{");
@@ -590,7 +592,7 @@ static void self_tests(const jl_value* doc) {
                a[15] == 16);
 
     /* Corpus header / entry validation. */
-    const char* base_head = "{\"schemaVersion\":5,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT
+    const char* base_head = "{\"schemaVersion\":6,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT
                             "\"},\"backend\":{\"kind\":\"pinned-expansion-battle-test-runner\"}},\"entries\":[";
     const char* rolls16 = "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]";
     const char* rolls15 = "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]";
@@ -610,13 +612,13 @@ static void self_tests(const jl_value* doc) {
     self_check("an entry with 15 rolls is rejected", !validate_header(short_rolls, &err));
     jl_free(short_rolls);
     jl_value* wrong_commit = jl_parse(
-        "{\"schemaVersion\":5,\"provenance\":{\"hnsUpstream\":{\"commit\":\"0000000000000000000000000000000000000000\"},"
+        "{\"schemaVersion\":6,\"provenance\":{\"hnsUpstream\":{\"commit\":\"0000000000000000000000000000000000000000\"},"
         "\"backend\":{\"kind\":\"pinned-expansion-battle-test-runner\"}},\"entries\":[{\"scenario\":{\"id\":\"a\"},"
         "\"rolls\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}]}");
     self_check("a corpus from another H&S commit is rejected", !validate_header(wrong_commit, &err));
     jl_free(wrong_commit);
     jl_value* wrong_backend = jl_parse(
-        "{\"schemaVersion\":5,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT "\"},"
+        "{\"schemaVersion\":6,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT "\"},"
         "\"backend\":{\"kind\":\"smogon-calc\"}},\"entries\":[{\"scenario\":{\"id\":\"a\"},"
         "\"rolls\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}]}");
     self_check("a corpus from a non-oracle backend is rejected", !validate_header(wrong_backend, &err));

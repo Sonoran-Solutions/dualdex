@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "pinned_commit": "1f42b74dff0e9fe942419845d040663dd829a973",
-  "contract": "A field decision clears only its own gFieldStatuses bit, and only when pinned source plus authoritative request operands prove that bit cannot change the displayed single-hit damage range for this exact request. Each active bit is assessed independently; RELEVANT and UNKNOWN never clear. A bit outside the reviewed pinned mask is always UNKNOWN. Clearing a field bit never clears an ability, item, move-mechanic, weather, side-status, volatile, gimmick or challenge limitation, and those never clear a field bit.",
+  "contract": "A field decision is request-local. MODELLED means every applicable damage-changing consequence of that active bit for the supported selected hit is reproduced exactly; it does not declare the whole field globally supported. PROVEN_IRRELEVANT means pinned source and authoritative operands prove no effect; RELEVANT means at least one applicable effect is not modelled; UNKNOWN fails closed. A field bit is removed from the execution request only when it is an explicitly caveated RELEVANT effect; MODELLED bits reach the H&S engine. Unknown bits always block. Decisions are independent and never clear another ability, item, move, weather, side-status, volatile, gimmick or challenge limitation.",
   "operands": {
     "ordinary_move": "The selected move is ORDINARY_PROVEN_EQUIVALENT in HnsMoveMechanicsRegistry (single-hit EFFECT_HIT, no terrain boost - checked by this generator).",
     "pre_field_move_type": "The pinned move type (Fairy toggle applied), accepted only with an observed GIMMICK_NONE attacker and a known effective attacker ability that GetDynamicMoveType does not read.",
@@ -684,7 +684,7 @@
           "contains": "&& IsGrassyTerrainAffected(battler, ability, GetBattlerHoldEffect(battler), gFieldStatuses)"
         }
       ],
-      "rationale": "For an ordinary hit Grassy Terrain boosts a grounded attacker's Grass move and powers the defender's Grass Pelt; Earthquake/Magnitude halving, Terrain Pulse and Grassy Glide priority are non-ordinary effects, but Grassy Glide priority on either side can change turn order, which the attacker's Analytic reads. Healing, seeds and Mimicry act outside the hit or are observed live.",
+      "rationale": "For an ordinary selected hit, the direct Grass move modifier and terrain-sensitive turn-order branch remain outside this slice. The only request-local terrain consequence promoted here is Grass Pelt when the effective move is non-Grass, the defender's effective ability is Grass Pelt, the final category selects Defense, and Wonder Room is inactive. That exact request is MODELLED; this does not declare Grassy Terrain globally supported.",
       "request_operands": [
         "ordinary_move",
         "effective_move_type",
@@ -736,20 +736,6 @@
           ]
         },
         {
-          "rule": "grassy_terrain_grass_pelt_defender",
-          "relevance": "RELEVANT",
-          "operands": [
-            "defender_ability"
-          ],
-          "predicate": "The defender's effective ability is Grass Pelt.",
-          "evidence": [
-            {
-              "source": "src/battle_util.c:7296",
-              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRASSY_TERRAIN && usesDefStat)"
-            }
-          ]
-        },
-        {
           "rule": "grassy_terrain_attacker_analytic",
           "relevance": "RELEVANT",
           "operands": [
@@ -768,6 +754,57 @@
             {
               "source": "src/battle_util.c:6691",
               "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+            }
+          ]
+        },
+        {
+          "rule": "grassy_terrain_grass_pelt_only",
+          "relevance": "MODELLED",
+          "operands": [
+            "ordinary_move",
+            "effective_move_type",
+            "attacker_ability",
+            "defender_ability",
+            "move_category",
+            "field_statuses"
+          ],
+          "predicate": "Ordinary non-Grass move; effective defender Grass Pelt; final Physical category selects Defense; Wonder Room is clear; no Analytic or other applicable field effect.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7224",
+              "contains": "if (moveEffect == EFFECT_PSYSHOCK || IsBattleMovePhysical(move)) // uses defense stat instead of sp.def"
+            },
+            {
+              "source": "src/battle_util.c:7234",
+              "contains": "usesDefStat = TRUE;"
+            },
+            {
+              "source": "src/battle_util.c:7296",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRASSY_TERRAIN && usesDefStat)"
+            },
+            {
+              "source": "src/battle_util.c:7298",
+              "contains": "modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(1.5));"
+            }
+          ]
+        },
+        {
+          "rule": "grassy_terrain_grass_pelt_not_using_defense",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "ordinary_move",
+            "move_category",
+            "field_statuses"
+          ],
+          "predicate": "Ordinary Special move with Wonder Room inactive selects Sp. Def, making usesDefStat false.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7248",
+              "contains": "usesDefStat = FALSE;"
+            },
+            {
+              "source": "src/battle_util.c:7296",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRASSY_TERRAIN && usesDefStat)"
             }
           ]
         }
@@ -960,7 +997,7 @@
           "contains": "else if (ability == ABILITY_SURGE_SURFER && gFieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN)"
         }
       ],
-      "rationale": "For an ordinary hit Electric Terrain boosts a grounded attacker's Electric move and powers Quark Drive (attacker Attack/Sp. Atk, defender Defense/Sp. Def) and Hadron Engine (attacker Sp. Atk). Surge Surfer and Quark Drive speed change turn order, which the attacker's Analytic reads.",
+      "rationale": "For an ordinary selected hit, the direct Electric move modifier, Quark Drive, and terrain-sensitive turn-order branch remain outside this slice. The only request-local terrain consequence promoted here is Hadron Engine for an authoritative final Special non-Electric move with no other applicable terrain effect. That exact request is MODELLED; this does not declare Electric Terrain globally supported or cause Hadron Engine to set terrain.",
       "request_operands": [
         "ordinary_move",
         "effective_move_type",
@@ -1026,7 +1063,7 @@
             "attacker_ability",
             "defender_ability"
           ],
-          "predicate": "Either effective ability is Quark Drive, or the attacker's is Hadron Engine.",
+          "predicate": "Either side has effective Quark Drive, whose terrain-dependent selected stat/volatile branch is not modelled. Hadron Engine is decided by its separate category-specific rules.",
           "evidence": [
             {
               "source": "src/battle_util.c:7098",
@@ -1061,6 +1098,43 @@
             {
               "source": "src/battle_util.c:6691",
               "contains": "if (IsLastMonToMove(battlerAtk) && moveEffect != EFFECT_FUTURE_SIGHT)"
+            }
+          ]
+        },
+        {
+          "rule": "electric_terrain_hadron_engine_only",
+          "relevance": "MODELLED",
+          "operands": [
+            "ordinary_move",
+            "effective_move_type",
+            "attacker_ability",
+            "move_category",
+            "field_statuses"
+          ],
+          "predicate": "Ordinary non-Electric Special move; effective attacker Hadron Engine; authoritative observed Electric Terrain; no Quark Drive, Analytic or other applicable field effect.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7111",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN && IsBattleMoveSpecial(move))"
+            },
+            {
+              "source": "src/battle_util.c:7112",
+              "contains": "modifier = uq4_12_multiply(modifier, UQ_4_12(1.3333));"
+            }
+          ]
+        },
+        {
+          "rule": "electric_terrain_hadron_engine_physical",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "move_category",
+            "field_statuses"
+          ],
+          "predicate": "Hadron Engine's only selected-hit Attack-stat branch is Special-only; authoritative final category is Physical.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7111",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN && IsBattleMoveSpecial(move))"
             }
           ]
         }

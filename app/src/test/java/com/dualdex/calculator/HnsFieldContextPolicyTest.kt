@@ -1,6 +1,7 @@
 package com.dualdex.calculator
 
 import com.dualdex.pokemon.PokemonType
+import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.hns.HnsFieldState
 import com.dualdex.pokemon.hns.HnsFieldStatus
 import com.dualdex.pokemon.hns.HnsFieldStatusData
@@ -27,16 +28,22 @@ class HnsFieldContextPolicyTest {
         attackerAbility: Int? = 65,
         defenderAbility: Int? = 77,
         attackerItem: Int? = 0,
-        defenderItem: Int? = 0
+        defenderItem: Int? = 0,
+        category: MoveCategory? = MoveCategory.PHYSICAL,
+        fieldStatuses: Int? = 0
     ) = HnsFieldContextPolicy.Context(
-        ordinaryMove, moveId, preField, effective, attackerAbility, defenderAbility, attackerItem, defenderItem
+        ordinaryMove, moveId, preField, effective, attackerAbility, defenderAbility, attackerItem, defenderItem,
+        category, fieldStatuses
     )
 
     private fun decide(status: HnsFieldStatus, context: HnsFieldContextPolicy.Context?): HnsFieldRequestDecision =
-        HnsFieldContextPolicy.assess(HnsFieldState.decode(status.mask), context).single()
+        HnsFieldContextPolicy.assess(HnsFieldState.decode(status.mask), context?.copy(
+            fieldStatuses = context.fieldStatuses?.or(status.mask)
+        )).single()
 
     private val irrelevant = HnsFieldRequestRelevance.PROVEN_IRRELEVANT
     private val relevant = HnsFieldRequestRelevance.RELEVANT
+    private val modelled = HnsFieldRequestRelevance.MODELLED
     private val unknown = HnsFieldRequestRelevance.UNKNOWN
 
     private fun assertRule(expected: HnsFieldRequestRelevance, rule: String?, decision: HnsFieldRequestDecision) {
@@ -110,12 +117,21 @@ class HnsFieldContextPolicyTest {
     }
 
     @Test
-    fun `Grassy Terrain needs the type and both abilities`() {
+    fun `Grassy Terrain is modelled only when Grass Pelt is its only applicable effect`() {
         assertRule(irrelevant, "grassy_terrain_non_grass_move", decide(HnsFieldStatus.GRASSY_TERRAIN, ctx()))
         assertRule(relevant, "grassy_terrain_grass_move",
             decide(HnsFieldStatus.GRASSY_TERRAIN, ctx(effective = PokemonType.GRASS)))
-        assertRule(relevant, "grassy_terrain_grass_pelt_defender",
+        assertRule(modelled, "grassy_terrain_grass_pelt_only",
             decide(HnsFieldStatus.GRASSY_TERRAIN, ctx(defenderAbility = HnsFieldStatusData.ABILITY_GRASS_PELT)))
+        assertRule(irrelevant, "grassy_terrain_grass_pelt_not_using_defense",
+            decide(HnsFieldStatus.GRASSY_TERRAIN, ctx(
+                defenderAbility = HnsFieldStatusData.ABILITY_GRASS_PELT, category = MoveCategory.SPECIAL
+            )))
+        assertRule(unknown, null,
+            decide(HnsFieldStatus.GRASSY_TERRAIN, ctx(
+                defenderAbility = HnsFieldStatusData.ABILITY_GRASS_PELT,
+                fieldStatuses = HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM
+            )))
         assertRule(relevant, "grassy_terrain_attacker_analytic",
             decide(HnsFieldStatus.GRASSY_TERRAIN, ctx(attackerAbility = analytic)))
         for (missing in listOf(ctx(effective = null), ctx(attackerAbility = null), ctx(defenderAbility = null))) {
@@ -132,13 +148,16 @@ class HnsFieldContextPolicyTest {
     }
 
     @Test
-    fun `Electric Terrain needs the type and both abilities and never bypasses the paradox abilities`() {
+    fun `Electric Terrain is modelled only when Hadron Engine is its only applicable effect`() {
         assertRule(irrelevant, "electric_terrain_non_electric_move", decide(HnsFieldStatus.ELECTRIC_TERRAIN, ctx()))
         assertRule(relevant, "electric_terrain_electric_move",
             decide(HnsFieldStatus.ELECTRIC_TERRAIN, ctx(effective = PokemonType.ELECTRIC)))
+        assertRule(modelled, "electric_terrain_hadron_engine_only", decide(HnsFieldStatus.ELECTRIC_TERRAIN,
+            ctx(attackerAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE, category = MoveCategory.SPECIAL)))
+        assertRule(irrelevant, "electric_terrain_hadron_engine_physical", decide(HnsFieldStatus.ELECTRIC_TERRAIN,
+            ctx(attackerAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE, category = MoveCategory.PHYSICAL)))
         for (paradox in listOf(
             ctx(attackerAbility = HnsFieldStatusData.ABILITY_QUARK_DRIVE),
-            ctx(attackerAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE),
             ctx(defenderAbility = HnsFieldStatusData.ABILITY_QUARK_DRIVE)
         )) {
             assertRule(relevant, "electric_terrain_paradox_ability", decide(HnsFieldStatus.ELECTRIC_TERRAIN, paradox))
@@ -195,8 +214,12 @@ class HnsFieldContextPolicyTest {
         val contexts = listOf(
             ctx(), ctx(effective = PokemonType.ELECTRIC), ctx(effective = PokemonType.FIRE),
             ctx(effective = PokemonType.GROUND), ctx(moveId = floatyFall), ctx(effective = PokemonType.GRASS),
-            ctx(defenderAbility = HnsFieldStatusData.ABILITY_GRASS_PELT), ctx(attackerAbility = analytic),
+            ctx(defenderAbility = HnsFieldStatusData.ABILITY_GRASS_PELT),
+            ctx(defenderAbility = HnsFieldStatusData.ABILITY_GRASS_PELT, category = MoveCategory.SPECIAL),
+            ctx(attackerAbility = analytic),
             ctx(effective = PokemonType.DRAGON), ctx(attackerAbility = HnsFieldStatusData.ABILITY_QUARK_DRIVE),
+            ctx(attackerAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE, category = MoveCategory.SPECIAL),
+            ctx(attackerAbility = HnsFieldStatusData.ABILITY_HADRON_ENGINE, category = MoveCategory.PHYSICAL),
             ctx(effective = PokemonType.PSYCHIC), ctx(moveId = quickAttack),
             ctx(preField = PokemonType.WATER, effective = PokemonType.WATER)
         )

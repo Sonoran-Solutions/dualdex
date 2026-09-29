@@ -47,7 +47,8 @@ def observed_for(s: dict) -> dict:
     return {"attacker": battler, "defender": dfn,
             "move": {"id": 157, "type": "Rock", "power": 75, "category": "physical", "target": "both",
                      "flags": [], "abilityFlags": [], "priority": 0, "targetClass": 6, "ateBoost": False},
-            "targetCount": 1}
+            "targetCount": 1,
+            "fieldStatuses": {"none": 0, "grassy": 1 << 6, "electric": 1 << 8}[s["field"]["terrain"]]}
 
 
 ROLLS = [51, 51, 52, 52, 53, 54, 54, 55, 55, 56, 57, 57, 58, 58, 59, 60]
@@ -239,6 +240,22 @@ class ScenarioSchemaTest(unittest.TestCase):
         self.assertEqual(by_id["group-d-normal-tackle-wonder-guard-immunity-control"]["expect"], "immune")
         self.assertEqual(by_id["group-d-normal-tackle-ghost-immunity-control"]["expect"], "immune")
 
+    def test_field_backed_ability_matrix_has_exact_and_negative_controls(self):
+        by_id = {s["id"]: s for s in SCENARIOS}
+        expected = {
+            "field-grass-pelt-grassy-physical", "field-grass-pelt-no-terrain",
+            "field-grass-pelt-special-control", "field-grass-pelt-attacker-control",
+            "field-grass-pelt-defense-stage-composition", "field-hadron-electric-special",
+            "field-hadron-terrain-replaced", "field-hadron-physical-control",
+            "field-hadron-defender-control", "field-hadron-special-badge-composition",
+        }
+        self.assertTrue(expected <= by_id.keys())
+        self.assertTrue(all(by_id[sid]["surface"] == "modelled" for sid in expected))
+        self.assertEqual(by_id["field-grass-pelt-grassy-physical"]["field"]["terrain"], "grassy")
+        self.assertEqual(by_id["field-hadron-electric-special"]["field"]["terrain"], "electric")
+        self.assertEqual(by_id["field-hadron-terrain-replaced"]["field"]["terrain"], "grassy")
+        self.assertEqual(by_id["field-hadron-special-badge-composition"]["badges"], [1])
+
     def test_move_level_ability_bypass_respects_pinned_breakability(self):
         by_id = {s["id"]: s for s in SCENARIOS}
         expected = {
@@ -383,7 +400,7 @@ class CorpusSchemaTest(unittest.TestCase):
 
 def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, types=("Fighting", "Fighting"),
                  def_stage=0, atk_status="none", atk_status1=0, def_status="none", def_status1=0,
-                 move_ability_flags=()) -> list[str]:
+                 move_ability_flags=(), field_statuses=0) -> list[str]:
     delta = damage if delta is None else delta
     t = f"{types[0]}|{types[1]}|Mystery"
     return [
@@ -400,14 +417,14 @@ def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, 
         "DDXO|{}|{}|M|157|Rock|75|physical|both|1|157|0|0|0|0|0|0|6|{}|0".format(
             sid, rng, "|".join("1" if flag in move_ability_flags else "0" for flag in
                                 ("punchingMove", "bitingMove", "pulseMove", "slicingMove"))),
-        f"DDXO|{sid}|{rng}|F|none|0|0|0|1|0",
+        f"DDXO|{sid}|{rng}|F|none|0|0|0|1|0|{field_statuses}",
         f"DDXO|{sid}|{rng}|R|{damage}|{delta}|{hp_at_hit}",
     ]
 
 
 def runner_output(sid: str, *, result="PASS", skip_rng=None, extra=None, damage_for=None,
                   atk_status="none", atk_status1=0, def_status="none", def_status1=0,
-                  move_ability_flags=()) -> str:
+                  move_ability_flags=(), field_statuses=0) -> str:
     lines = [f"[0] DDXO {sid}: \x1b[32m{result}\x1b[0m"]
     for rng in range(16):
         if rng == skip_rng:
@@ -415,7 +432,7 @@ def runner_output(sid: str, *, result="PASS", skip_rng=None, extra=None, damage_
         damage = damage_for(rng) if damage_for else 60 - rng // 2
         lines += runner_lines(sid, rng, damage, atk_status=atk_status, atk_status1=atk_status1,
                               def_status=def_status, def_status1=def_status1,
-                              move_ability_flags=move_ability_flags)
+                              move_ability_flags=move_ability_flags, field_statuses=field_statuses)
     lines += extra or []
     return "\n".join(lines) + "\n"
 
@@ -542,6 +559,14 @@ class SetupPlannerTest(unittest.TestCase):
         self.assertEqual(dfn[-2:], ["MOVE_REFLECT", "MOVE_LIGHT_SCREEN"])
         self.assertEqual(len(atk), len(dfn))
         self.assertFalse(ko)
+
+    def test_terrain_is_established_by_a_pinned_move_on_the_final_setup_turn(self):
+        for terrain, move in (("grassy", "MOVE_GRASSY_TERRAIN"), ("electric", "MOVE_ELECTRIC_TERRAIN")):
+            s = a_scenario()
+            s["field"]["terrain"] = terrain
+            atk, dfn, _ = backend.plan_setup(s)
+            self.assertEqual(atk[-1], move)
+            self.assertEqual(len(atk), len(dfn))
 
     def test_solar_power_setup_residual_is_captured_as_hp_at_hit(self):
         scenario = next(s for s in SCENARIOS if s["id"] == "group-d-solar-power-special-sun-crit-negative-stage")

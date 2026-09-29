@@ -715,7 +715,8 @@ private fun softLimitationHasCompleteEvidence(
         }
     }
     CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED -> {
-        val causal = fields.filter { it.relevance != HnsFieldRequestRelevance.PROVEN_IRRELEVANT }
+        val causal = fields.filter { it.relevance == HnsFieldRequestRelevance.RELEVANT ||
+            it.relevance == HnsFieldRequestRelevance.UNKNOWN }
         causal.isNotEmpty() && causal.all { decision ->
             decision.status != null && decision.relevance == HnsFieldRequestRelevance.RELEVANT &&
                 decision.status != com.dualdex.pokemon.hns.HnsFieldStatus.ION_DELUGE &&
@@ -2170,6 +2171,7 @@ object CalcCapabilityPolicy {
             for (decision in decisions) {
                 when {
                     decision.relevance == HnsFieldRequestRelevance.PROVEN_IRRELEVANT -> Unit
+                    decision.relevance == HnsFieldRequestRelevance.MODELLED -> Unit
                     decision.status == com.dualdex.pokemon.hns.HnsFieldStatus.ION_DELUGE &&
                         decision.relevance == HnsFieldRequestRelevance.RELEVANT ->
                         limitations.add(CalcLimitation.HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED)
@@ -2374,7 +2376,10 @@ object CalcCapabilityPolicy {
                 limitations.add(CalcLimitation.FIELD_CONDITION_NOT_MODELLED)
             }
         }
-        if (!request.field.terrain.isNullOrBlank()) {
+        // H&S terrain authority is the observed raw field-status word carried on the live
+        // battle state. The generic terrain label is caller-owned UI input and cannot change
+        // the H&S execution request or its capability decision.
+        if (capability.ruleset != CalcRuleset.HNS_2_0_5 && !request.field.terrain.isNullOrBlank()) {
             limitations.add(CalcLimitation.FIELD_CONDITION_NOT_MODELLED)
         }
 

@@ -139,6 +139,10 @@ def plan_setup(scenario: dict) -> tuple[list[str], list[str], bool]:
         def_actions.append("MOVE_REFLECT")
     if scenario["field"]["lightScreen"]:
         def_actions.append("MOVE_LIGHT_SCREEN")
+    if scenario["field"]["terrain"] == "grassy":
+        atk_actions.append("MOVE_GRASSY_TERRAIN")
+    elif scenario["field"]["terrain"] == "electric":
+        atk_actions.append("MOVE_ELECTRIC_TERRAIN")
     partner_ko = scenario["format"] == "doubles" and scenario["doubles"]["defenderPartner"] == "fainted"
     turns = max(len(atk_actions), len(def_actions), 1 if partner_ko else 0)
     atk_actions = [""] * (turns - len(atk_actions)) + atk_actions
@@ -281,11 +285,11 @@ static void DdxoHit(const char *id, u32 roll, enum Move move, u32 battlerAtk, u3
         GetBattleMovePriority(battlerAtk, gBattleMons[battlerAtk].ability, move), GetMoveTarget(move),
         IsPunchingMove(move), IsBitingMove(move), IsPulseMove(move), IsSlicingMove(move),
         gBattleStruct->battlerState[battlerAtk].ateBoost);
-    Test_MgbaPrintf("DDXO|%%s|%%d|F|%%s|%%d|%%d|%%d|%%d|%%d", id, roll, DdxoWeather(gBattleWeather),
+    Test_MgbaPrintf("DDXO|%%s|%%d|F|%%s|%%d|%%d|%%d|%%d|%%d|%%d", id, roll, DdxoWeather(gBattleWeather),
         (gSideStatuses[GetBattlerSide(battlerDef)] & SIDE_STATUS_REFLECT) ? 1 : 0,
         (gSideStatuses[GetBattlerSide(battlerDef)] & SIDE_STATUS_LIGHTSCREEN) ? 1 : 0,
         IsDoubleBattle() ? 1 : 0, gSaveBlock3Ptr->challengeSettings.tx_Mode_Fairy_Types,
-        gSaveBlock3Ptr->challengeSettings.optionStyle);
+        gSaveBlock3Ptr->challengeSettings.optionStyle, gFieldStatuses);
     Test_MgbaPrintf("DDXO|%%s|%%d|R|%%d|%%d|%%d", id, roll, damage, defenderDelta, hpAtHit);
 }
 '''
@@ -417,6 +421,10 @@ def render_scenario(s: dict) -> str:
         lines.append(ind + badges)
     for line in player_lines + opponent_lines:
         lines.append(ind + line)
+    # `gFieldStatuses` is global across test scenarios in the headless runner. Reset it after the
+    # battlers are initialized so each vector starts from its declared field and test ordering
+    # cannot leak a previous scenario's terrain.
+    lines.append(ind + "gFieldStatuses = 0;")
     lines.append("    } WHEN {")
     for turn in turns:
         lines.append(ind + turn)
@@ -483,7 +491,7 @@ def _int(text: str, what: str) -> int:
 
 
 LINE_FIELDS = {"A1": 9, "A2": 7, "A3": 4, "A4": 6, "A5": 4, "D1": 9, "D2": 7, "D3": 4, "D4": 6, "D5": 4,
-               "M": 19, "F": 6, "R": 3}
+               "M": 19, "F": 7, "R": 3}
 
 
 def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[int, dict[str, list[str]]]]:
@@ -672,10 +680,14 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
                 ("punchingMove", "bitingMove", "pulseMove", "slicingMove"), m[14:18]
             ) if _int(present, f"{sid} M ability flags") == 1
         )
-        weather, reflect, light_screen, is_doubles, fairy, style = f
+        weather, reflect, light_screen, is_doubles, fairy, style, field_statuses = f
         field = scenario["field"]
         if weather != field["weather"]:
             raise OracleError(f"{sid}: battle weather {weather!r} != scenario {field['weather']!r}")
+        observed_field_statuses = _int(field_statuses, f"{sid} F fieldStatuses")
+        expected_field_statuses = {"none": 0, "grassy": 1 << 6, "electric": 1 << 8}[field["terrain"]]
+        if observed_field_statuses != expected_field_statuses:
+            raise OracleError(f"{sid}: battle field word {observed_field_statuses:#x} != scenario {expected_field_statuses:#x}")
         if (reflect == "1") != field["reflect"] or (light_screen == "1") != field["lightScreen"]:
             raise OracleError(f"{sid}: defender screens reflect={reflect} lightScreen={light_screen} disagree")
         if (is_doubles == "1") != (scenario["format"] == "doubles"):
@@ -699,6 +711,7 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
                      "targetClass": _int(m[13], f"{sid} M target class"),
                      "ateBoost": _int(m[18], f"{sid} M ateBoost") == 1},
             "targetCount": _int(m[5], f"{sid} M"),
+            "fieldStatuses": observed_field_statuses,
         }
         if canonical is None:
             canonical = observed

@@ -2790,26 +2790,59 @@ context is known; unknown relevance can still keep a request refused.
 
 ### 15.5 Request-local field rules (`HnsFieldContextPolicy`)
 
-Every active bit is decided independently. `PROVEN_IRRELEVANT` contributes no limitation. A known
-`RELEVANT` field modifier receives a soft disposition: its named raw bit is removed from the
+Every active bit is decided independently. `PROVEN_IRRELEVANT` contributes no limitation. The
+fourth outcome, `MODELLED`, is request-local: for this exact supported selected hit, every applicable
+damage-changing consequence of this active bit is reproduced with authoritative operands. A
+`MODELLED` bit adds no field limitation, is not shown under `Ignores:`, and remains in the execution
+request. This does not declare an entire terrain globally supported.
+
+A known `RELEVANT` field modifier receives a soft disposition: its named raw bit is removed from the
 authorized request and it appears in the estimate's ignored-mechanics list. `UNKNOWN` stays a hard
 refusal. A non-ordinary or unknown move leaves every contextual bit `UNKNOWN` (the move blocker also
-applies independently).
+applies independently). A terrain is never `MODELLED` when one applicable effect remains outside the
+request's exact model.
 
-| Condition | Proven irrelevant (rule) | Relevant effect / current handling |
+For example, Grassy Terrain is `MODELLED` for a non-Grass ordinary Physical hit into an effective
+Grass Pelt defender with Wonder Room inactive: Grass Pelt is the only applicable terrain damage
+effect and its pinned Defense-stat branch is exact. Grassy Terrain remains `RELEVANT` for a Grass
+move because the direct terrain move modifier is deferred. Electric Terrain is `MODELLED` for a
+non-Electric ordinary Special hit from an effective Hadron Engine attacker when Quark Drive and
+Analytic do not add another terrain dependency. It remains `RELEVANT` for an Electric move because
+the direct Electric terrain modifier is deferred. The raw `gFieldStatuses` word reaches the H&S
+engine only as boundary-owned `field.hnsFieldStatuses`; caller terrain text never activates these
+branches.
+
+| Condition | Proven irrelevant or exact-modelled case (rule) | Relevant effect / current handling |
 |---|---|---|
 | Magic Room | both authoritative live battle-effective items are `ITEM_NONE` or globally `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` (`magic_room_held_items_neutral`) | A damage-relevant or unread item makes suppression context unknown, so this field remains hard. |
 | Trick Room | attacker's effective ability known and not Analytic (`trick_room_attacker_not_analytic`) | Known Analytic makes Trick Room relevant; the ability's own unknown effect can independently keep the request hard. |
 | Wonder Room | — | Always relevant (`wonder_room_swaps_defensive_stat`); cleared and named as a caveat when the rest of the request is complete. |
 | Mud Sport / Water Sport | effective type not Electric / not Fire | Electric / Fire; cleared and named as a caveat when complete. |
 | Gravity | effective type not Ground and the move not `gravityBanned` | Ground move; Floaty Fall; cleared and named as a caveat when complete. |
-| Grassy Terrain | effective type not Grass, defender not Grass Pelt, attacker not Analytic | Grass move; Grass Pelt; Analytic (Grassy Glide priority); known and complete field effects are caveated. |
+| Grassy Terrain | effective type not Grass, no defender Grass Pelt or attacker Analytic; or the exact non-Grass Physical + defender Grass Pelt case | Grass move; Analytic (Grassy Glide priority); unsupported Defense selection; known relevant field effects are caveated. |
 | Misty Terrain | effective type not Dragon | Dragon; cleared and named as a caveat when complete. |
-| Electric Terrain | effective type not Electric, no Quark Drive on either side, attacker not Hadron Engine / Analytic | Electric move; Quark Drive / Hadron Engine; unknown ability relevance remains hard even when the field bit is known. |
+| Electric Terrain | effective type not Electric, no Quark Drive or attacker Analytic; or the exact non-Electric Special + attacker Hadron Engine case | Electric move; Quark Drive; unknown ability relevance remains hard even when the field bit is known. |
 | Psychic Terrain | effective type not Psychic, pinned priority provably ≤ 0 (not a healing move), attacker ability known and not Gale Wings | Psychic move; positive-priority move; Gale Wings attacker (UNKNOWN). |
 | Ion Deluge | pre-field type not Normal (`ion_deluge_non_normal_move`) | Normal move changes effective move type and remains hard with `HNS_DYNAMIC_MOVE_TYPE_ACTIVE_NOT_MODELLED`. |
 | Fairy Lock | always (`fairy_lock_escape_only`) | — |
 | any bit outside `0x00000FFF` | — | always UNKNOWN (`unknown_field_bits`), mask preserved |
+
+The exact field-backed stat branches use the pinned source order and operators:
+
+- **Grass Pelt (ability 179):** `CalcDefenseStat` selects the defensive stat and `usesDefStat` first
+  (`src/battle_util.c:7224-7250`). In its defender-ability switch, Grass Pelt follows Marvel Scale
+  and Fur Coat (`:7295-7298`); when `ctx->fieldStatuses` contains Grassy Terrain and
+  `usesDefStat` is true, it composes `UQ_4_12(1.5) = 6144` with
+  `uq4_12_multiply_half_down`. The source predicate is the field bit plus `usesDefStat`; it has no
+  grounding check. With Wonder Room clear, an ordinary Physical move selects Defense and enables
+  the predicate; an ordinary Special move selects Sp. Def and disables it. Wonder Room flips
+  `usesDefStat`, so Grass Pelt's ability decision stays unknown and the independent Wonder Room
+  field condition stays caveated.
+- **Hadron Engine (ability 289):** `CalcAttackStat` checks the attacker ability after Quark Drive and
+  Orichalcum Pulse (`src/battle_util.c:7110-7112`). Its predicate is the already-observed Electric
+  Terrain bit plus `IsBattleMoveSpecial(move)`. It composes `UQ_4_12(1.3333) = 5461` using
+  `uq4_12_multiply` (half-up). The calculator does not reproduce Hadron Engine's switch-in event;
+  if terrain was replaced or expired, the observed live field word wins.
 
 The final verdict is the union of independent limitations. A neutralized field bit never clears an
 ability, item, item-dependent-move, move-mechanic, status, weather, screen, volatile, gimmick,
@@ -2817,12 +2850,14 @@ challenge or species/type limitation. A neutralized item or ability never clears
 hard limitation remains, the policy refuses the whole request while retaining known caveats for
 diagnostics.
 
-**Still unmodelled.** Caveat mode can display a known relevant modifier without applying it; it does
-not implement Wonder Room arithmetic, terrain modifiers, Magic Room suppression of damage-relevant
-items, Trick Room turn simulation for Analytic, Gravity on Ground moves, Ion Deluge's active Electric
-rewrite, positive-priority moves under Psychic Terrain, or unknown field bits. Unknown or base-shape
-limitations remain hard. Weather and side statuses keep their own C4e rules (§14.7.1). Doubles remains
-refused.
+**Still unmodelled.** Caveat mode can display a known relevant modifier without applying it. Direct
+terrain move modifiers, Quark Drive, turn-order terrain effects, terrain-dependent moves and other
+terrain consequences remain unmodelled. The implemented Grass Pelt and Hadron Engine branches do not
+clear a second applicable effect of their terrain. Wonder Room arithmetic, Magic Room suppression of
+damage-relevant items, Trick Room turn simulation for Analytic, Gravity on Ground moves, Ion Deluge's
+active Electric rewrite, positive-priority moves under Psychic Terrain, and unknown field bits also
+remain unmodelled. Unknown or base-shape limitations remain hard. Weather and side statuses keep
+their own C4e rules (§14.7.1). Doubles remains refused.
 
 ### 15.6 Wise Glasses regression (the Thor symptom)
 

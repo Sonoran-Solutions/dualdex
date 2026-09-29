@@ -223,7 +223,7 @@ def check_statuses(upstream, audit, policy_text):
             name = rule.get("rule", "")
             if not name or name in rule_names:
                 raise AuditError(f"missing or duplicate field rule name {name!r}")
-            if rule.get("relevance") not in ("PROVEN_IRRELEVANT", "RELEVANT", "UNKNOWN"):
+            if rule.get("relevance") not in ("PROVEN_IRRELEVANT", "MODELLED", "RELEVANT", "UNKNOWN"):
                 raise AuditError(f"field rule {name} needs a relevance")
             if not rule.get("predicate") or not isinstance(rule.get("operands"), list):
                 raise AuditError(f"field rule {name} needs a predicate and its operands")

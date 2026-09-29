@@ -62,7 +62,7 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
         55, 62, // Hustle / Guts, Group D Attack stage
-        94, 129, 169, 262, 263, 276, 288, // Group D stat stages
+        94, 129, 169, 179, 262, 263, 276, 288, 289, // Group D stat stages and field-backed stat modifiers
         89, 91, 96, 97, 101, 110, 111, 116, 136, 137, 138, 173, 174, 178, 182, 184,
         85, 199, 200, 204, 206, 231, 232, 233, 244, 246, 252, 292
         // Normalize / -ate / Liquid Voice, Group D move-type and base-power stage
@@ -490,6 +490,59 @@ object HnsAbilityContextPolicy {
                 else -> proof(
                     "fur_coat_special_uses_spdef", "src/battle_util.c:7287",
                     "With Wonder Room inactive, this supported ordinary Special hit uses Sp. Def, so the usesDefStat Fur Coat branch is inactive."
+                )
+            }
+            179 -> when {
+                c.side == HnsAbilitySide.ATTACKER -> proof(
+                    "grass_pelt_attacker_side", "src/battle_util.c:7296",
+                    "Grass Pelt is read only from abilityDef in CalcDefenseStat."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
+                    c.moveCategory == null || c.fieldStatuses == null -> unknownProof(
+                    "grass_pelt_defense_selection_unknown", "src/battle_util.c:7226, src/battle_util.c:7296",
+                    "Grass Pelt requires an authoritative ordinary move, final category, effective defender ability and live field word."
+                )
+                c.fieldStatuses and com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0 ->
+                    unknownProof(
+                        "grass_pelt_wonder_room_active", "src/battle_util.c:7226, src/battle_util.c:7296",
+                        "Wonder Room changes both the selected defensive stat and usesDefStat; this slice does not clear that independent field blocker."
+                    )
+                c.fieldStatuses and com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_GRASSY_TERRAIN == 0 ->
+                    proof(
+                        "grass_pelt_without_grassy_terrain", "src/battle_util.c:7296",
+                        "The authoritative field word has no Grassy Terrain bit, so Grass Pelt's predicate is false."
+                    )
+                c.moveCategory == MoveCategory.PHYSICAL -> relevant(
+                    "grass_pelt_grassy_terrain_physical", "src/battle_util.c:7296",
+                    "With Wonder Room inactive, this ordinary Physical hit uses Defense and Grass Pelt's Grassy Terrain modifier applies in the implemented Defense-stage accumulator."
+                )
+                else -> proof(
+                    "grass_pelt_special_uses_spdef", "src/battle_util.c:7296",
+                    "With Wonder Room inactive, this ordinary Special hit uses Sp. Def, so usesDefStat is false and Grass Pelt is inactive."
+                )
+            }
+            289 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "hadron_engine_defender_side", "src/battle_util.c:7111",
+                    "Hadron Engine is read only from abilityAtk in CalcAttackStat."
+                )
+                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
+                    c.moveCategory == null || c.fieldStatuses == null -> unknownProof(
+                    "hadron_engine_operands_unknown", "src/battle_util.c:7111",
+                    "Hadron Engine requires an authoritative ordinary move, effective attacker ability, final category and live field word."
+                )
+                c.fieldStatuses and com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN == 0 ->
+                    proof(
+                        "hadron_engine_without_electric_terrain", "src/battle_util.c:7111",
+                        "The observed field word has no Electric Terrain bit; Hadron Engine never sets terrain in this calculator."
+                    )
+                c.moveCategory == MoveCategory.PHYSICAL -> proof(
+                    "hadron_engine_physical_move", "src/battle_util.c:7111",
+                    "Hadron Engine's pinned Attack-stat branch applies only to Special moves."
+                )
+                else -> relevant(
+                    "hadron_engine_electric_terrain_special", "src/battle_util.c:7111",
+                    "The observed Electric Terrain bit and authoritative final Special category satisfy Hadron Engine's implemented Attack-stat branch."
                 )
             }
             199 -> when {

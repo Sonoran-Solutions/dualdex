@@ -1217,6 +1217,43 @@ object HnsCalcCensusReport {
                 "requests remain refused per ability.\n\n"
         )
 
+        out.append("## Issue #91 field-backed Grass Pelt / Hadron Engine slice comparison\n\n")
+        out.append(
+            "This comparison uses the exact starting `main` SHA " +
+                "`808fe5a578a5c34ab891e298b4e7f60e69650652` (PR #112 merged). Both runs cover " +
+                "the same 24,278 eligible damaging requests across 651 trainer battles.\n\n"
+        )
+        out.append("| Metric | Starting main | This slice | Change |\n|---|---:|---:|---:|\n")
+        out.append("| `FULLY_MODELLED` requests | 18,800 | 18,800 | unchanged |\n")
+        out.append("| `CAVEATED_ESTIMATE` requests | 372 | 372 | unchanged |\n")
+        out.append("| `REFUSED` requests | 5,106 | 5,106 | unchanged |\n")
+        out.append("| Fully displaying lead matchups | 372 / 1,302 | 372 / 1,302 | unchanged |\n")
+        out.append("| Displayable requests in lead matchups | 6,676 | 6,676 | unchanged |\n")
+        out.append("| Trainer requests improved by Grass Pelt / Hadron Engine | 0 | 0 | unchanged |\n")
+        out.append("| `HNS_FIELD_STATUS_NOT_MODELLED` | 0 battles / 0 requests | 0 / 0 | unchanged |\n")
+        out.append("| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 247 battles / 1,870 requests | 247 / 1,870 | unchanged |\n")
+        out.append("| `HNS_ABILITY_CONDITION_UNVERIFIED` | 80 battles / 276 requests | 80 / 276 | unchanged |\n\n")
+        out.append(
+            "The pinned 651-battle trainer inventory has no Grass Pelt or Hadron Engine holders, " +
+                "and its neutral baseline has no active terrain. Therefore these abilities improve " +
+                "no trainer matchup or lead request; the Random Abilities census measures their " +
+                "policy gain.\n\n"
+        )
+        out.append(
+            "Random Abilities weighted request trials changed from 1,320,522 refused / 16,820 " +
+                "caveated / 2,440,318 clear to 1,297,908 / 16,820 / 2,462,932. The number of " +
+                "identities with at least one refusal falls from 181 to 180; caveated identities " +
+                "remain 4; clear-only identities rise from 126 to 127.\n\n"
+        )
+        out.append("| Ability | Trainer holders | Trainer request change | Random Abilities refused / caveated / clear, before → after |\n|---|---:|---|---|\n")
+        out.append("| Grass Pelt | 0 | No trainer holder | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |\n")
+        out.append("| Hadron Engine | 0 | No trainer holder | 12,186 / 0 / 0 → 0 / 0 / 12,186 |\n\n")
+        out.append(
+            "The global ability audit moves from 58 `MODELLED_HNS_CONDITIONAL` and 169 " +
+                "`UNSUPPORTED_DAMAGE_RELEVANT` abilities to 60 and 167, respectively; the 84 " +
+                "`PROVEN_NO_DAMAGE_EFFECT` abilities are unchanged.\n\n"
+        )
+
         out.append("## Provenance and reproduction\n\n")
         out.append(
             "The census is deterministic and offline: no ROM, no emulator, no network at report " +

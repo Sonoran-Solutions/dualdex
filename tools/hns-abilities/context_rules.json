@@ -4121,5 +4121,127 @@
     ],
     "always_blocking": [],
     "fallback": "Missing final category, raw weather, authoritative current item, or liveness needed to evaluate HasWeatherEffect remains UNKNOWN; the separate switch-in weather-setting event is not modeled."
+  },
+  "179": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "grass_pelt_attacker_side",
+        "predicate": "Ability ID 179 is on the attacker.",
+        "rationale": "Pinned CalcDefenseStat reads Grass Pelt only from abilityDef.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7295",
+            "contains": "case ABILITY_GRASS_PELT:"
+          }
+        ]
+      },
+      {
+        "rule": "grass_pelt_without_grassy_terrain",
+        "predicate": "Effective defender Grass Pelt with authoritative live field word lacking STATUS_FIELD_GRASSY_TERRAIN.",
+        "rationale": "The pinned Grass Pelt predicate is false when Grassy Terrain is absent.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7296",
+            "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRASSY_TERRAIN && usesDefStat)"
+          }
+        ]
+      },
+      {
+        "rule": "grass_pelt_special_uses_spdef",
+        "predicate": "Ordinary Special move, authoritative Wonder Room clear.",
+        "rationale": "With Wonder Room inactive the selected stat is Sp. Def and usesDefStat is false.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7248",
+            "contains": "usesDefStat = FALSE;"
+          }
+        ]
+      },
+      {
+        "rule": "grass_pelt_grassy_terrain_physical",
+        "predicate": "Ordinary Physical move, authoritative Grassy Terrain set, Wonder Room clear.",
+        "rationale": "The selected Defense stat satisfies usesDefStat and Grass Pelt's exact Defense-stage modifier applies.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7296",
+            "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRASSY_TERRAIN && usesDefStat)"
+          },
+          {
+            "source": "src/battle_util.c:7298",
+            "contains": "modifier = uq4_12_multiply_half_down(modifier, UQ_4_12(1.5));"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [
+      {
+        "rule": "grass_pelt_wonder_room_active",
+        "predicate": "Wonder Room is observed active.",
+        "rationale": "Wonder Room swaps selected defensive stats and usesDefStat; this slice leaves that field condition blocked.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7226",
+            "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM) // the defense stats are swapped"
+          }
+        ]
+      }
+    ],
+    "fallback": "Unknown move shape, final category, effective ability or field word remains UNKNOWN; Wonder Room remains blocked."
+  },
+  "289": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "hadron_engine_defender_side",
+        "predicate": "Ability ID 289 is on the defender.",
+        "rationale": "Pinned CalcAttackStat reads Hadron Engine only from abilityAtk.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7110",
+            "contains": "case ABILITY_HADRON_ENGINE:"
+          }
+        ]
+      },
+      {
+        "rule": "hadron_engine_without_electric_terrain",
+        "predicate": "Effective attacker Hadron Engine with authoritative live field word lacking STATUS_FIELD_ELECTRIC_TERRAIN.",
+        "rationale": "Hadron Engine's damage branch requires the already-observed terrain bit and never establishes it in the calculator.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7111",
+            "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN && IsBattleMoveSpecial(move))"
+          }
+        ]
+      },
+      {
+        "rule": "hadron_engine_physical_move",
+        "predicate": "Effective attacker Hadron Engine, authoritative Electric Terrain and final Physical category.",
+        "rationale": "The pinned Hadron Engine Attack-stat modifier is gated on a Special move.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7111",
+            "contains": "IsBattleMoveSpecial(move)"
+          }
+        ]
+      },
+      {
+        "rule": "hadron_engine_electric_terrain_special",
+        "predicate": "Effective attacker Hadron Engine, authoritative Electric Terrain and final Special category.",
+        "rationale": "This exact Attack-stat branch is implemented with the pinned UQ4.12 factor and operator.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7111",
+            "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN && IsBattleMoveSpecial(move))"
+          },
+          {
+            "source": "src/battle_util.c:7112",
+            "contains": "modifier = uq4_12_multiply(modifier, UQ_4_12(1.3333));"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown move shape, effective ability, final category or live field word remains UNKNOWN; terrain is never inferred from the ability identity."
   }
 }

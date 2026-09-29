@@ -1,14 +1,15 @@
 package com.dualdex.calculator
 
 import com.dualdex.pokemon.PokemonType
+import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.hns.HnsFieldState
 import com.dualdex.pokemon.hns.HnsFieldStatus
 import com.dualdex.pokemon.hns.HnsFieldStatusData
 import com.dualdex.pokemon.hns.HnsItemCategory
 import com.dualdex.pokemon.hns.HnsItemRegistry
 
-/** Three-valued request-local field result. Unknown never clears a blocker. */
-enum class HnsFieldRequestRelevance { PROVEN_IRRELEVANT, RELEVANT, UNKNOWN }
+/** Request-local field result. MODELLED means every applicable selected-hit effect is exact. */
+enum class HnsFieldRequestRelevance { PROVEN_IRRELEVANT, MODELLED, RELEVANT, UNKNOWN }
 
 /**
  * Auditable outcome for one active `gFieldStatuses` condition of a live H&S request.
@@ -58,7 +59,11 @@ object HnsFieldContextPolicy {
         val defenderAbilityId: Int?,
         /** Authoritative live battle-effective item IDs; null when not authoritatively read. */
         val attackerItemId: Int?,
-        val defenderItemId: Int?
+        val defenderItemId: Int?,
+        /** Authoritative final category, or null when the selected-hit category is unknown. */
+        val moveCategory: MoveCategory? = null,
+        /** Authoritative raw field word used to exclude unsupported Wonder Room stat selection. */
+        val fieldStatuses: Int? = null
     )
 
     fun assess(state: HnsFieldState, context: Context?): List<HnsFieldRequestDecision> {
@@ -87,6 +92,8 @@ object HnsFieldContextPolicy {
             moveId = moveId,
             preFieldMoveType = authority.preFieldType,
             effectiveMoveType = authority.effectiveType,
+            moveCategory = authority.category,
+            fieldStatuses = request.hnsLiveBattleState?.fieldStatuses,
             attackerAbilityId = liveAbility(request.attacker),
             defenderAbilityId = liveAbility(request.defender),
             attackerItemId = liveItem(request.attacker),
@@ -186,27 +193,37 @@ object HnsFieldContextPolicy {
                 )
             }
             HnsFieldStatus.GRASSY_TERRAIN -> when {
+                type == PokemonType.GRASS -> relevant(
+                    rule = "grassy_terrain_grass_move",
+                    source = "src/battle_util.c:6639",
+                    rationale = "Grassy Terrain's direct Grass-move modifier is not implemented in this slice."
+                )
                 attacker == HnsFieldStatusData.ABILITY_ANALYTIC -> relevant(
                     rule = "grassy_terrain_attacker_analytic",
                     source = "src/battle_main.c:5044",
                     rationale = "Grassy Glide's terrain priority can change the turn order the attacker's Analytic reads."
                 )
-                defender == HnsFieldStatusData.ABILITY_GRASS_PELT -> relevant(
-                    rule = "grassy_terrain_grass_pelt_defender",
-                    source = "src/battle_util.c:7296",
-                    rationale = "The defender's Grass Pelt raises its Defense in Grassy Terrain."
-                )
-                type == PokemonType.GRASS -> relevant(
-                    rule = "grassy_terrain_grass_move",
-                    source = "src/battle_util.c:6639",
-                    rationale = "Grassy Terrain boosts a grounded attacker's Grass move."
-                )
+                type == null || attacker == null || defender == null -> null
+                defender == HnsFieldStatusData.ABILITY_GRASS_PELT -> when {
+                    c.moveCategory == null -> null
+                    c.fieldStatuses == null -> null
+                    c.fieldStatuses and HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0 -> null
+                    c.moveCategory == MoveCategory.PHYSICAL -> modelled(
+                        rule = "grassy_terrain_grass_pelt_only",
+                        source = "src/battle_util.c:7296",
+                        rationale = "This ordinary non-Grass Physical hit selects Defense with Wonder Room inactive; Grass Pelt is the only applicable Grassy Terrain damage effect and its Defense-stage branch is implemented exactly."
+                    )
+                    else -> proof(
+                        rule = "grassy_terrain_grass_pelt_not_using_defense",
+                        source = "src/battle_util.c:7296",
+                        rationale = "This ordinary Special hit selects Sp. Def with Wonder Room inactive, so Grass Pelt's usesDefStat branch does not run."
+                    )
+                }
                 type == null || attacker == null || defender == null -> null
                 else -> proof(
                     rule = "grassy_terrain_non_grass_move",
                     source = "src/battle_util.c:6639",
-                    rationale = "Grassy Terrain boosts only Grass moves in an ordinary hit; neither Grass Pelt nor " +
-                        "Analytic is present."
+                    rationale = "This ordinary non-Grass hit has no Grass Pelt or Analytic dependency; the other Grassy Terrain damage effects are outside the supported ordinary-hit path."
                 )
             }
             HnsFieldStatus.MISTY_TERRAIN -> typeRule(
@@ -216,28 +233,41 @@ object HnsFieldContextPolicy {
                 what = "Misty Terrain weakens only Dragon moves against a grounded target"
             )
             HnsFieldStatus.ELECTRIC_TERRAIN -> when {
-                attacker == HnsFieldStatusData.ABILITY_QUARK_DRIVE || attacker == HnsFieldStatusData.ABILITY_HADRON_ENGINE ||
+                type == PokemonType.ELECTRIC -> relevant(
+                    rule = "electric_terrain_electric_move",
+                    source = "src/battle_util.c:6643",
+                    rationale = "Electric Terrain's direct Electric-move modifier is not implemented in this slice."
+                )
+                attacker == HnsFieldStatusData.ABILITY_QUARK_DRIVE ||
                     defender == HnsFieldStatusData.ABILITY_QUARK_DRIVE -> relevant(
                     rule = "electric_terrain_paradox_ability",
                     source = "src/battle_util.c:7098",
-                    rationale = "Quark Drive / Hadron Engine read Electric Terrain in the stat modifiers of this hit."
+                    rationale = "Quark Drive reads Electric Terrain in a stat modifier whose selected stat depends on unobserved volatile/stat-choice state."
                 )
                 attacker == HnsFieldStatusData.ABILITY_ANALYTIC -> relevant(
                     rule = "electric_terrain_attacker_analytic",
                     source = "src/battle_main.c:4959",
                     rationale = "Surge Surfer / Quark Drive speed can change the turn order the attacker's Analytic reads."
                 )
-                type == PokemonType.ELECTRIC -> relevant(
-                    rule = "electric_terrain_electric_move",
-                    source = "src/battle_util.c:6643",
-                    rationale = "Electric Terrain boosts a grounded attacker's Electric move."
-                )
                 type == null || attacker == null || defender == null -> null
+                attacker == HnsFieldStatusData.ABILITY_HADRON_ENGINE -> when (c.moveCategory) {
+                    null -> null
+                    MoveCategory.SPECIAL -> modelled(
+                        rule = "electric_terrain_hadron_engine_only",
+                        source = "src/battle_util.c:7111",
+                        rationale = "This ordinary non-Electric Special hit has Hadron Engine as its only applicable Electric Terrain damage effect; its Attack-stat branch is implemented exactly."
+                    )
+                    MoveCategory.PHYSICAL -> proof(
+                        rule = "electric_terrain_hadron_engine_physical",
+                        source = "src/battle_util.c:7111",
+                        rationale = "Hadron Engine's Attack-stat branch applies only to Special moves; this final category is Physical."
+                    )
+                    MoveCategory.STATUS -> null
+                }
                 else -> proof(
                     rule = "electric_terrain_non_electric_move",
                     source = "src/battle_util.c:6643",
-                    rationale = "Electric Terrain boosts only Electric moves in an ordinary hit; no Quark Drive, Hadron " +
-                        "Engine or Analytic is present."
+                    rationale = "This ordinary non-Electric hit has no Quark Drive, Hadron Engine or Analytic dependency; other Electric Terrain effects are outside the supported request."
                 )
             }
             HnsFieldStatus.PSYCHIC_TERRAIN -> when {
@@ -317,6 +347,9 @@ object HnsFieldContextPolicy {
 
     private fun proof(rule: String, source: String, rationale: String) =
         Proof(HnsFieldRequestRelevance.PROVEN_IRRELEVANT, rule, source, rationale)
+
+    private fun modelled(rule: String, source: String, rationale: String) =
+        Proof(HnsFieldRequestRelevance.MODELLED, rule, source, rationale)
 
     private fun relevant(rule: String, source: String, rationale: String) =
         Proof(HnsFieldRequestRelevance.RELEVANT, rule, source, rationale)

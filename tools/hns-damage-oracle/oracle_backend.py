@@ -124,9 +124,16 @@ def plan_setup(scenario: dict) -> tuple[list[str], list[str], bool]:
             for actor, move in _stage_actions(role, stat, stats[stat]):
                 (atk_actions if actor == "attacker" else def_actions).append(move)
     weather = scenario["field"]["weather"]
+    # A live Drought holder establishes Sun on entry without a setup turn. This matters for
+    # Solar Power oracle vectors: spending a turn on Sunny Day would trigger Solar Power's
+    # explicitly out-of-scope end-of-turn HP loss before the selected hit is measured.
+    drought_establishes_sun = weather == "sun" and any(
+        battler["ability"] == "ABILITY_DROUGHT"
+        for battler in (scenario["attacker"], scenario["defender"])
+    )
     if weather == "rain":
         atk_actions.append("MOVE_RAIN_DANCE")
-    elif weather == "sun":
+    elif weather == "sun" and not drought_establishes_sun:
         atk_actions.append("MOVE_SUNNY_DAY")
     if scenario["field"]["reflect"]:
         def_actions.append("MOVE_REFLECT")
@@ -615,8 +622,31 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
         _check_battler(sid, "A", scenario["attacker"], atk)
         _check_battler(sid, "D", scenario["defender"], dfn,
                        _defender_post_hit_stage_deltas(scenario, m))
-        if scenario["attacker"]["status"] == "none" and atk["hp"] != scenario["attacker"]["stats"]["hp"]:
-            raise OracleError(f"{sid}: attacker HP changed without a status ({atk['hp']})")
+        if scenario["attacker"]["status"] == "none":
+            # Solar Power's end-of-turn passive damage is outside the selected-hit damage
+            # contract. Permit only its exact post-hit 1/8 max HP loss; hpAtHit still records
+            # the live HP at the measured hit, so this residual cannot affect the oracle value.
+            solar_residual_ticks = 0
+            battlers = (scenario["attacker"], scenario["defender"])
+            solar_residual_applies = (
+                scenario["attacker"]["ability"] == "ABILITY_SOLAR_POWER"
+                and scenario["field"]["weather"] == "sun"
+                and not any(b["ability"] in ("ABILITY_CLOUD_NINE", "ABILITY_AIR_LOCK") for b in battlers)
+                and scenario["attacker"]["item"] != "ITEM_UTILITY_UMBRELLA"
+            )
+            if solar_residual_applies:
+                solar_setter = any(b["ability"] == "ABILITY_DROUGHT" for b in battlers)
+                if solar_setter:
+                    atk_actions, def_actions, _ = plan_setup(scenario)
+                    solar_residual_ticks = max(len(atk_actions), len(def_actions)) + 1
+                else:
+                    # Sunny Day is the final setup action, so it can tick once on that turn
+                    # and again after the measured attack, regardless of earlier stage setup.
+                    solar_residual_ticks = 2
+            solar_residual = (scenario["attacker"]["stats"]["maxHp"] // 8) * solar_residual_ticks
+            expected_hp = hp_at_hit - solar_residual
+            if atk["hp"] != expected_hp:
+                raise OracleError(f"{sid}: attacker HP changed without a status or exact Solar Power residual ({atk['hp']}, expected {expected_hp})")
         if hp_at_hit <= 0 or hp_at_hit > scenario["attacker"]["stats"]["hp"]:
             raise OracleError(f"{sid}: implausible attacker HP at the hit {hp_at_hit}")
         move_id = _int(m[0], f"{sid} M")

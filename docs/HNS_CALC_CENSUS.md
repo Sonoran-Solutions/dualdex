@@ -48,9 +48,9 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 
 | Tier | Requests |
 |---|---:|
-| `FULLY_MODELLED` | 18790 |
-| `CAVEATED_ESTIMATE` | 370 |
-| `REFUSED` | 5118 |
+| `FULLY_MODELLED` | 18800 |
+| `CAVEATED_ESTIMATE` | 372 |
+| `REFUSED` | 5106 |
 
 ## Denominators
 
@@ -132,8 +132,8 @@ These named abilities and items are neutralized by production policy before the 
 | Mechanic | Side | Battles | Requests |
 |---|---|---:|---:|
 | Thick Fat | defender | 36 | 84 |
+| Charcoal | attacker | 12 | 24 |
 | Focus Band | defender | 11 | 88 |
-| Charcoal | attacker | 11 | 22 |
 | Silk Scarf | attacker | 9 | 20 |
 | Assault Vest | defender | 6 | 18 |
 | Never-melt Ice | attacker | 6 | 12 |
@@ -162,7 +162,7 @@ These named abilities and items are neutralized by production policy before the 
 | Limitation | Battles | Requests |
 |---|---:|---:|
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 | 3578 |
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 221 | 1786 |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 221 | 1772 |
 | `HNS_ITEM_EFFECT_NOT_MODELLED` | 94 | 536 |
 | `HNS_ABILITY_CONDITION_UNVERIFIED` | 80 | 276 |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 | 152 |
@@ -208,11 +208,11 @@ Under Random Abilities any of the pinned domain's 310 abilities can be installed
 
 Counts are weighted by the cohort's eligible requests; battle counts de-duplicate trainer battles within each disposition. Refusals are attributed only to the exact ability entry in production's blocker list, while caveats use its ignored-mechanic list. Thus an unsupported move can refuse a request without making a caveatable ability look like a blocker. *Rules* lists the reviewed contextual rules that fired.
 
-**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1403628 request trials as refused, 16820 as caveated, and 2357212 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
+**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1368946 request trials as refused, 16820 as caveated, and 2391894 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
 
 ### Abilities that cause refusals
 
-**182 of 310 abilities cause a request refusal in at least one eligible context. 4 have at least one caveated context; 125 produce only clear outcomes in their eligible trials.** Refusal and caveat counts are per ability/side/category and can apply to the same ability in different contexts.
+**181 of 310 abilities cause a request refusal in at least one eligible context. 4 have at least one caveated context; 126 produce only clear outcomes in their eligible trials.** Refusal and caveat counts are per ability/side/category and can apply to the same ability in different contexts.
 
 | # | Ability | Side | Category | Battles refused | Requests refused | Rule |
 |---:|---|---|---|---:|---:|---|
@@ -225,12 +225,12 @@ Counts are weighted by the cohort's eligible requests; battle counts de-duplicat
 | 7 | Rivalry | attacker | Physical | 482 | 4565 | - |
 | 8 | Gluttony | attacker | Physical | 482 | 4565 | - |
 | 9 | Skill Link | attacker | Physical | 482 | 4565 | - |
-| 10 | Solar Power | attacker | Physical | 482 | 4565 | - |
-| 11 | Stall | attacker | Physical | 482 | 4565 | - |
-| 12 | Klutz | attacker | Physical | 482 | 4565 | - |
-| 13 | Unaware | attacker | Physical | 482 | 4565 | - |
-| 14 | Slow Start | attacker | Physical | 482 | 4565 | - |
-| 15 | Scrappy | attacker | Physical | 482 | 4565 | - |
+| 10 | Stall | attacker | Physical | 482 | 4565 | - |
+| 11 | Klutz | attacker | Physical | 482 | 4565 | - |
+| 12 | Unaware | attacker | Physical | 482 | 4565 | - |
+| 13 | Slow Start | attacker | Physical | 482 | 4565 | - |
+| 14 | Scrappy | attacker | Physical | 482 | 4565 | - |
+| 15 | Snow Warning | attacker | Physical | 482 | 4565 | - |
 
 (The full ranked table, one row per ability per side per category, is `abilityRefusals` in `census.json`.)
 
@@ -258,6 +258,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Sniper | 4 | 0 | 0 | sniper_defender_side, sniper_noncritical_hit |
 | Technician | 4 | 0 | 0 | technician_attacker_bp_at_most_60, technician_defender_side |
 | Tinted Lens | 4 | 0 | 0 | tinted_lens_defender_side, tinted_lens_not_resisted |
+| Defeatist | 4 | 0 | 0 | defeatist_above_integer_half, defeatist_defender_side |
 | Toxic Boost | 4 | 0 | 0 | toxic_boost_defender_side, toxic_boost_physical_without_poison, toxic_boost_special_move |
 | Flare Boost | 4 | 0 | 0 | flare_boost_defender_side, flare_boost_physical_move, flare_boost_special_without_burn |
 | Strong Jaw | 4 | 0 | 0 | strong_jaw_defender_side, strong_jaw_nonbiting_move |
@@ -282,6 +283,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Unburden | 4 | 2 | 0 | speed_ability_without_analytic |
 | Heatproof | 4 | 2 | 0 | heatproof_attacker_direct_hit_irrelevant, heatproof_defender_fire_move |
 | Adaptability | 4 | 2 | 0 | adaptability_stab_operands_unknown, defender_adaptability_does_not_boost_incoming_damage |
+| Solar Power | 4 | 2 | 0 | solar_power_defender_side, solar_power_live_ability_unknown |
 | Quick Feet | 4 | 2 | 0 | speed_ability_without_analytic |
 | Super Luck | 4 | 2 | 0 | fixed_crit_stage_only |
 | Aftermath | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
@@ -348,6 +350,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Huge Power | 3 | 0 | 1 | attack_stat_ability_physical_move, attack_stat_ability_special_move, defender_attack_stat_ability |
 | Hustle | 3 | 0 | 0 | defender_hustle_does_not_modify_incoming_damage, hustle_physical_move, hustle_special_move |
 | Pure Power | 3 | 0 | 1 | attack_stat_ability_physical_move, attack_stat_ability_special_move, defender_attack_stat_ability |
+| Fur Coat | 3 | 2 | 0 | fur_coat_attacker_side, fur_coat_defense_selection_unknown |
 | Ice Scales | 3 | 2 | 0 | ice_scales_attacker_side, ice_scales_category_unknown |
 | Truant | 2 | 0 | 2 | attacker_move_execution_state_unobserved, defender_truant_does_not_change_incoming_damage |
 | Normalize | 2 | 0 | 0 | move_type_rewriter_defender_side, normalize_ordinary_move_rewrite |
@@ -360,12 +363,12 @@ The same ability can be clear, caveated, or refused on different sides and in di
 
 | Side | Category | Refusing abilities | Requests refused (max) | Caveated abilities | Requests caveated (max) |
 |---|---|---:|---:|---:|---:|
-| attacker | Physical | 140 | 4565 | 3 | 4565 |
-| attacker | Special | 140 | 2739 | 1 | 2739 |
-| defender | Physical | 181 | 3034 | 1 | 110 |
-| defender | Special | 181 | 1848 | 1 | 276 |
+| attacker | Physical | 138 | 4565 | 3 | 4565 |
+| attacker | Special | 138 | 2739 | 1 | 2739 |
+| defender | Physical | 179 | 3034 | 1 | 110 |
+| defender | Special | 179 | 1848 | 1 | 276 |
 
-Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 574 rows, `RELEVANT` in 44 rows and `UNKNOWN` in 622 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
+Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 582 rows, `RELEVANT` in 45 rows and `UNKNOWN` in 613 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
 
 ## Issue #91 defender Fire base-power slice comparison
 
@@ -396,6 +399,43 @@ Random Abilities weighted request trials changed from 1,414,310 refused / 16,820
 | Dry Skin (control) | 1 Jynx | No newly displayable trainer requests | 0 / 0 / 12,186 → 0 / 0 / 12,186 |
 
 Heatproof's attacker requests are irrelevant to the selected outgoing hit; defender requests use the authoritative final type, with Fire relevant and known non-Fire irrelevant. Water Bubble's attacker Water branch was already modelled; this slice clears its defender Fire requests. Trainer holder counts use the pinned party source. The 1,758 refusals remaining for each ability come from independent limitations. Because no trainer carries Water Bubble or Heatproof, these changes affect Random Abilities trials but add no displayable trainer request or matchup. Water Bubble burn prevention/status clearing remains separately deferred.
+
+## Issue #91 low-state stat ability slice comparison
+
+This slice models Solar Power, Defeatist, and Fur Coat from the pinned live operands. The trainer
+census starts both sides at full HP, clear weather, and neutral field status, so it measures proven
+inactive conditions for Solar Power and Defeatist; the selected-hit and threshold-active cases are
+covered by the separate oracle and production-boundary tests.
+
+| Measure | Before | After |
+|---|---:|---:|
+| `FULLY_MODELLED` requests | 18,790 | 18,800 |
+| `CAVEATED_ESTIMATE` requests | 370 | 372 |
+| `REFUSED` requests | 5,118 | 5,106 |
+| Displayable lead pairs | 372 / 1,302 | 372 / 1,302 |
+| Displayable lead requests | 6,676 / 8,450 | 6,676 / 8,450 |
+| Trainer battles gaining a fully displayable lead matchup | 0 | 0 |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` requests | 1,786 | 1,772 |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` requests | 276 | 276 |
+
+The top blocker remains `HNS_MOVE_MECHANICS_NOT_MODELLED` (557 battles / 3,578 requests), followed
+by `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (68 / 152), Chlorophyll (66 / 228), Intimidate (64 / 218),
+Swift Swim (38 / 150), and Sturdy on defender and attacker sides (29 / 232 and 29 / 176). Random
+Abilities weighted request-trials changed from 1,403,628 refused / 16,820 caveated / 2,357,212 clear
+to 1,368,946 refused / 16,820 caveated / 2,391,894 clear. Abilities with any refusal fell from 182
+to 181; caveated identities stayed at 4; clear-only identities rose from 125 to 126. Ambiguous
+opposite-side exclusions were unchanged at 16,974 attacker-side and 19,396 defender-side trials.
+
+| Ability | Trainer holders | Random Abilities before → after | Slice result in the neutral census |
+|---|---|---|---|
+| Solar Power | 0 | 12,186 refused → 80 refused, 12,106 clear | No Sun means no relevant boost request; the remaining 80 are unknown live-ability trials. |
+| Defeatist | 0 | 12,186 refused → 0 refused, 12,186 clear | Full HP is above the integer half threshold in every census request. |
+| Fur Coat | 1 (`TRAINER_KAREN_POSTOBC_HNS`) | 12,186 refused → 1,796 refused, 10,390 clear | Attacker-side use clears; physical defender use is relevant, while unknown field status keeps unresolved Defense selection fail-closed. |
+
+The 1,796 Fur Coat-related Random Abilities refusals arise from unresolved field/selection context;
+the trainer inventory has no Mold Breaker interaction to count. The oracle separately verifies
+unshielded Mold Breaker and literal bypass refusal, and Ability Shield preservation. These three
+abilities add no newly fully displayable trainer lead matchup.
 
 ## Provenance and reproduction
 

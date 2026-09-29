@@ -23,10 +23,12 @@ internal object HnsGroupCPolicy {
     // Armor/Shadow Shield remain effective through both bypass sources.
     // Audit witnesses: filter_mold_breaker_unshielded, solid_rock_mold_breaker_unshielded,
     // multiscale_mold_breaker_unshielded, ice_scales_mold_breaker_unshielded,
+    // fur_coat_mold_breaker_unshielded, fur_coat_ability_shield_preserves,
+    // fur_coat_literal_bypass_suppressed,
     // prism_armor_mold_breaker_preserves, shadow_shield_mold_breaker_preserves,
     // filter_ability_shield_preserves, solid_rock_ability_shield_preserves,
     // multiscale_ability_shield_preserves, ice_scales_ability_shield_preserves.
-    private val defenderDamageAbilitiesBreakableByMoldBreaker = setOf(85, 87, 111, 116, 136, 199, 244, 246)
+    private val defenderDamageAbilitiesBreakableByMoldBreaker = setOf(85, 87, 111, 116, 136, 169, 199, 244, 246)
     private val finalModifierAbilitiesNotBreakableByMoldBreaker = setOf(231, 232)
     private const val ironBallItem = 484
     private const val ringTargetItem = 499
@@ -155,6 +157,7 @@ internal object HnsGroupCPolicy {
                     else -> hp == maxHp
                 }
             }
+            169 -> furCoatWouldChangeHit(request)
             246 -> {
                 val moveId = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return true
                 HnsMoveAuthority.forRequest(request, ordinaryDamageMove(moveId)).category
@@ -168,6 +171,17 @@ internal object HnsGroupCPolicy {
             else -> false
         }
         return typeMatch
+    }
+
+    private fun furCoatWouldChangeHit(request: DamageCalculationRequest): Boolean {
+        val live = request.hnsLiveBattleState ?: return true
+        val field = live.fieldStatuses ?: return true
+        val wonderRoom = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM
+        if (field and wonderRoom != 0) return true
+        val moveId = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id
+            ?: return true
+        val category = HnsMoveAuthority.forRequest(request, ordinaryDamageMove(moveId)).category
+        return category == null || category == com.dualdex.pokemon.MoveCategory.PHYSICAL
     }
 
     /** Exact pinned chart after HnsMoveAuthority's final type and observed H&S item rewrites. */

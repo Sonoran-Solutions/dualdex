@@ -187,11 +187,11 @@ minimise the case and investigate.
 ## Current result and known divergences
 
 The regenerated issue #91 corpus records the effective type and `ateBoost` for each hit. Starting
-main at `bc4aff798414c771c06de290481bda17d0aebb2f` had 1,505 scenarios (1,392 production-modelled,
-113 engine-only). This slice adds the defender Water Bubble and Heatproof base-power vectors, keeps
-the Water Bubble Fire scenario's stable ID, promotes it after exact parity, and retains the
-engine-only Mold Breaker controls. The refreshed corpus has **1,521 scenarios: 1,407
-production-modelled, 114 engine-only, 1,519 exact calculator matches and two registered
+main at `6f3a50683724bb3fd539bb062e63238d36ed1e6f` had 1,521 scenarios (1,407 production-modelled,
+114 engine-only). This slice adds Solar Power, Defeatist, and Fur Coat low-state stat-stage coverage,
+including exact Sun suppression, integer HP threshold, final move category, Wonder Room, Mold
+Breaker, and Ability Shield controls. The refreshed corpus has **1,544 scenarios: 1,427
+production-modelled, 117 engine-only, 1,542 exact calculator matches and two registered
 divergences**. Both remaining exact-vector divergences are linked to #100 in
 `known_divergences.json`:
 
@@ -206,8 +206,10 @@ Pixilate, Aerilate, Galvanize, and Liquid Voice, including source-set `ateBoost`
 ordering, category changes, STAB, type-chart and Group C interactions, and negative controls. The
 prior Group D scenarios cover Hustle/Guts and base-power cases for Technician, Iron Fist, Strong Jaw,
 Mega Launcher, Sharpness, both direct-damage Water Bubble branches, defender Heatproof, Dry Skin's
-distinct Fire ×1.25 control, Steelworker, Toxic Boost, and Flare Boost. Water Bubble burn prevention
-and status clearing remain separately deferred. The Toxic Boost toxic
+distinct Fire ×1.25 control, Steelworker, Toxic Boost, and Flare Boost. This slice adds 23 vectors
+for Solar Power, Defeatist, and Fur Coat; Group D now contains 122 scenarios (116 production-modelled
+and 6 engine-only). Solar Power's after-turn HP loss remains outside the selected-hit damage contract.
+Water Bubble burn prevention and status clearing remain separately deferred. The Toxic Boost toxic
 case preserves the live toxic counter in `status1`. The Guts Special active-status control remains
 engine-only because production does not need to model a Guts modifier on a Special move. The
 Toxic Boost Special-plus-poison control is production-modelled: its authoritative Special category

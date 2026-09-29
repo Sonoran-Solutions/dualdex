@@ -789,8 +789,9 @@
     "rationale": "Group D base-power support applies the pinned 1.5 modifier only to authoritative ordinary moves with MoveInfo.pulseMove; move flags come from the pinned source generator."
   },
   "179": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:7296",
+    "rationale": "Pinned CalcDefenseStat applies Grass Pelt only when STATUS_FIELD_GRASSY_TERRAIN is active and usesDefStat is true. The Defense-stage accumulator reproduces uq4_12_multiply_half_down with UQ_4_12(1.5); the request policy requires the authoritative final category and field word and refuses Wonder Room stat selection."
   },
   "180": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -1148,8 +1149,9 @@
     "rationale": "CalcAttackStat applies ×1.3333 (UQ_4_12 5461) with uq4_12_multiply (half-up) for Physical + ctx Sun + no Utility Umbrella. GetWeather supplies ctx.weather and returns NONE when HasWeatherEffect is false under a live Cloud Nine/Air Lock. The separate weather-setting event is represented only by already-observed weather."
   },
   "289": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:7111",
+    "rationale": "Pinned CalcAttackStat applies Hadron Engine only to Special moves while the observed Electric Terrain bit is active, using uq4_12_multiply with UQ_4_12(1.3333). The calculator consumes live field state and never models Hadron Engine terrain-setting."
   },
   "290": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",

@@ -450,6 +450,53 @@ class HnsAbilityContextPolicyTest {
     }
 
     @Test
+    fun `Grass Pelt and Hadron Engine require exact live field and category predicates`() {
+        val grassy = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_GRASSY_TERRAIN
+        val electric = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN
+        val wonderRoom = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM
+        for (id in listOf(179, 289)) {
+            assertEquals(HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
+                com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(id).category)
+        }
+
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(179, context(side = HnsAbilitySide.ATTACKER, attackerAbilityId = 179,
+                moveCategory = null)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(179, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = 179,
+                fieldStatuses = 0)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(179, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = 179,
+                fieldStatuses = grassy, moveCategory = MoveCategory.PHYSICAL)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(179, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = 179,
+                fieldStatuses = grassy, moveCategory = MoveCategory.SPECIAL)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(179, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = 179,
+                fieldStatuses = grassy or wonderRoom)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(179, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = 179,
+                fieldStatuses = null)))
+
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(289, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = 289,
+                attackerAbilityId = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(289, context(attackerAbilityId = 289, fieldStatuses = 0)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(289, context(attackerAbilityId = 289, fieldStatuses = electric,
+                moveCategory = MoveCategory.PHYSICAL)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+            relevance(289, context(attackerAbilityId = 289, fieldStatuses = electric,
+                moveCategory = MoveCategory.SPECIAL)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(289, context(attackerAbilityId = 289, fieldStatuses = null)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(289, context(attackerAbilityId = 289, fieldStatuses = electric,
+                moveCategory = null)))
+    }
+
+    @Test
     fun `final type Attack-stat abilities use authorized final type and Orichalcum GetWeather semantics`() {
         val cases = listOf(
             262 to PokemonType.ELECTRIC,

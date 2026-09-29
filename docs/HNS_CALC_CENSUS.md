@@ -208,11 +208,11 @@ Under Random Abilities any of the pinned domain's 310 abilities can be installed
 
 Counts are weighted by the cohort's eligible requests; battle counts de-duplicate trainer battles within each disposition. Refusals are attributed only to the exact ability entry in production's blocker list, while caveats use its ignored-mechanic list. Thus an unsupported move can refuse a request without making a caveatable ability look like a blocker. *Rules* lists the reviewed contextual rules that fired.
 
-**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1320522 request trials as refused, 16820 as caveated, and 2440318 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
+**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1297908 request trials as refused, 16820 as caveated, and 2462932 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
 
 ### Abilities that cause refusals
 
-**181 of 310 abilities cause a request refusal in at least one eligible context. 4 have at least one caveated context; 126 produce only clear outcomes in their eligible trials.** Refusal and caveat counts are per ability/side/category and can apply to the same ability in different contexts.
+**180 of 310 abilities cause a request refusal in at least one eligible context. 4 have at least one caveated context; 127 produce only clear outcomes in their eligible trials.** Refusal and caveat counts are per ability/side/category and can apply to the same ability in different contexts.
 
 | # | Ability | Side | Category | Battles refused | Requests refused | Rule |
 |---:|---|---|---|---:|---:|---|
@@ -270,6 +270,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Liquid Voice | 4 | 0 | 0 | liquid_voice_non_sound_move, move_type_rewriter_defender_side |
 | Galvanize | 4 | 0 | 0 | galvanize_non_normal_move, move_type_rewriter_defender_side |
 | Neuroforce | 4 | 0 | 0 | neuroforce_defender_side, neuroforce_not_super_effective |
+| Hadron Engine | 4 | 0 | 0 | hadron_engine_defender_side, hadron_engine_without_electric_terrain |
 | Sharpness | 4 | 0 | 0 | sharpness_defender_side, sharpness_nonslicing_move |
 | Tera Shell | 4 | 0 | 0 | attacker_always_irrelevant, defender_not_terapagos_terastal |
 | Battle Armor | 4 | 2 | 0 | attacker_critical_hit_armor, defender_armor_fixed_noncritical_hit |
@@ -295,6 +296,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Mummy | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Iron Barbs | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Cheek Pouch | 4 | 2 | 0 | berry_recovery_outside_single_hit |
+| Grass Pelt | 4 | 2 | 0 | grass_pelt_attacker_side, grass_pelt_defense_selection_unknown |
 | Water Bubble | 4 | 2 | 0 | water_bubble_attacker_nonwater_move, water_bubble_defender_fire_move |
 | Slush Rush | 4 | 2 | 0 | speed_ability_without_analytic |
 | Innards Out | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
@@ -367,12 +369,12 @@ The same ability can be clear, caveated, or refused on different sides and in di
 
 | Side | Category | Refusing abilities | Requests refused (max) | Caveated abilities | Requests caveated (max) |
 |---|---|---:|---:|---:|---:|
-| attacker | Physical | 138 | 4565 | 3 | 4565 |
-| attacker | Special | 138 | 2739 | 1 | 2739 |
-| defender | Physical | 175 | 3034 | 1 | 110 |
-| defender | Special | 175 | 1848 | 1 | 276 |
+| attacker | Physical | 136 | 4565 | 3 | 4565 |
+| attacker | Special | 136 | 2739 | 1 | 2739 |
+| defender | Physical | 174 | 3034 | 1 | 110 |
+| defender | Special | 174 | 1848 | 1 | 276 |
 
-Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 590 rows, `RELEVANT` in 45 rows and `UNKNOWN` in 605 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
+Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 596 rows, `RELEVANT` in 45 rows and `UNKNOWN` in 599 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
 
 ## Issue #91 low-state stat ability slice comparison
 
@@ -434,6 +436,33 @@ Random Abilities weighted trials change from 1,368,946 refused / 16,820 caveated
 | Orichalcum Pulse | 0 | No trainer requests | 12,186 / 0 / 0 → 80 / 0 / 12,106 |
 
 Each ability still has 80 unknown attacker-side contexts because the census does not establish its required live type, category, weather, or item operand; the remaining 12,106 attacker-side contexts and all defender-side contexts are proven irrelevant and clear. Each adds 12,106 clear Random Abilities trials without caveats; 80 requests remain refused per ability.
+
+## Issue #91 field-backed Grass Pelt / Hadron Engine slice comparison
+
+This comparison uses the exact starting `main` SHA `808fe5a578a5c34ab891e298b4e7f60e69650652` (PR #112 merged). Both runs cover the same 24,278 eligible damaging requests across 651 trainer battles.
+
+| Metric | Starting main | This slice | Change |
+|---|---:|---:|---:|
+| `FULLY_MODELLED` requests | 18,800 | 18,800 | unchanged |
+| `CAVEATED_ESTIMATE` requests | 372 | 372 | unchanged |
+| `REFUSED` requests | 5,106 | 5,106 | unchanged |
+| Fully displaying lead matchups | 372 / 1,302 | 372 / 1,302 | unchanged |
+| Displayable requests in lead matchups | 6,676 | 6,676 | unchanged |
+| Trainer requests improved by Grass Pelt / Hadron Engine | 0 | 0 | unchanged |
+| `HNS_FIELD_STATUS_NOT_MODELLED` | 0 battles / 0 requests | 0 / 0 | unchanged |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 247 battles / 1,870 requests | 247 / 1,870 | unchanged |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` | 80 battles / 276 requests | 80 / 276 | unchanged |
+
+The pinned 651-battle trainer inventory has no Grass Pelt or Hadron Engine holders, and its neutral baseline has no active terrain. Therefore these abilities improve no trainer matchup or lead request; the Random Abilities census measures their policy gain.
+
+Random Abilities weighted request trials changed from 1,320,522 refused / 16,820 caveated / 2,440,318 clear to 1,297,908 / 16,820 / 2,462,932. The number of identities with at least one refusal falls from 181 to 180; caveated identities remain 4; clear-only identities rise from 126 to 127.
+
+| Ability | Trainer holders | Trainer request change | Random Abilities refused / caveated / clear, before → after |
+|---|---:|---|---|
+| Grass Pelt | 0 | No trainer holder | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
+| Hadron Engine | 0 | No trainer holder | 12,186 / 0 / 0 → 0 / 0 / 12,186 |
+
+The global ability audit moves from 58 `MODELLED_HNS_CONDITIONAL` and 169 `UNSUPPORTED_DAMAGE_RELEVANT` abilities to 60 and 167, respectively; the 84 `PROVEN_NO_DAMAGE_EFFECT` abilities are unchanged.
 
 ## Provenance and reproduction
 

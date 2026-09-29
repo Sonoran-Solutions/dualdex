@@ -2867,6 +2867,65 @@ static int double_rolls_equal(const double* a, const double* b) {
     return 1;
 }
 
+/* H&S terrain abilities may read only the boundary-owned raw field word. Caller terrain strings
+ * must not manufacture Grass Pelt or Hadron Engine activation. */
+static void check_hns_field_ability_authority(void) {
+    const char* grass_base =
+        "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+        "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"ability\":\"(other)\"},"
+        "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"ability\":\"Grass Pelt\"},"
+        "\"move\":{\"name\":\"Strength\"},\"field\":{\"gameType\":\"Singles\",\"hnsFieldStatuses\":0}}";
+    const char* grass_spoof =
+        "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+        "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"ability\":\"(other)\"},"
+        "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"ability\":\"Grass Pelt\"},"
+        "\"move\":{\"name\":\"Strength\"},\"field\":{\"gameType\":\"Singles\",\"terrain\":\"Grassy\",\"hnsFieldStatuses\":0}}";
+    const char* grass_live =
+        "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+        "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"ability\":\"(other)\"},"
+        "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"ability\":\"Grass Pelt\"},"
+        "\"move\":{\"name\":\"Strength\"},\"field\":{\"gameType\":\"Singles\",\"hnsFieldStatuses\":64}}";
+    const char* hadron_base =
+        "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+        "\"attacker\":{\"species\":\"Alakazam\",\"level\":50,\"ability\":\"Hadron Engine\"},"
+        "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"ability\":\"(other)\"},"
+        "\"move\":{\"name\":\"Psychic\"},\"field\":{\"gameType\":\"Singles\",\"hnsFieldStatuses\":0}}";
+    const char* hadron_spoof =
+        "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+        "\"attacker\":{\"species\":\"Alakazam\",\"level\":50,\"ability\":\"Hadron Engine\"},"
+        "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"ability\":\"(other)\"},"
+        "\"move\":{\"name\":\"Psychic\"},\"field\":{\"gameType\":\"Singles\",\"terrain\":\"Electric\",\"hnsFieldStatuses\":0}}";
+    const char* hadron_live =
+        "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\","
+        "\"attacker\":{\"species\":\"Alakazam\",\"level\":50,\"ability\":\"Hadron Engine\"},"
+        "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"ability\":\"(other)\"},"
+        "\"move\":{\"name\":\"Psychic\"},\"field\":{\"gameType\":\"Singles\",\"hnsFieldStatuses\":256}}";
+    const char* labels[] = {"grass_pelt", "hadron_engine"};
+    const char* requests[][3] = {
+        {grass_base, grass_spoof, grass_live},
+        {hadron_base, hadron_spoof, hadron_live},
+    };
+    for (int ability = 0; ability < 2; ability++) {
+        double rolls[3][ROLL_COUNT];
+        int valid = 1;
+        for (int i = 0; i < 3; i++) {
+            g_fixture = labels[ability];
+            char* raw = js_calc_calculate(requests[ability][i]);
+            jl_value* doc = raw ? jl_parse(raw) : NULL;
+            if (!doc || response_rolls(doc, rolls[i]) != ROLL_COUNT) valid = 0;
+            if (doc) jl_free(doc);
+            free(raw);
+        }
+        check_condition("field ability requests produced three complete roll vectors", valid);
+        if (valid) {
+            check_condition("caller terrain string cannot activate the H&S modifier",
+                            double_rolls_equal(rolls[0], rolls[1]));
+            check_condition("authoritative live field bit activates the H&S modifier",
+                            !double_rolls_equal(rolls[0], rolls[2]));
+        }
+    }
+}
+
 /* Machamp (Atk 150) vs Snorlax (Def 85), Hardy L50 31 IV / 0 EV, ability ignored. */
 #define C4A_MACHAMP_ATTACKER \
     "\"gen\":3,\"typeSystem\":\"hns_2_0_5\"," \
@@ -4261,6 +4320,7 @@ int main(void) {
 
     printf("-- Gap C4a: ordinary-damage arithmetic parity vs an independent H&S oracle --\n");
     check_gap_c4a_arithmetic_parity();
+    check_hns_field_ability_authority();
 
     printf("-- Group A: H&S single-hit output shape and fixed crit operand --\n");
     check_hns_single_hit_output_contract();

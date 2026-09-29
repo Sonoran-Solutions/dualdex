@@ -384,6 +384,11 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             request.hnsLiveBattleState?.takeIf { it.weatherObserved }?.let {
                 put("hnsWeatherWord", it.weatherWord)
             }
+            // H&S terrain abilities read ctx->fieldStatuses. This operand comes only from the
+            // boundary-owned live word after capability policy has neutralized ignored bits.
+            request.hnsLiveBattleState?.fieldStatuses?.let {
+                put("hnsFieldStatuses", it)
+            }
             request.field.terrain?.let { put("terrain", it) }
             // Boundary-owned live target count (GetMoveTargetCount). Absent today because no reader
             // supplies it; when absent the H&S engine fails closed for Doubles spread moves.

@@ -216,7 +216,8 @@ object HnsCensusDisplayClassifier {
                         .filterIsInstance<com.dualdex.calculator.IgnoredCalcMechanic.Field>()
                         .map { it.decision }
                     val causal = verdict.hnsFieldDecisions.filter {
-                        it.relevance != com.dualdex.calculator.HnsFieldRequestRelevance.PROVEN_IRRELEVANT &&
+                        (it.relevance == com.dualdex.calculator.HnsFieldRequestRelevance.RELEVANT ||
+                            it.relevance == com.dualdex.calculator.HnsFieldRequestRelevance.UNKNOWN) &&
                             it !in ignored
                     }
                     if (causal.isEmpty()) {

@@ -196,7 +196,10 @@ sealed interface DamageBlockerPresentation {
             val diagnostics = verdict.hnsFieldDiagnostics
             val rawField = diagnostics?.fieldState?.raw
             val fieldDecisions = verdict.hnsFieldDecisions
-                .filter { it.relevance != HnsFieldRequestRelevance.PROVEN_IRRELEVANT }
+                .filter {
+                    it.relevance == HnsFieldRequestRelevance.RELEVANT ||
+                        it.relevance == HnsFieldRequestRelevance.UNKNOWN
+                }
             val fields = mutableListOf<DamageBlockerPresentation>()
             val ionDeluge = fieldDecisions.filter {
                 it.status == HnsFieldStatus.ION_DELUGE && it.relevance == HnsFieldRequestRelevance.RELEVANT

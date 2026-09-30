@@ -1,0 +1,6501 @@
+{
+  "pinnedCommit": "1f42b74dff0e9fe942419845d040663dd829a973",
+  "moves": {
+    "1": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "2": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "3": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "4": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "5": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "6": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "7": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": true
+    },
+    "8": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": true
+    },
+    "9": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": true
+    },
+    "10": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "11": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "12": {
+      "effect": "EFFECT_OHKO",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "13": {
+      "effect": "EFFECT_TWO_TURNS_ATTACK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "14": {
+      "effect": "EFFECT_ATTACK_UP_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "15": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "16": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "17": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "18": {
+      "effect": "EFFECT_ROAR",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "19": {
+      "effect": "EFFECT_SEMI_INVULNERABLE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "20": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "21": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "22": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "23": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "24": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "25": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "26": {
+      "effect": "EFFECT_RECOIL_IF_MISS",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "27": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "28": {
+      "effect": "EFFECT_ACCURACY_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "29": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "30": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "31": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "32": {
+      "effect": "EFFECT_OHKO",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "33": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "34": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "35": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "36": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "37": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "38": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "39": {
+      "effect": "EFFECT_DEFENSE_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "40": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "41": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "42": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "43": {
+      "effect": "EFFECT_DEFENSE_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "44": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "45": {
+      "effect": "EFFECT_ATTACK_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "46": {
+      "effect": "EFFECT_ROAR",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "47": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "48": {
+      "effect": "EFFECT_CONFUSE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "49": {
+      "effect": "EFFECT_FIXED_HP_DAMAGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "50": {
+      "effect": "EFFECT_DISABLE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "51": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "52": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "53": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "54": {
+      "effect": "EFFECT_MIST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "55": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "56": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "57": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "58": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "59": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "60": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "61": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "62": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "63": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "64": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "65": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "66": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "68": {
+      "effect": "EFFECT_REFLECT_DAMAGE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "69": {
+      "effect": "EFFECT_LEVEL_DAMAGE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "70": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "71": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "72": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "73": {
+      "effect": "EFFECT_LEECH_SEED",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "75": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "76": {
+      "effect": "EFFECT_SOLAR_BEAM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "77": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "78": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "79": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "80": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "82": {
+      "effect": "EFFECT_FIXED_HP_DAMAGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "83": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "84": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "85": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "86": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "87": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "88": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "89": {
+      "effect": "EFFECT_EARTHQUAKE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "90": {
+      "effect": "EFFECT_OHKO",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "91": {
+      "effect": "EFFECT_SEMI_INVULNERABLE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "92": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "93": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "94": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "95": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "96": {
+      "effect": "EFFECT_ATTACK_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "97": {
+      "effect": "EFFECT_SPEED_UP_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "98": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "99": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "100": {
+      "effect": "EFFECT_TELEPORT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "101": {
+      "effect": "EFFECT_LEVEL_DAMAGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "102": {
+      "effect": "EFFECT_MIMIC",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "103": {
+      "effect": "EFFECT_DEFENSE_DOWN_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "104": {
+      "effect": "EFFECT_EVASION_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "105": {
+      "effect": "EFFECT_RESTORE_HP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "106": {
+      "effect": "EFFECT_DEFENSE_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "107": {
+      "effect": "EFFECT_MINIMIZE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "108": {
+      "effect": "EFFECT_ACCURACY_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "109": {
+      "effect": "EFFECT_CONFUSE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "110": {
+      "effect": "EFFECT_DEFENSE_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "111": {
+      "effect": "EFFECT_DEFENSE_CURL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "112": {
+      "effect": "EFFECT_DEFENSE_UP_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "113": {
+      "effect": "EFFECT_LIGHT_SCREEN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "114": {
+      "effect": "EFFECT_HAZE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "115": {
+      "effect": "EFFECT_REFLECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "116": {
+      "effect": "EFFECT_FOCUS_ENERGY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "117": {
+      "effect": "EFFECT_BIDE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "118": {
+      "effect": "EFFECT_METRONOME",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "119": {
+      "effect": "EFFECT_MIRROR_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "120": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "121": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "122": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "123": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "124": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "125": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "126": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "127": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": null
+    },
+    "128": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "129": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "130": {
+      "effect": "EFFECT_TWO_TURNS_ATTACK",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": null
+    },
+    "131": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "132": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "133": {
+      "effect": "EFFECT_SPECIAL_DEFENSE_UP_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "134": {
+      "effect": "EFFECT_ACCURACY_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "135": {
+      "effect": "EFFECT_SOFTBOILED",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "136": {
+      "effect": "EFFECT_RECOIL_IF_MISS",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "137": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "138": {
+      "effect": "EFFECT_DREAM_EATER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "139": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "140": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "141": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "142": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "143": {
+      "effect": "EFFECT_TWO_TURNS_ATTACK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": null
+    },
+    "144": {
+      "effect": "EFFECT_TRANSFORM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "145": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "146": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": null
+    },
+    "147": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "148": {
+      "effect": "EFFECT_ACCURACY_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "149": {
+      "effect": "EFFECT_PSYWAVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "150": {
+      "effect": "EFFECT_DO_NOTHING",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "151": {
+      "effect": "EFFECT_DEFENSE_UP_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "152": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "153": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "154": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "155": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "156": {
+      "effect": "EFFECT_REST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "157": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": null
+    },
+    "158": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "159": {
+      "effect": "EFFECT_ATTACK_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "160": {
+      "effect": "EFFECT_CONVERSION",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "161": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": null
+    },
+    "162": {
+      "effect": "EFFECT_FIXED_PERCENT_DAMAGE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "163": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "164": {
+      "effect": "EFFECT_SUBSTITUTE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "166": {
+      "effect": "EFFECT_SKETCH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "167": {
+      "effect": "EFFECT_TRIPLE_KICK",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "168": {
+      "effect": "EFFECT_STEAL_ITEM",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "169": {
+      "effect": "EFFECT_MEAN_LOOK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "170": {
+      "effect": "EFFECT_LOCK_ON",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "171": {
+      "effect": "EFFECT_NIGHTMARE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "172": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "173": {
+      "effect": "EFFECT_SNORE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "174": {
+      "effect": "EFFECT_CURSE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "175": {
+      "effect": "EFFECT_FLAIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "176": {
+      "effect": "EFFECT_CONVERSION_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "177": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "178": {
+      "effect": "EFFECT_SPEED_DOWN_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "179": {
+      "effect": "EFFECT_FLAIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "180": {
+      "effect": "EFFECT_SPITE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "181": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "182": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "183": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "184": {
+      "effect": "EFFECT_SPEED_DOWN_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "185": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": null,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "186": {
+      "effect": "EFFECT_CONFUSE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "187": {
+      "effect": "EFFECT_BELLY_DRUM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "188": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "189": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "190": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "191": {
+      "effect": "EFFECT_SPIKES",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "192": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "193": {
+      "effect": "EFFECT_FORESIGHT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "194": {
+      "effect": "EFFECT_DESTINY_BOND",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "195": {
+      "effect": "EFFECT_PERISH_SONG",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "196": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "197": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "198": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "199": {
+      "effect": "EFFECT_LOCK_ON",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "200": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "201": {
+      "effect": "EFFECT_WEATHER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "202": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "203": {
+      "effect": "EFFECT_ENDURE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "204": {
+      "effect": "EFFECT_ATTACK_DOWN_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "205": {
+      "effect": "EFFECT_ROLLOUT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "206": {
+      "effect": "EFFECT_FALSE_SWIPE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "207": {
+      "effect": "EFFECT_SWAGGER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "208": {
+      "effect": "EFFECT_SOFTBOILED",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "209": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "210": {
+      "effect": "EFFECT_FURY_CUTTER",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "211": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "212": {
+      "effect": "EFFECT_MEAN_LOOK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "213": {
+      "effect": "EFFECT_ATTRACT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "214": {
+      "effect": "EFFECT_SLEEP_TALK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "215": {
+      "effect": "EFFECT_HEAL_BELL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "216": {
+      "effect": "EFFECT_RETURN",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "217": {
+      "effect": "EFFECT_PRESENT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "218": {
+      "effect": "EFFECT_FRUSTRATION",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "219": {
+      "effect": "EFFECT_SAFEGUARD",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "220": {
+      "effect": "EFFECT_PAIN_SPLIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "221": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "222": {
+      "effect": "EFFECT_MAGNITUDE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "223": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": true
+    },
+    "224": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "225": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "226": {
+      "effect": "EFFECT_BATON_PASS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "227": {
+      "effect": "EFFECT_ENCORE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "228": {
+      "effect": "EFFECT_PURSUIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "229": {
+      "effect": "EFFECT_RAPID_SPIN",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": null
+    },
+    "231": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "232": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "233": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "234": {
+      "effect": "EFFECT_MORNING_SUN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "235": {
+      "effect": "EFFECT_SYNTHESIS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "236": {
+      "effect": "EFFECT_MOONLIGHT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "237": {
+      "effect": "EFFECT_HIDDEN_POWER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "238": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "239": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "240": {
+      "effect": "EFFECT_WEATHER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "241": {
+      "effect": "EFFECT_WEATHER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "242": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": null
+    },
+    "243": {
+      "effect": "EFFECT_REFLECT_DAMAGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "244": {
+      "effect": "EFFECT_PSYCH_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "245": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "246": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": null,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "247": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "248": {
+      "effect": "EFFECT_FUTURE_SIGHT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "249": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "250": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "251": {
+      "effect": "EFFECT_BEAT_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "252": {
+      "effect": "EFFECT_FIRST_TURN_ONLY",
+      "ordinary": false,
+      "makesContact": null,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "253": {
+      "effect": "EFFECT_UPROAR",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "254": {
+      "effect": "EFFECT_STOCKPILE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "255": {
+      "effect": "EFFECT_SPIT_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "256": {
+      "effect": "EFFECT_SWALLOW",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "257": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "258": {
+      "effect": "EFFECT_WEATHER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "259": {
+      "effect": "EFFECT_TORMENT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "260": {
+      "effect": "EFFECT_FLATTER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "261": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "262": {
+      "effect": "EFFECT_MEMENTO",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "263": {
+      "effect": "EFFECT_FACADE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "264": {
+      "effect": "EFFECT_FOCUS_PUNCH",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "265": {
+      "effect": "EFFECT_DOUBLE_POWER_ON_ARG_STATUS",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "266": {
+      "effect": "EFFECT_FOLLOW_ME",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "267": {
+      "effect": "EFFECT_NATURE_POWER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "268": {
+      "effect": "EFFECT_CHARGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "269": {
+      "effect": "EFFECT_TAUNT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "270": {
+      "effect": "EFFECT_HELPING_HAND",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "271": {
+      "effect": "EFFECT_TRICK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "272": {
+      "effect": "EFFECT_ROLE_PLAY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "273": {
+      "effect": "EFFECT_WISH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "274": {
+      "effect": "EFFECT_ASSIST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "275": {
+      "effect": "EFFECT_INGRAIN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "276": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "277": {
+      "effect": "EFFECT_MAGIC_COAT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "278": {
+      "effect": "EFFECT_RECYCLE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "279": {
+      "effect": "EFFECT_REVENGE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "280": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "281": {
+      "effect": "EFFECT_YAWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "282": {
+      "effect": "EFFECT_KNOCK_OFF",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "283": {
+      "effect": "EFFECT_ENDEAVOR",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "284": {
+      "effect": "EFFECT_POWER_BASED_ON_USER_HP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "285": {
+      "effect": "EFFECT_SKILL_SWAP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "286": {
+      "effect": "EFFECT_IMPRISON",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "287": {
+      "effect": "EFFECT_REFRESH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "288": {
+      "effect": "EFFECT_GRUDGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "289": {
+      "effect": "EFFECT_SNATCH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "290": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "291": {
+      "effect": "EFFECT_SEMI_INVULNERABLE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "292": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "293": {
+      "effect": "EFFECT_CAMOUFLAGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "295": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "296": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "297": {
+      "effect": "EFFECT_ATTACK_DOWN_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "298": {
+      "effect": "EFFECT_CONFUSE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "299": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "300": {
+      "effect": "EFFECT_MUD_SPORT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "301": {
+      "effect": "EFFECT_ROLLOUT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "302": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "303": {
+      "effect": "EFFECT_RESTORE_HP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "304": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "305": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "306": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "307": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "308": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "309": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": true
+    },
+    "310": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "311": {
+      "effect": "EFFECT_WEATHER_BALL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "312": {
+      "effect": "EFFECT_HEAL_BELL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "313": {
+      "effect": "EFFECT_SPECIAL_DEFENSE_DOWN_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "314": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "315": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": null,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "316": {
+      "effect": "EFFECT_FORESIGHT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "317": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "318": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "319": {
+      "effect": "EFFECT_SPECIAL_DEFENSE_DOWN_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "320": {
+      "effect": "EFFECT_NON_VOLATILE_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "321": {
+      "effect": "EFFECT_TICKLE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "322": {
+      "effect": "EFFECT_COSMIC_POWER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "323": {
+      "effect": "EFFECT_POWER_BASED_ON_USER_HP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "324": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "325": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "326": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "327": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "328": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "329": {
+      "effect": "EFFECT_OHKO",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "330": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "331": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "332": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "333": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "334": {
+      "effect": "EFFECT_DEFENSE_UP_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "335": {
+      "effect": "EFFECT_MEAN_LOOK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "336": {
+      "effect": "EFFECT_ATTACK_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "337": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "338": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "339": {
+      "effect": "EFFECT_BULK_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "340": {
+      "effect": "EFFECT_SEMI_INVULNERABLE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "341": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "342": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "343": {
+      "effect": "EFFECT_STEAL_ITEM",
+      "ordinary": false,
+      "makesContact": null,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "344": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": null
+    },
+    "345": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "346": {
+      "effect": "EFFECT_WATER_SPORT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "347": {
+      "effect": "EFFECT_CALM_MIND",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "348": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "349": {
+      "effect": "EFFECT_DRAGON_DANCE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "350": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "351": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "352": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "353": {
+      "effect": "EFFECT_FUTURE_SIGHT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "354": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "355": {
+      "effect": "EFFECT_ROOST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "356": {
+      "effect": "EFFECT_GRAVITY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "357": {
+      "effect": "EFFECT_MIRACLE_EYE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "358": {
+      "effect": "EFFECT_DOUBLE_POWER_ON_ARG_STATUS",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "359": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "360": {
+      "effect": "EFFECT_GYRO_BALL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "361": {
+      "effect": "EFFECT_HEALING_WISH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "362": {
+      "effect": "EFFECT_BRINE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "363": {
+      "effect": "EFFECT_NATURAL_GIFT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "364": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "365": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "366": {
+      "effect": "EFFECT_TAILWIND",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "367": {
+      "effect": "EFFECT_ACUPRESSURE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "368": {
+      "effect": "EFFECT_REFLECT_DAMAGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "369": {
+      "effect": "EFFECT_HIT_ESCAPE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "370": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "371": {
+      "effect": "EFFECT_PAYBACK",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "372": {
+      "effect": "EFFECT_ASSURANCE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "373": {
+      "effect": "EFFECT_EMBARGO",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "374": {
+      "effect": "EFFECT_FLING",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "375": {
+      "effect": "EFFECT_PSYCHO_SHIFT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "376": {
+      "effect": "EFFECT_TRUMP_CARD",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "377": {
+      "effect": "EFFECT_HEAL_BLOCK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "378": {
+      "effect": "EFFECT_POWER_BASED_ON_TARGET_HP",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "379": {
+      "effect": "EFFECT_POWER_TRICK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "380": {
+      "effect": "EFFECT_GASTRO_ACID",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "381": {
+      "effect": "EFFECT_LUCKY_CHANT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "382": {
+      "effect": "EFFECT_ME_FIRST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "383": {
+      "effect": "EFFECT_COPYCAT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "384": {
+      "effect": "EFFECT_POWER_SWAP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "385": {
+      "effect": "EFFECT_GUARD_SWAP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "386": {
+      "effect": "EFFECT_PUNISHMENT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "387": {
+      "effect": "EFFECT_LAST_RESORT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "388": {
+      "effect": "EFFECT_OVERWRITE_ABILITY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "389": {
+      "effect": "EFFECT_SUCKER_PUNCH",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "390": {
+      "effect": "EFFECT_TOXIC_SPIKES",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "391": {
+      "effect": "EFFECT_HEART_SWAP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "392": {
+      "effect": "EFFECT_AQUA_RING",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "393": {
+      "effect": "EFFECT_MAGNET_RISE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "394": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "395": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "396": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "397": {
+      "effect": "EFFECT_SPEED_UP_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "398": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "399": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "400": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "401": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "402": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "403": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "404": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "405": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "406": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "407": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "408": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "409": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "410": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "411": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "412": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "413": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "414": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "415": {
+      "effect": "EFFECT_TRICK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "416": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "417": {
+      "effect": "EFFECT_SPECIAL_ATTACK_UP_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "418": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "419": {
+      "effect": "EFFECT_REVENGE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "420": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "421": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "422": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "423": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "424": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "425": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "426": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "427": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "428": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "429": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "430": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "431": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "432": {
+      "effect": "EFFECT_DEFOG",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "433": {
+      "effect": "EFFECT_TRICK_ROOM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "434": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "435": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "436": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "437": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "438": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "439": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "440": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "441": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "442": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "443": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "444": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "445": {
+      "effect": "EFFECT_CAPTIVATE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "446": {
+      "effect": "EFFECT_STEALTH_ROCK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "447": {
+      "effect": "EFFECT_LOW_KICK",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "448": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": null
+    },
+    "449": {
+      "effect": "EFFECT_CHANGE_TYPE_ON_ITEM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "450": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "451": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "452": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "453": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "454": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "455": {
+      "effect": "EFFECT_COSMIC_POWER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "456": {
+      "effect": "EFFECT_RESTORE_HP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "457": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "458": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "459": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "460": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "461": {
+      "effect": "EFFECT_LUNAR_DANCE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "462": {
+      "effect": "EFFECT_POWER_BASED_ON_TARGET_HP",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "463": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "464": {
+      "effect": "EFFECT_DARK_VOID",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "465": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "466": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "467": {
+      "effect": "EFFECT_SEMI_INVULNERABLE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "468": {
+      "effect": "EFFECT_ATTACK_ACCURACY_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "469": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "470": {
+      "effect": "EFFECT_GUARD_SPLIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "471": {
+      "effect": "EFFECT_POWER_SPLIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "472": {
+      "effect": "EFFECT_WONDER_ROOM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "473": {
+      "effect": "EFFECT_PSYSHOCK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "474": {
+      "effect": "EFFECT_DOUBLE_POWER_ON_ARG_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "475": {
+      "effect": "EFFECT_AUTOTOMIZE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "476": {
+      "effect": "EFFECT_FOLLOW_ME",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "477": {
+      "effect": "EFFECT_TELEKINESIS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "478": {
+      "effect": "EFFECT_MAGIC_ROOM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "479": {
+      "effect": "EFFECT_SMACK_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "480": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "481": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "482": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "483": {
+      "effect": "EFFECT_QUIVER_DANCE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "484": {
+      "effect": "EFFECT_HEAT_CRASH",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "485": {
+      "effect": "EFFECT_SYNCHRONOISE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "486": {
+      "effect": "EFFECT_ELECTRO_BALL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "487": {
+      "effect": "EFFECT_SOAK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "488": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "489": {
+      "effect": "EFFECT_COIL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "490": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "491": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "492": {
+      "effect": "EFFECT_FOUL_PLAY",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "493": {
+      "effect": "EFFECT_OVERWRITE_ABILITY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "494": {
+      "effect": "EFFECT_ENTRAINMENT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "495": {
+      "effect": "EFFECT_AFTER_YOU",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "496": {
+      "effect": "EFFECT_ROUND",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "497": {
+      "effect": "EFFECT_ECHOED_VOICE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "498": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "499": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "500": {
+      "effect": "EFFECT_STORED_POWER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "501": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "502": {
+      "effect": "EFFECT_ALLY_SWITCH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "503": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "504": {
+      "effect": "EFFECT_SHELL_SMASH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "505": {
+      "effect": "EFFECT_HEAL_PULSE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "506": {
+      "effect": "EFFECT_DOUBLE_POWER_ON_ARG_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "507": {
+      "effect": "EFFECT_SKY_DROP",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "508": {
+      "effect": "EFFECT_SHIFT_GEAR",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "509": {
+      "effect": "EFFECT_HIT_SWITCH_TARGET",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "510": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "511": {
+      "effect": "EFFECT_QUASH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "512": {
+      "effect": "EFFECT_ACROBATICS",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "513": {
+      "effect": "EFFECT_REFLECT_TYPE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "514": {
+      "effect": "EFFECT_RETALIATE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "515": {
+      "effect": "EFFECT_FINAL_GAMBIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "516": {
+      "effect": "EFFECT_BESTOW",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "517": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "518": {
+      "effect": "EFFECT_PLEDGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "519": {
+      "effect": "EFFECT_PLEDGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "520": {
+      "effect": "EFFECT_PLEDGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "521": {
+      "effect": "EFFECT_HIT_ESCAPE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "522": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "523": {
+      "effect": "EFFECT_EARTHQUAKE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "524": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "525": {
+      "effect": "EFFECT_HIT_SWITCH_TARGET",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "526": {
+      "effect": "EFFECT_ATTACK_SPATK_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "527": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "528": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "529": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "530": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "531": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "532": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "533": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "534": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "535": {
+      "effect": "EFFECT_HEAT_CRASH",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "536": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "537": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "538": {
+      "effect": "EFFECT_DEFENSE_UP_3",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "539": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "540": {
+      "effect": "EFFECT_PSYSHOCK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "541": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "542": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "543": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "544": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "545": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "546": {
+      "effect": "EFFECT_CHANGE_TYPE_ON_ITEM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "547": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "548": {
+      "effect": "EFFECT_PSYSHOCK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "549": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "550": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "551": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "552": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "553": {
+      "effect": "EFFECT_TWO_TURNS_ATTACK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "554": {
+      "effect": "EFFECT_TWO_TURNS_ATTACK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "555": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "556": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "557": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "558": {
+      "effect": "EFFECT_FUSION_COMBO",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "559": {
+      "effect": "EFFECT_FUSION_COMBO",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "560": {
+      "effect": "EFFECT_TWO_TYPED_MOVE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "561": {
+      "effect": "EFFECT_MAT_BLOCK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "562": {
+      "effect": "EFFECT_BELCH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "563": {
+      "effect": "EFFECT_ROTOTILLER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "564": {
+      "effect": "EFFECT_STICKY_WEB",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "565": {
+      "effect": "EFFECT_FELL_STINGER",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "566": {
+      "effect": "EFFECT_SEMI_INVULNERABLE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "567": {
+      "effect": "EFFECT_THIRD_TYPE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "568": {
+      "effect": "EFFECT_NOBLE_ROAR",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "569": {
+      "effect": "EFFECT_ION_DELUGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "570": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "571": {
+      "effect": "EFFECT_THIRD_TYPE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "572": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "573": {
+      "effect": "EFFECT_SUPER_EFFECTIVE_ON_ARG",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "574": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "575": {
+      "effect": "EFFECT_PARTING_SHOT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "576": {
+      "effect": "EFFECT_TOPSY_TURVY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "577": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "578": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "579": {
+      "effect": "EFFECT_FLOWER_SHIELD",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "580": {
+      "effect": "EFFECT_GRASSY_TERRAIN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "581": {
+      "effect": "EFFECT_MISTY_TERRAIN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "582": {
+      "effect": "EFFECT_ELECTRIFY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "583": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "584": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "585": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "586": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "587": {
+      "effect": "EFFECT_FAIRY_LOCK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "588": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "589": {
+      "effect": "EFFECT_ATTACK_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "590": {
+      "effect": "EFFECT_SPECIAL_ATTACK_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "591": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "592": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "593": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "594": {
+      "effect": "EFFECT_SPECIES_POWER_OVERRIDE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "595": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "596": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "597": {
+      "effect": "EFFECT_AROMATIC_MIST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "598": {
+      "effect": "EFFECT_SPECIAL_ATTACK_DOWN_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "599": {
+      "effect": "EFFECT_VENOM_DRENCH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "600": {
+      "effect": "EFFECT_POWDER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "601": {
+      "effect": "EFFECT_GEOMANCY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "602": {
+      "effect": "EFFECT_MAGNETIC_FLUX",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "603": {
+      "effect": "EFFECT_HAPPY_HOUR",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "604": {
+      "effect": "EFFECT_ELECTRIC_TERRAIN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "605": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "606": {
+      "effect": "EFFECT_CELEBRATE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "607": {
+      "effect": "EFFECT_HOLD_HANDS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "608": {
+      "effect": "EFFECT_ATTACK_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "609": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "610": {
+      "effect": "EFFECT_FALSE_SWIPE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "611": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "612": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": true
+    },
+    "613": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "614": {
+      "effect": "EFFECT_SMACK_DOWN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "615": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "616": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "617": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "618": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "619": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "620": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "621": {
+      "effect": "EFFECT_HYPERSPACE_FURY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "622": {
+      "effect": "EFFECT_SHORE_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "623": {
+      "effect": "EFFECT_FIRST_TURN_ONLY",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "624": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "625": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "626": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "627": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "628": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "629": {
+      "effect": "EFFECT_HEAL_PULSE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "630": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "631": {
+      "effect": "EFFECT_STRENGTH_SAP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "632": {
+      "effect": "EFFECT_SOLAR_BEAM",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "633": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "634": {
+      "effect": "EFFECT_FOLLOW_ME",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "635": {
+      "effect": "EFFECT_TOXIC_THREAD",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "636": {
+      "effect": "EFFECT_LASER_FOCUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "637": {
+      "effect": "EFFECT_GEAR_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "638": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "639": {
+      "effect": "EFFECT_HIT_ENEMY_HEAL_ALLY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "640": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "641": {
+      "effect": "EFFECT_PSYCHIC_TERRAIN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "642": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "643": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "644": {
+      "effect": "EFFECT_STORED_POWER",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "645": {
+      "effect": "EFFECT_FAIL_IF_NOT_ARG_TYPE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "646": {
+      "effect": "EFFECT_SPEED_SWAP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "647": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "648": {
+      "effect": "EFFECT_PURIFY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "649": {
+      "effect": "EFFECT_REVELATION_DANCE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "650": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "651": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "652": {
+      "effect": "EFFECT_INSTRUCT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "653": {
+      "effect": "EFFECT_BEAK_BLAST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "654": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "655": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "656": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "657": {
+      "effect": "EFFECT_AURORA_VEIL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "658": {
+      "effect": "EFFECT_SHELL_TRAP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "659": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "660": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "661": {
+      "effect": "EFFECT_STOMPING_TANTRUM",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "662": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "663": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "664": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "665": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "666": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "667": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "668": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "669": {
+      "effect": "EFFECT_NOBLE_ROAR",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "670": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "671": {
+      "effect": "EFFECT_FIXED_PERCENT_DAMAGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "672": {
+      "effect": "EFFECT_CHANGE_TYPE_ON_ITEM",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "673": {
+      "effect": "EFFECT_MAX_HP_50_RECOIL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "674": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "675": {
+      "effect": "EFFECT_PHOTON_GEYSER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "676": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": null
+    },
+    "677": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "678": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "679": {
+      "effect": "EFFECT_RETURN",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "680": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "681": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "682": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "683": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "684": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "685": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "686": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "687": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "688": {
+      "effect": "EFFECT_RETURN",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "689": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": true
+    },
+    "690": {
+      "effect": "EFFECT_DYNAMAX_DOUBLE_DMG",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "691": {
+      "effect": "EFFECT_SNIPE_SHOT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "692": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "693": {
+      "effect": "EFFECT_STUFF_CHEEKS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "694": {
+      "effect": "EFFECT_NO_RETREAT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "695": {
+      "effect": "EFFECT_TAR_SHOT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "696": {
+      "effect": "EFFECT_SOAK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "697": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "698": {
+      "effect": "EFFECT_TEATIME",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "699": {
+      "effect": "EFFECT_OCTOLOCK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "700": {
+      "effect": "EFFECT_BOLT_BEAK",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "701": {
+      "effect": "EFFECT_BOLT_BEAK",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "702": {
+      "effect": "EFFECT_COURT_CHANGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "703": {
+      "effect": "EFFECT_CLANGOROUS_SOUL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "704": {
+      "effect": "EFFECT_BODY_PRESS",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "705": {
+      "effect": "EFFECT_DECORATE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "706": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "707": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "708": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "709": {
+      "effect": "EFFECT_DYNAMAX_DOUBLE_DMG",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "710": {
+      "effect": "EFFECT_DYNAMAX_DOUBLE_DMG",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "711": {
+      "effect": "EFFECT_AURA_WHEEL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "712": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "713": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "714": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "715": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "716": {
+      "effect": "EFFECT_GRAV_APPLE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "717": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "718": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "719": {
+      "effect": "EFFECT_LIFE_DEW",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "720": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "721": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "722": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "723": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "724": {
+      "effect": "EFFECT_MAX_HP_50_RECOIL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "725": {
+      "effect": "EFFECT_TERRAIN_BOOST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "726": {
+      "effect": "EFFECT_STEEL_ROLLER",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "727": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "728": {
+      "effect": "EFFECT_TWO_TURNS_ATTACK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "729": {
+      "effect": "EFFECT_SHELL_SIDE_ARM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "730": {
+      "effect": "EFFECT_TERRAIN_BOOST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "731": {
+      "effect": "EFFECT_GRASSY_GLIDE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "732": {
+      "effect": "EFFECT_TERRAIN_BOOST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "733": {
+      "effect": "EFFECT_TERRAIN_PULSE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "734": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "735": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "736": {
+      "effect": "EFFECT_LASH_OUT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "737": {
+      "effect": "EFFECT_POLTERGEIST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "738": {
+      "effect": "EFFECT_CORROSIVE_GAS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "739": {
+      "effect": "EFFECT_COACHING",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "740": {
+      "effect": "EFFECT_HIT_ESCAPE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "741": {
+      "effect": "EFFECT_TRIPLE_KICK",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "742": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "743": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "744": {
+      "effect": "EFFECT_JUNGLE_HEALING",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "745": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "746": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "747": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "748": {
+      "effect": "EFFECT_POWER_BASED_ON_USER_HP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "749": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "750": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "751": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "752": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "753": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "754": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "755": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "756": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "757": {
+      "effect": "EFFECT_POWER_TRICK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "758": {
+      "effect": "EFFECT_STONE_AXE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "759": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "760": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "761": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "762": {
+      "effect": "EFFECT_RECOIL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "763": {
+      "effect": "EFFECT_CHLOROBLAST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "764": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "765": {
+      "effect": "EFFECT_VICTORY_DANCE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "766": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "767": {
+      "effect": "EFFECT_DOUBLE_POWER_ON_ARG_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "768": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "769": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "770": {
+      "effect": "EFFECT_DEFENSE_UP_2",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "771": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "772": {
+      "effect": "EFFECT_DOUBLE_POWER_ON_ARG_STATUS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "773": {
+      "effect": "EFFECT_CEASELESS_EDGE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "774": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "775": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "776": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "777": {
+      "effect": "EFFECT_JUNGLE_HEALING",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "778": {
+      "effect": "EFFECT_TAKE_HEART",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "779": {
+      "effect": "EFFECT_TERA_BLAST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "780": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "781": {
+      "effect": "EFFECT_RECOIL_IF_MISS",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "782": {
+      "effect": "EFFECT_LAST_RESPECTS",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "783": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "784": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "785": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "786": {
+      "effect": "EFFECT_SPICY_EXTRACT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "787": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "788": {
+      "effect": "EFFECT_POPULATION_BOMB",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "789": {
+      "effect": "EFFECT_ICE_SPINNER",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "790": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "791": {
+      "effect": "EFFECT_REVIVAL_BLESSING",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "792": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "793": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "794": {
+      "effect": "EFFECT_RAPID_SPIN",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "795": {
+      "effect": "EFFECT_DOODLE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "796": {
+      "effect": "EFFECT_FILLET_AWAY",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "797": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "798": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "799": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "800": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "801": {
+      "effect": "EFFECT_RAGING_BULL",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "802": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "803": {
+      "effect": "EFFECT_FIXED_PERCENT_DAMAGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "804": {
+      "effect": "EFFECT_COLLISION_COURSE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "805": {
+      "effect": "EFFECT_COLLISION_COURSE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "806": {
+      "effect": "EFFECT_SHED_TAIL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "807": {
+      "effect": "EFFECT_WEATHER_AND_SWITCH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "808": {
+      "effect": "EFFECT_TIDY_UP",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "809": {
+      "effect": "EFFECT_WEATHER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "810": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "811": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "812": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "813": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "814": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "815": {
+      "effect": "EFFECT_RAGE_FIST",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": true,
+      "sheerForceAffected": false
+    },
+    "816": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "817": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "818": {
+      "effect": "EFFECT_FAIL_IF_NOT_ARG_TYPE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "819": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "820": {
+      "effect": "EFFECT_REFLECT_DAMAGE",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "821": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "822": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "823": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "824": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "825": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "826": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "827": {
+      "effect": "EFFECT_TERRAIN_BOOST",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "828": {
+      "effect": "EFFECT_HYDRO_STEAM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "829": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "830": {
+      "effect": "EFFECT_ABSORB",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "831": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "832": {
+      "effect": "EFFECT_IVY_CUDGEL",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "833": {
+      "effect": "EFFECT_TWO_TURNS_ATTACK",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "834": {
+      "effect": "EFFECT_TERA_STARSTORM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "835": {
+      "effect": "EFFECT_FICKLE_BEAM",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "836": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "837": {
+      "effect": "EFFECT_SUCKER_PUNCH",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "838": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "839": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "840": {
+      "effect": "EFFECT_POWER_BASED_ON_TARGET_HP",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "841": {
+      "effect": "EFFECT_DRAGON_CHEER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "842": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "843": {
+      "effect": "EFFECT_STOMPING_TANTRUM",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "844": {
+      "effect": "EFFECT_RECOIL_IF_MISS",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "845": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "846": {
+      "effect": "EFFECT_UPPER_HAND",
+      "ordinary": false,
+      "makesContact": true,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "847": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "848": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "849": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "850": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "851": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "852": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "853": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "854": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "855": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "856": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "857": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "858": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "859": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "860": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "861": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "862": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "863": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "864": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "865": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "866": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "867": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "868": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "869": {
+      "effect": "EFFECT_EXTREME_EVOBOOST",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "870": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "871": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "872": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "873": {
+      "effect": "EFFECT_HIT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "874": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "875": {
+      "effect": "EFFECT_ICE_SPINNER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "876": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "877": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": true
+    },
+    "878": {
+      "effect": "EFFECT_FIXED_PERCENT_DAMAGE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "879": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "880": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "881": {
+      "effect": "EFFECT_PHOTON_GEYSER",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "882": {
+      "effect": "EFFECT_HIT",
+      "ordinary": true,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "883": {
+      "effect": "EFFECT_PROTECT",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "884": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "885": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "886": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "887": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "888": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "889": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "890": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "891": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "892": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "893": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "894": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "895": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "896": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "897": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "898": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "899": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "900": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "901": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "902": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "903": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "904": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "905": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "906": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "907": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "908": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "909": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "910": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "911": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "912": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "913": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "914": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "915": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "916": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "917": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "918": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "919": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "920": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "921": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "922": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "923": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "924": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "925": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "926": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "927": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "928": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "929": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "930": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "931": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "932": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "933": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    },
+    "934": {
+      "effect": "EFFECT_MAX_MOVE",
+      "ordinary": false,
+      "makesContact": false,
+      "punchingMove": false,
+      "sheerForceAffected": false
+    }
+  }
+}

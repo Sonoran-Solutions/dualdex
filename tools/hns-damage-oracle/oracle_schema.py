@@ -67,8 +67,8 @@ OPTION_STYLES = ("perMoveSplit", "typeBased")
 SURFACES = ("modelled", "engine-only")
 FORMATS = ("singles", "doubles")
 SIDES = ("player", "opponent")
-STATUSES = ("none", "burn", "poison", "toxic")
-WEATHERS = ("none", "rain", "sun")
+STATUSES = ("none", "burn", "poison", "toxic", "paralysis")
+WEATHERS = ("none", "rain", "sun", "sandstorm")
 EXPECTS = ("damage", "immune")
 BATTLER_KEYS = (
     "species", "speciesLabel", "level", "stats", "ability", "abilityLabel",
@@ -86,7 +86,9 @@ OBSERVED_KEYS = ("attacker", "defender", "move", "targetCount", "fieldStatuses")
 OBSERVED_BATTLER_KEYS = ("speciesId", "types", "baseStats", "abilityId", "itemId", "hpAtHit", "status1", "badgeBoosts", "terrainAffected")
 BASE_STAT_KEYS = ("hp", "attack", "defense", "spAttack", "spDefense", "speed")
 BADGE_BOOST_KEYS = ("attack", "defense", "spAttack", "spDefense")
-OBSERVED_MOVE_KEYS = ("id", "type", "power", "category", "target", "flags", "abilityFlags", "priority", "targetClass", "ateBoost")
+OBSERVED_MOVE_KEYS = ("id", "type", "power", "category", "target", "flags", "abilityFlags",
+                      "effect", "ordinary", "makesContact", "punchingMove", "sheerForceAffected",
+                      "priority", "targetClass", "ateBoost")
 MOVE_IMMUNITY_FLAGS = ("soundMove", "ballisticMove", "windMove", "healingMove", "ignoresTargetAbility")
 MOVE_ABILITY_FLAGS = ("punchingMove", "bitingMove", "pulseMove", "slicingMove")
 CATEGORIES = ("physical", "special")
@@ -178,10 +180,10 @@ def _validate_battler(b: Any, path: str, role: str) -> None:
     else:
         _require_label(b["itemLabel"], f"{path}.itemLabel")
     _require_enum(b["status"], STATUSES, f"{path}.status")
-    if role == "defender" and b["status"] != "none":
+    if role == "defender" and b["status"] not in ("none", "paralysis"):
         # A defender status would add end-of-turn HP changes to the measured battler and break the
         # HP-delta cross-check; no currently modelled defender mechanic reads it.
-        _fail(f"{path}.status", "defender status must be none")
+        _fail(f"{path}.status", "defender status may only be non-residual paralysis")
     stage_keys = ATTACKER_STAGE_KEYS if role == "attacker" else DEFENDER_STAGE_KEYS
     _require_keys(b["stages"], stage_keys, f"{path}.stages")
     for key in stage_keys:
@@ -294,6 +296,16 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
         _fail(f"{path}.move.abilityFlags", f"expected a list of supported base-power ability flags, got {ability_flags!r}")
     if ability_flags != sorted(set(ability_flags)):
         _fail(f"{path}.move.abilityFlags", "abilityFlags must be sorted and unique")
+    if not isinstance(move["effect"], str) or not move["effect"].startswith("EFFECT_"):
+        _fail(f"{path}.move.effect", "expected a pinned source move-effect symbol")
+    _require_bool(move["ordinary"], f"{path}.move.ordinary")
+    exact_group_d = {"ability:marvel-scale", "ability:flower-gift", "ability:sheer-force",
+                     "ability:tough-claws", "ability:fluffy"}
+    if scenario["surface"] == "modelled" and exact_group_d.intersection(scenario["tags"]) and not move["ordinary"]:
+        _fail(f"{path}.move.ordinary", "modelled low-state Group D scenarios must pass the source ordinary-move gate")
+    for key in ("makesContact", "punchingMove", "sheerForceAffected"):
+        if move[key] is not None and not isinstance(move[key], bool):
+            _fail(f"{path}.move.{key}", "source-derived tri-state metadata must be boolean or null")
     _require_int(move["priority"], f"{path}.move.priority", -8, 10)
     _require_int(move["targetClass"], f"{path}.move.targetClass", 0, 255)
     _require_bool(move["ateBoost"], f"{path}.move.ateBoost")

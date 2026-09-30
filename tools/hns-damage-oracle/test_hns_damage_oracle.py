@@ -39,15 +39,17 @@ def observed_for(s: dict) -> dict:
     battler = {"speciesId": 68, "types": ["Fighting"],
                "baseStats": {"hp": 90, "attack": 130, "defense": 80, "spAttack": 65, "spDefense": 85, "speed": 55},
                "abilityId": 15, "itemId": 0, "hpAtHit": s["attacker"]["stats"]["hp"],
-               "status1": {"none": 0, "poison": 8, "burn": 16, "toxic": 128}[s["attacker"]["status"]],
+               "status1": {"none": 0, "poison": 8, "burn": 16, "toxic": 128, "paralysis": 64}[s["attacker"]["status"]],
                "badgeBoosts": {"attack": False, "defense": False, "spAttack": False, "spDefense": False},
                "terrainAffected": s["field"]["terrain"] != "none"}
     dfn = copy.deepcopy(battler)
     dfn["hpAtHit"] = s["defender"]["stats"]["hp"]
-    dfn["status1"] = {"none": 0, "poison": 8, "burn": 16, "toxic": 128}[s["defender"]["status"]]
+    dfn["status1"] = {"none": 0, "poison": 8, "burn": 16, "toxic": 128, "paralysis": 64}[s["defender"]["status"]]
     return {"attacker": battler, "defender": dfn,
             "move": {"id": 157, "type": "Rock", "power": 75, "category": "physical", "target": "both",
-                     "flags": [], "abilityFlags": [], "priority": 0, "targetClass": 6, "ateBoost": False},
+                     "flags": [], "abilityFlags": [], "effect": "EFFECT_HIT", "ordinary": True,
+                     "makesContact": False, "punchingMove": False, "sheerForceAffected": None,
+                     "priority": 0, "targetClass": 6, "ateBoost": False},
             "targetCount": 1,
             "fieldStatuses": ({"none": 0, "grassy": 1 << 6, "electric": 1 << 8,
                                "misty": 1 << 7, "psychic": 1 << 9}[s["field"]["terrain"]]
@@ -454,7 +456,10 @@ class RunnerOutputTest(unittest.TestCase):
         self.assertEqual(entry["rolls"], sorted(entry["rolls"]))
         self.assertEqual(entry["observed"]["move"], {"id": 157, "type": "Rock", "power": 75,
                                                      "category": "physical", "target": "both", "flags": [],
-                                                     "abilityFlags": [], "priority": 0, "targetClass": 6,
+                                                     "abilityFlags": [], "effect": "EFFECT_HIT", "ordinary": True,
+                                                     "makesContact": False, "punchingMove": False,
+                                                     "sheerForceAffected": None,
+                                                     "priority": 0, "targetClass": 6,
                                                      "ateBoost": False})
         self.assertEqual(entry["observed"]["defender"]["types"], ["Normal"])
         self.assertEqual(entry["observed"]["attacker"]["status1"], 0)
@@ -681,7 +686,7 @@ class CommittedCorpusTest(unittest.TestCase):
                     self.assertEqual(raw_status & ~(0x80 | 0x0f00), 0,
                                      f"{scenario['id']} {role} unrelated status bits")
                 else:
-                    expected = {"none": 0, "poison": 8, "burn": 16}[status]
+                    expected = {"none": 0, "poison": 8, "burn": 16, "paralysis": 64}[status]
                     self.assertEqual(raw_status, expected, f"{scenario['id']} {role} raw status1")
 
     def test_group_d_oracle_pins_rewrite_type_category_and_ate_boost(self):
@@ -709,6 +714,50 @@ class CommittedCorpusTest(unittest.TestCase):
                 self.assertEqual((observed["type"], observed["category"], observed["ateBoost"]),
                                  (move_type, category, ate_boost))
                 self.assertEqual(len(entry["rolls"]), schema.ROLL_COUNT)
+
+    def test_low_state_group_d_corpus_records_source_predicates_and_controls(self):
+        doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
+        by_id = {entry["scenario"]["id"]: entry for entry in doc["entries"]}
+        expected_ids = {
+            "group-d-marvel-scale-physical-burn", "group-d-marvel-scale-physical-no-status",
+            "group-d-marvel-scale-special-status", "group-d-marvel-scale-status-stage-composition",
+            "group-d-marvel-scale-mold-breaker", "group-d-marvel-scale-ability-shield",
+            "group-d-flower-gift-attacker-sun-physical", "group-d-flower-gift-attacker-no-sun",
+            "group-d-flower-gift-wrong-form", "group-d-flower-gift-attacker-special",
+            "group-d-flower-gift-defender-sun-special", "group-d-flower-gift-defender-physical",
+            "group-d-flower-gift-attacker-umbrella", "group-d-flower-gift-defender-holder-umbrella",
+            "group-d-flower-gift-defender-cloud-nine", "group-d-tough-claws-fire-punch-contact",
+            "group-d-tough-claws-flamethrower-noncontact",
+            "group-d-tough-claws-protective-pads-still-contact", "group-d-sheer-force-scald-helper-positive",
+            "group-d-sheer-force-pay-day-helper-negative", "group-d-sheer-force-fire-blast-positive",
+            "group-d-sheer-force-defender-control", "group-d-fluffy-fire-noncontact-double",
+            "group-d-fluffy-fire-contact-neutral", "group-d-fluffy-nonfire-contact-half",
+            "group-d-fluffy-nonfire-noncontact-neutral", "group-d-fluffy-long-reach-suppresses-contact",
+            "group-d-fluffy-protective-pads-do-not-suppress-contact", "group-d-fluffy-mold-breaker",
+            "group-d-fluffy-ability-shield", "group-d-reckless-ordinary-hit-clear",
+            "group-d-sand-force-sandstorm-ground-engine-only", "group-d-sand-force-sandstorm-normal-clear",
+            "group-d-sand-force-sun-clear", "group-d-battery-singles-self-clear",
+            "group-d-battery-defender-singles-clear", "group-d-power-spot-singles-self-clear",
+            "group-d-power-spot-defender-singles-clear",
+        }
+        self.assertTrue(expected_ids.issubset(by_id))
+        for sid in expected_ids:
+            entry = by_id[sid]
+            self.assertEqual(len(entry["rolls"]), schema.ROLL_COUNT, sid)
+        self.assertTrue(by_id["group-d-tough-claws-fire-punch-contact"]["observed"]["move"]["makesContact"])
+        self.assertFalse(by_id["group-d-tough-claws-flamethrower-noncontact"]["observed"]["move"]["makesContact"])
+        self.assertTrue(by_id["group-d-sheer-force-scald-helper-positive"]["observed"]["move"]["sheerForceAffected"])
+        self.assertFalse(by_id["group-d-sheer-force-pay-day-helper-negative"]["observed"]["move"]["sheerForceAffected"])
+        for sid in ("group-d-tough-claws-protective-pads-still-contact",
+                    "group-d-fluffy-long-reach-suppresses-contact",
+                    "group-d-fluffy-protective-pads-do-not-suppress-contact"):
+            self.assertTrue(by_id[sid]["observed"]["move"]["makesContact"], sid)
+        for sid in ("group-d-tough-claws-protective-pads-still-contact",
+                    "group-d-fluffy-protective-pads-do-not-suppress-contact",
+                    "group-d-fluffy-mold-breaker",
+                    "group-d-sand-force-sandstorm-ground-engine-only",
+                    "group-d-sand-force-sandstorm-normal-clear"):
+            self.assertEqual(by_id[sid]["scenario"]["surface"], "engine-only", sid)
 
     def test_pinned_terrain_applicability_controls_and_gravity_overrides(self):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())

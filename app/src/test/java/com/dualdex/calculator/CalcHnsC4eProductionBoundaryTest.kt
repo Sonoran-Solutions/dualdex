@@ -2479,9 +2479,13 @@ class CalcHnsC4eProductionBoundaryTest {
     @Test
     fun `breakable defender Fire abilities refuse Mold Breaker and Ability Shield preserves them`() {
         val trust = trustFor(exactSha)
-        for ((abilityId, abilityName) in listOf(199 to "Water Bubble", 85 to "Heatproof")) {
+        for ((abilityId, abilityName, moveName) in listOf(
+            Triple(199, "Water Bubble", "Fire Punch"),
+            Triple(85, "Heatproof", "Fire Punch"),
+            Triple(218, "Fluffy", "Fire Blast")
+        )) {
             val attacker = playerObservation(abilityId = 104, abilityName = "Mold Breaker")
-            val fireRequest = goldenARequest("Fire Punch")
+            val fireRequest = goldenARequest(moveName)
             val unshielded = refusedOf(build(
                 trust, fireRequest, attacker,
                 enemyObservation(abilityId = abilityId, abilityName = abilityName),
@@ -3997,6 +4001,51 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals(0.0, result.effectiveness!!, 0.0)
         assertEquals("Volt Absorb", result.immunityCauses.single().name)
         assertEquals(10, engineRequest?.defender?.abilityId)
+    }
+
+    @Test
+    fun `source move contact and Sheer Force metadata reach engine serialization`() {
+        val contact = readyOf(
+            build(
+                trustFor(exactSha), goldenARequest("Fire Punch"), playerObservation(), enemyObservation()
+            ),
+            "Fire Punch is a source-derived ordinary contact move"
+        ).request
+        val contactJson = JSONObject(buildCalcRequestJson(contact)).getJSONObject("move")
+        assertEquals(true, contactJson.getBoolean("hnsMakesContact"))
+        assertTrue(contactJson.getJSONArray("hnsMoveAbilityFlags").let { flags ->
+            (0 until flags.length()).any { flags.getString(it) == "punchingMove" }
+        })
+        assertEquals("EFFECT_HIT", contactJson.getString("hnsMoveEffect"))
+
+        val affected = readyOf(
+            build(trustFor(exactSha), goldenARequest("Scald"), playerObservation(), enemyObservation()),
+            "Scald's pinned secondary-effect metadata is authoritative"
+        ).request
+        val affectedJson = JSONObject(buildCalcRequestJson(affected)).getJSONObject("move")
+        assertEquals(true, affectedJson.getBoolean("hnsSheerForceAffected"))
+
+        val unaffected = readyOf(
+            build(trustFor(exactSha), goldenARequest("Pay Day"), playerObservation(), enemyObservation()),
+            "Pay Day is not affected by Sheer Force in the pinned helper"
+        ).request
+        val unaffectedJson = JSONObject(buildCalcRequestJson(unaffected)).getJSONObject("move")
+        assertEquals(false, unaffectedJson.getBoolean("hnsSheerForceAffected"))
+    }
+
+    @Test
+    fun `Punching Glove suppresses Tough Claws contact but keeps its independent item blocker`() {
+        val gloveId = com.dualdex.pokemon.hns.HnsItemRegistry.resolveIdByName("Punching Glove")
+        val outcome = refusedOf(build(
+            trustFor(exactSha), goldenARequest("Fire Punch"),
+            playerObservation(abilityId = 181, abilityName = "Tough Claws", itemId = gloveId),
+            enemyObservation(), randomAbilities = true
+        ), "Punching Glove's own damage rule remains unsupported")
+        assertTrue(outcome.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals(
+            HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            outcome.verdict.hnsAbilityDecisions.single { it.abilityId == 181 }.relevance
+        )
     }
 
     @Test

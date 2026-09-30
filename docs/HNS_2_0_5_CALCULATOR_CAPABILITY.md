@@ -25,7 +25,10 @@ The stat modifier accumulator preserves each source factor's multiplication oper
 | Dragon's Maw | Attack stat | Final effective type is Dragon | ×1.5 (`6144` / `0x1800`) | `uq4_12_multiply` (half-up) |
 | Rocky Payload | Attack stat | Final effective type is Rock | ×1.5 (`6144` / `0x1800`) | `uq4_12_multiply` (half-up) |
 | Orichalcum Pulse | Attack stat | Physical + active Sun context + no Utility Umbrella | pinned ×1.3333 (`5461` / `0x1555`) | `uq4_12_multiply` (half-up) |
+| Flower Gift | Attack stat | Live Cherrim-Sunshine holder, Sun-affected, Physical | ×1.5 | `uq4_12_multiply_half_down` |
 | Fur Coat | Defense stat | The supported hit uses Defense | ×2.0 | `uq4_12_multiply_half_down` |
+| Marvel Scale | Defense stat | Defender has raw live status and the selected hit uses Defense | ×1.5 (`6144`) | `uq4_12_multiply_half_down` |
+| Flower Gift | Defense stat | Live Cherrim-Sunshine defender, Sun-affected, selected hit uses Sp. Def | ×1.5 | `uq4_12_multiply_half_down` |
 
 Half-up is not generalized to all stat modifiers. Solar Power, Defeatist, Hustle, Guts, pinch
 abilities, Thick Fat, and badges retain their source half-down operator. Every factor is composed
@@ -46,6 +49,53 @@ Utility Umbrella is not promoted, and the suppressors' independent capability ru
 Fur Coat is breakable under the centralized Mold Breaker and literal `ignoresTargetAbility`
 authority; unshielded relevant suppression remains refused, while Ability Shield preserves it.
 Active Wonder Room and nonordinary alternate-defense selections remain blocked.
+
+### Remaining low-state Group D — this slice
+
+The pinned-source conditional rules now model Marvel Scale (63), holder-side Singles Flower Gift
+(122), Sheer Force (125), Tough Claws (181), and Fluffy (218). Their request-local predicates use
+live effective ability/item, raw status, current species/form, selected effective type/category,
+existing weather/field, and source-generated move metadata. Marvel Scale and defender Flower Gift
+use the selected Defense/Sp. Def stat; Wonder Room stays blocked. Flower Gift's partner branch
+(`src/battle_util.c:7141-7149`) remains deferred with Doubles.
+
+Tough Claws and Fluffy share `HnsContactAuthority`: exact pinned move ID/effect, generated
+`MoveMakesContact` and punching metadata, effective attacker ability/item, and the ordinary-move
+gate produce CONTACT, NON_CONTACT, or UNKNOWN. Punching Glove suppresses contact only for source
+punching moves; Long Reach suppresses it; Protective Pads does not alter this helper. Shell Side
+Arm is explicitly outside the ordinary supported move surface. Sheer Force uses the source-derived
+`MoveIsAffectedBySheerForce` predicate, generated from pinned `AdditionalEffect` chance/override
+data; caller secondary-effect/contact assertions cannot override either fact. Punching Glove's own
+damage-item modifier remains an independent #92 blocker even when it suppresses contact.
+
+| Ability | Supported request-local outcome |
+|---|---|
+| Reckless (120) | Provably irrelevant for ordinary moves; recoil effects remain outside the ordinary gate. |
+| Sand Force (159) | Provably irrelevant outside Sandstorm; Sandstorm itself remains unsupported in production. |
+| Battery (217), Power Spot (249) | Provably irrelevant in observed Singles; partner/Doubles branch remains deferred. |
+
+The base-power ability accumulator uses `uq4_12_multiply` (half-up), then applies the composed
+product once to integer move power:
+
+| Ability | Source stage and exact predicate | Factor |
+|---|---|---:|
+| Sheer Force (125) | Attacker ability slot; generated `MoveIsAffectedBySheerForce(move)` is true | ×1.3 (`5325` / `0x14CD`) |
+| Sand Force (159) | Attacker slot; raw Sandstorm context and final effective type is Rock, Ground, or Steel | ×1.3 (`5325` / `0x14CD`) |
+| Tough Claws (181) | Attacker slot; shared contact authority returns CONTACT | ×1.3 (`5325` / `0x14CD`) |
+
+Fluffy (218) is a defender final-damage modifier: Fire/non-contact ×2.0 (`8192`), Fire/contact
+×1.0, non-Fire/contact ×0.5 (`2048`), and non-Fire/non-contact ×1.0. Its suppression follows
+the centralized breakable-ability policy and Ability Shield handling. Reckless (120), Battery
+(217), and Power Spot (249) add no positive production context here; their known false predicates
+clear only that ability's request-local limitation.
+
+The next state-reader-dependent Group D slice remains Slow Start (timer), Rivalry (gender),
+Analytic (actual move order), Stakeout (switch-in history), Supreme Overlord (fainted-party count),
+Protosynthesis and Quark Drive (boosted-stat/Booster Energy payload), Gorilla Tactics (selected
+Dynamax authority), Dark Aura/Fairy Aura/Aura Break (field-wide identities), and the four Ruin
+abilities (field-wide activation). Positive Battery/Power Spot and partner Steely Spirit also remain
+outside Singles. Parental Bond, Skill Link, #92 items, and other multi-hit/item paths are not part of
+this slice.
 
 Orichalcum Pulse checks `ctx->weather & B_WEATHER_SUN`, final Physical category, and the attacker's
 Utility Umbrella hold effect. It does not call `IsBattlerWeatherAffected`; however,
@@ -76,7 +126,7 @@ behavior remain outside the selected-hit result. Steely Spirit's separate attack
 remains deferred with unsupported Doubles topology.
 
 This stat slice models Solar Power, Defeatist, Fur Coat, Transistor, Dragon's Maw, Rocky Payload,
-and Orichalcum Pulse in their pinned Attack/Defense stages. It consumes only boundary-owned live
+Orichalcum Pulse, and holder-side Flower Gift in their pinned Attack/Defense stages. It consumes only boundary-owned live
 HP, item, ability, weather, field, and HnsMoveAuthority final type/category facts. It does not
 model Solar Power residual damage, Utility Umbrella as a general damage item, Orichalcum Pulse's
 separate weather-setting event, or Fur Coat under Wonder Room/nonordinary alternate-defense selection.
@@ -185,6 +235,44 @@ the other 10,428 trials prove the ability irrelevant. The pinned trainer corpus 
 displayable new lead pairs, both Falkner's, and 64 total request-level refusals became fully modelled.
 The ambiguous-opposite-ability cohort exclusions remain 16,974 attacker-side and 19,396
 defender-side requests.
+
+### This PR's low-state Group D census delta
+
+This comparison uses the exact starting `main` SHA `f822410fdb7d7798ca23b757a0cdc313266ec74f`
+and the full production-policy census over the same 651 pinned trainer battles and 24,278 eligible
+requests. `docs/HNS_CALC_CENSUS.md` and `tools/hns-calc-census/census.json.gz` contain the generated
+after-state; neither generated artifact was hand-edited.
+
+| Metric | Starting main | This PR | Change |
+|---|---:|---:|---:|
+| `FULLY_MODELLED` requests | 18,800 | 18,864 | +64 |
+| `CAVEATED_ESTIMATE` requests | 372 | 388 | +16 |
+| `REFUSED` requests | 5,106 | 5,026 | -80 |
+| Fully displaying lead matchups | 372 / 1,302 | 372 / 1,302 | unchanged |
+| Displayable requests in lead matchups | 6,676 | 6,690 | +14 |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 221 battles / 1,772 requests | 218 / 1,674 | -3 battles / -98 requests |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` | 80 battles / 276 requests | 82 / 286 | +2 battles / +10 requests |
+
+Random Abilities weighted trials change from 1,297,908 refused / 16,820 caveated / 2,462,932 clear
+to 1,193,722 / 16,820 / 2,567,118. Identities with at least one refusal fall from 180 to 176;
+caveated identities remain 4; clear-only identities rise from 127 to 131.
+
+| Ability | Random Abilities refused / caveated / clear, starting main → this PR |
+|---|---|
+| Marvel Scale (63) | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
+| Flower Gift (122) | 12,186 / 0 / 0 → 1,758 / 0 / 10,428 |
+| Sheer Force (125) | 12,186 / 0 / 0 → 0 / 0 / 12,186 |
+| Tough Claws (181) | 12,186 / 0 / 0 → 0 / 0 / 12,186 |
+| Fluffy (218) | 12,186 / 0 / 0 → 1,812 / 0 / 10,374 |
+| Reckless (120) | 12,186 / 0 / 0 → 0 / 0 / 12,186 |
+| Sand Force (159) | 12,186 / 0 / 0 → 0 / 0 / 12,186 |
+| Battery (217) | 12,186 / 0 / 0 → 80 / 0 / 12,106 |
+| Power Spot (249) | 12,186 / 0 / 0 → 80 / 0 / 12,106 |
+
+Battery and Power Spot retain 80 refused trials each because the census includes unsupported
+Doubles contexts. Marvel Scale and Flower Gift retain only their unresolved active contexts; Fluffy
+retains unknown contact contexts. The remaining trial counts are policy-proven clear outcomes, not
+claims that the positive branch is always inactive.
 
 The preceding Attack-stat slice remains in scope: Hustle (55) applies ×1.5 to an attacker-side
 Physical move; Guts (62) does the same when authoritative raw `status1 & STATUS1_ANY != 0` and
@@ -481,7 +569,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 3 | Type chart | Modern chart: Fairy present, Steel does **not** resist Ghost/Dark `[src/data/types_info.h:8]`, `:25`, `:35`, `:36` | **yes** — custom H&S type chart matrix (`hns_type_chart.json`) executed via request-local facade when `typeSystem: "hns_2_0_5"` without mutating global library state. Fairy toggle ON/OFF handled via `sPreFairyTypes` and `sFairyMoveAltTypes`. | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — type chart is exact and verified in QuickJS. Used by `calculateHnsDamage` for post-roll type effectiveness; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP C1/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
-| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy` and Groups C–D. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e / Groups C–D)** — current audit: 84 `PROVEN_NO_DAMAGE_EFFECT`, 54 `MODELLED_HNS_CONDITIONAL`, 173 `UNSUPPORTED_DAMAGE_RELEVANT`, and 0 unclassified. The conditional set includes Group C immunities, pinch abilities, Hustle/Guts, #105's nine base-power abilities plus defender Water Bubble and Heatproof, #106's six move-type abilities, Punk Rock, holder-side Steely Spirit, Adaptability, the nine final-modifier abilities, and Solar Power, Defeatist, and Fur Coat. Water Bubble burn prevention/status clearing and Steely Spirit's attacker-partner branch remain deferred. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
+| 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy` and Groups C–D. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e / Groups C–D)** — current audit: 84 `PROVEN_NO_DAMAGE_EFFECT`, 65 `MODELLED_HNS_CONDITIONAL`, 162 `UNSUPPORTED_DAMAGE_RELEVANT`, and 0 unclassified. Conditional support now includes Group C immunities, pinch abilities, Hustle/Guts, #105/#106 groups, Punk Rock, holder-side Steely Spirit, Adaptability, the final-modifier batch, Solar Power, Defeatist, Fur Coat, Transistor, Dragon's Maw, Rocky Payload, Orichalcum Pulse, Marvel Scale, holder-side Singles Flower Gift, Sheer Force, Tough Claws, and Fluffy; each uses its pinned request predicate. Reckless, Sand Force, Battery, and Power Spot gain request-local false-predicate clearance without broadening recoil, Sandstorm, or partner support. Water Bubble burn prevention/status clearing and Steely Spirit's attacker-partner branch remain deferred. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
 | 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629`, Wise Glasses `[src/data/items.h:10091]` | **identity yes; damage effects conditionally modelled** — exact item identity and the current battle item are consumed; Wise Glasses modelled specifically for H&S; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (585 neutral / 312 unsupported / 1 modelled / 3 unclassified); a known `RELEVANT` unsupported item may be neutralized and named in a caveated estimate only for an item-independent move. Proven-irrelevant and modelled items keep their existing paths; `UNKNOWN`, unclassified, unread, and unauthoritative identities remain hard. Item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
@@ -558,7 +646,7 @@ Only these individual behaviours are source-and-test demonstrated:
 | Thick Fat placement | halves the attack stat `[src/battle_util.c:7121]`, `:7191` | halves the attack/spAttack stat in `calculateHnsDamage` | **HOST-ORACLE MATCHES (Gap C4b partial / open)** |
 | Type chart | modern (Fairy present; Steel does not resist Ghost/Dark) | modern 19x19 H&S matrix via request-local facade | **MATCHES (Gap C1 closed)** |
 | Move category rule | per-move default, switchable to type-based via `optionStyle`; TYPE_BASED uses H&S `gTypesInfo` for the final effective type (Ghost Special, Dark Physical) | `move.overrides.category` is explicitly materialized by `CalcDataOverrides` and consumed by `entry.js` | **MATCHES (Gap A/B closed)** |
-| Abilities (supported subset) | 84 `PROVEN_NO_DAMAGE_EFFECT` and 58 `MODELLED_HNS_CONDITIONAL` abilities | Conditional support covers Group C immunities, the four pinch abilities, Hustle/Guts, #105's nine base-power abilities plus defender Water Bubble and Heatproof, #106's six move-type abilities, Punk Rock, holder-side Steely Spirit, Adaptability, the nine final modifiers, Solar Power, Defeatist, Fur Coat, Transistor, Dragon's Maw, Rocky Payload, and Orichalcum Pulse. Water Bubble burn prevention/status clearing and Steely Spirit partner support remain deferred. | **CONDITIONALLY AUTHORIZED** under the live operand gates and pinned inventory |
+| Abilities (supported subset) | 84 `PROVEN_NO_DAMAGE_EFFECT` and 65 `MODELLED_HNS_CONDITIONAL` abilities | Conditional support also covers Marvel Scale, holder-side Singles Flower Gift, Sheer Force, Tough Claws, and Fluffy. Reckless, Sand Force, Battery, and Power Spot have request-local relevance rules; unsupported recoil/weather/partner contexts remain independently gated. Water Bubble burn prevention/status clearing and Steely Spirit partner support remain deferred. | **CONDITIONALLY AUTHORIZED** under the live operand gates and pinned inventory |
 | Abilities (globally unsupported) | Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — known relevant unsupported abilities are named caveats after neutralization; unknown/unread/unclassified abilities remain hard, and proven-irrelevant contexts do not become caveats (§6.3, #86) |
 | Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items, Wise Glasses | identity consumed; Wise Glasses modelled, other damage items unmodelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — a known relevant unsupported item may become a named caveat for an item-independent request; unread/unresolved identity remains hard, and item-dependent moves remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7, #86) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
@@ -2034,7 +2122,7 @@ ordinary `EFFECT_HIT` subset:
 | `GetScreensModifier` | `battle_util.c:7527` | `IsDoubleBattle()` selects `UQ_4_12(0.667)` (Doubles) vs `UQ_4_12(0.5)` (Singles). Carried by `request.field.defenderSide` only after the live format gate confirms the observed Singles topology (§14.7.2); a Doubles battle refuses rather than applying the Singles multiplier. **Runtime not separately validated.** |
 | `GetCollisionCourseElectroDriftModifier` | `battle_util.c:7551` | Only `EFFECT_COLLISION_COURSE`; refused. |
 | `GetAttackerAbilitiesModifier` (`Neuroforce`/`Sniper`/`Tinted Lens`) | `battle_util.c:7558` | Modeled in the attacker final slot using exact effectiveness or the selected critical flag. |
-| `GetDefenderAbilitiesModifier` (`Multiscale`, `Shadow Shield`, `Filter`, `Solid Rock`, `Prism Armor`, `Punk Rock`, `Ice Scales`) | `battle_util.c:7580` | Low-state predicates are calculated in the defender final slot; Fluffy remains out of scope. Mold Breaker follows pinned ability breakability metadata. |
+| `GetDefenderAbilitiesModifier` (`Multiscale`, `Shadow Shield`, `Filter`, `Solid Rock`, `Prism Armor`, `Punk Rock`, `Ice Scales`, `Fluffy`) | `battle_util.c:7580` | Low-state predicates are calculated in the defender final slot, including Fluffy's exact effective-type/contact matrix. Mold Breaker follows pinned ability breakability metadata. |
 | `GetDefenderPartnerAbilitiesModifier` (`Friend Guard`) | `battle_util.c:7640` | Doubles-only; format blocked and ability unclassified. |
 | `GetAttackerItemsModifier` (`Metronome`, `Expert Belt`, `Life Orb`) | `battle_util.c:7656` | A known relevant item may be neutralized as a named estimate caveat; unknown item identity or relevance remains hard. |
 | `GetDefenderItemsModifier` (resist berries) | `battle_util.c:7682` | A known relevant item may be neutralized as a named estimate caveat; unknown item identity or relevance remains hard. |

@@ -28,7 +28,7 @@ internal object HnsGroupCPolicy {
     // prism_armor_mold_breaker_preserves, shadow_shield_mold_breaker_preserves,
     // filter_ability_shield_preserves, solid_rock_ability_shield_preserves,
     // multiscale_ability_shield_preserves, ice_scales_ability_shield_preserves.
-    private val defenderDamageAbilitiesBreakableByMoldBreaker = setOf(85, 87, 111, 116, 136, 169, 199, 244, 246)
+    private val defenderDamageAbilitiesBreakableByMoldBreaker = setOf(63, 85, 87, 111, 116, 122, 136, 169, 199, 218, 244, 246)
     private val finalModifierAbilitiesNotBreakableByMoldBreaker = setOf(231, 232)
     private const val ironBallItem = 484
     private const val ringTargetItem = 499
@@ -157,7 +157,10 @@ internal object HnsGroupCPolicy {
                     else -> hp == maxHp
                 }
             }
+            63 -> marvelScaleWouldChangeHit(request)
+            122 -> flowerGiftWouldChangeHit(request)
             169 -> furCoatWouldChangeHit(request)
+            218 -> fluffyWouldChangeHit(request)
             246 -> {
                 val moveId = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return true
                 HnsMoveAuthority.forRequest(request, ordinaryDamageMove(moveId)).category
@@ -182,6 +185,50 @@ internal object HnsGroupCPolicy {
             ?: return true
         val category = HnsMoveAuthority.forRequest(request, ordinaryDamageMove(moveId)).category
         return category == null || category == com.dualdex.pokemon.MoveCategory.PHYSICAL
+    }
+
+    private fun marvelScaleWouldChangeHit(request: DamageCalculationRequest): Boolean {
+        val live = request.hnsLiveBattleState ?: return true
+        val field = live.fieldStatuses ?: return true
+        if (field and com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0) return true
+        val id = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return true
+        if (HnsMoveAuthority.forRequest(request, ordinaryDamageMove(id)).category != com.dualdex.pokemon.MoveCategory.PHYSICAL) return false
+        val status = live.defenderStatus1 ?: return true
+        if (status and 0x1fff.inv() != 0) return true
+        return status and 0x10ff != 0
+    }
+
+    private fun flowerGiftWouldChangeHit(request: DamageCalculationRequest): Boolean {
+        val live = request.hnsLiveBattleState ?: return true
+        val species = live.defenderSpeciesId ?: return true
+        if (species != com.dualdex.pokemon.hns.HnsAbilityAuditData.CHERRIM_SUNSHINE_SPECIES_ID) return false
+        val id = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return true
+        val authority = HnsMoveAuthority.forRequest(request, ordinaryDamageMove(id))
+        if (authority.category == null) return true
+        if (authority.category == com.dualdex.pokemon.MoveCategory.PHYSICAL) return false
+        val field = live.fieldStatuses ?: return true
+        if (field and com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0) return true
+        val weather = live.weatherWord.takeIf { live.weatherObserved } ?: return true
+        if (weather and com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN == 0) return false
+        if ((live.attackerHp ?: return true) <= 0 || (live.defenderHp ?: return true) <= 0) return true
+        if (abilityId(request.attacker) in setOf(13, 76) || abilityId(request.defender) in setOf(13, 76)) return false
+        return itemId(request.defender) != HnsItemRegistry.resolveIdByName("Utility Umbrella")
+    }
+
+    private fun fluffyWouldChangeHit(request: DamageCalculationRequest): Boolean {
+        val id = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return true
+        val type = HnsMoveAuthority.forRequest(request, ordinaryDamageMove(id)).effectiveType ?: return true
+        val live = request.hnsLiveBattleState ?: return true
+        val contact = HnsContactRules.assess(
+            id, ordinaryDamageMove(id), abilityId(request.attacker),
+            request.attacker.origin == CalcInputOrigin.LIVE_READ && abilityId(request.attacker) != null,
+            itemId(request.attacker)
+        )
+        return when (contact) {
+            HnsContactAuthority.UNKNOWN -> true
+            HnsContactAuthority.CONTACT -> type != PokemonType.FIRE
+            HnsContactAuthority.NON_CONTACT -> type == PokemonType.FIRE
+        }
     }
 
     /** Exact pinned chart after HnsMoveAuthority's final type and observed H&S item rewrites. */

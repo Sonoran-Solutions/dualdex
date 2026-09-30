@@ -32,6 +32,7 @@ import re
 import shutil
 import subprocess
 import io
+import json
 import tarfile
 from pathlib import Path
 
@@ -42,6 +43,9 @@ from oracle_schema import (
     ROLL_COUNT,
     TYPE_NAMES,
 )
+
+MOVE_DAMAGE_METADATA = json.loads((Path(__file__).resolve().parent.parent /
+                                   "hns-move-mechanics/hns_move_damage_metadata.json").read_text())["moves"]
 
 TOOL_DIR = Path(__file__).resolve().parent
 PATCH_DIR = TOOL_DIR / "patches"
@@ -135,6 +139,8 @@ def plan_setup(scenario: dict) -> tuple[list[str], list[str], bool]:
         atk_actions.append("MOVE_RAIN_DANCE")
     elif weather == "sun" and not drought_establishes_sun:
         atk_actions.append("MOVE_SUNNY_DAY")
+    elif weather == "sandstorm":
+        atk_actions.append("MOVE_SANDSTORM")
     if scenario["field"]["reflect"]:
         def_actions.append("MOVE_REFLECT")
     if scenario["field"]["lightScreen"]:
@@ -209,6 +215,8 @@ static inline const char *DdxoStatus(u32 status1)
 {
     if (status1 == 0)
         return "none";
+    if (status1 == STATUS1_PARALYSIS)
+        return "paralysis";
     if (status1 == STATUS1_BURN)
         return "burn";
     if (status1 & STATUS1_TOXIC_POISON)
@@ -237,6 +245,8 @@ static inline const char *DdxoWeather(u32 weather)
         return "rain";
     if ((weather & B_WEATHER_SUN) && !(weather & ~B_WEATHER_SUN))
         return "sun";
+    if (weather == B_WEATHER_SANDSTORM)
+        return "sandstorm";
     return "other";
 }
 
@@ -304,7 +314,7 @@ static void DdxoHit(const char *id, u32 roll, enum Move move, u32 battlerAtk, u3
 '''
 
 STATUS_C = {"none": "0", "burn": "STATUS1_BURN", "poison": "STATUS1_POISON",
-            "toxic": "STATUS1_TOXIC_POISON"}
+            "toxic": "STATUS1_TOXIC_POISON", "paralysis": "STATUS1_PARALYSIS"}
 BADGE_FLAG_C = "FLAG_BADGE0%d_GET"
 
 
@@ -604,7 +614,7 @@ def _check_battler(sid: str, role: str, scen: dict, seen: dict,
         if toxic_word & 0x80 == 0 or toxic_word & ~(0x80 | 0x0f00) != 0:
             raise OracleError(f"{what}: invalid pinned toxic status word {toxic_word}")
     else:
-        expected_status1 = {"none": 0, "poison": 8, "burn": 16}[scen["status"]]
+        expected_status1 = {"none": 0, "poison": 8, "burn": 16, "paralysis": 64}[scen["status"]]
         if seen["status1"] != expected_status1:
             raise OracleError(f"{what}: raw status1 {seen['status1']} != expected pinned status1 {expected_status1}")
     post_hit_stage_deltas = post_hit_stage_deltas or {}
@@ -675,6 +685,9 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
         if hp_at_hit <= 0 or hp_at_hit > scenario["attacker"]["stats"]["hp"]:
             raise OracleError(f"{sid}: implausible attacker HP at the hit {hp_at_hit}")
         move_id = _int(m[0], f"{sid} M")
+        source_move = MOVE_DAMAGE_METADATA.get(str(move_id))
+        if source_move is None:
+            raise OracleError(f"{sid}: oracle matrix selected move without generated source metadata {move_id}")
         if _int(m[6], f"{sid} M") != move_id:
             raise OracleError(f"{sid}: attacker's last move {m[6]} is not the measured move {move_id}")
         if m[1] not in TYPE_NAMES:
@@ -721,6 +734,10 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
                          "badgeBoosts": dfn["badgeBoosts"], "terrainAffected": dfn["terrainAffected"]},
             "move": {"id": move_id, "type": m[1], "power": _int(m[2], f"{sid} M"), "category": m[3],
                      "target": m[4], "flags": flags, "abilityFlags": ability_flags,
+                     "effect": source_move["effect"], "ordinary": source_move["ordinary"],
+                     "makesContact": source_move["makesContact"],
+                     "punchingMove": source_move["punchingMove"],
+                     "sheerForceAffected": source_move["sheerForceAffected"],
                      "priority": _int(m[12], f"{sid} M priority"),
                      "targetClass": _int(m[13], f"{sid} M target class"),
                      "ateBoost": _int(m[18], f"{sid} M ateBoost") == 1},

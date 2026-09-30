@@ -329,11 +329,32 @@ const HNS_BREAKABLE_DEFENDER_ABILITIES = new Set([
   'Levitate', 'Wonder Guard',
   'Volt Absorb', 'Motor Drive', 'Lightning Rod', 'Water Absorb', 'Storm Drain', 'Dry Skin',
   'Sap Sipper', 'Earth Eater', 'Well-Baked Body', 'Flash Fire',
+  'Marvel Scale', 'Flower Gift',
   'Soundproof', 'Bulletproof', 'Wind Rider',
   'Queenly Majesty', 'Dazzling', 'Armor Tail',
   'Heatproof', 'Water Bubble',
-  'Filter', 'Solid Rock', 'Multiscale', 'Ice Scales', 'Punk Rock', 'Fur Coat'
+  'Filter', 'Solid Rock', 'Multiscale', 'Ice Scales', 'Punk Rock', 'Fur Coat', 'Fluffy'
 ]);
+
+// One source-backed IsMoveMakingContact decision shared by Tough Claws and Fluffy.
+// Shell Side Arm is EFFECT_SHELL_SIDE_ARM and remains outside the ordinary request gate.
+function hnsContactAuthority(move, attacker, input) {
+  const id = input.move?.hnsMoveId;
+  if (!Number.isInteger(id) || input.move?.hnsIsOrdinary !== true || input.move?.hnsMoveEffect !== 'EFFECT_HIT' ||
+      input.move?.hnsUnknownContact === true || typeof input.move?.hnsMakesContact !== 'boolean') return null;
+  if (!input.move.hnsMakesContact) return false;
+  const flags = new Set(input.move?.hnsMoveAbilityFlags || []);
+  if (input.move?.hnsUnknownPunching === true || typeof attacker.ability !== 'string' || !attacker.ability)
+    return null;
+  const itemId = input.attacker?.hnsEffectiveItemId;
+  const item = String(attacker.item || '').toLowerCase();
+  if (flags.has('punchingMove')) {
+    if (itemId === 760 || item === 'punching glove') return false;
+    if (itemId === undefined && !item) return null;
+  }
+  if (attacker.ability === 'Long Reach') return false;
+  return true;
+}
 
 function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // The H&S request adapter supplies the already-authorized effective type here. Keep the
@@ -623,6 +644,11 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       break;
   }
 
+  if (attacker.ability === 'Flower Gift' && input.attacker?.hnsSpeciesId === 1061 && isPhysical &&
+      isBattlerWeatherAffected(attacker, 'Sun', field, attacker, defender, input)) {
+    attackModifier.addHalfDown(6144);
+  }
+
   if (defender.ability === 'Thick Fat' && (effectiveMoveType === 'Fire' || effectiveMoveType === 'Ice')) {
     attackModifier.addHalfDown(2048);
   }
@@ -639,6 +665,17 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   }
   const wonderRoomActive = (hnsFieldStatuses & 0x4) !== 0;
   const usesDefStat = wonderRoomActive ? isSpecial : isPhysical;
+  const defenderStatus1 = input.defender?.status1;
+  const defenderStatusKnown = Number.isInteger(defenderStatus1) && (defenderStatus1 & ~0x1fff) === 0;
+  if (defender.ability === 'Marvel Scale' && !defenderAbilitySuppressed && usesDefStat &&
+      defenderStatusKnown && (defenderStatus1 & HNS_STATUS1_ANY_MASK) !== 0) {
+    defenseModifier.addHalfDown(6144);
+  }
+  if (defender.ability === 'Flower Gift' && !defenderAbilitySuppressed &&
+      input.defender?.hnsSpeciesId === 1061 && !usesDefStat &&
+      isBattlerWeatherAffected(defender, 'Sun', field, attacker, defender, input)) {
+    defenseModifier.addHalfDown(6144);
+  }
   if (defender.ability === 'Grass Pelt' && !defenderAbilitySuppressed &&
       (hnsFieldStatuses & 0x40) !== 0 && usesDefStat) {
     // Pinned CalcDefenseStat applies Grass Pelt after Fur Coat with the half-down operator.
@@ -656,6 +693,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // unchanged before Technician's `basePower <= 60` check. Matching move flags are generated
   // from the pinned MoveInfo table and rebound by move ID; caller move data cannot set them.
   const abilityMoveFlags = new Set(input.move?.hnsMoveAbilityFlags || []);
+  const contactAuthority = hnsContactAuthority(move, attacker, input);
   const ateBoost = input.move?.overrides?.ateBoost === true;
   const status1 = input.attacker?.status1;
   const statusKnown = Number.isInteger(status1) && (status1 & ~0x1fff) === 0;
@@ -683,6 +721,19 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   switch (attacker.ability) {
     case 'Technician':
       if (move.bp <= 60) basePowerModifier.add(6144);
+      break;
+    case 'Sheer Force':
+      if (input.move?.hnsSheerForceAffected === true && input.move?.hnsUnknownSheerForce !== true)
+        basePowerModifier.addHalfUp(5325);
+      break;
+    case 'Sand Force': {
+      const rawWeather = input.field?.hnsWeatherWord;
+      if (Number.isInteger(rawWeather) && (rawWeather & 0x20) !== 0 &&
+          ['Steel', 'Rock', 'Ground'].includes(effectiveMoveType)) basePowerModifier.addHalfUp(5325);
+      break;
+    }
+    case 'Tough Claws':
+      if (contactAuthority === true) basePowerModifier.addHalfUp(5325);
       break;
     case 'Iron Fist':
       if (abilityMoveFlags.has('punchingMove')) basePowerModifier.add(4915);
@@ -867,6 +918,10 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     case 'Ice Scales':
       if (move.category === 'Special') defenderAbilityFinalModifier = 2048;
       break;
+    case 'Fluffy':
+      if (effectiveMoveType === 'Fire' && contactAuthority === false) defenderAbilityFinalModifier = 8192;
+      else if (effectiveMoveType !== 'Fire' && contactAuthority === true) defenderAbilityFinalModifier = 2048;
+      break;
   }
   if (rawAttackerSpeed >= rawDefenderSpeed) {
     otherFinalModifier.add(attackerAbilityFinalModifier);
@@ -944,8 +999,9 @@ function isBattlerWeatherAffected(battler, requestedWeather, field, attacker, de
   if (liveAbilities.includes('Cloud Nine') || liveAbilities.includes('Air Lock')) return false;
   // Utility Umbrella is consumed here only to decide the holder's weather-affected predicate;
   // the separate item capability policy remains responsible for its independent limitation.
-  const item = String(input.attacker?.item || battler.item || '').toLowerCase();
-  if (input.attacker?.hnsEffectiveItemId === 513 || item === 'utility umbrella') return false;
+  const holder = battler === attacker ? input.attacker : input.defender;
+  const item = String(holder?.item || battler.item || '').toLowerCase();
+  if (holder?.hnsEffectiveItemId === 513 || item === 'utility umbrella') return false;
   return true;
 }
 

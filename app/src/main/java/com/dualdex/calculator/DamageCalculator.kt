@@ -196,6 +196,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 live.attackerHp?.let { put("hp", it) }
                 live.attackerMaxHp?.let { put("maxHP", it) }
                 live.attackerStatus1?.let { put("status1", it) }
+                live.attackerSpeciesId?.let { put("hnsSpeciesId", it) }
             }
             request.hnsLiveBattleState?.attackerRawStats?.let { raw ->
                 put("rawStats", JSONObject().apply {
@@ -226,6 +227,12 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             put("species", request.defender.species)
             put("level", request.defender.level)
             request.defender.item?.let { put("item", it) }
+            if (request.defender.itemProvenance == CalcItemProvenance.BATTLE_EFFECTIVE) {
+                request.defender.itemId?.let { put("hnsEffectiveItemId", it) }
+            }
+            if (request.defender.itemProvenance == CalcItemProvenance.BATTLE_EFFECTIVE) {
+                request.defender.itemId?.let { put("hnsEffectiveItemId", it) }
+            }
             request.defender.nature?.let { put("nature", it) }
             request.defender.ability?.let { put("ability", it) }
             request.defender.curHP?.let { put("curHP", it) }
@@ -288,6 +295,10 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             request.hnsLiveBattleState?.let { live ->
                 live.defenderHp?.let { put("hpAtHit", it) }
                 live.defenderMaxHp?.let { put("maxHpAtHit", it) }
+                live.defenderStatus1?.let { put("status1", it) }
+                live.defenderSpeciesId?.let { put("hnsSpeciesId", it) }
+                live.defenderStatus1?.let { put("status1", it) }
+                live.defenderSpeciesId?.let { put("hnsSpeciesId", it) }
             }
             if (request.typeSystem == "hns_2_0_5") {
                 put(
@@ -344,12 +355,24 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                         false, null -> hnsMoveFlags -= "soundMove"
                     }
                     put("hnsMoveId", moveId)
+                    put("hnsMoveEffect", com.dualdex.pokemon.hns.Hns205MoveEffects.effectById[moveId])
+                    put("hnsIsOrdinary", hnsOrdinaryMove == true)
                     put("hnsMoveFlags", JSONArray(
                         hnsMoveFlags.sorted()
                     ))
                     put("hnsMoveAbilityFlags", JSONArray(
                         com.dualdex.pokemon.hns.Hns205MoveEffects.abilityMoveFlagsById[moveId].orEmpty().sorted()
                     ))
+                    put("hnsUnknownPunching", com.dualdex.pokemon.hns.Hns205MoveEffects
+                        .unknownAbilityMoveFlagsById[moveId]?.contains("punchingMove") == true)
+                    com.dualdex.pokemon.hns.Hns205MoveEffects.makesContactById[moveId]?.let {
+                        put("hnsMakesContact", it)
+                    }
+                    put("hnsUnknownContact", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.unknownContactMoveIds)
+                    com.dualdex.pokemon.hns.Hns205MoveEffects.sheerForceAffectedById[moveId]?.let {
+                        put("hnsSheerForceAffected", it)
+                    }
+                    put("hnsUnknownSheerForce", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.unknownSheerForceMoveIds)
                     com.dualdex.pokemon.hns.Hns205MoveEffects.unknownImmunityFlagsById[moveId]?.let {
                         put("hnsUnknownMoveFlags", JSONArray(it.sorted()))
                     }

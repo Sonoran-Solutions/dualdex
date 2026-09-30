@@ -65,6 +65,7 @@ object HnsAbilityContextPolicy {
         55, 62, // Hustle / Guts, Group D Attack stage
         94, 129, 169, 179, 262, 263, 276, 288, 289, // Group D stat stages and field-backed stat modifiers
         89, 91, 96, 97, 101, 110, 111, 116, 136, 137, 138, 173, 174, 178, 182, 184,
+        63, 122, 125, 181, 218,
         85, 199, 200, 204, 206, 231, 232, 233, 244, 246, 252, 292
         // Normalize / -ate / Liquid Voice, Group D move-type and base-power stage
     )
@@ -81,13 +82,16 @@ object HnsAbilityContextPolicy {
         val moveCategory: MoveCategory?,
         val attackerTypes: Set<PokemonType>?,
         val defenderSpeciesId: Int?,
+        val attackerSpeciesId: Int? = null,
         val defenderHp: Int?,
         val defenderMaxHp: Int?,
         val attackerStatus1: Int?,
+        val defenderStatus1: Int? = null,
         val moveId: Int? = null,
         val moveBasePower: Int? = null,
         val moveAbilityFlags: Set<String>? = null,
         val unknownMoveAbilityFlags: Set<String>? = null,
+        val sheerForceAffected: Boolean? = null,
         /** Literal pinned MoveInfo.soundMove; null means source metadata is unknown. */
         val soundMove: Boolean? = null,
         val observedBattlersCount: Int?,
@@ -910,6 +914,120 @@ object HnsAbilityContextPolicy {
                 "Friend Guard modifies damage to an ally; an authoritative Singles battle has none.")
             57, 58 -> singlesProof(c, "plus_minus_singles_no_partner", "src/battle_util.c:7026",
                 "Plus/Minus boosts the holder's Special Attack only with an active partner.")
+            63 -> when {
+                c.side == HnsAbilitySide.ATTACKER -> proof("marvel_scale_attacker_side", "src/battle_util.c:7280",
+                    "Marvel Scale is read only in CalcDefenseStat for the defender.")
+                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != 63 || c.moveCategory == null || c.fieldStatuses == null ->
+                    unknownProof("marvel_scale_operands_unknown", "src/battle_util.c:7226, src/battle_util.c:7280-7284",
+                        "Marvel Scale requires the selected-hit defense-stat choice, raw defender status1, and observed field word.")
+                c.fieldStatuses and com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0 ->
+                    unknownProof("marvel_scale_wonder_room_active", "src/battle_util.c:7226, src/battle_util.c:7280-7284",
+                        "Wonder Room changes usesDefStat and remains blocked by the field policy.")
+                c.moveCategory != MoveCategory.PHYSICAL -> proof("marvel_scale_special_uses_spdef", "src/battle_util.c:7280-7284",
+                    "With Wonder Room inactive, a Special hit selects Sp. Def and Marvel Scale's usesDefStat predicate is false.")
+                c.defenderStatus1 == null || (c.defenderStatus1 and HNS_STATUS1_DEFINED_MASK.inv()) != 0 ->
+                    unknownProof("marvel_scale_status_unknown", "src/battle_util.c:7280-7284",
+                        "The raw defender status1 word is unread or invalid; display text is not accepted.")
+                (c.defenderStatus1 and HNS_STATUS1_ANY_MASK) == 0 -> proof("marvel_scale_no_status", "src/battle_util.c:7280-7284",
+                    "The valid raw defender status1 word has no STATUS1_ANY bit.")
+                else -> relevant("marvel_scale_physical_status", "src/battle_util.c:7280-7284",
+                    "Physical selects Defense with Wonder Room clear, and raw defender status1 has STATUS1_ANY; the ×1.5 Defense-stage modifier is modelled.")
+            }
+            122 -> when {
+                !abilityObserved(c) || c.ordinaryMove != true || c.moveCategory == null || c.fieldStatuses == null ->
+                    unknownProof("flower_gift_operands_unknown", "src/battle_util.c:7044-7046, 7303-7305",
+                        "Flower Gift requires authoritative ordinary move category, live current form, field word, weather and holder item.")
+                c.fieldStatuses and com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0 && c.side == HnsAbilitySide.DEFENDER ->
+                    unknownProof("flower_gift_wonder_room_active", "src/battle_util.c:7226, 7303-7305",
+                        "Wonder Room changes the defender usesDefStat selection and remains blocked.")
+                c.side == HnsAbilitySide.ATTACKER && c.attackerAbilityId != 122 -> proof("flower_gift_attacker_side", "src/battle_util.c:7044-7046",
+                    "The request ability is not the attacker-side Flower Gift holder.")
+                c.side == HnsAbilitySide.DEFENDER && c.defenderAbilityId != 122 -> proof("flower_gift_defender_side", "src/battle_util.c:7303-7305",
+                    "The request ability is not the defender-side Flower Gift holder.")
+                (if (c.side == HnsAbilitySide.ATTACKER) c.attackerSpeciesId else c.defenderSpeciesId) == null ->
+                    unknownProof("flower_gift_form_unknown", "src/battle_util.c:7044-7046, 7303-7305",
+                        "The holder's exact live battle species/form ID is required.")
+                (if (c.side == HnsAbilitySide.ATTACKER) c.attackerSpeciesId else c.defenderSpeciesId) != HnsAbilityAuditData.CHERRIM_SUNSHINE_SPECIES_ID ->
+                    proof("flower_gift_not_cherrim_sunshine", "src/battle_util.c:7044-7046, 7303-7305",
+                        "The live current holder form is not SPECIES_CHERRIM_SUNSHINE.")
+                c.side == HnsAbilitySide.ATTACKER && c.moveCategory != MoveCategory.PHYSICAL -> proof("flower_gift_attacker_special", "src/battle_util.c:7044-7046",
+                    "The attacker-side Flower Gift branch applies only to Physical moves.")
+                c.side == HnsAbilitySide.DEFENDER && c.moveCategory == MoveCategory.PHYSICAL -> proof("flower_gift_defender_physical", "src/battle_util.c:7303-7305",
+                    "With Wonder Room clear, Physical selects Defense, so the defender's !usesDefStat branch is false.")
+                !c.weatherObserved || c.weatherWord == null -> unknownProof("flower_gift_weather_unknown", "src/battle_util.c:9530-9535",
+                    "The live weather and HasWeatherEffect prerequisites must be authoritative.")
+                (c.weatherWord and com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN) == 0 -> proof("flower_gift_without_sun", "src/battle_util.c:9525-9535",
+                    "The observed raw weather has no B_WEATHER_SUN bit.")
+                c.attackerHp == null || c.defenderHp == null || c.attackerHp <= 0 || c.defenderHp <= 0 -> unknownProof("flower_gift_liveness_unknown", "src/battle_util.c:9525-9535",
+                    "HasWeatherEffect excludes fainted battlers; positive live HP is required to decide weather suppression.")
+                c.attackerAbilityId in WEATHER_SUPPRESSOR_IDS || c.defenderAbilityId in WEATHER_SUPPRESSOR_IDS -> proof("flower_gift_weather_suppressed", "src/battle_util.c:9525-9535",
+                    "Cloud Nine or Air Lock suppresses HasWeatherEffect for all battlers.")
+                (if (c.side == HnsAbilitySide.ATTACKER) c.attackerItemId else c.defenderItemId) == null -> unknownProof("flower_gift_holder_item_unknown", "src/battle_util.c:9525-9535",
+                    "Utility Umbrella must be checked on the actual Flower Gift holder.")
+                (if (c.side == HnsAbilitySide.ATTACKER) c.attackerItemId else c.defenderItemId) == HnsItemRegistry.resolveIdByName("Utility Umbrella") -> proof("flower_gift_holder_umbrella", "src/battle_util.c:9525-9535",
+                    "The Flower Gift holder's Utility Umbrella suppresses its weather applicability; the independent item limitation remains.")
+                else -> relevant(if (c.side == HnsAbilitySide.ATTACKER) "flower_gift_attacker_sun_physical" else "flower_gift_defender_sun_special",
+                    if (c.side == HnsAbilitySide.ATTACKER) "src/battle_util.c:7044-7046" else "src/battle_util.c:7303-7305",
+                    "The live Cherrim-Sunshine holder is affected by Sun; the applicable holder-side Singles stat modifier is implemented. Partner/Doubles behavior remains unsupported.")
+            }
+            125 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof("sheer_force_defender_side", "src/battle_util.c:6675-6677",
+                    "Sheer Force is read only in the attacker base-power ability slot.")
+                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != 125 -> null
+                c.sheerForceAffected == null || c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.unknownSheerForceMoveIds ->
+                    unknownProof("sheer_force_predicate_unknown", "src/battle_util.c:6675-6677, 9757-9773",
+                        "The exact source-generated MoveIsAffectedBySheerForce result is unresolved.")
+                c.sheerForceAffected == true -> relevant("sheer_force_source_predicate_true", "src/battle_util.c:6675-6677, 9757-9773",
+                    "The pinned helper predicate is true for this move; its ×1.3 base-power factor is modelled.")
+                else -> proof("sheer_force_source_predicate_false", "src/battle_util.c:6675-6677, 9757-9773",
+                    "The source-derived helper predicate is false; generic secondary-effect presence is not used as a substitute.")
+            }
+            181 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof("tough_claws_defender_side", "src/battle_util.c:6694-6696",
+                    "Tough Claws is read only in the attacker base-power ability slot.")
+                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != 181 -> null
+                else -> when (HnsContactRules.assess(c.moveId, c.ordinaryMove, c.attackerAbilityId, c.attackerAbilityObserved, c.attackerItemId)) {
+                    HnsContactAuthority.CONTACT -> relevant("tough_claws_contact", "src/battle_util.c:6694-6696, 5868-5885",
+                        "The shared pinned contact authority returns CONTACT; Tough Claws applies ×1.3 base power.")
+                    HnsContactAuthority.NON_CONTACT -> proof("tough_claws_noncontact", "src/battle_util.c:6694-6696, 5868-5885",
+                        "The shared pinned contact authority returns NON_CONTACT; Tough Claws is inactive.")
+                    HnsContactAuthority.UNKNOWN -> unknownProof("tough_claws_contact_unknown", "src/battle_util.c:5868-5885",
+                        "Pinned contact metadata or current effective Long Reach/Punching Glove operands are unknown.")
+                }
+            }
+            218 -> when {
+                c.side == HnsAbilitySide.ATTACKER -> proof("fluffy_attacker_side", "src/battle_util.c:7604-7614",
+                    "Fluffy is read only from the defender ability slot.")
+                c.ordinaryMove != true || !abilityObserved(c) || !c.attackerAbilityObserved || c.defenderAbilityId != 218 || effectiveMoveType(c) == null ->
+                    unknownProof("fluffy_operands_unknown", "src/battle_util.c:7604-7614",
+                        "Fluffy requires the selected ordinary hit's final effective type and shared contact authority.")
+                else -> when (HnsContactRules.assess(c.moveId, c.ordinaryMove, c.attackerAbilityId, c.attackerAbilityObserved, c.attackerItemId)) {
+                    HnsContactAuthority.UNKNOWN -> unknownProof("fluffy_contact_unknown", "src/battle_util.c:5868-5885, 7604-7614",
+                        "Pinned contact metadata or current effective Long Reach/Punching Glove operands are unknown.")
+                    HnsContactAuthority.CONTACT -> if (effectiveMoveType(c) == PokemonType.FIRE)
+                        proof("fluffy_fire_contact_neutral", "src/battle_util.c:7604-7614", "Fire + contact is neutral under the pinned Fluffy matrix.")
+                    else relevant("fluffy_nonfire_contact_half", "src/battle_util.c:7604-7614", "Non-Fire + contact uses the pinned ×0.5 defender final modifier.")
+                    HnsContactAuthority.NON_CONTACT -> if (effectiveMoveType(c) == PokemonType.FIRE)
+                        relevant("fluffy_fire_noncontact_double", "src/battle_util.c:7604-7614", "Fire + non-contact uses the pinned ×2.0 defender final modifier.")
+                    else proof("fluffy_nonfire_noncontact_neutral", "src/battle_util.c:7604-7614", "Non-Fire + non-contact is neutral under the pinned Fluffy matrix.")
+                }
+            }
+            120 -> if (c.side == HnsAbilitySide.DEFENDER || c.ordinaryMove == true)
+                proof("reckless_ordinary_move_not_recoil", "src/battle_util.c:6667-6670",
+                    "The exact ordinary move surface contains only EFFECT_HIT; recoil effects remain refused by the independent move gate.") else null
+            159 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof("sand_force_defender_side", "src/battle_util.c:6679-6682", "Sand Force is read only in the attacker base-power slot.")
+                c.ordinaryMove != true || effectiveMoveType(c) == null -> null
+                !c.weatherObserved || c.weatherWord == null -> unknownProof("sand_force_weather_unknown", "src/battle_util.c:6679-6682", "The authoritative raw weather word is required.")
+                effectiveMoveType(c) !in setOf(PokemonType.STEEL, PokemonType.ROCK, PokemonType.GROUND) -> proof("sand_force_nonmatching_type", "src/battle_util.c:6679-6682", "The final move type is outside Steel/Rock/Ground, so Sand Force is inactive.")
+                (c.weatherWord and 0x20) == 0 -> proof("sand_force_without_sandstorm", "src/battle_util.c:6679-6682", "The observed raw weather has no B_WEATHER_SANDSTORM bit.")
+                else -> relevant("sand_force_sandstorm_matching_type", "src/battle_util.c:6679-6682", "Sand Force's base-power branch is modelled; independent Sandstorm damage limitations still refuse production execution.")
+            }
+            217, 249 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof("partner_ability_defender_side", "src/battle_util.c:6763-6774", "Battery and Power Spot are read only from the living attacker partner.")
+                c.observedBattlersCount == 2 -> proof("partner_ability_singles_no_partner", "src/battle_util.c:6763-6774", "An authoritative Singles battle has no living attacker partner; the holder's own ability cannot boost its move.")
+                else -> null
+            }
             else -> null
         }
 
@@ -970,9 +1088,11 @@ object HnsAbilityContextPolicy {
             moveCategory = authority.category,
             attackerTypes = parsedTypes(rawAttackerTypes),
             defenderSpeciesId = live?.defenderSpeciesId,
+            attackerSpeciesId = live?.attackerSpeciesId,
             defenderHp = live?.defenderHp,
             defenderMaxHp = live?.defenderMaxHp,
             attackerStatus1 = live?.attackerStatus1,
+            defenderStatus1 = live?.defenderStatus1,
             moveId = moveId,
             moveBasePower = pinnedMove?.power,
             moveAbilityFlags = moveId?.let {
@@ -980,6 +1100,9 @@ object HnsAbilityContextPolicy {
             },
             unknownMoveAbilityFlags = moveId?.let {
                 com.dualdex.pokemon.hns.Hns205MoveEffects.unknownAbilityMoveFlagsById[it].orEmpty()
+            },
+            sheerForceAffected = moveId?.let {
+                com.dualdex.pokemon.hns.Hns205MoveEffects.sheerForceAffectedById[it]
             },
             soundMove = authority.soundMove,
             observedBattlersCount = live?.observedBattlersCount,

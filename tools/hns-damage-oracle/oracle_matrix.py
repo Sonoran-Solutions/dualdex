@@ -51,7 +51,7 @@ SPECIES = {
     "Togekiss": ("Fairy", "Flying"), "Corvisquire": ("Flying",), "Totodile": ("Water",),
     "Tyranitar": ("Rock", "Dark"), "Umbreon": ("Dark",), "Vaporeon": ("Water",),
     "Venusaur": ("Grass", "Poison"), "Azumarill": ("Water", "Fairy"), "Glaceon": ("Ice",),
-    "Garchomp": ("Dragon", "Ground"),
+    "Garchomp": ("Dragon", "Ground"), "Cherrim": ("Grass",), "Cherrim-Sunshine": ("Grass",),
 }
 
 # label -> (planning type, planning per-move category, planning power)
@@ -81,7 +81,7 @@ MOVES = {
     "Sunsteel Strike": ("Steel", "physical", 100),
     "Fire Punch": ("Fire", "physical", 75), "Fire Fang": ("Fire", "physical", 65),
     "Flamethrower": ("Fire", "special", 90), "Ember": ("Fire", "special", 40),
-    "Fire Blast": ("Fire", "special", 110),
+    "Fire Blast": ("Fire", "special", 110), "Scald": ("Water", "special", 80), "Pay Day": ("Normal", "physical", 40),
     "Heat Wave": ("Fire", "special", 95),
     "Waterfall": ("Water", "physical", 80), "Crabhammer": ("Water", "physical", 100),
     "Surf": ("Water", "special", 90), "Water Gun": ("Water", "special", 40),
@@ -1582,12 +1582,126 @@ def _doubles() -> list[dict]:
     return out
 
 
+def _remaining_group_d() -> list[dict]:
+    """Low-state Group D ability predicates that need no additional runtime readers."""
+    out = []
+    marvel = ("ABILITY_MARVEL_SCALE", "Marvel Scale")
+    flower = ("ABILITY_FLOWER_GIFT", "Flower Gift")
+    tough = ("ABILITY_TOUGH_CLAWS", "Tough Claws")
+    sheer = ("ABILITY_SHEER_FORCE", "Sheer Force")
+    fluffy = ("ABILITY_FLUFFY", "Fluffy")
+    out.extend((
+        scenario("group-d-marvel-scale-physical-burn", ["ability:marvel-scale", "defense-stage", "status:paralysis"],
+                 attacker("Machamp", atk=151), defender("Snorlax", dfn=109, status="paralysis", ability=marvel), "Strength"),
+        scenario("group-d-marvel-scale-physical-no-status", ["ability:marvel-scale", "defense-stage", "negative-control"],
+                 attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=marvel), "Strength"),
+        scenario("group-d-marvel-scale-special-status", ["ability:marvel-scale", "defense-stage", "negative-control", "status:paralysis"],
+                 attacker("Porygon", spa=151), defender("Snorlax", spd=109, status="paralysis", ability=marvel), "Psychic"),
+        scenario("group-d-marvel-scale-status-stage-composition", ["ability:marvel-scale", "defense-stage", "modifier-stacking", "status:paralysis"],
+                 attacker("Machamp", atk=151), defender("Snorlax", dfn=109, status="paralysis", stages={"defense": 1}, ability=marvel), "Strength"),
+        scenario("group-d-marvel-scale-mold-breaker", ["ability:marvel-scale", "mold-breaker", "suppression", "engine-only", "status:paralysis"],
+                 attacker("Machamp", atk=151, ability=("ABILITY_MOLD_BREAKER", "Mold Breaker")),
+                 defender("Snorlax", dfn=109, status="paralysis", ability=marvel), "Strength", surface="engine-only"),
+        scenario("group-d-marvel-scale-ability-shield", ["ability:marvel-scale", "mold-breaker", "ability-shield", "status:paralysis"],
+                 attacker("Machamp", atk=151, ability=("ABILITY_MOLD_BREAKER", "Mold Breaker")),
+                 defender("Snorlax", dfn=109, status="paralysis", ability=marvel,
+                          item=("ITEM_ABILITY_SHIELD", "Ability Shield")), "Strength"),
+    ))
+    umbrella = ("ITEM_UTILITY_UMBRELLA", "Utility Umbrella")
+    cloud_nine = ("ABILITY_CLOUD_NINE", "Cloud Nine")
+    out.extend((
+        scenario("group-d-flower-gift-attacker-sun-physical", ["ability:flower-gift", "form", "weather:sun", "attack-stage"],
+                 attacker("Cherrim-Sunshine", atk=151, ability=flower), defender("Snorlax", dfn=109), "Strength", weather="sun"),
+        scenario("group-d-flower-gift-attacker-no-sun", ["ability:flower-gift", "form", "negative-control"],
+                 attacker("Cherrim", atk=151, ability=flower), defender("Snorlax", dfn=109), "Strength"),
+        scenario("group-d-flower-gift-wrong-form", ["ability:flower-gift", "form", "weather:sun", "weather-suppression", "negative-control"],
+                 attacker("Porygon", spa=151, ability=cloud_nine), defender("Cherrim", spd=109, ability=flower), "Psychic", weather="sun"),
+        scenario("group-d-flower-gift-attacker-special", ["ability:flower-gift", "form", "negative-control", "weather:sun"],
+                 attacker("Cherrim-Sunshine", spa=151, ability=flower), defender("Snorlax", spd=109), "Psychic", weather="sun"),
+        scenario("group-d-flower-gift-defender-sun-special", ["ability:flower-gift", "form", "weather:sun", "defense-stage"],
+                 attacker("Porygon", spa=151), defender("Cherrim-Sunshine", spd=109, ability=flower), "Psychic", weather="sun"),
+        scenario("group-d-flower-gift-defender-physical", ["ability:flower-gift", "form", "weather:sun", "negative-control"],
+                 attacker("Machamp", atk=151), defender("Cherrim-Sunshine", dfn=109, ability=flower), "Strength", weather="sun"),
+        scenario("group-d-flower-gift-attacker-umbrella", ["ability:flower-gift", "form", "weather:sun", "item:utility-umbrella", "negative-control"],
+                 attacker("Cherrim", atk=151, ability=flower, item=umbrella), defender("Snorlax", dfn=109), "Strength", weather="sun"),
+        scenario("group-d-flower-gift-defender-holder-umbrella", ["ability:flower-gift", "form", "weather:sun", "item:utility-umbrella", "negative-control"],
+                 attacker("Porygon", spa=151), defender("Cherrim", spd=109, ability=flower, item=umbrella), "Psychic", weather="sun"),
+        scenario("group-d-flower-gift-defender-cloud-nine", ["ability:flower-gift", "form", "weather:sun", "weather-suppression", "negative-control"],
+                 attacker("Porygon", spa=151, ability=cloud_nine), defender("Cherrim", spd=109, ability=flower), "Psychic", weather="sun"),
+    ))
+    protective_pads = ("ITEM_PROTECTIVE_PADS", "Protective Pads")
+    long_reach = ("ABILITY_LONG_REACH", "Long Reach")
+    charcoal = ("ITEM_CHARCOAL", "Charcoal")
+    out.extend((
+        scenario("group-d-tough-claws-fire-punch-contact", ["ability:tough-claws", "contact", "base-power", "item:charcoal", "modifier-stacking"],
+                 attacker("Machamp", atk=151, ability=tough, item=charcoal), defender("Snorlax", dfn=109), "Fire Punch"),
+        scenario("group-d-tough-claws-flamethrower-noncontact", ["ability:tough-claws", "contact", "negative-control"],
+                 attacker("Machamp", spa=151, ability=tough), defender("Snorlax", spd=109), "Flamethrower"),
+        scenario("group-d-tough-claws-protective-pads-still-contact", ["ability:tough-claws", "contact", "item:protective-pads", "engine-only"],
+                 attacker("Machamp", atk=151, ability=tough, item=protective_pads), defender("Snorlax", dfn=109), "Fire Punch", surface="engine-only"),
+    ))
+    wise = ("ITEM_WISE_GLASSES", "Wise Glasses")
+    out.extend((
+        scenario("group-d-sheer-force-scald-helper-positive", ["ability:sheer-force", "base-power", "move-additional-effect", "modifier-stacking"],
+                 attacker("Porygon", spa=151, ability=sheer, item=wise), defender("Snorlax", spd=109), "Scald"),
+        scenario("group-d-sheer-force-pay-day-helper-negative", ["ability:sheer-force", "base-power", "move-additional-effect", "negative-control"],
+                 attacker("Porygon", atk=151, ability=sheer), defender("Snorlax", dfn=109), "Pay Day"),
+        scenario("group-d-sheer-force-fire-blast-positive", ["ability:sheer-force", "base-power", "move-additional-effect"],
+                 attacker("Porygon", spa=151, ability=sheer), defender("Snorlax", spd=109), "Fire Blast"),
+        scenario("group-d-sheer-force-defender-control", ["ability:sheer-force", "base-power", "negative-control"],
+                 attacker("Porygon", spa=151), defender("Snorlax", spd=109, ability=sheer), "Scald"),
+    ))
+    mold = ("ABILITY_MOLD_BREAKER", "Mold Breaker")
+    shield = ("ITEM_ABILITY_SHIELD", "Ability Shield")
+    out.extend((
+        scenario("group-d-fluffy-fire-noncontact-double", ["ability:fluffy", "contact", "final-modifier"],
+                 attacker("Machamp", spa=151), defender("Snorlax", dfn=109, ability=fluffy), "Fire Blast"),
+        scenario("group-d-fluffy-fire-contact-neutral", ["ability:fluffy", "contact", "final-modifier", "negative-control"],
+                 attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=fluffy), "Fire Punch"),
+        scenario("group-d-fluffy-nonfire-contact-half", ["ability:fluffy", "contact", "final-modifier"],
+                 attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=fluffy), "Tackle"),
+        scenario("group-d-fluffy-nonfire-noncontact-neutral", ["ability:fluffy", "contact", "final-modifier", "negative-control"],
+                 attacker("Porygon", spa=151), defender("Snorlax", spd=109, ability=fluffy), "Psychic"),
+        scenario("group-d-fluffy-long-reach-suppresses-contact", ["ability:fluffy", "contact", "ability:long-reach", "final-modifier"],
+                 attacker("Machamp", atk=151, ability=long_reach), defender("Snorlax", dfn=109, ability=fluffy), "Fire Punch"),
+        scenario("group-d-fluffy-protective-pads-do-not-suppress-contact", ["ability:fluffy", "contact", "item:protective-pads", "negative-control", "engine-only"],
+                 attacker("Machamp", atk=151, item=protective_pads), defender("Snorlax", dfn=109, ability=fluffy), "Tackle", surface="engine-only"),
+        scenario("group-d-fluffy-mold-breaker", ["ability:fluffy", "contact", "mold-breaker", "suppression", "engine-only"],
+                 attacker("Machamp", atk=151, ability=mold), defender("Snorlax", dfn=109, ability=fluffy), "Tackle", surface="engine-only"),
+        scenario("group-d-fluffy-ability-shield", ["ability:fluffy", "contact", "mold-breaker", "ability-shield"],
+                 attacker("Machamp", atk=151, ability=mold), defender("Snorlax", dfn=109, ability=fluffy, item=shield), "Tackle"),
+    ))
+    reckless = ("ABILITY_RECKLESS", "Reckless")
+    sand_force = ("ABILITY_SAND_FORCE", "Sand Force")
+    battery = ("ABILITY_BATTERY", "Battery")
+    power_spot = ("ABILITY_POWER_SPOT", "Power Spot")
+    out.extend((
+        scenario("group-d-reckless-ordinary-hit-clear", ["ability:reckless", "ordinary-move", "negative-control"],
+                 attacker("Machamp", atk=151, ability=reckless), defender("Snorlax", dfn=109), "Strength"),
+        scenario("group-d-sand-force-sandstorm-ground-engine-only", ["ability:sand-force", "weather:sandstorm", "base-power", "engine-only"],
+                 attacker("Machamp", atk=151, ability=sand_force), defender("Swampert", dfn=109), "Earthquake", weather="sandstorm", surface="engine-only"),
+        scenario("group-d-sand-force-sun-clear", ["ability:sand-force", "weather:sun", "negative-control"],
+                 attacker("Machamp", atk=151, ability=sand_force), defender("Snorlax", dfn=109), "Earthquake", weather="sun"),
+        scenario("group-d-sand-force-sandstorm-normal-clear", ["ability:sand-force", "weather:sandstorm", "negative-control", "engine-only"],
+                 attacker("Machamp", atk=151, ability=sand_force), defender("Swampert", dfn=109), "Strength", weather="sandstorm", surface="engine-only"),
+        scenario("group-d-battery-singles-self-clear", ["ability:battery", "singles", "negative-control"],
+                 attacker("Porygon", spa=151, ability=battery), defender("Snorlax", spd=109), "Psychic"),
+        scenario("group-d-power-spot-singles-self-clear", ["ability:power-spot", "singles", "negative-control"],
+                 attacker("Machamp", atk=151, ability=power_spot), defender("Snorlax", dfn=109), "Strength"),
+        scenario("group-d-battery-defender-singles-clear", ["ability:battery", "singles", "negative-control"],
+                 attacker("Porygon", spa=151), defender("Snorlax", spd=109, ability=battery), "Psychic"),
+        scenario("group-d-power-spot-defender-singles-clear", ["ability:power-spot", "singles", "negative-control"],
+                 attacker("Machamp", atk=151), defender("Snorlax", dfn=109, ability=power_spot), "Strength"),
+    ))
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers)
+              _terrain_move_modifiers, _remaining_group_d)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

@@ -122,7 +122,17 @@ class HnsDamageOracleAuthorityTest {
             assertEquals("$id: $moveLabel move ID", oMove.getInt("id"), move.id)
             val moveOverride = CalcDataOverrides.buildMoveOverride(moveLabel, HeartAndSoul205DataPack, fairy)
                 ?: throw AssertionError("$id: no production move override for $moveLabel")
-            assertEquals("$id: $moveLabel power", oMove.getInt("power"), moveOverride.basePower)
+            val activeDynamax = observed.getJSONObject("attacker").optJSONObject("runtime")
+                ?.optInt("activeGimmick") == 4
+            if (activeDynamax) {
+                // Engine-only control records the effective Max move power returned by the
+                // pinned CalcMoveBasePower. Ordinary production move data must remain unchanged.
+                assertEquals("$id: Dynamax must remain engine-only", "engine-only", scenario.getString("surface"))
+                assertEquals("$id: ordinary Strength power", 80, moveOverride.basePower)
+                assertEquals("$id: source GetMaxMovePower", 130, oMove.getInt("power"))
+            } else {
+                assertEquals("$id: $moveLabel power", oMove.getInt("power"), moveOverride.basePower)
+            }
 
             val ordinaryMove = HnsMoveMechanicsRegistry.classify(move.id).category ==
                 HnsMoveMechanicsCategory.ORDINARY_PROVEN_EQUIVALENT

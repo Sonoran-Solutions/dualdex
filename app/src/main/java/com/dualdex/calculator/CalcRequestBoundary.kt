@@ -667,6 +667,22 @@ object CalcRequestBoundary {
             observation = enemyBattlerState,
             isExactVerified = isExactVerified
         )
+        val attackerRuntime = authoritativeObservedRuntimeState(
+            request.attacker.partySlot, playerBattlerState, isExactVerified
+        )
+        val defenderRuntime = authoritativeObservedRuntimeState(
+            request.defender.partySlot, enemyBattlerState, isExactVerified
+        )
+        val attackerGender = com.dualdex.pokemon.hns.HnsGenderAuthority.resolve(
+            attackerSpeciesId,
+            attackerRuntime?.takeIf { it.personalityObserved }?.personality,
+            attackerSpeciesId?.let(com.dualdex.pokemon.hns.HeartAndSoul205DataPack::getSpecies)?.genderRatio
+        )
+        val defenderGender = com.dualdex.pokemon.hns.HnsGenderAuthority.resolve(
+            defenderSpeciesId,
+            defenderRuntime?.takeIf { it.personalityObserved }?.personality,
+            defenderSpeciesId?.let(com.dualdex.pokemon.hns.HeartAndSoul205DataPack::getSpecies)?.genderRatio
+        )
         return CalcHnsLiveBattleState(
             attackerTypes = authoritativeObservedTypes(
                 participantPartySlot = request.attacker.partySlot,
@@ -759,6 +775,35 @@ object CalcRequestBoundary {
             attackerSpeciesId = attackerSpeciesId,
             attackerStatus1 = attackerStatus1,
             defenderStatus1 = defenderStatus1,
+            attackerPersonality = attackerRuntime?.takeIf { it.personalityObserved }?.personality,
+            defenderPersonality = defenderRuntime?.takeIf { it.personalityObserved }?.personality,
+            attackerGender = attackerGender,
+            defenderGender = defenderGender,
+            attackerSlowStartTimer = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileSlowStartTimer,
+            attackerFlashFireBoosted = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileFlashFireBoosted,
+            attackerTransformed = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileTransformed,
+            defenderTransformed = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileTransformed,
+            attackerBoosterEnergyActivated = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileBoosterEnergyActivated,
+            defenderBoosterEnergyActivated = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileBoosterEnergyActivated,
+            attackerParadoxBoostedStat = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileParadoxBoostedStat,
+            defenderParadoxBoostedStat = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileParadoxBoostedStat,
+            attackerVesselOfRuin = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileVesselOfRuin,
+            defenderVesselOfRuin = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileVesselOfRuin,
+            attackerSwordOfRuin = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileSwordOfRuin,
+            defenderSwordOfRuin = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileSwordOfRuin,
+            attackerTabletsOfRuin = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileTabletsOfRuin,
+            defenderTabletsOfRuin = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileTabletsOfRuin,
+            attackerBeadsOfRuin = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileBeadsOfRuin,
+            defenderBeadsOfRuin = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileBeadsOfRuin,
+            defenderIsFirstTurn = defenderRuntime?.takeIf { it.firstTurnObserved }?.isFirstTurn,
+            attackerSupremeOverlordCounter = attackerRuntime?.takeIf { it.supremeOverlordCounterObserved }?.supremeOverlordCounter,
+            attackerNeutralizingGas = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileNeutralizingGas,
+            defenderNeutralizingGas = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileNeutralizingGas,
+            attackerDynamaxSelected = attackerRuntime?.takeIf { it.selectedDynamaxObserved }?.dynamaxSelected,
+            attackerAnalyticTurnOrder = attackerRuntime?.takeIf { it.analyticTurnOrderObserved && it.analyticCurrentMove ==
+                com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id }
+                ?.analyticTurnOrder?.let { if (it == 1) HnsAnalyticTurnOrder.LAST_TO_MOVE else HnsAnalyticTurnOrder.NOT_LAST_TO_MOVE }
+                ?: HnsAnalyticTurnOrder.UNKNOWN,
             weatherObserved = weather != null,
             weatherWord = weather ?: 0,
             defenderScreensObserved = defenderSideStatuses != null,
@@ -1266,6 +1311,19 @@ object CalcRequestBoundary {
         return HnsTerrainAuthority.resolve(
             fieldStatuses, state, opposing.effectiveAbilityId, battlerIsDefender
         )
+    }
+
+    /** The exact-trusted, slot-matched runtime record, for decoding newly added operands. */
+    private fun authoritativeObservedRuntimeState(
+        participantPartySlot: Int?,
+        observation: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        isExactVerified: Boolean
+    ): com.dualdex.pokemon.hns.HnsBattlerRuntimeState? {
+        if (!isExactVerified) return null
+        val state = observation?.state ?: return null
+        if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
+        if (!slotMatches(participantPartySlot, state)) return null
+        return state
     }
 
     /** `gBattleStruct->gimmick.activeGimmick[side][slot]`, or null when the slot-matched value was not read. */

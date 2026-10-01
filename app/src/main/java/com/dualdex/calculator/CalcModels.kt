@@ -1,5 +1,7 @@
 package com.dualdex.calculator
 
+import com.dualdex.pokemon.hns.HnsBattlerGender
+
 data class CalcPokemonInput(
     val species: String,
     val level: Int = 50,
@@ -211,6 +213,8 @@ data class CalcBadgeBoosts(
     val spd: Boolean = false
 )
 
+enum class HnsAnalyticTurnOrder { LAST_TO_MOVE, NOT_LAST_TO_MOVE, UNKNOWN }
+
 data class CalcHnsLiveBattleState(
     val attackerTypes: List<String>? = null,
     val defenderTypes: List<String>? = null,
@@ -297,6 +301,33 @@ data class CalcHnsLiveBattleState(
     val attackerStatus1: Int? = null,
     /** Boundary-owned defender status1 word; 0 is observed status-free. */
     val defenderStatus1: Int? = null,
+    /** Live `BattlePokemon.personality`; only the low byte is consumed by pinned gender logic. */
+    val attackerPersonality: Int? = null,
+    val defenderPersonality: Int? = null,
+    val attackerGender: HnsBattlerGender = HnsBattlerGender.UNKNOWN,
+    val defenderGender: HnsBattlerGender = HnsBattlerGender.UNKNOWN,
+    val attackerSlowStartTimer: Int? = null,
+    val attackerFlashFireBoosted: Boolean? = null,
+    val attackerTransformed: Boolean? = null,
+    val defenderTransformed: Boolean? = null,
+    val attackerBoosterEnergyActivated: Boolean? = null,
+    val defenderBoosterEnergyActivated: Boolean? = null,
+    val attackerParadoxBoostedStat: Int? = null,
+    val defenderParadoxBoostedStat: Int? = null,
+    val attackerVesselOfRuin: Boolean? = null,
+    val defenderVesselOfRuin: Boolean? = null,
+    val attackerSwordOfRuin: Boolean? = null,
+    val defenderSwordOfRuin: Boolean? = null,
+    val attackerTabletsOfRuin: Boolean? = null,
+    val defenderTabletsOfRuin: Boolean? = null,
+    val attackerBeadsOfRuin: Boolean? = null,
+    val defenderBeadsOfRuin: Boolean? = null,
+    val defenderIsFirstTurn: Int? = null,
+    val attackerSupremeOverlordCounter: Int? = null,
+    val attackerNeutralizingGas: Boolean? = null,
+    val defenderNeutralizingGas: Boolean? = null,
+    val attackerDynamaxSelected: Boolean? = null,
+    val attackerAnalyticTurnOrder: HnsAnalyticTurnOrder = HnsAnalyticTurnOrder.UNKNOWN,
     // --- Gap C4e correction: live field conditions -------------------------------------------
     /**
      * The battle-global `gBattleWeather` flags word, or null when it was not read. The boundary

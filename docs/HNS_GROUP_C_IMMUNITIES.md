@@ -65,9 +65,10 @@ For example, Sunsteel Strike bypasses breakable Wonder Guard without Ability Shi
 by Wonder Guard when the target holds Ability Shield, while its move-level flag does not suppress
 Prism Armor. Only literal source-backed move flags are admitted; conditional or computed bypass
 cases remain fail-closed. Unrelated defenders and moves do not receive an ability bypass blocker.
-`flashFireBoosted` is not part of the current live state: Flash Fire's defender-side immunity is
-modeled, but an attacker with Flash Fire using a Fire move is refused until issue #91 supplies that
-boost state.
+Flash Fire's defender immunity remains unchanged. Its attacker boost is now modelled from the
+observed live `flashFireBoosted` payload and final effective Fire type, using the pinned 6144
+half-down Attack-stat factor. An unread flag refuses with `HNS_ABILITY_CONDITION_UNVERIFIED`.
+See [state-backed Group D](HNS_STATE_BACKED_GROUP_D.md) for runtime and differential evidence.
 
 Purifying Salt's Ghost damage reduction is deferred to issue #91. Air Balloon, Iron Ball, Ring
 Target, and Float Stone do not claim generic ordinary damage multipliers.

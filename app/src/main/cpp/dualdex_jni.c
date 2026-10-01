@@ -800,7 +800,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * never silently drift apart.  Every public surface that touches this tuple
  * references BATTLER_RUNTIME_STATE_TUPLE_LEN instead of a local literal.
  */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 76
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 97
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -836,8 +836,16 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * [68] volatileGastroAcid, [69] volatileRoostActive,
  * [70] volatileSubstitute, [71] volatileEndured.
  * [72] speciesObserved, [73] current species id from gBattleMons[battler].species,
- * [74] switchInPhaseObserved, [75] switchInEventsSettled (event sentinel, clear flags, stable
- * action-selection callback).
+ * [74] switchInPhaseObserved, [75] switchInEventsSettled,
+ * [76] personalityObserved, [77] live personality,
+ * [78] slowStartTimer, [79] flashFireBoosted, [80] transformed,
+ * [81] boosterEnergyActivated, [82] paradoxBoostedStat,
+ * [83..86] Vessel/Sword/Tablets/Beads of Ruin volatile flags,
+ * [87] isFirstTurnObserved, [88] raw two-bit isFirstTurn,
+ * [89] supremeOverlordCounterObserved, [90] stored counter,
+ * [91] selectedDynamaxObserved, [92] IsGimmickSelected(DYNAMAX) result,
+ * [93] analyticTurnOrderObserved, [94] analyticTurnOrder (0 unknown, 1 last, 2 not last),
+ * [95] neutralizingGas, [96] current move ID for the observed Analytic action.
  *         Every Gap C4e `*Observed` bit separates an observed neutral value
  *         (bit 1, payload 0) from a field that was never read (bit 0). Slots
  *         [60]/[61] are only meaningful while [47] volatilesObserved is 1;
@@ -978,6 +986,27 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     values[73] = (jint)state.species_id;
     values[74] = (state.switch_in_phase_observed) ? 1 : 0;
     values[75] = (state.switch_in_events_settled) ? 1 : 0;
+    values[76] = state.personality_observed ? 1 : 0;
+    values[77] = (jint)state.personality;
+    values[78] = (jint)state.volatile_slow_start_timer;
+    values[79] = state.volatile_flash_fire_boosted ? 1 : 0;
+    values[80] = state.volatile_transformed ? 1 : 0;
+    values[81] = state.volatile_booster_energy_activated ? 1 : 0;
+    values[82] = (jint)state.volatile_paradox_boosted_stat;
+    values[83] = state.volatile_vessel_of_ruin ? 1 : 0;
+    values[84] = state.volatile_sword_of_ruin ? 1 : 0;
+    values[85] = state.volatile_tablets_of_ruin ? 1 : 0;
+    values[86] = state.volatile_beads_of_ruin ? 1 : 0;
+    values[87] = state.first_turn_observed ? 1 : 0;
+    values[88] = (jint)state.is_first_turn;
+    values[89] = state.supreme_overlord_counter_observed ? 1 : 0;
+    values[90] = (jint)state.supreme_overlord_counter;
+    values[91] = state.selected_dynamax_observed ? 1 : 0;
+    values[92] = state.dynamax_selected ? 1 : 0;
+    values[93] = state.analytic_turn_order_observed ? 1 : 0;
+    values[94] = (jint)state.analytic_turn_order;
+    values[95] = state.volatile_neutralizing_gas ? 1 : 0;
+    values[96] = (jint)state.analytic_current_move;
 
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;

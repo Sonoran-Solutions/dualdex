@@ -1,0 +1,38 @@
+{
+  "functions": {
+    "BattleMainCB1": {
+      "matchedInstructionSha256": "0e89f56330ce8c1ef24267374d8dc0272f58afdf7a096f4a78dab1b9766ef0f4",
+      "matches": 1,
+      "prefixBytes": 48,
+      "releaseAddress": 134750960,
+      "sourceAddress": 134752456
+    },
+    "HandleTurnActionSelectionState": {
+      "matchedInstructionSha256": "c18c6b34b520bd6d0fbb0dbcb59301a23cd7bf5aa21f5147c668396581a05db0",
+      "matches": 1,
+      "prefixBytes": 128,
+      "releaseAddress": 134778348,
+      "sourceAddress": 134779864
+    },
+    "RunTurnActionsFunctions": {
+      "matchedInstructionSha256": "c42e63beaed0ca41ab35f1f874799fb1ce30ab1c7978c75a6b51d43c16a2e4fc",
+      "matches": 1,
+      "prefixBytes": 128,
+      "releaseAddress": 134785588,
+      "sourceAddress": 134786880
+    }
+  },
+  "gBattleMainFunc": {
+    "address": 50343796,
+    "literalAddress": 134751008
+  },
+  "releaseRomSha256": "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b",
+  "schemaVersion": 1,
+  "sourceBuildRomSha256": "250ca2943e1ec531b8a423d78b2963fb22cde5201ecb0ecad4c358d8d11c255b",
+  "sourceFiles": {
+    "src/battle_main.c": "36020a55dfdd8838ccdfe50be9ea4d69e9fa479dceed41a6725cbdb81d248c93",
+    "src/battle_util.c": "dfe173ebef230849e789be6b417a316c359ec6fa7d0ecae2b1a59b5885903377"
+  },
+  "sourceSymbolsSha256": "8d4ecf92e01b125c4d102f3ef99cd75dfdf423acf9117ee77a3f0858de5a1d68",
+  "upstreamCommit": "1f42b74dff0e9fe942419845d040663dd829a973"
+}

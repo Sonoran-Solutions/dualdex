@@ -197,6 +197,36 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 live.attackerMaxHp?.let { put("maxHP", it) }
                 live.attackerStatus1?.let { put("status1", it) }
                 live.attackerSpeciesId?.let { put("hnsSpeciesId", it) }
+                live.attackerNeutralizingGas?.let { put("hnsNeutralizingGas", it) }
+                live.attackerPersistentVolatiles?.let { put("hnsGastroAcid", it.gastroAcid) }
+                live.attackerPersonality?.let { put("hnsPersonality", it) }
+                if (live.attackerGender != com.dualdex.pokemon.hns.HnsBattlerGender.UNKNOWN) {
+                    put("hnsGender", live.attackerGender.name)
+                }
+                live.attackerSlowStartTimer?.let { put("hnsSlowStartTimer", it) }
+                live.attackerFlashFireBoosted?.let { put("hnsFlashFireBoosted", it) }
+                live.attackerTransformed?.let { put("hnsTransformed", it) }
+                live.attackerBoosterEnergyActivated?.let { put("hnsBoosterEnergyActivated", it) }
+                live.attackerParadoxBoostedStat?.let { put("hnsParadoxBoostedStat", it) }
+                live.attackerVesselOfRuin?.let { put("hnsVesselOfRuin", it) }
+                live.attackerSwordOfRuin?.let { put("hnsSwordOfRuin", it) }
+                live.attackerTabletsOfRuin?.let { put("hnsTabletsOfRuin", it) }
+                live.attackerBeadsOfRuin?.let { put("hnsBeadsOfRuin", it) }
+                live.attackerSupremeOverlordCounter?.let { put("hnsSupremeOverlordCounter", it) }
+                live.attackerGimmick?.let { put("hnsActiveGimmick", it) }
+                live.attackerDynamaxSelected?.let { put("hnsDynamaxSelected", it) }
+                if (live.attackerAnalyticTurnOrder != HnsAnalyticTurnOrder.UNKNOWN) {
+                    put("hnsAnalyticTurnOrder", live.attackerAnalyticTurnOrder.name)
+                }
+            }
+            if (request.typeSystem == "hns_2_0_5") {
+                put(
+                    "hnsAbilityShield",
+                    request.attacker.itemId?.let {
+                        com.dualdex.pokemon.hns.HnsItemRegistry.classify(it).data?.holdEffect ==
+                            "HOLD_EFFECT_ABILITY_SHIELD"
+                    } == true
+                )
             }
             request.hnsLiveBattleState?.attackerRawStats?.let { raw ->
                 put("rawStats", JSONObject().apply {
@@ -227,9 +257,6 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             put("species", request.defender.species)
             put("level", request.defender.level)
             request.defender.item?.let { put("item", it) }
-            if (request.defender.itemProvenance == CalcItemProvenance.BATTLE_EFFECTIVE) {
-                request.defender.itemId?.let { put("hnsEffectiveItemId", it) }
-            }
             if (request.defender.itemProvenance == CalcItemProvenance.BATTLE_EFFECTIVE) {
                 request.defender.itemId?.let { put("hnsEffectiveItemId", it) }
             }
@@ -297,8 +324,20 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 live.defenderMaxHp?.let { put("maxHpAtHit", it) }
                 live.defenderStatus1?.let { put("status1", it) }
                 live.defenderSpeciesId?.let { put("hnsSpeciesId", it) }
-                live.defenderStatus1?.let { put("status1", it) }
-                live.defenderSpeciesId?.let { put("hnsSpeciesId", it) }
+                live.defenderNeutralizingGas?.let { put("hnsNeutralizingGas", it) }
+                live.defenderPersistentVolatiles?.let { put("hnsGastroAcid", it.gastroAcid) }
+                live.defenderPersonality?.let { put("hnsPersonality", it) }
+                if (live.defenderGender != com.dualdex.pokemon.hns.HnsBattlerGender.UNKNOWN) {
+                    put("hnsGender", live.defenderGender.name)
+                }
+                live.defenderTransformed?.let { put("hnsTransformed", it) }
+                live.defenderBoosterEnergyActivated?.let { put("hnsBoosterEnergyActivated", it) }
+                live.defenderParadoxBoostedStat?.let { put("hnsParadoxBoostedStat", it) }
+                live.defenderVesselOfRuin?.let { put("hnsVesselOfRuin", it) }
+                live.defenderSwordOfRuin?.let { put("hnsSwordOfRuin", it) }
+                live.defenderTabletsOfRuin?.let { put("hnsTabletsOfRuin", it) }
+                live.defenderBeadsOfRuin?.let { put("hnsBeadsOfRuin", it) }
+                live.defenderIsFirstTurn?.let { put("hnsIsFirstTurn", it) }
             }
             if (request.typeSystem == "hns_2_0_5") {
                 put(

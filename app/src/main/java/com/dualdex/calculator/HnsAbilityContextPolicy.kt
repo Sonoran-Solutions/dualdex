@@ -2,6 +2,7 @@ package com.dualdex.calculator
 
 import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.PokemonType
+import com.dualdex.pokemon.hns.HnsGroupDLayout
 import com.dualdex.pokemon.hns.HnsAbilityAuditData
 import com.dualdex.pokemon.hns.HnsAbilityCategory
 import com.dualdex.pokemon.hns.HnsItemRegistry
@@ -62,16 +63,197 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_POISON_MASK = 0x80
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
-        55, 62, // Hustle / Guts, Group D Attack stage
+        18, 55, 62, 79, 112, 148, 198, 255, 281, 282, 284, 285, 286, 287, 293,
+        186, 187, 188, // state-backed Group D operands
         94, 129, 169, 179, 262, 263, 276, 288, 289, // Group D stat stages and field-backed stat modifiers
         89, 91, 96, 97, 101, 110, 111, 116, 136, 137, 138, 173, 174, 178, 182, 184,
         63, 122, 125, 181, 218,
         85, 199, 200, 204, 206, 231, 232, 233, 244, 246, 252, 292
         // Normalize / -ate / Liquid Voice, Group D move-type and base-power stage
     )
+    private val STATE_BACKED_GROUP_D_ABILITY_IDS = setOf(
+        18, 79, 112, 148, 198, 255, 281, 282, 293, 186, 187, 188, 284, 285, 286, 287
+    )
 
     fun hasModelledConditionalDamageContext(abilityId: Int?): Boolean =
         abilityId != null && abilityId in MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS
+
+    private fun stateBackedGroupDProof(abilityId: Int, c: Context): Proof? {
+        val live = c.liveBattleState ?: return null
+        if (c.ordinaryMove != true || c.observedBattlersCount != 2 ||
+            !c.attackerAbilityObserved || !c.defenderAbilityObserved) return null
+        val attackerRole = c.side == HnsAbilitySide.ATTACKER
+        val moveType = effectiveMoveType(c)
+        val category = c.moveCategory
+        return when (abilityId) {
+            18 -> when {
+                !attackerRole -> proof("flash_fire_defender_immunity_only", "src/battle_util.c:7007; src/battle_util.c:2546",
+                    "Defender Flash Fire is handled by the existing immunity path; only the attacker reads flashFireBoosted for this stat modifier.")
+                moveType == null -> null
+                moveType != PokemonType.FIRE -> proof("flash_fire_nonfire_move", "src/battle_util.c:7007",
+                    "The authoritative final move type is not Fire, so the attacker boost is inactive.")
+                live.attackerFlashFireBoosted == null -> null
+                live.attackerFlashFireBoosted -> relevant("flash_fire_active_attacker_boost", "src/battle_util.c:7007",
+                    "The final type is Fire and the live attacker flashFireBoosted payload is true.")
+                else -> proof("flash_fire_unboosted_attacker", "src/battle_util.c:7007",
+                    "The live attacker flashFireBoosted payload is false.")
+            }
+            112 -> when {
+                !attackerRole || category == MoveCategory.SPECIAL -> proof("slow_start_irrelevant_role_or_category", "src/battle_util.c:6995",
+                    "Slow Start only modifies its holder's Attack for Physical moves.")
+                category == null || live.attackerSlowStartTimer !in 0..7 -> null
+                live.attackerSlowStartTimer?.let { it > 0 } == true -> relevant("slow_start_positive_timer", "src/battle_util.c:6995",
+                    "A positive live slowStartTimer applies the pinned half-down 0.5 Attack factor.")
+                else -> proof("slow_start_zero_timer", "src/battle_util.c:6995",
+                    "The observed slowStartTimer is zero, so the Physical Attack modifier is inactive.")
+            }
+            198 -> when {
+                !attackerRole -> proof("stakeout_defender_role_irrelevant", "src/battle_util.c:7050",
+                    "Stakeout is read only from the attacker's ability slot.")
+                live.defenderIsFirstTurn !in 0..3 -> null
+                live.defenderIsFirstTurn == 2 -> relevant("stakeout_raw_first_turn_two", "src/battle_util.c:7050",
+                    "The source predicate is the raw defender isFirstTurn value exactly equal to 2.")
+                else -> proof("stakeout_raw_first_turn_other", "src/battle_util.c:7050",
+                    "The observed raw defender isFirstTurn value is not 2.")
+            }
+            79 -> when {
+                !attackerRole -> proof("rivalry_defender_role_irrelevant", "src/battle_util.c:6684",
+                    "Rivalry is read only from the attacker ability slot.")
+                moveType == null -> null
+                live.attackerGender == com.dualdex.pokemon.hns.HnsBattlerGender.UNKNOWN ||
+                    live.defenderGender == com.dualdex.pokemon.hns.HnsBattlerGender.UNKNOWN -> null
+                live.attackerGender == com.dualdex.pokemon.hns.HnsBattlerGender.GENDERLESS ||
+                    live.defenderGender == com.dualdex.pokemon.hns.HnsBattlerGender.GENDERLESS -> proof("rivalry_genderless_neutral", "src/battle_util.c:6684",
+                    "Pinned same/opposite gender helpers exclude genderless battlers, leaving Rivalry neutral.")
+                live.attackerGender == live.defenderGender -> relevant("rivalry_same_gender", "src/battle_util.c:6684",
+                    "Both genders are authoritative and equal; source composes UQ_4_12(1.25) into base power.")
+                else -> relevant("rivalry_opposite_gender", "src/battle_util.c:6684",
+                    "Both genders are authoritative and opposite; source composes UQ_4_12(0.75) into base power.")
+            }
+            293 -> when {
+                !attackerRole -> proof("supreme_overlord_defender_role_irrelevant", "src/battle_util.c:6747; src/battle_util.c:2308",
+                    "Supreme Overlord reads the stored attacker battler counter only.")
+                live.attackerSupremeOverlordCounter?.let { it in 0..5 } != true -> null
+                live.attackerSupremeOverlordCounter == 0 -> proof("supreme_overlord_zero_counter", "src/battle_util.c:2308",
+                    "The observed stored counter is zero, producing the exact neutral UQ4.12 factor.")
+                else -> relevant("supreme_overlord_stored_counter", "src/battle_util.c:2308",
+                    "The observed stored BattleStruct counter is in 1..5 and is used directly.")
+            }
+            148 -> when {
+                !attackerRole -> proof("analytic_defender_role_irrelevant", "src/battle_util.c:6691",
+                    "Analytic is read only from the attacker ability slot.")
+                live.attackerAnalyticTurnOrder == HnsAnalyticTurnOrder.UNKNOWN -> null
+                live.attackerAnalyticTurnOrder == HnsAnalyticTurnOrder.LAST_TO_MOVE -> relevant("analytic_phase_proven_last", "src/battle_util.c:1183; src/battle_util.c:6691",
+                    "The native reader published LAST_TO_MOVE only after its current-action phase and turn-order consistency checks.")
+                else -> proof("analytic_phase_proven_not_last", "src/battle_util.c:1183; src/battle_util.c:6691",
+                    "The native reader proved a later living use-move action in the current turn.")
+            }
+            255 -> when {
+                !attackerRole || category == MoveCategory.SPECIAL -> proof("gorilla_tactics_irrelevant_role_or_category", "src/battle_util.c:7075",
+                    "Gorilla Tactics only modifies the attacker's Physical Attack branch.")
+                category == null || live.attackerDynamaxSelected == null || live.attackerGimmick !in 0..5 -> null
+                live.attackerDynamaxSelected || live.attackerGimmick == 4 -> proof("gorilla_tactics_gimmick_inactive_modifier", "src/battle_util.c:7075",
+                    "A selected or active Dynamax disables this ability modifier; its independent unsupported gimmick blocker remains in force.")
+                else -> relevant("gorilla_tactics_physical_no_dynamax", "src/battle_util.c:7075",
+                    "The selected and active Dynamax authorities are both observed clear for this Physical hit.")
+            }
+            281, 282 -> paradoxProof(abilityId, c, live, attackerRole)
+            186, 187, 188 -> auraProof(abilityId, c, live)
+            284, 285, 286, 287 -> when (HnsRuinAuthority.modifies(abilityId, c)) {
+                true -> relevant("ruin_live_field_stat_modifier", "src/battle_util.c:6874; src/battle_util.c:7156; src/battle_util.c:7344",
+                    "The live Ruin payload survives the source suppression checks and modifies the selected stat; the subject's own flag is clear.")
+                false -> proof("ruin_inactive_or_self_excluded", "src/battle_util.c:6874; src/battle_util.c:7156; src/battle_util.c:7344",
+                    "The selected stat, holder self-exclusion, or observed field payload proves this Ruin modifier inactive.")
+                null -> null
+            }
+            else -> null
+        }
+    }
+
+    private fun paradoxProof(
+        abilityId: Int,
+        c: Context,
+        live: CalcHnsLiveBattleState,
+        attackerRole: Boolean
+    ): Proof? {
+        val selected = if (attackerRole) live.attackerParadoxBoostedStat else live.defenderParadoxBoostedStat
+        val transformed = if (attackerRole) live.attackerTransformed else live.defenderTransformed
+        val booster = if (attackerRole) live.attackerBoosterEnergyActivated else live.defenderBoosterEnergyActivated
+        val subjectAbility = if (attackerRole) c.attackerAbilityId else c.defenderAbilityId
+        if (subjectAbility != abilityId) return proof("paradox_other_battler", "src/battle_util.c:7081-7105; src/battle_util.c:7307-7324",
+            "This ability ID is not the battler role whose Attack/Defense stat is selected for this hit.")
+        if (c.moveCategory == null || transformed == null || booster == null ||
+            selected == null || selected !in 0 until HnsGroupDLayout.NUM_STATS) return null
+        if (transformed) return proof("paradox_transformed_inactive", "src/battle_util.c:7081-7105; src/battle_util.c:7307-7324",
+            "The source excludes transformed battlers from the Paradox stat modifier.")
+        val active = if (booster) true else if (abilityId == 282) {
+            live.fieldStatuses?.let { it and HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN != 0 }
+        } else {
+            if (!live.weatherObserved) null
+            else if (live.weatherWord and com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN == 0) false
+            else HnsFieldAbilityAuthority(c).weatherEffective()
+        }
+        if (active == null) return null
+        if (!active) return proof("paradox_activation_inactive", "src/battle_util.c:7081-7105; src/battle_util.c:7307-7324",
+            "Neither the source activation field nor the observed Booster Energy activation payload is active.")
+        val expected = when {
+            attackerRole && c.moveCategory == MoveCategory.PHYSICAL -> "ATK"
+            attackerRole && c.moveCategory == MoveCategory.SPECIAL -> "SPATK"
+            !attackerRole && c.moveCategory == MoveCategory.PHYSICAL -> "DEF"
+            else -> "SPDEF"
+        }
+        val rawStat = if (attackerRole) live.attackerRawStats else live.defenderRawStats
+        val stages = if (attackerRole) live.attackerStatStages else live.defenderStatStages
+        if (selected == 0 && live.fieldStatuses == null) return null
+        val exactStat = when (selected) {
+            0 -> paradoxHighestStat(rawStat, stages, live.fieldStatuses?.and(HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM) != 0)
+            1 -> "ATK"
+            2 -> "DEF"
+            3 -> "SPEED"
+            4 -> "SPATK"
+            5 -> "SPDEF"
+            else -> null
+        } ?: return null
+        if (exactStat != expected) return proof("paradox_other_highest_stat", "src/battle_util.c:5224; src/battle_util.c:7081-7105; src/battle_util.c:7307-7324",
+            "The authoritative selected boosted stat does not match the current hit's source category/role predicate.")
+        return relevant("paradox_selected_stat_boost", "src/battle_util.c:5224; src/battle_util.c:7081-7105; src/battle_util.c:7307-7324",
+            "The active ability's authoritative selected boosted stat matches the category-specific Attack/Defense stage branch.")
+    }
+
+    private fun paradoxHighestStat(raw: CalcRawStats?, stages: List<Int>?, wonderRoom: Boolean): String? {
+        if (raw == null || !validStages(stages)) return null
+        val stats = listOf("ATK" to raw.attack, "DEF" to if (wonderRoom) raw.spDefense else raw.defense,
+            "SPATK" to raw.spAttack, "SPDEF" to if (wonderRoom) raw.defense else raw.spDefense, "SPEED" to raw.speed)
+        val indices = listOf(1, 2, 4, 5, 3)
+        var winner: String? = null
+        var best = Int.MIN_VALUE
+        for ((i, stat) in stats.withIndex()) {
+            val ratio = STAT_STAGE_RATIOS[stages!![indices[i]] + 6]
+            val value = stat.second * ratio.first / ratio.second
+            if (value > best) { best = value; winner = stat.first }
+        }
+        return winner
+    }
+
+    private fun auraProof(abilityId: Int, c: Context, live: CalcHnsLiveBattleState): Proof? {
+        val type = effectiveMoveType(c) ?: return null
+        val auraId = when (type) { PokemonType.DARK -> 186; PokemonType.FAIRY -> 187; else -> null }
+        if (auraId == null || abilityId != 188 && abilityId != auraId) return proof(
+            "aura_wrong_type_or_no_matching_aura", "src/battle_util.c:6754-6761",
+            "The authoritative final type does not match this aura's field branch.")
+        val authority = HnsFieldAbilityAuthority(c)
+        val matching = authority.present(auraId) ?: return null
+        if (!matching) return proof("aura_no_matching_field_ability", "src/battle_util.c:6754-6761",
+            "Neither effective live participant ability supplies a matching aura.")
+        authority.present(188) ?: return null
+        return relevant("aura_matching_live_singles_aura", "src/battle_util.c:6754-6761",
+            "The shared Singles field authority proves the matching aura and the Aura Break predicate.")
+    }
+
+    private val STAT_STAGE_RATIOS = listOf(
+        10 to 40, 10 to 35, 10 to 30, 10 to 25, 10 to 20, 10 to 15, 10 to 10,
+        15 to 10, 20 to 10, 25 to 10, 30 to 10, 35 to 10, 40 to 10
+    ) // pinned src/pokemon.c:gStatStageRatios
 
     data class Context(
         val side: HnsAbilitySide,
@@ -116,7 +298,9 @@ object HnsAbilityContextPolicy {
         /** Null/false while the authoritative switch-in/event driver is unread or still pending. */
         val switchInEventsSettled: Boolean? = null,
         /** The single pinned effective-type decision shared by policy and engine serialization. */
-        val moveAuthority: HnsMoveAuthority? = null
+        val moveAuthority: HnsMoveAuthority? = null,
+        /** All additional operands were rebound from exact live H&S observations at the boundary. */
+        val liveBattleState: CalcHnsLiveBattleState? = null
     )
 
     /** Abilities whose only damage-relevant effect is already reflected in live stat stages. */
@@ -566,6 +750,7 @@ object HnsAbilityContextPolicy {
                     "The observed Electric Terrain bit and authoritative final Special category satisfy Hadron Engine's implemented Attack-stat branch."
                 )
             }
+            in STATE_BACKED_GROUP_D_ABILITY_IDS -> stateBackedGroupDProof(abilityId, c)
             199 -> when {
                 c.ordinaryMove != true -> null
                 effectiveMoveType(c) == null -> null
@@ -1133,7 +1318,8 @@ object HnsAbilityContextPolicy {
             attackerTerrainApplicability = live?.attackerTerrainApplicability,
             defenderTerrainApplicability = live?.defenderTerrainApplicability,
             switchInEventsSettled = live?.switchInEventsSettled,
-            moveAuthority = authority
+            moveAuthority = authority,
+            liveBattleState = live
         )
     }
 

@@ -117,6 +117,12 @@ class ParseMoveEnumTest(unittest.TestCase):
 
 
 class ParseMoveTableTest(unittest.TestCase):
+    def test_future_sight_never_enters_analytic_ordinary_surface(self):
+        future = PLAIN.replace("MOVE_POUND", "MOVE_FUTURE_SIGHT").replace("EFFECT_HIT", "EFFECT_FUTURE_SIGHT")
+        effects, _, ordinary, _, _, _, _, _ = gen.parse_move_table(_table(future))
+        self.assertEqual(effects["MOVE_FUTURE_SIGHT"], "EFFECT_FUTURE_SIGHT")
+        self.assertNotIn("MOVE_FUTURE_SIGHT", ordinary)
+
     def test_plain_hit_is_ordinary(self):
         effects, targets, ordinary, unresolved, _, _, _, _ = gen.parse_move_table(_table(PLAIN))
         self.assertEqual(effects["MOVE_POUND"], "EFFECT_HIT")

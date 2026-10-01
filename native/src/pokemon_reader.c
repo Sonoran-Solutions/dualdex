@@ -204,6 +204,8 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     // Gap C4e live damage operands, all from the generated live-battle ABI table.
     .battle_mons_max_hp_offset = HNS_LIVE_BP_MAX_HP_OFFSET,
     .battle_mons_status_offset = HNS_LIVE_BP_STATUS_OFFSET,
+    .battle_mons_personality_offset = HNS_LIVE_BP_PERSONALITY_OFFSET,
+    .battle_mons_personality_size = HNS_LIVE_BP_PERSONALITY_SIZE,
     .battle_mons_volatiles_offset = HNS_LIVE_BP_VOLATILES_OFFSET,
     .battle_mons_volatile_electrified_bit = HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT,
     .battle_mons_volatile_glaive_rush_bit = HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT,
@@ -223,6 +225,17 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_mons_volatile_roost_active_bit = HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT,
     .battle_mons_volatile_substitute_bit = HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT,
     .battle_mons_volatile_endured_bit = HNS_LIVE_BP_VOLATILE_ENDURED_BIT,
+    .battle_mons_volatile_slow_start_timer_bit = HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_BIT,
+    .battle_mons_volatile_slow_start_timer_width = HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_WIDTH,
+    .battle_mons_volatile_flash_fire_boosted_bit = HNS_LIVE_BP_VOLATILE_FLASH_FIRE_BOOSTED_BIT,
+    .battle_mons_volatile_transformed_bit = HNS_LIVE_BP_VOLATILE_TRANSFORMED_BIT,
+    .battle_mons_volatile_booster_energy_activated_bit = HNS_LIVE_BP_VOLATILE_BOOSTER_ENERGY_ACTIVATED_BIT,
+    .battle_mons_volatile_paradox_boosted_stat_bit = HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_BIT,
+    .battle_mons_volatile_paradox_boosted_stat_width = HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_WIDTH,
+    .battle_mons_volatile_vessel_of_ruin_bit = HNS_LIVE_BP_VOLATILE_VESSEL_OF_RUIN_BIT,
+    .battle_mons_volatile_sword_of_ruin_bit = HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT,
+    .battle_mons_volatile_tablets_of_ruin_bit = HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT,
+    .battle_mons_volatile_beads_of_ruin_bit = HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT,
     .battler_party_indexes_offset = 0x144,
     .battlers_count_offset = 0xB0,
     .battle_type_flags_offset = 0xAC,
@@ -259,11 +272,31 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_struct_battler_state_offset = HNS_LIVE_BATTLE_STRUCT_BATTLER_STATE_OFFSET,
     .battler_state_size = HNS_LIVE_BATTLER_STATE_SIZE,
     .battler_state_switch_in_bit = HNS_LIVE_BATTLER_STATE_SWITCH_IN_BIT,
+    .battler_state_is_first_turn_bit = HNS_LIVE_BATTLER_STATE_IS_FIRST_TURN_BIT,
+    .battler_state_is_first_turn_width = HNS_LIVE_BATTLER_STATE_IS_FIRST_TURN_WIDTH,
     .max_battlers_count = HNS_LIVE_MAX_BATTLERS_COUNT,
     .switch_in_events_count = HNS_LIVE_SWITCH_IN_EVENTS_COUNT,
     .battle_main_func_gba_address = HNS_LIVE_BATTLE_MAIN_FUNC_GBA_ADDRESS,
     .action_selection_func_ptr = HNS_LIVE_ACTION_SELECTION_FUNC_PTR,
     .battle_gimmick_active_offset = HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET,
+    .battle_gimmick_usable_offset = HNS_LIVE_BATTLE_GIMMICK_USABLE_OFFSET,
+    .battle_gimmick_player_select_offset = HNS_LIVE_BATTLE_GIMMICK_PLAYER_SELECT_OFFSET,
+    .battle_struct_supreme_overlord_counter_offset = HNS_LIVE_BATTLE_STRUCT_SUPREME_OVERLORD_COUNTER_OFFSET,
+    .supreme_overlord_counter_stride = HNS_LIVE_SUPREME_OVERLORD_COUNTER_STRIDE,
+    .supreme_overlord_counter_count = HNS_LIVE_SUPREME_OVERLORD_COUNTER_COUNT,
+    .battle_gimmick_dynamax_value = HNS_LIVE_GIMMICK_DYNAMAX_VALUE,
+    .battle_action_use_move_value = HNS_LIVE_B_ACTION_USE_MOVE,
+    .battle_action_exec_script_value = HNS_LIVE_B_ACTION_EXEC_SCRIPT,
+    .battle_current_move_gba_address = HNS_LIVE_GCURRENTMOVE_GBA_ADDRESS,
+    .battle_script_callback_func_ptr = HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR,
+    .battle_main_cb1_func_ptr = HNS_LIVE_BATTLE_MAIN_CB1_FUNC_PTR,
+    .battle_main_cb1_offset = HNS_LIVE_MAIN_CALLBACK1_OFFSET,
+    .battle_turn_action_number_gba_address = HNS_LIVE_GCURRENTTURNACTIONNUMBER_GBA_ADDRESS,
+    .battle_actions_by_turn_order_gba_address = HNS_LIVE_GACTIONSBYTURNORDER_GBA_ADDRESS,
+    .battle_battler_by_turn_order_gba_address = HNS_LIVE_GBATTLERBYTURNORDER_GBA_ADDRESS,
+    .battle_current_action_func_id_gba_address = HNS_LIVE_GCURRENTACTIONFUNCID_GBA_ADDRESS,
+    .battle_battler_attacker_gba_address = HNS_LIVE_GBATTLERATTACKER_GBA_ADDRESS,
+    .battle_battlers_count_gba_address = HNS_LIVE_GBATTLERSCOUNT_GBA_ADDRESS,
     .battle_gimmick_side_stride = HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT,
     .battle_gimmick_party_count = HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT,
     .battle_gimmick_count = HNS_LIVE_BATTLE_GIMMICK_COUNT,
@@ -2444,6 +2477,8 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
            config->battle_mons_stat_stages_offset == HNS_BATTLE_POKEMON_STAT_STAGES_OFFSET &&
            config->battle_mons_max_hp_offset == HNS_LIVE_BP_MAX_HP_OFFSET &&
            config->battle_mons_status_offset == HNS_LIVE_BP_STATUS_OFFSET &&
+           config->battle_mons_personality_offset == HNS_LIVE_BP_PERSONALITY_OFFSET &&
+           config->battle_mons_personality_size == HNS_LIVE_BP_PERSONALITY_SIZE &&
            config->battle_mons_volatiles_offset == HNS_LIVE_BP_VOLATILES_OFFSET &&
            config->battle_mons_volatile_electrified_bit == HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT &&
            config->battle_mons_volatile_glaive_rush_bit == HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT &&
@@ -2463,6 +2498,17 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
            config->battle_mons_volatile_roost_active_bit == HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT &&
            config->battle_mons_volatile_substitute_bit == HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT &&
            config->battle_mons_volatile_endured_bit == HNS_LIVE_BP_VOLATILE_ENDURED_BIT &&
+           config->battle_mons_volatile_slow_start_timer_bit == HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_BIT &&
+           config->battle_mons_volatile_slow_start_timer_width == HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_WIDTH &&
+           config->battle_mons_volatile_flash_fire_boosted_bit == HNS_LIVE_BP_VOLATILE_FLASH_FIRE_BOOSTED_BIT &&
+           config->battle_mons_volatile_transformed_bit == HNS_LIVE_BP_VOLATILE_TRANSFORMED_BIT &&
+           config->battle_mons_volatile_booster_energy_activated_bit == HNS_LIVE_BP_VOLATILE_BOOSTER_ENERGY_ACTIVATED_BIT &&
+           config->battle_mons_volatile_paradox_boosted_stat_bit == HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_BIT &&
+           config->battle_mons_volatile_paradox_boosted_stat_width == HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_WIDTH &&
+           config->battle_mons_volatile_vessel_of_ruin_bit == HNS_LIVE_BP_VOLATILE_VESSEL_OF_RUIN_BIT &&
+           config->battle_mons_volatile_sword_of_ruin_bit == HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT &&
+           config->battle_mons_volatile_tablets_of_ruin_bit == HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT &&
+           config->battle_mons_volatile_beads_of_ruin_bit == HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT &&
            config->battle_struct_gimmick_offset == HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET &&
            config->battle_struct_event_state_offset == HNS_LIVE_BATTLE_STRUCT_EVENT_STATE_OFFSET &&
            config->event_state_switch_in_bit == HNS_LIVE_EVENT_STATE_SWITCH_IN_BIT &&
@@ -2470,6 +2516,26 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
            config->battle_struct_battler_state_offset == HNS_LIVE_BATTLE_STRUCT_BATTLER_STATE_OFFSET &&
            config->battler_state_size == HNS_LIVE_BATTLER_STATE_SIZE &&
            config->battler_state_switch_in_bit == HNS_LIVE_BATTLER_STATE_SWITCH_IN_BIT &&
+           config->battler_state_is_first_turn_bit == HNS_LIVE_BATTLER_STATE_IS_FIRST_TURN_BIT &&
+           config->battler_state_is_first_turn_width == HNS_LIVE_BATTLER_STATE_IS_FIRST_TURN_WIDTH &&
+           config->battle_gimmick_usable_offset == HNS_LIVE_BATTLE_GIMMICK_USABLE_OFFSET &&
+           config->battle_gimmick_player_select_offset == HNS_LIVE_BATTLE_GIMMICK_PLAYER_SELECT_OFFSET &&
+           config->battle_gimmick_dynamax_value == HNS_LIVE_GIMMICK_DYNAMAX_VALUE &&
+           config->battle_action_use_move_value == HNS_LIVE_B_ACTION_USE_MOVE &&
+           config->battle_action_exec_script_value == HNS_LIVE_B_ACTION_EXEC_SCRIPT &&
+           config->battle_current_move_gba_address == HNS_LIVE_GCURRENTMOVE_GBA_ADDRESS &&
+           config->battle_script_callback_func_ptr == HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR &&
+           config->battle_main_cb1_func_ptr == HNS_LIVE_BATTLE_MAIN_CB1_FUNC_PTR &&
+           config->battle_main_cb1_offset == HNS_LIVE_MAIN_CALLBACK1_OFFSET &&
+           config->battle_turn_action_number_gba_address == HNS_LIVE_GCURRENTTURNACTIONNUMBER_GBA_ADDRESS &&
+           config->battle_actions_by_turn_order_gba_address == HNS_LIVE_GACTIONSBYTURNORDER_GBA_ADDRESS &&
+           config->battle_battler_by_turn_order_gba_address == HNS_LIVE_GBATTLERBYTURNORDER_GBA_ADDRESS &&
+           config->battle_current_action_func_id_gba_address == HNS_LIVE_GCURRENTACTIONFUNCID_GBA_ADDRESS &&
+           config->battle_battler_attacker_gba_address == HNS_LIVE_GBATTLERATTACKER_GBA_ADDRESS &&
+           config->battle_battlers_count_gba_address == HNS_LIVE_GBATTLERSCOUNT_GBA_ADDRESS &&
+           config->battle_struct_supreme_overlord_counter_offset == HNS_LIVE_BATTLE_STRUCT_SUPREME_OVERLORD_COUNTER_OFFSET &&
+           config->supreme_overlord_counter_stride == HNS_LIVE_SUPREME_OVERLORD_COUNTER_STRIDE &&
+           config->supreme_overlord_counter_count == HNS_LIVE_SUPREME_OVERLORD_COUNTER_COUNT &&
            config->max_battlers_count == HNS_LIVE_MAX_BATTLERS_COUNT &&
            config->switch_in_events_count == HNS_LIVE_SWITCH_IN_EVENTS_COUNT &&
            config->battle_gimmick_active_offset == HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET &&
@@ -2613,6 +2679,80 @@ bool pokemon_read_hns_badge_state_gba(
     return true;
 }
 
+
+/*
+ * IsLastMonToMove's arrays are reusable global storage. Publish an answer only while the
+ * release-ROM battle-script callback is executing the current B_ACTION_USE_MOVE for the
+ * attacker represented by gCurrentTurnActionNumber. Action selection and turn setup callbacks
+ * therefore never make a stale prior-turn order authoritative.
+ */
+static void read_analytic_turn_order(
+    DualDexGbaReadFn read,
+    void* user,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    uint8_t requested_battler,
+    BattlerRuntimeState* out_state
+) {
+    if (!read || !config || !out_state || requested_battler >= HNS_LIVE_MAX_BATTLERS_COUNT) return;
+    uint8_t phase_bytes[4];
+    uint8_t main_callback_bytes[4];
+    uint8_t action_func = 0, turn_index = 0, attacker = 0, count = 0;
+    uint8_t actions[HNS_LIVE_MAX_BATTLERS_COUNT];
+    uint8_t order[HNS_LIVE_MAX_BATTLERS_COUNT];
+    if (!read(user, config->main_struct_gba_address + config->battle_main_cb1_offset,
+              main_callback_bytes, sizeof(main_callback_bytes)) ||
+        read32_le(main_callback_bytes) != config->battle_main_cb1_func_ptr ||
+        !read(user, config->battle_main_func_gba_address, phase_bytes, sizeof(phase_bytes)) ||
+        !read(user, config->battle_current_action_func_id_gba_address, &action_func, 1) ||
+        !read(user, config->battle_turn_action_number_gba_address, &turn_index, 1) ||
+        !read(user, config->battle_battler_attacker_gba_address, &attacker, 1) ||
+        !read(user, config->battle_battlers_count_gba_address, &count, 1) ||
+        !read(user, config->battle_actions_by_turn_order_gba_address, actions, sizeof(actions)) ||
+        !read(user, config->battle_battler_by_turn_order_gba_address, order, sizeof(order))) return;
+    uint32_t callback = (uint32_t)phase_bytes[0] | ((uint32_t)phase_bytes[1] << 8) |
+                       ((uint32_t)phase_bytes[2] << 16) | ((uint32_t)phase_bytes[3] << 24);
+    if (callback != config->battle_script_callback_func_ptr ||
+        action_func != config->battle_action_exec_script_value || count != 2 ||
+        turn_index >= count || attacker != requested_battler ||
+        order[turn_index] != requested_battler || actions[turn_index] != config->battle_action_use_move_value ||
+        count > HNS_LIVE_MAX_BATTLERS_COUNT) return;
+
+    uint8_t absent = 0;
+    if (config->absent_battler_flags_offset == 0 ||
+        !read(user, DUALDEX_GBA_EWRAM_BASE + config->absent_battler_flags_offset, &absent, 1)) return;
+    bool seen[HNS_LIVE_MAX_BATTLERS_COUNT] = { false };
+    int attacker_position = -1;
+    for (uint8_t i = 0; i < count; i++) {
+        if (order[i] >= count || seen[order[i]]) return;
+        seen[order[i]] = true;
+        if (order[i] == requested_battler) attacker_position = i;
+    }
+    if (attacker_position < 0) return;
+
+    bool last = true;
+    for (uint8_t i = (uint8_t)(attacker_position + 1); i < count; i++) {
+        uint8_t other = order[i];
+        uint8_t hp_bytes[HNS_LIVE_BP_HP_SIZE];
+        const uint32_t hp_addr = DUALDEX_GBA_EWRAM_BASE + config->battle_mons_offset +
+                                 (uint32_t)other * config->battle_mons_size + HNS_LIVE_BP_HP_OFFSET;
+        if (other >= count || config->battle_mons_size == 0 ||
+            config->battle_mons_offset + ((size_t)other + 1) * config->battle_mons_size > ewram_size ||
+            !read(user, hp_addr, hp_bytes, sizeof(hp_bytes))) return;
+        const uint16_t hp = (uint16_t)(hp_bytes[0] | ((uint16_t)hp_bytes[1] << 8));
+        const bool alive = hp != 0 && (absent & (1u << other)) == 0;
+        if (alive && actions[i] == config->battle_action_use_move_value) {
+            last = false;
+            break;
+        }
+    }
+    uint8_t move_bytes[2];
+    if (!read(user, config->battle_current_move_gba_address, move_bytes, sizeof(move_bytes))) return;
+    out_state->analytic_current_move = (uint16_t)(move_bytes[0] | ((uint16_t)move_bytes[1] << 8));
+    if (out_state->analytic_current_move == 0) return;
+    out_state->analytic_turn_order_observed = true;
+    out_state->analytic_turn_order = last ? 1 : 2;
+}
 
 bool pokemon_read_battler_runtime_state_gba(
     DualDexGbaReadFn read,
@@ -2810,8 +2950,18 @@ bool pokemon_read_battler_runtime_state_gba(
                              ((uint32_t)live_status_bytes[2] << 16) |
                              ((uint32_t)live_status_bytes[3] << 24);
     }
+    uint8_t personality_bytes[HNS_LIVE_BP_PERSONALITY_SIZE];
+    if (HNS_LIVE_BP_PERSONALITY_SIZE == 4 &&
+        read(user, mon_base + HNS_LIVE_BP_PERSONALITY_OFFSET,
+             personality_bytes, sizeof(personality_bytes))) {
+        out_state->personality_observed = true;
+        out_state->personality = (uint32_t)personality_bytes[0] |
+                                 ((uint32_t)personality_bytes[1] << 8) |
+                                 ((uint32_t)personality_bytes[2] << 16) |
+                                 ((uint32_t)personality_bytes[3] << 24);
+    }
 
-    /* The damage-relevant volatile bits live in a generated window of `volatiles` (now 41
+    /* The damage-relevant volatile bits live in a generated window of `volatiles` (now 42
      * bytes: the ordinary subset needs electrified, glaiveRush, chargeTimer and tarShot, the
      * persistent states the pinned damage path reads — foresight, miracleEye, root,
      * smackDown, telekinesis, magnetRise, gastroAcid — plus roostActive (bit 318), and the
@@ -2822,6 +2972,8 @@ bool pokemon_read_battler_runtime_state_gba(
         HNS_LIVE_BP_VOLATILE_WINDOW_BYTES > 0 &&
         HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH <= 8 &&
         HNS_LIVE_BP_VOLATILE_CHARGE_TIMER_WIDTH <= 8 &&
+        HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_WIDTH <= 8 &&
+        HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_WIDTH <= 8 &&
         read(user, mon_base + HNS_LIVE_BP_VOLATILES_OFFSET, volatile_bytes, sizeof(volatile_bytes))) {
         out_state->volatiles_observed = true;
         #define HNS_LIVE_VOLATILE_BIT(bytes, bit) \
@@ -2864,6 +3016,28 @@ bool pokemon_read_battler_runtime_state_gba(
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT) != 0;
         out_state->volatile_endured =
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_ENDURED_BIT) != 0;
+        out_state->volatile_slow_start_timer =
+            HNS_LIVE_VOLATILE_FIELD(volatile_bytes, HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_BIT,
+                                    HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_WIDTH);
+        out_state->volatile_flash_fire_boosted =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_FLASH_FIRE_BOOSTED_BIT) != 0;
+        out_state->volatile_transformed =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_TRANSFORMED_BIT) != 0;
+        out_state->volatile_booster_energy_activated =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_BOOSTER_ENERGY_ACTIVATED_BIT) != 0;
+        out_state->volatile_paradox_boosted_stat =
+            HNS_LIVE_VOLATILE_FIELD(volatile_bytes, HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_BIT,
+                                    HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_WIDTH);
+        out_state->volatile_vessel_of_ruin =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_VESSEL_OF_RUIN_BIT) != 0;
+        out_state->volatile_sword_of_ruin =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT) != 0;
+        out_state->volatile_tablets_of_ruin =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT) != 0;
+        out_state->volatile_beads_of_ruin =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT) != 0;
+        out_state->volatile_neutralizing_gas =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_NEUTRALIZING_GAS_BIT) != 0;
         #undef HNS_LIVE_VOLATILE_BIT
         #undef HNS_LIVE_VOLATILE_FIELD
     }
@@ -3017,12 +3191,61 @@ bool pokemon_read_battler_runtime_state_gba(
                     out_state->gimmick_observed = true;
                     out_state->active_gimmick = gimmick;
                 }
+
+                const uint32_t battler_state_addr = bs_ptr + config->battle_struct_battler_state_offset +
+                    (uint32_t)battler * config->battler_state_size +
+                    HNS_LIVE_BATTLER_STATE_IS_FIRST_TURN_BIT / 8;
+                uint8_t first_turn_byte = 0;
+                if (config->battler_state_is_first_turn_width == 2 &&
+                    HNS_LIVE_BATTLER_STATE_IS_FIRST_TURN_BIT % 8 +
+                        config->battler_state_is_first_turn_width <= 8 &&
+                    battler_state_addr >= DUALDEX_GBA_EWRAM_BASE &&
+                    (size_t)(battler_state_addr - DUALDEX_GBA_EWRAM_BASE) < ewram_size &&
+                    read(user, battler_state_addr, &first_turn_byte, 1)) {
+                    const uint32_t shift = HNS_LIVE_BATTLER_STATE_IS_FIRST_TURN_BIT % 8;
+                    out_state->first_turn_observed = true;
+                    out_state->is_first_turn = (uint8_t)((first_turn_byte >> shift) & 0x3u);
+                }
+
+                const uint32_t counter_addr = bs_ptr + config->battle_struct_supreme_overlord_counter_offset +
+                    (uint32_t)battler * config->supreme_overlord_counter_stride;
+                uint8_t counter = 0;
+                if (config->supreme_overlord_counter_stride == 1 &&
+                    config->supreme_overlord_counter_count == HNS_LIVE_MAX_BATTLERS_COUNT &&
+                    counter_addr >= DUALDEX_GBA_EWRAM_BASE &&
+                    (size_t)(counter_addr - DUALDEX_GBA_EWRAM_BASE) < ewram_size &&
+                    read(user, counter_addr, &counter, 1)) {
+                    out_state->supreme_overlord_counter_observed = true;
+                    out_state->supreme_overlord_counter = counter;
+                }
+
+                const uint32_t usable_addr = bs_ptr + config->battle_struct_gimmick_offset +
+                    config->battle_gimmick_usable_offset + battler;
+                const uint32_t select_addr = bs_ptr + config->battle_struct_gimmick_offset +
+                    config->battle_gimmick_player_select_offset;
+                uint8_t usable = 0, player_select = 0;
+                if (usable_addr >= DUALDEX_GBA_EWRAM_BASE &&
+                    (size_t)(usable_addr - DUALDEX_GBA_EWRAM_BASE) < ewram_size &&
+                    select_addr >= DUALDEX_GBA_EWRAM_BASE &&
+                    (size_t)(select_addr - DUALDEX_GBA_EWRAM_BASE) < ewram_size &&
+                    read(user, usable_addr, &usable, 1) && read(user, select_addr, &player_select, 1) &&
+                    usable < config->battle_gimmick_count && player_select <= 1) {
+                    out_state->selected_dynamax_observed = true;
+                    out_state->dynamax_selected = usable == config->battle_gimmick_dynamax_value &&
+                                                  player_select != 0;
+                }
             }
         }
     }
 
+    read_analytic_turn_order(read, user, ewram_size, config, battler, out_state);
+
     out_state->status = (out_state->ability_invalid || out_state->types_invalid ||
-                         out_state->item_invalid || out_state->stages_invalid)
+                         out_state->item_invalid || out_state->stages_invalid ||
+                         (out_state->volatiles_observed &&
+                          out_state->volatile_paradox_boosted_stat >= HNS_LIVE_NUM_STATS) ||
+                         (out_state->supreme_overlord_counter_observed &&
+                          out_state->supreme_overlord_counter > 5))
         ? BATTLER_RUNTIME_STATE_OBSERVED_INVALID
         : BATTLER_RUNTIME_STATE_OBSERVED;
     return true;

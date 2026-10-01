@@ -443,7 +443,12 @@ class CalcHnsLiveBattleStateTest {
                 dynamicMoveTypeObserved = true,
                 transientStateObserved = true,
                 attackerPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true),
-                defenderPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true)
+                defenderPersistentVolatiles = CalcHnsPersistentVolatiles(observed = true),
+                attackerVesselOfRuin = false, defenderVesselOfRuin = false,
+                attackerSwordOfRuin = false, defenderSwordOfRuin = false,
+                attackerTabletsOfRuin = false, defenderTabletsOfRuin = false,
+                attackerBeadsOfRuin = false, defenderBeadsOfRuin = false,
+                attackerNeutralizingGas = false, defenderNeutralizingGas = false
             )
         )
         val verdict = CalcCapabilityPolicy.evaluate(profile, trust, enriched)

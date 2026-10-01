@@ -364,3 +364,61 @@ Two measured facts it encodes, both of which silently break a naive route:
 * **The crossing direction is not the coordinate delta.** New Bark Town's edge `(0,11)` arrives on
   Route 29 at `(69,16)`, so moving LEFT lands on a much larger x. The direction comes from the
   `connections` entry, never from comparing two different map spaces.
+
+## State-backed Group D (scenarios 66–70)
+
+The retained official-ROM logs and input hashes are in `evidence/group-d/`. Run the ROM-free
+retained-evidence checker with `python3 tools/hns-runtime-probe/verify_group_d_evidence.py` from
+the repository root; the same checks run through `./ci.sh test`.
+
+These use a **controlled synthetic party** copied into a fresh, normally saved starter battery.
+`prepare_group_d_test_save.py` compiles party/sector layouts against the pinned source, checks the
+original Pokemon checksum, writes the specified party species/ability-slot/item/moves and bounded
+fixture stats, and recalculates encryption/checksums. It never writes a battle volatile, counter,
+turn-order array, damage value, ROM or live RAM. Keep all batteries outside the repository.
+
+Create a fresh starter using `make-save.sh`, then prepare distinct fixture copies using:
+
+```bash
+python3 tools/hns-runtime-probe/prepare_group_d_test_save.py \
+  /tmp/hns205-group-d-starter.sav /tmp/hns205-group-d-slow.sav \
+  --upstream /path/to/pinned/pokehns-expansion --party '[{"species":486}]'
+```
+
+Use the following `--party` definitions with the corresponding scripts. Default moves are
+Splash 150, Tackle 33, Skill Swap 285, Ember 52; ability slot and held item default to zero.
+
+| Case / script | Party JSON | Observation |
+|---|---|---|
+| slow / 66 | `[{"species":486}]` | Regigigas timer 5→0, raw first-turn 2/1/0, action/menu Analytic authority |
+| flash / 67 | `[{"species":37,"moves":[285,52,150,33]}]` | Vulpix gives Flash Fire to the wild opponent through Skill Swap, then Ember activates its live flag |
+| paradox / 68 | `[{"species":1384,"item":764},{"species":1397}]` | Iron Hands consumes Booster Energy (selector 2); switching to Chi-Yu clears Paradox and activates Beads |
+| supreme / 69 | `[{"species":187,"moves":[262,150,33,285]},{"species":1375,"abilitySlot":1,"moves":[150,33,285,52]}]` | Hoppip uses Memento, then Kingambit's stored counter changes from 0 to 1 |
+| gorilla / 70 | `[{"species":990}]` | Galarian Darmanitan reads selected=false and active=NONE |
+
+Build with `tools/hns-runtime-probe/build.sh`, then run the ordinary probe with `--sav` pointing
+to the derived fixture and `--script` pointing to the matching scenario. `group-d-trace` opts in
+to per-change payload/observation/phase logging. The general damage-probe command is diagnostic;
+the evidence checker separately requires every claimed transition. Encounter/RTC timing can
+vary: a PASS summary alone is insufficient if a required witness is absent.
+
+The official release disables player Dynamax (`B_FLAG_DYNAMAX_BATTLE=0`), so selected=true is not
+claimed as a runtime transition. Source/native and engine-only oracle controls cover that branch.
+See [the complete contract](../../docs/HNS_STATE_BACKED_GROUP_D.md).
+
+### Release phase binding correction
+
+The older callback addresses in the field evidence were source-build addresses. Generate or verify
+the corrected binding using the local pinned source build's ROM/symbol files and the official ROM:
+
+```bash
+python3 tools/hns-layout/generate_hns_release_phase_evidence.py \
+  --upstream /path/to/pinned/pokehns-expansion \
+  --source-rom /path/to/source-build/pokehns.gba \
+  --source-symbols /path/to/source-build/pokehns.sym \
+  --release-rom /path/to/official-hns-2.0.5.gba --verify
+```
+
+The output contains only addresses, match counts and hashes. The layout source-check validates
+its pinned source identity; the retained traces establish the callback semantics on the official
+release. Neither source-build addresses nor a readable code pointer alone authorize a phase.

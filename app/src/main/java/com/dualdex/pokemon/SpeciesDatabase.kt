@@ -10,7 +10,9 @@ data class SpeciesInfo(
     val baseDef: Int = 70,
     val baseSpA: Int = 70,
     val baseSpD: Int = 70,
-    val baseSpe: Int = 70
+    val baseSpe: Int = 70,
+    /** Pinned H&S `gSpeciesInfo[].genderRatio` byte; null when a non-H&S pack lacks it. */
+    val genderRatio: Int? = null
 )
 
 object SpeciesDatabase {

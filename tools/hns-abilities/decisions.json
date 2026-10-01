@@ -394,17 +394,19 @@
     "rationale": "Pinned damage/type/stat modifier is not reproduced by the embedded calculator; fail closed."
   },
   "255": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned damage/type/stat modifier is not reproduced by the embedded calculator; fail closed."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:7073",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "262": {
     "category": "MODELLED_HNS_CONDITIONAL",
     "evidence": "src/battle_util.c:7060",
-    "rationale": "Pinned B_TRANSISTOR_BOOST is GEN_LATEST, so CalcAttackStat applies ×1.3 (UQ_4_12 5325) only when HnsMoveAuthority proves the final effective type is Electric; this factor uses uq4_12_multiply (half-up)."
+    "rationale": "Pinned B_TRANSISTOR_BOOST is GEN_LATEST, so CalcAttackStat applies \u00d71.3 (UQ_4_12 5325) only when HnsMoveAuthority proves the final effective type is Electric; this factor uses uq4_12_multiply (half-up)."
   },
   "282": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned damage/type/stat modifier is not reproduced by the embedded calculator; fail closed."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:7094",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "2": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -439,8 +441,9 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "18": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:7006",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "22": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -529,8 +532,9 @@
     "rationale": "Group C modeled conditionally by the H&S immunity layer: matching Electric hits are zeroed; the Speed boost is after the hit (src/battle_util.c:2457)."
   },
   "79": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:6684",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "82": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -570,7 +574,7 @@
   },
   "94": {
     "category": "MODELLED_HNS_CONDITIONAL",
-    "rationale": "Solar Power’s Special Attack-stat ×1.5 is modelled in the Attack-stat accumulator only when HnsMoveAuthority proves a Special ordinary move and the live IsBattlerWeatherAffected predicate proves ordinary Sun affects the attacker. Utility Umbrella remains independently unsupported; weather-suppressor limitations remain independent. End-of-turn maxHP/8 residual loss is outside the selected-hit result."
+    "rationale": "Solar Power\u2019s Special Attack-stat \u00d71.5 is modelled in the Attack-stat accumulator only when HnsMoveAuthority proves a Special ordinary move and the live IsBattlerWeatherAffected predicate proves ordinary Sun affects the attacker. Utility Umbrella remains independently unsupported; weather-suppressor limitations remain independent. End-of-turn maxHP/8 residual loss is outside the selected-hit result."
   },
   "95": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -616,8 +620,9 @@
     "evidence": "src/battle_util.c:7595"
   },
   "112": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:6994",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "113": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -665,7 +670,7 @@
   },
   "129": {
     "category": "MODELLED_HNS_CONDITIONAL",
-    "rationale": "Defeatist’s ×0.5 selected attacking-stat modifier is modelled for either final category only from valid authoritative live attacker HP and maxHP using hp <= floor(maxHP/2); missing or invalid live HP remains unknown."
+    "rationale": "Defeatist\u2019s \u00d70.5 selected attacking-stat modifier is modelled for either final category only from valid authoritative live attacker HP and maxHP using hp <= floor(maxHP/2); missing or invalid live HP remains unknown."
   },
   "132": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -705,8 +710,9 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "148": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:6690",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "150": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -763,7 +769,7 @@
   },
   "169": {
     "category": "MODELLED_HNS_CONDITIONAL",
-    "rationale": "Fur Coat’s Defense-stage ×2.0 branch is modelled only for ordinary moves with authoritative final category and Wonder Room inactive. Wonder Room and nonordinary alternate-defense selection remain blocked; the breakable ability follows centralized Mold Breaker/literal-bypass and Ability Shield policy."
+    "rationale": "Fur Coat\u2019s Defense-stage \u00d72.0 branch is modelled only for ordinary moves with authoritative final category and Wonder Room inactive. Wonder Room and nonordinary alternate-defense selection remain blocked; the breakable ability follows centralized Mold Breaker/literal-bypass and Ability Shield policy."
   },
   "170": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -820,16 +826,19 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "186": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:6754",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "187": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:6755",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "188": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:6757",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "189": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -856,8 +865,9 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "198": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:7052",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "199": {
     "category": "MODELLED_HNS_CONDITIONAL",
@@ -1069,7 +1079,7 @@
   "263": {
     "category": "MODELLED_HNS_CONDITIONAL",
     "evidence": "src/battle_util.c:7069",
-    "rationale": "CalcAttackStat applies ×1.5 with uq4_12_multiply (half-up) only when HnsMoveAuthority proves the final effective type is Dragon."
+    "rationale": "CalcAttackStat applies \u00d71.5 with uq4_12_multiply (half-up) only when HnsMoveAuthority proves the final effective type is Dragon."
   },
   "264": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -1114,7 +1124,7 @@
   "276": {
     "category": "MODELLED_HNS_CONDITIONAL",
     "evidence": "src/battle_util.c:7079",
-    "rationale": "CalcAttackStat applies ×1.5 with uq4_12_multiply (half-up) only when HnsMoveAuthority proves the final effective type is Rock."
+    "rationale": "CalcAttackStat applies \u00d71.5 with uq4_12_multiply (half-up) only when HnsMoveAuthority proves the final effective type is Rock."
   },
   "277": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -1133,29 +1143,34 @@
     "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
   },
   "281": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:7083",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "284": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:7156",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "285": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:7344",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "286": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:7159",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "287": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:7347",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "288": {
     "category": "MODELLED_HNS_CONDITIONAL",
     "evidence": "src/battle_util.c:7105",
-    "rationale": "CalcAttackStat applies ×1.3333 (UQ_4_12 5461) with uq4_12_multiply (half-up) for Physical + ctx Sun + no Utility Umbrella. GetWeather supplies ctx.weather and returns NONE when HasWeatherEffect is false under a live Cloud Nine/Air Lock. The separate weather-setting event is represented only by already-observed weather."
+    "rationale": "CalcAttackStat applies \u00d71.3333 (UQ_4_12 5461) with uq4_12_multiply (half-up) for Physical + ctx Sun + no Utility Umbrella. GetWeather supplies ctx.weather and returns NONE when HasWeatherEffect is false under a live Cloud Nine/Air Lock. The separate weather-setting event is represented only by already-observed weather."
   },
   "289": {
     "category": "MODELLED_HNS_CONDITIONAL",
@@ -1175,8 +1190,9 @@
     "rationale": "Group D base-power support applies the pinned 1.5 modifier only to authoritative ordinary moves with MoveInfo.slicingMove; move flags come from the pinned source generator."
   },
   "293": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned ability can alter a damage operand, damage/type/immunity result, field, effective form, stat, held-item behavior, or ability state; current calculator does not reproduce every applicable trigger and rounding path."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "evidence": "src/battle_util.c:6746",
+    "rationale": "Ordinary selected-hit Singles branch is conditional on authoritative live runtime operands. Missing operands remain UNKNOWN. Pinned stat/base-power operators are reproduced; independent item, field, format, suppression and gimmick blockers remain."
   },
   "294": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
@@ -1260,14 +1276,14 @@
   },
   "3": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Speed Boost can change a live battle stat stage. Request-local clearance requires both exact active battlers’ observed stat stages and preserves the Analytic turn-order dependency."
+    "rationale": "Speed Boost can change a live battle stat stage. Request-local clearance requires both exact active battlers\u2019 observed stat stages and preserves the Analytic turn-order dependency."
   },
   "80": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Steadfast can change a live battle stat stage. Request-local clearance requires both exact active battlers’ observed stat stages and preserves the Analytic turn-order dependency."
+    "rationale": "Steadfast can change a live battle stat stage. Request-local clearance requires both exact active battlers\u2019 observed stat stages and preserves the Analytic turn-order dependency."
   },
   "192": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Stamina can change a live battle stat stage. Request-local clearance requires both exact active battlers’ observed stat stages and preserves the Analytic turn-order dependency."
+    "rationale": "Stamina can change a live battle stat stage. Request-local clearance requires both exact active battlers\u2019 observed stat stages and preserves the Analytic turn-order dependency."
   }
 }

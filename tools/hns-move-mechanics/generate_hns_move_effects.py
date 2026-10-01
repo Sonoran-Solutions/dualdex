@@ -485,6 +485,12 @@ def build_maps(upstream_dir):
         move_table_text
     )
     ability_flags_by_symbol, unknown_ability_flags_by_symbol = parse_ability_move_flags(move_table_text)
+    # Analytic explicitly excludes EFFECT_FUTURE_SIGHT. Its production branch is
+    # safe only while the ordinary surface excludes EVERY move with that effect.
+    future_sight = {symbol for symbol, effect in effect_by_symbol.items()
+                    if effect == "EFFECT_FUTURE_SIGHT"}
+    if "MOVE_FUTURE_SIGHT" not in future_sight or future_sight & ordinary_symbols:
+        raise ValueError("Analytic contract changed: Future Sight entered the ordinary surface")
     contact_by_symbol, unknown_contact_by_symbol, sheer_by_symbol, unknown_sheer_by_symbol = parse_contact_and_sheer_force(move_table_text)
 
     effect_by_id = {}

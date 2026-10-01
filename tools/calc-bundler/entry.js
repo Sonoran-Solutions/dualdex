@@ -1,4 +1,5 @@
 import { calculate, Generations, Pokemon, Move, Field, Side } from '@smogon/calc';
+import hnsGroupDDomains from '../hns-layout/group_d_domains.json';
 
 // @smogon/calc compares field.gameType against the canonical capitalised
 // strings ('Singles'/'Doubles'); its own Field default is 'Singles'. DualDex
@@ -329,7 +330,7 @@ const HNS_BREAKABLE_DEFENDER_ABILITIES = new Set([
   'Levitate', 'Wonder Guard',
   'Volt Absorb', 'Motor Drive', 'Lightning Rod', 'Water Absorb', 'Storm Drain', 'Dry Skin',
   'Sap Sipper', 'Earth Eater', 'Well-Baked Body', 'Flash Fire',
-  'Marvel Scale', 'Flower Gift',
+  'Marvel Scale', 'Flower Gift', 'Aura Break',
   'Soundproof', 'Bulletproof', 'Wind Rider',
   'Queenly Majesty', 'Dazzling', 'Armor Tail',
   'Heatproof', 'Water Bubble',
@@ -502,8 +503,13 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       : (attacker.rawStats ? attacker.rawStats.spa : attacker.stats.spa);
   }
 
+  const hnsFieldStatuses = Number.isInteger(input.field?.hnsFieldStatuses)
+    ? input.field.hnsFieldStatuses
+    : 0;
+  const wonderRoomActive = (hnsFieldStatuses & 0x4) !== 0;
+  const usesDefStat = wonderRoomActive ? isSpecial : isPhysical;
   let rawDef;
-  if (isPhysical) {
+  if (usesDefStat) {
     rawDef = (input.defender?.rawStats?.defense !== undefined)
       ? input.defender.rawStats.defense
       : (defender.rawStats ? defender.rawStats.def : defender.stats.def);
@@ -553,9 +559,6 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // Ruin field effects, attacker hold effect, then the offensive badge. Each source keeps its
   // own UQ4.12 composition operator; the completed product is applied once to the staged integer.
   const attackModifier = createHnsModifierAccumulator();
-  const hnsFieldStatuses = Number.isInteger(input.field?.hnsFieldStatuses)
-    ? input.field.hnsFieldStatuses
-    : 0;
   if (isPhysical && (attacker.ability === 'Huge Power' || attacker.ability === 'Pure Power')) {
     attackModifier.addHalfDown(8192);
   }
@@ -575,6 +578,53 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       Number.isInteger(attackerMaxHp) && attackerMaxHp > 0 && attackerHp >= 0 &&
       attackerHp <= attackerMaxHp && attackerHp <= Math.floor(attackerMaxHp / 2)) {
     attackModifier.addHalfDown(2048);
+  }
+
+  // State-backed attacker modifiers from the pinned CalcAttackStat ability switch. The read
+  // operands are supplied only by the live H&S boundary; absent values deliberately leave policy
+  // to refuse the request instead of treating them as neutral here.
+  if (attacker.ability === 'Slow Start' && isPhysical &&
+      Number.isInteger(input.attacker?.hnsSlowStartTimer) && input.attacker.hnsSlowStartTimer > 0) {
+    attackModifier.addHalfDown(2048);
+  }
+  if (attacker.ability === 'Flash Fire' && effectiveMoveType === 'Fire' &&
+      input.attacker?.hnsFlashFireBoosted === true) {
+    attackModifier.addHalfDown(6144);
+  }
+  if (attacker.ability === 'Stakeout' && input.defender?.hnsIsFirstTurn === 2) {
+    attackModifier.addHalfDown(8192);
+  }
+  if (attacker.ability === 'Gorilla Tactics' && isPhysical &&
+      input.attacker?.hnsDynamaxSelected === false &&
+      Number.isInteger(input.attacker?.hnsActiveGimmick) && input.attacker.hnsActiveGimmick !== 4) {
+    // The independent active-gimmick policy still refuses unsupported Dynamax move semantics.
+    attackModifier.addHalfUp(6144);
+  }
+
+  const paradoxEnabled = (battler, abilityName, isAttacker) => {
+    if (battler?.hnsTransformed === true) return false;
+    if (battler?.hnsTransformed !== false) return null;
+    if (battler.hnsBoosterEnergyActivated === true) return true;
+    if (battler.hnsBoosterEnergyActivated !== false) return null;
+    if (abilityName === 'Quark Drive') return (hnsFieldStatuses & 0x100) !== 0;
+    const rawWeather = input.field?.hnsWeatherWord;
+    const sun = Number.isInteger(rawWeather) && (rawWeather & 0x18) !== 0;
+    if (!sun) return false;
+    return hnsGlobalWeatherEffect(attacker, defender, input);
+  };
+  const paradoxAttackStat = (battler) => {
+    const stored = battler?.hnsParadoxBoostedStat;
+    if (!Number.isInteger(stored) || stored < 0 || stored >= hnsGroupDDomains.NUM_STATS) return null;
+    if (stored !== 0) return ({ 1: 'atk', 2: 'def', 3: 'spe', 4: 'spa', 5: 'spd' })[stored] ?? null;
+    return hnsParadoxHighestStat(battler, (hnsFieldStatuses & 0x4) !== 0);
+  };
+  if (attacker.ability === 'Protosynthesis' || attacker.ability === 'Quark Drive') {
+    const active = paradoxEnabled(input.attacker, attacker.ability, true);
+    if (active === true &&
+        ((isPhysical && paradoxAttackStat(input.attacker) === 'atk') ||
+         (isSpecial && paradoxAttackStat(input.attacker) === 'spa'))) {
+      attackModifier.addHalfUp(5325);
+    }
   }
 
   // H&S 2.0.5 pinch abilities (src/battle_util.c CalcAttackStat): the attacker's ability
@@ -624,11 +674,8 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
         : weatherStr.includes('sun');
       // CalculateAndSetMoveDamage supplies ctx.weather from GetWeather(); GetWeather returns
       // B_WEATHER_NONE when HasWeatherEffect() is false (Cloud Nine / Air Lock on any live battler).
-      const hasWeatherEffect = ![input.attacker, input.defender].some(source => {
-        const hp = [source?.hpAtHit, source?.hp, source?.curHP].find(Number.isInteger);
-        return ['Cloud Nine', 'Air Lock'].includes(source?.ability) && Number.isInteger(hp) && hp > 0;
-      });
-      if (isPhysical && hasRawSun && hasWeatherEffect && !hasUtilityUmbrella) {
+      const weatherEffect = hnsGlobalWeatherEffect(attacker, defender, input);
+      if (isPhysical && hasRawSun && weatherEffect === true && !hasUtilityUmbrella) {
         // UQ_4_12(1.3333) is 5461, not a rational 4/3 replacement.
         attackModifier.addHalfUp(5461);
       }
@@ -652,6 +699,12 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   if (defender.ability === 'Thick Fat' && (effectiveMoveType === 'Fire' || effectiveMoveType === 'Ice')) {
     attackModifier.addHalfDown(2048);
   }
+  if (isSpecial && input.attacker?.hnsVesselOfRuin !== true && hnsRuinActive(input, 'hnsVesselOfRuin')) {
+    attackModifier.addHalfDown(3072);
+  }
+  if (isPhysical && input.attacker?.hnsTabletsOfRuin !== true && hnsRuinActive(input, 'hnsTabletsOfRuin')) {
+    attackModifier.addHalfDown(3072);
+  }
 
   const atkBadge = isPhysical ? !!input.attacker?.badgeBoosts?.atk : !!input.attacker?.badgeBoosts?.spa;
   if (atkBadge) attackModifier.addHalfDown(4506);
@@ -660,11 +713,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // Defense-stage modifiers have their own accumulator so future defense abilities/items can be
   // inserted at the pinned CalcDefenseStat stage without changing base or final damage ordering.
   const defenseModifier = createHnsModifierAccumulator();
-  if (defender.ability === 'Fur Coat' && isPhysical && !defenderAbilitySuppressed) {
+  if (defender.ability === 'Fur Coat' && usesDefStat && !defenderAbilitySuppressed) {
     defenseModifier.add(8192);
   }
-  const wonderRoomActive = (hnsFieldStatuses & 0x4) !== 0;
-  const usesDefStat = wonderRoomActive ? isSpecial : isPhysical;
   const defenderStatus1 = input.defender?.status1;
   const defenderStatusKnown = Number.isInteger(defenderStatus1) && (defenderStatus1 & ~0x1fff) === 0;
   if (defender.ability === 'Marvel Scale' && !defenderAbilitySuppressed && usesDefStat &&
@@ -676,10 +727,24 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       isBattlerWeatherAffected(defender, 'Sun', field, attacker, defender, input)) {
     defenseModifier.addHalfDown(6144);
   }
+  if (!defenderAbilitySuppressed && (defender.ability === 'Protosynthesis' || defender.ability === 'Quark Drive')) {
+    const active = paradoxEnabled(input.defender, defender.ability, false);
+    if (active === true &&
+        ((isPhysical && paradoxAttackStat(input.defender) === 'def') ||
+         (isSpecial && paradoxAttackStat(input.defender) === 'spd'))) {
+      defenseModifier.addHalfUp(5325);
+    }
+  }
   if (defender.ability === 'Grass Pelt' && !defenderAbilitySuppressed &&
       (hnsFieldStatuses & 0x40) !== 0 && usesDefStat) {
     // Pinned CalcDefenseStat applies Grass Pelt after Fur Coat with the half-down operator.
     defenseModifier.addHalfDown(6144);
+  }
+  if (usesDefStat && input.defender?.hnsSwordOfRuin !== true && hnsRuinActive(input, 'hnsSwordOfRuin')) {
+    defenseModifier.addHalfDown(3072);
+  }
+  if (!usesDefStat && input.defender?.hnsBeadsOfRuin !== true && hnsRuinActive(input, 'hnsBeadsOfRuin')) {
+    defenseModifier.addHalfDown(3072);
   }
   const defBadge = isPhysical ? !!input.defender?.badgeBoosts?.def : !!input.defender?.badgeBoosts?.spd;
   if (defBadge) defenseModifier.add(4506);
@@ -719,6 +784,28 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     basePowerModifier.addHalfUp(5325);
   }
   switch (attacker.ability) {
+    case 'Rivalry': {
+      const atkGender = input.attacker?.hnsGender;
+      const defGender = input.defender?.hnsGender;
+      if (atkGender && defGender && atkGender !== 'UNKNOWN' && defGender !== 'UNKNOWN' &&
+          atkGender !== 'GENDERLESS' && defGender !== 'GENDERLESS') {
+        if (atkGender === defGender) basePowerModifier.addHalfUp(5120);
+        else basePowerModifier.addHalfUp(3072);
+      }
+      break;
+    }
+    case 'Analytic':
+      if (input.attacker?.hnsAnalyticTurnOrder === 'LAST_TO_MOVE') basePowerModifier.addHalfUp(5325);
+      break;
+    case 'Supreme Overlord': {
+      const count = input.attacker?.hnsSupremeOverlordCounter;
+      if (Number.isInteger(count) && count >= 0 && count <= 5) {
+        // PercentToUQ4_12 rounds (4096 * percent + 50) / 100; the function then adds 1.0.
+        const modifier = 4096 + Math.floor((4096 * count * 10 + 50) / 100);
+        basePowerModifier.addHalfUp(modifier);
+      }
+      break;
+    }
     case 'Technician':
       if (move.bp <= 60) basePowerModifier.add(6144);
       break;
@@ -728,7 +815,11 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       break;
     case 'Sand Force': {
       const rawWeather = input.field?.hnsWeatherWord;
+      // Sand Force reads the effective global ctx.weather, not the raw weather flags and not
+      // IsBattlerWeatherAffected. Cloud Nine / Air Lock therefore suppress it; Utility Umbrella
+      // does not. Keep Sandstorm independently outside production weather support.
       if (Number.isInteger(rawWeather) && (rawWeather & 0x20) !== 0 &&
+          hnsGlobalWeatherEffect(attacker, defender, input) === true &&
           ['Steel', 'Rock', 'Ground'].includes(effectiveMoveType)) basePowerModifier.addHalfUp(5325);
       break;
     }
@@ -782,6 +873,19 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       break;
     default:
       break;
+  }
+  const auraActive = (name) => [
+    [attacker, input.attacker], [defender, input.defender],
+  ].some(([b, source]) => {
+    const hp = [source?.hpAtHit, source?.hp, source?.curHP].find(Number.isInteger);
+    return b.ability === name && !(b === defender && bypassTargetAbility) &&
+      Number.isInteger(hp) && hp > 0 &&
+      source?.hnsGastroAcid !== true &&
+      ![input.attacker, input.defender].some((p) => p?.hnsNeutralizingGas === true && p?.hnsGastroAcid !== true);
+  });
+  if ((effectiveMoveType === 'Dark' && auraActive('Dark Aura')) ||
+      (effectiveMoveType === 'Fairy' && auraActive('Fairy Aura'))) {
+    basePowerModifier.addHalfUp(auraActive('Aura Break') ? 3072 : 5448);
   }
   // CalcMoveBasePowerAfterModifiers target-ability slot follows attacker, field, and partner
   // abilities and precedes held items. Compose it into the same half-up product before applying
@@ -995,14 +1099,62 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
 // The boundary has already rebound ordinary weather and effective abilities/items from live state.
 function isBattlerWeatherAffected(battler, requestedWeather, field, attacker, defender, input) {
   if (field.weather !== requestedWeather) return false;
-  const liveAbilities = [attacker.ability || '', defender.ability || ''];
-  if (liveAbilities.includes('Cloud Nine') || liveAbilities.includes('Air Lock')) return false;
+  if (hnsGlobalWeatherEffect(attacker, defender, input) !== true) return false;
   // Utility Umbrella is consumed here only to decide the holder's weather-affected predicate;
   // the separate item capability policy remains responsible for its independent limitation.
   const holder = battler === attacker ? input.attacker : input.defender;
   const item = String(holder?.item || battler.item || '').toLowerCase();
   if (holder?.hnsEffectiveItemId === 513 || item === 'utility umbrella') return false;
   return true;
+}
+
+// Source-equivalent global HasWeatherEffect() result used by branches that inspect ctx.weather.
+// This deliberately does not consider Utility Umbrella; only IsBattlerWeatherAffected does.
+// null means a living-state operand needed to resolve a suppressor was not observed.
+function hnsGlobalWeatherEffect(attacker, defender, input) {
+  for (const [battler, source] of [[attacker, input.attacker], [defender, input.defender]]) {
+    if (!['Cloud Nine', 'Air Lock'].includes(battler?.ability)) continue;
+    const hp = [source?.hpAtHit, source?.hp, source?.curHP].find(Number.isInteger);
+    if (!Number.isInteger(hp)) return null;
+    if (hp > 0 && source?.hnsGastroAcid !== true) return false;
+  }
+  return true;
+}
+
+function hnsRuinActive(input, volatileName) {
+  const battlers = [input.attacker || {}, input.defender || {}];
+  // IsNeutralizingGasOnField and IsRuinStatusActive inspect the stored volatiles, not HP.
+  const gas = battlers.some((b) => b.hnsNeutralizingGas === true && b.hnsGastroAcid !== true);
+  return battlers.some((b) => {
+    if (b.hnsGastroAcid === true || b[volatileName] !== true) return false;
+    if (!gas || b.ability === 'Neutralizing Gas' || b.hnsAbilityShield === true) return true;
+    return false;
+  });
+}
+
+function hnsParadoxHighestStat(battler, wonderRoom) {
+  const raw = battler?.rawStats;
+  const stages = battler?.statStages;
+  if (!raw || !Array.isArray(stages) || stages.length < 6) return null;
+  // GetParadoxHighestStatId compares post-stage stat values, preserving the first stat on ties.
+  // The pinned order is Attack, Defense, Sp. Atk, Sp. Def, then Speed. Wonder Room swaps the
+  // base-stat source for Def/Sp. Def while keeping each stat's own stage ratio.
+  const candidates = [
+    ['atk', raw.attack, 1],
+    ['def', wonderRoom ? raw.spDefense : raw.defense, 2],
+    ['spa', raw.spAttack, 4],
+    ['spd', wonderRoom ? raw.defense : raw.spDefense, 5],
+    ['spe', raw.speed, 3],
+  ];
+  let best = null;
+  for (const [name, stat, statIndex] of candidates) {
+    if (!Number.isInteger(stat) || stat <= 0 || !Number.isInteger(stages[statIndex])) return null;
+    const stage = Math.max(-6, Math.min(6, stages[statIndex]));
+    const ratio = HNS_STAT_STAGE_RATIOS[stage + 6];
+    const value = Math.floor((stat * ratio[0]) / ratio[1]);
+    if (best === null || value > best.value) best = { name, value };
+  }
+  return best?.name ?? null;
 }
 
       const field = new Field(fieldOptions);

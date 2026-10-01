@@ -52,7 +52,7 @@ Toolchain 13.2.rel1, run headlessly by the pinned `tools/mgba-rom-test-hydra` + 
 (no ROM), reproduced DualDex's hand-derived `gap_c4a` vector (Machamp Rock Slide, 51..60) and upstream's
 own Bulbapedia-derived `damage_formula.c` vector (Glaceon Ice Fang vs Garchomp, 168..196).
 
-Two deviations from a stock `make check`, both hashed into the corpus provenance:
+Harness deviations from a stock `make check` (patches are hashed into corpus provenance):
 
 1. `patches/0001-test-runner-include-order.patch` — at the pinned commit H&S's `include/fake_rtc.h`
    dereferences `struct SaveBlock3`, but `test/test_runner.c` includes it before `global.h`, so the
@@ -61,6 +61,11 @@ Two deviations from a stock `make check`, both hashed into the corpus provenance
 2. Upstream test *cases* are removed from the scratch export (the runner, its self-test and the headers
    `src/` includes are kept). Upstream's damage tests assert English battle messages that H&S changed,
    so they fail on `MESSAGE` matching even though their damage values reproduce.
+
+3. `patches/0002-pre-damage-state-hook.patch` adds a test-runner callback immediately before
+   the `RNG_CRITICAL_HIT` decision. Selected Group D cases install source-domain operands at this
+   point and record those actual operands before damage arithmetic. It changes only
+   `test/test_runner_battle.c`, never a damage function. No expected damage is written.
 
 **Option B (runtime probe) — not needed**, so it was not built. Option A needs no ROM and controls
 every operand directly. After the selected hit, the harness calls pinned `SetTypeBeforeUsingMove`
@@ -118,7 +123,7 @@ minimum roll, 15 the maximum. The generator then verifies, per roll and fail-clo
 
 Any violation aborts regeneration with the scenario ID. Nothing is defaulted or turned into zero.
 
-## Corpus schema (v6)
+## Corpus schema (v7)
 
 Defined and validated by `oracle_schema.py`. Each scenario names only authoritative operands:
 
@@ -199,13 +204,12 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-The issue #91 corpus records the effective type and `ateBoost` for each hit. Starting `main` at
-`f822410fdb7d7798ca23b757a0cdc313266ec74f` had 1,589 scenarios (1,470 production-modelled,
-119 engine-only). This slice adds 38 scenarios for Marvel Scale, holder-side Singles Flower Gift,
-Sheer Force, Tough Claws, Fluffy, and request-local controls for Reckless, Sand Force, Battery, and
-Power Spot. The current corpus has **1,627 scenarios: 1,502 production-modelled, 125 engine-only,
-1,625 exact calculator matches and the same two registered divergences**. Both remaining exact-vector divergences are linked to #100 in
-`known_divergences.json`:
+Starting `main` **724916188e6aa9530be7f961a530c7505feb9306** had 1,627 scenarios
+(1,502 modelled, 125 engine-only). The state-backed Group D matrix and isolated Flower Gift /
+Sand Force controls bring the corpus to **1,720 scenarios: 1,582 modelled, 138 engine-only,
+1,718 exact comparisons and the same two registered #100 divergences**. Every case has all
+16 rolls. Canonical regeneration and reversed-order verification are byte-identical.
+Both remaining divergences are listed in `known_divergences.json`:
 
 | Issue | Surface | Scenarios | Defect |
 |---|---|---:|---|
@@ -253,3 +257,38 @@ category divergences now match the pinned `gTypesInfo` categories.
 | `engine-*`, `doubles-*` | 103 | engine-only: Thick Fat, Guts, Huge/Pure Power, 17 type-boost items, Doubles single-target/spread/partner-fainted/screens/Rain |
 | `final-*` | 60 | Adaptability STAB rewrites/Fairy toggle; final ability thresholds, roles, 0.5/0.25/2/4 effectiveness, crit, HP/category, immunity, Mold Breaker/Ability Shield, speed order, rounding, and damage-floor controls |
 | `xref-*` | 34 | existing fixture reproductions |
+
+
+## Schema v7: state-backed Group D and independent Flower Gift controls
+
+`stateSetup` is an explicit, schema-validated declaration of test-runner operand setup. It can
+set a current species/form, the listed volatile payloads, stored Supreme counter, raw first-turn
+value, personality, or gimmick inputs. It cannot supply expected damage. Each installed callback
+is filtered to the measured attacker/move/setup-turn count, invoked exactly once, and cleared.
+Every new scenario requires source-observed runtime records (`AG`/`DG`), checked against the
+requested state for every roll. Missing, duplicated, malformed, out-of-domain or inconsistent
+records fail closed. Existing cases without setup retain null runtime records.
+
+The hook executes after CalculateMoveDamage initializes context ability/item/weather identities
+but before the critical-hit result and damage arithmetic. Its supported writes are the explicit
+operands in this matrix; it is not an unrestricted way to rewrite already-cached context inputs.
+Wonder Room uses the actual source move on a setup turn. Later-non-move Analytic controls replace
+the later action with the declared source enum solely to exercise `IsLastMonToMove`'s predicate.
+
+The Flower Gift form is set and captured at hit time. A WHEN clause records choices before the
+battle runs, so writing the form there did not prove a damage-time control. Sunshine + no Sun,
+base form + Sun, Sunshine + wrong category, Sunshine + holder Umbrella, and Sunshine + active
+Cloud Nine each isolate their named predicate; defender controls similarly retain Sunshine.
+
+Runtime records include source-derived gender, active and selected gimmicks, first-turn value,
+Slow Start timer, Flash Fire/Paradox/Ruin/suppression flags, stored Supreme counter, and the
+source last-to-move result. Rivalry uses those observed genders. The adapter never fabricates a
+payload from the scenario's ability name. Source setup is disclosed independently from the
+[official-ROM runtime transition evidence](../../docs/HNS_STATE_BACKED_GROUP_D.md).
+
+For pending Dynamax, the harness sets both TESTING `toActivate` and the equivalent release
+`playerSelect`/`usableGimmick` operands. The active-Dynamax control records source
+`GetMaxMovePower` (Strength 130) because pinned `CalcMoveBasePower` uses it; the production ordinary
+Strength table remains 80. Both controls are engine-only and do not authorize gimmick move
+semantics. Sand Force's two engine-only controls distinguish raw Sandstorm from effective weather
+suppressed by Cloud Nine; production Sandstorm remains independently refused.

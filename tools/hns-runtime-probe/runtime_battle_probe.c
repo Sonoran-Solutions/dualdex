@@ -241,6 +241,8 @@ static bool sha256_file_hex(const char* path, char out_hex[65]) {
 
 static bool g_quiet = false;
 static char g_rom_sha256[65];
+static bool g_group_d_trace = false;
+static char g_group_d_previous[2][768];
 
 static bool probe_read(void* user, uint32_t address, uint8_t* out, size_t length) {
     (void)user;
@@ -2541,6 +2543,53 @@ static void print_location_unreadable(const char* label, int frame, const char* 
            label, source, frame, g_rom_sha256);
 }
 
+/* Opt-in, read-only evidence for the generated Group D reader. Keep observations in the
+ * line: unread zeroes must never masquerade as a neutral cartridge value. */
+static void trace_group_d(const GameMemoryConfig* cfg, const Sample* s) {
+    if (!g_group_d_trace) return;
+    uint32_t callback = 0;
+    uint32_t main_callback1 = 0;
+    read_u32(cfg->main_struct_gba_address + cfg->battle_main_cb1_offset, &main_callback1);
+    // Diagnostic binding evidence only. BattleMainCB1 starts with LDR r3,[pc,#imm]
+    // then dereferences that word before dispatch. Do not feed this discovery to the reader.
+    uint32_t dispatch_slot = 0, dispatch_callback = 0;
+    uint16_t instruction = 0;
+    if (main_callback1 == cfg->battle_main_cb1_func_ptr && read_u16(main_callback1 & ~1u, &instruction) &&
+        (instruction & 0xFF00u) == 0x4B00u) {
+        uint32_t literal = ((main_callback1 + 3u) & ~3u) + (instruction & 0xFFu) * 4u;
+        if (read_u32(literal, &dispatch_slot)) read_u32(dispatch_slot, &dispatch_callback);
+    }
+    uint8_t action = 255, index = 255, attacker = 255;
+    read_u32(cfg->battle_main_func_gba_address, &callback);
+    read_u8(cfg->battle_current_action_func_id_gba_address, &action);
+    read_u8(cfg->battle_turn_action_number_gba_address, &index);
+    read_u8(cfg->battle_battler_attacker_gba_address, &attacker);
+    for (int role = 0; role < 2; role++) {
+        const BattlerRuntimeState* st = role == 0 ? &s->player_battler_state : &s->enemy_battler_state;
+        char line[768];
+        snprintf(line, sizeof(line),
+                 "role=%d status=%d battler=%d species=%u ability=%u item=%d/%u personality=%d/%u "
+                 "volatiles=%d slow=%u flash=%d transformed=%d booster=%d selector=%u "
+                 "ruin=%d,%d,%d,%d ng=%d first=%d/%u supreme=%d/%u selected=%d/%d "
+                 "active=%d/%u analytic=%d/%u move=%u callback=%08X action=%u index=%u attacker=%u main1=%08X dispatchSlot=%08X dispatch=%08X",
+                 role, st->status, st->battler_index, st->species_id, st->ability_id, st->item_observed, st->item_id,
+                 st->personality_observed, st->personality, st->volatiles_observed,
+                 st->volatile_slow_start_timer, st->volatile_flash_fire_boosted,
+                 st->volatile_transformed, st->volatile_booster_energy_activated,
+                 st->volatile_paradox_boosted_stat, st->volatile_vessel_of_ruin,
+                 st->volatile_sword_of_ruin, st->volatile_tablets_of_ruin, st->volatile_beads_of_ruin,
+                 st->volatile_neutralizing_gas, st->first_turn_observed, st->is_first_turn,
+                 st->supreme_overlord_counter_observed, st->supreme_overlord_counter,
+                 st->selected_dynamax_observed, st->dynamax_selected, st->gimmick_observed,
+                 st->active_gimmick, st->analytic_turn_order_observed, st->analytic_turn_order,
+                 st->analytic_current_move, callback, action, index, attacker, main_callback1, dispatch_slot, dispatch_callback);
+        if (strcmp(line, g_group_d_previous[role]) != 0) {
+            printf("[GROUP-D] frame=%d %s rom=%s\n", s->frame, line, g_rom_sha256);
+            snprintf(g_group_d_previous[role], sizeof(g_group_d_previous[role]), "%s", line);
+        }
+    }
+}
+
 /** Step one frame, sample it, assert the invariants and log any state change. */
 static Sample step_one(Driver* d, uint32_t buttons, Sample* previous, bool* have_previous) {
     libretro_host_set_input_buttons(buttons);
@@ -2550,6 +2599,7 @@ static Sample step_one(Driver* d, uint32_t buttons, Sample* previous, bool* have
     Sample current;
     sample_state(d->cfg, d->frame, buttons, &current);
     check_invariants(&current);
+    trace_group_d(d->cfg, &current);
 
     if (!*have_previous || sample_changed(previous, &current)) {
         if (!g_quiet) {
@@ -3806,6 +3856,9 @@ static int run_script(Driver* d, const char* script_path) {
                        cs.tx_mode_sturdy.raw, cs.tx_challenges_level_cap.raw,
                        cs.tx_challenges_exp_multiplier.raw, cs.tx_mode_legendary_abilities.raw);
             }
+        } else if (!strcmp(cmd, "group-d-trace")) {
+            g_group_d_trace = true;
+            memset(g_group_d_previous, 0, sizeof(g_group_d_previous));
         } else if (!strcmp(cmd, "battler-state")) {
             // Live battler ability + effective types through the PRODUCTION reader (issue #9).
             // Diagnostic only: asserts nothing, writes nothing.

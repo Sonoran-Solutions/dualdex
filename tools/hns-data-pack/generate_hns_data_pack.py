@@ -235,6 +235,35 @@ def require_field(body, field_name, move_id, move_constant, move_name):
     return eval_simple_c_expr(expression)
 
 
+def require_species_initializer_field(body, field_name, species_id):
+    """Read a possibly nested scalar initializer such as PERCENT_FEMALE(...)."""
+    match = re.search(r'\.' + re.escape(field_name) + r'\s*=\s*', body)
+    if not match:
+        raise ValueError(f"Missing .{field_name} for species {species_id}")
+    start = match.end()
+    depth = 0
+    for index in range(start, len(body)):
+        char = body[index]
+        if char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth -= 1
+        elif char == "," and depth == 0:
+            expression = body[start:index].strip()
+            if not expression:
+                break
+            expression = eval_simple_c_expr(expression)
+            aliases = {"MON_MALE": 0, "MON_FEMALE": 254, "MON_GENDERLESS": 255}
+            expression = aliases.get(expression, expression)
+            if not re.fullmatch(r"(?:0[xX][0-9a-fA-F]+|[0-9.+*/()\s-]+)", str(expression)):
+                raise ValueError(f"Unrecognized {field_name} expression for species {species_id}: {expression}")
+            value = int(eval(str(expression), {"__builtins__": {}}, {}))
+            if value not in range(256):
+                raise ValueError(f"{field_name} out of byte domain for species {species_id}: {value}")
+            return value
+    raise ValueError(f"Unterminated .{field_name} initializer for species {species_id}")
+
+
 def format_species_name(raw_name):
     clean = raw_name.strip()
     if clean in SPECIAL_NAMES:
@@ -405,6 +434,7 @@ def extract_species(cpp_bin, upstream_dir):
         spe = get_stat("baseSpeed")
         spa = get_stat("baseSpAttack")
         spd = get_stat("baseSpDefense")
+        gender_ratio = require_species_initializer_field(body, "genderRatio", species_id)
 
         formatted_name = format_species_name(raw_name)
 
@@ -419,6 +449,7 @@ def extract_species(cpp_bin, upstream_dir):
             "spa": spa,
             "spd": spd,
             "spe": spe,
+            "gender_ratio": gender_ratio,
         }
 
     return species_dict
@@ -1120,8 +1151,8 @@ def generate_kotlin_source(species_dict, moves_dict, abilities_dict, species_abi
     lines.append("    }")
     lines.append("")
     lines.append("    private fun registerSpecies(id: Int, name: String, t1: PokemonType, t2: PokemonType?,")
-    lines.append("                                hp: Int, atk: Int, def: Int, spa: Int, spd: Int, spe: Int) {")
-    lines.append("        speciesMap[id] = SpeciesInfo(id, name, t1, t2, hp, atk, def, spa, spd, spe)")
+    lines.append("                                hp: Int, atk: Int, def: Int, spa: Int, spd: Int, spe: Int, genderRatio: Int) {")
+    lines.append("        speciesMap[id] = SpeciesInfo(id, name, t1, t2, hp, atk, def, spa, spd, spe, genderRatio)")
     lines.append("    }")
     lines.append("")
     lines.append("    private fun registerMove(id: Int, name: String, type: PokemonType, category: MoveCategory, power: Int, acc: Int, pp: Int) {")
@@ -1136,7 +1167,8 @@ def generate_kotlin_source(species_dict, moves_dict, abilities_dict, species_abi
             name_escaped = s["name"].replace('"', '\\"')
             lines.append(
                 f'        registerSpecies({sid}, "{name_escaped}", {s["type1"]}, {t2_str}, '
-                f'{s["hp"]}, {s["atk"]}, {s["def"]}, {s["spa"]}, {s["spd"]}, {s["spe"]})'
+                f'{s["hp"]}, {s["atk"]}, {s["def"]}, {s["spa"]}, {s["spd"]}, {s["spe"]}, '
+                f'{s["gender_ratio"]})'
             )
         lines.append("    }")
         lines.append("")

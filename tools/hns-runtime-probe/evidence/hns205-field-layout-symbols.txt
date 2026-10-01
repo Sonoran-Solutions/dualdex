@@ -120,26 +120,20 @@ Scanning 32-bit little-endian constants across the official ROM (16MB):
   0x02000390 (gBattleWeather):             40 literal pool occurrences
 
 ================================================================================
-6. Official Release Callback Symbols: stable action-selection gate
+6. Callback binding correction (state-backed Group D)
 ================================================================================
-The pinned source installs replacement battle data before switch-in scripts are settled:
-  * `Cmd_switchindataupdate` copies the selected mon into `gBattleMons[battler]`.
-  * `Cmd_switchineffects` calls `UpdateSentMonFlags` (sets `BattlerState.switchIn = TRUE`)
-    and only then resets `eventState.switchIn = 0`.
-  * `BtlController_HandleSwitchInAnim` clears an opponent's `monToSwitchIntoId` before
-    `Cmd_switchineffects` runs, so that field is not an authoritative pending marker.
+The previously listed addresses 0x03002F5C / 0x080893D9 / 0x0808B939 came from a
+SOURCE BUILD. Their attribution to the official release is WITHDRAWN.
 
-On the official v2.0.5 ROM above, the release `pokehns.map` / `pokehns.sym` bind the wider
-action-selection gate to:
-  0x03002F5C  gBattleMainFunc (IWRAM function pointer)
-  0x080893D8  HandleTurnActionSelectionState (Thumb code symbol)
-  0x080893D9  stored Thumb function pointer for HandleTurnActionSelectionState
-  0x0808B938  RunBattleScriptCommands_PopCallbacksStack (Thumb code symbol)
-  0x0808B939  stored Thumb function pointer while a battle script is executing
+Generated evidence: tools/hns-layout/release_phase_evidence.json
+Runtime evidence: tools/hns-runtime-probe/evidence/group-d/
 
-`HandleTurnActionSelectionState` is assigned in `src/battle_main.c` while H&S waits for
-actions. `BattleScriptExecute` switches `gBattleMainFunc` to battle-script processing in
-`src/battle_util.c`. The reader requires the exact stable callback in addition to the completed
-switch-in event counter and clear active switch-in flags; all replacement script/controller
-frames therefore remain pending, including the interval before `switchineffects` resets the
-older event state.
+Official release:
+  gBattleMainFunc storage:             0x03002F74
+  BattleMainCB1 Thumb callback:        0x080822F1
+  HandleTurnActionSelectionState:      0x08088DED
+  RunTurnActionsFunctions:             0x0808AA35
+
+These are generated unique source-function instruction bindings plus a literal
+read from BattleMainCB1, independently confirmed by live battle transitions.
+See docs/HNS_STATE_BACKED_GROUP_D.md for the exact phase proof and reproduction.

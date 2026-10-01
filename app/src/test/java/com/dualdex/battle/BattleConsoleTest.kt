@@ -233,6 +233,8 @@ class BattleConsoleTest {
             status1 = status1,
             volatilesObserved = true,
             transientVolatilesObserved = true,
+            groupDVolatilesObserved = true,
+            selectedDynamaxObserved = true,
             persistentVolatilesObserved = true,
             gimmickObserved = true,
             activeGimmick = 0,

@@ -102,6 +102,8 @@ class CalcHnsC4eProductionBoundaryTest {
         status1: Int = 0,
         statusObserved: Boolean = true,
         volatilesObserved: Boolean = true,
+        groupDVolatilesObserved: Boolean = volatilesObserved,
+        volatileFlashFireBoosted: Boolean = false,
         transientVolatilesObserved: Boolean = volatilesObserved,
         electrified: Boolean = false,
         glaiveRush: Boolean = false,
@@ -167,6 +169,8 @@ class CalcHnsC4eProductionBoundaryTest {
             maxHp = maxHp,
             statusObserved = statusObserved,
             status1 = status1,
+            groupDVolatilesObserved = groupDVolatilesObserved,
+            volatileFlashFireBoosted = volatileFlashFireBoosted,
             volatilesObserved = volatilesObserved,
             volatileElectrified = electrified,
             volatileGlaiveRush = glaiveRush,
@@ -186,6 +190,8 @@ class CalcHnsC4eProductionBoundaryTest {
             volatileRoostActive = roostActive,
             volatileSubstitute = substitute,
             volatileEndured = endured,
+            selectedDynamaxObserved = gimmickObserved,
+            dynamaxSelected = false,
             gimmickObserved = gimmickObserved,
             activeGimmick = gimmick,
             fieldStatusesReadable = fieldStatusesReadable,
@@ -215,6 +221,7 @@ class CalcHnsC4eProductionBoundaryTest {
         transientVolatilesObserved: Boolean = volatilesObserved,
         glaiveRush: Boolean = false,
         tarShot: Boolean = false,
+        groupDVolatilesObserved: Boolean = volatilesObserved,
         persistentVolatilesObserved: Boolean = volatilesObserved,
         foresight: Boolean = false,
         miracleEye: Boolean = false,
@@ -278,6 +285,7 @@ class CalcHnsC4eProductionBoundaryTest {
             transientVolatilesObserved = transientVolatilesObserved,
             volatileChargeTimer = 0,
             volatileTarShot = tarShot,
+            groupDVolatilesObserved = groupDVolatilesObserved,
             persistentVolatilesObserved = persistentVolatilesObserved,
             volatileForesight = foresight,
             volatileMiracleEye = miracleEye,
@@ -289,6 +297,8 @@ class CalcHnsC4eProductionBoundaryTest {
             volatileRoostActive = roostActive,
             volatileSubstitute = substitute,
             volatileEndured = endured,
+            selectedDynamaxObserved = gimmickObserved,
+            dynamaxSelected = false,
             gimmickObserved = gimmickObserved,
             activeGimmick = gimmick,
             fieldStatusesReadable = fieldStatusesReadable,
@@ -712,7 +722,7 @@ class CalcHnsC4eProductionBoundaryTest {
                 it.relevance == HnsItemRequestRelevance.UNKNOWN
         })
         assertTrue(booster.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
-        assertTrue(booster.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertFalse(booster.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
     }
 
     @Test
@@ -3577,7 +3587,7 @@ class CalcHnsC4eProductionBoundaryTest {
         val analytic = refusedOf(fieldBuild(HnsFieldStatus.TRICK_ROOM.mask, attackerAbility = 148 to "Analytic"),
             "Trick Room cannot make an unaudited Analytic ability safe")
         assertEquals("trick_room_attacker_analytic", fieldDecision(analytic, HnsFieldStatus.TRICK_ROOM).rule)
-        assertTrue(analytic.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertTrue(analytic.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
         assertTrue(analytic.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
     }
 
@@ -4164,22 +4174,34 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `Flash Fire attacker boost remains refused for Fire damage`() {
-        val attacker = playerObservation(abilityId = 18, abilityName = "Flash Fire")
-        val fireMove = refusedOf(
-            build(
-                trustFor(exactSha), goldenARequest("Ember"), attacker, enemyObservation(),
-                randomAbilities = true
-            ),
-            "Flash Fire's attacker boost needs the missing activation flag"
+    fun `Flash Fire attacker boost uses the live activation flag`() {
+        val clear = playerObservation(abilityId = 18, abilityName = "Flash Fire",
+            groupDVolatilesObserved = true, volatileFlashFireBoosted = false)
+        val clearReady = readyOf(
+            build(trustFor(exactSha), goldenARequest("Ember"), clear, enemyObservation(), randomAbilities = true),
+            "an observed false Flash Fire activation flag proves the boost inactive"
         )
-        assertTrue(fireMove.verdict.blockingLimitations.contains(
-            CalcLimitation.HNS_FLASH_FIRE_BOOST_NOT_MODELLED
-        ))
+        assertFalse(JSONObject(buildCalcRequestJson(clearReady.request)).getJSONObject("attacker")
+            .getBoolean("hnsFlashFireBoosted"))
 
+        val boosted = playerObservation(abilityId = 18, abilityName = "Flash Fire",
+            groupDVolatilesObserved = true, volatileFlashFireBoosted = true)
+        val boostedReady = readyOf(
+            build(trustFor(exactSha), goldenARequest("Ember"), boosted, enemyObservation(), randomAbilities = true),
+            "an observed true Flash Fire activation flag enables the modeled Attack-stat factor"
+        )
+        assertTrue(JSONObject(buildCalcRequestJson(boostedReady.request)).getJSONObject("attacker")
+            .getBoolean("hnsFlashFireBoosted"))
+
+        val unread = clear.copy(state = clear.state.copy(groupDVolatilesObserved = false))
+        val fireMove = refusedOf(
+            build(trustFor(exactSha), goldenARequest("Ember"), unread, enemyObservation(), randomAbilities = true),
+            "a missing Flash Fire activation flag must remain unknown"
+        )
+        assertTrue(fireMove.verdict.blockingLimitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
         readyOf(
             build(
-                trustFor(exactSha), goldenARequest("Water Gun"), attacker, enemyObservation(),
+                trustFor(exactSha), goldenARequest("Water Gun"), clear, enemyObservation(),
                 randomAbilities = true
             ),
             "attacker Flash Fire cannot change Water damage"
@@ -4288,4 +4310,52 @@ class CalcHnsC4eProductionBoundaryTest {
         assertTrue(refused.verdict.blockingLimitations.contains(CalcLimitation.HNS_ABILITY_IDENTITY_NOT_AUTHORITATIVE))
         assertTrue(refused.verdict.blockingLimitations.contains(CalcLimitation.HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE))
     }
+    @Test
+    fun `state backed operands bind live values and retain independent blockers`() {
+        val trust = trustFor(exactSha)
+        val gorilla = playerObservation(abilityId = 255, abilityName = "Gorilla Tactics")
+        readyOf(build(trust, goldenARequest(), gorilla, enemyObservation(), randomAbilities = true),
+            "observed ordinary Gorilla Tactics is exact")
+        val pending = gorilla.copy(state = gorilla.state.copy(selectedDynamaxObserved = true, dynamaxSelected = true))
+        val pendingVerdict = (build(trust, goldenARequest(), pending, enemyObservation(), randomAbilities = true)
+            as CalcRequestOutcome.Refused).verdict
+        assertTrue(pendingVerdict.limitations.contains(CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED))
+        assertFalse(pendingVerdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+
+        val paradoxBase = playerObservation(abilityId = 282, abilityName = "Quark Drive")
+        val paradox = paradoxBase.copy(state = paradoxBase.state.copy(
+            volatileBoosterEnergyActivated = true, volatileParadoxBoostedStat = 1))
+        val consumed = readyOf(build(trust, goldenARequest(), paradox, enemyObservation(), randomAbilities = true),
+            "consumed ITEM_NONE plus the observed activation payload is sufficient")
+        val json = JSONObject(buildCalcRequestJson(consumed.request)).getJSONObject("attacker")
+        assertTrue(json.getBoolean("hnsBoosterEnergyActivated"))
+        assertEquals(0, json.getInt("hnsEffectiveItemId"))
+        val held = paradox.copy(state = paradox.state.copy(itemId = 764))
+        val heldVerdict = (build(trust, goldenARequest(), held, enemyObservation(), randomAbilities = true)
+            as CalcRequestOutcome.Refused).verdict
+        assertTrue(heldVerdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        val gas = paradox.copy(state = paradox.state.copy(volatileNeutralizingGas = true))
+        assertTrue((build(trust, goldenARequest(), gas, enemyObservation(), randomAbilities = true)
+            as CalcRequestOutcome.Refused).verdict.limitations.contains(CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED))
+    }
+
+    @Test
+    fun `Analytic authority belongs to this exact current move and cannot be supplied by the caller`() {
+        val trust = trustFor(exactSha)
+        val base = playerObservation(abilityId = 148, abilityName = "Analytic")
+        val active = base.copy(state = base.state.copy(analyticTurnOrderObserved = true,
+            analyticTurnOrder = 1, analyticCurrentMove = 33))
+        val ready = readyOf(build(trust, goldenARequest(), active, enemyObservation(), randomAbilities = true),
+            "phase-proven Tackle action may consume LAST_TO_MOVE")
+        assertEquals("LAST_TO_MOVE", JSONObject(buildCalcRequestJson(ready.request))
+            .getJSONObject("attacker").getString("hnsAnalyticTurnOrder"))
+        val otherMove = active.copy(state = active.state.copy(analyticCurrentMove = 52))
+        for (observation in listOf(base, otherMove)) {
+            val forged = goldenARequest().copy(hnsLiveBattleState = ready.request.hnsLiveBattleState)
+            val result = build(trust, forged, observation, enemyObservation(), randomAbilities = true)
+                as CalcRequestOutcome.Refused
+            assertTrue(result.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+        }
+    }
+
 }

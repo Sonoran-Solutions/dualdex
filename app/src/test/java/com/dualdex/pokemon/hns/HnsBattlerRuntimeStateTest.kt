@@ -416,6 +416,77 @@ class HnsBattlerRuntimeStateTest {
     }
 
     @Test
+    fun `97 element tuple decodes state backed Group D fields and shorter tuples leave them unknown`() {
+        val raw = IntArray(97).also { tuple ->
+            c4eObservedTuple().copyInto(tuple)
+            tuple[47] = 1 // the shared volatile window is readable
+            tuple[76] = 1
+            tuple[77] = 0x12345678
+            tuple[78] = 3
+            tuple[79] = 1
+            tuple[80] = 1
+            tuple[81] = 1
+            tuple[82] = 4
+            tuple[83] = 1
+            tuple[84] = 1
+            tuple[85] = 1
+            tuple[86] = 1
+            tuple[87] = 1
+            tuple[88] = 2
+            tuple[89] = 1
+            tuple[90] = 5
+            tuple[91] = 1
+            tuple[92] = 0 // observed NONE is distinct from unread
+            tuple[93] = 1
+            tuple[94] = 2
+            tuple[96] = 33
+        }
+        val state = HnsBattlerRuntimeState.fromNativeArray(raw)
+        assertTrue(state.groupDVolatilesObserved)
+        assertTrue(state.personalityObserved)
+        assertEquals(0x12345678, state.personality)
+        assertEquals(3, state.volatileSlowStartTimer)
+        assertTrue(state.volatileFlashFireBoosted)
+        assertTrue(state.volatileTransformed)
+        assertTrue(state.volatileBoosterEnergyActivated)
+        assertEquals(4, state.volatileParadoxBoostedStat)
+        assertTrue(state.volatileVesselOfRuin)
+        assertTrue(state.volatileSwordOfRuin)
+        assertTrue(state.volatileTabletsOfRuin)
+        assertTrue(state.volatileBeadsOfRuin)
+        assertTrue(state.firstTurnObserved)
+        assertEquals(2, state.isFirstTurn)
+        assertTrue(state.supremeOverlordCounterObserved)
+        assertEquals(5, state.supremeOverlordCounter)
+        assertTrue(state.selectedDynamaxObserved)
+        assertFalse(state.dynamaxSelected)
+        assertTrue(state.analyticTurnOrderObserved)
+        assertEquals(2, state.analyticTurnOrder)
+
+        val previous = HnsBattlerRuntimeState.fromNativeArray(raw.copyOf(76))
+        assertFalse(previous.groupDVolatilesObserved)
+        assertFalse(previous.personalityObserved)
+        assertFalse(previous.firstTurnObserved)
+        assertFalse(previous.supremeOverlordCounterObserved)
+        assertFalse(previous.selectedDynamaxObserved)
+        assertFalse(previous.analyticTurnOrderObserved)
+        for (length in 76 until raw.size) {
+            val short = HnsBattlerRuntimeState.fromNativeArray(raw.copyOf(length))
+            assertFalse("short tuple $length is not an observation", short.groupDVolatilesObserved)
+            assertFalse(short.selectedDynamaxObserved)
+            assertFalse(short.analyticTurnOrderObserved)
+        }
+        for ((slot, invalid) in listOf(78 to 8, 79 to 2, 82 to 6, 95 to -1)) {
+            assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[slot] = invalid }).groupDVolatilesObserved)
+        }
+        assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[90] = 6 }).supremeOverlordCounterObserved)
+        assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[88] = 4 }).firstTurnObserved)
+        assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[92] = 2 }).selectedDynamaxObserved)
+        assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[96] = 0 }).analyticTurnOrderObserved)
+        assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[76] = -1 }).personalityObserved)
+    }
+
+    @Test
     fun `74-element tuple decodes the current live battle species and older tuple stays unknown`() {
         val raw = c4ePersistentTuple().copyOf(74)
         raw[72] = 1

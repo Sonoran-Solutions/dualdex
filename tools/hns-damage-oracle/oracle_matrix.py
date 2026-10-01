@@ -52,6 +52,16 @@ SPECIES = {
     "Tyranitar": ("Rock", "Dark"), "Umbreon": ("Dark",), "Vaporeon": ("Water",),
     "Venusaur": ("Grass", "Poison"), "Azumarill": ("Water", "Fairy"), "Glaceon": ("Ice",),
     "Garchomp": ("Dragon", "Ground"), "Cherrim": ("Grass",), "Cherrim-Sunshine": ("Grass",),
+    "Pikachu": ("Electric",), "Pikachu-Rock-Star": ("Electric",), "Pichu": ("Electric",),
+    "Cubone": ("Ground",), "Marowak": ("Ground",), "Marowak-Alola": ("Fire", "Ghost"),
+    "Clamperl": ("Water",), "Ditto": ("Normal",), "Latias": ("Dragon", "Psychic"),
+    "Latios": ("Dragon", "Psychic"), "Dialga": ("Steel", "Dragon"),
+    "Dialga-Origin": ("Steel", "Dragon"), "Palkia": ("Water", "Dragon"),
+    "Palkia-Origin": ("Water", "Dragon"), "Giratina": ("Ghost", "Dragon"),
+    "Giratina-Origin": ("Ghost", "Dragon"), "Ogerpon-Teal": ("Grass",),
+    "Ogerpon-Wellspring": ("Grass", "Water"), "Ogerpon-Hearthflame": ("Grass", "Fire"),
+    "Ogerpon-Cornerstone": ("Grass", "Rock"), "Kyogre-Primal": ("Water",),
+    "Groudon-Primal": ("Ground",),
 }
 
 # label -> (planning type, planning per-move category, planning power)
@@ -77,6 +87,7 @@ MOVES = {
     "Shadow Claw": ("Ghost", "physical", 70), "Shadow Punch": ("Ghost", "physical", 60),
     "Shadow Ball": ("Ghost", "special", 80), "Moongeist Beam": ("Ghost", "special", 100),
     "Iron Head": ("Steel", "physical", 80), "Meteor Mash": ("Steel", "physical", 90),
+    "Metal Claw": ("Steel", "physical", 50),
     "Flash Cannon": ("Steel", "special", 80), "Mirror Shot": ("Steel", "special", 65),
     "Sunsteel Strike": ("Steel", "physical", 100),
     "Fire Punch": ("Fire", "physical", 75), "Fire Fang": ("Fire", "physical", 65),
@@ -153,7 +164,7 @@ TYPE_BOOST_ITEMS = (
     ("ITEM_MYSTIC_WATER", "Mystic Water", "Water"), ("ITEM_MIRACLE_SEED", "Miracle Seed", "Grass"),
     ("ITEM_MAGNET", "Magnet", "Electric"), ("ITEM_TWISTED_SPOON", "Twisted Spoon", "Psychic"),
     ("ITEM_NEVER_MELT_ICE", "Never-Melt Ice", "Ice"), ("ITEM_DRAGON_FANG", "Dragon Fang", "Dragon"),
-    ("ITEM_BLACK_GLASSES", "Black Glasses", "Dark"),
+    ("ITEM_BLACK_GLASSES", "Black Glasses", "Dark"), ("ITEM_FAIRY_FEATHER", "Fairy Feather", "Fairy"),
 )
 
 PINCH_ABILITIES = (
@@ -1003,9 +1014,9 @@ def _mixed_rounding_attack_stat_abilities() -> list[dict]:
                  "Strength", weather="rain"),
         scenario("group-d-orichalcum-pulse-special-sun-control", ["ability:orichalcum-pulse", "attack-stat", "weather:sun", "negative-control"],
                  attacker("Alakazam", spa=153, ability=orichalcum), defender("Snorlax", spd=107), "Swift", weather="sun"),
-        scenario("group-d-orichalcum-pulse-utility-umbrella", ["ability:orichalcum-pulse", "attack-stat", "item:utility-umbrella", "negative-control"],
+        scenario("group-d-orichalcum-pulse-utility-umbrella", ["ability:orichalcum-pulse", "attack-stat", "item:utility-umbrella"],
                  attacker("Machamp", atk=153, ability=orichalcum, item=umbrella), defender("Snorlax", dfn=107),
-                 "Strength", weather="sun", surface="engine-only"),
+                 "Strength", weather="sun"),
         scenario("group-d-orichalcum-pulse-cloud-nine-raw-sun", ["ability:orichalcum-pulse", "ability:cloud-nine", "weather:sun", "raw-weather"],
                  attacker("Machamp", atk=153, ability=orichalcum), defender("Snorlax", dfn=107, ability=cloud_nine),
                  "Strength", weather="sun", surface="engine-only"),
@@ -1546,13 +1557,286 @@ def _engine_items() -> list[dict]:
         for move in (phys, spec):
             out.append(scenario(f"engine-item-{slug(item_label)}-{slug(move)}", ["item:type-boost"],
                                 attacker("Kecleon", atk=129, spa=129, item=(item_sym, item_label)),
-                                defender(dfn_label, dfn=103, spd=103), move, surface="engine-only"))
+                                defender(dfn_label, dfn=103, spd=103), move, surface="modelled"))
     out.append(scenario("engine-item-charcoal-off-type", ["item:type-boost"],
                         attacker("Kecleon", atk=129, item=("ITEM_CHARCOAL", "Charcoal")),
-                        defender("Snorlax", dfn=103), "Waterfall", surface="engine-only"))
+                        defender("Snorlax", dfn=103), "Waterfall", surface="modelled"))
     out.append(scenario("engine-item-charcoal-defender", ["item:type-boost"],
                         attacker("Kecleon", atk=129), defender("Snorlax", dfn=103, item=("ITEM_CHARCOAL", "Charcoal")),
-                        "Fire Punch", surface="engine-only"))
+                        "Fire Punch", surface="modelled"))
+    out.append(scenario("engine-item-flame-plate-fire-punch", ["item:plate", "item:type-boost"],
+                        attacker("Kecleon", atk=129, item=("ITEM_FLAME_PLATE", "Flame Plate")),
+                        defender("Snorlax", dfn=103), "Fire Punch", surface="modelled"))
+    out.append(scenario("engine-item-flame-plate-off-type", ["item:plate", "item:type-boost", "negative-control"],
+                        attacker("Kecleon", atk=129, item=("ITEM_FLAME_PLATE", "Flame Plate")),
+                        defender("Snorlax", dfn=103), "Waterfall", surface="modelled"))
+    return out
+
+
+def _group_d_held_items() -> list[dict]:
+    """Direct held-item operands added for #92; all measurements use the pinned damage runner."""
+    out = []
+    def item(symbol_name, label):
+        return (symbol("ITEM", label), label)
+    def ability(name):
+        return (symbol("ABILITY", name), name)
+    def add(name, atk, dfn, move, tags=None, **kwargs):
+        out.append(scenario("group-d-item-" + name,
+                            ["group-d-held-item", "item:" + name.split("-")[0]] + (tags or []),
+                            atk, dfn, move, **kwargs))
+
+    # Gems use the source generated parameter and the pre-damage current item. The engine may
+    # consume a matching Gem during the hit; the runtime record intentionally preserves its
+    # pre-hit identity while the ordinary battler line records the post-hit ITEM_NONE.
+    fire_gem = item("ITEM_FIRE_GEM", "Fire Gem")
+    add("fire-gem-matching-consumed-after-hit", attacker("Kecleon", atk=145, item=fire_gem),
+        defender("Snorlax", dfn=109), "Fire Punch")
+    add("fire-gem-wrong-type", attacker("Kecleon", atk=145, item=fire_gem),
+        defender("Snorlax", dfn=109), "Waterfall", tags=["negative-control"])
+    add("fire-gem-technician-composition", attacker("Magmar", spa=145, ability=ability("Technician"),
+        item=fire_gem), defender("Snorlax", spd=109), "Ember", tags=["modifier-stacking"])
+    add("fire-gem-magic-room-suppressed", attacker("Kecleon", atk=145, item=fire_gem),
+        defender("Snorlax", dfn=109), "Fire Punch", tags=["suppression"],
+        state_setup={"magicRoom": True})
+    add("no-current-gem", attacker("Kecleon", atk=145), defender("Snorlax", dfn=109),
+        "Fire Punch", tags=["negative-control"])
+    add("charcoal-magic-room-suppressed", attacker("Kecleon", atk=145, item=item("ITEM_CHARCOAL", "Charcoal")),
+        defender("Snorlax", dfn=109), "Fire Punch", tags=["suppression"],
+        state_setup={"magicRoom": True})
+    add("charcoal-embargo-suppressed", attacker("Kecleon", atk=145, item=item("ITEM_CHARCOAL", "Charcoal")),
+        defender("Snorlax", dfn=109), "Fire Punch", tags=["suppression"],
+        state_setup={"attacker": {"embargo": 1}})
+    add("charcoal-klutz-suppressed", attacker("Kecleon", atk=145, ability=ability("Klutz"),
+        item=item("ITEM_CHARCOAL", "Charcoal")), defender("Snorlax", dfn=109), "Fire Punch",
+        tags=["suppression"])
+
+    # Category and type conditions for base-power items.
+    add("muscle-band-physical", attacker("Machamp", atk=151, item=item("ITEM_MUSCLE_BAND", "Muscle Band")),
+        defender("Snorlax", dfn=109), "Strength")
+    add("muscle-band-special-control", attacker("Machamp", spa=151, item=item("ITEM_MUSCLE_BAND", "Muscle Band")),
+        defender("Snorlax", spd=109), "Psychic", tags=["negative-control"])
+    add("muscle-band-technician-composition", attacker("Scizor", atk=151,
+        ability=ability("Technician"), item=item("ITEM_MUSCLE_BAND", "Muscle Band")),
+        defender("Snorlax", dfn=109), "Metal Claw", tags=["modifier-stacking"])
+    add("choice-band-physical", attacker("Machamp", atk=151, item=item("ITEM_CHOICE_BAND", "Choice Band")),
+        defender("Snorlax", dfn=109), "Strength")
+    add("choice-band-special-control", attacker("Machamp", spa=151, item=item("ITEM_CHOICE_BAND", "Choice Band")),
+        defender("Snorlax", spd=109), "Psychic", tags=["negative-control"])
+    add("choice-band-stage-composition", attacker("Machamp", atk=151, stages={"attack": 1},
+        item=item("ITEM_CHOICE_BAND", "Choice Band")), defender("Snorlax", dfn=109), "Strength",
+        tags=["modifier-stacking"], state_setup={"attackerStatStages": {"attack": 1}})
+    add("choice-specs-special", attacker("Porygon", spa=151, item=item("ITEM_CHOICE_SPECS", "Choice Specs")),
+        defender("Snorlax", spd=109), "Psychic")
+    add("choice-specs-stage-composition", attacker("Porygon", spa=151, stages={"spAttack": 1},
+        item=item("ITEM_CHOICE_SPECS", "Choice Specs")), defender("Snorlax", spd=109), "Psychic",
+        tags=["modifier-stacking"], state_setup={"attackerStatStages": {"spAttack": 1}})
+    add("choice-specs-physical-control", attacker("Machamp", atk=151, item=item("ITEM_CHOICE_SPECS", "Choice Specs")),
+        defender("Snorlax", dfn=109), "Strength", tags=["negative-control"])
+
+    # Source species predicates, including alternate forms whose base species differs from the
+    # active form used by the source predicate.
+    thick = item("ITEM_THICK_CLUB", "Thick Club")
+    add("thick-club-cubone-physical", attacker("Cubone", atk=151, item=thick), defender("Snorlax", dfn=109), "Bone Club")
+    add("thick-club-alolan-marowak", attacker("Marowak-Alola", atk=151, item=thick), defender("Snorlax", dfn=109), "Fire Punch")
+    add("thick-club-wrong-species", attacker("Machamp", atk=151, item=thick), defender("Snorlax", dfn=109), "Strength",
+        tags=["negative-control"])
+    add("thick-club-special-control", attacker("Cubone", spa=151, item=thick), defender("Snorlax", spd=109), "Psychic",
+        tags=["negative-control"])
+    light = item("ITEM_LIGHT_BALL", "Light Ball")
+    add("light-ball-pikachu-physical", attacker("Pikachu", atk=151, item=light), defender("Snorlax", dfn=109), "Strength")
+    add("light-ball-pikachu-special", attacker("Pikachu", spa=151, item=light), defender("Snorlax", spd=109), "Psychic")
+    add("light-ball-pikachu-form", attacker("Pikachu-Rock-Star", atk=151, item=light),
+        defender("Snorlax", dfn=109), "Strength", tags=["form"])
+    add("light-ball-wrong-species", attacker("Pichu", atk=151, item=light), defender("Snorlax", dfn=109), "Strength",
+        tags=["negative-control"])
+    tooth = item("ITEM_DEEP_SEA_TOOTH", "Deep Sea Tooth")
+    add("deep-sea-tooth-clamperl-special", attacker("Clamperl", spa=151, item=tooth), defender("Snorlax", spd=109), "Surf")
+    add("deep-sea-tooth-physical-control", attacker("Clamperl", atk=151, item=tooth), defender("Snorlax", dfn=109), "Waterfall",
+        tags=["negative-control"])
+    add("deep-sea-tooth-wrong-species", attacker("Porygon", spa=151, item=tooth), defender("Snorlax", spd=109), "Psychic",
+        tags=["negative-control"])
+
+    # Signature Orbs and Soul Dew are type- and species-gated at CalcMoveBasePowerAfterModifiers.
+    for family, species, form, signature, move, wrong_species in (
+        ("lustrous-orb", "Palkia", "Palkia-Origin", "Lustrous Orb", "Surf", "Dialga"),
+        ("adamant-orb", "Dialga", "Dialga-Origin", "Adamant Orb", "Iron Head", "Palkia"),
+        ("griseous-orb", "Giratina", "Giratina-Origin", "Griseous Orb", "Dragon Pulse", "Palkia"),
+    ):
+        orb = item("ITEM_" + signature.upper().replace(" ", "_"), signature)
+        add(f"{family}-matching", attacker(species, atk=151, spa=151, item=orb), defender("Snorlax", dfn=109), move)
+        add(f"{family}-alternate-form", attacker(form, atk=151, spa=151, item=orb), defender("Snorlax", dfn=109), move,
+            tags=["form"])
+        add(f"{family}-wrong-species", attacker(wrong_species, atk=151, spa=151, item=orb),
+            defender("Snorlax", dfn=109), move, tags=["negative-control"])
+        add(f"{family}-wrong-type", attacker(species, atk=151, spa=151, item=orb),
+            defender("Snorlax", dfn=109), "Fire Punch", tags=["negative-control"])
+    soul = item("ITEM_SOUL_DEW", "Soul Dew")
+    add("soul-dew-latias-psychic", attacker("Latias", spa=151, item=soul), defender("Snorlax", spd=109), "Psychic")
+    add("soul-dew-latios-dragon", attacker("Latios", spa=151, item=soul), defender("Snorlax", spd=109), "Dragon Pulse")
+    add("soul-dew-wrong-species", attacker("Palkia", spa=151, item=soul), defender("Snorlax", spd=109), "Psychic",
+        tags=["negative-control"])
+    add("soul-dew-wrong-type", attacker("Latias", spa=151, item=soul), defender("Snorlax", spd=109), "Fire Blast",
+        tags=["negative-control"])
+
+    # Punching Glove changes base power and makes punching moves avoid contact effects.
+    glove = item("ITEM_PUNCHING_GLOVE", "Punching Glove")
+    add("punching-glove-punching", attacker("Machamp", atk=151, item=glove), defender("Snorlax", dfn=109), "Fire Punch")
+    add("punching-glove-non-punching", attacker("Machamp", atk=151, item=glove), defender("Snorlax", dfn=109), "Fire Blast",
+        tags=["negative-control"])
+    add("punching-glove-contact-fluffy", attacker("Machamp", atk=151, item=glove),
+        defender("Snorlax", dfn=109, ability=ability("Fluffy")), "Fire Punch", tags=["modifier-stacking"])
+    add("punching-glove-long-reach-composition", attacker("Machamp", atk=151,
+        ability=ability("Long Reach"), item=glove),
+        defender("Snorlax", dfn=109, ability=ability("Fluffy")), "Fire Punch", tags=["modifier-stacking"])
+
+    # All three Ogerpon masks share the source base-species predicate.
+    for mask, species in (("Cornerstone Mask", "Ogerpon-Cornerstone"),
+                          ("Wellspring Mask", "Ogerpon-Wellspring"),
+                          ("Hearthflame Mask", "Ogerpon-Hearthflame")):
+        mask_item = item("ITEM_" + mask.upper().replace(" ", "_"), mask)
+        add("ogrepon-" + slug(mask) + "-qualified", attacker(species, atk=151, item=mask_item),
+            defender("Snorlax", dfn=109), "Leaf Blade")
+    add("ogrepon-mask-wrong-species", attacker("Machamp", atk=151, item=item("ITEM_CORNERSTONE_MASK", "Cornerstone Mask")),
+        defender("Snorlax", dfn=109), "Leaf Blade", tags=["negative-control"])
+    add("ogrepon-mask-magic-room", attacker("Ogerpon-Teal", atk=151,
+        item=item("ITEM_CORNERSTONE_MASK", "Cornerstone Mask")), defender("Snorlax", dfn=109), "Leaf Blade",
+        tags=["suppression"], state_setup={"magicRoom": True})
+
+    # Defender defense items use CalcDefenseStat's exact selected stat, including Wonder Room and
+    # source live transform state for Metal Powder and Eviolite.
+    scale = item("ITEM_DEEP_SEA_SCALE", "Deep Sea Scale")
+    add("deep-sea-scale-clamperl-special", attacker("Porygon", spa=151), defender("Clamperl", spd=109, item=scale), "Psychic")
+    add("deep-sea-scale-physical-control", attacker("Machamp", atk=151), defender("Clamperl", dfn=109, item=scale), "Strength",
+        tags=["negative-control"])
+    add("deep-sea-scale-wrong-species", attacker("Porygon", spa=151), defender("Snorlax", spd=109, item=scale), "Psychic",
+        tags=["negative-control"])
+    powder = item("ITEM_METAL_POWDER", "Metal Powder")
+    add("metal-powder-ditto-physical", attacker("Machamp", atk=151), defender("Ditto", dfn=109, item=powder), "Strength")
+    add("metal-powder-special-control", attacker("Porygon", spa=151), defender("Ditto", spd=109, item=powder), "Psychic",
+        tags=["negative-control"])
+    add("metal-powder-transformed-ditto", attacker("Machamp", atk=151), defender("Ditto", dfn=109, item=powder), "Strength",
+        tags=["form", "negative-control"], state_setup={"defender": {"transformed": 1}})
+    eviolite = item("ITEM_EVIOLITE", "Eviolite")
+    add("eviolite-evolvable", attacker("Machamp", atk=151), defender("Cubone", dfn=109, item=eviolite), "Strength")
+    add("eviolite-non-evolvable", attacker("Machamp", atk=151), defender("Snorlax", dfn=109, item=eviolite), "Strength",
+        tags=["negative-control"])
+    add("eviolite-transformed-evolvable", attacker("Machamp", atk=151), defender("Snorlax", dfn=109, item=eviolite), "Strength",
+        tags=["form"], state_setup={"defender": {"transformed": 1},
+                                   "defenderTransformedMonSpecies": "SPECIES_CUBONE"})
+    add("eviolite-transformed-non-evolvable", attacker("Machamp", atk=151), defender("Cubone", dfn=109, item=eviolite), "Strength",
+        tags=["form", "negative-control"], state_setup={"defender": {"transformed": 1},
+                                                        "defenderTransformedMonSpecies": "SPECIES_SNORLAX"})
+    add("eviolite-wonder-room", attacker("Porygon", spa=151), defender("Cubone", dfn=109, spd=109, item=eviolite), "Psychic",
+        tags=["field:wonder-room"], state_setup={"wonderRoom": True})
+    vest = item("ITEM_ASSAULT_VEST", "Assault Vest")
+    # The Assault Vest holder still needs a selectable move in the link-battle runner. Snorlax's
+    # Tackle is a neutral action against these Ghost attackers, so the selected hit's HP inputs
+    # remain unchanged while its defender-side item is live.
+    add("assault-vest-special", attacker("Gengar", spa=151), defender("Snorlax", spd=109, item=vest), "Psychic")
+    add("assault-vest-physical-control", attacker("Gengar", atk=151), defender("Snorlax", dfn=109, item=vest), "Fire Punch",
+        tags=["negative-control"])
+    add("assault-vest-wonder-room-physical", attacker("Gengar", atk=151), defender("Snorlax", dfn=109, spd=109, item=vest),
+        "Fire Punch", tags=["field:wonder-room"], state_setup={"wonderRoom": True})
+
+    # Final item slots, threshold controls, live Metronome counter, and rounding-sensitive
+    # composition with attacker/defender abilities across the pinned raw-Speed order.
+    life = item("ITEM_LIFE_ORB", "Life Orb")
+    belt = item("ITEM_EXPERT_BELT", "Expert Belt")
+    metronome = item("ITEM_METRONOME", "Metronome")
+    neuro = ability("Neuroforce")
+    filter_ability = ability("Filter")
+    add("life-orb-floored", attacker("Machamp", atk=151, item=life), defender("Snorlax", dfn=109), "Strength")
+    add("expert-belt-neutral", attacker("Machamp", atk=151, item=belt), defender("Snorlax", dfn=109), "Strength",
+        tags=["negative-control"])
+    add("expert-belt-super-effective", attacker("Magmar", spa=151, item=belt), defender("Tangela", spd=109), "Fire Blast")
+    add("expert-belt-four-times", attacker("Magmar", spa=151, item=belt), defender("Scizor", spd=109), "Fire Blast")
+    for turns in (0, 1, 3, 5, 8):
+        add("metronome-counter-" + str(turns), attacker("Machamp", atk=151, item=metronome),
+            defender("Snorlax", dfn=109), "Strength", tags=["runtime:metronome-counter"],
+            state_setup={"attacker": {"metronomeItemCounter": turns}})
+    add("metronome-magic-room-suppressed", attacker("Machamp", atk=151, item=metronome),
+        defender("Snorlax", dfn=109), "Strength", tags=["suppression"],
+        state_setup={"magicRoom": True, "attacker": {"metronomeItemCounter": 3}})
+    for label, item_desc, state in (("life-orb", life, {}), ("expert-belt", belt, {}),
+                                    ("metronome", metronome, {"attacker": {"metronomeItemCounter": 3}})):
+        for speed_label, atk_speed in (("faster", 120), ("slower", 40)):
+            add(f"final-order-{label}-{speed_label}", attacker("Magmar", spa=151, spe=atk_speed,
+                ability=neuro, item=item_desc), defender("Scizor", spd=109, spe=80, ability=filter_ability),
+                "Fire Blast", tags=["final-modifier-order", "modifier-stacking"], crit=False,
+                **({"state_setup": state} if state else {}))
+    # A matching Shuca Berry is the defender slot and composes with Life Orb plus Neuroforce.
+    shuca = item("ITEM_SHUCA_BERRY", "Shuca Berry")
+    for speed_label, atk_speed in (("faster", 120), ("slower", 40)):
+        add("final-order-resist-berry-" + speed_label,
+            attacker("Jolteon", spa=151, spe=atk_speed, ability=neuro, item=life),
+            defender("Golem", spd=109, spe=80, ability=filter_ability, item=shuca), "Earth Power",
+            tags=["final-modifier-order", "modifier-stacking"])
+
+    # Resist berries: current item, type/effectiveness, Ripen, Unnerve, and Normal's exception.
+    occa = item("ITEM_OCCA_BERRY", "Occa Berry")
+    add("resist-berry-matching-super-effective", attacker("Magmar", spa=151),
+        defender("Tangela", spd=109, item=occa), "Fire Blast")
+    add("resist-berry-wrong-type", attacker("Magmar", spa=151),
+        defender("Tangela", spd=109, item=item("ITEM_PASSHO_BERRY", "Passho Berry")), "Fire Blast",
+        tags=["negative-control"])
+    add("resist-berry-normal-neutral", attacker("Machamp", atk=151),
+        defender("Snorlax", dfn=109, item=item("ITEM_CHILAN_BERRY", "Chilan Berry")), "Strength")
+    add("resist-berry-ripen", attacker("Magmar", spa=151),
+        defender("Tangela", spd=109, ability=ability("Ripen"), item=occa), "Fire Blast")
+    add("resist-berry-unnerve", attacker("Magmar", spa=151, ability=ability("Unnerve")),
+        defender("Tangela", spd=109, item=occa), "Fire Blast", tags=["suppression"])
+    add("resist-berry-as-one-ice-rider", attacker("Magmar", spa=151, ability=ability("As One Ice Rider")),
+        defender("Tangela", spd=109, item=occa), "Fire Blast", tags=["suppression"])
+    add("resist-berry-as-one-shadow-rider", attacker("Magmar", spa=151, ability=ability("As One Shadow Rider")),
+        defender("Tangela", spd=109, item=occa), "Fire Blast", tags=["suppression"])
+    add("resist-berry-no-current-item", attacker("Magmar", spa=151), defender("Tangela", spd=109), "Fire Blast",
+        tags=["negative-control"])
+    add("resist-berry-klutz-suppressed", attacker("Magmar", spa=151),
+        defender("Tangela", spd=109, ability=ability("Klutz"), item=occa), "Fire Blast", tags=["suppression"])
+
+    # Utility Umbrella normalizes only the documented Sun/Rain paths; suppression restores them.
+    umbrella = item("ITEM_UTILITY_UMBRELLA", "Utility Umbrella")
+    add("umbrella-defender-rain-fire", attacker("Magmar", spa=151),
+        defender("Snorlax", spd=109, item=umbrella), "Fire Blast", weather="rain")
+    add("umbrella-defender-sun-water", attacker("Blastoise", spa=151),
+        defender("Snorlax", spd=109, item=umbrella), "Surf", weather="sun")
+    add("umbrella-embargo-rain-fire", attacker("Magmar", spa=151),
+        defender("Snorlax", spd=109, item=umbrella), "Fire Blast", weather="rain",
+        tags=["suppression"], state_setup={"defender": {"embargo": 1}})
+    add("umbrella-magic-room-rain-fire", attacker("Magmar", spa=151),
+        defender("Snorlax", spd=109, item=umbrella), "Fire Blast", weather="rain",
+        tags=["suppression"], state_setup={"magicRoom": True})
+    orichalcum = ability("Orichalcum Pulse")
+    add("umbrella-orichalcum-pulse-sun", attacker("Machamp", atk=151, ability=orichalcum, item=umbrella),
+        defender("Snorlax", dfn=109), "Strength", weather="sun")
+    add("umbrella-orichalcum-pulse-embargo-sun", attacker("Machamp", atk=151, ability=orichalcum, item=umbrella),
+        defender("Snorlax", dfn=109), "Strength", weather="sun", tags=["suppression"],
+        state_setup={"attacker": {"embargo": 1}})
+
+    # Booster Energy is only a switch-in trigger; already-authoritative Paradox state carries
+    # the damage modifier. An extant item must not add a second multiplier.
+    booster = item("ITEM_BOOSTER_ENERGY", "Booster Energy")
+    proto = ability("Protosynthesis")
+    quark = ability("Quark Drive")
+    add("booster-energy-held-proto-sun", attacker("Machamp", atk=151, ability=proto, item=booster),
+        defender("Snorlax", dfn=109, ability=ability("Drought")), "Strength", weather="sun",
+        state_setup={"attacker": {"transformed": 0, "boosterEnergyActivated": 0, "paradoxBoostedStat": 1}})
+    add("booster-energy-active-quark-terrain", attacker("Machamp", atk=151, ability=quark),
+        defender("Snorlax", dfn=109), "Strength", terrain="electric",
+        state_setup={"attacker": {"transformed": 0, "boosterEnergyActivated": 1, "paradoxBoostedStat": 1}})
+    add("booster-energy-wrong-ability", attacker("Machamp", atk=151, item=booster),
+        defender("Snorlax", dfn=109), "Strength", tags=["negative-control"])
+    add("booster-energy-transformed-paradox", attacker("Machamp", atk=151, ability=proto),
+        defender("Snorlax", dfn=109), "Strength",
+        state_setup={"attacker": {"transformed": 1, "boosterEnergyActivated": 0, "paradoxBoostedStat": 0}})
+
+    # Primal Orb does not multiply damage; the source-settled live form/ability is the operand.
+    add("primal-blue-orb-kyogre-primal", attacker("Kyogre-Primal", spa=151,
+        ability=ability("Primordial Sea"), item=item("ITEM_BLUE_ORB", "Blue Orb")),
+        defender("Snorlax", spd=109), "Surf", weather="rain")
+    add("primal-red-orb-groudon-primal", attacker("Groudon-Primal", atk=151,
+        ability=ability("Desolate Land"), item=item("ITEM_RED_ORB", "Red Orb")),
+        defender("Snorlax", dfn=109), "Strength", weather="sun")
     return out
 
 
@@ -1817,6 +2101,6 @@ def build_scenarios() -> list[dict]:
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

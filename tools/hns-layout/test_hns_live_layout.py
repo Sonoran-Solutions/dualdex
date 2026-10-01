@@ -21,7 +21,8 @@ class LayoutTest(unittest.TestCase):
         for name in ['slowStartTimer','flashFireBoosted','transformed','boosterEnergyActivated',
                      'paradoxBoostedStat','vesselOfRuin','swordOfRuin','tabletsOfRuin','beadsOfRuin',
                      'neutralizingGas','isFirstTurn','personality','supremeOverlordCounter',
-                     'usableGimmick','playerSelect']:
+                     'usableGimmick','playerSelect','embargo','metronomeItemCounter',
+                     'transformedMonSpecies']:
             self.assertIn(name, source)
 
     def test_noncontiguous_bitfield_is_rejected(self):

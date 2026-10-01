@@ -406,6 +406,11 @@ data class HnsBattlerRuntimeState(
     /** Exact current-action phase result for Analytic: 0 unknown, 1 last, 2 not last. */
     val analyticTurnOrderObserved: Boolean = false,
     val volatileNeutralizingGas: Boolean = false,
+    /** True only when the added item-state payload is present alongside the volatile read window. */
+    val itemVolatilesObserved: Boolean = false,
+    val volatileEmbargo: Boolean = false,
+    val volatileMetronomeItemCounter: Int = 0,
+    val volatileTransformedMonSpecies: Int? = null,
     val analyticCurrentMove: Int = 0,
     val analyticTurnOrder: Int = 0
 ) {
@@ -498,7 +503,9 @@ data class HnsBattlerRuntimeState(
          * [78..86] state-backed Group D volatile payloads, [87..88] isFirstTurn observed/raw,
          * [89..90] stored Supreme Overlord counter observed/raw, [91..92] pending Dynamax
          * selection observed/result, [93..94] Analytic current-turn authority observed/result,
-         * [95] neutralizingGas, [96] current move ID bound to the Analytic authority.
+         * [95] neutralizingGas, [96] current move ID bound to the Analytic authority,
+         * [97] embargo, [98] metronomeItemCounter, [99] transformedMonSpecies,
+         * [100] source NUM_SPECIES, [101] metronome width, [102] transformed species width.
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
          * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is
@@ -519,6 +526,7 @@ data class HnsBattlerRuntimeState(
         private const val C4E_SPECIES_TUPLE_LEN = 74
         private const val PHASE_TUPLE_LEN = 76
         private const val GROUP_D_TUPLE_LEN = 97
+        private const val ITEM_VOLATILES_TUPLE_LEN = 103
 
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -595,6 +603,12 @@ data class HnsBattlerRuntimeState(
             val switchInEventsSettled = switchInPhaseObserved && raw[75] != 0
             val persistentVolatilesObserved = volatilesObserved && c4ePersistent
             val c4eGroupD = raw.size >= GROUP_D_TUPLE_LEN
+            val itemVolatilesObserved = raw.size >= ITEM_VOLATILES_TUPLE_LEN && volatilesObserved &&
+                raw[100] == HnsGroupDLayout.SPECIES_COUNT &&
+                raw[101] == HnsGroupDLayout.METRONOME_ITEM_COUNTER_WIDTH &&
+                raw[102] == HnsGroupDLayout.TRANSFORMED_MON_SPECIES_WIDTH &&
+                raw[97] in 0..1 && raw[98] in 0..HnsGroupDLayout.METRONOME_ITEM_COUNTER_MAX &&
+                raw[99] in 0 until HnsGroupDLayout.SPECIES_COUNT
             val groupDVolatilesObserved = c4eGroupD && volatilesObserved &&
                 raw[78] in 0..HnsGroupDLayout.SLOW_START_MAX && raw[82] in 0 until HnsGroupDLayout.NUM_STATS &&
                 listOf(79, 80, 81, 83, 84, 85, 86, 95).all { raw[it] in 0..1 }
@@ -690,6 +704,10 @@ data class HnsBattlerRuntimeState(
                 selectedGimmick = if (selectedGimmickObserved) raw[92] else 0,
                 analyticTurnOrderObserved = analyticTurnOrderObserved,
                 volatileNeutralizingGas = groupDVolatilesObserved && raw[95] == 1,
+                itemVolatilesObserved = itemVolatilesObserved,
+                volatileEmbargo = itemVolatilesObserved && raw[97] == 1,
+                volatileMetronomeItemCounter = if (itemVolatilesObserved) raw[98] else 0,
+                volatileTransformedMonSpecies = raw.getOrNull(99)?.takeIf { itemVolatilesObserved },
                 analyticCurrentMove = if (analyticTurnOrderObserved) raw[96] else 0,
                 analyticTurnOrder = if (analyticTurnOrderObserved) raw[94] else 0
             )
@@ -697,7 +715,8 @@ data class HnsBattlerRuntimeState(
             // out-of-domain observations, but a tuple whose flags claim an out-of-domain
             // value while the status claims clean must degrade honestly rather than pass.
             return if (decoded.status == HnsBattlerRuntimeStatus.OBSERVED &&
-                (decoded.abilityOutOfDomain || decoded.typesOutOfDomain || decoded.itemOutOfDomain)
+                (decoded.abilityOutOfDomain || decoded.typesOutOfDomain || decoded.itemOutOfDomain ||
+                    (raw.size >= ITEM_VOLATILES_TUPLE_LEN && !itemVolatilesObserved && volatilesObserved))
             ) {
                 decoded.copy(status = HnsBattlerRuntimeStatus.OBSERVED_INVALID)
             } else {

@@ -11,6 +11,7 @@ import com.dualdex.romhack.RomHackProfile
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -62,38 +63,91 @@ class HnsDamageOracleAuthorityTest {
         // the calculator uses the base Cherrim stat/type record while the boundary carries the
         // observed form ID separately for Flower Gift's source predicate.
         val dataPackLabel = if (label == "Cherrim-Sunshine") "Cherrim" else label
-        val species = HeartAndSoul205DataPack.getSpeciesByName(dataPackLabel)
-            ?: throw AssertionError("$id: data pack has no species named $dataPackLabel")
+        val namedSpecies = HeartAndSoul205DataPack.getSpeciesByName(dataPackLabel)
+        val observedSpeciesId = observed.getInt("speciesId")
+        val observedSpecies = HeartAndSoul205DataPack.getSpecies(observedSpeciesId)
+        val baseSpeciesId = observed.getJSONObject("runtime").getInt("baseSpeciesId")
+        val baseSpecies = HeartAndSoul205DataPack.getSpecies(baseSpeciesId)
+        // Some H&S forms have exact ID-keyed records in the pack but no safe name lookup:
+        // a name-only production request cannot distinguish forms such as Dialga from
+        // Dialga-Origin. Keep those records source-verified by their observed live ID and
+        // confirm that the production name boundary continues to refuse the ambiguous label.
+        // Other source-observed battle forms have no exact record, but do carry a generated
+        // base-species relationship (for example Kyogre-Primal); those remain name-refused and
+        // their battle stats cannot be compared with the base form's stats.
+        val species = namedSpecies ?: observedSpecies ?: baseSpecies
+            ?: throw AssertionError("$id: data pack has no species named $dataPackLabel or observed ID")
         if (label == "Cherrim-Sunshine") {
-            assertEquals("$id: live Sunshine form species ID", 1061, observed.getInt("speciesId"))
+            assertEquals("$id: live Sunshine form species ID", 1061, observedSpeciesId)
             assertEquals("$id: base Cherrim species ID", 421, species.id)
+        } else if (namedSpecies == null && observedSpecies != null) {
+            assertEquals("$id: exact form species ID", observedSpeciesId, species.id)
+        } else if (namedSpecies == null) {
+            assertTrue("$id: live form must have a generated base-species mapping", baseSpeciesId > 0)
+            val generatedBaseSpeciesId =
+                com.dualdex.pokemon.hns.Hns205SpeciesMechanics.baseSpeciesId(observedSpeciesId)
+            if (generatedBaseSpeciesId != null) {
+                assertEquals("$id: generated base-species relationship", baseSpeciesId, generatedBaseSpeciesId)
+            } else {
+                // A form can be present in the source oracle's test build while absent from the
+                // packaged species table (Primal Reversion is disabled in the shipped table).
+                // Keep the raw form name refused; the observed source base ID only supplies a
+                // fallback record for this audit, not a name-only calculator override.
+                assertNull("$id: absent source form must not gain a generated mapping", observedSpecies)
+                assertTrue("$id: fallback must resolve its source base record", baseSpecies != null)
+            }
         } else {
-            assertEquals("$id: $label species ID", observed.getInt("speciesId"), species.id)
+            assertEquals("$id: $label species ID", observedSpeciesId, species.id)
         }
         val override = CalcDataOverrides.buildSpeciesOverride(dataPackLabel, HeartAndSoul205DataPack, fairy)
-            ?: throw AssertionError("$id: no production species override for $label")
-        assertEquals("$id: $label battle types (fairy=$fairy)", observed.getJSONArray("types").strings(), override.types)
-        val base = observed.getJSONObject("baseStats")
-        assertEquals("$id: $label base HP", base.getInt("hp"), override.baseStats.hp)
-        assertEquals("$id: $label base Atk", base.getInt("attack"), override.baseStats.atk)
-        assertEquals("$id: $label base Def", base.getInt("defense"), override.baseStats.def)
-        assertEquals("$id: $label base SpA", base.getInt("spAttack"), override.baseStats.spa)
-        assertEquals("$id: $label base SpD", base.getInt("spDefense"), override.baseStats.spd)
-        assertEquals("$id: $label base Spe", base.getInt("speed"), override.baseStats.spe)
+        if (namedSpecies == null) {
+            assertNull("$id: ambiguous form label must fail closed", override)
+        }
+        if (namedSpecies != null || observedSpecies != null) {
+            val expectedTypes = override?.types ?: buildList {
+                add(species.type1.displayName)
+                species.type2?.let { add(it.displayName) }
+            }
+            val expectedStats = override?.baseStats ?: com.dualdex.calculator.StatBlock(
+                hp = species.baseHP,
+                atk = species.baseAtk,
+                def = species.baseDef,
+                spa = species.baseSpA,
+                spd = species.baseSpD,
+                spe = species.baseSpe
+            )
+            assertEquals("$id: $label battle types (fairy=$fairy)", observed.getJSONArray("types").strings(), expectedTypes)
+            val base = observed.getJSONObject("baseStats")
+            assertEquals("$id: $label base HP", base.getInt("hp"), expectedStats.hp)
+            assertEquals("$id: $label base Atk", base.getInt("attack"), expectedStats.atk)
+            assertEquals("$id: $label base Def", base.getInt("defense"), expectedStats.def)
+            assertEquals("$id: $label base SpA", base.getInt("spAttack"), expectedStats.spa)
+            assertEquals("$id: $label base SpD", base.getInt("spDefense"), expectedStats.spd)
+            assertEquals("$id: $label base Spe", base.getInt("speed"), expectedStats.spe)
+        }
 
         // The pinned ability table spells names in upper case (e.g. INSOMNIA).
         val ability = HeartAndSoul205DataPack.getAbility(observed.getInt("abilityId"))
+        val abilityLabel = scenario.getString("abilityLabel")
+        val abilityMatchesScenario = ability is com.dualdex.pokemon.DeclaredAbility.Declared && when (ability.abilityId) {
+            // The source has two As One IDs for rider-specific mechanics, while the H&S ability
+            // data pack intentionally gives both IDs the shared canonical name AS ONE.
+            266, 267 -> ability.name.equals("AS ONE", ignoreCase = true) &&
+                (abilityLabel.equals("As One", ignoreCase = true) || abilityLabel.startsWith("As One ", ignoreCase = true))
+            else -> ability.name.equals(abilityLabel, ignoreCase = true)
+        }
         assertTrue(
-            "$id: ability ${observed.getInt("abilityId")} is $ability, expected ${scenario.getString("abilityLabel")}",
-            ability is com.dualdex.pokemon.DeclaredAbility.Declared &&
-                ability.name.equals(scenario.getString("abilityLabel"), ignoreCase = true)
+            "$id: ability ${observed.getInt("abilityId")} is $ability, expected $abilityLabel",
+            abilityMatchesScenario
         )
-        val itemId = observed.getInt("itemId")
+        // `itemId` is the post-hit item state, so a consumed resist berry is ITEM_NONE there.
+        // The scenario's item authority is the exact ID captured at the hit boundary.
+        val itemIdAtHit = observed.getJSONObject("runtime").getInt("itemIdAtHit")
         if (scenario.getString("item") == "ITEM_NONE") {
-            assertEquals("$id: no held item", 0, itemId)
+            assertEquals("$id: no held item", 0, itemIdAtHit)
         } else {
-            val item = Hns205ItemCatalogue.get(itemId)
-                ?: throw AssertionError("$id: item $itemId missing from the H&S item catalogue")
+            val item = Hns205ItemCatalogue.get(itemIdAtHit)
+                ?: throw AssertionError("$id: item at hit $itemIdAtHit missing from the H&S item catalogue")
             assertEquals("$id: item symbol", scenario.getString("item"), item.canonicalSymbol)
             // The pinned item table spells names in upper case (e.g. BLACK BELT).
             assertTrue(

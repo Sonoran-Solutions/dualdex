@@ -15,6 +15,26 @@
     "attacker_offense": {
       "context_rules": [
         {
+          "rule": "choice_item_dynamax_inactive",
+          "side": "ATTACKER",
+          "families": [
+            "HOLD_EFFECT_CHOICE_BAND",
+            "HOLD_EFFECT_CHOICE_SPECS"
+          ],
+          "predicate": "A physical Choice Band or special Choice Specs hit while the live active gimmick is Dynamax.",
+          "rationale": "The pinned CalcAttackStat branches explicitly omit the respective Choice multiplier during Dynamax; the independent gimmick capability gate still handles Dynamax move semantics.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7178",
+              "contains": "if (IsBattleMovePhysical(move) && GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX)"
+            },
+            {
+              "source": "src/battle_util.c:7182",
+              "contains": "if (IsBattleMoveSpecial(move) && GetActiveGimmick(battlerAtk) != GIMMICK_DYNAMAX"
+            }
+          ]
+        },
+        {
           "rule": "defender_holds_attacker_only_item",
           "side": "DEFENDER",
           "predicate": "The item is held by the defender.",
@@ -51,7 +71,7 @@
             "HOLD_EFFECT_THICK_CLUB"
           ],
           "predicate": "Ordinary move whose effective category is Special.",
-          "rationale": "Choice Band, Muscle Band and Thick Club apply only when IsBattleMovePhysical(move).",
+          "rationale": "Choice Band, Muscle Band and Thick Club apply only when IsBattleMovePhysical(move); Thick Club also requires base species Cubone, Marowak, or Alolan Marowak.",
           "evidence": [
             {
               "source": "src/battle_util.c:7178",
@@ -190,6 +210,169 @@
               "contains": "case HOLD_EFFECT_LEEK:"
             }
           ]
+        },
+        {
+          "rule": "effective_hold_effect_suppressed",
+          "side": "EITHER",
+          "predicate": "The observed current item hold effect resolves to HOLD_EFFECT_NONE because Embargo, Magic Room, or unsuppressed Klutz is active.",
+          "rationale": "GetBattlerHoldEffectInternal suppresses every ordinary hold-effect consumer under these live conditions; raw item identity remains available to item-specific gates.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:5825",
+              "contains": "if (gBattleMons[battler].volatiles.embargo)"
+            },
+            {
+              "source": "src/battle_util.c:5827",
+              "contains": "if (gFieldStatuses & STATUS_FIELD_MAGIC_ROOM)"
+            },
+            {
+              "source": "src/battle_util.c:5829",
+              "contains": "if (ability == ABILITY_KLUTZ && !gBattleMons[battler].volatiles.gastroAcid)"
+            }
+          ]
+        },
+        {
+          "rule": "effective_hold_effect_unobserved",
+          "side": "EITHER",
+          "predicate": "A potentially relevant held item has not been resolved against authoritative current item, Embargo, Magic Room, effective ability, and Gastro Acid operands.",
+          "rationale": "Missing suppression operands cannot prove that an item modifier is active or absent, so the request remains fail-closed.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:5825",
+              "contains": "if (gBattleMons[battler].volatiles.embargo)"
+            },
+            {
+              "source": "src/battle_util.c:5827",
+              "contains": "if (gFieldStatuses & STATUS_FIELD_MAGIC_ROOM)"
+            },
+            {
+              "source": "src/battle_util.c:5829",
+              "contains": "if (ability == ABILITY_KLUTZ && !gBattleMons[battler].volatiles.gastroAcid)"
+            }
+          ]
+        },
+        {
+          "rule": "attacker_species_qualified_item",
+          "side": "ATTACKER",
+          "predicate": "The live current or generated base species matches a pinned item predicate.",
+          "rationale": "The H&S engine uses source-generated current/base species identity and applies the exact item stage.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6822",
+              "contains": "GET_BASE_SPECIES_ID(gBattleMons[battlerAtk].species) == SPECIES_PALKIA"
+            },
+            {
+              "source": "src/battle_util.c:6834",
+              "contains": "if ((gBattleMons[battlerAtk].species == SPECIES_LATIAS || gBattleMons[battlerAtk].species == SPECIES_LATIOS)"
+            },
+            {
+              "source": "src/battle_util.c:6849",
+              "contains": "if (GET_BASE_SPECIES_ID(gBattleMons[battlerAtk].species) == SPECIES_OGERPON)"
+            },
+            {
+              "source": "src/battle_util.c:7166",
+              "contains": "if ((atkBaseSpeciesId == SPECIES_CUBONE || atkBaseSpeciesId == SPECIES_MAROWAK || atkBaseSpeciesId == SPECIES_MAROWAK_ALOLA) && IsBattleMovePhysical(move))"
+            },
+            {
+              "source": "src/battle_util.c:7170",
+              "contains": "if (gBattleMons[battlerAtk].species == SPECIES_CLAMPERL && IsBattleMoveSpecial(move))"
+            },
+            {
+              "source": "src/battle_util.c:7174",
+              "contains": "if (atkBaseSpeciesId == SPECIES_PIKACHU && (GetConfig(B_LIGHT_BALL_ATTACK_BOOST) >= GEN_4 || IsBattleMoveSpecial(move)))"
+            }
+          ]
+        },
+        {
+          "rule": "attacker_species_item_mismatch",
+          "side": "ATTACKER",
+          "predicate": "The live current or generated base species differs from a pinned item predicate.",
+          "rationale": "The source item branch cannot activate for this species identity.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6822",
+              "contains": "GET_BASE_SPECIES_ID(gBattleMons[battlerAtk].species) == SPECIES_PALKIA"
+            },
+            {
+              "source": "src/battle_util.c:6834",
+              "contains": "if ((gBattleMons[battlerAtk].species == SPECIES_LATIAS || gBattleMons[battlerAtk].species == SPECIES_LATIOS)"
+            },
+            {
+              "source": "src/battle_util.c:6849",
+              "contains": "if (GET_BASE_SPECIES_ID(gBattleMons[battlerAtk].species) == SPECIES_OGERPON)"
+            },
+            {
+              "source": "src/battle_util.c:7166",
+              "contains": "if ((atkBaseSpeciesId == SPECIES_CUBONE || atkBaseSpeciesId == SPECIES_MAROWAK || atkBaseSpeciesId == SPECIES_MAROWAK_ALOLA) && IsBattleMovePhysical(move))"
+            },
+            {
+              "source": "src/battle_util.c:7170",
+              "contains": "if (gBattleMons[battlerAtk].species == SPECIES_CLAMPERL && IsBattleMoveSpecial(move))"
+            },
+            {
+              "source": "src/battle_util.c:7174",
+              "contains": "if (atkBaseSpeciesId == SPECIES_PIKACHU && (GetConfig(B_LIGHT_BALL_ATTACK_BOOST) >= GEN_4 || IsBattleMoveSpecial(move)))"
+            }
+          ]
+        },
+        {
+          "rule": "punching_glove_punching_move",
+          "side": "ATTACKER",
+          "predicate": "The ordinary selected move carries the pinned punchingMove flag.",
+          "rationale": "The engine applies Punching Glove base power and contact consequences through the shared effective hold effect.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6845",
+              "contains": "if (IsPunchingMove(move))"
+            }
+          ]
+        },
+        {
+          "rule": "punching_glove_non_punching_move",
+          "side": "ATTACKER",
+          "predicate": "The ordinary selected move is authoritatively known not to carry punchingMove.",
+          "rationale": "Neither Punching Glove base power nor contact suppression can activate.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6845",
+              "contains": "if (IsPunchingMove(move))"
+            }
+          ]
+        },
+        {
+          "rule": "attacker_final_damage_item_modelled",
+          "side": "ATTACKER",
+          "predicate": "An ordinary hit uses Life Orb, Expert Belt, or a live Metronome counter.",
+          "rationale": "The exact item modifier is reproduced in GetOtherModifiers at the source-defined speed-dependent position.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7664",
+              "contains": "metronomeTurns = min(gBattleMons[battlerAtk].volatiles.metronomeItemCounter, 5);"
+            },
+            {
+              "source": "src/battle_util.c:7670",
+              "contains": "if (typeEffectivenessModifier >= UQ_4_12(2.0))"
+            },
+            {
+              "source": "src/battle_util.c:7674",
+              "contains": "return UQ_4_12_FLOORED(1.3);"
+            }
+          ]
+        },
+        {
+          "rule": "metronome_counter_unobserved",
+          "side": "ATTACKER",
+          "families": [
+            "HOLD_EFFECT_METRONOME"
+          ],
+          "predicate": "The live metronomeItemCounter is unobserved.",
+          "rationale": "This additive final modifier cannot be inferred from move history.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7664",
+              "contains": "metronomeTurns = min(gBattleMons[battlerAtk].volatiles.metronomeItemCounter, 5);"
+            }
+          ]
         }
       ],
       "always_blocking": [
@@ -200,7 +383,7 @@
             "HOLD_EFFECT_MUSCLE_BAND"
           ],
           "predicate": "Attacker holds it and the effective category is Physical.",
-          "rationale": "The x1.5 Attack / physical base-power modifier applies with H&S fixed-point placement the engine does not reproduce.",
+          "rationale": "The active H&S Choice Band Attack-stat or Muscle Band base-power branch is reproduced at its pinned stage and fixed-point operator.",
           "evidence": [
             {
               "source": "src/battle_util.c:7178",
@@ -214,7 +397,7 @@
             "HOLD_EFFECT_CHOICE_SPECS"
           ],
           "predicate": "Attacker holds it and the effective category is Special.",
-          "rationale": "The Sp. Atk / special base-power modifier applies and is not modelled.",
+          "rationale": "The active H&S Choice Specs Attack-stat branch or Wise Glasses base-power branch is reproduced at its pinned stage and fixed-point operator.",
           "evidence": [
             {
               "source": "src/battle_util.c:7182",
@@ -230,7 +413,7 @@
             "HOLD_EFFECT_GEMS"
           ],
           "predicate": "Attacker holds it and the effective move type equals the item type.",
-          "rationale": "The H&S x1.2 type boost / x1.3 gem boost applies and is not modelled.",
+          "rationale": "The effective move type matches the generated item operand; the H&S type-power, Plate, or Gem base-power modifier is reproduced at the pinned stage.",
           "evidence": [
             {
               "source": "src/battle_util.c:6841",
@@ -256,22 +439,6 @@
             {
               "source": "src/battle_util.c:7174",
               "contains": "atkBaseSpeciesId == SPECIES_PIKACHU"
-            }
-          ]
-        },
-        {
-          "rule": "attacker_final_modifier_item",
-          "families": [
-            "HOLD_EFFECT_LIFE_ORB",
-            "HOLD_EFFECT_EXPERT_BELT",
-            "HOLD_EFFECT_METRONOME"
-          ],
-          "predicate": "Attacker holds it.",
-          "rationale": "GetAttackerItemsModifier applies Life Orb unconditionally, Metronome by consecutive-use counter, and Expert Belt on a super-effective hit whose H&S effectiveness is not proven here.",
-          "evidence": [
-            {
-              "source": "src/battle_util.c:7660",
-              "contains": "switch (holdEffectAtk)"
             }
           ]
         },
@@ -323,53 +490,6 @@
           ]
         },
         {
-          "rule": "special_defense_item_physical_move",
-          "side": "DEFENDER",
-          "families": [
-            "HOLD_EFFECT_ASSAULT_VEST",
-            "HOLD_EFFECT_DEEP_SEA_SCALE"
-          ],
-          "predicate": "Ordinary move whose effective category is Physical and Wonder Room is observed inactive.",
-          "rationale": "Both apply only when !usesDefStat; for an ordinary physical move usesDefStat is TRUE unless Wonder Room swaps the stats.",
-          "evidence": [
-            {
-              "source": "src/battle_util.c:7224",
-              "contains": "if (moveEffect == EFFECT_PSYSHOCK || IsBattleMovePhysical(move))"
-            },
-            {
-              "source": "src/battle_util.c:7226",
-              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM)"
-            },
-            {
-              "source": "src/battle_util.c:7371",
-              "contains": "if (!usesDefStat)"
-            },
-            {
-              "source": "src/battle_util.c:7354",
-              "contains": "&& !usesDefStat)"
-            }
-          ]
-        },
-        {
-          "rule": "defense_item_special_move",
-          "side": "DEFENDER",
-          "families": [
-            "HOLD_EFFECT_METAL_POWDER"
-          ],
-          "predicate": "Ordinary move whose effective category is Special and Wonder Room is observed inactive.",
-          "rationale": "Metal Powder applies only when usesDefStat, which is FALSE for an ordinary special move without Wonder Room.",
-          "evidence": [
-            {
-              "source": "src/battle_util.c:7358",
-              "contains": "&& usesDefStat &&"
-            },
-            {
-              "source": "src/battle_util.c:7226",
-              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_WONDER_ROOM)"
-            }
-          ]
-        },
-        {
           "rule": "resist_berry_other_type",
           "side": "DEFENDER",
           "families": [
@@ -402,23 +522,208 @@
               "contains": "return gBattleMons[battler].hp == gBattleMons[battler].maxHP;"
             }
           ]
-        }
-      ],
-      "always_blocking": [
+        },
         {
-          "rule": "special_defense_item_special_move",
-          "families": [
-            "HOLD_EFFECT_ASSAULT_VEST"
-          ],
-          "predicate": "Defender holds it and the move uses Sp. Def.",
-          "rationale": "The x1.5 Sp. Def modifier applies and is not modelled.",
+          "rule": "defense_item_stat_not_selected",
+          "side": "DEFENDER",
+          "predicate": "The selected hit does not use the stat modified by a defense item.",
+          "rationale": "The source usesDefStat result, including Wonder Room, proves the item branch inactive.",
           "evidence": [
+            {
+              "source": "src/battle_util.c:7354",
+              "contains": "if (gBattleMons[battlerDef].species == SPECIES_CLAMPERL && !usesDefStat)"
+            },
+            {
+              "source": "src/battle_util.c:7358",
+              "contains": "if (gBattleMons[battlerDef].species == SPECIES_DITTO && usesDefStat && !(gBattleMons[battlerDef].volatiles.transformed))"
+            },
             {
               "source": "src/battle_util.c:7371",
               "contains": "if (!usesDefStat)"
             }
           ]
         },
+        {
+          "rule": "defense_stat_item_modelled",
+          "side": "DEFENDER",
+          "predicate": "The selected stat and exact species/transformation/evolution operands select a modeled defense-item branch.",
+          "rationale": "The item factor is composed in CalcDefenseStat with uq4_12_multiply_half_down.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7354",
+              "contains": "if (gBattleMons[battlerDef].species == SPECIES_CLAMPERL && !usesDefStat)"
+            },
+            {
+              "source": "src/battle_util.c:7358",
+              "contains": "if (gBattleMons[battlerDef].species == SPECIES_DITTO && usesDefStat && !(gBattleMons[battlerDef].volatiles.transformed))"
+            },
+            {
+              "source": "src/battle_util.c:7366",
+              "contains": "if (CanEvolve(species))"
+            },
+            {
+              "source": "src/battle_util.c:7371",
+              "contains": "if (!usesDefStat)"
+            }
+          ]
+        },
+        {
+          "rule": "defender_species_item_mismatch",
+          "side": "DEFENDER",
+          "predicate": "The exact species or transformed flag fails a Deep Sea Scale or Metal Powder source predicate.",
+          "rationale": "These branches compare exact current species and transformation state.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7354",
+              "contains": "if (gBattleMons[battlerDef].species == SPECIES_CLAMPERL && !usesDefStat)"
+            },
+            {
+              "source": "src/battle_util.c:7358",
+              "contains": "if (gBattleMons[battlerDef].species == SPECIES_DITTO && usesDefStat && !(gBattleMons[battlerDef].volatiles.transformed))"
+            }
+          ]
+        },
+        {
+          "rule": "defender_species_not_evolvable",
+          "side": "DEFENDER",
+          "families": [
+            "HOLD_EFFECT_EVIOLITE"
+          ],
+          "predicate": "The generated CanEvolve result is false for the source-selected current or transformed species.",
+          "rationale": "Eviolite cannot affect the selected stat when no pinned evolution target exists.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7366",
+              "contains": "if (CanEvolve(species))"
+            }
+          ]
+        },
+        {
+          "rule": "resist_berry_authority_unobserved",
+          "side": "DEFENDER",
+          "families": [
+            "HOLD_EFFECT_RESIST_BERRY"
+          ],
+          "predicate": "A current resist berry is potentially relevant, but live type, topology, liveness, effective ability, or suppression evidence is incomplete.",
+          "rationale": "Unknown live predicates do not become a neutral berry modifier; the Kotlin authority is shared with the serialized QuickJS decision.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7686",
+              "contains": "case HOLD_EFFECT_RESIST_BERRY:"
+            }
+          ]
+        },
+        {
+          "rule": "resist_berry_condition_not_met",
+          "side": "DEFENDER",
+          "families": [
+            "HOLD_EFFECT_RESIST_BERRY"
+          ],
+          "predicate": "The current berry and effective move type match, but a non-Normal hit has source type effectiveness below 2.0.",
+          "rationale": "The pinned berry predicate requires the Normal exception or a Q4.12 effectiveness modifier of at least 2.0.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7689",
+              "contains": "ctx->typeEffectivenessModifier >= UQ_4_12(2.0)"
+            }
+          ]
+        },
+        {
+          "rule": "resist_berry_unnerve_blocked",
+          "side": "DEFENDER",
+          "families": [
+            "HOLD_EFFECT_RESIST_BERRY"
+          ],
+          "predicate": "A living opposing effective Unnerve or As One ability blocks the current defender berry.",
+          "rationale": "IsUnnerveBlocked returns a neutral modifier before the type/effectiveness berry branch; the source-backed ability identity and liveness are shared with request policy.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:363",
+              "contains": "case ABILITY_UNNERVE:"
+            },
+            {
+              "source": "src/battle_util.c:7687",
+              "contains": "if (IsUnnerveBlocked(ctx->battlerDef, gBattleMons[ctx->battlerDef].item))"
+            }
+          ]
+        },
+        {
+          "rule": "resist_berry_half",
+          "side": "DEFENDER",
+          "families": [
+            "HOLD_EFFECT_RESIST_BERRY"
+          ],
+          "predicate": "A matching current resist berry activates on a qualifying ordinary selected hit and the defender does not have Ripen.",
+          "rationale": "The selected hit receives the exact source UQ4.12 half modifier in GetDefenderItemsModifier.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7695",
+              "contains": "return (ctx->abilityDef == ABILITY_RIPEN) ? UQ_4_12(0.25) : UQ_4_12(0.5);"
+            }
+          ]
+        },
+        {
+          "rule": "resist_berry_ripen_quarter",
+          "side": "DEFENDER",
+          "families": [
+            "HOLD_EFFECT_RESIST_BERRY"
+          ],
+          "predicate": "A matching current resist berry activates and the defender's effective ability is Ripen.",
+          "rationale": "The selected hit receives the exact source UQ4.12 quarter modifier; the same shared decision clears a duplicate Ripen ability blocker.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7695",
+              "contains": "return (ctx->abilityDef == ABILITY_RIPEN) ? UQ_4_12(0.25) : UQ_4_12(0.5);"
+            }
+          ]
+        },
+        {
+          "rule": "resist_berry_hold_effect_suppressed",
+          "side": "DEFENDER",
+          "families": [
+            "HOLD_EFFECT_RESIST_BERRY"
+          ],
+          "predicate": "The exact current resist berry resolves to HOLD_EFFECT_NONE under observed Embargo, Magic Room, or active Klutz.",
+          "rationale": "The shared GetBattlerHoldEffectInternal authority suppresses the damage consumer while raw identity remains separate.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:5829",
+              "contains": "if (ability == ABILITY_KLUTZ && !gBattleMons[battler].volatiles.gastroAcid)"
+            }
+          ]
+        },
+        {
+          "rule": "resist_berry_other_item",
+          "side": "DEFENDER",
+          "families": [
+            "HOLD_EFFECT_RESIST_BERRY"
+          ],
+          "predicate": "The shared berry authority is bound to an exact current item that is not the audited resist berry.",
+          "rationale": "A different current numeric item cannot activate this item's berry branch.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7684",
+              "contains": "switch (ctx->holdEffectDef)"
+            }
+          ]
+        },
+        {
+          "rule": "resist_berry_no_current_item",
+          "side": "DEFENDER",
+          "families": [
+            "HOLD_EFFECT_RESIST_BERRY"
+          ],
+          "predicate": "The current live numeric item is ITEM_NONE.",
+          "rationale": "A consumed berry is not resurrected from historical item state; current held identity is the consumption authority.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:7684",
+              "contains": "switch (ctx->holdEffectDef)"
+            }
+          ]
+        }
+      ],
+      "always_blocking": [
         {
           "rule": "defender_species_gated_item",
           "families": [
@@ -432,20 +737,6 @@
             {
               "source": "src/battle_util.c:7361",
               "contains": "case HOLD_EFFECT_EVIOLITE:"
-            }
-          ]
-        },
-        {
-          "rule": "resist_berry_matching_type",
-          "families": [
-            "HOLD_EFFECT_RESIST_BERRY"
-          ],
-          "predicate": "Defender holds it and the effective move type equals the berry type.",
-          "rationale": "Whether it applies depends on H&S type effectiveness (or Normal for Chilan), which this rule does not prove.",
-          "evidence": [
-            {
-              "source": "src/battle_util.c:7689",
-              "contains": "ctx->typeEffectivenessModifier >= UQ_4_12(2.0)"
             }
           ]
         },
@@ -557,6 +848,48 @@
             {
               "source": "src/battle_util.c:6690",
               "contains": "case ABILITY_ANALYTIC:"
+            }
+          ]
+        },
+        {
+          "rule": "booster_energy_non_paradox_ability",
+          "side": "EITHER",
+          "families": [
+            "HOLD_EFFECT_BOOSTER_ENERGY"
+          ],
+          "predicate": "The holder\u2019s effective ability is neither Protosynthesis nor Quark Drive.",
+          "rationale": "The pinned Booster Energy activation dispatch only calls the item effect for Protosynthesis or Quark Drive; another ability has no Booster Energy damage consequence.",
+          "evidence": [
+            {
+              "source": "src/battle_script_commands.c:13471",
+              "contains": "if (!(ability == ABILITY_PROTOSYNTHESIS && cmd->onFieldStatus != ON_TERRAIN)"
+            },
+            {
+              "source": "src/battle_script_commands.c:13472",
+              "contains": "&& !(ability == ABILITY_QUARK_DRIVE && cmd->onFieldStatus != ON_WEATHER)"
+            }
+          ]
+        },
+        {
+          "rule": "booster_energy_payload_modelled",
+          "side": "EITHER",
+          "families": [
+            "HOLD_EFFECT_BOOSTER_ENERGY"
+          ],
+          "predicate": "Switch-in settlement is observed and the holder\u2019s Protosynthesis/Quark Drive activation flag and boosted-stat payload are valid.",
+          "rationale": "Booster Energy itself has no damage multiplier. The live ability and its source-selected boosted stat are consumed by the modeled stat modifier; a consumed item is not inferred from item absence.",
+          "evidence": [
+            {
+              "source": "src/battle_hold_effects.c:64",
+              "contains": "if (gBattleMons[battler].volatiles.boosterEnergyActivated || gBattleMons[battler].volatiles.transformed)"
+            },
+            {
+              "source": "src/battle_hold_effects.c:70",
+              "contains": "gBattleMons[battler].volatiles.paradoxBoostedStat = GetParadoxHighestStatId(battler)"
+            },
+            {
+              "source": "src/battle_hold_effects.c:73",
+              "contains": "gBattleMons[battler].volatiles.boosterEnergyActivated = TRUE"
             }
           ]
         }
@@ -797,6 +1130,22 @@
               "contains": "ctx->holdEffectDef == HOLD_EFFECT_UTILITY_UMBRELLA"
             }
           ]
+        },
+        {
+          "rule": "umbrella_other_weather",
+          "side": "EITHER",
+          "predicate": "The observed exact weather word contains neither B_WEATHER_SUN nor B_WEATHER_RAIN.",
+          "rationale": "Utility Umbrella suppresses only Sun/Rain applicability. Sand, hail/snow, fog and strong winds do not activate the selected-hit Umbrella branch.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:9530",
+              "contains": "if (gBattleWeather & (B_WEATHER_SUN | B_WEATHER_RAIN) && GetBattlerHoldEffect(battler) == HOLD_EFFECT_UTILITY_UMBRELLA)"
+            },
+            {
+              "source": "src/battle_util.c:7455",
+              "contains": "return UQ_4_12(1.0);"
+            }
+          ]
         }
       ],
       "always_blocking": [
@@ -850,6 +1199,87 @@
             }
           ],
           "side": "EITHER"
+        },
+        {
+          "rule": "primal_orb_transition_unsettled",
+          "side": "EITHER",
+          "families": [
+            "HOLD_EFFECT_PRIMAL_ORB"
+          ],
+          "predicate": "A Red Orb or Blue Orb is held before switch-in/form-change settlement is authoritatively complete.",
+          "rationale": "The pinned battle form table applies Primal Reversion during form-change settlement. Until the event state settles, observed species and resulting ability/weather are not a complete damage authority.",
+          "evidence": [
+            {
+              "source": "src/data/pokemon/form_change_tables.h:739",
+              "contains": "{FORM_CHANGE_BATTLE_PRIMAL_REVERSION, SPECIES_KYOGRE_PRIMAL, ITEM_BLUE_ORB}"
+            },
+            {
+              "source": "src/data/pokemon/form_change_tables.h:750",
+              "contains": "{FORM_CHANGE_BATTLE_PRIMAL_REVERSION, SPECIES_GROUDON_PRIMAL, ITEM_RED_ORB"
+            }
+          ]
+        },
+        {
+          "rule": "primal_orb_form_unobserved",
+          "side": "EITHER",
+          "families": [
+            "HOLD_EFFECT_PRIMAL_ORB"
+          ],
+          "predicate": "Primal form-change settlement is complete but the holder\u2019s live current species is not observed.",
+          "rationale": "The item does not have a separate damage multiplier; the transitioned species and its resulting ability/weather must be observed directly rather than reconstructed from raw item identity.",
+          "evidence": [
+            {
+              "source": "src/data/pokemon/form_change_tables.h:739",
+              "contains": "{FORM_CHANGE_BATTLE_PRIMAL_REVERSION, SPECIES_KYOGRE_PRIMAL, ITEM_BLUE_ORB}"
+            },
+            {
+              "source": "src/data/pokemon/form_change_tables.h:750",
+              "contains": "{FORM_CHANGE_BATTLE_PRIMAL_REVERSION, SPECIES_GROUDON_PRIMAL, ITEM_RED_ORB"
+            }
+          ]
+        },
+        {
+          "rule": "primal_orb_form_authoritative",
+          "side": "EITHER",
+          "families": [
+            "HOLD_EFFECT_PRIMAL_ORB"
+          ],
+          "predicate": "Primal form-change settlement is complete and the holder\u2019s live current species is observed.",
+          "rationale": "The form table changes live species. The damage calculation consumes observed species/stats/ability/weather and does not add a second Orb modifier; this does not mean that the Orb has no battle effect.",
+          "evidence": [
+            {
+              "source": "src/data/pokemon/form_change_tables.h:739",
+              "contains": "{FORM_CHANGE_BATTLE_PRIMAL_REVERSION, SPECIES_KYOGRE_PRIMAL, ITEM_BLUE_ORB}"
+            },
+            {
+              "source": "src/data/pokemon/form_change_tables.h:750",
+              "contains": "{FORM_CHANGE_BATTLE_PRIMAL_REVERSION, SPECIES_GROUDON_PRIMAL, ITEM_RED_ORB"
+            }
+          ]
+        },
+        {
+          "rule": "mega_z_no_selected_or_active_gimmick",
+          "side": "EITHER",
+          "families": [
+            "HOLD_EFFECT_MEGA_STONE",
+            "HOLD_EFFECT_Z_CRYSTAL"
+          ],
+          "predicate": "An ordinary selected hit has authoritative selected-gimmick and active-gimmick values, both GIMMICK_NONE, while holding a Mega Stone or Z-Crystal.",
+          "rationale": "Mega Stones and Z-Crystals have no direct ordinary-hit multiplier with no selected or active gimmick. Any selected or active unsupported gimmick remains independently refused, and item-dependent move semantics remain separately gated.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:8646",
+              "contains": "if (GetActiveGimmick(battler) != GIMMICK_NONE)"
+            },
+            {
+              "source": "src/battle_dynamax.c:111",
+              "contains": "if (!TESTING && (holdEffect == HOLD_EFFECT_Z_CRYSTAL || holdEffect == HOLD_EFFECT_MEGA_STONE)"
+            },
+            {
+              "source": "src/battle_terastal.c:103",
+              "contains": "if (!TESTING && (holdEffect == HOLD_EFFECT_Z_CRYSTAL || holdEffect == HOLD_EFFECT_MEGA_STONE)"
+            }
+          ]
         }
       ],
       "always_blocking": [

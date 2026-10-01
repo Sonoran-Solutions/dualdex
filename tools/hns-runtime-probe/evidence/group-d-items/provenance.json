@@ -1,0 +1,30 @@
+{
+  "cases": {
+    "embargo": {
+      "fixture": "Chikorita species 25; ITEM_NONE; Embargo 373, Growl 45, Tail Whip 39, Tackle 33.",
+      "log": "embargo.log",
+      "logSha256": "563358a7d11b2817f7610b49f016531e7ea915d113ade82010d692c24157d721",
+      "scenario": "tools/hns-runtime-probe/scenarios/71-group-d-item-embargo.txt",
+      "scenarioSha256": "f0a4c0bce1275b225e67226e0822af6e3483eac29fe89ad1b891726f6e6c0efe"
+    },
+    "metronome": {
+      "fixture": "Chikorita species 25; held Metronome item 483; Growl 45, Tail Whip 39, Tackle 33, Ember 52.",
+      "log": "metronome.log",
+      "logSha256": "915f1882e4aefd6c51e87682a77e69bf241461efd317c896fe557cf7549ed70b",
+      "scenario": "tools/hns-runtime-probe/scenarios/72-group-d-item-metronome.txt",
+      "scenarioSha256": "c6b7d6bbd3f48b4aafb64cda6cb408bbb5e98bda0b05c32b905600957b0dc4ae"
+    },
+    "transform": {
+      "fixture": "Ditto species 132; Transform 144, Tackle 33, Secret Power 285, Ember 52; wild opponent observed as species 161.",
+      "log": "transform.log",
+      "logSha256": "dc3efaf30505df5921a49f829dad38007f8ad82533e0dd499ede19795ab0bf52",
+      "scenario": "tools/hns-runtime-probe/scenarios/73-group-d-item-transform.txt",
+      "scenarioSha256": "7862a4ef9833a8b57db9d7457ce9af357d187e836d75e520ad9f6fead9e0425f"
+    }
+  },
+  "coreSha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+  "fixtureMethod": "prepare_group_d_test_save.py copied an official-ROM-created starter battery and changed only party identity, item, and moves; no battle volatile or counter state was written.",
+  "romSha256": "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b",
+  "runtimeProbeSourceSha256": "afa2c3ed95f5d5cbb32747776dda4cdc0237a213889c9b41ecd38a7014469db5",
+  "upstreamCommit": "1f42b74dff0e9fe942419845d040663dd829a973"
+}

@@ -43,34 +43,47 @@ class HnsItemRegistryTest {
     }
 
     @Test
-    fun `representative damage-relevant items are unsupported`() {
-        val unsupported = listOf(
+    fun `representative modeled and unsupported damage items stay distinct`() {
+        val modelled = listOf(
             426, // Charcoal (x1.2 type booster)
             442, // Choice Band
             479, // Life Orb
             340, // Fire Gem (x1.3)
-            550, // Occa Berry (x0.5 resist)
-            481, // Focus Sash (KO relevant)
-            472  // Leftovers (KO relevant)
-        )
-        for (id in unsupported) {
+            550, // Occa Berry (H&S x0.5 resist)
+            477, // Expert Belt
+            483, // Metronome
+            503, // Assault Vest
+            494, // Eviolite
+            396, // Metal Powder
+            513, // Utility Umbrella
+            764  // Booster Energy; live Paradox payload supplies the damage consequence
+        ) + listOf(
+            "Light Ball", "Thick Club", "Deep Sea Tooth", "Deep Sea Scale", "Soul Dew",
+            "Lustrous Orb", "Adamant Orb", "Griseous Orb", "Punching Glove", "Hearthflame Mask"
+        ).map { HnsItemRegistry.resolveIdByName(it)!! }
+        for (id in modelled) {
             val entry = HnsItemRegistry.classify(id)
             assertEquals(
-                "id $id (${entry.data?.canonicalSymbol}) must be unsupported",
-                HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+                "id $id (${entry.data?.canonicalSymbol}) must have a descriptor-backed H&S path",
+                HnsItemCategory.MODELLED_HNS_SPECIFIC,
                 entry.category
             )
-            assertFalse(entry.category.isSupportedForDamage)
+            assertTrue(HnsItemRegistry.isSupportedForDamage(id))
+            assertNull("H&S descriptor items never masquerade as ADV names", HnsItemRegistry.engineItemName(id))
+        }
+        for (id in listOf(481, 472)) {
+            assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, HnsItemRegistry.classify(id).category)
+            assertFalse(HnsItemRegistry.isSupportedForDamage(id))
         }
     }
 
     @Test
     fun `an in-domain item with an unresolved family or identity is unclassified and fails closed`() {
-        // 290 = ITEM_RED_ORB: HOLD_EFFECT_PRIMAL_ORB is a reviewed but unaudited family.
+        // Primal Orbs are represented by settled live forms; the dynamic e-Reader berry is unresolved.
         val redOrb = HnsItemRegistry.classify(290)
         assertEquals("ITEM_RED_ORB", redOrb.data?.canonicalSymbol)
-        assertEquals(HnsItemCategory.UNCLASSIFIED, redOrb.category)
-        assertFalse(HnsItemRegistry.isSupportedForDamage(290))
+        assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, redOrb.category)
+        assertTrue(HnsItemRegistry.isSupportedForDamage(290))
 
         // 581 = the e-Reader Enigma Berry: its catalogue hold effect is NONE, but its battle hold
         // effect is runtime data, so an identity exception keeps it out of the NONE family.
@@ -110,16 +123,16 @@ class HnsItemRegistryTest {
 
     @Test
     fun `capability follows the numeric id, never a display name`() {
-        // A runtime ID that is a damage item must stay unsupported no matter what the
+        // A runtime ID that is a modeled damage item keeps its category no matter what the
         // paired display name claims; the registry has no name-keyed live path at all.
         val byId = HnsItemRegistry.classify(426) // Charcoal
-        assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, byId.category)
+        assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, byId.category)
         assertEquals("CHARCOAL", byId.data?.sourceName)
 
         // The manual name path resolves THROUGH the exact catalogue to the same ID.
         val byName = HnsItemRegistry.classifyByName("Charcoal")
         assertEquals(426, byName.itemId)
-        assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, byName.category)
+        assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, byName.category)
     }
 
     @Test
@@ -148,7 +161,7 @@ class HnsItemRegistryTest {
 
             val entry = HnsItemRegistry.classify(426)
             assertEquals("ITEM_CHARCOAL", entry.data?.canonicalSymbol)
-            assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, entry.category)
+            assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, entry.category)
             // The H&S catalogue does not know the spoofed name, so it cannot resolve.
             assertNull(HnsItemRegistry.resolveIdByName("Harmless Thing"))
         } finally {

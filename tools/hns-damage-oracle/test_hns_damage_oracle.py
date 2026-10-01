@@ -36,12 +36,15 @@ def a_scenario(**changes) -> dict:
 
 
 def observed_for(s: dict) -> dict:
+    runtime = {key: 0 for key in schema.RUNTIME_DOMAINS}
+    item_record = {"holdEffect": "HOLD_EFFECT_NONE", "holdEffectParam": 0, "itemType": None}
     battler = {"speciesId": 68, "types": ["Fighting"],
                "baseStats": {"hp": 90, "attack": 130, "defense": 80, "spAttack": 65, "spDefense": 85, "speed": 55},
                "abilityId": 15, "itemId": 0, "hpAtHit": s["attacker"]["stats"]["hp"],
                "status1": {"none": 0, "poison": 8, "burn": 16, "toxic": 128, "paralysis": 64}[s["attacker"]["status"]],
                "badgeBoosts": {"attack": False, "defense": False, "spAttack": False, "spDefense": False},
-               "terrainAffected": s["field"]["terrain"] != "none", "runtime": None}
+               "terrainAffected": s["field"]["terrain"] != "none", "runtime": runtime,
+               "itemRecord": item_record}
     dfn = copy.deepcopy(battler)
     dfn["hpAtHit"] = s["defender"]["stats"]["hp"]
     dfn["status1"] = {"none": 0, "poison": 8, "burn": 16, "toxic": 128, "paralysis": 64}[s["defender"]["status"]]
@@ -53,7 +56,9 @@ def observed_for(s: dict) -> dict:
             "targetCount": 1,
             "fieldStatuses": ({"none": 0, "grassy": 1 << 6, "electric": 1 << 8,
                                "misty": 1 << 7, "psychic": 1 << 9}[s["field"]["terrain"]]
-                              | ((1 << 5) if s["field"]["gravity"] else 0))}
+                              | ((1 << 5) if s["field"]["gravity"] else 0)
+                              | (4 if (s.get("stateSetup") or {}).get("wonderRoom") else 0)
+                              | (1 if (s.get("stateSetup") or {}).get("magicRoom") else 0))}
 
 
 ROLLS = [51, 51, 52, 52, 53, 54, 54, 55, 55, 56, 57, 57, 58, 58, 59, 60]
@@ -82,6 +87,30 @@ def good_corpus() -> dict:
 
 
 class ScenarioSchemaTest(unittest.TestCase):
+    def test_observed_field_status_includes_magic_room_and_wonder_room(self):
+        for scenario_id, expected_bits in (
+            ("group-d-item-charcoal-magic-room-suppressed", 1),
+            ("group-d-item-eviolite-wonder-room", 4),
+        ):
+            scenario = next(s for s in SCENARIOS if s["id"] == scenario_id)
+            observed = observed_for(scenario)
+            self.assertEqual(observed["fieldStatuses"], expected_bits)
+            schema.validate_observed(observed, scenario, f"observed[{scenario_id}]")
+            observed["fieldStatuses"] = 0
+            with self.assertRaises(schema.SchemaError):
+                schema.validate_observed(observed, scenario, f"observed[{scenario_id}]")
+
+    def test_item_secondary_ids_follow_pinned_type_enum_slots(self):
+        self.assertEqual(schema.TYPE_SECONDARY_IDS["Normal"], 1)
+        self.assertEqual(schema.TYPE_SECONDARY_IDS["Fighting"], 2)
+        self.assertEqual(schema.TYPE_SECONDARY_IDS["Steel"], 9)
+        self.assertEqual(schema.TYPE_SECONDARY_IDS["Fire"], 11)  # TYPE_MYSTERY reserves ID 10.
+        self.assertEqual(schema.TYPE_SECONDARY_IDS["Fairy"], 19)
+        self.assertEqual(schema.expected_item_secondary_id(
+            {"holdEffect": "HOLD_EFFECT_GEMS", "itemType": "Fighting"}), 2)
+        self.assertEqual(schema.expected_item_secondary_id(
+            {"holdEffect": "HOLD_EFFECT_RESIST_BERRY", "itemType": "Normal"}), 0)
+
     def test_state_backed_group_d_covers_every_identity_and_rejects_invalid_operands(self):
         selected = [s for s in SCENARIOS if s["id"].startswith("state-d-")]
         abilities = {s[role]["ability"] for s in selected for role in ("attacker", "defender")}
@@ -156,10 +185,8 @@ class ScenarioSchemaTest(unittest.TestCase):
             "group-d-orichalcum-pulse-no-sun-control",
             "group-d-orichalcum-pulse-special-sun-control",
         }
-        expected_engine_only = {
-            "group-d-orichalcum-pulse-utility-umbrella",
-            "group-d-orichalcum-pulse-cloud-nine-raw-sun",
-        }
+        expected_modelled.add("group-d-orichalcum-pulse-utility-umbrella")
+        expected_engine_only = {"group-d-orichalcum-pulse-cloud-nine-raw-sun"}
         self.assertTrue(expected_modelled.union(expected_engine_only).issubset(by_id))
         self.assertTrue(all(by_id[sid]["surface"] == "modelled" for sid in expected_modelled))
         self.assertTrue(all(by_id[sid]["surface"] == "engine-only" for sid in expected_engine_only))
@@ -424,6 +451,10 @@ def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, 
                  move_ability_flags=(), field_statuses=0, terrain_affected=True) -> list[str]:
     delta = damage if delta is None else delta
     t = f"{types[0]}|{types[1]}|Mystery"
+    def runtime(role: str, species_id: int, personality: int) -> str:
+        values = [personality, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  0, 0, 0, 0, 0, species_id, 0, 0, 0, 0]
+        return f"DDXO|{sid}|{rng}|{role}G|" + "|".join(map(str, values))
     return [
         f"DDXO|{sid}|{rng}|A1|68|50|{t}|15|0|{atk_status}|{atk_status1}",
         f"DDXO|{sid}|{rng}|A2|200|200|150|100|75|100|80",
@@ -431,12 +462,14 @@ def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, 
         f"DDXO|{sid}|{rng}|A4|90|130|80|65|85|55",
         f"DDXO|{sid}|{rng}|A5|0|0|0|0",
         f"DDXO|{sid}|{rng}|A6|{1 if terrain_affected else 0}",
+        runtime("A", 68, 68),
         f"DDXO|{sid}|{rng}|D1|143|50|Normal|Normal|Mystery|15|0|{def_status}|{def_status1}",
         f"DDXO|{sid}|{rng}|D2|{60000 - delta}|60000|100|85|100|130|40",
         f"DDXO|{sid}|{rng}|D3|0|{def_stage}|0|0",
         f"DDXO|{sid}|{rng}|D4|160|110|65|65|110|30",
         f"DDXO|{sid}|{rng}|D5|0|0|0|0",
         f"DDXO|{sid}|{rng}|D6|{1 if terrain_affected else 0}",
+        runtime("D", 143, 143),
         "DDXO|{}|{}|M|157|Rock|75|physical|both|1|157|0|0|0|0|0|0|6|{}|0".format(
             sid, rng, "|".join("1" if flag in move_ability_flags else "0" for flag in
                                 ("punchingMove", "bitingMove", "pulseMove", "slicingMove"))),
@@ -609,6 +642,36 @@ class SetupPlannerTest(unittest.TestCase):
         entry = next(e for e in corpus["entries"] if e["scenario"]["id"] == scenario["id"])
         self.assertEqual(entry["observed"]["attacker"]["hpAtHit"], 175)
 
+    def test_assault_vest_opponent_uses_legal_move_on_every_turn(self):
+        scenarios = [s for s in SCENARIOS if "assault-vest" in s["id"]]
+        self.assertEqual(len(scenarios), 3)
+        for scenario in scenarios:
+            with self.subTest(scenario=scenario["id"]):
+                source = backend.render_scenario(scenario)
+                turns = [line for line in source.splitlines() if "TURN {" in line]
+                self.assertEqual(len(turns), 1 + int(bool((scenario.get("stateSetup") or {}).get("wonderRoom"))))
+                self.assertTrue(all("MOVE(opponent, MOVE_TACKLE);" in turn for turn in turns))
+
+    def test_immunity_cases_assert_live_identity_when_pre_damage_hook_is_skipped(self):
+        scenario = next(s for s in SCENARIOS if s["id"] == "group-c-absorb-water-absorb")
+        source = backend.render_scenario(scenario)
+        self.assertIn("EXPECT_EQ(gBattleMons[B_POSITION_PLAYER_LEFT].species, SPECIES_MACHAMP);", source)
+        self.assertIn("EXPECT_EQ(gBattleMons[B_POSITION_PLAYER_LEFT].item, ITEM_NONE);", source)
+        self.assertNotIn("EXPECT_EQ(sDdxoItemAtHit[", source)
+
+    def test_life_orb_recoil_is_validated_after_the_hit_from_active_live_item(self):
+        scenario = next(s for s in SCENARIOS if s["id"] == "group-d-item-life-orb-floored")
+        attacker = {"maxHp": 200}
+        active_life_orb = {"itemIdAtHit": 479, "holdEffectActive": 1}
+        self.assertEqual(backend._life_orb_post_hit_recoil(scenario, attacker, active_life_orb), 20)
+        self.assertEqual(backend._life_orb_post_hit_recoil(
+            scenario, attacker, {"itemIdAtHit": 0, "holdEffectActive": 0}), 0)
+        self.assertEqual(backend._life_orb_post_hit_recoil(
+            scenario, attacker, {"itemIdAtHit": 479, "holdEffectActive": 0}), 0)
+        magic_guard = copy.deepcopy(scenario)
+        magic_guard["attacker"]["ability"] = "ABILITY_MAGIC_GUARD"
+        self.assertEqual(backend._life_orb_post_hit_recoil(magic_guard, attacker, active_life_orb), 0)
+
     def test_generated_tests_capture_all_rolls_and_force_crit(self):
         files = backend.render_sources(SCENARIOS)
         self.assertEqual(files, backend.render_sources(matrix.build_scenarios()))
@@ -686,17 +749,61 @@ class CommittedCorpusTest(unittest.TestCase):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
         for entry in doc["entries"]:
             scenario = entry["scenario"]
-            if not scenario["stateSetup"]:
-                continue
             self.assertEqual(len(entry["rolls"]), 16)
             for role in ("attacker", "defender"):
                 runtime = entry["observed"][role]["runtime"]
                 self.assertEqual(set(runtime), set(schema.RUNTIME_DOMAINS))
-                for key, value in scenario["stateSetup"].get(role, {}).items():
+                self.assertEqual(runtime["itemIdAtHit"], next(
+                    int(row["id"]) for row in backend.ITEM_RECORDS.values()
+                    if row["symbol"] == scenario[role]["item"]
+                ), f"{scenario['id']} {role}.itemIdAtHit")
+                self.assertEqual(entry["observed"][role]["itemRecord"]["holdEffectParam"],
+                                 runtime["holdEffectParam"], f"{scenario['id']} {role}.holdEffectParam")
+                for key, value in (scenario.get("stateSetup") or {}).get(role, {}).items():
                     observed = runtime[key] if key != "dynamaxSelected" else runtime["selectedGimmick"] == 4
                     expected = value if key != "dynamaxSelected" else bool(value)
                     self.assertEqual(observed, expected, f"{scenario['id']} {role}.{key}")
                 self.assertIn(runtime["gender"], (0, 254, 255))
+
+    def test_group_d_direct_held_item_families_have_source_observations(self):
+        doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
+        by_id = {entry["scenario"]["id"]: entry for entry in doc["entries"]}
+        expected = {
+            "group-d-item-muscle-band-physical", "group-d-item-fire-gem-matching-consumed-after-hit",
+            "group-d-item-fire-gem-technician-composition", "group-d-item-fire-gem-magic-room-suppressed",
+            "group-d-item-punching-glove-contact-fluffy", "group-d-item-lustrous-orb-alternate-form",
+            "group-d-item-soul-dew-latias-psychic", "group-d-item-choice-specs-special",
+            "group-d-item-choice-specs-stage-composition",
+            "group-d-item-thick-club-alolan-marowak", "group-d-item-light-ball-pikachu-form",
+            "group-d-item-deep-sea-tooth-clamperl-special", "group-d-item-deep-sea-scale-clamperl-special",
+            "group-d-item-metal-powder-transformed-ditto", "group-d-item-eviolite-transformed-evolvable",
+            "group-d-item-assault-vest-wonder-room-physical", "group-d-item-life-orb-floored",
+            "group-d-item-expert-belt-four-times", "group-d-item-metronome-counter-8",
+            "group-d-item-resist-berry-ripen", "group-d-item-resist-berry-as-one-ice-rider",
+            "group-d-item-resist-berry-as-one-shadow-rider",
+            "group-d-item-umbrella-defender-rain-fire", "group-d-item-booster-energy-held-proto-sun",
+            "group-d-item-primal-blue-orb-kyogre-primal",
+            "group-d-item-metronome-magic-room-suppressed",
+        }
+        self.assertTrue(expected.issubset(by_id))
+        for scenario_id in expected:
+            with self.subTest(scenario=scenario_id):
+                entry = by_id[scenario_id]
+                self.assertEqual(entry["scenario"]["surface"], "modelled")
+                self.assertEqual(len(entry["rolls"]), schema.ROLL_COUNT)
+                for role in ("attacker", "defender"):
+                    self.assertIsNotNone(entry["observed"][role]["runtime"])
+        booster = by_id["group-d-item-booster-energy-held-proto-sun"]["observed"]["attacker"]
+        booster_id = next(item_id for item_id, record in backend.ITEM_RECORDS.items()
+                          if record["symbol"] == "ITEM_BOOSTER_ENERGY")
+        self.assertEqual(booster["itemId"], booster_id)
+        self.assertEqual(booster["runtime"]["boosterEnergyActivated"], 0)
+        self.assertEqual(booster["runtime"]["paradoxBoostedStat"], 1)
+        gem = by_id["group-d-item-fire-gem-matching-consumed-after-hit"]
+        self.assertEqual(gem["observed"]["attacker"]["runtime"]["itemIdAtHit"], 340)
+        self.assertEqual(gem["observed"]["attacker"]["itemId"], 0)
+        transformed = by_id["group-d-item-eviolite-transformed-evolvable"]
+        self.assertEqual(transformed["observed"]["defender"]["runtime"]["transformedMonSpecies"], 104)
 
     def test_check_uses_no_external_process_or_upstream(self):
         def refuse(*_a, **_k):

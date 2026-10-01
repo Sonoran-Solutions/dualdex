@@ -39,7 +39,7 @@ import com.dualdex.pokemon.DeclaredAbility
  * | badges (player attacker) | observed false | no badge boost |
  * | HP / status | defender at full HP, attacker at full HP, `status1 = 0` | neutral, and it makes a pinch ability provably inactive rather than accidentally active |
  * | gimmick | observed `GIMMICK_NONE` | no Tera/Dynamax/Z |
- * | state-backed Group D | personality `255`; timers, raw first-turn value, stored Supreme counter and Paradox selector `0`; all new volatile flags false; selected Dynamax observed false | explicit neutral policy fixture, never a production default |
+ * | state-backed Group D / item state | personality `255`; timers, raw first-turn value, stored Supreme counter and Paradox selector `0`; volatile flags false; Embargo false, Metronome counter `0`, transformed species `SPECIES_NONE`; selected Dynamax observed false | explicit neutral policy fixture, never a production default |
  * | Analytic action phase | unobserved | the census measures menu requests and never fabricates a current executing action |
  * | item | the trainer/player fixture's own pinned item ID | truthful, not omitted |
  * | ability | the trainer/player fixture's own pinned effective ability ID | truthful, not omitted |
@@ -233,6 +233,13 @@ object HnsCalcCensusBaseline {
                 volatileRoostActive = false,
                 volatileSubstitute = false,
                 volatileEndured = false,
+                // The item pipeline now requires its own generated volatile window. These are
+                // explicit neutral census operands, not production defaults: no Embargo, no
+                // repeated-move counter, and SPECIES_NONE when Transform is inactive.
+                itemVolatilesObserved = true,
+                volatileEmbargo = false,
+                volatileMetronomeItemCounter = 0,
+                volatileTransformedMonSpecies = 0,
                 gimmickObserved = true,
                 activeGimmick = 0,
                 fieldStatusesReadable = true,

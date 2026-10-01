@@ -2,6 +2,7 @@ package com.dualdex.calculator
 
 import android.content.Context
 import com.dualdex.pokemon.ParsedPokemon
+import com.dualdex.pokemon.hns.Hns205SpeciesMechanics
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -206,6 +207,9 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 live.attackerSlowStartTimer?.let { put("hnsSlowStartTimer", it) }
                 live.attackerFlashFireBoosted?.let { put("hnsFlashFireBoosted", it) }
                 live.attackerTransformed?.let { put("hnsTransformed", it) }
+                live.attackerEmbargo?.let { put("hnsEmbargo", it) }
+                live.attackerMetronomeItemCounter?.let { put("hnsMetronomeItemCounter", it) }
+                live.attackerTransformedMonSpecies?.let { put("hnsTransformedMonSpecies", it) }
                 live.attackerBoosterEnergyActivated?.let { put("hnsBoosterEnergyActivated", it) }
                 live.attackerParadoxBoostedStat?.let { put("hnsParadoxBoostedStat", it) }
                 live.attackerVesselOfRuin?.let { put("hnsVesselOfRuin", it) }
@@ -222,11 +226,10 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             if (request.typeSystem == "hns_2_0_5") {
                 put(
                     "hnsAbilityShield",
-                    request.attacker.itemId?.let {
-                        com.dualdex.pokemon.hns.HnsItemRegistry.classify(it).data?.holdEffect ==
-                            "HOLD_EFFECT_ABILITY_SHIELD"
-                    } == true
+                    HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER).effectiveHoldEffect ==
+                        "HOLD_EFFECT_ABILITY_SHIELD"
                 )
+                putHnsHoldEffectDescriptor(this, request, HnsItemSide.ATTACKER)
             }
             request.hnsLiveBattleState?.attackerRawStats?.let { raw ->
                 put("rawStats", JSONObject().apply {
@@ -331,6 +334,9 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("hnsGender", live.defenderGender.name)
                 }
                 live.defenderTransformed?.let { put("hnsTransformed", it) }
+                live.defenderEmbargo?.let { put("hnsEmbargo", it) }
+                live.defenderMetronomeItemCounter?.let { put("hnsMetronomeItemCounter", it) }
+                live.defenderTransformedMonSpecies?.let { put("hnsTransformedMonSpecies", it) }
                 live.defenderBoosterEnergyActivated?.let { put("hnsBoosterEnergyActivated", it) }
                 live.defenderParadoxBoostedStat?.let { put("hnsParadoxBoostedStat", it) }
                 live.defenderVesselOfRuin?.let { put("hnsVesselOfRuin", it) }
@@ -342,11 +348,10 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             if (request.typeSystem == "hns_2_0_5") {
                 put(
                     "hnsAbilityShield",
-                    request.defender.itemId?.let {
-                        com.dualdex.pokemon.hns.HnsItemRegistry.classify(it).data?.holdEffect ==
-                            "HOLD_EFFECT_ABILITY_SHIELD"
-                    } == true
+                    HnsHoldEffectAuthority.forRequest(request, HnsItemSide.DEFENDER).effectiveHoldEffect ==
+                        "HOLD_EFFECT_ABILITY_SHIELD"
                 )
+                putHnsHoldEffectDescriptor(this, request, HnsItemSide.DEFENDER)
             }
             request.hnsLiveBattleState?.defenderStatStages?.let { stages ->
                 put("statStages", JSONArray(stages))
@@ -470,6 +475,45 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
         }
         put("field", fieldObj)
     }.toString()
+
+private fun putHnsHoldEffectDescriptor(
+    target: JSONObject,
+    request: DamageCalculationRequest,
+    side: HnsItemSide
+) {
+    val resolution = HnsHoldEffectAuthority.forRequest(request, side)
+    target.put("hnsHoldEffectState", resolution.state.name)
+    target.put("hnsRawItemId", resolution.itemId ?: JSONObject.NULL)
+    target.put("hnsEffectiveHoldEffect", resolution.effectiveHoldEffect ?: JSONObject.NULL)
+    target.put("hnsHoldEffectParam", resolution.item?.holdEffectParam ?: JSONObject.NULL)
+    target.put(
+        "hnsItemType",
+        resolution.itemId?.let(com.dualdex.pokemon.hns.HnsItemRegistry::itemTypeName) ?: JSONObject.NULL
+    )
+    val live = request.hnsLiveBattleState
+    val speciesId = if (side == HnsItemSide.ATTACKER) live?.attackerSpeciesId else live?.defenderSpeciesId
+    val transformed = if (side == HnsItemSide.ATTACKER) live?.attackerTransformed else live?.defenderTransformed
+    val transformedSpecies = if (side == HnsItemSide.ATTACKER) {
+        live?.attackerTransformedMonSpecies
+    } else {
+        live?.defenderTransformedMonSpecies
+    }
+    target.put("hnsSpeciesId", speciesId ?: JSONObject.NULL)
+    target.put("hnsBaseSpeciesId", Hns205SpeciesMechanics.baseSpeciesId(speciesId) ?: JSONObject.NULL)
+    val defenseSpecies = when (transformed) {
+        true -> transformedSpecies
+        false -> speciesId
+        null -> null
+    }
+    target.put("hnsEvioliteCanEvolve", Hns205SpeciesMechanics.canEvolve(defenseSpecies) ?: JSONObject.NULL)
+    if (side == HnsItemSide.DEFENDER) {
+        val berry = HnsResistBerryAuthority.forRequest(request)
+        target.put("hnsResistBerryState", berry.state.name)
+        target.put("hnsResistBerryItemId", berry.itemId ?: JSONObject.NULL)
+        target.put("hnsResistBerryModifierQ12", berry.modifierQ12 ?: JSONObject.NULL)
+        target.put("hnsResistBerryRule", berry.rule)
+    }
+}
 
 private fun JSONObject.optNullableString(key: String): String? =
     if (!has(key) || isNull(key)) null else optString(key)

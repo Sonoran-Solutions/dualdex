@@ -492,6 +492,13 @@ source_check() {
   python3 tools/hns-items/generate_hns_items.py \
     --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --verify
 
+  # Base-species identity and CanEvolve are generated from the same pinned, preprocessed
+  # gSpeciesInfo / evolution tables used by the battle engine. This is required by the
+  # species-qualified Group D item predicates (Orbs, Thick Club, Eviolite, etc.).
+  echo "== H&S species item-mechanics authority verification (pinned upstream) =="
+  python3 tools/hns-items/generate_hns_species_mechanics.py \
+    --upstream-dir "$upstream" --cpp-bin "$cpp_bin" --check
+
   # 1f. The move-effect / ordinary-move map must regenerate byte-for-byte from the
   #     pinned source. This is the source-check for the move-mechanics capability
   #     gate (Gap C4a). It parses the raw designated initializers, so it needs no

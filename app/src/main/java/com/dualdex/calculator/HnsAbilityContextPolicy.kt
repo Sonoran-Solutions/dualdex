@@ -302,7 +302,11 @@ object HnsAbilityContextPolicy {
         /** The single pinned effective-type decision shared by policy and engine serialization. */
         val moveAuthority: HnsMoveAuthority? = null,
         /** All additional operands were rebound from exact live H&S observations at the boundary. */
-        val liveBattleState: CalcHnsLiveBattleState? = null
+        val liveBattleState: CalcHnsLiveBattleState? = null,
+        val attackerHoldEffectResolution: HnsHoldEffectResolution? = null,
+        val defenderHoldEffectResolution: HnsHoldEffectResolution? = null,
+        /** Shared request-local resist-berry decision also serialized to the damage engine. */
+        val resistBerryDecision: HnsResistBerryDecision? = null
     )
 
     /** Abilities whose only damage-relevant effect is already reflected in live stat stages. */
@@ -430,23 +434,76 @@ object HnsAbilityContextPolicy {
                 "berry_recovery_outside_single_hit", berrySource(abilityId),
                 "The berry recovery or reuse acts after the current hit, using the already observed item state."
             ) else null
+            103 -> when {
+                c.ordinaryMove != true || !abilityObserved(c) -> null
+                (if (c.side == HnsAbilitySide.ATTACKER) c.attackerItemId else c.defenderItemId) == null ->
+                    unknownProof(
+                        "klutz_item_identity_unobserved", "src/battle_util.c:5829",
+                        "The exact current item is needed to keep Klutz's hold-effect suppression aligned with the shared item policy."
+                    )
+                (if (c.side == HnsAbilitySide.ATTACKER) c.attackerItemId else c.defenderItemId) == 0 -> proof(
+                    "klutz_no_current_item", "src/battle_util.c:5829",
+                    "The authoritative current item is ITEM_NONE, so Klutz has no selected-hit item consequence."
+                )
+                (if (c.side == HnsAbilitySide.ATTACKER) c.attackerHoldEffectResolution else c.defenderHoldEffectResolution)
+                    ?.state == HnsHoldEffectState.SUPPRESSED_NONE -> proof(
+                    "klutz_item_suppression_shared", "src/battle_util.c:5829",
+                    "Klutz resolves the held effect to NONE through the shared authority; the item's own request-local rule handles the resulting damage consequence."
+                )
+                (if (c.side == HnsAbilitySide.ATTACKER) c.attackerHoldEffectResolution else c.defenderHoldEffectResolution)
+                    ?.state == HnsHoldEffectState.ACTIVE_EXACT -> proof(
+                    "klutz_suppressed_by_gastro_acid", "src/battle_util.c:5829",
+                    "The item hold effect is active, so Klutz is suppressed (for example by Gastro Acid); independent ability-suppression and item rules retain their own checks."
+                )
+                else -> unknownProof(
+                    "klutz_hold_effect_unobserved", "src/battle_util.c:5829",
+                    "The shared effective-hold-effect authority cannot determine whether Klutz disables the current item."
+                )
+            }
+            127, 266, 267 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof(
+                    "unnerve_defender_side", "src/battle_util.c:336-372",
+                    "Unnerve and As One block opposing berry consumption; a defender-side copy cannot block the incoming hit's defender-held resist berry."
+                )
+                c.ordinaryMove != true -> null
+                c.defenderItemId == null -> unknownProof(
+                    "unnerve_berry_authority_unobserved", "src/battle_util.c:336-372, 7686-7695",
+                    "The opposing defender's exact current item must be observed before the berry block can be cleared."
+                )
+                c.resistBerryDecision?.itemId != c.defenderItemId -> unknownProof(
+                    "unnerve_berry_authority_unobserved", "src/battle_util.c:336-372, 7686-7695",
+                    "The shared berry decision is not bound to the authoritative defender item identity."
+                )
+                c.resistBerryDecision?.state == HnsResistBerryState.UNKNOWN -> unknownProof(
+                    "unnerve_berry_authority_unobserved", "src/battle_util.c:336-372, 7686-7695",
+                    c.resistBerryDecision?.rationale ?: "The shared berry decision is unavailable."
+                )
+                c.resistBerryDecision?.state == HnsResistBerryState.BLOCKED_BY_UNNERVE -> proof(
+                    "unnerve_resist_berry_block_modelled", "src/battle_util.c:336-372, 7686-7695",
+                    "The exact active opposing Unnerve/As One ability is represented by the shared neutral resist-berry decision; its post-hit stat-boost trigger cannot change this hit."
+                )
+                else -> proof(
+                    "unnerve_without_current_berry_modifier", "src/battle_util.c:336-372, 7686-7695",
+                    "The current ordinary hit has no resist-berry modifier for this ability to block; post-hit stat-boost triggers are outside these rolls."
+                )
+            }
             247 -> when {
                 c.ordinaryMove != true -> null
                 c.side == HnsAbilitySide.ATTACKER -> proof(
                     "attacker_ripen_no_current_hit_modifier", "src/battle_util.c:7695, src/battle_util.c:10558",
                     "Ripen's current-hit damage branch reads only the defender ability; its attacker-side Micle branch changes accuracy."
                 )
-                c.defenderItemId == null -> null
-                HnsItemRegistry.classify(c.defenderItemId).data == null ||
-                    HnsItemRegistry.classify(c.defenderItemId).category == com.dualdex.pokemon.hns.HnsItemCategory.UNCLASSIFIED -> null
-                HnsItemRegistry.classify(c.defenderItemId).data?.holdEffect == "HOLD_EFFECT_RESIST_BERRY" ->
-                    relevant(
-                        "defender_ripen_resist_berry", "src/battle_util.c:7695",
-                        "Ripen quarters damage instead of halving it when the defender's resist berry activates on this hit."
-                    )
+                c.defenderItemId == null || c.resistBerryDecision?.itemId != c.defenderItemId ->
+                    unknownProof("ripen_berry_authority_unobserved", "src/battle_util.c:7695",
+                        "Ripen is cleared only when the shared live resist-berry decision is bound to the exact defender item.")
+                c.resistBerryDecision?.state == HnsResistBerryState.UNKNOWN ->
+                    unknownProof("ripen_berry_authority_unobserved", "src/battle_util.c:7695",
+                        c.resistBerryDecision?.rationale ?: "The shared berry decision is unavailable.")
                 else -> proof(
-                    "ripen_without_defender_resist_berry", "src/battle_util.c:7695, src/battle_hold_effects.c:847",
-                    "The only Ripen branch in current-hit damage is the defender resist-berry modifier; other berry effects occur outside this hit's rolls."
+                    if (c.resistBerryDecision?.state == HnsResistBerryState.APPLIES) "ripen_resist_berry_modelled"
+                    else "ripen_without_active_resist_berry",
+                    "src/battle_util.c:7695",
+                    "The shared final-item authority applies the exact Ripen quarter modifier when the berry activates; otherwise Ripen has no current-hit damage effect. Other berry interactions remain outside this rule."
                 )
             }
             33, 34, 84, 95, 146, 202, 259 -> when {
@@ -569,13 +626,13 @@ object HnsAbilityContextPolicy {
                     "solar_power_weather_suppressed", "src/battle_util.c:6999, src/battle_util.c:10053-10069",
                     "Cloud Nine or Air Lock makes HasWeatherEffect false; that suppressor's independent capability rule still applies."
                 )
-                c.attackerItemId == null -> unknownProof(
+                c.attackerItemId == null || activeUtilityUmbrella(c, HnsAbilitySide.ATTACKER) == null -> unknownProof(
                     "solar_power_attacker_item_unknown", "src/battle_util.c:9530",
                     "IsBattlerWeatherAffected requires the attacker's exact live item to rule out Utility Umbrella."
                 )
-                c.attackerItemId == HnsItemRegistry.resolveIdByName("Utility Umbrella") -> proof(
+                activeUtilityUmbrella(c, HnsAbilitySide.ATTACKER) == true -> proof(
                     "solar_power_utility_umbrella", "src/battle_util.c:6999, src/battle_util.c:9527-9531",
-                    "Utility Umbrella shields its holder from Sun for this predicate; the item's separate unsupported-item limitation remains independent."
+                    "The authoritative active Utility Umbrella hold effect shields its holder from Sun; the shared item pipeline models the item's selected-hit consequence."
                 )
                 else -> relevant(
                     "solar_power_special_move_in_sun", "src/battle_util.c:6998",
@@ -645,9 +702,9 @@ object HnsAbilityContextPolicy {
                     "orichalcum_pulse_weather_suppressed", "src/battle_script_commands.c:1300, src/battle_util.c:10053-10069",
                     "GetWeather returns B_WEATHER_NONE when a live Cloud Nine or Air Lock makes HasWeatherEffect false, before CalcAttackStat reads ctx->weather; the suppressor's independent capability rule still applies."
                 )
-                c.attackerItemId == HnsItemRegistry.resolveIdByName("Utility Umbrella") -> proof(
+                activeUtilityUmbrella(c, HnsAbilitySide.ATTACKER) == true -> proof(
                     "orichalcum_pulse_utility_umbrella", "src/battle_util.c:7106",
-                    "The authoritative attacker hold effect is Utility Umbrella, which explicitly disables this ability branch; its general item limitation remains independent."
+                    "The authoritative active attacker Utility Umbrella disables this ability branch; the shared item pipeline models its selected-hit consequence."
                 )
                 else -> relevant(
                     "orichalcum_pulse_physical_raw_sun", "src/battle_util.c:7105-7106",
@@ -1151,8 +1208,11 @@ object HnsAbilityContextPolicy {
                     "Cloud Nine or Air Lock suppresses HasWeatherEffect for all battlers.")
                 (if (c.side == HnsAbilitySide.ATTACKER) c.attackerItemId else c.defenderItemId) == null -> unknownProof("flower_gift_holder_item_unknown", "src/battle_util.c:9525-9535",
                     "Utility Umbrella must be checked on the actual Flower Gift holder.")
-                (if (c.side == HnsAbilitySide.ATTACKER) c.attackerItemId else c.defenderItemId) == HnsItemRegistry.resolveIdByName("Utility Umbrella") -> proof("flower_gift_holder_umbrella", "src/battle_util.c:9525-9535",
-                    "The Flower Gift holder's Utility Umbrella suppresses its weather applicability; the independent item limitation remains.")
+                (if (c.side == HnsAbilitySide.ATTACKER) c.attackerItemId else c.defenderItemId) == null ||
+                    activeUtilityUmbrella(c, c.side) == null -> unknownProof("flower_gift_holder_item_unknown", "src/battle_util.c:9530",
+                    "The Flower Gift holder's current effective hold effect is required to decide whether Utility Umbrella suppresses Sun.")
+                activeUtilityUmbrella(c, c.side) == true -> proof("flower_gift_holder_umbrella", "src/battle_util.c:9525-9535",
+                    "The Flower Gift holder's authoritative active Utility Umbrella suppresses its weather applicability; the shared item pipeline models that consequence.")
                 else -> relevant(if (c.side == HnsAbilitySide.ATTACKER) "flower_gift_attacker_sun_physical" else "flower_gift_defender_sun_special",
                     if (c.side == HnsAbilitySide.ATTACKER) "src/battle_util.c:7044-7046" else "src/battle_util.c:7303-7305",
                     "The live Cherrim-Sunshine holder is affected by Sun; the applicable holder-side Singles stat modifier is implemented. Partner/Doubles behavior remains unsupported.")
@@ -1173,7 +1233,8 @@ object HnsAbilityContextPolicy {
                 c.side == HnsAbilitySide.DEFENDER -> proof("tough_claws_defender_side", "src/battle_util.c:6694-6696",
                     "Tough Claws is read only in the attacker base-power ability slot.")
                 c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != 181 -> null
-                else -> when (HnsContactRules.assess(c.moveId, c.ordinaryMove, c.attackerAbilityId, c.attackerAbilityObserved, c.attackerItemId)) {
+                else -> when (HnsContactRules.assess(c.moveId, c.ordinaryMove, c.attackerAbilityId,
+                    c.attackerAbilityObserved, c.attackerItemId, c.attackerHoldEffectResolution)) {
                     HnsContactAuthority.CONTACT -> relevant("tough_claws_contact", "src/battle_util.c:6694-6696, 5868-5885",
                         "The shared pinned contact authority returns CONTACT; Tough Claws applies ×1.3 base power.")
                     HnsContactAuthority.NON_CONTACT -> proof("tough_claws_noncontact", "src/battle_util.c:6694-6696, 5868-5885",
@@ -1188,7 +1249,8 @@ object HnsAbilityContextPolicy {
                 c.ordinaryMove != true || !abilityObserved(c) || !c.attackerAbilityObserved || c.defenderAbilityId != 218 || effectiveMoveType(c) == null ->
                     unknownProof("fluffy_operands_unknown", "src/battle_util.c:7604-7614",
                         "Fluffy requires the selected ordinary hit's final effective type and shared contact authority.")
-                else -> when (HnsContactRules.assess(c.moveId, c.ordinaryMove, c.attackerAbilityId, c.attackerAbilityObserved, c.attackerItemId)) {
+                else -> when (HnsContactRules.assess(c.moveId, c.ordinaryMove, c.attackerAbilityId,
+                    c.attackerAbilityObserved, c.attackerItemId, c.attackerHoldEffectResolution)) {
                     HnsContactAuthority.UNKNOWN -> unknownProof("fluffy_contact_unknown", "src/battle_util.c:5868-5885, 7604-7614",
                         "Pinned contact metadata or current effective Long Reach/Punching Glove operands are unknown.")
                     HnsContactAuthority.CONTACT -> if (effectiveMoveType(c) == PokemonType.FIRE)
@@ -1321,8 +1383,28 @@ object HnsAbilityContextPolicy {
             defenderTerrainApplicability = live?.defenderTerrainApplicability,
             switchInEventsSettled = live?.switchInEventsSettled,
             moveAuthority = authority,
-            liveBattleState = live
+            liveBattleState = live,
+            attackerHoldEffectResolution = HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER),
+            defenderHoldEffectResolution = HnsHoldEffectAuthority.forRequest(request, HnsItemSide.DEFENDER),
+            resistBerryDecision = HnsResistBerryAuthority.forRequest(request)
         )
+    }
+
+    private fun activeUtilityUmbrella(c: Context, side: HnsAbilitySide): Boolean? {
+        val itemId = (if (side == HnsAbilitySide.ATTACKER) c.attackerItemId else c.defenderItemId)
+            ?: return null
+        if (itemId == 0) return false
+        val resolution = if (side == HnsAbilitySide.ATTACKER) {
+            c.attackerHoldEffectResolution
+        } else {
+            c.defenderHoldEffectResolution
+        }
+        return when (resolution?.state) {
+            HnsHoldEffectState.ACTIVE_EXACT -> resolution.effectiveHoldEffect == "HOLD_EFFECT_UTILITY_UMBRELLA"
+            HnsHoldEffectState.SUPPRESSED_NONE -> false
+            HnsHoldEffectState.UNKNOWN -> null
+            null -> HnsItemRegistry.classify(itemId).data?.holdEffect == "HOLD_EFFECT_UTILITY_UMBRELLA"
+        }
     }
 
     private fun moveTypeRewriteAbilityProof(abilityId: Int, c: Context): Proof? {

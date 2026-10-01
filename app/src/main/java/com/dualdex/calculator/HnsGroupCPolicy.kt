@@ -222,7 +222,8 @@ internal object HnsGroupCPolicy {
         val contact = HnsContactRules.assess(
             id, ordinaryDamageMove(id), abilityId(request.attacker),
             request.attacker.origin == CalcInputOrigin.LIVE_READ && abilityId(request.attacker) != null,
-            itemId(request.attacker)
+            itemId(request.attacker),
+            HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER)
         )
         return when (contact) {
             HnsContactAuthority.UNKNOWN -> true

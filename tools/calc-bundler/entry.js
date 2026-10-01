@@ -348,10 +348,13 @@ function hnsContactAuthority(move, attacker, input) {
   if (input.move?.hnsUnknownPunching === true || typeof attacker.ability !== 'string' || !attacker.ability)
     return null;
   const itemId = input.attacker?.hnsEffectiveItemId;
-  const item = String(attacker.item || '').toLowerCase();
   if (flags.has('punchingMove')) {
-    if (itemId === 760 || item === 'punching glove') return false;
-    if (itemId === undefined && !item) return null;
+    if (input.attacker?.hnsHoldEffectState === 'UNKNOWN') return null;
+    if (hnsActiveHoldEffect(input.attacker, 'HOLD_EFFECT_PUNCHING_GLOVE', 'punching glove')) return false;
+    if (input.attacker?.hnsHoldEffectState === undefined) {
+      const item = String(attacker.item || '').toLowerCase();
+      if (itemId === undefined && !item) return null;
+    }
   }
   if (attacker.ability === 'Long Reach') return false;
   return true;
@@ -364,9 +367,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   let typeEffectiveness = 1.0;
   const moveTypeRecord = gen.types.get(toID(effectiveMoveType));
   const defenderItem = String(input.defender?.item || defender.item || '').toLowerCase();
-  const ringTarget = defenderItem === 'ring target';
+  const ringTarget = hnsActiveHoldEffect(input.defender, 'HOLD_EFFECT_RING_TARGET', 'ring target');
   const defenderHasAbilityShield = input.defender?.hnsAbilityShield === true ||
-    defenderItem === 'ability shield';
+    hnsActiveHoldEffect(input.defender, 'HOLD_EFFECT_ABILITY_SHIELD', 'ability shield');
   if (moveTypeRecord && defender.types) {
     for (const defType of defender.types) {
       if (defType && moveTypeRecord.effectiveness[defType] !== undefined) {
@@ -401,7 +404,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   }
 
   if (hnsDamagingMove && effectiveMoveType === 'Ground') {
-    const ironBall = defenderItem === 'iron ball';
+    const ironBall = hnsActiveHoldEffect(input.defender, 'HOLD_EFFECT_IRON_BALL', 'iron ball');
     if (ironBall && defender.types?.some(t => String(t).toLowerCase() === 'flying')) {
       // Pinned Iron Ball override sets the accumulated effectiveness to neutral when it is the
       // only grounding source (the source explicitly ignores Iron Ball for this check).
@@ -410,7 +413,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
         ...immunityCauses.filter(cause => cause.kind !== 'type'));
     } else if (defenderAbility === 'Levitate' && !ironBall && !bypassTargetAbility) {
       addImmunity('ability', 'src/battle_util.c:8385', 'Levitate');
-    } else if (defenderItem === 'air balloon') {
+    } else if (hnsActiveHoldEffect(input.defender, 'HOLD_EFFECT_AIR_BALLOON', 'air balloon')) {
       addImmunity('item', 'src/battle_util.c:8392', 'Air Balloon');
     }
   }
@@ -663,8 +666,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       // However CalculateAndSetMoveDamage initializes ctx.weather through GetWeather(), which
       // globally returns NONE when HasWeatherEffect() is false (live Cloud Nine / Air Lock).
       const weatherStr = (field.weather || input.field?.weather || '').toLowerCase();
-      const hasUtilityUmbrella = input.attacker?.hnsEffectiveItemId === 513 ||
-        String(attacker.item || '').toLowerCase() === 'utility umbrella';
+      const hasUtilityUmbrella = hnsActiveHoldEffect(
+        input.attacker, 'HOLD_EFFECT_UTILITY_UMBRELLA', 'utility umbrella'
+      );
       // B_WEATHER_SUN includes both ordinary and primal Sun bits (pinned battle.h:448).
       // The fallback is for the independent oracle harness, whose scenarios express this raw
       // word using its exact weather case; production sends hnsWeatherWord from the live reader.
@@ -704,6 +708,31 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   }
   if (isPhysical && input.attacker?.hnsTabletsOfRuin !== true && hnsRuinActive(input, 'hnsTabletsOfRuin')) {
     attackModifier.addHalfDown(3072);
+  }
+
+  // Source CalcAttackStat hold-effect slot (after Ruin and before the offensive badge).
+  // These predicates use the source-generated current/base species and the one shared effective
+  // hold-effect descriptor; caller item names never qualify an H&S production request.
+  const attackerItemEffect = hnsItemHoldEffect(input.attacker);
+  const attackerItemActive = input.attacker?.hnsHoldEffectState === 'ACTIVE_EXACT';
+  const attackerBaseSpecies = input.attacker?.hnsBaseSpeciesId;
+  const activeGimmickKnown = Number.isInteger(input.attacker?.hnsActiveGimmick);
+  const isDynamaxActive = activeGimmickKnown && input.attacker.hnsActiveGimmick === 4;
+  if (attackerItemActive) {
+    if (attackerItemEffect === 'HOLD_EFFECT_THICK_CLUB' && isPhysical &&
+        (attackerBaseSpecies === 104 || attackerBaseSpecies === 105 || attackerBaseSpecies === 973)) attackModifier.addHalfDown(8192);
+    if (attackerItemEffect === 'HOLD_EFFECT_LIGHT_BALL' && attackerBaseSpecies === 25)
+      attackModifier.addHalfDown(8192);
+    if (attackerItemEffect === 'HOLD_EFFECT_DEEP_SEA_TOOTH' && isSpecial &&
+        input.attacker?.hnsSpeciesId === 366) attackModifier.addHalfDown(8192);
+    if (attackerItemEffect === 'HOLD_EFFECT_CHOICE_BAND' && isPhysical) {
+      if (!activeGimmickKnown) throw new Error('Choice Band requires authoritative active gimmick state');
+      if (!isDynamaxActive) attackModifier.addHalfDown(6144);
+    }
+    if (attackerItemEffect === 'HOLD_EFFECT_CHOICE_SPECS' && isSpecial) {
+      if (!activeGimmickKnown) throw new Error('Choice Specs requires authoritative active gimmick state');
+      if (!isDynamaxActive) attackModifier.addHalfDown(6144);
+    }
   }
 
   const atkBadge = isPhysical ? !!input.attacker?.badgeBoosts?.atk : !!input.attacker?.badgeBoosts?.spa;
@@ -746,6 +775,20 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   if (!usesDefStat && input.defender?.hnsBeadsOfRuin !== true && hnsRuinActive(input, 'hnsBeadsOfRuin')) {
     defenseModifier.addHalfDown(3072);
   }
+  // Source CalcDefenseStat hold-effect slot uses the exact usesDefStat result, including
+  // Wonder Room. Eviolite's selected species is generated from current/transformed live state.
+  const defenderItemEffect = hnsItemHoldEffect(input.defender);
+  if (input.defender?.hnsHoldEffectState === 'ACTIVE_EXACT') {
+    if (defenderItemEffect === 'HOLD_EFFECT_ASSAULT_VEST' && !usesDefStat)
+      defenseModifier.addHalfDown(6144);
+    if (defenderItemEffect === 'HOLD_EFFECT_DEEP_SEA_SCALE' && !usesDefStat &&
+        input.defender?.hnsSpeciesId === 366) defenseModifier.addHalfDown(8192);
+    if (defenderItemEffect === 'HOLD_EFFECT_METAL_POWDER' && usesDefStat &&
+        input.defender?.hnsSpeciesId === 132 && input.defender?.hnsTransformed === false)
+      defenseModifier.addHalfDown(8192);
+    if (defenderItemEffect === 'HOLD_EFFECT_EVIOLITE' && input.defender?.hnsEvioliteCanEvolve === true)
+      defenseModifier.addHalfDown(6144);
+  }
   const defBadge = isPhysical ? !!input.defender?.badgeBoosts?.def : !!input.defender?.badgeBoosts?.spd;
   if (defBadge) defenseModifier.add(4506);
   const targetFinalDefense = Math.max(1, defenseModifier.apply(defenseAfterStages));
@@ -753,6 +796,18 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // CalcMoveBasePowerAfterModifiers has a separate fixed-point accumulator from the two stat
   // stages. Preserve the Group C Dry Skin × Wise Glasses composition correction.
   const basePowerModifier = createHnsModifierAccumulator(halfUp);
+  // The pinned Gem boost is recorded before terrain and ability modifiers in the early
+  // CalcMoveBasePowerAfterModifiers "various effects" block (src/battle_util.c:6633-6634).
+  // Its operand is the current matching Gem's generated item type/parameter under the shared
+  // effective-hold-effect authority; after an earlier hit, the live current item is ITEM_NONE.
+  const earlyGemType = input.attacker?.hnsItemType;
+  const earlyGemParam = input.attacker?.hnsHoldEffectParam;
+  if (input.attacker?.hnsHoldEffectState === 'ACTIVE_EXACT' &&
+      hnsItemHoldEffect(input.attacker) === 'HOLD_EFFECT_GEMS' &&
+      typeof earlyGemType === 'string' && earlyGemType.toLowerCase() === effectiveMoveType.toLowerCase() &&
+      Number.isInteger(earlyGemParam)) {
+    basePowerModifier.addHalfUp(4096 + Math.floor((4096 * Math.min(earlyGemParam, 100) + 50) / 100));
+  }
   // `move.bp` is the authoritative H&S move power supplied by the boundary. The ordinary
   // allow-list proves `GetMoveEffect(move) == EFFECT_HIT`, so `CalcMoveBasePower` leaves it
   // unchanged before Technician's `basePower <= 60` check. Matching move flags are generated
@@ -899,15 +954,54 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     }
   }
   const item = (input.attacker?.item || attacker.item || '').toLowerCase();
+  const attackerHoldEffect = hnsItemHoldEffect(input.attacker);
+  const itemParam = input.attacker?.hnsHoldEffectParam;
+  const itemType = input.attacker?.hnsItemType;
+  const baseSpecies = input.attacker?.hnsBaseSpeciesId;
   const typeBoostType = HNS_TYPE_POWER_ITEMS[item];
-  if (typeBoostType === effectiveMoveType) basePowerModifier.add(4915);
-  // H&S 2.0.5 Wise Glasses (src/battle_util.c:6818 CalcMoveBasePowerAfterModifiers):
-  // HOLD_EFFECT_WISE_GLASSES multiplies base power by (1.0 + holdEffectParamAtk%), where
-  // holdEffectParamAtk = 10, floored percent is (4096 * 10) / 100 = 409, so modifier is 4505 (UQ4.12).
-  // Applies only to Special moves (IsBattleMoveSpecial(move)). Its UQ4.12 value is combined
-  // with the ability modifier above before base power is rounded, as in the pinned pipeline.
-  if (item === 'wise glasses' && isSpecial) basePowerModifier.add(4505);
-
+  const matchesItemType = typeof itemType === 'string' &&
+    itemType.toLowerCase() === effectiveMoveType.toLowerCase();
+  // Keep the hold-effect branches in pinned source order. The accumulator uses uq4_12_multiply
+  // (half-up), and therefore reordering these factors can change the final base power.
+  if (attackerItemActive && attackerHoldEffect === 'HOLD_EFFECT_MUSCLE_BAND' &&
+      isPhysical && Number.isInteger(itemParam)) {
+    basePowerModifier.addHalfUp(4096 + Math.floor((4096 * Math.min(itemParam, 100)) / 100));
+  }
+  if ((attackerItemActive && attackerHoldEffect === 'HOLD_EFFECT_WISE_GLASSES') ||
+      (!input.attacker?.hnsHoldEffectState && item === 'wise glasses')) {
+    if (isSpecial) basePowerModifier.add(4505);
+  }
+  if (attackerItemActive && Number.isInteger(itemParam)) {
+    const sigType = ({
+      HOLD_EFFECT_LUSTROUS_ORB: ['Water', 'Dragon'],
+      HOLD_EFFECT_ADAMANT_ORB: ['Steel', 'Dragon'],
+      HOLD_EFFECT_GRISEOUS_ORB: ['Ghost', 'Dragon']
+    })[attackerHoldEffect];
+    const sigSpecies = ({ HOLD_EFFECT_LUSTROUS_ORB: 484, HOLD_EFFECT_ADAMANT_ORB: 483,
+      HOLD_EFFECT_GRISEOUS_ORB: 487 })[attackerHoldEffect];
+    const soulDew = attackerHoldEffect === 'HOLD_EFFECT_SOUL_DEW' &&
+      (input.attacker?.hnsSpeciesId === 380 || input.attacker?.hnsSpeciesId === 381) &&
+      ['Psychic', 'Dragon'].includes(effectiveMoveType);
+    if ((sigType && baseSpecies === sigSpecies && sigType.includes(effectiveMoveType)) || soulDew) {
+      basePowerModifier.addHalfUp(4096 + Math.floor((4096 * Math.min(itemParam, 100) + 50) / 100));
+    }
+  }
+  if ((attackerItemActive && ['HOLD_EFFECT_TYPE_POWER', 'HOLD_EFFECT_PLATE'].includes(attackerHoldEffect) &&
+       matchesItemType && Number.isInteger(itemParam)) ||
+      (!input.attacker?.hnsHoldEffectState && typeBoostType === effectiveMoveType)) {
+    if (attackerItemActive) {
+      basePowerModifier.addHalfUp(4096 + Math.floor((4096 * Math.min(itemParam, 100) + 50) / 100));
+    } else {
+      // Legacy oracle vectors predate the generated item-operand descriptor.
+      basePowerModifier.add(4915);
+    }
+  }
+  if (attackerItemActive && attackerHoldEffect === 'HOLD_EFFECT_PUNCHING_GLOVE' &&
+      abilityMoveFlags.has('punchingMove')) basePowerModifier.addHalfUp(4506);
+  else if (!input.attacker?.hnsHoldEffectState && item === 'punching glove' &&
+      abilityMoveFlags.has('punchingMove')) basePowerModifier.addHalfUp(4506);
+  if (attackerItemActive && attackerHoldEffect === 'HOLD_EFFECT_OGERPON_MASK' && baseSpecies === 1416)
+    basePowerModifier.addHalfUp(4915);
   const bp = basePowerModifier.apply(move.bp);
 
   const level = attacker.level || 50;
@@ -936,10 +1030,13 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   }
 
   const weatherStr = (field.weather || input.field?.weather || '').toLowerCase();
-  if (weatherStr.includes('rain')) {
+  const defenderUmbrella = hnsActiveHoldEffect(
+    input.defender, 'HOLD_EFFECT_UTILITY_UMBRELLA', 'utility umbrella'
+  );
+  if (!defenderUmbrella && weatherStr.includes('rain')) {
     if (effectiveMoveType === 'Fire') dmg = applyHnsFinalDamageModifiers(dmg, [2048]);
     else if (effectiveMoveType === 'Water') dmg = applyHnsFinalDamageModifiers(dmg, [6144]);
-  } else if (weatherStr.includes('sun')) {
+  } else if (!defenderUmbrella && weatherStr.includes('sun')) {
     if (effectiveMoveType === 'Water') dmg = applyHnsFinalDamageModifiers(dmg, [2048]);
     else if (effectiveMoveType === 'Fire') dmg = applyHnsFinalDamageModifiers(dmg, [6144]);
   }
@@ -973,8 +1070,44 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const targetStateFinalModifier = HNS_UQ4_12_ONE; // Active Glaive Rush/Tar Shot contexts fail closed.
   const collisionCourseFinalModifier = HNS_UQ4_12_ONE; // Collision Course/Electro Drift are out of the ordinary move allow-list.
   const defenderPartnerAbilityFinalModifier = HNS_UQ4_12_ONE; // Doubles is not production-authorized.
-  const attackerItemFinalModifier = HNS_UQ4_12_ONE; // No final attacker-item branch is admitted here.
-  const defenderItemFinalModifier = HNS_UQ4_12_ONE; // No final defender-item branch is admitted here.
+  let attackerItemFinalModifier = HNS_UQ4_12_ONE;
+  let defenderItemFinalModifier = HNS_UQ4_12_ONE;
+  if (input.attacker?.hnsHoldEffectState === 'ACTIVE_EXACT') {
+    const effect = hnsItemHoldEffect(input.attacker);
+    if (effect === 'HOLD_EFFECT_LIFE_ORB') attackerItemFinalModifier = 5324; // UQ_4_12_FLOORED(1.3)
+    else if (effect === 'HOLD_EFFECT_EXPERT_BELT' && typeEffectiveness >= 2.0)
+      attackerItemFinalModifier = 4915;
+    else if (effect === 'HOLD_EFFECT_METRONOME' && Number.isInteger(input.attacker?.hnsMetronomeItemCounter) &&
+        Number.isInteger(input.attacker?.hnsHoldEffectParam)) {
+      const turns = Math.min(input.attacker.hnsMetronomeItemCounter, 5);
+      const boostBase = Math.floor((4096 * input.attacker.hnsHoldEffectParam + 50) / 100);
+      attackerItemFinalModifier = 4096 + boostBase * turns;
+    }
+  }
+  if (input.defender?.hnsHoldEffectState === 'ACTIVE_EXACT' &&
+      hnsItemHoldEffect(input.defender) === 'HOLD_EFFECT_RESIST_BERRY') {
+    const berryState = input.defender?.hnsResistBerryState;
+    const berryModifier = input.defender?.hnsResistBerryModifierQ12;
+    if (berryState === 'APPLIES') {
+      if (!Number.isInteger(berryModifier) || ![1024, 2048].includes(berryModifier) ||
+          input.defender?.hnsResistBerryItemId !== input.defender?.hnsRawItemId) {
+        throw new Error('H&S resist-berry authority is malformed or bound to a different live item');
+      }
+      defenderItemFinalModifier = berryModifier;
+    } else if (berryState === 'NOT_APPLICABLE' || berryState === 'BLOCKED_BY_UNNERVE') {
+      // The Kotlin authority is shared with request-local ability policy and is the sole source
+      // for the exact berry predicate and Unnerve/Ripen decision.
+    } else if (input.defender?.hnsHoldEffectState !== undefined) {
+      throw new Error('H&S resist-berry activation requires the shared live-state authority');
+    } else {
+      // Fixture-only fallback for the independent differential oracle's legacy direct-JS vectors.
+      const berryType = input.defender?.hnsItemType;
+      const berryTypeMatches = typeof berryType === 'string' &&
+        berryType.toLowerCase() === effectiveMoveType.toLowerCase();
+      if (berryTypeMatches && (effectiveMoveType === 'Normal' || typeEffectiveness >= 2.0))
+        defenderItemFinalModifier = defender.ability === 'Ripen' ? 1024 : 2048;
+    }
+  }
   otherFinalModifier.add(targetStateFinalModifier);
   otherFinalModifier.add(screenModifier);
   otherFinalModifier.add(collisionCourseFinalModifier);
@@ -1103,9 +1236,19 @@ function isBattlerWeatherAffected(battler, requestedWeather, field, attacker, de
   // Utility Umbrella is consumed here only to decide the holder's weather-affected predicate;
   // the separate item capability policy remains responsible for its independent limitation.
   const holder = battler === attacker ? input.attacker : input.defender;
-  const item = String(holder?.item || battler.item || '').toLowerCase();
-  if (holder?.hnsEffectiveItemId === 513 || item === 'utility umbrella') return false;
+  if (hnsActiveHoldEffect(holder, 'HOLD_EFFECT_UTILITY_UMBRELLA', 'utility umbrella')) return false;
   return true;
+}
+
+function hnsItemHoldEffect(source) {
+  if (!source || source.hnsHoldEffectState !== 'ACTIVE_EXACT') return null;
+  return typeof source.hnsEffectiveHoldEffect === 'string' ? source.hnsEffectiveHoldEffect : null;
+}
+
+/** Use the shared descriptor when present; legacy name fallback is test-fixture-only. */
+function hnsActiveHoldEffect(source, effect, legacyName) {
+  if (source?.hnsHoldEffectState !== undefined) return hnsItemHoldEffect(source) === effect;
+  return String(source?.item || '').toLowerCase() === legacyName;
 }
 
 // Source-equivalent global HasWeatherEffect() result used by branches that inspect ctx.weather.

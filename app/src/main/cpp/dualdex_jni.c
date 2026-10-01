@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <android/log.h>
 #include "pokemon_reader.h"
+#include "hns_live_battle_layout_gen.h"
 #include "pokemon_text.h"
 #include "libretro_host.h"
 #include "js_calc_engine.h"
@@ -800,7 +801,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * never silently drift apart.  Every public surface that touches this tuple
  * references BATTLER_RUNTIME_STATE_TUPLE_LEN instead of a local literal.
  */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 97
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 103
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -846,6 +847,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * [91] selectedGimmickObserved, [92] selectedGimmick (NONE when playerSelect is false),
  * [93] analyticTurnOrderObserved, [94] analyticTurnOrder (0 unknown, 1 last, 2 not last),
  * [95] neutralizingGas, [96] current move ID for the observed Analytic action.
+ * [97] volatileEmbargo, [98] metronomeItemCounter, [99] transformedMonSpecies.
  *         Every Gap C4e `*Observed` bit separates an observed neutral value
  *         (bit 1, payload 0) from a field that was never read (bit 0). Slots
  *         [60]/[61] are only meaningful while [47] volatilesObserved is 1;
@@ -1007,6 +1009,12 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     values[94] = (jint)state.analytic_turn_order;
     values[95] = state.volatile_neutralizing_gas ? 1 : 0;
     values[96] = (jint)state.analytic_current_move;
+    values[97] = state.volatile_embargo ? 1 : 0;
+    values[98] = (jint)state.volatile_metronome_item_counter;
+    values[99] = (jint)state.volatile_transformed_mon_species;
+    values[100] = (jint)HNS_LIVE_NUM_SPECIES;
+    values[101] = (jint)HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_WIDTH;
+    values[102] = (jint)HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_WIDTH;
 
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;

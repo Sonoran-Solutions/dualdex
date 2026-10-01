@@ -422,3 +422,20 @@ python3 tools/hns-layout/generate_hns_release_phase_evidence.py \
 The output contains only addresses, match counts and hashes. The layout source-check validates
 its pinned source identity; the retained traces establish the callback semantics on the official
 release. Neither source-build addresses nor a readable code pointer alone authorize a phase.
+
+## Group D held-item state (scenarios 71–73)
+
+These official-ROM probes verify the three new item-sensitive live operands used by issue #92:
+
+| Scenario | Fixture party | Runtime transition |
+|---|---|---|
+| 71 Embargo | `[ {"species":25,"level":25,"moves":[373,45,39,33]} ]` | Embargo starts clear, becomes active on the wild battler, then expires after the pinned five turns. |
+| 72 Metronome item | `[ {"species":25,"level":25,"item":483,"moves":[45,39,33,52]} ]` | Repeated Growl raises `metronomeItemCounter`; Tail Whip resets the sequence; a later Growl raises it again. |
+| 73 Transform | `[ {"species":132,"level":25,"moves":[144,33,39,52]} ]` | Ditto changes live species on Transform and retains its source species in `transformedMonSpecies`. |
+
+The corresponding logs, scenario hashes and provenance are in
+[`evidence/group-d-items/`](evidence/group-d-items/). Run
+`python3 tools/hns-runtime-probe/verify_group_d_evidence.py` for the ROM-free evidence check. A fresh
+starter battery may be prepared with `prepare_group_d_test_save.py`; it changes only the requested
+party fields and never writes a battle volatile. Battle transitions come from ordinary ROM input.
+The official ROM SHA is recorded in the provenance; no ROM/save/state bytes are retained.

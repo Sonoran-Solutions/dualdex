@@ -28,11 +28,12 @@
 
 #define ROLL_COUNT 16
 #define HNS_PINNED_COMMIT "1f42b74dff0e9fe942419845d040663dd829a973"
-#define ORACLE_SCHEMA_VERSION 8
+#define ORACLE_SCHEMA_VERSION 9
 #define MAX_DIVERGENCES 512
 
 static int g_failures = 0;
 static int g_self_checks = 0;
+static const jl_value* g_type_chart = NULL;
 
 static void fail(const char* fmt, ...) {
     va_list ap;
@@ -146,6 +147,91 @@ static const jl_value* get_obj(const jl_value* obj, const char* key, err_t* err)
     return is_obj(v) ? v : NULL;
 }
 
+/* The differential adapter emits the same request-local resist-berry authority fields as
+ * DamageCalculator.kt. Effectiveness comes from the generated source chart so the host harness
+ * follows the same pinned type table without duplicating it here. */
+static int emit_resist_berry_authority(
+    sbuf* sb,
+    long item_id,
+    const jl_value* item_record,
+    const jl_value* defender_obs,
+    const jl_value* attacker_obs,
+    const jl_value* move_obs,
+    const char* format,
+    err_t* err
+) {
+    const char* hold_effect = jl_str(jl_get(item_record, "holdEffect"));
+    if (!hold_effect || strcmp(hold_effect, "HOLD_EFFECT_RESIST_BERRY") != 0) return 1;
+
+    const char* berry_type = jl_str(jl_get(item_record, "itemType"));
+    const char* move_type = jl_str(jl_get(move_obs, "type"));
+    if (item_id <= 0 || !berry_type || !move_type)
+        return set_err(err, "active resist berry is missing its exact item or type operand");
+
+    const char* state = "NOT_APPLICABLE";
+    const char* rule = "resist_berry_other_type";
+    long modifier_q12 = 4096;
+    if (strcmp(berry_type, move_type) == 0) {
+        const jl_value* defender_types = jl_get(defender_obs, "types");
+        const jl_value* attack_chart = jl_get(g_type_chart, move_type);
+        if (!jl_is_arr(defender_types) || jl_len(defender_types) < 1 || jl_len(defender_types) > 2 || !is_obj(attack_chart))
+            return set_err(err, "active resist berry is missing the pinned type-effectiveness operands");
+        double effectiveness = 1.0;
+        for (int i = 0; i < jl_len(defender_types); i++) {
+            const char* defender_type = jl_str(jl_at(defender_types, i));
+            const jl_value* factor = defender_type ? jl_get(attack_chart, defender_type) : NULL;
+            if (!jl_is_num(factor)) return set_err(err, "type chart lacks %s vs %s", move_type,
+                                                   defender_type ? defender_type : "<invalid>");
+            effectiveness *= jl_num(factor);
+        }
+
+        if (strcmp(move_type, "Normal") == 0 || effectiveness >= 2.0) {
+            if (!format || strcmp(format, "singles") != 0)
+                return set_err(err, "resist-berry authority requires the pinned Singles topology");
+            const jl_value* move_ordinary = jl_get(move_obs, "ordinary");
+            const char* move_target = jl_str(jl_get(move_obs, "target"));
+            if (!jl_is_bool(move_ordinary) || !jl_bool(move_ordinary) || !move_target ||
+                strcmp(move_target, "selected") != 0)
+                return set_err(err, "resist-berry authority requires an ordinary selected move");
+
+            const jl_value* attacker_runtime = jl_get(attacker_obs, "runtime");
+            const jl_value* defender_runtime = jl_get(defender_obs, "runtime");
+            long attacker_gas, defender_gas, attacker_gastro, defender_gastro;
+            long attacker_ability, defender_ability, attacker_hp;
+            if (!get_int(attacker_runtime, "neutralizingGas", 0, 1, &attacker_gas, err) ||
+                !get_int(defender_runtime, "neutralizingGas", 0, 1, &defender_gas, err) ||
+                !get_int(attacker_runtime, "gastroAcid", 0, 1, &attacker_gastro, err) ||
+                !get_int(defender_runtime, "gastroAcid", 0, 1, &defender_gastro, err) ||
+                !get_int(attacker_obs, "abilityId", 0, 65535, &attacker_ability, err) ||
+                !get_int(defender_obs, "abilityId", 0, 65535, &defender_ability, err) ||
+                !get_int(attacker_obs, "hpAtHit", 0, 65535, &attacker_hp, err)) return 0;
+            if (attacker_gas || defender_gas || attacker_gastro || defender_gastro)
+                return set_err(err, "active resist berry ability operands are suppressed or unknown");
+
+            if (attacker_hp > 0 && (attacker_ability == 127 || attacker_ability == 266 || attacker_ability == 267)) {
+                state = "BLOCKED_BY_UNNERVE";
+                rule = "resist_berry_unnerve_blocked";
+            } else {
+                state = "APPLIES";
+                if (defender_ability == 247) {
+                    modifier_q12 = 1024;
+                    rule = "resist_berry_ripen_quarter";
+                } else {
+                    modifier_q12 = 2048;
+                    rule = "resist_berry_half";
+                }
+            }
+        } else {
+            rule = "resist_berry_condition_not_met";
+        }
+    }
+
+    sb_append(sb, ",\"hnsResistBerryState\":\"%s\",\"hnsResistBerryItemId\":%ld"
+                 ",\"hnsResistBerryModifierQ12\":%ld,\"hnsResistBerryRule\":\"%s\"",
+              state, item_id, modifier_q12, rule);
+    return !sb->oom;
+}
+
 /* Exactly ROLL_COUNT integral numbers within [lo, hi]. */
 static int read_rolls(const jl_value* arr, long lo, long hi, long out[ROLL_COUNT], err_t* err) {
     if (!jl_is_arr(arr)) return set_err(err, "rolls missing or not an array");
@@ -212,22 +298,25 @@ static const char* capitalised_category(const char* c) {
 }
 
 /* One battler of the production H&S request. `role` is "attacker" or "defender". */
-static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b, const char* role, err_t* err) {
+static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b, const char* role,
+                        const jl_value* opposing_obs, const jl_value* move_obs, const char* format, err_t* err) {
     long level, max_hp, hp_at_hit, atk, def, spa, spd, spe, species_id, item_id;
     long atk_stage = 0, spa_stage = 0, def_stage = 0, spd_stage = 0;
     const jl_value* stats = get_obj(scen_b, "stats", err);
     const jl_value* stages = get_obj(scen_b, "stages", err);
     const jl_value* base = get_obj(obs_b, "baseStats", err);
     const jl_value* badges = get_obj(obs_b, "badgeBoosts", err);
+    const jl_value* runtime = get_obj(obs_b, "runtime", err);
+    const jl_value* item_record = get_obj(obs_b, "itemRecord", err);
     const jl_value* types = jl_get(obs_b, "types");
     const char* species = get_str(scen_b, "speciesLabel", err);
     const char* ability = get_str(scen_b, "abilityLabel", err);
     const char* status = get_str(scen_b, "status", err);
     const char* item_label = jl_str(jl_get(scen_b, "itemLabel"));
-    if (!stats || !stages || !base || !badges || !species || !ability || !status) return 0;
+    if (!stats || !stages || !base || !badges || !runtime || !item_record || !species || !ability || !status) return 0;
     if (!jl_is_arr(types) || jl_len(types) < 1 || jl_len(types) > 2) return set_err(err, "%s types malformed", role);
     if (!get_int(obs_b, "speciesId", 1, 65535, &species_id, err) ||
-        !get_int(obs_b, "itemId", 0, 65535, &item_id, err) ||
+        !get_int(runtime, "itemIdAtHit", 0, 900, &item_id, err) ||
         !get_int(scen_b, "level", 1, 100, &level, err) || !get_int(stats, "maxHp", 1, 65535, &max_hp, err) ||
         !get_int(obs_b, "hpAtHit", 1, 65535, &hp_at_hit, err) || !get_int(stats, "attack", 1, 65535, &atk, err) ||
         !get_int(stats, "defense", 1, 65535, &def, err) || !get_int(stats, "spAttack", 1, 65535, &spa, err) ||
@@ -277,9 +366,33 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
     sb_append(sb, ",\"hpAtHit\":%ld,\"maxHpAtHit\":%ld", hp_at_hit, max_hp);
     if (strcmp(role, "attacker") == 0) sb_append(sb, ",\"hp\":%ld,\"maxHP\":%ld", hp_at_hit, max_hp);
     sb_append(sb, ",\"status1\":%ld", status1);
-    sb_append(sb, ",\"hnsSpeciesId\":%ld,\"hnsEffectiveItemId\":%ld", species_id, item_id);
-    const jl_value* runtime = jl_get(obs_b, "runtime");
-    if (is_obj(runtime)) {
+    const char* hold_effect = get_str(item_record, "holdEffect", err);
+    long hold_effect_param, hold_effect_active, base_species_id, can_evolve, transformed_species, metronome_counter;
+    if (!hold_effect || !get_int(item_record, "holdEffectParam", 0, 65535, &hold_effect_param, err) ||
+        !get_int(runtime, "holdEffectActive", 0, 1, &hold_effect_active, err) ||
+        !get_int(runtime, "baseSpeciesId", 0, 65535, &base_species_id, err) ||
+        !get_int(runtime, "evioliteCanEvolve", 0, 1, &can_evolve, err) ||
+        !get_int(runtime, "transformedMonSpecies", 0, 65535, &transformed_species, err) ||
+        !get_int(runtime, "metronomeItemCounter", 0, 255, &metronome_counter, err)) return 0;
+    const char* effective_hold_effect =
+        (hold_effect_active || strcmp(hold_effect, "HOLD_EFFECT_NONE") == 0) ? hold_effect : "HOLD_EFFECT_NONE";
+    const char* hold_effect_state =
+        (hold_effect_active || strcmp(hold_effect, "HOLD_EFFECT_NONE") == 0) ? "ACTIVE_EXACT" : "SUPPRESSED_NONE";
+    sb_append(sb, ",\"hnsSpeciesId\":%ld,\"hnsRawItemId\":%ld,\"hnsEffectiveItemId\":%ld",
+              species_id, item_id, item_id);
+    sb_append(sb, ",\"hnsHoldEffectState\":\"%s\",\"hnsEffectiveHoldEffect\":\"%s\"",
+              hold_effect_state, effective_hold_effect);
+    sb_append(sb, ",\"hnsHoldEffectParam\":%ld,\"hnsBaseSpeciesId\":%ld,\"hnsEvioliteCanEvolve\":%s",
+              hold_effect_param, base_species_id, can_evolve ? "true" : "false");
+    sb_append(sb, ",\"hnsTransformedMonSpecies\":%ld,\"hnsMetronomeItemCounter\":%ld",
+              transformed_species, metronome_counter);
+    const jl_value* item_type_value = jl_get(item_record, "itemType");
+    sb_append(sb, ",\"hnsItemType\":");
+    if (jl_str(item_type_value)) sb_json_string(sb, jl_str(item_type_value));
+    else sb_append(sb, "null");
+    if (strcmp(role, "defender") == 0 && hold_effect_active &&
+        !emit_resist_berry_authority(sb, item_id, item_record, obs_b, opposing_obs, move_obs, format, err)) return 0;
+    {
         const char* integers[][2] = {
             {"slowStartTimer", "hnsSlowStartTimer"}, {"paradoxBoostedStat", "hnsParadoxBoostedStat"},
             {"isFirstTurn", "hnsIsFirstTurn"}, {"supremeOverlordCounter", "hnsSupremeOverlordCounter"},
@@ -302,13 +415,15 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
             if (!get_int(runtime, booleans[i][0], 0, 1, &v, err)) return 0;
             sb_append(sb, ",\"%s\":%s", booleans[i][1], v ? "true" : "false");
         }
-        long gender, last;
+        long gender, last, transformed;
         if (!get_int(runtime, "gender", 0, 255, &gender, err) ||
-            !get_int(runtime, "lastToMove", 0, 1, &last, err)) return 0;
+            !get_int(runtime, "lastToMove", 0, 1, &last, err) ||
+            !get_int(runtime, "transformed", 0, 1, &transformed, err)) return 0;
         if (gender != 0 && gender != 254 && gender != 255) return set_err(err, "invalid source gender");
         sb_append(sb, ",\"hnsGender\":\"%s\",\"hnsAnalyticTurnOrder\":\"%s\"",
             gender == 0 ? "MALE" : gender == 254 ? "FEMALE" : "GENDERLESS",
             last ? "LAST_TO_MOVE" : "NOT_LAST_TO_MOVE");
+        sb_append(sb, ",\"hnsTransformed\":%s", transformed ? "true" : "false");
     }
     sb_append(sb, ",\"rawStats\":{\"attack\":%ld,\"defense\":%ld,\"speed\":%ld,\"spAttack\":%ld,\"spDefense\":%ld}",
               atk, def, spe, spa, spd);
@@ -362,9 +477,9 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     if (!doubles && strcmp(format, "singles") != 0) return set_err(err, "unknown format %s", format);
 
     sb_append(sb, "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\",");
-    if (!emit_battler(sb, s_atk, o_atk, "attacker", err)) return 0;
+    if (!emit_battler(sb, s_atk, o_atk, "attacker", o_def, o_move, format, err)) return 0;
     sb_append(sb, ",");
-    if (!emit_battler(sb, s_def, o_def, "defender", err)) return 0;
+    if (!emit_battler(sb, s_def, o_def, "defender", o_atk, o_move, format, err)) return 0;
     sb_append(sb, ",\"move\":{\"name\":");
     sb_json_string(sb, move_label);
     sb_append(sb, ",\"isCrit\":%s,\"hnsMoveFlags\":[", crit ? "true" : "false");
@@ -656,7 +771,7 @@ static void self_tests(const jl_value* doc) {
                a[15] == 16);
 
     /* Corpus header / entry validation. */
-    const char* base_head = "{\"schemaVersion\":8,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT
+    const char* base_head = "{\"schemaVersion\":9,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT
                             "\"},\"backend\":{\"kind\":\"pinned-expansion-battle-test-runner\"}},\"entries\":[";
     const char* rolls16 = "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]";
     const char* rolls15 = "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]";
@@ -676,13 +791,13 @@ static void self_tests(const jl_value* doc) {
     self_check("an entry with 15 rolls is rejected", !validate_header(short_rolls, &err));
     jl_free(short_rolls);
     jl_value* wrong_commit = jl_parse(
-        "{\"schemaVersion\":8,\"provenance\":{\"hnsUpstream\":{\"commit\":\"0000000000000000000000000000000000000000\"},"
+        "{\"schemaVersion\":9,\"provenance\":{\"hnsUpstream\":{\"commit\":\"0000000000000000000000000000000000000000\"},"
         "\"backend\":{\"kind\":\"pinned-expansion-battle-test-runner\"}},\"entries\":[{\"scenario\":{\"id\":\"a\"},"
         "\"rolls\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}]}");
     self_check("a corpus from another H&S commit is rejected", !validate_header(wrong_commit, &err));
     jl_free(wrong_commit);
     jl_value* wrong_backend = jl_parse(
-        "{\"schemaVersion\":8,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT "\"},"
+        "{\"schemaVersion\":9,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT "\"},"
         "\"backend\":{\"kind\":\"smogon-calc\"}},\"entries\":[{\"scenario\":{\"id\":\"a\"},"
         "\"rolls\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}]}");
     self_check("a corpus from a non-oracle backend is rejected", !validate_header(wrong_backend, &err));
@@ -717,7 +832,17 @@ int main(int argc, char** argv) {
     const char* corpus_path = argc > 1 ? argv[1] : "tools/hns-damage-oracle/corpus.json";
     const char* divergence_path = argc > 2 ? argv[2] : "tools/hns-damage-oracle/known_divergences.json";
     const char* bundle_path = "app/src/main/assets/calc_bundle.js";
+    const char* type_chart_path = "tools/calc-bundler/hns_type_chart.json";
     err_t err = {{0}};
+
+    char* chart_text = read_file(type_chart_path);
+    if (!chart_text || !(g_type_chart = jl_parse(chart_text)) || !is_obj(g_type_chart)) {
+        fprintf(stderr, "FAIL: cannot load the pinned H&S type chart %s\n", type_chart_path);
+        free(chart_text);
+        jl_free((jl_value*)g_type_chart);
+        return 1;
+    }
+    free(chart_text);
 
     printf("== H&S differential damage oracle (pinned %s) ==\n", HNS_PINNED_COMMIT);
     char* bundle = read_file(bundle_path);
@@ -752,6 +877,8 @@ int main(int argc, char** argv) {
            g_self_checks);
     jl_free(doc);
     for (int i = 0; i < g_divergence_count; i++) free(g_divergences[i].scenario);
+    jl_free((jl_value*)g_type_chart);
+    g_type_chart = NULL;
     js_calc_cleanup();
     if (g_failures) {
         printf("H&S differential damage oracle: %d failure(s)\n", g_failures);

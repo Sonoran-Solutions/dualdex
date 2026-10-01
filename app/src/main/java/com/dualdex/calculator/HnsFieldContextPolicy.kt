@@ -65,7 +65,9 @@ object HnsFieldContextPolicy {
         /** Authoritative raw field word used to exclude unsupported Wonder Room stat selection. */
         val fieldStatuses: Int? = null,
         val attackerTerrainApplicability: HnsTerrainApplicability? = null,
-        val defenderTerrainApplicability: HnsTerrainApplicability? = null
+        val defenderTerrainApplicability: HnsTerrainApplicability? = null,
+        val attackerHoldEffectResolution: HnsHoldEffectResolution? = null,
+        val defenderHoldEffectResolution: HnsHoldEffectResolution? = null
     )
 
     fun assess(state: HnsFieldState, context: Context?): List<HnsFieldRequestDecision> {
@@ -101,7 +103,9 @@ object HnsFieldContextPolicy {
             attackerAbilityId = liveAbility(request.attacker),
             defenderAbilityId = liveAbility(request.defender),
             attackerItemId = liveItem(request.attacker),
-            defenderItemId = liveItem(request.defender)
+            defenderItemId = liveItem(request.defender),
+            attackerHoldEffectResolution = HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER),
+            defenderHoldEffectResolution = HnsHoldEffectAuthority.forRequest(request, HnsItemSide.DEFENDER)
         )
     }
 
@@ -141,13 +145,20 @@ object HnsFieldContextPolicy {
             HnsFieldStatus.MAGIC_ROOM -> {
                 val items = listOf(c.attackerItemId, c.defenderItemId)
                 if (items.any { it == null }) null
-                else if (items.all { it == ITEM_NONE || HnsItemRegistry.classify(it).category ==
-                        HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT }
-                ) proof(
+                else if (items.any { HnsItemRegistry.classify(it).category == HnsItemCategory.UNCLASSIFIED }) null
+                else if (items.zip(listOf(c.attackerHoldEffectResolution, c.defenderHoldEffectResolution))
+                    .all { (id, resolution) ->
+                        val item = HnsItemRegistry.classify(id)
+                        resolution != null && resolution.itemId == id &&
+                            resolution.state != HnsHoldEffectState.UNKNOWN &&
+                            resolution.effectiveHoldEffect == "HOLD_EFFECT_NONE" &&
+                            !(item.familyGroup == "identity_exception" &&
+                                item.data?.holdEffect == "HOLD_EFFECT_NONE" && id != 0)
+                    }
+                ) modelled(
                     rule = "magic_room_held_items_neutral",
                     source = "src/battle_util.c:5827",
-                    rationale = "Magic Room only turns hold effects off; both live items are absent or have a hold " +
-                        "effect audited to never reach ordinary damage, so suppressing them has no damage effect."
+                    rationale = "Both authoritative current items resolve to HOLD_EFFECT_NONE under Magic Room, and no unresolved identity-only NONE exception remains. The shared item policy preserves raw item identity and independent move-interaction gates."
                 ) else null
             }
             HnsFieldStatus.TRICK_ROOM -> when (attacker) {

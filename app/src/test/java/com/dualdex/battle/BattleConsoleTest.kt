@@ -245,7 +245,11 @@ class BattleConsoleTest {
             sideStatusesReadable = true,
             sideStatuses = sideStatuses,
             switchInPhaseObserved = switchInPhaseObserved,
-            switchInEventsSettled = switchInEventsSettled
+            switchInEventsSettled = switchInEventsSettled,
+            itemVolatilesObserved = true,
+            volatileEmbargo = false,
+            volatileMetronomeItemCounter = 0,
+            volatileTransformedMonSpecies = 0
         ),
         abilityIdentity = if (abilityId == 0) DeclaredAbility.EmptySlot else DeclaredAbility.Declared(abilityId, abilityName)
     )
@@ -837,13 +841,14 @@ class BattleConsoleTest {
         assertTrue(doubles.damageLimitations.contains(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED))
         assertEquals("Doubles not supported", doubles.damageUnavailableReason)
 
-        // Silk Scarf (425) boosts Normal moves and Tackle is Normal: the item is relevant.
-        val unsupportedItem = buildHnsPresentation(33, hnsContext(playerItemId = 425), calculator)
+        // A full-HP foe's Focus Sash remains a request-local item caveat.
+        val unsupportedItem = buildHnsPresentation(33,
+            hnsContext(enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 481)), calculator)
         assertEquals(DamageConfidence.ESTIMATE, unsupportedItem.damageConfidence)
         assertTrue(unsupportedItem.damageLimitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
-        assertEquals(listOf("You: Silk Scarf"), unsupportedItem.damageIgnoredMechanics.map { it.detail })
-        assertNull(calculatorCalls.single().attacker.item)
-        assertNull(calculatorCalls.single().attacker.itemId)
+        assertEquals(listOf("Foe: Focus Sash"), unsupportedItem.damageIgnoredMechanics.map { it.detail })
+        assertNull(calculatorCalls.single().defender.item)
+        assertNull(calculatorCalls.single().defender.itemId)
 
         val missingPlayerState = hnsBattler(0, 0, listOf(13)).copy(
             state = hnsBattler(0, 0, listOf(13)).state.copy(status = HnsBattlerRuntimeStatus.UNAVAILABLE)
@@ -1558,7 +1563,7 @@ class BattleConsoleTest {
     }
 
     @Test
-    fun `Choice Band on a special move is irrelevant and on a physical move is a caveat`() {
+    fun `Choice Band is modeled on the matching category and neutral on the other`() {
         val sent = mutableListOf<DamageCalculationRequest>()
         val special = buildHnsPresentation(52, hnsContext(playerItemId = 442), recordingCalculator(sent)) // Ember
         assertEquals(MoveCategory.SPECIAL, special.category)
@@ -1567,11 +1572,10 @@ class BattleConsoleTest {
 
         val physical = buildHnsPresentation(33, hnsContext(playerItemId = 442), recordingCalculator(sent)) // Tackle
         assertEquals(DamageConfidence.ESTIMATE, physical.damageConfidence)
-        assertEquals(listOf("You: Choice Band"), physical.damageIgnoredMechanics.map { it.detail })
-        assertTrue(physical.damageDisplayText.contains("Ignores:\nYou: Choice Band"))
+        assertTrue(physical.damageIgnoredMechanics.isEmpty())
         assertEquals(2, sent.size)
         assertNull(sent.last().attacker.item)
-        assertNull(sent.last().attacker.itemId)
+        assertEquals(442, sent.last().attacker.itemId)
     }
 
     @Test
@@ -1579,28 +1583,20 @@ class BattleConsoleTest {
         val sent = mutableListOf<DamageCalculationRequest>()
         val calculator = recordingCalculator(sent)
 
-        val silkScarf = buildHnsPresentation(33, hnsContext(playerItemId = 425), calculator)
-        assertEquals(DamageConfidence.ESTIMATE, silkScarf.damageConfidence)
-        val itemBlocker = silkScarf.damageIgnoredMechanics.single() as DamageBlockerPresentation.Item
-        assertEquals(425, itemBlocker.decision.itemId)
-        assertEquals(com.dualdex.calculator.HnsItemSide.ATTACKER, itemBlocker.decision.side)
-        assertEquals(com.dualdex.calculator.HnsItemRequestRelevance.RELEVANT, itemBlocker.decision.relevance)
-        assertEquals("type_item_move_type_match", itemBlocker.decision.rule)
-        assertTrue(itemBlocker.ignored)
-        assertNull(sent.last().attacker.item)
-        assertNull(sent.last().attacker.itemId)
-
         val foeSash = buildHnsPresentation(33,
-            hnsContext(enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 481, hp = 20, maxHp = 20)),
-            calculator)
+            hnsContext(enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 481)), calculator)
         assertEquals(DamageConfidence.ESTIMATE, foeSash.damageConfidence)
-        assertEquals(com.dualdex.calculator.HnsItemSide.DEFENDER,
-            (foeSash.damageIgnoredMechanics.single() as DamageBlockerPresentation.Item).decision.side)
+        val itemBlocker = foeSash.damageIgnoredMechanics.single() as DamageBlockerPresentation.Item
+        assertEquals(481, itemBlocker.decision.itemId)
+        assertEquals(com.dualdex.calculator.HnsItemSide.DEFENDER, itemBlocker.decision.side)
+        assertEquals(com.dualdex.calculator.HnsItemRequestRelevance.RELEVANT, itemBlocker.decision.relevance)
+        assertTrue(itemBlocker.ignored)
         assertNull(sent.last().defender.item)
         assertNull(sent.last().defender.itemId)
 
-        val unaudited = buildHnsPresentation(33, hnsContext(playerItemId = 290), calculator) // Red Orb
-        assertEquals("Your Red Orb not yet audited", unaudited.damageUnavailableReason)
+        val primalOrb = buildHnsPresentation(33, hnsContext(playerItemId = 290), calculator) // Red Orb
+        assertEquals(DamageConfidence.ESTIMATE, primalOrb.damageConfidence)
+        assertTrue(primalOrb.damageIgnoredMechanics.isEmpty())
         assertEquals(2, sent.size)
 
         // The same Focus Sash on a damaged foe cannot activate (it requires hp == maxHP).
@@ -1608,24 +1604,25 @@ class BattleConsoleTest {
             hnsContext(enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 481, hp = 12, maxHp = 20)),
             calculator)
         assertEquals(DamageConfidence.ESTIMATE, damagedFoe.damageConfidence)
+        assertTrue(damagedFoe.damageIgnoredMechanics.isEmpty())
         assertEquals(3, sent.size)
     }
 
     @Test
-    fun `several ignored items are listed as caveats by side`() {
+    fun `modeled attacker item composes with a foe item caveat`() {
         val sent = mutableListOf<DamageCalculationRequest>()
         val result = buildHnsPresentation(33,
-            hnsContext(playerItemId = 425, enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 481)),
+            hnsContext(playerItemId = 442, enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 481)),
             recordingCalculator(sent))
         assertEquals(DamageConfidence.ESTIMATE, result.damageConfidence)
-        assertEquals(listOf("You: Silk Scarf", "Foe: Focus Sash"), result.damageIgnoredMechanics.map { it.detail })
+        assertEquals(listOf("Foe: Focus Sash"), result.damageIgnoredMechanics.map { it.detail })
         assertEquals(
-            "Ignores:\nYou: Silk Scarf\nFoe: Focus Sash",
+            "Ignores:\nFoe: Focus Sash",
             result.damageDisplayText.substringAfter("(Estimate)").trim()
         )
         assertEquals(1, sent.size)
         assertNull(sent.single().attacker.item)
-        assertNull(sent.single().attacker.itemId)
+        assertEquals(442, sent.single().attacker.itemId)
         assertNull(sent.single().defender.item)
         assertNull(sent.single().defender.itemId)
     }
@@ -1636,7 +1633,7 @@ class BattleConsoleTest {
         val context = hnsContext(
             playerAbilityId = 37,
             playerAbilityName = "Huge Power",
-            playerItemId = 442,
+            enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 481),
             randomAbilities = true
         )
         val result = buildHnsPresentation(67, context, recordingCalculator(sent)) // Low Kick: weight-based
@@ -1675,12 +1672,13 @@ class BattleConsoleTest {
     private fun fieldContext(
         field: Int,
         playerItemId: Int = 0,
+        foeItemId: Int = 0,
         weather: Int = 0,
         foeSide: Int = 0
     ) = hnsContext(
         playerObservation = hnsBattler(0, 0, listOf(13), itemId = playerItemId, fieldStatuses = field,
             battleWeather = weather),
-        enemyObservation = hnsBattler(0, 1, listOf(1, 3), fieldStatuses = field, battleWeather = weather,
+        enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = foeItemId, fieldStatuses = field, battleWeather = weather,
             sideStatuses = foeSide)
     )
 
@@ -1700,13 +1698,13 @@ class BattleConsoleTest {
         assertTrue(waterGun.damageItemBlockers.isEmpty())
         assertEquals(2, sent.size)
 
-        // Choice Specs and Wonder Room are both named, independently neutralized caveats.
-        val choiceSpecs = buildHnsPresentation(55, fieldContext(field = 0x4, playerItemId = 443), recordingCalculator(sent))
-        assertEquals(DamageConfidence.ESTIMATE, choiceSpecs.damageConfidence)
-        assertEquals(listOf("You: Choice Specs", "Field: Wonder Room"),
-            choiceSpecs.damageIgnoredMechanics.map { it.detail })
-        assertTrue(choiceSpecs.damageDisplayText.contains("Ignores:\nYou: Choice Specs\nField: Wonder Room"))
-        assertEquals(listOf(443), choiceSpecs.damageIgnoredMechanics.filterIsInstance<DamageBlockerPresentation.Item>().map { it.decision.itemId })
+        // Focus Sash and Wonder Room remain separate, independently displayed caveats.
+        val foeSash = buildHnsPresentation(55, fieldContext(field = 0x4, foeItemId = 481), recordingCalculator(sent))
+        assertEquals(DamageConfidence.ESTIMATE, foeSash.damageConfidence)
+        assertEquals(listOf("Foe: Focus Sash", "Field: Wonder Room"),
+            foeSash.damageIgnoredMechanics.map { it.detail })
+        assertTrue(foeSash.damageDisplayText.contains("Ignores:\nFoe: Focus Sash\nField: Wonder Room"))
+        assertEquals(listOf(481), foeSash.damageIgnoredMechanics.filterIsInstance<DamageBlockerPresentation.Item>().map { it.decision.itemId })
         assertEquals(3, sent.size)
     }
 

@@ -1,0 +1,17 @@
+# Embargo starts clear, becomes active after the player uses the source move, and stays live until the end of battle.
+# Controlled player party only; the official ROM creates the battle and Embargo volatile through normal input.
+wait 120
+mash 800
+wait 200
+walk DOWN 2
+walk LEFT 14
+walk DOWN 3
+walk LEFT 1
+group-d-trace
+hunt 500
+assert-battle active
+matrix item-embargo-start
+damage-probe 373 1
+matrix item-embargo-active
+damage-probe 45 5
+matrix item-embargo-expired

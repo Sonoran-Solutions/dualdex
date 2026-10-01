@@ -10,7 +10,7 @@ enum class HnsContactAuthority { CONTACT, NON_CONTACT, UNKNOWN }
 object HnsContactRules {
     fun assess(
         moveId: Int?, ordinaryMove: Boolean?, attackerAbilityId: Int?, attackerAbilityObserved: Boolean,
-        attackerItemId: Int?
+        attackerItemId: Int?, attackerHoldEffectResolution: HnsHoldEffectResolution? = null
     ): HnsContactAuthority {
         if (ordinaryMove != true || moveId == null) return HnsContactAuthority.UNKNOWN
         val data = Hns205MoveEffects
@@ -22,8 +22,17 @@ object HnsContactRules {
         if (unknownPunch) return HnsContactAuthority.UNKNOWN
         if (!attackerAbilityObserved || attackerAbilityId == null) return HnsContactAuthority.UNKNOWN
         if (punch && attackerItemId == null) return HnsContactAuthority.UNKNOWN
-        if (attackerItemId == HnsItemRegistry.resolveIdByName("Punching Glove") && punch)
-            return HnsContactAuthority.NON_CONTACT
+        if (attackerItemId == HnsItemRegistry.resolveIdByName("Punching Glove") && punch) {
+            when (attackerHoldEffectResolution?.state) {
+                HnsHoldEffectState.ACTIVE_EXACT -> {
+                    if (attackerHoldEffectResolution.effectiveHoldEffect != "HOLD_EFFECT_PUNCHING_GLOVE")
+                        return HnsContactAuthority.UNKNOWN
+                    return HnsContactAuthority.NON_CONTACT
+                }
+                HnsHoldEffectState.SUPPRESSED_NONE -> Unit
+                HnsHoldEffectState.UNKNOWN, null -> return HnsContactAuthority.UNKNOWN
+            }
+        }
         if (attackerAbilityId == 203) return HnsContactAuthority.NON_CONTACT // Long Reach
         return HnsContactAuthority.CONTACT
     }

@@ -222,6 +222,11 @@ typedef struct {
     uint32_t battle_mons_volatile_sword_of_ruin_bit;
     uint32_t battle_mons_volatile_tablets_of_ruin_bit;
     uint32_t battle_mons_volatile_beads_of_ruin_bit;
+    uint32_t battle_mons_volatile_embargo_bit;
+    uint32_t battle_mons_volatile_metronome_item_counter_bit;
+    uint32_t battle_mons_volatile_metronome_item_counter_width;
+    uint32_t battle_mons_volatile_transformed_mon_species_bit;
+    uint32_t battle_mons_volatile_transformed_mon_species_width;
     uint32_t save_block1_flags_offset;       // struct-relative offset of SaveBlock1.flags
     uint32_t save_block1_badges_offset;      // struct-relative offset of SaveBlock1 badge byte (flags[272])
 
@@ -861,6 +866,9 @@ typedef struct {
     bool     volatile_tablets_of_ruin;
     bool     volatile_beads_of_ruin;
     bool     volatile_neutralizing_gas;
+    bool     volatile_embargo;
+    uint8_t  volatile_metronome_item_counter;
+    uint16_t volatile_transformed_mon_species;
     bool     gimmick_observed;     // gBattleStruct->gimmick.activeGimmick was decoded
     uint8_t  active_gimmick;       // enum Gimmick for this battler's party slot
     bool     field_statuses_readable; // gFieldStatuses was actually read

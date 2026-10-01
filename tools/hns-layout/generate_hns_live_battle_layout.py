@@ -200,6 +200,10 @@ def build_probe_c() -> str:
             "const struct Volatiles ddx_v_sword_of_ruin = { .swordOfRuin = 1 };",
             "const struct Volatiles ddx_v_tablets_of_ruin = { .tabletsOfRuin = 1 };",
             "const struct Volatiles ddx_v_beads_of_ruin = { .beadsOfRuin = 1 };",
+            "const struct Volatiles ddx_v_embargo = { .embargo = 1 };",
+            "const struct Volatiles ddx_v_metronome_item_counter = { .metronomeItemCounter = UINT8_MAX };",
+            "const struct Volatiles ddx_v_transformed_mon_species = { .transformedMonSpecies = ~0u };",
+            "const unsigned long ddx_num_species = NUM_SPECIES;",
             "",
         ]
     )
@@ -486,6 +490,9 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f" *   volatile swordOfRuin        = bit {compiled['volatile_sword_of_ruin_bit']}",
         f" *   volatile tabletsOfRuin      = bit {compiled['volatile_tablets_of_ruin_bit']}",
         f" *   volatile beadsOfRuin        = bit {compiled['volatile_beads_of_ruin_bit']}",
+        f" *   volatile embargo            = bit {compiled['volatile_embargo_bit']}",
+        f" *   volatile metronomeItemCounter = bit {compiled['volatile_metronome_item_counter_bit']} width {compiled['volatile_metronome_item_counter_width']}",
+        f" *   volatile transformedMonSpecies = bit {compiled['volatile_transformed_mon_species_bit']} width {compiled['volatile_transformed_mon_species_width']} (NUM_SPECIES={compiled['num_species']})",
         f" *   volatile read window         = {compiled['volatile_window_bytes']} bytes",
         f" *   BattleStruct.gimmick         = {compiled['gimmick_offset']}",
         f" *   BattleStruct.eventState      = {compiled['battle_struct_event_state_offset']}",
@@ -559,6 +566,12 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT {compiled['volatile_sword_of_ruin_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT {compiled['volatile_tablets_of_ruin_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT {compiled['volatile_beads_of_ruin_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_EMBARGO_BIT {compiled['volatile_embargo_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_BIT {compiled['volatile_metronome_item_counter_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_WIDTH {compiled['volatile_metronome_item_counter_width']}",
+        f"#define HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_BIT {compiled['volatile_transformed_mon_species_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_WIDTH {compiled['volatile_transformed_mon_species_width']}",
+        f"#define HNS_LIVE_NUM_SPECIES {compiled['num_species']}",
         f"#define HNS_LIVE_BP_VOLATILE_WINDOW_BYTES {compiled['volatile_window_bytes']}",
         f"#define HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET {compiled['gimmick_offset']}",
         f"#define HNS_LIVE_BATTLE_STRUCT_EVENT_STATE_OFFSET {compiled['battle_struct_event_state_offset']}",
@@ -643,7 +656,10 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         "HNS_LIVE_BP_VOLATILE_VESSEL_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
         "HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
         "HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
-        "HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES",
+        "HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_EMBARGO_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_BIT + HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_WIDTH > 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_BIT + HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_WIDTH > 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES",
         "#error \"an exported volatile bit exceeds the generated read window\"",
         "#endif",
         "#if HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET + HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT * HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT > 64",
@@ -763,6 +779,8 @@ def main() -> None:
             "supreme_overlord_counter_count": scalar(blob, base_addr, syms, "ddx_supreme_overlord_counter_count"),
             "b_action_exec_script": scalar(blob, base_addr, syms, "ddx_b_action_exec_script"),
             "volatile_neutralizing_gas_bit": single_bit(blob, base_addr, syms, "ddx_v_neutralizing_gas"),
+            "volatile_embargo_bit": single_bit(blob, base_addr, syms, "ddx_v_embargo"),
+            "num_species": scalar(blob, base_addr, syms, "ddx_num_species"),
             "b_action_use_move": scalar(blob, base_addr, syms, "ddx_b_action_use_move"),
             "battle_struct_event_state_offset": scalar(blob, base_addr, syms, "ddx_battle_struct_event_state_offset"),
             "battle_struct_battler_state_offset": scalar(blob, base_addr, syms, "ddx_battle_struct_battler_state_offset"),
@@ -810,6 +828,14 @@ def main() -> None:
         paradox_bit, paradox_width = multi_bit(blob, base_addr, syms, "ddx_v_paradox_boosted_stat")
         compiled["volatile_paradox_boosted_stat_bit"] = paradox_bit
         compiled["volatile_paradox_boosted_stat_width"] = paradox_width
+        metronome_bit, metronome_width = multi_bit(blob, base_addr, syms, "ddx_v_metronome_item_counter")
+        compiled["volatile_metronome_item_counter_bit"] = metronome_bit
+        compiled["volatile_metronome_item_counter_width"] = metronome_width
+        transformed_species_bit, transformed_species_width = multi_bit(
+            blob, base_addr, syms, "ddx_v_transformed_mon_species"
+        )
+        compiled["volatile_transformed_mon_species_bit"] = transformed_species_bit
+        compiled["volatile_transformed_mon_species_width"] = transformed_species_width
         if single_bit(blob, base_addr, syms, "ddx_event_switch_in_one") != event_bit:
             fail("EventStates.switchIn bit probe disagrees between value 1 and full-width probe")
         # Read window: enough bytes to cover the highest exported volatile bit. Reading only
@@ -843,6 +869,9 @@ def main() -> None:
             compiled["volatile_tablets_of_ruin_bit"],
             compiled["volatile_beads_of_ruin_bit"],
             compiled["volatile_neutralizing_gas_bit"],
+            compiled["volatile_embargo_bit"],
+            compiled["volatile_metronome_item_counter_bit"] + compiled["volatile_metronome_item_counter_width"] - 1,
+            compiled["volatile_transformed_mon_species_bit"] + compiled["volatile_transformed_mon_species_width"] - 1,
         ]
         compiled["volatile_window_bytes"] = max(volatile_last_bits) // 8 + 1
 
@@ -850,6 +879,10 @@ def main() -> None:
     out_path = Path(args.output) if args.output else (repo_root / OUTPUT_HEADER)
     domains = {"NUM_STATS": compiled["num_stats"], "GIMMICKS_COUNT": compiled["gimmick_count"],
                "GIMMICK_DYNAMAX": compiled["gimmick_dynamax"],
+               "METRONOME_ITEM_COUNTER_MAX": (1 << compiled["volatile_metronome_item_counter_width"]) - 1,
+               "METRONOME_ITEM_COUNTER_WIDTH": compiled["volatile_metronome_item_counter_width"],
+               "TRANSFORMED_MON_SPECIES_WIDTH": compiled["volatile_transformed_mon_species_width"],
+               "SPECIES_COUNT": compiled["num_species"],
                "SLOW_START_MAX": (1 << compiled["volatile_slow_start_timer_width"]) - 1,
                "FIRST_TURN_MAX": (1 << compiled["battler_state_is_first_turn_width"]) - 1}
     kotlin = "// Generated by tools/hns-layout/generate_hns_live_battle_layout.py; do not edit.\n"

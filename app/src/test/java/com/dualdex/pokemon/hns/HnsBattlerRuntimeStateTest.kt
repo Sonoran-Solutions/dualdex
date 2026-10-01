@@ -628,6 +628,43 @@ class HnsBattlerRuntimeStateTest {
     }
 
     @Test
+    fun `103 element tuple observes item volatiles and preserves zero values`() {
+        val raw = IntArray(103).also { tuple ->
+            IntArray(97).also { base ->
+                c4eObservedTuple().copyInto(base)
+                base[47] = 1
+                base[78] = 0
+                base[82] = 0
+                base[91] = 1
+                base[93] = 1
+                base[94] = 2
+            }.copyInto(tuple)
+            tuple[100] = HnsGroupDLayout.SPECIES_COUNT
+            tuple[101] = HnsGroupDLayout.METRONOME_ITEM_COUNTER_WIDTH
+            tuple[102] = HnsGroupDLayout.TRANSFORMED_MON_SPECIES_WIDTH
+        }
+        val clear = HnsBattlerRuntimeState.fromNativeArray(raw)
+        assertTrue(clear.itemVolatilesObserved)
+        assertFalse(clear.volatileEmbargo)
+        assertEquals(0, clear.volatileMetronomeItemCounter)
+        assertEquals(0, clear.volatileTransformedMonSpecies)
+
+        raw[97] = 1
+        raw[98] = 5
+        raw[99] = 25
+        val active = HnsBattlerRuntimeState.fromNativeArray(raw)
+        assertTrue(active.itemVolatilesObserved)
+        assertTrue(active.volatileEmbargo)
+        assertEquals(5, active.volatileMetronomeItemCounter)
+        assertEquals(25, active.volatileTransformedMonSpecies)
+
+        assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf(102)).itemVolatilesObserved)
+        raw[99] = HnsGroupDLayout.SPECIES_COUNT
+        assertEquals(HnsBattlerRuntimeStatus.OBSERVED_INVALID,
+            HnsBattlerRuntimeState.fromNativeArray(raw).status)
+    }
+
+    @Test
     fun `unresolved in-domain id stays explicitly absent, never substituted`() {
         // ABILITY_NONE (0) is part of the pinned enum: a legitimate observed state
         // whose catalogue identity is an explicit absence.

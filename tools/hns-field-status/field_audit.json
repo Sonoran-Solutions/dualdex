@@ -99,7 +99,7 @@
           "contains": "return GetItemHoldEffect(gBattleMons[battler].item);"
         }
       ],
-      "rationale": "Magic Room makes GetBattlerHoldEffect return HOLD_EFFECT_NONE for every battler, so it can switch off any held item's hold effect (damage, grounding, speed); its other reads are Natural Gift/Fling failure and Unburden, none reachable by an ordinary move. No H&S item is modelled by the engine, so when every held item is ITEM_NONE or has a globally audited neutral hold effect, suppressing those hold effects cannot change this hit.",
+      "rationale": "Magic Room makes GetBattlerHoldEffect return HOLD_EFFECT_NONE for every battler. For an ordinary move, the field bit is MODELLED when both live item identities are classified and the shared hold-effect authority confirms their suppressed state. Unclassified items or unrelated raw-identity/move interactions remain independently conservative.",
       "request_operands": [
         "ordinary_move",
         "attacker_item",
@@ -108,13 +108,13 @@
       "rules": [
         {
           "rule": "magic_room_held_items_neutral",
-          "relevance": "PROVEN_IRRELEVANT",
+          "relevance": "MODELLED",
           "operands": [
             "ordinary_move",
             "attacker_item",
             "defender_item"
           ],
-          "predicate": "Ordinary move, and both authoritative live battle-effective items are ITEM_NONE or globally PROVEN_NO_ORDINARY_DAMAGE_EFFECT.",
+          "predicate": "Ordinary move, and both authoritative live battle-effective items are in the pinned item domain, globally classified, and their effective hold effects resolve under Magic Room.",
           "evidence": [
             {
               "source": "src/battle_util.c:5827",
@@ -131,7 +131,7 @@
           ]
         }
       ],
-      "fallback": "Any held item without a neutral global audit, an unread item, or a non-ordinary move keeps Magic Room blocking: its suppression of a damage-relevant hold effect is not modelled."
+      "fallback": "A non-ordinary move, unread item, unclassified item, or unresolved effective hold effect keeps Magic Room blocking."
     },
     {
       "symbol": "STATUS_FIELD_TRICK_ROOM",

@@ -2571,7 +2571,8 @@ static void trace_group_d(const GameMemoryConfig* cfg, const Sample* s) {
                  "role=%d status=%d battler=%d species=%u ability=%u item=%d/%u personality=%d/%u "
                  "volatiles=%d slow=%u flash=%d transformed=%d booster=%d selector=%u "
                  "ruin=%d,%d,%d,%d ng=%d first=%d/%u supreme=%d/%u selected=%d/%d "
-                 "active=%d/%u analytic=%d/%u move=%u callback=%08X action=%u index=%u attacker=%u main1=%08X dispatchSlot=%08X dispatch=%08X",
+                 "active=%d/%u analytic=%d/%u move=%u callback=%08X action=%u index=%u attacker=%u main1=%08X dispatchSlot=%08X dispatch=%08X "
+                 "itemVolatiles=%d embargo=%d metronome=%u transformedMonSpecies=%u",
                  role, st->status, st->battler_index, st->species_id, st->ability_id, st->item_observed, st->item_id,
                  st->personality_observed, st->personality, st->volatiles_observed,
                  st->volatile_slow_start_timer, st->volatile_flash_fire_boosted,
@@ -2582,7 +2583,9 @@ static void trace_group_d(const GameMemoryConfig* cfg, const Sample* s) {
                  st->supreme_overlord_counter_observed, st->supreme_overlord_counter,
                  st->selected_gimmick_observed, st->selected_gimmick, st->gimmick_observed,
                  st->active_gimmick, st->analytic_turn_order_observed, st->analytic_turn_order,
-                 st->analytic_current_move, callback, action, index, attacker, main_callback1, dispatch_slot, dispatch_callback);
+                 st->analytic_current_move, callback, action, index, attacker, main_callback1, dispatch_slot, dispatch_callback,
+                 st->volatiles_observed, st->volatile_embargo, st->volatile_metronome_item_counter,
+                 st->volatile_transformed_mon_species);
         if (strcmp(line, g_group_d_previous[role]) != 0) {
             printf("[GROUP-D] frame=%d %s rom=%s\n", s->frame, line, g_rom_sha256);
             snprintf(g_group_d_previous[role], sizeof(g_group_d_previous[role]), "%s", line);

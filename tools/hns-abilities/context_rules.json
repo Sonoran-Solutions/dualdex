@@ -1351,34 +1351,40 @@
         ]
       },
       {
-        "rule": "ripen_without_defender_resist_berry",
-        "predicate": "Ripen is on the defender, the current defender item identity is authoritative and is not HOLD_EFFECT_RESIST_BERRY, and the move is authoritative ordinary single-hit.",
-        "rationale": "The only Ripen path in the current-hit damage calculation is the defender resist-berry modifier; other berry actions happen outside the current hit rolls.",
-        "evidence": [
-          {
-            "source": "src/battle_util.c:7686",
-            "contains": "case HOLD_EFFECT_RESIST_BERRY:"
-          },
-          {
-            "source": "src/battle_hold_effects.c:847",
-            "contains": "if (ability == ABILITY_RIPEN && GetItemPocket(itemId) == POCKET_BERRIES)"
-          }
-        ]
-      }
-    ],
-    "always_blocking": [
-      {
-        "rule": "defender_ripen_resist_berry",
-        "predicate": "Ripen is on the defender holding an authoritative HOLD_EFFECT_RESIST_BERRY item during an ordinary single-hit move.",
-        "rationale": "The damage path uses a quarter modifier instead of a half modifier when Ripen doubles a matching defender resist berry.",
+        "rule": "ripen_berry_authority_unobserved",
+        "predicate": "Ripen is the defender ability but exact current berry activation state is unavailable.",
+        "rationale": "The same request-local authority consumed by QuickJS decides the exact berry predicate and Q4.12 factor.",
         "evidence": [
           {
             "source": "src/battle_util.c:7695",
             "contains": "return (ctx->abilityDef == ABILITY_RIPEN) ? UQ_4_12(0.25) : UQ_4_12(0.5);"
           }
         ]
+      },
+      {
+        "rule": "ripen_resist_berry_modelled",
+        "predicate": "Ripen's defender-side resist-berry quarter multiplier is represented by the shared item decision.",
+        "rationale": "The item stage applies exact UQ4.12 0.25 and prevents a duplicate Ripen ability blocker.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7695",
+            "contains": "return (ctx->abilityDef == ABILITY_RIPEN) ? UQ_4_12(0.25) : UQ_4_12(0.5);"
+          }
+        ]
+      },
+      {
+        "rule": "ripen_without_active_resist_berry",
+        "predicate": "No resist berry activates on this selected hit.",
+        "rationale": "The only direct-damage Ripen branch is the resist-berry quarter factor; other berry interactions remain independently gated.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7686",
+            "contains": "case HOLD_EFFECT_RESIST_BERRY:"
+          }
+        ]
       }
     ],
+    "always_blocking": [],
     "fallback": "Unknown move shape or missing defender item identity remains UNKNOWN."
   },
   "3": {
@@ -5227,5 +5233,236 @@
     ],
     "always_blocking": [],
     "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "103": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "klutz_item_identity_unobserved",
+        "predicate": "Klutz is present but the current held-item identity is unread.",
+        "rationale": "The item and Klutz share one effective-hold-effect authority; missing raw identity cannot prove its selected-hit consequence.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:5829",
+            "contains": "if (ability == ABILITY_KLUTZ && !gBattleMons[battler].volatiles.gastroAcid)"
+          }
+        ]
+      },
+      {
+        "rule": "klutz_no_current_item",
+        "predicate": "The authoritative current item is ITEM_NONE.",
+        "rationale": "Klutz has no current selected-hit item consequence; current item state also prevents resurrecting a consumed item.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:5829",
+            "contains": "if (ability == ABILITY_KLUTZ && !gBattleMons[battler].volatiles.gastroAcid)"
+          }
+        ]
+      },
+      {
+        "rule": "klutz_item_suppression_shared",
+        "predicate": "The exact current item's effective hold effect is suppressed by Klutz.",
+        "rationale": "The shared item policy consumes the resulting HOLD_EFFECT_NONE decision, so Klutz does not add a duplicate generic blocker.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:5829",
+            "contains": "if (ability == ABILITY_KLUTZ && !gBattleMons[battler].volatiles.gastroAcid)"
+          }
+        ]
+      },
+      {
+        "rule": "klutz_suppressed_by_gastro_acid",
+        "predicate": "Gastro Acid suppresses Klutz and the current held item remains active.",
+        "rationale": "The effective hold-effect authority keeps item activation separate from ability suppression; other Gastro Acid consequences retain their own policy.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:5829",
+            "contains": "if (ability == ABILITY_KLUTZ && !gBattleMons[battler].volatiles.gastroAcid)"
+          }
+        ]
+      },
+      {
+        "rule": "klutz_hold_effect_unobserved",
+        "predicate": "The current hold effect cannot be resolved against all suppressors.",
+        "rationale": "Unknown Magic Room, Embargo, effective ability, or Gastro Acid state fails closed.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:5825",
+            "contains": "if (gBattleMons[battler].volatiles.embargo)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown operands remain UNKNOWN."
+  },
+  "127": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "unnerve_defender_side",
+        "predicate": "Unnerve is on the defender.",
+        "rationale": "IsUnnerveAbilityOnOpposingSide only blocks the item holder's opposing side; defender Unnerve does not block the current defender-held resist berry.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:350",
+            "contains": "static bool32 IsUnnerveAbilityOnOpposingSide(enum BattlerId battler)"
+          }
+        ]
+      },
+      {
+        "rule": "unnerve_berry_authority_unobserved",
+        "predicate": "Unnerve is on the attacker, but the shared current defender berry decision is not exact.",
+        "rationale": "The current berry, opponent liveness, topology, and effective ability identities must be authoritative before clearing the ability blocker.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:357",
+            "contains": "if (!IsBattlerAlive(battlerDef))"
+          },
+          {
+            "source": "src/battle_util.c:365",
+            "contains": "case ABILITY_AS_ONE_SHADOW_RIDER:"
+          }
+        ]
+      },
+      {
+        "rule": "unnerve_resist_berry_block_modelled",
+        "predicate": "The current defender resist berry is blocked by the effective attacker Unnerve or As One ability.",
+        "rationale": "The shared berry decision uses the source neutral modifier, so Unnerve is not reported as a second missing damage effect.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7687",
+            "contains": "if (IsUnnerveBlocked(ctx->battlerDef, gBattleMons[ctx->battlerDef].item))"
+          },
+          {
+            "source": "src/battle_util.c:350",
+            "contains": "static bool32 IsUnnerveAbilityOnOpposingSide(enum BattlerId battler)"
+          }
+        ]
+      },
+      {
+        "rule": "unnerve_without_current_berry_modifier",
+        "predicate": "The ordinary selected hit has no active defender resist-berry modifier.",
+        "rationale": "Unnerve's berry consumption block does not affect the current damage rolls, and its post-KO stat stage is outside this selected hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7686",
+            "contains": "case HOLD_EFFECT_RESIST_BERRY:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown operands remain UNKNOWN."
+  },
+  "266": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "unnerve_defender_side",
+        "predicate": "As One is on the defender.",
+        "rationale": "As One's Unnerve half blocks opposing berry use; a defender-side copy does not block the defender-held berry for this incoming hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:350",
+            "contains": "static bool32 IsUnnerveAbilityOnOpposingSide(enum BattlerId battler)"
+          }
+        ]
+      },
+      {
+        "rule": "unnerve_berry_authority_unobserved",
+        "predicate": "As One is on the attacker, but the shared current defender berry decision is not exact.",
+        "rationale": "The source berry block needs authoritative current item, liveness, Singles topology, and effective ability state.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:357",
+            "contains": "if (!IsBattlerAlive(battlerDef))"
+          },
+          {
+            "source": "src/battle_util.c:365",
+            "contains": "case ABILITY_AS_ONE_SHADOW_RIDER:"
+          }
+        ]
+      },
+      {
+        "rule": "unnerve_resist_berry_block_modelled",
+        "predicate": "The current defender resist berry is blocked by the effective attacker As One ability.",
+        "rationale": "The shared berry decision uses the source neutral modifier; the independent post-KO stat-stage trigger cannot change this hit's rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:365",
+            "contains": "case ABILITY_AS_ONE_SHADOW_RIDER:"
+          }
+        ]
+      },
+      {
+        "rule": "unnerve_without_current_berry_modifier",
+        "predicate": "The ordinary selected hit has no active defender resist-berry modifier.",
+        "rationale": "The Unnerve half has no current-hit damage consequence for this request; the post-KO stat-stage half occurs later.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7686",
+            "contains": "case HOLD_EFFECT_RESIST_BERRY:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown operands remain UNKNOWN."
+  },
+  "267": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "unnerve_defender_side",
+        "predicate": "As One is on the defender.",
+        "rationale": "As One's Unnerve half blocks opposing berry use; a defender-side copy does not block the defender-held berry for this incoming hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:350",
+            "contains": "static bool32 IsUnnerveAbilityOnOpposingSide(enum BattlerId battler)"
+          }
+        ]
+      },
+      {
+        "rule": "unnerve_berry_authority_unobserved",
+        "predicate": "As One is on the attacker, but the shared current defender berry decision is not exact.",
+        "rationale": "The source berry block needs authoritative current item, liveness, Singles topology, and effective ability state.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:357",
+            "contains": "if (!IsBattlerAlive(battlerDef))"
+          },
+          {
+            "source": "src/battle_util.c:365",
+            "contains": "case ABILITY_AS_ONE_SHADOW_RIDER:"
+          }
+        ]
+      },
+      {
+        "rule": "unnerve_resist_berry_block_modelled",
+        "predicate": "The current defender resist berry is blocked by the effective attacker As One ability.",
+        "rationale": "The shared berry decision uses the source neutral modifier; the independent post-KO stat-stage trigger cannot change this hit's rolls.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:365",
+            "contains": "case ABILITY_AS_ONE_SHADOW_RIDER:"
+          }
+        ]
+      },
+      {
+        "rule": "unnerve_without_current_berry_modifier",
+        "predicate": "The ordinary selected hit has no active defender resist-berry modifier.",
+        "rationale": "The Unnerve half has no current-hit damage consequence for this request; the post-KO stat-stage half occurs later.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7686",
+            "contains": "case HOLD_EFFECT_RESIST_BERRY:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown operands remain UNKNOWN."
   }
 }

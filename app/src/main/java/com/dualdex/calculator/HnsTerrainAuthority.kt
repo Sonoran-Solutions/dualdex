@@ -3,7 +3,6 @@ package com.dualdex.calculator
 import com.dualdex.pokemon.hns.HnsBattlerRuntimeState
 import com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus
 import com.dualdex.pokemon.hns.HnsFieldStatusData
-import com.dualdex.pokemon.hns.HnsItemRegistry
 import com.dualdex.pokemon.hns.normalizeHnsBattlerTypes
 
 /** The pinned per-battler result used by every ordinary-hit terrain decision. */
@@ -23,7 +22,9 @@ object HnsTerrainAuthority {
         fieldStatuses: Int?,
         battler: HnsBattlerRuntimeState?,
         opposingAbilityId: Int? = 0,
-        battlerIsDefender: Boolean = false
+        battlerIsDefender: Boolean = false,
+        holdEffectResolution: HnsHoldEffectResolution? = null,
+        abilityShieldActiveIgnoringAbility: Boolean? = null
     ): HnsTerrainApplicability {
         val field = fieldStatuses ?: return HnsTerrainApplicability.UNKNOWN
         if (field and HnsFieldStatusData.STATUS_FIELD_TERRAIN_ANY == 0) {
@@ -47,25 +48,36 @@ object HnsTerrainAuthority {
             return HnsTerrainApplicability.UNKNOWN
         }
 
-        val magicRoom = field and HnsFieldStatusData.STATUS_FIELD_MAGIC_ROOM != 0
-        val ironBall = live.itemId == IRON_BALL_ID && !magicRoom
-        val airBalloon = live.itemId == AIR_BALLOON_ID && !magicRoom
+        val holdEffect = holdEffectResolution?.takeIf { it.itemId == live.itemId }
+            ?: return HnsTerrainApplicability.UNKNOWN
+        val ironBall = when {
+            holdEffect.state == HnsHoldEffectState.UNKNOWN -> return HnsTerrainApplicability.UNKNOWN
+            holdEffect.state == HnsHoldEffectState.ACTIVE_EXACT ->
+                holdEffect.effectiveHoldEffect == "HOLD_EFFECT_IRON_BALL"
+            else -> false
+        }
+        val airBalloon = when {
+            holdEffect.state == HnsHoldEffectState.UNKNOWN -> return HnsTerrainApplicability.UNKNOWN
+            holdEffect.state == HnsHoldEffectState.ACTIVE_EXACT ->
+                holdEffect.effectiveHoldEffect == "HOLD_EFFECT_AIR_BALLOON"
+            else -> false
+        }
         // Pinned IsBattlerGrounded order: Iron Ball, Gravity, rooted, Smack Down, ungrounding
         // sources (Telekinesis, Magnet Rise, Air Balloon, Levitate), Flying, otherwise grounded.
         if (ironBall || field and HnsFieldStatusData.STATUS_FIELD_GRAVITY != 0) {
             return HnsTerrainApplicability.AFFECTED
         }
-        if (magicRoom && live.itemId in setOf(IRON_BALL_ID, AIR_BALLOON_ID)) {
-            return HnsTerrainApplicability.UNKNOWN
-        }
         if (battlerIsDefender && live.abilityId == HnsFieldStatusData.ABILITY_LEVITATE &&
             opposingAbilityId in MOLD_BREAKER_FAMILY_IDS
         ) {
             // CalcDamage's ctx->abilityDef uses GetBattlerAbility(defender), which returns NONE
-            // when Mold Breaker suppresses breakable Levitate. Ability Shield preserves Levitate,
-            // but Magic Room suppresses the shield item. Without an authoritative active shield,
-            // do not guess whether this target is grounded.
-            if (live.itemId != ABILITY_SHIELD_ID || magicRoom) return HnsTerrainApplicability.UNKNOWN
+            // when Mold Breaker suppresses breakable Levitate. Ability Shield preserves Levitate
+            // only when its separate GetBattlerHoldEffectIgnoreAbility lookup remains active.
+            when (abilityShieldActiveIgnoringAbility) {
+                true -> return HnsTerrainApplicability.NOT_AFFECTED
+                false -> return HnsTerrainApplicability.AFFECTED
+                null -> return HnsTerrainApplicability.UNKNOWN
+            }
         }
         if (airBalloon || live.abilityId == HnsFieldStatusData.ABILITY_LEVITATE) {
             return HnsTerrainApplicability.NOT_AFFECTED
@@ -75,8 +87,5 @@ object HnsTerrainAuthority {
         return HnsTerrainApplicability.AFFECTED
     }
 
-    private val IRON_BALL_ID = HnsItemRegistry.resolveIdByName("Iron Ball")
-    private val AIR_BALLOON_ID = HnsItemRegistry.resolveIdByName("Air Balloon")
-    private val ABILITY_SHIELD_ID = HnsItemRegistry.resolveIdByName("Ability Shield")
     private val MOLD_BREAKER_FAMILY_IDS = setOf(104, 163, 164)
 }

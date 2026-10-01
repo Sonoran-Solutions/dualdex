@@ -1316,8 +1316,36 @@ object CalcRequestBoundary {
             it.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED
         } ?: return null
         return HnsTerrainAuthority.resolve(
-            fieldStatuses, state, opposing.effectiveAbilityId, battlerIsDefender
+            fieldStatuses,
+            state,
+            opposing.effectiveAbilityId,
+            battlerIsDefender,
+            holdEffectResolution = HnsHoldEffectAuthority.forObservedRuntime(
+                state,
+                fieldStatuses,
+                observedNeutralizingGasOnField(state, opposing)
+            ),
+            abilityShieldActiveIgnoringAbility = HnsHoldEffectAuthority.abilityShieldActiveIgnoringAbility(
+                itemId = state.itemId.takeUnless { state.itemOutOfDomain },
+                itemProvenance = if (state.itemId != null && !state.itemOutOfDomain)
+                    CalcItemProvenance.BATTLE_EFFECTIVE else CalcItemProvenance.UNKNOWN,
+                fieldStatuses = fieldStatuses,
+                embargo = state.volatileEmbargo.takeIf { state.itemVolatilesObserved }
+            )
         )
+    }
+
+    private fun observedNeutralizingGasOnField(
+        battler: com.dualdex.pokemon.hns.HnsBattlerRuntimeState,
+        opposing: com.dualdex.pokemon.hns.HnsBattlerRuntimeState
+    ): Boolean? {
+        val battlerGas = battler.volatileNeutralizingGas.takeIf { battler.itemVolatilesObserved }
+        val opposingGas = opposing.volatileNeutralizingGas.takeIf { opposing.itemVolatilesObserved }
+        return when {
+            battlerGas == true || opposingGas == true -> true
+            battlerGas == false && opposingGas == false -> false
+            else -> null
+        }
     }
 
     /** The exact-trusted, slot-matched runtime record, for decoding newly added operands. */

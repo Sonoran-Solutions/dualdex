@@ -121,7 +121,9 @@ class HnsStateBackedGroupDTest {
         }
         val bypass = context(188, side = HnsAbilitySide.DEFENDER, opponent = 104)
         assertEquals(false, HnsFieldAbilityAuthority(bypass).present(188))
-        assertEquals(true, HnsFieldAbilityAuthority(bypass.copy(defenderItemId = 758)).present(188))
+        assertEquals(true, HnsFieldAbilityAuthority(bypass.copy(
+            defenderItemId = 758, defenderAbilityShieldActiveIgnoringAbility = true
+        )).present(188))
         assertEquals(true, HnsFieldAbilityAuthority(context(188)).present(188))
         assertEquals(inactive, decision(188, context(188, type = PokemonType.DARK)))
         assertEquals(active, decision(188, context(188, type = PokemonType.DARK, opponent = 186)))

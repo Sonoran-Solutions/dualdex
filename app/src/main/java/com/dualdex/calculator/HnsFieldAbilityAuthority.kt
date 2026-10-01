@@ -23,8 +23,13 @@ internal class HnsFieldAbilityAuthority(private val c: HnsAbilityContextPolicy.C
         // Aura Break is breakable; Dark/Fairy Aura and the weather suppressors are not in
         // the pinned GEN_LATEST data. GetBattlerAbility never bypasses the attacker's own ability.
         if (abilityId == 188) {
-            val itemId = c.defenderItemId ?: return null
-            if (itemId == HnsGroupCPolicy.ABILITY_SHIELD_ITEM_ID) return true
+            if (c.defenderItemId == HnsGroupCPolicy.ABILITY_SHIELD_ITEM_ID) {
+                when (c.defenderAbilityShieldActiveIgnoringAbility) {
+                    true -> return true
+                    false -> Unit
+                    null -> return null
+                }
+            }
             if (c.attackerAbilityId in HnsGroupCPolicy.moldBreakerAbilityIds) return false
             val moveId = c.moveId ?: return null
             val flags = Hns205MoveEffects.immunityFlagsById[moveId] ?: return null

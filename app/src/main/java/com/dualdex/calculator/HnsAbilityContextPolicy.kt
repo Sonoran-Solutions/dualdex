@@ -305,6 +305,7 @@ object HnsAbilityContextPolicy {
         val liveBattleState: CalcHnsLiveBattleState? = null,
         val attackerHoldEffectResolution: HnsHoldEffectResolution? = null,
         val defenderHoldEffectResolution: HnsHoldEffectResolution? = null,
+        val defenderAbilityShieldActiveIgnoringAbility: Boolean? = null,
         /** Shared request-local resist-berry decision also serialized to the damage engine. */
         val resistBerryDecision: HnsResistBerryDecision? = null
     )
@@ -1386,6 +1387,8 @@ object HnsAbilityContextPolicy {
             liveBattleState = live,
             attackerHoldEffectResolution = HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER),
             defenderHoldEffectResolution = HnsHoldEffectAuthority.forRequest(request, HnsItemSide.DEFENDER),
+            defenderAbilityShieldActiveIgnoringAbility = HnsHoldEffectAuthority
+                .abilityShieldActiveIgnoringAbilityForRequest(request, HnsItemSide.DEFENDER),
             resistBerryDecision = HnsResistBerryAuthority.forRequest(request)
         )
     }

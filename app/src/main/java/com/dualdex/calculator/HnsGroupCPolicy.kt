@@ -30,8 +30,8 @@ internal object HnsGroupCPolicy {
     // multiscale_ability_shield_preserves, ice_scales_ability_shield_preserves.
     private val defenderDamageAbilitiesBreakableByMoldBreaker = setOf(63, 85, 87, 111, 116, 122, 136, 169, 199, 218, 244, 246)
     private val finalModifierAbilitiesNotBreakableByMoldBreaker = setOf(231, 232)
-    private const val ironBallItem = 484
-    private const val ringTargetItem = 499
+    private val ironBallItem = HnsItemRegistry.resolveIdByName("Iron Ball")
+    private val ringTargetItem = HnsItemRegistry.resolveIdByName("Ring Target")
 
     /** Resolve priority only when every pinned dynamic branch can be decided from request data. */
     fun effectivePriority(request: DamageCalculationRequest, moveId: Int): Int? {
@@ -109,14 +109,20 @@ internal object HnsGroupCPolicy {
             ) return setOf(CalcLimitation.HNS_IMMUNITY_CONTEXT_UNVERIFIED)
         }
 
-        val moveFlagModelsSuppression = "ignoresTargetAbility" in flags && defenderItem != abilityShieldItem
+        val abilityShieldActive = if (defenderItem == abilityShieldItem) {
+            HnsHoldEffectAuthority.abilityShieldActiveIgnoringAbilityForRequest(request, HnsItemSide.DEFENDER)
+        } else false
+        if (defenderItem == abilityShieldItem && abilityShieldActive == null &&
+            attackerAbility in moldBreakerFamilies && defenderAbility != null
+        ) return setOf(CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED)
+        val moveFlagModelsSuppression = "ignoresTargetAbility" in flags && abilityShieldActive != true
         val defenderFinalAbilityIsPinnedUnbreakable = defenderAbility in finalModifierAbilitiesNotBreakableByMoldBreaker
         val defenderFinalAbilityIsPinnedBreakable = defenderAbility in defenderDamageAbilitiesBreakableByMoldBreaker
         if (attackerAbility in moldBreakerFamilies && defenderAbility != null && !moveFlagModelsSuppression &&
             defenderAbilityWouldChangeHit(
-                request, defenderAbility, moveType, flags, moveAuthority.soundMove, defenderItem
+                request, defenderAbility, moveType, flags, moveAuthority.soundMove
             ) &&
-            defenderItem != abilityShieldItem &&
+            abilityShieldActive != true &&
             (defenderFinalAbilityIsPinnedBreakable || !defenderFinalAbilityIsPinnedUnbreakable)
         ) {
             return setOf(CalcLimitation.HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED)
@@ -129,8 +135,7 @@ internal object HnsGroupCPolicy {
         abilityId: Int,
         moveType: PokemonType,
         flags: Set<String>,
-        soundMove: Boolean?,
-        defenderItemId: Int?
+        soundMove: Boolean?
     ): Boolean {
         // A suppressed ability cannot change a hit that the pinned type chart already
         // guarantees will miss. Ring Target and Iron Ball are included by this resolver, so
@@ -144,7 +149,8 @@ internal object HnsGroupCPolicy {
             157 -> moveType == PokemonType.GRASS
             297 -> moveType == PokemonType.GROUND
             273, 18 -> moveType == PokemonType.FIRE
-            26 -> moveType == PokemonType.GROUND && defenderItemId != ironBallItem
+            26 -> moveType == PokemonType.GROUND &&
+                activeHoldEffect(request, HnsItemSide.DEFENDER, "HOLD_EFFECT_IRON_BALL") != true
             25 -> typeEffectiveness(request, moveType)?.let { it <= 1.0 } ?: true
             SOUNDPROOF -> soundMove == true
             PUNK_ROCK -> soundMove == true
@@ -212,7 +218,7 @@ internal object HnsGroupCPolicy {
         if (weather and com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN == 0) return false
         if ((live.attackerHp ?: return true) <= 0 || (live.defenderHp ?: return true) <= 0) return true
         if (abilityId(request.attacker) in setOf(13, 76) || abilityId(request.defender) in setOf(13, 76)) return false
-        return itemId(request.defender) != HnsItemRegistry.resolveIdByName("Utility Umbrella")
+        return activeHoldEffect(request, HnsItemSide.DEFENDER, "HOLD_EFFECT_UTILITY_UMBRELLA") != true
     }
 
     private fun fluffyWouldChangeHit(request: DamageCalculationRequest): Boolean {
@@ -243,10 +249,29 @@ internal object HnsGroupCPolicy {
         if (rawTypes.isEmpty()) return null
         val parsed = rawTypes.map { PokemonType.fromString(it) ?: return null }
         val item = itemId(request.defender)
-        if (moveType == PokemonType.GROUND && item == ironBallItem && PokemonType.FLYING in parsed) return 1.0
+        if (moveType == PokemonType.GROUND && PokemonType.FLYING in parsed) {
+            val ironBallActive = activeHoldEffect(request, HnsItemSide.DEFENDER, "HOLD_EFFECT_IRON_BALL")
+            if (item == ironBallItem && ironBallActive == null) return null
+            if (ironBallActive == true) return 1.0
+        }
+        val ringTargetActive = activeHoldEffect(request, HnsItemSide.DEFENDER, "HOLD_EFFECT_RING_TARGET")
+        if (item == ringTargetItem && ringTargetActive == null) return null
         return parsed.fold(1.0) { acc, type ->
             val cell = pack.getEffectiveness(moveType, type)
-            acc * if (cell == 0.0 && item == ringTargetItem) 1.0 else cell
+            acc * if (cell == 0.0 && ringTargetActive == true) 1.0 else cell
+        }
+    }
+
+    private fun activeHoldEffect(
+        request: DamageCalculationRequest,
+        side: HnsItemSide,
+        expectedEffect: String
+    ): Boolean? {
+        val resolution = HnsHoldEffectAuthority.forRequest(request, side)
+        return when {
+            resolution.state == HnsHoldEffectState.UNKNOWN -> null
+            resolution.state == HnsHoldEffectState.SUPPRESSED_NONE -> false
+            else -> resolution.effectiveHoldEffect == expectedEffect
         }
     }
 

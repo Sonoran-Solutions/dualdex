@@ -3661,7 +3661,7 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `Mold Breaker suppression of defender Levitate fails closed and Ability Shield preserves it`() {
+    fun `Mold Breaker grounding uses the active Ability Shield hold effect`() {
         val trust = trustFor(exactSha)
         val terrain = HnsFieldStatus.MISTY_TERRAIN.mask
         val request = matchupRequest("Dragon Breath", "Snorlax").copy(
@@ -3675,13 +3675,15 @@ class CalcHnsC4eProductionBoundaryTest {
             speciesId = 143, types = listOf(1), abilityId = 26, abilityName = "Levitate",
             fieldStatuses = terrain
         )
-        val unshielded = refusedOf(
+        val unshielded = readyOf(
             build(trust, request, moldBreaker, levitate, randomAbilities = true),
-            "Mold Breaker can suppress breakable defender Levitate, changing Misty Terrain grounding"
+            "Mold Breaker suppresses breakable defender Levitate when Ability Shield is absent"
         )
-        assertEquals(HnsFieldRequestRelevance.UNKNOWN,
+        assertEquals(HnsTerrainApplicability.AFFECTED,
+            unshielded.request.hnsLiveBattleState?.defenderTerrainApplicability)
+        assertEquals(HnsFieldRequestRelevance.MODELLED,
             fieldDecision(unshielded, HnsFieldStatus.MISTY_TERRAIN).relevance)
-        assertTrue(unshielded.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
+        assertFalse(unshielded.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
 
         val shielded = readyOf(
             build(trust, request, moldBreaker,
@@ -3697,6 +3699,20 @@ class CalcHnsC4eProductionBoundaryTest {
         assertFalse(fieldJson.getBoolean("hnsTerrainDefenderAffected"))
         assertTrue(JSONObject(buildCalcRequestJson(shielded.request)).getJSONObject("defender")
             .getBoolean("hnsAbilityShield"))
+
+        val embargoSuppressesShield = readyOf(
+            build(trust, request, moldBreaker,
+                levitate.copy(state = levitate.state.copy(
+                    itemId = 758, itemVolatilesObserved = true, volatileEmbargo = true
+                )), randomAbilities = true),
+            "Embargo suppresses Ability Shield, allowing Mold Breaker to suppress Levitate"
+        )
+        assertEquals(HnsTerrainApplicability.AFFECTED,
+            embargoSuppressesShield.request.hnsLiveBattleState?.defenderTerrainApplicability)
+        assertEquals(HnsFieldRequestRelevance.MODELLED,
+            fieldDecision(embargoSuppressesShield, HnsFieldStatus.MISTY_TERRAIN).relevance)
+        assertFalse(JSONObject(buildCalcRequestJson(embargoSuppressesShield.request))
+            .getJSONObject("defender").getBoolean("hnsAbilityShield"))
     }
 
     @Test

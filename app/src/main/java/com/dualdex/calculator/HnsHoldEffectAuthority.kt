@@ -24,6 +24,7 @@ data class HnsHoldEffectResolution(
  */
 object HnsHoldEffectAuthority {
     private const val KLUTZ_ABILITY_ID = 103
+    private val ABILITY_SHIELD_ITEM_ID = HnsItemRegistry.resolveIdByName("Ability Shield")
 
     fun resolve(
         itemId: Int?,
@@ -111,6 +112,55 @@ object HnsHoldEffectAuthority {
             gastroAcid = (if (attacker) live?.attackerPersistentVolatiles else live?.defenderPersistentVolatiles)
                 ?.takeIf { it.observed }?.gastroAcid,
             neutralizingGasOnField = neutralizingGasOnField
+        )
+    }
+
+    /** Resolves the hold effect for a slot-matched exact runtime observation at the boundary. */
+    fun forObservedRuntime(
+        battler: com.dualdex.pokemon.hns.HnsBattlerRuntimeState,
+        fieldStatuses: Int?,
+        neutralizingGasOnField: Boolean?
+    ): HnsHoldEffectResolution = resolve(
+        itemId = battler.itemId.takeUnless { battler.itemOutOfDomain },
+        itemProvenance = if (battler.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED &&
+            battler.itemId != null && !battler.itemOutOfDomain
+        ) CalcItemProvenance.BATTLE_EFFECTIVE else CalcItemProvenance.UNKNOWN,
+        abilityId = battler.effectiveAbilityId.takeUnless { battler.abilityOutOfDomain },
+        fieldStatuses = fieldStatuses,
+        embargo = battler.volatileEmbargo.takeIf { battler.itemVolatilesObserved },
+        gastroAcid = battler.volatileGastroAcid.takeIf { battler.persistentVolatilesObserved },
+        neutralizingGasOnField = neutralizingGasOnField
+    )
+
+    /**
+     * Ability Shield is queried through GetBattlerHoldEffectIgnoreAbility, so Klutz cannot
+     * suppress this interaction. Magic Room and Embargo still suppress it. Null means the
+     * current item or a suppression operand is not authoritative.
+     */
+    fun abilityShieldActiveIgnoringAbility(
+        itemId: Int?,
+        itemProvenance: CalcItemProvenance,
+        fieldStatuses: Int?,
+        embargo: Boolean?
+    ): Boolean? {
+        if (itemId == null || itemProvenance != CalcItemProvenance.BATTLE_EFFECTIVE) return null
+        if (itemId != ABILITY_SHIELD_ITEM_ID) return false
+        if (fieldStatuses == null || embargo == null) return null
+        return fieldStatuses and HnsFieldStatus.MAGIC_ROOM.mask == 0 && !embargo
+    }
+
+    fun abilityShieldActiveIgnoringAbilityForRequest(
+        request: DamageCalculationRequest,
+        side: HnsItemSide
+    ): Boolean? {
+        val participant = if (side == HnsItemSide.ATTACKER) request.attacker else request.defender
+        val live = request.hnsLiveBattleState ?: return null
+        val embargo = if (side == HnsItemSide.ATTACKER) live.attackerEmbargo else live.defenderEmbargo
+        return abilityShieldActiveIgnoringAbility(
+            participant.itemId,
+            participant.itemProvenance,
+            live.fieldStatuses,
+            embargo
         )
     }
 }

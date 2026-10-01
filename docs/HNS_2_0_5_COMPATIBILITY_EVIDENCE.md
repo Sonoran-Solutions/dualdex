@@ -4027,3 +4027,27 @@ captured but unconsumed damage operand; the matrix names #91 as the terrain/weat
 handoff and #92 as the Booster Energy handoff. Protean/Libero are only clear in the already-mono
 same-move-type case because the current reader does not capture `usedProteanLibero` before the
 selected move's pre-damage type change.
+
+
+## State-backed Group D: official-ROM transition evidence
+
+The current generated layout, source factors, runtime families and census deltas are documented
+in [HNS_STATE_BACKED_GROUP_D.md](HNS_STATE_BACKED_GROUP_D.md). Retained traces are under
+`tools/hns-runtime-probe/evidence/group-d/`; `verify_group_d_evidence.py` checks their identities,
+zero-error summaries, required positive/neutral states, and Analytic phase transitions without
+loading a ROM. Synthetic party fixtures are disclosed; battle state is created by the official
+ROM through normal controller input. No ROM/save/state bytes are committed.
+
+**Correction to the earlier callback evidence:** `artifacts-default/pokehns.sym` is a source-build
+symbol file. Its `gBattleMainFunc=0x03002F5C`, action-selection `0x080893D9` and script callback
+claims were not valid release bindings. The official ROM dispatches through `0x03002F74`, with
+BattleMainCB1 `0x080822F1`, selection `0x08088DED`, and RunTurnActionsFunctions `0x0808AA35`.
+`generate_hns_release_phase_evidence.py` derives these through unique named-source instruction
+matches and the actual dispatcher literal. `release_phase_evidence.json` records the hashes and
+bindings; live frame traces independently confirm the semantics. The prior claims are withdrawn.
+
+The native reader now observes timers, flags, stored counters and selected-gimmick state with
+explicit domains. Analytic publishes a result only during a consistent executing action, then
+invalidates it at the menu/new turn. Official-ROM selected Dynamax remains false because the
+pinned release disables player Dynamax; positive selected/active tests are labelled engine-only
+or native fixtures, never positive official-ROM observations.

@@ -40,6 +40,8 @@ Pinned upstream revision: 1f42b74dff0e9fe942419845d040663dd829a973
 """
 
 import argparse
+import hashlib
+import json
 import os
 import re
 import subprocess
@@ -50,13 +52,21 @@ from pathlib import Path
 PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
 PINNED_TAG = "Release-v2.0.5"
 
-# Official v2.0.5 release ROM symbols (SHA-256
-# edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b).
-# gBattleMainFunc is in IWRAM; this Thumb callback is the stable action
-# selection point used as the wider switch-in/event settlement gate.
-BATTLE_MAIN_FUNC_GBA_ADDRESS = 0x03002F5C
-ACTION_SELECTION_FUNC_PTR = 0x080893D9  # HandleTurnActionSelectionState | 1 (Thumb)
-BATTLE_SCRIPT_CALLBACK_FUNC_PTR = 0x0808B939  # RunBattleScriptCommands_PopCallbacksStack | 1
+# Generated source-build -> official-release bindings, independently observed during
+# real battle transitions. Source-build .sym code/IWRAM addresses do not match this ROM.
+PHASE_EVIDENCE = json.loads(Path(__file__).with_name("release_phase_evidence.json").read_text())
+BATTLE_MAIN_FUNC_GBA_ADDRESS = PHASE_EVIDENCE["gBattleMainFunc"]["address"]
+ACTION_SELECTION_FUNC_PTR = PHASE_EVIDENCE["functions"]["HandleTurnActionSelectionState"]["releaseAddress"] | 1
+RUN_TURN_ACTIONS_FUNC_PTR = PHASE_EVIDENCE["functions"]["RunTurnActionsFunctions"]["releaseAddress"] | 1
+TURN_ORDER_GLOBAL_ADDRESSES = {
+    "gBattlersCount": 0x020000B0,
+    "gBattlerAttacker": 0x02000124,
+    "gCurrentMove": 0x020003A0,
+    "gCurrentActionFuncId": 0x02000125,
+    "gCurrentTurnActionNumber": 0x02000302,
+    "gActionsByTurnOrder": 0x02000304,
+    "gBattlerByTurnOrder": 0x020003B8,
+}
 
 # Same compiled-evidence flags as the other two H&S layout generators (§10 of
 # the compatibility evidence).
@@ -103,8 +113,10 @@ def build_probe_c() -> str:
             "   not part of any build. */",
             "#include \"global.h\"",
             "#include \"battle.h\"",
+            "#include \"main.h\"",
             "#include \"constants/battle_switch_in.h\"",
             "const unsigned long ddx_sizeof_volatiles = sizeof(struct Volatiles);",
+            "const unsigned long ddx_main_callback1_offset = __builtin_offsetof(struct Main, callback1);",
             "const unsigned long ddx_hp_offset =",
             "    __builtin_offsetof(struct BattlePokemon, hp);",
             "const unsigned long ddx_hp_size =",
@@ -117,6 +129,10 @@ def build_probe_c() -> str:
             "    __builtin_offsetof(struct BattlePokemon, status1);",
             "const unsigned long ddx_status_size =",
             "    sizeof(((struct BattlePokemon *)0)->status1);",
+            "const unsigned long ddx_personality_offset =",
+            "    __builtin_offsetof(struct BattlePokemon, personality);",
+            "const unsigned long ddx_personality_size =",
+            "    sizeof(((struct BattlePokemon *)0)->personality);",
             "const unsigned long ddx_volatiles_offset =",
             "    __builtin_offsetof(struct BattlePokemon, volatiles);",
             "const unsigned long ddx_gimmick_offset =",
@@ -133,12 +149,28 @@ def build_probe_c() -> str:
             "const struct EventStates ddx_event_switch_in_one = { .switchIn = 1 };",
             "const struct EventStates ddx_event_switch_in_all = { .switchIn = (enum SwitchInEvents)0xFF };",
             "const struct BattlerState ddx_battler_switch_in = { .switchIn = 1 };",
+            "const struct BattlerState ddx_battler_first_turn_two = { .isFirstTurn = 3 };",
             "const unsigned long ddx_active_gimmick_offset =",
             "    __builtin_offsetof(struct BattleGimmickData, activeGimmick);",
+            "const unsigned long ddx_usable_gimmick_offset =",
+            "    __builtin_offsetof(struct BattleGimmickData, usableGimmick);",
+            "const unsigned long ddx_player_select_offset =",
+            "    __builtin_offsetof(struct BattleGimmickData, playerSelect);",
+            "const unsigned long ddx_battle_struct_supreme_overlord_counter_offset =",
+            "    __builtin_offsetof(struct BattleStruct, supremeOverlordCounter);",
+            "const unsigned long ddx_supreme_overlord_counter_stride =",
+            "    sizeof(((struct BattleStruct *)0)->supremeOverlordCounter[0]);",
+            "const unsigned long ddx_supreme_overlord_counter_count =",
+            "    sizeof(((struct BattleStruct *)0)->supremeOverlordCounter) / sizeof(((struct BattleStruct *)0)->supremeOverlordCounter[0]);",
+            "const unsigned long ddx_b_action_use_move = B_ACTION_USE_MOVE;",
+            "const unsigned long ddx_b_action_exec_script = B_ACTION_EXEC_SCRIPT;",
             "const unsigned long ddx_gimmick_side_count = NUM_BATTLE_SIDES;",
             "const unsigned long ddx_gimmick_party_count = PARTY_SIZE;",
             "const unsigned long ddx_gimmick_count = GIMMICKS_COUNT;",
+            "const unsigned long ddx_gimmick_dynamax = GIMMICK_DYNAMAX;",
+            "const unsigned long ddx_num_stats = NUM_STATS;",
             "const struct Volatiles ddx_v_none = {0};",
+            "const struct Volatiles ddx_v_neutralizing_gas = { .neutralizingGas = 1 };",
             "const struct Volatiles ddx_v_electrified = { .electrified = 1 };",
             "const struct Volatiles ddx_v_glaive_rush = { .glaiveRush = 1 };",
             "const struct Volatiles ddx_v_minimize = { .minimize = 1 };",
@@ -159,6 +191,15 @@ def build_probe_c() -> str:
             # computed damage and `endured` caps it at HP-1.
             "const struct Volatiles ddx_v_substitute = { .substitute = 1 };",
             "const struct Volatiles ddx_v_endured = { .endured = 1 };",
+            "const struct Volatiles ddx_v_slow_start_timer = { .slowStartTimer = ~0u };",
+            "const struct Volatiles ddx_v_flash_fire_boosted = { .flashFireBoosted = 1 };",
+            "const struct Volatiles ddx_v_transformed = { .transformed = 1 };",
+            "const struct Volatiles ddx_v_booster_energy_activated = { .boosterEnergyActivated = 1 };",
+            "const struct Volatiles ddx_v_paradox_boosted_stat = { .paradoxBoostedStat = (enum Stat)~0u };",
+            "const struct Volatiles ddx_v_vessel_of_ruin = { .vesselOfRuin = 1 };",
+            "const struct Volatiles ddx_v_sword_of_ruin = { .swordOfRuin = 1 };",
+            "const struct Volatiles ddx_v_tablets_of_ruin = { .tabletsOfRuin = 1 };",
+            "const struct Volatiles ddx_v_beads_of_ruin = { .beadsOfRuin = 1 };",
             "",
         ]
     )
@@ -288,16 +329,31 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
     commands = (upstream_path / "src/battle_script_commands.c").read_text()
     if not re.search(r"extern\s+void\s*\(\*gBattleMainFunc\)\(void\);", battle_h):
         fail("gBattleMainFunc declaration changed; re-audit the switch-in phase gate")
+    for symbol in TURN_ORDER_GLOBAL_ADDRESSES:
+        if not re.search(rf"\b{symbol}\b", battle_h) and not re.search(rf"\b{symbol}\b", battle_main):
+            fail(f"turn-order source symbol {symbol} disappeared")
+    runtime_declarations = ((upstream_path / POKEMON_H).read_text() + "\n" +
+                            (upstream_path / "include/constants/battle.h").read_text())
+    for required in ("u32 personality;", "slowStartTimer,", "flashFireBoosted,",
+                     "transformed,", "boosterEnergyActivated,", "paradoxBoostedStat,",
+                     "vesselOfRuin,", "swordOfRuin,", "tabletsOfRuin,", "beadsOfRuin,"):
+        if required not in runtime_declarations:
+            fail(f"pinned runtime field declaration changed: {required}")
+    if not re.search(r"u16\s+isFirstTurn\s*:\s*2\s*;", battle_h):
+        fail("BattlerState.isFirstTurn source domain changed; re-audit Stakeout")
+    if "u8 supremeOverlordCounter[MAX_BATTLERS_COUNT]" not in battle_h:
+        fail("BattleStruct.supremeOverlordCounter source declaration changed")
     if not re.search(r"gBattleMainFunc\s*=\s*HandleTurnActionSelectionState\s*;", battle_main):
         fail("pinned source no longer assigns the action-selection callback")
-    execute_script = re.search(
-        r"void BattleScriptExecute\([^)]*\)\s*\{(.*?)\n\}", battle_util, re.S
-    )
-    if not execute_script or not re.search(
-        r"gBattleMainFunc\s*=\s*RunBattleScriptCommands_PopCallbacksStack\s*;",
-        execute_script.group(1),
-    ):
-        fail("pinned source no longer routes battle scripts through the main callback")
+    use_move = re.search(r"void HandleAction_UseMove\(void\)\s*\{(.*?)\n\}", battle_util, re.S)
+    for statement in ("gBattlerAttacker = gBattlerByTurnOrder[gCurrentTurnActionNumber];",
+                      "gCurrentActionFuncId = B_ACTION_EXEC_SCRIPT;"):
+        if not use_move or statement not in use_move.group(1):
+            fail("current move execution provenance changed; re-audit Analytic")
+    if "[B_ACTION_EXEC_SCRIPT]            = HandleAction_RunBattleScript" not in battle_main:
+        fail("current action script dispatch changed")
+    if "gBattleMainFunc = RunTurnActionsFunctions;" not in battle_main:
+        fail("turn action execution callback changed")
     data_update = re.search(
         r"static void Cmd_switchindataupdate\(void\)\s*\{(.*?)\n\}", commands, re.S
     )
@@ -320,11 +376,21 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
 
     pins["battle_main_func_gba_address"] = BATTLE_MAIN_FUNC_GBA_ADDRESS
     pins["action_selection_func_ptr"] = ACTION_SELECTION_FUNC_PTR
-    pins["battle_script_callback_func_ptr"] = BATTLE_SCRIPT_CALLBACK_FUNC_PTR
+    pins["run_turn_actions_func_ptr"] = RUN_TURN_ACTIONS_FUNC_PTR
+    pins.update({f"{name.lower()}_gba_address": address
+                 for name, address in TURN_ORDER_GLOBAL_ADDRESSES.items()})
 
-    # A built upstream checkout may carry its ignored .sym artifact. When
-    # available, cross-check the fixed official-release addresses against it;
-    # the committed ROM evidence remains the source when CI uses a sparse tree.
+    if PHASE_EVIDENCE["upstreamCommit"] != PINNED_COMMIT or PHASE_EVIDENCE["releaseRomSha256"] != (
+        "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b"
+    ):
+        fail("release phase evidence identity changed")
+    for path, expected in PHASE_EVIDENCE["sourceFiles"].items():
+        if hashlib.sha256((upstream_path / path).read_bytes()).hexdigest() != expected:
+            fail(f"release phase source changed: {path}")
+    if any(binding["matches"] != 1 for binding in PHASE_EVIDENCE["functions"].values()):
+        fail("release phase binding is not unique")
+    # EWRAM globals retain source-build addresses, independently checked by live
+    # reader transitions. Do not use the ignored source-build .sym as release code authority.
     symbols_path = upstream_path / "pokehns.sym"
     if symbols_path.is_file():
         symbols = {}
@@ -332,18 +398,15 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
             match = re.match(r"^([0-9a-fA-F]+)\s+\S+\s+\S+\s+(\S+)\s*$", line)
             if match:
                 symbols[match.group(2)] = int(match.group(1), 16)
-        for symbol, expected in (
-            ("gBattleMainFunc", BATTLE_MAIN_FUNC_GBA_ADDRESS),
-            ("HandleTurnActionSelectionState", ACTION_SELECTION_FUNC_PTR & ~1),
-            ("RunBattleScriptCommands_PopCallbacksStack", BATTLE_SCRIPT_CALLBACK_FUNC_PTR & ~1),
-        ):
+        for symbol, expected in TURN_ORDER_GLOBAL_ADDRESSES.items():
             if symbols.get(symbol) != expected:
-                fail(f"pinned release symbol {symbol} is {symbols.get(symbol)!r}, expected 0x{expected:08X}")
+                fail(f"pinned EWRAM symbol {symbol} changed")
     return pins
 
 
 def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> str:
     hp_offset = compiled["hp_offset"]
+    personality_offset = compiled["personality_offset"]
     max_hp_offset = compiled["max_hp_offset"]
     status_offset = compiled["status_offset"]
     volatiles_offset = compiled["volatiles_offset"]
@@ -390,6 +453,7 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         " * 0xNN member comments, which are stale):",
         f" *   sizeof(struct Volatiles)     = {sizeof_volatiles}",
         f" *   BattlePokemon.hp             = {hp_offset}",
+        f" *   BattlePokemon.personality    = {personality_offset} ({compiled['personality_size']} bytes)",
         f" *   BattlePokemon.maxHP          = {max_hp_offset}",
         f" *   BattlePokemon.status1        = {status_offset}",
         f" *   BattlePokemon.volatiles      = {volatiles_offset}",
@@ -413,6 +477,15 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f" *   volatile roostActive bit     = {compiled['volatile_roost_active_bit']}",
         f" *   volatile substitute bit       = {compiled['volatile_substitute_bit']}",
         f" *   volatile endured bit         = {compiled['volatile_endured_bit']}",
+        f" *   volatile slowStartTimer      = bit {compiled['volatile_slow_start_timer_bit']} width {compiled['volatile_slow_start_timer_width']}",
+        f" *   volatile flashFireBoosted    = bit {compiled['volatile_flash_fire_boosted_bit']}",
+        f" *   volatile transformed        = bit {compiled['volatile_transformed_bit']}",
+        f" *   volatile boosterEnergyActivated = bit {compiled['volatile_booster_energy_activated_bit']}",
+        f" *   volatile paradoxBoostedStat = bit {compiled['volatile_paradox_boosted_stat_bit']} width {compiled['volatile_paradox_boosted_stat_width']}",
+        f" *   volatile vesselOfRuin       = bit {compiled['volatile_vessel_of_ruin_bit']}",
+        f" *   volatile swordOfRuin        = bit {compiled['volatile_sword_of_ruin_bit']}",
+        f" *   volatile tabletsOfRuin      = bit {compiled['volatile_tablets_of_ruin_bit']}",
+        f" *   volatile beadsOfRuin        = bit {compiled['volatile_beads_of_ruin_bit']}",
         f" *   volatile read window         = {compiled['volatile_window_bytes']} bytes",
         f" *   BattleStruct.gimmick         = {compiled['gimmick_offset']}",
         f" *   BattleStruct.eventState      = {compiled['battle_struct_event_state_offset']}",
@@ -421,11 +494,16 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f" *   BattleStruct.monToSwitchIntoId = {compiled['battle_struct_mon_to_switch_into_id_offset']}",
         f" *   sizeof(struct BattlerState)  = {compiled['battler_state_size']}",
         f" *   BattlerState.switchIn        = bit {compiled['battler_state_switch_in_bit']}",
+        f" *   BattlerState.isFirstTurn     = bit {compiled['battler_state_is_first_turn_bit']} width {compiled['battler_state_is_first_turn_width']}",
         f" *   SWITCH_IN_EVENTS_COUNT      = {compiled['switch_in_events_count']}",
         f" *   BattleGimmickData.activeGimmick = {compiled['active_gimmick_offset']}",
+        f" *   BattleGimmickData.usableGimmick = {compiled['usable_gimmick_offset']}",
+        f" *   BattleGimmickData.playerSelect = {compiled['player_select_offset']}",
+        f" *   BattleStruct.supremeOverlordCounter = {compiled['supreme_overlord_counter_offset']} stride {compiled['supreme_overlord_counter_stride']} count {compiled['supreme_overlord_counter_count']}",
         f" *   gBattleMainFunc (IWRAM)      = 0x{pins['battle_main_func_gba_address']:08X}",
         f" *   action-selection callback  = 0x{pins['action_selection_func_ptr']:08X}",
-        f" *   battle-script callback    = 0x{pins['battle_script_callback_func_ptr']:08X}",
+        f" *   RunTurnActionsFunctions   = 0x{pins['run_turn_actions_func_ptr']:08X}",
+        *[f" *   {name} (IWRAM/EWRAM) = 0x{address:08X}" for name, address in TURN_ORDER_GLOBAL_ADDRESSES.items()],
         "",
         " * Source and official-symbol cross-check:",
     ]
@@ -449,6 +527,8 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_BP_MAX_HP_SIZE {compiled['max_hp_size']}",
         f"#define HNS_LIVE_BP_STATUS_OFFSET {status_offset}",
         f"#define HNS_LIVE_BP_STATUS_SIZE {compiled['status_size']}",
+        f"#define HNS_LIVE_BP_PERSONALITY_OFFSET {personality_offset}",
+        f"#define HNS_LIVE_BP_PERSONALITY_SIZE {compiled['personality_size']}",
         f"#define HNS_LIVE_BP_VOLATILES_OFFSET {volatiles_offset}",
         f"#define HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT {compiled['volatile_electrified_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT {compiled['volatile_glaive_rush_bit']}",
@@ -468,6 +548,17 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT {compiled['volatile_roost_active_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT {compiled['volatile_substitute_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_ENDURED_BIT {compiled['volatile_endured_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_BIT {compiled['volatile_slow_start_timer_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_WIDTH {compiled['volatile_slow_start_timer_width']}",
+        f"#define HNS_LIVE_BP_VOLATILE_FLASH_FIRE_BOOSTED_BIT {compiled['volatile_flash_fire_boosted_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_TRANSFORMED_BIT {compiled['volatile_transformed_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_BOOSTER_ENERGY_ACTIVATED_BIT {compiled['volatile_booster_energy_activated_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_BIT {compiled['volatile_paradox_boosted_stat_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_WIDTH {compiled['volatile_paradox_boosted_stat_width']}",
+        f"#define HNS_LIVE_BP_VOLATILE_VESSEL_OF_RUIN_BIT {compiled['volatile_vessel_of_ruin_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT {compiled['volatile_sword_of_ruin_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT {compiled['volatile_tablets_of_ruin_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT {compiled['volatile_beads_of_ruin_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_WINDOW_BYTES {compiled['volatile_window_bytes']}",
         f"#define HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET {compiled['gimmick_offset']}",
         f"#define HNS_LIVE_BATTLE_STRUCT_EVENT_STATE_OFFSET {compiled['battle_struct_event_state_offset']}",
@@ -477,15 +568,30 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_BATTLE_STRUCT_MON_TO_SWITCH_INTO_ID_OFFSET {compiled['battle_struct_mon_to_switch_into_id_offset']}",
         f"#define HNS_LIVE_BATTLER_STATE_SIZE {compiled['battler_state_size']}",
         f"#define HNS_LIVE_BATTLER_STATE_SWITCH_IN_BIT {compiled['battler_state_switch_in_bit']}",
+        f"#define HNS_LIVE_BATTLER_STATE_IS_FIRST_TURN_BIT {compiled['battler_state_is_first_turn_bit']}",
+        f"#define HNS_LIVE_BATTLER_STATE_IS_FIRST_TURN_WIDTH {compiled['battler_state_is_first_turn_width']}",
         f"#define HNS_LIVE_MAX_BATTLERS_COUNT {compiled['max_battlers_count']}",
         f"#define HNS_LIVE_SWITCH_IN_EVENTS_COUNT {compiled['switch_in_events_count']}",
         f"#define HNS_LIVE_BATTLE_MAIN_FUNC_GBA_ADDRESS 0x{pins['battle_main_func_gba_address']:08X}u",
+        f"#define HNS_LIVE_MAIN_CALLBACK1_OFFSET {compiled['main_callback1_offset']}",
+        f"#define HNS_LIVE_BATTLE_MAIN_CB1_FUNC_PTR 0x{PHASE_EVIDENCE['functions']['BattleMainCB1']['releaseAddress'] | 1:08X}u",
         f"#define HNS_LIVE_ACTION_SELECTION_FUNC_PTR 0x{pins['action_selection_func_ptr']:08X}u",
-        f"#define HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR 0x{pins['battle_script_callback_func_ptr']:08X}u",
+        f"#define HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR 0x{pins['run_turn_actions_func_ptr']:08X}u",
         f"#define HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET {compiled['active_gimmick_offset']}",
+        f"#define HNS_LIVE_BATTLE_GIMMICK_USABLE_OFFSET {compiled['usable_gimmick_offset']}",
+        f"#define HNS_LIVE_BATTLE_GIMMICK_PLAYER_SELECT_OFFSET {compiled['player_select_offset']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT {compiled['gimmick_side_count']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT {compiled['gimmick_party_count']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_COUNT {compiled['gimmick_count']}",
+        f"#define HNS_LIVE_GIMMICK_DYNAMAX_VALUE {compiled['gimmick_dynamax']}",
+        f"#define HNS_LIVE_NUM_STATS {compiled['num_stats']}",
+        f"#define HNS_LIVE_BATTLE_STRUCT_SUPREME_OVERLORD_COUNTER_OFFSET {compiled['supreme_overlord_counter_offset']}",
+        f"#define HNS_LIVE_SUPREME_OVERLORD_COUNTER_STRIDE {compiled['supreme_overlord_counter_stride']}",
+        f"#define HNS_LIVE_SUPREME_OVERLORD_COUNTER_COUNT {compiled['supreme_overlord_counter_count']}",
+        f"#define HNS_LIVE_B_ACTION_EXEC_SCRIPT {compiled['b_action_exec_script']}",
+        f"#define HNS_LIVE_BP_VOLATILE_NEUTRALIZING_GAS_BIT {compiled['volatile_neutralizing_gas_bit']}",
+        f"#define HNS_LIVE_B_ACTION_USE_MOVE {compiled['b_action_use_move']}",
+        *[f"#define HNS_LIVE_{name.upper()}_GBA_ADDRESS 0x{address:08X}u" for name, address in TURN_ORDER_GLOBAL_ADDRESSES.items()],
         "",
         "/*",
         " * Field-domain sentinels from the pinned source, recorded here so the",
@@ -504,6 +610,9 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         "#endif",
         "#if HNS_LIVE_BP_STATUS_OFFSET + HNS_LIVE_BP_STATUS_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
         "#error \"BattlePokemon status1 field exceeds the compiled struct size\"",
+        "#endif",
+        "#if HNS_LIVE_BP_PERSONALITY_OFFSET + HNS_LIVE_BP_PERSONALITY_SIZE > HNS_BATTLE_POKEMON_SIZEOF",
+        "#error \"BattlePokemon personality field exceeds the compiled struct size\"",
         "#endif",
         "#if HNS_LIVE_BP_VOLATILES_OFFSET + HNS_LIVE_BP_VOLATILE_WINDOW_BYTES > HNS_BATTLE_POKEMON_SIZEOF",
         "#error \"BattlePokemon volatiles read window exceeds the compiled struct size\"",
@@ -525,7 +634,16 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         "HNS_LIVE_BP_VOLATILE_GASTRO_ACID_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
         "HNS_LIVE_BP_VOLATILE_ROOST_ACTIVE_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
         "HNS_LIVE_BP_VOLATILE_SUBSTITUTE_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
-        "HNS_LIVE_BP_VOLATILE_ENDURED_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES",
+        "HNS_LIVE_BP_VOLATILE_ENDURED_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_BIT + HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_WIDTH > 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_FLASH_FIRE_BOOSTED_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_TRANSFORMED_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_BOOSTER_ENERGY_ACTIVATED_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_BIT + HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_WIDTH > 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_VESSEL_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES",
         "#error \"an exported volatile bit exceeds the generated read window\"",
         "#endif",
         "#if HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET + HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT * HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT > 64",
@@ -612,9 +730,12 @@ def main() -> None:
         blob, base_addr = _read_rodata(obj_path, arm_gcc)
         syms = read_symbols(obj_path, arm_gcc)
         compiled = {
+            "main_callback1_offset": scalar(blob, base_addr, syms, "ddx_main_callback1_offset"),
             "sizeof_volatiles": scalar(blob, base_addr, syms, "ddx_sizeof_volatiles"),
             "hp_offset": scalar(blob, base_addr, syms, "ddx_hp_offset"),
             "hp_size": scalar(blob, base_addr, syms, "ddx_hp_size"),
+            "personality_offset": scalar(blob, base_addr, syms, "ddx_personality_offset"),
+            "personality_size": scalar(blob, base_addr, syms, "ddx_personality_size"),
             "max_hp_offset": scalar(blob, base_addr, syms, "ddx_max_hp_offset"),
             "max_hp_size": scalar(blob, base_addr, syms, "ddx_max_hp_size"),
             "status_offset": scalar(blob, base_addr, syms, "ddx_status_offset"),
@@ -635,6 +756,14 @@ def main() -> None:
             "volatile_substitute_bit": single_bit(blob, base_addr, syms, "ddx_v_substitute"),
             "volatile_endured_bit": single_bit(blob, base_addr, syms, "ddx_v_endured"),
             "gimmick_offset": scalar(blob, base_addr, syms, "ddx_gimmick_offset"),
+            "usable_gimmick_offset": scalar(blob, base_addr, syms, "ddx_usable_gimmick_offset"),
+            "player_select_offset": scalar(blob, base_addr, syms, "ddx_player_select_offset"),
+            "supreme_overlord_counter_offset": scalar(blob, base_addr, syms, "ddx_battle_struct_supreme_overlord_counter_offset"),
+            "supreme_overlord_counter_stride": scalar(blob, base_addr, syms, "ddx_supreme_overlord_counter_stride"),
+            "supreme_overlord_counter_count": scalar(blob, base_addr, syms, "ddx_supreme_overlord_counter_count"),
+            "b_action_exec_script": scalar(blob, base_addr, syms, "ddx_b_action_exec_script"),
+            "volatile_neutralizing_gas_bit": single_bit(blob, base_addr, syms, "ddx_v_neutralizing_gas"),
+            "b_action_use_move": scalar(blob, base_addr, syms, "ddx_b_action_use_move"),
             "battle_struct_event_state_offset": scalar(blob, base_addr, syms, "ddx_battle_struct_event_state_offset"),
             "battle_struct_battler_state_offset": scalar(blob, base_addr, syms, "ddx_battle_struct_battler_state_offset"),
             "battle_struct_mon_to_switch_into_id_offset": scalar(blob, base_addr, syms, "ddx_battle_struct_mon_to_switch_into_id_offset"),
@@ -645,6 +774,8 @@ def main() -> None:
             "gimmick_side_count": scalar(blob, base_addr, syms, "ddx_gimmick_side_count"),
             "gimmick_party_count": scalar(blob, base_addr, syms, "ddx_gimmick_party_count"),
             "gimmick_count": scalar(blob, base_addr, syms, "ddx_gimmick_count"),
+            "gimmick_dynamax": scalar(blob, base_addr, syms, "ddx_gimmick_dynamax"),
+            "num_stats": scalar(blob, base_addr, syms, "ddx_num_stats"),
         }
         semibit, semiwidth = multi_bit(blob, base_addr, syms, "ddx_v_semi_invulnerable")
         compiled["volatile_semi_invulnerable_bit"] = semibit
@@ -658,6 +789,27 @@ def main() -> None:
         compiled["battler_state_switch_in_bit"] = single_bit(
             blob, base_addr, syms, "ddx_battler_switch_in"
         )
+        first_turn_bit, first_turn_width = multi_bit(blob, base_addr, syms, "ddx_battler_first_turn_two")
+        compiled["battler_state_is_first_turn_bit"] = first_turn_bit
+        compiled["battler_state_is_first_turn_width"] = first_turn_width
+        if first_turn_width != 2:
+            fail(f"BattlerState.isFirstTurn probe found width {first_turn_width}, expected 2")
+        for field, probe in (
+            ("volatile_flash_fire_boosted_bit", "ddx_v_flash_fire_boosted"),
+            ("volatile_transformed_bit", "ddx_v_transformed"),
+            ("volatile_booster_energy_activated_bit", "ddx_v_booster_energy_activated"),
+            ("volatile_vessel_of_ruin_bit", "ddx_v_vessel_of_ruin"),
+            ("volatile_sword_of_ruin_bit", "ddx_v_sword_of_ruin"),
+            ("volatile_tablets_of_ruin_bit", "ddx_v_tablets_of_ruin"),
+            ("volatile_beads_of_ruin_bit", "ddx_v_beads_of_ruin"),
+        ):
+            compiled[field] = single_bit(blob, base_addr, syms, probe)
+        slow_start_bit, slow_start_width = multi_bit(blob, base_addr, syms, "ddx_v_slow_start_timer")
+        compiled["volatile_slow_start_timer_bit"] = slow_start_bit
+        compiled["volatile_slow_start_timer_width"] = slow_start_width
+        paradox_bit, paradox_width = multi_bit(blob, base_addr, syms, "ddx_v_paradox_boosted_stat")
+        compiled["volatile_paradox_boosted_stat_bit"] = paradox_bit
+        compiled["volatile_paradox_boosted_stat_width"] = paradox_width
         if single_bit(blob, base_addr, syms, "ddx_event_switch_in_one") != event_bit:
             fail("EventStates.switchIn bit probe disagrees between value 1 and full-width probe")
         # Read window: enough bytes to cover the highest exported volatile bit. Reading only
@@ -681,11 +833,33 @@ def main() -> None:
             compiled["volatile_roost_active_bit"],
             compiled["volatile_substitute_bit"],
             compiled["volatile_endured_bit"],
+            compiled["volatile_slow_start_timer_bit"] + compiled["volatile_slow_start_timer_width"] - 1,
+            compiled["volatile_flash_fire_boosted_bit"],
+            compiled["volatile_transformed_bit"],
+            compiled["volatile_booster_energy_activated_bit"],
+            compiled["volatile_paradox_boosted_stat_bit"] + compiled["volatile_paradox_boosted_stat_width"] - 1,
+            compiled["volatile_vessel_of_ruin_bit"],
+            compiled["volatile_sword_of_ruin_bit"],
+            compiled["volatile_tablets_of_ruin_bit"],
+            compiled["volatile_beads_of_ruin_bit"],
+            compiled["volatile_neutralizing_gas_bit"],
         ]
         compiled["volatile_window_bytes"] = max(volatile_last_bits) // 8 + 1
 
     generated = render_header(arm_gcc, compiled, pins, None)
     out_path = Path(args.output) if args.output else (repo_root / OUTPUT_HEADER)
+    domains = {"NUM_STATS": compiled["num_stats"], "GIMMICKS_COUNT": compiled["gimmick_count"],
+               "GIMMICK_DYNAMAX": compiled["gimmick_dynamax"],
+               "SLOW_START_MAX": (1 << compiled["volatile_slow_start_timer_width"]) - 1,
+               "FIRST_TURN_MAX": (1 << compiled["battler_state_is_first_turn_width"]) - 1}
+    kotlin = "// Generated by tools/hns-layout/generate_hns_live_battle_layout.py; do not edit.\n"
+    kotlin += f"// Pinned source: {PINNED_COMMIT}\npackage com.dualdex.pokemon.hns\n\n"
+    kotlin += "object HnsGroupDLayout {\n" + "".join(
+        f"    const val {name} = {value}\n" for name, value in domains.items()) + "}\n"
+    additional = {} if args.output else {
+        repo_root / "tools/hns-layout/group_d_domains.json": json.dumps(domains, indent=2, sort_keys=True) + "\n",
+        repo_root / "app/src/main/java/com/dualdex/pokemon/hns/HnsGroupDLayout.kt": kotlin,
+    }
     if args.verify:
         if not out_path.is_file():
             fail(f"{out_path} does not exist; run without --verify to generate it")
@@ -695,8 +869,13 @@ def main() -> None:
                 "the committed layout artifact is stale"
             )
         print(f"verified {out_path.relative_to(repo_root)}")
+        for path, content in additional.items():
+            if not path.is_file() or path.read_text() != content:
+                fail(f"{path} is stale; regenerate the live layout")
         return
     out_path.write_text(generated)
+    for path, content in additional.items():
+        path.write_text(content)
     print(f"wrote {out_path.relative_to(repo_root)}")
 
 

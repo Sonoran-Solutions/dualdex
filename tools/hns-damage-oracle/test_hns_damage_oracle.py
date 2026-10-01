@@ -41,7 +41,7 @@ def observed_for(s: dict) -> dict:
                "abilityId": 15, "itemId": 0, "hpAtHit": s["attacker"]["stats"]["hp"],
                "status1": {"none": 0, "poison": 8, "burn": 16, "toxic": 128, "paralysis": 64}[s["attacker"]["status"]],
                "badgeBoosts": {"attack": False, "defense": False, "spAttack": False, "spDefense": False},
-               "terrainAffected": s["field"]["terrain"] != "none"}
+               "terrainAffected": s["field"]["terrain"] != "none", "runtime": None}
     dfn = copy.deepcopy(battler)
     dfn["hpAtHit"] = s["defender"]["stats"]["hp"]
     dfn["status1"] = {"none": 0, "poison": 8, "burn": 16, "toxic": 128, "paralysis": 64}[s["defender"]["status"]]
@@ -82,6 +82,22 @@ def good_corpus() -> dict:
 
 
 class ScenarioSchemaTest(unittest.TestCase):
+    def test_state_backed_group_d_covers_every_identity_and_rejects_invalid_operands(self):
+        selected = [s for s in SCENARIOS if s["id"].startswith("state-d-")]
+        abilities = {s[role]["ability"] for s in selected for role in ("attacker", "defender")}
+        expected = {"FLASH_FIRE", "RIVALRY", "SLOW_START", "ANALYTIC", "STAKEOUT", "GORILLA_TACTICS",
+                    "PROTOSYNTHESIS", "QUARK_DRIVE", "SUPREME_OVERLORD", "DARK_AURA", "FAIRY_AURA",
+                    "AURA_BREAK", "VESSEL_OF_RUIN", "SWORD_OF_RUIN", "TABLETS_OF_RUIN", "BEADS_OF_RUIN"}
+        self.assertTrue({"ABILITY_" + name for name in expected}.issubset(abilities))
+        self.assertTrue(all(s["stateSetup"] for s in selected))
+        for field, invalid in (("slowStartTimer", 8), ("paradoxBoostedStat", 7),
+                               ("supremeOverlordCounter", 6), ("isFirstTurn", 4),
+                               ("dynamaxSelected", 2), ("selectedGimmick", 6), ("flashFireBoosted", -1)):
+            s = copy.deepcopy(selected[0])
+            s["stateSetup"] = {"attacker": {field: invalid}}
+            with self.subTest(field=field), self.assertRaises(schema.SchemaError):
+                schema.validate_scenarios([s])
+
     def test_matrix_is_valid_large_and_deterministic(self):
         schema.validate_scenarios(SCENARIOS)
         self.assertGreaterEqual(len(SCENARIOS), 1000)
@@ -616,7 +632,8 @@ class HarnessGuardTest(unittest.TestCase):
         for name in backend.HARNESS_PATCHES:
             text = (backend.PATCH_DIR / name).read_text()
             targets = [line[6:] for line in text.splitlines() if line.startswith("+++ b/")]
-            self.assertEqual(targets, ["test/test_runner.c"])
+            expected = "test/test_runner.c" if name.startswith("0001") else "test/test_runner_battle.c"
+            self.assertEqual(targets, [expected])
 
     def test_export_replaces_a_modified_cached_source_tree(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -664,6 +681,22 @@ class HandDerivationTest(unittest.TestCase):
 
 class CommittedCorpusTest(unittest.TestCase):
     """The normal CI path: committed artifacts only, no subprocess, no upstream, no ROM."""
+
+    def test_state_backed_operands_are_observed_at_hit_with_all_sixteen_rolls(self):
+        doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
+        for entry in doc["entries"]:
+            scenario = entry["scenario"]
+            if not scenario["stateSetup"]:
+                continue
+            self.assertEqual(len(entry["rolls"]), 16)
+            for role in ("attacker", "defender"):
+                runtime = entry["observed"][role]["runtime"]
+                self.assertEqual(set(runtime), set(schema.RUNTIME_DOMAINS))
+                for key, value in scenario["stateSetup"].get(role, {}).items():
+                    observed = runtime[key] if key != "dynamaxSelected" else runtime["selectedGimmick"] == 4
+                    expected = value if key != "dynamaxSelected" else bool(value)
+                    self.assertEqual(observed, expected, f"{scenario['id']} {role}.{key}")
+                self.assertIn(runtime["gender"], (0, 254, 255))
 
     def test_check_uses_no_external_process_or_upstream(self):
         def refuse(*_a, **_k):
@@ -736,7 +769,7 @@ class CommittedCorpusTest(unittest.TestCase):
             "group-d-fluffy-protective-pads-do-not-suppress-contact", "group-d-fluffy-mold-breaker",
             "group-d-fluffy-ability-shield", "group-d-reckless-ordinary-hit-clear",
             "group-d-sand-force-sandstorm-ground-engine-only", "group-d-sand-force-sandstorm-normal-clear",
-            "group-d-sand-force-sun-clear", "group-d-battery-singles-self-clear",
+            "group-d-sand-force-cloud-nine-no-boost", "group-d-sand-force-sun-clear", "group-d-battery-singles-self-clear",
             "group-d-battery-defender-singles-clear", "group-d-power-spot-singles-self-clear",
             "group-d-power-spot-defender-singles-clear",
         }
@@ -748,6 +781,15 @@ class CommittedCorpusTest(unittest.TestCase):
         self.assertFalse(by_id["group-d-tough-claws-flamethrower-noncontact"]["observed"]["move"]["makesContact"])
         self.assertTrue(by_id["group-d-sheer-force-scald-helper-positive"]["observed"]["move"]["sheerForceAffected"])
         self.assertFalse(by_id["group-d-sheer-force-pay-day-helper-negative"]["observed"]["move"]["sheerForceAffected"])
+        # Each Flower Gift control changes only the named predicate: form, weather, category,
+        # holder item, or a live weather suppressor.
+        flower = {sid: by_id[sid]["scenario"] for sid in expected_ids if "flower-gift" in sid}
+        self.assertEqual(flower["group-d-flower-gift-attacker-no-sun"]["attacker"]["speciesLabel"], "Cherrim-Sunshine")
+        self.assertEqual(flower["group-d-flower-gift-wrong-form"]["attacker"]["speciesLabel"], "Cherrim")
+        self.assertEqual(flower["group-d-flower-gift-attacker-umbrella"]["attacker"]["speciesLabel"], "Cherrim-Sunshine")
+        self.assertEqual(flower["group-d-flower-gift-defender-holder-umbrella"]["defender"]["speciesLabel"], "Cherrim-Sunshine")
+        self.assertEqual(flower["group-d-flower-gift-defender-cloud-nine"]["defender"]["speciesLabel"], "Cherrim-Sunshine")
+        self.assertEqual(flower["group-d-flower-gift-defender-cloud-nine"]["attacker"]["abilityLabel"], "Cloud Nine")
         for sid in ("group-d-tough-claws-protective-pads-still-contact",
                     "group-d-fluffy-long-reach-suppresses-contact",
                     "group-d-fluffy-protective-pads-do-not-suppress-contact"):
@@ -756,7 +798,8 @@ class CommittedCorpusTest(unittest.TestCase):
                     "group-d-fluffy-protective-pads-do-not-suppress-contact",
                     "group-d-fluffy-mold-breaker",
                     "group-d-sand-force-sandstorm-ground-engine-only",
-                    "group-d-sand-force-sandstorm-normal-clear"):
+                    "group-d-sand-force-sandstorm-normal-clear",
+                    "group-d-sand-force-cloud-nine-no-boost"):
             self.assertEqual(by_id[sid]["scenario"]["surface"], "engine-only", sid)
 
     def test_pinned_terrain_applicability_controls_and_gravity_overrides(self):

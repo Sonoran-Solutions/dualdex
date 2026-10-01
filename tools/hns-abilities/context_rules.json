@@ -784,7 +784,7 @@
       {
         "rule": "adaptability_with_stab",
         "predicate": "Authoritative live attacker types contain HnsMoveAuthority.effectiveType on an ordinary Singles hit.",
-        "rationale": "The pinned ordinary STAB branch uses ×2.0 for Adaptability, after the final move type is selected.",
+        "rationale": "The pinned ordinary STAB branch uses \u00d72.0 for Adaptability, after the final move type is selected.",
         "evidence": [
           {
             "source": "src/battle_util.c:7430",
@@ -847,7 +847,7 @@
       {
         "rule": "sniper_critical_hit",
         "predicate": "Attacker Sniper and the selected authoritative hit is critical.",
-        "rationale": "Sniper adds ×1.5 in the attacker final slot after the regular critical stage.",
+        "rationale": "Sniper adds \u00d71.5 in the attacker final slot after the regular critical stage.",
         "evidence": [
           {
             "source": "src/battle_util.c:7567",
@@ -2665,7 +2665,7 @@
       {
         "rule": "water_bubble_attacker_water_move",
         "predicate": "Attacker has Water Bubble; selected ordinary move has authoritative final effective type Water.",
-        "rationale": "The offensive 2.0 base-power branch is modelled for this context; this is one of Water Bubble’s two direct damage branches.",
+        "rationale": "The offensive 2.0 base-power branch is modelled for this context; this is one of Water Bubble\u2019s two direct damage branches.",
         "evidence": [
           {
             "source": "src/battle_util.c:6707",
@@ -2680,7 +2680,7 @@
       {
         "rule": "water_bubble_attacker_nonwater_move",
         "predicate": "Attacker has Water Bubble; selected ordinary move has an authoritative final effective type other than Water.",
-        "rationale": "The offensive Water-only branch is inactive. Water Bubble’s defender Fire branch is assessed separately; burn prevention and status clearing remain deferred.",
+        "rationale": "The offensive Water-only branch is inactive. Water Bubble\u2019s defender Fire branch is assessed separately; burn prevention and status clearing remain deferred.",
         "evidence": [
           {
             "source": "src/battle_util.c:6707",
@@ -2722,7 +2722,7 @@
       {
         "rule": "water_bubble_defender_nonfire_move",
         "predicate": "Defender has Water Bubble; selected ordinary move has authoritative final effective type other than Fire.",
-        "rationale": "The defender base-power branch is nested under the Fire type predicate and is inactive here. This does not claim Water Bubble’s separate burn prevention or status-clearing path is modelled.",
+        "rationale": "The defender base-power branch is nested under the Fire type predicate and is inactive here. This does not claim Water Bubble\u2019s separate burn prevention or status-clearing path is modelled.",
         "evidence": [
           {
             "source": "src/battle_util.c:6789",
@@ -3253,7 +3253,7 @@
           }
         ],
         "predicate": "Steely Spirit is the observed ability on the defender of the selected Singles hit.",
-        "rationale": "The holder-only branch boosts the defender’s own attacks. Its separate attacker-partner branch is not an incoming defender modifier and remains deferred with unsupported Doubles topology.",
+        "rationale": "The holder-only branch boosts the defender\u2019s own attacks. Its separate attacker-partner branch is not an incoming defender modifier and remains deferred with unsupported Doubles topology.",
         "rule": "steely_spirit_defender_singles_irrelevant"
       },
       {
@@ -3276,8 +3276,8 @@
     "context_rules": [
       {
         "rule": "tinted_lens_resisted_hit",
-        "predicate": "Attacker Tinted Lens and exact H&S type effectiveness is at most ×0.5.",
-        "rationale": "The attacker final slot multiplies the resisted hit by ×2.0; type/ability immunity still exits at zero.",
+        "predicate": "Attacker Tinted Lens and exact H&S type effectiveness is at most \u00d70.5.",
+        "rationale": "The attacker final slot multiplies the resisted hit by \u00d72.0; type/ability immunity still exits at zero.",
         "evidence": [
           {
             "source": "src/battle_util.c:7571",
@@ -3292,7 +3292,7 @@
       {
         "rule": "tinted_lens_not_resisted",
         "predicate": "Attacker Tinted Lens with neutral or super-effective exact H&S effectiveness.",
-        "rationale": "Effectiveness above ×0.5 proves the Tinted Lens branch inactive.",
+        "rationale": "Effectiveness above \u00d70.5 proves the Tinted Lens branch inactive.",
         "evidence": [
           {
             "source": "src/battle_util.c:7571",
@@ -3314,7 +3314,7 @@
       {
         "rule": "tinted_lens_effectiveness_unknown",
         "predicate": "Final effective type, live defender types, type-system state, or exact chart result is unresolved.",
-        "rationale": "Text labels such as “resisted” do not prove the numeric predicate.",
+        "rationale": "Text labels such as \u201cresisted\u201d do not prove the numeric predicate.",
         "evidence": [
           {
             "source": "src/battle_util.c:7571",
@@ -3331,8 +3331,8 @@
     "context_rules": [
       {
         "rule": "filter_super_effective_hit",
-        "predicate": "Defender Filter and exact H&S effectiveness is at least ×2.0.",
-        "rationale": "The defender final slot applies ×0.75.",
+        "predicate": "Defender Filter and exact H&S effectiveness is at least \u00d72.0.",
+        "rationale": "The defender final slot applies \u00d70.75.",
         "evidence": [
           {
             "source": "src/battle_util.c:7595",
@@ -3350,8 +3350,8 @@
       },
       {
         "rule": "filter_not_super_effective",
-        "predicate": "Defender Filter and exact H&S effectiveness is below ×2.0.",
-        "rationale": "The pinned defender branch remains ×1.0.",
+        "predicate": "Defender Filter and exact H&S effectiveness is below \u00d72.0.",
+        "rationale": "The pinned defender branch remains \u00d71.0.",
         "evidence": [
           {
             "source": "src/battle_util.c:7598",
@@ -3420,8 +3420,8 @@
     "context_rules": [
       {
         "rule": "solid_rock_super_effective_hit",
-        "predicate": "Defender Solid Rock and exact H&S effectiveness is at least ×2.0.",
-        "rationale": "The defender final slot applies ×0.75.",
+        "predicate": "Defender Solid Rock and exact H&S effectiveness is at least \u00d72.0.",
+        "rationale": "The defender final slot applies \u00d70.75.",
         "evidence": [
           {
             "source": "src/battle_util.c:7596",
@@ -3439,8 +3439,8 @@
       },
       {
         "rule": "solid_rock_not_super_effective",
-        "predicate": "Defender Solid Rock and exact H&S effectiveness is below ×2.0.",
-        "rationale": "The pinned defender branch remains ×1.0.",
+        "predicate": "Defender Solid Rock and exact H&S effectiveness is below \u00d72.0.",
+        "rationale": "The pinned defender branch remains \u00d71.0.",
         "evidence": [
           {
             "source": "src/battle_util.c:7598",
@@ -3506,7 +3506,7 @@
       {
         "rule": "multiscale_full_hp",
         "predicate": "Defender Multiscale with exact live HP equal to exact live max HP.",
-        "rationale": "The defender final slot applies ×0.5.",
+        "rationale": "The defender final slot applies \u00d70.5.",
         "evidence": [
           {
             "source": "src/battle_util.c:7589",
@@ -3587,7 +3587,7 @@
       {
         "rule": "shadow_shield_full_hp",
         "predicate": "Defender Shadow Shield with exact live HP equal to exact live max HP.",
-        "rationale": "The defender final slot applies ×0.5.",
+        "rationale": "The defender final slot applies \u00d70.5.",
         "evidence": [
           {
             "source": "src/battle_util.c:7589",
@@ -3658,8 +3658,8 @@
     "context_rules": [
       {
         "rule": "prism_armor_super_effective_hit",
-        "predicate": "Defender Prism Armor and exact H&S effectiveness is at least ×2.0.",
-        "rationale": "The defender final slot applies ×0.75.",
+        "predicate": "Defender Prism Armor and exact H&S effectiveness is at least \u00d72.0.",
+        "rationale": "The defender final slot applies \u00d70.75.",
         "evidence": [
           {
             "source": "src/battle_util.c:7597",
@@ -3677,8 +3677,8 @@
       },
       {
         "rule": "prism_armor_not_super_effective",
-        "predicate": "Defender Prism Armor and exact H&S effectiveness is below ×2.0.",
-        "rationale": "The pinned defender branch remains ×1.0.",
+        "predicate": "Defender Prism Armor and exact H&S effectiveness is below \u00d72.0.",
+        "rationale": "The pinned defender branch remains \u00d71.0.",
         "evidence": [
           {
             "source": "src/battle_util.c:7598",
@@ -3734,8 +3734,8 @@
     "context_rules": [
       {
         "rule": "neuroforce_super_effective_hit",
-        "predicate": "Attacker Neuroforce and exact H&S effectiveness is at least ×2.0.",
-        "rationale": "The attacker final slot multiplies the super-effective hit by ×1.25.",
+        "predicate": "Attacker Neuroforce and exact H&S effectiveness is at least \u00d72.0.",
+        "rationale": "The attacker final slot multiplies the super-effective hit by \u00d71.25.",
         "evidence": [
           {
             "source": "src/battle_util.c:7563",
@@ -3749,8 +3749,8 @@
       },
       {
         "rule": "neuroforce_not_super_effective",
-        "predicate": "Attacker Neuroforce and exact H&S effectiveness is below ×2.0.",
-        "rationale": "The pinned attacker branch returns ×1.0 unless the threshold is met.",
+        "predicate": "Attacker Neuroforce and exact H&S effectiveness is below \u00d72.0.",
+        "rationale": "The pinned attacker branch returns \u00d71.0 unless the threshold is met.",
         "evidence": [
           {
             "source": "src/battle_util.c:7563",
@@ -3790,7 +3790,7 @@
       {
         "rule": "ice_scales_special_move",
         "predicate": "Defender Ice Scales and HnsMoveAuthority final category is Special.",
-        "rationale": "The defender final slot applies ×0.5 after category resolution, including TYPE_BASED mode.",
+        "rationale": "The defender final slot applies \u00d70.5 after category resolution, including TYPE_BASED mode.",
         "evidence": [
           {
             "source": "src/battle_util.c:7624",
@@ -3871,7 +3871,7 @@
       {
         "rule": "solar_power_special_move_in_sun",
         "predicate": "Attacker Solar Power; authoritative ordinary move; HnsMoveAuthority category Special; live ordinary Sun; no active Cloud Nine/Air Lock; attacker not holding Utility Umbrella.",
-        "rationale": "The pinned Attack-stat accumulator applies Solar Power ×1.5 only for a Special move whose attacker is affected by Sun. Residual loss remains outside the single-hit output.",
+        "rationale": "The pinned Attack-stat accumulator applies Solar Power \u00d71.5 only for a Special move whose attacker is affected by Sun. Residual loss remains outside the single-hit output.",
         "evidence": [
           {
             "source": "src/battle_util.c:6999",
@@ -3930,7 +3930,7 @@
       },
       {
         "rule": "solar_power_utility_umbrella",
-        "predicate": "Attacker’s effective item is Utility Umbrella while Sun is active.",
+        "predicate": "Attacker\u2019s effective item is Utility Umbrella while Sun is active.",
         "rationale": "The helper returns false for a holder shielded from Sun/Rain; this does not promote the item family.",
         "evidence": [
           {
@@ -3974,7 +3974,7 @@
       },
       {
         "rule": "defeatist_defender_side",
-        "predicate": "Defeatist is the defender’s effective ability for the incoming selected hit.",
+        "predicate": "Defeatist is the defender\u2019s effective ability for the incoming selected hit.",
         "rationale": "The source branch reads only the attacker battle mon.",
         "evidence": [
           {
@@ -4026,7 +4026,7 @@
       },
       {
         "rule": "fur_coat_attacker_side",
-        "predicate": "Fur Coat is the attacker’s effective ability.",
+        "predicate": "Fur Coat is the attacker\u2019s effective ability.",
         "rationale": "CalcDefenseStat reads the defender ability slot.",
         "evidence": [
           {
@@ -4082,7 +4082,7 @@
       {
         "rule": "attack_stat_type_ability_matching_type",
         "predicate": "Attacker Transistor; authoritative ordinary move; final effective type is Electric.",
-        "rationale": "Pinned config B_TRANSISTOR_BOOST is GEN_LATEST, so the multiplier is ×1.3 with uq4_12_multiply (half-up).",
+        "rationale": "Pinned config B_TRANSISTOR_BOOST is GEN_LATEST, so the multiplier is \u00d71.3 with uq4_12_multiply (half-up).",
         "evidence": [
           {
             "source": "include/config/battle.h:185",
@@ -4134,7 +4134,7 @@
       {
         "rule": "attack_stat_type_ability_matching_type",
         "predicate": "Attacker Dragon's Maw; authoritative ordinary move; final effective type is Dragon.",
-        "rationale": "The exact final-type branch applies ×1.5 with uq4_12_multiply (half-up).",
+        "rationale": "The exact final-type branch applies \u00d71.5 with uq4_12_multiply (half-up).",
         "evidence": [
           {
             "source": "src/battle_util.c:7071",
@@ -4174,7 +4174,7 @@
       {
         "rule": "attack_stat_type_ability_matching_type",
         "predicate": "Attacker Rocky Payload; authoritative ordinary move; final effective type is Rock.",
-        "rationale": "The exact final-type branch applies ×1.5 with uq4_12_multiply (half-up).",
+        "rationale": "The exact final-type branch applies \u00d71.5 with uq4_12_multiply (half-up).",
         "evidence": [
           {
             "source": "src/battle_util.c:7081",
@@ -4262,7 +4262,7 @@
       {
         "rule": "orichalcum_pulse_physical_raw_sun",
         "predicate": "Attacker Orichalcum Pulse; final category Physical; GetWeather context contains Sun after HasWeatherEffect; attacker item is known and is not Utility Umbrella.",
-        "rationale": "Physical + active ctx Sun + no Utility Umbrella applies ×1.3333 (UQ_4_12 5461) with uq4_12_multiply (half-up); weather-setting is not inferred.",
+        "rationale": "Physical + active ctx Sun + no Utility Umbrella applies \u00d71.3333 (UQ_4_12 5461) with uq4_12_multiply (half-up); weather-setting is not inferred.",
         "evidence": [
           {
             "source": "src/battle_util.c:7106",
@@ -4482,7 +4482,7 @@
       {
         "rule": "fluffy_fire_noncontact_double",
         "predicate": "Defender Fluffy, exact final move type, and shared contact authority.",
-        "rationale": "The defender final slot has distinct Fire/noncontact ×2 and non-Fire/contact ×0.5 branches; neutral cells remain neutral.",
+        "rationale": "The defender final slot has distinct Fire/noncontact \u00d72 and non-Fire/contact \u00d70.5 branches; neutral cells remain neutral.",
         "evidence": [
           {
             "source": "src/battle_util.c:7604",
@@ -4565,5 +4565,667 @@
     ],
     "always_blocking": [],
     "fallback": "Unknown operands, unobserved battle topology, or nonordinary move shape remain fail-closed; unrelated move, item, weather, field and format limitations remain independent."
+  },
+  "18": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "flash_fire_defender_immunity_only",
+        "predicate": "Defender Flash Fire is handled by the existing immunity path; only the attacker reads flashFireBoosted for this stat modifier.",
+        "rationale": "Defender Flash Fire is handled by the existing immunity path; only the attacker reads flashFireBoosted for this stat modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7006",
+            "contains": "case ABILITY_FLASH_FIRE:"
+          }
+        ]
+      },
+      {
+        "rule": "flash_fire_nonfire_move",
+        "predicate": "The authoritative final move type is not Fire, so the attacker boost is inactive.",
+        "rationale": "The authoritative final move type is not Fire, so the attacker boost is inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7006",
+            "contains": "case ABILITY_FLASH_FIRE:"
+          }
+        ]
+      },
+      {
+        "rule": "flash_fire_active_attacker_boost",
+        "predicate": "The final type is Fire and the live attacker flashFireBoosted payload is true.",
+        "rationale": "The final type is Fire and the live attacker flashFireBoosted payload is true.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7006",
+            "contains": "case ABILITY_FLASH_FIRE:"
+          }
+        ]
+      },
+      {
+        "rule": "flash_fire_unboosted_attacker",
+        "predicate": "The live attacker flashFireBoosted payload is false.",
+        "rationale": "The live attacker flashFireBoosted payload is false.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7006",
+            "contains": "case ABILITY_FLASH_FIRE:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "79": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "rivalry_defender_role_irrelevant",
+        "predicate": "Rivalry is read only from the attacker ability slot.",
+        "rationale": "Rivalry is read only from the attacker ability slot.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6684",
+            "contains": "case ABILITY_RIVALRY:"
+          }
+        ]
+      },
+      {
+        "rule": "rivalry_genderless_neutral",
+        "predicate": "Pinned same/opposite gender helpers exclude genderless battlers, leaving Rivalry neutral.",
+        "rationale": "Pinned same/opposite gender helpers exclude genderless battlers, leaving Rivalry neutral.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6684",
+            "contains": "case ABILITY_RIVALRY:"
+          }
+        ]
+      },
+      {
+        "rule": "rivalry_same_gender",
+        "predicate": "Both genders are authoritative and equal; source composes UQ_4_12(1.25) into base power.",
+        "rationale": "Both genders are authoritative and equal; source composes UQ_4_12(1.25) into base power.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6684",
+            "contains": "case ABILITY_RIVALRY:"
+          }
+        ]
+      },
+      {
+        "rule": "rivalry_opposite_gender",
+        "predicate": "Both genders are authoritative and opposite; source composes UQ_4_12(0.75) into base power.",
+        "rationale": "Both genders are authoritative and opposite; source composes UQ_4_12(0.75) into base power.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6684",
+            "contains": "case ABILITY_RIVALRY:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "112": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "slow_start_irrelevant_role_or_category",
+        "predicate": "Slow Start only modifies its holder's Attack for Physical moves.",
+        "rationale": "Slow Start only modifies its holder's Attack for Physical moves.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6994",
+            "contains": "case ABILITY_SLOW_START:"
+          }
+        ]
+      },
+      {
+        "rule": "slow_start_positive_timer",
+        "predicate": "A positive live slowStartTimer applies the pinned half-down 0.5 Attack factor.",
+        "rationale": "A positive live slowStartTimer applies the pinned half-down 0.5 Attack factor.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6994",
+            "contains": "case ABILITY_SLOW_START:"
+          }
+        ]
+      },
+      {
+        "rule": "slow_start_zero_timer",
+        "predicate": "The observed slowStartTimer is zero, so the Physical Attack modifier is inactive.",
+        "rationale": "The observed slowStartTimer is zero, so the Physical Attack modifier is inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6994",
+            "contains": "case ABILITY_SLOW_START:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "148": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "analytic_defender_role_irrelevant",
+        "predicate": "Analytic is read only from the attacker ability slot.",
+        "rationale": "Analytic is read only from the attacker ability slot.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          }
+        ]
+      },
+      {
+        "rule": "analytic_phase_proven_last",
+        "predicate": "The native reader published LAST_TO_MOVE only after its current-action phase and turn-order consistency checks.",
+        "rationale": "The native reader published LAST_TO_MOVE only after its current-action phase and turn-order consistency checks.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          }
+        ]
+      },
+      {
+        "rule": "analytic_phase_proven_not_last",
+        "predicate": "The native reader proved a later living use-move action in the current turn.",
+        "rationale": "The native reader proved a later living use-move action in the current turn.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6690",
+            "contains": "case ABILITY_ANALYTIC:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "198": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "stakeout_defender_role_irrelevant",
+        "predicate": "Stakeout is read only from the attacker's ability slot.",
+        "rationale": "Stakeout is read only from the attacker's ability slot.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7052",
+            "contains": "case ABILITY_STAKEOUT:"
+          }
+        ]
+      },
+      {
+        "rule": "stakeout_raw_first_turn_two",
+        "predicate": "The source predicate is the raw defender isFirstTurn value exactly equal to 2.",
+        "rationale": "The source predicate is the raw defender isFirstTurn value exactly equal to 2.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7052",
+            "contains": "case ABILITY_STAKEOUT:"
+          }
+        ]
+      },
+      {
+        "rule": "stakeout_raw_first_turn_other",
+        "predicate": "The observed raw defender isFirstTurn value is not 2.",
+        "rationale": "The observed raw defender isFirstTurn value is not 2.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7052",
+            "contains": "case ABILITY_STAKEOUT:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "255": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "gorilla_tactics_irrelevant_role_or_category",
+        "predicate": "Gorilla Tactics only modifies the attacker's Physical Attack branch.",
+        "rationale": "Gorilla Tactics only modifies the attacker's Physical Attack branch.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7073",
+            "contains": "case ABILITY_GORILLA_TACTICS:"
+          }
+        ]
+      },
+      {
+        "rule": "gorilla_tactics_gimmick_inactive_modifier",
+        "predicate": "A selected or active Dynamax disables this ability modifier; its independent unsupported gimmick blocker remains in force.",
+        "rationale": "A selected or active Dynamax disables this ability modifier; its independent unsupported gimmick blocker remains in force.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7073",
+            "contains": "case ABILITY_GORILLA_TACTICS:"
+          }
+        ]
+      },
+      {
+        "rule": "gorilla_tactics_physical_no_dynamax",
+        "predicate": "The selected and active Dynamax authorities are both observed clear for this Physical hit.",
+        "rationale": "The selected and active Dynamax authorities are both observed clear for this Physical hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7073",
+            "contains": "case ABILITY_GORILLA_TACTICS:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "281": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "paradox_other_battler",
+        "predicate": "This ability ID is not the battler role whose Attack/Defense stat is selected for this hit.",
+        "rationale": "This ability ID is not the battler role whose Attack/Defense stat is selected for this hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7083",
+            "contains": "case ABILITY_PROTOSYNTHESIS:"
+          }
+        ]
+      },
+      {
+        "rule": "paradox_transformed_inactive",
+        "predicate": "The source excludes transformed battlers from the Paradox stat modifier.",
+        "rationale": "The source excludes transformed battlers from the Paradox stat modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7083",
+            "contains": "case ABILITY_PROTOSYNTHESIS:"
+          }
+        ]
+      },
+      {
+        "rule": "paradox_activation_inactive",
+        "predicate": "Neither the source activation field nor the observed Booster Energy activation payload is active.",
+        "rationale": "Neither the source activation field nor the observed Booster Energy activation payload is active.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7083",
+            "contains": "case ABILITY_PROTOSYNTHESIS:"
+          }
+        ]
+      },
+      {
+        "rule": "paradox_other_highest_stat",
+        "predicate": "The authoritative selected boosted stat does not match the current hit's source category/role predicate.",
+        "rationale": "The authoritative selected boosted stat does not match the current hit's source category/role predicate.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7083",
+            "contains": "case ABILITY_PROTOSYNTHESIS:"
+          }
+        ]
+      },
+      {
+        "rule": "paradox_selected_stat_boost",
+        "predicate": "The active ability's authoritative selected boosted stat matches the category-specific Attack/Defense stage branch.",
+        "rationale": "The active ability's authoritative selected boosted stat matches the category-specific Attack/Defense stage branch.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7083",
+            "contains": "case ABILITY_PROTOSYNTHESIS:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "282": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "paradox_other_battler",
+        "predicate": "This ability ID is not the battler role whose Attack/Defense stat is selected for this hit.",
+        "rationale": "This ability ID is not the battler role whose Attack/Defense stat is selected for this hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7094",
+            "contains": "case ABILITY_QUARK_DRIVE:"
+          }
+        ]
+      },
+      {
+        "rule": "paradox_transformed_inactive",
+        "predicate": "The source excludes transformed battlers from the Paradox stat modifier.",
+        "rationale": "The source excludes transformed battlers from the Paradox stat modifier.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7094",
+            "contains": "case ABILITY_QUARK_DRIVE:"
+          }
+        ]
+      },
+      {
+        "rule": "paradox_activation_inactive",
+        "predicate": "Neither the source activation field nor the observed Booster Energy activation payload is active.",
+        "rationale": "Neither the source activation field nor the observed Booster Energy activation payload is active.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7094",
+            "contains": "case ABILITY_QUARK_DRIVE:"
+          }
+        ]
+      },
+      {
+        "rule": "paradox_other_highest_stat",
+        "predicate": "The authoritative selected boosted stat does not match the current hit's source category/role predicate.",
+        "rationale": "The authoritative selected boosted stat does not match the current hit's source category/role predicate.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7094",
+            "contains": "case ABILITY_QUARK_DRIVE:"
+          }
+        ]
+      },
+      {
+        "rule": "paradox_selected_stat_boost",
+        "predicate": "The active ability's authoritative selected boosted stat matches the category-specific Attack/Defense stage branch.",
+        "rationale": "The active ability's authoritative selected boosted stat matches the category-specific Attack/Defense stage branch.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7094",
+            "contains": "case ABILITY_QUARK_DRIVE:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "293": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "supreme_overlord_defender_role_irrelevant",
+        "predicate": "Supreme Overlord reads the stored attacker battler counter only.",
+        "rationale": "Supreme Overlord reads the stored attacker battler counter only.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6746",
+            "contains": "case ABILITY_SUPREME_OVERLORD:"
+          }
+        ]
+      },
+      {
+        "rule": "supreme_overlord_zero_counter",
+        "predicate": "The observed stored counter is zero, producing the exact neutral UQ4.12 factor.",
+        "rationale": "The observed stored counter is zero, producing the exact neutral UQ4.12 factor.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6746",
+            "contains": "case ABILITY_SUPREME_OVERLORD:"
+          }
+        ]
+      },
+      {
+        "rule": "supreme_overlord_stored_counter",
+        "predicate": "The observed stored BattleStruct counter is in 1..5 and is used directly.",
+        "rationale": "The observed stored BattleStruct counter is in 1..5 and is used directly.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6746",
+            "contains": "case ABILITY_SUPREME_OVERLORD:"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "186": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "aura_wrong_type_or_no_matching_aura",
+        "predicate": "The authoritative final type does not match this aura's field branch.",
+        "rationale": "The authoritative final type does not match this aura's field branch.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6754",
+            "contains": "if ((IsAbilityOnField(ABILITY_DARK_AURA) && moveType == TYPE_DARK)"
+          }
+        ]
+      },
+      {
+        "rule": "aura_no_matching_field_ability",
+        "predicate": "Neither effective live participant ability supplies a matching aura.",
+        "rationale": "Neither effective live participant ability supplies a matching aura.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6754",
+            "contains": "if ((IsAbilityOnField(ABILITY_DARK_AURA) && moveType == TYPE_DARK)"
+          }
+        ]
+      },
+      {
+        "rule": "aura_matching_live_singles_aura",
+        "predicate": "The shared Singles field authority proves the matching aura and the Aura Break predicate.",
+        "rationale": "The shared Singles field authority proves the matching aura and the Aura Break predicate.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6754",
+            "contains": "if ((IsAbilityOnField(ABILITY_DARK_AURA) && moveType == TYPE_DARK)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "187": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "aura_wrong_type_or_no_matching_aura",
+        "predicate": "The authoritative final type does not match this aura's field branch.",
+        "rationale": "The authoritative final type does not match this aura's field branch.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6755",
+            "contains": "|| (IsAbilityOnField(ABILITY_FAIRY_AURA) && moveType == TYPE_FAIRY))"
+          }
+        ]
+      },
+      {
+        "rule": "aura_no_matching_field_ability",
+        "predicate": "Neither effective live participant ability supplies a matching aura.",
+        "rationale": "Neither effective live participant ability supplies a matching aura.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6755",
+            "contains": "|| (IsAbilityOnField(ABILITY_FAIRY_AURA) && moveType == TYPE_FAIRY))"
+          }
+        ]
+      },
+      {
+        "rule": "aura_matching_live_singles_aura",
+        "predicate": "The shared Singles field authority proves the matching aura and the Aura Break predicate.",
+        "rationale": "The shared Singles field authority proves the matching aura and the Aura Break predicate.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6755",
+            "contains": "|| (IsAbilityOnField(ABILITY_FAIRY_AURA) && moveType == TYPE_FAIRY))"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "188": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "aura_wrong_type_or_no_matching_aura",
+        "predicate": "The authoritative final type does not match this aura's field branch.",
+        "rationale": "The authoritative final type does not match this aura's field branch.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6757",
+            "contains": "if (IsAbilityOnField(ABILITY_AURA_BREAK))"
+          }
+        ]
+      },
+      {
+        "rule": "aura_no_matching_field_ability",
+        "predicate": "Neither effective live participant ability supplies a matching aura.",
+        "rationale": "Neither effective live participant ability supplies a matching aura.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6757",
+            "contains": "if (IsAbilityOnField(ABILITY_AURA_BREAK))"
+          }
+        ]
+      },
+      {
+        "rule": "aura_matching_live_singles_aura",
+        "predicate": "The shared Singles field authority proves the matching aura and the Aura Break predicate.",
+        "rationale": "The shared Singles field authority proves the matching aura and the Aura Break predicate.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6757",
+            "contains": "if (IsAbilityOnField(ABILITY_AURA_BREAK))"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "284": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "ruin_live_field_stat_modifier",
+        "predicate": "The live Ruin payload survives the source suppression checks and modifies the selected stat; the subject's own flag is clear.",
+        "rationale": "The live Ruin payload survives the source suppression checks and modifies the selected stat; the subject's own flag is clear.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7156",
+            "contains": "if (IsBattleMoveSpecial(move) && !gBattleMons[ctx->battlerAtk].volatiles.vesselOfRuin && IsRuinStatusActive(VOLATILE_VESSEL_OF_RUIN))"
+          }
+        ]
+      },
+      {
+        "rule": "ruin_inactive_or_self_excluded",
+        "predicate": "The selected stat, holder self-exclusion, or observed field payload proves this Ruin modifier inactive.",
+        "rationale": "The selected stat, holder self-exclusion, or observed field payload proves this Ruin modifier inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7156",
+            "contains": "if (IsBattleMoveSpecial(move) && !gBattleMons[ctx->battlerAtk].volatiles.vesselOfRuin && IsRuinStatusActive(VOLATILE_VESSEL_OF_RUIN))"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "285": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "ruin_live_field_stat_modifier",
+        "predicate": "The live Ruin payload survives the source suppression checks and modifies the selected stat; the subject's own flag is clear.",
+        "rationale": "The live Ruin payload survives the source suppression checks and modifies the selected stat; the subject's own flag is clear.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7344",
+            "contains": "if (usesDefStat && !gBattleMons[ctx->battlerDef].volatiles.swordOfRuin && IsRuinStatusActive(VOLATILE_SWORD_OF_RUIN))"
+          }
+        ]
+      },
+      {
+        "rule": "ruin_inactive_or_self_excluded",
+        "predicate": "The selected stat, holder self-exclusion, or observed field payload proves this Ruin modifier inactive.",
+        "rationale": "The selected stat, holder self-exclusion, or observed field payload proves this Ruin modifier inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7344",
+            "contains": "if (usesDefStat && !gBattleMons[ctx->battlerDef].volatiles.swordOfRuin && IsRuinStatusActive(VOLATILE_SWORD_OF_RUIN))"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "286": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "ruin_live_field_stat_modifier",
+        "predicate": "The live Ruin payload survives the source suppression checks and modifies the selected stat; the subject's own flag is clear.",
+        "rationale": "The live Ruin payload survives the source suppression checks and modifies the selected stat; the subject's own flag is clear.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7159",
+            "contains": "if (IsBattleMovePhysical(move) && !gBattleMons[ctx->battlerAtk].volatiles.tabletsOfRuin && IsRuinStatusActive(VOLATILE_TABLETS_OF_RUIN))"
+          }
+        ]
+      },
+      {
+        "rule": "ruin_inactive_or_self_excluded",
+        "predicate": "The selected stat, holder self-exclusion, or observed field payload proves this Ruin modifier inactive.",
+        "rationale": "The selected stat, holder self-exclusion, or observed field payload proves this Ruin modifier inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7159",
+            "contains": "if (IsBattleMovePhysical(move) && !gBattleMons[ctx->battlerAtk].volatiles.tabletsOfRuin && IsRuinStatusActive(VOLATILE_TABLETS_OF_RUIN))"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
+  },
+  "287": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "ruin_live_field_stat_modifier",
+        "predicate": "The live Ruin payload survives the source suppression checks and modifies the selected stat; the subject's own flag is clear.",
+        "rationale": "The live Ruin payload survives the source suppression checks and modifies the selected stat; the subject's own flag is clear.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7347",
+            "contains": "if (!usesDefStat && !gBattleMons[ctx->battlerDef].volatiles.beadsOfRuin && IsRuinStatusActive(VOLATILE_BEADS_OF_RUIN))"
+          }
+        ]
+      },
+      {
+        "rule": "ruin_inactive_or_self_excluded",
+        "predicate": "The selected stat, holder self-exclusion, or observed field payload proves this Ruin modifier inactive.",
+        "rationale": "The selected stat, holder self-exclusion, or observed field payload proves this Ruin modifier inactive.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:7347",
+            "contains": "if (!usesDefStat && !gBattleMons[ctx->battlerDef].volatiles.beadsOfRuin && IsRuinStatusActive(VOLATILE_BEADS_OF_RUIN))"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown required live operands, invalid domains, or unproven current-turn identity remain UNKNOWN. Unsupported move, item, field, format and gimmick mechanics remain independently blocked."
   }
 }

@@ -224,7 +224,7 @@ def scenario(sid: str, tags: list[str], atk: dict, dfn: dict, move: str, *, crit
              terrain: str = "none", gravity: bool = False,
              fairy: bool = True, style: str = "perMoveSplit", badges: tuple[int, ...] = (),
              side: str = "player", doubles: str | None = None, expect: str = "damage",
-             surface: str = "modelled") -> dict:
+             surface: str = "modelled", state_setup: dict | None = None) -> dict:
     if move not in MOVES:
         raise KeyError(f"move {move!r} is not in the reviewed catalogue")
     return {
@@ -242,6 +242,7 @@ def scenario(sid: str, tags: list[str], atk: dict, dfn: dict, move: str, *, crit
         "field": {"weather": weather, "reflect": reflect, "lightScreen": light_screen,
                   "terrain": terrain, "gravity": gravity},
         "doubles": {"defenderPartner": doubles} if doubles else None,
+        "stateSetup": state_setup,
         "expect": expect,
     }
 
@@ -1613,21 +1614,29 @@ def _remaining_group_d() -> list[dict]:
         scenario("group-d-flower-gift-attacker-sun-physical", ["ability:flower-gift", "form", "weather:sun", "attack-stage"],
                  attacker("Cherrim-Sunshine", atk=151, ability=flower), defender("Snorlax", dfn=109), "Strength", weather="sun"),
         scenario("group-d-flower-gift-attacker-no-sun", ["ability:flower-gift", "form", "negative-control"],
-                 attacker("Cherrim", atk=151, ability=flower), defender("Snorlax", dfn=109), "Strength"),
-        scenario("group-d-flower-gift-wrong-form", ["ability:flower-gift", "form", "weather:sun", "weather-suppression", "negative-control"],
-                 attacker("Porygon", spa=151, ability=cloud_nine), defender("Cherrim", spd=109, ability=flower), "Psychic", weather="sun"),
+                 attacker("Cherrim-Sunshine", atk=151, ability=flower), defender("Snorlax", dfn=109), "Strength",
+                 state_setup={"attackerSpeciesForm": "SPECIES_CHERRIM_SUNSHINE"}),
+        scenario("group-d-flower-gift-wrong-form", ["ability:flower-gift", "form", "weather:sun", "negative-control"],
+                 attacker("Cherrim", atk=151, ability=flower), defender("Snorlax", dfn=109), "Strength", weather="sun",
+                 state_setup={"attackerSpeciesForm": "SPECIES_CHERRIM"}),
         scenario("group-d-flower-gift-attacker-special", ["ability:flower-gift", "form", "negative-control", "weather:sun"],
                  attacker("Cherrim-Sunshine", spa=151, ability=flower), defender("Snorlax", spd=109), "Psychic", weather="sun"),
         scenario("group-d-flower-gift-defender-sun-special", ["ability:flower-gift", "form", "weather:sun", "defense-stage"],
                  attacker("Porygon", spa=151), defender("Cherrim-Sunshine", spd=109, ability=flower), "Psychic", weather="sun"),
         scenario("group-d-flower-gift-defender-physical", ["ability:flower-gift", "form", "weather:sun", "negative-control"],
                  attacker("Machamp", atk=151), defender("Cherrim-Sunshine", dfn=109, ability=flower), "Strength", weather="sun"),
+        scenario("group-d-flower-gift-attacker-cloud-nine", ["ability:flower-gift", "form", "weather:sun", "weather-suppression", "negative-control"],
+                 attacker("Cherrim-Sunshine", atk=151, ability=flower), defender("Snorlax", dfn=109, ability=cloud_nine), "Strength", weather="sun",
+                 state_setup={"attackerSpeciesForm": "SPECIES_CHERRIM_SUNSHINE"}),
         scenario("group-d-flower-gift-attacker-umbrella", ["ability:flower-gift", "form", "weather:sun", "item:utility-umbrella", "negative-control"],
-                 attacker("Cherrim", atk=151, ability=flower, item=umbrella), defender("Snorlax", dfn=109), "Strength", weather="sun"),
+                 attacker("Cherrim-Sunshine", atk=151, ability=flower, item=umbrella), defender("Snorlax", dfn=109), "Strength", weather="sun",
+                 state_setup={"attackerSpeciesForm": "SPECIES_CHERRIM_SUNSHINE"}),
         scenario("group-d-flower-gift-defender-holder-umbrella", ["ability:flower-gift", "form", "weather:sun", "item:utility-umbrella", "negative-control"],
-                 attacker("Porygon", spa=151), defender("Cherrim", spd=109, ability=flower, item=umbrella), "Psychic", weather="sun"),
+                 attacker("Porygon", spa=151), defender("Cherrim-Sunshine", spd=109, ability=flower, item=umbrella), "Psychic", weather="sun",
+                 state_setup={"defenderSpeciesForm": "SPECIES_CHERRIM_SUNSHINE"}),
         scenario("group-d-flower-gift-defender-cloud-nine", ["ability:flower-gift", "form", "weather:sun", "weather-suppression", "negative-control"],
-                 attacker("Porygon", spa=151, ability=cloud_nine), defender("Cherrim", spd=109, ability=flower), "Psychic", weather="sun"),
+                 attacker("Porygon", spa=151, ability=cloud_nine), defender("Cherrim-Sunshine", spd=109, ability=flower), "Psychic", weather="sun",
+                 state_setup={"defenderSpeciesForm": "SPECIES_CHERRIM_SUNSHINE"}),
     ))
     protective_pads = ("ITEM_PROTECTIVE_PADS", "Protective Pads")
     long_reach = ("ABILITY_LONG_REACH", "Long Reach")
@@ -1684,6 +1693,9 @@ def _remaining_group_d() -> list[dict]:
                  attacker("Machamp", atk=151, ability=sand_force), defender("Snorlax", dfn=109), "Earthquake", weather="sun"),
         scenario("group-d-sand-force-sandstorm-normal-clear", ["ability:sand-force", "weather:sandstorm", "negative-control", "engine-only"],
                  attacker("Machamp", atk=151, ability=sand_force), defender("Swampert", dfn=109), "Strength", weather="sandstorm", surface="engine-only"),
+        scenario("group-d-sand-force-cloud-nine-no-boost", ["ability:sand-force", "weather:sandstorm", "weather-suppression", "negative-control", "engine-only"],
+                 attacker("Machamp", atk=151, ability=sand_force), defender("Swampert", dfn=109, ability=cloud_nine), "Earthquake",
+                 weather="sandstorm", surface="engine-only"),
         scenario("group-d-battery-singles-self-clear", ["ability:battery", "singles", "negative-control"],
                  attacker("Porygon", spa=151, ability=battery), defender("Snorlax", spd=109), "Psychic"),
         scenario("group-d-power-spot-singles-self-clear", ["ability:power-spot", "singles", "negative-control"],
@@ -1696,12 +1708,115 @@ def _remaining_group_d() -> list[dict]:
     return out
 
 
+def _state_backed_group_d() -> list[dict]:
+    """One-hit predicate isolation; setup writes operands at the test runner's pre-damage hook."""
+    out = []
+    def ability(name):
+        return (symbol("ABILITY", name), name)
+    def add(name, ability_name, *, move="Strength", role="attacker", a=None, d=None,
+            astate=None, dstate=None, setup=None, **kwargs):
+        a = a or attacker("Machamp", atk=151, spa=151)
+        d = d or defender("Snorlax", dfn=109, spd=109)
+        (a if role == "attacker" else d).update(ability=ability(ability_name)[0], abilityLabel=ability_name)
+        state = {"capture": True, **(setup or {})}
+        if astate is not None: state["attacker"] = astate
+        if dstate is not None: state["defender"] = dstate
+        out.append(scenario("state-d-" + name, ["state-backed-group-d", "ability:" + slug(ability_name)],
+                            a, d, move, state_setup=state, **kwargs))
+    for timer, move, name in ((5, "Strength", "active"), (0, "Strength", "zero"), (5, "Psychic", "special")):
+        add("slow-start-" + name, "Slow Start", move=move, astate={"slowStartTimer": timer})
+    add("slow-start-stage-composition", "Slow Start", astate={"slowStartTimer": 3},
+        a=attacker("Machamp", atk=151, stages={"attack": 1}))
+    for boosted, move, name in ((1, "Flamethrower", "active"), (0, "Flamethrower", "inactive"),
+                                 (1, "Strength", "nonfire"), (1, "Fire Punch", "physical")):
+        add("flash-fire-" + name, "Flash Fire", move=move, astate={"flashFireBoosted": boosted})
+    for name, a_species, d_species, apid, dpid in (
+        ("same", "Machamp", "Snorlax", 255, 255), ("opposite", "Machamp", "Snorlax", 255, 0),
+        ("attacker-genderless", "Porygon", "Snorlax", 255, 255),
+        ("defender-genderless", "Machamp", "Porygon", 255, 255)):
+        add("rivalry-" + name, "Rivalry", a=attacker(a_species, atk=151), d=defender(d_species, dfn=109),
+            astate={"personality": apid}, dstate={"personality": dpid})
+    add("rivalry-current-form-genderless", "Rivalry", a=attacker("Porygon", atk=151),
+        astate={"personality": 255, "transformed": 1}, dstate={"personality": 255})
+    for raw in range(4):
+        add("stakeout-raw-" + str(raw), "Stakeout", dstate={"isFirstTurn": raw})
+    add("stakeout-stage-composition", "Stakeout", dstate={"isFirstTurn": 2},
+        a=attacker("Machamp", atk=151, stages={"attack": 1}))
+    for count in range(6):
+        add("supreme-overlord-counter-" + str(count), "Supreme Overlord", astate={"supremeOverlordCounter": count})
+    add("supreme-overlord-rounding-composition", "Supreme Overlord", astate={"supremeOverlordCounter": 3},
+        move="Flamethrower", a=attacker("Machamp", spa=151),
+        d=defender("Snorlax", spd=109, ability=ability("Heatproof")))
+    for name, move, selected, active in (("physical", "Strength", 0, 0), ("special", "Psychic", 0, 0),
+                                       ("pending", "Strength", 1, 0), ("active", "Strength", 0, 4)):
+        add("gorilla-tactics-" + name, "Gorilla Tactics", move=move,
+            astate={"dynamaxSelected": selected, "activeGimmick": active},
+            surface="engine-only" if selected or active else "modelled")
+    for name in ("Protosynthesis", "Quark Drive"):
+        activation = {"weather": "sun"} if name == "Protosynthesis" else {"terrain": "electric"}
+        for role, stat, move in (("attacker", "atk", "Strength"), ("attacker", "spa", "Psychic"),
+                                ("attacker", "dfn", "Strength"), ("attacker", "spe", "Strength"),
+                                ("defender", "dfn", "Strength"), ("defender", "spd", "Psychic")):
+            a = attacker("Machamp", **({stat: 201} if role == "attacker" else {"atk": 151, "spa": 151}))
+            d = defender("Snorlax", **({stat: 201} if role == "defender" else {"dfn": 109, "spd": 109}))
+            state = {"transformed": 0, "boosterEnergyActivated": 0, "paradoxBoostedStat": 0}
+            add(slug(name) + "-" + role + "-highest-" + stat, name, move=move, role=role, a=a, d=d,
+                astate=state if role == "attacker" else None, dstate=state if role == "defender" else None,
+                **activation)
+        for suffix, state, weather in (
+            ("booster-consumed", {"transformed": 0, "boosterEnergyActivated": 1, "paradoxBoostedStat": 1}, {}),
+            ("transformed", {"transformed": 1, "boosterEnergyActivated": 1, "paradoxBoostedStat": 1}, activation),
+            ("stored-other", {"transformed": 0, "boosterEnergyActivated": 1, "paradoxBoostedStat": 2}, {}),
+            ("inactive", {"transformed": 0, "boosterEnergyActivated": 0, "paradoxBoostedStat": 1}, {}),
+            ("recompute-tie", {"transformed": 0, "boosterEnergyActivated": 1, "paradoxBoostedStat": 0}, {})):
+            add(slug(name) + "-" + suffix, name, astate=state, **weather)
+        add(slug(name) + "-wonder-room", name, role="defender", d=defender("Snorlax", dfn=109, spd=201),
+            dstate={"transformed": 0, "boosterEnergyActivated": 1, "paradoxBoostedStat": 0},
+            setup={"wonderRoom": True}, surface="engine-only")
+    add("protosynthesis-umbrella-global-sun", "Protosynthesis", weather="sun",
+        a=attacker("Machamp", atk=151, item=("ITEM_UTILITY_UMBRELLA", "Utility Umbrella")),
+        astate={"transformed": 0, "boosterEnergyActivated": 0, "paradoxBoostedStat": 1})
+    add("protosynthesis-cloud-nine", "Protosynthesis", weather="sun",
+        d=defender("Snorlax", dfn=109, ability=ability("Cloud Nine")),
+        astate={"transformed": 0, "boosterEnergyActivated": 0, "paradoxBoostedStat": 1})
+    add("analytic-last", "Analytic", a=attacker("Machamp", atk=151, spe=20))
+    add("analytic-not-last", "Analytic", a=attacker("Machamp", atk=151, spe=80))
+    add("analytic-later-nonmove", "Analytic", setup={"laterAction": 13})
+    for name, move in (("Dark Aura", "Dark Pulse"), ("Fairy Aura", "Moonblast")):
+        add(slug(name) + "-matching", name, move=move)
+        add(slug(name) + "-wrong-type", name)
+        add(slug(name) + "-defender", name, role="defender", move=move)
+        add(slug(name) + "-aura-break", name, move=move, d=defender("Snorlax", spd=109, ability=ability("Aura Break")))
+    add("aura-break-alone", "Aura Break", move="Dark Pulse")
+    for name, flag, role, move in (("Vessel of Ruin", "vesselOfRuin", "defender", "Psychic"),
+                                   ("Tablets of Ruin", "tabletsOfRuin", "defender", "Strength"),
+                                   ("Sword of Ruin", "swordOfRuin", "attacker", "Strength"),
+                                   ("Beads of Ruin", "beadsOfRuin", "attacker", "Psychic")):
+        for suffix, which, value, chosen in (("opponent", role, 1, move),
+                ("self", "attacker" if role == "defender" else "defender", 1, move),
+                ("inactive", role, 0, move), ("wrong-stat", role, 1, "Strength" if move == "Psychic" else "Psychic")):
+            add(slug(name) + "-" + suffix, name, role=which, move=chosen,
+                astate={flag: value} if which == "attacker" else None,
+                dstate={flag: value} if which == "defender" else None)
+        add(slug(name) + "-gastro-acid", name, role=role, move=move,
+            astate={flag: 1, "gastroAcid": 1} if role == "attacker" else None,
+            dstate={flag: 1, "gastroAcid": 1} if role == "defender" else None, surface="engine-only")
+    for shield in (False, True):
+        add("sword-of-ruin-gas" + ("-shield" if shield else ""), "Sword of Ruin",
+            a=attacker("Machamp", atk=151, item=("ITEM_ABILITY_SHIELD", "Ability Shield") if shield else None),
+            d=defender("Snorlax", dfn=109, ability=ability("Neutralizing Gas")),
+            astate={"swordOfRuin": 1}, dstate={"neutralizingGas": 1}, surface="engine-only")
+    for name, flag in (("Sword of Ruin", "swordOfRuin"), ("Beads of Ruin", "beadsOfRuin")):
+        add(slug(name) + "-wonder-room", name, astate={flag: 1}, setup={"wonderRoom": True}, surface="engine-only")
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

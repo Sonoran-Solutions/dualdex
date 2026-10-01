@@ -1,0 +1,16 @@
+Test-only callback for documented predicate-isolation state setup.
+Runs at the critical-hit RNG boundary, before DoMoveDamageCalc.
+Does not change damage, random results, or production battle code.
+
+--- a/test/test_runner_battle.c
++++ b/test/test_runner_battle.c
+@@ -43,1 +43,3 @@
+ #define RNG_SEED_DEFAULT {0, 0, 0, 0}
++void (*gDdxoBeforeCriticalHit)(void);
++
+@@ -750,3 +752,5 @@
+ static u32 BattleTest_RandomWeightedArray(enum RandomTag tag, u32 sum, u32 n, const u16 *weights, void *caller)
+ {
++    if (tag == RNG_CRITICAL_HIT && gDdxoBeforeCriticalHit != NULL)
++        gDdxoBeforeCriticalHit();
+     //rigged

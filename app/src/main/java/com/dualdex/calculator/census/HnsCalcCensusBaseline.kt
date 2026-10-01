@@ -39,6 +39,8 @@ import com.dualdex.pokemon.DeclaredAbility
  * | badges (player attacker) | observed false | no badge boost |
  * | HP / status | defender at full HP, attacker at full HP, `status1 = 0` | neutral, and it makes a pinch ability provably inactive rather than accidentally active |
  * | gimmick | observed `GIMMICK_NONE` | no Tera/Dynamax/Z |
+ * | state-backed Group D | personality `255`; timers, raw first-turn value, stored Supreme counter and Paradox selector `0`; all new volatile flags false; selected Dynamax observed false | explicit neutral policy fixture, never a production default |
+ * | Analytic action phase | unobserved | the census measures menu requests and never fabricates a current executing action |
  * | item | the trainer/player fixture's own pinned item ID | truthful, not omitted |
  * | ability | the trainer/player fixture's own pinned effective ability ID | truthful, not omitted |
  *
@@ -209,6 +211,17 @@ object HnsCalcCensusBaseline {
                 transientVolatilesObserved = true,
                 volatileChargeTimer = 0,
                 volatileTarShot = false,
+                personalityObserved = true,
+                personality = 255,
+                groupDVolatilesObserved = true,
+                firstTurnObserved = true,
+                isFirstTurn = 0,
+                supremeOverlordCounterObserved = true,
+                supremeOverlordCounter = 0,
+                selectedGimmickObserved = true,
+                selectedGimmick = 0,
+                // Census describes a menu-state selected hit; turn order is deliberately UNKNOWN.
+                analyticTurnOrderObserved = false,
                 persistentVolatilesObserved = true,
                 volatileForesight = false,
                 volatileMiracleEye = false,

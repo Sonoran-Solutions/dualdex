@@ -120,7 +120,8 @@ enum class CalcLimitation {
     /** A Mold Breaker-family attacker could suppress a relevant defender immunity. */
     HNS_MOLD_BREAKER_SUPPRESSION_NOT_MODELLED,
 
-    /** Flash Fire's attacker boost depends on a live activation flag absent from the runtime tuple. */
+    /** Historical diagnostic retained for saved reports; production no longer emits it. */
+    @Deprecated("Attacker Flash Fire is modelled from the observed activation payload; unread state uses HNS_ABILITY_CONDITION_UNVERIFIED")
     HNS_FLASH_FIRE_BOOST_NOT_MODELLED,
 
     /**
@@ -1811,6 +1812,13 @@ object CalcCapabilityPolicy {
         val defenderPersistent = live.defenderPersistentVolatiles
         if (attackerPersistent == null || !attackerPersistent.observed) return true
         if (defenderPersistent == null || !defenderPersistent.observed) return true
+        // Ruin is a field payload: ability replacement can leave a flag whose current holder
+        // has a different identity. Require the window for every request, not only Ruin IDs.
+        if (listOf(live.attackerVesselOfRuin, live.defenderVesselOfRuin,
+                live.attackerSwordOfRuin, live.defenderSwordOfRuin,
+                live.attackerTabletsOfRuin, live.defenderTabletsOfRuin,
+                live.attackerBeadsOfRuin, live.defenderBeadsOfRuin,
+                live.attackerNeutralizingGas, live.defenderNeutralizingGas).any { it == null }) return true
 
         return false
     }
@@ -2046,17 +2054,6 @@ object CalcCapabilityPolicy {
             classification.abilityId in HnsGroupCPolicy.moldBreakerAbilityIds
         ) return
 
-        // Flash Fire is deliberately split by role. Defender-side immunity is in the Group C
-        // result layer; the attacker's later boost needs `flashFireBoosted`, which #88 does not read.
-        if (classification.abilityId == 18) {
-            val moveType = moveAuthority.effectiveType?.displayName
-            when {
-                !isAttacker -> return
-                moveType != null && !moveType.equals("Fire", ignoreCase = true) -> return
-                else -> limitations.add(CalcLimitation.HNS_FLASH_FIRE_BOOST_NOT_MODELLED)
-            }
-            return
-        }
         val pinchType = classification.abilityId?.let { HNS_PINCH_ABILITY_TYPES[it] }
         if (pinchType != null) {
             if (!isAttacker) return // defender pinch abilities never modify incoming damage
@@ -2206,9 +2203,14 @@ object CalcCapabilityPolicy {
         }
         val attackerGimmick = live.attackerGimmick
         val defenderGimmick = live.defenderGimmick
-        if (attackerGimmick == null || defenderGimmick == null) {
+        val attackerSelectedGimmick = live.attackerSelectedGimmick
+        val defenderSelectedGimmick = live.defenderSelectedGimmick
+        if (attackerGimmick == null || defenderGimmick == null ||
+            attackerSelectedGimmick == null || attackerSelectedGimmick !in 0 until com.dualdex.pokemon.hns.HnsGroupDLayout.GIMMICKS_COUNT ||
+            defenderSelectedGimmick == null || defenderSelectedGimmick !in 0 until com.dualdex.pokemon.hns.HnsGroupDLayout.GIMMICKS_COUNT) {
             limitations.add(CalcLimitation.HNS_GIMMICK_STATE_UNREADABLE)
-        } else if (attackerGimmick != 0 || defenderGimmick != 0) {
+        } else if (attackerGimmick != 0 || defenderGimmick != 0 ||
+            attackerSelectedGimmick != 0 || defenderSelectedGimmick != 0) {
             limitations.add(CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED)
         }
         val status1 = live.attackerStatus1
@@ -2268,7 +2270,8 @@ object CalcCapabilityPolicy {
             if (attackerPersistent.roostActive || defenderPersistent.roostActive) {
                 limitations.add(CalcLimitation.HNS_ROOST_ACTIVE_NOT_MODELLED)
             }
-            if (attackerPersistent.gastroAcid || defenderPersistent.gastroAcid) {
+            if (attackerPersistent.gastroAcid || defenderPersistent.gastroAcid ||
+                live.attackerNeutralizingGas == true || live.defenderNeutralizingGas == true) {
                 limitations.add(CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED)
             }
             if (attackerPersistent.substitute || defenderPersistent.substitute) {

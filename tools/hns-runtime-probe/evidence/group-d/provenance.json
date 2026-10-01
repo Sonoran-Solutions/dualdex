@@ -1,0 +1,30 @@
+{
+  "cases": {
+    "flash": {
+      "fixtureSha256": "aece1242a91347bff2be906c63e7777f9bba1a1789cad82d17efb5d4c58958b2",
+      "logSha256": "65719205c08c102d06c65d6b1e262e29caa00a1507ec9acea453324cea2249f0"
+    },
+    "gorilla": {
+      "fixtureSha256": "487f5e1006aed921c9485c46e4e35336fa36b2f16a55fa1d4f76c5a459d23182",
+      "logSha256": "3ae82e81fbd007cceac81b4be69d52257c883623db7e9cf78692c6411e2830cd"
+    },
+    "paradox": {
+      "fixtureSha256": "7b136e677d041d2bb7b04e04c4720ea1c1a170a7ef553f0231560815da0b4d1a",
+      "logSha256": "7557430c2480845ec2e45c41d7d1b02a8e90ae9c654dc05ac19035e041492de9"
+    },
+    "slow": {
+      "fixtureSha256": "120135292bf38d1058ba3317006a895315eed37613559e9540bfe9cc9b7c2cdb",
+      "logSha256": "277d61c1c19452c65c6c8463f7dc405d6c9bdaa6ac5b63c9691ea5d5971510ab"
+    },
+    "supreme": {
+      "fixtureSha256": "a287b6de2da722b0ddb1f9deabccb0a1eb70672335b9971722d5351530c83638",
+      "logSha256": "fe69e84e854fe6f9ae276c1f5e88ef03a132b5c93ebdbfa95effcafbb7d1d3cc"
+    }
+  },
+  "coreSha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+  "fixtureScope": "Synthetic party copies only; runtime operands established by unmodified official ROM and ordinary controller input.",
+  "probeExecutableSha256": "45c539a4c041e195287ba8796bb3c323ab81461455c13b365c71bf9ecfd5c558",
+  "readerSourceSha256": "795aec24abfd34a7b475162b4fd7d911c1cb24c2c9b95558ea4ab35c0aaca09f",
+  "romSha256": "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b",
+  "upstreamCommit": "1f42b74dff0e9fe942419845d040663dd829a973"
+}

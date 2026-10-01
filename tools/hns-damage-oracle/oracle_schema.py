@@ -23,7 +23,7 @@ import json
 import re
 from typing import Any
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 8
 ROLL_COUNT = 16
 
 HNS_REPOSITORY = "PokemonHnS-Development/pokehns-expansion"
@@ -31,7 +31,7 @@ HNS_PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
 HNS_PINNED_TREE = "586946f21e9322e8d837654d9e07cf6b8239feed"
 
 ORACLE_BACKEND_KIND = "pinned-expansion-battle-test-runner"
-ORACLE_TOOL_VERSION = 6
+ORACLE_TOOL_VERSION = 8
 
 ROLL_ORDER = (
     "rolls[k] is the damage at random factor (85+k)%, i.e. the pinned hit measured with "
@@ -60,7 +60,7 @@ LABEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 .'\-]*[A-Za-z0-9.]$|^[A-Za-z0-9]$
 
 SCENARIO_KEYS = (
     "id", "tags", "surface", "format", "attackerSide", "rules", "badges",
-    "attacker", "defender", "move", "crit", "field", "doubles", "expect",
+    "attacker", "defender", "move", "crit", "field", "doubles", "stateSetup", "expect",
 )
 RULE_KEYS = ("fairyTypes", "optionStyle")
 OPTION_STYLES = ("perMoveSplit", "typeBased")
@@ -80,10 +80,22 @@ DEFENDER_STAGE_KEYS = ("defense", "spDefense")
 FIELD_KEYS = ("weather", "reflect", "lightScreen", "terrain", "gravity")
 TERRAINS = ("none", "grassy", "electric", "misty", "psychic")
 DOUBLES_KEYS = ("defenderPartner",)
+STATE_SETUP_KEYS = ("attackerSpeciesForm", "defenderSpeciesForm", "attacker", "defender", "capture", "wonderRoom", "laterAction")
+RUNTIME_DOMAINS = {
+    "personality": (0, 0xffffffff), "gender": (0, 255), "slowStartTimer": (0, 7),
+    "flashFireBoosted": (0, 1), "transformed": (0, 1), "boosterEnergyActivated": (0, 1),
+    "paradoxBoostedStat": (0, 5), "vesselOfRuin": (0, 1), "swordOfRuin": (0, 1),
+    "tabletsOfRuin": (0, 1), "beadsOfRuin": (0, 1), "gastroAcid": (0, 1),
+    "neutralizingGas": (0, 1), "isFirstTurn": (0, 3), "supremeOverlordCounter": (0, 5),
+    "selectedGimmick": (0, 5), "activeGimmick": (0, 5), "lastToMove": (0, 1),
+    "abilityShield": (0, 1),
+}
+RUNTIME_SETUP_DOMAINS = {**RUNTIME_DOMAINS, "dynamaxSelected": (0, 1)}
+RUNTIME_SETUP_KEYS = set(RUNTIME_SETUP_DOMAINS) - {"gender", "lastToMove", "abilityShield"}
 DEFENDER_PARTNER_STATES = ("present", "fainted")
 
 OBSERVED_KEYS = ("attacker", "defender", "move", "targetCount", "fieldStatuses")
-OBSERVED_BATTLER_KEYS = ("speciesId", "types", "baseStats", "abilityId", "itemId", "hpAtHit", "status1", "badgeBoosts", "terrainAffected")
+OBSERVED_BATTLER_KEYS = ("speciesId", "types", "baseStats", "abilityId", "itemId", "hpAtHit", "status1", "badgeBoosts", "terrainAffected", "runtime")
 BASE_STAT_KEYS = ("hp", "attack", "defense", "spAttack", "spDefense", "speed")
 BADGE_BOOST_KEYS = ("attack", "defense", "spAttack", "spDefense")
 OBSERVED_MOVE_KEYS = ("id", "type", "power", "category", "target", "flags", "abilityFlags",
@@ -235,6 +247,22 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
         _require_enum(s["doubles"]["defenderPartner"], DEFENDER_PARTNER_STATES, f"{path}.doubles.defenderPartner")
     elif s["doubles"] is not None:
         _fail(f"{path}.doubles", "must be null for a Singles scenario")
+    if s["stateSetup"] is not None:
+        if not isinstance(s["stateSetup"], dict) or not s["stateSetup"] or not set(s["stateSetup"]).issubset(STATE_SETUP_KEYS):
+            _fail(f"{path}.stateSetup", f"expected a non-empty subset of {STATE_SETUP_KEYS}")
+        for role, value in s["stateSetup"].items():
+            loc = f"{path}.stateSetup.{role}"
+            if role.endswith("SpeciesForm"):
+                _require_symbol(value, "species", loc)
+            elif role in ("capture", "wonderRoom"):
+                _require_bool(value, loc)
+            elif role == "laterAction":
+                _require_int(value, loc, 0, 14)
+            else:
+                if not isinstance(value, dict) or not set(value).issubset(RUNTIME_SETUP_KEYS):
+                    _fail(loc, "invalid runtime setup keys")
+                for key, operand in value.items():
+                    _require_int(operand, f"{loc}.{key}", *RUNTIME_SETUP_DOMAINS[key])
     _require_enum(s["expect"], EXPECTS, f"{path}.expect")
     if s["defender"]["stats"]["hp"] <= MAX_MEASURABLE_DAMAGE:
         _fail(f"{path}.defender.stats.hp", f"defender HP must exceed {MAX_MEASURABLE_DAMAGE} so no roll is capped by fainting")
@@ -270,6 +298,10 @@ def _validate_observed_battler(b: Any, path: str) -> None:
     _require_int(b["hpAtHit"], f"{path}.hpAtHit", 1, 65535)
     _require_int(b["status1"], f"{path}.status1", 0, 65535)
     _require_bool(b["terrainAffected"], f"{path}.terrainAffected")
+    if b["runtime"] is not None:
+        _require_keys(b["runtime"], RUNTIME_DOMAINS, f"{path}.runtime")
+        for key, limits in RUNTIME_DOMAINS.items():
+            _require_int(b["runtime"][key], f"{path}.runtime.{key}", *limits)
     _require_keys(b["badgeBoosts"], BADGE_BOOST_KEYS, f"{path}.badgeBoosts")
     for key in BADGE_BOOST_KEYS:
         _require_bool(b["badgeBoosts"][key], f"{path}.badgeBoosts.{key}")
@@ -317,6 +349,8 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
                         "misty": 1 << 7, "psychic": 1 << 9}[scenario["field"]["terrain"]]
     if scenario["field"]["gravity"]:
         expected_terrain |= 1 << 5
+    if (scenario.get("stateSetup") or {}).get("wonderRoom"):
+        expected_terrain |= 4
     if observed["fieldStatuses"] != expected_terrain:
         _fail(f"{path}.fieldStatuses", f"observed field word {observed['fieldStatuses']:#x} != scenario terrain {expected_terrain:#x}")
     if observed["attacker"]["hpAtHit"] > scenario["attacker"]["stats"]["hp"]:

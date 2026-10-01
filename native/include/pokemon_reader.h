@@ -183,6 +183,8 @@ typedef struct {
     // BattlePokemon is never reinterpreted through this structure.
     uint32_t battle_mons_max_hp_offset;      // offset of maxHP within struct BattlePokemon
     uint32_t battle_mons_status_offset;      // offset of status1 within struct BattlePokemon
+    uint32_t battle_mons_personality_offset; // offset of personality within struct BattlePokemon
+    uint32_t battle_mons_personality_size;
     uint32_t battle_mons_volatiles_offset;   // offset of `volatiles` within struct BattlePokemon
     uint32_t battle_mons_volatile_electrified_bit;       // 0-based bit within volatiles
     uint32_t battle_mons_volatile_glaive_rush_bit;       // 0-based bit within volatiles
@@ -209,6 +211,17 @@ typedef struct {
     // (pinned GetAdjustedDamage); both are read on the ordinary path.
     uint32_t battle_mons_volatile_substitute_bit;        // 0-based bit within volatiles
     uint32_t battle_mons_volatile_endured_bit;           // 0-based bit within volatiles
+    uint32_t battle_mons_volatile_slow_start_timer_bit;
+    uint32_t battle_mons_volatile_slow_start_timer_width;
+    uint32_t battle_mons_volatile_flash_fire_boosted_bit;
+    uint32_t battle_mons_volatile_transformed_bit;
+    uint32_t battle_mons_volatile_booster_energy_activated_bit;
+    uint32_t battle_mons_volatile_paradox_boosted_stat_bit;
+    uint32_t battle_mons_volatile_paradox_boosted_stat_width;
+    uint32_t battle_mons_volatile_vessel_of_ruin_bit;
+    uint32_t battle_mons_volatile_sword_of_ruin_bit;
+    uint32_t battle_mons_volatile_tablets_of_ruin_bit;
+    uint32_t battle_mons_volatile_beads_of_ruin_bit;
     uint32_t save_block1_flags_offset;       // struct-relative offset of SaveBlock1.flags
     uint32_t save_block1_badges_offset;      // struct-relative offset of SaveBlock1 badge byte (flags[272])
 
@@ -242,6 +255,26 @@ typedef struct {
     uint32_t battle_struct_battler_state_offset; // struct BattleStruct-relative battlerState offset
     uint32_t battler_state_size;             // sizeof(struct BattlerState)
     uint32_t battler_state_switch_in_bit;    // bit offset of BattlerState.switchIn
+    uint32_t battler_state_is_first_turn_bit;
+    uint32_t battler_state_is_first_turn_width;
+    uint32_t battle_gimmick_usable_offset;
+    uint32_t battle_gimmick_player_select_offset;
+    uint32_t battle_struct_supreme_overlord_counter_offset;
+    uint32_t supreme_overlord_counter_stride;
+    uint32_t supreme_overlord_counter_count;
+    uint32_t battle_gimmick_dynamax_value;
+    uint32_t battle_action_use_move_value;
+    uint32_t battle_action_exec_script_value;
+    uint32_t battle_current_move_gba_address;
+    uint32_t run_turn_actions_func_ptr;
+    uint32_t battle_main_cb1_func_ptr;
+    uint32_t battle_main_cb1_offset;
+    uint32_t battle_turn_action_number_gba_address;
+    uint32_t battle_actions_by_turn_order_gba_address;
+    uint32_t battle_battler_by_turn_order_gba_address;
+    uint32_t battle_current_action_func_id_gba_address;
+    uint32_t battle_battler_attacker_gba_address;
+    uint32_t battle_battlers_count_gba_address;
     uint32_t max_battlers_count;             // compiled MAX_BATTLERS_COUNT
     uint32_t switch_in_events_count;         // compiled SWITCH_IN_EVENTS_COUNT sentinel
     // Wider Group B settlement gate. The switch-in event fields above reset only after
@@ -796,6 +829,8 @@ typedef struct {
     uint16_t max_hp;               // engine's current max HP (gBattleMons[battler].maxHP)
     bool     status_observed;      // status1 was decoded from live memory
     uint32_t status1;              // engine's current status word (0 = no status)
+    bool     personality_observed;
+    uint32_t personality;
     bool     volatiles_observed;   // the damage-relevant volatile bits were decoded
     bool     volatile_electrified; // VOLATILE_ELECTRIFIED (Electrify: forces the move Electric)
     bool     volatile_glaive_rush; // VOLATILE_GLAIVE_RUSH (defender takes x2 from any incoming move)
@@ -816,6 +851,16 @@ typedef struct {
     bool     volatile_roost_active; // VOLATILE_ROOST_ACTIVE (GetBattlerTypes drops Flying)
     bool     volatile_substitute;   // VOLATILE_SUBSTITUTE (GetAdjustedDamage redirects the hit)
     bool     volatile_endured;      // VOLATILE_ENDURED (GetAdjustedDamage caps damage at HP-1)
+    uint8_t  volatile_slow_start_timer;
+    bool     volatile_flash_fire_boosted;
+    bool     volatile_transformed;
+    bool     volatile_booster_energy_activated;
+    uint8_t  volatile_paradox_boosted_stat;
+    bool     volatile_vessel_of_ruin;
+    bool     volatile_sword_of_ruin;
+    bool     volatile_tablets_of_ruin;
+    bool     volatile_beads_of_ruin;
+    bool     volatile_neutralizing_gas;
     bool     gimmick_observed;     // gBattleStruct->gimmick.activeGimmick was decoded
     uint8_t  active_gimmick;       // enum Gimmick for this battler's party slot
     bool     field_statuses_readable; // gFieldStatuses was actually read
@@ -828,6 +873,15 @@ typedef struct {
     uint32_t side_statuses;        // engine's current status word for the observed battler's side
     bool     switch_in_phase_observed; // event state, active switchIn flags, and battle callback read
     bool     switch_in_events_settled; // event complete, flags clear, and stable action selection active
+    bool     first_turn_observed;
+    uint8_t  is_first_turn;
+    bool     supreme_overlord_counter_observed;
+    uint8_t  supreme_overlord_counter;
+    bool     selected_gimmick_observed;
+    uint8_t  selected_gimmick; // enum Gimmick: NONE when playerSelect is false
+    uint16_t analytic_current_move;
+    bool     analytic_turn_order_observed;
+    uint8_t  analytic_turn_order; // 0 UNKNOWN, 1 LAST_TO_MOVE, 2 NOT_LAST_TO_MOVE
 } BattlerRuntimeState;
 
 /**

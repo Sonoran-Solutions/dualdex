@@ -153,6 +153,8 @@ calc_goldens_check() {
 hns_generator_test() {
   echo "== H&S fixed-point accumulator tests =="
   node tools/calc-bundler/test_fixed_point.js
+  echo "== H&S runtime-layout and release-phase evidence tests =="
+  (cd tools/hns-layout && python3 -m unittest test_hns_live_layout -v)
   echo "== H&S data-pack generator tests =="
   (cd tools/hns-data-pack && python3 -m unittest test_generate_hns_data_pack -v)
   echo "== H&S type-system generator tests =="

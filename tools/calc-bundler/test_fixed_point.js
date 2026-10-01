@@ -8,6 +8,13 @@ const pinnedMacro = value => Math.trunc(value * 4096 + 0.5);
 assert.equal(pinnedMacro(1.3), 5325);
 assert.equal(pinnedMacro(1.5), 6144);
 assert.equal(pinnedMacro(1.3333), 5461);
+assert.equal(pinnedMacro(1.33), 5448); // Aura, distinct from 1.3333
+assert.equal(pinnedMacro(1.25), 5120); // Rivalry same gender
+assert.equal(pinnedMacro(0.75), 3072); // Rivalry / Aura Break / Ruin
+// Pinned PercentToUQ4_12(counter * 10), not a rational approximation at final damage.
+assert.deepEqual(Array.from({length: 6}, (_, count) =>
+  4096 + Math.floor((count * 10 * 4096 + 50) / 100)),
+  [4096, 4506, 4915, 5325, 5734, 6144]);
 
 function product(operators) {
   const accumulator = createHnsModifierAccumulator();

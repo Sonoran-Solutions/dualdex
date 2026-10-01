@@ -1,0 +1,15 @@
+# Controlled Regigigas party fixture produced by prepare_group_d_test_save.py.
+# Official ROM establishes every runtime operand; inputs only after loading the battery.
+wait 120
+mash 800
+wait 200
+walk DOWN 2
+walk LEFT 14
+walk DOWN 3
+walk LEFT 1
+group-d-trace
+hunt 500
+assert-battle active
+damage-probe 150 7
+damage-probe 33 1
+matrix group-d-end

@@ -5703,7 +5703,7 @@ static void test_hns_battler_switch_in_phase_requires_event_flags_and_stable_cal
      * already cleared its monToSwitchIntoId during the send-out animation. The main callback is
      * still in battle-script work, so this frame must remain pending. */
     hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 0);
-    hns_battle_set_main_callback(&fx, HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR);
+    hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
     const size_t battle_struct_offset = 0x30000u;
     gba.ewram[battle_struct_offset + HNS_LIVE_BATTLE_STRUCT_MON_TO_SWITCH_INTO_ID_OFFSET + 1u] =
         HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT; /* PARTY_SIZE, cleared by the opponent send-out animation */
@@ -5883,6 +5883,128 @@ static void test_hns_field_statuses_thor_regression(void) {
 
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_hns_field_statuses_thor_regression" ANSI_RESET "\n");
+}
+
+static void test_hns_group_d_operands(void) {
+    printf("Running test_hns_group_d_operands...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+    hns_battle_set_gimmick(&fx, 0, 0);
+    uint8_t* mon = gba.ewram + cfg->battle_mons_offset;
+    uint8_t* bs = gba.ewram + 0x30000;
+    write32_le_t(mon + HNS_LIVE_BP_PERSONALITY_OFFSET, 0x12345678u);
+    const uint32_t bits[] = {
+        HNS_LIVE_BP_VOLATILE_FLASH_FIRE_BOOSTED_BIT, HNS_LIVE_BP_VOLATILE_TRANSFORMED_BIT,
+        HNS_LIVE_BP_VOLATILE_BOOSTER_ENERGY_ACTIVATED_BIT, HNS_LIVE_BP_VOLATILE_VESSEL_OF_RUIN_BIT,
+        HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT, HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT,
+        HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT, HNS_LIVE_BP_VOLATILE_NEUTRALIZING_GAS_BIT,
+    };
+    BattlerRuntimeState st;
+    for (unsigned active = 0; active <= 1; active++) {
+        for (unsigned i = 0; i < sizeof(bits) / sizeof(bits[0]); i++)
+            hns_battle_set_volatile_bit(&fx, 0, bits[i], active != 0);
+        hns_battle_set_volatile_field(&fx, 0, HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_BIT,
+            HNS_LIVE_BP_VOLATILE_SLOW_START_TIMER_WIDTH, active ? 5 : 0);
+        hns_battle_set_volatile_field(&fx, 0, HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_BIT,
+            HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_WIDTH, active ? 4 : 0);
+        TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "Group D read succeeds");
+        TEST_ASSERT(st.personality_observed && st.personality == 0x12345678u, "live personality preserved");
+        TEST_ASSERT(st.volatiles_observed && st.volatile_slow_start_timer == (active ? 5 : 0), "slow timer exact");
+        TEST_ASSERT(st.volatile_paradox_boosted_stat == (active ? 4 : 0), "stored selector exact");
+        TEST_ASSERT(st.volatile_flash_fire_boosted == active && st.volatile_transformed == active &&
+            st.volatile_booster_energy_activated == active && st.volatile_vessel_of_ruin == active &&
+            st.volatile_sword_of_ruin == active && st.volatile_tablets_of_ruin == active &&
+            st.volatile_beads_of_ruin == active && st.volatile_neutralizing_gas == active,
+            "all observed payload bits preserve both neutral and positive states");
+    }
+    for (unsigned raw = 0; raw <= 3; raw++) {
+        bs[HNS_LIVE_BATTLE_STRUCT_BATTLER_STATE_OFFSET + HNS_LIVE_BATTLER_STATE_IS_FIRST_TURN_BIT / 8] =
+            raw << (HNS_LIVE_BATTLER_STATE_IS_FIRST_TURN_BIT % 8);
+        TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "first turn read succeeds");
+        TEST_ASSERT(st.first_turn_observed && st.is_first_turn == raw, "raw two-bit value preserved");
+    }
+    for (unsigned counter = 0; counter <= 6; counter++) {
+        bs[HNS_LIVE_BATTLE_STRUCT_SUPREME_OVERLORD_COUNTER_OFFSET] = counter;
+        TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "stored counter read succeeds");
+        TEST_ASSERT(st.supreme_overlord_counter == counter, "counter is never clamped or reconstructed");
+        TEST_ASSERT((st.status == BATTLER_RUNTIME_STATE_OBSERVED_INVALID) == (counter == 6), "invalid counter refused");
+    }
+    bs[HNS_LIVE_BATTLE_STRUCT_SUPREME_OVERLORD_COUNTER_OFFSET] = 0;
+    for (unsigned selected = 0; selected < cfg->battle_gimmick_count; selected++) {
+        bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_usable_offset] = (uint8_t)selected;
+        bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_player_select_offset] = 1;
+        TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "selected gimmick read succeeds");
+        TEST_ASSERT(st.selected_gimmick_observed && st.selected_gimmick == selected,
+            "source usableGimmick enum is preserved when playerSelect is true");
+    }
+    bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_usable_offset] = (uint8_t)cfg->battle_gimmick_count;
+    bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_player_select_offset] = 0;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "unselected Tera payload read succeeds");
+    TEST_ASSERT(st.selected_gimmick_observed && st.selected_gimmick == 0,
+        "playerSelect false maps even a stale usable slot to exact NONE");
+    bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_usable_offset] = (uint8_t)cfg->battle_gimmick_count;
+    bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_player_select_offset] = 1;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "invalid selected gimmick read degrades");
+    TEST_ASSERT(!st.selected_gimmick_observed, "out-of-domain usableGimmick remains unread");
+    write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "null struct read degrades");
+    TEST_ASSERT(!st.first_turn_observed && !st.supreme_overlord_counter_observed && !st.selected_gimmick_observed,
+        "unread struct is never neutral state");
+    g_tests_passed++;
+}
+
+static void test_hns_analytic_current_action_authority(void) {
+    printf("Running test_hns_analytic_current_action_authority...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+    write32_le_t(gba.iwram + cfg->main_struct_gba_address + cfg->battle_main_cb1_offset - 0x03000000u, cfg->battle_main_cb1_func_ptr);
+    hns_battle_set_battler_hp(&fx, 0, 20, 20);
+    hns_battle_set_battler_hp(&fx, 1, 20, 20);
+    uint8_t* actions = gba.ewram + cfg->battle_actions_by_turn_order_gba_address - 0x02000000u;
+    uint8_t* order = gba.ewram + cfg->battle_battler_by_turn_order_gba_address - 0x02000000u;
+    uint8_t* index = gba.ewram + cfg->battle_turn_action_number_gba_address - 0x02000000u;
+    gba.ewram[cfg->battle_current_action_func_id_gba_address - 0x02000000u] = HNS_LIVE_B_ACTION_EXEC_SCRIPT;
+    gba.ewram[cfg->battle_battler_attacker_gba_address - 0x02000000u] = 0;
+    write16_le_t(gba.ewram + cfg->battle_current_move_gba_address - 0x02000000u, 33);
+    order[0] = 0; order[1] = 1; actions[0] = actions[1] = HNS_LIVE_B_ACTION_USE_MOVE; *index = 0;
+    BattlerRuntimeState st;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "menu read succeeds");
+    TEST_ASSERT(!st.analytic_turn_order_observed, "action selection never accepts previous-turn arrays");
+    hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "current action read succeeds");
+    TEST_ASSERT(st.analytic_turn_order_observed && st.analytic_turn_order == 2 && st.analytic_current_move == 33,
+        "later living move action is NOT_LAST and current move is bound");
+    write32_le_t(gba.iwram + cfg->main_struct_gba_address + cfg->battle_main_cb1_offset - 0x03000000u, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && !st.analytic_turn_order_observed,
+        "a suspended battle dispatcher never authorizes stale action globals");
+    write32_le_t(gba.iwram + cfg->main_struct_gba_address + cfg->battle_main_cb1_offset - 0x03000000u, cfg->battle_main_cb1_func_ptr);
+    actions[1] = 2; /* non-move action; source compares only B_ACTION_USE_MOVE */
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && st.analytic_turn_order == 1,
+        "later non-move does not prevent LAST");
+    actions[1] = HNS_LIVE_B_ACTION_USE_MOVE;
+    hns_battle_set_battler_hp(&fx, 1, 0, 20);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && st.analytic_turn_order == 1,
+        "later fainted battler skipped");
+    hns_battle_set_battler_hp(&fx, 1, 20, 20);
+    gba.ewram[cfg->absent_battler_flags_offset] = 2;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && st.analytic_turn_order == 1,
+        "later absent battler skipped");
+    gba.ewram[cfg->absent_battler_flags_offset] = 0;
+    order[0] = 1; order[1] = 0; *index = 1;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && st.analytic_turn_order == 1,
+        "attacker at end is LAST");
+    hns_battle_set_main_callback(&fx, cfg->action_selection_func_ptr);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && !st.analytic_turn_order_observed,
+        "new turn selection invalidates old authority");
+    hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
+    *index = 0;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && !st.analytic_turn_order_observed,
+        "mismatched current attacker and turn index invalidates authority");
+    g_tests_passed++;
 }
 
 static void test_hns_battler_state_c4e_live_operands(void) {
@@ -6411,6 +6533,8 @@ int main(void) {
     test_hns_battler_state_teardown_and_profile_switch();
     test_hns_badge_state_reading();
     test_hns_battler_state_stats_stages_badges();
+    test_hns_group_d_operands();
+    test_hns_analytic_current_action_authority();
     test_hns_battler_state_c4e_live_operands();
     test_hns_battler_switch_in_phase_requires_event_flags_and_stable_callback();
     test_hns_field_statuses_raw_word();

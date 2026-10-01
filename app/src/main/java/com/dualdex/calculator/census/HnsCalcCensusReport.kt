@@ -810,6 +810,9 @@ object HnsCalcCensusReport {
             "equalizer, no level/IV/EV scaling;\n")
         out.append("- no field effect (`gFieldStatuses = 0`), clear weather, no defender screens, " +
             "every volatile bit observed false, all stat stages zero, no gimmick;\n")
+        out.append("- Group D operands explicitly observed neutral: personality 255, Slow Start timer 0, " +
+            "raw first-turn value 0, stored Supreme counter 0, Paradox selector 0, all new flags false, " +
+            "pending Dynamax false. Analytic action phase remains UNKNOWN at the menu;\n")
         out.append("- switch-in events observed settled: `eventState.switchIn = " +
             "SWITCH_IN_EVENTS_COUNT` and every active `BattlerState.switchIn` flag clear;\n")
         out.append("- both battlers at full HP with `status1 = 0`, so a pinch ability is provably " +

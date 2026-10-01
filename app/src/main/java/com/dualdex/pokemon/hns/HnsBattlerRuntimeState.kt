@@ -266,6 +266,9 @@ data class HnsBattlerRuntimeState(
     val statusObserved: Boolean = false,
     /** Engine's current status word; 0 is an observed 'no status'. */
     val status1: Int = 0,
+    /** Current battle `gBattleMons[].personality`; only meaningful when observed. */
+    val personalityObserved: Boolean = false,
+    val personality: Int = 0,
     /** true when the damage-relevant volatile bits were decoded from live memory. */
     val volatilesObserved: Boolean = false,
     /** VOLATILE_ELECTRIFIED: Electrify forces the current move to Electric (any type). */
@@ -353,6 +356,17 @@ data class HnsBattlerRuntimeState(
      * battler. Only meaningful when [persistentVolatilesObserved].
      */
     val volatileEndured: Boolean = false,
+    /** The extended Group D volatile payload, decoded from the generated 42-byte window. */
+    val groupDVolatilesObserved: Boolean = false,
+    val volatileSlowStartTimer: Int = 0,
+    val volatileFlashFireBoosted: Boolean = false,
+    val volatileTransformed: Boolean = false,
+    val volatileBoosterEnergyActivated: Boolean = false,
+    val volatileParadoxBoostedStat: Int = 0,
+    val volatileVesselOfRuin: Boolean = false,
+    val volatileSwordOfRuin: Boolean = false,
+    val volatileTabletsOfRuin: Boolean = false,
+    val volatileBeadsOfRuin: Boolean = false,
     /** true when `gBattleStruct->gimmick.activeGimmick[side][slot]` was decoded. */
     val gimmickObserved: Boolean = false,
     /** `enum Gimmick` active for this battler's party slot; 0 = GIMMICK_NONE. */
@@ -379,7 +393,21 @@ data class HnsBattlerRuntimeState(
     /** true when the global switch-in event counter and every active battler flag were read. */
     val switchInPhaseObserved: Boolean = false,
     /** The event driver reached SWITCH_IN_EVENTS_COUNT and all active battler switchIn flags cleared. */
-    val switchInEventsSettled: Boolean = false
+    val switchInEventsSettled: Boolean = false,
+    /** Raw `BattlerState.isFirstTurn` two-bit domain; source tests exactly `== 2`. */
+    val firstTurnObserved: Boolean = false,
+    val isFirstTurn: Int = 0,
+    /** Stored `BattleStruct.supremeOverlordCounter[battler]`, never derived from the party. */
+    val supremeOverlordCounterObserved: Boolean = false,
+    val supremeOverlordCounter: Int = 0,
+    /** Exact `playerSelect ? usableGimmick[battler] : GIMMICK_NONE` value. */
+    val selectedGimmickObserved: Boolean = false,
+    val selectedGimmick: Int = 0,
+    /** Exact current-action phase result for Analytic: 0 unknown, 1 last, 2 not last. */
+    val analyticTurnOrderObserved: Boolean = false,
+    val volatileNeutralizingGas: Boolean = false,
+    val analyticCurrentMove: Int = 0,
+    val analyticTurnOrder: Int = 0
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
@@ -466,7 +494,11 @@ data class HnsBattlerRuntimeState(
          * [70] volatileSubstitute, [71] volatileEndured,
          * [72] speciesObserved, [73] current live battle species ID.
          * [74] switchInPhaseObserved, [75] switchInEventsSettled (event sentinel, clear flags,
-         * and stable action-selection callback).
+         * and stable action-selection callback), [76] personalityObserved, [77] personality,
+         * [78..86] state-backed Group D volatile payloads, [87..88] isFirstTurn observed/raw,
+         * [89..90] stored Supreme Overlord counter observed/raw, [91..92] pending Dynamax
+         * selection observed/result, [93..94] Analytic current-turn authority observed/result,
+         * [95] neutralizingGas, [96] current move ID bound to the Analytic authority.
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
          * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is
@@ -475,7 +507,9 @@ data class HnsBattlerRuntimeState(
          * the live weather / defender-side status operands, [C4E_TRANSIENT_TUPLE_LEN]
          * the Charge / Tar Shot volatile operands, and [C4E_PERSISTENT_TUPLE_LEN]
          * the review-round-4 persistent volatile operands; [PHASE_TUPLE_LEN] additionally carries
-         * the authoritative switch-in/event settlement state.
+         * the authoritative switch-in/event settlement state; [GROUP_D_TUPLE_LEN] additionally
+         * carries personality and state-backed Group D operands. Old and shorter tuples keep
+         * these new operands unobserved.
          */
         private const val TUPLE_LEN = 42
         private const val C4E_TUPLE_LEN = 56
@@ -484,6 +518,7 @@ data class HnsBattlerRuntimeState(
         private const val C4E_PERSISTENT_TUPLE_LEN = 72
         private const val C4E_SPECIES_TUPLE_LEN = 74
         private const val PHASE_TUPLE_LEN = 76
+        private const val GROUP_D_TUPLE_LEN = 97
 
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -559,6 +594,15 @@ data class HnsBattlerRuntimeState(
             val switchInPhaseObserved = raw.size >= PHASE_TUPLE_LEN && raw[74] != 0
             val switchInEventsSettled = switchInPhaseObserved && raw[75] != 0
             val persistentVolatilesObserved = volatilesObserved && c4ePersistent
+            val c4eGroupD = raw.size >= GROUP_D_TUPLE_LEN
+            val groupDVolatilesObserved = c4eGroupD && volatilesObserved &&
+                raw[78] in 0..HnsGroupDLayout.SLOW_START_MAX && raw[82] in 0 until HnsGroupDLayout.NUM_STATS &&
+                listOf(79, 80, 81, 83, 84, 85, 86, 95).all { raw[it] in 0..1 }
+            val personalityObserved = c4eGroupD && raw[76] == 1
+            val firstTurnObserved = c4eGroupD && raw[87] == 1 && raw[88] in 0..HnsGroupDLayout.FIRST_TURN_MAX
+            val supremeCounterObserved = c4eGroupD && raw[89] == 1 && raw[90] in 0..5
+            val selectedGimmickObserved = c4eGroupD && raw[91] == 1 && raw[92] in 0 until HnsGroupDLayout.GIMMICKS_COUNT
+            val analyticTurnOrderObserved = c4eGroupD && raw[93] == 1 && raw[94] in 1..2 && raw[96] in 1..65535
             val decoded = HnsBattlerRuntimeState(
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
@@ -593,6 +637,8 @@ data class HnsBattlerRuntimeState(
                 maxHp = if (hpObserved) raw[44].coerceAtLeast(0) else 0,
                 statusObserved = statusObserved,
                 status1 = if (statusObserved) raw[46] else 0,
+                personalityObserved = personalityObserved,
+                personality = if (personalityObserved) raw[77] else 0,
                 volatilesObserved = volatilesObserved,
                 volatileElectrified = volatilesObserved && raw[48] != 0,
                 volatileGlaiveRush = volatilesObserved && raw[49] != 0,
@@ -616,6 +662,16 @@ data class HnsBattlerRuntimeState(
                 volatileRoostActive = persistentVolatilesObserved && raw[69] != 0,
                 volatileSubstitute = persistentVolatilesObserved && raw[70] != 0,
                 volatileEndured = persistentVolatilesObserved && raw[71] != 0,
+                groupDVolatilesObserved = groupDVolatilesObserved,
+                volatileSlowStartTimer = if (groupDVolatilesObserved) raw[78] else 0,
+                volatileFlashFireBoosted = groupDVolatilesObserved && raw[79] != 0,
+                volatileTransformed = groupDVolatilesObserved && raw[80] != 0,
+                volatileBoosterEnergyActivated = groupDVolatilesObserved && raw[81] != 0,
+                volatileParadoxBoostedStat = if (groupDVolatilesObserved) raw[82] else 0,
+                volatileVesselOfRuin = groupDVolatilesObserved && raw[83] != 0,
+                volatileSwordOfRuin = groupDVolatilesObserved && raw[84] != 0,
+                volatileTabletsOfRuin = groupDVolatilesObserved && raw[85] != 0,
+                volatileBeadsOfRuin = groupDVolatilesObserved && raw[86] != 0,
                 gimmickObserved = gimmickObserved,
                 activeGimmick = if (gimmickObserved) raw[53].coerceIn(0, 5) else 0,
                 fieldStatusesReadable = fieldStatusesReadable,
@@ -625,7 +681,17 @@ data class HnsBattlerRuntimeState(
                 sideStatusesReadable = sideStatusesReadable,
                 sideStatuses = if (sideStatusesReadable) raw[59] else 0,
                 switchInPhaseObserved = switchInPhaseObserved,
-                switchInEventsSettled = switchInEventsSettled
+                switchInEventsSettled = switchInEventsSettled,
+                firstTurnObserved = firstTurnObserved,
+                isFirstTurn = if (firstTurnObserved) raw[88] else 0,
+                supremeOverlordCounterObserved = supremeCounterObserved,
+                supremeOverlordCounter = if (supremeCounterObserved) raw[90] else 0,
+                selectedGimmickObserved = selectedGimmickObserved,
+                selectedGimmick = if (selectedGimmickObserved) raw[92] else 0,
+                analyticTurnOrderObserved = analyticTurnOrderObserved,
+                volatileNeutralizingGas = groupDVolatilesObserved && raw[95] == 1,
+                analyticCurrentMove = if (analyticTurnOrderObserved) raw[96] else 0,
+                analyticTurnOrder = if (analyticTurnOrderObserved) raw[94] else 0
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for
             // out-of-domain observations, but a tuple whose flags claim an out-of-domain

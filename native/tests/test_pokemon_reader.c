@@ -5703,7 +5703,7 @@ static void test_hns_battler_switch_in_phase_requires_event_flags_and_stable_cal
      * already cleared its monToSwitchIntoId during the send-out animation. The main callback is
      * still in battle-script work, so this frame must remain pending. */
     hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 0);
-    hns_battle_set_main_callback(&fx, HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR);
+    hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
     const size_t battle_struct_offset = 0x30000u;
     gba.ewram[battle_struct_offset + HNS_LIVE_BATTLE_STRUCT_MON_TO_SWITCH_INTO_ID_OFFSET + 1u] =
         HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT; /* PARTY_SIZE, cleared by the opponent send-out animation */
@@ -5932,15 +5932,25 @@ static void test_hns_group_d_operands(void) {
         TEST_ASSERT((st.status == BATTLER_RUNTIME_STATE_OBSERVED_INVALID) == (counter == 6), "invalid counter refused");
     }
     bs[HNS_LIVE_BATTLE_STRUCT_SUPREME_OVERLORD_COUNTER_OFFSET] = 0;
-    for (unsigned selected = 0; selected <= 1; selected++) {
-        bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_usable_offset] = HNS_LIVE_GIMMICK_DYNAMAX_VALUE;
-        bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_player_select_offset] = selected;
+    for (unsigned selected = 0; selected < cfg->battle_gimmick_count; selected++) {
+        bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_usable_offset] = (uint8_t)selected;
+        bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_player_select_offset] = 1;
         TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "selected gimmick read succeeds");
-        TEST_ASSERT(st.selected_dynamax_observed && st.dynamax_selected == selected, "source conjunction exact");
+        TEST_ASSERT(st.selected_gimmick_observed && st.selected_gimmick == selected,
+            "source usableGimmick enum is preserved when playerSelect is true");
     }
+    bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_usable_offset] = (uint8_t)cfg->battle_gimmick_count;
+    bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_player_select_offset] = 0;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "unselected Tera payload read succeeds");
+    TEST_ASSERT(st.selected_gimmick_observed && st.selected_gimmick == 0,
+        "playerSelect false maps even a stale usable slot to exact NONE");
+    bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_usable_offset] = (uint8_t)cfg->battle_gimmick_count;
+    bs[cfg->battle_struct_gimmick_offset + cfg->battle_gimmick_player_select_offset] = 1;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "invalid selected gimmick read degrades");
+    TEST_ASSERT(!st.selected_gimmick_observed, "out-of-domain usableGimmick remains unread");
     write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0);
     TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "null struct read degrades");
-    TEST_ASSERT(!st.first_turn_observed && !st.supreme_overlord_counter_observed && !st.selected_dynamax_observed,
+    TEST_ASSERT(!st.first_turn_observed && !st.supreme_overlord_counter_observed && !st.selected_gimmick_observed,
         "unread struct is never neutral state");
     g_tests_passed++;
 }
@@ -5964,7 +5974,7 @@ static void test_hns_analytic_current_action_authority(void) {
     BattlerRuntimeState st;
     TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "menu read succeeds");
     TEST_ASSERT(!st.analytic_turn_order_observed, "action selection never accepts previous-turn arrays");
-    hns_battle_set_main_callback(&fx, HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR);
+    hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
     TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "current action read succeeds");
     TEST_ASSERT(st.analytic_turn_order_observed && st.analytic_turn_order == 2 && st.analytic_current_move == 33,
         "later living move action is NOT_LAST and current move is bound");
@@ -5990,7 +6000,7 @@ static void test_hns_analytic_current_action_authority(void) {
     hns_battle_set_main_callback(&fx, cfg->action_selection_func_ptr);
     TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && !st.analytic_turn_order_observed,
         "new turn selection invalidates old authority");
-    hns_battle_set_main_callback(&fx, HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR);
+    hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
     *index = 0;
     TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && !st.analytic_turn_order_observed,
         "mismatched current attacker and turn index invalidates authority");

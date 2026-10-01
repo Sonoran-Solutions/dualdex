@@ -595,7 +595,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     attackModifier.addHalfDown(8192);
   }
   if (attacker.ability === 'Gorilla Tactics' && isPhysical &&
-      input.attacker?.hnsDynamaxSelected === false &&
+      Number.isInteger(input.attacker?.hnsSelectedGimmick) && input.attacker.hnsSelectedGimmick !== 4 &&
       Number.isInteger(input.attacker?.hnsActiveGimmick) && input.attacker.hnsActiveGimmick !== 4) {
     // The independent active-gimmick policy still refuses unsupported Dynamax move semantics.
     attackModifier.addHalfUp(6144);

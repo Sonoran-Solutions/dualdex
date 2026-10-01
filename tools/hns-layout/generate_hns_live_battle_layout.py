@@ -57,7 +57,7 @@ PINNED_TAG = "Release-v2.0.5"
 PHASE_EVIDENCE = json.loads(Path(__file__).with_name("release_phase_evidence.json").read_text())
 BATTLE_MAIN_FUNC_GBA_ADDRESS = PHASE_EVIDENCE["gBattleMainFunc"]["address"]
 ACTION_SELECTION_FUNC_PTR = PHASE_EVIDENCE["functions"]["HandleTurnActionSelectionState"]["releaseAddress"] | 1
-BATTLE_SCRIPT_CALLBACK_FUNC_PTR = PHASE_EVIDENCE["functions"]["RunTurnActionsFunctions"]["releaseAddress"] | 1
+RUN_TURN_ACTIONS_FUNC_PTR = PHASE_EVIDENCE["functions"]["RunTurnActionsFunctions"]["releaseAddress"] | 1
 TURN_ORDER_GLOBAL_ADDRESSES = {
     "gBattlersCount": 0x020000B0,
     "gBattlerAttacker": 0x02000124,
@@ -376,7 +376,7 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
 
     pins["battle_main_func_gba_address"] = BATTLE_MAIN_FUNC_GBA_ADDRESS
     pins["action_selection_func_ptr"] = ACTION_SELECTION_FUNC_PTR
-    pins["battle_script_callback_func_ptr"] = BATTLE_SCRIPT_CALLBACK_FUNC_PTR
+    pins["run_turn_actions_func_ptr"] = RUN_TURN_ACTIONS_FUNC_PTR
     pins.update({f"{name.lower()}_gba_address": address
                  for name, address in TURN_ORDER_GLOBAL_ADDRESSES.items()})
 
@@ -502,7 +502,7 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f" *   BattleStruct.supremeOverlordCounter = {compiled['supreme_overlord_counter_offset']} stride {compiled['supreme_overlord_counter_stride']} count {compiled['supreme_overlord_counter_count']}",
         f" *   gBattleMainFunc (IWRAM)      = 0x{pins['battle_main_func_gba_address']:08X}",
         f" *   action-selection callback  = 0x{pins['action_selection_func_ptr']:08X}",
-        f" *   battle-script callback    = 0x{pins['battle_script_callback_func_ptr']:08X}",
+        f" *   RunTurnActionsFunctions   = 0x{pins['run_turn_actions_func_ptr']:08X}",
         *[f" *   {name} (IWRAM/EWRAM) = 0x{address:08X}" for name, address in TURN_ORDER_GLOBAL_ADDRESSES.items()],
         "",
         " * Source and official-symbol cross-check:",
@@ -576,7 +576,7 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_MAIN_CALLBACK1_OFFSET {compiled['main_callback1_offset']}",
         f"#define HNS_LIVE_BATTLE_MAIN_CB1_FUNC_PTR 0x{PHASE_EVIDENCE['functions']['BattleMainCB1']['releaseAddress'] | 1:08X}u",
         f"#define HNS_LIVE_ACTION_SELECTION_FUNC_PTR 0x{pins['action_selection_func_ptr']:08X}u",
-        f"#define HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR 0x{pins['battle_script_callback_func_ptr']:08X}u",
+        f"#define HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR 0x{pins['run_turn_actions_func_ptr']:08X}u",
         f"#define HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET {compiled['active_gimmick_offset']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_USABLE_OFFSET {compiled['usable_gimmick_offset']}",
         f"#define HNS_LIVE_BATTLE_GIMMICK_PLAYER_SELECT_OFFSET {compiled['player_select_offset']}",
@@ -590,7 +590,6 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_SUPREME_OVERLORD_COUNTER_COUNT {compiled['supreme_overlord_counter_count']}",
         f"#define HNS_LIVE_B_ACTION_EXEC_SCRIPT {compiled['b_action_exec_script']}",
         f"#define HNS_LIVE_BP_VOLATILE_NEUTRALIZING_GAS_BIT {compiled['volatile_neutralizing_gas_bit']}",
-        f"#define HNS_LIVE_GCURRENTMOVE_GBA_ADDRESS 0x{pins['gcurrentmove_gba_address']:08X}u",
         f"#define HNS_LIVE_B_ACTION_USE_MOVE {compiled['b_action_use_move']}",
         *[f"#define HNS_LIVE_{name.upper()}_GBA_ADDRESS 0x{address:08X}u" for name, address in TURN_ORDER_GLOBAL_ADDRESSES.items()],
         "",

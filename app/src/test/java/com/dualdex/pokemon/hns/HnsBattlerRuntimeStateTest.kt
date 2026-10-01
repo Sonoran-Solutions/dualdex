@@ -436,7 +436,7 @@ class HnsBattlerRuntimeStateTest {
             tuple[89] = 1
             tuple[90] = 5
             tuple[91] = 1
-            tuple[92] = 0 // observed NONE is distinct from unread
+            tuple[92] = 5 // observed TERA enum is preserved, not collapsed to a Dynamax Boolean
             tuple[93] = 1
             tuple[94] = 2
             tuple[96] = 33
@@ -458,8 +458,8 @@ class HnsBattlerRuntimeStateTest {
         assertEquals(2, state.isFirstTurn)
         assertTrue(state.supremeOverlordCounterObserved)
         assertEquals(5, state.supremeOverlordCounter)
-        assertTrue(state.selectedDynamaxObserved)
-        assertFalse(state.dynamaxSelected)
+        assertTrue(state.selectedGimmickObserved)
+        assertEquals(5, state.selectedGimmick)
         assertTrue(state.analyticTurnOrderObserved)
         assertEquals(2, state.analyticTurnOrder)
 
@@ -468,12 +468,12 @@ class HnsBattlerRuntimeStateTest {
         assertFalse(previous.personalityObserved)
         assertFalse(previous.firstTurnObserved)
         assertFalse(previous.supremeOverlordCounterObserved)
-        assertFalse(previous.selectedDynamaxObserved)
+        assertFalse(previous.selectedGimmickObserved)
         assertFalse(previous.analyticTurnOrderObserved)
         for (length in 76 until raw.size) {
             val short = HnsBattlerRuntimeState.fromNativeArray(raw.copyOf(length))
             assertFalse("short tuple $length is not an observation", short.groupDVolatilesObserved)
-            assertFalse(short.selectedDynamaxObserved)
+            assertFalse(short.selectedGimmickObserved)
             assertFalse(short.analyticTurnOrderObserved)
         }
         for ((slot, invalid) in listOf(78 to 8, 79 to 2, 82 to 6, 95 to -1)) {
@@ -481,7 +481,12 @@ class HnsBattlerRuntimeStateTest {
         }
         assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[90] = 6 }).supremeOverlordCounterObserved)
         assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[88] = 4 }).firstTurnObserved)
-        assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[92] = 2 }).selectedDynamaxObserved)
+        assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[92] = 6 }).selectedGimmickObserved)
+        for (selected in 0 until HnsGroupDLayout.GIMMICKS_COUNT) {
+            val decoded = HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[92] = selected })
+            assertTrue(decoded.selectedGimmickObserved)
+            assertEquals(selected, decoded.selectedGimmick)
+        }
         assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[96] = 0 }).analyticTurnOrderObserved)
         assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf().also { it[76] = -1 }).personalityObserved)
     }

@@ -326,7 +326,8 @@ data class CalcHnsLiveBattleState(
     val attackerSupremeOverlordCounter: Int? = null,
     val attackerNeutralizingGas: Boolean? = null,
     val defenderNeutralizingGas: Boolean? = null,
-    val attackerDynamaxSelected: Boolean? = null,
+    val attackerSelectedGimmick: Int? = null,
+    val defenderSelectedGimmick: Int? = null,
     val attackerAnalyticTurnOrder: HnsAnalyticTurnOrder = HnsAnalyticTurnOrder.UNKNOWN,
     // --- Gap C4e correction: live field conditions -------------------------------------------
     /**

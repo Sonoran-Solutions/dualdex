@@ -28,7 +28,7 @@
 
 #define ROLL_COUNT 16
 #define HNS_PINNED_COMMIT "1f42b74dff0e9fe942419845d040663dd829a973"
-#define ORACLE_SCHEMA_VERSION 7
+#define ORACLE_SCHEMA_VERSION 8
 #define MAX_DIVERGENCES 512
 
 static int g_failures = 0;
@@ -283,15 +283,14 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
         const char* integers[][2] = {
             {"slowStartTimer", "hnsSlowStartTimer"}, {"paradoxBoostedStat", "hnsParadoxBoostedStat"},
             {"isFirstTurn", "hnsIsFirstTurn"}, {"supremeOverlordCounter", "hnsSupremeOverlordCounter"},
-            {"activeGimmick", "hnsActiveGimmick"}
+            {"activeGimmick", "hnsActiveGimmick"}, {"selectedGimmick", "hnsSelectedGimmick"}
         };
         const char* booleans[][2] = {
             {"flashFireBoosted", "hnsFlashFireBoosted"}, {"transformed", "hnsTransformed"},
             {"boosterEnergyActivated", "hnsBoosterEnergyActivated"}, {"vesselOfRuin", "hnsVesselOfRuin"},
             {"swordOfRuin", "hnsSwordOfRuin"}, {"tabletsOfRuin", "hnsTabletsOfRuin"},
             {"beadsOfRuin", "hnsBeadsOfRuin"}, {"gastroAcid", "hnsGastroAcid"},
-            {"neutralizingGas", "hnsNeutralizingGas"}, {"dynamaxSelected", "hnsDynamaxSelected"},
-            {"abilityShield", "hnsAbilityShield"}
+            {"neutralizingGas", "hnsNeutralizingGas"}, {"abilityShield", "hnsAbilityShield"}
         };
         for (unsigned i = 0; i < sizeof(integers) / sizeof(integers[0]); i++) {
             long v;
@@ -657,7 +656,7 @@ static void self_tests(const jl_value* doc) {
                a[15] == 16);
 
     /* Corpus header / entry validation. */
-    const char* base_head = "{\"schemaVersion\":7,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT
+    const char* base_head = "{\"schemaVersion\":8,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT
                             "\"},\"backend\":{\"kind\":\"pinned-expansion-battle-test-runner\"}},\"entries\":[";
     const char* rolls16 = "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]";
     const char* rolls15 = "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]";
@@ -677,13 +676,13 @@ static void self_tests(const jl_value* doc) {
     self_check("an entry with 15 rolls is rejected", !validate_header(short_rolls, &err));
     jl_free(short_rolls);
     jl_value* wrong_commit = jl_parse(
-        "{\"schemaVersion\":7,\"provenance\":{\"hnsUpstream\":{\"commit\":\"0000000000000000000000000000000000000000\"},"
+        "{\"schemaVersion\":8,\"provenance\":{\"hnsUpstream\":{\"commit\":\"0000000000000000000000000000000000000000\"},"
         "\"backend\":{\"kind\":\"pinned-expansion-battle-test-runner\"}},\"entries\":[{\"scenario\":{\"id\":\"a\"},"
         "\"rolls\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}]}");
     self_check("a corpus from another H&S commit is rejected", !validate_header(wrong_commit, &err));
     jl_free(wrong_commit);
     jl_value* wrong_backend = jl_parse(
-        "{\"schemaVersion\":7,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT "\"},"
+        "{\"schemaVersion\":8,\"provenance\":{\"hnsUpstream\":{\"commit\":\"" HNS_PINNED_COMMIT "\"},"
         "\"backend\":{\"kind\":\"smogon-calc\"}},\"entries\":[{\"scenario\":{\"id\":\"a\"},"
         "\"rolls\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]}]}");
     self_check("a corpus from a non-oracle backend is rejected", !validate_header(wrong_backend, &err));

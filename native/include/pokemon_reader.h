@@ -266,7 +266,7 @@ typedef struct {
     uint32_t battle_action_use_move_value;
     uint32_t battle_action_exec_script_value;
     uint32_t battle_current_move_gba_address;
-    uint32_t battle_script_callback_func_ptr;
+    uint32_t run_turn_actions_func_ptr;
     uint32_t battle_main_cb1_func_ptr;
     uint32_t battle_main_cb1_offset;
     uint32_t battle_turn_action_number_gba_address;
@@ -877,8 +877,8 @@ typedef struct {
     uint8_t  is_first_turn;
     bool     supreme_overlord_counter_observed;
     uint8_t  supreme_overlord_counter;
-    bool     selected_dynamax_observed;
-    bool     dynamax_selected;
+    bool     selected_gimmick_observed;
+    uint8_t  selected_gimmick; // enum Gimmick: NONE when playerSelect is false
     uint16_t analytic_current_move;
     bool     analytic_turn_order_observed;
     uint8_t  analytic_turn_order; // 0 UNKNOWN, 1 LAST_TO_MOVE, 2 NOT_LAST_TO_MOVE

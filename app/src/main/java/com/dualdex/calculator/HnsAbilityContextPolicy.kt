@@ -151,11 +151,13 @@ object HnsAbilityContextPolicy {
             255 -> when {
                 !attackerRole || category == MoveCategory.SPECIAL -> proof("gorilla_tactics_irrelevant_role_or_category", "src/battle_util.c:7075",
                     "Gorilla Tactics only modifies the attacker's Physical Attack branch.")
-                category == null || live.attackerDynamaxSelected == null || live.attackerGimmick !in 0..5 -> null
-                live.attackerDynamaxSelected || live.attackerGimmick == 4 -> proof("gorilla_tactics_gimmick_inactive_modifier", "src/battle_util.c:7075",
+                category == null || live.attackerSelectedGimmick == null ||
+                    live.attackerSelectedGimmick !in 0 until com.dualdex.pokemon.hns.HnsGroupDLayout.GIMMICKS_COUNT ||
+                    live.attackerGimmick !in 0 until com.dualdex.pokemon.hns.HnsGroupDLayout.GIMMICKS_COUNT -> null
+                live.attackerSelectedGimmick == 4 || live.attackerGimmick == 4 -> proof("gorilla_tactics_gimmick_inactive_modifier", "src/battle_util.c:7075",
                     "A selected or active Dynamax disables this ability modifier; its independent unsupported gimmick blocker remains in force.")
                 else -> relevant("gorilla_tactics_physical_no_dynamax", "src/battle_util.c:7075",
-                    "The selected and active Dynamax authorities are both observed clear for this Physical hit.")
+                    "The selected and active gimmick authorities are observed; neither is Dynamax for this Physical hit.")
             }
             281, 282 -> paradoxProof(abilityId, c, live, attackerRole)
             186, 187, 188 -> auraProof(abilityId, c, live)

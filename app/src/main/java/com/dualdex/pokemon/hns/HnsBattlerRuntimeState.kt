@@ -400,9 +400,9 @@ data class HnsBattlerRuntimeState(
     /** Stored `BattleStruct.supremeOverlordCounter[battler]`, never derived from the party. */
     val supremeOverlordCounterObserved: Boolean = false,
     val supremeOverlordCounter: Int = 0,
-    /** Exact `IsGimmickSelected(battler, GIMMICK_DYNAMAX)` result. */
-    val selectedDynamaxObserved: Boolean = false,
-    val dynamaxSelected: Boolean = false,
+    /** Exact `playerSelect ? usableGimmick[battler] : GIMMICK_NONE` value. */
+    val selectedGimmickObserved: Boolean = false,
+    val selectedGimmick: Int = 0,
     /** Exact current-action phase result for Analytic: 0 unknown, 1 last, 2 not last. */
     val analyticTurnOrderObserved: Boolean = false,
     val volatileNeutralizingGas: Boolean = false,
@@ -601,7 +601,7 @@ data class HnsBattlerRuntimeState(
             val personalityObserved = c4eGroupD && raw[76] == 1
             val firstTurnObserved = c4eGroupD && raw[87] == 1 && raw[88] in 0..HnsGroupDLayout.FIRST_TURN_MAX
             val supremeCounterObserved = c4eGroupD && raw[89] == 1 && raw[90] in 0..5
-            val selectedDynamaxObserved = c4eGroupD && raw[91] == 1 && raw[92] in 0..1
+            val selectedGimmickObserved = c4eGroupD && raw[91] == 1 && raw[92] in 0 until HnsGroupDLayout.GIMMICKS_COUNT
             val analyticTurnOrderObserved = c4eGroupD && raw[93] == 1 && raw[94] in 1..2 && raw[96] in 1..65535
             val decoded = HnsBattlerRuntimeState(
                 status = status,
@@ -686,8 +686,8 @@ data class HnsBattlerRuntimeState(
                 isFirstTurn = if (firstTurnObserved) raw[88] else 0,
                 supremeOverlordCounterObserved = supremeCounterObserved,
                 supremeOverlordCounter = if (supremeCounterObserved) raw[90] else 0,
-                selectedDynamaxObserved = selectedDynamaxObserved,
-                dynamaxSelected = selectedDynamaxObserved && raw[92] != 0,
+                selectedGimmickObserved = selectedGimmickObserved,
+                selectedGimmick = if (selectedGimmickObserved) raw[92] else 0,
                 analyticTurnOrderObserved = analyticTurnOrderObserved,
                 volatileNeutralizingGas = groupDVolatilesObserved && raw[95] == 1,
                 analyticCurrentMove = if (analyticTurnOrderObserved) raw[96] else 0,

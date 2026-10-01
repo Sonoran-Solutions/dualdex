@@ -234,7 +234,7 @@ class BattleConsoleTest {
             volatilesObserved = true,
             transientVolatilesObserved = true,
             groupDVolatilesObserved = true,
-            selectedDynamaxObserved = true,
+            selectedGimmickObserved = true,
             persistentVolatilesObserved = true,
             gimmickObserved = true,
             activeGimmick = 0,

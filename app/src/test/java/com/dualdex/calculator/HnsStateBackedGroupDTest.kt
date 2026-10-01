@@ -17,6 +17,7 @@ class HnsStateBackedGroupDTest {
         defenderRawStats = CalcRawStats(100, 151, 80, 100, 100),
         attackerStatStages = List(8) { 0 }, defenderStatStages = List(8) { 0 },
         attackerTransformed = false, defenderTransformed = false,
+        attackerSelectedGimmick = 0, defenderSelectedGimmick = 0,
         attackerBoosterEnergyActivated = false, defenderBoosterEnergyActivated = false,
         attackerParadoxBoostedStat = 0, defenderParadoxBoostedStat = 0,
         attackerVesselOfRuin = false, defenderVesselOfRuin = false,
@@ -82,8 +83,9 @@ class HnsStateBackedGroupDTest {
     @Test fun `Gorilla and Analytic require their own observed state`() {
         assertEquals(unknown, decision(255, context(255)))
         for (gimmick in 0..5) assertEquals(if (gimmick == 4) inactive else active,
-            decision(255, context(255, neutral.copy(attackerDynamaxSelected = false, attackerGimmick = gimmick))))
-        assertEquals(inactive, decision(255, context(255, neutral.copy(attackerDynamaxSelected = true, attackerGimmick = 0))))
+            decision(255, context(255, neutral.copy(attackerSelectedGimmick = 0, attackerGimmick = gimmick))))
+        assertEquals(inactive, decision(255, context(255, neutral.copy(attackerSelectedGimmick = 4, attackerGimmick = 0))))
+        assertEquals(active, decision(255, context(255, neutral.copy(attackerSelectedGimmick = 5, attackerGimmick = 0))))
         for (order in HnsAnalyticTurnOrder.values()) assertEquals(when(order) {
             HnsAnalyticTurnOrder.LAST_TO_MOVE -> active
             HnsAnalyticTurnOrder.NOT_LAST_TO_MOVE -> inactive

@@ -92,7 +92,7 @@ class ScenarioSchemaTest(unittest.TestCase):
         self.assertTrue(all(s["stateSetup"] for s in selected))
         for field, invalid in (("slowStartTimer", 8), ("paradoxBoostedStat", 7),
                                ("supremeOverlordCounter", 6), ("isFirstTurn", 4),
-                               ("dynamaxSelected", 2), ("flashFireBoosted", -1)):
+                               ("dynamaxSelected", 2), ("selectedGimmick", 6), ("flashFireBoosted", -1)):
             s = copy.deepcopy(selected[0])
             s["stateSetup"] = {"attacker": {field: invalid}}
             with self.subTest(field=field), self.assertRaises(schema.SchemaError):
@@ -693,7 +693,9 @@ class CommittedCorpusTest(unittest.TestCase):
                 runtime = entry["observed"][role]["runtime"]
                 self.assertEqual(set(runtime), set(schema.RUNTIME_DOMAINS))
                 for key, value in scenario["stateSetup"].get(role, {}).items():
-                    self.assertEqual(runtime[key], value, f"{scenario['id']} {role}.{key}")
+                    observed = runtime[key] if key != "dynamaxSelected" else runtime["selectedGimmick"] == 4
+                    expected = value if key != "dynamaxSelected" else bool(value)
+                    self.assertEqual(observed, expected, f"{scenario['id']} {role}.{key}")
                 self.assertIn(runtime["gender"], (0, 254, 255))
 
     def test_check_uses_no_external_process_or_upstream(self):

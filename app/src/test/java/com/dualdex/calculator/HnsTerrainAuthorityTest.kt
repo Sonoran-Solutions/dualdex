@@ -26,7 +26,7 @@ class HnsTerrainAuthorityTest {
         types = types,
         volatilesObserved = true,
         groupDVolatilesObserved = true,
-            selectedDynamaxObserved = true,
+            selectedGimmickObserved = true,
             persistentVolatilesObserved = true,
         volatileSemiInvulnerable = semi,
         volatileRoot = root

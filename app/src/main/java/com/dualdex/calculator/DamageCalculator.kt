@@ -214,7 +214,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 live.attackerBeadsOfRuin?.let { put("hnsBeadsOfRuin", it) }
                 live.attackerSupremeOverlordCounter?.let { put("hnsSupremeOverlordCounter", it) }
                 live.attackerGimmick?.let { put("hnsActiveGimmick", it) }
-                live.attackerDynamaxSelected?.let { put("hnsDynamaxSelected", it) }
+                live.attackerSelectedGimmick?.let { put("hnsSelectedGimmick", it) }
                 if (live.attackerAnalyticTurnOrder != HnsAnalyticTurnOrder.UNKNOWN) {
                     put("hnsAnalyticTurnOrder", live.attackerAnalyticTurnOrder.name)
                 }

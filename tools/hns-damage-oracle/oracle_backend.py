@@ -222,7 +222,8 @@ static inline void DdxoRuntime(const char *id, const char *role, enum BattlerId 
         m->volatiles.vesselOfRuin, m->volatiles.swordOfRuin, m->volatiles.tabletsOfRuin,
         m->volatiles.beadsOfRuin, m->volatiles.gastroAcid, m->volatiles.neutralizingGas,
         gBattleStruct->battlerState[b].isFirstTurn, gBattleStruct->supremeOverlordCounter[b],
-        IsGimmickSelected(b, GIMMICK_DYNAMAX), GetActiveGimmick(b), IsLastMonToMove(b),
+        gBattleStruct->gimmick.playerSelect ? gBattleStruct->gimmick.usableGimmick[b] : GIMMICK_NONE,
+        GetActiveGimmick(b), IsLastMonToMove(b),
         GetBattlerHoldEffectIgnoreAbility(b) == HOLD_EFFECT_ABILITY_SHIELD);
 }
 
@@ -516,6 +517,9 @@ def render_scenario(s: dict) -> str:
                     expression = f"gBattleStruct->supremeOverlordCounter[{pos}] = {value};"
                 elif key == "activeGimmick":
                     expression = f"SetActiveGimmick({b}, (enum Gimmick){value});"
+                elif key == "selectedGimmick":
+                    expression = (f"gBattleStruct->gimmick.usableGimmick[{pos}] = (enum Gimmick){value}; "
+                                  f"gBattleStruct->gimmick.playerSelect = {1 if value else 0};")
                 elif key == "dynamaxSelected":
                     expression = (f"gBattleStruct->gimmick.usableGimmick[{pos}] = GIMMICK_DYNAMAX; "
                                   f"gBattleStruct->gimmick.toActivate = {value} << {pos}; "
@@ -804,7 +808,9 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             if runtime[role] is not None:
                 runtime[role]["personality"] &= 0xffffffff
             for key, value in (scenario.get("stateSetup") or {}).get(role, {}).items():
-                if runtime[role][key] != value:
+                observed_value = runtime[role][key] if key != "dynamaxSelected" else runtime[role]["selectedGimmick"] == 4
+                expected_value = value if key != "dynamaxSelected" else bool(value)
+                if observed_value != expected_value:
                     raise OracleError(f"{sid}: runtime {role}.{key} disagrees with state setup")
         observed = {
             "attacker": {"speciesId": atk["speciesId"], "types": atk["types"], "baseStats": atk["baseStats"],

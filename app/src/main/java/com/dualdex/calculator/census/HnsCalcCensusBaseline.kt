@@ -218,8 +218,8 @@ object HnsCalcCensusBaseline {
                 isFirstTurn = 0,
                 supremeOverlordCounterObserved = true,
                 supremeOverlordCounter = 0,
-                selectedDynamaxObserved = true,
-                dynamaxSelected = false,
+                selectedGimmickObserved = true,
+                selectedGimmick = 0,
                 // Census describes a menu-state selected hit; turn order is deliberately UNKNOWN.
                 analyticTurnOrderObserved = false,
                 persistentVolatilesObserved = true,

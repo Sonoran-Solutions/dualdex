@@ -843,7 +843,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * [83..86] Vessel/Sword/Tablets/Beads of Ruin volatile flags,
  * [87] isFirstTurnObserved, [88] raw two-bit isFirstTurn,
  * [89] supremeOverlordCounterObserved, [90] stored counter,
- * [91] selectedDynamaxObserved, [92] IsGimmickSelected(DYNAMAX) result,
+ * [91] selectedGimmickObserved, [92] selectedGimmick (NONE when playerSelect is false),
  * [93] analyticTurnOrderObserved, [94] analyticTurnOrder (0 unknown, 1 last, 2 not last),
  * [95] neutralizingGas, [96] current move ID for the observed Analytic action.
  *         Every Gap C4e `*Observed` bit separates an observed neutral value
@@ -1001,8 +1001,8 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     values[88] = (jint)state.is_first_turn;
     values[89] = state.supreme_overlord_counter_observed ? 1 : 0;
     values[90] = (jint)state.supreme_overlord_counter;
-    values[91] = state.selected_dynamax_observed ? 1 : 0;
-    values[92] = state.dynamax_selected ? 1 : 0;
+    values[91] = state.selected_gimmick_observed ? 1 : 0;
+    values[92] = (jint)state.selected_gimmick;
     values[93] = state.analytic_turn_order_observed ? 1 : 0;
     values[94] = (jint)state.analytic_turn_order;
     values[95] = state.volatile_neutralizing_gas ? 1 : 0;

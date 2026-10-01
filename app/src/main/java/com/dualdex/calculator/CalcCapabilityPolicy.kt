@@ -2203,9 +2203,14 @@ object CalcCapabilityPolicy {
         }
         val attackerGimmick = live.attackerGimmick
         val defenderGimmick = live.defenderGimmick
-        if (attackerGimmick == null || defenderGimmick == null || live.attackerDynamaxSelected == null) {
+        val attackerSelectedGimmick = live.attackerSelectedGimmick
+        val defenderSelectedGimmick = live.defenderSelectedGimmick
+        if (attackerGimmick == null || defenderGimmick == null ||
+            attackerSelectedGimmick == null || attackerSelectedGimmick !in 0 until com.dualdex.pokemon.hns.HnsGroupDLayout.GIMMICKS_COUNT ||
+            defenderSelectedGimmick == null || defenderSelectedGimmick !in 0 until com.dualdex.pokemon.hns.HnsGroupDLayout.GIMMICKS_COUNT) {
             limitations.add(CalcLimitation.HNS_GIMMICK_STATE_UNREADABLE)
-        } else if (attackerGimmick != 0 || defenderGimmick != 0 || live.attackerDynamaxSelected == true) {
+        } else if (attackerGimmick != 0 || defenderGimmick != 0 ||
+            attackerSelectedGimmick != 0 || defenderSelectedGimmick != 0) {
             limitations.add(CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED)
         }
         val status1 = live.attackerStatus1

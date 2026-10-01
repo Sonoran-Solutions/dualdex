@@ -122,6 +122,7 @@ class CalcHnsC4eProductionBoundaryTest {
         endured: Boolean = false,
         gimmickObserved: Boolean = true,
         gimmick: Int = 0,
+        selectedGimmick: Int = 0,
         fieldStatusesReadable: Boolean = true,
         fieldStatuses: Int = 0,
         weatherReadable: Boolean = true,
@@ -190,8 +191,8 @@ class CalcHnsC4eProductionBoundaryTest {
             volatileRoostActive = roostActive,
             volatileSubstitute = substitute,
             volatileEndured = endured,
-            selectedDynamaxObserved = gimmickObserved,
-            dynamaxSelected = false,
+            selectedGimmickObserved = gimmickObserved,
+            selectedGimmick = selectedGimmick,
             gimmickObserved = gimmickObserved,
             activeGimmick = gimmick,
             fieldStatusesReadable = fieldStatusesReadable,
@@ -235,6 +236,7 @@ class CalcHnsC4eProductionBoundaryTest {
         endured: Boolean = false,
         gimmickObserved: Boolean = true,
         gimmick: Int = 0,
+        selectedGimmick: Int = 0,
         fieldStatusesReadable: Boolean = true,
         fieldStatuses: Int = 0,
         weatherReadable: Boolean = true,
@@ -297,8 +299,8 @@ class CalcHnsC4eProductionBoundaryTest {
             volatileRoostActive = roostActive,
             volatileSubstitute = substitute,
             volatileEndured = endured,
-            selectedDynamaxObserved = gimmickObserved,
-            dynamaxSelected = false,
+            selectedGimmickObserved = gimmickObserved,
+            selectedGimmick = selectedGimmick,
             gimmickObserved = gimmickObserved,
             activeGimmick = gimmick,
             fieldStatusesReadable = fieldStatusesReadable,
@@ -4316,11 +4318,25 @@ class CalcHnsC4eProductionBoundaryTest {
         val gorilla = playerObservation(abilityId = 255, abilityName = "Gorilla Tactics")
         readyOf(build(trust, goldenARequest(), gorilla, enemyObservation(), randomAbilities = true),
             "observed ordinary Gorilla Tactics is exact")
-        val pending = gorilla.copy(state = gorilla.state.copy(selectedDynamaxObserved = true, dynamaxSelected = true))
-        val pendingVerdict = (build(trust, goldenARequest(), pending, enemyObservation(), randomAbilities = true)
+        for (selected in listOf(4, 5)) {
+            val pending = gorilla.copy(state = gorilla.state.copy(selectedGimmickObserved = true, selectedGimmick = selected))
+            val pendingVerdict = (build(trust, goldenARequest(), pending, enemyObservation(), randomAbilities = true)
+                as CalcRequestOutcome.Refused).verdict
+            assertTrue("selected gimmick $selected", pendingVerdict.limitations.contains(CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED))
+            assertFalse(pendingVerdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        }
+        val clear = readyOf(build(trust, goldenARequest(), gorilla.copy(state = gorilla.state.copy(
+            selectedGimmickObserved = true, selectedGimmick = 0, activeGimmick = 0)),
+            enemyObservation(), randomAbilities = true),
+            "observed selected NONE and active NONE remain clear")
+        assertTrue(clear.request.hnsLiveBattleState?.attackerSelectedGimmick == 0)
+        val activeTeraVerdict = (build(trust, goldenARequest(), gorilla.copy(state = gorilla.state.copy(
+            selectedGimmickObserved = true, selectedGimmick = 0, activeGimmick = 5)), enemyObservation(), randomAbilities = true)
             as CalcRequestOutcome.Refused).verdict
-        assertTrue(pendingVerdict.limitations.contains(CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED))
-        assertFalse(pendingVerdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertTrue(activeTeraVerdict.limitations.contains(CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED))
+        val defenderPendingTeraVerdict = (build(trust, goldenARequest(), gorilla,
+            enemyObservation(selectedGimmick = 5), randomAbilities = true) as CalcRequestOutcome.Refused).verdict
+        assertTrue(defenderPendingTeraVerdict.limitations.contains(CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED))
 
         val paradoxBase = playerObservation(abilityId = 282, abilityName = "Quark Drive")
         val paradox = paradoxBase.copy(state = paradoxBase.state.copy(

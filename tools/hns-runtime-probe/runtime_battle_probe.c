@@ -2580,7 +2580,7 @@ static void trace_group_d(const GameMemoryConfig* cfg, const Sample* s) {
                  st->volatile_sword_of_ruin, st->volatile_tablets_of_ruin, st->volatile_beads_of_ruin,
                  st->volatile_neutralizing_gas, st->first_turn_observed, st->is_first_turn,
                  st->supreme_overlord_counter_observed, st->supreme_overlord_counter,
-                 st->selected_dynamax_observed, st->dynamax_selected, st->gimmick_observed,
+                 st->selected_gimmick_observed, st->selected_gimmick, st->gimmick_observed,
                  st->active_gimmick, st->analytic_turn_order_observed, st->analytic_turn_order,
                  st->analytic_current_move, callback, action, index, attacker, main_callback1, dispatch_slot, dispatch_callback);
         if (strcmp(line, g_group_d_previous[role]) != 0) {

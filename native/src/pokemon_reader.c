@@ -288,7 +288,7 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_action_use_move_value = HNS_LIVE_B_ACTION_USE_MOVE,
     .battle_action_exec_script_value = HNS_LIVE_B_ACTION_EXEC_SCRIPT,
     .battle_current_move_gba_address = HNS_LIVE_GCURRENTMOVE_GBA_ADDRESS,
-    .battle_script_callback_func_ptr = HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR,
+    .run_turn_actions_func_ptr = HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR,
     .battle_main_cb1_func_ptr = HNS_LIVE_BATTLE_MAIN_CB1_FUNC_PTR,
     .battle_main_cb1_offset = HNS_LIVE_MAIN_CALLBACK1_OFFSET,
     .battle_turn_action_number_gba_address = HNS_LIVE_GCURRENTTURNACTIONNUMBER_GBA_ADDRESS,
@@ -2524,7 +2524,7 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
            config->battle_action_use_move_value == HNS_LIVE_B_ACTION_USE_MOVE &&
            config->battle_action_exec_script_value == HNS_LIVE_B_ACTION_EXEC_SCRIPT &&
            config->battle_current_move_gba_address == HNS_LIVE_GCURRENTMOVE_GBA_ADDRESS &&
-           config->battle_script_callback_func_ptr == HNS_LIVE_BATTLE_SCRIPT_CALLBACK_FUNC_PTR &&
+           config->run_turn_actions_func_ptr == HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR &&
            config->battle_main_cb1_func_ptr == HNS_LIVE_BATTLE_MAIN_CB1_FUNC_PTR &&
            config->battle_main_cb1_offset == HNS_LIVE_MAIN_CALLBACK1_OFFSET &&
            config->battle_turn_action_number_gba_address == HNS_LIVE_GCURRENTTURNACTIONNUMBER_GBA_ADDRESS &&
@@ -2682,7 +2682,7 @@ bool pokemon_read_hns_badge_state_gba(
 
 /*
  * IsLastMonToMove's arrays are reusable global storage. Publish an answer only while the
- * release-ROM battle-script callback is executing the current B_ACTION_USE_MOVE for the
+ * release-ROM RunTurnActionsFunctions callback is executing the current B_ACTION_USE_MOVE for the
  * attacker represented by gCurrentTurnActionNumber. Action selection and turn setup callbacks
  * therefore never make a stale prior-turn order authoritative.
  */
@@ -2712,7 +2712,7 @@ static void read_analytic_turn_order(
         !read(user, config->battle_battler_by_turn_order_gba_address, order, sizeof(order))) return;
     uint32_t callback = (uint32_t)phase_bytes[0] | ((uint32_t)phase_bytes[1] << 8) |
                        ((uint32_t)phase_bytes[2] << 16) | ((uint32_t)phase_bytes[3] << 24);
-    if (callback != config->battle_script_callback_func_ptr ||
+    if (callback != config->run_turn_actions_func_ptr ||
         action_func != config->battle_action_exec_script_value || count != 2 ||
         turn_index >= count || attacker != requested_battler ||
         order[turn_index] != requested_battler || actions[turn_index] != config->battle_action_use_move_value ||
@@ -3229,10 +3229,12 @@ bool pokemon_read_battler_runtime_state_gba(
                     select_addr >= DUALDEX_GBA_EWRAM_BASE &&
                     (size_t)(select_addr - DUALDEX_GBA_EWRAM_BASE) < ewram_size &&
                     read(user, usable_addr, &usable, 1) && read(user, select_addr, &player_select, 1) &&
-                    usable < config->battle_gimmick_count && player_select <= 1) {
-                    out_state->selected_dynamax_observed = true;
-                    out_state->dynamax_selected = usable == config->battle_gimmick_dynamax_value &&
-                                                  player_select != 0;
+                    player_select <= 1) {
+                    const uint8_t selected_gimmick = player_select != 0 ? usable : 0;
+                    if (selected_gimmick < config->battle_gimmick_count) {
+                        out_state->selected_gimmick_observed = true;
+                        out_state->selected_gimmick = selected_gimmick;
+                    }
                 }
             }
         }

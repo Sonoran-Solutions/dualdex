@@ -104,3 +104,11 @@ than silently reported as success.
 * Goldens D, F and G are not claimed (see `rom-damage-goldens.json` `deferred`).
 * The ROM SHA-256 in the JSON is **evidence only**. It is deliberately not added to
   `heart_and_soul.json`, so the product trust model is unchanged.
+
+## Issue #92 held-item runtime evidence
+
+[`group-d-items/`](group-d-items/) contains the retained logs, scenario hashes and provenance for
+Embargo expiry, Metronome item-counter growth/reset and the transformed source-species operand.
+`python3 tools/hns-runtime-probe/verify_group_d_evidence.py` validates the official ROM identity and
+the required transitions without loading a ROM. The traces retain no ROM, save, save-state or RAM
+bytes; see [the scenario and fixture notes](../README.md#group-d-held-item-state-scenarios-7173).

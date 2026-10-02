@@ -10,6 +10,8 @@ import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
 import com.dualdex.pokemon.hns.HnsChallengeSettingsStatus
 import com.dualdex.pokemon.hns.HnsItemCategory
 import com.dualdex.pokemon.hns.HnsItemRegistry
+import com.dualdex.pokemon.hns.HnsMoveMechanicsCategory
+import com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry
 import com.dualdex.pokemon.hns.HnsOptionStyle
 import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackProfile
@@ -67,6 +69,27 @@ class CalcHnsItemTest {
     private val amuletCoin = 466      // HOLD_EFFECT_DOUBLE_PRIZE (proven no-damage)
     private val eviolite = 494        // HOLD_EFFECT_EVIOLITE (defender-read, species-gated)
 
+    @Test
+    fun `Pledge and OHKO effects stay outside the ordinary item-supported move surface`() {
+        // These exact move IDs/effects come from the pinned H&S 2.0.5 generated map.
+        // Gems and other ordinary-hit item support do not implement these special formulas.
+        for (moveId in listOf(12, 32, 90, 329)) {
+            val entry = HnsMoveMechanicsRegistry.classify(moveId)
+            assertEquals("move $moveId", "EFFECT_OHKO", entry.effect)
+            assertFalse("move $moveId must remain blocked", entry.category.isSupportedForOrdinaryDamage)
+            assertEquals(
+                "move $moveId has a different damage formula",
+                HnsMoveMechanicsCategory.UNSUPPORTED_FORMULA_DIFFERENT,
+                entry.category
+            )
+        }
+        for (moveId in listOf(518, 519, 520)) {
+            val entry = HnsMoveMechanicsRegistry.classify(moveId)
+            assertEquals("move $moveId", "EFFECT_PLEDGE", entry.effect)
+            assertFalse("move $moveId must remain blocked", entry.category.isSupportedForOrdinaryDamage)
+        }
+    }
+
     private fun exactTrust(profile: RomHackProfile): RuntimeRomTrust = RuntimeRomTrust.from(
         compatibility = RomCompatibility.verified(profile, profile.sha256Hashes.first()),
         activeRomSha256 = profile.sha256Hashes.first()
@@ -121,6 +144,10 @@ class CalcHnsItemTest {
             gimmickObserved = true,
             activeGimmick = 0,
             volatilesObserved = true,
+            itemVolatilesObserved = true,
+            volatileEmbargo = false,
+            volatileMetronomeItemCounter = 0,
+            volatileTransformedMonSpecies = 0,
             volatileElectrified = false,
             badgesObserved = true
         ),
@@ -740,10 +767,10 @@ class CalcHnsItemTest {
     // ------------------------------------------------------------------
 
     @Test
-    fun `representative damage items stay unsupported including choice band`() {
-        assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, HnsItemRegistry.classify(charcoal).category)
-        assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, HnsItemRegistry.classify(choiceBand).category)
-        // ITEM_NONE is the only always-supported identity here.
+    fun `representative damage items use H and S descriptors without leaking into vanilla`() {
+        assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, HnsItemRegistry.classify(charcoal).category)
+        assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, HnsItemRegistry.classify(choiceBand).category)
+        // ITEM_NONE remains the reviewed no-damage identity.
         assertEquals(HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT, HnsItemRegistry.classify(itemNone).category)
     }
 
@@ -751,11 +778,8 @@ class CalcHnsItemTest {
     fun `vanilla item behaviour is unchanged and H and S capability does not leak`() {
         // Vanilla Gen III Charcoal is a modelled x1.1 type booster: no H&S blocker applies.
         assertNull(CalcCapabilityPolicy.itemLimitation(CalcRuleset.VANILLA_GEN3, "Charcoal"))
-        // The same name under H&S is the H&S x1.2 item and is refused.
-        assertEquals(
-            CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED,
-            CalcCapabilityPolicy.itemLimitation(CalcRuleset.HNS_2_0_5, "Charcoal")
-        )
+        // H&S uses the generated ×1.2 descriptor; the generic ADV item name is not needed.
+        assertNull(CalcCapabilityPolicy.itemLimitation(CalcRuleset.HNS_2_0_5, "Charcoal"))
         // Vanilla still resolves its own item names, never through the H&S catalogue.
         assertEquals("Charcoal", CalcCapabilityPolicy.canonicalItem("charcoal"))
         assertNull(CalcCapabilityPolicy.canonicalItem("Amulet Coin"))

@@ -5,6 +5,7 @@ import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.hns.HnsFieldState
 import com.dualdex.pokemon.hns.HnsItemAuditData
 import com.dualdex.pokemon.hns.HnsItemCategory
+import com.dualdex.pokemon.hns.HnsItemRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -29,9 +30,14 @@ class HnsItemContextPolicyTest {
     private val scopeLens = 471
     private val leek = 393
     private val luckyPunch = 395
+    private val thickClub = 394
     private val blunderPolicy = 511
     private val roomService = 512
     private val boosterEnergy = 764
+    private val metronome = 483
+    private val lightBall = HnsItemRegistry.resolveIdByName("Light Ball")!!
+    private val deepSeaScale = HnsItemRegistry.resolveIdByName("Deep Sea Scale")!!
+    private val punchingGlove = HnsItemRegistry.resolveIdByName("Punching Glove")!!
     private val terrainSeed = 451
     private val assaultVest = 503
     private val eviolite = 494
@@ -64,15 +70,93 @@ class HnsItemContextPolicyTest {
         defenderGastroAcid: Boolean? = null,
         observedBattlersCount: Int? = null,
         attackerTerrainApplicability: HnsTerrainApplicability? = null,
-        defenderTerrainApplicability: HnsTerrainApplicability? = null
+        defenderTerrainApplicability: HnsTerrainApplicability? = null,
+        attackerSpeciesId: Int? = null,
+        defenderSpeciesId: Int? = null,
+        attackerBaseSpeciesId: Int? = null,
+        defenderBaseSpeciesId: Int? = null,
+        attackerTransformed: Boolean? = false,
+        defenderCanEvolve: Boolean? = null,
+        defenderTransformed: Boolean? = false,
+        attackerMetronomeItemCounter: Int? = 0,
+        attackerBoosterEnergyActivated: Boolean? = false,
+        attackerParadoxBoostedStat: Int? = 0,
+        defenderBoosterEnergyActivated: Boolean? = false,
+        defenderParadoxBoostedStat: Int? = 0,
+        attackerSelectedGimmick: Int? = 0,
+        attackerActiveGimmick: Int? = 0,
+        switchInEventsSettled: Boolean? = true,
+        moveUsesDefenseStat: Boolean? = moveCategory?.let { it == MoveCategory.PHYSICAL },
+        punchingMove: Boolean? = null
     ) = HnsItemContextPolicy.Context(
-        side, ordinaryMove, moveType, moveCategory, fieldStatuses?.let(HnsFieldState::decode), weatherWord,
-        attackerAbilityId, defenderHp, defenderMaxHp, defenderAbilityId, attackerGastroAcid,
-        defenderGastroAcid, observedBattlersCount, attackerTerrainApplicability, defenderTerrainApplicability
+        side = side,
+        ordinaryMove = ordinaryMove,
+        moveType = moveType,
+        moveCategory = moveCategory,
+        fieldState = fieldStatuses?.let(HnsFieldState::decode),
+        weatherWord = weatherWord,
+        attackerAbilityId = attackerAbilityId,
+        defenderHp = defenderHp,
+        defenderMaxHp = defenderMaxHp,
+        defenderAbilityId = defenderAbilityId,
+        attackerGastroAcid = attackerGastroAcid,
+        defenderGastroAcid = defenderGastroAcid,
+        observedBattlersCount = observedBattlersCount,
+        attackerTerrainApplicability = attackerTerrainApplicability,
+        defenderTerrainApplicability = defenderTerrainApplicability,
+        attackerSpeciesId = attackerSpeciesId,
+        defenderSpeciesId = defenderSpeciesId,
+        attackerBaseSpeciesId = attackerBaseSpeciesId,
+        defenderBaseSpeciesId = defenderBaseSpeciesId,
+        attackerTransformed = attackerTransformed,
+        defenderCanEvolve = defenderCanEvolve,
+        defenderTransformed = defenderTransformed,
+        attackerMetronomeItemCounter = attackerMetronomeItemCounter,
+        attackerBoosterEnergyActivated = attackerBoosterEnergyActivated,
+        attackerParadoxBoostedStat = attackerParadoxBoostedStat,
+        defenderBoosterEnergyActivated = defenderBoosterEnergyActivated,
+        defenderParadoxBoostedStat = defenderParadoxBoostedStat,
+        attackerSelectedGimmick = attackerSelectedGimmick,
+        attackerActiveGimmick = attackerActiveGimmick,
+        moveUsesDefenseStat = moveUsesDefenseStat,
+        punchingMove = punchingMove,
+        switchInEventsSettled = switchInEventsSettled
     )
 
+    private fun assessForTest(id: Int, context: HnsItemContextPolicy.Context?): HnsItemRequestDecision {
+        val item = HnsItemRegistry.classify(id).data
+        val authoritative = context?.let { c ->
+            if (c.holdEffectResolution != null) c else c.copy(
+                holdEffectResolution = HnsHoldEffectResolution(
+                    id, item, HnsHoldEffectState.ACTIVE_EXACT, item?.holdEffect,
+                    "Unit fixture supplies an exact, unsuppressed live item observation."
+                ),
+                resistBerryDecision = c.resistBerryDecision ?: if (item?.holdEffect == "HOLD_EFFECT_RESIST_BERRY") {
+                    val berryType = HnsItemRegistry.itemTypeName(id)?.let(PokemonType::fromString)
+                    when {
+                        berryType == null || c.moveType == null -> HnsResistBerryDecision(
+                            HnsResistBerryState.UNKNOWN, id, null, "resist_berry_authority_unobserved",
+                            "The test fixture omitted the berry or move type operand."
+                        )
+                        berryType != c.moveType -> HnsResistBerryDecision(
+                            HnsResistBerryState.NOT_APPLICABLE, id, 4096, "resist_berry_other_type",
+                            "The generated berry type differs from the effective move type."
+                        )
+                        else -> HnsResistBerryDecision(
+                            HnsResistBerryState.APPLIES, id,
+                            if (c.defenderAbilityId == 247) 1024 else 2048,
+                            if (c.defenderAbilityId == 247) "resist_berry_ripen_quarter" else "resist_berry_half",
+                            "The unit fixture supplies an exact matching berry activation."
+                        )
+                    }
+                } else c.resistBerryDecision
+            )
+        }
+        return HnsItemContextPolicy.assess(id, authoritative)
+    }
+
     private fun relevance(id: Int, context: HnsItemContextPolicy.Context?) =
-        HnsItemContextPolicy.assess(id, context).relevance
+        assessForTest(id, context).relevance
 
     private val irrelevant = HnsItemRequestRelevance.PROVEN_IRRELEVANT
     private val relevant = HnsItemRequestRelevance.RELEVANT
@@ -83,7 +167,7 @@ class HnsItemContextPolicyTest {
     fun `attacker-only items are irrelevant on the defender whatever the move`() {
         for (id in listOf(charcoal, fireGem, flamePlate, choiceBand, choiceSpecs, muscleBand, wiseGlasses,
             lifeOrb, expertBelt, scopeLens)) {
-            val decision = HnsItemContextPolicy.assess(id, ctx(HnsItemSide.DEFENDER, ordinaryMove = null, moveType = null))
+            val decision = assessForTest(id, ctx(HnsItemSide.DEFENDER, ordinaryMove = null, moveType = null))
             assertEquals("item $id", irrelevant, decision.relevance)
             assertEquals("defender_holds_attacker_only_item", decision.rule)
         }
@@ -92,38 +176,60 @@ class HnsItemContextPolicyTest {
     @Test
     fun `category items clear only for the opposite category and stay unknown without authority`() {
         assertEquals(irrelevant, relevance(choiceBand, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.SPECIAL)))
-        assertEquals(relevant, relevance(choiceBand, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.PHYSICAL)))
+        assertEquals(modelled, relevance(choiceBand, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.PHYSICAL)))
         assertEquals(unknown, relevance(choiceBand, ctx(HnsItemSide.ATTACKER, moveCategory = null)))
         assertEquals(irrelevant, relevance(muscleBand, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.SPECIAL)))
 
         assertEquals(irrelevant, relevance(choiceSpecs, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.PHYSICAL)))
-        assertEquals(relevant, relevance(choiceSpecs, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.SPECIAL)))
+        assertEquals(modelled, relevance(choiceSpecs, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.SPECIAL)))
         assertEquals(unknown, relevance(choiceSpecs, ctx(HnsItemSide.ATTACKER, moveCategory = null)))
 
         assertEquals(irrelevant, relevance(wiseGlasses, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.PHYSICAL)))
         assertEquals(modelled, relevance(wiseGlasses, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.SPECIAL)))
         assertEquals(unknown, relevance(wiseGlasses, ctx(HnsItemSide.ATTACKER, moveCategory = null)))
 
-        val specialDecision = HnsItemContextPolicy.assess(wiseGlasses, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.SPECIAL))
+        val specialDecision = assessForTest(wiseGlasses, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.SPECIAL))
         assertEquals("wise_glasses_special_move", specialDecision.rule)
         assertEquals(modelled, specialDecision.relevance)
         assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, specialDecision.globalCategory)
     }
 
     @Test
+    fun `Thick Club follows the pinned Alolan Marowak base species predicate`() {
+        assertEquals(modelled, relevance(thickClub, ctx(
+            HnsItemSide.ATTACKER,
+            moveCategory = MoveCategory.PHYSICAL,
+            attackerSpeciesId = 973,
+            attackerBaseSpeciesId = 973
+        )))
+        assertEquals(irrelevant, relevance(thickClub, ctx(
+            HnsItemSide.ATTACKER,
+            moveCategory = MoveCategory.PHYSICAL,
+            attackerSpeciesId = 143,
+            attackerBaseSpeciesId = 143
+        )))
+        assertEquals(unknown, relevance(thickClub, ctx(
+            HnsItemSide.ATTACKER,
+            moveCategory = MoveCategory.PHYSICAL,
+            attackerSpeciesId = 973,
+            attackerBaseSpeciesId = null
+        )))
+    }
+
+    @Test
     fun `type boosters gems and plates compare the pinned item type with the effective move type`() {
         for (id in listOf(charcoal, fireGem, flamePlate)) {
             assertEquals("item $id", irrelevant, relevance(id, ctx(HnsItemSide.ATTACKER, moveType = PokemonType.WATER)))
-            assertEquals("item $id", relevant, relevance(id, ctx(HnsItemSide.ATTACKER, moveType = PokemonType.FIRE)))
+            assertEquals("item $id", modelled, relevance(id, ctx(HnsItemSide.ATTACKER, moveType = PokemonType.FIRE)))
             assertEquals("item $id", unknown, relevance(id, ctx(HnsItemSide.ATTACKER, moveType = null)))
         }
-        assertEquals(relevant, relevance(silkScarf, ctx(HnsItemSide.ATTACKER, moveType = PokemonType.NORMAL)))
+        assertEquals(modelled, relevance(silkScarf, ctx(HnsItemSide.ATTACKER, moveType = PokemonType.NORMAL)))
     }
 
     @Test
     fun `attacker final modifiers remain relevant while crit stage items clear fixed hit`() {
         for (id in listOf(lifeOrb, expertBelt)) {
-            assertEquals("item $id", relevant, relevance(id, ctx(HnsItemSide.ATTACKER)))
+            assertEquals("item $id", modelled, relevance(id, ctx(HnsItemSide.ATTACKER)))
         }
         for (id in listOf(scopeLens, leek, luckyPunch)) {
             assertEquals("item $id", irrelevant, relevance(id, ctx(HnsItemSide.ATTACKER)))
@@ -134,7 +240,7 @@ class HnsItemContextPolicyTest {
     @Test
     fun `defender-only items are irrelevant on the attacker`() {
         for (id in listOf(assaultVest, eviolite, metalPowder, occaBerry, focusSash)) {
-            val decision = HnsItemContextPolicy.assess(id, ctx(HnsItemSide.ATTACKER, ordinaryMove = null, moveType = null))
+            val decision = assessForTest(id, ctx(HnsItemSide.ATTACKER, ordinaryMove = null, moveType = null))
             assertEquals("item $id", irrelevant, decision.relevance)
             assertEquals("attacker_holds_defender_only_item", decision.rule)
         }
@@ -143,9 +249,9 @@ class HnsItemContextPolicyTest {
     @Test
     fun `Assault Vest and Metal Powder need the category and an observed inactive Wonder Room`() {
         assertEquals(irrelevant, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, moveCategory = MoveCategory.PHYSICAL)))
-        assertEquals(relevant, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, moveCategory = MoveCategory.SPECIAL)))
-        // Wonder Room swaps usesDefStat; an unread word or an unknown bit is not assumed Wonder-Room-free.
-        assertEquals(unknown, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, fieldStatuses = 4)))
+        assertEquals(modelled, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, moveCategory = MoveCategory.SPECIAL)))
+        // Under observed Wonder Room, a physical hit selects Sp. Def and Assault Vest applies exactly.
+        assertEquals(modelled, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, fieldStatuses = 4)))
         assertEquals(unknown, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, fieldStatuses = null)))
         assertEquals(unknown, relevance(assaultVest, ctx(HnsItemSide.DEFENDER, fieldStatuses = 1 shl 12)))
         assertEquals(unknown, relevance(metalPowder, ctx(HnsItemSide.DEFENDER, moveCategory = MoveCategory.SPECIAL,
@@ -166,7 +272,7 @@ class HnsItemContextPolicyTest {
     @Test
     fun `resist berries clear only for a different effective type`() {
         assertEquals(irrelevant, relevance(occaBerry, ctx(HnsItemSide.DEFENDER, moveType = PokemonType.WATER)))
-        assertEquals(relevant, relevance(occaBerry, ctx(HnsItemSide.DEFENDER, moveType = PokemonType.FIRE)))
+        assertEquals(modelled, relevance(occaBerry, ctx(HnsItemSide.DEFENDER, moveType = PokemonType.FIRE)))
         assertEquals(unknown, relevance(occaBerry, ctx(HnsItemSide.DEFENDER, moveType = null)))
     }
 
@@ -187,7 +293,7 @@ class HnsItemContextPolicyTest {
                 assertEquals("item $id $side", unknown, relevance(id, ctx(side, ordinaryMove = null)))
             }
         }
-        assertEquals(unknown, relevance(boosterEnergy, ctx(HnsItemSide.ATTACKER)))
+        assertEquals(irrelevant, relevance(boosterEnergy, ctx(HnsItemSide.ATTACKER)))
         assertEquals(unknown, relevance(terrainSeed, ctx(HnsItemSide.DEFENDER)))
         assertEquals(unknown, relevance(758, ctx(HnsItemSide.DEFENDER))) // Ability Shield preserves ability.
     }
@@ -195,14 +301,14 @@ class HnsItemContextPolicyTest {
     @Test
     fun `Blunder Policy and Room Service retain only the Analytic speed dependency`() {
         for (id in listOf(511, 512)) {
-            val ordinary = HnsItemContextPolicy.assess(id, ctx(
+            val ordinary = assessForTest(id, ctx(
                 HnsItemSide.ATTACKER,
                 attackerAbilityId = 0
             ))
             assertEquals("item $id", irrelevant, ordinary.relevance)
             assertEquals("post_hit_speed_item_ordinary_move", ordinary.rule)
 
-            val analytic = HnsItemContextPolicy.assess(id, ctx(
+            val analytic = assessForTest(id, ctx(
                 HnsItemSide.ATTACKER,
                 attackerAbilityId = 148
             ))
@@ -224,23 +330,39 @@ class HnsItemContextPolicyTest {
             fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN,
             observedBattlersCount = 2
         )
-        val seed = HnsItemContextPolicy.assess(terrainSeed, matchingTerrainAndStages)
+        val seed = assessForTest(terrainSeed, matchingTerrainAndStages)
         assertEquals(unknown, seed.relevance)
         assertEquals(null, seed.rule)
 
-        val gene = HnsItemContextPolicy.assess(798, matchingTerrainAndStages)
+        val gene = assessForTest(798, matchingTerrainAndStages)
         assertEquals(unknown, gene.relevance)
         assertEquals(null, gene.rule)
     }
 
     @Test
-    fun `Booster Energy remains blocked because damage time boost flags are not observed`() {
-        val decision = HnsItemContextPolicy.assess(boosterEnergy, ctx(
+    fun `Booster Energy follows the live Paradox payload and switch-in settlement`() {
+        val decision = assessForTest(boosterEnergy, ctx(
             HnsItemSide.ATTACKER,
             observedBattlersCount = 2
         ))
-        assertEquals(unknown, decision.relevance)
-        assertEquals("booster_energy_boost_payload_unobserved", decision.rule)
+        assertEquals(irrelevant, decision.relevance)
+        assertEquals("booster_energy_non_paradox_ability", decision.rule)
+
+        val activeButContradictory = ctx(HnsItemSide.ATTACKER, attackerAbilityId = 281,
+            attackerBoosterEnergyActivated = true, attackerParadoxBoostedStat = 1)
+        assertEquals(unknown, relevance(boosterEnergy, activeButContradictory))
+        assertEquals(unknown, relevance(boosterEnergy, activeButContradictory.copy(switchInEventsSettled = false)))
+        assertEquals(unknown, relevance(boosterEnergy, activeButContradictory.copy(attackerBoosterEnergyActivated = null)))
+        assertEquals(modelled, relevance(boosterEnergy, ctx(HnsItemSide.DEFENDER,
+            defenderAbilityId = 282, defenderBoosterEnergyActivated = false, defenderParadoxBoostedStat = 0)))
+
+        // Natural Sun can leave Booster Energy held; the existing live ability payload still decides damage.
+        val heldNaturalWeather = activeButContradictory.copy(
+            attackerBoosterEnergyActivated = false, attackerParadoxBoostedStat = 0
+        )
+        assertEquals(modelled, relevance(boosterEnergy, heldNaturalWeather))
+        assertEquals("booster_energy_payload_modelled", assessForTest(boosterEnergy, heldNaturalWeather).rule)
+        assertEquals(unknown, relevance(boosterEnergy, heldNaturalWeather.copy(attackerTransformed = null)))
     }
 
     @Test
@@ -329,7 +451,12 @@ class HnsItemContextPolicyTest {
     @Test
     fun `Utility Umbrella needs observed clear weather`() {
         assertEquals(irrelevant, relevance(umbrella, ctx(HnsItemSide.DEFENDER, weatherWord = 0)))
-        assertEquals(relevant, relevance(umbrella, ctx(HnsItemSide.DEFENDER, weatherWord = 1)))
+        assertEquals("umbrella_clear_weather", assessForTest(umbrella,
+            ctx(HnsItemSide.DEFENDER, weatherWord = 0)).rule)
+        assertEquals(modelled, relevance(umbrella, ctx(HnsItemSide.DEFENDER, weatherWord = 1)))
+        assertEquals(irrelevant, relevance(umbrella, ctx(HnsItemSide.DEFENDER, weatherWord = 1 shl 5)))
+        assertEquals("umbrella_other_weather", assessForTest(umbrella,
+            ctx(HnsItemSide.DEFENDER, weatherWord = 1 shl 5)).rule)
         assertEquals(unknown, relevance(umbrella, ctx(HnsItemSide.DEFENDER, weatherWord = null)))
     }
 
@@ -337,18 +464,18 @@ class HnsItemContextPolicyTest {
     fun `Rusted Sword and Shield are never cleared by any request context`() {
         for (id in listOf(288, 289)) for (side in HnsItemSide.values()) for (type in PokemonType.values()) {
             for (category in MoveCategory.values()) for (hp in listOf(10, 20)) {
-                val decision = HnsItemContextPolicy.assess(id, ctx(side, true, type, category, 0, 0, 0, hp, 20))
+                val decision = assessForTest(id, ctx(side, true, type, category, 0, 0, 0, hp, 20))
                 assertEquals("item $id $side $type $category", unknown, decision.relevance)
                 assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, decision.globalCategory)
             }
         }
-        assertEquals("Rusted Sword", HnsItemContextPolicy.assess(288, ctx(HnsItemSide.ATTACKER)).itemName)
+        assertEquals("Rusted Sword", assessForTest(288, ctx(HnsItemSide.ATTACKER)).itemName)
     }
 
     @Test
     fun `unclassified and supported items are never cleared by context`() {
-        val red = HnsItemContextPolicy.assess(redOrb, ctx(HnsItemSide.DEFENDER))
-        assertEquals(HnsItemCategory.UNCLASSIFIED, red.globalCategory)
+        val red = assessForTest(redOrb, ctx(HnsItemSide.DEFENDER))
+        assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, red.globalCategory)
         assertEquals(unknown, red.relevance)
         assertEquals("Red Orb", red.itemName)
         assertEquals(unknown, relevance(0, ctx(HnsItemSide.ATTACKER)))
@@ -366,7 +493,7 @@ class HnsItemContextPolicyTest {
         for (id in representatives) {
             for (side in HnsItemSide.values()) for (type in types) for (category in MoveCategory.values()) {
                 for (hp in listOf(10, 20)) for (ability in listOf(0, 148)) for (weather in listOf(0, 1)) {
-                    HnsItemContextPolicy.assess(id, ctx(side, true, type, category, 0, weather, ability, hp, 20,
+                    assessForTest(id, ctx(side, true, type, category, 0, weather, ability, hp, 20,
                         defenderAbilityId = 0, attackerGastroAcid = false, defenderGastroAcid = false,
                         observedBattlersCount = 2)).rule?.let(produced::add)
                 }
@@ -381,30 +508,92 @@ class HnsItemContextPolicyTest {
                 attackerGastroAcid = false, defenderGastroAcid = true, observedBattlersCount = 2),
             ctx(HnsItemSide.ATTACKER, attackerAbilityId = 0, defenderAbilityId = 0,
                 attackerGastroAcid = true, defenderGastroAcid = false, observedBattlersCount = 2)
-        ).forEach { HnsItemContextPolicy.assess(758, it).rule?.let(produced::add) }
+        ).forEach { assessForTest(758, it).rule?.let(produced::add) }
         listOf(
-            HnsItemContextPolicy.assess(airBalloon, ctx(
+            assessForTest(airBalloon, ctx(
                 HnsItemSide.ATTACKER,
                 fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_GRASSY_TERRAIN,
                 attackerTerrainApplicability = HnsTerrainApplicability.NOT_AFFECTED,
                 observedBattlersCount = 2
             )),
-            HnsItemContextPolicy.assess(airBalloon, ctx(
+            assessForTest(airBalloon, ctx(
                 HnsItemSide.DEFENDER,
                 fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_MISTY_TERRAIN,
                 defenderTerrainApplicability = HnsTerrainApplicability.AFFECTED,
                 observedBattlersCount = 2
             )),
-            HnsItemContextPolicy.assess(terrainSeed, ctx(
+            assessForTest(terrainSeed, ctx(
                 HnsItemSide.ATTACKER,
                 fieldStatuses = com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_ELECTRIC_TERRAIN,
                 observedBattlersCount = 2
             )),
-            HnsItemContextPolicy.assess(798, ctx(
+            assessForTest(798, ctx(
                 HnsItemSide.ATTACKER,
                 observedBattlersCount = 2
             ))
         ).forEach { it.rule?.let(produced::add) }
+        assessForTest(choiceBand, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.PHYSICAL,
+            attackerActiveGimmick = 4)).rule?.let(produced::add)
+        assessForTest(choiceSpecs, ctx(HnsItemSide.ATTACKER, moveCategory = MoveCategory.SPECIAL,
+            attackerActiveGimmick = 4)).rule?.let(produced::add)
+        assessForTest(boosterEnergy, ctx(HnsItemSide.ATTACKER, attackerAbilityId = 281,
+            attackerBoosterEnergyActivated = false, attackerParadoxBoostedStat = 0)).rule?.let(produced::add)
+        assessForTest(boosterEnergy, ctx(HnsItemSide.ATTACKER, attackerAbilityId = null))
+            .rule?.let(produced::add)
+        assessForTest(redOrb, ctx(HnsItemSide.ATTACKER, switchInEventsSettled = false)).rule?.let(produced::add)
+        assessForTest(redOrb, ctx(HnsItemSide.ATTACKER, attackerSpeciesId = 1007)).rule?.let(produced::add)
+        val matchingFireItem = ctx(HnsItemSide.ATTACKER, moveType = PokemonType.FIRE)
+        assessForTest(426, matchingFireItem.copy(
+            holdEffectResolution = HnsHoldEffectResolution(
+                426, HnsItemRegistry.classify(426).data, HnsHoldEffectState.SUPPRESSED_NONE,
+                "HOLD_EFFECT_NONE", "observed Embargo"
+            )
+        )).rule?.let(produced::add)
+        val berryRules = listOf(
+            HnsResistBerryDecision(HnsResistBerryState.NOT_APPLICABLE, 550, 4096,
+                "resist_berry_no_current_item", "ITEM_NONE is current."),
+            HnsResistBerryDecision(HnsResistBerryState.NOT_APPLICABLE, 550, 4096,
+                "resist_berry_other_item", "The current item differs."),
+            HnsResistBerryDecision(HnsResistBerryState.NOT_APPLICABLE, 550, 4096,
+                "resist_berry_hold_effect_suppressed", "Embargo suppresses the effect."),
+            HnsResistBerryDecision(HnsResistBerryState.NOT_APPLICABLE, 550, 4096,
+                "resist_berry_condition_not_met", "The type effectiveness is below the threshold."),
+            HnsResistBerryDecision(HnsResistBerryState.BLOCKED_BY_UNNERVE, 550, 4096,
+                "resist_berry_unnerve_blocked", "A living opponent blocks the berry."),
+            HnsResistBerryDecision(HnsResistBerryState.APPLIES, 550, 2048,
+                "resist_berry_half", "The ordinary half modifier applies."),
+            HnsResistBerryDecision(HnsResistBerryState.APPLIES, 550, 1024,
+                "resist_berry_ripen_quarter", "Ripen applies the quarter modifier."),
+            HnsResistBerryDecision(HnsResistBerryState.UNKNOWN, 550, null,
+                "resist_berry_authority_unobserved", "The live operand is unread.")
+        )
+        val matchingFireBerry = matchingFireItem.copy(side = HnsItemSide.DEFENDER)
+        berryRules.forEach { berry ->
+            assessForTest(550, matchingFireBerry.copy(resistBerryDecision = berry)).rule?.let(produced::add)
+        }
+        assessForTest(426, matchingFireItem.copy(
+            holdEffectResolution = HnsHoldEffectResolution(
+                426, HnsItemRegistry.classify(426).data, HnsHoldEffectState.UNKNOWN,
+                null, "Embargo was not observed"
+            )
+        )).rule?.let(produced::add)
+        assessForTest(lightBall, ctx(HnsItemSide.ATTACKER, attackerBaseSpeciesId = 25))
+            .rule?.let(produced::add)
+        assessForTest(lightBall, ctx(HnsItemSide.ATTACKER, attackerBaseSpeciesId = 26))
+            .rule?.let(produced::add)
+        assessForTest(punchingGlove, ctx(HnsItemSide.ATTACKER, punchingMove = true))
+            .rule?.let(produced::add)
+        assessForTest(punchingGlove, ctx(HnsItemSide.ATTACKER, punchingMove = false))
+            .rule?.let(produced::add)
+        assessForTest(metronome, ctx(HnsItemSide.ATTACKER, attackerMetronomeItemCounter = null))
+            .rule?.let(produced::add)
+        assessForTest(deepSeaScale, ctx(HnsItemSide.DEFENDER, moveCategory = MoveCategory.SPECIAL,
+            defenderSpeciesId = 132))
+            .rule?.let(produced::add)
+        assessForTest(eviolite, ctx(HnsItemSide.DEFENDER, defenderCanEvolve = false))
+            .rule?.let(produced::add)
+        assessForTest(umbrella, ctx(HnsItemSide.ATTACKER, weatherWord = 1 shl 5))
+            .rule?.let(produced::add)
         assertEquals(HnsItemAuditData.contextRuleNames, produced)
         assertTrue(produced.size >= 30)
     }

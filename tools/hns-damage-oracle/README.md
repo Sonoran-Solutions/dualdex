@@ -123,7 +123,7 @@ minimum roll, 15 the maximum. The generator then verifies, per roll and fail-clo
 
 Any violation aborts regeneration with the scenario ID. Nothing is defaulted or turned into zero.
 
-## Corpus schema (v7)
+## Corpus schema (v9)
 
 Defined and validated by `oracle_schema.py`. Each scenario names only authoritative operands:
 
@@ -138,13 +138,17 @@ Defined and validated by `oracle_schema.py`. Each scenario names only authoritat
 | `move` | pinned `MOVE_*` symbol + label |
 | `crit`, `field` | forced crit flag; weather (`none`/`rain`/`sun`), Reflect, Light Screen, one of four terrains, and Gravity |
 | `expect` | `damage` or `immune` (a declared immunity must remove no HP) |
+| `stateSetup` | source-domain live operands set immediately before the selected hit, including transformed species, active Metronome counters, item-trigger payloads, Wonder Room, and directly observed stat-stage controls |
 
 `observed` (recorded, not chosen): species/ability/item/move IDs, battle types, pinned base stats,
 effective move type/power/category/target class, explicit `ateBoost`, `GetMoveTargetCount`, `hpAtHit`, each battler's raw
 `BattlePokemon.status1`, the engine's own `ShouldGetStatBadgeBoost` verdicts, and the pinned engine's
-`IsBattlerTerrainAffected` result for each battler. Terrain applicability and Gravity are validated
-from the live battle field word; the differential corpus includes the four direct modifier types,
-grounding controls, Gravity overrides, and modifier compositions.
+`IsBattlerTerrainAffected` result for each battler. Schema v9 also records the hit-time state operands
+needed by item cases, including the generated raw hold-effect record and the engine's active/suppressed
+hold-effect verdict, transformed species, active Metronome counter, selected stat stages, and live
+Booster Energy activation state. Terrain applicability and Gravity
+are validated from the live battle field word; the differential corpus includes the four direct modifier
+types, grounding controls, Gravity overrides, and modifier compositions.
 
 ## Commands
 
@@ -204,11 +208,11 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-Starting `main` **724916188e6aa9530be7f961a530c7505feb9306** had 1,627 scenarios
-(1,502 modelled, 125 engine-only). The state-backed Group D matrix and isolated Flower Gift /
-Sand Force controls bring the corpus to **1,720 scenarios: 1,582 modelled, 138 engine-only,
-1,718 exact comparisons and the same two registered #100 divergences**. Every case has all
-16 rolls. Canonical regeneration and reversed-order verification are byte-identical.
+Starting `main` **9948b5ba426be5536cd94497bcdc5de2b08aada2** had 1,720 scenarios
+(1,582 modelled, 138 engine-only). The held-item matrix brings the corpus to **1,830 scenarios:
+1,729 modelled, 101 engine-only, 1,828 exact comparisons and the same two registered #100
+divergences**. Every case has all 16 rolls. Canonical regeneration and reversed-order verification
+are byte-identical.
 Both remaining divergences are listed in `known_divergences.json`:
 
 | Issue | Surface | Scenarios | Defect |
@@ -224,8 +228,10 @@ prior Group D scenarios cover Hustle/Guts and base-power cases for Technician, I
 Mega Launcher, Sharpness, both direct-damage Water Bubble branches, defender Heatproof, Dry Skin's
 distinct Fire ×1.25 control, Steelworker, Toxic Boost, and Flare Boost. The stat-ability slices add
 23 vectors for Solar Power, Defeatist, and Fur Coat, plus 18 for Transistor, Dragon's Maw, Rocky
-Payload, and Orichalcum Pulse. Group D now contains 178 scenarios (164 production-modelled and 14
-engine-only). Solar Power's after-turn HP loss remains outside the selected-hit damage contract.
+Payload, and Orichalcum Pulse. The held-item matrix adds 106 source-observed scenarios, including
+suppression controls, consumed Gems, transformed Eviolite subjects, and modifier-order compositions.
+Group D now contains 284 scenarios (270 production-modelled and 14 engine-only). Solar Power's
+after-turn HP loss remains outside the selected-hit damage contract.
 Water Bubble burn prevention and status clearing remain separately deferred. The Toxic Boost toxic
 case preserves the live toxic counter in `status1`. The Guts Special active-status control remains
 engine-only because production does not need to model a Guts modifier on a Special move. The
@@ -253,13 +259,13 @@ category divergences now match the pinned `gTypesInfo` categories.
 | `wise-glasses-*`, `badge-*` | 53 | BP rounding, physical/defender negative controls, type-based crossover; badges 1/3/6/7 both sides, pinch+badge modifier accumulation |
 | `fairy-*`, `style-*` | 66 | Fairy on/off typings and move retypes, immunity on/off, type-based categories |
 | `group-c-*` | 43 | source-backed move/ability immunity causes, including attacker/defender and bypass controls |
-| `group-d-*` | 178 | Hustle/Guts, stat and base-power abilities, terrain and type rewrites, contact, weather, status, suppression, and composition controls |
+| `group-d-*` | 284 | Hustle/Guts, stat and base-power abilities, held items, terrain and type rewrites, contact, weather, status, suppression, and composition controls |
 | `engine-*`, `doubles-*` | 103 | engine-only: Thick Fat, Guts, Huge/Pure Power, 17 type-boost items, Doubles single-target/spread/partner-fainted/screens/Rain |
 | `final-*` | 60 | Adaptability STAB rewrites/Fairy toggle; final ability thresholds, roles, 0.5/0.25/2/4 effectiveness, crit, HP/category, immunity, Mold Breaker/Ability Shield, speed order, rounding, and damage-floor controls |
 | `xref-*` | 34 | existing fixture reproductions |
 
 
-## Schema v7: state-backed Group D and independent Flower Gift controls
+## Schema v9: hit-time held-item and state-backed Group D evidence
 
 `stateSetup` is an explicit, schema-validated declaration of test-runner operand setup. It can
 set a current species/form, the listed volatile payloads, stored Supreme counter, raw first-turn
@@ -282,8 +288,11 @@ Cloud Nine each isolate their named predicate; defender controls similarly retai
 
 Runtime records include source-derived gender, active and selected gimmicks, first-turn value,
 Slow Start timer, Flash Fire/Paradox/Ruin/suppression flags, stored Supreme counter, and the
-source last-to-move result. Rivalry uses those observed genders. The adapter never fabricates a
-payload from the scenario's ability name. Source setup is disclosed independently from the
+source last-to-move result. Held-item entries also retain the hit-time numeric item identity,
+generated hold-effect parameter and type operand, source active/suppressed hold-effect verdict,
+Embargo, Metronome counter, transformed species, base-species mapping, and `CanEvolve` result.
+Rivalry uses the observed genders. The adapter never fabricates a payload from the scenario's
+ability or item name. Source setup is disclosed independently from the
 [official-ROM runtime transition evidence](../../docs/HNS_STATE_BACKED_GROUP_D.md).
 
 For pending Dynamax, the harness sets both TESTING `toActivate` and the equivalent release

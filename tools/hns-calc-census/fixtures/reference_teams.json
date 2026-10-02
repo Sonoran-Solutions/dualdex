@@ -48,8 +48,8 @@
       "notes": [
         "Special-leaning fixture: three SPECIAL moves plus one PHYSICAL, so the census covers the",
         "special category in both directions without needing a third team.",
-        "Holds Wise Glasses, the one H&S held item the production calculator already models, so the",
-        "fixture also proves a modelled item contributes no blocker on either side."
+        "Holds Wise Glasses, a modeled H&S held item, so the fixture proves a modeled item contributes",
+        "no blocker on either side while the census also tracks newly modeled item families."
       ]
     }
   ]

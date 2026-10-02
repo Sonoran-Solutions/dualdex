@@ -4000,7 +4000,7 @@ To guarantee that the QuickJS calculator engine reproduces exact H&S damage roll
 1. **Item Capability Audit Tooling (`tools/hns-items/`)**:
    - `decisions.json`: `HOLD_EFFECT_WISE_GLASSES` transitioned from `UNSUPPORTED_DAMAGE_RELEVANT` to `MODELLED_HNS_SPECIFIC`.
    - `context_rules.json`: Added `wise_glasses_special_move` under `attacker_offense.context_rules` (cites `src/battle_util.c:6818`), yielding `MODELLED`. Removed `HOLD_EFFECT_WISE_GLASSES` from `always_blocking.special_only_item_special_move`.
-   - Audit regenerated with 901 pinned items: 585 neutral, 312 unsupported, 1 modelled (`ITEM_WISE_GLASSES`), 3 unclassified.
+   - At the original Gap C3 snapshot, the audit had 901 pinned items: 585 neutral, 312 unsupported, 1 modelled (`ITEM_WISE_GLASSES`), 3 unclassified. Issue #92 later promotes 27 hold-effect families; the current totals and rules are in [`HNS_GROUP_D_HELD_ITEMS.md`](HNS_GROUP_D_HELD_ITEMS.md).
 2. **Kotlin Policy & Presentation**:
    - `HnsItemRegistry`: Registered adapter for ID 476 -> `"Wise Glasses"`.
    - `HnsItemContextPolicy`: Evaluates `MODELLED_HNS_SPECIFIC` items; returns `HnsItemRequestRelevance.MODELLED` under `wise_glasses_special_move` for authoritative Special moves.
@@ -4051,3 +4051,20 @@ explicit domains. Analytic publishes a result only during a consistent executing
 invalidates it at the menu/new turn. Official-ROM selected Dynamax remains false because the
 pinned release disables player Dynamax; positive selected/active tests are labelled engine-only
 or native fixtures, never positive official-ROM observations.
+
+## Group D held items: issue #92 official-ROM transitions
+
+The current held-item factors, generated layout and request authority are specified in
+[HNS_GROUP_D_HELD_ITEMS.md](HNS_GROUP_D_HELD_ITEMS.md). The production reader now observes the
+source-generated Embargo bit, Metronome item counter and stored transformed species. The generated
+volatile window is 42 bytes; the native/JNI tuple is 103 integers, and older tuples leave these
+operands unobserved.
+
+The retained traces in `tools/hns-runtime-probe/evidence/group-d-items/` are bound to the official
+2.0.5 ROM SHA-256 `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b` and checked by
+`python3 tools/hns-runtime-probe/verify_group_d_evidence.py`. Normal in-game controller input shows
+Embargo changing clear→active→expired, the live Metronome item counter growing on repeated Growl,
+resetting on Tail Whip and growing again, and Transform changing Ditto's live species while storing
+the original species in `transformedMonSpecies`. Party fixtures set only persistent party fields;
+volatile and transformed state is created by the ROM. No ROM, battery, state or RAM bytes are
+retained.

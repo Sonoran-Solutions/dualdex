@@ -236,6 +236,11 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_mons_volatile_sword_of_ruin_bit = HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT,
     .battle_mons_volatile_tablets_of_ruin_bit = HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT,
     .battle_mons_volatile_beads_of_ruin_bit = HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT,
+    .battle_mons_volatile_embargo_bit = HNS_LIVE_BP_VOLATILE_EMBARGO_BIT,
+    .battle_mons_volatile_metronome_item_counter_bit = HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_BIT,
+    .battle_mons_volatile_metronome_item_counter_width = HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_WIDTH,
+    .battle_mons_volatile_transformed_mon_species_bit = HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_BIT,
+    .battle_mons_volatile_transformed_mon_species_width = HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_WIDTH,
     .battler_party_indexes_offset = 0x144,
     .battlers_count_offset = 0xB0,
     .battle_type_flags_offset = 0xAC,
@@ -2509,6 +2514,11 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
            config->battle_mons_volatile_sword_of_ruin_bit == HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT &&
            config->battle_mons_volatile_tablets_of_ruin_bit == HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT &&
            config->battle_mons_volatile_beads_of_ruin_bit == HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT &&
+           config->battle_mons_volatile_embargo_bit == HNS_LIVE_BP_VOLATILE_EMBARGO_BIT &&
+           config->battle_mons_volatile_metronome_item_counter_bit == HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_BIT &&
+           config->battle_mons_volatile_metronome_item_counter_width == HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_WIDTH &&
+           config->battle_mons_volatile_transformed_mon_species_bit == HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_BIT &&
+           config->battle_mons_volatile_transformed_mon_species_width == HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_WIDTH &&
            config->battle_struct_gimmick_offset == HNS_LIVE_BATTLE_STRUCT_GIMMICK_OFFSET &&
            config->battle_struct_event_state_offset == HNS_LIVE_BATTLE_STRUCT_EVENT_STATE_OFFSET &&
            config->event_state_switch_in_bit == HNS_LIVE_EVENT_STATE_SWITCH_IN_BIT &&
@@ -3038,6 +3048,14 @@ bool pokemon_read_battler_runtime_state_gba(
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT) != 0;
         out_state->volatile_neutralizing_gas =
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_NEUTRALIZING_GAS_BIT) != 0;
+        out_state->volatile_embargo =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_EMBARGO_BIT) != 0;
+        out_state->volatile_metronome_item_counter = (uint8_t)HNS_LIVE_VOLATILE_FIELD(
+            volatile_bytes, HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_BIT,
+            HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_WIDTH);
+        out_state->volatile_transformed_mon_species = (uint16_t)HNS_LIVE_VOLATILE_FIELD(
+            volatile_bytes, HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_BIT,
+            HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_WIDTH);
         #undef HNS_LIVE_VOLATILE_BIT
         #undef HNS_LIVE_VOLATILE_FIELD
     }
@@ -3246,6 +3264,8 @@ bool pokemon_read_battler_runtime_state_gba(
                          out_state->item_invalid || out_state->stages_invalid ||
                          (out_state->volatiles_observed &&
                           out_state->volatile_paradox_boosted_stat >= HNS_LIVE_NUM_STATS) ||
+                         (out_state->volatiles_observed &&
+                          out_state->volatile_transformed_mon_species >= HNS_LIVE_NUM_SPECIES) ||
                          (out_state->supreme_overlord_counter_observed &&
                           out_state->supreme_overlord_counter > 5))
         ? BATTLER_RUNTIME_STATE_OBSERVED_INVALID

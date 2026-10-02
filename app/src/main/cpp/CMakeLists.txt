@@ -12,6 +12,7 @@ add_definitions(
 
 include_directories(
     "${NATIVE_ROOT}/include"
+    "${NATIVE_ROOT}/src"
     "${NATIVE_ROOT}/quickjs"
 )
 

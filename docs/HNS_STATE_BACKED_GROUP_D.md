@@ -134,7 +134,9 @@ Attack, Defense, Sp. Atk, Sp. Def, Speed, replacing only on `>`. Wonder Room swa
 and Sp. Def inputs while retaining the source stage indices. Transformed is inactive. Proto uses
 global effective Sun or the activation flag, without Utility Umbrella; Quark uses the Electric
 Terrain bit or the flag. Both offensive and defensive category branches are covered. Consumed
-ITEM_NONE plus observed activation is sufficient; a held Booster Energy remains subject to #92.
+ITEM_NONE plus observed activation is sufficient for the consumed-item path. A currently held
+Booster Energy is resolved by #92 from the effective hold effect and settled Paradox payload; an
+unsettled or contradictory state remains unknown.
 
 **Aura:** one shared Singles authority requires two living observed participants, authoritative
 ability identities, and observed suppression state. Either side can supply Aura or Aura Break.

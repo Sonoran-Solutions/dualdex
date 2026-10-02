@@ -6,6 +6,10 @@ object HnsGroupDLayout {
     const val NUM_STATS = 6
     const val GIMMICKS_COUNT = 6
     const val GIMMICK_DYNAMAX = 4
+    const val METRONOME_ITEM_COUNTER_MAX = 255
+    const val METRONOME_ITEM_COUNTER_WIDTH = 8
+    const val TRANSFORMED_MON_SPECIES_WIDTH = 11
+    const val SPECIES_COUNT = 1573
     const val SLOW_START_MAX = 7
     const val FIRST_TURN_MAX = 3
 }

@@ -37,7 +37,7 @@ A baseline the real boundary refuses would make every number below meaningless, 
 These teams are measurement fixtures. They exist so the census has a fixed attacker and defender whose properties are stable and explainable; they are deliberately not gameplay recommendations. Each lead's ability is a category-neutral pinch ability that is provably inactive at full HP, so an ability blocker reported below belongs to the trainer Pokemon being measured, not to the fixture. Every move is a pinned ordinary fixed-base-power move, so move-mechanics blockers belong to the trainer data too.
 
 - **ref-physical** - Chikorita Lv50, ability Overgrow, item none, moves Tackle, Razor Leaf, Body Slam, Iron Tail. Physical-leaning fixture: every move is PHYSICAL, so this team exercises the attacker-side physical category and the defender-side category-conditional ability rules. Four move types (Normal, Grass, Normal, Steel) so both directions see varied type matchups. No held item: an omitted item is the pinned ITEM_NONE, not an unknown.
-- **ref-special** - Cyndaquil Lv50, ability Blaze, item WISE GLASSES, moves Ember, Swift, Extrasensory, Flame Wheel. Special-leaning fixture: three SPECIAL moves plus one PHYSICAL, so the census covers the special category in both directions without needing a third team. Holds Wise Glasses, the one H&S held item the production calculator already models, so the fixture also proves a modelled item contributes no blocker on either side.
+- **ref-special** - Cyndaquil Lv50, ability Blaze, item WISE GLASSES, moves Ember, Swift, Extrasensory, Flame Wheel. Special-leaning fixture: three SPECIAL moves plus one PHYSICAL, so the census covers the special category in both directions without needing a third team. Holds Wise Glasses, a modeled H&S held item, so the fixture proves a modeled item contributes no blocker on either side while the census also tracks newly modeled item families.
 
 ## Result tiers
 
@@ -49,9 +49,9 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 
 | Tier | Requests |
 |---|---:|
-| `FULLY_MODELLED` | 18916 |
-| `CAVEATED_ESTIMATE` | 388 |
-| `REFUSED` | 4974 |
+| `FULLY_MODELLED` | 19170 |
+| `CAVEATED_ESTIMATE` | 216 |
+| `REFUSED` | 4892 |
 
 ## Denominators
 
@@ -73,7 +73,7 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 
 **Definition.** For every trainer battle, the *trainer lead* is the trainer's pinned party slot 0 (the pinned source uses no party pools and no party-index shuffling; the inventory extractor fails closed if that ever changes). The *matchup* is that lead paired with each reference team lead, in both directions, over the eligible damaging moves of that pair. A pair *displays* only when **every** eligible request in it displays a number.
 
-> **28.7% of trainer-battle lead matchups display every eligible damaging move** (374 of 1302 reference-pair evaluations over 651 of 651 trainer battles).
+> **28.9% of trainer-battle lead matchups display every eligible damaging move** (376 of 1302 reference-pair evaluations over 651 of 651 trainer battles).
 
 | | |
 |---|---:|
@@ -81,15 +81,15 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 | Battles included in the lead metric | 651 |
 | Battles excluded: lead has no eligible damaging move | 0 |
 | Lead pairs evaluated (battle x reference team) | 1302 |
-| Lead pairs whose every eligible request displays | 374 |
+| Lead pairs whose every eligible request displays | 376 |
 | Eligible requests in the lead metric | 8450 |
-| Of those, displaying | 6708 |
+| Of those, displaying | 6724 |
 
 Split by the trainer's own battle format, because the production subset models Singles only and a Doubles battle is refused by the live-battle-format gate:
 
 | Format | Pairs evaluated | Pairs displaying | Coverage |
 |---|---:|---:|---:|
-| Singles | 1284 | 374 | 29.1% |
+| Singles | 1284 | 376 | 29.3% |
 | Doubles | 18 | 0 | 0.0% |
 
 A battle whose lead has no eligible damaging move is excluded rather than counted as covered or as blocked, because there is no damage number in question for it. Its party members are still counted in the trainer-level inventory and in the blocker counts.
@@ -133,38 +133,18 @@ These named abilities and items are neutralized by production policy before the 
 | Mechanic | Side | Battles | Requests |
 |---|---|---:|---:|
 | Thick Fat | defender | 36 | 84 |
-| Charcoal | attacker | 12 | 24 |
 | Focus Band | defender | 11 | 88 |
-| Silk Scarf | attacker | 9 | 20 |
-| Assault Vest | defender | 6 | 18 |
-| Never-melt Ice | attacker | 6 | 12 |
 | Focus Sash | defender | 5 | 40 |
-| Life Orb | attacker | 5 | 20 |
-| Black Belt | attacker | 4 | 10 |
-| Miracle Seed | attacker | 4 | 10 |
-| Magnet | attacker | 3 | 6 |
-| Sharp Beak | attacker | 3 | 6 |
-| Twisted Spoon | attacker | 3 | 6 |
-| Choice Specs | attacker | 2 | 10 |
-| Metal Coat | attacker | 2 | 6 |
-| Choice Band | attacker | 1 | 4 |
-| Hard Stone | attacker | 1 | 4 |
 | Pure Power | attacker | 1 | 2 |
 | Truant | attacker | 1 | 2 |
-| Black Glasses | attacker | 1 | 2 |
-| Expert Belt | attacker | 1 | 2 |
-| Fairy Feather | attacker | 1 | 2 |
-| Icicle Plate | attacker | 1 | 2 |
-| Iron Plate | attacker | 1 | 2 |
-| Meadow Plate | attacker | 1 | 2 |
 
 ### Blocker codes
 
 | Limitation | Battles | Requests |
 |---|---:|---:|
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 | 3578 |
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 217 | 1650 |
-| `HNS_ITEM_EFFECT_NOT_MODELLED` | 94 | 536 |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 216 | 1612 |
+| `HNS_ITEM_EFFECT_NOT_MODELLED` | 94 | 496 |
 | `HNS_ABILITY_CONDITION_UNVERIFIED` | 90 | 316 |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 | 152 |
 | `SPECIES_NOT_IN_PINNED_DATA` | 22 | 336 |
@@ -180,13 +160,12 @@ These named abilities and items are neutralized by production policy before the 
 | Sitrus Berry | attacker | 21 | 54 |
 | Scope Lens | attacker | 17 | 52 |
 | Silk Scarf | attacker | 12 | 30 |
-| Eviolite | defender | 5 | 40 |
+| Life Orb | attacker | 5 | 20 |
 | Flame Orb | attacker | 5 | 16 |
 | Charcoal | attacker | 5 | 10 |
 | Hard Stone | attacker | 4 | 16 |
 | Chesto Berry | attacker | 4 | 14 |
 | Never-melt Ice | attacker | 4 | 8 |
-| Light Ball | attacker | 3 | 18 |
 | Miracle Seed | attacker | 3 | 12 |
 | Mystic Water | attacker | 3 | 8 |
 | Berry Juice | attacker | 2 | 8 |
@@ -195,6 +174,7 @@ These named abilities and items are neutralized by production policy before the 
 | Toxic Orb | attacker | 2 | 8 |
 | Big Root | attacker | 2 | 6 |
 | Normal Gem | attacker | 2 | 6 |
+| Soft Sand | attacker | 2 | 6 |
 
 ## Random Abilities view
 
@@ -208,11 +188,11 @@ Under Random Abilities any of the pinned domain's 310 abilities can be installed
 
 Counts are weighted by the cohort's eligible requests; battle counts de-duplicate trainer battles within each disposition. Refusals are attributed only to the exact ability entry in production's blocker list, while caveats use its ignored-mechanic list. Thus an unsupported move can refuse a request without making a caveatable ability look like a blocker. *Rules* lists the reviewed contextual rules that fired.
 
-**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1048172 request trials as refused, 16820 as caveated, and 2712668 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
+**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1001186 request trials as refused, 16820 as caveated, and 2759654 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
 
 ### Abilities that cause refusals
 
-**177 of 310 abilities cause a request refusal in at least one eligible context. 4 have at least one caveated context; 130 produce only clear outcomes in their eligible trials.** Refusal and caveat counts are per ability/side/category and can apply to the same ability in different contexts.
+**174 of 310 abilities cause a request refusal in at least one eligible context. 4 have at least one caveated context; 133 produce only clear outcomes in their eligible trials.** Refusal and caveat counts are per ability/side/category and can apply to the same ability in different contexts.
 
 | # | Ability | Side | Category | Battles refused | Requests refused | Rule |
 |---:|---|---|---|---:|---:|---|
@@ -224,13 +204,13 @@ Counts are weighted by the cohort's eligible requests; battle counts de-duplicat
 | 6 | Gluttony | attacker | Physical | 482 | 4565 | - |
 | 7 | Skill Link | attacker | Physical | 482 | 4565 | - |
 | 8 | Stall | attacker | Physical | 482 | 4565 | - |
-| 9 | Klutz | attacker | Physical | 482 | 4565 | - |
-| 10 | Unaware | attacker | Physical | 482 | 4565 | - |
-| 11 | Scrappy | attacker | Physical | 482 | 4565 | - |
-| 12 | Snow Warning | attacker | Physical | 482 | 4565 | - |
-| 13 | Multitype | attacker | Physical | 482 | 4565 | - |
-| 14 | Unnerve | attacker | Physical | 482 | 4565 | - |
-| 15 | Heavy Metal | attacker | Physical | 482 | 4565 | - |
+| 9 | Unaware | attacker | Physical | 482 | 4565 | - |
+| 10 | Scrappy | attacker | Physical | 482 | 4565 | - |
+| 11 | Snow Warning | attacker | Physical | 482 | 4565 | - |
+| 12 | Multitype | attacker | Physical | 482 | 4565 | - |
+| 13 | Heavy Metal | attacker | Physical | 482 | 4565 | - |
+| 14 | Light Metal | attacker | Physical | 482 | 4565 | - |
+| 15 | Analytic | attacker | Physical | 482 | 4565 | - |
 
 (The full ranked table, one row per ability per side per category, is `abilityRefusals` in `census.json`.)
 
@@ -260,6 +240,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Tinted Lens | 4 | 0 | 0 | tinted_lens_defender_side, tinted_lens_not_resisted |
 | Reckless | 4 | 0 | 0 | reckless_ordinary_move_not_recoil |
 | Sheer Force | 4 | 0 | 0 | sheer_force_defender_side, sheer_force_source_predicate_false |
+| Unnerve | 4 | 0 | 0 | unnerve_defender_side, unnerve_without_current_berry_modifier |
 | Defeatist | 4 | 0 | 0 | defeatist_above_integer_half, defeatist_defender_side |
 | Toxic Boost | 4 | 0 | 0 | toxic_boost_defender_side, toxic_boost_physical_without_poison, toxic_boost_special_move |
 | Flare Boost | 4 | 0 | 0 | flare_boost_defender_side, flare_boost_physical_move, flare_boost_special_without_burn |
@@ -274,6 +255,8 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Liquid Voice | 4 | 0 | 0 | liquid_voice_non_sound_move, move_type_rewriter_defender_side |
 | Galvanize | 4 | 0 | 0 | galvanize_non_normal_move, move_type_rewriter_defender_side |
 | Neuroforce | 4 | 0 | 0 | neuroforce_defender_side, neuroforce_not_super_effective |
+| As One | 4 | 0 | 0 | unnerve_defender_side, unnerve_without_current_berry_modifier |
+| As One | 4 | 0 | 0 | unnerve_defender_side, unnerve_without_current_berry_modifier |
 | Hadron Engine | 4 | 0 | 0 | hadron_engine_defender_side, hadron_engine_without_electric_terrain |
 | Sharpness | 4 | 0 | 0 | sharpness_defender_side, sharpness_nonslicing_move |
 | Tera Shell | 4 | 0 | 0 | attacker_always_irrelevant, defender_not_terapagos_terastal |
@@ -291,6 +274,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Adaptability | 4 | 2 | 0 | adaptability_stab_operands_unknown, defender_adaptability_does_not_boost_incoming_damage |
 | Solar Power | 4 | 2 | 0 | solar_power_defender_side, solar_power_live_ability_unknown |
 | Quick Feet | 4 | 2 | 0 | speed_ability_without_analytic |
+| Klutz | 4 | 2 | 0 | klutz_no_current_item |
 | Super Luck | 4 | 2 | 0 | fixed_crit_stage_only |
 | Aftermath | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Filter | 4 | 2 | 0 | filter_attacker_side, filter_effectiveness_unknown |
@@ -314,7 +298,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Prism Armor | 4 | 2 | 0 | prism_armor_attacker_side, prism_armor_effectiveness_unknown |
 | Cotton Down | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Punk Rock | 4 | 2 | 0 | punk_rock_attacker_nonsound_move, punk_rock_defender_nonsound_move |
-| Ripen | 4 | 2 | 0 | attacker_ripen_no_current_hit_modifier, ripen_without_defender_resist_berry |
+| Ripen | 4 | 2 | 0 | attacker_ripen_no_current_hit_modifier, ripen_without_active_resist_berry |
 | Power Spot | 4 | 2 | 0 | partner_ability_defender_side, partner_ability_singles_no_partner |
 | Steely Spirit | 4 | 2 | 0 | steely_spirit_defender_singles_irrelevant, steely_spirit_holder_effective_nonsteel_move |
 | Wandering Spirit | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
@@ -394,12 +378,12 @@ The same ability can be clear, caveated, or refused on different sides and in di
 
 | Side | Category | Refusing abilities | Requests refused (max) | Caveated abilities | Requests caveated (max) |
 |---|---|---:|---:|---:|---:|
-| attacker | Physical | 130 | 4565 | 3 | 4565 |
-| attacker | Special | 130 | 2739 | 1 | 2739 |
-| defender | Physical | 169 | 3034 | 1 | 110 |
-| defender | Special | 169 | 1848 | 1 | 276 |
+| attacker | Physical | 126 | 4565 | 3 | 4565 |
+| attacker | Special | 126 | 2739 | 1 | 2739 |
+| defender | Physical | 166 | 3034 | 1 | 110 |
+| defender | Special | 166 | 1848 | 1 | 276 |
 
-Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 615 rows, `RELEVANT` in 57 rows and `UNKNOWN` in 568 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
+Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 629 rows, `RELEVANT` in 57 rows and `UNKNOWN` in 554 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
 
 ## Issue #91 low-state stat ability slice comparison
 

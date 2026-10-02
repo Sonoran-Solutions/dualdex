@@ -48,7 +48,10 @@ class HnsAbilityContextPolicyTest {
         fieldStatuses: Int? = 0,
         attackerTerrainApplicability: HnsTerrainApplicability? = null,
         defenderTerrainApplicability: HnsTerrainApplicability? = null,
-        switchInEventsSettled: Boolean? = true
+        switchInEventsSettled: Boolean? = true,
+        resistBerryDecision: HnsResistBerryDecision? = null,
+        attackerHoldEffectResolution: HnsHoldEffectResolution? = null,
+        defenderHoldEffectResolution: HnsHoldEffectResolution? = null
     ) = HnsAbilityContextPolicy.Context(
         side = side,
         ordinaryMove = ordinaryMove,
@@ -87,6 +90,9 @@ class HnsAbilityContextPolicyTest {
         attackerTerrainApplicability = attackerTerrainApplicability,
         defenderTerrainApplicability = defenderTerrainApplicability,
         switchInEventsSettled = switchInEventsSettled,
+        resistBerryDecision = resistBerryDecision,
+        attackerHoldEffectResolution = attackerHoldEffectResolution,
+        defenderHoldEffectResolution = defenderHoldEffectResolution,
         moveAuthority = moveAuthority ?: if (dynamicMoveTypeKnownNeutral && moveType != null) {
             HnsMoveAuthority(
                 sourceType = moveType,
@@ -463,15 +469,29 @@ class HnsAbilityContextPolicyTest {
         val tackle = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName("Tackle")!!.id
         val punchGlove = com.dualdex.pokemon.hns.HnsItemRegistry.resolveIdByName("Punching Glove")
         val pads = com.dualdex.pokemon.hns.HnsItemRegistry.resolveIdByName("Protective Pads")
+        val activeGlove = HnsHoldEffectResolution(punchGlove,
+            com.dualdex.pokemon.hns.HnsItemRegistry.classify(punchGlove).data,
+            HnsHoldEffectState.ACTIVE_EXACT, "HOLD_EFFECT_PUNCHING_GLOVE", "test")
+        val suppressedGlove = activeGlove.copy(
+            state = HnsHoldEffectState.SUPPRESSED_NONE, effectiveHoldEffect = "HOLD_EFFECT_NONE")
         assertEquals(HnsContactAuthority.CONTACT, HnsContactRules.assess(firePunch, true, 181, true, pads))
-        assertEquals(HnsContactAuthority.NON_CONTACT, HnsContactRules.assess(firePunch, true, 0, true, punchGlove))
+        assertEquals(HnsContactAuthority.NON_CONTACT,
+            HnsContactRules.assess(firePunch, true, 0, true, punchGlove, activeGlove))
+        assertEquals(HnsContactAuthority.CONTACT,
+            HnsContactRules.assess(firePunch, true, 0, true, punchGlove, suppressedGlove))
+        assertEquals(HnsContactAuthority.UNKNOWN,
+            HnsContactRules.assess(firePunch, true, 0, true, punchGlove))
         assertEquals(HnsContactAuthority.NON_CONTACT, HnsContactRules.assess(firePunch, true, 203, true, 0))
         assertEquals(HnsContactAuthority.CONTACT, HnsContactRules.assess(tackle, true, 0, true, 0))
         assertEquals(HnsContactAuthority.UNKNOWN, HnsContactRules.assess(firePunch, true, null, false, 0))
         assertEquals(HnsAbilityRequestRelevance.RELEVANT, relevance(181, context(
             attackerAbilityId = 181, moveId = firePunch, attackerItemId = pads)))
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(181, context(
-            attackerAbilityId = 181, moveId = firePunch, attackerItemId = punchGlove)))
+            attackerAbilityId = 181, moveId = firePunch, attackerItemId = punchGlove,
+            attackerHoldEffectResolution = activeGlove)))
+        assertEquals(HnsAbilityRequestRelevance.RELEVANT, relevance(181, context(
+            attackerAbilityId = 181, moveId = firePunch, attackerItemId = punchGlove,
+            attackerHoldEffectResolution = suppressedGlove)))
     }
 
     @Test
@@ -845,19 +865,63 @@ class HnsAbilityContextPolicyTest {
     }
 
     @Test
-    fun `Ripen clears only when the current hit has no defender resist berry path`() {
+    fun `Ripen is represented by the shared resist berry decision`() {
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             relevance(247, context(side = HnsAbilitySide.ATTACKER, defenderItemId = 550)))
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
-            relevance(247, context(side = HnsAbilitySide.DEFENDER, defenderItemId = 0)))
+            relevance(247, context(side = HnsAbilitySide.DEFENDER, defenderItemId = 0,
+                resistBerryDecision = HnsResistBerryDecision(HnsResistBerryState.NOT_APPLICABLE,
+                    0, 4096, "resist_berry_no_current_item", "No berry is held."))))
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
-            relevance(247, context(side = HnsAbilitySide.DEFENDER, defenderItemId = 472)))
-        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
-            relevance(247, context(side = HnsAbilitySide.DEFENDER, defenderItemId = 550)))
+            relevance(247, context(side = HnsAbilitySide.DEFENDER, defenderItemId = 472,
+                resistBerryDecision = HnsResistBerryDecision(HnsResistBerryState.NOT_APPLICABLE,
+                    472, 4096, "resist_berry_other_item", "The current item is not a berry."))))
+        val ripenBerry = HnsResistBerryDecision(
+            HnsResistBerryState.APPLIES, 550, 1024, "resist_berry_ripen_quarter", "Ripen quarter berry path."
+        )
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(247, context(side = HnsAbilitySide.DEFENDER, defenderItemId = 550,
+                moveType = PokemonType.FIRE, resistBerryDecision = ripenBerry)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(247, context(side = HnsAbilitySide.DEFENDER, defenderItemId = null)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(247, context(side = HnsAbilitySide.DEFENDER, ordinaryMove = false, defenderItemId = 0)))
+    }
+
+    @Test
+    fun `Klutz uses the same effective hold effect authority as item damage`() {
+        val noItem = relevance(103, context(side = HnsAbilitySide.ATTACKER, attackerAbilityId = 103,
+            attackerItemId = 0))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, noItem)
+
+        val suppressed = HnsHoldEffectResolution(479, null, HnsHoldEffectState.SUPPRESSED_NONE,
+            "HOLD_EFFECT_NONE", "Embargo suppresses the effect.")
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(103,
+            context(side = HnsAbilitySide.ATTACKER, attackerAbilityId = 103, attackerItemId = 479,
+                attackerHoldEffectResolution = suppressed)))
+        val restoredByGastroAcid = HnsHoldEffectResolution(479, null, HnsHoldEffectState.ACTIVE_EXACT,
+            "HOLD_EFFECT_LIFE_ORB", "Gastro Acid suppresses Klutz.")
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT, relevance(103,
+            context(side = HnsAbilitySide.ATTACKER, attackerAbilityId = 103, attackerItemId = 479,
+                attackerHoldEffectResolution = restoredByGastroAcid)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN, relevance(103,
+            context(side = HnsAbilitySide.ATTACKER, attackerAbilityId = 103, attackerItemId = 479)))
+    }
+
+    @Test
+    fun `Unnerve and As One consume the shared resist berry decision`() {
+        val blocked = HnsResistBerryDecision(HnsResistBerryState.BLOCKED_BY_UNNERVE,
+            550, 4096, "resist_berry_unnerve_blocked", "The active opposing ability blocks berry use.")
+        for (abilityId in listOf(127, 266, 267)) {
+            assertEquals("ability $abilityId", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(abilityId, context(side = HnsAbilitySide.ATTACKER,
+                    attackerAbilityId = abilityId, defenderItemId = 550, resistBerryDecision = blocked)))
+            assertEquals("ability $abilityId", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(abilityId, context(side = HnsAbilitySide.DEFENDER, defenderAbilityId = abilityId)))
+            assertEquals("ability $abilityId", HnsAbilityRequestRelevance.UNKNOWN,
+                relevance(abilityId, context(side = HnsAbilitySide.ATTACKER,
+                    attackerAbilityId = abilityId, defenderItemId = 550)))
+        }
     }
 
     @Test
@@ -868,7 +932,7 @@ class HnsAbilityContextPolicyTest {
             move = CalcMoveInput("Tackle")
         )
         val context = HnsAbilityContextPolicy.contextForRequest(request, HnsAbilitySide.DEFENDER, true)
-        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             HnsAbilityContextPolicy.assess(247, context).relevance)
 
         val unresolvedItem = request.copy(defender = request.defender.copy(item = "unknown berry", itemId = null))

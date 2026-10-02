@@ -727,9 +727,9 @@
       ]
     },
     "HOLD_EFFECT_BOOSTER_ENERGY": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "post_hit_or_residual",
-      "rationale": "This hold effect can write a stat or ability-related live operand before the current hit. It remains unsupported pending the live-state audit in #88; the generic after-hit rule does not clear it.",
+      "rationale": "Booster Energy has no second damage multiplier; the source-live Protosynthesis or Quark Drive activation payload already supplies its exact selected-hit stat consequence, and request policy verifies that payload.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1067",
         "src/battle_script_commands.c:13467",
@@ -808,27 +808,27 @@
       ]
     },
     "HOLD_EFFECT_CHOICE_BAND": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The active attacker item multiplies the Attack-stat accumulator by UQ_4_12(1.5) with uq4_12_multiply_half_down for Physical moves unless the active gimmick is Dynamax. The existing production gimmick gate independently refuses unsupported active or pending gimmicks.",
       "reviewed_refs": [
         "src/battle_util.c:7177",
         "src/item.c:988"
       ]
     },
     "HOLD_EFFECT_CHOICE_SPECS": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The active attacker item multiplies the Attack-stat accumulator by UQ_4_12(1.5) with uq4_12_multiply_half_down for Special moves unless the active gimmick is Dynamax. The existing production gimmick gate independently refuses unsupported active or pending gimmicks.",
       "reviewed_refs": [
         "src/battle_util.c:7181",
         "src/item.c:990"
       ]
     },
     "HOLD_EFFECT_MUSCLE_BAND": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The active attacker item multiplies Physical move base power at CalcMoveBasePowerAfterModifiers by 1.0 + PercentToUQ4_12_Floored(clamped holdEffectParam), composed in source order with uq4_12_multiply. The defender-side copy and Special moves are request-locally irrelevant.",
       "reviewed_refs": [
         "src/battle_util.c:6813"
       ]
@@ -842,26 +842,26 @@
       ]
     },
     "HOLD_EFFECT_TYPE_POWER": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The active attacker item multiplies base power when the final H&S move type matches the generated item secondary type, using rounded PercentToUQ4_12(holdEffectParam) + 1.0 at CalcMoveBasePowerAfterModifiers. Item type and parameter come from the pinned gItemsInfo record.",
       "reviewed_refs": [
         "src/battle_script_commands.c:13422",
         "src/battle_util.c:6839"
       ]
     },
     "HOLD_EFFECT_PLATE": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The active attacker item multiplies base power when the final H&S move type matches the generated item secondary type, using rounded PercentToUQ4_12(holdEffectParam) + 1.0 at CalcMoveBasePowerAfterModifiers. This does not model Judgment or Multitype/RKS System move/ability interactions.",
       "reviewed_refs": [
         "src/battle_util.c:6840"
       ]
     },
     "HOLD_EFFECT_GEMS": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The current held matching Gem boosts this selected hit at CalcMoveBasePowerAfterModifiers with PercentToUQ4_12AddOne(holdEffectParam), in source order. The production ordinary-move gate excludes Pledge and OHKO effects; a Gem consumed on an earlier hit is represented by the live current item being ITEM_NONE.",
       "reviewed_refs": [
         "src/battle_main.c:6443",
         "src/battle_script_commands.c:2923",
@@ -869,51 +869,51 @@
       ]
     },
     "HOLD_EFFECT_LIGHT_BALL": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned Light Ball branch is compiled under B_LIGHT_BALL_ATTACK_BOOST and doubles the Attack accumulator for base-species Pikachu with the source half-down operator.",
       "reviewed_refs": [
         "src/battle_script_commands.c:13419",
         "src/battle_util.c:7173"
       ]
     },
     "HOLD_EFFECT_THICK_CLUB": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned Thick Club branch doubles the Attack accumulator with the source half-down operator for base species Cubone, Marowak, or Alolan Marowak.",
       "reviewed_refs": [
         "src/battle_util.c:7165"
       ]
     },
     "HOLD_EFFECT_DEEP_SEA_TOOTH": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned Deep Sea Tooth branch doubles the Special Attack accumulator with the source half-down operator for current species Clamperl.",
       "reviewed_refs": [
         "src/battle_util.c:7169"
       ]
     },
     "HOLD_EFFECT_LIFE_ORB": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned Life Orb branch applies UQ_4_12_FLOORED(1.3) in the attacker item slot of GetOtherModifiers.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1127",
         "src/battle_util.c:7673"
       ]
     },
     "HOLD_EFFECT_EXPERT_BELT": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned Expert Belt branch applies its generated parameter in the attacker item slot of GetOtherModifiers when source type effectiveness is at least 2.",
       "reviewed_refs": [
         "src/battle_util.c:7669"
       ]
     },
     "HOLD_EFFECT_METRONOME": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned Metronome branch applies its generated parameter multiplied by the authoritative live metronomeItemCounter in the attacker item slot of GetOtherModifiers.",
       "reviewed_refs": [
         "src/battle_util.c:7662"
       ]
@@ -944,42 +944,42 @@
       ]
     },
     "HOLD_EFFECT_SOUL_DEW": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned B_SOUL_DEW_BOOST branch applies its generated hold-effect parameter in the base-power accumulator for current Latias or Latios and Psychic or Dragon moves.",
       "reviewed_refs": [
         "src/battle_util.c:6833",
         "src/battle_util.c:7374"
       ]
     },
     "HOLD_EFFECT_LUSTROUS_ORB": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned signature-item branch applies its generated parameter in the base-power accumulator for base-species Palkia and Water or Dragon moves.",
       "reviewed_refs": [
         "src/battle_util.c:6821"
       ]
     },
     "HOLD_EFFECT_ADAMANT_ORB": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned signature-item branch applies its generated parameter in the base-power accumulator for base-species Dialga and Steel or Dragon moves.",
       "reviewed_refs": [
         "src/battle_util.c:6825"
       ]
     },
     "HOLD_EFFECT_GRISEOUS_ORB": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned signature-item branch applies its generated parameter in the base-power accumulator for base-species Giratina and Ghost or Dragon moves.",
       "reviewed_refs": [
         "src/battle_util.c:6829"
       ]
     },
     "HOLD_EFFECT_PUNCHING_GLOVE": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned punching-move branch applies UQ_4_12(1.1) in the base-power accumulator; the same active effective hold effect suppresses contact through HnsContactAuthority.",
       "reviewed_refs": [
         "src/battle_util.c:5875",
         "src/battle_util.c:5877",
@@ -987,18 +987,18 @@
       ]
     },
     "HOLD_EFFECT_OGERPON_MASK": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "attacker_offense",
-      "rationale": "Read only as the ATTACKER's hold effect in the pinned damage path (base-power, Attack-stat, final-modifier or critical-stage modifier) with H&S fixed-point placement the calculator does not reproduce. Defender-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned Ogerpon-mask branch applies UQ_4_12(1.2) in the base-power accumulator when generated base-species identity is Ogerpon.",
       "reviewed_refs": [
         "src/battle_util.c:6848",
         "src/battle_util.c:8928"
       ]
     },
     "HOLD_EFFECT_ASSAULT_VEST": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "defender_defense",
-      "rationale": "Read only as the DEFENDER's hold effect in the pinned damage path (Defense/Sp. Def stat, final modifier, type-immunity override, or survival in GetAdjustedDamage). Attacker-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned Assault Vest branch multiplies the selected Sp. Def accumulator by 1.5 with the source half-down operator.",
       "reviewed_refs": [
         "src/battle_util.c:1600",
         "src/battle_util.c:1710",
@@ -1006,33 +1006,33 @@
       ]
     },
     "HOLD_EFFECT_EVIOLITE": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "defender_defense",
-      "rationale": "Read only as the DEFENDER's hold effect in the pinned damage path (Defense/Sp. Def stat, final modifier, type-immunity override, or survival in GetAdjustedDamage). Attacker-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned Eviolite branch multiplies the selected Defense or Sp. Def accumulator by 1.5 with the source half-down operator using generated CanEvolve data for the live or transformed species.",
       "reviewed_refs": [
         "src/battle_util.c:7361"
       ]
     },
     "HOLD_EFFECT_DEEP_SEA_SCALE": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "defender_defense",
-      "rationale": "Read only as the DEFENDER's hold effect in the pinned damage path (Defense/Sp. Def stat, final modifier, type-immunity override, or survival in GetAdjustedDamage). Attacker-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned Deep Sea Scale branch doubles the selected Sp. Def accumulator with the source half-down operator for current species Clamperl.",
       "reviewed_refs": [
         "src/battle_util.c:7353"
       ]
     },
     "HOLD_EFFECT_METAL_POWDER": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "defender_defense",
-      "rationale": "Read only as the DEFENDER's hold effect in the pinned damage path (Defense/Sp. Def stat, final modifier, type-immunity override, or survival in GetAdjustedDamage). Attacker-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned Metal Powder branch doubles the selected Defense accumulator with the source half-down operator for current, untransformed Ditto.",
       "reviewed_refs": [
         "src/battle_util.c:7357"
       ]
     },
     "HOLD_EFFECT_RESIST_BERRY": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "defender_defense",
-      "rationale": "Read only as the DEFENDER's hold effect in the pinned damage path (Defense/Sp. Def stat, final modifier, type-immunity override, or survival in GetAdjustedDamage). Attacker-side and non-matching-context rules are request-local.",
+      "rationale": "The pinned matching resist berry applies its exact Q4.12 half modifier, or quarter modifier with Ripen, in the defender item slot after source type-effectiveness and Unnerve checks.",
       "reviewed_refs": [
         "src/battle_util.c:7686"
       ]
@@ -1095,9 +1095,9 @@
       ]
     },
     "HOLD_EFFECT_UTILITY_UMBRELLA": {
-      "category": "UNSUPPORTED_DAMAGE_RELEVANT",
+      "category": "MODELLED_HNS_SPECIFIC",
       "group": "weather_shield",
-      "rationale": "Utility Umbrella removes sun/rain effects from its holder (weather damage modifier, Hydro Steam, Orichalcum Pulse, weather speed abilities, Weather Ball). Request-local rule requires observed clear weather.",
+      "rationale": "The active effective hold effect is consumed at the pinned holder-weather predicates and defender weather-damage slot for the supported ordinary selected-hit surface.",
       "reviewed_refs": [
         "src/battle_main.c:4946",
         "src/battle_main.c:4948",
@@ -1164,9 +1164,9 @@
       ]
     },
     "HOLD_EFFECT_PRIMAL_ORB": {
-      "category": "UNCLASSIFIED",
-      "group": "unaudited_form",
-      "rationale": "Primal Reversion items: no hold-effect read in battle code; the reversion itself is driven by form-change tables and its timing was not audited for this slice. Fails closed.",
+      "category": "MODELLED_HNS_SPECIFIC",
+      "group": "form_or_ability_changer",
+      "rationale": "The pinned battle form tables use Red/Blue Orb for Primal Reversion; there is no direct ordinary damage multiplier. After observed switch-in/form settlement, the calculator consumes live species, stats, ability, and weather. Request-local policy remains unknown until settlement and live species are authoritative.",
       "reviewed_refs": []
     }
   },
@@ -1346,7 +1346,7 @@
       "methods": [
         "FORM_CHANGE_BATTLE_PRIMAL_REVERSION"
       ],
-      "disposition": "Primal Reversion; HOLD_EFFECT_PRIMAL_ORB is UNCLASSIFIED."
+      "disposition": "Primal Reversion by the battle form table. It has no separate direct-hit multiplier; after settlement, live species/ability/weather are the damage authority. Raw Orb identity never reconstructs Primal form."
     },
     "ITEM_BUGINIUM_Z": {
       "methods": [
@@ -2018,7 +2018,7 @@
       "methods": [
         "FORM_CHANGE_BATTLE_PRIMAL_REVERSION"
       ],
-      "disposition": "Primal Reversion; HOLD_EFFECT_PRIMAL_ORB is UNCLASSIFIED."
+      "disposition": "Primal Reversion by the battle form table. It has no separate direct-hit multiplier; after settlement, live species/ability/weather are the damage authority. Raw Orb identity never reconstructs Primal form."
     },
     "ITEM_REVEAL_GLASS": {
       "methods": [

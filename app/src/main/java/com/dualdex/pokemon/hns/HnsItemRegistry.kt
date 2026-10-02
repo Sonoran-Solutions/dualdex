@@ -124,6 +124,23 @@ object HnsItemRegistry {
     )
 
     /**
+     * H&S-only items implemented from the generated live hold-effect descriptor in the bundled
+     * QuickJS pipeline. They must never be forwarded as names: several share Gen III names whose
+     * built-in ADV effects would be applied a second time.
+     */
+    private val descriptorBackedModelledEffects = setOf(
+        "HOLD_EFFECT_TYPE_POWER", "HOLD_EFFECT_PLATE", "HOLD_EFFECT_GEMS",
+        "HOLD_EFFECT_MUSCLE_BAND", "HOLD_EFFECT_PUNCHING_GLOVE", "HOLD_EFFECT_SOUL_DEW",
+        "HOLD_EFFECT_LUSTROUS_ORB", "HOLD_EFFECT_ADAMANT_ORB", "HOLD_EFFECT_GRISEOUS_ORB",
+        "HOLD_EFFECT_OGERPON_MASK", "HOLD_EFFECT_CHOICE_BAND", "HOLD_EFFECT_CHOICE_SPECS",
+        "HOLD_EFFECT_THICK_CLUB", "HOLD_EFFECT_LIGHT_BALL", "HOLD_EFFECT_DEEP_SEA_TOOTH",
+        "HOLD_EFFECT_DEEP_SEA_SCALE", "HOLD_EFFECT_METAL_POWDER", "HOLD_EFFECT_EVIOLITE",
+        "HOLD_EFFECT_ASSAULT_VEST", "HOLD_EFFECT_LIFE_ORB", "HOLD_EFFECT_EXPERT_BELT",
+        "HOLD_EFFECT_METRONOME", "HOLD_EFFECT_RESIST_BERRY", "HOLD_EFFECT_UTILITY_UMBRELLA",
+        "HOLD_EFFECT_BOOSTER_ENERGY", "HOLD_EFFECT_PRIMAL_ORB"
+    )
+
+    /**
      * Classifies a held item by its exact numeric H&S item ID.
      *
      * Null, negative and out-of-domain IDs are [HnsItemCategory.UNCLASSIFIED]; an
@@ -161,14 +178,18 @@ object HnsItemRegistry {
 
     /**
      * True only when [id]'s own hold effect is supported for ordinary damage: proven to have no
-     * ordinary damage effect, or MODELLED_* with an explicit engine adapter.
+     * ordinary damage effect, or MODELLED_* with either a direct engine adapter or an explicit
+     * source-generated hold-effect descriptor branch.
      */
     fun isSupportedForDamage(id: Int?): Boolean {
         val category = classify(id).category
         return when (category) {
             HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT -> true
             HnsItemCategory.MODELLED_EQUIVALENT,
-            HnsItemCategory.MODELLED_HNS_SPECIFIC -> id != null && modelledEngineAdapters.containsKey(id)
+            HnsItemCategory.MODELLED_HNS_SPECIFIC -> id != null && (
+                modelledEngineAdapters.containsKey(id) ||
+                    Hns205ItemCatalogue.get(id)?.holdEffect in descriptorBackedModelledEffects
+                )
             else -> false
         }
     }
@@ -221,14 +242,14 @@ object HnsItemRegistry {
     fun isInDomain(id: Int): Boolean = id in 0..Hns205ItemCatalogue.ITEM_ID_MAX
 
     /**
-     * The engine-adapter spelling for a modelled item, or null when the engine must receive no
-     * item at all.
+     * The direct engine-adapter spelling for a modelled item, or null when its arithmetic is
+     * carried by the H&S-specific hold-effect descriptor instead.
      *
-     * Modelled H&S damage items (such as Wise Glasses) return their explicit engine adapter spelling.
-     * Every other item that reaches the engine is either globally proven to have no ordinary damage
-     * effect, or globally unsupported but proven irrelevant to that exact request by
-     * `HnsItemContextPolicy`; in both cases the correct engine input is "no item" (null). A MODELLED_*
-     * item returns only its explicit adapter spelling, never its raw H&S source name.
+     * Directly adapted items (such as Wise Glasses) return their explicit engine spelling. Items
+     * modeled by H&S descriptor branches return null here and are described by the separate
+     * `hnsEffectiveHoldEffect` request fields; this prevents accidentally applying a Gen III item
+     * with the same display name. Every other item that reaches the engine is either globally
+     * proven neutral or request-locally proven irrelevant and is sent without an item.
      *
      * This stripping is correct only for moves that do not read item state. A move whose semantics
      * DO read item identity/presence/absence must never be allowed to reach this point:

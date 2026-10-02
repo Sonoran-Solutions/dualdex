@@ -310,6 +310,15 @@ data class CalcHnsLiveBattleState(
     val attackerFlashFireBoosted: Boolean? = null,
     val attackerTransformed: Boolean? = null,
     val defenderTransformed: Boolean? = null,
+    /** `volatiles.embargo`, with an observed false kept distinct from an unread tuple. */
+    val attackerEmbargo: Boolean? = null,
+    val defenderEmbargo: Boolean? = null,
+    /** Exact live `volatiles.metronomeItemCounter`; null when its generated tuple extension is absent. */
+    val attackerMetronomeItemCounter: Int? = null,
+    val defenderMetronomeItemCounter: Int? = null,
+    /** Exact live `volatiles.transformedMonSpecies`, including SPECIES_NONE (0). */
+    val attackerTransformedMonSpecies: Int? = null,
+    val defenderTransformedMonSpecies: Int? = null,
     val attackerBoosterEnergyActivated: Boolean? = null,
     val defenderBoosterEnergyActivated: Boolean? = null,
     val attackerParadoxBoostedStat: Int? = null,

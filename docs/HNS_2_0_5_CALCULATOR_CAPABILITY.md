@@ -94,8 +94,8 @@ Analytic (actual move order), Stakeout (switch-in history), Supreme Overlord (fa
 Protosynthesis and Quark Drive (boosted-stat/Booster Energy payload), Gorilla Tactics (selected
 Dynamax authority), Dark Aura/Fairy Aura/Aura Break (field-wide identities), and the four Ruin
 abilities (field-wide activation). Positive Battery/Power Spot and partner Steely Spirit also remain
-outside Singles. Parental Bond, Skill Link, #92 items, and other multi-hit/item paths are not part of
-this slice.
+outside Singles. Parental Bond, Skill Link, and item-dependent move formulas remain outside this
+slice; direct-damage held-item modifiers are covered by issue #92.
 
 Orichalcum Pulse checks `ctx->weather & B_WEATHER_SUN`, final Physical category, and the attacker's
 Utility Umbrella hold effect. It does not call `IsBattlerWeatherAffected`; however,
@@ -570,7 +570,7 @@ existing request field reproduces this build's rule, not whether the current UI 
 | 4 | Species base stats / typings | Modern (`P_UPDATED_STATS`/`P_UPDATED_TYPES GEN_LATEST`) `[include/config/pokemon.h:5]`, from the pinned data pack | **yes** — authoritative overrides forwarded via `CalcDataOverrides` and consumed by `calculateHnsDamage` / `@smogon/calc` constructor (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, computing exact base stats or overridden by live `rawStats`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 5 | Move properties (power/type/category) | Explicit per move, 848 numbered moves incl. Gen IX `[src/data/moves_info.h:121]`, `[include/constants/moves.h:905]` | **yes** — authoritative power, type, and category forwarded via `CalcDataOverrides` and consumed by bridge (§3.3, §9) | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — overrides are extracted and forwarded, executing with ordinary move effects in `calculateHnsDamage`; the §14 subset is exposed as `Ready` / `ESTIMATED`, while all other requests remain fail-closed. (The `GAP B/C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 6 | Abilities that affect damage | Full modern roster, ~80 post-Gen-III modifiers `[src/battle_util.c:6655]`, `:6989`, `:7562` | **partially** — authoritative effective abilities consumed from `gBattleMons`; global capability in `HnsAbilityRegistry`, with separate request-local source-backed relevance in `HnsAbilityContextPolicy` and Groups C–D. Engine default ability substitution is prevented. | **CONDITIONALLY MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e / Groups C–D)** — current audit: 84 `PROVEN_NO_DAMAGE_EFFECT`, 65 `MODELLED_HNS_CONDITIONAL`, 162 `UNSUPPORTED_DAMAGE_RELEVANT`, and 0 unclassified. Conditional support now includes Group C immunities, pinch abilities, Hustle/Guts, #105/#106 groups, Punk Rock, holder-side Steely Spirit, Adaptability, the final-modifier batch, Solar Power, Defeatist, Fur Coat, Transistor, Dragon's Maw, Rocky Payload, Orichalcum Pulse, Marvel Scale, holder-side Singles Flower Gift, Sheer Force, Tough Claws, and Fluffy; each uses its pinned request predicate. Reckless, Sand Force, Battery, and Power Spot gain request-local false-predicate clearance without broadening recoil, Sandstorm, or partner support. Water Bubble burn prevention/status clearing and Steely Spirit's attacker-partner branch remain deferred. A known `RELEVANT` unsupported ability may be neutralized and named in a caveated estimate; `UNKNOWN`, unclassified, unread, and unauthoritative identity remain hard. Any independent hard limitation still refuses. |
-| 7 | Held items that affect damage | Modern: type-boost ×1.2 `[src/data/items.h:10]`, gems ×1.3 `[src/data/items.h:9]`, Choice Specs/Life Orb/Expert Belt/Eviolite/Assault Vest `[include/constants/items.h:557]`–`:629`, Wise Glasses `[src/data/items.h:10091]` | **identity yes; damage effects conditionally modelled** — exact item identity and the current battle item are consumed; Wise Glasses modelled specifically for H&S; the static item audit is combined with a per-move item-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — every one of the 901 identities is classified by a reviewed hold-effect family (585 neutral / 312 unsupported / 1 modelled / 3 unclassified); a known `RELEVANT` unsupported item may be neutralized and named in a caveated estimate only for an item-independent move. Proven-irrelevant and modelled items keep their existing paths; `UNKNOWN`, unclassified, unread, and unauthoritative identities remain hard. Item-dependent moves (Fling, Knock Off, Acrobatics, Natural Gift, Poltergeist, Judgment, Techno Blast, Multi-Attack) remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7) |
+| 7 | Held items that affect damage | Pinned item IDs, hold effects, parameters, and item types; Group D direct-hit families use exact H&S pipeline stages | **yes, for the explicit item contract** — current numeric item identity is separate from the effective hold effect; one source-backed authority covers Magic Room, Embargo, Klutz and required ability suppression | **CONDITIONALLY MODELLED (#92)** — current audit: 585 `PROVEN_NO_ORDINARY_DAMAGE_EFFECT`, 108 `MODELLED_HNS_SPECIFIC`, 207 `UNSUPPORTED_DAMAGE_RELEVANT`, and 1 `UNCLASSIFIED`. The 27 modeled families use generated item/species operands and exact H&S fixed-point stages. Known relevant unsupported items can still become named caveats only for item-independent moves; unread, unknown and unclassified state remains hard. Item-dependent moves remain blocked with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7; [Group D held-item contract](HNS_GROUP_D_HELD_ITEMS.md)). |
 | 8 | Critical hits | Odds are Gen 7+ (1/24 base) `[src/battle_util.c:7975]`; **multiplier ×2** (`B_CRIT_MULTIPLIER GEN_3`) `[include/config/battle.h:6]`, `[src/battle_util.c:7474]` | multiplier yes, odds no | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — multiplier ×2 evaluated at pre-roll step via UQ4.12 `halfDown(8192, dmg)` in `calculateHnsDamage`, with stat stage drop-ignore rules modelled. Pinned in `test_js_calc.c`. Crit odds are not modelled. The §14 subset is exposed as `Ready` / `ESTIMATED`; all other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 9 | Weather | Rain/Sun ×1.5 and ×0.5 `[src/battle_util.c:7443]`; Sand/Hail give no move-damage multiplier; Sand gives Rock SpD ×1.5 `[src/battle_util.c:7386]` | yes — live battle weather is boundary-owned via the `gBattleWeather` reader | **MODELLED / HOST VERIFIED; CONDITIONALLY PRODUCTION AUTHORIZED (Gap C4e)** — Rain/Sun ×1.5 and ×0.5 evaluated at pre-roll step via UQ4.12 `halfDown(6144/2048, dmg)` in `calculateHnsDamage`. For the §14 subset `CalcRequestBoundary` rebinds `field.weather` from the observed battle-global `gBattleWeather` word (ordinary Rain/Sun bits only); an unread word refuses with `HNS_LIVE_WEATHER_UNKNOWN` and an unmodelled word (Sand/Hail/Snow/Fog/Strong Winds, and the primal Rain/Sun bits) refuses with `HNS_LIVE_WEATHER_NOT_MODELLED`, so clear can never be assumed. All other requests remain fail-closed. (The `GAP C4b` "production refused" verdict was the historical pre-C4e state.) |
 | 10 | Snow | Ice Defense ×1.5 `[src/battle_util.c:7389]`; Snow never chips, Hail chips 1/16 `[src/battle_end_turn.c:155]` | **no** | **REFUSED** when asked for — fails closed |
@@ -648,7 +648,7 @@ Only these individual behaviours are source-and-test demonstrated:
 | Move category rule | per-move default, switchable to type-based via `optionStyle`; TYPE_BASED uses H&S `gTypesInfo` for the final effective type (Ghost Special, Dark Physical) | `move.overrides.category` is explicitly materialized by `CalcDataOverrides` and consumed by `entry.js` | **MATCHES (Gap A/B closed)** |
 | Abilities (supported subset) | 84 `PROVEN_NO_DAMAGE_EFFECT` and 65 `MODELLED_HNS_CONDITIONAL` abilities | Conditional support also covers Marvel Scale, holder-side Singles Flower Gift, Sheer Force, Tough Claws, and Fluffy. Reckless, Sand Force, Battery, and Power Spot have request-local relevance rules; unsupported recoil/weather/partner contexts remain independently gated. Water Bubble burn prevention/status clearing and Steely Spirit partner support remain deferred. | **CONDITIONALLY AUTHORIZED** under the live operand gates and pinned inventory |
 | Abilities (globally unsupported) | Thick Fat, Huge Power, Pure Power, modern modifiers | effects not generally modelled | **CONTEXTUAL** — known relevant unsupported abilities are named caveats after neutralization; unknown/unread/unclassified abilities remain hard, and proven-irrelevant contexts do not become caveats (§6.3, #86) |
-| Held items (Gap C3) | exact H&S item identity + current battle item; type-boost ×1.2, gems ×1.3, modern items, Wise Glasses | identity consumed; Wise Glasses modelled, other damage items unmodelled; static item audit combined with a move-interaction audit | **CONDITIONALLY MODELLED (GAP C3 CLOSED for an explicit, contextual subset)** — a known relevant unsupported item may become a named caveat for an item-independent request; unread/unresolved identity remains hard, and item-dependent moves remain hard with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` (§7, #86) |
+| Held items (#92, building on Gap C3) | exact H&S item ID, raw item record, and effective hold effect; scoped type, stat, and final modifiers | shared hold-effect authority; generated species rules; hit-time Embargo, Metronome counter, and transformed species; exact source oracle | **CONDITIONALLY MODELLED** — 27 H&S-specific families are exact on the admitted ordinary selected-hit surface. Unsupported or unknown item contexts remain caveated or refused by their independent rule; item-dependent moves remain blocked (§7, #92) |
 | Badge boost | player-side ×1.1 stats | SaveBlock1 reader (bytes `0x1A98`+`0x1A99`), UQ4.12 `halfDown(4506, stat)` in QuickJS; manual/unspecified applicability fails closed | **HOST-ORACLE MATCHES, MANUAL STATE UNAVAILABLE (Gap C4b partial / open)** — see §11 |
 
 ### 3.3 Three different claims that must not be conflated
@@ -1108,7 +1108,12 @@ Pluck/Bug Bite/Thief/Covet (the item is moved after the damage formula); Sucker 
 defender's chosen move, not an item); and the gem/plate/choice/pinch-berry hold effects (they multiply
 an ordinary move and are already refused by the static audit).
 
-### 7.3 Representative globally unsupported items
+### 7.3 Representative items from the pre-#92 audit snapshot
+
+The following table records why these items were initially classified unsupported during the Gap C3
+audit. Issue #92 has since promoted the direct-damage families in the first part of the table; use
+the current category totals and exact predicates in §7.4, §7.5, and
+[`HNS_GROUP_D_HELD_ITEMS.md`](HNS_GROUP_D_HELD_ITEMS.md).
 
 | Item | H&S numeric ID | H&S source effect | ADV behavior | DualDex category | Reason |
 |---|---|---|---|---|---|
@@ -1128,22 +1133,24 @@ an ordinary move and are already refused by the static audit).
 | Focus Sash / Focus Band | 481 / 469 | survive at 1 HP (Sash consumed) (`[src/battle_util.c:8193-8206]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | KO presentation would be wrong. |
 | Leftovers / Shell Bell / Rocky Helmet | 472 / 473 / 496 | between-turn heal / heal on damage / recoil on contact (`[src/battle_hold_effects.c:642-656]`, `:536-555]`, `:245-262]`) | none | `UNSUPPORTED_DAMAGE_RELEVANT` | Globally: later HP/KO changes. Request-locally irrelevant to a single ordinary hit (§7.5). |
 
-These rows remain **globally** `UNSUPPORTED_DAMAGE_RELEVANT`; §7.5 lists the exact request shapes in
-which each is proven irrelevant. A known relevant item may instead be neutralized as a named #86
-caveat when its identity and contextual decision are authoritative and the move is item-independent.
-The three `UNCLASSIFIED` identities (Red Orb, Blue Orb, e-Reader Enigma Berry) always fail closed.
+At the time of the original Gap C3 audit these rows were `UNSUPPORTED_DAMAGE_RELEVANT`; §7.5 lists
+the exact request shapes in which a remaining unsupported item is proven irrelevant. A known
+relevant item may instead be neutralized as a named #86 caveat when its identity and contextual
+decision are authoritative and the move is item-independent. Red Orb and Blue Orb are now assigned
+to the modeled Primal Orb family. The e-Reader Enigma Berry remains the one `UNCLASSIFIED` identity
+and fails closed.
 Independently, any request whose move is item-dependent (§7.2) fails
 closed with `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`, even when the item itself is `ITEM_NONE` or a
 supported static item. An observed current item that cannot be authoritatively read is
 `HNS_EFFECTIVE_ITEM_UNREADABLE`, and a manual name that does not resolve in the exact H&S catalogue is
 `HNS_ITEM_IDENTITY_NOT_AUTHORITATIVE`.
 
-Because most H&S items' damage effects are not modelled, the engine request omits the item entirely for
-every authorized participant without an explicit adapter (`HnsItemRegistry.engineItemName` returns null for
-900 of the 901 IDs) — both for a globally neutral item and for an unsupported item proven irrelevant to that
-exact request. Modelled items (currently Wise Glasses, ID 476, returning `"Wise Glasses"`) are forwarded with
-their explicit engine adapter spelling; a `MODELLED_*` item without an explicit adapter is refused rather than
-stripped. This is safe: the QuickJS
+The engine request omits the generic ADV item name for neutral items and unsupported items proven
+irrelevant to that exact request. Group D `MODELLED_HNS_SPECIFIC` items also use no generic engine
+item spelling; instead, `DamageCalculator` serializes the current numeric item ID and generated
+effective hold-effect descriptor for the dedicated H&S QuickJS branches. Explicit engine adapters
+remain item-specific. This is safe only because a move whose formula reads held-item identity/presence
+is refused first. The QuickJS
 host suite proves an omitted item and `"None"` are the same calculation, and that a name the engine
 does not model is a silent no-op, while a name it does model changes damage — which is exactly why a raw
 H&S source name must never be forwarded. The PR #78 follow-up fixture
@@ -1180,19 +1187,23 @@ Results (`HnsItemAuditData.categoryCounts`, also asserted by `HnsItemAuditTest` 
 |---|---|---|
 | `PROVEN_NO_ORDINARY_DAMAGE_EFFECT` | 585 | 32 |
 | `MODELLED_EQUIVALENT` | 0 | 0 |
-| `MODELLED_HNS_SPECIFIC` | 1 | 1 |
-| `UNSUPPORTED_DAMAGE_RELEVANT` | 310 hold-effect-family items + 2 identity exceptions = 312 | 96 |
-| `UNCLASSIFIED` | 3 | 1 family (`HOLD_EFFECT_PRIMAL_ORB`) + 1 identity exception |
+| `MODELLED_HNS_SPECIFIC` | 108 | 27 |
+| `UNSUPPORTED_DAMAGE_RELEVANT` | 205 hold-effect-family items + 2 identity exceptions = 207 | 71 |
+| `UNCLASSIFIED` | 1 | 0 families + 1 identity exception (e-Reader Enigma Berry) |
 
 Globally neutral groups: `no_battle_effect` (`NONE`, `REPEL`, `DOUBLE_PRIZE`, `FRIENDSHIP_UP`,
 `LUCKY_EGG`, `EXP_SHARE`, `CAN_ALWAYS_RUN`, `PREVENT_EVOLVE`, `DESTINY_KNOT`, `ADRENALINE_ORB`),
 `accuracy_only` (`WIDE_LENS`, `ZOOM_LENS`, `EVASION_UP`), `non_damage_utility` (`FLINCH`, `SHED_SHELL`,
 `RED_CARD`, `EJECT_BUTTON`, `EJECT_PACK`, `LIGHT_CLAY`, the four weather rocks, `TERRAIN_EXTENDER`,
 `GRIP_CLAW`, `HEAVY_DUTY_BOOTS`, `COVERT_CLOAK`, `PROTECTIVE_PADS`, `POWER_HERB`, `LOADED_DICE`) and
-`form_hold_no_read` (`MEMORY`, `DRIVE`). The identity exception is the e-Reader Enigma Berry (ID 581):
+`form_hold_no_read` (`MEMORY`, `DRIVE`). The remaining unclassified identity is the e-Reader Enigma Berry (ID 581):
 its catalogue hold effect is `NONE`, but `GetBattlerHoldEffectInternal` returns the runtime
 `gEnigmaBerries[battler].holdEffect` for that exact ID (`[src/battle_util.c:5834]`), so it is
 `UNCLASSIFIED`.
+
+Red Orb and Blue Orb are identity exceptions mapped to the modeled Primal Orb family. Their damage
+state is the live settled form, ability, weather, and stats; an unsettled or unobserved transformation
+remains unknown.
 
 Rusted Sword (288) and Rusted Shield (289) are also `HOLD_EFFECT_NONE` in the catalogue, but pinned
 `src/data/pokemon/form_change_tables.h` uses them in `FORM_CHANGE_BEGIN_BATTLE`: at battle start a
@@ -1206,8 +1217,8 @@ neutral. Bag-use rows (`FORM_CHANGE_ITEM_USE*`, e.g. Gracidea, Rotom Catalog) an
 rows (Plates, Memories, Drives, orbs, masks, Z-Crystals, whose form is fixed before the move and read
 live) are reviewed dispositions.
 
-Globally unsupported groups (with request-local rules in §7.5 unless noted): `attacker_offense`
-(22 families), `defender_defense` (8), `post_hit_or_residual` (54), `turn_order` (7), `weight_only`
+Family groups with remaining unsupported members (with request-local rules in §7.5 unless noted)
+include `attacker_offense`, `defender_defense`, `post_hit_or_residual`, `turn_order`, `weight_only`
 (Float Stone), `grounding` (Air Balloon, Iron Ball), `weather_shield` (Utility Umbrella), and
 `form_or_ability_changer` (`MEGA_STONE` and `Z_CRYSTAL` remain blocking because they change
 form or move state before the hit; `ABILITY_SHIELD` clears only for an observed ordinary Singles
@@ -1215,13 +1226,16 @@ hit with no Gastro Acid, Neutralizing Gas, or defender-side Mold Breaker suppres
 full per-item table is
 [`tools/hns-items/item_inventory.tsv`](../tools/hns-items/item_inventory.tsv).
 
+Several families under `attacker_offense` and `defender_defense` were promoted by #92. The exact
+current category for every item is in `item_inventory.tsv`; the full modeled-family contract and
+audit totals are in [HNS_GROUP_D_HELD_ITEMS.md](HNS_GROUP_D_HELD_ITEMS.md).
 `HnsMoveItemInteractionRegistry` (§7.2) is unchanged and independent: a globally neutral or
 request-locally irrelevant hold effect never clears `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED`.
 
 ### 7.5 Request-local item relevance (`HnsItemContextPolicy`)
 
 The reviewed rules, predicates and pinned evidence are in
-[`tools/hns-items/context_rules.json`](../tools/hns-items/context_rules.json) (37 rules). The displayed
+[`tools/hns-items/context_rules.json`](../tools/hns-items/context_rules.json) (48 rules). The displayed
 H&S contract is the single-hit damage range and its percentage of the defender's max HP for the current
 observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` returns
 `koChanceText: ""`). Operands are request-owned and rebound by `CalcRequestBoundary`:
@@ -1254,7 +1268,7 @@ observed state; the shipped H&S engine emits no KO text (`calculateHnsDamage` re
 | Resist berries | Attacker side; defender vs a different authoritative effective type | Matching type (effectiveness not proven); unknown type |
 | Focus Sash | Attacker side; defender whose live HP < maxHP | Full-HP defender; unknown HP |
 | Focus Band | Attacker side | Defender side |
-| Post-hit / residual (Leftovers, Black Sludge, Shell Bell, Rocky Helmet, HP/status/confusion/pinch berries, Weakness Policy, herbs, orbs, …) | Either side for an ordinary single-hit move, after current damage or outside the selected hit | Non-ordinary or unknown move; Booster Energy, Terrain Seed, and Berserk Gene remain unresolved pre-hit stat writers |
+| Post-hit / residual (Leftovers, Black Sludge, Shell Bell, Rocky Helmet, HP/status/confusion/pinch berries, Weakness Policy, herbs, orbs, …) | Either side for an ordinary single-hit move, after current damage or outside the selected hit | Non-ordinary or unknown move; Terrain Seed and Berserk Gene remain unresolved pre-hit stat writers. Booster Energy is resolved in issue #92 from its settled live activation payload. |
 | Blunder Policy, Room Service | Ordinary move with known non-Analytic attacker | Analytic or unknown attacker ability; nonordinary move |
 | Turn order (Choice Scarf, Quick Claw, Custap Berry, Lagging Tail, Macho Brace, Power items, Quick Powder) | Either side for an ordinary move when the live attacker ability is known and not Analytic | Attacker Analytic; unknown ability; non-ordinary move |
 | Float Stone | Either side for an ordinary move | Non-ordinary move |
@@ -2313,7 +2327,7 @@ commit:
 | volatile `semiInvulnerable` | bit 51, width 3 |
 | volatile `chargeTimer` | bit 73, width 2 |
 | volatile `tarShot` bit | 299 |
-| volatile read window | 41 bytes (`HNS_LIVE_BP_VOLATILE_WINDOW_BYTES`; covers the `tarShot` bit at 299 — a window of only 38 bytes would silently miss it. *Correction, #40 closure audit: an earlier revision of this row said 38 bytes; the generated value is 41, as §14.3 also states.*) |
+| volatile read window | 42 bytes (`HNS_LIVE_BP_VOLATILE_WINDOW_BYTES`; the current maximum is the existing Paradox bit at 328. Group D item bits `embargo` 81, `transformedMonSpecies` 128–138, and `metronomeItemCounter` 232–239 fit inside this window.) |
 | `struct BattleStruct.gimmick` | 668 |
 | `struct BattleGimmickData.activeGimmick` | 11 (side stride 6) |
 
@@ -2339,14 +2353,14 @@ pointer leaves the gimmick **unobserved** (never `NONE`).
 * `status1` (`status_observed`; the raw word, `0` is an observed neutral);
 * the damage-relevant volatile bits (`volatiles_observed`, `volatile_electrified`,
   `volatile_glaive_rush`, `volatile_charge_timer`, `volatile_tar_shot`, plus the recorded
-  `volatile_minimize` / `volatile_semi_invulnerable`); the reader reads the generated 41-byte
+  `volatile_minimize` / `volatile_semi_invulnerable`); the reader reads the generated 42-byte
   volatile window, because `tarShot` sits at bit 299 (and review-round-4 `roostActive`/`endured` at
   318/322) so the original 10-byte window silently truncated them;
 * the review-round-4 persistent volatile bits (`persistent_volatiles_observed`, `volatile_foresight`,
   `volatile_miracle_eye`, `volatile_root`, `volatile_smack_down`, `volatile_telekinesis`,
   `volatile_magnet_rise`, `volatile_gastro_acid`, `volatile_roost_active`, `volatile_substitute`,
   `volatile_endured`); `roostActive` (318) and `endured` (322) extend the generated read window to
-  41 bytes;
+  41 bytes, and the already-existing Paradox bit at 328 makes the current generated window 42 bytes;
 * the gimmick byte (`gimmick_observed`, `active_gimmick`);
 * the battle-global `gFieldStatuses` word (`field_statuses_readable`, `field_statuses`);
 * the battle-global `gBattleWeather` flags word (`weather_readable`, `battle_weather`; 0 is an
@@ -2354,6 +2368,12 @@ pointer leaves the gimmick **unobserved** (never `NONE`).
 * this battler's own side status word `gSideStatuses[side]` (`side_statuses_readable`,
   `side_statuses`; the side comes from the authoritative `gBattlerPositions` bit, not from the
   caller's role, and 0 is an observed screenless side).
+
+Issue #92 adds item-sensitive volatile operands to the same generated window: Embargo at bit 81,
+the eight-bit Metronome item counter at bits 232–239, and the eleven-bit stored transformed species
+at bits 128–138. Their observed flags are independent of payload zero. The native/JNI battler tuple
+therefore grows from 97 to 103 integers; the older 97-integer tuple remains decodable but cannot
+authorize an item whose effect depends on these new operands.
 
 Every `*_observed` / `*_readable` bit separates **observed neutral** (bit set, payload zero) from
 **never read** (bit clear), so `false` is never collapsed with `unreadable`. The tuple grew from 42 to
@@ -3107,7 +3127,9 @@ only for supported unsuppressed clear/Rain/Sun, and type/ability replacements on
 request-local evidence in the matrix. It does not treat captured terrain or power flags as
 calculated effects. Subsequent Group D slices model terrain, Charge, Flash Fire and Paradox
 payloads request-locally; see [the current state-backed contract](HNS_STATE_BACKED_GROUP_D.md).
-Held/pending Booster Energy remains an independent #92 item limitation. Protean/Libero are
+Issue #92 resolves Booster Energy's request-local item rule from the current numeric item and the
+settled Transform/activation/boosted-stat payload; unread or contradictory state remains blocked.
+Protean/Libero are
 narrower than Color Change/Mimicry because their pre-damage type change can occur after the state
 snapshot and `usedProteanLibero` is not observed.
 
@@ -3203,8 +3225,10 @@ Electric Terrain can compose with Hadron Engine's raw-bit Special Attack effect 
 grounding. Grassy Terrain can compose with Grass Pelt when both are exact. Remaining deferred
 terrain mechanics include terrain priority blocking, Grassy Glide, Rising Voltage, Expanding
 Force, Terrain Pulse, Misty Explosion, Psyblade, terrain-dependent Nature Power, Grassy Terrain's
-Earthquake/Magnitude reduction, terrain seeds, Surge Surfer, Quark Drive, Booster Energy, Analytic
-and turn-order effects, terrain-setting ability events, and expiration/timer simulation.
+Earthquake/Magnitude reduction, terrain seeds, Surge Surfer, Analytic and turn-order effects,
+terrain-setting ability events, and expiration/timer simulation. Quark Drive and Booster Energy's
+selected-hit Paradox stat payload are resolved only for the source-backed states in issue #92; this
+does not model their other terrain consequences.
 
 ### Census impact
 
@@ -3249,3 +3273,17 @@ The oracle is 1,720 scenarios / all 16 rolls / two existing #100 divergences. Fu
 are 18,916 fully modelled, 388 caveated, 4,974 refused; per-ability changes and remaining blockers
 are in the handoff. #92 items, Doubles partners, Parental Bond, Skill Link and full gimmick move
 semantics remain outside the supported contract.
+
+## Group D held items (issue #92)
+
+The issue #92 item slice now implements the pinned ordinary selected-hit factors using one shared
+`HnsHoldEffectAuthority` for Kotlin policy and QuickJS. It distinguishes current numeric item
+identity from the effective hold effect and fails closed when Magic Room, Embargo, Klutz/Gastro
+Acid, Ability Shield or Neutralizing Gas operands are unread. Embargo, the Metronome item counter
+and transformed source species are read from generated volatile fields; the volatile window is
+42 bytes and the native/JNI tuple is 103 integers.
+
+The exact factors, source order, supported families, form/state rules, Pledge/OHKO exclusions,
+request-local Mega/Z clearance, audit/census deltas, and official-ROM transition evidence are in
+[HNS_GROUP_D_HELD_ITEMS.md](HNS_GROUP_D_HELD_ITEMS.md). Issue #93 remains the follow-up for rare
+mechanics; issue #83 stays open.

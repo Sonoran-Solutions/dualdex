@@ -5,6 +5,7 @@ import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.hns.HnsFieldState
 import com.dualdex.pokemon.hns.HnsFieldStatus
 import com.dualdex.pokemon.hns.HnsFieldStatusData
+import com.dualdex.pokemon.hns.HnsItemRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -35,8 +36,20 @@ class HnsFieldContextPolicyTest {
         defenderTerrain: HnsTerrainApplicability? = HnsTerrainApplicability.AFFECTED
     ) = HnsFieldContextPolicy.Context(
         ordinaryMove, moveId, preField, effective, attackerAbility, defenderAbility, attackerItem, defenderItem,
-        category, fieldStatuses, attackerTerrain, defenderTerrain
+        category, fieldStatuses, attackerTerrain, defenderTerrain,
+        attackerHoldEffectResolution = holdEffectResolution(attackerItem),
+        defenderHoldEffectResolution = holdEffectResolution(defenderItem)
     )
+
+    private fun holdEffectResolution(id: Int?): HnsHoldEffectResolution? {
+        if (id == null) return null
+        val item = HnsItemRegistry.classify(id).data
+        return HnsHoldEffectResolution(
+            id, item,
+            if (id == 0) HnsHoldEffectState.ACTIVE_EXACT else HnsHoldEffectState.SUPPRESSED_NONE,
+            "HOLD_EFFECT_NONE", "Synthetic exact current-item observation under Magic Room."
+        )
+    }
 
     private fun decide(status: HnsFieldStatus, context: HnsFieldContextPolicy.Context?): HnsFieldRequestDecision =
         HnsFieldContextPolicy.assess(HnsFieldState.decode(status.mask), context?.copy(
@@ -222,14 +235,17 @@ class HnsFieldContextPolicyTest {
     }
 
     @Test
-    fun `Magic Room needs both authoritative items absent or globally neutral`() {
+    fun `Magic Room models exact hold-effect suppression but keeps identity exceptions conservative`() {
         val everstone = 245
         val charcoal = 426
-        assertRule(irrelevant, "magic_room_held_items_neutral", decide(HnsFieldStatus.MAGIC_ROOM, ctx()))
-        assertRule(irrelevant, "magic_room_held_items_neutral",
+        assertRule(modelled, "magic_room_held_items_neutral", decide(HnsFieldStatus.MAGIC_ROOM, ctx()))
+        assertRule(modelled, "magic_room_held_items_neutral",
             decide(HnsFieldStatus.MAGIC_ROOM, ctx(attackerItem = everstone, defenderItem = 0)))
-        assertRule(unknown, null, decide(HnsFieldStatus.MAGIC_ROOM, ctx(attackerItem = charcoal)))
+        assertRule(modelled, "magic_room_held_items_neutral",
+            decide(HnsFieldStatus.MAGIC_ROOM, ctx(attackerItem = charcoal)))
         assertRule(unknown, null, decide(HnsFieldStatus.MAGIC_ROOM, ctx(defenderItem = null)))
+        assertRule(unknown, null, decide(HnsFieldStatus.MAGIC_ROOM, ctx(attackerItem = 581)))
+        assertRule(unknown, null, decide(HnsFieldStatus.MAGIC_ROOM, ctx(attackerItem = 288)))
     }
 
     @Test

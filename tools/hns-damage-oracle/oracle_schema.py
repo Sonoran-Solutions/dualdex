@@ -23,7 +23,7 @@ import json
 import re
 from typing import Any
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 ROLL_COUNT = 16
 
 HNS_REPOSITORY = "PokemonHnS-Development/pokehns-expansion"
@@ -31,7 +31,7 @@ HNS_PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
 HNS_PINNED_TREE = "586946f21e9322e8d837654d9e07cf6b8239feed"
 
 ORACLE_BACKEND_KIND = "pinned-expansion-battle-test-runner"
-ORACLE_TOOL_VERSION = 8
+ORACLE_TOOL_VERSION = 9
 
 ROLL_ORDER = (
     "rolls[k] is the damage at random factor (85+k)%, i.e. the pinned hit measured with "
@@ -46,6 +46,22 @@ TYPE_NAMES = (
     "Normal", "Fighting", "Flying", "Poison", "Ground", "Rock", "Bug", "Ghost", "Steel",
     "Fire", "Water", "Grass", "Electric", "Psychic", "Ice", "Dragon", "Dark", "Fairy",
 )
+# Pinned H&S enum IDs include TYPE_NONE=0 and TYPE_MYSTERY=10. Mystery has no ordinary move/item
+# type operand, but its enum slot remains between Steel and Fire; do not infer item secondary IDs
+# from the compact damage-chart ordering above.
+TYPE_SECONDARY_IDS = {
+    name: index + 1 + (index >= 9) for index, name in enumerate(TYPE_NAMES)
+}
+ITEM_SECONDARY_TYPE_EFFECTS = {
+    "HOLD_EFFECT_GEMS", "HOLD_EFFECT_PLATE", "HOLD_EFFECT_TYPE_POWER",
+}
+
+# IDs used by the oracle's transformed-species state setup. Generated C assertions compare these
+# values with the pinned species constants before a corpus entry can be assembled.
+SPECIES_ID_EXPECTATIONS = {
+    "SPECIES_CUBONE": 104,
+    "SPECIES_SNORLAX": 143,
+}
 
 ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MAX_ID_LENGTH = 60
@@ -80,7 +96,11 @@ DEFENDER_STAGE_KEYS = ("defense", "spDefense")
 FIELD_KEYS = ("weather", "reflect", "lightScreen", "terrain", "gravity")
 TERRAINS = ("none", "grassy", "electric", "misty", "psychic")
 DOUBLES_KEYS = ("defenderPartner",)
-STATE_SETUP_KEYS = ("attackerSpeciesForm", "defenderSpeciesForm", "attacker", "defender", "capture", "wonderRoom", "laterAction")
+STATE_SETUP_KEYS = (
+    "attackerSpeciesForm", "defenderSpeciesForm", "attackerTransformedMonSpecies",
+    "defenderTransformedMonSpecies", "attacker", "defender", "attackerStatStages",
+    "defenderStatStages", "capture", "wonderRoom", "magicRoom", "laterAction",
+)
 RUNTIME_DOMAINS = {
     "personality": (0, 0xffffffff), "gender": (0, 255), "slowStartTimer": (0, 7),
     "flashFireBoosted": (0, 1), "transformed": (0, 1), "boosterEnergyActivated": (0, 1),
@@ -88,14 +108,24 @@ RUNTIME_DOMAINS = {
     "tabletsOfRuin": (0, 1), "beadsOfRuin": (0, 1), "gastroAcid": (0, 1),
     "neutralizingGas": (0, 1), "isFirstTurn": (0, 3), "supremeOverlordCounter": (0, 5),
     "selectedGimmick": (0, 5), "activeGimmick": (0, 5), "lastToMove": (0, 1),
-    "abilityShield": (0, 1),
+    "abilityShield": (0, 1), "embargo": (0, 1), "metronomeItemCounter": (0, 255),
+    "transformedMonSpecies": (0, 65535), "holdEffectActive": (0, 1),
+    "baseSpeciesId": (0, 65535), "evioliteCanEvolve": (0, 1),
+    "holdEffectParam": (0, 65535), "itemSecondaryId": (0, 255), "itemIdAtHit": (0, 900),
 }
 RUNTIME_SETUP_DOMAINS = {**RUNTIME_DOMAINS, "dynamaxSelected": (0, 1)}
-RUNTIME_SETUP_KEYS = set(RUNTIME_SETUP_DOMAINS) - {"gender", "lastToMove", "abilityShield"}
+RUNTIME_SETUP_KEYS = set(RUNTIME_SETUP_DOMAINS) - {
+    "gender", "lastToMove", "abilityShield", "transformedMonSpecies", "holdEffectActive",
+    "baseSpeciesId", "evioliteCanEvolve", "holdEffectParam", "itemSecondaryId", "itemIdAtHit",
+}
 DEFENDER_PARTNER_STATES = ("present", "fainted")
 
 OBSERVED_KEYS = ("attacker", "defender", "move", "targetCount", "fieldStatuses")
-OBSERVED_BATTLER_KEYS = ("speciesId", "types", "baseStats", "abilityId", "itemId", "hpAtHit", "status1", "badgeBoosts", "terrainAffected", "runtime")
+OBSERVED_BATTLER_KEYS = (
+    "speciesId", "types", "baseStats", "abilityId", "itemId", "itemRecord", "hpAtHit", "status1",
+    "badgeBoosts", "terrainAffected", "runtime",
+)
+ITEM_RECORD_KEYS = ("holdEffect", "holdEffectParam", "itemType")
 BASE_STAT_KEYS = ("hp", "attack", "defense", "spAttack", "spDefense", "speed")
 BADGE_BOOST_KEYS = ("attack", "defense", "spAttack", "spDefense")
 OBSERVED_MOVE_KEYS = ("id", "type", "power", "category", "target", "flags", "abilityFlags",
@@ -145,6 +175,14 @@ def _require_keys(obj: Any, keys: tuple[str, ...], path: str) -> None:
 def _require_bool(value: Any, path: str) -> None:
     if not isinstance(value, bool):
         _fail(path, f"expected a boolean, got {value!r}")
+
+
+def expected_item_secondary_id(item_record: dict[str, Any]) -> int:
+    """Pinned gItemsInfo.secondaryId; resist-berry types live in holdEffectParam instead."""
+    item_type = item_record["itemType"]
+    if item_type is None or item_record["holdEffect"] not in ITEM_SECONDARY_TYPE_EFFECTS:
+        return 0
+    return TYPE_SECONDARY_IDS[item_type]
 
 
 def _require_int(value: Any, path: str, lo: int, hi: int) -> None:
@@ -252,12 +290,21 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
             _fail(f"{path}.stateSetup", f"expected a non-empty subset of {STATE_SETUP_KEYS}")
         for role, value in s["stateSetup"].items():
             loc = f"{path}.stateSetup.{role}"
-            if role.endswith("SpeciesForm"):
+            if role.endswith("SpeciesForm") or role.endswith("TransformedMonSpecies"):
                 _require_symbol(value, "species", loc)
-            elif role in ("capture", "wonderRoom"):
+            elif role in ("capture", "wonderRoom", "magicRoom"):
                 _require_bool(value, loc)
             elif role == "laterAction":
                 _require_int(value, loc, 0, 14)
+            elif role in ("attackerStatStages", "defenderStatStages"):
+                allowed = ("attack", "spAttack") if role == "attackerStatStages" else ("defense", "spDefense")
+                if not isinstance(value, dict) or not set(value).issubset(allowed):
+                    _fail(loc, f"expected a subset of {allowed}")
+                participant = s["attacker"] if role == "attackerStatStages" else s["defender"]
+                for stat, stage in value.items():
+                    _require_int(stage, f"{loc}.{stat}", -6, 6)
+                    if participant["stages"].get(stat) != stage:
+                        _fail(f"{loc}.{stat}", "does not match the scenario's selected-hit stat stage")
             else:
                 if not isinstance(value, dict) or not set(value).issubset(RUNTIME_SETUP_KEYS):
                     _fail(loc, "invalid runtime setup keys")
@@ -295,13 +342,29 @@ def _validate_observed_battler(b: Any, path: str) -> None:
         _require_int(b["baseStats"][key], f"{path}.baseStats.{key}", 1, 255)
     _require_int(b["abilityId"], f"{path}.abilityId", 1, 65535)
     _require_int(b["itemId"], f"{path}.itemId", 0, 65535)
+    item_record = b["itemRecord"]
+    _require_keys(item_record, ITEM_RECORD_KEYS, f"{path}.itemRecord")
+    if not isinstance(item_record["holdEffect"], str) or not re.fullmatch(
+        r"HOLD_EFFECT_[A-Z0-9_]+", item_record["holdEffect"]
+    ):
+        _fail(f"{path}.itemRecord.holdEffect", "expected a pinned hold-effect symbol")
+    _require_int(item_record["holdEffectParam"], f"{path}.itemRecord.holdEffectParam", 0, 65535)
+    if item_record["itemType"] is not None:
+        _require_enum(item_record["itemType"], TYPE_NAMES, f"{path}.itemRecord.itemType")
     _require_int(b["hpAtHit"], f"{path}.hpAtHit", 1, 65535)
     _require_int(b["status1"], f"{path}.status1", 0, 65535)
     _require_bool(b["terrainAffected"], f"{path}.terrainAffected")
-    if b["runtime"] is not None:
-        _require_keys(b["runtime"], RUNTIME_DOMAINS, f"{path}.runtime")
-        for key, limits in RUNTIME_DOMAINS.items():
-            _require_int(b["runtime"][key], f"{path}.runtime.{key}", *limits)
+    _require_keys(b["runtime"], RUNTIME_DOMAINS, f"{path}.runtime")
+    for key, limits in RUNTIME_DOMAINS.items():
+        _require_int(b["runtime"][key], f"{path}.runtime.{key}", *limits)
+    if item_record["holdEffectParam"] != b["runtime"]["holdEffectParam"]:
+        _fail(f"{path}.itemRecord.holdEffectParam", "does not match the pre-damage source runtime operand")
+    expected_secondary_id = expected_item_secondary_id(item_record)
+    if b["runtime"]["itemSecondaryId"] != expected_secondary_id:
+        _fail(f"{path}.runtime.itemSecondaryId", "does not match the generated item type operand")
+    if item_record["holdEffect"] == "HOLD_EFFECT_RESIST_BERRY" and item_record["itemType"] is not None:
+        if item_record["holdEffectParam"] != TYPE_SECONDARY_IDS[item_record["itemType"]]:
+            _fail(f"{path}.itemRecord.itemType", "does not match the resist-berry hold-effect type parameter")
     _require_keys(b["badgeBoosts"], BADGE_BOOST_KEYS, f"{path}.badgeBoosts")
     for key in BADGE_BOOST_KEYS:
         _require_bool(b["badgeBoosts"][key], f"{path}.badgeBoosts.{key}")
@@ -349,8 +412,11 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
                         "misty": 1 << 7, "psychic": 1 << 9}[scenario["field"]["terrain"]]
     if scenario["field"]["gravity"]:
         expected_terrain |= 1 << 5
-    if (scenario.get("stateSetup") or {}).get("wonderRoom"):
+    state_setup = scenario.get("stateSetup") or {}
+    if state_setup.get("wonderRoom"):
         expected_terrain |= 4
+    if state_setup.get("magicRoom"):
+        expected_terrain |= 1
     if observed["fieldStatuses"] != expected_terrain:
         _fail(f"{path}.fieldStatuses", f"observed field word {observed['fieldStatuses']:#x} != scenario terrain {expected_terrain:#x}")
     if observed["attacker"]["hpAtHit"] > scenario["attacker"]["stats"]["hp"]:

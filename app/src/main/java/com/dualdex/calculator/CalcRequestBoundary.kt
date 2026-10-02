@@ -783,6 +783,12 @@ object CalcRequestBoundary {
             attackerFlashFireBoosted = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileFlashFireBoosted,
             attackerTransformed = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileTransformed,
             defenderTransformed = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileTransformed,
+            attackerEmbargo = attackerRuntime?.takeIf { it.itemVolatilesObserved }?.volatileEmbargo,
+            defenderEmbargo = defenderRuntime?.takeIf { it.itemVolatilesObserved }?.volatileEmbargo,
+            attackerMetronomeItemCounter = attackerRuntime?.takeIf { it.itemVolatilesObserved }?.volatileMetronomeItemCounter,
+            defenderMetronomeItemCounter = defenderRuntime?.takeIf { it.itemVolatilesObserved }?.volatileMetronomeItemCounter,
+            attackerTransformedMonSpecies = attackerRuntime?.takeIf { it.itemVolatilesObserved }?.volatileTransformedMonSpecies,
+            defenderTransformedMonSpecies = defenderRuntime?.takeIf { it.itemVolatilesObserved }?.volatileTransformedMonSpecies,
             attackerBoosterEnergyActivated = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileBoosterEnergyActivated,
             defenderBoosterEnergyActivated = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileBoosterEnergyActivated,
             attackerParadoxBoostedStat = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileParadoxBoostedStat,
@@ -1310,8 +1316,36 @@ object CalcRequestBoundary {
             it.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED
         } ?: return null
         return HnsTerrainAuthority.resolve(
-            fieldStatuses, state, opposing.effectiveAbilityId, battlerIsDefender
+            fieldStatuses,
+            state,
+            opposing.effectiveAbilityId,
+            battlerIsDefender,
+            holdEffectResolution = HnsHoldEffectAuthority.forObservedRuntime(
+                state,
+                fieldStatuses,
+                observedNeutralizingGasOnField(state, opposing)
+            ),
+            abilityShieldActiveIgnoringAbility = HnsHoldEffectAuthority.abilityShieldActiveIgnoringAbility(
+                itemId = state.itemId.takeUnless { state.itemOutOfDomain },
+                itemProvenance = if (state.itemId != null && !state.itemOutOfDomain)
+                    CalcItemProvenance.BATTLE_EFFECTIVE else CalcItemProvenance.UNKNOWN,
+                fieldStatuses = fieldStatuses,
+                embargo = state.volatileEmbargo.takeIf { state.itemVolatilesObserved }
+            )
         )
+    }
+
+    private fun observedNeutralizingGasOnField(
+        battler: com.dualdex.pokemon.hns.HnsBattlerRuntimeState,
+        opposing: com.dualdex.pokemon.hns.HnsBattlerRuntimeState
+    ): Boolean? {
+        val battlerGas = battler.volatileNeutralizingGas.takeIf { battler.itemVolatilesObserved }
+        val opposingGas = opposing.volatileNeutralizingGas.takeIf { opposing.itemVolatilesObserved }
+        return when {
+            battlerGas == true || opposingGas == true -> true
+            battlerGas == false && opposingGas == false -> false
+            else -> null
+        }
     }
 
     /** The exact-trusted, slot-matched runtime record, for decoding newly added operands. */

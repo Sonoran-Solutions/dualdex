@@ -1995,11 +1995,10 @@ object CalcCapabilityPolicy {
                 } else {
                     input.ability?.let { com.dualdex.pokemon.hns.HnsAbilityRegistry.canonicalTitleCaseName(it) ?: it }
                 },
-                // Items mapped via engineItemName: modelled H&S items (such as Wise Glasses) return
-                // their explicit engine adapter spelling. Globally neutral items or items proven
-                // irrelevant to this request return null so the engine receives no item at all.
-                // Forwarding an unreviewed raw H&S source name could silently match an unrelated ADV
-                // item name.
+                // Directly adapted modelled items return their explicit engine spelling. H&S-specific
+                // item branches return null here and are serialized separately as numeric-ID-backed
+                // hold-effect descriptors; neutral or request-locally irrelevant items also return
+                // null. Forwarding a raw H&S source name could silently match an unrelated ADV item.
                 //
                 // Stripping non-modelled items is only safe because a move whose damage reads item state is
                 // already refused by HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED in

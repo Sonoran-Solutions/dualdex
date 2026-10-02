@@ -82,8 +82,7 @@ closed. Official v2.0.5 release symbols for this gate are recorded in
   applicability is authoritative; Quark Drive, terrain-dependent move effects, priority changes,
   and other terrain consequences remain outside this slice. Wind Power and
   Electromorphosis stay blocked because Charge's flag is read but not consumed; #91 owns that damage
-  modifier. Earlier Group B-only clearance for Cloud Nine/Air Lock and Flash Fire was limited because their live damage-time state or
-  suppression semantics are not represented.
+  modifier. The earlier Group B-only limitation for Cloud Nine/Air Lock and Flash Fire was historical to its stated PR baseline; current Group B policy represents effective weather suppression from live ability and weather state, and Flash Fire uses the observed damage-time activation state.
 
 ## Current-turn authority and shared field state
 

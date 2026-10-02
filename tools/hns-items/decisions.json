@@ -293,7 +293,7 @@
     "HOLD_EFFECT_LEFTOVERS": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1142"
       ]
@@ -301,7 +301,7 @@
     "HOLD_EFFECT_BLACK_SLUDGE": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1145"
       ]
@@ -309,7 +309,7 @@
     "HOLD_EFFECT_SHELL_BELL": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1124"
       ]
@@ -317,7 +317,7 @@
     "HOLD_EFFECT_ROCKY_HELMET": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1050",
         "src/battle_hold_effects.c:1082"
@@ -326,7 +326,7 @@
     "HOLD_EFFECT_RESTORE_HP": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1172"
       ]
@@ -334,7 +334,7 @@
     "HOLD_EFFECT_RESTORE_PCT_HP": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1175"
       ]
@@ -342,7 +342,7 @@
     "HOLD_EFFECT_RESTORE_PP": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1178"
       ]
@@ -350,7 +350,7 @@
     "HOLD_EFFECT_CONFUSE_SPICY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1181"
       ]
@@ -358,7 +358,7 @@
     "HOLD_EFFECT_CONFUSE_DRY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1184"
       ]
@@ -366,7 +366,7 @@
     "HOLD_EFFECT_CONFUSE_SWEET": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1187"
       ]
@@ -374,7 +374,7 @@
     "HOLD_EFFECT_CONFUSE_BITTER": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1190"
       ]
@@ -382,7 +382,7 @@
     "HOLD_EFFECT_CONFUSE_SOUR": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1193"
       ]
@@ -390,7 +390,7 @@
     "HOLD_EFFECT_CURE_PAR": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1151"
       ]
@@ -398,7 +398,7 @@
     "HOLD_EFFECT_CURE_SLP": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1163"
       ]
@@ -406,7 +406,7 @@
     "HOLD_EFFECT_CURE_PSN": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1154"
       ]
@@ -414,7 +414,7 @@
     "HOLD_EFFECT_CURE_BRN": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1157"
       ]
@@ -422,7 +422,7 @@
     "HOLD_EFFECT_CURE_FRZ": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1160"
       ]
@@ -430,7 +430,7 @@
     "HOLD_EFFECT_CURE_CONFUSION": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1166"
       ]
@@ -438,7 +438,7 @@
     "HOLD_EFFECT_CURE_STATUS": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1169"
       ]
@@ -446,7 +446,7 @@
     "HOLD_EFFECT_ATTACK_UP": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1196"
       ]
@@ -454,7 +454,7 @@
     "HOLD_EFFECT_DEFENSE_UP": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1199"
       ]
@@ -462,7 +462,7 @@
     "HOLD_EFFECT_SPEED_UP": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1202"
       ]
@@ -470,7 +470,7 @@
     "HOLD_EFFECT_SP_ATTACK_UP": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1205"
       ]
@@ -478,7 +478,7 @@
     "HOLD_EFFECT_SP_DEFENSE_UP": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1208"
       ]
@@ -486,7 +486,7 @@
     "HOLD_EFFECT_CRITICAL_UP": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1211"
       ]
@@ -494,7 +494,7 @@
     "HOLD_EFFECT_RANDOM_STAT_UP": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1214"
       ]
@@ -502,7 +502,7 @@
     "HOLD_EFFECT_MICLE_BERRY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1217"
       ]
@@ -510,7 +510,7 @@
     "HOLD_EFFECT_KEE_BERRY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1118"
       ]
@@ -518,7 +518,7 @@
     "HOLD_EFFECT_MARANGA_BERRY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1121"
       ]
@@ -526,7 +526,7 @@
     "HOLD_EFFECT_JABOCA_BERRY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1049",
         "src/battle_hold_effects.c:1100",
@@ -536,7 +536,7 @@
     "HOLD_EFFECT_ROWAP_BERRY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1048",
         "src/battle_hold_effects.c:1103"
@@ -545,7 +545,7 @@
     "HOLD_EFFECT_ENIGMA_BERRY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1106"
       ]
@@ -553,7 +553,7 @@
     "HOLD_EFFECT_WEAKNESS_POLICY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1085"
       ]
@@ -561,7 +561,7 @@
     "HOLD_EFFECT_ABSORB_BULB": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1097"
       ]
@@ -569,7 +569,7 @@
     "HOLD_EFFECT_CELL_BATTERY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1094"
       ]
@@ -577,7 +577,7 @@
     "HOLD_EFFECT_LUMINOUS_MOSS": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1091"
       ]
@@ -585,7 +585,7 @@
     "HOLD_EFFECT_SNOWBALL": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1088"
       ]
@@ -593,7 +593,7 @@
     "HOLD_EFFECT_THROAT_SPRAY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1115"
       ]
@@ -601,7 +601,7 @@
     "HOLD_EFFECT_BLUNDER_POLICY": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "This effect changes Speed after a missed move or Trick Room activation. Request-local clearance requires an ordinary hit and a known non-Analytic attacker; Analytic can read turn order into damage.",
+      "rationale": "This effect writes Speed after a missed move or Trick Room event, after current hit order is established. The current-action Analytic authority owns any already-established order operand; no ordinary-hit or non-Analytic restriction applies, and unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1109",
         "src/battle_script_commands.c:1178"
@@ -610,7 +610,7 @@
     "HOLD_EFFECT_WHITE_HERB": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_end_turn.c:1298",
         "src/battle_hold_effects.c:1070",
@@ -620,7 +620,7 @@
     "HOLD_EFFECT_MENTAL_HERB": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1112",
         "src/battle_script_commands.c:13431"
@@ -629,7 +629,7 @@
     "HOLD_EFFECT_MIRROR_HERB": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1073",
         "src/battle_script_commands.c:7995"
@@ -638,7 +638,7 @@
     "HOLD_EFFECT_ROOM_SERVICE": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "This effect changes Speed after a missed move or Trick Room activation. Request-local clearance requires an ordinary hit and a known non-Analytic attacker; Analytic can read turn order into damage.",
+      "rationale": "This effect writes Speed after a missed move or Trick Room event, after current hit order is established. The current-action Analytic authority owns any already-established order operand; no ordinary-hit or non-Analytic restriction applies, and unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1058",
         "src/battle_script_commands.c:14703"
@@ -656,7 +656,7 @@
     "HOLD_EFFECT_STICKY_BARB": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_end_turn.c:1293",
         "src/battle_hold_effects.c:1130"
@@ -665,7 +665,7 @@
     "HOLD_EFFECT_TOXIC_ORB": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_end_turn.c:1294",
         "src/battle_hold_effects.c:1136",
@@ -675,7 +675,7 @@
     "HOLD_EFFECT_FLAME_ORB": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_end_turn.c:1292",
         "src/battle_hold_effects.c:1139",
@@ -685,7 +685,7 @@
     "HOLD_EFFECT_BIG_ROOT": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_util.c:1839"
       ]
@@ -693,7 +693,7 @@
     "HOLD_EFFECT_BINDING_BAND": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_end_turn.c:620"
       ]
@@ -701,7 +701,7 @@
     "HOLD_EFFECT_CLEAR_AMULET": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_script_commands.c:7823",
         "src/battle_script_commands.c:7835",
@@ -711,7 +711,7 @@
     "HOLD_EFFECT_SAFETY_GOGGLES": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "Changes HP, status, stat stages, volatiles or items only through ItemBattleEffects activations (MoveEnd handlers after damage, end of turn, switch-in, or event scripts) or residual/drain handling. It can change later HP/stats/KO, so it is not globally neutral; request-local rule single_hit_item_activation_outside_damage clears it for a single-hit ordinary move.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_end_turn.c:146",
         "src/battle_end_turn.c:169",

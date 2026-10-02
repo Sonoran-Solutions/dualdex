@@ -319,8 +319,6 @@ object HnsAbilityContextPolicy {
         3, 22, 80, 83, 86, 88, 128, 133, 141, 153, 154, 155, 172, 192, 195, 201,
         220, 224, 234, 235, 243, 264, 265, 270, 271, 275, 290
     )
-    /** Entry writes can still occur before the selected hit until the switch-in driver settles. */
-    private val SWITCH_IN_STAT_STAGE_WRITER_IDS = setOf(22, 88, 234, 235)
     private val SPEED_STAGE_WRITER_IDS = setOf(3, 80, 86, 133, 141, 155, 224, 243, 271, 290)
 
     private val LIVE_WEATHER_SETTER_IDS = setOf(2, 45, 70, 117, 245) // Drizzle / Sand Stream / Drought / Snow Warning / Sand Spit
@@ -365,7 +363,7 @@ object HnsAbilityContextPolicy {
         val c = context ?: return unknown(entry.abilityId ?: abilityId, entry.titleCaseName, side, entry.category)
         val proof: Proof? = when (abilityId) {
             in LIVE_STAT_STAGE_WRITER_IDS -> if (
-                (abilityId !in SWITCH_IN_STAT_STAGE_WRITER_IDS || c.switchInEventsSettled == true) &&
+                c.switchInEventsSettled == true &&
                 c.attackerAbilityObserved && c.defenderAbilityObserved &&
                 validStages(c.attackerStatStages) && validStages(c.defenderStatStages)
             ) {

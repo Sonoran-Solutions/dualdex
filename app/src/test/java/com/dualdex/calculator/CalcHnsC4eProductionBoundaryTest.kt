@@ -488,6 +488,32 @@ class CalcHnsC4eProductionBoundaryTest {
         )
         assertEquals(true, settledIntimidate.request.hnsLiveBattleState?.switchInEventsSettled)
 
+        for ((id, name) in listOf(128 to "Defiant", 172 to "Competitive")) {
+            val request = goldenARequest().copy(
+                defender = goldenARequest().defender.copy(ability = name, abilityId = id)
+            )
+            val unsettled = refusedOf(
+                build(trust, request,
+                    playerObservation(statStages = neutralStages, switchInEventsSettled = false),
+                    enemyObservation(abilityId = id, abilityName = name,
+                        statStages = neutralStages, switchInEventsSettled = false)),
+                "$name can still respond to a pending Sticky Web stat drop during switch-in"
+            )
+            assertTrue(unsettled.verdict.hnsAbilityDecisions.any {
+                it.abilityId == id && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+            })
+
+            val settled = readyOf(
+                build(trust, request,
+                    playerObservation(statStages = neutralStages),
+                    enemyObservation(abilityId = id, abilityName = name,
+                        statStages = listOf(2, 0, 0, 0, 0, 0, 0, 0))),
+                "$name clears only after the entry event pipeline has settled"
+            )
+            assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                settled.verdict.hnsAbilityDecisions.single { it.abilityId == id }.relevance)
+        }
+
         val drizzleRequest = goldenARequest().copy(
             attacker = goldenARequest().attacker.copy(ability = "Drizzle", abilityId = 2)
         )
@@ -749,6 +775,26 @@ class CalcHnsC4eProductionBoundaryTest {
             "ITEM_NONE after Berserk Gene activation leaves its Attack stage in live state"
         )
         assertFalse(consumedGene.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+
+        val pendingLiechi = refusedOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 567, hp = 4, maxHp = 20,
+                    statStages = List(8) { 0 }, switchInEventsSettled = false),
+                enemyObservation(switchInEventsSettled = false)),
+            "a threshold Liechi Berry can activate after entry hazards before switch-in settles"
+        )
+        assertEquals(HnsItemRequestRelevance.UNKNOWN, pendingLiechi.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(pendingLiechi.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+
+        val consumedLiechi = readyOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 0, hp = 4, maxHp = 20,
+                    statStages = listOf(1, 0, 0, 0, 0, 0, 0, 0)),
+                enemyObservation()),
+            "settled switch-in with consumed Liechi uses its live Attack stage"
+        )
+        assertFalse(consumedLiechi.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals(1, consumedLiechi.request.hnsLiveBattleState?.attackerStatStages?.get(0))
     }
 
     @Test

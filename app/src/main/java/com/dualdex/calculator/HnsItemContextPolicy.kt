@@ -135,10 +135,10 @@ object HnsItemContextPolicy {
                 // switch-in frame. Successful activation consumes it, so its live stage and
                 // matching terrain cannot prove a still-held item irrelevant.
                 "HOLD_EFFECT_TERRAIN_SEED", "HOLD_EFFECT_BERSERK_GENE" -> null
-                else -> proof(
+                else -> if (entry.onSwitchInActivation && c.switchInEventsSettled != true) null else proof(
                     rule = "single_hit_item_activation_outside_damage",
                     source = "src/battle_move_resolution.c:2429",
-                    rationale = "This effect writes state only after the selected damage event, at end of turn, or outside hit resolution; a nonordinary move's own mechanics remain independently refused."
+                    rationale = "This effect cannot change the current hit; any pinned switch-in activation is source-generated and must be settled before clearance. Nonordinary move mechanics remain independently refused."
                 )
             }
             "turn_order" -> turnOrder(c)

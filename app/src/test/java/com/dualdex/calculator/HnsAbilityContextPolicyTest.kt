@@ -744,9 +744,11 @@ class HnsAbilityContextPolicyTest {
             relevance(192, context(defenderStatStages = List(7) { 0 })))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(3, context(attackerAbilityObserved = false)))
-        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(3, context(ordinaryMove = false, switchInEventsSettled = false)))
-        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(3, context(switchInEventsSettled = false)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(3, context(side = HnsAbilitySide.DEFENDER, ordinaryMove = false,
                 attackerAbilityId = 148, switchInEventsSettled = false)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,

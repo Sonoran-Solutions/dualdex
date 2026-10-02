@@ -10,7 +10,7 @@ Any agent working in this repository is expected to:
 
 - **Stay in scope**: work only on the task you were given. Don't make unrelated refactors, drive-by changes, or modifications outside this project.
 - **Work on a branch**: never push to `main`. All changes go through a pull request.
-- **Get human approval to merge**: a human reviewer has final review and merge authority. Don't merge your own PRs.
+- **Get human approval to merge**: a human reviewer has final review and merge authority. Don't merge without approval
 - **Verify before handing off**: run the canonical build and test contract below and confirm it passes before requesting review.
 
 ---

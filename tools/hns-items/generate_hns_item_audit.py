@@ -217,6 +217,41 @@ def display_name(source_name):
     return " ".join(words)
 
 
+def parse_hold_effect_activation(text):
+    """Read compiled gHoldEffectsInfo activation bits keyed by pinned hold-effect symbol."""
+    match = re.search(
+        r"const\s+struct\s+HoldEffectInfo\s+gHoldEffectsInfo\s*\[[^]]+\]\s*=\s*\{",
+        text,
+    )
+    if not match:
+        raise AuditError("could not find compiled gHoldEffectsInfo table")
+    start = match.end() - 1
+    depth = 0
+    end = None
+    for pos in range(start, len(text)):
+        if text[pos] == "{":
+            depth += 1
+        elif text[pos] == "}":
+            depth -= 1
+            if depth == 0:
+                end = pos + 1
+                break
+    if end is None:
+        raise AuditError("compiled gHoldEffectsInfo table has unbalanced braces")
+
+    body = text[start:end]
+    entries = {}
+    for entry in re.finditer(r"\[(HOLD_EFFECT_[A-Z0-9_]+)\]\s*(?:=\s*)?\{([^{}]*)\}", body, re.S):
+        symbol, initializer = entry.groups()
+        entries[symbol] = {
+            "on_switch_in": bool(re.search(r"\.onSwitchIn\s*=\s*1\b", initializer)),
+            "on_hp_threshold": bool(re.search(r"\.onHpThreshold\s*=\s*1\b", initializer)),
+        }
+    if not entries:
+        raise AuditError("compiled gHoldEffectsInfo table has no designated entries")
+    return entries
+
+
 def extract(upstream, cpp_bin):
     gen = load_item_generator()
     gen.verify_git_commit(str(upstream))
@@ -233,7 +268,9 @@ def extract(upstream, cpp_bin):
     raw = {}
     for symbol, body in gen.extract_designated_entries(itemc, start, r"ITEM_[A-Za-z0-9_]+", "gItemsInfo"):
         raw[symbol] = {f: gen._field_value(body, f) for f in ("secondaryId", "holdEffectParam")}
-    return catalogue, count, raw
+    hold_effects = gen.run_cpp(cpp_bin, str(upstream), "src/battle_hold_effects.c")
+    activation = parse_hold_effect_activation(hold_effects)
+    return catalogue, count, raw, activation
 
 
 def main():
@@ -245,7 +282,7 @@ def main():
     upstream = pathlib.Path(args.upstream_dir).resolve()
     gen = load_item_generator()
     try:
-        catalogue, count, raw = extract(upstream, gen.find_cpp_bin(args.cpp_bin))
+        catalogue, count, raw, activation = extract(upstream, gen.find_cpp_bin(args.cpp_bin))
         ids = [e["id"] for e in catalogue]
         if ids != list(range(count)) or len(set(e["symbol"] for e in catalogue)) != count:
             raise AuditError("item IDs are missing, duplicated, or not contiguous")
@@ -256,6 +293,10 @@ def main():
             raise AuditError("decisions.json is not pinned to the audited commit")
         families = decisions["families"]
         used = {e["hold_effect"] for e in catalogue}
+        if not used.issubset(activation):
+            raise AuditError(
+                f"compiled hold-effect activation metadata is missing {sorted(used - set(activation))}"
+            )
         if set(families) != used:
             raise AuditError(
                 f"family decisions must cover exactly the pinned hold effects; "
@@ -316,16 +357,17 @@ def main():
             item_type = match.group(1)
             item_types[entry["id"]] = item_type
         rows.append((entry["id"], entry["symbol"], display_name(entry["source_name"]), he,
-                     entry["hold_effect_param"], item_type, category, group, rationale))
+                     entry["hold_effect_param"], item_type, str(activation[he]["on_switch_in"]).lower(),
+                     str(activation[he]["on_hp_threshold"]).lower(), category, group, rationale))
 
     out = io.StringIO()
     writer = csv.writer(out, delimiter="\t", lineterminator="\n")
     writer.writerow(("id", "symbol", "display_name", "hold_effect", "hold_effect_param", "item_type",
-                     "category", "family_group", "rationale"))
+                     "on_switch_in", "on_hp_threshold", "category", "family_group", "rationale"))
     writer.writerows(rows)
     inventory = out.getvalue()
 
-    counts = {cat: sum(1 for r in rows if r[6] == cat) for cat in CATEGORIES}
+    counts = {cat: sum(1 for r in rows if r[8] == cat) for cat in CATEGORIES}
     lines = [
         "package com.dualdex.pokemon.hns",
         "",
@@ -339,8 +381,11 @@ def main():
     ]
     for he in sorted(families):
         f = families[he]
+        bits = activation[he]
         lines.append(f"        {kt(he)} to HnsItemFamilyDecision({kt(he)}, {kt(f['group'])}, "
-                     f"HnsItemCategory.{f['category']}, {kt(f['rationale'])}),")
+                     f"HnsItemCategory.{f['category']}, {kt(f['rationale'])}, "
+                     f"onSwitchInActivation = {str(bits['on_switch_in']).lower()}, "
+                     f"onHpThresholdActivation = {str(bits['on_hp_threshold']).lower()}),")
     lines += [
         "    )",
         "",

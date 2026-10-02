@@ -78,7 +78,11 @@ data class HnsItemEntry(
      * The reviewed family group that decided [category] (`tools/hns-items/decisions.json`), or
      * `identity_exception`; null when the ID is outside the exact domain.
      */
-    val familyGroup: String? = null
+    val familyGroup: String? = null,
+    /** Compiled gHoldEffectsInfo.onSwitchIn for the item's pinned hold-effect family. */
+    val onSwitchInActivation: Boolean = false,
+    /** Compiled gHoldEffectsInfo.onHpThreshold for the item's pinned hold-effect family. */
+    val onHpThresholdActivation: Boolean = false
 )
 
 /**
@@ -89,7 +93,9 @@ data class HnsItemFamilyDecision(
     val key: String,
     val group: String,
     val category: HnsItemCategory,
-    val rationale: String
+    val rationale: String,
+    val onSwitchInActivation: Boolean = false,
+    val onHpThresholdActivation: Boolean = false
 )
 
 /**
@@ -173,7 +179,12 @@ object HnsItemRegistry {
                 category = HnsItemCategory.UNCLASSIFIED,
                 rationale = "Item ID $id (${data.canonicalSymbol}) has no reviewed hold-effect decision."
             )
-        return HnsItemEntry(id, data, decision.category, decision.rationale, decision.group)
+        val activation = HnsItemAuditData.families[data.holdEffect]
+        return HnsItemEntry(
+            id, data, decision.category, decision.rationale, decision.group,
+            activation?.onSwitchInActivation ?: false,
+            activation?.onHpThresholdActivation ?: false
+        )
     }
 
     /**

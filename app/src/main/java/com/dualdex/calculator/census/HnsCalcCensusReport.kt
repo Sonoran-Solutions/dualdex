@@ -1116,6 +1116,11 @@ object HnsCalcCensusReport {
                 "detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.\n\n"
         )
 
+        out.append("## Historical snapshots\n\n")
+        out.append(
+            "The fixed comparisons below are historical snapshots tied to their named starting " +
+                "commits and issue scopes. Their counts do not describe the current census above.\n\n"
+        )
         out.append("## Issue #91 low-state stat ability slice comparison\n\n")
         out.append(
             "This fixed comparison records the Solar Power / Defeatist / Fur Coat stat-stage slice " +

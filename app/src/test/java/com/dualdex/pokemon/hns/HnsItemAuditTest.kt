@@ -141,8 +141,11 @@ class HnsItemAuditTest {
             assertEquals(data.holdEffect, row[3])
             assertEquals(data.holdEffectParam, row[4].toInt())
             assertEquals(HnsItemRegistry.itemTypeName(id) ?: "", row[5])
-            assertEquals(HnsItemRegistry.classify(id).category.name, row[6])
-            assertEquals(HnsItemRegistry.classify(id).familyGroup, row[7])
+            assertEquals(HnsItemRegistry.classify(id).onSwitchInActivation.toString(), row[6])
+            assertEquals(HnsItemRegistry.classify(id).onHpThresholdActivation.toString(), row[7])
+            assertEquals(HnsItemRegistry.classify(id).category.name, row[8])
+            assertEquals(HnsItemRegistry.classify(id).familyGroup, row[9])
+            assertEquals(HnsItemRegistry.classify(id).rationale, row[10])
         }
     }
 

@@ -64,6 +64,10 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
         18, 55, 62, 79, 112, 148, 198, 255, 281, 282, 284, 285, 286, 287, 293,
+        3, 22, 80, 83, 86, 88, 128, 133, 141, 153, 154, 155, 172, 192, 195, 201,
+        220, 224, 234, 235, 243, 264, 265, 270, 271, 275, 290,
+        33, 34,
+        2, 45, 70, 117, 245, 226, 227, 228, 229, 269, 13, 76, 16, 36, 222, 223, 250,
         186, 187, 188, // state-backed Group D operands
         94, 129, 169, 179, 262, 263, 276, 288, 289, // Group D stat stages and field-backed stat modifiers
         89, 91, 96, 97, 101, 110, 111, 116, 136, 137, 138, 173, 174, 178, 182, 184,
@@ -317,7 +321,10 @@ object HnsAbilityContextPolicy {
     )
     private val SPEED_STAGE_WRITER_IDS = setOf(3, 80, 86, 133, 141, 155, 224, 243, 271, 290)
 
-    private val LIVE_RAIN_SUN_SETTER_IDS = setOf(2, 70) // Drizzle / Drought
+    private val LIVE_WEATHER_SETTER_IDS = setOf(2, 45, 70, 117, 245) // Drizzle / Sand Stream / Drought / Snow Warning / Sand Spit
+    private val SWITCH_IN_WEATHER_SETTER_IDS = setOf(2, 45, 70, 117)
+    private val LIVE_TERRAIN_SETTER_IDS = setOf(226, 227, 228, 229, 269)
+    private val SWITCH_IN_TERRAIN_SETTER_IDS = setOf(226, 227, 228, 229)
     private val LIVE_TYPE_REWRITER_IDS = setOf(16, 168, 236, 250) // Color Change / Protean / Libero / Mimicry
     private val MOVE_TIME_TYPE_REWRITER_IDS = setOf(168, 236) // Protean / Libero
     private val LIVE_ABILITY_REWRITER_IDS = setOf(36, 222, 223) // Trace / Receiver / Power of Alchemy
@@ -356,29 +363,42 @@ object HnsAbilityContextPolicy {
         val c = context ?: return unknown(entry.abilityId ?: abilityId, entry.titleCaseName, side, entry.category)
         val proof: Proof? = when (abilityId) {
             in LIVE_STAT_STAGE_WRITER_IDS -> if (
-                c.switchInEventsSettled == true && c.ordinaryMove == true && c.observedBattlersCount == 2 &&
+                c.switchInEventsSettled == true &&
                 c.attackerAbilityObserved && c.defenderAbilityObserved &&
                 validStages(c.attackerStatStages) && validStages(c.defenderStatStages)
             ) {
-                if (c.side == HnsAbilitySide.DEFENDER && abilityId in SPEED_STAGE_WRITER_IDS &&
-                    c.attackerAbilityId == 148
-                ) relevant(
-                    "speed_stage_writer_analytic_dependency", "src/battle_util.c:6690",
-                    "This defender's speed stage may affect whether the Analytic attacker moves last; that turn-order dependency is not modelled."
-                ) else proof(
+                proof(
                     "live_stat_stages_capture_stage_writer", statWriterSource(abilityId),
                     "This ability changes only battle stat stages; both active battlers' exact live stages are supplied to the damage engine."
                 )
             } else null
-            in LIVE_RAIN_SUN_SETTER_IDS -> if (
-                c.switchInEventsSettled == true && weatherSetterStateProven(c)
+            in LIVE_WEATHER_SETTER_IDS -> if (
+                (abilityId !in SWITCH_IN_WEATHER_SETTER_IDS || c.switchInEventsSettled == true) &&
+                observedWeatherStateProven(c)
             ) proof(
-                "live_weather_setter_supported_weather", weatherSetterSource(abilityId),
-                "Drizzle/Drought only establish ordinary Rain/Sun. The observed unsuppressed weather is passed to the damage engine, which applies those modifiers."
+                "live_weather_setter_state_observed", weatherSetterSource(abilityId),
+                "This setter's weather write is completed before the selected hit (or, for Sand Spit, after the hit that triggers it); authoritative live weather is the input for supported arithmetic and retains any independent unsupported-weather refusal."
+            ) else null
+            in LIVE_TERRAIN_SETTER_IDS -> if (
+                (abilityId !in SWITCH_IN_TERRAIN_SETTER_IDS || c.switchInEventsSettled == true) &&
+                c.fieldStatuses != null &&
+                c.attackerAbilityObserved && c.defenderAbilityObserved
+            ) proof(
+                "live_terrain_setter_state_observed", terrainSetterSource(abilityId),
+                "The completed terrain write is represented by the authoritative gFieldStatuses word consumed by the terrain applicability and damage authorities; a triggering Seed Sower hit precedes its terrain write."
+            ) else null
+            13, 76 -> if (
+                abilityObserved(c) &&
+                c.attackerAbilityObserved && c.defenderAbilityObserved &&
+                c.attackerHp != null && c.defenderHp != null &&
+                c.weatherObserved && c.weatherWord != null
+            ) proof(
+                "effective_weather_suppressed_by_live_ability", "src/battle_util.c:10053-10071",
+                "HasWeatherEffect suppresses the live weather for Cloud Nine/Air Lock, and the production boundary applies that effective weather to the selected-hit field input; unsupported weather retains its independent weather refusal."
             ) else null
             in LIVE_TYPE_REWRITER_IDS -> if (
                 c.switchInEventsSettled == true && c.ordinaryMove == true &&
-                c.observedBattlersCount == 2 && abilityObserved(c) &&
+                abilityObserved(c) &&
                 c.dynamicMoveTypeKnownNeutral && c.moveType != null && liveTypesForSide(c) != null
             ) {
                 val liveTypes = liveTypesForSide(c)
@@ -507,7 +527,26 @@ object HnsAbilityContextPolicy {
                     "The shared final-item authority applies the exact Ripen quarter modifier when the berry activates; otherwise Ripen has no current-hit damage effect. Other berry interactions remain outside this rule."
                 )
             }
-            33, 34, 84, 95, 146, 202, 259 -> when {
+            33, 34 -> when {
+                c.ordinaryMove != true -> proof(
+                    "speed_ability_unsupported_move_independent", speedSource(abilityId),
+                    "This ability changes only speed in a request whose selected move is independently outside the ordinary damage surface; that move remains refused, so its unresolved turn-order mechanics are not a second ability blocker."
+                )
+                c.attackerAbilityId == null -> null
+                c.side == HnsAbilitySide.DEFENDER && c.attackerAbilityId == 148 ->
+                    when (c.liveBattleState?.attackerAnalyticTurnOrder) {
+                        null, HnsAnalyticTurnOrder.UNKNOWN -> null
+                        else -> proof(
+                        "speed_ability_analytic_order_authoritative", "src/battle_util.c:6691",
+                        "The current-action Analytic turn-order authority already incorporates the defender's live speed; this ability does not add a separate damage modifier."
+                    )
+                    }
+                else -> proof(
+                    "speed_ability_without_analytic", speedSource(abilityId),
+                    "This effect changes speed, and the attacker has no Analytic dependency."
+                )
+            }
+            84, 95, 146, 202, 259 -> when {
                 c.ordinaryMove != true || c.attackerAbilityId == null -> null
                 c.side == HnsAbilitySide.DEFENDER && c.attackerAbilityId == 148 -> relevant(
                     "speed_ability_attacker_analytic", "src/battle_util.c:6691",
@@ -1633,19 +1672,10 @@ object HnsAbilityContextPolicy {
     private fun validStages(stages: List<Int>?): Boolean =
         stages != null && stages.size == 8 && stages.all { it in -6..6 }
 
-    private fun weatherSetterStateProven(c: Context): Boolean {
-        if (c.ordinaryMove != true || c.observedBattlersCount != 2 || !abilityObserved(c)) return false
+    private fun observedWeatherStateProven(c: Context): Boolean {
+        if (!abilityObserved(c)) return false
         if (!c.attackerAbilityObserved || !c.defenderAbilityObserved) return false
-        val rawWeather = c.weatherWord ?: return false
-        val weatherIds = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
-        if (rawWeather != 0 && rawWeather != weatherIds.B_WEATHER_RAIN_NORMAL &&
-            rawWeather != weatherIds.B_WEATHER_SUN_NORMAL
-        ) return false
-        val defenderHp = c.defenderHp ?: return false
-        val attackerHp = c.attackerHp ?: return false
-        if (attackerHp <= 0 || defenderHp <= 0) return false
-        return c.attackerAbilityId !in WEATHER_SUPPRESSOR_IDS &&
-            c.defenderAbilityId !in WEATHER_SUPPRESSOR_IDS
+        return c.weatherObserved && c.weatherWord != null
     }
 
     private fun ordinarySunObserved(rawWeather: Int): Boolean =
@@ -1734,7 +1764,18 @@ object HnsAbilityContextPolicy {
 
     private fun weatherSetterSource(id: Int) = when (id) {
         2 -> "src/battle_util.c:3354"
-        else -> "src/battle_util.c:3383"
+        45 -> "src/battle_util.c:3368"
+        70 -> "src/battle_util.c:3383"
+        117 -> "src/battle_util.c:3397"
+        else -> "src/battle_util.c:4252"
+    }
+
+    private fun terrainSetterSource(id: Int) = when (id) {
+        226 -> "src/battle_util.c:3414"
+        227 -> "src/battle_util.c:3442"
+        228 -> "src/battle_util.c:3433"
+        229 -> "src/battle_util.c:3424"
+        else -> "src/battle_util.c:4288"
     }
 
     private fun typeRewriterSource(id: Int) = when (id) {

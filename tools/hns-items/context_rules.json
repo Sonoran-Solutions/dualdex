@@ -790,8 +790,8 @@
         {
           "rule": "single_hit_item_activation_outside_damage",
           "side": "EITHER",
-          "predicate": "The selected move is ordinary (single hit). Excludes Booster Energy, Terrain Seed, Berserk Gene and the speed-policy items Blunder Policy / Room Service.",
-          "rationale": "These hold effects have no read in the damage computation. Every activation is an ItemBattleEffects call in a MoveEnd handler (after damage is dealt), at end of turn, at switch-in, or from an event script, so for a single-hit ordinary move none can change the hit's damage range. HP restored afterwards, contact recoil to the attacker and later stat changes are outside the displayed single-hit contract. Terrain Seed and Berserk Gene remain excluded because a held item can signal a pending switch-in activation; successful activation consumes the item, so stage observations cannot clear a still-held item. Blunder Policy and Room Service use the speed dependency rule.",
+          "predicate": "The hold effect cannot change the current hit because it activates after the damage event, at end of turn, or outside hit resolution; source-generated onSwitchIn activations also require settled switch-in events. This applies to every move shape; unsupported move mechanics remain a separate refusal.",
+          "rationale": "Listed items write HP, stat stages, volatiles, or held-item state after the selected damage event or outside hit resolution. Generated gHoldEffectsInfo activation metadata gates any on-switch-in effect until the event pipeline settles; later-hit effects cannot authorize the current result and the move gate remains independent.",
           "evidence": [
             {
               "source": "src/battle_move_resolution.c:2429",
@@ -824,18 +824,22 @@
             {
               "source": "src/battle_switch_in.c:283",
               "contains": "IsOnSwitchInActivation"
+            },
+            {
+              "source": "src/battle_hold_effects.c:14",
+              "contains": "IsOnSwitchInActivation"
             }
           ]
         },
         {
-          "rule": "post_hit_speed_item_ordinary_move",
+          "rule": "post_hit_speed_item_current_hit",
           "side": "EITHER",
           "families": [
             "HOLD_EFFECT_BLUNDER_POLICY",
             "HOLD_EFFECT_ROOM_SERVICE"
           ],
-          "predicate": "Ordinary move, known attacker ability other than Analytic.",
-          "rationale": "The items alter Speed only after a miss or Trick Room activation; Analytic is the damage-time consumer of turn order.",
+          "predicate": "Any move shape; Blunder Policy writes Speed after a miss and Room Service writes Speed after Trick Room activates, after current hit order is established. Room Service also has a generated on-switch-in activation and is gated until switch-in settlement.",
+          "rationale": "After any Room Service switch-in activation has settled, later speed writes cannot change an already-established hit order. Current-action Analytic authority owns that order operand; no ordinary-hit or non-Analytic restriction applies, and unsupported move mechanics remain independently refused.",
           "evidence": [
             {
               "source": "src/battle_hold_effects.c:1109",
@@ -895,29 +899,6 @@
         }
       ],
       "always_blocking": [
-        {
-          "rule": "post_hit_speed_item_attacker_analytic",
-          "families": [
-            "HOLD_EFFECT_BLUNDER_POLICY",
-            "HOLD_EFFECT_ROOM_SERVICE"
-          ],
-          "predicate": "The selected move is ordinary and the live attacker ability is Analytic (148).",
-          "rationale": "The speed-stage item can affect the turn-order condition Analytic reads on this request; retain the item when the live attacker has Analytic.",
-          "evidence": [
-            {
-              "source": "src/battle_util.c:6691",
-              "contains": "if (IsLastMonToMove(battlerAtk)"
-            },
-            {
-              "source": "src/battle_hold_effects.c:1058",
-              "contains": "case HOLD_EFFECT_ROOM_SERVICE:"
-            },
-            {
-              "source": "src/battle_hold_effects.c:1109",
-              "contains": "case HOLD_EFFECT_BLUNDER_POLICY:"
-            }
-          ]
-        },
         {
           "rule": "booster_energy_boost_payload_unobserved",
           "families": [

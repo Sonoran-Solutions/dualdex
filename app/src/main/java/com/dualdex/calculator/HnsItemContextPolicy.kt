@@ -128,18 +128,20 @@ object HnsItemContextPolicy {
         val proof: Proof? = when (entry.familyGroup) {
             "attacker_offense" -> attackerOffense(holdEffect, itemId, c)
             "defender_defense" -> defenderDefense(holdEffect, itemId, c)
-            "post_hit_or_residual" -> when (holdEffect) {
-                "HOLD_EFFECT_BLUNDER_POLICY", "HOLD_EFFECT_ROOM_SERVICE" -> postHitSpeed(holdEffect, c)
-                "HOLD_EFFECT_BOOSTER_ENERGY" -> boosterEnergy(c)
+            "post_hit_or_residual" -> when {
+                entry.onSwitchInActivation && c.switchInEventsSettled != true -> null
+                holdEffect == "HOLD_EFFECT_BLUNDER_POLICY" || holdEffect == "HOLD_EFFECT_ROOM_SERVICE" ->
+                    postHitSpeed(holdEffect, c)
+                holdEffect == "HOLD_EFFECT_BOOSTER_ENERGY" -> boosterEnergy(c)
                 // A held item can still be waiting to execute in an active but unsettled
                 // switch-in frame. Successful activation consumes it, so its live stage and
                 // matching terrain cannot prove a still-held item irrelevant.
-                "HOLD_EFFECT_TERRAIN_SEED", "HOLD_EFFECT_BERSERK_GENE" -> null
-                else -> if (c.ordinaryMove == true) proof(
+                holdEffect == "HOLD_EFFECT_TERRAIN_SEED" || holdEffect == "HOLD_EFFECT_BERSERK_GENE" -> null
+                else -> proof(
                     rule = "single_hit_item_activation_outside_damage",
                     source = "src/battle_move_resolution.c:2429",
-                    rationale = "This hold effect acts after damage, at end of turn, or outside the selected hit."
-                ) else null
+                    rationale = "This effect cannot change the current hit; any pinned switch-in activation is source-generated and must be settled before clearance. Nonordinary move mechanics remain independently refused."
+                )
             }
             "turn_order" -> turnOrder(c)
             "weight_only" -> if (c.ordinaryMove == true) proof(
@@ -776,20 +778,16 @@ object HnsItemContextPolicy {
         )
     }
 
-    private fun postHitSpeed(holdEffect: String, c: Context): Proof? = when {
-        c.ordinaryMove != true || c.attackerAbilityId == null -> null
-        c.attackerAbilityId == ANALYTIC_ABILITY_ID -> relevant(
-            rule = "post_hit_speed_item_attacker_analytic",
-            source = "src/battle_util.c:6691",
-            rationale = "The attacker's Analytic damage depends on turn order."
-        )
-        else -> proof(
-            rule = "post_hit_speed_item_ordinary_move",
-            source = if (holdEffect == "HOLD_EFFECT_ROOM_SERVICE")
-                "src/battle_hold_effects.c:1058" else "src/battle_hold_effects.c:1109",
-            rationale = "This Speed effect cannot change ordinary damage without Analytic."
-        )
-    }
+    private fun postHitSpeed(holdEffect: String, c: Context): Proof = proof(
+        rule = "post_hit_speed_item_current_hit",
+        source = if (holdEffect == "HOLD_EFFECT_ROOM_SERVICE")
+            "src/battle_hold_effects.c:1058" else "src/battle_hold_effects.c:1109",
+        rationale = if (holdEffect == "HOLD_EFFECT_ROOM_SERVICE") {
+            "After switch-in settlement, Room Service writes Speed when Trick Room activates, after the current hit's order is established; the current-action Analytic authority owns any turn-order operand and unsupported moves remain independently refused."
+        } else {
+            "Blunder Policy writes Speed after a miss, after the current hit's order is established; the current-action Analytic authority owns any turn-order operand and unsupported moves remain independently refused."
+        }
+    )
 
     private fun grounding(holdEffect: String, c: Context): Proof? {
         // Groundedness reaches an ordinary hit through the Ground-move branches and the terrain

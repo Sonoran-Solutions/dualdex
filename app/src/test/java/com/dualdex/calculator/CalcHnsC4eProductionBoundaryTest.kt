@@ -107,6 +107,8 @@ class CalcHnsC4eProductionBoundaryTest {
         metronomeItemCounter: Int = 0,
         transformedMonSpecies: Int = 0,
         groupDVolatilesObserved: Boolean = volatilesObserved,
+        itemVolatilesObserved: Boolean = volatilesObserved,
+        volatileNeutralizingGas: Boolean = false,
         volatileFlashFireBoosted: Boolean = false,
         transientVolatilesObserved: Boolean = volatilesObserved,
         electrified: Boolean = false,
@@ -175,6 +177,7 @@ class CalcHnsC4eProductionBoundaryTest {
             statusObserved = statusObserved,
             status1 = status1,
             groupDVolatilesObserved = groupDVolatilesObserved,
+            volatileNeutralizingGas = volatileNeutralizingGas,
             volatileFlashFireBoosted = volatileFlashFireBoosted,
             volatileTransformed = transformed,
             volatilesObserved = volatilesObserved,
@@ -210,7 +213,7 @@ class CalcHnsC4eProductionBoundaryTest {
             switchInEventsSettled = switchInEventsSettled,
             // These fixtures represent the current 103-value native contract. Dedicated
             // unread-window cases override this flag or use HnsBattlerRuntimeStateTest tuples.
-            itemVolatilesObserved = volatilesObserved,
+            itemVolatilesObserved = itemVolatilesObserved,
             volatileEmbargo = embargo,
             volatileMetronomeItemCounter = metronomeItemCounter,
             volatileTransformedMonSpecies = transformedMonSpecies
@@ -233,7 +236,6 @@ class CalcHnsC4eProductionBoundaryTest {
         transientVolatilesObserved: Boolean = volatilesObserved,
         glaiveRush: Boolean = false,
         tarShot: Boolean = false,
-        groupDVolatilesObserved: Boolean = volatilesObserved,
         persistentVolatilesObserved: Boolean = volatilesObserved,
         foresight: Boolean = false,
         miracleEye: Boolean = false,
@@ -256,6 +258,9 @@ class CalcHnsC4eProductionBoundaryTest {
         sideStatuses: Int = 0,
         statusObserved: Boolean = true,
         status1: Int = 0,
+        groupDVolatilesObserved: Boolean = volatilesObserved,
+        itemVolatilesObserved: Boolean = volatilesObserved,
+        volatileNeutralizingGas: Boolean = false,
         observedBattlersCount: Int? = 2,
         itemId: Int? = 0,
         absentBattlerFlags: Int = 0,
@@ -299,6 +304,7 @@ class CalcHnsC4eProductionBoundaryTest {
             volatileChargeTimer = 0,
             volatileTarShot = tarShot,
             groupDVolatilesObserved = groupDVolatilesObserved,
+            volatileNeutralizingGas = volatileNeutralizingGas,
             persistentVolatilesObserved = persistentVolatilesObserved,
             volatileForesight = foresight,
             volatileMiracleEye = miracleEye,
@@ -322,7 +328,7 @@ class CalcHnsC4eProductionBoundaryTest {
             sideStatuses = sideStatuses,
             switchInPhaseObserved = switchInPhaseObserved,
             switchInEventsSettled = switchInEventsSettled,
-            itemVolatilesObserved = volatilesObserved,
+            itemVolatilesObserved = itemVolatilesObserved,
             volatileEmbargo = false,
             volatileMetronomeItemCounter = 0,
             volatileTransformedMonSpecies = 0
@@ -454,7 +460,7 @@ class CalcHnsC4eProductionBoundaryTest {
         assertTrue(unread.verdict.hnsAbilityDecisions.any {
             it.abilityId == 3 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
         })
-        assertTrue(unread.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertTrue(unread.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
     }
 
     @Test
@@ -481,6 +487,32 @@ class CalcHnsC4eProductionBoundaryTest {
             "settled switch-in events make the exact live stage array authoritative"
         )
         assertEquals(true, settledIntimidate.request.hnsLiveBattleState?.switchInEventsSettled)
+
+        for ((id, name) in listOf(128 to "Defiant", 172 to "Competitive")) {
+            val request = goldenARequest().copy(
+                defender = goldenARequest().defender.copy(ability = name, abilityId = id)
+            )
+            val unsettled = refusedOf(
+                build(trust, request,
+                    playerObservation(statStages = neutralStages, switchInEventsSettled = false),
+                    enemyObservation(abilityId = id, abilityName = name,
+                        statStages = neutralStages, switchInEventsSettled = false)),
+                "$name can still respond to a pending Sticky Web stat drop during switch-in"
+            )
+            assertTrue(unsettled.verdict.hnsAbilityDecisions.any {
+                it.abilityId == id && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+            })
+
+            val settled = readyOf(
+                build(trust, request,
+                    playerObservation(statStages = neutralStages),
+                    enemyObservation(abilityId = id, abilityName = name,
+                        statStages = listOf(2, 0, 0, 0, 0, 0, 0, 0))),
+                "$name clears only after the entry event pipeline has settled"
+            )
+            assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                settled.verdict.hnsAbilityDecisions.single { it.abilityId == id }.relevance)
+        }
 
         val drizzleRequest = goldenARequest().copy(
             attacker = goldenARequest().attacker.copy(ability = "Drizzle", abilityId = 2)
@@ -537,6 +569,57 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `settled stage writer does not duplicate an unsupported move blocker`() {
+        val trust = trustFor(exactSha)
+        val refused = refusedOf(
+            build(trust, goldenARequest(move = "Explosion"), playerObservation(),
+                enemyObservation(abilityId = 22, abilityName = "Intimidate"), randomAbilities = true),
+            "the unsupported move remains independently refused"
+        )
+        assertTrue(refused.verdict.blockingLimitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            refused.verdict.hnsAbilityDecisions.single { it.abilityId == 22 }.relevance)
+    }
+
+    @Test
+    fun `defender Speed Boost leaves Analytic turn order to the current action authority`() {
+        val trust = trustFor(exactSha)
+        val analytic = playerObservation(abilityId = 148, abilityName = "Analytic").let { observation ->
+            observation.copy(state = observation.state.copy(
+                analyticTurnOrderObserved = true,
+                analyticTurnOrder = 1,
+                analyticCurrentMove = 33
+            ))
+        }
+        val ready = readyOf(
+            build(trust, goldenARequest(), analytic,
+                enemyObservation(abilityId = 3, abilityName = "Speed Boost"), randomAbilities = true),
+            "the observed current-action Analytic order owns the Speed Boost consequence"
+        )
+        assertEquals("LAST_TO_MOVE", JSONObject(buildCalcRequestJson(ready.request))
+            .getJSONObject("attacker").getString("hnsAnalyticTurnOrder"))
+        assertTrue(ready.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 3 && it.relevance == HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+        })
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertFalse(ready.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
+    }
+
+    @Test
+    fun `weather speed ability does not duplicate unsupported move refusal`() {
+        val refused = refusedOf(
+            build(trustFor(exactSha), goldenARequest(move = "Explosion"), playerObservation(),
+                enemyObservation(abilityId = 34, abilityName = "Chlorophyll"), randomAbilities = true),
+            "the unsupported move remains independently refused"
+        )
+        assertTrue(refused.verdict.blockingLimitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED))
+        assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            refused.verdict.hnsAbilityDecisions.single { it.abilityId == 34 }.relevance)
+    }
+
+    @Test
     fun `live current types override the species default for type rewriting abilities`() {
         val trust = trustFor(exactSha)
         val request = goldenARequest().copy(
@@ -589,12 +672,13 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `live weather setter proof clears Drizzle only for observed supported unsuppressed weather`() {
+    fun `live weather setter and suppression use the effective weather authority`() {
         val trust = trustFor(exactSha)
-        val drizzleRequest = goldenARequest().copy(
-            attacker = goldenARequest().attacker.copy(ability = "Drizzle", abilityId = 2)
-        )
         val rain = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_RAIN_NORMAL
+        val sun = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.B_WEATHER_SUN_NORMAL
+        val drizzleRequest = goldenARequest(move = "Water Gun").copy(
+            attacker = goldenARequest(move = "Water Gun").attacker.copy(ability = "Drizzle", abilityId = 2)
+        )
         val ready = readyOf(
             build(trust, drizzleRequest,
                 playerObservation(abilityId = 2, abilityName = "Drizzle", battleWeather = rain),
@@ -604,16 +688,44 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals("Rain", ready.request.field.weather)
         assertTrue(ready.verdict.ignoredMechanics.isEmpty())
 
-        val suppressed = refusedOf(
+        val suppressed = readyOf(
             build(trust, drizzleRequest,
                 playerObservation(abilityId = 2, abilityName = "Drizzle", battleWeather = rain),
                 enemyObservation(abilityId = 13, abilityName = "Cloud Nine", battleWeather = rain)),
-            "Cloud Nine dynamically suppresses raw weather and remains a separate blocker"
+            "Cloud Nine suppresses the effective weather consumed by the current hit"
         )
-        assertTrue(suppressed.verdict.hnsAbilityDecisions.any {
-            it.abilityId == 2 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+        assertNull(suppressed.request.field.weather)
+        assertTrue(suppressed.verdict.ignoredMechanics.isEmpty())
+
+        val airLock = readyOf(build(trust, goldenARequest(move = "Flamethrower"),
+            playerObservation(battleWeather = sun),
+            enemyObservation(abilityId = 76, abilityName = "Air Lock", battleWeather = sun)),
+            "Air Lock suppresses Sun before the selected Fire hit")
+        assertNull(airLock.request.field.weather)
+
+        val solarPower = readyOf(build(trust,
+            goldenARequest(move = "Psychic").copy(attacker = goldenARequest(move = "Psychic").attacker.copy(
+                ability = "Solar Power", abilityId = 94)),
+            playerObservation(abilityId = 94, abilityName = "Solar Power", battleWeather = sun),
+            enemyObservation(abilityId = 13, abilityName = "Cloud Nine", battleWeather = sun)),
+            "Cloud Nine suppresses the Sun operand consumed by Solar Power")
+        assertNull(solarPower.request.field.weather)
+        assertTrue(solarPower.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 94 && it.relevance == HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
         })
-        assertTrue(suppressed.verdict.hnsAbilityDecisions.any { it.abilityId == 13 })
+
+        val flowerGift = readyOf(build(trust, goldenARequest(move = "Flamethrower").copy(
+            attacker = goldenARequest(move = "Flamethrower").attacker.copy(ability = "Flower Gift", abilityId = 122)),
+            playerObservation(abilityId = 122, abilityName = "Flower Gift", battleWeather = sun),
+            enemyObservation(abilityId = 76, abilityName = "Air Lock", battleWeather = sun)),
+            "Air Lock suppresses the Sun operand consumed by Flower Gift")
+        assertNull(flowerGift.request.field.weather)
+
+        val noWeather = readyOf(build(trust, goldenARequest(),
+            playerObservation(abilityId = 13, abilityName = "Cloud Nine", battleWeather = 0),
+            enemyObservation(battleWeather = 0)),
+            "no-weather control leaves the selected request clear")
+        assertNull(noWeather.request.field.weather)
     }
 
     @Test
@@ -663,10 +775,30 @@ class CalcHnsC4eProductionBoundaryTest {
             "ITEM_NONE after Berserk Gene activation leaves its Attack stage in live state"
         )
         assertFalse(consumedGene.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+
+        val pendingLiechi = refusedOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 567, hp = 4, maxHp = 20,
+                    statStages = List(8) { 0 }, switchInEventsSettled = false),
+                enemyObservation(switchInEventsSettled = false)),
+            "a threshold Liechi Berry can activate after entry hazards before switch-in settles"
+        )
+        assertEquals(HnsItemRequestRelevance.UNKNOWN, pendingLiechi.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(pendingLiechi.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+
+        val consumedLiechi = readyOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 0, hp = 4, maxHp = 20,
+                    statStages = listOf(1, 0, 0, 0, 0, 0, 0, 0)),
+                enemyObservation()),
+            "settled switch-in with consumed Liechi uses its live Attack stage"
+        )
+        assertFalse(consumedLiechi.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals(1, consumedLiechi.request.hnsLiveBattleState?.attackerStatStages?.get(0))
     }
 
     @Test
-    fun `unmodelled weather and terrain setters plus unobserved power payloads remain blocked`() {
+    fun `weather and terrain setter identities clear while independent arithmetic limits remain`() {
         val trust = trustFor(exactSha)
         data class Candidate(
             val id: Int,
@@ -698,12 +830,24 @@ class CalcHnsC4eProductionBoundaryTest {
                 playerObservation(abilityId = candidate.id, abilityName = candidate.name,
                     fieldStatuses = candidate.field, battleWeather = candidate.weather),
                 enemyObservation(fieldStatuses = candidate.field, battleWeather = candidate.weather))
-            val refused = refusedOf(outcome, "${candidate.name} needs weather/terrain damage support")
-            assertTrue("${candidate.name} must remain UNKNOWN", refused.verdict.hnsAbilityDecisions.any {
-                it.abilityId == candidate.id && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
-            })
-            assertTrue("${candidate.name} must retain its ability limitation",
-                refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+            if (candidate.id == 45 || candidate.id == 117) {
+                val refused = refusedOf(outcome, "${candidate.name} weather arithmetic remains unsupported")
+                assertTrue("${candidate.name} setter is captured by live weather", refused.verdict.hnsAbilityDecisions.any {
+                    it.abilityId == candidate.id && it.relevance == HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+                })
+                assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_LIVE_WEATHER_NOT_MODELLED))
+                assertFalse(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+            } else if (candidate.id in setOf(226, 227, 228, 229, 269, 245)) {
+                val ready = readyOf(outcome, "${candidate.name} result is represented by the observed field state")
+                assertTrue(ready.verdict.hnsAbilityDecisions.any {
+                    it.abilityId == candidate.id && it.relevance == HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+                })
+            } else {
+                val refused = refusedOf(outcome, "${candidate.name} direct weather mechanics remain unresolved")
+                assertTrue("${candidate.name} has an independent unresolved mechanic", refused.verdict.hnsAbilityDecisions.any {
+                    it.abilityId == candidate.id && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+                })
+            }
         }
 
         val observedSun = readyOf(build(
@@ -2987,6 +3131,41 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `Room Service waits for switch-in settlement while Blunder Policy does not`() {
+        val trust = trustFor(exactSha)
+        val trickRoom = 0x00000002
+        val pendingRoomService = refusedOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 512, fieldStatuses = trickRoom,
+                    switchInEventsSettled = false),
+                enemyObservation(fieldStatuses = trickRoom, switchInEventsSettled = false)),
+            "Room Service may lower Speed during an unsettled Trick Room switch-in"
+        )
+        assertEquals(HnsItemRequestRelevance.UNKNOWN,
+            pendingRoomService.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(pendingRoomService.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+
+        val settledRoomService = readyOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 512, fieldStatuses = trickRoom),
+                enemyObservation(fieldStatuses = trickRoom)),
+            "settled Room Service uses the existing current-hit order proof"
+        )
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT,
+            settledRoomService.verdict.hnsItemDecisions.single().relevance)
+        assertFalse(settledRoomService.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+
+        val unsettledBlunderPolicy = readyOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 511, switchInEventsSettled = false),
+                enemyObservation(switchInEventsSettled = false)),
+            "Blunder Policy has no on-switch-in activation and remains clear"
+        )
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT,
+            unsettledBlunderPolicy.verdict.hnsItemDecisions.single().relevance)
+    }
+
+    @Test
     fun `clearing an item never clears another limitation`() {
         val refused = refusedOf(
             build(trustFor(exactSha), goldenARequest(),
@@ -3013,6 +3192,16 @@ class CalcHnsC4eProductionBoundaryTest {
             "Choice Scarf needs an ordinary move"
         )
         assertEquals(HnsItemRequestRelevance.UNKNOWN, scarf.verdict.hnsItemDecisions.single().relevance)
+
+        val postHitItem = refusedOf(
+            build(trustFor(exactSha), goldenARequest(move = "Explosion"),
+                playerObservation(itemId = 502), enemyObservation()),
+            "an after-hit Weakness Policy cannot change the unsupported selected hit"
+        )
+        assertTrue(postHitItem.verdict.blockingLimitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED))
+        assertFalse(postHitItem.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT,
+            postHitItem.verdict.hnsItemDecisions.single { it.itemId == 502 }.relevance)
     }
 
     @Test
@@ -4427,6 +4616,32 @@ class CalcHnsC4eProductionBoundaryTest {
         val gas = paradox.copy(state = paradox.state.copy(volatileNeutralizingGas = true))
         assertTrue((build(trust, goldenARequest(), gas, enemyObservation(), randomAbilities = true)
             as CalcRequestOutcome.Refused).verdict.limitations.contains(CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED))
+    }
+
+    @Test
+    fun `Neutralizing Gas remains authoritative in the Group D payload without item extensions`() {
+        val trust = trustFor(exactSha)
+        val request = goldenARequest().copy(
+            attacker = goldenARequest().attacker.copy(
+                ability = "Klutz", abilityId = 103, item = "Choice Band", itemId = 442
+            )
+        )
+        val attacker = playerObservation(abilityId = 103, abilityName = "Klutz", itemId = 442,
+            groupDVolatilesObserved = true, itemVolatilesObserved = false)
+        val defender = enemyObservation(abilityId = 256, abilityName = "Neutralizing Gas",
+            groupDVolatilesObserved = true, itemVolatilesObserved = false, volatileNeutralizingGas = true)
+        assertTrue(attacker.state.groupDVolatilesObserved)
+        assertFalse(attacker.state.itemVolatilesObserved)
+        assertTrue(defender.state.groupDVolatilesObserved)
+        assertFalse(defender.state.itemVolatilesObserved)
+        assertTrue(defender.state.volatileNeutralizingGas)
+
+        assertEquals(true, CalcRequestBoundary.observedNeutralizingGasOnField(attacker.state, defender.state))
+        val refused = refusedOf(
+            build(trust, request, attacker, defender, randomAbilities = true),
+            "unavailable Embargo state independently keeps the held-item resolution conservative"
+        )
+        assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED))
     }
 
     @Test

@@ -49,9 +49,9 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 
 | Tier | Requests |
 |---|---:|
-| `FULLY_MODELLED` | 19170 |
-| `CAVEATED_ESTIMATE` | 216 |
-| `REFUSED` | 4892 |
+| `FULLY_MODELLED` | 19336 |
+| `CAVEATED_ESTIMATE` | 224 |
+| `REFUSED` | 4718 |
 
 ## Denominators
 
@@ -102,29 +102,29 @@ Ranked by the number of distinct trainer battles affected, then by requests. A b
 |---:|---|---|---|---:|---:|
 | 1 | HNS_MOVE_MECHANICS_NOT_MODELLED | `HNS_MOVE_MECHANICS_NOT_MODELLED` | - | 557 | 3578 |
 | 2 | HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | - | 68 | 152 |
-| 3 | Chlorophyll | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 66 | 228 |
-| 4 | Intimidate | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 64 | 218 |
-| 5 | Swift Swim | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 38 | 150 |
-| 6 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 29 | 232 |
-| 7 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 29 | 176 |
-| 8 | Swarm | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 28 | 118 |
-| 9 | Quick Claw | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 28 | 78 |
-| 10 | Leftovers | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 25 | 70 |
-| 11 | SPECIES_NOT_IN_PINNED_DATA | `SPECIES_NOT_IN_PINNED_DATA` | - | 22 | 336 |
-| 12 | Sitrus Berry | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 21 | 54 |
-| 13 | Scope Lens | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 17 | 52 |
-| 14 | Overgrow | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 17 | 38 |
-| 15 | Torrent | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 16 | 42 |
-| 16 | Blaze | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 15 | 38 |
-| 17 | Silk Scarf | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 12 | 30 |
-| 18 | Sand Stream | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 10 | 80 |
-| 19 | Sand Stream | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 10 | 80 |
-| 20 | HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED | `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` | - | 9 | 352 |
-| 21 | HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED | `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED` | - | 9 | 288 |
-| 22 | Mind's Eye | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 7 | 56 |
-| 23 | Mind's Eye | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 7 | 40 |
-| 24 | Flash Fire | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 7 | 22 |
-| 25 | Speed Boost | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 7 | 18 |
+| 3 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 29 | 232 |
+| 4 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 29 | 176 |
+| 5 | Swarm | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 28 | 118 |
+| 6 | Quick Claw | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 28 | 78 |
+| 7 | SPECIES_NOT_IN_PINNED_DATA | `SPECIES_NOT_IN_PINNED_DATA` | - | 22 | 336 |
+| 8 | Scope Lens | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 17 | 52 |
+| 9 | Overgrow | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 17 | 38 |
+| 10 | Torrent | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 16 | 42 |
+| 11 | Blaze | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 15 | 38 |
+| 12 | Silk Scarf | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 12 | 30 |
+| 13 | HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED | `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` | - | 9 | 352 |
+| 14 | HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED | `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED` | - | 9 | 288 |
+| 15 | Mind's Eye | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 7 | 56 |
+| 16 | Mind's Eye | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 7 | 40 |
+| 17 | Flash Fire | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 7 | 22 |
+| 18 | Scrappy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | defender | 5 | 48 |
+| 19 | Scrappy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 5 | 30 |
+| 20 | Life Orb | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 5 | 20 |
+| 21 | Technician | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 5 | 18 |
+| 22 | Charcoal | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 5 | 10 |
+| 23 | Hard Stone | `HNS_ITEM_EFFECT_NOT_MODELLED` | attacker | 4 | 16 |
+| 24 | Liquid Ooze | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 4 | 10 |
+| 25 | Sniper | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 4 | 8 |
 
 ## Ignored mechanics in caveated estimates
 
@@ -133,7 +133,7 @@ These named abilities and items are neutralized by production policy before the 
 | Mechanic | Side | Battles | Requests |
 |---|---|---:|---:|
 | Thick Fat | defender | 36 | 84 |
-| Focus Band | defender | 11 | 88 |
+| Focus Band | defender | 12 | 96 |
 | Focus Sash | defender | 5 | 40 |
 | Pure Power | attacker | 1 | 2 |
 | Truant | attacker | 1 | 2 |
@@ -143,10 +143,10 @@ These named abilities and items are neutralized by production policy before the 
 | Limitation | Battles | Requests |
 |---|---:|---:|
 | `HNS_MOVE_MECHANICS_NOT_MODELLED` | 557 | 3578 |
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 216 | 1612 |
-| `HNS_ITEM_EFFECT_NOT_MODELLED` | 94 | 496 |
-| `HNS_ABILITY_CONDITION_UNVERIFIED` | 90 | 316 |
+| `HNS_ABILITY_CONDITION_UNVERIFIED` | 92 | 322 |
+| `HNS_ITEM_EFFECT_NOT_MODELLED` | 71 | 306 |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 | 152 |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 54 | 700 |
 | `SPECIES_NOT_IN_PINNED_DATA` | 22 | 336 |
 | `HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED` | 9 | 352 |
 | `HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED` | 9 | 288 |
@@ -156,25 +156,25 @@ These named abilities and items are neutralized by production policy before the 
 | Item | Side | Battles | Requests |
 |---|---|---:|---:|
 | Quick Claw | attacker | 28 | 78 |
-| Leftovers | attacker | 25 | 70 |
-| Sitrus Berry | attacker | 21 | 54 |
 | Scope Lens | attacker | 17 | 52 |
 | Silk Scarf | attacker | 12 | 30 |
 | Life Orb | attacker | 5 | 20 |
-| Flame Orb | attacker | 5 | 16 |
 | Charcoal | attacker | 5 | 10 |
 | Hard Stone | attacker | 4 | 16 |
-| Chesto Berry | attacker | 4 | 14 |
 | Never-melt Ice | attacker | 4 | 8 |
 | Miracle Seed | attacker | 3 | 12 |
 | Mystic Water | attacker | 3 | 8 |
-| Berry Juice | attacker | 2 | 8 |
 | Flying Gem | attacker | 2 | 8 |
 | Lagging Tail | attacker | 2 | 8 |
-| Toxic Orb | attacker | 2 | 8 |
-| Big Root | attacker | 2 | 6 |
 | Normal Gem | attacker | 2 | 6 |
 | Soft Sand | attacker | 2 | 6 |
+| Black Belt | attacker | 2 | 4 |
+| Black Glasses | attacker | 2 | 4 |
+| Razor Claw | attacker | 2 | 4 |
+| Electric Seed | defender | 1 | 8 |
+| Electric Seed | attacker | 1 | 4 |
+| Expert Belt | attacker | 1 | 4 |
+| Rock Incense | attacker | 1 | 4 |
 
 ## Random Abilities view
 
@@ -188,29 +188,29 @@ Under Random Abilities any of the pinned domain's 310 abilities can be installed
 
 Counts are weighted by the cohort's eligible requests; battle counts de-duplicate trainer battles within each disposition. Refusals are attributed only to the exact ability entry in production's blocker list, while caveats use its ignored-mechanic list. Thus an unsupported move can refuse a request without making a caveatable ability look like a blocker. *Rules* lists the reviewed contextual rules that fired.
 
-**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 1001186 request trials as refused, 16820 as caveated, and 2759654 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
+**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 821104 request trials as refused, 16820 as caveated, and 2939736 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
 
 ### Abilities that cause refusals
 
-**174 of 310 abilities cause a request refusal in at least one eligible context. 4 have at least one caveated context; 133 produce only clear outcomes in their eligible trials.** Refusal and caveat counts are per ability/side/category and can apply to the same ability in different contexts.
+**133 of 310 abilities cause a request refusal in at least one eligible context. 4 have at least one caveated context; 174 produce only clear outcomes in their eligible trials.** Refusal and caveat counts are per ability/side/category and can apply to the same ability in different contexts.
 
 | # | Ability | Side | Category | Battles refused | Requests refused | Rule |
 |---:|---|---|---|---:|---:|---|
 | 1 | Sturdy | attacker | Physical | 482 | 4565 | - |
-| 2 | Cloud Nine | attacker | Physical | 482 | 4565 | - |
-| 3 | Sand Stream | attacker | Physical | 482 | 4565 | - |
-| 4 | Forecast | attacker | Physical | 482 | 4565 | - |
-| 5 | Air Lock | attacker | Physical | 482 | 4565 | - |
-| 6 | Gluttony | attacker | Physical | 482 | 4565 | - |
-| 7 | Skill Link | attacker | Physical | 482 | 4565 | - |
-| 8 | Stall | attacker | Physical | 482 | 4565 | - |
-| 9 | Unaware | attacker | Physical | 482 | 4565 | - |
-| 10 | Scrappy | attacker | Physical | 482 | 4565 | - |
-| 11 | Snow Warning | attacker | Physical | 482 | 4565 | - |
-| 12 | Multitype | attacker | Physical | 482 | 4565 | - |
-| 13 | Heavy Metal | attacker | Physical | 482 | 4565 | - |
-| 14 | Light Metal | attacker | Physical | 482 | 4565 | - |
-| 15 | Analytic | attacker | Physical | 482 | 4565 | - |
+| 2 | Forecast | attacker | Physical | 482 | 4565 | - |
+| 3 | Gluttony | attacker | Physical | 482 | 4565 | - |
+| 4 | Skill Link | attacker | Physical | 482 | 4565 | - |
+| 5 | Stall | attacker | Physical | 482 | 4565 | - |
+| 6 | Unaware | attacker | Physical | 482 | 4565 | - |
+| 7 | Scrappy | attacker | Physical | 482 | 4565 | - |
+| 8 | Multitype | attacker | Physical | 482 | 4565 | - |
+| 9 | Heavy Metal | attacker | Physical | 482 | 4565 | - |
+| 10 | Light Metal | attacker | Physical | 482 | 4565 | - |
+| 11 | Analytic | attacker | Physical | 482 | 4565 | - |
+| 12 | Imposter | attacker | Physical | 482 | 4565 | - |
+| 13 | Infiltrator | attacker | Physical | 482 | 4565 | - |
+| 14 | Zen Mode | attacker | Physical | 482 | 4565 | - |
+| 15 | Magician | attacker | Physical | 482 | 4565 | - |
 
 (The full ranked table, one row per ability per side per category, is `abilityRefusals` in `census.json`.)
 
@@ -233,37 +233,77 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 
 | Ability | Proven clear contexts | Refused contexts | Caveated contexts | Reviewed rules that fired |
 |---|---:|---:|---:|---|
+| Drizzle | 4 | 0 | 0 | live_weather_setter_state_observed |
+| Speed Boost | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Cloud Nine | 4 | 0 | 0 | effective_weather_suppressed_by_live_ability |
+| Intimidate | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Swift Swim | 4 | 0 | 0 | speed_ability_unsupported_move_independent, speed_ability_without_analytic |
+| Chlorophyll | 4 | 0 | 0 | speed_ability_unsupported_move_independent, speed_ability_without_analytic |
+| Sand Stream | 4 | 0 | 0 | live_weather_setter_state_observed |
 | Guts | 4 | 0 | 0 | defender_guts_does_not_modify_incoming_damage, guts_attacker_neutral_status, guts_special_move |
+| Drought | 4 | 0 | 0 | live_weather_setter_state_observed |
+| Air Lock | 4 | 0 | 0 | effective_weather_suppressed_by_live_ability |
+| Steadfast | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Anger Point | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Simple | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Download | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
 | Iron Fist | 4 | 0 | 0 | iron_fist_defender_side, iron_fist_nonpunching_move |
 | Sniper | 4 | 0 | 0 | sniper_defender_side, sniper_noncritical_hit |
 | Technician | 4 | 0 | 0 | technician_attacker_bp_at_most_60, technician_defender_side |
 | Tinted Lens | 4 | 0 | 0 | tinted_lens_defender_side, tinted_lens_not_resisted |
+| Snow Warning | 4 | 0 | 0 | live_weather_setter_state_observed |
 | Reckless | 4 | 0 | 0 | reckless_ordinary_move_not_recoil |
 | Sheer Force | 4 | 0 | 0 | sheer_force_defender_side, sheer_force_source_predicate_false |
 | Unnerve | 4 | 0 | 0 | unnerve_defender_side, unnerve_without_current_berry_modifier |
+| Defiant | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
 | Defeatist | 4 | 0 | 0 | defeatist_above_integer_half, defeatist_defender_side |
+| Weak Armor | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
 | Toxic Boost | 4 | 0 | 0 | toxic_boost_defender_side, toxic_boost_physical_without_poison, toxic_boost_special_move |
 | Flare Boost | 4 | 0 | 0 | flare_boost_defender_side, flare_boost_physical_move, flare_boost_special_without_burn |
+| Moody | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Moxie | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Justified | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Rattled | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
 | Sand Force | 4 | 0 | 0 | sand_force_defender_side, sand_force_nonmatching_type |
+| Competitive | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
 | Strong Jaw | 4 | 0 | 0 | strong_jaw_defender_side, strong_jaw_nonbiting_move |
 | Refrigerate | 4 | 0 | 0 | move_type_rewriter_defender_side, refrigerate_non_normal_move |
 | Mega Launcher | 4 | 0 | 0 | mega_launcher_defender_side, mega_launcher_nonpulse_move |
 | Tough Claws | 4 | 0 | 0 | tough_claws_contact, tough_claws_defender_side, tough_claws_noncontact |
 | Pixilate | 4 | 0 | 0 | move_type_rewriter_defender_side, pixilate_non_normal_move |
 | Aerilate | 4 | 0 | 0 | aerilate_non_normal_move, move_type_rewriter_defender_side |
+| Stamina | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Water Compaction | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
 | Steelworker | 4 | 0 | 0 | steelworker_attacker_nonsteel_move, steelworker_defender_side |
+| Berserk | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
 | Liquid Voice | 4 | 0 | 0 | liquid_voice_non_sound_move, move_type_rewriter_defender_side |
 | Galvanize | 4 | 0 | 0 | galvanize_non_normal_move, move_type_rewriter_defender_side |
+| Soul-Heart | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Beast Boost | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Electric Surge | 4 | 0 | 0 | live_terrain_setter_state_observed |
+| Psychic Surge | 4 | 0 | 0 | live_terrain_setter_state_observed |
+| Misty Surge | 4 | 0 | 0 | live_terrain_setter_state_observed |
+| Grassy Surge | 4 | 0 | 0 | live_terrain_setter_state_observed |
 | Neuroforce | 4 | 0 | 0 | neuroforce_defender_side, neuroforce_not_super_effective |
+| Intrepid Sword | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Dauntless Shield | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Steam Engine | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Sand Spit | 4 | 0 | 0 | live_weather_setter_state_observed |
+| Chilling Neigh | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Grim Neigh | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
 | As One | 4 | 0 | 0 | unnerve_defender_side, unnerve_without_current_berry_modifier |
 | As One | 4 | 0 | 0 | unnerve_defender_side, unnerve_without_current_berry_modifier |
+| Seed Sower | 4 | 0 | 0 | live_terrain_setter_state_observed |
+| Thermal Exchange | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Anger Shell | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
+| Guard Dog | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
 | Hadron Engine | 4 | 0 | 0 | hadron_engine_defender_side, hadron_engine_without_electric_terrain |
+| Opportunist | 4 | 0 | 0 | live_stat_stages_capture_stage_writer |
 | Sharpness | 4 | 0 | 0 | sharpness_defender_side, sharpness_nonslicing_move |
 | Tera Shell | 4 | 0 | 0 | attacker_always_irrelevant, defender_not_terapagos_terastal |
 | Battle Armor | 4 | 2 | 0 | attacker_critical_hit_armor, defender_armor_fixed_noncritical_hit |
+| Color Change | 4 | 2 | 0 | live_effective_types_capture_type_rewriter |
 | Rough Skin | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
-| Swift Swim | 4 | 2 | 0 | speed_ability_without_analytic |
-| Chlorophyll | 4 | 2 | 0 | speed_ability_without_analytic |
 | Trace | 4 | 2 | 0 | live_effective_ability_capture_ability_rewriter |
 | Thick Fat | 4 | 2 | 2 | attacker_thick_fat_does_not_mitigate_incoming_damage, thick_fat_fire_or_ice_move |
 | Marvel Scale | 4 | 2 | 0 | marvel_scale_attacker_side, marvel_scale_no_status, marvel_scale_operands_unknown |
@@ -300,6 +340,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Punk Rock | 4 | 2 | 0 | punk_rock_attacker_nonsound_move, punk_rock_defender_nonsound_move |
 | Ripen | 4 | 2 | 0 | attacker_ripen_no_current_hit_modifier, ripen_without_active_resist_berry |
 | Power Spot | 4 | 2 | 0 | partner_ability_defender_side, partner_ability_singles_no_partner |
+| Mimicry | 4 | 2 | 0 | live_effective_types_capture_type_rewriter |
 | Steely Spirit | 4 | 2 | 0 | steely_spirit_defender_singles_irrelevant, steely_spirit_holder_effective_nonsteel_move |
 | Wandering Spirit | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Quick Draw | 4 | 2 | 0 | speed_ability_without_analytic |
@@ -309,56 +350,25 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Rocky Payload | 4 | 2 | 0 | attack_stat_type_ability_defender_side, attack_stat_type_ability_live_state_unknown |
 | Orichalcum Pulse | 4 | 2 | 0 | orichalcum_pulse_defender_side, orichalcum_pulse_live_state_unknown |
 | Cud Chew | 4 | 2 | 0 | berry_recovery_outside_single_hit |
-| Drizzle | 4 | 4 | 0 | live_weather_setter_supported_weather |
-| Speed Boost | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Color Change | 4 | 4 | 0 | live_effective_types_capture_type_rewriter |
 | Flash Fire | 4 | 4 | 0 | flash_fire_defender_immunity_only, flash_fire_nonfire_move |
-| Intimidate | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Plus | 4 | 4 | 0 | plus_minus_singles_no_partner |
 | Minus | 4 | 4 | 0 | plus_minus_singles_no_partner |
-| Drought | 4 | 4 | 0 | live_weather_setter_supported_weather |
 | Rivalry | 4 | 4 | 0 | rivalry_defender_role_irrelevant, rivalry_genderless_neutral |
-| Steadfast | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Anger Point | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Simple | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Download | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Slow Start | 4 | 4 | 0 | slow_start_irrelevant_role_or_category, slow_start_zero_timer |
-| Defiant | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Friend Guard | 4 | 4 | 0 | friend_guard_singles_no_partner |
-| Weak Armor | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Telepathy | 4 | 4 | 0 | telepathy_singles_no_partner |
-| Moody | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Moxie | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Justified | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Rattled | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Protean | 4 | 4 | 0 | live_effective_types_capture_type_rewriter |
-| Competitive | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Dark Aura | 4 | 4 | 0 | aura_matching_live_singles_aura, aura_wrong_type_or_no_matching_aura |
 | Fairy Aura | 4 | 4 | 0 | aura_matching_live_singles_aura, aura_wrong_type_or_no_matching_aura |
 | Aura Break | 4 | 4 | 0 | aura_no_matching_field_ability, aura_wrong_type_or_no_matching_aura |
-| Stamina | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Water Compaction | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Stakeout | 4 | 4 | 0 | stakeout_defender_role_irrelevant, stakeout_raw_first_turn_other |
-| Berserk | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Soul-Heart | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Beast Boost | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Intrepid Sword | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Dauntless Shield | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Libero | 4 | 4 | 0 | live_effective_types_capture_type_rewriter |
-| Steam Engine | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Mimicry | 4 | 4 | 0 | live_effective_types_capture_type_rewriter |
-| Chilling Neigh | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Grim Neigh | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Thermal Exchange | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Anger Shell | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
-| Guard Dog | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Protosynthesis | 4 | 4 | 0 | paradox_activation_inactive |
 | Quark Drive | 4 | 4 | 0 | paradox_activation_inactive |
 | Vessel Of Ruin | 4 | 4 | 0 | ruin_inactive_or_self_excluded |
 | Sword Of Ruin | 4 | 4 | 0 | ruin_inactive_or_self_excluded |
 | Tablets Of Ruin | 4 | 4 | 0 | ruin_inactive_or_self_excluded |
 | Beads Of Ruin | 4 | 4 | 0 | ruin_inactive_or_self_excluded |
-| Opportunist | 4 | 4 | 0 | live_stat_stages_capture_stage_writer |
 | Supreme Overlord | 4 | 4 | 0 | supreme_overlord_defender_role_irrelevant, supreme_overlord_zero_counter |
 | Huge Power | 3 | 0 | 1 | attack_stat_ability_physical_move, attack_stat_ability_special_move, defender_attack_stat_ability |
 | Hustle | 3 | 0 | 0 | defender_hustle_does_not_modify_incoming_damage, hustle_physical_move, hustle_special_move |
@@ -378,12 +388,16 @@ The same ability can be clear, caveated, or refused on different sides and in di
 
 | Side | Category | Refusing abilities | Requests refused (max) | Caveated abilities | Requests caveated (max) |
 |---|---|---:|---:|---:|---:|
-| attacker | Physical | 126 | 4565 | 3 | 4565 |
-| attacker | Special | 126 | 2739 | 1 | 2739 |
-| defender | Physical | 166 | 3034 | 1 | 110 |
-| defender | Special | 166 | 1848 | 1 | 276 |
+| attacker | Physical | 85 | 4565 | 3 | 4565 |
+| attacker | Special | 85 | 2739 | 1 | 2739 |
+| defender | Physical | 125 | 3034 | 1 | 110 |
+| defender | Special | 125 | 1848 | 1 | 276 |
 
-Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 629 rows, `RELEVANT` in 57 rows and `UNKNOWN` in 554 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
+Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 793 rows, `RELEVANT` in 57 rows and `UNKNOWN` in 390 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
+
+## Historical snapshots
+
+The fixed comparisons below are historical snapshots tied to their named starting commits and issue scopes. Their counts do not describe the current census above.
 
 ## Issue #91 low-state stat ability slice comparison
 

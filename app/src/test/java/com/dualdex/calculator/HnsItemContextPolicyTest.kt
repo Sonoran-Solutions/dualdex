@@ -285,12 +285,12 @@ class HnsItemContextPolicyTest {
     }
 
     @Test
-    fun `post-hit and residual items clear only for a known ordinary single-hit move`() {
+    fun `post-hit and residual items clear across move shapes while pre-hit items stay conservative`() {
         for (id in listOf(leftovers, sitrusBerry, rockyHelmet)) {
             for (side in HnsItemSide.values()) {
                 assertEquals("item $id $side", irrelevant, relevance(id, ctx(side)))
-                assertEquals("item $id $side", unknown, relevance(id, ctx(side, ordinaryMove = false)))
-                assertEquals("item $id $side", unknown, relevance(id, ctx(side, ordinaryMove = null)))
+                assertEquals("item $id $side", irrelevant, relevance(id, ctx(side, ordinaryMove = false)))
+                assertEquals("item $id $side", irrelevant, relevance(id, ctx(side, ordinaryMove = null)))
             }
         }
         assertEquals(irrelevant, relevance(boosterEnergy, ctx(HnsItemSide.ATTACKER)))
@@ -299,28 +299,43 @@ class HnsItemContextPolicyTest {
     }
 
     @Test
-    fun `Blunder Policy and Room Service retain only the Analytic speed dependency`() {
+    fun `Blunder Policy and Room Service cannot change the current hit order`() {
         for (id in listOf(511, 512)) {
             val ordinary = assessForTest(id, ctx(
                 HnsItemSide.ATTACKER,
                 attackerAbilityId = 0
             ))
             assertEquals("item $id", irrelevant, ordinary.relevance)
-            assertEquals("post_hit_speed_item_ordinary_move", ordinary.rule)
+            assertEquals("post_hit_speed_item_current_hit", ordinary.rule)
 
             val analytic = assessForTest(id, ctx(
                 HnsItemSide.ATTACKER,
                 attackerAbilityId = 148
             ))
-            assertEquals("item $id", relevant, analytic.relevance)
-            assertEquals("post_hit_speed_item_attacker_analytic", analytic.rule)
+            assertEquals("item $id", irrelevant, analytic.relevance)
+            assertEquals("post_hit_speed_item_current_hit", analytic.rule)
 
-            assertEquals(unknown, relevance(id, ctx(
+            assertEquals(irrelevant, relevance(id, ctx(
                 HnsItemSide.ATTACKER,
                 ordinaryMove = null,
                 attackerAbilityId = 0
             )))
         }
+        assertEquals(unknown, relevance(512, ctx(
+            HnsItemSide.ATTACKER,
+            switchInEventsSettled = false,
+            attackerAbilityId = 0
+        )))
+        assertEquals(irrelevant, relevance(512, ctx(
+            HnsItemSide.ATTACKER,
+            switchInEventsSettled = true,
+            attackerAbilityId = 0
+        )))
+        assertEquals(irrelevant, relevance(511, ctx(
+            HnsItemSide.ATTACKER,
+            switchInEventsSettled = false,
+            attackerAbilityId = 0
+        )))
     }
 
     @Test
@@ -413,12 +428,18 @@ class HnsItemContextPolicyTest {
     }
 
     @Test
-    fun `speed items need an ordinary move and a known non-Analytic attacker`() {
+    fun `post-hit speed items cannot affect the current hit`() {
         for (id in listOf(choiceScarf, quickClaw, blunderPolicy, roomService)) {
-            assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.DEFENDER)))
-            assertEquals(relevant, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = 148)))
-            assertEquals(unknown, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = null)))
-            assertEquals(unknown, relevance(id, ctx(HnsItemSide.ATTACKER, ordinaryMove = false)))
+            if (id == blunderPolicy || id == roomService) {
+                assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = 148)))
+                assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = null)))
+                assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.ATTACKER, ordinaryMove = false)))
+            } else {
+                assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.DEFENDER)))
+                assertEquals(relevant, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = 148)))
+                assertEquals(unknown, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = null)))
+                assertEquals(unknown, relevance(id, ctx(HnsItemSide.ATTACKER, ordinaryMove = false)))
+            }
         }
         assertEquals(irrelevant, relevance(floatStone, ctx(HnsItemSide.DEFENDER)))
         assertEquals(unknown, relevance(floatStone, ctx(HnsItemSide.DEFENDER, ordinaryMove = false)))

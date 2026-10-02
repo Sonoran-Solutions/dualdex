@@ -2095,12 +2095,26 @@ def _state_backed_group_d() -> list[dict]:
     return out
 
 
+def _group_e_charge() -> list[dict]:
+    out = []
+    for name in ("Wind Power", "Electromorphosis", "None"):
+        for timer, move in ((0, "Thunder Shock"), (1, "Thunder Shock"), (2, "Thunder Punch"),
+                            (3, "Thunder Shock"), (1, "Strength")):
+            a = attacker("Machamp", atk=151, spa=151)
+            if name != "None":
+                a.update(ability=symbol("ABILITY", name), abilityLabel=name)
+            out.append(scenario("group-e-charge-" + slug(name) + "-" + str(timer) + "-" + slug(move),
+                ["group-e-charge", "shared-charge-timer"], a, defender("Snorlax", dfn=109, spd=109), move,
+                state_setup={"capture": True, "attacker": {"chargeTimer": timer}}))
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

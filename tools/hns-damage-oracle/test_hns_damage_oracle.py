@@ -453,7 +453,7 @@ def runner_lines(sid: str, rng: int, damage: int, *, delta=None, hp_at_hit=200, 
     t = f"{types[0]}|{types[1]}|Mystery"
     def runtime(role: str, species_id: int, personality: int) -> str:
         values = [personality, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                  0, 0, 0, 0, 0, species_id, 0, 0, 0, 0]
+                  0, 0, 0, 0, 0, species_id, 0, 0, 0, 0, 0]
         return f"DDXO|{sid}|{rng}|{role}G|" + "|".join(map(str, values))
     return [
         f"DDXO|{sid}|{rng}|A1|68|50|{t}|15|0|{atk_status}|{atk_status1}",

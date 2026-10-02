@@ -78,7 +78,7 @@ class HnsItemRegistryTest {
     }
 
     @Test
-    fun `an in-domain item with an unresolved family or identity is unclassified and fails closed`() {
+    fun `e-Reader Enigma has an explicit unsupported classification and fails closed`() {
         // Primal Orbs are represented by settled live forms; the dynamic e-Reader berry is unresolved.
         val redOrb = HnsItemRegistry.classify(290)
         assertEquals("ITEM_RED_ORB", redOrb.data?.canonicalSymbol)
@@ -90,7 +90,7 @@ class HnsItemRegistryTest {
         val enigma = HnsItemRegistry.classify(581)
         assertEquals("ITEM_ENIGMA_BERRY_E_READER", enigma.data?.canonicalSymbol)
         assertEquals("HOLD_EFFECT_NONE", enigma.data?.holdEffect)
-        assertEquals(HnsItemCategory.UNCLASSIFIED, enigma.category)
+        assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, enigma.category)
         assertEquals("identity_exception", enigma.familyGroup)
         assertFalse(HnsItemRegistry.isSupportedForDamage(581))
     }

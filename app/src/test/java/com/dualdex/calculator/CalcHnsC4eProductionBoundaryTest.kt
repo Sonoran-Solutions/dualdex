@@ -864,11 +864,12 @@ class CalcHnsC4eProductionBoundaryTest {
             val request = goldenARequest(move = "Thunder Shock").copy(
                 attacker = goldenARequest(move = "Thunder Shock").attacker.copy(ability = name, abilityId = id)
             )
-            val charged = refusedOf(build(trust, request,
+            val charged = readyOf(build(trust, request,
                 playerObservation(abilityId = id, abilityName = name, chargeTimer = 1), enemyObservation()),
-                "$name's observed Charge timer is not consumed by the damage engine")
-            assertTrue(charged.verdict.limitations.contains(CalcLimitation.HNS_CHARGE_ACTIVE_NOT_MODELLED))
-            assertTrue(charged.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
+                "$name writes the same observed Charge volatile")
+            assertEquals(1, JSONObject(buildCalcRequestJson(charged.request))
+                .getJSONObject("attacker").getInt("hnsChargeTimer"))
+            assertFalse(charged.verdict.isCaveatedEstimate)
         }
 
         val boosterRequest = goldenARequest().copy(
@@ -1449,13 +1450,12 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `active Charge with an Electric move is refused`() {
-        // chargeTimer > 0 doubles Thunder Shock (an ordinary EFFECT_HIT Electric move).
-        refusedWith(
-            expected = CalcLimitation.HNS_CHARGE_ACTIVE_NOT_MODELLED,
-            request = goldenARequest(move = "Thunder Shock"),
-            player = playerObservation(chargeTimer = 2)
-        )
+    fun `active Charge with an Electric move reaches the exact pipeline`() {
+        val ready = readyOf(build(trustFor(exactSha), goldenARequest(move = "Thunder Shock"),
+            playerObservation(chargeTimer = 2), enemyObservation()), "observed Charge is exact")
+        assertEquals(2, JSONObject(buildCalcRequestJson(ready.request))
+            .getJSONObject("attacker").getInt("hnsChargeTimer"))
+        assertFalse(ready.verdict.isCaveatedEstimate)
     }
 
     @Test
@@ -1747,22 +1747,17 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `swapping Truant to attacker produces a caveat`() {
-        val outcome = build(
-            trust = trustFor(exactSha),
-            request = goldenARequest(),
-            player = playerObservation(abilityId = 54, abilityName = "Truant"),
-            enemy = enemyObservation(abilityId = 308, abilityName = "Tera Shell"),
-            randomAbilities = true
-        ) as? CalcRequestOutcome.Ready
-            ?: throw AssertionError("known attacker Truant should be a caveat when its state is not modeled")
-        assertTrue(outcome.verdict.isCaveatedEstimate)
-        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+    fun `attacker Truant refuses because unread execution state can invalidate the move`() {
+        val outcome = refusedOf(build(trustFor(exactSha), goldenARequest(),
+            playerObservation(abilityId = 54, abilityName = "Truant"),
+            enemyObservation(abilityId = 308, abilityName = "Tera Shell"), randomAbilities = true),
+            "Truant cannot authorize a potentially unexecutable move")
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             outcome.verdict.hnsAbilityDecisions.first { it.abilityId == 54 }.relevance)
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             outcome.verdict.hnsAbilityDecisions.first { it.abilityId == 308 }.relevance)
-        assertEquals("(other)", outcome.request.attacker.ability)
-        assertNull(outcome.request.attacker.abilityId)
+        assertTrue(com.dualdex.battle.DamageBlockerPresentation.from(outcome.verdict, false)
+            .any { it.headline.contains("Truant") && it.headline.contains("execution") })
     }
 
     @Test
@@ -1781,8 +1776,9 @@ class CalcHnsC4eProductionBoundaryTest {
             trust, terapagosRequest, playerObservation(),
             enemyObservation(speciesId = 1432, abilityId = 308, abilityName = "Tera Shell",
                 types = listOf(1), hp = 15, maxHp = 15), randomAbilities = true
-        ) as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("full-HP Terapagos-Terastal with Tera Shell must remain blocked")
+        ) as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("live numeric Terapagos identity permits the existing named Tera Shell caveat")
+        assertTrue(fullHp.verdict.isCaveatedEstimate)
         assertTrue(fullHp.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
         assertEquals(HnsAbilityRequestRelevance.RELEVANT,
             fullHp.verdict.hnsAbilityDecisions.single { it.abilityId == 308 }.relevance)
@@ -1791,11 +1787,11 @@ class CalcHnsC4eProductionBoundaryTest {
             trust, terapagosRequest, playerObservation(),
             enemyObservation(speciesId = 1432, abilityId = 308, abilityName = "Tera Shell",
                 types = listOf(1), hp = 14, maxHp = 15), randomAbilities = true
-        ) as? CalcRequestOutcome.Refused
-            ?: throw AssertionError("the ambiguous Terapagos display name still fails the independent species gate")
+        ) as? CalcRequestOutcome.Ready
+            ?: throw AssertionError("numeric live Terapagos plus below-full HP proves this request")
         assertFalse("below-full proof must clear only the Tera Shell blocker",
             belowFull.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED))
-        assertTrue(belowFull.verdict.limitations.contains(CalcLimitation.SPECIES_NOT_IN_PINNED_DATA))
+        assertFalse(belowFull.verdict.limitations.contains(CalcLimitation.SPECIES_NOT_IN_PINNED_DATA))
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             belowFull.verdict.hnsAbilityDecisions.single { it.abilityId == 308 }.relevance)
 
@@ -3650,7 +3646,7 @@ class CalcHnsC4eProductionBoundaryTest {
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_FIELD_STATUS_NOT_MODELLED))
         assertTrue(refused.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
         assertEquals(
-            "Damage unavailable · 2 blockers\nField: Unknown bits 0x00002000\nYou: Overgrow",
+            "Damage unavailable · 2 blockers\nField: Unknown bits 0x00002000\nYour Overgrow: The effective move type needed to decide this conditional ability is not authoritative.",
             cardText(refused)
         )
         assertEquals(
@@ -3663,7 +3659,7 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals(0x2100, mixed.verdict.hnsFieldDiagnostics?.fieldState?.raw)
         assertEquals(HnsFieldRequestRelevance.UNKNOWN, fieldDecision(mixed, HnsFieldStatus.ELECTRIC_TERRAIN).relevance)
         assertEquals(
-            "Damage unavailable · 3 blockers\nField: Electric Terrain (0x00000100)\nField: Unknown bits 0x00002000\nYou: Overgrow",
+            "Damage unavailable · 3 blockers\nField: Electric Terrain (0x00000100)\nField: Unknown bits 0x00002000\nYour Overgrow: The effective move type needed to decide this conditional ability is not authoritative.",
             cardText(mixed)
         )
     }
@@ -3713,22 +3709,24 @@ class CalcHnsC4eProductionBoundaryTest {
             defenderItem = 481, attackerAbility = 54 to "Truant"), "field + caveatable ability + item + move")
         assertEquals(
             "item decisions: ${withMove.verdict.hnsItemDecisions}",
-            setOf(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED),
+            setOf(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED, CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED),
             withMove.verdict.blockingLimitations.toSet()
         )
-        assertEquals("Damage unavailable · Move effect not modelled", cardText(withMove))
+        assertTrue(cardText(withMove).contains("Truant"))
+        assertTrue(cardText(withMove).contains("Move effect not modelled"))
 
-        // With an ordinary move all three soft effects are fully evidenced. The independent live
-        // status refusal remains the only blocker and does not turn them into refusal reasons.
+        // The ordinary hit still has an independent unread Truant execution state.
+        // Field/item caveats cannot erase either that refusal or the status refusal.
         val withHardStatus = refusedOf(fieldBuild(
             HnsFieldStatus.WONDER_ROOM.mask,
             defenderItem = 481,
             attackerAbility = 54 to "Truant",
             status1 = 0x10
         ), "live status blocks beside three complete caveat decisions")
-        assertEquals(setOf(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED),
+        assertEquals(setOf(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED, CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED),
             withHardStatus.verdict.blockingLimitations.toSet())
-        assertEquals("Damage unavailable · Status not modelled", cardText(withHardStatus))
+        assertTrue(cardText(withHardStatus).contains("Truant"))
+        assertTrue(cardText(withHardStatus).contains("Status not modelled"))
     }
 
     @Test
@@ -3736,15 +3734,16 @@ class CalcHnsC4eProductionBoundaryTest {
         val mixedAbilities = refusedOf(
             fieldBuild(
                 0,
-                attackerAbility = 54 to "Truant",
+                attackerAbility = 37 to "Huge Power",
                 defenderAbility = 196 to "Merciless"
             ),
-            "unknown Merciless blocks while attacker Truant has complete caveat evidence"
+            "unknown Merciless blocks while attacker Huge Power has complete caveat evidence"
         )
         val abilityBlockers = com.dualdex.battle.DamageBlockerPresentation.from(mixedAbilities.verdict, false)
-        assertEquals(listOf("Foe: Merciless"), abilityBlockers.map { it.detail })
+        assertEquals(1, abilityBlockers.size)
+        assertTrue(abilityBlockers.single().detail.startsWith("Foe's Merciless:"))
         assertTrue(mixedAbilities.verdict.ignoredMechanics.any {
-            it.presentationLine == "You: Truant"
+            it.presentationLine == "You: Huge Power"
         })
 
         val mixedItems = refusedOf(
@@ -4044,7 +4043,9 @@ class CalcHnsC4eProductionBoundaryTest {
         })
         assertTrue(refused.verdict.ignoredMechanics.isEmpty())
         assertEquals(
-            "Damage unavailable · 2 blockers\nYou: Super Luck\nMove effect not modelled",
+            "Damage unavailable · 2 blockers\nYour Super Luck: " +
+                com.dualdex.pokemon.hns.HnsGroupEData.abilityDispositions.getValue(105).reason +
+                "\nMove effect not modelled",
             cardText(refused)
         )
     }
@@ -4661,6 +4662,136 @@ class CalcHnsC4eProductionBoundaryTest {
                 as CalcRequestOutcome.Refused
             assertTrue(result.verdict.limitations.contains(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED))
         }
+    }
+
+    @Test
+    fun `Group E assignments run through production and retain independent blockers`() {
+        for ((id, disposition) in com.dualdex.pokemon.hns.HnsGroupEData.abilityDispositions) {
+            val name = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(id).titleCaseName
+            for (attacking in listOf(true, false)) {
+                val outcome = build(trustFor(exactSha), goldenARequest(),
+                    if (attacking) playerObservation(abilityId = id, abilityName = name) else playerObservation(),
+                    if (attacking) enemyObservation() else enemyObservation(abilityId = id, abilityName = name),
+                    randomAbilities = true)
+                val verdict = when (outcome) {
+                    is CalcRequestOutcome.Ready -> outcome.verdict
+                    is CalcRequestOutcome.Refused -> outcome.verdict
+                }
+                for (decision in verdict.hnsAbilityDecisions.filter { it.abilityId == id }) {
+                    if (decision.relevance == HnsAbilityRequestRelevance.UNKNOWN) {
+                        assertFalse("$id unknown must refuse", verdict.isCalculable)
+                        assertTrue(com.dualdex.battle.DamageBlockerPresentation.Ability(decision)
+                            .headline.contains(disposition.reason))
+                    } else if (decision.relevance == HnsAbilityRequestRelevance.RELEVANT &&
+                        disposition.tier == com.dualdex.pokemon.hns.HnsGroupETier.CAVEATED_ESTIMATE) {
+                        assertTrue("$id relevant estimate must be labelled", verdict.ignoredMechanics.any {
+                            it is IgnoredCalcMechanic.Ability && it.decision.abilityId == id &&
+                                it.presentationLine.contains(name)
+                        })
+                    }
+                }
+            }
+        }
+        val independent = refusedOf(build(trustFor(exactSha), goldenARequest("Thunder Shock"),
+            playerObservation(abilityId = 277, abilityName = "Wind Power", chargeTimer = 1),
+            enemyObservation(abilityId = 209, abilityName = "Disguise"), randomAbilities = true),
+            "exact Charge cannot clear Disguise")
+        assertTrue(independent.verdict.hnsAbilityDecisions.any {
+            it.abilityId == 209 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
+        })
+        for (timer in listOf(-1, 4)) {
+            refusedOf(build(trustFor(exactSha), goldenARequest("Thunder Shock"),
+                playerObservation(chargeTimer = timer), enemyObservation()), "invalid Charge timer")
+        }
+        refusedOf(build(trustFor(exactSha), goldenARequest("Thunder Shock"),
+            playerObservation(abilityId = 280, abilityName = "Electromorphosis", transientVolatilesObserved = false),
+            enemyObservation()), "unread volatile cannot stand in for inactive Charge")
+    }
+
+    @Test
+    fun `shared Pikachu name needs a slot matched numeric identity and cannot use species defaults`() {
+        val request = goldenARequest().copy(defender = goldenARequest().defender.copy(species = "Pikachu"))
+        val ready = readyOf(build(trustFor(exactSha), request, playerObservation(),
+            enemyObservation(speciesId = 25)), "numeric Pikachu identity disambiguates the display name")
+        assertNotNull(ready.request.defenderOverride)
+        assertEquals(25, ready.request.hnsLiveBattleState?.defenderSpeciesId)
+        val species = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getSpecies(25)!!
+        assertEquals(species.baseHP, ready.request.defenderOverride?.baseStats?.hp)
+        for (id in listOf(null, 16, 65535)) {
+            val refused = refusedOf(build(trustFor(exactSha), request.copy(defenderOverride = ready.request.defenderOverride),
+                playerObservation(), enemyObservation(speciesId = id)), "stale/missing ID cannot resolve Pikachu")
+            assertTrue(refused.verdict.limitations.contains(CalcLimitation.SPECIES_NOT_IN_PINNED_DATA))
+        }
+    }
+
+    @Test
+    fun `every Group E item uses production tiering and retains identity in its message`() {
+        for ((id, disposition) in com.dualdex.pokemon.hns.HnsGroupEData.itemDispositions) {
+            for (attacking in listOf(true, false)) {
+                val outcome = build(trustFor(exactSha), goldenARequest(),
+                    playerObservation(itemId = if (attacking) id else 0),
+                    enemyObservation(itemId = if (attacking) 0 else id))
+                val verdict = when (outcome) {
+                    is CalcRequestOutcome.Ready -> outcome.verdict
+                    is CalcRequestOutcome.Refused -> outcome.verdict
+                }
+                val decision = verdict.hnsItemDecisions.firstOrNull { it.itemId == id } ?: error("Missing item $id")
+                if (decision.relevance == HnsItemRequestRelevance.UNKNOWN) {
+                    assertFalse("$id unknown cannot estimate", verdict.isCalculable)
+                    val text = com.dualdex.battle.DamageBlockerPresentation.Item(decision).headline
+                    assertTrue(text, text.contains(disposition.reason) && text.contains(decision.itemName))
+                } else if (decision.relevance == HnsItemRequestRelevance.RELEVANT) {
+                    assertEquals(com.dualdex.pokemon.hns.HnsGroupETier.CAVEATED_ESTIMATE, disposition.tier)
+                    assertTrue("item $id needs a named caveat", verdict.ignoredMechanics.any {
+                        it is IgnoredCalcMechanic.Item && it.decision.itemId == id &&
+                            it.presentationLine.contains(decision.itemName)
+                    })
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `Sturdy survival is a named base estimate and never clears move or unknown HP gates`() {
+        val ready = readyOf(build(trustFor(exactSha), goldenARequest(), playerObservation(),
+            enemyObservation(abilityId = 5, abilityName = "Sturdy", hp = 15, maxHp = 15)), "Sturdy base range")
+        assertTrue(ready.verdict.isCaveatedEstimate)
+        assertEquals(listOf("Foe: Sturdy"), ready.verdict.ignoredMechanics.map { it.presentationLine })
+        assertEquals("(other)", ready.request.defender.ability)
+        assertNull(ready.request.defender.abilityId)
+        val below = readyOf(build(trustFor(exactSha), goldenARequest(), playerObservation(),
+            enemyObservation(abilityId = 5, abilityName = "Sturdy", hp = 14, maxHp = 15)), "below full HP")
+        assertFalse(below.verdict.isCaveatedEstimate)
+        for (move in listOf("Fissure", "Seismic Toss")) {
+            refusedOf(build(trustFor(exactSha), goldenARequest(move), playerObservation(),
+                enemyObservation(abilityId = 5, abilityName = "Sturdy")), "move semantics stay independent")
+        }
+        refusedOf(build(trustFor(exactSha), goldenARequest(), playerObservation(),
+            enemyObservation(abilityId = 5, abilityName = "Sturdy", hpObserved = false)), "unknown HP")
+    }
+
+    @Test
+    fun `Mega Z and e-Reader identities cannot inherit a suppressed NONE hold effect`() {
+        val ids = listOf("HOLD_EFFECT_MEGA_STONE", "HOLD_EFFECT_Z_CRYSTAL").map { effect ->
+            (1..900).first { com.dualdex.pokemon.hns.HnsItemRegistry.classify(it).data?.holdEffect == effect }
+        }
+        for (id in ids) {
+            val clear = readyOf(build(trustFor(exactSha), goldenARequest(),
+                playerObservation(itemId = id, embargo = true), enemyObservation()), "both gimmicks NONE")
+            assertEquals("mega_z_no_selected_or_active_gimmick", clear.verdict.hnsItemDecisions.single().rule)
+            for (state in listOf(
+                playerObservation(itemId = id, embargo = true, selectedGimmick = 1),
+                playerObservation(itemId = id, embargo = true, gimmick = 1),
+                playerObservation(itemId = id, embargo = true, gimmickObserved = false))) {
+                val refused = refusedOf(build(trustFor(exactSha), goldenARequest(), state, enemyObservation()),
+                    "suppression cannot authorize unknown/active gimmicks")
+                assertEquals(HnsItemRequestRelevance.UNKNOWN, refused.verdict.hnsItemDecisions.single().relevance)
+            }
+        }
+        val enigma = refusedOf(build(trustFor(exactSha), goldenARequest(),
+            playerObservation(itemId = 581, embargo = true), enemyObservation()), "runtime Enigma payload unread")
+        assertEquals(HnsItemRequestRelevance.UNKNOWN, enigma.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(enigma.verdict.hnsItemDecisions.single().rationale.contains("runtime hold effect"))
     }
 
 }

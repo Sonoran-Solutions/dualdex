@@ -205,6 +205,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("hnsGender", live.attackerGender.name)
                 }
                 live.attackerSlowStartTimer?.let { put("hnsSlowStartTimer", it) }
+                live.attackerChargeTimer?.let { put("hnsChargeTimer", it) }
                 live.attackerFlashFireBoosted?.let { put("hnsFlashFireBoosted", it) }
                 live.attackerTransformed?.let { put("hnsTransformed", it) }
                 live.attackerEmbargo?.let { put("hnsEmbargo", it) }

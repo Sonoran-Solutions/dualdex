@@ -63,6 +63,7 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_POISON_MASK = 0x80
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
+        277, 280, // Group E: source-proven shared Charge volatile
         18, 55, 62, 79, 112, 148, 198, 255, 281, 282, 284, 285, 286, 287, 293,
         3, 22, 80, 83, 86, 88, 128, 133, 141, 153, 154, 155, 172, 192, 195, 201,
         220, 224, 234, 235, 243, 264, 265, 270, 271, 275, 290,
@@ -362,6 +363,30 @@ object HnsAbilityContextPolicy {
 
         val c = context ?: return unknown(entry.abilityId ?: abilityId, entry.titleCaseName, side, entry.category)
         val proof: Proof? = when (abilityId) {
+            5 -> when {
+                c.ordinaryMove != true || !abilityObserved(c) -> null
+                c.side == HnsAbilitySide.ATTACKER -> proof("group_e_sturdy_attacker",
+                    "src/battle_util.c:8186", "The survival check reads only the defender ability; OHKO moves remain independently refused.")
+                c.defenderHp == null || c.defenderMaxHp == null || c.defenderMaxHp <= 0 ||
+                    c.defenderHp !in 1..c.defenderMaxHp -> null
+                c.defenderHp < c.defenderMaxHp -> proof("group_e_sturdy_below_full_hp",
+                    "src/battle_util.c:8186", "The observed defender is below full HP, so the survival predicate is false regardless of the Sturdy option.")
+                else -> relevant("group_e_sturdy_survival_estimate", "src/battle_util.c:8186",
+                    "This estimate ignores Sturdy's potential survival cap, including its challenge option; the underlying ordinary single-hit damage operands remain authoritative.")
+            }
+            277, 280 -> when {
+                c.ordinaryMove != true || !abilityObserved(c) -> null
+                c.side == HnsAbilitySide.DEFENDER -> proof("group_e_charge_defender_after_hit",
+                    "src/battle_util.c:4309; data/battle_scripts_1.s:4947",
+                    "The defender reaction writes Charge after this hit; it cannot change incoming damage.")
+                effectiveMoveType(c) == null -> null
+                effectiveMoveType(c) != PokemonType.ELECTRIC -> proof("group_e_charge_non_electric",
+                    "src/battle_util.c:6635", "Charge modifies only the authoritative final Electric type.")
+                c.liveBattleState?.attackerChargeTimer !in 0..3 -> null
+                else -> proof("group_e_charge_live_timer",
+                    "data/battle_scripts_1.s:4949; include/constants/battle.h:217; src/battle_util.c:6635",
+                    "The ability script writes VOLATILE_CHARGE_TIMER, the same observed chargeTimer consumed by the exact base-power pipeline; no historical activation is inferred.")
+            }
             in LIVE_STAT_STAGE_WRITER_IDS -> if (
                 c.switchInEventsSettled == true &&
                 c.attackerAbilityObserved && c.defenderAbilityObserved &&
@@ -1815,5 +1840,14 @@ object HnsAbilityContextPolicy {
         rule: String? = null,
         source: String? = null,
         rationale: String
-    ) = HnsAbilityRequestDecision(id, name, side, category, relevance, rule, source, rationale)
+    ): HnsAbilityRequestDecision {
+        val disposition = com.dualdex.pokemon.hns.HnsGroupEData.abilityDispositions[id]
+        val refused = relevance == HnsAbilityRequestRelevance.UNKNOWN ||
+            (relevance == HnsAbilityRequestRelevance.RELEVANT &&
+                disposition?.tier == com.dualdex.pokemon.hns.HnsGroupETier.HARD_REFUSAL)
+        return HnsAbilityRequestDecision(id, name, side, category,
+            if (refused) HnsAbilityRequestRelevance.UNKNOWN else relevance,
+            rule ?: disposition?.let { "group_e_" + it.family }, source ?: disposition?.source,
+            if (refused && disposition != null) disposition.reason + " " + rationale else rationale)
+    }
 }

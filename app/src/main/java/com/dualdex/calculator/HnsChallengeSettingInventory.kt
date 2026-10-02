@@ -233,9 +233,9 @@ object HnsChallengeSettingInventory {
             capturedDownstream = false,
             disposition = HnsChallengeSettingDisposition.IRRELEVANT_TO_CURRENT_DAMAGE,
             blocker = null,
-            reason = "Sturdy is not in the supported ability subset (ABILITY_NONE / Keen Eye / " +
-                "Insomnia), so an unclassified/unsupported ability already fails closed with " +
-                "HNS_ABILITY_EFFECT_NOT_MODELLED. No redundant blocker is added."
+            reason = "Group E displays an ordinary base range with an explicit Sturdy survival-cap caveat " +
+                "at full HP, irrespective of this option; attacker-side and below-full-HP proofs " +
+                "clear it. No option default is inferred and unsupported moves remain refused."
         ),
         HnsChallengeSettingAudit(
             field = HnsChallengeSettingId.TX_CHALLENGES_LEVEL_CAP,

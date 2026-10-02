@@ -78,10 +78,11 @@ sealed interface DamageBlockerPresentation {
             get() = if (ignored) {
                 "Ignoring ${owner(attacker)}: ${decision.abilityName}"
             } else {
-                "${possessive(attacker)} ${decision.abilityName} " +
-                    auditStatus(decision.globalCategory == HnsAbilityCategory.UNCLASSIFIED)
+                "${possessive(attacker)} ${decision.abilityName}: " +
+                    (com.dualdex.pokemon.hns.HnsGroupEData.abilityDispositions[decision.abilityId]?.reason
+                        ?: decision.rationale)
             }
-        override val detail: String get() = "${owner(attacker)}: ${decision.abilityName}"
+        override val detail: String get() = if (ignored) "${owner(attacker)}: ${decision.abilityName}" else headline
     }
 
     /** A globally unsupported/unresolved live held item that was not proven irrelevant. */
@@ -94,10 +95,11 @@ sealed interface DamageBlockerPresentation {
             get() = if (ignored) {
                 "Ignoring ${owner(attacker)}: ${decision.itemName}"
             } else {
-                "${possessive(attacker)} ${decision.itemName} " +
-                    auditStatus(decision.globalCategory == HnsItemCategory.UNCLASSIFIED)
+                "${possessive(attacker)} ${decision.itemName}: " +
+                    (com.dualdex.pokemon.hns.HnsGroupEData.itemDispositions[decision.itemId]?.reason
+                        ?: decision.rationale)
             }
-        override val detail: String get() = "${owner(attacker)}: ${decision.itemName}"
+        override val detail: String get() = if (ignored) "${owner(attacker)}: ${decision.itemName}" else headline
     }
 
     /** A move or mechanic the calculator does not model (move effect, item-dependent move, ...). */
@@ -116,7 +118,6 @@ sealed interface DamageBlockerPresentation {
         private fun Int?.hex(digits: Int) = this?.let { " (0x%0${digits}X)".format(it) }.orEmpty()
         private fun possessive(attacker: Boolean) = if (attacker) "Your" else "Foe's"
         private fun owner(attacker: Boolean) = if (attacker) "You" else "Foe"
-        private fun auditStatus(unclassified: Boolean) = if (unclassified) "not yet audited" else "not modelled"
 
         /** Same structured causes used for refusals, formatted as estimate caveats. */
         fun ignoredFrom(verdict: CalcCapabilityVerdict): List<DamageBlockerPresentation> =

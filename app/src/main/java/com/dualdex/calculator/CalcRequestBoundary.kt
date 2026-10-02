@@ -1250,7 +1250,7 @@ object CalcRequestBoundary {
         if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
         if (!slotMatches(participantPartySlot, state)) return null
         if (!state.transientVolatilesObserved) return null
-        return state.volatileChargeTimer
+        return state.volatileChargeTimer.takeIf { it in 0..3 }
     }
 
     /**
@@ -1500,13 +1500,25 @@ object CalcRequestBoundary {
                 null
             }
         )
+        // Source-identical display names are intentionally ambiguous in name lookup. Bind their
+        // base-data override only from the slot-matched live species ID, never a species default.
+        val identityBound = if (isExactHns && readIsTrusted) withLiveState.copy(
+            attackerOverride = withLiveState.hnsLiveBattleState?.attackerSpeciesId?.let { id ->
+                CalcDataOverrides.buildSpeciesOverride(withLiveState.attacker.species,
+                    com.dualdex.pokemon.hns.HeartAndSoul205DataPack, hnsRules?.fairyTypesEnabled, id)
+            } ?: withLiveState.attackerOverride,
+            defenderOverride = withLiveState.hnsLiveBattleState?.defenderSpeciesId?.let { id ->
+                CalcDataOverrides.buildSpeciesOverride(withLiveState.defender.species,
+                    com.dualdex.pokemon.hns.HeartAndSoul205DataPack, hnsRules?.fairyTypesEnabled, id)
+            } ?: withLiveState.defenderOverride
+        ) else withLiveState
         // The live field conditions (weather, defender-side screens) are boundary-owned too: in an
         // active battle they are rebound from the observed words so a caller's clear/no-screens
         // default can never stand in for an unobserved live state.
         val liveBound = CalcDataOverrides.applyHnsMoveAuthority(
             reconcileLiveFieldConditions(
-                request = withLiveState,
-                live = withLiveState.hnsLiveBattleState
+                request = identityBound,
+                live = identityBound.hnsLiveBattleState
             )
         )
         // Live provenance is a property of the request. The hint may add it, never remove it.

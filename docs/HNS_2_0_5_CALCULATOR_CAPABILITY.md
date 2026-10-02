@@ -3292,3 +3292,28 @@ mechanics; issue #83 stays open.
 ## Group B live-state writer completion
 
 The source-backed, request-local live-state writer dispositions and current timing contracts are recorded in [`HNS_GROUP_B_CLOSURE.md`](HNS_GROUP_B_CLOSURE.md). A cleared writer removes only its own ability/item attribution; unsupported moves, weather formulas, field states, and format remain independent refusals.
+
+## Group E explicit dispositions — issue #93
+
+The current [Group E closure audit](HNS_GROUP_E_CLOSURE.md) and its
+[generated identity matrix](HNS_GROUP_E_MATRIX.md) supersede generic unsupported ability/item
+messages for every remaining audited identity. `tools/hns-group-e/decisions.json` is the reviewed
+source for production tiers and named reasons; CI reconciles it against both generated inventories.
+Request-local proofs still run first; UNKNOWN never becomes a caveat.
+
+Charge's exact base-power stage now consumes the observed shared `chargeTimer`. The pinned Wind
+Power / Electromorphosis script explicitly writes that same volatile, resolving the Group B handoff
+without a new memory operand. Sturdy's potential survival cap receives a labelled base-damage
+estimate on ordinary full-HP hits. Truant's unread execution branch and unresolved Ability Shield
+suppression now explicitly refuse. e-Reader Enigma Berry is audited unsupported, with a named
+runtime-effect refusal. Mega/Z hold-effect suppression cannot bypass the selected/active NONE proof.
+
+Ambiguous source display names such as Pikachu and Terapagos can resolve through boundary-owned,
+slot-matched numeric species IDs with matching catalogue names. Caller overrides, species defaults,
+and missing/stale IDs do not substitute for that authority. Existing live types/stats still drive damage.
+
+The full census improves from 19,336 fully modelled / 224 caveated / 4,718 refused requests to
+19,568 / 446 / 4,264 over the same 24,278 requests. Entirely refused battles fall from 12 to 9;
+all remaining ones are Doubles. Therefore **#93 and #83 are not ready to close**. The detailed audit
+records all hard-refusal families, named request causes, Random Abilities before/after totals and
+remaining no-result battles. The 1,845-case oracle retains only the two existing #100 divergences.

@@ -139,3 +139,12 @@ and checked by `python3 tools/hns-runtime-probe/verify_group_d_evidence.py`. The
 clear→active→expired, repeated Metronome-item counter growth/reset, and Transform preserving the
 source species while changing the live species. The traces use the official ROM SHA recorded in
 their provenance and contain no ROM, save, or state bytes.
+
+## Group E follow-through
+
+[Group E](HNS_GROUP_E_CLOSURE.md) gives every remaining family/identity an explicit disposition.
+The e-Reader Enigma Berry is now audited unsupported with an unread runtime-effect refusal, so no
+pinned item remains unclassified. Mega/Z selected and active NONE proofs remain mandatory even
+when the hold effect is suppressed. Unresolved Ability Shield suppression is a hard refusal;
+existing exact shared hold-effect/berry proofs remain intact. Historical blocker counts above are
+superseded by the regenerated production census.

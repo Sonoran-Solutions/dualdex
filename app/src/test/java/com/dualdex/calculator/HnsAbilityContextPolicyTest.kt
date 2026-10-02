@@ -139,7 +139,7 @@ class HnsAbilityContextPolicyTest {
     fun `Truant clears only on defender and attacker remains blocked`() {
         assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
             relevance(54, context(side = HnsAbilitySide.DEFENDER)))
-        assertEquals(HnsAbilityRequestRelevance.RELEVANT,
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(54, context(side = HnsAbilitySide.ATTACKER)))
     }
 

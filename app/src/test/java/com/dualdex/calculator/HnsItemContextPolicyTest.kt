@@ -347,11 +347,11 @@ class HnsItemContextPolicyTest {
         )
         val seed = assessForTest(terrainSeed, matchingTerrainAndStages)
         assertEquals(unknown, seed.relevance)
-        assertEquals(null, seed.rule)
+        assertEquals("group_e_item_activation", seed.rule)
 
         val gene = assessForTest(798, matchingTerrainAndStages)
         assertEquals(unknown, gene.relevance)
-        assertEquals(null, gene.rule)
+        assertEquals("group_e_item_activation", gene.rule)
     }
 
     @Test
@@ -387,9 +387,9 @@ class HnsItemContextPolicyTest {
         assertEquals(irrelevant, relevance(758, clearContext))
         assertEquals(irrelevant, relevance(758, clearContext.copy(side = HnsItemSide.ATTACKER)))
 
-        assertEquals(relevant, relevance(758, clearContext.copy(attackerAbilityId = 256)))
-        assertEquals(relevant, relevance(758, clearContext.copy(defenderGastroAcid = true)))
-        assertEquals(relevant, relevance(758, clearContext.copy(side = HnsItemSide.ATTACKER,
+        assertEquals(unknown, relevance(758, clearContext.copy(attackerAbilityId = 256)))
+        assertEquals(unknown, relevance(758, clearContext.copy(defenderGastroAcid = true)))
+        assertEquals(unknown, relevance(758, clearContext.copy(side = HnsItemSide.ATTACKER,
             attackerGastroAcid = true)))
         assertEquals(HnsItemRequestRelevance.MODELLED, relevance(758, clearContext.copy(attackerAbilityId = 104)))
         assertEquals(HnsItemRequestRelevance.MODELLED,
@@ -615,7 +615,7 @@ class HnsItemContextPolicyTest {
             .rule?.let(produced::add)
         assessForTest(umbrella, ctx(HnsItemSide.ATTACKER, weatherWord = 1 shl 5))
             .rule?.let(produced::add)
-        assertEquals(HnsItemAuditData.contextRuleNames, produced)
+        assertEquals(HnsItemAuditData.contextRuleNames, produced.filterNot { it.startsWith("group_e_") }.toSet())
         assertTrue(produced.size >= 30)
     }
 }

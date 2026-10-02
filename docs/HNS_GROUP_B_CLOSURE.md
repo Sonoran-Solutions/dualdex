@@ -84,3 +84,12 @@ The former Chlorophyll and Swift Swim leader rows (66 battles / 228 requests and
 ## Historical context
 
 PR #102's census and handoffs describe its then-current baseline and are historical. Current disposition is governed by this matrix and the generated audits on the current branch.
+
+## Group E follow-through
+
+The [Group E audit](HNS_GROUP_E_CLOSURE.md) resolves the Wind Power / Electromorphosis handoff:
+`data/battle_scripts_1.s:4949` writes the same `VOLATILE_CHARGE_TIMER` consumed by
+`battle_util.c:6635`, now implemented exactly. No separate ability activation payload is inferred.
+Protean/Libero's positive branch and primal-weather move semantics retain explicit refusals.
+The Group E comparison reads the exact starting-main census artifact; the Random Abilities totals
+in that artifact supersede this document's historical handoff prose.

@@ -808,6 +808,13 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       Number.isInteger(earlyGemParam)) {
     basePowerModifier.addHalfUp(4096 + Math.floor((4096 * Math.min(earlyGemParam, 100) + 50) / 100));
   }
+  // Move Charge and Wind Power/Electromorphosis write the same observed volatile.
+  // Pinned battle_util.c:6635: after Gems, before terrain; never infer it from ability.
+  const chargeTimer = input.attacker?.hnsChargeTimer;
+  if (chargeTimer !== undefined && (!Number.isInteger(chargeTimer) || chargeTimer < 0 || chargeTimer > 3)) {
+    throw new Error('Invalid H&S Charge timer');
+  }
+  if (effectiveMoveType === 'Electric' && chargeTimer > 0) basePowerModifier.addHalfUp(8192);
   // `move.bp` is the authoritative H&S move power supplied by the boundary. The ordinary
   // allow-list proves `GetMoveEffect(move) == EFFECT_HIT`, so `CalcMoveBasePower` leaves it
   // unchanged before Technician's `basePower <= 60` check. Matching move flags are generated

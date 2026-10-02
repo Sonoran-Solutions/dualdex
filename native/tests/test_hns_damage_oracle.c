@@ -394,7 +394,7 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
         !emit_resist_berry_authority(sb, item_id, item_record, obs_b, opposing_obs, move_obs, format, err)) return 0;
     {
         const char* integers[][2] = {
-            {"slowStartTimer", "hnsSlowStartTimer"}, {"paradoxBoostedStat", "hnsParadoxBoostedStat"},
+            {"chargeTimer", "hnsChargeTimer"}, {"slowStartTimer", "hnsSlowStartTimer"}, {"paradoxBoostedStat", "hnsParadoxBoostedStat"},
             {"isFirstTurn", "hnsIsFirstTurn"}, {"supremeOverlordCounter", "hnsSupremeOverlordCounter"},
             {"activeGimmick", "hnsActiveGimmick"}, {"selectedGimmick", "hnsSelectedGimmick"}
         };

@@ -5488,5 +5488,125 @@
     ],
     "always_blocking": [],
     "fallback": "Unknown liveness, current ability, or weather remains UNKNOWN."
+  },
+  "277": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "group_e_charge_defender_after_hit",
+        "predicate": "Defender ability; ordinary hit.",
+        "rationale": "The reaction follows the incoming hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4317",
+            "contains": "BattleScriptCall(BattleScript_WindPowerActivates)"
+          }
+        ]
+      },
+      {
+        "rule": "group_e_charge_non_electric",
+        "predicate": "Final type is known non-Electric.",
+        "rationale": "Charge modifies only Electric power.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6635",
+            "contains": "moveType == TYPE_ELECTRIC"
+          }
+        ]
+      },
+      {
+        "rule": "group_e_charge_live_timer",
+        "predicate": "Observed timer in 0..3.",
+        "rationale": "Script and compiled volatile mapping prove the shared payload.",
+        "evidence": [
+          {
+            "source": "data/battle_scripts_1.s:4949",
+            "contains": "setvolatile BS_TARGET, VOLATILE_CHARGE_TIMER, 1"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unread final type, live ability or Charge timer remains UNKNOWN."
+  },
+  "280": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "group_e_charge_defender_after_hit",
+        "predicate": "Defender ability; ordinary hit.",
+        "rationale": "The reaction follows the incoming hit.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:4317",
+            "contains": "BattleScriptCall(BattleScript_WindPowerActivates)"
+          }
+        ]
+      },
+      {
+        "rule": "group_e_charge_non_electric",
+        "predicate": "Final type is known non-Electric.",
+        "rationale": "Charge modifies only Electric power.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6635",
+            "contains": "moveType == TYPE_ELECTRIC"
+          }
+        ]
+      },
+      {
+        "rule": "group_e_charge_live_timer",
+        "predicate": "Observed timer in 0..3.",
+        "rationale": "Script and compiled volatile mapping prove the shared payload.",
+        "evidence": [
+          {
+            "source": "data/battle_scripts_1.s:4949",
+            "contains": "setvolatile BS_TARGET, VOLATILE_CHARGE_TIMER, 1"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unread final type, live ability or Charge timer remains UNKNOWN."
+  },
+  "5": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "group_e_sturdy_attacker",
+        "predicate": "Ordinary move; attacker ability.",
+        "rationale": "Sturdy reads the defender slot.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:8186",
+            "contains": "ctx->abilityDef == ABILITY_STURDY"
+          }
+        ]
+      },
+      {
+        "rule": "group_e_sturdy_below_full_hp",
+        "predicate": "Ordinary move; live defender HP below full.",
+        "rationale": "Survival predicate cannot hold.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:8186",
+            "contains": "ctx->abilityDef == ABILITY_STURDY"
+          }
+        ]
+      },
+      {
+        "rule": "group_e_sturdy_survival_estimate",
+        "predicate": "Ordinary move; observed full HP defender.",
+        "rationale": "Ignore the potential survival cap while displaying labelled base damage; do not infer the challenge option.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:8186",
+            "contains": "ctx->abilityDef == ABILITY_STURDY"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown HP or nonordinary selected move remains UNKNOWN."
   }
 }

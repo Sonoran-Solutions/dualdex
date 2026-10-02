@@ -752,7 +752,7 @@ class BattleConsoleTest {
     }
 
     @Test
-    fun `relevant abilities retain structured multi-blocker presentation and never call calculator`() {
+    fun `named hard ability refusal retains a neighboring caveat and never calls calculator`() {
         val sent = mutableListOf<DamageCalculationRequest>()
         val calculator = BattleDamageCalculator { request ->
             sent += request
@@ -764,19 +764,16 @@ class BattleConsoleTest {
             playerAbilityName = "Huge Power",
             randomAbilities = true,
             enemyObservation = hnsBattler(
-                0, 1, listOf(1), 308, "Tera Shell", hp = 20, maxHp = 20, speciesId = 1432
+                0, 1, listOf(1), 209, "Disguise", hp = 20, maxHp = 20, speciesId = 1432
             )
         )
         val defender = createTestPokemon(species = 1432, nickname = "Terapagos")
         val result = buildHnsPresentation(33, context, calculator, defender)
         assertEquals(DamageConfidence.UNAVAILABLE, result.damageConfidence)
-        // The request has an independent unsupported interaction. The abilities' complete
-        // relevance evidence must not be mislabeled as blockers beside that refusal.
-        assertEquals("Damage interaction not modelled", result.damageUnavailableReason)
-        assertTrue(result.damageBlockers.isNotEmpty())
-        assertTrue(result.damageBlockers.none { it is DamageBlockerPresentation.Ability })
-        assertEquals("Damage unavailable · Damage interaction not modelled", result.damageUnavailableText)
-        assertTrue(result.damageAbilityBlockers.isEmpty())
+        assertTrue(result.damageUnavailableReason.orEmpty().contains("Disguise"))
+        assertTrue(result.damageUnavailableText.contains("Hit interception"))
+        assertTrue(result.damageBlockers.any { it is DamageBlockerPresentation.Ability })
+        assertFalse(result.damageUnavailableText.contains("Huge Power"))
         assertEquals(0, sent.size)
     }
 

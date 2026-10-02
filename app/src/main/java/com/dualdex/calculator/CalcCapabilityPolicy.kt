@@ -2185,14 +2185,8 @@ object CalcCapabilityPolicy {
         if (live.defenderGlaiveRush == true) {
             limitations.add(CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED)
         }
-        // Charge doubles an Electric move; only a positive timer on a relevant type is refused.
-        // A zero timer is the observed neutral the first Ready subset requires.
-        val chargeTimer = live.attackerChargeTimer
-        if (chargeTimer != null && chargeTimer > 0 &&
-            effectiveMoveType.equals("Electric", ignoreCase = true)
-        ) {
-            limitations.add(CalcLimitation.HNS_CHARGE_ACTIVE_NOT_MODELLED)
-        }
+        // Charge is consumed at its pinned base-power stage from the boundary-owned timer.
+        // Unread/out-of-domain timers keep the independent live-state gate closed.
         // Tar Shot doubles a Fire move against the observed defender; an irrelevant move type
         // cannot be affected, so only the relevant positive case is refused.
         if (live.defenderTarShot == true &&
@@ -2347,10 +2341,14 @@ object CalcCapabilityPolicy {
         // The bridge selects content by name. If a name is not in this build's pinned data, the
         // engine would fall back to its own record and produce a confident number from another
         // game's base stats, typing, or base power.
-        if (!pack.hasSpeciesByName(request.attacker.species)) {
-            limitations.add(CalcLimitation.SPECIES_NOT_IN_PINNED_DATA)
+        fun speciesKnown(name: String, id: Int?, override: CalcSpeciesOverride?): Boolean {
+            if (pack.hasSpeciesByName(name)) return true
+            if (capability.ruleset != CalcRuleset.HNS_2_0_5 || id == null || override == null) return false
+            return override == CalcDataOverrides.buildSpeciesOverride(
+                name, pack, request.hnsRuntimeRules?.fairyTypesEnabled, id)
         }
-        if (!pack.hasSpeciesByName(request.defender.species)) {
+        if (!speciesKnown(request.attacker.species, request.hnsLiveBattleState?.attackerSpeciesId, request.attackerOverride) ||
+            !speciesKnown(request.defender.species, request.hnsLiveBattleState?.defenderSpeciesId, request.defenderOverride)) {
             limitations.add(CalcLimitation.SPECIES_NOT_IN_PINNED_DATA)
         }
         if (!pack.hasMoveByName(request.move.name)) {

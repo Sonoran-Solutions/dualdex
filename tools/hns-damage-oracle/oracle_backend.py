@@ -269,7 +269,7 @@ static inline void DdxoRuntime(const char *id, const char *role, enum BattlerId 
         m->volatiles.transformedMonSpecies != SPECIES_NONE ?
         m->volatiles.transformedMonSpecies : m->species;
     sDdxoItemAtHit[b] = m->item;
-    Test_MgbaPrintf("DDXO|%%s|%%d|%%sG|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d",
+    Test_MgbaPrintf("DDXO|%%s|%%d|%%sG|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d",
         id, sDdxoRoll, role, m->personality, GetGenderFromSpeciesAndPersonality(m->species, m->personality),
         m->volatiles.slowStartTimer, m->volatiles.flashFireBoosted, m->volatiles.transformed,
         m->volatiles.boosterEnergyActivated, m->volatiles.paradoxBoostedStat,
@@ -282,7 +282,7 @@ static inline void DdxoRuntime(const char *id, const char *role, enum BattlerId 
         m->volatiles.embargo, m->volatiles.metronomeItemCounter,
         m->volatiles.transformedMonSpecies, GetBattlerHoldEffect(b) != HOLD_EFFECT_NONE,
         GET_BASE_SPECIES_ID(m->species), DdxoCanEvolve(defenseSpecies),
-        GetBattlerHoldEffectParam(b), GetItemSecondaryId(m->item), m->item);
+        GetBattlerHoldEffectParam(b), GetItemSecondaryId(m->item), m->item, m->volatiles.chargeTimer);
 }
 
 static const char *const sDdxoTypeNames[NUMBER_OF_MON_TYPES] =

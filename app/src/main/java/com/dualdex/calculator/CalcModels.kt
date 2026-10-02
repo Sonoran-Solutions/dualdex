@@ -262,8 +262,8 @@ data class CalcHnsLiveBattleState(
     val defenderGlaiveRush: Boolean? = null,
     /**
      * `gBattleMons[attacker].volatiles.chargeTimer`, or null when unread. A non-zero value
-     * doubles the damage of an Electric move. `0` is an observed "not charging"; the ordinary
-     * subset refuses a positive value rather than publishing the unmodelled x2.
+     * doubles an Electric move's base-power accumulator at the pinned pre-terrain stage.
+     * `0` is observed inactive. Move Charge and Wind Power/Electromorphosis share this field.
      */
     val attackerChargeTimer: Int? = null,
     /**

@@ -3,6 +3,7 @@ package com.dualdex.calculator
 import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
 import com.dualdex.pokemon.hns.HnsChallengeSettingsStatus
 import com.dualdex.pokemon.hns.HnsOptionStyle
+import com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
 import com.dualdex.pokemon.hns.normalizeHnsBattlerTypes
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
@@ -1250,7 +1251,7 @@ object CalcRequestBoundary {
         if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
         if (!slotMatches(participantPartySlot, state)) return null
         if (!state.transientVolatilesObserved) return null
-        return state.volatileChargeTimer.takeIf { it in 0..3 }
+        return state.volatileChargeTimer.takeIf { it in 0..HnsBattlerRuntimeStateIds.VOLATILE_CHARGE_TIMER_MAX }
     }
 
     /**

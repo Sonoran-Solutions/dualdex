@@ -78,9 +78,7 @@ sealed interface DamageBlockerPresentation {
             get() = if (ignored) {
                 "Ignoring ${owner(attacker)}: ${decision.abilityName}"
             } else {
-                "${possessive(attacker)} ${decision.abilityName}: " +
-                    (com.dualdex.pokemon.hns.HnsGroupEData.abilityDispositions[decision.abilityId]?.reason
-                        ?: decision.rationale)
+                "${possessive(attacker)} ${decision.abilityName}: ${decision.rationale}"
             }
         override val detail: String get() = if (ignored) "${owner(attacker)}: ${decision.abilityName}" else headline
     }
@@ -95,9 +93,7 @@ sealed interface DamageBlockerPresentation {
             get() = if (ignored) {
                 "Ignoring ${owner(attacker)}: ${decision.itemName}"
             } else {
-                "${possessive(attacker)} ${decision.itemName}: " +
-                    (com.dualdex.pokemon.hns.HnsGroupEData.itemDispositions[decision.itemId]?.reason
-                        ?: decision.rationale)
+                "${possessive(attacker)} ${decision.itemName}: ${decision.rationale}"
             }
         override val detail: String get() = if (ignored) "${owner(attacker)}: ${decision.itemName}" else headline
     }

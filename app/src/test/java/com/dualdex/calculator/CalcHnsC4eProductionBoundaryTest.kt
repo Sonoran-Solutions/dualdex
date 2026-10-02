@@ -4044,7 +4044,7 @@ class CalcHnsC4eProductionBoundaryTest {
         assertTrue(refused.verdict.ignoredMechanics.isEmpty())
         assertEquals(
             "Damage unavailable · 2 blockers\nYour Super Luck: " +
-                com.dualdex.pokemon.hns.HnsGroupEData.abilityDispositions.getValue(105).reason +
+                refused.verdict.hnsAbilityDecisions.single { it.abilityName == "Super Luck" }.rationale +
                 "\nMove effect not modelled",
             cardText(refused)
         )
@@ -4681,7 +4681,7 @@ class CalcHnsC4eProductionBoundaryTest {
                     if (decision.relevance == HnsAbilityRequestRelevance.UNKNOWN) {
                         assertFalse("$id unknown must refuse", verdict.isCalculable)
                         assertTrue(com.dualdex.battle.DamageBlockerPresentation.Ability(decision)
-                            .headline.contains(disposition.reason))
+                            .headline.contains(decision.rationale))
                     } else if (decision.relevance == HnsAbilityRequestRelevance.RELEVANT &&
                         disposition.tier == com.dualdex.pokemon.hns.HnsGroupETier.CAVEATED_ESTIMATE) {
                         assertTrue("$id relevant estimate must be labelled", verdict.ignoredMechanics.any {
@@ -4699,7 +4699,7 @@ class CalcHnsC4eProductionBoundaryTest {
         assertTrue(independent.verdict.hnsAbilityDecisions.any {
             it.abilityId == 209 && it.relevance == HnsAbilityRequestRelevance.UNKNOWN
         })
-        for (timer in listOf(-1, 4)) {
+        for (timer in listOf(-1, 3, 4)) {
             refusedOf(build(trustFor(exactSha), goldenARequest("Thunder Shock"),
                 playerObservation(chargeTimer = timer), enemyObservation()), "invalid Charge timer")
         }
@@ -4739,7 +4739,7 @@ class CalcHnsC4eProductionBoundaryTest {
                 if (decision.relevance == HnsItemRequestRelevance.UNKNOWN) {
                     assertFalse("$id unknown cannot estimate", verdict.isCalculable)
                     val text = com.dualdex.battle.DamageBlockerPresentation.Item(decision).headline
-                    assertTrue(text, text.contains(disposition.reason) && text.contains(decision.itemName))
+                    assertTrue(text, text.contains(decision.rationale) && text.contains(decision.itemName))
                 } else if (decision.relevance == HnsItemRequestRelevance.RELEVANT) {
                     assertEquals(com.dualdex.pokemon.hns.HnsGroupETier.CAVEATED_ESTIMATE, disposition.tier)
                     assertTrue("item $id needs a named caveat", verdict.ignoredMechanics.any {
@@ -4766,8 +4766,28 @@ class CalcHnsC4eProductionBoundaryTest {
             refusedOf(build(trustFor(exactSha), goldenARequest(move), playerObservation(),
                 enemyObservation(abilityId = 5, abilityName = "Sturdy")), "move semantics stay independent")
         }
-        refusedOf(build(trustFor(exactSha), goldenARequest(), playerObservation(),
+        val unreadHp = refusedOf(build(trustFor(exactSha), goldenARequest(), playerObservation(),
             enemyObservation(abilityId = 5, abilityName = "Sturdy", hpObserved = false)), "unknown HP")
+        assertTrue(cardText(unreadHp).contains("Defender HP and max HP are unread"))
+    }
+
+    @Test
+    fun `Group E refusal cards retain request specific missing authority`() {
+        val sandForce = refusedOf(build(trustFor(exactSha), goldenARequest("Rock Throw"),
+            playerObservation(abilityId = 159, abilityName = "Sand Force", weatherReadable = false),
+            enemyObservation()), "Sand Force needs live weather")
+        assertTrue(cardText(sandForce).contains("authoritative raw weather word is required"))
+
+        val sash = refusedOf(build(trustFor(exactSha), goldenARequest(), playerObservation(),
+            enemyObservation(itemId = 481, itemVolatilesObserved = false)), "Focus Sash needs effective hold effect")
+        assertTrue(cardText(sash), cardText(sash).contains("Focus Sash"))
+        assertTrue(cardText(sash), cardText(sash).contains("Magic Room, Embargo, or effective Klutz state is unobserved"))
+
+        val disguise = refusedOf(build(trustFor(exactSha), goldenARequest(), playerObservation(),
+            enemyObservation(abilityId = 209, abilityName = "Disguise"), randomAbilities = true),
+            "Disguise hard refusal")
+        assertTrue(cardText(disguise).contains("Disguise"))
+        assertTrue(cardText(disguise).contains("shield transition"))
     }
 
     @Test

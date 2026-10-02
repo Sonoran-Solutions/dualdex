@@ -111,7 +111,7 @@ RUNTIME_DOMAINS = {
     "abilityShield": (0, 1), "embargo": (0, 1), "metronomeItemCounter": (0, 255),
     "transformedMonSpecies": (0, 65535), "holdEffectActive": (0, 1),
     "baseSpeciesId": (0, 65535), "evioliteCanEvolve": (0, 1),
-    "holdEffectParam": (0, 65535), "itemSecondaryId": (0, 255), "itemIdAtHit": (0, 900), "chargeTimer": (0, 3),
+    "holdEffectParam": (0, 65535), "itemSecondaryId": (0, 255), "itemIdAtHit": (0, 900), "chargeTimer": (0, 2),
 }
 RUNTIME_SETUP_DOMAINS = {**RUNTIME_DOMAINS, "dynamaxSelected": (0, 1)}
 RUNTIME_SETUP_KEYS = set(RUNTIME_SETUP_DOMAINS) - {

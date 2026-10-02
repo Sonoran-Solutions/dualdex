@@ -7,6 +7,7 @@ import com.dualdex.pokemon.hns.HnsAbilityAuditData
 import com.dualdex.pokemon.hns.HnsAbilityCategory
 import com.dualdex.pokemon.hns.HnsItemRegistry
 import com.dualdex.pokemon.hns.HnsFieldStatusData
+import com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
 
 /** Which request participant owns an effective live ability. */
 enum class HnsAbilitySide { ATTACKER, DEFENDER }
@@ -368,7 +369,9 @@ object HnsAbilityContextPolicy {
                 c.side == HnsAbilitySide.ATTACKER -> proof("group_e_sturdy_attacker",
                     "src/battle_util.c:8186", "The survival check reads only the defender ability; OHKO moves remain independently refused.")
                 c.defenderHp == null || c.defenderMaxHp == null || c.defenderMaxHp <= 0 ||
-                    c.defenderHp !in 1..c.defenderMaxHp -> null
+                    c.defenderHp !in 1..c.defenderMaxHp -> unknownProof(
+                        "group_e_sturdy_hp_unobserved", "src/battle_util.c:8186",
+                        "Defender HP and max HP are unread or out of domain, so Sturdy's survival predicate cannot be decided.")
                 c.defenderHp < c.defenderMaxHp -> proof("group_e_sturdy_below_full_hp",
                     "src/battle_util.c:8186", "The observed defender is below full HP, so the survival predicate is false regardless of the Sturdy option.")
                 else -> relevant("group_e_sturdy_survival_estimate", "src/battle_util.c:8186",
@@ -382,7 +385,7 @@ object HnsAbilityContextPolicy {
                 effectiveMoveType(c) == null -> null
                 effectiveMoveType(c) != PokemonType.ELECTRIC -> proof("group_e_charge_non_electric",
                     "src/battle_util.c:6635", "Charge modifies only the authoritative final Electric type.")
-                c.liveBattleState?.attackerChargeTimer !in 0..3 -> null
+                c.liveBattleState?.attackerChargeTimer !in 0..HnsBattlerRuntimeStateIds.VOLATILE_CHARGE_TIMER_MAX -> null
                 else -> proof("group_e_charge_live_timer",
                     "data/battle_scripts_1.s:4949; include/constants/battle.h:217; src/battle_util.c:6635",
                     "The ability script writes VOLATILE_CHARGE_TIMER, the same observed chargeTimer consumed by the exact base-power pipeline; no historical activation is inferred.")

@@ -37,7 +37,10 @@ identity is not relabelled globally exact.
 separate payload does not exist on this pinned path. `battle_util.c:4309–4317` calls
 `BattleScript_WindPowerActivates`; `data/battle_scripts_1.s:4947–4952` writes
 `VOLATILE_CHARGE_TIMER`; `include/constants/battle.h:217` maps that enum to `chargeTimer`.
-The already compiled/read volatile has domain 0–3. `battle_util.c:6635–6636` multiplies the
+The declaration is a 3-bit field (raw range 0–7), but the pinned scripts write only 1 or 2
+and turn logic decrements it, so the production boundary accepts the semantic range 0–2.
+The compiled native read width is validated independently by the layout generator.
+`battle_util.c:6635–6636` multiplies the
 base-power accumulator by Q4.12 `8192`, after Gems and before terrain. The bridge now forwards
 the boundary-owned timer to precisely that stage. It never infers activation from the ability,
 move name, current stats or history. Missing/out-of-domain observation still refuses. A defender's

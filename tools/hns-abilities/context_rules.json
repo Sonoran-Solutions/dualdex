@@ -5516,7 +5516,7 @@
       },
       {
         "rule": "group_e_charge_live_timer",
-        "predicate": "Observed timer in 0..3.",
+        "predicate": "Observed source-written timer in 0..2.",
         "rationale": "Script and compiled volatile mapping prove the shared payload.",
         "evidence": [
           {
@@ -5556,7 +5556,7 @@
       },
       {
         "rule": "group_e_charge_live_timer",
-        "predicate": "Observed timer in 0..3.",
+        "predicate": "Observed source-written timer in 0..2.",
         "rationale": "Script and compiled volatile mapping prove the shared payload.",
         "evidence": [
           {

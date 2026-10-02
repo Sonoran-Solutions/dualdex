@@ -2099,7 +2099,7 @@ def _group_e_charge() -> list[dict]:
     out = []
     for name in ("Wind Power", "Electromorphosis", "None"):
         for timer, move in ((0, "Thunder Shock"), (1, "Thunder Shock"), (2, "Thunder Punch"),
-                            (3, "Thunder Shock"), (1, "Strength")):
+                            (2, "Thunder Shock"), (1, "Strength")):
             a = attacker("Machamp", atk=151, spa=151)
             if name != "None":
                 a.update(ability=symbol("ABILITY", name), abilityLabel=name)

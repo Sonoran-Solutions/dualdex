@@ -811,7 +811,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // Move Charge and Wind Power/Electromorphosis write the same observed volatile.
   // Pinned battle_util.c:6635: after Gems, before terrain; never infer it from ability.
   const chargeTimer = input.attacker?.hnsChargeTimer;
-  if (chargeTimer !== undefined && (!Number.isInteger(chargeTimer) || chargeTimer < 0 || chargeTimer > 3)) {
+  if (chargeTimer !== undefined && (!Number.isInteger(chargeTimer) || chargeTimer < 0 || chargeTimer > 2)) {
     throw new Error('Invalid H&S Charge timer');
   }
   if (effectiveMoveType === 'Electric' && chargeTimer > 0) basePowerModifier.addHalfUp(8192);

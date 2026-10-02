@@ -151,10 +151,11 @@ object HnsBattlerRuntimeStateIds {
     const val STATUS_FIELD_ION_DELUGE = HnsFieldStatusData.STATUS_FIELD_ION_DELUGE
 
     /**
-     * Pinned `volatiles.chargeTimer` width is 2 bits, so its raw domain is `0..3`; any
-     * non-zero value doubles an Electric move (`src/battle_util.c`).
+     * Pinned scripts write Charge timer values 1 or 2 and turn logic decrements them; the
+     * production semantic domain is `0..2`. The compiled native reader's bitfield width is
+     * a separate layout fact and does not authorize synthetic timer values.
      */
-    const val VOLATILE_CHARGE_TIMER_MAX = 3
+    const val VOLATILE_CHARGE_TIMER_MAX = 2
 }
 
 /**
@@ -287,8 +288,9 @@ data class HnsBattlerRuntimeState(
      */
     val transientVolatilesObserved: Boolean = false,
     /**
-     * `volatiles.chargeTimer` raw value (pinned width 2, so `0..3`). Charge doubles an
-     * Electric move while it is non-zero. Only meaningful when [transientVolatilesObserved].
+     * `volatiles.chargeTimer` raw value. Charge doubles an Electric move while it is non-zero.
+     * Only source-written values `0..2` are accepted by the request boundary; this field
+     * preserves the native payload so an out-of-domain value can fail closed there.
      */
     val volatileChargeTimer: Int = 0,
     /**
@@ -660,7 +662,7 @@ data class HnsBattlerRuntimeState(
                 volatileSemiInvulnerable = if (volatilesObserved) raw[51].coerceIn(0, 6) else 0,
                 transientVolatilesObserved = transientVolatilesObserved,
                 volatileChargeTimer = if (transientVolatilesObserved) {
-                    raw[60].coerceIn(0, HnsBattlerRuntimeStateIds.VOLATILE_CHARGE_TIMER_MAX)
+                    raw[60]
                 } else {
                     0
                 },

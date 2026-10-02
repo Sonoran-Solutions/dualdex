@@ -638,7 +638,7 @@
     "HOLD_EFFECT_ROOM_SERVICE": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "This effect writes Speed after a missed move or Trick Room event, after current hit order is established. The current-action Analytic authority owns any already-established order operand; no ordinary-hit or non-Analytic restriction applies, and unsupported move mechanics remain independently refused.",
+      "rationale": "This effect changes Speed when Trick Room activates and can also activate on switch-in. Generated gHoldEffectsInfo.onSwitchIn metadata requires settled switch-in events before clearance; after settlement, current-action order authority owns the current hit and unsupported move mechanics remain independently refused.",
       "reviewed_refs": [
         "src/battle_hold_effects.c:1058",
         "src/battle_script_commands.c:14703"

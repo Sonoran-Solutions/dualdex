@@ -3131,6 +3131,41 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
+    fun `Room Service waits for switch-in settlement while Blunder Policy does not`() {
+        val trust = trustFor(exactSha)
+        val trickRoom = 0x00000002
+        val pendingRoomService = refusedOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 512, fieldStatuses = trickRoom,
+                    switchInEventsSettled = false),
+                enemyObservation(fieldStatuses = trickRoom, switchInEventsSettled = false)),
+            "Room Service may lower Speed during an unsettled Trick Room switch-in"
+        )
+        assertEquals(HnsItemRequestRelevance.UNKNOWN,
+            pendingRoomService.verdict.hnsItemDecisions.single().relevance)
+        assertTrue(pendingRoomService.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+
+        val settledRoomService = readyOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 512, fieldStatuses = trickRoom),
+                enemyObservation(fieldStatuses = trickRoom)),
+            "settled Room Service uses the existing current-hit order proof"
+        )
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT,
+            settledRoomService.verdict.hnsItemDecisions.single().relevance)
+        assertFalse(settledRoomService.verdict.limitations.contains(CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED))
+
+        val unsettledBlunderPolicy = readyOf(
+            build(trust, goldenARequest(),
+                playerObservation(itemId = 511, switchInEventsSettled = false),
+                enemyObservation(switchInEventsSettled = false)),
+            "Blunder Policy has no on-switch-in activation and remains clear"
+        )
+        assertEquals(HnsItemRequestRelevance.PROVEN_IRRELEVANT,
+            unsettledBlunderPolicy.verdict.hnsItemDecisions.single().relevance)
+    }
+
+    @Test
     fun `clearing an item never clears another limitation`() {
         val refused = refusedOf(
             build(trustFor(exactSha), goldenARequest(),

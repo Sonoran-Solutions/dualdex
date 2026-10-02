@@ -321,6 +321,21 @@ class HnsItemContextPolicyTest {
                 attackerAbilityId = 0
             )))
         }
+        assertEquals(unknown, relevance(512, ctx(
+            HnsItemSide.ATTACKER,
+            switchInEventsSettled = false,
+            attackerAbilityId = 0
+        )))
+        assertEquals(irrelevant, relevance(512, ctx(
+            HnsItemSide.ATTACKER,
+            switchInEventsSettled = true,
+            attackerAbilityId = 0
+        )))
+        assertEquals(irrelevant, relevance(511, ctx(
+            HnsItemSide.ATTACKER,
+            switchInEventsSettled = false,
+            attackerAbilityId = 0
+        )))
     }
 
     @Test

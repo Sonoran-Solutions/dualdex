@@ -838,8 +838,8 @@
             "HOLD_EFFECT_BLUNDER_POLICY",
             "HOLD_EFFECT_ROOM_SERVICE"
           ],
-          "predicate": "Any move shape; the item writes Speed after a miss or Trick Room event, after the current hit order is established.",
-          "rationale": "The current-action Analytic authority owns any already-established turn-order operand. A later speed-stage write cannot change the current selected hit; unsupported move semantics remain an independent refusal.",
+          "predicate": "Any move shape; Blunder Policy writes Speed after a miss and Room Service writes Speed after Trick Room activates, after current hit order is established. Room Service also has a generated on-switch-in activation and is gated until switch-in settlement.",
+          "rationale": "After any Room Service switch-in activation has settled, later speed writes cannot change an already-established hit order. Current-action Analytic authority owns that order operand; no ordinary-hit or non-Analytic restriction applies, and unsupported move mechanics remain independently refused.",
           "evidence": [
             {
               "source": "src/battle_hold_effects.c:1109",

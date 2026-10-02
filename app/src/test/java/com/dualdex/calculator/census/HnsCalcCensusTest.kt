@@ -643,7 +643,7 @@ class HnsCalcCensusTest {
         }.toMap()
         assertTrue("every pinned H&S ability now has an explicit global audit category", actual.isEmpty())
         for (id in listOf(3, 80, 192)) {
-            assertEquals(com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT,
+            assertEquals(com.dualdex.pokemon.hns.HnsAbilityCategory.MODELLED_HNS_CONDITIONAL,
                 HnsAbilityRegistry.classify(id).category)
         }
     }
@@ -681,15 +681,11 @@ class HnsCalcCensusTest {
                 it.getString("category") == "Physical" }
         assertEquals(hugePower.caveatedRequests, caveat.getInt("caveatedRequests"))
         assertEquals(hugePower.caveatedBattles, caveat.getInt("caveatedBattles"))
-        val unclassifiedIds = setOf(3, 80, 124, 192)
-        val refusalIds = (0 until refusalRows.length()).map {
-            refusalRows.getJSONObject(it).getInt("abilityId")
-        }.toSet()
         val caveatIds = (0 until caveatRows.length()).map {
             caveatRows.getJSONObject(it).getInt("abilityId")
         }.toSet()
-        assertTrue("all unclassified abilities must rank as refusals", refusalIds.containsAll(unclassifiedIds))
-        assertTrue("unclassified abilities cannot be caveats", caveatIds.intersect(unclassifiedIds).isEmpty())
+        assertTrue("live-stage conditional proofs must not create unsupported caveat rows",
+            caveatIds.intersect(setOf(3, 80, 192)).isEmpty())
         val trialRows = root.getJSONArray("abilityTrials")
         val trial = (0 until trialRows.length()).map { trialRows.getJSONObject(it) }
             .single { it.getInt("abilityId") == 37 && it.getString("side") == "attacker" &&

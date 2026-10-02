@@ -21,6 +21,19 @@ A compiled symbol is **not** automatically runtime proof of a DualDex reader, an
 
 ## 0. Current status (read this first)
 
+## Group D volatile provenance update (after #117)
+
+The Group D volatile payload ends at tuple entry 96 and includes Neutralizing Gas at entry 95.
+The later item-volatile extension begins at entry 97 with Embargo / Metronome / Transform state.
+`HnsBattlerRuntimeState.fromNativeArray` gates Neutralizing Gas with
+`groupDVolatilesObserved`; the request boundary's field-level Gas resolution uses that same
+provenance. A valid older 97-entry tuple can therefore establish Gas while leaving
+`itemVolatilesObserved` false. The item extension remains independently required for Embargo,
+Metronome, and transformed-species item semantics.
+
+This note is current to the #117 provenance correction; the remaining compatibility sections
+retain their dates and historical scope.
+
 **Current-main audit:** issue #40 closure audit, 2026-09-22. This document is the **evidence
 record**; it is not the disposition. The criterion-by-criterion disposition for #40 sections A-H
 lives in [the #40 closure audit](HNS_ISSUE_40_CLOSURE_AUDIT.md), which reconciles this document,
@@ -4068,3 +4081,16 @@ resetting on Tail Whip and growing again, and Transform changing Ditto's live sp
 the original species in `transformedMonSpecies`. Party fixtures set only persistent party fields;
 volatile and transformed state is created by the ROM. No ROM, battery, state or RAM bytes are
 retained.
+
+## Group D volatile provenance update (after #117)
+
+The Group D volatile payload ends at tuple entry 96 and includes Neutralizing Gas at entry 95.
+The later item-volatile extension begins at tuple entry 97 with Embargo / Metronome / Transform state.
+`HnsBattlerRuntimeState.fromNativeArray` gates Neutralizing Gas with
+`groupDVolatilesObserved`; the request boundary's field-level Gas resolution uses that same
+provenance. A valid older 97-entry tuple can therefore establish Gas while leaving
+`itemVolatilesObserved` false. The item extension remains independently required for Embargo,
+Metronome, and transformed-species item semantics.
+
+This note is current to the #117 provenance correction; the remaining compatibility sections
+retain their dates and historical scope.

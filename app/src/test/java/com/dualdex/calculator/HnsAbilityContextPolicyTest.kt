@@ -51,7 +51,8 @@ class HnsAbilityContextPolicyTest {
         switchInEventsSettled: Boolean? = true,
         resistBerryDecision: HnsResistBerryDecision? = null,
         attackerHoldEffectResolution: HnsHoldEffectResolution? = null,
-        defenderHoldEffectResolution: HnsHoldEffectResolution? = null
+        defenderHoldEffectResolution: HnsHoldEffectResolution? = null,
+        liveBattleState: CalcHnsLiveBattleState? = null
     ) = HnsAbilityContextPolicy.Context(
         side = side,
         ordinaryMove = ordinaryMove,
@@ -93,6 +94,7 @@ class HnsAbilityContextPolicyTest {
         resistBerryDecision = resistBerryDecision,
         attackerHoldEffectResolution = attackerHoldEffectResolution,
         defenderHoldEffectResolution = defenderHoldEffectResolution,
+        liveBattleState = liveBattleState,
         moveAuthority = moveAuthority ?: if (dynamicMoveTypeKnownNeutral && moveType != null) {
             HnsMoveAuthority(
                 sourceType = moveType,
@@ -742,8 +744,15 @@ class HnsAbilityContextPolicyTest {
             relevance(192, context(defenderStatStages = List(7) { 0 })))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(3, context(attackerAbilityObserved = false)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(3, context(ordinaryMove = false, switchInEventsSettled = false)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(3, context(side = HnsAbilitySide.DEFENDER, ordinaryMove = false,
+                attackerAbilityId = 148, switchInEventsSettled = false)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(22, context(switchInEventsSettled = false)))
         for (id in listOf(3, 80, 86, 133, 141, 155, 224, 243, 271, 290)) {
-            assertEquals("speed writer $id with Analytic", HnsAbilityRequestRelevance.RELEVANT,
+            assertEquals("speed writer $id leaves current order to Analytic authority", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
                 relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = 148)))
         }
     }
@@ -758,21 +767,33 @@ class HnsAbilityContextPolicyTest {
     }
 
     @Test
-    fun `ordinary Rain and Sun setters clear only with observed unsuppressed weather`() {
-        for (id in listOf(2, 70)) {
+    fun `weather setters clear from observed weather and preserve independent weather limits`() {
+        for (id in listOf(2, 45, 70, 117, 245)) {
             assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
                 relevance(id, context(weatherWord = 1)))
-            assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
-                relevance(id, context(weatherWord = 1 shl 3)))
         }
-        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(2, context(weatherWord = 1 shl 5))) // Sandstorm is not applied by the engine.
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(45, context(weatherWord = 1 shl 5))) // Sandstorm's arithmetic remains a separate blocker.
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(70, context(weatherWord = null)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(2, context(weatherWord = 1, defenderAbilityId = 13))) // Cloud Nine.
+            relevance(45, context(switchInEventsSettled = false)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(2, context(weatherWord = 1, attackerHp = 0)))
+            relevance(245, context(weatherObserved = false)))
+    }
+
+    @Test
+    fun `terrain setters clear from observed field state with entry timing where required`() {
+        for (id in listOf(226, 227, 228, 229, 269)) {
+            assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context(fieldStatuses = 1)))
+        }
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(226, context(switchInEventsSettled = false)))
+        assertEquals(HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+            relevance(269, context(switchInEventsSettled = false)))
+        assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
+            relevance(269, context(fieldStatuses = null)))
     }
 
     @Test
@@ -943,8 +964,24 @@ class HnsAbilityContextPolicyTest {
     }
 
     @Test
-    fun `speed abilities clear without Analytic and keep its turn order dependency`() {
-        for (id in listOf(33, 34, 84, 95, 146, 202, 259)) {
+    fun `Chlorophyll and Swift Swim use current order and do not duplicate unsupported move blockers`() {
+        for (id in listOf(33, 34)) {
+            assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, ordinaryMove = false,
+                    attackerAbilityId = null)))
+            assertEquals("ability $id", HnsAbilityRequestRelevance.UNKNOWN,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = 148)))
+            assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = 148,
+                    liveBattleState = CalcHnsLiveBattleState(
+                        attackerAnalyticTurnOrder = HnsAnalyticTurnOrder.LAST_TO_MOVE
+                    ))))
+        }
+    }
+
+    @Test
+    fun `other speed abilities keep their ordinary move scope`() {
+        for (id in listOf(84, 95, 146, 202, 259)) {
             assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
                 relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = 0)))
             assertEquals("ability $id", HnsAbilityRequestRelevance.RELEVANT,

@@ -790,8 +790,8 @@
         {
           "rule": "single_hit_item_activation_outside_damage",
           "side": "EITHER",
-          "predicate": "The selected move is ordinary (single hit). Excludes Booster Energy, Terrain Seed, Berserk Gene and the speed-policy items Blunder Policy / Room Service.",
-          "rationale": "These hold effects have no read in the damage computation. Every activation is an ItemBattleEffects call in a MoveEnd handler (after damage is dealt), at end of turn, at switch-in, or from an event script, so for a single-hit ordinary move none can change the hit's damage range. HP restored afterwards, contact recoil to the attacker and later stat changes are outside the displayed single-hit contract. Terrain Seed and Berserk Gene remain excluded because a held item can signal a pending switch-in activation; successful activation consumes the item, so stage observations cannot clear a still-held item. Blunder Policy and Room Service use the speed dependency rule.",
+          "predicate": "The hold effect can activate only after the current damage event, at end of turn, or outside hit resolution. This applies to every move shape; unsupported move mechanics remain a separate refusal.",
+          "rationale": "The listed items write HP, stat stages, volatiles, or held-item state only after the selected damage event or outside hit resolution. Later-hit or later-turn effects cannot authorize this result and the move gate remains independent.",
           "evidence": [
             {
               "source": "src/battle_move_resolution.c:2429",
@@ -828,14 +828,14 @@
           ]
         },
         {
-          "rule": "post_hit_speed_item_ordinary_move",
+          "rule": "post_hit_speed_item_current_hit",
           "side": "EITHER",
           "families": [
             "HOLD_EFFECT_BLUNDER_POLICY",
             "HOLD_EFFECT_ROOM_SERVICE"
           ],
-          "predicate": "Ordinary move, known attacker ability other than Analytic.",
-          "rationale": "The items alter Speed only after a miss or Trick Room activation; Analytic is the damage-time consumer of turn order.",
+          "predicate": "Any move shape; the item writes Speed after a miss or Trick Room event, after the current hit order is established.",
+          "rationale": "The current-action Analytic authority owns any already-established turn-order operand. A later speed-stage write cannot change the current selected hit; unsupported move semantics remain an independent refusal.",
           "evidence": [
             {
               "source": "src/battle_hold_effects.c:1109",
@@ -857,7 +857,7 @@
           "families": [
             "HOLD_EFFECT_BOOSTER_ENERGY"
           ],
-          "predicate": "The holder\u2019s effective ability is neither Protosynthesis nor Quark Drive.",
+          "predicate": "The holder’s effective ability is neither Protosynthesis nor Quark Drive.",
           "rationale": "The pinned Booster Energy activation dispatch only calls the item effect for Protosynthesis or Quark Drive; another ability has no Booster Energy damage consequence.",
           "evidence": [
             {
@@ -876,7 +876,7 @@
           "families": [
             "HOLD_EFFECT_BOOSTER_ENERGY"
           ],
-          "predicate": "Switch-in settlement is observed and the holder\u2019s Protosynthesis/Quark Drive activation flag and boosted-stat payload are valid.",
+          "predicate": "Switch-in settlement is observed and the holder’s Protosynthesis/Quark Drive activation flag and boosted-stat payload are valid.",
           "rationale": "Booster Energy itself has no damage multiplier. The live ability and its source-selected boosted stat are consumed by the modeled stat modifier; a consumed item is not inferred from item absence.",
           "evidence": [
             {
@@ -895,29 +895,6 @@
         }
       ],
       "always_blocking": [
-        {
-          "rule": "post_hit_speed_item_attacker_analytic",
-          "families": [
-            "HOLD_EFFECT_BLUNDER_POLICY",
-            "HOLD_EFFECT_ROOM_SERVICE"
-          ],
-          "predicate": "The selected move is ordinary and the live attacker ability is Analytic (148).",
-          "rationale": "The speed-stage item can affect the turn-order condition Analytic reads on this request; retain the item when the live attacker has Analytic.",
-          "evidence": [
-            {
-              "source": "src/battle_util.c:6691",
-              "contains": "if (IsLastMonToMove(battlerAtk)"
-            },
-            {
-              "source": "src/battle_hold_effects.c:1058",
-              "contains": "case HOLD_EFFECT_ROOM_SERVICE:"
-            },
-            {
-              "source": "src/battle_hold_effects.c:1109",
-              "contains": "case HOLD_EFFECT_BLUNDER_POLICY:"
-            }
-          ]
-        },
         {
           "rule": "booster_energy_boost_payload_unobserved",
           "families": [
@@ -1225,7 +1202,7 @@
           "families": [
             "HOLD_EFFECT_PRIMAL_ORB"
           ],
-          "predicate": "Primal form-change settlement is complete but the holder\u2019s live current species is not observed.",
+          "predicate": "Primal form-change settlement is complete but the holder’s live current species is not observed.",
           "rationale": "The item does not have a separate damage multiplier; the transitioned species and its resulting ability/weather must be observed directly rather than reconstructed from raw item identity.",
           "evidence": [
             {
@@ -1244,7 +1221,7 @@
           "families": [
             "HOLD_EFFECT_PRIMAL_ORB"
           ],
-          "predicate": "Primal form-change settlement is complete and the holder\u2019s live current species is observed.",
+          "predicate": "Primal form-change settlement is complete and the holder’s live current species is observed.",
           "rationale": "The form table changes live species. The damage calculation consumes observed species/stats/ability/weather and does not add a second Orb modifier; this does not mean that the Orb has no battle effect.",
           "evidence": [
             {

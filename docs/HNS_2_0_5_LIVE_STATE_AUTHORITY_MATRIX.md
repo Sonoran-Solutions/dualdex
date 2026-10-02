@@ -95,3 +95,8 @@ Selection/menu/new-turn frames are UNKNOWN. Runtime traces prove both action ver
 Aura uses one shared two-living-battler ability authority. Ruin uses the observed four field flags,
 self-exclusion, Gastro Acid and NG/Ability Shield predicates, even after raw ability replacement.
 Unknown field payloads and positive global suppression preserve independent refusal gates.
+
+
+## Group B closure update (current main after #117)
+
+The Group B closure audit is in [`HNS_GROUP_B_CLOSURE.md`](HNS_GROUP_B_CLOSURE.md). Current policy separates entry settlement from post-hit/end-turn stage writers, allows pure live-stage proofs even when the selected move independently refuses, and treats weather/terrain setter output as the observed field word. Cloud Nine/Air Lock feed effective no-weather state into the supported ordinary Rain/Sun surface. The complete candidate table and source references are in the closure matrix; earlier sections in this file remain historical to their stated PR baselines.

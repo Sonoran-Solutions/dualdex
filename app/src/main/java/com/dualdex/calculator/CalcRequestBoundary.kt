@@ -837,8 +837,11 @@ object CalcRequestBoundary {
     ): DamageCalculationRequest {
         if (live == null) return request
         val ids = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
+        val weatherSuppressed =
+            ((live.attackerHp?.let { it > 0 } == true && request.attacker.abilityId in setOf(13, 76)) ||
+                (live.defenderHp?.let { it > 0 } == true && request.defender.abilityId in setOf(13, 76)))
         val weatherName = when {
-            !live.weatherObserved || live.weatherWord == 0 -> null
+            !live.weatherObserved || live.weatherWord == 0 || weatherSuppressed -> null
             live.weatherWord and ids.B_WEATHER_RAIN_NORMAL != 0 -> "Rain"
             live.weatherWord and ids.B_WEATHER_SUN_NORMAL != 0 -> "Sun"
             else -> null
@@ -1335,12 +1338,15 @@ object CalcRequestBoundary {
         )
     }
 
-    private fun observedNeutralizingGasOnField(
+    internal fun observedNeutralizingGasOnField(
         battler: com.dualdex.pokemon.hns.HnsBattlerRuntimeState,
         opposing: com.dualdex.pokemon.hns.HnsBattlerRuntimeState
     ): Boolean? {
-        val battlerGas = battler.volatileNeutralizingGas.takeIf { battler.itemVolatilesObserved }
-        val opposingGas = opposing.volatileNeutralizingGas.takeIf { opposing.itemVolatilesObserved }
+        // Neutralizing Gas is part of the Group D volatile window (native tuple entry 95),
+        // not the later Group D item extension (entries 97+). Keep older 97-entry tuples
+        // authoritative for Gas even when Embargo/Metronome/Transform metadata is absent.
+        val battlerGas = battler.volatileNeutralizingGas.takeIf { battler.groupDVolatilesObserved }
+        val opposingGas = opposing.volatileNeutralizingGas.takeIf { opposing.groupDVolatilesObserved }
         return when {
             battlerGas == true || opposingGas == true -> true
             battlerGas == false && opposingGas == false -> false

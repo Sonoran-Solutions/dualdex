@@ -28,6 +28,7 @@ CONTEXT_CANDIDATES = {
     220, 244, 252, 264, 265, 270, 308, 89, 94, 96, 101, 110, 111, 116, 129, 136, 137, 138, 169, 173, 174, 179,
     178, 182, 184, 199, 200, 204, 206, 231, 232, 233, 246, 262, 263, 276, 288, 289, 292,
     63, 103, 120, 122, 125, 127, 159, 181, 217, 218, 249, 266, 267,
+    13, 45, 76, 117, 226, 227, 228, 229, 245, 269,
 }
 POLICY = ROOT / "app/src/main/java/com/dualdex/calculator/HnsAbilityContextPolicy.kt"
 GROUP_C_POLICY = ROOT / "app/src/main/java/com/dualdex/calculator/HnsGroupCPolicy.kt"

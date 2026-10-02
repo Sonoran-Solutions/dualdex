@@ -135,11 +135,11 @@ object HnsItemContextPolicy {
                 // switch-in frame. Successful activation consumes it, so its live stage and
                 // matching terrain cannot prove a still-held item irrelevant.
                 "HOLD_EFFECT_TERRAIN_SEED", "HOLD_EFFECT_BERSERK_GENE" -> null
-                else -> if (c.ordinaryMove == true) proof(
+                else -> proof(
                     rule = "single_hit_item_activation_outside_damage",
                     source = "src/battle_move_resolution.c:2429",
-                    rationale = "This hold effect acts after damage, at end of turn, or outside the selected hit."
-                ) else null
+                    rationale = "This effect writes state only after the selected damage event, at end of turn, or outside hit resolution; a nonordinary move's own mechanics remain independently refused."
+                )
             }
             "turn_order" -> turnOrder(c)
             "weight_only" -> if (c.ordinaryMove == true) proof(
@@ -776,20 +776,12 @@ object HnsItemContextPolicy {
         )
     }
 
-    private fun postHitSpeed(holdEffect: String, c: Context): Proof? = when {
-        c.ordinaryMove != true || c.attackerAbilityId == null -> null
-        c.attackerAbilityId == ANALYTIC_ABILITY_ID -> relevant(
-            rule = "post_hit_speed_item_attacker_analytic",
-            source = "src/battle_util.c:6691",
-            rationale = "The attacker's Analytic damage depends on turn order."
-        )
-        else -> proof(
-            rule = "post_hit_speed_item_ordinary_move",
-            source = if (holdEffect == "HOLD_EFFECT_ROOM_SERVICE")
-                "src/battle_hold_effects.c:1058" else "src/battle_hold_effects.c:1109",
-            rationale = "This Speed effect cannot change ordinary damage without Analytic."
-        )
-    }
+    private fun postHitSpeed(holdEffect: String, c: Context): Proof = proof(
+        rule = "post_hit_speed_item_current_hit",
+        source = if (holdEffect == "HOLD_EFFECT_ROOM_SERVICE")
+            "src/battle_hold_effects.c:1058" else "src/battle_hold_effects.c:1109",
+        rationale = "This item writes Speed after a miss or Trick Room event, after the current hit's order is established; the current-action Analytic authority owns any turn-order operand and unsupported moves remain independently refused."
+    )
 
     private fun grounding(holdEffect: String, c: Context): Proof? {
         // Groundedness reaches an ordinary hit through the Ground-move branches and the terrain

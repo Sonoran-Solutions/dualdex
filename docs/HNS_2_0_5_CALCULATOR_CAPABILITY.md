@@ -3287,3 +3287,8 @@ The exact factors, source order, supported families, form/state rules, Pledge/OH
 request-local Mega/Z clearance, audit/census deltas, and official-ROM transition evidence are in
 [HNS_GROUP_D_HELD_ITEMS.md](HNS_GROUP_D_HELD_ITEMS.md). Issue #93 remains the follow-up for rare
 mechanics; issue #83 stays open.
+
+
+## Group B live-state writer completion
+
+The source-backed, request-local live-state writer dispositions and current timing contracts are recorded in [`HNS_GROUP_B_CLOSURE.md`](HNS_GROUP_B_CLOSURE.md). A cleared writer removes only its own ability/item attribution; unsupported moves, weather formulas, field states, and format remain independent refusals.

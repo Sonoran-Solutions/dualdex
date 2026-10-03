@@ -1748,4 +1748,52 @@ class BattleConsoleTest {
             hnsBattler(0, 0, listOf(13), fieldStatuses = 0x100), hnsBattler(0, 1, listOf(1, 3), fieldStatuses = 0))
         assertEquals("Unread", HnsFieldDiagnostics.statusRow(torn))
     }
+    @Test
+    fun battleCoverageObservesCanonicalOutcomeWithoutChangingCalculator() {
+        val contexts = listOf(hnsContext(),
+            hnsContext(enemyObservation = hnsBattler(0, 1, listOf(1, 3), itemId = 481)),
+            hnsContext().copy(challengeSettings = null))
+        for (context in contexts) {
+            val sent = mutableListOf<DamageCalculationRequest>()
+            var captured: com.dualdex.calculator.CalcRequestOutcome? = null
+            val observer = object : com.dualdex.coverage.HnsCalcCoverageLogger {
+                override fun battle(active: Boolean) = Unit
+                override fun record(move: com.dualdex.pokemon.MoveInfo, defender: ParsedPokemon,
+                    profile: RomHackProfile, context: BattleHnsCalculationContext,
+                    outcome: com.dualdex.calculator.CalcRequestOutcome) {
+                    captured = outcome
+                    throw IllegalStateException("Injected logger failure")
+                }
+            }
+            fun build(logger: com.dualdex.coverage.HnsCalcCoverageLogger) = BattleHnsDamagePresenter.build(
+                MoveDatabase.get(33, GameDataPackRegistry.getForProfile(hnsProfile)),
+                createTestPokemon(species = 16), hnsProfile, hnsTrust, context,
+                recordingCalculator(sent), StatStages(), StatStages(), logger)
+            val baseline = build(com.dualdex.coverage.NoOpHnsCalcCoverageLogger)
+            sent.clear()
+            val observed = build(observer)
+            assertEquals(baseline, observed)
+            when (val outcome = captured) {
+                is com.dualdex.calculator.CalcRequestOutcome.Ready -> {
+                    assertSame(outcome.request, outcome.verdict.request)
+                    assertEquals(listOf(outcome.request), sent)
+                    assertTrue(outcome.verdict.mayRunEngine)
+                }
+                is com.dualdex.calculator.CalcRequestOutcome.Refused -> {
+                    assertTrue(sent.isEmpty()); assertFalse(outcome.verdict.mayRunEngine)
+                }
+                null -> fail("Battle must observe its structured outcome")
+            }
+        }
+    }
+
+    @Test
+    fun battleCoverageSessionInvalidatesPresentationCache() {
+        val old = hnsContext().copy(coverageSession = 1)
+        val new = old.copy(coverageSession = 2)
+        fun key(c: BattleHnsCalculationContext) = BattleMovePresentationCacheKey.from(
+            c.playerParty[0], createTestPokemon(species = 16), hnsProfile, hnsTrust, StatStages(), StatStages(), c)
+        assertNotEquals(key(old), key(new))
+    }
+
 }

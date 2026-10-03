@@ -183,14 +183,12 @@ data class CalcHnsRuntimeRules(
  *    is exactly 2, so a Doubles spread move without an observed count fails closed rather than
  *    guessing from `field.gameType`. Computed at the boundary from the authoritative runtime
  *    observations (`gAbsentBattlerFlags` + the observed `gBattlersCount` from both battle-level
- *    observations + the move's static target class). It remains null in production today: the
- *    real boundary's single-active-battler observations are AMBIGUOUS in genuine doubles
- *    battles, so the count is not reachable through the real Doubles path (BLOCKED, Gap C4c;
- *    see docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §12.1).
+ *    observations + the move's static target class). Supported ordinary-hit Doubles requests
+ *    carry this authority; missing, unread or unsupported target authority still fails closed.
  *  - [observedBattlersCount]: the battle-level topology (`gBattlersCount`) agreed by both
- *    observations, or null when unread/disagreeing. The production subset models Singles only,
- *    so the policy refuses the whole live calculation when the observed topology is not `2`
- *    (review round 5; see docs/HNS_2_0_5_CALCULATOR_CAPABILITY.md §14.7.2).
+ *    observations, or null when unread/disagreeing. Production supports Singles and an
+ *    authoritative ordinary-hit Doubles subset. Unsupported Doubles execution, targeting and
+ *    partner states retain their specific refusals (see docs/HNS_DOUBLES_AUTHORITY.md).
  *  - [switchInEventsSettled]: true only when both runtime observations agree that H&S has reached
  *    `SWITCH_IN_EVENTS_COUNT`, cleared every active `BattlerState.switchIn` flag, and returned to
  *    the stable action-selection callback. The callback gate covers the earlier replacement window

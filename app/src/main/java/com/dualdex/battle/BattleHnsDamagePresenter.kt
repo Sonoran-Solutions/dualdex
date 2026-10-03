@@ -37,7 +37,9 @@ data class BattleHnsCalculationContext(
     val challengeSettings: HnsChallengeSettingsSnapshot?,
     val playerBattlerState: BattlerRuntimeObservation?,
     val enemyBattlerState: BattlerRuntimeObservation?,
-    val activeBattle: Boolean
+    val activeBattle: Boolean,
+    /** Snapshot token prevents delayed Battle jobs from contaminating a later session. */
+    val coverageSession: Long? = null
 )
 
 /** Stable, value-based participant key (the ParsedPokemon move/PP fields are primitive arrays). */
@@ -82,6 +84,7 @@ data class BattleMovePresentationCacheKey(
     val playerStages: StatStages,
     val enemyStages: StatStages,
     val activeBattle: Boolean,
+    val coverageSession: Long?,
     val activePlayerSlot: Int,
     val activeEnemySlot: Int?,
     val challengeSettings: HnsChallengeSettingsSnapshot?,
@@ -105,6 +108,7 @@ data class BattleMovePresentationCacheKey(
             playerStages = playerStages,
             enemyStages = enemyStages,
             activeBattle = context.activeBattle,
+            coverageSession = context.coverageSession,
             activePlayerSlot = context.activePlayerSlot,
             activeEnemySlot = context.activeEnemySlot,
             challengeSettings = context.challengeSettings,
@@ -159,7 +163,8 @@ object BattleHnsDamagePresenter {
         context: BattleHnsCalculationContext?,
         calculator: BattleDamageCalculator,
         attackerStages: StatStages,
-        defenderStages: StatStages
+        defenderStages: StatStages,
+        coverageLogger: com.dualdex.coverage.HnsCalcCoverageLogger = com.dualdex.coverage.HnsCoverage.logger
     ): BattleHnsDamagePresentation {
         val rules = CalcRequestBoundary.resolveHnsRuntimeRules(
             profile = profile,
@@ -224,6 +229,7 @@ object BattleHnsDamagePresenter {
             is CalcRequestOutcome.Refused -> outcome.verdict
             is CalcRequestOutcome.Ready -> outcome.verdict
         }
+        com.dualdex.coverage.HnsCoverage.observe(moveInfo, defender, profile, context, outcome, coverageLogger)
         HnsFieldDiagnostics.record(verdict.hnsFieldDiagnostics?.fieldState)
 
         return when (outcome) {

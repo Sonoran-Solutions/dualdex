@@ -381,7 +381,7 @@ class CompanionViewModel(
         _battlePresence.value = presence
         val inBattle = battlePresenceStabilizer.update(presence)
         if (inBattle != _isInBattle.value) {
-            _isInBattle.value = inBattle
+            updateCoverageBattlePresence(inBattle)
         }
         if (inBattle) {
             val activeSlot = coreCoordinator.getActiveBattlerSlot(gameId)
@@ -564,7 +564,7 @@ class CompanionViewModel(
         if (_activeEnemyResolution.value != com.dualdex.battle.ActiveEnemyResolution()) {
             _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
         }
-        if (_isInBattle.value) _isInBattle.value = false
+        updateCoverageBattlePresence(false)
         if (_battlePresence.value != com.dualdex.battle.BattlePresence.UNKNOWN) {
             _battlePresence.value = com.dualdex.battle.BattlePresence.UNKNOWN
         }
@@ -616,8 +616,13 @@ class CompanionViewModel(
         _activePlayerBattlerIndex.value = index
     }
 
+    private fun updateCoverageBattlePresence(active: Boolean) {
+        com.dualdex.coverage.HnsCoverage.battle(active)
+        _isInBattle.value = active
+    }
+
     fun setIsInBattle(inBattle: Boolean) {
-        _isInBattle.value = inBattle
+        updateCoverageBattlePresence(inBattle)
         if (!inBattle) {
             _activeEnemyMemberIndex.value = -1
             _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
@@ -635,7 +640,7 @@ class CompanionViewModel(
     fun updateEnemyParty(party: List<ParsedPokemon>) {
         _enemyParty.value = party
         val inBattle = party.isNotEmpty()
-        _isInBattle.value = inBattle
+        updateCoverageBattlePresence(inBattle)
         if (!inBattle) {
             _activeEnemyMemberIndex.value = -1
             _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()

@@ -442,6 +442,7 @@ class SettingsScreenView(
                 setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
             }
             addView(diagnosticsTv)
+            com.dualdex.coverage.HnsCoverageFactory.addSettingsActions(this)
 
             val noticesTv = TextView(context).apply {
                 text = "Core: mGBA (MPL-2.0) · Calculator: @smogon/calc via QuickJS-NG\nNot affiliated with Nintendo, The Pokémon Company, or Game Freak."

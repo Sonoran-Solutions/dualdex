@@ -10,6 +10,10 @@ exercise a given mechanic (and to declare which hits are type immunities, taken 
 types, move type/power/category and every roll as the pinned engine reports them, and fails when a
 declared expectation (for example ``expect: immune``) does not hold.
 
+Surfaces describe each scenario's actual production contract, not a blanket format restriction.
+The authoritative ordinary-hit Doubles subset is now production-modelled; historical scenario
+surfaces and vectors remain unchanged unless their individual contract warrants reclassification.
+
 Surfaces:
 
 * ``modelled``    -- mechanics the DualDex H&S calculator claims to reproduce exactly in production
@@ -19,7 +23,8 @@ Surfaces:
                      their explicit ateBoost behavior, sound-gated Liquid Voice, Adaptability STAB,
                      and the first low-state final ability modifiers);
 * ``engine-only`` -- arithmetic the calculator *engine* contains but production refuses or strips
-                     (Doubles, Thick Fat, Guts contexts outside the admitted physical/status path,
+                     (historical/direct-JS or deliberately unsupported Doubles scenarios,
+                     Thick Fat, Guts contexts outside the admitted physical/status path,
                      Huge/Pure Power, type-boost items).
 """
 

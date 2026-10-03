@@ -10,6 +10,7 @@
 #                    # (committed corpus, ROM-free) + data-pack generator tests
 #                    # + H&S census source-reader tests + Kotlin unit tests
 #                    # (which include the committed issue #84 census artifact check)
+#   ./ci.sh coverage-test # focused H&S debug coverage tests + structural release proof
 #   ./ci.sh build    # assemble the debug APK
 #   ./ci.sh all      # test then build (default)
 #   ./ci.sh release  # assemble the production-signed release APK (requires
@@ -289,6 +290,7 @@ hns_damage_oracle_test() {
 }
 
 gradle_test() {
+  python3 tools/ci/check_hns_coverage_release.py
   echo "== gradle unit tests (self-contained: no ROM, no network) =="
   local census_args=()
   case "${DUALDEX_CENSUS_GENERATE:-false}" in
@@ -606,10 +608,11 @@ gradle_release() {
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 case "${1:-all}" in
   test)         native_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test ;;
+  coverage-test) python3 tools/ci/check_hns_coverage_release.py; ./gradlew testDebugUnitTest --tests "com.dualdex.coverage.HnsCoverageTest" --tests "com.dualdex.battle.BattleConsoleTest.battleCoverage*" ;;
   source-check) source_check ;;
   build)        gradle_build ;;
   all)          native_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
   release)      gradle_release ;;
-  *)            echo "usage: $0 [test|source-check|build|all|release]" >&2; exit 2 ;;
+  *)            echo "usage: $0 [test|coverage-test|source-check|build|all|release]" >&2; exit 2 ;;
 esac
 fi

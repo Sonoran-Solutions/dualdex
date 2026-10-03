@@ -1,0 +1,426 @@
+{
+  "startingMain": "929f075bd25a99756ea0d2fe1158e69e8386424e",
+  "before": {
+    "tiers": {
+      "FULLY_MODELLED": 19336,
+      "CAVEATED_ESTIMATE": 224,
+      "REFUSED": 4718
+    },
+    "noResultBattles": [
+      {
+        "trainer": "TRAINER_AMY_AND_MAY_HNS",
+        "requests": 24,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN",
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_ANN_AND_ANNE_HNS",
+        "requests": 24,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_BROOKE_HNS",
+        "requests": 12,
+        "format": "Singles",
+        "reasons": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "SPECIES_NOT_IN_PINNED_DATA"
+        ]
+      },
+      {
+        "trainer": "TRAINER_DUFF_AND_EDA_HNS",
+        "requests": 26,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_FINLEY_HNS",
+        "requests": 56,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Sniper:UNKNOWN",
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Draco Plate:UNKNOWN",
+          "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Scope Lens:UNKNOWN",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_JOSHUA_HNS",
+        "requests": 42,
+        "format": "Singles",
+        "reasons": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "SPECIES_NOT_IN_PINNED_DATA"
+        ]
+      },
+      {
+        "trainer": "TRAINER_JO_AND_ZOE_HNS",
+        "requests": 28,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_LEA_AND_PIA_HNS",
+        "requests": 56,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_MEG_AND_PEG_HNS",
+        "requests": 28,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Sturdy:UNKNOWN",
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_MUALANI_HNS",
+        "requests": 84,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Splash Plate:UNKNOWN",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_RUTH_HNS",
+        "requests": 12,
+        "format": "Singles",
+        "reasons": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "SPECIES_NOT_IN_PINNED_DATA"
+        ]
+      },
+      {
+        "trainer": "TRAINER_THOM_AND_KAE_HNS",
+        "requests": 26,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      }
+    ],
+    "leadMatchup": {
+      "definition": "for every trainer battle, the trainer's pinned party slot 0 against each reference team lead, evaluated in both directions over that pair's eligible damaging moves; displayable only when every eligible request in the pair displays a number",
+      "battlesTotal": 651,
+      "battlesIncluded": 651,
+      "battlesExcludedNoEligibleMove": 0,
+      "pairsTotal": 1302,
+      "pairsDisplayable": 376,
+      "eligibleRequests": 8450,
+      "requestsDisplayable": 6724,
+      "singlesPairsTotal": 1284,
+      "singlesPairsDisplayable": 376,
+      "doublesPairsTotal": 18,
+      "doublesPairsDisplayable": 0
+    },
+    "refusedCauses": {
+      "HNS_MOVE_MECHANICS_NOT_MODELLED": 3578,
+      "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED": 352,
+      "SPECIES_NOT_IN_PINNED_DATA": 336,
+      "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED": 288,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Sturdy:UNKNOWN": 232,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN": 176,
+      "HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED": 152,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN": 118,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Quick Claw:UNKNOWN": 78,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Mind's Eye:UNKNOWN": 56,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Scope Lens:UNKNOWN": 52,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Scrappy:UNKNOWN": 48,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Torrent:UNKNOWN": 42,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Mind's Eye:UNKNOWN": 40,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Overgrow:UNKNOWN": 38,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Blaze:UNKNOWN": 38,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Scrappy:UNKNOWN": 30,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Silk Scarf:UNKNOWN": 30,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Flash Fire:UNKNOWN": 22,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Life Orb:UNKNOWN": 20,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Technician:UNKNOWN": 18,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Hard Stone:UNKNOWN": 16,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Infiltrator:UNKNOWN": 16,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Surge Surfer:UNKNOWN": 16,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Heavy Metal:UNKNOWN": 16,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Miracle Seed:UNKNOWN": 12,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Heavy Metal:UNKNOWN": 12,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Liquid Ooze:UNKNOWN": 10,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Charcoal:UNKNOWN": 10,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Infiltrator:UNKNOWN": 10,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Sheer Force:UNKNOWN": 10,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Sniper:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Flying Gem:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Lagging Tail:UNKNOWN": 8,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Analytic:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:defender:Electric Seed:UNKNOWN": 8,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Surge Surfer:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Mystic Water:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Never-melt Ice:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Normal Gem:UNKNOWN": 6,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Iron Fist:UNKNOWN": 6,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Aftermath:UNKNOWN": 6,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Soft Sand:UNKNOWN": 6,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Color Change:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Rock Incense:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Razor Claw:UNKNOWN": 4,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Sharpness:UNKNOWN": 4,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Unnerve:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Expert Belt:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Black Belt:UNKNOWN": 4,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Unburden:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Black Glasses:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Electric Seed:UNKNOWN": 4,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Cud Chew:UNKNOWN": 4,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Quick Draw:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Sharp Beak:UNKNOWN": 2,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Harvest:UNKNOWN": 2,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Draco Plate:UNKNOWN": 2,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Steely Spirit:UNKNOWN": 2,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Magnet:UNKNOWN": 2,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Splash Plate:UNKNOWN": 2,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Rough Skin:UNKNOWN": 2,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Pixie Plate:UNKNOWN": 2,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Pixilate:UNKNOWN": 2,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sand Force:UNKNOWN": 2,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Reckless:UNKNOWN": 2,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Trace:UNKNOWN": 2,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Icicle Plate:UNKNOWN": 2
+    },
+    "randomAbilities": {
+      "refused": 821104,
+      "caveated": 16820,
+      "clear": 2939736,
+      "identitiesAnyRefusal": 133,
+      "identitiesCaveated": 4,
+      "identitiesClearOnly": 174
+    }
+  },
+  "after": {
+    "tiers": {
+      "FULLY_MODELLED": 19568,
+      "CAVEATED_ESTIMATE": 446,
+      "REFUSED": 4264
+    },
+    "noResultBattles": [
+      {
+        "trainer": "TRAINER_AMY_AND_MAY_HNS",
+        "requests": 24,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN",
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_ANN_AND_ANNE_HNS",
+        "requests": 24,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_DUFF_AND_EDA_HNS",
+        "requests": 26,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_FINLEY_HNS",
+        "requests": 56,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Sniper:UNKNOWN",
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Draco Plate:UNKNOWN",
+          "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Scope Lens:UNKNOWN",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_JO_AND_ZOE_HNS",
+        "requests": 28,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_LEA_AND_PIA_HNS",
+        "requests": 56,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_MEG_AND_PEG_HNS",
+        "requests": 28,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_MUALANI_HNS",
+        "requests": 84,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Splash Plate:UNKNOWN",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      },
+      {
+        "trainer": "TRAINER_THOM_AND_KAE_HNS",
+        "requests": 26,
+        "format": "Doubles",
+        "reasons": [
+          "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED",
+          "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED",
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ]
+      }
+    ],
+    "leadMatchup": {
+      "definition": "for every trainer battle, the trainer's pinned party slot 0 against each reference team lead, evaluated in both directions over that pair's eligible damaging moves; displayable only when every eligible request in the pair displays a number",
+      "battlesTotal": 651,
+      "battlesIncluded": 651,
+      "battlesExcludedNoEligibleMove": 0,
+      "pairsTotal": 1302,
+      "pairsDisplayable": 384,
+      "eligibleRequests": 8450,
+      "requestsDisplayable": 6914,
+      "singlesPairsTotal": 1284,
+      "singlesPairsDisplayable": 384,
+      "doublesPairsTotal": 18,
+      "doublesPairsDisplayable": 0
+    },
+    "refusedCauses": {
+      "HNS_MOVE_MECHANICS_NOT_MODELLED": 3578,
+      "HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED": 352,
+      "HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED": 288,
+      "HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED": 152,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN": 140,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN": 118,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Quick Claw:UNKNOWN": 78,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Mind's Eye:UNKNOWN": 56,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Scope Lens:UNKNOWN": 52,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Scrappy:UNKNOWN": 48,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Torrent:UNKNOWN": 42,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Mind's Eye:UNKNOWN": 40,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Overgrow:UNKNOWN": 38,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Blaze:UNKNOWN": 38,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Scrappy:UNKNOWN": 30,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Silk Scarf:UNKNOWN": 30,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Flash Fire:UNKNOWN": 22,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Life Orb:UNKNOWN": 20,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Technician:UNKNOWN": 18,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Hard Stone:UNKNOWN": 16,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Infiltrator:UNKNOWN": 16,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Surge Surfer:UNKNOWN": 16,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:defender:Heavy Metal:UNKNOWN": 16,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Miracle Seed:UNKNOWN": 12,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Heavy Metal:UNKNOWN": 12,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Liquid Ooze:UNKNOWN": 10,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Charcoal:UNKNOWN": 10,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Infiltrator:UNKNOWN": 10,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Sheer Force:UNKNOWN": 10,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Sniper:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Flying Gem:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Lagging Tail:UNKNOWN": 8,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Analytic:UNKNOWN": 8,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Truant:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:defender:Electric Seed:UNKNOWN": 8,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Surge Surfer:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Mystic Water:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Never-melt Ice:UNKNOWN": 8,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Normal Gem:UNKNOWN": 6,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Iron Fist:UNKNOWN": 6,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Aftermath:UNKNOWN": 6,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Soft Sand:UNKNOWN": 6,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Color Change:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Rock Incense:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Razor Claw:UNKNOWN": 4,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Sharpness:UNKNOWN": 4,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Unnerve:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Expert Belt:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Black Belt:UNKNOWN": 4,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Unburden:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Black Glasses:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Electric Seed:UNKNOWN": 4,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Cud Chew:UNKNOWN": 4,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Quick Draw:UNKNOWN": 4,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Sharp Beak:UNKNOWN": 2,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Harvest:UNKNOWN": 2,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Draco Plate:UNKNOWN": 2,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Steely Spirit:UNKNOWN": 2,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Magnet:UNKNOWN": 2,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Splash Plate:UNKNOWN": 2,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Rough Skin:UNKNOWN": 2,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Pixie Plate:UNKNOWN": 2,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Pixilate:UNKNOWN": 2,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sand Force:UNKNOWN": 2,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Reckless:UNKNOWN": 2,
+      "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Trace:UNKNOWN": 2,
+      "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Icicle Plate:UNKNOWN": 2
+    },
+    "randomAbilities": {
+      "refused": 797124,
+      "caveated": 12640,
+      "clear": 2967896,
+      "identitiesAnyRefusal": 134,
+      "identitiesCaveated": 4,
+      "identitiesClearOnly": 174
+    }
+  }
+}

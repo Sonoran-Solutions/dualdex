@@ -418,6 +418,7 @@ object HnsCalcCensusReport {
             "weather" to JsonValue.str("clear"),
             "defenderSide" to JsonValue.str("no Reflect, no Light Screen"),
             "volatiles" to JsonValue.str("observed neutral on both battlers"),
+            "doublesOperands" to JsonValue.str("version 1 complete indexed packet; present neutral Insomnia partners, no items/Helping Hand/Pledge/Ruin/redirection/suppression; host-only stated context"),
             "statStages" to JsonValue.str("all zero"),
             "badges" to JsonValue.str("attacker observed unboosted (badges are player-side only)"),
             "hp" to JsonValue.str("full HP on both battlers, status1 = 0"),
@@ -813,6 +814,12 @@ object HnsCalcCensusReport {
         out.append("- Group D operands explicitly observed neutral: personality 255, Slow Start timer 0, " +
             "raw first-turn value 0, stored Supreme counter 0, Paradox selector 0, all new flags false, " +
             "pending Dynamax false. Analytic action phase remains UNKNOWN at the menu;\n")
+        out.append("- Doubles adds a complete matching version-1 four-index operand packet: present " +
+            "neutral Insomnia partners (Machamp/Snorlax), no items, suppression, Ruin, Helping Hand, " +
+            "Pledge or redirection. This extends the neutral runtime context to the new required " +
+            "observation fields; partner effects are not derived from trainer-party definitions. " +
+            "It measures each original request under that stated context, not every possible live " +
+            "partner state. Trainer inventory, reference teams and request keys are unchanged;\n")
         out.append("- switch-in events observed settled: `eventState.switchIn = " +
             "SWITCH_IN_EVENTS_COUNT` and every active `BattlerState.switchIn` flag clear;\n")
         out.append("- both battlers at full HP with `status1 = 0`, so a pinch ability is provably " +
@@ -912,8 +919,8 @@ object HnsCalcCensusReport {
         out.append("| Eligible requests in the lead metric | ${lead.requestsTotal} |\n")
         out.append("| Of those, displaying | ${lead.requestsDisplayable} |\n\n")
         out.append(
-            "Split by the trainer's own battle format, because the production subset models " +
-                "Singles only and a Doubles battle is refused by the live-battle-format gate:\n\n"
+            "Split by the trainer's own battle format; Doubles requests require the complete " +
+                "source-proven live operand packet in addition to target count:\n\n"
         )
         out.append("| Format | Pairs evaluated | Pairs displaying | Coverage |\n|---|---:|---:|---:|\n")
         out.append(
@@ -1303,9 +1310,9 @@ object HnsCalcCensusReport {
         )
         out.append(
             "- Doubles trainers are measured as Doubles because that is what they are. The " +
-                "production subset models Singles only, so those battles are refused by the " +
-                "live-battle-format gate; that is a real production limitation being measured, not " +
-                "a census artefact.\n"
+                "ordinary-hit subset consumes the documented complete neutral partner packet. " +
+                "Missing packet authority remains refused in production; supported Doubles " +
+                "requests clear the format gate only with live source-proven operands.\n"
         )
         return out.toString()
     }

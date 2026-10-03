@@ -3222,7 +3222,7 @@ static void check_gap_c4b_arithmetic_coverage(void) {
             "\"attacker\":{\"species\":\"Machamp\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
             "\"defender\":{\"species\":\"Snorlax\",\"level\":50,\"nature\":\"Hardy\",\"ability\":\"(other)\"," IVS_MAX "," EVS_ZERO "},"
             "\"move\":{\"name\":\"Strength\"},"
-            "\"field\":{\"gameType\":\"Doubles\"}}";
+            "\"field\":{\"gameType\":\"Doubles\",\"targetCount\":1}}";
         char* out = js_calc_calculate(req);
         check_condition("doubles single-target request produced a response", out != NULL);
         if (out != NULL) {

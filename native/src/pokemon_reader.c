@@ -2764,6 +2764,69 @@ static void read_analytic_turn_order(
     out_state->analytic_turn_order = last ? 1 : 2;
 }
 
+static uint32_t read_packed_bits_le(const uint8_t* bytes, unsigned bit, unsigned width) {
+    uint32_t value = 0;
+    for (unsigned i = 0; i < width; i++)
+        value |= ((bytes[(bit + i) / 8] >> ((bit + i) % 8)) & 1u) << i;
+    return value;
+}
+
+/* Version 1 packet: exact source ABI, not inferred team state. Record order is
+ * index, position, party slot, HP, species, raw ability, item, Gastro Acid,
+ * Neutralizing Gas, transformed, semi-invulnerable, Ruin flags, Helping Hand.
+ * Repeated reads below detect torn global/partner operands. */
+static bool read_doubles_operands(DualDexGbaReadFn read, void* user,
+                                 const uint8_t* ewram, size_t ewram_size,
+                                 const GameMemoryConfig* config, uint32_t expected_type_flags, uint32_t out[58]) {
+    BattleStateRaw b;
+    if (pokemon_read_battle_lifecycle(read, user, ewram, ewram_size, config, &b) !=
+        BATTLE_LIFECYCLE_ACTIVE || b.battlers_count != 4 || !b.absent_flags_readable ||
+        b.battle_type_flags != expected_type_flags ||
+        !(b.battle_type_flags & HNS_LIVE_DOUBLES_BATTLE_TYPE_MASK))
+        return false;
+    memset(out, 0, 58 * sizeof(*out));
+    out[0] = 1; out[1] = b.battlers_count; out[2] = b.absent_battler_flags;
+    uint8_t side[HNS_LIVE_DOUBLES_SIDE_TIMER_SIZE];
+    for (unsigned i = 0; i < 2; i++) {
+        if (!read(user, HNS_LIVE_GSIDETIMERS_GBA_ADDRESS + i * sizeof(side), side, sizeof(side)))
+            return false;
+        out[3 + i] = read_packed_bits_le(side, HNS_LIVE_DOUBLES_FOLLOW_ME_BIT,
+                                       HNS_LIVE_DOUBLES_FOLLOW_ME_WIDTH);
+    }
+    uint8_t ptr[4], mold;
+    if (!read(user, DUALDEX_GBA_EWRAM_BASE + config->battle_struct_ptr_offset, ptr, 4)) return false;
+    uint32_t bs = read32_le(ptr);
+    if (bs < DUALDEX_GBA_EWRAM_BASE || bs >= DUALDEX_GBA_EWRAM_BASE + ewram_size ||
+        !read(user, bs + HNS_LIVE_DOUBLES_MOLD_BREAKER_BIT / 8, &mold, 1)) return false;
+    out[5] = (mold >> (HNS_LIVE_DOUBLES_MOLD_BREAKER_BIT % 8)) & 1u;
+    if (!read(user, bs + HNS_LIVE_DOUBLES_PLEDGE_BIT / 8, &mold, 1)) return false;
+    out[5] |= ((mold >> (HNS_LIVE_DOUBLES_PLEDGE_BIT % 8)) & 1u) << 1;
+    for (unsigned i = 0; i < 4; i++) {
+        uint8_t mon[HNS_BATTLE_POKEMON_SIZEOF], protect[HNS_LIVE_DOUBLES_PROTECT_SIZE];
+        if (!read(user, DUALDEX_GBA_EWRAM_BASE + config->battle_mons_offset + i * sizeof(mon), mon, sizeof(mon)) ||
+            !read(user, HNS_LIVE_GPROTECTSTRUCTS_GBA_ADDRESS + i * sizeof(protect), protect, sizeof(protect))) return false;
+        uint32_t* r = out + 6 + i * 13;
+        const uint8_t* v = mon + HNS_LIVE_BP_VOLATILES_OFFSET;
+        r[0] = i; r[1] = b.position[i]; r[2] = b.party_index[i];
+        r[3] = read16_le(mon + HNS_LIVE_BP_HP_OFFSET);
+        r[4] = read16_le(mon + HNS_BATTLE_POKEMON_SPECIES_OFFSET);
+        r[5] = read16_le(mon + HNS_BATTLE_POKEMON_ABILITY_OFFSET);
+        r[6] = read16_le(mon + HNS_BATTLE_POKEMON_ITEM_OFFSET);
+        r[7] = read_packed_bits_le(v, HNS_LIVE_BP_VOLATILE_GASTRO_ACID_BIT, 1);
+        r[8] = read_packed_bits_le(v, HNS_LIVE_BP_VOLATILE_NEUTRALIZING_GAS_BIT, 1);
+        r[9] = read_packed_bits_le(v, HNS_LIVE_BP_VOLATILE_TRANSFORMED_BIT, 1);
+        r[10] = read_packed_bits_le(v, HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT,
+                                  HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH);
+        r[11] = read_packed_bits_le(v, HNS_LIVE_BP_VOLATILE_VESSEL_OF_RUIN_BIT, 1) |
+                read_packed_bits_le(v, HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT, 1) << 1 |
+                read_packed_bits_le(v, HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT, 1) << 2 |
+                read_packed_bits_le(v, HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT, 1) << 3;
+        r[12] = read_packed_bits_le(protect, HNS_LIVE_DOUBLES_HELPING_HAND_BIT,
+                                   HNS_LIVE_DOUBLES_HELPING_HAND_WIDTH);
+    }
+    return true;
+}
+
 bool pokemon_read_battler_runtime_state_gba(
     DualDexGbaReadFn read,
     void* user,
@@ -2804,7 +2867,12 @@ bool pokemon_read_battler_runtime_state_gba(
     // and the opponent role never picks "the first enemy".
     int8_t battler = -1;
     int16_t party_slot = -1;
-    if (role == BATTLER_ROLE_PLAYER) {
+    if (role >= BATTLER_ROLE_INDEX_0 && role <= BATTLER_ROLE_INDEX_3) {
+        battler = (int8_t)(role - BATTLER_ROLE_INDEX_0);
+        if (battler >= battle.battlers_count || !battle.positions_readable ||
+            !battle.party_indexes_readable || !battle.absent_flags_readable) return false;
+        party_slot = battle.party_index[(uint8_t)battler];
+    } else if (role == BATTLER_ROLE_PLAYER) {
         // Player side: the single present player-side battler per gBattlerPositions. In a battle
         // with two present player-side battlers (doubles/partner) nothing is chosen and the
         // observation is explicitly AMBIGUOUS; a fainted battler is a pre-replacement transition,
@@ -2822,7 +2890,7 @@ bool pokemon_read_battler_runtime_state_gba(
         }
         battler = (int8_t)player.battler;
         party_slot = player.party_index;
-    } else {
+    } else if (role == BATTLER_ROLE_OPPONENT) {
         ActiveEnemyInfo info;
         PartySnapshot scratch;
         ActiveEnemyState enemy = pokemon_resolve_active_enemy(
@@ -3103,7 +3171,7 @@ bool pokemon_read_battler_runtime_state_gba(
     }
     out_state->stages_invalid = any_stage_invalid;
 
-    if (role == BATTLER_ROLE_PLAYER) {
+    if ((battle.position[(uint8_t)battler] & 1u) == 0) {
         HnsBadgeState badges;
         if (pokemon_read_hns_badge_state_gba(read, user, config, &badges)) {
             out_state->badges_observed = true;
@@ -3198,7 +3266,7 @@ bool pokemon_read_battler_runtime_state_gba(
                               ((uint32_t)ptr_bytes[3] << 24);
             uint32_t byte_addr = bs_ptr + config->battle_struct_gimmick_offset +
                                  config->battle_gimmick_active_offset +
-                                 (uint32_t)role * config->battle_gimmick_side_stride +
+                                 (uint32_t)(battle.position[(uint8_t)battler] & 1u) * config->battle_gimmick_side_stride +
                                  (uint32_t)party_slot;
             if (bs_ptr >= DUALDEX_GBA_EWRAM_BASE &&
                 (size_t)(bs_ptr - DUALDEX_GBA_EWRAM_BASE) < ewram_size &&
@@ -3260,6 +3328,22 @@ bool pokemon_read_battler_runtime_state_gba(
 
     read_analytic_turn_order(read, user, ewram_size, config, battler, out_state);
 
+    if (!out_state->hp_observed || out_state->hp == 0) return false;
+    if (battle.battlers_count == 4) {
+        uint32_t first[58], second[58];
+        if (read_doubles_operands(read, user, ewram, ewram_size, config, battle.battle_type_flags, first) &&
+            read_doubles_operands(read, user, ewram, ewram_size, config, battle.battle_type_flags, second) &&
+            memcmp(first, second, sizeof(first)) == 0 &&
+            first[1] == battle.battlers_count && first[2] == battle.absent_battler_flags) {
+            const uint32_t* r = first + 6 + (uint8_t)battler * 13;
+            if (r[1] == battle.position[(uint8_t)battler] && r[2] == (uint32_t)party_slot &&
+                r[3] == out_state->hp && r[4] == out_state->species_id &&
+                r[5] == out_state->ability_id && r[6] == out_state->item_id) {
+                memcpy(out_state->doubles_operands, first, sizeof(first));
+                out_state->doubles_observed = true;
+            }
+        }
+    }
     out_state->status = (out_state->ability_invalid || out_state->types_invalid ||
                          out_state->item_invalid || out_state->stages_invalid ||
                          (out_state->volatiles_observed &&

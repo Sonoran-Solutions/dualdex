@@ -256,6 +256,13 @@ class HnsBattlerRuntimeStateTest {
         assertFalse(st.volatileTarShot)
     }
 
+    @Test
+    fun `out of semantic domain charge timer remains visible for boundary refusal`() {
+        val st = HnsBattlerRuntimeState.fromNativeArray(c4eTransientTuple(chargeTimer = 3))
+        assertTrue(st.transientVolatilesObserved)
+        assertEquals(3, st.volatileChargeTimer)
+    }
+
     /**
      * The review-round-4 72-int tuple: the 62-int correction-pass layout extended with the
      * persistent volatile operands [62..71] (type-immunity bypass, grounding, ability suppression,

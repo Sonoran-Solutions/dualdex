@@ -44,6 +44,9 @@ class BattleConsoleScreenView(
     private val onOpenCalculatorRequested: (() -> Unit)? = null
 ) : LinearLayout(context) {
 
+    private var doublesTargetsKey = emptyList<Int>()
+    private val doublesTargetSelector = LinearLayout(context).apply { orientation = HORIZONTAL }
+
     // View Holders for incremental in-place updates
     private class CombatantHolder(
         val root: LinearLayout,
@@ -218,6 +221,7 @@ class BattleConsoleScreenView(
             visibility = View.GONE
         }
         battleModeContainer.addView(liveBattleContainer)
+        liveBattleContainer.addView(doublesTargetSelector)
 
         // Build Matchup Card
         buildMatchupSection(liveBattleContainer)
@@ -766,6 +770,9 @@ class BattleConsoleScreenView(
         val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         viewScope = scope
 
+        scope.launch { viewModel.selectedMemberIndex.collectLatest { refreshUI() } }
+        scope.launch { viewModel.hnsBattlers.collectLatest { refreshUI() } }
+        scope.launch { viewModel.selectedHnsEnemyBattler.collectLatest { refreshUI() } }
         scope.launch { viewModel.playerParty.collectLatest { refreshUI() } }
         scope.launch { viewModel.enemyParty.collectLatest { refreshUI() } }
         scope.launch { viewModel.isInBattle.collectLatest { refreshUI() } }
@@ -807,16 +814,36 @@ class BattleConsoleScreenView(
         val party = viewModel.playerParty.value
         val enemies = viewModel.enemyParty.value
         val inBattle = viewModel.isInBattle.value
-        val activePlayerIdx = viewModel.activePlayerBattlerIndex.value
-        val activeEnemyIdx = viewModel.activeEnemyMemberIndex.value
+        val chosenDoublesEnemy = viewModel.selectedHnsEnemyObservation()
+        val activePlayerIdx = if (viewModel.hnsBattlers.value.isNotEmpty())
+            viewModel.selectedMemberIndex.value else viewModel.activePlayerBattlerIndex.value
+        val activeEnemyIdx = chosenDoublesEnemy?.state?.partySlot ?: viewModel.activeEnemyMemberIndex.value
+        val targetsKey = viewModel.hnsBattlers.value.flatMap { listOf(it.state.battlerIndex ?: -1,
+            it.state.speciesId ?: -1,it.state.partySlot ?: -1) } +
+            listOf(viewModel.selectedMemberIndex.value,viewModel.selectedHnsEnemyBattler.value ?: -1)
+        if (targetsKey != doublesTargetsKey) {
+            doublesTargetsKey = targetsKey
+            doublesTargetSelector.removeAllViews()
+            viewModel.hnsBattlers.value.forEach { o ->
+                val index = o.state.battlerIndex ?: return@forEach
+                val record = o.state.doubles?.battlers?.getOrNull(index) ?: return@forEach
+                if (!o.state.doubles.alive(index)) return@forEach
+                val player = record.position and 1 == 0
+                doublesTargetSelector.addView(DualDexComponents.secondaryButton(context,
+                    "${if (player) "Attacker" else "Target"}: ${com.dualdex.pokemon.SpeciesDatabase.get(record.species).name}") {
+                    if (player) viewModel.selectMember(record.partySlot) else viewModel.selectHnsEnemyBattler(index)
+                })
+            }
+        }
+        doublesTargetSelector.visibility = if (doublesTargetSelector.childCount == 0) View.GONE else View.VISIBLE
         val enemyResolution = viewModel.activeEnemyResolution.value
         val profile = viewModel.activeProfile.value
         val runtimeTrust = viewModel.runtimeRomTrust.value
         val playerStages = viewModel.playerStatStages.value
         val enemyStages = viewModel.enemyStatStages.value
         val challengeSettings = viewModel.challengeSettings.value
-        val playerBattlerState = viewModel.playerBattlerState.value
-        val enemyBattlerState = viewModel.enemyBattlerState.value
+        val playerBattlerState = viewModel.selectedHnsPlayerObservation(activePlayerIdx) ?: viewModel.playerBattlerState.value
+        val enemyBattlerState = chosenDoublesEnemy ?: viewModel.enemyBattlerState.value
         val uiSnap = viewModel.battleUiSnapshot.value
 
         val attacker: ParsedPokemon? = if (inBattle) {
@@ -825,7 +852,7 @@ class BattleConsoleScreenView(
             null
         }
         val defender: ParsedPokemon? = if (inBattle &&
-            enemyResolution.hasResolvedSlot &&
+            (enemyResolution.hasResolvedSlot || chosenDoublesEnemy != null) &&
             activeEnemyIdx in enemies.indices
         ) {
             enemies[activeEnemyIdx].takeIf { !it.isEmpty && it.isValid }
@@ -836,7 +863,7 @@ class BattleConsoleScreenView(
         val hnsCalculationContext = BattleHnsCalculationContext(
             playerParty = party.toList(),
             activePlayerSlot = activePlayerIdx,
-            activeEnemySlot = activeEnemyIdx.takeIf { enemyResolution.hasResolvedSlot },
+            activeEnemySlot = activeEnemyIdx.takeIf { enemyResolution.hasResolvedSlot || chosenDoublesEnemy != null },
             challengeSettings = challengeSettings,
             playerBattlerState = playerBattlerState,
             enemyBattlerState = enemyBattlerState,

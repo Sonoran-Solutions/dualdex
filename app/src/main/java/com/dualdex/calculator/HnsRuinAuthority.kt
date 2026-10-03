@@ -8,7 +8,7 @@ import com.dualdex.pokemon.hns.HnsItemRegistry
 internal object HnsRuinAuthority {
     fun modifies(abilityId: Int, c: HnsAbilityContextPolicy.Context): Boolean? {
         val live = c.liveBattleState ?: return null
-        if (c.observedBattlersCount != 2 || !c.attackerAbilityObserved || !c.defenderAbilityObserved ||
+        if ((c.observedBattlersCount != 2 && !(c.observedBattlersCount == 4 && live.doubles != null)) || !c.attackerAbilityObserved || !c.defenderAbilityObserved ||
             c.attackerAbilityId == null || c.defenderAbilityId == null ||
             live.attackerHp == null || live.defenderHp == null ||
             live.attackerHp <= 0 || live.defenderHp <= 0) return null
@@ -35,6 +35,10 @@ internal object HnsRuinAuthority {
         val self = if (abilityId == 284 || abilityId == 286) flags.first else flags.second
         if (self == null) return null
         if (self) return false
+        live.doubles?.let {
+            val bit = when (abilityId) { 284 -> 1; 285 -> 2; 286 -> 4; else -> 8 }
+            return it.ruinFlags and bit != 0
+        }
         val gastro = listOf(live.attackerPersistentVolatiles?.gastroAcid,
             live.defenderPersistentVolatiles?.gastroAcid)
         val gases = listOf(live.attackerNeutralizingGas, live.defenderNeutralizingGas)

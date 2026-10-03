@@ -3,6 +3,7 @@ package com.dualdex.calculator
 import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot
 import com.dualdex.pokemon.hns.HnsChallengeSettingsStatus
 import com.dualdex.pokemon.hns.HnsOptionStyle
+import com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
 import com.dualdex.pokemon.hns.normalizeHnsBattlerTypes
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
@@ -683,7 +684,15 @@ object CalcRequestBoundary {
             defenderRuntime?.takeIf { it.personalityObserved }?.personality,
             defenderSpeciesId?.let(com.dualdex.pokemon.hns.HeartAndSoul205DataPack::getSpecies)?.genderRatio
         )
+        val switchInEventsSettled = authoritativeSwitchInEventsSettled(
+            playerBattlerState, enemyBattlerState, isExactVerified
+        )
+        val doublesAuthority = HnsDoublesAuthority.bind(
+            request, attackerRuntime, defenderRuntime, isExactVerified, switchInEventsSettled
+        )
         return CalcHnsLiveBattleState(
+            doubles = doublesAuthority.first,
+            doublesFailure = doublesAuthority.second,
             attackerTypes = authoritativeObservedTypes(
                 participantPartySlot = request.attacker.partySlot,
                 observation = playerBattlerState,
@@ -736,12 +745,8 @@ object CalcRequestBoundary {
                 isExactVerified = isExactVerified
             ),
             // The same two boundary-owned observations must agree on the generated H&S event
-            // phase before Group B can treat a live writer's output as settled.
-            switchInEventsSettled = authoritativeSwitchInEventsSettled(
-                playerBattlerState = playerBattlerState,
-                enemyBattlerState = enemyBattlerState,
-                isExactVerified = isExactVerified
-            ),
+            // phase before Group B or Doubles can treat a live writer's output as settled.
+            switchInEventsSettled = switchInEventsSettled,
             fieldStatuses = fieldStatuses,
             attackerTerrainApplicability = authoritativeTerrainApplicability(
                 participantPartySlot = request.attacker.partySlot,
@@ -993,7 +998,8 @@ object CalcRequestBoundary {
      * The settled switch-in/event-script phase, or null unless both exact runtime observations
      * read the phase and agree. Native requires the completed event counter, clear active switchIn
      * flags, and H&S's stable action-selection callback; the callback gate covers replacement work
-     * before switchineffects resets the event fields. A readable false must not authorize Group B.
+     * before switchineffects resets the event fields. A readable false must not authorize Group B
+     * writer proofs or any derived Doubles operands.
      */
     private fun authoritativeSwitchInEventsSettled(
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
@@ -1041,10 +1047,9 @@ object CalcRequestBoundary {
      * [com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass] values (exact pinned
      * `enum MoveTarget` numbers): BOTH=6 and FOES_AND_ALLY=11 compute the spread
      * count from the observed absent flags; OPPONENTS_FIELD=13 is always 1. Every
-     * other class — TARGET_SELECTED=1, TARGET_RANDOM=5, TARGET_USER=7, ... and any
-     * unknown value — fails closed with null: upstream `GetMoveTargetCount` returns
-     * `IsBattlerAlive(...)` for those, which requires per-battler HP state this
-     * boundary does not read, so it must not fabricate "1".
+     * SELECTED/DEPENDS/RANDOM/OPPONENT use observed defender HP and presence; USER uses
+     * attacker HP and presence. Unknown classes remain unknown. Random selected-target
+     * identity is refused separately even when its source target count can be established.
      *
      * For the supported ordinary EFFECT_HIT subset, the target class is purely static:
      * `GetBattlerMoveTargetType` only adds dynamic overrides for EFFECT_CURSE, terrain,
@@ -1091,7 +1096,9 @@ object CalcRequestBoundary {
         ) ?: return null
         if (battlersCount != 4) return null
 
-        if (attackerBattler !in 0..3 || defenderBattler !in 0..3) return null
+        if (attackerBattler !in 0..3 || defenderBattler !in 0..3 || attackerBattler == defenderBattler ||
+            absentFlags !in 0..15 || playerState.partySlot != request.attacker.partySlot ||
+            enemyState.partySlot != request.defender.partySlot) return null
 
         // Get the move's static target class from the pinned source data.
         // For the ordinary EFFECT_HIT subset, the target class is purely static.
@@ -1127,16 +1134,16 @@ object CalcRequestBoundary {
             }
             com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass.TARGET_OPPONENTS_FIELD ->
                 1 // always 1 (Spikes/Toxic Spikes/Stealth Rock)
-            else -> {
-                /* Every other class fails closed. TARGET_SELECTED (1),
-                 * TARGET_DEPENDS (3), TARGET_OPPONENT (4), TARGET_RANDOM (5),
-                 * TARGET_USER (7) and friends dispatch to IsBattlerAlive(...) in
-                 * upstream GetMoveTargetCount, which needs per-battler HP state this
-                 * boundary does not read. A missing HP read must not be papered over
-                 * with "1": null (unobserved) is the only honest answer. This
-                 * matches the native reader, whose same classes return 0. */
-                null
-            }
+            1, 3, 4, 5 -> if (enemyState.hpObserved && enemyState.maxHp > 0 &&
+                enemyState.hp in 0..enemyState.maxHp) {
+                if (enemyState.hp > 0 && absentFlags and (1 shl defenderBattler) == 0) 1 else 0
+            } else null
+            7 -> if (playerState.hpObserved && playerState.maxHp > 0 &&
+                playerState.hp in 0..playerState.maxHp) {
+                if (playerState.hp > 0 && absentFlags and (1 shl attackerBattler) == 0) 1 else 0
+            } else null
+            else -> null
+
         }
     }
 
@@ -1250,7 +1257,7 @@ object CalcRequestBoundary {
         if (state.status != com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED) return null
         if (!slotMatches(participantPartySlot, state)) return null
         if (!state.transientVolatilesObserved) return null
-        return state.volatileChargeTimer
+        return state.volatileChargeTimer.takeIf { it in 0..HnsBattlerRuntimeStateIds.VOLATILE_CHARGE_TIMER_MAX }
     }
 
     /**
@@ -1500,13 +1507,25 @@ object CalcRequestBoundary {
                 null
             }
         )
+        // Source-identical display names are intentionally ambiguous in name lookup. Bind their
+        // base-data override only from the slot-matched live species ID, never a species default.
+        val identityBound = if (isExactHns && readIsTrusted) withLiveState.copy(
+            attackerOverride = withLiveState.hnsLiveBattleState?.attackerSpeciesId?.let { id ->
+                CalcDataOverrides.buildSpeciesOverride(withLiveState.attacker.species,
+                    com.dualdex.pokemon.hns.HeartAndSoul205DataPack, hnsRules?.fairyTypesEnabled, id)
+            } ?: withLiveState.attackerOverride,
+            defenderOverride = withLiveState.hnsLiveBattleState?.defenderSpeciesId?.let { id ->
+                CalcDataOverrides.buildSpeciesOverride(withLiveState.defender.species,
+                    com.dualdex.pokemon.hns.HeartAndSoul205DataPack, hnsRules?.fairyTypesEnabled, id)
+            } ?: withLiveState.defenderOverride
+        ) else withLiveState
         // The live field conditions (weather, defender-side screens) are boundary-owned too: in an
         // active battle they are rebound from the observed words so a caller's clear/no-screens
         // default can never stand in for an unobserved live state.
         val liveBound = CalcDataOverrides.applyHnsMoveAuthority(
             reconcileLiveFieldConditions(
-                request = withLiveState,
-                live = withLiveState.hnsLiveBattleState
+                request = identityBound,
+                live = identityBound.hnsLiveBattleState
             )
         )
         // Live provenance is a property of the request. The hint may add it, never remove it.

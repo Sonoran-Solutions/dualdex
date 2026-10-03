@@ -178,6 +178,11 @@ def plan_setup(scenario: dict) -> tuple[list[str], list[str], bool]:
             # Embargo targets the other battler; the move runs in a real setup turn so its
             # effect is present before CalculateMoveDamage snapshots hold effects.
             (def_actions if role == "attacker" else atk_actions).append("MOVE_EMBARGO")
+    ds = (scenario.get("stateSetup") or {}).get("doubles", {})
+    if ds.get("attackerPartnerGastroAcid") and ds.get("attackerPartnerAbility") in ("ABILITY_CLOUD_NINE", "ABILITY_AIR_LOCK"):
+        # GetWeather is cached before the critical-hit hook. Establish suppression in a
+        # real earlier turn so ctx.weather and the captured effective holder agree.
+        atk_actions.insert(0, "MOVE_GASTRO_ACID")
     partner_ko = scenario["format"] == "doubles" and scenario["doubles"]["defenderPartner"] == "fainted"
     turns = max(len(atk_actions), len(def_actions), 1 if partner_ko else 0)
     atk_actions = [""] * (turns - len(atk_actions)) + atk_actions
@@ -269,7 +274,7 @@ static inline void DdxoRuntime(const char *id, const char *role, enum BattlerId 
         m->volatiles.transformedMonSpecies != SPECIES_NONE ?
         m->volatiles.transformedMonSpecies : m->species;
     sDdxoItemAtHit[b] = m->item;
-    Test_MgbaPrintf("DDXO|%%s|%%d|%%sG|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d",
+    Test_MgbaPrintf("DDXO|%%s|%%d|%%sG|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d",
         id, sDdxoRoll, role, m->personality, GetGenderFromSpeciesAndPersonality(m->species, m->personality),
         m->volatiles.slowStartTimer, m->volatiles.flashFireBoosted, m->volatiles.transformed,
         m->volatiles.boosterEnergyActivated, m->volatiles.paradoxBoostedStat,
@@ -282,7 +287,7 @@ static inline void DdxoRuntime(const char *id, const char *role, enum BattlerId 
         m->volatiles.embargo, m->volatiles.metronomeItemCounter,
         m->volatiles.transformedMonSpecies, GetBattlerHoldEffect(b) != HOLD_EFFECT_NONE,
         GET_BASE_SPECIES_ID(m->species), DdxoCanEvolve(defenseSpecies),
-        GetBattlerHoldEffectParam(b), GetItemSecondaryId(m->item), m->item);
+        GetBattlerHoldEffectParam(b), GetItemSecondaryId(m->item), m->item, m->volatiles.chargeTimer);
 }
 
 static const char *const sDdxoTypeNames[NUMBER_OF_MON_TYPES] =
@@ -474,6 +479,13 @@ def render_scenario(s: dict) -> str:
         (player_lines if atk_is_player else opponent_lines).append(a_partner)
         (opponent_lines if atk_is_player else player_lines).append(d_partner)
 
+    doubles_setup = state_setup.get("doubles", {})
+    if doubles_setup:
+        for side, collection, default_species in (("attacker", player_lines if atk_is_player else opponent_lines, "SPECIES_MACHAMP"),
+                                                   ("defender", opponent_lines if atk_is_player else player_lines, "SPECIES_SNORLAX")):
+            ability = doubles_setup.get(side + "PartnerAbility", "ABILITY_INSOMNIA")
+            species = doubles_setup.get(side + "PartnerSpecies", default_species)
+            collection[-1] = collection[-1].replace("ABILITY_INSOMNIA", ability).replace(default_species, species)
     atk_actions, def_actions, partner_ko = plan_setup(s)
     assault_vest_defender = (atk_is_player
                              and s["defender"]["item"] == "ITEM_ASSAULT_VEST")
@@ -489,7 +501,10 @@ def render_scenario(s: dict) -> str:
     for t, (a_move, d_move) in enumerate(zip(atk_actions, def_actions)):
         cmds = []
         if a_move:
-            cmds.append(f"MOVE({atk_ref}, {a_move});")
+            if a_move == "MOVE_GASTRO_ACID" and doubles_setup.get("attackerPartnerGastroAcid"):
+                cmds.append(f"MOVE({atk_ref}, {a_move}, target: {atk_partner});")
+            else:
+                cmds.append(f"MOVE({atk_ref}, {a_move});")
         if d_move:
             cmds.append(f"MOVE({def_ref}, {d_move});")
         if partner_ko and t == 0:
@@ -634,6 +649,22 @@ def render_scenario(s: dict) -> str:
             )
     if "laterAction" in state_setup:
         setup.append(f"    gActionsByTurnOrder[1] = {state_setup['laterAction']};")
+    if doubles_setup:
+        setup.append(f"    gProtectStructs[{atk_pos}].helpingHand = {doubles_setup.get('helpingHand', 0)};")
+        for role, pos in (("attacker", f"BATTLE_PARTNER({atk_pos})"), ("defender", f"BATTLE_PARTNER({def_pos})")):
+            if role + "PartnerGastroAcid" in doubles_setup:
+                setup.append(f"    gBattleMons[{pos}].volatiles.gastroAcid = {doubles_setup[role + 'PartnerGastroAcid']};")
+            flags = doubles_setup.get(role + "PartnerRuinFlags")
+            if flags is not None:
+                for bit, flag in enumerate(("vesselOfRuin", "swordOfRuin", "tabletsOfRuin", "beadsOfRuin")):
+                    setup.append(f"    gBattleMons[{pos}].volatiles.{flag} = {(flags >> bit) & 1};")
+        setup += ["    u32 aura = 0, ruin = 0;",
+                  "    const enum Ability abilities[] = {ABILITY_CLOUD_NINE, ABILITY_AIR_LOCK, ABILITY_DARK_AURA, ABILITY_FAIRY_AURA, ABILITY_AURA_BREAK};",
+                  "    for (u32 i = 0; i < 5; i++) if (IsAbilityOnField(abilities[i])) aura |= 1u << i;",
+                  "    for (u32 i = 0; i < gBattlersCount; i++) if (!gBattleMons[i].volatiles.gastroAcid) {",
+                  "        const struct Volatiles *v = &gBattleMons[i].volatiles;",
+                  "        ruin |= v->vesselOfRuin | v->swordOfRuin << 1 | v->tabletsOfRuin << 2 | v->beadsOfRuin << 3;", "    }"]
+        setup.append(f'    Test_MgbaPrintf("DDXO|{sid}|%d|K|%d|%d|%d|%d|%d|%d|%d", sDdxoRoll, gProtectStructs[{atk_pos}].helpingHand, IsBattlerAlive(BATTLE_PARTNER({atk_pos})) ? GetBattlerAbility(BATTLE_PARTNER({atk_pos})) : ABILITY_NONE, IsBattlerAlive(BATTLE_PARTNER({def_pos})) ? GetBattlerAbility(BATTLE_PARTNER({def_pos})) : ABILITY_NONE, gBattleMons[BATTLE_PARTNER({atk_pos})].species, gBattleMons[BATTLE_PARTNER({def_pos})].species, aura, ruin);')
     setup += [f"    sDdxoBasePowerAtHit = GetActiveGimmick((enum BattlerId){atk_pos}) == GIMMICK_DYNAMAX ? GetMaxMovePower({move}) : GetMovePower({move});"]
     setup += [f'    DdxoRuntime("{sid}", "A", (enum BattlerId){atk_pos});',
               f'    DdxoRuntime("{sid}", "D", (enum BattlerId){def_pos});']
@@ -649,7 +680,7 @@ def _is_spread_capable(s: dict) -> bool:
     # A Doubles hit is aimed explicitly at the defender unless the move is a pinned spread move;
     # the spread-ness itself is observed (M line target / target count), never assumed here.
     return s["move"]["label"] in {"Rock Slide", "Heat Wave", "Hyper Voice", "Dazzling Gleam", "Razor Leaf",
-                                  "Earthquake", "Surf"}
+                                  "Earthquake", "Surf", "Petal Blizzard"}
 
 
 def render_sources(scenarios: list[dict]) -> dict[str, str]:
@@ -719,9 +750,9 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
         roll = _int(roll_text, f"{sid} roll index")
         if not 0 <= roll < ROLL_COUNT:
             raise OracleError(f"{sid}: roll index {roll} out of range")
-        if kind not in LINE_FIELDS and kind not in ("AG", "DG"):
+        if kind not in LINE_FIELDS and kind not in ("AG", "DG", "K"):
             raise OracleError(f"{sid}: unknown oracle line kind {kind!r}")
-        expected_length = len(RUNTIME_DOMAINS) if kind in ("AG", "DG") else LINE_FIELDS[kind]
+        expected_length = len(RUNTIME_DOMAINS) if kind in ("AG", "DG") else 7 if kind == "K" else LINE_FIELDS[kind]
         if len(fields) != expected_length:
             raise OracleError(f"{sid}: {kind} line has {len(fields)} fields, expected {expected_length}")
         slot = records[sid].setdefault(roll, {})
@@ -739,7 +770,7 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
             missing = sorted(set(range(ROLL_COUNT)) - set(rolls))
             raise OracleError(f"{sid}: missing oracle output for rng value(s) {missing}")
         for roll, slot in rolls.items():
-            if set(slot) - {"AG", "DG"} != set(LINE_FIELDS):
+            if set(slot) - {"AG", "DG", "K"} != set(LINE_FIELDS):
                 raise OracleError(f"{sid}: roll {roll} is missing line(s) {sorted(set(LINE_FIELDS) - set(slot))}")
     unexpected = sorted(set(statuses) - wanted)
     if unexpected:
@@ -977,6 +1008,22 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             "targetCount": _int(m[5], f"{sid} M"),
             "fieldStatuses": observed_field_statuses,
         }
+        if state_setup.get("doubles"):
+            if "K" not in slot: raise OracleError(f"{sid}: missing live Doubles operands")
+            k = [_int(v, f"{sid} Doubles") for v in slot["K"]]
+            expected = state_setup["doubles"]
+            if k[0] != expected.get("helpingHand", 0): raise OracleError(f"{sid}: Helping Hand was not installed")
+            ability_ids = {row["symbol"]: int(row["id"]) for row in csv.DictReader(
+                (TOOL_DIR.parent / "hns-abilities/ability_inventory.tsv").open(newline=""), delimiter="\t")}
+            for role, col in (("attacker", 1), ("defender", 2)):
+                requested = ability_ids[expected.get(role + "PartnerAbility", "ABILITY_INSOMNIA")]
+                if expected.get(role + "PartnerGastroAcid", 0) or (role == "defender" and scenario["doubles"]["defenderPartner"] == "fainted"): requested = 0
+                if k[col] != requested: raise OracleError(f"{sid}: {role} partner effective ability was not installed: {k[col]} != {requested}")
+            expected_ruin = expected.get("attackerPartnerRuinFlags", 0) | expected.get("defenderPartnerRuinFlags", 0)
+            if k[6] != expected_ruin: raise OracleError(f"{sid}: Ruin setup was not installed")
+            observed["doubles"] = dict(zip(("helpingHand", "attackerPartnerAbility", "defenderPartnerAbility", "attackerPartnerSpecies", "defenderPartnerSpecies"), k[:5]))
+            observed["doubles"].update(fieldAbilities=[a for i, a in enumerate((13,76,186,187,188)) if k[5] & (1 << i)], ruinFlags=k[6])
+        elif "K" in slot: raise OracleError(f"{sid}: unexpected live Doubles operands")
         if canonical is None:
             canonical = observed
         elif observed != canonical:

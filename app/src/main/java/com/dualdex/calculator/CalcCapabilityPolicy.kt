@@ -266,41 +266,15 @@ enum class CalcLimitation {
      */
     HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
 
-    /**
-     * An H&S Doubles request cannot establish the runtime target count
-     * (`GetMoveTargetCount(ctx)`) that decides the Gen-III spread reduction.
-     *
-     * H&S halves a spread move only when the count of currently present targets is exactly 2, so
-     * Rock Slide against a single remaining foe in a Doubles battle must NOT be halved. The static
-     * request carries no target-presence state and no runtime reader supplies the count yet
-     * (Gap C4b), so a Doubles request fails closed here rather than inferring the modifier from
-     * `field.gameType` plus the move's static target class. This is deliberately coarse: the whole
-     * Doubles format stays blocked until the count is represented.
-     */
+    /** The pinned target class has no agreed live target count; no guessed spread modifier. */
     HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED,
+    HNS_DOUBLES_PARTNER_STATE_UNKNOWN,
+    /** Partner entry writers may still mutate current operands; missing phase is never neutral. */
+    HNS_DOUBLES_SWITCH_IN_UNSETTLED,
+    HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED,
+    HNS_DOUBLES_SUPPRESSION_UNRESOLVED,
 
-    /**
-     * An active H&S battle's live format (`gBattlersCount`) was not authoritatively established
-     * as the Singles topology the production subset models, or the request's caller/UI-supplied
-     * `field.gameType` contradicts the observed topology.
-     *
-     * H&S selects different arithmetic by battle format: `GetScreensModifier` composes Reflect /
-     * Light Screen with `UQ_4_12(0.667)` in a Doubles battle and `UQ_4_12(0.5)` in Singles, the
-     * spread reduction depends on the observed target count, and the partner-dependent branches
-     * (`GetDefenderPartnerAbilitiesModifier`, Helping Hand) are Doubles-only. The request format
-     * label is caller/UI-owned, so a genuine Doubles battle could otherwise be computed with the
-     * Singles arithmetic. The native observation already carries the real topology; the boundary
-     * now binds the agreed `gBattlersCount` from both battle-level observations and this gate
-     * refuses the entire live calculation when that observed format is not the Singles `2` the
-     * subset models. An unread word, a player/enemy disagreement, an observed `4`, or a request
-     * label that contradicts the observed topology all fail closed.
-     *
-     * This is deliberately not [HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED]: the entire live
-     * calculation is under an unmodelled format, not just a spread move. The C4e production
-     * subset models Singles only; all live Doubles requests (whether observed 4 or mislabelled,
-     * and regardless of target-count resolution) fail closed with this limitation because
-     * production Doubles is not implemented and carries unobserved live operands (e.g. Helping Hand).
-     */
+    /** Unread/disagreeing topology or caller format contradicting the observed 2/4 battlers. */
     HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
 
     /**
@@ -620,6 +594,10 @@ enum class CalcLimitation {
             HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED,
             HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
             HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED,
+            HNS_DOUBLES_PARTNER_STATE_UNKNOWN,
+            HNS_DOUBLES_SWITCH_IN_UNSETTLED,
+            HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED,
+            HNS_DOUBLES_SUPPRESSION_UNRESOLVED,
             HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
             VANILLA_DOUBLES_SCREEN_NOT_MODELLED,
             VANILLA_DOUBLES_SPREAD_NOT_MODELLED,
@@ -697,7 +675,8 @@ private fun softLimitationHasCompleteEvidence(
     CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED -> {
         val causal = abilities.filter {
             it.globalCategory == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
-                it.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+                it.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT &&
+                !HnsDoublesAuthority.isExactPlusMinus(it)
         }
         causal.isNotEmpty() && causal.all { decision ->
             decision.relevance == HnsAbilityRequestRelevance.RELEVANT &&
@@ -942,8 +921,16 @@ data class CalcCapabilityVerdict(
                 "this active battle has a damage-relevant live operand that is unreadable or not represented by the calculator"
             CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED ->
                 "this is a Doubles battle whose current target count is not authoritatively observed, so the spread-move reduction cannot be determined"
+            CalcLimitation.HNS_DOUBLES_PARTNER_STATE_UNKNOWN ->
+                "Doubles partner operands are unread, invalid, disagree with the selected live participants, or require unresolved partner weather-item activation"
+            CalcLimitation.HNS_DOUBLES_SWITCH_IN_UNSETTLED ->
+                "Doubles switch-in state is pending, unread or disagrees across live observations, so partner entry effects may still change damage operands"
+            CalcLimitation.HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED ->
+                "Doubles selected hit is unresolved under redirection, random/ally targeting, Commander, partner priority protection or combined Pledge state"
+            CalcLimitation.HNS_DOUBLES_SUPPRESSION_UNRESOLVED ->
+                "Doubles effective partner abilities are unresolved under active Neutralizing Gas or Mold Breaker suppression"
             CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED ->
-                "the live battle format is not an authoritatively observed Singles battle, so the Singles damage arithmetic cannot be applied"
+                "the observed live topology is unread, invalid, or disagrees with the requested battle format"
             CalcLimitation.VANILLA_DOUBLES_SCREEN_NOT_MODELLED ->
                 "this is a Doubles battle with Reflect or Light Screen active, whose cartridge arithmetic (2 * (damage / 3) only while both defenders are present) this calculation does not reproduce"
             CalcLimitation.VANILLA_DOUBLES_SPREAD_NOT_MODELLED ->
@@ -1392,9 +1379,17 @@ object CalcCapabilityPolicy {
             // arithmetic (screens x0.667 vs x0.5, the spread target count, partner-dependent
             // branches). The request's `field.gameType` is caller/UI-owned and cannot be the
             // authority, so the boundary owns the observed `gBattlersCount` and this gate refuses
-            // the whole live calculation when that topology is not the Singles the subset models.
+            // the whole live calculation when the label and observed topology disagree.
             if (hnsLiveBattleFormatNotModelled(request)) {
                 limitations.add(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED)
+            }
+
+            if (request.hnsLiveBattleState?.observedBattlersCount == 4) {
+                if (HnsDoublesAuthority.partnerPriorityUnresolved(request))
+                    limitations += CalcLimitation.HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED
+                request.hnsLiveBattleState.doublesFailure?.let(limitations::add)
+                if (request.hnsLiveBattleState.doubles == null && request.hnsLiveBattleState.doublesFailure == null)
+                    limitations.add(CalcLimitation.HNS_DOUBLES_PARTNER_STATE_UNKNOWN)
             }
 
             // 9. Live battle state (Gap C4a R1 / C4b). The request shape carries static species/move
@@ -1486,7 +1481,8 @@ object CalcCapabilityPolicy {
                 .filter {
                     it.globalCategory == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
                         it.abilityId != null && it.abilityId >= 0 && it.abilityName.isNotBlank() &&
-                        it.relevance == HnsAbilityRequestRelevance.RELEVANT
+                        it.relevance == HnsAbilityRequestRelevance.RELEVANT &&
+                        !HnsDoublesAuthority.isExactPlusMinus(it)
                 }
                 .distinctBy { it.side to it.abilityId }
                 .mapTo(this) { IgnoredCalcMechanic.Ability(it) }
@@ -1725,16 +1721,7 @@ object CalcCapabilityPolicy {
         return false
     }
 
-    /**
-     * True when an H&S Doubles request cannot establish the runtime target count (Gap C4b R2).
-     *
-     * H&S applies the Gen-III spread reduction only when `GetMoveTargetCount(ctx)` is exactly 2, so
-     * the modifier depends on how many opposing battlers are currently present - live state the
-     * static request does not carry. No runtime reader supplies it yet, so the boundary always
-     * binds null and every H&S Doubles request fails closed instead of halving spread moves
-     * unconditionally. This is deliberately coarse: the whole Doubles format stays blocked until
-     * the count is represented.
-     */
+    /** Missing/unsupported live target count cannot choose a spread modifier. */
     private fun hnsDoublesTargetCountNotModelled(request: DamageCalculationRequest): Boolean {
         if (!request.field.gameType.equals(CalcGameTypes.DOUBLES, ignoreCase = true)) return false
         val live = request.hnsLiveBattleState ?: return true
@@ -1742,20 +1729,7 @@ object CalcCapabilityPolicy {
         return count < 1
     }
 
-    /**
-     * True when a live H&S request's battle format is not the authoritatively observed Singles
-     * topology the production subset models (review round 5).
-     *
-     * The live topology is boundary-owned [CalcHnsLiveBattleState.observedBattlersCount], never
-     * the request's caller/UI-supplied `field.gameType`. The C4e production subset models
-     * Singles only: the gate returns false only when both battle-level observations read
-     * `gBattlersCount`, agreed on it, the agreed value is the Singles value `2`, and the request
-     * label agrees it is Singles. Any non-Singles live battle (observed `4`, disagreement, unread
-     * word, or a request label that is not Singles) fails closed here. Letting a Doubles request
-     * clear would expose unmodelled live operands (e.g. Helping Hand) and wrong-format screen
-     * multipliers (`UQ_4_12(0.5)` instead of `UQ_4_12(0.667)`). Returns false when there is no
-     * live battle state: a manual/out-of-battle request has no active format to observe.
-     */
+    /** Format labels must match boundary-owned topology. Partner authority is gated separately. */
     private fun hnsLiveBattleFormatNotModelled(
         request: DamageCalculationRequest
     ): Boolean {
@@ -1768,7 +1742,8 @@ object CalcCapabilityPolicy {
                 ignoreCase = true
             )
 
-        return observed != 2 || !requestIsSingles
+        val requestIsDoubles = request.field.gameType.equals(CalcGameTypes.DOUBLES, ignoreCase = true)
+        return !((observed == 2 && requestIsSingles) || (observed == 4 && requestIsDoubles))
     }
 
     /**
@@ -2107,7 +2082,9 @@ object CalcCapabilityPolicy {
             )
             decisions += decision
             if (classification.category == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
-                decision.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT
+                decision.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT &&
+                !(request.hnsLiveBattleState?.doubles != null &&
+                    HnsDoublesAuthority.isExactPlusMinus(decision))
             ) {
                 limitations.add(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED)
             } else if (modelledConditionalContext && decision.relevance == HnsAbilityRequestRelevance.UNKNOWN) {
@@ -2185,14 +2162,8 @@ object CalcCapabilityPolicy {
         if (live.defenderGlaiveRush == true) {
             limitations.add(CalcLimitation.HNS_GLAIVE_RUSH_ACTIVE_NOT_MODELLED)
         }
-        // Charge doubles an Electric move; only a positive timer on a relevant type is refused.
-        // A zero timer is the observed neutral the first Ready subset requires.
-        val chargeTimer = live.attackerChargeTimer
-        if (chargeTimer != null && chargeTimer > 0 &&
-            effectiveMoveType.equals("Electric", ignoreCase = true)
-        ) {
-            limitations.add(CalcLimitation.HNS_CHARGE_ACTIVE_NOT_MODELLED)
-        }
+        // Charge is consumed at its pinned base-power stage from the boundary-owned timer.
+        // Unread/out-of-domain timers keep the independent live-state gate closed.
         // Tar Shot doubles a Fire move against the observed defender; an irrelevant move type
         // cannot be affected, so only the relevant positive case is refused.
         if (live.defenderTarShot == true &&
@@ -2347,10 +2318,14 @@ object CalcCapabilityPolicy {
         // The bridge selects content by name. If a name is not in this build's pinned data, the
         // engine would fall back to its own record and produce a confident number from another
         // game's base stats, typing, or base power.
-        if (!pack.hasSpeciesByName(request.attacker.species)) {
-            limitations.add(CalcLimitation.SPECIES_NOT_IN_PINNED_DATA)
+        fun speciesKnown(name: String, id: Int?, override: CalcSpeciesOverride?): Boolean {
+            if (pack.hasSpeciesByName(name)) return true
+            if (capability.ruleset != CalcRuleset.HNS_2_0_5 || id == null || override == null) return false
+            return override == CalcDataOverrides.buildSpeciesOverride(
+                name, pack, request.hnsRuntimeRules?.fairyTypesEnabled, id)
         }
-        if (!pack.hasSpeciesByName(request.defender.species)) {
+        if (!speciesKnown(request.attacker.species, request.hnsLiveBattleState?.attackerSpeciesId, request.attackerOverride) ||
+            !speciesKnown(request.defender.species, request.hnsLiveBattleState?.defenderSpeciesId, request.defenderOverride)) {
             limitations.add(CalcLimitation.SPECIES_NOT_IN_PINNED_DATA)
         }
         if (!pack.hasMoveByName(request.move.name)) {

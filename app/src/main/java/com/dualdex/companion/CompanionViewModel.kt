@@ -157,6 +157,25 @@ class CompanionViewModel(
     private val _playerBattlerState = MutableStateFlow<BattlerRuntimeObservation?>(null)
     val playerBattlerState: StateFlow<BattlerRuntimeObservation?> = _playerBattlerState.asStateFlow()
 
+    private val _hnsBattlers = MutableStateFlow<List<BattlerRuntimeObservation>>(emptyList())
+    val hnsBattlers = _hnsBattlers.asStateFlow()
+    private val _selectedHnsEnemyBattler = MutableStateFlow<Int?>(null)
+    val selectedHnsEnemyBattler = _selectedHnsEnemyBattler.asStateFlow()
+
+    fun selectHnsEnemyBattler(index: Int) {
+        _selectedHnsEnemyBattler.value = index.takeIf { wanted -> _hnsBattlers.value.any {
+            it.state.battlerIndex == wanted && it.state.doubles?.battlers?.getOrNull(wanted)?.position?.and(1) == 1
+        } }
+    }
+
+    fun selectedHnsPlayerObservation(slot: Int): BattlerRuntimeObservation? =
+        _hnsBattlers.value.singleOrNull { it.state.partySlot == slot &&
+            it.state.doubles?.battlers?.getOrNull(it.state.battlerIndex ?: -1)?.position?.and(1) == 0 }
+
+    fun selectedHnsEnemyObservation(): BattlerRuntimeObservation? = _selectedHnsEnemyBattler.value?.let { index ->
+        _hnsBattlers.value.singleOrNull { it.state.battlerIndex == index }
+    }
+
     private val _enemyBattlerState = MutableStateFlow<BattlerRuntimeObservation?>(null)
     val enemyBattlerState: StateFlow<BattlerRuntimeObservation?> = _enemyBattlerState.asStateFlow()
 
@@ -460,6 +479,11 @@ class CompanionViewModel(
         // catalogue is the source of the observation and neither enables calculator capability
         // here.
         if (battleStateReadable) {
+            _hnsBattlers.value = coreCoordinator.readHnsBattlers(gameId).filter {
+                it.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED && it.doubles != null
+            }.map { BattlerRuntimeObservation(it, it.resolveAbilityIdentity(activeGameDataPack), it.resolveItemIdentity()) }
+            if (_hnsBattlers.value.none { it.state.battlerIndex == _selectedHnsEnemyBattler.value })
+                _selectedHnsEnemyBattler.value = null
             publishBattlerRuntimeState(
                 gameId,
                 com.dualdex.pokemon.hns.HnsBattlerRole.PLAYER,
@@ -471,6 +495,8 @@ class CompanionViewModel(
                 _enemyBattlerState
             )
         } else {
+            _hnsBattlers.value = emptyList()
+            _selectedHnsEnemyBattler.value = null
             // The same unproven battle base feeds this reader, so it is not invoked either.
             if (_playerBattlerState.value != null) _playerBattlerState.value = null
             if (_enemyBattlerState.value != null) _enemyBattlerState.value = null
@@ -528,6 +554,8 @@ class CompanionViewModel(
      * this on every poll tick while the compatibility gate is closed.
      */
     fun clearLiveMemoryObservations() {
+        _hnsBattlers.value = emptyList()
+        _selectedHnsEnemyBattler.value = null
         if (_playerParty.value.isNotEmpty()) _playerParty.value = emptyList()
         if (_enemyParty.value.isNotEmpty()) _enemyParty.value = emptyList()
         if (_selectedMemberIndex.value != 0) _selectedMemberIndex.value = 0

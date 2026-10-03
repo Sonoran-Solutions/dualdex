@@ -109,6 +109,20 @@ object HnsItemContextPolicy {
     )
 
     fun assess(itemId: Int, context: Context?): HnsItemRequestDecision {
+        val decision = assessRaw(itemId, context)
+        val disposition = com.dualdex.pokemon.hns.HnsGroupEData.itemDispositions[itemId] ?: return decision
+        val refused = decision.relevance == HnsItemRequestRelevance.UNKNOWN ||
+            (decision.relevance == HnsItemRequestRelevance.RELEVANT &&
+                disposition.tier == com.dualdex.pokemon.hns.HnsGroupETier.HARD_REFUSAL)
+        return if (refused) decision.copy(
+            relevance = HnsItemRequestRelevance.UNKNOWN,
+            rule = decision.rule ?: "group_e_" + disposition.family,
+            source = decision.source ?: disposition.source,
+            rationale = disposition.reason + " " + decision.rationale
+        ) else decision
+    }
+
+    private fun assessRaw(itemId: Int, context: Context?): HnsItemRequestDecision {
         val entry = HnsItemRegistry.classify(itemId)
         val name = HnsItemRegistry.displayName(itemId) ?: "Item #$itemId"
         val side = context?.side ?: HnsItemSide.ATTACKER
@@ -123,6 +137,9 @@ object HnsItemContextPolicy {
                 }
             )
         }
+        // The e-Reader payload is not the catalogue NONE effect, even under an apparent
+        // suppression proof. No runtime identity/effect may be invented from that record.
+        if (itemId == 581) return unknown(itemId, name, side)
         val c = context ?: return unknown(itemId, name, side)
         val holdEffect = entry.data?.holdEffect ?: return unknown(itemId, name, c.side)
         val proof: Proof? = when (entry.familyGroup) {
@@ -215,6 +232,11 @@ object HnsItemContextPolicy {
             return HnsItemRequestDecision(
                 itemId, name, c.side, entry.category, proof.relevance, proof.rule, proof.source, proof.rationale
             )
+        }
+        // Raw Mega/Z identities need the NONE-gimmick proof above independently of hold-effect
+        // suppression; Magic Room/Klutz cannot prove a form or selected Z move inactive.
+        if (holdEffect in setOf("HOLD_EFFECT_MEGA_STONE", "HOLD_EFFECT_Z_CRYSTAL")) {
+            return unknown(itemId, name, c.side)
         }
         when (val resolution = c.holdEffectResolution) {
             null -> return HnsItemRequestDecision(

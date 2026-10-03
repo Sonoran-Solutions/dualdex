@@ -151,10 +151,11 @@ object HnsBattlerRuntimeStateIds {
     const val STATUS_FIELD_ION_DELUGE = HnsFieldStatusData.STATUS_FIELD_ION_DELUGE
 
     /**
-     * Pinned `volatiles.chargeTimer` width is 2 bits, so its raw domain is `0..3`; any
-     * non-zero value doubles an Electric move (`src/battle_util.c`).
+     * Pinned scripts write Charge timer values 1 or 2 and turn logic decrements them; the
+     * production semantic domain is `0..2`. The compiled native reader's bitfield width is
+     * a separate layout fact and does not authorize synthetic timer values.
      */
-    const val VOLATILE_CHARGE_TIMER_MAX = 3
+    const val VOLATILE_CHARGE_TIMER_MAX = 2
 }
 
 /**
@@ -287,8 +288,9 @@ data class HnsBattlerRuntimeState(
      */
     val transientVolatilesObserved: Boolean = false,
     /**
-     * `volatiles.chargeTimer` raw value (pinned width 2, so `0..3`). Charge doubles an
-     * Electric move while it is non-zero. Only meaningful when [transientVolatilesObserved].
+     * `volatiles.chargeTimer` raw value. Charge doubles an Electric move while it is non-zero.
+     * Only source-written values `0..2` are accepted by the request boundary; this field
+     * preserves the native payload so an out-of-domain value can fail closed there.
      */
     val volatileChargeTimer: Int = 0,
     /**
@@ -412,7 +414,8 @@ data class HnsBattlerRuntimeState(
     val volatileMetronomeItemCounter: Int = 0,
     val volatileTransformedMonSpecies: Int? = null,
     val analyticCurrentMove: Int = 0,
-    val analyticTurnOrder: Int = 0
+    val analyticTurnOrder: Int = 0,
+    val doubles: HnsDoublesRuntimeState? = null
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
@@ -506,6 +509,9 @@ data class HnsBattlerRuntimeState(
          * [95] neutralizingGas, [96] current move ID bound to the Analytic authority,
          * [97] embargo, [98] metronomeItemCounter, [99] transformedMonSpecies,
          * [100] source NUM_SPECIES, [101] metronome width, [102] transformed species width.
+         * [103] Doubles packet observed; [104] packet version 1, [105] count, [106] absent,
+         * [107..108] Follow Me timers, [109] action flags (bit 0 moldBreakerActive, bit 1 pledgeMove), [110..161] four 13-word
+         * indexed records (see HnsDoublesRuntimeState). Short/old packets remain unobserved.
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
          * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is
@@ -660,7 +666,7 @@ data class HnsBattlerRuntimeState(
                 volatileSemiInvulnerable = if (volatilesObserved) raw[51].coerceIn(0, 6) else 0,
                 transientVolatilesObserved = transientVolatilesObserved,
                 volatileChargeTimer = if (transientVolatilesObserved) {
-                    raw[60].coerceIn(0, HnsBattlerRuntimeStateIds.VOLATILE_CHARGE_TIMER_MAX)
+                    raw[60]
                 } else {
                     0
                 },
@@ -709,6 +715,7 @@ data class HnsBattlerRuntimeState(
                 volatileMetronomeItemCounter = if (itemVolatilesObserved) raw[98] else 0,
                 volatileTransformedMonSpecies = raw.getOrNull(99)?.takeIf { itemVolatilesObserved },
                 analyticCurrentMove = if (analyticTurnOrderObserved) raw[96] else 0,
+                doubles = HnsDoublesRuntimeState.decode(raw),
                 analyticTurnOrder = if (analyticTurnOrderObserved) raw[94] else 0
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for

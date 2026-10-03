@@ -5667,7 +5667,7 @@ static void hns_battle_set_switch_in_phase(HnsBattleFixture* fx, uint8_t event_i
     }
     const uint32_t flag_byte = fx->cfg->battler_state_switch_in_bit / 8u;
     const uint32_t flag_mask = (uint32_t)1u << (fx->cfg->battler_state_switch_in_bit % 8u);
-    for (uint8_t battler = 0; battler < 2; battler++) {
+    for (uint8_t battler = 0; battler < fx->gba->ewram[fx->cfg->battlers_count_offset]; battler++) {
         uint8_t* state = fx->gba->ewram + bs_offset + fx->cfg->battle_struct_battler_state_offset +
             (size_t)battler * fx->cfg->battler_state_size;
         state[flag_byte] = (switching_in_mask & (1u << battler)) ? (uint8_t)flag_mask : 0;
@@ -6425,6 +6425,101 @@ static void test_hns_target_count_anti_spoof(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_target_count_anti_spoof" ANSI_RESET "\n");
 }
 
+/* Independently pinned ProtectStruct/SideTimer/BattleStruct bit layouts. */
+typedef struct { DualDexGbaRegionTable* table; unsigned protect_reads; bool missing; } DoublesReadProbe;
+static bool doubles_probe_read(void* user, uint32_t addr, uint8_t* out, size_t n) {
+    DoublesReadProbe* p = user;
+    if (addr == 0x020000B8u && n == 12) {
+        if (p->missing) return false;
+        p->protect_reads++;
+        if (!fake_gba_read(p->table, addr, out, n)) return false;
+        if (p->protect_reads == 2) out[4] ^= 1;
+        return true;
+    }
+    return fake_gba_read(p->table, addr, out, n);
+}
+static void test_hns_indexed_doubles_operands(void) {
+    printf("Running test_hns_indexed_doubles_operands...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba; HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+    hns_battle_set_counters(&fx, 4, 1, 0);
+    const uint8_t positions[4] = {2, 3, 0, 1};
+    for (unsigned i = 0; i < 4; i++) {
+        hns_battle_set_battler(&fx, i, positions[i], i < 2 ? 1 : 0);
+        hns_battle_set_mon(&fx, i, 68 + i, 40 + i);
+        const uint8_t types[3] = {PIN_TYPE_NORMAL, PIN_TYPE_NONE, PIN_TYPE_NONE};
+        hns_battle_set_battler_ability_types(&fx, i, 15 + i, types);
+        hns_battle_set_battler_item(&fx, i, 0);
+        hns_battle_set_battler_stats(&fx, i, 100, 100, 100, 100, 100);
+        const uint8_t stages[8] = {6,6,6,6,6,6,6,6};
+        hns_battle_set_battler_stat_stages(&fx, i, stages);
+        gba.ewram[0xB8 + i * 12 + 4] = i + 1; /* bit 32, width 3 */
+    }
+    hns_battle_set_gimmick(&fx, 0, 0);
+    gba.ewram[0x258 + 18] = 2; /* followmeTimer bit 144, width 4 */
+    gba.ewram[0x258 + 32 + 18] = 3;
+    gba.ewram[0x30000 + 7559 / 8] |= 1u << (7559 % 8);
+    TEST_ASSERT(HNS_LIVE_DOUBLES_PROTECT_SIZE == 12 && HNS_LIVE_DOUBLES_SIDE_TIMER_SIZE == 32 &&
+                HNS_LIVE_DOUBLES_HELPING_HAND_BIT == 32 && HNS_LIVE_DOUBLES_HELPING_HAND_WIDTH == 3 &&
+                HNS_LIVE_DOUBLES_FOLLOW_ME_BIT == 144 && HNS_LIVE_DOUBLES_FOLLOW_ME_WIDTH == 4 &&
+                HNS_LIVE_DOUBLES_MOLD_BREAKER_BIT == 7559 && HNS_LIVE_DOUBLES_PLEDGE_BIT == 6725,
+                "Doubles compiled layouts match independent source pins");
+    for (unsigned i = 0; i < 4; i++) {
+        BattlerRuntimeState st;
+        TEST_ASSERT(read_battler_state(&fx, (BattlerRole)(BATTLER_ROLE_INDEX_0 + i), &st), "indexed battler is observed");
+        TEST_ASSERT(st.battler_index == (int)i && st.party_slot == (i < 2 ? 1 : 0), "indices and slots follow memory, not a fixed flank");
+        TEST_ASSERT(st.doubles_observed && st.doubles_operands[0] == 1 && st.doubles_operands[1] == 4 &&
+                    st.doubles_operands[3] == 2 && st.doubles_operands[4] == 3 && st.doubles_operands[5] == 1,
+                    "versioned packet contains current globals");
+        for (unsigned j = 0; j < 4; j++) {
+            const uint32_t* r = st.doubles_operands + 6 + j * 13;
+            TEST_ASSERT(r[0] == j && r[1] == positions[j] && r[2] == (j < 2 ? 1u : 0u) &&
+                        r[3] == 40 + j && r[4] == 68 + j && r[5] == 15 + j && r[12] == j + 1,
+                        "all indexed identities/liveness/Helping Hand are decoded independently");
+        }
+    }
+    BattlerRuntimeState st;
+    hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_INDEX_0, &st) &&
+                st.switch_in_phase_observed && st.switch_in_events_settled,
+                "indexed Doubles read carries the settled global switch-in proof");
+    for (unsigned partner = 2; partner < 4; partner++) {
+        hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 1u << partner);
+        TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_INDEX_0, &st) && st.doubles_observed &&
+                    st.switch_in_phase_observed && !st.switch_in_events_settled,
+                    "either partner switch-in flag invalidates settlement despite a complete packet");
+    }
+    hns_battle_set_switch_in_phase(&fx, 4, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_INDEX_1, &st) && st.doubles_observed &&
+                st.switch_in_phase_observed && !st.switch_in_events_settled,
+                "pending global switch-in events remain distinct from complete Doubles topology");
+    hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 0);
+    hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_INDEX_0, &st) && st.doubles_observed &&
+                st.switch_in_phase_observed && !st.switch_in_events_settled,
+                "old completed counter and clear flags cannot settle during replacement script work");
+    hns_battle_set_main_callback(&fx, cfg->action_selection_func_ptr);
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && st.status == BATTLER_RUNTIME_STATE_AMBIGUOUS,
+                "legacy player-role ambiguity is preserved");
+    gba.ewram[0x30000 + 6725 / 8] |= 1u << (6725 % 8);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_INDEX_0, &st) && st.doubles_operands[5] == 3,
+                "combined Pledge execution flag is observed, not inferred from ordinary move identity");
+    gba.ewram[0x30000 + 6725 / 8] &= ~(1u << (6725 % 8));
+    DoublesReadProbe probe = {&gba.table, 0, false};
+    TEST_ASSERT(pokemon_read_battler_runtime_state_gba(doubles_probe_read, &probe, gba.ewram, sizeof(gba.ewram),
+                cfg, BATTLER_ROLE_INDEX_0, &st) && !st.doubles_observed, "torn partner read cannot publish neutral packet");
+    probe.protect_reads = 0; probe.missing = true;
+    TEST_ASSERT(pokemon_read_battler_runtime_state_gba(doubles_probe_read, &probe, gba.ewram, sizeof(gba.ewram),
+                cfg, BATTLER_ROLE_INDEX_0, &st) && !st.doubles_observed, "unread partner read cannot publish neutral packet");
+    hns_battle_set_counters(&fx, 4, 0, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_INDEX_0, &st) && !st.doubles_observed,
+                "four-count without the source IsDoubleBattle flag cannot authorize Doubles arithmetic");
+    hns_battle_set_counters(&fx, 4, 1, 0);
+    gba.ewram[cfg->absent_battler_flags_offset] = 1;
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_INDEX_0, &st), "absent selected index refuses");
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
@@ -6542,6 +6637,7 @@ int main(void) {
     test_hns_battler_state_c4e_field_conditions();
     test_hns_target_count_computation();
     test_hns_target_count_anti_spoof();
+    test_hns_indexed_doubles_operands();
 
     printf("===================================================\n");
     printf("Results: %d Passed, %d Failed\n", g_tests_passed, g_tests_failed);

@@ -46,7 +46,7 @@ class HnsItemAuditTest {
         assertEquals(setOf(288, 289, 484, 497, 499, 581), HnsItemAuditData.identityExceptions.keys)
         val enigma = Hns205ItemCatalogue.get(581)!!
         assertEquals("ITEM_ENIGMA_BERRY_E_READER", enigma.canonicalSymbol)
-        assertEquals(HnsItemCategory.UNCLASSIFIED, HnsItemRegistry.classify(581).category)
+        assertEquals(HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT, HnsItemRegistry.classify(581).category)
         for ((id, symbol) in listOf(484 to "ITEM_IRON_BALL", 497 to "ITEM_AIR_BALLOON", 499 to "ITEM_RING_TARGET")) {
             val entry = HnsItemRegistry.classify(id)
             assertEquals(symbol, entry.data?.canonicalSymbol)
@@ -77,8 +77,8 @@ class HnsItemAuditTest {
         val expected = HnsItemAuditData.categoryCounts.filterValues { it > 0 }
         assertEquals(expected, counts)
         assertEquals(585, counts[HnsItemCategory.PROVEN_NO_ORDINARY_DAMAGE_EFFECT])
-        assertEquals(207, counts[HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT])
-        assertEquals(1, counts[HnsItemCategory.UNCLASSIFIED])
+        assertEquals(208, counts[HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT])
+        assertNull(counts[HnsItemCategory.UNCLASSIFIED])
         assertNull("nothing is MODELLED_EQUIVALENT", counts[HnsItemCategory.MODELLED_EQUIVALENT])
         assertEquals(108, counts[HnsItemCategory.MODELLED_HNS_SPECIFIC])
         assertEquals(HnsItemCategory.MODELLED_HNS_SPECIFIC, HnsItemRegistry.classify(476).category)

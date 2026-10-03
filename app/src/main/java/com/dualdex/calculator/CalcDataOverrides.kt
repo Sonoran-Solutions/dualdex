@@ -25,8 +25,8 @@ import com.dualdex.romhack.RomHackProfile
  * For vanilla FireRed / Emerald, this returns null so vanilla calculations remain a clean no-op without
  * injecting later-generation records.
  *
- * Ambiguous form names (which resolve to null in [HeartAndSoul205DataPack.getSpeciesByName]) produce null
- * and fail closed.
+ * Ambiguous form names (which resolve to null in [HeartAndSoul205DataPack.getSpeciesByName])
+ * require a boundary-owned numeric live species ID; name-only requests produce null and fail closed.
  */
 object CalcDataOverrides {
 
@@ -37,13 +37,18 @@ object CalcDataOverrides {
     fun buildSpeciesOverride(
         speciesName: String,
         dataPack: GameDataPack,
-        fairyTypesEnabled: Boolean? = true
+        fairyTypesEnabled: Boolean? = true,
+        liveSpeciesId: Int? = null
     ): CalcSpeciesOverride? {
         // Vanilla Gen 3 requests do not use overrides (preserves verified vanilla behavior)
         if (dataPack !is HeartAndSoul205DataPack) return null
 
-        if (!dataPack.hasSpeciesByName(speciesName)) return null
-        val info = dataPack.getSpeciesByName(speciesName) ?: return null
+        // An observed numeric battle identity can disambiguate shared display names (Pikachu
+        // forms). Names and caller overrides alone cannot choose a form.
+        val info = if (liveSpeciesId != null) {
+            dataPack.getSpecies(liveSpeciesId)?.takeIf { it.name.equals(speciesName.trim(), ignoreCase = true) }
+        } else dataPack.getSpeciesByName(speciesName)
+        if (info == null) return null
         if (!dataPack.isSpeciesAuthoritative(info.id)) return null
 
         // Canonical type mapping by display name, never raw integer ID.

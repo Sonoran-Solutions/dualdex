@@ -172,6 +172,9 @@ hns_generator_test() {
   # and pins the fail-closed contract (an unknown trainer or party field, a party pool or
   # party-order AI flag, a partySize/party mismatch, an unresolvable species/item/move symbol, a
   # non-constant initializer or a stray preprocessor directive must raise, never be skipped).
+  echo "== H&S Group E closure reconciliation =="
+  python3 tools/hns-group-e/generate_closure.py --check
+  (cd tools/hns-group-e && python3 -m unittest test_closure -v)
   echo "== H&S trainer census source-reader tests =="
   (cd tools/hns-calc-census && python3 -m unittest test_hns_trainer_source -v)
 }
@@ -385,6 +388,7 @@ source_check() {
     return 1
   fi
   export HNS_UPSTREAM_DIR="$upstream"
+  python3 tools/hns-group-e/generate_closure.py --check --upstream-dir "$upstream"
 
   # 1. The generated table must regenerate byte-for-byte from the pinned source.
   python3 tools/hns-map-data/generate_hns_map_data.py \

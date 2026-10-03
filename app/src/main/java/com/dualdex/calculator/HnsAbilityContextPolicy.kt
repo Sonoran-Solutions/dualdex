@@ -7,6 +7,7 @@ import com.dualdex.pokemon.hns.HnsAbilityAuditData
 import com.dualdex.pokemon.hns.HnsAbilityCategory
 import com.dualdex.pokemon.hns.HnsItemRegistry
 import com.dualdex.pokemon.hns.HnsFieldStatusData
+import com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
 
 /** Which request participant owns an effective live ability. */
 enum class HnsAbilitySide { ATTACKER, DEFENDER }
@@ -63,6 +64,7 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_POISON_MASK = 0x80
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
+        277, 280, // Group E: source-proven shared Charge volatile
         18, 55, 62, 79, 112, 148, 198, 255, 281, 282, 284, 285, 286, 287, 293,
         3, 22, 80, 83, 86, 88, 128, 133, 141, 153, 154, 155, 172, 192, 195, 201,
         220, 224, 234, 235, 243, 264, 265, 270, 271, 275, 290,
@@ -84,7 +86,7 @@ object HnsAbilityContextPolicy {
 
     private fun stateBackedGroupDProof(abilityId: Int, c: Context): Proof? {
         val live = c.liveBattleState ?: return null
-        if (c.ordinaryMove != true || c.observedBattlersCount != 2 ||
+        if (c.ordinaryMove != true || !ordinaryTopology(c) ||
             !c.attackerAbilityObserved || !c.defenderAbilityObserved) return null
         val attackerRole = c.side == HnsAbilitySide.ATTACKER
         val moveType = effectiveMoveType(c)
@@ -361,7 +363,42 @@ object HnsAbilityContextPolicy {
         }
 
         val c = context ?: return unknown(entry.abilityId ?: abilityId, entry.titleCaseName, side, entry.category)
-        val proof: Proof? = when (abilityId) {
+        val doublesExact = c.liveBattleState?.doubles != null && c.observedBattlersCount == 4 &&
+            c.ordinaryMove == true && abilityObserved(c)
+        val proof: Proof? = when {
+            doublesExact && abilityId in setOf(57, 58) ->
+                relevant("doubles_plus_minus_exact", "src/battle_util.c:7026-7044",
+                    "The live partner effective identity authorizes the exact category-specific Plus/Minus Attack accumulator slot.")
+            doublesExact && abilityId in setOf(132, 217, 249, 140) ->
+                proof("doubles_partner_holder_opposing_hit", "src/battle_util.c:6763-6784; src/battle_util.c:7640; src/battle_util.c:8422",
+                    "The selected hit targets an opposing battler; these holder identities modify an ally's hit or ally-target execution. The observed partner slots are handled separately.")
+            else -> when (abilityId) {
+            5 -> when {
+                c.ordinaryMove != true || !abilityObserved(c) -> null
+                c.side == HnsAbilitySide.ATTACKER -> proof("group_e_sturdy_attacker",
+                    "src/battle_util.c:8186", "The survival check reads only the defender ability; OHKO moves remain independently refused.")
+                c.defenderHp == null || c.defenderMaxHp == null || c.defenderMaxHp <= 0 ||
+                    c.defenderHp !in 1..c.defenderMaxHp -> unknownProof(
+                        "group_e_sturdy_hp_unobserved", "src/battle_util.c:8186",
+                        "Defender HP and max HP are unread or out of domain, so Sturdy's survival predicate cannot be decided.")
+                c.defenderHp < c.defenderMaxHp -> proof("group_e_sturdy_below_full_hp",
+                    "src/battle_util.c:8186", "The observed defender is below full HP, so the survival predicate is false regardless of the Sturdy option.")
+                else -> relevant("group_e_sturdy_survival_estimate", "src/battle_util.c:8186",
+                    "This estimate ignores Sturdy's potential survival cap, including its challenge option; the underlying ordinary single-hit damage operands remain authoritative.")
+            }
+            277, 280 -> when {
+                c.ordinaryMove != true || !abilityObserved(c) -> null
+                c.side == HnsAbilitySide.DEFENDER -> proof("group_e_charge_defender_after_hit",
+                    "src/battle_util.c:4309; data/battle_scripts_1.s:4947",
+                    "The defender reaction writes Charge after this hit; it cannot change incoming damage.")
+                effectiveMoveType(c) == null -> null
+                effectiveMoveType(c) != PokemonType.ELECTRIC -> proof("group_e_charge_non_electric",
+                    "src/battle_util.c:6635", "Charge modifies only the authoritative final Electric type.")
+                c.liveBattleState?.attackerChargeTimer !in 0..HnsBattlerRuntimeStateIds.VOLATILE_CHARGE_TIMER_MAX -> null
+                else -> proof("group_e_charge_live_timer",
+                    "data/battle_scripts_1.s:4949; include/constants/battle.h:217; src/battle_util.c:6635",
+                    "The ability script writes VOLATILE_CHARGE_TIMER, the same observed chargeTimer consumed by the exact base-power pipeline; no historical activation is inferred.")
+            }
             in LIVE_STAT_STAGE_WRITER_IDS -> if (
                 c.switchInEventsSettled == true &&
                 c.attackerAbilityObserved && c.defenderAbilityObserved &&
@@ -637,7 +674,7 @@ object HnsAbilityContextPolicy {
                     "Solar Power is checked only in the attacker ability slot for this selected hit."
                 )
                 c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
-                    !c.attackerAbilityObserved || !c.defenderAbilityObserved || c.observedBattlersCount != 2 ->
+                    !c.attackerAbilityObserved || !c.defenderAbilityObserved || !ordinaryTopology(c) ->
                     unknownProof(
                         "solar_power_live_ability_unknown", "src/battle_util.c:6998",
                         "Solar Power requires an authoritative ordinary move and both active effective abilities."
@@ -685,7 +722,7 @@ object HnsAbilityContextPolicy {
                     "Transistor, Dragon's Maw, and Rocky Payload are read only from CalcAttackStat's attacker ability slot."
                 )
                 c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
-                    !c.attackerAbilityObserved || !c.defenderAbilityObserved || c.observedBattlersCount != 2 ->
+                    !c.attackerAbilityObserved || !c.defenderAbilityObserved || !ordinaryTopology(c) ->
                     unknownProof(
                         "attack_stat_type_ability_live_state_unknown", "src/battle_util.c:7058-7080",
                         "The type-based Attack-stat branch requires an authoritative ordinary move and live effective abilities for both battlers."
@@ -709,7 +746,7 @@ object HnsAbilityContextPolicy {
                     "Orichalcum Pulse is read only from CalcAttackStat's attacker ability slot."
                 )
                 c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
-                    !c.attackerAbilityObserved || !c.defenderAbilityObserved || c.observedBattlersCount != 2 ->
+                    !c.attackerAbilityObserved || !c.defenderAbilityObserved || !ordinaryTopology(c) ->
                     unknownProof(
                         "orichalcum_pulse_live_state_unknown", "src/battle_util.c:7105-7107",
                         "The branch requires an authoritative ordinary move and live effective abilities for both battlers."
@@ -777,7 +814,7 @@ object HnsAbilityContextPolicy {
                     "Fur Coat is read only in CalcDefenseStat for the defender."
                 )
                 c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
-                    c.observedBattlersCount != 2 || c.moveCategory == null || c.fieldStatuses == null ->
+                    !ordinaryTopology(c) || c.moveCategory == null || c.fieldStatuses == null ->
                     unknownProof(
                         "fur_coat_defense_selection_unknown", "src/battle_util.c:7226, src/battle_util.c:7287",
                         "Fur Coat requires an authoritative ordinary move, final category, live defender ability, and observed field word."
@@ -1055,7 +1092,7 @@ object HnsAbilityContextPolicy {
                 )
                 c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != 91 ||
                     c.moveType == null || c.attackerTypes == null || c.moveAuthority?.effectiveType == null ||
-                    c.observedBattlersCount != 2 -> unknownProof(
+                    !ordinaryTopology(c) -> unknownProof(
                     "adaptability_stab_operands_unknown", "src/battle_util.c:7424-7430",
                     "Adaptability requires an ordinary move, the live effective ability, exact final move type, live attacker types, and observed Singles topology."
                 )
@@ -1320,6 +1357,7 @@ object HnsAbilityContextPolicy {
             else -> null
         }
 
+        }
         return when (proof) {
             null -> unknown(abilityId, entry.titleCaseName, c.side, entry.category)
             else -> decision(
@@ -1700,6 +1738,9 @@ object HnsAbilityContextPolicy {
         HnsAbilityRequestRelevance.UNKNOWN, rule, source, rationale
     )
 
+    private fun ordinaryTopology(c: Context): Boolean = c.observedBattlersCount == 2 ||
+        c.observedBattlersCount == 4 && c.liveBattleState?.doubles != null
+
     private fun singlesProof(c: Context, rule: String, source: String, rationale: String): Proof? =
         if (c.observedBattlersCount == 2) proof(rule, source, rationale) else null
 
@@ -1815,5 +1856,15 @@ object HnsAbilityContextPolicy {
         rule: String? = null,
         source: String? = null,
         rationale: String
-    ) = HnsAbilityRequestDecision(id, name, side, category, relevance, rule, source, rationale)
+    ): HnsAbilityRequestDecision {
+        val disposition = com.dualdex.pokemon.hns.HnsGroupEData.abilityDispositions[id]
+        val refused = relevance == HnsAbilityRequestRelevance.UNKNOWN ||
+            (relevance == HnsAbilityRequestRelevance.RELEVANT &&
+                disposition?.tier == com.dualdex.pokemon.hns.HnsGroupETier.HARD_REFUSAL &&
+                !(id in setOf(57, 58) && rule == "doubles_plus_minus_exact"))
+        return HnsAbilityRequestDecision(id, name, side, category,
+            if (refused) HnsAbilityRequestRelevance.UNKNOWN else relevance,
+            rule ?: disposition?.let { "group_e_" + it.family }, source ?: disposition?.source,
+            if (refused && disposition != null) disposition.reason + " " + rationale else rationale)
+    }
 }

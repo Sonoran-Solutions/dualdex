@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.view.View
 import android.view.Gravity
 import android.widget.*
 import com.dualdex.calculator.*
@@ -48,6 +49,9 @@ class CalcTabScreenView(
         }
     }
 
+    private var doublesTargetsKey = emptyList<Int>()
+    private val doublesTargetSelector = LinearLayout(context).apply { orientation = HORIZONTAL }
+
     init {
         orientation = VERTICAL
         setBackgroundColor(0xFF121216.toInt())
@@ -56,6 +60,7 @@ class CalcTabScreenView(
         val scroll = ScrollView(context).apply { isVerticalScrollBarEnabled = true }
         val content = LinearLayout(context).apply { orientation = VERTICAL }
         scroll.addView(content)
+        content.addView(doublesTargetSelector)
         addView(scroll)
 
         // Title Header with Live Battle Badge
@@ -347,6 +352,8 @@ class CalcTabScreenView(
                 refreshUI()
             }
         }
+        scope.launch { viewModel.hnsBattlers.collectLatest { refreshUI() } }
+        scope.launch { viewModel.selectedHnsEnemyBattler.collectLatest { refreshUI() } }
         scope.launch {
             viewModel.enemyBattlerState.collectLatest {
                 refreshUI()
@@ -372,6 +379,26 @@ class CalcTabScreenView(
 
     fun refreshUI() {
         val party = viewModel.playerParty.value
+        val opponents = viewModel.hnsBattlers.value.filter { o ->
+            o.state.doubles?.battlers?.getOrNull(o.state.battlerIndex ?: -1)?.let {
+                it.position and 1 == 1 && o.state.doubles.alive(it.index)
+            } == true
+        }
+        doublesTargetSelector.visibility = if (opponents.isEmpty()) View.GONE else View.VISIBLE
+        val targetsKey = opponents.flatMap { listOf(it.state.battlerIndex!!, it.state.speciesId!!) } +
+            listOf(viewModel.selectedHnsEnemyBattler.value ?: -1)
+        if (targetsKey != doublesTargetsKey) {
+            doublesTargetsKey = targetsKey
+            doublesTargetSelector.removeAllViews()
+            opponents.forEach { o ->
+                val index = o.state.battlerIndex!!
+                doublesTargetSelector.addView(android.widget.Button(context).apply {
+                    text = "Target: ${SpeciesDatabase.get(o.state.speciesId!!).name}"
+                    isSelected = viewModel.selectedHnsEnemyBattler.value == index
+                    setOnClickListener { viewModel.selectHnsEnemyBattler(index) }
+                })
+            }
+        }
         val selectedIdx = viewModel.selectedMemberIndex.value
         val attacker = if (party.isNotEmpty() && selectedIdx in party.indices) party[selectedIdx] else null
 
@@ -441,8 +468,9 @@ class CalcTabScreenView(
         // 2. Auto-populate defender from opponent memory read if in battle.
         // The slot is only honoured when the native resolution names one, so a doubles battle, an
         // unresolved transition or an unreadable battle never auto-fills a guessed defender.
-        val observedEnemy = if (inBattle && viewModel.activeEnemyResolution.value.hasResolvedSlot) {
-            enemyParty.getOrNull(viewModel.activeEnemyMemberIndex.value)
+        val chosenDoublesEnemy = viewModel.selectedHnsEnemyObservation()
+        val observedEnemy = if (inBattle && (viewModel.activeEnemyResolution.value.hasResolvedSlot || chosenDoublesEnemy != null)) {
+            enemyParty.getOrNull(chosenDoublesEnemy?.state?.partySlot ?: viewModel.activeEnemyMemberIndex.value)
         } else null
         if (observedEnemy != null) {
             val enemyMon = observedEnemy
@@ -550,8 +578,9 @@ class CalcTabScreenView(
 
         val enemyParty = viewModel.enemyParty.value
         val inBattle = viewModel.isInBattle.value
-        val enemySlot = viewModel.activeEnemyMemberIndex.value
-        val enemyMon = if (inBattle && viewModel.activeEnemyResolution.value.hasResolvedSlot) {
+        val chosenDoublesEnemy = viewModel.selectedHnsEnemyObservation()
+        val enemySlot = chosenDoublesEnemy?.state?.partySlot ?: viewModel.activeEnemyMemberIndex.value
+        val enemyMon = if (inBattle && (viewModel.activeEnemyResolution.value.hasResolvedSlot || chosenDoublesEnemy != null)) {
             enemyParty.getOrNull(enemySlot)
         } else null
 
@@ -559,8 +588,8 @@ class CalcTabScreenView(
         val activeProfile = viewModel.activeProfile.value
         val runtimeRomTrust = viewModel.runtimeRomTrust.value
         val challengeSettingsSnapshot = viewModel.challengeSettings.value
-        val playerBattlerSnapshot = viewModel.playerBattlerState.value
-        val enemyBattlerSnapshot = viewModel.enemyBattlerState.value
+        val playerBattlerSnapshot = viewModel.selectedHnsPlayerObservation(selectedIdx) ?: viewModel.playerBattlerState.value
+        val enemyBattlerSnapshot = chosenDoublesEnemy ?: viewModel.enemyBattlerState.value
         val playerStagesSnapshot = viewModel.playerStatStages.value
         val enemyStagesSnapshot = viewModel.enemyStatStages.value
 
@@ -593,18 +622,13 @@ class CalcTabScreenView(
             isExpansionItems = isExpansionItems,
             enemyBattlerState = enemyBattlerSnapshot,
             isExactHns = isExactHns,
-            activeEnemySlot = if (inBattle && viewModel.activeEnemyResolution.value.hasResolvedSlot) enemySlot else null,
+            activeEnemySlot = if (inBattle && (viewModel.activeEnemyResolution.value.hasResolvedSlot || chosenDoublesEnemy != null)) enemySlot else null,
             activeBattle = inBattle
         )
 
         val field = CalcFieldInput(
             weather = currentWeather,
-            // The production subset is Singles-only. This label is no longer the authority: the
-            // boundary now owns the live battle format and rebinds/validates it from the observed
-            // `gBattlersCount`, so a genuine Doubles battle cannot be computed with the Singles
-            // screen multiplier even though this default says Singles. A live topology that is
-            // not the observed Singles count refuses with HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED.
-            gameType = CalcGameTypes.SINGLES,
+            gameType = if (playerBattlerSnapshot?.state?.battlersCount == 4) CalcGameTypes.DOUBLES else CalcGameTypes.SINGLES,
             defenderSide = if (hasScreens) SideConditions(isReflect = true, isLightScreen = true) else null
         )
 

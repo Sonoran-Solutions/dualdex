@@ -78,10 +78,9 @@ sealed interface DamageBlockerPresentation {
             get() = if (ignored) {
                 "Ignoring ${owner(attacker)}: ${decision.abilityName}"
             } else {
-                "${possessive(attacker)} ${decision.abilityName} " +
-                    auditStatus(decision.globalCategory == HnsAbilityCategory.UNCLASSIFIED)
+                "${possessive(attacker)} ${decision.abilityName}: ${decision.rationale}"
             }
-        override val detail: String get() = "${owner(attacker)}: ${decision.abilityName}"
+        override val detail: String get() = if (ignored) "${owner(attacker)}: ${decision.abilityName}" else headline
     }
 
     /** A globally unsupported/unresolved live held item that was not proven irrelevant. */
@@ -94,10 +93,9 @@ sealed interface DamageBlockerPresentation {
             get() = if (ignored) {
                 "Ignoring ${owner(attacker)}: ${decision.itemName}"
             } else {
-                "${possessive(attacker)} ${decision.itemName} " +
-                    auditStatus(decision.globalCategory == HnsItemCategory.UNCLASSIFIED)
+                "${possessive(attacker)} ${decision.itemName}: ${decision.rationale}"
             }
-        override val detail: String get() = "${owner(attacker)}: ${decision.itemName}"
+        override val detail: String get() = if (ignored) "${owner(attacker)}: ${decision.itemName}" else headline
     }
 
     /** A move or mechanic the calculator does not model (move effect, item-dependent move, ...). */
@@ -116,7 +114,6 @@ sealed interface DamageBlockerPresentation {
         private fun Int?.hex(digits: Int) = this?.let { " (0x%0${digits}X)".format(it) }.orEmpty()
         private fun possessive(attacker: Boolean) = if (attacker) "Your" else "Foe's"
         private fun owner(attacker: Boolean) = if (attacker) "You" else "Foe"
-        private fun auditStatus(unclassified: Boolean) = if (unclassified) "not yet audited" else "not modelled"
 
         /** Same structured causes used for refusals, formatted as estimate caveats. */
         fun ignoredFrom(verdict: CalcCapabilityVerdict): List<DamageBlockerPresentation> =
@@ -155,11 +152,17 @@ sealed interface DamageBlockerPresentation {
 
             val doubles = take(setOf(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED))
             val format = take(setOf(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED))
-            if (doubles.isNotEmpty() || observedDoubles) {
-                states += State("Doubles not supported", doubles + format)
-            } else if (format.isNotEmpty()) {
-                states += State("Live battle format not supported", format)
-            }
+            if (doubles.isNotEmpty()) states += State("Doubles target count unavailable", doubles)
+            if (format.isNotEmpty()) states += State(
+                if (observedDoubles) "Doubles topology incomplete" else "Live battle format not supported", format)
+            take(setOf(CalcLimitation.HNS_DOUBLES_PARTNER_STATE_UNKNOWN)).takeIf { it.isNotEmpty() }
+                ?.let { states += State("Doubles partner state incomplete", it) }
+            take(setOf(CalcLimitation.HNS_DOUBLES_SWITCH_IN_UNSETTLED)).takeIf { it.isNotEmpty() }
+                ?.let { states += State("Doubles switch-in state unresolved", it) }
+            take(setOf(CalcLimitation.HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED)).takeIf { it.isNotEmpty() }
+                ?.let { states += State("Doubles target or execution unresolved", it) }
+            take(setOf(CalcLimitation.HNS_DOUBLES_SUPPRESSION_UNRESOLVED)).takeIf { it.isNotEmpty() }
+                ?.let { states += State("Doubles ability suppression unresolved", it) }
             take(
                 setOf(
                     CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN,
@@ -250,7 +253,7 @@ sealed interface DamageBlockerPresentation {
             // single live-state blocker (its limitations are all retained) rather than as a list of
             // symptoms. Ability, item and move blockers are never folded.
             if (CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN in limitations) {
-                val folded = states.filterIsInstance<State>().filter { it.reason != "Doubles not supported" }
+                val folded = states.filterIsInstance<State>()
                 if (folded.size > 1) {
                     states.removeAll(folded)
                     states += State("Live battle state incomplete", folded.flatMap { it.limitations })

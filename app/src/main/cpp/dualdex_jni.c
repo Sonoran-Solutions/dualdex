@@ -801,7 +801,10 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
  * never silently drift apart.  Every public surface that touches this tuple
  * references BATTLER_RUNTIME_STATE_TUPLE_LEN instead of a local literal.
  */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 103
+/* Legacy 103 words preserved. [103] packet presence; [104..161] version 1:
+ * version/count/absent/followMe[2]/actionFlags + 4 x 13 indexed records.
+ * See read_doubles_operands and HnsDoublesRuntimeState.decode. */
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 162
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -873,7 +876,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     state.party_slot = -1;
     bool ok = false;
     if (ewram && ewram_sz > 0 &&
-        (role == (jint)BATTLER_ROLE_PLAYER || role == (jint)BATTLER_ROLE_OPPONENT)) {
+        (role >= 0 && role <= (jint)BATTLER_ROLE_INDEX_3)) {
         const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
         if (cfg) {
             ok = pokemon_read_battler_runtime_state_gba(
@@ -1016,6 +1019,8 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     values[101] = (jint)HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_WIDTH;
     values[102] = (jint)HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_WIDTH;
 
+    values[103] = state.doubles_observed ? 1 : 0;
+    for (int i = 0; i < 58; i++) values[104 + i] = (jint)state.doubles_operands[i];
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;
     (*env)->SetIntArrayRegion(env, result, 0, BATTLER_RUNTIME_STATE_TUPLE_LEN, values);

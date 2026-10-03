@@ -23,13 +23,13 @@ import com.dualdex.pokemon.DeclaredAbility
  * matchup?* A bare [com.dualdex.calculator.CalcCapabilityPolicy.evaluate] call with no live
  * operands cannot answer it, because the production policy correctly refuses a request whose
  * live evidence is missing. This object therefore supplies the SAME truthfully-observed
- * neutral runtime state an ordinary singles battle would have, and nothing more:
+ * neutral runtime state of the stated two- or four-battler baseline:
  *
  * | Operand | Baseline value | Why |
  * |---|---|---|
  * | profile / build identity | pinned H&S 2.0.5 data pack (`hns_2_0_5`), expansion engine, phys/spec split | the build the census measures |
  * | ROM trust | this file's own identity hash, exact-verified for this profile | the census measures the production policy at its real trust ceiling, not a loosened one |
- * | topology (`gBattlersCount`) | `2` for a trainer whose pinned `battleType` is SINGLES | that battle really is a singles battle |
+ * | topology (`gBattlersCount`) | `2` for SINGLES, `4` for DOUBLES | match the pinned battle format |
  * | challenger settings | observed, `optionStyle = PER_MOVE_SPLIT`, Random Types/Type-Effectiveness/Abilities/Moves OFF, no base-stat equalizer, no level/IV/EV scaling | ordinary challenge configuration, stated explicitly rather than left unread |
  * | field (`gFieldStatuses`) | observed `0` | no terrain, no Ion Deluge, no room effect |
  * | weather (`gBattleWeather`) | observed `0` | clear |
@@ -141,6 +141,23 @@ object HnsCalcCensusBaseline {
         txChallengesExpMultiplier = observed(0),
         txModeLegendaryAbilities = observed(1)
     )
+
+    /** Host-only neutral four-slot context. No production caller uses this fixture.
+     * Partners are explicitly observed neutral Insomnia holders, matching the oracle's
+     * neutral partners. These are baseline state assertions, not trainer-derived modifiers.
+     * The trainer/reference identities and all original request keys remain unchanged. */
+    fun doublesPacket(a: HnsBattlerRuntimeState, d: HnsBattlerRuntimeState): com.dualdex.pokemon.hns.HnsDoublesRuntimeState {
+        fun record(s: HnsBattlerRuntimeState) = com.dualdex.pokemon.hns.HnsDoublesBattler(
+            s.battlerIndex!!, s.battlerIndex, s.partySlot!!, s.hp, s.speciesId!!,
+            s.abilityId!!, s.itemId!!, s.volatileGastroAcid, s.volatileNeutralizingGas,
+            s.volatileTransformed, s.volatileSemiInvulnerable,
+            (if (s.volatileVesselOfRuin) 1 else 0) + (if (s.volatileSwordOfRuin) 2 else 0) +
+            (if (s.volatileTabletsOfRuin) 4 else 0) + (if (s.volatileBeadsOfRuin) 8 else 0), 0)
+        return com.dualdex.pokemon.hns.HnsDoublesRuntimeState(4, a.absentBattlerFlags, listOf(0, 0), false,
+            listOf(record(a), record(d),
+                com.dualdex.pokemon.hns.HnsDoublesBattler(2, 2, (a.partySlot!! + 1) % 6, NEUTRAL_MAX_HP, 68, 15, 0, false, false, false, 0, 0, 0),
+                com.dualdex.pokemon.hns.HnsDoublesBattler(3, 3, (d.partySlot!! + 1) % 6, NEUTRAL_MAX_HP, 143, 15, 0, false, false, false, 0, 0, 0)))
+    }
 
     /** Which participant of the census request this observation stands for. */
     enum class Participant { ATTACKER, DEFENDER }

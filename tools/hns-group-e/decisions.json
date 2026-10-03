@@ -1,0 +1,453 @@
+{
+  "pinned_commit": "1f42b74dff0e9fe942419845d040663dd829a973",
+  "groups": {
+    "charge": {
+      "tier": "EXACT",
+      "reason": "Charge requires its observed live timer; no activation history is inferred.",
+      "state": "Observed chargeTimer; script-to-volatile mapping source-checked. Exact x2 before terrain. Oracle group-e-charge cases.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "fixed_hit_modifier": {
+      "tier": "CAVEATED_ESTIMATE",
+      "reason": "The identified hit modifier is omitted only when its relevant branch is proven; unknown type/category or activation remains refused.",
+      "state": "Known side and applicable ordinary move predicate; existing context proof required.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "fixed_critical_flag": {
+      "tier": "CAVEATED_ESTIMATE",
+      "reason": "Critical-hit prevention conflicts with the selected critical flag.",
+      "state": "Observed ability and ordinary move; noncritical and attacker-side proofs retained.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "order_modifier": {
+      "tier": "CAVEATED_ESTIMATE",
+      "reason": "Turn-order contribution to Analytic is omitted only under the existing positive proof.",
+      "state": "Current-action order is observed for exact Analytic; unread order independently refuses. No history is reconstructed.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "post_hit": {
+      "tier": "HARD_REFUSAL",
+      "reason": "The selected-hit or settled-state proof is incomplete; post-hit effects cannot authorize an unresolved move.",
+      "state": "Existing contact, move, role and settlement proofs clear only the covered branch; unknown prerequisites refuse.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "suppression": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Effective ability suppression or replacement is unresolved for this hit.",
+      "state": "Shared Group C effective-ability and Group D hold-effect authority only; raw identity does not prove suppression.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "hold_authority": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Effective held-item or berry activation authority is unresolved.",
+      "state": "Klutz, Unnerve, As One and Ripen retain existing shared hold-effect/resist-berry proofs.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "partner": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Partner, target or copied partner-state authority is unresolved.",
+      "state": "Singles proofs retained; live two-participant snapshots do not represent the additional Doubles battlers.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "transform": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Copied battler state or Transform settlement is unresolved.",
+      "state": "Live species, stats, types and effective ability are read; transformed flag and original species exist. A settled complete copied move/state snapshot is not proven by species alone.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "form": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Effective form transition and its damage operands are not proven settled.",
+      "state": "Current battle species/types/raw stats are read, but a pre-hit or form-change transition cannot be reconstructed from species defaults.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "shield": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Hit interception and shield transition are unresolved.",
+      "state": "Live species/form alone does not establish whether this selected hit is intercepted.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "type_rewrite": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Pending type rewrite cannot be resolved without usedProteanLibero state.",
+      "state": "Same-type live proofs retained; the positive pre-use branch lacks its activation operand.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "primal_weather": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Primal weather can prevent the move or change its type effectiveness.",
+      "state": "Raw weather observed; full primal move cancellation and strong-winds semantics are not implemented.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "live_writer": {
+      "tier": "HARD_REFUSAL",
+      "reason": "The selected-hit state writer has no complete settlement proof.",
+      "state": "Stages/screens/field may be observed, but this writer has no reviewed complete transition predicate; no default or historical inference.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "move_execution": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Move execution, hit count or damage operand selection is unresolved.",
+      "state": "The independently supported ordinary move surface is mandatory; active execution/operand changes cannot be ignored.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "item_activation": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Item activation has no settled selected-hit proof.",
+      "state": "Live current item/stages retained; generated onSwitchIn metadata still requires settled entry. Terrain Seeds/Berserk Gene keep activation refusals.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "item_move": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Selected move or effective hold-effect authority is unresolved.",
+      "state": "Existing fixed-crit, ordinary-move, weight and suppression proofs retained; no new inferred item state.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "survival": {
+      "tier": "CAVEATED_ESTIMATE",
+      "reason": "The survival cap is omitted from the base damage range.",
+      "state": "Known current item and live HP predicate; Focus Sash below-full-HP proof retained; unknown HP stays refused.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "gimmick": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Selected or active Mega/Z gimmick or item-dependent move is unresolved.",
+      "state": "Existing ordinary-hit plus both selected/active NONE proof retained. Suppression alone cannot establish NONE.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "item_suppression": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Ability Shield suppression interaction is unresolved.",
+      "state": "Shared effective ability/hold effect can prove supported branches; identity is not a suppression proof.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "item_form": {
+      "tier": "HARD_REFUSAL",
+      "reason": "Form and move replacement settlement is unresolved.",
+      "state": "Rusted Sword/Shield change species and Iron Head; raw item identity and catalogue NONE cannot prove effective moves.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    },
+    "enigma": {
+      "tier": "HARD_REFUSAL",
+      "reason": "e-Reader runtime hold effect and parameter are unread.",
+      "state": "gEnigmaBerries live runtime payload is not observed; static HOLD_EFFECT_NONE is not its effect.",
+      "tests": "HnsGroupEClosureTest; CalcHnsC4eProductionBoundaryTest; existing contextual-policy regressions"
+    }
+  },
+  "abilities": {
+    "277": "charge",
+    "280": "charge",
+    "37": "fixed_hit_modifier",
+    "47": "fixed_hit_modifier",
+    "74": "fixed_hit_modifier",
+    "159": "fixed_hit_modifier",
+    "308": "fixed_hit_modifier",
+    "4": "fixed_critical_flag",
+    "75": "fixed_critical_flag",
+    "84": "order_modifier",
+    "95": "order_modifier",
+    "146": "order_modifier",
+    "202": "order_modifier",
+    "259": "order_modifier",
+    "24": "post_hit",
+    "64": "post_hit",
+    "105": "post_hit",
+    "106": "post_hit",
+    "124": "post_hit",
+    "139": "post_hit",
+    "152": "post_hit",
+    "160": "post_hit",
+    "167": "post_hit",
+    "215": "post_hit",
+    "221": "post_hit",
+    "238": "post_hit",
+    "254": "post_hit",
+    "268": "post_hit",
+    "291": "post_hit",
+    "104": "suppression",
+    "163": "suppression",
+    "164": "suppression",
+    "256": "suppression",
+    "82": "hold_authority",
+    "103": "hold_authority",
+    "127": "hold_authority",
+    "170": "hold_authority",
+    "180": "hold_authority",
+    "247": "hold_authority",
+    "266": "hold_authority",
+    "267": "hold_authority",
+    "57": "partner",
+    "58": "partner",
+    "132": "partner",
+    "140": "partner",
+    "216": "partner",
+    "217": "partner",
+    "249": "partner",
+    "279": "partner",
+    "294": "partner",
+    "299": "partner",
+    "150": "transform",
+    "59": "form",
+    "121": "form",
+    "161": "form",
+    "176": "form",
+    "197": "form",
+    "208": "form",
+    "210": "form",
+    "211": "form",
+    "225": "form",
+    "241": "form",
+    "258": "form",
+    "278": "form",
+    "307": "form",
+    "209": "shield",
+    "248": "shield",
+    "168": "type_rewrite",
+    "236": "type_rewrite",
+    "189": "primal_weather",
+    "190": "primal_weather",
+    "191": "primal_weather",
+    "251": "live_writer",
+    "261": "live_writer",
+    "295": "live_writer",
+    "301": "live_writer",
+    "302": "live_writer",
+    "303": "live_writer",
+    "304": "live_writer",
+    "309": "live_writer",
+    "5": "survival",
+    "54": "move_execution",
+    "92": "move_execution",
+    "100": "move_execution",
+    "109": "move_execution",
+    "113": "move_execution",
+    "120": "move_execution",
+    "134": "move_execution",
+    "135": "move_execution",
+    "151": "move_execution",
+    "177": "move_execution",
+    "185": "move_execution",
+    "196": "move_execution",
+    "203": "move_execution",
+    "205": "move_execution",
+    "207": "move_execution",
+    "213": "move_execution",
+    "260": "move_execution",
+    "272": "move_execution",
+    "300": "move_execution"
+  },
+  "item_families": {
+    "HOLD_EFFECT_LEFTOVERS": "item_activation",
+    "HOLD_EFFECT_BLACK_SLUDGE": "item_activation",
+    "HOLD_EFFECT_SHELL_BELL": "item_activation",
+    "HOLD_EFFECT_ROCKY_HELMET": "item_activation",
+    "HOLD_EFFECT_RESTORE_HP": "item_activation",
+    "HOLD_EFFECT_RESTORE_PCT_HP": "item_activation",
+    "HOLD_EFFECT_RESTORE_PP": "item_activation",
+    "HOLD_EFFECT_CONFUSE_SPICY": "item_activation",
+    "HOLD_EFFECT_CONFUSE_DRY": "item_activation",
+    "HOLD_EFFECT_CONFUSE_SWEET": "item_activation",
+    "HOLD_EFFECT_CONFUSE_BITTER": "item_activation",
+    "HOLD_EFFECT_CONFUSE_SOUR": "item_activation",
+    "HOLD_EFFECT_CURE_PAR": "item_activation",
+    "HOLD_EFFECT_CURE_SLP": "item_activation",
+    "HOLD_EFFECT_CURE_PSN": "item_activation",
+    "HOLD_EFFECT_CURE_BRN": "item_activation",
+    "HOLD_EFFECT_CURE_FRZ": "item_activation",
+    "HOLD_EFFECT_CURE_CONFUSION": "item_activation",
+    "HOLD_EFFECT_CURE_STATUS": "item_activation",
+    "HOLD_EFFECT_ATTACK_UP": "item_activation",
+    "HOLD_EFFECT_DEFENSE_UP": "item_activation",
+    "HOLD_EFFECT_SPEED_UP": "item_activation",
+    "HOLD_EFFECT_SP_ATTACK_UP": "item_activation",
+    "HOLD_EFFECT_SP_DEFENSE_UP": "item_activation",
+    "HOLD_EFFECT_CRITICAL_UP": "item_activation",
+    "HOLD_EFFECT_RANDOM_STAT_UP": "item_activation",
+    "HOLD_EFFECT_MICLE_BERRY": "item_activation",
+    "HOLD_EFFECT_KEE_BERRY": "item_activation",
+    "HOLD_EFFECT_MARANGA_BERRY": "item_activation",
+    "HOLD_EFFECT_JABOCA_BERRY": "item_activation",
+    "HOLD_EFFECT_ROWAP_BERRY": "item_activation",
+    "HOLD_EFFECT_ENIGMA_BERRY": "item_activation",
+    "HOLD_EFFECT_WEAKNESS_POLICY": "item_activation",
+    "HOLD_EFFECT_ABSORB_BULB": "item_activation",
+    "HOLD_EFFECT_CELL_BATTERY": "item_activation",
+    "HOLD_EFFECT_LUMINOUS_MOSS": "item_activation",
+    "HOLD_EFFECT_SNOWBALL": "item_activation",
+    "HOLD_EFFECT_THROAT_SPRAY": "item_activation",
+    "HOLD_EFFECT_BLUNDER_POLICY": "item_activation",
+    "HOLD_EFFECT_WHITE_HERB": "item_activation",
+    "HOLD_EFFECT_MENTAL_HERB": "item_activation",
+    "HOLD_EFFECT_MIRROR_HERB": "item_activation",
+    "HOLD_EFFECT_ROOM_SERVICE": "item_activation",
+    "HOLD_EFFECT_TERRAIN_SEED": "item_activation",
+    "HOLD_EFFECT_STICKY_BARB": "item_activation",
+    "HOLD_EFFECT_TOXIC_ORB": "item_activation",
+    "HOLD_EFFECT_FLAME_ORB": "item_activation",
+    "HOLD_EFFECT_BIG_ROOT": "item_activation",
+    "HOLD_EFFECT_BINDING_BAND": "item_activation",
+    "HOLD_EFFECT_CLEAR_AMULET": "item_activation",
+    "HOLD_EFFECT_SAFETY_GOGGLES": "item_activation",
+    "HOLD_EFFECT_BERSERK_GENE": "item_activation",
+    "HOLD_EFFECT_CHOICE_SCARF": "order_modifier",
+    "HOLD_EFFECT_QUICK_CLAW": "order_modifier",
+    "HOLD_EFFECT_CUSTAP_BERRY": "order_modifier",
+    "HOLD_EFFECT_LAGGING_TAIL": "order_modifier",
+    "HOLD_EFFECT_MACHO_BRACE": "order_modifier",
+    "HOLD_EFFECT_POWER_ITEM": "order_modifier",
+    "HOLD_EFFECT_QUICK_POWDER": "order_modifier",
+    "HOLD_EFFECT_SCOPE_LENS": "item_move",
+    "HOLD_EFFECT_LUCKY_PUNCH": "item_move",
+    "HOLD_EFFECT_LEEK": "item_move",
+    "HOLD_EFFECT_FOCUS_SASH": "survival",
+    "HOLD_EFFECT_FOCUS_BAND": "survival",
+    "HOLD_EFFECT_RING_TARGET": "survival",
+    "HOLD_EFFECT_FLOAT_STONE": "item_move",
+    "HOLD_EFFECT_AIR_BALLOON": "item_move",
+    "HOLD_EFFECT_IRON_BALL": "item_move",
+    "HOLD_EFFECT_MEGA_STONE": "gimmick",
+    "HOLD_EFFECT_Z_CRYSTAL": "gimmick",
+    "HOLD_EFFECT_ABILITY_SHIELD": "item_suppression"
+  },
+  "item_identities": {
+    "ITEM_ENIGMA_BERRY_E_READER": "enigma",
+    "ITEM_RUSTED_SWORD": "item_form",
+    "ITEM_RUSTED_SHIELD": "item_form"
+  },
+  "identity_sources": {
+    "ITEM_ENIGMA_BERRY_E_READER": [
+      "src/battle_util.c:5834"
+    ],
+    "ITEM_RUSTED_SWORD": [
+      "src/battle_main.c:689",
+      "src/data/pokemon/form_change_tables.h:1994"
+    ],
+    "ITEM_RUSTED_SHIELD": [
+      "src/battle_main.c:690",
+      "src/data/pokemon/form_change_tables.h:2003"
+    ]
+  },
+  "source_checks": [
+    {
+      "source": "data/battle_scripts_1.s:4949",
+      "contains": "setvolatile BS_TARGET, VOLATILE_CHARGE_TIMER, 1"
+    },
+    {
+      "source": "include/constants/battle.h:217",
+      "contains": "F(VOLATILE_CHARGE_TIMER,                chargeTimer,                   (u32, 3)) \\"
+    },
+    {
+      "source": "src/battle_util.c:6635",
+      "contains": "if (moveType == TYPE_ELECTRIC && gBattleMons[battlerAtk].volatiles.chargeTimer > 0)"
+    },
+    {
+      "source": "src/battle_util.c:6636",
+      "contains": "modifier = uq4_12_multiply(modifier, UQ_4_12(2.0));"
+    },
+    {
+      "source": "src/battle_util.c:4317",
+      "contains": "BattleScriptCall(BattleScript_WindPowerActivates);"
+    },
+    {
+      "source": "src/battle_util.c:5834",
+      "contains": "if (gBattleMons[battler].item == ITEM_ENIGMA_BERRY_E_READER)"
+    },
+    {
+      "source": "src/battle_script_commands.c:944",
+      "contains": "if ((ability == ABILITY_PROTEAN || ability == ABILITY_LIBERO)"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:668",
+      "contains": "{FORM_CHANGE_BATTLE_WEATHER,    SPECIES_CASTFORM_SUNNY, B_WEATHER_SUN, ABILITY_FORECAST},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:979",
+      "contains": "{FORM_CHANGE_ITEM_HOLD, SPECIES_ARCEUS_NORMAL,   ITEM_NONE,         ABILITY_MULTITYPE},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:1069",
+      "contains": "{FORM_CHANGE_BATTLE_HP_PERCENT_TURN_END, SPECIES_DARMANITAN_STANDARD, ABILITY_ZEN_MODE, HP_HIGHER_THAN,   50},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:1316",
+      "contains": "{FORM_CHANGE_BATTLE_BEFORE_MOVE_CATEGORY, SPECIES_AEGISLASH_BLADE,  DAMAGE_CATEGORY_PHYSICAL, ABILITY_STANCE_CHANGE},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:1523",
+      "contains": "{FORM_CHANGE_BATTLE_HP_PERCENT_SEND_OUT, SPECIES_MINIOR_METEOR_RED, ABILITY_SHIELDS_DOWN, HP_HIGHER_THAN,   50},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:1472",
+      "contains": "{FORM_CHANGE_BATTLE_HP_PERCENT_SEND_OUT, SPECIES_WISHIWASHI_SCHOOL, ABILITY_SCHOOLING, HP_HIGHER_THAN,   25, 20},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:1402",
+      "contains": "{FORM_CHANGE_BATTLE_HP_PERCENT_TURN_END, SPECIES_ZYGARDE_COMPLETE, ABILITY_POWER_CONSTRUCT, HP_LOWER_EQ_THAN, 50},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:1497",
+      "contains": "{FORM_CHANGE_ITEM_HOLD, SPECIES_SILVALLY_NORMAL,   ITEM_NONE,            ABILITY_RKS_SYSTEM},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:1843",
+      "contains": "{FORM_CHANGE_BATTLE_HP_PERCENT_DURING_MOVE, SPECIES_CRAMORANT_GULPING, ABILITY_GULP_MISSILE, HP_HIGHER_THAN,   50, MOVE_SURF},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:1958",
+      "contains": "{FORM_CHANGE_BATTLE_TURN_END,   SPECIES_MORPEKO_HANGRY,     ABILITY_HUNGER_SWITCH},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:2174",
+      "contains": "{FORM_CHANGE_BATTLE_SWITCH_IN,        SPECIES_TERAPAGOS_TERASTAL, ABILITY_TERA_SHIFT},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:1615",
+      "contains": "{FORM_CHANGE_BATTLE_HIT_BY_CONFUSION_SELF_DMG, SPECIES_MIMIKYU_BUSTED,   ABILITY_DISGUISE},"
+    },
+    {
+      "source": "src/data/pokemon/form_change_tables.h:1946",
+      "contains": "{FORM_CHANGE_BATTLE_WEATHER,                   SPECIES_EISCUE_ICE,   B_WEATHER_ICY_ANY, ABILITY_ICE_FACE},"
+    }
+  ],
+  "ability_sources": {
+    "59": [
+      "src/data/pokemon/form_change_tables.h:668"
+    ],
+    "121": [
+      "src/data/pokemon/form_change_tables.h:979"
+    ],
+    "161": [
+      "src/data/pokemon/form_change_tables.h:1069"
+    ],
+    "176": [
+      "src/data/pokemon/form_change_tables.h:1316"
+    ],
+    "197": [
+      "src/data/pokemon/form_change_tables.h:1523"
+    ],
+    "208": [
+      "src/data/pokemon/form_change_tables.h:1472"
+    ],
+    "211": [
+      "src/data/pokemon/form_change_tables.h:1402"
+    ],
+    "225": [
+      "src/data/pokemon/form_change_tables.h:1497"
+    ],
+    "241": [
+      "src/data/pokemon/form_change_tables.h:1843"
+    ],
+    "258": [
+      "src/data/pokemon/form_change_tables.h:1958"
+    ],
+    "307": [
+      "src/data/pokemon/form_change_tables.h:2174"
+    ],
+    "209": [
+      "src/data/pokemon/form_change_tables.h:1615"
+    ],
+    "248": [
+      "src/data/pokemon/form_change_tables.h:1946"
+    ]
+  }
+}

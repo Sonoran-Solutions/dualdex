@@ -213,7 +213,7 @@ object BattleHnsDamagePresenter {
             move = CalcMoveInput(name = moveInfo.name),
             // In an active H&S battle the boundary replaces all caller defaults below with
             // observed runtime state, or refuses if the corresponding word was not read.
-            field = CalcFieldInput(gameType = CalcGameTypes.SINGLES),
+            field = CalcFieldInput(gameType = if (observedDoubles(context)) CalcGameTypes.DOUBLES else CalcGameTypes.SINGLES),
             challengeSettings = context.challengeSettings,
             playerBattlerState = context.playerBattlerState,
             enemyBattlerState = context.enemyBattlerState,

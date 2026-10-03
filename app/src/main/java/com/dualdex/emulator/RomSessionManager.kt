@@ -48,6 +48,7 @@ open class RomSessionManager(
         }
 
     init {
+        cheatManager.coreCoordinator = coreCoordinator
         if (coreBridge != null) {
             coreCoordinator.bridge = coreBridge
         }
@@ -332,6 +333,7 @@ open class RomSessionManager(
                             Log.i(TAG, "Restored existing battery save for ${newIdentity.storageKey}")
                         }
 
+                        coreCoordinator.bindCheatRom(newIdentity)
                         cheatManager.applyCheats(newIdentity)
                         true
                     }

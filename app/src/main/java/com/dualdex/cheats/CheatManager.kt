@@ -10,295 +10,180 @@ import org.json.JSONObject
 class CheatManager(
     private val context: Context? = null,
     private val memoryStorage: MutableMap<String, String>? = null,
-    var coreCoordinator: LibretroCoreCoordinator = LibretroCoreCoordinator.defaultInstance
+    var coreCoordinator: LibretroCoreCoordinator = LibretroCoreCoordinator.defaultInstance,
+    private val presetPolicy: CheatPresetPolicy = CheatPresetPolicy.production
 ) {
-    private val prefs by lazy {
-        context?.getSharedPreferences("dualdex_cheats", Context.MODE_PRIVATE)
+    private val prefs by lazy { context?.getSharedPreferences("dualdex_cheats", Context.MODE_PRIVATE) }
+    private fun read(key: String): String? = memoryStorage?.get(key) ?: prefs?.getString(key, null)
+    private fun write(key: String, value: String) {
+        if (memoryStorage != null) memoryStorage[key] = value
+        else prefs?.edit()?.putString(key, value)?.apply()
     }
 
-    private fun getPrefString(key: String): String? {
-        return memoryStorage?.get(key) ?: prefs?.getString(key, null)
-    }
+    fun getPresets(identity: RomIdentity): List<CheatItem> = presetPolicy.presets(identity)
 
-    private fun setPrefString(key: String, value: String) {
-        if (memoryStorage != null) {
-            memoryStorage[key] = value
-        } else {
-            prefs?.edit()?.putString(key, value)?.apply()
+    private fun sanitize(identity: RomIdentity, item: CheatItem): CheatItem {
+        val reason = when {
+            item.disabledReason == UNKNOWN_SOURCE -> UNKNOWN_SOURCE
+            item.isPreset && !presetPolicy.approves(identity, item) -> UNVERIFIED
+            CheatCodePayload.normalize(item.code) == null -> MALFORMED
+            else -> null
         }
+        return item.copy(enabled = item.enabled && reason == null, disabledReason = reason)
     }
 
     fun getCheats(identity: RomIdentity, fallbackGameKey: String? = null): List<CheatItem> {
         if (!identity.isValid) return emptyList()
-
-        val hashKey = identity.sha256
-        val jsonStr = getPrefString("cheats_$hashKey")
-        if (jsonStr == null) {
-            // Defaults are a read-only view until the user explicitly saves or loads them.
-            val gameContext = fallbackGameKey ?: identity.displayName
-            val defaultPresets = getPresetsForGame(gameContext).map { it.copy(enabled = false) }
-            return defaultPresets
-        }
-
+        val key = "cheats_${identity.sha256.lowercase()}"
+        val json = read(key) ?: return getPresets(identity)
         return try {
-            val list = ArrayList<CheatItem>()
-            val arr = JSONArray(jsonStr)
-            for (i in 0 until arr.length()) {
+            val arr = JSONArray(json)
+            val original = (0 until arr.length()).map { i ->
                 val obj = arr.getJSONObject(i)
-                list.add(
-                    CheatItem(
-                        id = obj.optString("id"),
-                        name = obj.optString("name"),
-                        code = obj.optString("code"),
-                        enabled = obj.optBoolean("enabled", false),
-                        isPreset = obj.optBoolean("isPreset", false)
-                    )
+                // Old explicit false is user-entered custom provenance. Anything else is
+                // quarantined, retaining text and identity rather than granting custom status.
+                val source = obj.opt("isPreset")
+                CheatItem(
+                    id = obj.optString("id"), name = obj.optString("name"),
+                    code = obj.optString("code"), enabled = obj.optBoolean("enabled", false),
+                    isPreset = source != false,
+                    disabledReason = if (source !is Boolean) UNKNOWN_SOURCE
+                        else obj.optString("disabledReason").takeIf { it.isNotBlank() }
                 )
             }
-            list
+            val safe = original.map { sanitize(identity, it) }
+            if (safe != original) persist(identity, safe)
+            safe
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing cheats for $hashKey", e)
+            Log.e(TAG, "Error parsing cheats for ${identity.shortHash}", e)
             emptyList()
         }
     }
 
-    fun saveCheats(identity: RomIdentity, cheats: List<CheatItem>) {
-        if (!identity.isValid) return
-        val hashKey = identity.sha256
-        try {
-            val arr = JSONArray()
-            for (c in cheats) {
-                val obj = JSONObject().apply {
-                    put("id", c.id)
-                    put("name", c.name)
-                    put("code", c.code)
-                    put("enabled", c.enabled)
-                    put("isPreset", c.isPreset)
-                }
-                arr.put(obj)
+    private fun persist(identity: RomIdentity, cheats: List<CheatItem>) {
+        val arr = JSONArray()
+        cheats.forEach { c ->
+            arr.put(JSONObject().apply {
+                put("id", c.id); put("name", c.name); put("code", c.code)
+                put("enabled", c.enabled); put("isPreset", c.isPreset)
+                put("disabledReason", c.disabledReason ?: "")
+            })
+        }
+        write("cheats_${identity.sha256.lowercase()}", arr.toString())
+    }
+
+    fun saveCheats(identity: RomIdentity, cheats: List<CheatItem>): CheatResult {
+        if (!identity.isValid) return CheatResult.stale
+        // An unreadable store must not be overwritten by an apparent empty list.
+        val raw = read("cheats_${identity.sha256.lowercase()}")
+        if (raw != null) {
+            try {
+                val arr = JSONArray(raw)
+                for (i in 0 until arr.length()) arr.getJSONObject(i)
+            } catch (_: Exception) {
+                return CheatResult(false, "Saved cheat data is unreadable; retained without changes.")
             }
-            setPrefString("cheats_$hashKey", arr.toString())
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving cheats for $hashKey", e)
         }
+        val previous = getCheats(identity).associateBy { it.id }
+        persist(identity, cheats.map { candidate ->
+            val old = previous[candidate.id]
+            // Editing/saving cannot launder a quarantined built-in into a custom entry.
+            sanitize(identity, if (old?.isPreset == true) candidate.copy(
+                isPreset = true, disabledReason = old.disabledReason
+            ) else candidate)
+        })
+        return CheatResult(true, "Cheat settings saved.")
     }
 
-    fun addCheat(identity: RomIdentity, cheat: CheatItem) {
-        if (!identity.isValid) return
-        val current = getCheats(identity).toMutableList()
-        current.add(cheat)
-        saveCheats(identity, current)
-        applyCheats(identity)
+    fun addCheat(identity: RomIdentity, cheat: CheatItem): CheatResult {
+        if (!identity.isValid) return CheatResult.stale
+        val current = getCheats(identity)
+        if (current.any { it.id == cheat.id }) return CheatResult(false, "Cheat identity already exists.")
+        val safe = sanitize(identity, cheat)
+        val saved = saveCheats(identity, current + safe)
+        if (!saved.accepted) return saved
+        val result = applyCheats(identity)
+        return if (safe.disabledReason != null) CheatResult(false, safe.disabledReason) else result
     }
 
-    fun updateCheat(identity: RomIdentity, updated: CheatItem) {
-        if (!identity.isValid) return
-        val current = getCheats(identity).toMutableList()
-        val idx = current.indexOfFirst { it.id == updated.id }
-        if (idx != -1) {
-            current[idx] = updated
-            saveCheats(identity, current)
+    fun updateCheat(identity: RomIdentity, updated: CheatItem): CheatResult {
+        val current = getCheats(identity)
+        if (current.none { it.id == updated.id }) return CheatResult(false, "Cheat no longer exists.")
+        val saved = saveCheats(identity, current.map { if (it.id == updated.id) updated else it })
+        if (!saved.accepted) return saved
+        val safe = getCheats(identity).first { it.id == updated.id }
+        val result = applyCheats(identity)
+        return if (safe.disabledReason != null) CheatResult(false, safe.disabledReason) else result
+    }
+
+    fun deleteCheat(identity: RomIdentity, cheatId: String): CheatResult {
+        val saved = saveCheats(identity, getCheats(identity).filter { it.id != cheatId })
+        if (!saved.accepted) return saved
+        return applyCheats(identity)
+    }
+
+    fun toggleCheat(identity: RomIdentity, cheatId: String, enabled: Boolean): CheatResult {
+        val item = getCheats(identity).firstOrNull { it.id == cheatId }
+            ?: return CheatResult(false, "Cheat no longer exists.")
+        return updateCheat(identity, item.copy(enabled = enabled))
+    }
+
+    fun loadPresets(identity: RomIdentity): CheatResult = try {
+        coreCoordinator.executeExclusive {
+            if (!coreCoordinator.isCheatRom(identity)) return@executeExclusive CheatResult.stale
+            val presets = getPresets(identity)
+            if (presets.isEmpty()) return@executeExclusive CheatResult.unavailable
+            val saved = saveCheats(identity, presets)
+            if (!saved.accepted) return@executeExclusive saved
             applyCheats(identity)
         }
-    }
-
-    fun deleteCheat(identity: RomIdentity, cheatId: String) {
-        if (!identity.isValid) return
-        val current = getCheats(identity).filter { it.id != cheatId }
-        saveCheats(identity, current)
-        applyCheats(identity)
-    }
-
-    fun toggleCheat(identity: RomIdentity, cheatId: String, enabled: Boolean) {
-        if (!identity.isValid) return
-        val current = getCheats(identity).toMutableList()
-        val idx = current.indexOfFirst { it.id == cheatId }
-        if (idx != -1) {
-            current[idx] = current[idx].copy(enabled = enabled)
-            saveCheats(identity, current)
-            applyCheats(identity)
-        }
+    } catch (e: Exception) {
+        Log.e(TAG, "Error loading presets", e)
+        CheatResult(false, "Presets could not be loaded.")
     }
 
     fun resetToDefaultPresets(identity: RomIdentity, fallbackGameKey: String? = null): List<CheatItem> {
-        if (!identity.isValid) return emptyList()
-        val gameContext = fallbackGameKey ?: identity.displayName
-        val presets = getPresetsForGame(gameContext).map { it.copy(enabled = false) }
-        saveCheats(identity, presets)
-        applyCheats(identity)
-        return presets
+        return if (loadPresets(identity).accepted) getCheats(identity) else emptyList()
     }
 
-    fun applyCheats(identity: RomIdentity) {
-        try {
-            coreCoordinator.cheatReset()
-            if (!identity.isValid) return
-
+    fun applyCheats(identity: RomIdentity): CheatResult = try {
+        coreCoordinator.executeExclusive {
+            // Check, reset, authorization and every set are one core transaction, including
+            // the automatic call before RomSessionManager publishes the new ViewModel session.
+            if (!coreCoordinator.isCheatRom(identity)) return@executeExclusive CheatResult.stale
             val cheats = getCheats(identity)
-            var activeIdx = 0
-            for (c in cheats) {
-                if (!c.enabled) continue
-                val cleanLines = c.code.lines()
-                    .map { it.trim() }
-                    .filter { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("//") }
-                if (cleanLines.isNotEmpty()) {
-                    val codePayload = cleanLines.joinToString("\n")
-                    Log.i(TAG, "Applying cheat #${activeIdx}: '${c.name}' (${cleanLines.size} lines)")
-                    coreCoordinator.cheatSet(activeIdx, true, codePayload)
-                    activeIdx++
+            coreCoordinator.cheatReset()
+            var index = 0
+            cheats.forEach { c ->
+                if (c.enabled && c.disabledReason == null &&
+                    (!c.isPreset || presetPolicy.approves(identity, c))) {
+                    CheatCodePayload.normalize(c.code)?.let { payload ->
+                        coreCoordinator.cheatSet(index++, true, payload)
+                    }
                 }
             }
-            Log.i(TAG, "Total active cheats applied for ${identity.shortHash}: $activeIdx")
-        } catch (e: Throwable) {
-            Log.e(TAG, "Error applying cheats: ${e.message}", e)
+            CheatResult(true, "Cheat settings applied ($index enabled).")
         }
+    } catch (e: Exception) {
+        Log.e(TAG, "Error applying cheats", e)
+        CheatResult(false, "Cheats could not be applied.")
     }
 
-    // ---------------------------------------------------------
-    // Backward Compatibility Overloads
-    // ---------------------------------------------------------
-
-    fun getCheats(gameKey: String): List<CheatItem> {
-        return getCheats(RomIdentity.create("", gameKey), gameKey)
-    }
-
-    fun saveCheats(gameKey: String, cheats: List<CheatItem>) {
-        // Read-only or safe fallback: no mutation under fake empty hash
-    }
-
+    // Legacy name-only APIs have no identity or authorization; never select defaults.
+    fun getPresetsForGame(gameKey: String): List<CheatItem> = emptyList()
+    fun getCheats(gameKey: String): List<CheatItem> = emptyList()
+    fun saveCheats(gameKey: String, cheats: List<CheatItem>) {}
     fun addCheat(gameKey: String, cheat: CheatItem) {}
     fun updateCheat(gameKey: String, updated: CheatItem) {}
     fun deleteCheat(gameKey: String, cheatId: String) {}
     fun toggleCheat(gameKey: String, cheatId: String, enabled: Boolean) {}
-
-    fun resetToDefaultPresets(gameKey: String): List<CheatItem> {
-        return getPresetsForGame(gameKey)
-    }
-
-    fun applyCheats(gameKey: String) {
-        // Safe no-op if no RomIdentity available
-    }
-
-    fun getPresetsForGame(gameKey: String): List<CheatItem> {
-        val lower = gameKey.lowercase()
-        val isEmeraldOrHnS = lower.contains("heart") || lower.contains("soul") || lower.contains("emer")
-        val isFireRed = lower.contains("fire") || lower.contains("leaf")
-
-        val presets = mutableListOf<CheatItem>()
-
-        if (isEmeraldOrHnS) {
-            // Heart and Soul 2.0 / Emerald Action Replay & CodeBreaker codes
-            presets.add(
-                CheatItem(
-                    name = "Heart & Soul: Master Code (Must Enable for AR)",
-                    code = "D8BAE4D9 4864DCE5\nB3C94DA9 C04D368C",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-            presets.add(
-                CheatItem(
-                    name = "Max Money (CodeBreaker)",
-                    code = "82003884 0F42\n82003886 003F",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-            presets.add(
-                CheatItem(
-                    name = "Rare Candies in PC Item Storage (CodeBreaker)",
-                    code = "82003884 002C\n820257C4 002C",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-            presets.add(
-                CheatItem(
-                    name = "Master Balls in PC Item Storage (CodeBreaker)",
-                    code = "82003884 0001\n820257C4 0001",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-            presets.add(
-                CheatItem(
-                    name = "100% Catch Rate (Action Replay)",
-                    code = "87ACF046 F75DF7BD",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-            presets.add(
-                CheatItem(
-                    name = "Walk Through Walls (Ghost Mode)",
-                    code = "7881A409 E2026E0C\n8E883EFF 92E9660D",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-            presets.add(
-                CheatItem(
-                    name = "Unlimited PP for All Moves (CodeBreaker)",
-                    code = "42024AA4 FFFF\n00000002 0002",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-        } else if (isFireRed) {
-            presets.add(
-                CheatItem(
-                    name = "FireRed: Master Code (Must Enable for AR)",
-                    code = "000014D1 000A\n1003DAE6 0007",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-            presets.add(
-                CheatItem(
-                    name = "Max Money (CodeBreaker)",
-                    code = "82003884 0F42\n82003886 003F",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-            presets.add(
-                CheatItem(
-                    name = "Rare Candies in PC Item Storage",
-                    code = "82025840 0044",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-            presets.add(
-                CheatItem(
-                    name = "Master Balls in PC Item Storage",
-                    code = "82025840 0001",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-            presets.add(
-                CheatItem(
-                    name = "Walk Through Walls (Ghost Mode)",
-                    code = "509197D3 542975F4\n78DA625D 6FA79E13",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-        } else {
-            presets.add(
-                CheatItem(
-                    name = "Example Action Replay Code",
-                    code = "XXXXXXXX XXXXXXXX",
-                    enabled = false,
-                    isPreset = true
-                )
-            )
-        }
-        return presets
-    }
+    fun resetToDefaultPresets(gameKey: String): List<CheatItem> = emptyList()
+    fun applyCheats(gameKey: String) {}
 
     companion object {
         private const val TAG = "CheatManager"
+        const val UNVERIFIED = "Disabled: no verified built-in approval for this exact ROM and code."
+        const val UNKNOWN_SOURCE = "Disabled: saved cheat provenance is missing or ambiguous."
+        const val MALFORMED = "Disabled: empty, placeholder or malformed code."
     }
 }

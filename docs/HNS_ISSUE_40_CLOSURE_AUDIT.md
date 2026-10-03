@@ -392,3 +392,13 @@ after the gate.
 
 H&S 2.0.5 becomes the **primary complex validation ROM** for that phase, and R.O.W.E. (#59) does not
 begin until the hardening pass is sufficiently complete.
+
+## Subsequent Cheats hardening — issue #17
+
+The Cheats findings above record the historical #40 audit state. The subsequent
+[#17 implementation and evidence](CHEAT_COMPATIBILITY.md) removes name-based
+presets and the placeholder, enforces exact hash/ID/payload approvals at core
+application, and quarantines unapproved legacy built-ins. Production approvals
+are empty, including for exact H&S 2.0.5. Custom codes remain unverified. This
+addendum does not change historical calculator evidence, certify Assistant, or
+claim Thor acceptance. Reviewed merge and hardware checks remain pending.

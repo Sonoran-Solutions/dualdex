@@ -69,7 +69,7 @@ class CheatsScreenView(
             addView(activeRomLabel)
 
             val descView = TextView(context).apply {
-                text = "Supports Action Replay v3, GameShark, and CodeBreaker codes. Injected directly into the core and scoped strictly to this game."
+                text = "Custom codes are user-supplied and unverified. Syntax checks do not establish safety or compatibility."
                 setTextColor(DualDexTheme.Color.textSecondary)
                 textSize = DualDexTheme.Type.meta
                 setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.standard))
@@ -97,9 +97,9 @@ class CheatsScreenView(
                         .setMessage("This will replace all cheats for this game, including custom cheats.")
                         .setNegativeButton("Cancel", null)
                         .setPositiveButton("Replace Cheats") { _, _ ->
-                            cheatManager.resetToDefaultPresets(identity)
+                            val result = cheatManager.loadPresets(identity)
                             refreshUI()
-                            Toast.makeText(context, "Loaded presets for ${identity.displayName}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
                         }
                         .show()
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(DualDexTheme.Color.danger)
@@ -115,10 +115,10 @@ class CheatsScreenView(
                 if (identity != null && identity.isValid) {
                     val cheats = cheatManager.getCheats(identity)
                     val updated = cheats.map { it.copy(enabled = false) }
-                    cheatManager.saveCheats(identity, updated)
-                    cheatManager.applyCheats(identity)
+                    val saved = cheatManager.saveCheats(identity, updated)
+                    val result = if (saved.accepted) cheatManager.applyCheats(identity) else saved
                     refreshUI()
-                    Toast.makeText(context, "All cheats disabled", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
                 }
             }
             val lpDisable = LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1.0f)
@@ -161,9 +161,13 @@ class CheatsScreenView(
             return
         }
 
-        activeRomLabel.text = "Game: ${identity.displayName} (${identity.shortHash})"
+        val hasPresets = cheatManager.getPresets(identity).isNotEmpty()
+        activeRomLabel.text = "Game: ${identity.displayName} (${identity.shortHash})" +
+            if (hasPresets) "" else "\nNo verified built-in cheats for this exact ROM."
         addBtn.isEnabled = true
-        presetBtn.isEnabled = true
+        presetBtn.isEnabled = hasPresets
+        presetBtn.contentDescription = if (hasPresets) "Load verified built-in cheats"
+            else "Load Presets unavailable: no verified built-in cheats for this exact ROM"
         disableAllBtn.isEnabled = true
 
         val cheats = cheatManager.getCheats(identity)
@@ -172,7 +176,7 @@ class CheatsScreenView(
                 DualDexComponents.emptyState(
                     context,
                     "No cheats configured",
-                    "Tap 'Load Presets' to get standard codes for this game, or 'Add Cheat' to enter custom codes."
+                    "Use 'Add Cheat' to enter user-supplied, unverified codes."
                 )
             )
             return
@@ -218,10 +222,11 @@ class CheatsScreenView(
 
             if (cheat.isPreset) {
                 val presetBadge = TextView(context).apply {
-                    text = "PRESET"
+                    text = if (cheat.disabledReason == null) "VERIFIED BUILT-IN" else "DISABLED BUILT-IN"
                     textSize = DualDexTheme.Type.compact
                     typeface = Typeface.DEFAULT_BOLD
-                    setTextColor(DualDexTheme.Color.success)
+                    setTextColor(if (cheat.disabledReason == null) DualDexTheme.Color.success
+                        else DualDexTheme.Color.textSecondary)
                     setPadding(
                         context.dp(DualDexTheme.Spacing.compact),
                         context.dp(DualDexTheme.Spacing.tight / 2),
@@ -244,13 +249,13 @@ class CheatsScreenView(
             // Quick Toggle Button
             val toggleBtn = DualDexComponents.smallButton(
                 context = context,
-                text = if (cheat.enabled) "Active" else "Off",
+                text = if (cheat.enabled) "Enabled" else "Off",
                 style = if (cheat.enabled) DualDexButtonStyle.PRIMARY else DualDexButtonStyle.GHOST
             ) {
                 val newState = !cheat.enabled
-                cheatManager.toggleCheat(identity, cheat.id, newState)
+                val result = cheatManager.toggleCheat(identity, cheat.id, newState)
                 refreshUI()
-                Toast.makeText(context, "${cheat.name}: ${if (newState) "Active" else "Off"}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
             }
             val lpToggle = LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
                 marginEnd = context.dp(DualDexTheme.Spacing.compact)
@@ -265,6 +270,13 @@ class CheatsScreenView(
             }
             titleRow.addView(chevron)
             cheatCard.addView(titleRow)
+            (cheat.disabledReason ?: if (!cheat.isPreset) "User-supplied / unverified" else null)?.let { reason ->
+                cheatCard.addView(TextView(context).apply {
+                    text = reason
+                    textSize = DualDexTheme.Type.meta
+                    setTextColor(DualDexTheme.Color.textSecondary)
+                })
+            }
 
             // Expandable Content (Code and Delete)
             if (isExpanded) {
@@ -275,7 +287,7 @@ class CheatsScreenView(
 
                 // Monospaced code snippet view
                 val codeView = TextView(context).apply {
-                    text = cheat.code
+                    text = listOfNotNull(cheat.disabledReason, cheat.code).joinToString("\n\n")
                     setTextColor(DualDexTheme.Color.textSecondary)
                     textSize = DualDexTheme.Type.compact
                     typeface = Typeface.MONOSPACE
@@ -364,7 +376,7 @@ class CheatsScreenView(
         dialogContent.addView(codeLabel)
 
         val codeInput = EditText(context).apply {
-            hint = "XXXXXXXX XXXXXXXX\nYYYYYYYY YYYYYYYY"
+            hint = "8 hex digits + 8 or 4 hex digits per code"
             textSize = DualDexTheme.Type.compact
             typeface = Typeface.MONOSPACE
             minLines = 4
@@ -383,7 +395,7 @@ class CheatsScreenView(
         })
 
         val helperText = TextView(context).apply {
-            text = "Enter standard Action Replay v3 (16 hex chars per line) or CodeBreaker (8+4 hex chars). Multiple lines supported."
+            text = "Enter 8+8 or 8+4 hex digits separated by whitespace or +. Multiple lines supported. Custom codes are unverified."
             setTextColor(DualDexTheme.Color.textDisabled)
             textSize = DualDexTheme.Type.compact
         }
@@ -401,9 +413,9 @@ class CheatsScreenView(
                     enabled = true,
                     isPreset = false
                 )
-                cheatManager.addCheat(identity, cheat)
+                val result = cheatManager.addCheat(identity, cheat)
                 refreshUI()
-                Toast.makeText(context, "Added cheat: ${cheat.name}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
             }
         }
         builder.setNegativeButton("Cancel", null)

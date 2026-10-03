@@ -113,10 +113,7 @@ class CheatsScreenView(
             disableAllBtn = DualDexComponents.ghostControl(context, "Disable All") {
                 val identity = getActiveRomIdentity()
                 if (identity != null && identity.isValid) {
-                    val cheats = cheatManager.getCheats(identity)
-                    val updated = cheats.map { it.copy(enabled = false) }
-                    val saved = cheatManager.saveCheats(identity, updated)
-                    val result = if (saved.accepted) cheatManager.applyCheats(identity) else saved
+                    val result = cheatManager.disableAllCheats(identity)
                     refreshUI()
                     Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
                 }

@@ -199,6 +199,147 @@ class CheatManagerTest {
         } finally { dir.deleteRecursively() }
     }
 
+    /** Pause the actual whole-list migration write, rather than sleeping around a race.
+     * Two different coordinators force this to exercise the shared store lock as well as
+     * the production screen/session case where both managers share one coordinator. */
+    private class PausedMigrationStore(
+        private val backing: MutableMap<String, String> = java.util.concurrent.ConcurrentHashMap()
+    ) : MutableMap<String, String> by backing {
+        val beforeMigrationWrite = CountDownLatch(1)
+        val resumeMigrationWrite = CountDownLatch(1)
+        @Volatile var migrationThread: Thread? = null
+        private val pauseOnce = java.util.concurrent.atomic.AtomicBoolean(true)
+
+        override fun put(key: String, value: String): String? {
+            if (Thread.currentThread() === migrationThread && pauseOnce.compareAndSet(true, false)) {
+                beforeMigrationWrite.countDown()
+                check(resumeMigrationWrite.await(5, TimeUnit.SECONDS)) { "migration release timed out" }
+            }
+            return backing.put(key, value)
+        }
+
+    }
+
+    private fun quarantineAgainstEdit(
+        sharedCoordinator: Boolean = false,
+        edit: (CheatManager) -> CheatResult,
+        verify: (List<CheatItem>, Bridge) -> Unit
+    ) {
+        val store = PausedMigrationStore()
+        store["cheats_${a.sha256}"] = """[
+          {"id":"legacy","name":"Old preset","code":"82025840 0001","enabled":true,"isPreset":true},
+          {"id":"custom","name":"User code","code":"82025840 0044","enabled":true,"isPreset":false}
+        ]"""
+        val reloadBridge = Bridge()
+        val reloadCore = LibretroCoreCoordinator(reloadBridge)
+        val editBridge = if (sharedCoordinator) reloadBridge else Bridge()
+        val editCore = if (sharedCoordinator) reloadCore else LibretroCoreCoordinator(editBridge)
+        bind(reloadCore, a)
+        if (!sharedCoordinator) bind(editCore, a)
+        val reloadManager = CheatManager(memoryStorage = store, coreCoordinator = reloadCore)
+        val editManager = CheatManager(memoryStorage = store, coreCoordinator = editCore)
+        val reloadResult = java.util.concurrent.atomic.AtomicReference<CheatResult>()
+        val editResult = java.util.concurrent.atomic.AtomicReference<CheatResult>()
+        val failures = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()
+        val edited = CountDownLatch(1)
+        val reload = Thread {
+            try { reloadResult.set(reloadManager.applyCheats(a)) }
+            catch (t: Throwable) { failures.add(t) }
+        }
+        val editor = Thread {
+            try { editResult.set(edit(editManager)) }
+            catch (t: Throwable) { failures.add(t) }
+            finally { edited.countDown() }
+        }
+        store.migrationThread = reload
+        try {
+            reload.start()
+            assertTrue("migration never reached its write", store.beforeMigrationWrite.await(5, TimeUnit.SECONDS))
+            editor.start()
+            // On the reviewed buggy head, a separate-core edit completes while the old
+            // migration is paused. With the fix it blocks on the shared storage monitor.
+            // With one core it queues on that core. Release only once one of those states
+            // is observed, so final-state assertions deterministically expose stale writes.
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (edited.count != 0L &&
+                !(editor.state == Thread.State.BLOCKED && editCore.lock.isLocked) &&
+                !editCore.lock.hasQueuedThread(editor) && System.nanoTime() < deadline) {
+                Thread.yield()
+            }
+            assertTrue("edit neither completed nor queued at the transaction boundary",
+                edited.count == 0L || editor.state == Thread.State.BLOCKED || editCore.lock.hasQueuedThread(editor))
+        } finally {
+            store.resumeMigrationWrite.countDown()
+            reload.join(5000)
+            if (editor.state != Thread.State.NEW) editor.join(5000)
+        }
+        assertFalse("reload deadlocked", reload.isAlive)
+        assertFalse("edit deadlocked", editor.isAlive)
+        assertTrue("worker failures: $failures", failures.isEmpty())
+        assertTrue(reloadResult.get().accepted)
+        assertTrue(editResult.get().accepted)
+        assertFalse(reloadBridge.sets.contains("82025840 0001"))
+        assertFalse(editBridge.sets.contains("82025840 0001"))
+        // Ignore any dispatch that preceded the completed edit. Every later application
+        // must observe that edit, including when called through the other manager.
+        reloadBridge.sets.clear()
+        editBridge.sets.clear()
+        assertTrue(reloadManager.applyCheats(a).accepted)
+        verify(reloadManager.getCheats(a), reloadBridge)
+        assertTrue(editManager.applyCheats(a).accepted)
+        verify(editManager.getCheats(a), editBridge)
+    }
+
+    @Test fun quarantineCannotUndoCompletedDisableAcrossManagers() = quarantineAgainstEdit(
+        edit = { it.toggleCheat(a, custom.id, false) },
+        verify = { entries, bridge ->
+            assertFalse(entries.first { it.id == custom.id }.enabled)
+            assertTrue(bridge.sets.isEmpty())
+        }
+    )
+
+    @Test fun quarantineCannotUndoDisableWithSharedCore() = quarantineAgainstEdit(
+        sharedCoordinator = true,
+        edit = { it.toggleCheat(a, custom.id, false) },
+        verify = { entries, bridge ->
+            assertFalse(entries.first { it.id == custom.id }.enabled)
+            assertTrue(bridge.sets.isEmpty())
+        }
+    )
+
+    @Test fun quarantineCannotUndoDisableAll() = quarantineAgainstEdit(
+        edit = { it.disableAllCheats(a) },
+        verify = { entries, bridge ->
+            assertTrue(entries.none { it.enabled })
+            assertTrue(bridge.sets.isEmpty())
+        }
+    )
+
+    @Test fun quarantineCannotResurrectDeletedEntry() = quarantineAgainstEdit(
+        edit = { it.deleteCheat(a, custom.id) },
+        verify = { entries, bridge ->
+            assertTrue(entries.none { it.id == custom.id })
+            assertTrue(bridge.sets.isEmpty())
+        }
+    )
+
+    @Test fun quarantineCannotLoseAddedEntry() = quarantineAgainstEdit(
+        edit = { it.addCheat(a, custom.copy(id = "added", code = "82025840 0045")) },
+        verify = { entries, bridge ->
+            assertEquals("82025840 0045", entries.first { it.id == "added" }.code)
+            assertTrue(bridge.sets.contains("82025840 0045"))
+        }
+    )
+
+    @Test fun quarantineCannotUndoUpdatedEntry() = quarantineAgainstEdit(
+        edit = { it.updateCheat(a, custom.copy(name = "Edited", code = "82025840 0046")) },
+        verify = { entries, bridge ->
+            assertEquals("Edited", entries.first { it.id == custom.id }.name)
+            assertEquals("82025840 0046", entries.first { it.id == custom.id }.code)
+            assertEquals(listOf("82025840 0046"), bridge.sets)
+        }
+    )
+
     @Test fun resetAndSetCannotInterleaveWithRomSwitch() {
         val bridge = Bridge()
         val core = LibretroCoreCoordinator(bridge)

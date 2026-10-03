@@ -40,12 +40,25 @@ cheats **before** publishing the new ViewModel session. Detection occurs against
 those same new bytes; cheat authorization has no dependency on the profile's live
 trust or the old ViewModel. The injected cheat manager uses that same coordinator.
 
-`applyCheats` checks the binding, resets, reads/transitions entries, rechecks each
+`applyCheats` checks the binding, reads/transitions entries, resets, rechecks each
 built-in approval, validates syntax and sets every enabled payload within one
 exclusive coordinator transaction. A stale ROM A action after switching to B
 cannot even reset B's cheats. Stale add/edit actions may retain changes in A's own
 SHA store but report application rejection. Reset/load also checks binding before
 changing storage. No new JNI path or emulation-thread architecture is used.
+
+All storage access goes through one process-wide transaction monitor shared by
+all `CheatManager` instances, including managers with separately injected
+coordinators. The lock order is **core coordinator → shared storage monitor**.
+A transaction captures its coordinator once; locked helpers never acquire a
+different coordinator while holding storage. Listing/quarantine, explicit save,
+add/update/toggle/delete, Disable All, preset loading/reset and application keep
+the complete read-modify-persist operation inside that boundary. UI Disable All
+calls `disableAllCheats` instead of composing a read and later whole-list save.
+`saveCheats` remains an explicit whole-list replacement API; callers needing a
+read-modify operation use the atomic manager methods. No storage-only lock path
+waits for the core. ROM loading already holds the same core lock before entering
+this transaction, so its ordering remains consistent.
 
 ## Persisted transition and custom entries
 
@@ -93,7 +106,7 @@ SHA isolation, empty-catalog non-destruction, stale actions, multiline syntax an
 result messages, automatic load/reload/switch and reset/set serialization.
 Existing `RomSaveIntegrityTest` and `LibretroCoreCoordinatorLockTest` remain in
 the canonical suite. Validation commands: `./ci.sh all`, `./ci.sh source-check`,
-`git diff --check`. The final `all` run passed (1,098 Kotlin tests, including eight
+`git diff --check`. The original implementation `all` run passed (1,098 Kotlin tests, including eight
 cheat, 58 save-integrity and four coordinator-lock tests, plus native/calculator/
 tooling suites and debug APK). Final `./ci.sh source-check` and
 `git diff --check` also passed. Pushed-head GitHub results are recorded in the PR
@@ -101,6 +114,25 @@ and issue handoff.
 During implementation an outdated preset-default assertion and an incomplete
 fake-core SRAM writer failed; neither was a baseline failure. Fixtures were
 corrected without weakening production save checks or H&S artifacts.
+
+### Senior-review P1 follow-up
+
+Review of `3f5ca9ca219d45764ede77f55453d7409e8cce4d` reproduced a stale
+quarantine write that could restore an enabled custom entry after a user disable.
+The shared transaction above addresses that finding without changing approvals,
+syntax, ROM binding, custom provenance or save-storage behavior.
+
+Deterministic tests pause the actual migration write in a thread-safe store and
+run a second manager's disable, delete, add or update. They exercise both shared
+and distinct core coordinators, propagate worker failures, bound waits and joins,
+and verify storage plus subsequent dispatch through both managers. Five tests
+failed against the unchanged reviewed manager (blob
+`c779649e5da90af348bbc77f8b640055784be638`), proving the negative control.
+The fix also adds a Disable All regression: six new tests in total, alongside
+the original eight. Follow-up `./ci.sh all` passed (1,104 Kotlin tests, all 14
+cheat regressions, native/calculator/tooling suites and debug APK);
+`./ci.sh source-check` and `git diff --check` also passed. Pushed-head results
+are recorded in the PR/issue re-review handoff. Hardware remains NOT_RUN.
 
 Hardware: **NOT_RUN**. No authorized Thor setup was used and no experimental
 codes were executed against real saves. Human smoke checklist:

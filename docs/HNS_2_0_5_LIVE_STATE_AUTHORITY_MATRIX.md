@@ -99,3 +99,31 @@ Unknown field payloads and positive global suppression preserve independent refu
 ## Group B closure update (current main after #117)
 
 The Group B closure audit is in [`HNS_GROUP_B_CLOSURE.md`](HNS_GROUP_B_CLOSURE.md). Current policy separates entry settlement from post-hit/end-turn stage writers, allows pure live-stage proofs even when the selected move independently refuses, and treats weather/terrain setter output as the observed field word. Cloud Nine/Air Lock feed effective no-weather state into the supported ordinary Rain/Sun surface. The complete candidate table and source references are in the closure matrix; earlier sections in this file remain historical to their stated PR baselines.
+
+
+## Ordinary-hit Doubles extension (PR #119)
+
+The earlier Singles-only rows describe their historical PR baselines. The current
+ordinary opposing-hit subset additionally consumes the version-1 **162-word**
+JNI tuple and minimal four-index packet documented in
+[HNS_DOUBLES_AUTHORITY.md](HNS_DOUBLES_AUTHORITY.md). Explicit native indices,
+observed position/party mapping, HP, absent flags and source battle-type flags
+establish topology; the coordinator reads the batch while emulation is frozen.
+The chosen attacker and target retain their full existing participant stats,
+stages, item and field observations. No flank is selected by default.
+
+Partner/global authority observes Helping Hand, both Follow Me timers, Mold
+Breaker and combined Pledge execution flags, effective-ability suppression
+operands, current partner species/items, live aura/weather holders and all-slot
+Ruin flags. Matching repeated packets and selected participant identity/state
+are required. Missing, old, malformed, conflicting or torn packets stay unknown.
+Native tests pin compiled bit layouts independently and exercise all four
+permuted positions/slots, unread/torn partner data, absent selected participants,
+Pledge and inconsistent battle flags. Production tests cover version/length
+handling and the real boundary -> serializer -> shipped bundle path.
+
+Exact opposing ordinary hits support the documented partner arithmetic and
+source target counts. Unresolved redirection, random/ally targets, Commander,
+positive/unread partner-protected priority, Pledge and active Gas/Mold Breaker
+suppression retain precise hard refusals. Partner Flower Gift + Utility Umbrella
+also requires additional effective hold-effect authority and refuses.

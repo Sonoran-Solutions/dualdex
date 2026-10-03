@@ -835,8 +835,8 @@ class BattleConsoleTest {
 
         val doubles = buildHnsPresentation(33, hnsContext(battlersCount = 4), calculator)
         assertEquals(DamageConfidence.UNAVAILABLE, doubles.damageConfidence)
-        assertTrue(doubles.damageLimitations.contains(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED))
-        assertEquals("Doubles not supported", doubles.damageUnavailableReason)
+        assertTrue(doubles.damageLimitations.contains(CalcLimitation.HNS_DOUBLES_PARTNER_STATE_UNKNOWN))
+        assertEquals("Doubles partner state incomplete", doubles.damageUnavailableReason)
 
         // A full-HP foe's Focus Sash remains a request-local item caveat.
         val unsupportedItem = buildHnsPresentation(33,

@@ -66,6 +66,7 @@ SPECIES = {
 
 # label -> (planning type, planning per-move category, planning power)
 MOVES = {
+    "Petal Blizzard": ("Grass", "physical", 90),
     "Tackle": ("Normal", "physical", 40), "Scratch": ("Normal", "physical", 40),
     "Headbutt": ("Normal", "physical", 70), "Strength": ("Normal", "physical", 80),
     "Body Slam": ("Normal", "physical", 85), "Mega Kick": ("Normal", "physical", 120),
@@ -1840,6 +1841,51 @@ def _group_d_held_items() -> list[dict]:
     return out
 
 
+def _authoritative_doubles() -> list[dict]:
+    def ability(name): return (symbol("ABILITY", name), name)
+    out = []
+    def add(name, move="Strength", partner="present", setup=None, atk_ability=None, **kwargs):
+        out.append(scenario("ordinary-doubles-" + name, ["ordinary-doubles"],
+            attacker("Machamp", atk=151, spa=151, ability=atk_ability or NEUTRAL_ABILITY),
+            defender("Snorlax", dfn=109, spd=109), move,
+            doubles=partner, state_setup={"doubles": setup or {"helpingHand": 0}}, **kwargs))
+    for move in ("Rock Slide", "Heat Wave", "Strength", "Petal Blizzard"):
+        for partner in ("present", "fainted"):
+            add(slug(move) + "-" + partner, move, partner)
+    for move, screen in (("Strength", "reflect"), ("Psychic", "light-screen")):
+        for partner in ("present", "fainted"):
+            add(screen + "-" + partner, move, partner, reflect=screen == "reflect", light_screen=screen == "light-screen")
+    for count in (1, 2, 7): add("helping-hand-" + str(count), setup={"helpingHand": count})
+    for name, move in (("Battery", "Psychic"), ("Power Spot", "Strength"), ("Steely Spirit", "Iron Head")):
+        for suppressed in (0, 1):
+            add(slug(name) + "-gastro-" + str(suppressed), move, setup={"attackerPartnerAbility": ability(name)[0], "attackerPartnerGastroAcid": suppressed})
+    add("battery-physical-control", setup={"attackerPartnerAbility": "ABILITY_BATTERY"})
+    for name in ("Plus", "Minus"):
+        for partner in ("Plus", "Minus"):
+            add(slug(name) + "-" + slug(partner), "Psychic", atk_ability=ability(name), setup={"attackerPartnerAbility": ability(partner)[0]})
+    for suppressed in (0, 1):
+        add("friend-guard-gastro-" + str(suppressed), setup={"defenderPartnerAbility": "ABILITY_FRIEND_GUARD", "defenderPartnerGastroAcid": suppressed})
+    for category in ("attack", "defense"):
+        add("flower-gift-" + category, "Strength" if category == "attack" else "Psychic", weather="sun",
+            setup={category.replace("attack", "attacker").replace("defense", "defender") + "PartnerAbility": "ABILITY_FLOWER_GIFT",
+                   category.replace("attack", "attacker").replace("defense", "defender") + "PartnerSpecies": "SPECIES_CHERRIM_SUNSHINE"})
+    for aura, move in (("Dark Aura", "Bite"), ("Fairy Aura", "Dazzling Gleam")):
+        add(slug(aura), move, setup={"attackerPartnerAbility": ability(aura)[0]})
+        add(slug(aura) + "-break", move, setup={"attackerPartnerAbility": ability(aura)[0], "defenderPartnerAbility": "ABILITY_AURA_BREAK"})
+    for bit, move in ((1,"Psychic"),(2,"Strength"),(4,"Strength"),(8,"Psychic")):
+        add("ruin-" + str(bit), move, setup={"attackerPartnerRuinFlags": bit})
+    for name in ("Cloud Nine", "Air Lock"):
+        for weather in ("sun", "rain"):
+            for suppressed in (0, 1):
+                add(slug(name) + "-" + weather + "-gastro-" + str(suppressed), "Flamethrower", weather=weather,
+                    setup={"attackerPartnerAbility": ability(name)[0], "attackerPartnerGastroAcid": suppressed})
+    add("plus-suppressed-partner", "Psychic", atk_ability=ability("Plus"),
+        setup={"attackerPartnerAbility": "ABILITY_MINUS", "attackerPartnerGastroAcid": 1})
+    add("friend-guard-absent", partner="fainted", setup={"defenderPartnerAbility": "ABILITY_FRIEND_GUARD"})
+    add("composition", "Rock Slide", reflect=True, setup={"helpingHand": 2, "attackerPartnerAbility": "ABILITY_POWER_SPOT", "defenderPartnerAbility": "ABILITY_FRIEND_GUARD"})
+    return out
+
+
 def _doubles() -> list[dict]:
     out = []
     for move in ("Strength", "Psychic", "Rock Slide", "Heat Wave", "Hyper Voice", "Dazzling Gleam", "Razor Leaf"):
@@ -2114,7 +2160,7 @@ def build_scenarios() -> list[dict]:
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
-              _engine_items, _doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
+              _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
               _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

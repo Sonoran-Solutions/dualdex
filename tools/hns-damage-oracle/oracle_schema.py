@@ -23,7 +23,7 @@ import json
 import re
 from typing import Any
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 ROLL_COUNT = 16
 
 HNS_REPOSITORY = "PokemonHnS-Development/pokehns-expansion"
@@ -31,7 +31,7 @@ HNS_PINNED_COMMIT = "1f42b74dff0e9fe942419845d040663dd829a973"
 HNS_PINNED_TREE = "586946f21e9322e8d837654d9e07cf6b8239feed"
 
 ORACLE_BACKEND_KIND = "pinned-expansion-battle-test-runner"
-ORACLE_TOOL_VERSION = 9
+ORACLE_TOOL_VERSION = 10
 
 ROLL_ORDER = (
     "rolls[k] is the damage at random factor (85+k)%, i.e. the pinned hit measured with "
@@ -99,7 +99,7 @@ DOUBLES_KEYS = ("defenderPartner",)
 STATE_SETUP_KEYS = (
     "attackerSpeciesForm", "defenderSpeciesForm", "attackerTransformedMonSpecies",
     "defenderTransformedMonSpecies", "attacker", "defender", "attackerStatStages",
-    "defenderStatStages", "capture", "wonderRoom", "magicRoom", "laterAction",
+    "defenderStatStages", "doubles", "capture", "wonderRoom", "magicRoom", "laterAction",
 )
 RUNTIME_DOMAINS = {
     "personality": (0, 0xffffffff), "gender": (0, 255), "slowStartTimer": (0, 7),
@@ -290,7 +290,20 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
             _fail(f"{path}.stateSetup", f"expected a non-empty subset of {STATE_SETUP_KEYS}")
         for role, value in s["stateSetup"].items():
             loc = f"{path}.stateSetup.{role}"
-            if role.endswith("SpeciesForm") or role.endswith("TransformedMonSpecies"):
+            if role == "doubles":
+                if s["format"] != "doubles" or not isinstance(value, dict) or not value:
+                    _fail(loc, "Doubles setup requires a nonempty Doubles operand map")
+                allowed = {"attackerPartnerAbility", "defenderPartnerAbility", "attackerPartnerSpecies",
+                           "defenderPartnerSpecies", "helpingHand", "attackerPartnerGastroAcid",
+                           "defenderPartnerGastroAcid", "attackerPartnerRuinFlags", "defenderPartnerRuinFlags"}
+                if not set(value) <= allowed:
+                    _fail(loc, "unknown Doubles operand")
+                for key, operand in value.items():
+                    if key.endswith("Ability"): _require_symbol(operand, "ability", loc + "." + key)
+                    elif key.endswith("Species"): _require_symbol(operand, "species", loc + "." + key)
+                    else: _require_int(operand, loc + "." + key, 0,
+                        7 if key == "helpingHand" else 15 if key.endswith("RuinFlags") else 1)
+            elif role.endswith("SpeciesForm") or role.endswith("TransformedMonSpecies"):
                 _require_symbol(value, "species", loc)
             elif role in ("capture", "wonderRoom", "magicRoom"):
                 _require_bool(value, loc)
@@ -371,7 +384,20 @@ def _validate_observed_battler(b: Any, path: str) -> None:
 
 
 def validate_observed(observed: Any, scenario: dict, path: str) -> None:
-    _require_keys(observed, OBSERVED_KEYS, path)
+    extended = "doubles" in (scenario.get("stateSetup") or {})
+    _require_keys(observed, OBSERVED_KEYS + (("doubles",) if extended else ()), path)
+    if extended:
+        d = observed["doubles"]
+        _require_keys(d, ("helpingHand", "attackerPartnerAbility", "defenderPartnerAbility",
+            "attackerPartnerSpecies", "defenderPartnerSpecies", "fieldAbilities", "ruinFlags"), path + ".doubles")
+        for key in ("attackerPartnerAbility", "defenderPartnerAbility"):
+            _require_int(d[key], path + "." + key, 0, 310)
+        for key in ("attackerPartnerSpecies", "defenderPartnerSpecies"):
+            _require_int(d[key], path + "." + key, 0, 1572)
+        _require_int(d["helpingHand"], path + ".helpingHand", 0, 7)
+        _require_int(d["ruinFlags"], path + ".ruinFlags", 0, 15)
+        if d["fieldAbilities"] != sorted(set(d["fieldAbilities"])) or not set(d["fieldAbilities"]) <= {13, 76, 186, 187, 188}:
+            _fail(path + ".fieldAbilities", "unknown or noncanonical field ability IDs")
     _validate_observed_battler(observed["attacker"], f"{path}.attacker")
     _validate_observed_battler(observed["defender"], f"{path}.defender")
     move = observed["move"]

@@ -684,7 +684,10 @@ object CalcRequestBoundary {
             defenderRuntime?.takeIf { it.personalityObserved }?.personality,
             defenderSpeciesId?.let(com.dualdex.pokemon.hns.HeartAndSoul205DataPack::getSpecies)?.genderRatio
         )
+        val doublesAuthority = HnsDoublesAuthority.bind(request, attackerRuntime, defenderRuntime, isExactVerified)
         return CalcHnsLiveBattleState(
+            doubles = doublesAuthority.first,
+            doublesFailure = doublesAuthority.second,
             attackerTypes = authoritativeObservedTypes(
                 participantPartySlot = request.attacker.partySlot,
                 observation = playerBattlerState,
@@ -1042,10 +1045,9 @@ object CalcRequestBoundary {
      * [com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass] values (exact pinned
      * `enum MoveTarget` numbers): BOTH=6 and FOES_AND_ALLY=11 compute the spread
      * count from the observed absent flags; OPPONENTS_FIELD=13 is always 1. Every
-     * other class — TARGET_SELECTED=1, TARGET_RANDOM=5, TARGET_USER=7, ... and any
-     * unknown value — fails closed with null: upstream `GetMoveTargetCount` returns
-     * `IsBattlerAlive(...)` for those, which requires per-battler HP state this
-     * boundary does not read, so it must not fabricate "1".
+     * SELECTED/DEPENDS/RANDOM/OPPONENT use observed defender HP and presence; USER uses
+     * attacker HP and presence. Unknown classes remain unknown. Random selected-target
+     * identity is refused separately even when its source target count can be established.
      *
      * For the supported ordinary EFFECT_HIT subset, the target class is purely static:
      * `GetBattlerMoveTargetType` only adds dynamic overrides for EFFECT_CURSE, terrain,
@@ -1092,7 +1094,9 @@ object CalcRequestBoundary {
         ) ?: return null
         if (battlersCount != 4) return null
 
-        if (attackerBattler !in 0..3 || defenderBattler !in 0..3) return null
+        if (attackerBattler !in 0..3 || defenderBattler !in 0..3 || attackerBattler == defenderBattler ||
+            absentFlags !in 0..15 || playerState.partySlot != request.attacker.partySlot ||
+            enemyState.partySlot != request.defender.partySlot) return null
 
         // Get the move's static target class from the pinned source data.
         // For the ordinary EFFECT_HIT subset, the target class is purely static.
@@ -1128,16 +1132,16 @@ object CalcRequestBoundary {
             }
             com.dualdex.pokemon.hns.Hns205MoveEffects.SpreadTargetClass.TARGET_OPPONENTS_FIELD ->
                 1 // always 1 (Spikes/Toxic Spikes/Stealth Rock)
-            else -> {
-                /* Every other class fails closed. TARGET_SELECTED (1),
-                 * TARGET_DEPENDS (3), TARGET_OPPONENT (4), TARGET_RANDOM (5),
-                 * TARGET_USER (7) and friends dispatch to IsBattlerAlive(...) in
-                 * upstream GetMoveTargetCount, which needs per-battler HP state this
-                 * boundary does not read. A missing HP read must not be papered over
-                 * with "1": null (unobserved) is the only honest answer. This
-                 * matches the native reader, whose same classes return 0. */
-                null
-            }
+            1, 3, 4, 5 -> if (enemyState.hpObserved && enemyState.maxHp > 0 &&
+                enemyState.hp in 0..enemyState.maxHp) {
+                if (enemyState.hp > 0 && absentFlags and (1 shl defenderBattler) == 0) 1 else 0
+            } else null
+            7 -> if (playerState.hpObserved && playerState.maxHp > 0 &&
+                playerState.hp in 0..playerState.maxHp) {
+                if (playerState.hp > 0 && absentFlags and (1 shl attackerBattler) == 0) 1 else 0
+            } else null
+            else -> null
+
         }
     }
 

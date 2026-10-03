@@ -1,8 +1,11 @@
 # H&S Group E disposition audit — issue #93
 
-This is a production disposition audit, **not a completion claim for #93 or #83**. The final
-zero-no-result gate remains unmet: nine pinned Doubles battles still refuse every request.
-The implementation preserves that authority boundary instead of guessing partners or target counts.
+This audit records the Group E disposition work and the subsequent **authoritative
+ordinary-hit Doubles subset** on PR #119. The census now has zero no-result battles;
+[the Doubles source/reader audit](HNS_DOUBLES_AUTHORITY.md) documents the new authority,
+remaining refusals and measurement limits. The earlier nine-battle table below is
+retained as the starting-head evidence. Tracker #83 has a separate unfinished #85
+logging/export work item and must not be declared complete from this census alone.
 
 Starting main: `929f075bd25a99756ea0d2fe1158e69e8386424e` (merged PR #118; #88 closed).
 Mechanics authority is unchanged:
@@ -212,3 +215,77 @@ All 98 unsupported abilities, 71 unsupported item families and 208 unsupported n
 ### Validation
 
 The pinned oracle has 1,845 scenarios (1,744 modelled, 101 engine-only): 1,843 exact 16-roll matches and the same two registered #100 divergences. All 15 newly added Charge cases match exactly. Local validation passed: `./ci.sh all`, `./ci.sh source-check`, `python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py check`, `node tools/calc-bundler/test_fixed_point.js`, and `git diff --check`. All 1,830 pre-existing oracle scenario definitions and roll vectors are unchanged. The PR records exact-head Actions results.
+
+
+## Doubles continuation from ce4acbe
+
+Starting subtask head: `ce4acbe59918ee311aab472732e2771bfafa7319`.
+The minimal packet and explicit indexed reader make topology, partner suppression,
+Helping Hand, target count and relevant global operands real before narrowing gates.
+See [the complete authority audit](HNS_DOUBLES_AUTHORITY.md) for source citations,
+compiled layouts, exact arithmetic stages, fail-closed boundaries and oracle cases.
+Plus/Minus are exact only in the bound ordinary Doubles branch; Friend Guard,
+Battery, Power Spot and Telepathy holders may be irrelevant to their own opposing
+hit. Global Group E tiers are unchanged. Costar, Hospitality, Dancer and Commander
+gain no general Doubles exemption. Missing partner state never becomes a caveat.
+
+The final census preserves all 24,278 request keys, trainer inventory and reference
+teams. Its host-only neutral runtime context now explicitly supplies the new
+required partner fields; these are not production defaults or trainer-derived
+partner modifiers.
+
+| Metric | ce4acbe | Doubles subset |
+|---|---:|---:|
+| Fully modelled | 19,568 | 19,856 |
+| Caveated | 446 | 462 |
+| Refused | 4,264 | 3,960 |
+| Battles with no display | 9 | 0 |
+| Fully displayable lead pairs | 384/1,302 | 390/1,302 |
+| Displayable lead requests | 6,914/8,450 | 7,016/8,450 |
+| Singles lead pairs | 384/1,284 | 384/1,284 |
+| Doubles lead pairs | 0/18 | 6/18 |
+| Random Abilities refused trials | 797,124 | 794,208 |
+| Random Abilities caveated trials | 12,640 | 12,640 |
+| Random Abilities clear trials | 2,967,896 | 2,970,812 |
+
+Every first displayed request below is `ref-physical` Chikorita -> pinned trainer
+slot 0, **Body Slam**. Finley's first result caveats Focus Sash under the existing
+Group E disposition; the others are fully modelled. Before displayed requests
+were zero in each row. Independent blockers remain for other requests.
+
+| Trainer | Before | After (displayed / eligible) | First target | Remaining blockers |
+|---|---:|---:|---|---|
+| TRAINER_AMY_AND_MAY_HNS | 0 | 22/24 | Ledyba | move mechanics, ability condition |
+| TRAINER_ANN_AND_ANNE_HNS | 0 | 20/24 | Clefairy | move mechanics |
+| TRAINER_DUFF_AND_EDA_HNS | 0 | 20/26 | Onix | move mechanics |
+| TRAINER_FINLEY_HNS | 0 | 50/56 | Flygon (caveated) | move/item mechanics, ability condition, random target |
+| TRAINER_JO_AND_ZOE_HNS | 0 | 22/28 | Victreebel | move/item-dependent mechanics, random target |
+| TRAINER_LEA_AND_PIA_HNS | 0 | 48/56 | Dragonair | move mechanics |
+| TRAINER_MEG_AND_PEG_HNS | 0 | 22/28 | Ursaring | move/ability mechanics |
+| TRAINER_MUALANI_HNS | 0 | 76/84 | Politoed | move/item mechanics |
+| TRAINER_THOM_AND_KAE_HNS | 0 | 24/26 | Electabuzz | move mechanics |
+
+Source-safe displayed requests meet the zero-battle target without removing
+independent blockers or implementing complex moves. The remaining generic-format
+and target-count enums still refuse unread/unsupported shapes, while specific
+partner/target/suppression limitations explain newly distinguishable failures.
+The native and production-bundle tests include topology/version/length negatives,
+spread counts and liveness, screens, stack/partner arithmetic, suppression,
+redirection, priority protection, Pledge and independent unsupported Surf/Facade.
+A mixed Plus/Sturdy regression preserves the exact modifier alongside a caveat.
+
+### Tracker audit
+
+All inventory identities have explicit dispositions and no UNCLASSIFIED rows.
+The new ordinary arithmetic has pinned-engine oracle coverage. Census and canonical
+validation gates are recorded on PR #119. #93 is ready to close **after reviewed
+merge** when those checks are green; this branch remains open for human review.
+
+#83's Group A (#87), Group C (#89) and oracle (#90) implementations landed in merged
+PRs #96, #103 and #101 respectively; their still-open issue/checklist states are
+stale. #91 is closed, with follow-up ability coverage in #115/#116; #92 is closed
+through merged #117; their #83 checkboxes are stale. #88 closed through #118.
+#85 is genuinely unfinished: there is no debug outcome aggregation/export flow,
+release-no-op test or export documentation. Its acceptance must be handled before
+claiming the complete tracker is ready to close. No historical issue state or
+checklist was edited to disguise that gap.

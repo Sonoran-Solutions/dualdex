@@ -152,11 +152,15 @@ sealed interface DamageBlockerPresentation {
 
             val doubles = take(setOf(CalcLimitation.HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED))
             val format = take(setOf(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED))
-            if (doubles.isNotEmpty() || observedDoubles) {
-                states += State("Doubles not supported", doubles + format)
-            } else if (format.isNotEmpty()) {
-                states += State("Live battle format not supported", format)
-            }
+            if (doubles.isNotEmpty()) states += State("Doubles target count unavailable", doubles)
+            if (format.isNotEmpty()) states += State(
+                if (observedDoubles) "Doubles topology incomplete" else "Live battle format not supported", format)
+            take(setOf(CalcLimitation.HNS_DOUBLES_PARTNER_STATE_UNKNOWN)).takeIf { it.isNotEmpty() }
+                ?.let { states += State("Doubles partner state incomplete", it) }
+            take(setOf(CalcLimitation.HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED)).takeIf { it.isNotEmpty() }
+                ?.let { states += State("Doubles target or execution unresolved", it) }
+            take(setOf(CalcLimitation.HNS_DOUBLES_SUPPRESSION_UNRESOLVED)).takeIf { it.isNotEmpty() }
+                ?.let { states += State("Doubles ability suppression unresolved", it) }
             take(
                 setOf(
                     CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN,
@@ -247,7 +251,7 @@ sealed interface DamageBlockerPresentation {
             // single live-state blocker (its limitations are all retained) rather than as a list of
             // symptoms. Ability, item and move blockers are never folded.
             if (CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN in limitations) {
-                val folded = states.filterIsInstance<State>().filter { it.reason != "Doubles not supported" }
+                val folded = states.filterIsInstance<State>()
                 if (folded.size > 1) {
                     states.removeAll(folded)
                     states += State("Live battle state incomplete", folded.flatMap { it.limitations })

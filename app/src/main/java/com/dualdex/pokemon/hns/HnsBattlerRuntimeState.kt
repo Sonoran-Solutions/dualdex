@@ -414,7 +414,8 @@ data class HnsBattlerRuntimeState(
     val volatileMetronomeItemCounter: Int = 0,
     val volatileTransformedMonSpecies: Int? = null,
     val analyticCurrentMove: Int = 0,
-    val analyticTurnOrder: Int = 0
+    val analyticTurnOrder: Int = 0,
+    val doubles: HnsDoublesRuntimeState? = null
 ) {
     /** True when at least one observed type ID is outside the pinned `enum Type` domain. */
     val typesOutOfDomain: Boolean get() = types.any { it.outOfDomain }
@@ -508,6 +509,9 @@ data class HnsBattlerRuntimeState(
          * [95] neutralizingGas, [96] current move ID bound to the Analytic authority,
          * [97] embargo, [98] metronomeItemCounter, [99] transformedMonSpecies,
          * [100] source NUM_SPECIES, [101] metronome width, [102] transformed species width.
+         * [103] Doubles packet observed; [104] packet version 1, [105] count, [106] absent,
+         * [107..108] Follow Me timers, [109] action flags (bit 0 moldBreakerActive, bit 1 pledgeMove), [110..161] four 13-word
+         * indexed records (see HnsDoublesRuntimeState). Short/old packets remain unobserved.
          *
          * Centralizes the minimum array size with BATTLER_RUNTIME_STATE_TUPLE_LEN so
          * the JNI, native reader, and this decoder can never drift. [TUPLE_LEN] is
@@ -711,6 +715,7 @@ data class HnsBattlerRuntimeState(
                 volatileMetronomeItemCounter = if (itemVolatilesObserved) raw[98] else 0,
                 volatileTransformedMonSpecies = raw.getOrNull(99)?.takeIf { itemVolatilesObserved },
                 analyticCurrentMove = if (analyticTurnOrderObserved) raw[96] else 0,
+                doubles = HnsDoublesRuntimeState.decode(raw),
                 analyticTurnOrder = if (analyticTurnOrderObserved) raw[94] else 0
             )
             // Defense in depth: the native reader already reports OBSERVED_INVALID for

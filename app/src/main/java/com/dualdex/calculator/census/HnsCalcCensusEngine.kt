@@ -492,13 +492,15 @@ object HnsCalcCensusEngine {
             item = Hns205ItemCatalogue.get(defenderItemId),
             gBattlersCount = battlersCount
         )
+        val doublesPacket = if (battlersCount == 4)
+            HnsCalcCensusBaseline.doublesPacket(attackerObservation.state, defenderObservation.state) else null
         val outcome = CalcRequestBoundary.build(
             profile = profile,
             trust = HnsCalcCensusBaseline.trust,
             request = request,
             challengeSettings = HnsCalcCensusBaseline.challengeSettings,
-            playerBattlerState = attackerObservation,
-            enemyBattlerState = defenderObservation,
+            playerBattlerState = attackerObservation.copy(state = attackerObservation.state.copy(doubles = doublesPacket)),
+            enemyBattlerState = defenderObservation.copy(state = defenderObservation.state.copy(doubles = doublesPacket)),
             activeBattle = true
         )
         val verdict = when (outcome) {

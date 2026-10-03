@@ -6,6 +6,7 @@ import com.dualdex.pokemon.hns.Hns205MoveEffects
 internal class HnsFieldAbilityAuthority(private val c: HnsAbilityContextPolicy.Context) {
     fun present(abilityId: Int): Boolean? {
         val live = c.liveBattleState ?: return null
+        if (c.observedBattlersCount == 4) return live.doubles?.fieldAbilities?.contains(abilityId)
         if (c.observedBattlersCount != 2 || !c.attackerAbilityObserved || !c.defenderAbilityObserved ||
             c.attackerAbilityId == null || c.defenderAbilityId == null ||
             live.attackerHp == null || live.defenderHp == null ||

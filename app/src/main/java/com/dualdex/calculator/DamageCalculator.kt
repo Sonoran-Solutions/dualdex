@@ -467,6 +467,17 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             // Boundary-owned live target count (GetMoveTargetCount). Absent today because no reader
             // supplies it; when absent the H&S engine fails closed for Doubles spread moves.
             request.hnsLiveBattleState?.moveTargetCount?.let { put("targetCount", it) }
+            request.hnsLiveBattleState?.doubles?.let { doubles ->
+                put("hnsDoubles", JSONObject().apply {
+                    put("helpingHand", doubles.helpingHand)
+                    put("attackerPartnerAbility", doubles.attackerPartnerAbility)
+                    put("defenderPartnerAbility", doubles.defenderPartnerAbility)
+                    put("attackerPartnerSpecies", doubles.attackerPartnerSpecies)
+                    put("defenderPartnerSpecies", doubles.defenderPartnerSpecies)
+                    put("fieldAbilities", JSONArray(doubles.fieldAbilities.sorted()))
+                    put("ruinFlags", doubles.ruinFlags)
+                })
+            }
             request.field.defenderSide?.let { side ->
                 put("defenderSide", JSONObject().apply {
                     if (side.isReflect) put("isReflect", true)

@@ -208,16 +208,23 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-Starting `main` **9948b5ba426be5536cd94497bcdc5de2b08aada2** had 1,720 scenarios
-(1,582 modelled, 138 engine-only). The held-item matrix brings the corpus to **1,830 scenarios:
-1,729 modelled, 101 engine-only, 1,828 exact comparisons and the same two registered #100
-divergences**. Every case has all 16 rolls. Canonical regeneration and reversed-order verification
-are byte-identical.
-Both remaining divergences are listed in `known_divergences.json`:
+The current corpus has **1,894 scenarios: 1,793 modelled and 101 engine-only**,
+with all 16 rolls compared against the shipped bundle. PR #119 adds 49 ordinary-hit
+Doubles cases covering spread counts 1/2/3 (including ally-inclusive Petal Blizzard),
+screens, Helping Hand, partner BP/Attack/Defense/Other modifiers, field holders,
+suppression controls and fixed-point composition. Version 10 records the actual
+minimal Doubles operands captured from the pinned engine; missing operands fail
+closed. All 1,845 historical entry objects are unchanged.
 
-| Issue | Surface | Scenarios | Defect |
-|---|---|---:|---|
-| [#100](https://github.com/Sonoran-Solutions/dualdex/issues/100) | engine-only | 2 | Doubles spread reduction misses post-Gen-III spread moves |
+The two historical #100 post-Gen-III Dazzling Gleam divergences are resolved by
+using the source `GetMoveTargetCount` predicate independently of Smogon target
+metadata. Their original oracle vectors remain unchanged; the divergence register
+is empty. Current native match counts and final validation are recorded in PR #119
+and [the Doubles authority audit](../../docs/HNS_DOUBLES_AUTHORITY.md).
+
+Gastro Acid controls for partner Cloud Nine/Air Lock use a real earlier setup
+turn, before the engine caches `ctx.weather`. Applying suppression only at the
+late critical-hit hook would create inconsistent operands and is rejected.
 
 The Attack-stat accumulator makes `badge-pinch-overgrow-a255` exact, resolving #98's only registered
 vector. The Guts Physical-category gate makes the burn- and poison-statused Psychic vectors exact,

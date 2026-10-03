@@ -403,4 +403,15 @@ open class LibretroCoreCoordinator(
     } catch (_: Exception) {
         com.dualdex.pokemon.hns.HnsBattlerRuntimeState()
     }
+
+    /** Freeze emulation once while reading all explicitly indexed battlers. Legacy role reads
+     * remain ambiguous in Doubles; this API never selects a participant for the user. */
+    open fun readHnsBattlers(gameId: Int): List<com.dualdex.pokemon.hns.HnsBattlerRuntimeState> = try {
+        executeExclusive(50L) {
+            (0..3).map { index -> com.dualdex.pokemon.hns.HnsBattlerRuntimeState.fromNativeArray(
+                LibretroHost.nativeReadBattlerRuntimeState(gameId, index + 2)) }
+        }
+    } catch (_: UnsatisfiedLinkError) { emptyList() }
+      catch (_: Exception) { emptyList() }
+
 }

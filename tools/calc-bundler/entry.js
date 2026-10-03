@@ -492,6 +492,12 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     };
   }
 
+  const doubles = input.field?.hnsDoubles;
+  if (doubles !== undefined && (!Number.isInteger(doubles.helpingHand) || doubles.helpingHand < 0 ||
+      doubles.helpingHand > 7 || !Array.isArray(doubles.fieldAbilities) ||
+      !Number.isInteger(doubles.ruinFlags) || doubles.ruinFlags < 0 || doubles.ruinFlags > 15)) {
+    throw new Error('Invalid authoritative H&S Doubles operands');
+  }
   const isPhysical = (move.category === 'Physical');
   const isSpecial = (move.category === 'Special');
 
@@ -695,6 +701,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       break;
   }
 
+  if (doubles && ['Plus', 'Minus'].includes(attacker.ability) && isSpecial &&
+      [57, 58].includes(doubles.attackerPartnerAbility)) attackModifier.addHalfDown(6144);
+
   if (attacker.ability === 'Flower Gift' && input.attacker?.hnsSpeciesId === 1061 && isPhysical &&
       isBattlerWeatherAffected(attacker, 'Sun', field, attacker, defender, input)) {
     attackModifier.addHalfDown(6144);
@@ -703,6 +712,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   if (defender.ability === 'Thick Fat' && (effectiveMoveType === 'Fire' || effectiveMoveType === 'Ice')) {
     attackModifier.addHalfDown(2048);
   }
+  if (doubles?.attackerPartnerAbility === 122 && doubles.attackerPartnerSpecies === 1061 &&
+      isPhysical && String(field.weather || '').toLowerCase().includes('sun') &&
+      hnsGlobalWeatherEffect(attacker, defender, input) === true) attackModifier.addHalfDown(6144);
   if (isSpecial && input.attacker?.hnsVesselOfRuin !== true && hnsRuinActive(input, 'hnsVesselOfRuin')) {
     attackModifier.addHalfDown(3072);
   }
@@ -769,6 +781,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     // Pinned CalcDefenseStat applies Grass Pelt after Fur Coat with the half-down operator.
     defenseModifier.addHalfDown(6144);
   }
+  if (doubles?.defenderPartnerAbility === 122 && doubles.defenderPartnerSpecies === 1061 &&
+      !usesDefStat && String(field.weather || '').toLowerCase().includes('sun') &&
+      hnsGlobalWeatherEffect(attacker, defender, input) === true) defenseModifier.addHalfDown(6144);
   if (usesDefStat && input.defender?.hnsSwordOfRuin !== true && hnsRuinActive(input, 'hnsSwordOfRuin')) {
     defenseModifier.addHalfDown(3072);
   }
@@ -796,6 +811,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // CalcMoveBasePowerAfterModifiers has a separate fixed-point accumulator from the two stat
   // stages. Preserve the Group C Dry Skin × Wise Glasses composition correction.
   const basePowerModifier = createHnsModifierAccumulator(halfUp);
+  for (let i = 0; i < (doubles?.helpingHand || 0); i++) basePowerModifier.addHalfUp(6144);
   // The pinned Gem boost is recorded before terrain and ability modifiers in the early
   // CalcMoveBasePowerAfterModifiers "various effects" block (src/battle_util.c:6633-6634).
   // Its operand is the current matching Gem's generated item type/parameter under the shared
@@ -936,7 +952,8 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     default:
       break;
   }
-  const auraActive = (name) => [
+  const auraActive = (name) => doubles ? doubles.fieldAbilities.includes(
+    {'Dark Aura': 186, 'Fairy Aura': 187, 'Aura Break': 188}[name]) : [
     [attacker, input.attacker], [defender, input.defender],
   ].some(([b, source]) => {
     const hp = [source?.hpAtHit, source?.hp, source?.curHP].find(Number.isInteger);
@@ -949,6 +966,10 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       (effectiveMoveType === 'Fairy' && auraActive('Fairy Aura'))) {
     basePowerModifier.addHalfUp(auraActive('Aura Break') ? 3072 : 5448);
   }
+  if (doubles?.attackerPartnerAbility === 249 || doubles?.attackerPartnerAbility === 217 && isSpecial)
+    basePowerModifier.addHalfUp(5325);
+  if (doubles?.attackerPartnerAbility === 252 && effectiveMoveType === 'Steel')
+    basePowerModifier.addHalfUp(6144);
   // CalcMoveBasePowerAfterModifiers target-ability slot follows attacker, field, and partner
   // abilities and precedes held items. Compose it into the same half-up product before applying
   // the completed product once to integer base power.
@@ -1021,7 +1042,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // halved, while the same move with both foes present has count 2 and is halved. That count is
   // live battle state, so it must be supplied explicitly as `field.targetCount`; when it is
   // absent this fails closed instead of guessing from gameType + target class.
-  if (gameType === 'Doubles' && move.target === 'allAdjacentFoes') {
+  if (gameType === 'Doubles') {
     const targetCount = input.field?.targetCount;
     if (targetCount === undefined || targetCount === null) {
       throw new Error(
@@ -1040,10 +1061,10 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const defenderUmbrella = hnsActiveHoldEffect(
     input.defender, 'HOLD_EFFECT_UTILITY_UMBRELLA', 'utility umbrella'
   );
-  if (!defenderUmbrella && weatherStr.includes('rain')) {
+  if (hnsGlobalWeatherEffect(attacker, defender, input) === true && !defenderUmbrella && weatherStr.includes('rain')) {
     if (effectiveMoveType === 'Fire') dmg = applyHnsFinalDamageModifiers(dmg, [2048]);
     else if (effectiveMoveType === 'Water') dmg = applyHnsFinalDamageModifiers(dmg, [6144]);
-  } else if (!defenderUmbrella && weatherStr.includes('sun')) {
+  } else if (hnsGlobalWeatherEffect(attacker, defender, input) === true && !defenderUmbrella && weatherStr.includes('sun')) {
     if (effectiveMoveType === 'Water') dmg = applyHnsFinalDamageModifiers(dmg, [2048]);
     else if (effectiveMoveType === 'Fire') dmg = applyHnsFinalDamageModifiers(dmg, [6144]);
   }
@@ -1076,7 +1097,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const otherFinalModifier = createHnsModifierAccumulator();
   const targetStateFinalModifier = HNS_UQ4_12_ONE; // Active Glaive Rush/Tar Shot contexts fail closed.
   const collisionCourseFinalModifier = HNS_UQ4_12_ONE; // Collision Course/Electro Drift are out of the ordinary move allow-list.
-  const defenderPartnerAbilityFinalModifier = HNS_UQ4_12_ONE; // Doubles is not production-authorized.
+  const defenderPartnerAbilityFinalModifier = doubles?.defenderPartnerAbility === 132 ? 3072 : HNS_UQ4_12_ONE;
   let attackerItemFinalModifier = HNS_UQ4_12_ONE;
   let defenderItemFinalModifier = HNS_UQ4_12_ONE;
   if (input.attacker?.hnsHoldEffectState === 'ACTIVE_EXACT') {
@@ -1262,6 +1283,7 @@ function hnsActiveHoldEffect(source, effect, legacyName) {
 // This deliberately does not consider Utility Umbrella; only IsBattlerWeatherAffected does.
 // null means a living-state operand needed to resolve a suppressor was not observed.
 function hnsGlobalWeatherEffect(attacker, defender, input) {
+  if (input.field?.hnsDoubles) return !input.field.hnsDoubles.fieldAbilities.some(id => id === 13 || id === 76);
   for (const [battler, source] of [[attacker, input.attacker], [defender, input.defender]]) {
     if (!['Cloud Nine', 'Air Lock'].includes(battler?.ability)) continue;
     const hp = [source?.hpAtHit, source?.hp, source?.curHP].find(Number.isInteger);
@@ -1272,6 +1294,10 @@ function hnsGlobalWeatherEffect(attacker, defender, input) {
 }
 
 function hnsRuinActive(input, volatileName) {
+  if (input.field?.hnsDoubles) {
+    const bits = {hnsVesselOfRuin: 1, hnsSwordOfRuin: 2, hnsTabletsOfRuin: 4, hnsBeadsOfRuin: 8};
+    return (input.field.hnsDoubles.ruinFlags & bits[volatileName]) !== 0;
+  }
   const battlers = [input.attacker || {}, input.defender || {}];
   // IsNeutralizingGasOnField and IsRuinStatusActive inspect the stored volatiles, not HP.
   const gas = battlers.some((b) => b.hnsNeutralizingGas === true && b.hnsGastroAcid !== true);

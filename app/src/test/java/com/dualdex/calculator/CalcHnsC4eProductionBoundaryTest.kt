@@ -1081,7 +1081,7 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `observed four-battler Doubles with late-Doubles absent flags and TARGET_BOTH move is refused as wrong format`() {
+    fun `observed four-battler Doubles with late-Doubles absent flags and TARGET_BOTH move is refused without partner packet`() {
         // Decisive regression: battlers count is 4, but partner battlers are absent (0b1100),
         // so authoritativeMoveTargetCount resolves count = 1 for a TARGET_BOTH ordinary move
         // (Razor Leaf). The Doubles target-count gate clears, but the format gate must refuse:
@@ -1107,8 +1107,8 @@ class CalcHnsC4eProductionBoundaryTest {
             ?: throw AssertionError("late-Doubles with target count 1 must never reach Ready, got $outcome")
         assertNull("a refusal must never expose a request", refused.verdict.request)
         assertTrue(
-            "late-Doubles must be refused by HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED: ${refused.verdict.limitations}",
-            refused.verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED)
+            "late-Doubles must be refused by HNS_DOUBLES_PARTNER_STATE_UNKNOWN: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.HNS_DOUBLES_PARTNER_STATE_UNKNOWN)
         )
         assertFalse(
             "target count was authorized (= 1), so HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED should not block: ${refused.verdict.limitations}",
@@ -1117,10 +1117,10 @@ class CalcHnsC4eProductionBoundaryTest {
     }
 
     @Test
-    fun `observed four-battler Doubles with full presence and TARGET_BOTH move is refused as wrong format`() {
+    fun `observed four-battler Doubles with full presence and TARGET_BOTH move is refused without partner packet`() {
         // Full four-battler Doubles: absentBattlerFlags = 0, so authoritativeMoveTargetCount
         // resolves count = 2 for TARGET_BOTH (Razor Leaf). Even with an authoritative target
-        // count of 2, all live Doubles remain outside C4e and refuse with HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED.
+        // count of 2, all live Doubles remain outside C4e and refuse with HNS_DOUBLES_PARTNER_STATE_UNKNOWN.
         val trust = trustFor(exactSha)
         val request = goldenARequest(move = "Razor Leaf").copy(
             field = CalcFieldInput(gameType = CalcGameTypes.DOUBLES)
@@ -1141,8 +1141,8 @@ class CalcHnsC4eProductionBoundaryTest {
             ?: throw AssertionError("Doubles with target count 2 must never reach Ready, got $outcome")
         assertNull("a refusal must never expose a request", refused.verdict.request)
         assertTrue(
-            "Doubles must be refused by HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED: ${refused.verdict.limitations}",
-            refused.verdict.limitations.contains(CalcLimitation.HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED)
+            "Doubles must be refused by HNS_DOUBLES_PARTNER_STATE_UNKNOWN: ${refused.verdict.limitations}",
+            refused.verdict.limitations.contains(CalcLimitation.HNS_DOUBLES_PARTNER_STATE_UNKNOWN)
         )
         assertFalse(
             "target count was authorized (= 2), so HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED should not block: ${refused.verdict.limitations}",

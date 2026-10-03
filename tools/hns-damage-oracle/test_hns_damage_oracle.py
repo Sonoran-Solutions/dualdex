@@ -627,6 +627,14 @@ class SetupPlannerTest(unittest.TestCase):
             self.assertEqual(atk[-1], move)
             self.assertEqual(len(atk), len(dfn))
 
+    def test_partner_weather_suppression_precedes_cached_weather(self):
+        for name in ("cloud-nine", "air-lock"):
+            scenario = next(s for s in SCENARIOS if s["id"] == f"ordinary-doubles-{name}-rain-gastro-1")
+            atk, _, _ = backend.plan_setup(scenario)
+            self.assertEqual(atk, ["MOVE_GASTRO_ACID", "MOVE_RAIN_DANCE"])
+            source = backend.render_scenario(scenario)
+            self.assertIn("MOVE(playerLeft, MOVE_GASTRO_ACID, target: playerRight)", source)
+
     def test_solar_power_setup_residual_is_captured_as_hp_at_hit(self):
         scenario = next(s for s in SCENARIOS if s["id"] == "group-d-solar-power-special-sun-crit-negative-stage")
         atk_actions, def_actions, _ = backend.plan_setup(scenario)
@@ -929,32 +937,16 @@ class CommittedCorpusTest(unittest.TestCase):
                     pair,
                 )
 
-    def test_known_divergences_pin_the_current_calculator_vectors(self):
+    def test_resolved_post_gen_three_spread_vectors_are_not_registered(self):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
         by_id = {entry["scenario"]["id"]: entry for entry in doc["entries"]}
-        divergences = cli.load_divergences(by_id)
-        self.assertEqual(
-            {record["scenario"] for record in divergences},
-            {
-                "doubles-dazzling-gleam-partner-present",
-                "doubles-dazzling-gleam-partner-present-crit",
-            },
-        )
-        # The two pre-existing #100 records are deliberately unchanged by this #91 slice.
-        prior_100_vectors = {
-            "doubles-dazzling-gleam-partner-present": [41, 42, 42, 43, 43, 44, 44, 45,
-                                                        45, 46, 46, 47, 47, 48, 48, 49],
-            "doubles-dazzling-gleam-partner-present-crit": [83, 84, 85, 86, 87, 88, 89, 90,
-                                                             91, 92, 93, 94, 95, 96, 97, 98],
-        }
-        for record in divergences:
-            if record["scenario"] in prior_100_vectors:
-                self.assertEqual(record["calculatorRolls"], prior_100_vectors[record["scenario"]])
-        for record in divergences:
-            with self.subTest(scenario=record["scenario"]):
-                self.assertEqual(len(record["calculatorRolls"]), schema.ROLL_COUNT)
-                self.assertEqual(record["calculatorRolls"], sorted(record["calculatorRolls"]))
-                self.assertNotEqual(record["calculatorRolls"], by_id[record["scenario"]]["rolls"])
+        self.assertEqual(cli.load_divergences(by_id), [])
+        # Historical engine observations remain unchanged; shipped-bundle comparison is
+        # enforced by the native oracle suite for these two resolved #100 scenarios.
+        self.assertEqual(by_id["doubles-dazzling-gleam-partner-present"]["rolls"],
+            [20,20,20,21,21,21,21,22,22,22,22,23,23,23,23,24])
+        self.assertEqual(by_id["doubles-dazzling-gleam-partner-present-crit"]["rolls"],
+            [40,41,41,42,42,43,43,44,44,45,45,46,46,47,47,48])
 
     def test_divergence_register_rejects_missing_or_nondivergent_vectors(self):
         scenario = "xref-c4a-neutral-base"

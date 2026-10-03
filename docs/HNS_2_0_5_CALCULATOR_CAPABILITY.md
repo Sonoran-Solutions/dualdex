@@ -3317,3 +3317,57 @@ The full census improves from 19,336 fully modelled / 224 caveated / 4,718 refus
 all remaining ones are Doubles. Therefore **#93 and #83 are not ready to close**. The detailed audit
 records all hard-refusal families, named request causes, Random Abilities before/after totals and
 remaining no-result battles. The 1,845-case oracle retains only the two existing #100 divergences.
+
+
+## 21. Authoritative ordinary-hit Doubles subset (PR #119)
+
+The historical Singles-only format gates above are superseded for ordinary
+opposing hits with complete live authority. The version-1 162-word participant
+ABI appends the minimal four-index packet described in
+[HNS_DOUBLES_AUTHORITY.md](HNS_DOUBLES_AUTHORITY.md). Native indexed observations,
+actual position/party mapping, HP/presence, source battle-type flags and repeated
+matching partner/global reads replace the prior per-side ambiguity for explicit
+selected participants. The legacy role APIs remain ambiguous in four-battler play.
+Battle and Calc let the user select the observed attacker/target; no flank is guessed.
+
+The boundary owns target counts and effective partner/global operands. Supported
+classes use absent flags for BOTH/FOES_AND_ALLY, selected live HP/presence for
+SELECTED/DEPENDS/OPPONENT, attacker liveness for USER and the pinned constant for
+OPPONENTS_FIELD. Random target identity still refuses even with a known count.
+Surf and other independently unsupported moves do not become supported merely
+because their target class can be counted. Petal Blizzard covers ally-inclusive
+ordinary spread counts 3 and 2: Gen III applies no reduction at 3 and halves at 2.
+
+Exact arithmetic includes source spread, Doubles screens (2732/4096 in Other),
+Helping Hand stacks, Battery/Power Spot/Steely Spirit, Plus/Minus, partner Flower
+Gift, Friend Guard, field aura/Aura Break, all-slot Ruin and live Cloud Nine/Air
+Lock weather suppression. The audit lists every pipeline slot and rounding mode.
+No generic format blocker is emitted for an agreed supported four-battler shape;
+missing tuple/partner/target/suppression state remains a hard refusal. Active Gas,
+Mold Breaker action suppression, ignored-target-ability moves, Commander, combined
+Pledge, unresolved redirection/random/ally targets, partner priority protection
+with positive/unread effective priority, and partner Flower Gift + unresolved
+Utility Umbrella activation remain unsupported. Aurora Veil and complex moves,
+multi-hit totals and gimmicks retain independent gates.
+
+Plus/Minus gain an exact request-local Doubles rule; Friend Guard, Battery, Power
+Spot and Telepathy holders can be irrelevant for their own opposing hit while
+partner effects are consumed separately. Global Group E dispositions and prior
+Singles proofs remain unchanged. Costar, Hospitality, Dancer and Commander gain
+no general Doubles clearance. Exact Plus/Minus remains active even beside another
+caveated ability, as verified through the production boundary and shipped bundle.
+
+The unchanged 24,278-key census now reports **19,856 fully modelled / 462 caveated /
+3,960 refused**, zero no-result battles, all 642 Singles battles displaying and all
+nine Doubles battles displaying at least one request. Fully displayable Doubles
+lead pairs are 6/18; independent move/item blockers keep the other pairs incomplete.
+The documented neutral host context explicitly supplies neutral partner observations;
+production derives no partner effect from trainer or census data. The 49 new pinned
+oracle cases bring the corpus to 1,894 scenarios, all matching across all 16 rolls,
+with all 1,845 historical entry objects unchanged and the two #100 cases resolved.
+
+See [Group E closure](HNS_GROUP_E_CLOSURE.md) for each original battle's first
+new display, remaining blockers, before/after counts and tracker audit. #93 is
+ready to close after reviewed merge and green final checks. #83 additionally has
+unfinished #85 debug logging/export acceptance; stale Group A/C/oracle issue states
+and Group D checkboxes must be distinguished from that genuine remaining work.

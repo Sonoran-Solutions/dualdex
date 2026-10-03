@@ -747,6 +747,10 @@ bool pokemon_read_battle_stat_stages(
  */
 typedef enum {
     BATTLER_ROLE_PLAYER   = 0,  // the active player-side battler
+    BATTLER_ROLE_INDEX_0 = 2,
+    BATTLER_ROLE_INDEX_1 = 3,
+    BATTLER_ROLE_INDEX_2 = 4,
+    BATTLER_ROLE_INDEX_3 = 5,
     BATTLER_ROLE_OPPONENT = 1   // the single active opponent battler
 } BattlerRole;
 
@@ -890,6 +894,8 @@ typedef struct {
     uint16_t analytic_current_move;
     bool     analytic_turn_order_observed;
     uint8_t  analytic_turn_order; // 0 UNKNOWN, 1 LAST_TO_MOVE, 2 NOT_LAST_TO_MOVE
+    bool doubles_observed;
+    uint32_t doubles_operands[58]; // version 1, count, absent, Follow Me x2, action flags (Mold Breaker/Pledge); 4 x 13 records
 } BattlerRuntimeState;
 
 /**
@@ -934,6 +940,10 @@ bool pokemon_read_hns_badge_state_gba(
  *      while it is fainted, never a defaulted battler 0; opponent:
  *      pokemon_resolve_active_enemy's battler, which is AMBIGUOUS in doubles, never "the first
  *      enemy", and rejected while at 0 HP);
+ *      INDEX_0..INDEX_3 instead select an explicit engine index and read its own authoritative
+ *      gBattlerPositions/gBattlerPartyIndexes mapping. Legacy roles remain ambiguous in Doubles.
+ *      Four-battler observations append a versioned minimal partner/global packet only after two
+ *      identical reads agree with the selected participant; missing/torn packets remain unobserved.
  *   5. the battler index is inside the compiled battler count and the battler is not absent;
  *   6. the complete ability, types, item, stat, and stage bytes are readable through the bounds-checked reader.
  *

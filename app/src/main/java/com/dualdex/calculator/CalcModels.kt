@@ -382,7 +382,9 @@ data class CalcHnsLiveBattleState(
      */
     val observedBattlersCount: Int? = null,
     /** Boundary-owned proof that the global switch-in/event driver has settled, or null if unread. */
-    val switchInEventsSettled: Boolean? = null
+    val switchInEventsSettled: Boolean? = null,
+    val doubles: CalcHnsDoublesOperands? = null,
+    val doublesFailure: CalcLimitation? = null
 )
 
 /**

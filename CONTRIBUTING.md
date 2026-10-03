@@ -169,7 +169,10 @@ battle starts a new session. Rows survive navigation and restart, in app-private
 first-seen rows first, even if they were recently refreshed. Each row retains at most 512 distinct
 mechanic identities; any overflow is explicitly reported as `droppedMechanicObservations`.
 Exported summaries count affected logical rows and distinct retained sessions, sorted by affected
-row count then stable identity. Exact/caveated/refused row totals can overlap when a row changed tier.
+row count then stable identity. Exactly modelled decisions are retained as `MODELLED` and excluded from the blocker summary,
+including applicable conditional abilities and exact Doubles Plus/Minus. Earlier false blocker
+dispositions are repaired when loading stored logs, preserving observations.
+Exact/caveated/refused row totals can overlap when a row changed tier.
 `evictedRecords` and storage failures are reported; the summary covers retained rows only.
 **Clear H&S Coverage Log** asks for confirmation before deleting the collected observations.
 

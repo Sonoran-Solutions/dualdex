@@ -172,9 +172,11 @@ internal class CoverageRepository(
                 val m = mechanics.getJSONObject(j)
                 val mechanic = CoverageMechanic(m.getString("kind"), m.stringOrNull("side"), m.intOrNull("id"),
                     m.getString("name"), m.stringOrNull("relevance"), m.stringOrNull("rule"), m.stringOrNull("source"),
-                    m.getString("disposition"), m.stringOrNull("family"))
+                    m.getString("disposition"), m.stringOrNull("family")).correctModelledDisposition()
                 val count = m.getLong("observations").also { require(it in 1..row.seenCount) }
-                row.mechanics[mechanic.identity] = mechanic to count
+                val mergedCount = count + (row.mechanics[mechanic.identity]?.second ?: 0)
+                require(mergedCount <= row.seenCount)
+                row.mechanics[mechanic.identity] = mechanic to mergedCount
             }
             rows.add(row)
         }

@@ -673,22 +673,14 @@ private fun softLimitationHasCompleteEvidence(
     fields: List<HnsFieldRequestDecision>
 ): Boolean = when (limitation) {
     CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED -> {
-        val causal = abilities.filter {
-            it.globalCategory == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
-                it.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT &&
-                !HnsDoublesAuthority.isExactPlusMinus(it)
-        }
+        val causal = abilities.filter(HnsMechanicAttribution::isAbilityEffectCause)
         causal.isNotEmpty() && causal.all { decision ->
             decision.relevance == HnsAbilityRequestRelevance.RELEVANT &&
                 ignored.any { it is IgnoredCalcMechanic.Ability && it.decision == decision }
         }
     }
     CalcLimitation.HNS_ITEM_EFFECT_NOT_MODELLED -> {
-        val causal = items.filter {
-            it.globalCategory == com.dualdex.pokemon.hns.HnsItemCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
-                it.relevance != HnsItemRequestRelevance.PROVEN_IRRELEVANT &&
-                it.relevance != HnsItemRequestRelevance.MODELLED
-        }
+        val causal = items.filter(HnsMechanicAttribution::isItemEffectCause)
         causal.isNotEmpty() && causal.all { decision ->
             decision.relevance == HnsItemRequestRelevance.RELEVANT &&
                 ignored.any { it is IgnoredCalcMechanic.Item && it.decision == decision }

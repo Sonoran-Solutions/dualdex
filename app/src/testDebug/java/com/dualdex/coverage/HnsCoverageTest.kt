@@ -2,6 +2,7 @@ package com.dualdex.coverage
 
 import com.dualdex.battle.BattleHnsCalculationContext
 import com.dualdex.calculator.*
+import com.dualdex.calculator.census.HnsCalcCensusBaseline as Baseline
 import com.dualdex.pokemon.*
 import com.dualdex.pokemon.hns.*
 import com.dualdex.romhack.RomHackProfile
@@ -252,6 +253,127 @@ class HnsCoverageTest {
         val r = repo(); val m = matchup.copy(defender = matchup.defender.copy(partySlot = null))
         observe(r, m); observe(r, m.copy(defender = m.defender.copy(engineIndex = 3)))
         assertEquals(2, rows(r).length())
+    }
+
+    // Real production boundary verdicts with authoritative host-only runtime fixtures.
+    private fun productionOutcome(ability: Int = 55, itemId: Int = 0, move: String = "Strength",
+        doubles: Boolean = false, defenderAbility: Int = 15, unknownStatus: Boolean = false, defenderItemId: Int = 0): CalcRequestOutcome {
+        fun observation(attacker: Boolean) = Baseline.observation(
+            if (attacker) Baseline.Participant.ATTACKER else Baseline.Participant.DEFENDER,
+            if (attacker) 0 else 1, if (attacker) 68 else 143,
+            if (attacker) "Machamp" else "Snorlax", if (attacker) listOf("Fighting") else listOf("Normal"),
+            if (attacker) ability else defenderAbility, if (attacker) itemId else defenderItemId, HnsAbilityRegistry.classify(if (attacker) ability else defenderAbility).titleCaseName,
+            Hns205ItemCatalogue.get(if (attacker) itemId else defenderItemId), if (doubles) 4 else 2)
+        val a = observation(true).let { if (unknownStatus) it.copy(state = it.state.copy(statusObserved = false)) else it }
+        val d = observation(false)
+        val packet = if (doubles) Baseline.doublesPacket(a.state, d.state).let { p -> p.copy(
+            battlers = p.battlers.map { if (it.index == 2) it.copy(ability = 58) else it }) } else null
+        val req = DamageCalculationRequest(
+            attacker = CalcPokemonInput("Machamp", origin = CalcInputOrigin.LIVE_READ, partySlot = 0),
+            defender = CalcPokemonInput("Snorlax", origin = CalcInputOrigin.LIVE_READ, partySlot = 1),
+            move = CalcMoveInput(move), field = CalcFieldInput(gameType = if (doubles) "Doubles" else "Singles"))
+        return CalcRequestBoundary.build(Baseline.profile, Baseline.trust, req, Baseline.challengeSettings,
+            a.copy(state = a.state.copy(doubles = packet)), d.copy(state = d.state.copy(doubles = packet)), activeBattle = true)
+    }
+    private fun exportOutcome(out: CalcRequestOutcome): JSONObject {
+        val r = repo(); observe(r, o = out); return JSONObject(r.export("test"))
+    }
+    @Test fun productionRelevantHustleIsModelled() {
+        val out = productionOutcome()
+        assertTrue(out is CalcRequestOutcome.Ready)
+        val observation = CoverageObservation.from(out)
+        assertEquals(CoverageTier.EXACT, observation.tier)
+        assertEquals("MODELLED", observation.mechanics.single { it.kind == "ABILITY" && it.id == 55 }.disposition)
+    }
+    @Test fun productionHustleDoesNotEnterBlockerLeaderboard() {
+        assertEquals(0, exportOutcome(productionOutcome()).getJSONArray("blockers").length())
+    }
+    @Test fun productionChoiceBandIsModelled() {
+        val out = productionOutcome(ability = 15, itemId = 442)
+        assertTrue(out is CalcRequestOutcome.Ready)
+        val d = CoverageObservation.from(out).mechanics.single { it.kind == "ITEM" && it.id == 442 }
+        assertEquals("MODELLED", d.relevance); assertEquals("MODELLED", d.disposition)
+    }
+    @Test fun productionChoiceBandDoesNotEnterBlockerLeaderboard() {
+        assertEquals(0, exportOutcome(productionOutcome(ability = 15, itemId = 442)).getJSONArray("blockers").length())
+    }
+    @Test fun productionExactDoublesPlusMinusAreModelled() {
+        for (id in listOf(57, 58)) {
+            val out = productionOutcome(ability = id, move = "Psychic", doubles = true)
+            assertTrue(out is CalcRequestOutcome.Ready)
+            val d = CoverageObservation.from(out).mechanics.single { it.kind == "ABILITY" && it.id == id }
+            assertEquals("doubles_plus_minus_exact", d.rule); assertEquals("MODELLED", d.disposition)
+            assertEquals(0, exportOutcome(out).getJSONArray("blockers").length())
+        }
+    }
+    @Test fun productionCaveatsRetainOnlyActualCausalMechanics() {
+        val out = productionOutcome(ability = 57, defenderItemId = 481, move = "Psychic", doubles = true, defenderAbility = 5)
+        assertTrue(out is CalcRequestOutcome.Ready)
+        assertEquals(CoverageTier.CAVEATED_ESTIMATE, CoverageObservation.from(out).tier)
+        val blockers = exportOutcome(out).getJSONArray("blockers")
+        val causes = (0 until blockers.length()).map { blockers.getJSONObject(it) }
+        assertTrue(causes.any { it.getString("kind") == "ABILITY" && it.getInt("id") == 5 && it.getString("disposition") == "CAVEATED" })
+        assertTrue(causes.any { it.getString("kind") == "ITEM" && it.getInt("id") == 481 && it.getString("disposition") == "CAVEATED" })
+        assertFalse(causes.any { it.optInt("id") == 57 })
+    }
+    @Test fun productionUnknownAbilityRemainsBlocking() {
+        // Guts with unread status is a genuine unresolved conditional decision.
+        val out = productionOutcome(ability = 62, unknownStatus = true)
+        assertTrue(out is CalcRequestOutcome.Refused)
+        assertTrue(CoverageObservation.from(out).mechanics.any { it.kind == "ABILITY" && it.relevance == "UNKNOWN" && it.disposition == "BLOCKING" })
+        assertTrue(exportOutcome(out).getJSONArray("blockers").length() > 0)
+    }
+
+    private fun legacyStore(out: CalcRequestOutcome): Store {
+        val store = Store(); val r = repo(store); observe(r, o = out)
+        val saved = JSONObject(store.value!!)
+        val mechanics = saved.getJSONArray("records").getJSONObject(0).getJSONArray("mechanics")
+        for (i in 0 until mechanics.length()) {
+            val m = mechanics.getJSONObject(i)
+            if (m.getString("disposition") == "MODELLED") m.put("disposition", "BLOCKING")
+        }
+        store.value = saved.toString(); return store
+    }
+    @Test fun persistedLegacyModelledAbilityAndItemAreRepaired() {
+        val r = repo(legacyStore(productionOutcome(ability = 55, itemId = 442)))
+        val report = JSONObject(r.export("test"))
+        assertEquals(1, report.getJSONArray("records").length())
+        assertEquals(0, report.getJSONArray("blockers").length())
+        val mechanics = report.getJSONArray("records").getJSONObject(0).getJSONArray("mechanics")
+        for (i in 0 until mechanics.length()) {
+            val m = mechanics.getJSONObject(i)
+            if (m.optInt("id") in listOf(55,442)) assertEquals("MODELLED", m.getString("disposition"))
+        }
+    }
+    @Test fun persistedLegacyExactPlusIsRepairedWithoutLosingCaveats() {
+        val r = repo(legacyStore(productionOutcome(ability = 57, move = "Psychic", doubles = true, defenderAbility = 5)))
+        val blockers = JSONObject(r.export("test")).getJSONArray("blockers")
+        assertTrue(blockers.length() > 0)
+        for (i in 0 until blockers.length()) assertNotEquals(57, blockers.getJSONObject(i).optInt("id"))
+    }
+
+    @Test fun productionModelledAbilityDoesNotBecomeCauseOfUnrelatedRefusal() {
+        val out = productionOutcome(ability = 55, unknownStatus = true)
+        assertTrue(out is CalcRequestOutcome.Refused)
+        assertEquals("MODELLED", CoverageObservation.from(out).mechanics.single { it.kind == "ABILITY" && it.id == 55 }.disposition)
+        val blockers = exportOutcome(out).getJSONArray("blockers")
+        assertTrue(blockers.length() > 0)
+        for (i in 0 until blockers.length()) assertNotEquals(55, blockers.getJSONObject(i).optInt("id"))
+    }
+    @Test fun repairedAndNewPersistedVariantsMergeObservationCounts() {
+        val store = legacyStore(productionOutcome(ability = 55))
+        val json = JSONObject(store.value!!)
+        val row = json.getJSONArray("records").getJSONObject(0)
+        row.put("seenCount", 2); row.getJSONObject("outcomes").put("EXACT", 2)
+        val mechanics = row.getJSONArray("mechanics")
+        val old = (0 until mechanics.length()).map { mechanics.getJSONObject(it) }.single { it.optInt("id") == 55 }
+        mechanics.put(JSONObject(old.toString()).put("disposition", "MODELLED"))
+        store.value = json.toString()
+        val report = JSONObject(repo(store).export("test"))
+        assertEquals(0, report.getJSONArray("blockers").length())
+        val restored = report.getJSONArray("records").getJSONObject(0).getJSONArray("mechanics")
+        val hustle = (0 until restored.length()).map { restored.getJSONObject(it) }.single { it.optInt("id") == 55 }
+        assertEquals(2, hustle.getInt("observations"))
     }
 
 }

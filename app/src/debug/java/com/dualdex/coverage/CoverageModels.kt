@@ -43,6 +43,7 @@ internal data class CoverageObservation(val tier: CoverageTier, val mechanics: L
                         d.relevance.name, d.rule, d.source, when {
                             v.ignoredMechanics.any { it is IgnoredCalcMechanic.Ability && it.decision == d } -> "CAVEATED"
                             d.relevance == HnsAbilityRequestRelevance.PROVEN_IRRELEVANT -> "IRRELEVANT"
+                            HnsMechanicAttribution.isModelledAbility(d) -> "MODELLED"
                             else -> "BLOCKING"
                         }))
                 }
@@ -51,6 +52,7 @@ internal data class CoverageObservation(val tier: CoverageTier, val mechanics: L
                         d.relevance.name, d.rule, d.source, when {
                             v.ignoredMechanics.any { it is IgnoredCalcMechanic.Item && it.decision == d } -> "CAVEATED"
                             d.relevance == HnsItemRequestRelevance.PROVEN_IRRELEVANT -> "IRRELEVANT"
+                            HnsMechanicAttribution.isModelledItem(d) -> "MODELLED"
                             else -> "BLOCKING"
                         }, d.itemId?.let { Hns205ItemCatalogue.get(it)?.holdEffect }))
                 }
@@ -67,4 +69,20 @@ internal data class CoverageObservation(val tier: CoverageTier, val mechanics: L
             return CoverageObservation(tier, mechanics)
         }
     }
+}
+
+/** Repair pre-review persisted false blockers without dropping playtest observations. */
+internal fun CoverageMechanic.correctModelledDisposition(): CoverageMechanic {
+    if (disposition != "BLOCKING") return this
+    val modelled = when (kind) {
+        "ITEM" -> relevance == HnsItemRequestRelevance.MODELLED.name
+        "ABILITY" -> {
+            val entry = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(id)
+            HnsMechanicAttribution.isModelledAbility(HnsAbilityRequestDecision(
+                id, name, HnsAbilitySide.valueOf(requireNotNull(side)), entry.category,
+                HnsAbilityRequestRelevance.valueOf(requireNotNull(relevance)), rule, source, "Persisted coverage attribution"))
+        }
+        else -> false
+    }
+    return if (modelled) copy(disposition = "MODELLED") else this
 }

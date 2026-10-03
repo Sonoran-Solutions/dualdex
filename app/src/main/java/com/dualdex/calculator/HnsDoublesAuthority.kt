@@ -27,8 +27,14 @@ internal object HnsDoublesAuthority {
     }
 
     fun bind(request: DamageCalculationRequest, a: HnsBattlerRuntimeState?,
-             d: HnsBattlerRuntimeState?, exact: Boolean): Pair<CalcHnsDoublesOperands?, CalcLimitation?> {
+             d: HnsBattlerRuntimeState?, exact: Boolean,
+             switchInEventsSettled: Boolean?): Pair<CalcHnsDoublesOperands?, CalcLimitation?> {
         if (!exact || a?.battlersCount != 4 || d?.battlersCount != 4) return null to null
+        // A replacement can already have a consistent packet while an ally's entry scripts
+        // still need to change stats, weather or identities. Require the boundary's agreed native
+        // event-counter/all-active-flags/stable-callback proof before deriving any partner state.
+        if (switchInEventsSettled != true)
+            return null to CalcLimitation.HNS_DOUBLES_SWITCH_IN_UNSETTLED
         val packet = a.doubles ?: return null to CalcLimitation.HNS_DOUBLES_PARTNER_STATE_UNKNOWN
         if (d.doubles != packet || !packet.valid() || !a.absentFlagsReadable || !d.absentFlagsReadable ||
             a.absentBattlerFlags != packet.absentFlags || d.absentBattlerFlags != packet.absentFlags)

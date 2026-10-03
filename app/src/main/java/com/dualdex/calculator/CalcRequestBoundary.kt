@@ -684,7 +684,12 @@ object CalcRequestBoundary {
             defenderRuntime?.takeIf { it.personalityObserved }?.personality,
             defenderSpeciesId?.let(com.dualdex.pokemon.hns.HeartAndSoul205DataPack::getSpecies)?.genderRatio
         )
-        val doublesAuthority = HnsDoublesAuthority.bind(request, attackerRuntime, defenderRuntime, isExactVerified)
+        val switchInEventsSettled = authoritativeSwitchInEventsSettled(
+            playerBattlerState, enemyBattlerState, isExactVerified
+        )
+        val doublesAuthority = HnsDoublesAuthority.bind(
+            request, attackerRuntime, defenderRuntime, isExactVerified, switchInEventsSettled
+        )
         return CalcHnsLiveBattleState(
             doubles = doublesAuthority.first,
             doublesFailure = doublesAuthority.second,
@@ -740,12 +745,8 @@ object CalcRequestBoundary {
                 isExactVerified = isExactVerified
             ),
             // The same two boundary-owned observations must agree on the generated H&S event
-            // phase before Group B can treat a live writer's output as settled.
-            switchInEventsSettled = authoritativeSwitchInEventsSettled(
-                playerBattlerState = playerBattlerState,
-                enemyBattlerState = enemyBattlerState,
-                isExactVerified = isExactVerified
-            ),
+            // phase before Group B or Doubles can treat a live writer's output as settled.
+            switchInEventsSettled = switchInEventsSettled,
             fieldStatuses = fieldStatuses,
             attackerTerrainApplicability = authoritativeTerrainApplicability(
                 participantPartySlot = request.attacker.partySlot,
@@ -997,7 +998,8 @@ object CalcRequestBoundary {
      * The settled switch-in/event-script phase, or null unless both exact runtime observations
      * read the phase and agree. Native requires the completed event counter, clear active switchIn
      * flags, and H&S's stable action-selection callback; the callback gate covers replacement work
-     * before switchineffects resets the event fields. A readable false must not authorize Group B.
+     * before switchineffects resets the event fields. A readable false must not authorize Group B
+     * writer proofs or any derived Doubles operands.
      */
     private fun authoritativeSwitchInEventsSettled(
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,

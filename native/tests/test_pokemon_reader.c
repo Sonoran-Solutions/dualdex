@@ -5667,7 +5667,7 @@ static void hns_battle_set_switch_in_phase(HnsBattleFixture* fx, uint8_t event_i
     }
     const uint32_t flag_byte = fx->cfg->battler_state_switch_in_bit / 8u;
     const uint32_t flag_mask = (uint32_t)1u << (fx->cfg->battler_state_switch_in_bit % 8u);
-    for (uint8_t battler = 0; battler < 2; battler++) {
+    for (uint8_t battler = 0; battler < fx->gba->ewram[fx->cfg->battlers_count_offset]; battler++) {
         uint8_t* state = fx->gba->ewram + bs_offset + fx->cfg->battle_struct_battler_state_offset +
             (size_t)battler * fx->cfg->battler_state_size;
         state[flag_byte] = (switching_in_mask & (1u << battler)) ? (uint8_t)flag_mask : 0;
@@ -6480,6 +6480,26 @@ static void test_hns_indexed_doubles_operands(void) {
         }
     }
     BattlerRuntimeState st;
+    hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_INDEX_0, &st) &&
+                st.switch_in_phase_observed && st.switch_in_events_settled,
+                "indexed Doubles read carries the settled global switch-in proof");
+    for (unsigned partner = 2; partner < 4; partner++) {
+        hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 1u << partner);
+        TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_INDEX_0, &st) && st.doubles_observed &&
+                    st.switch_in_phase_observed && !st.switch_in_events_settled,
+                    "either partner switch-in flag invalidates settlement despite a complete packet");
+    }
+    hns_battle_set_switch_in_phase(&fx, 4, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_INDEX_1, &st) && st.doubles_observed &&
+                st.switch_in_phase_observed && !st.switch_in_events_settled,
+                "pending global switch-in events remain distinct from complete Doubles topology");
+    hns_battle_set_switch_in_phase(&fx, (uint8_t)HNS_LIVE_SWITCH_IN_EVENTS_COUNT, 0);
+    hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_INDEX_0, &st) && st.doubles_observed &&
+                st.switch_in_phase_observed && !st.switch_in_events_settled,
+                "old completed counter and clear flags cannot settle during replacement script work");
+    hns_battle_set_main_callback(&fx, cfg->action_selection_func_ptr);
     TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && st.status == BATTLER_RUNTIME_STATE_AMBIGUOUS,
                 "legacy player-role ambiguity is preserved");
     gba.ewram[0x30000 + 6725 / 8] |= 1u << (6725 % 8);

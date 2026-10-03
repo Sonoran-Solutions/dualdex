@@ -289,3 +289,14 @@ through merged #117; their #83 checkboxes are stale. #88 closed through #118.
 release-no-op test or export documentation. Its acceptance must be handled before
 claiming the complete tracker is ready to close. No historical issue state or
 checklist was edited to disguise that gap.
+
+### PR #119 review correction
+
+The ordinary-hit Doubles gate now also requires the existing agreed native
+switch-in settlement proof before deriving partner state. A complete packet
+with pending, unread or disagreeing phase hard-refuses as
+`HNS_DOUBLES_SWITCH_IN_UNSETTLED`; partner entry writers cannot be treated as
+settled merely because topology is readable. Native and production-boundary
+regressions cover partner flags, replacement callback, both observations and
+caller replay. The settled census baseline and original request population are
+unchanged. This correction changes authority admission, not damage arithmetic.

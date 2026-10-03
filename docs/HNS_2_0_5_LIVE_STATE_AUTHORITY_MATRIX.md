@@ -116,7 +116,13 @@ Partner/global authority observes Helping Hand, both Follow Me timers, Mold
 Breaker and combined Pledge execution flags, effective-ability suppression
 operands, current partner species/items, live aura/weather holders and all-slot
 Ruin flags. Matching repeated packets and selected participant identity/state
-are required. Missing, old, malformed, conflicting or torn packets stay unknown.
+are required. The existing native switch-in proof (tuple words 74/75) must also
+be observed and settled in both selected observations before any Doubles operand
+is derived. All four active switch-in flags, the event sentinel and the stable
+action-selection callback participate; topology alone does not prove entry
+scripts have finished. Pending, unread or disagreeing phase hard-refuses with
+`HNS_DOUBLES_SWITCH_IN_UNSETTLED`. Singles' per-mechanic phase rules remain.
+Missing, old, malformed, conflicting or torn packets stay unknown.
 Native tests pin compiled bit layouts independently and exercise all four
 permuted positions/slots, unread/torn partner data, absent selected participants,
 Pledge and inconsistent battle flags. Production tests cover version/length

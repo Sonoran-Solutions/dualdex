@@ -1,6 +1,7 @@
 package com.dualdex.calculator
 
 import com.dualdex.calculator.census.HnsCalcCensusBaseline as Baseline
+import com.dualdex.battle.DamageBlockerPresentation
 import com.dualdex.pokemon.hns.*
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -55,6 +56,47 @@ class HnsDoublesProductionBoundaryTest {
     }
     private fun changePartner(p: HnsDoublesRuntimeState, i: Int, ability: Int, gastro: Boolean = false) =
         p.copy(battlers = p.battlers.map { if (it.index == i) it.copy(ability = ability, gastroAcid = gastro) else it })
+
+    @Test fun `Doubles authority waits for agreed observed switch-in settlement`() {
+        val invalidPhases = listOf(
+            true to false, // Readable pending events.
+            false to false, // Unread phase.
+            false to true // An unobserved settled flag is not evidence.
+        )
+        for ((observed, settled) in invalidPhases) {
+            val a = baseA.state.copy(switchInPhaseObserved = observed, switchInEventsSettled = settled)
+            val d = baseD.state.copy(switchInPhaseObserved = observed, switchInEventsSettled = settled)
+            for ((attacker, defender) in listOf(a to baseD.state, baseA.state to d, a to d)) {
+                val out = build(a = attacker, d = defender)
+                refusal(out, CalcLimitation.HNS_DOUBLES_SWITCH_IN_UNSETTLED)
+                assertTrue(DamageBlockerPresentation.from((out as CalcRequestOutcome.Refused).verdict,
+                    observedDoubles = true).any { it.headline == "Doubles switch-in state unresolved" })
+            }
+        }
+        val settled = ready(build())
+        assertEquals(true, settled.request.hnsLiveBattleState!!.switchInEventsSettled)
+        assertNotNull(settled.request.hnsLiveBattleState!!.doubles)
+        damage(settled)
+        // A previous authorized request's phase and packet cannot replace current evidence.
+        val replay = CalcRequestBoundary.build(Baseline.profile, Baseline.trust, settled.request,
+            Baseline.challengeSettings,
+            baseA.copy(state = baseA.state.copy(doubles = packet(), switchInEventsSettled = false)),
+            baseD.copy(state = baseD.state.copy(doubles = packet(), switchInEventsSettled = false)),
+            activeBattle = true)
+        refusal(replay, CalcLimitation.HNS_DOUBLES_SWITCH_IN_UNSETTLED)
+        // Partner switch-in writers can mutate selected stats, weather or identities while the
+        // full four-battler packet already looks internally consistent.
+        for (index in listOf(2, 3)) for (ability in listOf(22, 2, 36)) {
+            val p = changePartner(packet(), index, ability) // Intimidate, Drizzle, Trace.
+            val pending = build(p = p, a = baseA.state.copy(switchInEventsSettled = false),
+                d = baseD.state.copy(switchInEventsSettled = false))
+            refusal(pending, CalcLimitation.HNS_DOUBLES_SWITCH_IN_UNSETTLED)
+            ready(build(p = p))
+        }
+        // Preserve Singles' existing per-mechanic phase requirements.
+        ready(build(p = null, a = baseA.state.copy(battlersCount = 2, switchInPhaseObserved = false),
+            d = baseD.state.copy(battlersCount = 2, switchInPhaseObserved = false), format = "Singles"))
+    }
 
     @Test fun `four live battlers authorize only with complete matching partner authority`() {
         val r = ready(build())

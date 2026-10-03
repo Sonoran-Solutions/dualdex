@@ -3371,3 +3371,18 @@ new display, remaining blockers, before/after counts and tracker audit. #93 is
 ready to close after reviewed merge and green final checks. #83 additionally has
 unfinished #85 debug logging/export acceptance; stale Group A/C/oracle issue states
 and Group D checkboxes must be distinguished from that genuine remaining work.
+
+### PR #119 review correction: settled Doubles entry state
+
+Doubles additionally requires the boundary-owned switch-in settlement proof to
+be **true** before deriving any partner/global operand. The native proof already
+reads the completed event sentinel, all four count-slot switch-in flags and the
+stable action-selection callback. A full packet can precede an Intimidate, Drizzle
+or Trace partner entry effect; it cannot substitute for that phase proof.
+False, unread or disagreeing observations emit hard refusal
+`HNS_DOUBLES_SWITCH_IN_UNSETTLED` with a named switch-in-state message. Existing
+Singles rules, arithmetic and tuple layout are unchanged. Boundary regressions
+cover both sides, pending/unread/disagreeing phases, prior authorized caller
+state and partner writers; native regressions cover each partner flag and the
+earlier replacement callback window. The census already assumes settled entry
+state, so this gate does not require fixture or generated-artifact changes.

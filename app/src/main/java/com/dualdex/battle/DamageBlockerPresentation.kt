@@ -157,6 +157,8 @@ sealed interface DamageBlockerPresentation {
                 if (observedDoubles) "Doubles topology incomplete" else "Live battle format not supported", format)
             take(setOf(CalcLimitation.HNS_DOUBLES_PARTNER_STATE_UNKNOWN)).takeIf { it.isNotEmpty() }
                 ?.let { states += State("Doubles partner state incomplete", it) }
+            take(setOf(CalcLimitation.HNS_DOUBLES_SWITCH_IN_UNSETTLED)).takeIf { it.isNotEmpty() }
+                ?.let { states += State("Doubles switch-in state unresolved", it) }
             take(setOf(CalcLimitation.HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED)).takeIf { it.isNotEmpty() }
                 ?.let { states += State("Doubles target or execution unresolved", it) }
             take(setOf(CalcLimitation.HNS_DOUBLES_SUPPRESSION_UNRESOLVED)).takeIf { it.isNotEmpty() }

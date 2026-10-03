@@ -269,6 +269,8 @@ enum class CalcLimitation {
     /** The pinned target class has no agreed live target count; no guessed spread modifier. */
     HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED,
     HNS_DOUBLES_PARTNER_STATE_UNKNOWN,
+    /** Partner entry writers may still mutate current operands; missing phase is never neutral. */
+    HNS_DOUBLES_SWITCH_IN_UNSETTLED,
     HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED,
     HNS_DOUBLES_SUPPRESSION_UNRESOLVED,
 
@@ -593,6 +595,7 @@ enum class CalcLimitation {
             HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
             HNS_DOUBLES_TARGET_COUNT_NOT_MODELLED,
             HNS_DOUBLES_PARTNER_STATE_UNKNOWN,
+            HNS_DOUBLES_SWITCH_IN_UNSETTLED,
             HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED,
             HNS_DOUBLES_SUPPRESSION_UNRESOLVED,
             HNS_LIVE_BATTLE_FORMAT_NOT_MODELLED,
@@ -920,6 +923,8 @@ data class CalcCapabilityVerdict(
                 "this is a Doubles battle whose current target count is not authoritatively observed, so the spread-move reduction cannot be determined"
             CalcLimitation.HNS_DOUBLES_PARTNER_STATE_UNKNOWN ->
                 "Doubles partner operands are unread, invalid, disagree with the selected live participants, or require unresolved partner weather-item activation"
+            CalcLimitation.HNS_DOUBLES_SWITCH_IN_UNSETTLED ->
+                "Doubles switch-in state is pending, unread or disagrees across live observations, so partner entry effects may still change damage operands"
             CalcLimitation.HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED ->
                 "Doubles selected hit is unresolved under redirection, random/ally targeting, Commander, partner priority protection or combined Pledge state"
             CalcLimitation.HNS_DOUBLES_SUPPRESSION_UNRESOLVED ->

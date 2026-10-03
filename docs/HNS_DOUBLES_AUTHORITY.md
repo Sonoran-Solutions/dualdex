@@ -10,6 +10,7 @@ relative to `PokemonHnS-Development/pokehns-expansion` at
 | Surface | Pinned source | Authority and arithmetic |
 |---|---|---|
 | Topology | `include/battle.h:1062-1134`, `include/constants/battle.h:57-58` | `gBattlersCount`, positions, party indices, absent flags and HP identify live participants. `IsDoubleBattle` additionally requires `gBattleTypeFlags & BATTLE_TYPE_MORE_THAN_TWO_BATTLERS` (`include/battle.h:1157-1159`); both packet reads must agree with the original flags word. Side is position & 1; the damage functions use **index xor 2** for partners. Do not replace that with a guessed flank. `IsBattlerAlive` checks index bounds, HP, then absent flags. |
+| Switch-in settlement | `src/battle_script_commands.c:5278,5849-5881`, `src/battle_main.c:4354`; partner writers in `src/battle_util.c:3097,3354,3451-3459` | A replacement is installed before its entry scripts finish. Every Doubles request requires both native phase observations to agree on settled: completed event counter, every count-slot switch-in flag clear, and the stable action-selection callback. A consistent packet alone cannot prove this. |
 | Target count | `src/battle_util.c:6122-6149` | BOTH counts defender and index-xor-2 partner using absent flags; FOES_AND_ALLY additionally counts attacker partner. SELECTED/DEPENDS/RANDOM/OPPONENT require defender liveness; USER requires attacker liveness. OPPONENTS_FIELD returns 1; remaining classes return 0. |
 | Spread | `src/battle_util.c:7403-7415,7768`, `include/config/battle.h:47` | Gen III: exactly two targets gives 2048/4096, three targets gives 4096/4096. Apply half-down to base damage before weather, crit and random. This predicate is **not limited to Smogon allAdjacentFoes metadata**. |
 | Screens | `src/battle_util.c:7527-7550,7724-7725` | Reflect, Light Screen, Aurora Veil use 2732/4096 in Doubles, 2048/4096 in Singles. No live-defender-count distinction. Crit/self-inflicted bypass; opposing Infiltrator bypass. Screens enter the Other accumulator, never an early standalone multiplication. Aurora Veil remains independently gated unless its side-status authority is supported. |
@@ -81,6 +82,17 @@ the first enemy or assumes a flank. `CalcRequestBoundary` rejects differing
 packets, malformed indices/positions/party topology, invalid enum domains,
 missing participant volatile authority and mismatched identity/slot/HP state.
 Old, short and unknown-version tuples never acquire neutral partner state.
+Before deriving any Doubles operand, the boundary reuses its existing
+`authoritativeSwitchInEventsSettled` proof. Both selected observations must have
+`switchInPhaseObserved = true` and agree on `switchInEventsSettled = true`.
+Native checks all four count slots, including both partners, as well as the event
+sentinel and stable action-selection callback. This uses legacy tuple words
+`[74..75]`; no packet/version/layout change is needed. False, unread or disagreeing
+phase emits hard refusal `HNS_DOUBLES_SWITCH_IN_UNSETTLED`, even with neutral
+selected abilities and a complete packet. Caller-owned prior settled state is
+rebound from current observations. Singles retains its existing per-mechanic
+phase rules.
+
 The boundary then derives the seven minimal engine operands, using live HP and
 absence for partner abilities/weather/aura holders, and all count slots for
 source Ruin flags. The full four Pokemon are never calculator inputs.
@@ -138,10 +150,21 @@ partner arithmetic comes exclusively from the native packet.
 
 The full census was regenerated with
 `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`, followed
-by a passing non-generating `./ci.sh all` (1,039 Kotlin tests, native reader and
+by a passing non-generating `./ci.sh all` (1,040 Kotlin tests, native reader and
 calculator suites, tooling and debug APK). The final `./ci.sh source-check`, oracle check and fixed-point
 self-tests pass. All 1,894 oracle scenarios match all 16 rolls; the historical
 1,845 entry objects and all 24,278 census request keys compare unchanged against
 the subtask starting head. Trainer inventory and reference-team fixtures are
 unchanged. Exact-head source validation and Actions evidence is recorded on
 PR #119. No live ROM/UI session was performed for this extension.
+
+The switch-in review regression fails at reviewed head
+`8209204966617c73a97a7fd7e1fa49cbdbf5f898` and passes with the mandatory
+settlement gate. Full canonical census regeneration produces byte-identical
+report/gzip artifacts: 19,856 fully modelled, 462 caveated, 3,960 refused, zero
+no-result battles. The subsequent non-generating `./ci.sh all`,
+`./ci.sh source-check`, oracle artifact check and fixed-point tests pass.
+Boundary tests cover both observations, pending/unread/disagreeing phases,
+unobserved true flags, prior authorized caller state, neutral selected abilities
+and both partners' Intimidate/Drizzle/Trace writers. Native tests cover each
+partner switch-in flag and the pre-event-reset replacement callback window.

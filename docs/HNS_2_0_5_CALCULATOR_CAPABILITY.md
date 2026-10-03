@@ -3386,3 +3386,12 @@ cover both sides, pending/unread/disagreeing phases, prior authorized caller
 state and partner writers; native regressions cover each partner flag and the
 earlier replacement callback window. The census already assumes settled entry
 state, so this gate does not require fixture or generated-artifact changes.
+
+## Passive debug playtest coverage (#85)
+
+The Battle presenter observes the final structured `CalcRequestOutcome` immediately after
+`CalcRequestBoundary.build`; telemetry never changes the request, verdict or arithmetic.
+Debug source sets supply a local atomic JSON store, per-battle deduplication, blocker aggregation
+and a narrow share-sheet cache export. Release resolves directly to a no-op and contains none
+of that implementation or UI/provider configuration. See [contributor export instructions](../CONTRIBUTING.md#exporting-hs-calculator-playtest-coverage)
+for collection, schema/count semantics, caps, export and the automated release proof.

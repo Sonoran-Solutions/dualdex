@@ -141,3 +141,44 @@ Run tests to ensure everything builds and passes:
 2. [ ] All unit tests pass (`./gradlew testDebugUnitTest`).
 3. [ ] Code follows Kotlin and C11 styling standards.
 4. [ ] Any new ROM hack profiles include valid `headerTitles` and verified memory offsets.
+
+## Exporting H&S calculator playtest coverage
+
+1. Install and run a debug build (`./ci.sh build`).
+2. Play H&S normally with the Battle tab open. Its calculator evaluations are collected locally.
+3. Open **Settings → About & Diagnostics** to find the debug export actions.
+4. Choose **Export H&S Coverage Log**.
+5. Save or share the JSON using Android's share sheet.
+6. Attach it to [#83](https://github.com/Sonoran-Solutions/dualdex/issues/83) or the relevant future calculator issue.
+
+Release builds do not collect, persist or export this log and have no coverage actions.
+The standalone Calc tab does not collect coverage. No network or additional permission is used.
+The log contains species/move identities, selected slots/engine indices, observed battle context,
+structured mechanics and exact/caveated/refused authorization counts. It excludes ROM/save paths,
+trainer/nickname/account identities and raw memory. Trainer/wild is currently `UNKNOWN` because
+that value is not exposed authoritatively by the app reader; unread topology or Random Abilities
+also stays `UNKNOWN`.
+
+Selected party slots (or engine indices when a slot is unavailable) identify participants; newly
+readable live identities do not create another row. Participant labels retain the latest known identity.
+One participant pair/move/direction produces one logical row per battle. Recalculations increment
+`seenCount`, update first/last-seen Unix millisecond timestamps, retain all observed outcome counts and merge distinct
+structured mechanics; they do not count as independent blocker incidents. Leaving and entering a
+battle starts a new session. Rows survive navigation and restart, in app-private
+`filesDir/hns-coverage/log.json`. The cap is **2,000 rows** (typically a few MB), evicting oldest
+first-seen rows first, even if they were recently refreshed. Each row retains at most 512 distinct
+mechanic identities; any overflow is explicitly reported as `droppedMechanicObservations`.
+Exported summaries count affected logical rows and distinct retained sessions, sorted by affected
+row count then stable identity. Exactly modelled decisions are retained as `MODELLED` and excluded from the blocker summary,
+including applicable conditional abilities and exact Doubles Plus/Minus. Earlier false blocker
+dispositions are repaired when loading stored logs, preserving observations.
+Exact/caveated/refused row totals can overlap when a row changed tier.
+`evictedRecords` and storage failures are reported; the summary covers retained rows only.
+**Clear H&S Coverage Log** asks for confirmation before deleting the collected observations.
+
+For a focused ROM-free check, run `./ci.sh coverage-test`. The canonical test gate also runs
+`python3 tools/ci/check_hns_coverage_release.py`: it pins the literal release no-op factory,
+Android's default main+release source-set isolation, and absence of debug store/worker/export/UI
+and FileProvider resources from those source sets. The real implementation and narrow cache
+provider exist only in `src/debug`. This avoids the human-only production-signing gate that
+release Gradle tasks depend on.

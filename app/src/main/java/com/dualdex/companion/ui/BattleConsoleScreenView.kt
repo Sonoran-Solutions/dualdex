@@ -867,7 +867,8 @@ class BattleConsoleScreenView(
             challengeSettings = challengeSettings,
             playerBattlerState = playerBattlerState,
             enemyBattlerState = enemyBattlerState,
-            activeBattle = inBattle
+            activeBattle = inBattle,
+            coverageSession = com.dualdex.coverage.HnsCoverage.sessionToken()
         )
 
         // Cache-aware move presentation calculation

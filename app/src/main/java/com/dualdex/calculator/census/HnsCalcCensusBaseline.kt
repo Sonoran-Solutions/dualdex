@@ -253,6 +253,8 @@ object HnsCalcCensusBaseline {
                 // The item pipeline now requires its own generated volatile window. These are
                 // explicit neutral census operands, not production defaults: no Embargo, no
                 // repeated-move counter, and SPECIES_NONE when Transform is inactive.
+                healBlockObserved = true,
+                volatileHealBlock = false,
                 itemVolatilesObserved = true,
                 volatileEmbargo = false,
                 volatileMetronomeItemCounter = 0,

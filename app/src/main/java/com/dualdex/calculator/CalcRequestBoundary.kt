@@ -766,6 +766,7 @@ object CalcRequestBoundary {
             ),
             attackerElectrified = attackerElectrified,
             defenderGlaiveRush = defenderGlaiveRush,
+            attackerHealBlock = attackerRuntime?.takeIf { it.healBlockObserved }?.volatileHealBlock,
             attackerChargeTimer = attackerChargeTimer,
             defenderTarShot = defenderTarShot,
             attackerPersistentVolatiles = attackerPersistentVolatiles,

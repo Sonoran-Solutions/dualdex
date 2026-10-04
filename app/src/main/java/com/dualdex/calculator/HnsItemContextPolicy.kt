@@ -105,7 +105,8 @@ object HnsItemContextPolicy {
         val attackerActiveGimmick: Int? = null,
         val punchingMove: Boolean? = null,
         val moveUsesDefenseStat: Boolean? = null,
-        val switchInEventsSettled: Boolean? = null
+        val switchInEventsSettled: Boolean? = null,
+        val moveId: Int? = null
     )
 
     fun assess(itemId: Int, context: Context?): HnsItemRequestDecision {
@@ -150,6 +151,11 @@ object HnsItemContextPolicy {
                 holdEffect == "HOLD_EFFECT_BLUNDER_POLICY" || holdEffect == "HOLD_EFFECT_ROOM_SERVICE" ->
                     postHitSpeed(holdEffect, c)
                 holdEffect == "HOLD_EFFECT_BOOSTER_ENERGY" -> boosterEnergy(c)
+                holdEffect == "HOLD_EFFECT_BIG_ROOT" && c.moveId in
+                    com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitDrainMoveIds ->
+                    if (c.fixedSingleHitMove == true) proof("drain_big_root_post_hit_only",
+                        "src/battle_util.c:1837-1845; src/battle_move_resolution.c:2167-2240",
+                        "Big Root scales recovery after measured damage and before Liquid Ooze; no healing or attacker survival is displayed.") else null
                 // A held item can still be waiting to execute in an active but unsettled
                 // switch-in frame. Successful activation consumes it, so its live stage and
                 // matching terrain cannot prove a still-held item irrelevant.
@@ -307,6 +313,7 @@ object HnsItemContextPolicy {
         } == true
         return Context(
             side = side,
+            moveId = moveId,
             fixedSingleHitMove = fixedSingleHitMove,
             moveType = authority.effectiveType,
             moveCategory = authority.category,

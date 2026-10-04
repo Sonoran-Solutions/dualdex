@@ -684,7 +684,7 @@ class SetupPlannerTest(unittest.TestCase):
         files = backend.render_sources(SCENARIOS)
         self.assertEqual(files, backend.render_sources(matrix.build_scenarios()))
         text = "".join(files.values())
-        self.assertEqual(text.count('_BATTLE_TEST("DDXO '), len(SCENARIOS))
+        self.assertEqual(text.count('_BATTLE_TEST("DDXO '), len(SCENARIOS) + len(backend.EXECUTION_NAMES))
         self.assertEqual(text.count("PARAMETRIZE { }"), 16 * len(SCENARIOS))
         self.assertEqual(text.count("WITH_RNG(RNG_DAMAGE_MODIFIER, i)"), len(SCENARIOS))
         self.assertEqual(text.count("secondaryEffect: FALSE"), len(SCENARIOS))

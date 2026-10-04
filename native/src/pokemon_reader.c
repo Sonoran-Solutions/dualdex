@@ -3116,6 +3116,9 @@ bool pokemon_read_battler_runtime_state_gba(
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT) != 0;
         out_state->volatile_neutralizing_gas =
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_NEUTRALIZING_GAS_BIT) != 0;
+        out_state->heal_block_observed = true;
+        out_state->volatile_heal_block =
+            HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_HEAL_BLOCK_BIT) != 0;
         out_state->volatile_embargo =
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_EMBARGO_BIT) != 0;
         out_state->volatile_metronome_item_counter = (uint8_t)HNS_LIVE_VOLATILE_FIELD(

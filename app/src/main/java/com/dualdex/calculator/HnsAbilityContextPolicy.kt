@@ -487,7 +487,7 @@ object HnsAbilityContextPolicy {
             24, 64, 106, 124, 152, 160, 215, 221, 238, 254, 268 ->
                 if (c.fixedSingleHitMove == true) proof(
                     "after_hit_ability_outside_single_hit", afterHitSource(abilityId),
-                    "The pinned effect executes after damage or on a nonordinary draining move; it cannot change this hit's rolls."
+                    "The pinned effect executes after this selected hit; drain recovery or Liquid Ooze damage cannot feed back into its rolls."
                 ) else null
             139, 167, 291 -> if (c.fixedSingleHitMove == true) proof(
                 "berry_recovery_outside_single_hit", berrySource(abilityId),
@@ -1338,6 +1338,14 @@ object HnsAbilityContextPolicy {
                         relevant("fluffy_fire_noncontact_double", "src/battle_util.c:7604-7614", "Fire + non-contact uses the pinned ×2.0 defender final modifier.")
                     else proof("fluffy_nonfire_noncontact_neutral", "src/battle_util.c:7604-7614", "Non-Fire + non-contact is neutral under the pinned Fluffy matrix.")
                 }
+            }
+            205 -> when {
+                c.moveId !in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitDrainMoveIds ||
+                    c.fixedSingleHitMove != true || !ordinaryTopology(c) ||
+                    !c.attackerAbilityObserved || !c.defenderAbilityObserved ||
+                    c.liveBattleState?.switchInEventsSettled != true -> null
+                else -> proof("triage_drain_priority_authoritative", "src/battle_main.c:5049-5050",
+                    "Pinned Triage adds +3 on the attacker healing move; Group C and terrain independently evaluate effective priority. Defender Triage does not change this move; Analytic requires its existing current-action observation.")
             }
             120 -> when {
                 c.side == HnsAbilitySide.DEFENDER -> proof("reckless_defender_side", "src/battle_util.c:6667-6670", "Reckless is attacker-only.")

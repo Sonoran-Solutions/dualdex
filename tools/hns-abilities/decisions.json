@@ -273,7 +273,7 @@
   },
   "205": {
     "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "Pinned priority effect can change whether a damaging move is blocked by priority-sensitive field/ability rules; current calculator does not model that interaction."
+    "rationale": "Request-local generated drain family models +3 priority under authoritative Singles state; unrelated healing moves remain refused. Priority immunity, terrain and current-action authority remain independent."
   },
   "212": {
     "category": "PROVEN_NO_DAMAGE_EFFECT",

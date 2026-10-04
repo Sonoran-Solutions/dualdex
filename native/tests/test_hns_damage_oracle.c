@@ -317,7 +317,7 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
     /* Recoil controls install Gastro Acid on an earlier real turn, before cached ctx ability.
      * Bind the captured suppression exactly as production effectiveAbilityId does. */
     const char* source_effect = jl_str(jl_get(move_obs, "effect"));
-    if (source_effect && !strcmp(source_effect, "EFFECT_RECOIL") && jl_num(jl_get(runtime, "gastroAcid")) == 1)
+    if (source_effect && (!strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) && jl_num(jl_get(runtime, "gastroAcid")) == 1)
         ability = "None";
     if (!jl_is_arr(types) || jl_len(types) < 1 || jl_len(types) > 2) return set_err(err, "%s types malformed", role);
     if (!get_int(obs_b, "speciesId", 1, 65535, &species_id, err) ||
@@ -511,9 +511,10 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     if (!source_effect || !jl_is_bool(ordinary)) return set_err(err, "oracle source move metadata is malformed");
     sb_append(sb, "],\"hnsMoveId\":%ld,\"hnsMoveEffect\":", (long)jl_num(jl_get(o_move, "id")));
     sb_json_string(sb, source_effect);
-    sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsFixedSingleHit\":%s,\"hnsMakesContact\":",
+    sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsFixedSingleHit\":%s,\"hnsIsDrain\":%s,\"hnsMakesContact\":",
               jl_bool(ordinary) ? "true" : "false",
-              (jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL")) ? "true" : "false");
+              (jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
+              !strcmp(source_effect, "EFFECT_ABSORB") ? "true" : "false");
     if (jl_is_bool(makes_contact)) sb_append(sb, "%s", jl_bool(makes_contact) ? "true" : "false");
     else sb_append(sb, "null");
     sb_append(sb, ",\"hnsUnknownContact\":%s,\"hnsUnknownPunching\":%s,\"hnsSheerForceAffected\":",

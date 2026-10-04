@@ -821,4 +821,25 @@ class HnsBattlerRuntimeStateTest {
     fun `unavailable state resolves no item identity`() {
         assertNull(HnsBattlerRuntimeState.fromNativeArray(null).resolveItemIdentity())
     }
+    @Test fun `Heal Block additive tuple observes false true and rejects old malformed payloads`() {
+        val raw = c4eObservedTuple().copyOf(165)
+        raw[100] = HnsGroupDLayout.SPECIES_COUNT
+        raw[101] = HnsGroupDLayout.METRONOME_ITEM_COUNTER_WIDTH
+        raw[102] = HnsGroupDLayout.TRANSFORMED_MON_SPECIES_WIDTH
+        raw[162] = 1
+        raw[163] = 1
+        val clear = HnsBattlerRuntimeState.fromNativeArray(raw)
+        assertTrue(clear.healBlockObserved)
+        assertFalse(clear.volatileHealBlock)
+        raw[164] = 1
+        assertTrue(HnsBattlerRuntimeState.fromNativeArray(raw).volatileHealBlock)
+        for (length in listOf(103, 162, 163, 164)) {
+            assertFalse(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf(length)).healBlockObserved)
+        }
+        for ((index, value) in listOf(162 to 2, 163 to 0, 163 to 2, 164 to 2, 47 to 0)) {
+            val bad = raw.copyOf().also { it[index] = value }
+            assertFalse(HnsBattlerRuntimeState.fromNativeArray(bad).healBlockObserved)
+        }
+    }
+
 }

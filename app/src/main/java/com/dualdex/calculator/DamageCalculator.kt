@@ -402,6 +402,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("hnsMoveEffect", com.dualdex.pokemon.hns.Hns205MoveEffects.effectById[moveId])
                     put("hnsIsOrdinary", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.ordinaryMoveIds)
                     put("hnsFixedSingleHit", hnsFixedSingleHitMove == true)
+                    put("hnsIsDrain", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitDrainMoveIds)
                     put("hnsMoveFlags", JSONArray(
                         hnsMoveFlags.sorted()
                     ))

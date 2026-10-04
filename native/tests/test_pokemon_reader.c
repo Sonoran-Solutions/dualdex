@@ -4656,6 +4656,7 @@ static void expect_battler_unavailable(const BattlerRuntimeState* st, const char
                 "an unavailable observation must not carry HP");
     TEST_ASSERT(!st->status_observed && st->status1 == 0,
                 "an unavailable observation must not carry a status");
+    TEST_ASSERT(!st->heal_block_observed, "unread state cannot authorize Heal Block false");
     TEST_ASSERT(!st->volatiles_observed && !st->volatile_electrified &&
                 !st->volatile_glaive_rush && !st->volatile_minimize &&
                 st->volatile_semi_invulnerable == 0 &&
@@ -5896,6 +5897,7 @@ static void test_hns_group_d_operands(void) {
     uint8_t* bs = gba.ewram + 0x30000;
     write32_le_t(mon + HNS_LIVE_BP_PERSONALITY_OFFSET, 0x12345678u);
     const uint32_t bits[] = {
+        HNS_LIVE_BP_VOLATILE_HEAL_BLOCK_BIT,
         HNS_LIVE_BP_VOLATILE_FLASH_FIRE_BOOSTED_BIT, HNS_LIVE_BP_VOLATILE_TRANSFORMED_BIT,
         HNS_LIVE_BP_VOLATILE_BOOSTER_ENERGY_ACTIVATED_BIT, HNS_LIVE_BP_VOLATILE_VESSEL_OF_RUIN_BIT,
         HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT, HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT,
@@ -5910,6 +5912,7 @@ static void test_hns_group_d_operands(void) {
         hns_battle_set_volatile_field(&fx, 0, HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_BIT,
             HNS_LIVE_BP_VOLATILE_PARADOX_BOOSTED_STAT_WIDTH, active ? 4 : 0);
         TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "Group D read succeeds");
+        TEST_ASSERT(st.heal_block_observed && st.volatile_heal_block == active, "Heal Block preserves observed false/true");
         TEST_ASSERT(st.personality_observed && st.personality == 0x12345678u, "live personality preserved");
         TEST_ASSERT(st.volatiles_observed && st.volatile_slow_start_timer == (active ? 5 : 0), "slow timer exact");
         TEST_ASSERT(st.volatile_paradox_boosted_stat == (active ? 4 : 0), "stored selector exact");

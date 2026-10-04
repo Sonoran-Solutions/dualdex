@@ -263,6 +263,8 @@ data class CalcHnsLiveBattleState(
      * doubles an Electric move's base-power accumulator at the pinned pre-terrain stage.
      * `0` is observed inactive. Move Charge and Wind Power/Electromorphosis share this field.
      */
+    /** Observed pre-hit execution operand, never defaulted from a missing tuple. */
+    val attackerHealBlock: Boolean? = null,
     val attackerChargeTimer: Int? = null,
     /**
      * `gBattleMons[defender].volatiles.tarShot`, or null when unread. Tar Shot doubles the

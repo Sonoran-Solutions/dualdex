@@ -315,6 +315,50 @@ def parse_recoil_symbols(text):
     return result
 
 
+def parse_drain_metadata(text, heal_blocking_latest=False, updated_move_data_latest=False):
+    """Bounded ABSORB family; unresolved execution or damage initializers fail closed."""
+    result = {}
+    frozen = {"MOVE_ABSORB", "MOVE_MEGA_DRAIN", "MOVE_LEECH_LIFE", "MOVE_GIGA_DRAIN",
+              "MOVE_DRAIN_PUNCH", "MOVE_HORN_LEECH", "MOVE_DRAINING_KISS"}
+    for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines())):
+        if symbol not in frozen:
+            continue
+        effect, _, target, _, _, priority = classify_body(body, include_immunity_metadata=True)
+        if effect != "EFFECT_ABSORB" or target != "TARGET_SELECTED" or priority != 0:
+            continue
+        joined = "\n".join(body)
+        if any(line.lstrip().startswith("#") for line in body):
+            continue
+        def values(field):
+            return re.findall(rf"\.{field}\s*=\s*([^,\n}}]+)", joined)
+        if any(values(flag) for flag in (*STATE_DEPENDENT_FLAGS, "multiHit", "explosion",
+               "ignoresTargetAbility", "gravityBanned", "thawsUser", "cantUseTwice",
+               "noAffectOnSameTypeTarget", "ignoresSubstitute", "dampBanned")):
+            continue
+        if values("strikeCount") not in ([], ["1"]):
+            continue
+        power = values("power")
+        if updated_move_data_latest and power == ["B_UPDATED_MOVE_DATA >= GEN_5 ? 75 : 60"]:
+            power = ["75"]
+        if len(power) != 1 or not re.fullmatch(r"[1-9][0-9]*", power[0]):
+            continue
+        if len(values("type")) != 1 or not re.fullmatch(r"TYPE_[A-Z]+", values("type")[0]):
+            continue
+        if values("category") not in (["DAMAGE_CATEGORY_PHYSICAL"], ["DAMAGE_CATEGORY_SPECIAL"]):
+            continue
+        if any(values(flag) not in ([], ["TRUE"], ["FALSE"])
+               for flag in (*ABILITY_MOVE_FLAGS, *CONTACT_FLAGS, "soundMove", "ballisticMove", "windMove")):
+            continue
+        healing = values("healingMove")
+        if healing != ["TRUE"] and not (heal_blocking_latest and healing == ["B_HEAL_BLOCKING >= GEN_6"]):
+            continue
+        percentage = values("absorbPercentage")
+        if len(percentage) != 1 or not percentage[0].strip().isdigit() or not 0 < int(percentage[0]) <= 100:
+            continue
+        result[symbol] = int(percentage[0])
+    return result
+
+
 def parse_move_table(text):
     """Return source-derived effect/target/ordinary/flag/priority maps by move symbol."""
     lines = text.splitlines()
@@ -594,7 +638,7 @@ def build_maps(upstream_dir):
 def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_flags_by_id,
                     priority_by_id, unknown_priority_ids, ability_flags_by_id,
                     unknown_ability_flags_by_id, contact_by_id, unknown_contact_by_id,
-                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=()):
+                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
     # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
     # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
@@ -709,6 +753,10 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
         lines.append(f"        {move_id},")
     lines.append("    )")
     lines.append("")
+    lines.append("    /** Fixed single-hit drain, requiring authoritative Heal Block execution state. */")
+    lines.append("    val fixedSingleHitDrainMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(drain_percentages or {}))) + ")")
+    lines.append("    val absorbPercentageById: Map<Int, Int> = mapOf(" + ", ".join(f"{i} to {v}" for i, v in sorted((drain_percentages or {}).items())) + ")")
+    lines.append("")
     lines.append("    /** Recoil moves which clear Freeze/Frostbite before the selected hit. */")
     lines.append("    val recoilThawsUserMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(recoil_thaws))) + ")")
     lines.append("")
@@ -766,7 +814,7 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
 
 
 def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_ability_flags_by_id,
-                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None):
+                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None):
     """Render a compact source-derived move metadata map for the ROM-free oracle harness."""
     result = {}
     for move_id, effect in sorted(effect_by_id.items()):
@@ -784,6 +832,11 @@ def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_
             result[str(move_id)]["damageFlags"] = shape
     for move_id, percentage in (recoil_percentages or {}).items():
         result[str(move_id)]["recoilPercentage"] = percentage
+    for move_id, percentage in (drain_percentages or {}).items():
+        result[str(move_id)].update(absorbPercentage=percentage, fixedSingleHitDrain=True,
+            healingMove=True, target=target_by_id[move_id], priority=priority_by_id[move_id],
+            abilityFlags=sorted(ability_flags_by_id.get(move_id, set())),
+            immunityFlags=sorted(flags_by_id.get(move_id, set())))
     return json.dumps({"pinnedCommit": PINNED_COMMIT, "moves": result}, indent=2) + "\n"
 
 
@@ -804,6 +857,13 @@ def main():
     move_text = open(os.path.join(upstream_dir, "src/data/moves_info.h"), encoding="utf-8").read()
     ids = parse_move_enum(open(os.path.join(upstream_dir, "include/constants/moves.h"), encoding="utf-8").read())
     recoil_ids = {ids[symbol] for symbol in parse_recoil_symbols(move_text)}
+    config = open(os.path.join(upstream_dir, "include/config/battle.h"), encoding="utf-8").read()
+    if not re.search(r"#define B_HEAL_BLOCKING\s+GEN_LATEST", config):
+        raise ValueError("Drain healing flag requires reviewed GEN_LATEST Heal Block configuration")
+    drain_percentages = {ids[s]: p for s, p in parse_drain_metadata(move_text, True, True).items()}
+    for move_id in drain_percentages:
+        flags_by_id.setdefault(move_id, set()).add("healingMove")
+        unknown_flags_by_id.get(move_id, set()).discard("healingMove")
     damage_shapes = {}
     recoil_percentages = {}
     recoil_thaws = set()
@@ -833,15 +893,17 @@ def main():
     effects = open(os.path.join(upstream_dir, "src/data/battle_move_effects.h"), encoding="utf-8").read()
     if not re.search(r"\[EFFECT_RECOIL\]\s*=\s*\{\s*\.battleScript = BattleScript_EffectHit,", effects):
         raise ValueError("Recoil no longer uses the selected-hit script; review source contract")
+    if not re.search(r"\[EFFECT_ABSORB\]\s*=\s*\{\s*\.battleScript = BattleScript_EffectHit,", effects):
+        raise ValueError("Drain selected-hit script changed")
     verify_helper_contract(upstream_dir, ordinary)
     generated = generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id,
                                 unknown_flags_by_id, priority_by_id, unknown_priority_ids,
                                 ability_flags_by_id, unknown_ability_flags_by_id,
                                 contact_by_id, unknown_contact_by_id,
-                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws)
+                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages)
     generated_json = generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id,
                                             unknown_ability_flags_by_id, contact_by_id,
-                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes)
+                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id)
 
     if args.verify:
         if not os.path.isfile(args.output):

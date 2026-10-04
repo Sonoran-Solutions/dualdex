@@ -542,14 +542,32 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "absorbPercentage": 50,
+      "fixedSingleHitDrain": true,
+      "healingMove": true,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "abilityFlags": [],
+      "immunityFlags": [
+        "healingMove"
+      ]
     },
     "72": {
       "effect": "EFFECT_ABSORB",
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "absorbPercentage": 50,
+      "fixedSingleHitDrain": true,
+      "healingMove": true,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "abilityFlags": [],
+      "immunityFlags": [
+        "healingMove"
+      ]
     },
     "73": {
       "effect": "EFFECT_LEECH_SEED",
@@ -1048,7 +1066,16 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "absorbPercentage": 50,
+      "fixedSingleHitDrain": true,
+      "healingMove": true,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "abilityFlags": [],
+      "immunityFlags": [
+        "healingMove"
+      ]
     },
     "142": {
       "effect": "EFFECT_NON_VOLATILE_STATUS",
@@ -1498,7 +1525,16 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "absorbPercentage": 50,
+      "fixedSingleHitDrain": true,
+      "healingMove": true,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "abilityFlags": [],
+      "immunityFlags": [
+        "healingMove"
+      ]
     },
     "203": {
       "effect": "EFFECT_ENDURE",
@@ -3005,7 +3041,18 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": true,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "absorbPercentage": 50,
+      "fixedSingleHitDrain": true,
+      "healingMove": true,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "abilityFlags": [
+        "punchingMove"
+      ],
+      "immunityFlags": [
+        "healingMove"
+      ]
     },
     "410": {
       "effect": "EFFECT_HIT",
@@ -3920,7 +3967,16 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "absorbPercentage": 50,
+      "fixedSingleHitDrain": true,
+      "healingMove": true,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "abilityFlags": [],
+      "immunityFlags": [
+        "healingMove"
+      ]
     },
     "533": {
       "effect": "EFFECT_HIT",
@@ -4281,7 +4337,16 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "absorbPercentage": 75,
+      "fixedSingleHitDrain": true,
+      "healingMove": true,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "abilityFlags": [],
+      "immunityFlags": [
+        "healingMove"
+      ]
     },
     "578": {
       "effect": "EFFECT_PROTECT",

@@ -3407,3 +3407,16 @@ Debug source sets supply a local atomic JSON store, per-battle deduplication, bl
 and a narrow share-sheet cache export. Release resolves directly to a no-op and contains none
 of that implementation or UI/provider configuration. See [contributor export instructions](../CONTRIBUTING.md#exporting-hs-calculator-playtest-coverage)
 for collection, schema/count semantics, caps, export and the automated release proof.
+
+## Fixed single-hit drain in Singles (slice 2, #124)
+
+The separate source-generated `FIXED_SINGLE_HIT_DRAIN` category admits Absorb,
+Mega Drain, Leech Life, Giga Drain, Drain Punch, Horn Leech and Draining Kiss only
+in authoritative Singles. The ordinary set stays unchanged. The existing fixed-hit
+arithmetic is reused, with an observed pre-hit Heal Block operand and exact Triage
++3 effective priority. Active/unread Heal Block and priority-prevented drain hits
+are hard refusals. Big Root and Liquid Ooze receive request-local post-hit proofs;
+no healing or attacker survival is displayed. Old runtime tuples cannot authorize
+this family. H&S remains ESTIMATED. See [slice 2 evidence](HNS_MOVE_COVERAGE_SLICE_2.md)
+for source contracts, consumer audit, oracle execution/damage proofs, regressions,
+unchanged-population census and hardware NOT_RUN checklist.

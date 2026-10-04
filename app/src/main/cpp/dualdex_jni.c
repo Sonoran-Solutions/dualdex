@@ -804,7 +804,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
 /* Legacy 103 words preserved. [103] packet presence; [104..161] version 1:
  * version/count/absent/followMe[2]/actionFlags + 4 x 13 indexed records.
  * See read_doubles_operands and HnsDoublesRuntimeState.decode. */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 162
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 165
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -1021,6 +1021,10 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
 
     values[103] = state.doubles_observed ? 1 : 0;
     for (int i = 0; i < 58; i++) values[104 + i] = (jint)state.doubles_operands[i];
+    /* Additive versioned Heal Block payload; legacy 162 words stay intact. */
+    values[162] = 1;
+    values[163] = state.heal_block_observed ? 1 : 0;
+    values[164] = state.volatile_heal_block ? 1 : 0;
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;
     (*env)->SetIntArrayRegion(env, result, 0, BATTLER_RUNTIME_STATE_TUPLE_LEN, values);

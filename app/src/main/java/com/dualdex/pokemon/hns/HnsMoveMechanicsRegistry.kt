@@ -19,6 +19,9 @@ enum class HnsMoveMechanicsCategory {
     /** Fixed single-hit recoil, with a separately modelled Reckless BP slot. */
     FIXED_SINGLE_HIT_RECOIL,
 
+    /** Fixed selected hit; Heal Block and Triage are separately authorized. */
+    FIXED_SINGLE_HIT_DRAIN,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -46,7 +49,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
     val isSupportedFixedSingleHit: Boolean
-        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN
 
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
@@ -176,6 +179,12 @@ object HnsMoveMechanicsRegistry {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_RECOIL",
                 HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_RECOIL,
                 "Pinned fixed single hit; recoil follows damage, Reckless uses its exact BP slot.")
+        }
+
+        if (moveId in Hns205MoveEffects.fixedSingleHitDrainMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_ABSORB",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_DRAIN,
+                "Pinned fixed selected hit; pre-hit execution and effective priority require live authority.")
         }
 
         val effect = Hns205MoveEffects.effectById[moveId]

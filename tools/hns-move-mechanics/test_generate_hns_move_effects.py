@@ -351,3 +351,47 @@ class FixedSingleHitRecoilTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DrainMetadataTests(unittest.TestCase):
+    BODY = """[MOVE_ABSORB] =
+    {
+        .effect = EFFECT_ABSORB,
+        .power = 20,
+        .type = TYPE_GRASS,
+        .category = DAMAGE_CATEGORY_SPECIAL,
+        .target = TARGET_SELECTED,
+        .priority = 0,
+        .healingMove = B_HEAL_BLOCKING >= GEN_6,
+        .argument = { .absorbPercentage = 50 },
+    },"""
+
+    def test_positive_requires_resolved_configuration(self):
+        self.assertEqual(gen.parse_drain_metadata(self.BODY, True), {"MOVE_ABSORB": 50})
+        self.assertEqual(gen.parse_drain_metadata(self.BODY), {})
+
+    def test_mutations_fail_closed(self):
+        mutations = [("EFFECT_ABSORB", "EFFECT_DREAM_EATER"),
+                     ("EFFECT_ABSORB", "CONDITIONAL_EFFECT"),
+                     ("TARGET_SELECTED", "TARGET_BOTH"), (".priority = 0", ".priority = 1"),
+                     (".priority = 0", ".priority = UNKNOWN"),
+                     (".power = 20", ".power = UNKNOWN"),
+                     (".healingMove = B_HEAL_BLOCKING >= GEN_6", ".healingMove = UNKNOWN"),
+                     (".absorbPercentage = 50", ".absorbPercentage = UNKNOWN"),
+                     (".absorbPercentage = 50", ".otherArgument = 50"),
+                     (".type = TYPE_GRASS", ".otherType = TYPE_GRASS"),
+                     (".power = 20,", ".power = 20,\n .makesContact = UNKNOWN,"),
+                     (".power = 20,", ".power = 20,\n .punchingMove = UNKNOWN,"),
+                     (".category = DAMAGE_CATEGORY_SPECIAL", ".otherCategory = DAMAGE_CATEGORY_SPECIAL")]
+        for old, new in mutations:
+            with self.subTest(new=new):
+                self.assertEqual(gen.parse_drain_metadata(self.BODY.replace(old,new), True), {})
+        for flag in (*gen.STATE_DEPENDENT_FLAGS, "multiHit", "explosion", "ignoresTargetAbility", "gravityBanned"):
+            with self.subTest(flag=flag):
+                self.assertEqual(gen.parse_drain_metadata(self.BODY.replace('.power = 20,', f'.power = 20,\n .{flag} = TRUE,'),True), {})
+        for strike in ('2', 'UNKNOWN'):
+            self.assertEqual(gen.parse_drain_metadata(self.BODY.replace('.power = 20,',f'.power = 20,\n .strikeCount = {strike},'),True),{})
+
+    def test_adjacent_effect_members_do_not_expand_frozen_family(self):
+        for symbol in ('MOVE_OBLIVION_WING','MOVE_BITTER_BLADE','MOVE_PARABOLIC_CHARGE'):
+            self.assertEqual(gen.parse_drain_metadata(self.BODY.replace('MOVE_ABSORB',symbol),True),{})

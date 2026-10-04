@@ -331,3 +331,15 @@ They never generate expected damage. Volt Tackle's conditional secondary flag is
 resolved by the pinned GEN_LATEST configuration check. The native adapter also fixes
 a `%ld`/double varargs mismatch when serializing the source move ID; old damage vectors
 remain unchanged. Source hashes and corpus provenance come from normal regeneration.
+
+## Move coverage slice 2 (#124)
+
+36 fixed-single-hit drain scenarios add to the unchanged 1,945 historical entries:
+**1,981 total, 1,876 modelled, 105 engine-only**, all sixteen rolls matching with
+zero divergences. Separate generated execution tests cover Heal Block preventing
+all seven moves and Triage priority/order. Their PASS results are required and their
+source is included in provenance; failed execution is never encoded as damage zero.
+Post-hit checks derive recovery from measured damage and source-generated absorb
+percentages, separately applying Big Root, Liquid Ooze and Life Orb residuals.
+Minimum recovery and suppression controls are included. See the
+[slice 2 authority audit](../../docs/HNS_MOVE_COVERAGE_SLICE_2.md).

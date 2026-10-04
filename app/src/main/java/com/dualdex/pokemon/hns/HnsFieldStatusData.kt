@@ -93,6 +93,7 @@ internal object HnsFieldStatusData {
         "psychic_terrain_grounded_attacker_nonpriority_move",
         "psychic_terrain_non_psychic_nonpriority_move",
         "psychic_terrain_priority_move",
+        "psychic_terrain_drain_priority_ungrounded_target",
         "ion_deluge_non_normal_move",
         "ion_deluge_normal_move",
         "fairy_lock_escape_only",

@@ -1356,6 +1356,22 @@
               "contains": "|| !IsPsychicTerrainAffected(ctx->battlerDef, ctx->abilityDef, ctx->holdEffectDef, gFieldStatuses)"
             }
           ]
+        },
+        {
+          "rule": "psychic_terrain_drain_priority_ungrounded_target",
+          "relevance": "PROVEN_IRRELEVANT",
+          "operands": [
+            "move_id",
+            "attacker_ability",
+            "defender_terrain_applicability"
+          ],
+          "predicate": "Generated fixed single-hit drain with observed attacker Triage; target is source-authoritatively NOT_AFFECTED by terrain.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:2395",
+              "contains": "!IsPsychicTerrainAffected"
+            }
+          ]
         }
       ],
       "fallback": "Unknown effective type, unknown attacker ability, a Gale Wings attacker or a non-ordinary move never clears."

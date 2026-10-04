@@ -2213,12 +2213,62 @@ def _fixed_single_hit_recoil():
     return out
 
 
+MOVES.update({"Absorb": ("Grass", "special", 20), "Mega Drain": ("Grass", "special", 40),
+    "Leech Life": ("Bug", "physical", 80), "Giga Drain": ("Grass", "special", 75),
+    "Drain Punch": ("Fighting", "physical", 75), "Horn Leech": ("Grass", "physical", 75),
+    "Draining Kiss": ("Fairy", "special", 50)})
+
+def _fixed_single_hit_drain():
+    out = []
+    def case(name, move="Drain Punch", ability="Insomnia", item=None, **kw):
+        a = attacker("Machamp", atk=151, spa=151, maxhp=60000, hp=30000,
+                     ability=(symbol("ABILITY", ability), ability),
+                     item=(symbol("ITEM", item), item) if item else None)
+        out.append(scenario("drain-"+name, ["move-coverage-slice-2", "fixed-single-hit-drain"],
+                            a, defender("Snorlax", dfn=109, spd=109), move, **kw))
+    for move in ("Absorb", "Mega Drain", "Leech Life", "Giga Drain", "Drain Punch", "Horn Leech", "Draining Kiss"):
+        for side in ("player", "opponent"):
+            case(slug(move)+"-"+side, move, side=side)
+    for ability in ("Iron Fist", "Tough Claws", "Triage", "Long Reach"):
+        case(slug(ability), ability=ability, surface="engine-only" if ability == "Long Reach" else "modelled")
+    case("technician", "Absorb", ability="Technician")
+    case("fluffy-contact", ability="Tough Claws")
+    out[-1]["defender"].update(ability="ABILITY_FLUFFY", abilityLabel="Fluffy")
+    case("fluffy-noncontact", "Giga Drain")
+    out[-1]["defender"].update(ability="ABILITY_FLUFFY", abilityLabel="Fluffy")
+    case("normalize", ability="Normalize")
+    case("crit", crit=True)
+    case("stages")
+    out[-1]["attacker"]["stages"]["attack"] = 1
+    out[-1]["defender"]["stages"]["defense"] = -1
+    case("reflect", reflect=True)
+    case("light-screen", "Giga Drain", light_screen=True)
+    case("sun", "Giga Drain", weather="sun")
+    case("life-orb", item="Life Orb")
+    case("big-root", item="Big Root")
+    case("big-root-kiss", "Draining Kiss", item="Big Root")
+    case("liquid-ooze")
+    out[-1]["defender"].update(ability="ABILITY_LIQUID_OOZE", abilityLabel="Liquid Ooze")
+    case("big-root-liquid-ooze", item="Big Root")
+    out[-1]["defender"].update(ability="ABILITY_LIQUID_OOZE", abilityLabel="Liquid Ooze")
+    case("minimum", "Absorb")
+    out[-1]["attacker"]["level"] = 1
+    out[-1]["attacker"]["stats"].update(attack=1,spAttack=1)
+    out[-1]["defender"]["stats"].update(defense=10000,spDefense=10000)
+    case("big-root-suppressed", item="Big Root", state_setup={"capture":True,"attacker":{"embargo":1}})
+    case("defender-triage")
+    out[-1]["defender"].update(ability="ABILITY_TRIAGE", abilityLabel="Triage")
+    case("liquid-ooze-suppressed", surface="engine-only", state_setup={"capture":True,"gastroAcidBeforeHit":"defender","defender":{"gastroAcid":1}})
+    out[-1]["defender"].update(ability="ABILITY_LIQUID_OOZE", abilityLabel="Liquid Ooze")
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

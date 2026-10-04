@@ -595,8 +595,8 @@
     "context_rules": [
       {
         "rule": "after_hit_ability_outside_single_hit",
-        "predicate": "Authoritative ordinary single-hit move.",
-        "rationale": "The pinned effect runs after damage or on a separately gated draining shape and cannot alter these rolls.",
+        "predicate": "Authoritative supported fixed single hit; generated drain family has separately authorized execution.",
+        "rationale": "Liquid Ooze runs after the selected hit and converts Big Root adjusted recovery to passive attacker damage; it does not change defender damage.",
         "evidence": [
           {
             "source": "src/battle_move_resolution.c:2170",
@@ -5712,5 +5712,23 @@
     ],
     "always_blocking": [],
     "fallback": "Unknown HP or nonordinary selected move remains UNKNOWN."
+  },
+  "205": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "triage_drain_priority_authoritative",
+        "predicate": "Exact generated drain family, observed effective abilities, authoritative settled Singles state.",
+        "rationale": "Attacker healing moves add +3 effective priority, independently evaluated by priority immunity and terrain; defender Triage does not alter this selected move. Analytic remains current-action gated.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:5049",
+            "contains": "ABILITY_TRIAGE"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unrelated healing moves, missing authority or unsupported move shapes remain unknown."
   }
 }

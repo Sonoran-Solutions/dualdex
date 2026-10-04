@@ -342,7 +342,8 @@ const HNS_BREAKABLE_DEFENDER_ABILITIES = new Set([
 function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
   if (!Number.isInteger(id) || !(input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
-      input.move?.hnsFixedSingleHit === true && input.move?.hnsMoveEffect === 'EFFECT_RECOIL') ||
+      input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
+        input.move?.hnsMoveEffect === 'EFFECT_ABSORB' && input.move?.hnsIsDrain === true)) ||
       input.move?.hnsUnknownContact === true || typeof input.move?.hnsMakesContact !== 'boolean') return null;
   if (!input.move.hnsMakesContact) return false;
   const flags = new Set(input.move?.hnsMoveAbilityFlags || []);

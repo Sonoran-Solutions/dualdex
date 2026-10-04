@@ -43,22 +43,21 @@ internal object HnsGroupCPolicy {
         if (live.switchInEventsSettled != true) return null
         var priority = Hns205MoveEffects.basePriorityById[moveId] ?: return null
         val type = HnsMoveAuthority.forRequest(request, fixedSingleHitDamageMove(moveId)).effectiveType ?: return null
-        val attackerAbility = abilityId(request.attacker)
+        val attackerAbility = abilityId(request.attacker) ?: return null
 
         // GetBattleMovePriority: Gale Wings adds one to Flying moves when the live attacker is at
-        // full HP in the pinned GEN_LATEST configuration. It is the only matching damage-move
-        // ability branch; Prankster is status-only and Triage's healing moves fail the ordinary
-        // move gate. Grassy Glide is handled only when the live field word proves no terrain.
+        // full HP in the pinned GEN_LATEST configuration. Prankster is status-only; Triage
+        // adds three for the separately admitted drain family. Grassy Glide remains gated.
         if (attackerAbility == 177 && type == PokemonType.FLYING) {
             val hp = live.attackerHp ?: return null
             val maxHp = live.attackerMaxHp ?: return null
             if (maxHp <= 0 || hp !in 0..maxHp) return null
             if (hp == maxHp) priority++
         }
-        if (attackerAbility == 261 &&
+        if (attackerAbility == 205 &&
             "healingMove" in Hns205MoveEffects.unknownImmunityFlagsById[moveId].orEmpty()
         ) return null
-        if (attackerAbility == 261 &&
+        if (attackerAbility == 205 &&
             "healingMove" in Hns205MoveEffects.immunityFlagsById[moveId].orEmpty()
         ) priority += 3
         if (Hns205MoveEffects.effectById[moveId] == "EFFECT_GRASSY_GLIDE") {
@@ -99,6 +98,10 @@ internal object HnsGroupCPolicy {
         ) {
             return setOf(CalcLimitation.HNS_IMMUNITY_CONTEXT_UNVERIFIED)
         }
+
+        if (moveId in Hns205MoveEffects.fixedSingleHitDrainMoveIds &&
+            defenderAbility in priorityBlockers && (effectivePriority(request, moveId) ?: 0) > 0 &&
+            attackerAbility !in moldBreakerFamilies) return setOf(CalcLimitation.HNS_PRIORITY_BLOCKED)
 
         if (defenderAbility in priorityBlockers) {
             val targetClass = Hns205MoveEffects.targetClassByMoveId[moveId]

@@ -278,6 +278,16 @@ object HnsFieldContextPolicy {
             }
             HnsFieldStatus.PSYCHIC_TERRAIN -> when {
                 c.moveId == null -> null
+                attacker == 205 && c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitDrainMoveIds ->
+                    when(c.defenderTerrainApplicability) {
+                        HnsTerrainApplicability.NOT_AFFECTED -> proof(
+                            "psychic_terrain_drain_priority_ungrounded_target", "src/battle_util.c:2394-2395",
+                            "Triage's +3 priority does not fail against a source-proven terrain-unaffected target.")
+                        HnsTerrainApplicability.AFFECTED -> relevant(
+                            "psychic_terrain_priority_move", "src/battle_util.c:2394-2395",
+                            "Psychic Terrain prevents this Triage drain against the observed grounded target.")
+                        else -> null
+                    }
                 c.moveId in HnsFieldStatusData.positivePriorityOrdinaryMoveIds -> relevant(
                     rule = "psychic_terrain_priority_move",
                     source = "src/battle_util.c:2394",

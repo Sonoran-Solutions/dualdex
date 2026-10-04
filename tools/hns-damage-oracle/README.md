@@ -308,3 +308,26 @@ For pending Dynamax, the harness sets both TESTING `toActivate` and the equivale
 Strength table remains 80. Both controls are engine-only and do not authorize gimmick move
 semantics. Sand Force's two engine-only controls distinguish raw Sandstorm from effective weather
 suppressed by Cloud Nine; production Sandstorm remains independently refused.
+
+
+## Move coverage slice 1 (#122)
+
+The current corpus adds 51 recoil scenarios (49 modelled, two engine-only) to the
+unchanged 1,894 historical entries: **1,945 total, 1,842 modelled, 103 engine-only**.
+The dedicated [move coverage evidence](../../docs/HNS_MOVE_COVERAGE_SLICE_1.md)
+records exact admitted moves, source authority, production regressions and census results.
+
+Schema v10 accepts the additive optional `stateSetup.gastroAcidBeforeHit` role.
+It requires a matching declared `gastroAcid=1` operand. The setup planner executes
+actual Gastro Acid on an earlier turn; the late hook only captures it. This keeps
+the source's cached effective ability consistent with the live suppression record.
+The native recoil adapter binds that captured suppression to `None`; production
+continues to refuse suppression, so this scenario is engine-only. Long Reach also retains its independent ability refusal; its recoil arithmetic control is engine-only. Existing late-hook
+engine-only controls and their entry objects remain unchanged.
+
+Recoil post-hit HP checks use measured damage and source-generated recoil percentages,
+including Rock Head/Magic Guard and separate Life Orb/Sheer Force residual predicates.
+They never generate expected damage. Volt Tackle's conditional secondary flag is
+resolved by the pinned GEN_LATEST configuration check. The native adapter also fixes
+a `%ld`/double varargs mismatch when serializing the source move ID; old damage vectors
+remain unchanged. Source hashes and corpus provenance come from normal regeneration.

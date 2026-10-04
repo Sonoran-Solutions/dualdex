@@ -971,5 +971,20 @@ class CommittedCorpusTest(unittest.TestCase):
         self.assertGreater(cli.check_crossref(by_id), 20)
 
 
+class RecoilSuppressionSetupTest(unittest.TestCase):
+    def test_suppression_precedes_cached_damage_context(self):
+        s = next(s for s in SCENARIOS if s["id"] == "recoil-reckless-suppressed")
+        schema.validate_scenario(s)
+        a, d, _ = backend.plan_setup(s)
+        self.assertIn("MOVE_GASTRO_ACID", d)
+        text = "\n".join(backend.render_sources([s]).values())
+        self.assertIn("MOVE_GASTRO_ACID", text)
+        self.assertNotIn(".volatiles.gastroAcid = 1", text)
+        bad = copy.deepcopy(s)
+        del bad["stateSetup"]["attacker"]["gastroAcid"]
+        with self.assertRaises(schema.SchemaError):
+            schema.validate_scenario(bad)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -99,7 +99,7 @@ DOUBLES_KEYS = ("defenderPartner",)
 STATE_SETUP_KEYS = (
     "attackerSpeciesForm", "defenderSpeciesForm", "attackerTransformedMonSpecies",
     "defenderTransformedMonSpecies", "attacker", "defender", "attackerStatStages",
-    "defenderStatStages", "doubles", "capture", "wonderRoom", "magicRoom", "laterAction",
+    "defenderStatStages", "gastroAcidBeforeHit", "doubles", "capture", "wonderRoom", "magicRoom", "laterAction",
 )
 RUNTIME_DOMAINS = {
     "personality": (0, 0xffffffff), "gender": (0, 255), "slowStartTimer": (0, 7),
@@ -290,7 +290,11 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
             _fail(f"{path}.stateSetup", f"expected a non-empty subset of {STATE_SETUP_KEYS}")
         for role, value in s["stateSetup"].items():
             loc = f"{path}.stateSetup.{role}"
-            if role == "doubles":
+            if role == "gastroAcidBeforeHit":
+                _require_enum(value, ("attacker", "defender"), loc)
+                if s["stateSetup"].get(value, {}).get("gastroAcid") != 1:
+                    _fail(loc, "requires a matching observed suppression operand")
+            elif role == "doubles":
                 if s["format"] != "doubles" or not isinstance(value, dict) or not value:
                     _fail(loc, "Doubles setup requires a nonempty Doubles operand map")
                 allowed = {"attackerPartnerAbility", "defenderPartnerAbility", "attackerPartnerSpecies",

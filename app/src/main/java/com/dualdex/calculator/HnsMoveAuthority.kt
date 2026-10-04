@@ -77,10 +77,10 @@ data class HnsMoveAuthority(
 
         /**
          * Resolve source identity and the single effective type used by ability, field, category,
-         * item, immunity, and engine-input policy. `ordinaryMove` is supplied by the source-backed
+         * item, immunity, and engine-input policy. `fixedSingleHitMove` is supplied by the source-backed
          * move-mechanics allow-list; an unsupported move never gains authorization here.
          */
-        fun forRequest(request: DamageCalculationRequest, ordinaryMove: Boolean?): HnsMoveAuthority {
+        fun forRequest(request: DamageCalculationRequest, fixedSingleHitMove: Boolean?): HnsMoveAuthority {
             if (request.typeSystem != "hns_2_0_5") return NONE
 
             val move = HeartAndSoul205DataPack.getMoveByName(request.move.name) ?: return NONE
@@ -93,7 +93,7 @@ data class HnsMoveAuthority(
             val abilityId = request.attacker.abilityId
 
             val rewrite = when {
-                ordinaryMove != true -> Rewrite(HnsAbilityTypeRewriteOutcome.UNKNOWN, null, null)
+                fixedSingleHitMove != true -> Rewrite(HnsAbilityTypeRewriteOutcome.UNKNOWN, null, null)
                 abilityId == null -> Rewrite(HnsAbilityTypeRewriteOutcome.UNKNOWN, null, null)
                 live == null || live.attackerGimmick == null || live.attackerGimmick != 0 ->
                     Rewrite(HnsAbilityTypeRewriteOutcome.UNKNOWN, null, null)

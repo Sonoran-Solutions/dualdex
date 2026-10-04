@@ -57,7 +57,7 @@ class HnsItemContextPolicyTest {
 
     private fun ctx(
         side: HnsItemSide,
-        ordinaryMove: Boolean? = true,
+        fixedSingleHitMove: Boolean? = true,
         moveType: PokemonType? = PokemonType.NORMAL,
         moveCategory: MoveCategory? = MoveCategory.PHYSICAL,
         fieldStatuses: Int? = 0,
@@ -90,7 +90,7 @@ class HnsItemContextPolicyTest {
         punchingMove: Boolean? = null
     ) = HnsItemContextPolicy.Context(
         side = side,
-        ordinaryMove = ordinaryMove,
+        fixedSingleHitMove = fixedSingleHitMove,
         moveType = moveType,
         moveCategory = moveCategory,
         fieldState = fieldStatuses?.let(HnsFieldState::decode),
@@ -167,7 +167,7 @@ class HnsItemContextPolicyTest {
     fun `attacker-only items are irrelevant on the defender whatever the move`() {
         for (id in listOf(charcoal, fireGem, flamePlate, choiceBand, choiceSpecs, muscleBand, wiseGlasses,
             lifeOrb, expertBelt, scopeLens)) {
-            val decision = assessForTest(id, ctx(HnsItemSide.DEFENDER, ordinaryMove = null, moveType = null))
+            val decision = assessForTest(id, ctx(HnsItemSide.DEFENDER, fixedSingleHitMove = null, moveType = null))
             assertEquals("item $id", irrelevant, decision.relevance)
             assertEquals("defender_holds_attacker_only_item", decision.rule)
         }
@@ -233,14 +233,14 @@ class HnsItemContextPolicyTest {
         }
         for (id in listOf(scopeLens, leek, luckyPunch)) {
             assertEquals("item $id", irrelevant, relevance(id, ctx(HnsItemSide.ATTACKER)))
-            assertEquals("item $id", unknown, relevance(id, ctx(HnsItemSide.ATTACKER, ordinaryMove = false)))
+            assertEquals("item $id", unknown, relevance(id, ctx(HnsItemSide.ATTACKER, fixedSingleHitMove = false)))
         }
     }
 
     @Test
     fun `defender-only items are irrelevant on the attacker`() {
         for (id in listOf(assaultVest, eviolite, metalPowder, occaBerry, focusSash)) {
-            val decision = assessForTest(id, ctx(HnsItemSide.ATTACKER, ordinaryMove = null, moveType = null))
+            val decision = assessForTest(id, ctx(HnsItemSide.ATTACKER, fixedSingleHitMove = null, moveType = null))
             assertEquals("item $id", irrelevant, decision.relevance)
             assertEquals("attacker_holds_defender_only_item", decision.rule)
         }
@@ -289,8 +289,8 @@ class HnsItemContextPolicyTest {
         for (id in listOf(leftovers, sitrusBerry, rockyHelmet)) {
             for (side in HnsItemSide.values()) {
                 assertEquals("item $id $side", irrelevant, relevance(id, ctx(side)))
-                assertEquals("item $id $side", irrelevant, relevance(id, ctx(side, ordinaryMove = false)))
-                assertEquals("item $id $side", irrelevant, relevance(id, ctx(side, ordinaryMove = null)))
+                assertEquals("item $id $side", irrelevant, relevance(id, ctx(side, fixedSingleHitMove = false)))
+                assertEquals("item $id $side", irrelevant, relevance(id, ctx(side, fixedSingleHitMove = null)))
             }
         }
         assertEquals(irrelevant, relevance(boosterEnergy, ctx(HnsItemSide.ATTACKER)))
@@ -317,7 +317,7 @@ class HnsItemContextPolicyTest {
 
             assertEquals(irrelevant, relevance(id, ctx(
                 HnsItemSide.ATTACKER,
-                ordinaryMove = null,
+                fixedSingleHitMove = null,
                 attackerAbilityId = 0
             )))
         }
@@ -396,7 +396,7 @@ class HnsItemContextPolicyTest {
             relevance(758, clearContext.copy(moveIgnoresTargetAbility = true)))
         assertEquals(unknown, relevance(758, ctx(HnsItemSide.DEFENDER, attackerAbilityId = 0,
             defenderAbilityId = 0, attackerGastroAcid = false, defenderGastroAcid = false)))
-        assertEquals(unknown, relevance(758, clearContext.copy(ordinaryMove = false)))
+        assertEquals(unknown, relevance(758, clearContext.copy(fixedSingleHitMove = false)))
     }
 
     @Test
@@ -433,16 +433,16 @@ class HnsItemContextPolicyTest {
             if (id == blunderPolicy || id == roomService) {
                 assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = 148)))
                 assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = null)))
-                assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.ATTACKER, ordinaryMove = false)))
+                assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.ATTACKER, fixedSingleHitMove = false)))
             } else {
                 assertEquals(irrelevant, relevance(id, ctx(HnsItemSide.DEFENDER)))
                 assertEquals(relevant, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = 148)))
                 assertEquals(unknown, relevance(id, ctx(HnsItemSide.ATTACKER, attackerAbilityId = null)))
-                assertEquals(unknown, relevance(id, ctx(HnsItemSide.ATTACKER, ordinaryMove = false)))
+                assertEquals(unknown, relevance(id, ctx(HnsItemSide.ATTACKER, fixedSingleHitMove = false)))
             }
         }
         assertEquals(irrelevant, relevance(floatStone, ctx(HnsItemSide.DEFENDER)))
-        assertEquals(unknown, relevance(floatStone, ctx(HnsItemSide.DEFENDER, ordinaryMove = false)))
+        assertEquals(unknown, relevance(floatStone, ctx(HnsItemSide.DEFENDER, fixedSingleHitMove = false)))
     }
 
     @Test

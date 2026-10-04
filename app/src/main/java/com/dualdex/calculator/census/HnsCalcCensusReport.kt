@@ -886,7 +886,7 @@ object HnsCalcCensusReport {
         out.append(
             "**Eligibility rule.** A pinned move is eligible when its own record declares a base " +
                 "power greater than zero: it deals damage, so the production policy has a real " +
-                "verdict for it. A move whose damage shape is outside the source-proven ordinary " +
+                "verdict for it. A move whose damage shape is outside the admitted fixed single-hit " +
                 "subset is therefore **evaluated and refused** with " +
                 "`HNS_MOVE_MECHANICS_NOT_MODELLED`, and it counts in the denominator and in the " +
                 "blocker ranking. Only a move with no base power at all is excluded, because there " +

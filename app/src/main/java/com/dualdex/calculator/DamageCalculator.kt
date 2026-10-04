@@ -375,12 +375,11 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
         } else {
             null
         }
-        val hnsOrdinaryMove = pinnedHnsMove?.let { move ->
-            move.power > 0 && com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(move.id).category ==
-                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.ORDINARY_PROVEN_EQUIVALENT
+        val hnsFixedSingleHitMove = pinnedHnsMove?.let { move ->
+            move.power > 0 && com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(move.id).category.isSupportedFixedSingleHit
         }
         val hnsMoveAuthority = if (request.typeSystem == "hns_2_0_5") {
-            HnsMoveAuthority.forRequest(request, hnsOrdinaryMove)
+            HnsMoveAuthority.forRequest(request, hnsFixedSingleHitMove)
         } else {
             null
         }
@@ -401,7 +400,8 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     }
                     put("hnsMoveId", moveId)
                     put("hnsMoveEffect", com.dualdex.pokemon.hns.Hns205MoveEffects.effectById[moveId])
-                    put("hnsIsOrdinary", hnsOrdinaryMove == true)
+                    put("hnsIsOrdinary", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.ordinaryMoveIds)
+                    put("hnsFixedSingleHit", hnsFixedSingleHitMove == true)
                     put("hnsMoveFlags", JSONArray(
                         hnsMoveFlags.sorted()
                     ))

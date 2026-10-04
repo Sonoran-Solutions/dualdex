@@ -4389,16 +4389,38 @@
     "fallback": "Unknown operands, unobserved battle topology, or nonordinary move shape remain fail-closed; unrelated move, item, weather, field and format limitations remain independent."
   },
   "120": {
-    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "global": "MODELLED_HNS_CONDITIONAL",
     "context_rules": [
       {
         "rule": "reckless_ordinary_move_not_recoil",
-        "predicate": "Ordinary EFFECT_HIT move or defender-side Reckless.",
-        "rationale": "The boost requires recoil effects, which cannot enter the ordinary move allow-list.",
+        "predicate": "Ordinary EFFECT_HIT or defender-side Reckless.",
+        "rationale": "These branches do not receive the attacker recoil base-power boost.",
         "evidence": [
           {
             "source": "src/battle_util.c:6668",
             "contains": "if (moveEffect == EFFECT_RECOIL || moveEffect == EFFECT_RECOIL_IF_MISS)"
+          }
+        ]
+      },
+      {
+        "rule": "reckless_recoil_bp",
+        "predicate": "Authoritative attacker Reckless and source-proven fixed single-hit recoil move.",
+        "rationale": "Model the UQ4.12 1.2 modifier at the pinned attacker BP slot.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6669",
+            "contains": "modifier = uq4_12_multiply(modifier, UQ_4_12(1.2));"
+          }
+        ]
+      },
+      {
+        "rule": "reckless_defender_side",
+        "predicate": "Defender role.",
+        "rationale": "The boost reads only attacker ability.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6667",
+            "contains": "case ABILITY_RECKLESS:"
           }
         ]
       }

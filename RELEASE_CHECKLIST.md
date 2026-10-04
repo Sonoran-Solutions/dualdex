@@ -31,7 +31,7 @@ New ROM support is **not** parallel work during the current hardening pass. The 
    - Close its remaining calculator/ruleset, exact-trust, battle, location, and capability-evidence gaps.
    - Do not start another ROM integration while H&S still has unresolved first-class support blockers.
    - **Complete as of the #40 closure audit** ([docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md)): exact `Release-v2.0.5` / SHA-256 `edf76ecf…7679b` is intentionally trusted; #1, #9 and #11 are closed; every **core** live companion capability H&S exposes — party/data, battle lifecycle, location/map and the bounded calculator — is evidence-backed at the level the UI promises, and every unsupported capability **within those core surfaces** fails closed.
-   - This step certifies the core H&S live-companion/battle/map/calculator integration only. It does **not** certify the optional **Cheats** and **Assistant** surfaces: exact H&S is still offered unverified, name-selected cheat presets that one toggle can apply, and the offline Assistant can still present base-game facts under the H&S name. Those are known uncertified surfaces, deliberately left to step 2 below (#17, #13), not fail-closed behaviour.
+   - This step certifies the core H&S live-companion/battle/map/calculator integration only. It does **not** certify the optional **Cheats** and **Assistant** surfaces: the #17 implementation now denies built-in cheats without exact-target code approval (the production catalog is empty; see [cheat compatibility](docs/CHEAT_COMPATIBILITY.md)), while the offline Assistant can still present base-game facts under the H&S name (#13). Custom cheats remain user-supplied/unverified. Review and hardware acceptance remain part of step 2.
    - The AYN Thor RC matrix in that issue is **not** claimed complete — it moves into step 2 below, which is where this checklist always placed it.
 2. [ ] **Finish the remaining general pre-beta product/release blockers using H&S as the primary complex validation ROM.**
    - Keep exact vanilla FireRed/Emerald as regression baselines.
@@ -649,7 +649,7 @@ The static audit produced GitHub issues **#1–#19**. Work through the following
 ### Tier 4 — Cleanup and Regression Prevention
 
 16. [ ] **#15 — Eliminate stale/duplicated `gameId` assumptions across native, Kotlin, tests, and docs.**
-17. [ ] **#17 — Key cheat presets to verified ROM versions instead of display-name heuristics.**
+17. [ ] **#17 — Key cheat presets to verified ROM versions instead of display-name heuristics.** Implementation and ROM-free evidence: [cheat compatibility](docs/CHEAT_COMPATIBILITY.md). Empty production catalog; legacy built-ins quarantined. Pending reviewed merge and hardware smoke checks.
 18. [ ] **#18 — Fix the HomeScreenView coroutine/lifecycle leak.**
 19. [ ] **#19 — Remove duplicate packaged mGBA core binaries.**
 

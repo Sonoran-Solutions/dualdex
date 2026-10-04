@@ -7,5 +7,6 @@ data class CheatItem(
     val name: String,
     val code: String,
     val enabled: Boolean = false,
-    val isPreset: Boolean = false
+    val isPreset: Boolean = false,
+    val disabledReason: String? = null
 )

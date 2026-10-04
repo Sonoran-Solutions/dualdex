@@ -20,14 +20,24 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "4": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": true,
       "punchingMove": true,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "5": {
       "effect": "EFFECT_HIT",
@@ -111,7 +121,12 @@
       "ordinary": true,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "damagesAirborneDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS >= GEN_2"
+        ]
+      }
     },
     "17": {
       "effect": "EFFECT_HIT",
@@ -160,14 +175,24 @@
       "ordinary": true,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS >= GEN_2"
+        ]
+      }
     },
     "24": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "2"
+        ]
+      }
     },
     "25": {
       "effect": "EFFECT_HIT",
@@ -216,7 +241,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "32": {
       "effect": "EFFECT_OHKO",
@@ -237,7 +267,12 @@
       "ordinary": true,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS >= GEN_6"
+        ]
+      }
     },
     "35": {
       "effect": "EFFECT_HIT",
@@ -251,7 +286,8 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "recoilPercentage": 25
     },
     "37": {
       "effect": "EFFECT_HIT",
@@ -265,7 +301,8 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "recoilPercentage": 33
     },
     "39": {
       "effect": "EFFECT_DEFENSE_DOWN",
@@ -286,14 +323,24 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "strikeCount": [
+          "2"
+        ]
+      }
     },
     "42": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "43": {
       "effect": "EFFECT_DEFENSE_DOWN",
@@ -398,7 +445,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "damagesUnderwater": [
+          "TRUE"
+        ]
+      }
     },
     "58": {
       "effect": "EFFECT_HIT",
@@ -461,7 +513,8 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "recoilPercentage": 25
     },
     "68": {
       "effect": "EFFECT_REFLECT_DAMAGE",
@@ -587,7 +640,12 @@
       "ordinary": true,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "damagesAirborne": [
+          "B_UPDATED_MOVE_FLAGS >= GEN_2"
+        ]
+      }
     },
     "88": {
       "effect": "EFFECT_HIT",
@@ -601,14 +659,24 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "damagesUnderground": [
+          "B_UPDATED_MOVE_FLAGS >= GEN_2"
+        ]
+      }
     },
     "90": {
       "effect": "EFFECT_OHKO",
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "damagesUnderground": [
+          "TRUE"
+        ]
+      }
     },
     "91": {
       "effect": "EFFECT_SEMI_INVULNERABLE",
@@ -818,7 +886,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "explosion": [
+          "TRUE"
+        ]
+      }
     },
     "121": {
       "effect": "EFFECT_HIT",
@@ -895,7 +968,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "132": {
       "effect": "EFFECT_HIT",
@@ -958,7 +1036,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "141": {
       "effect": "EFFECT_ABSORB",
@@ -1049,21 +1132,36 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "explosion": [
+          "TRUE"
+        ]
+      }
     },
     "154": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "155": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "2"
+        ]
+      }
     },
     "156": {
       "effect": "EFFECT_REST",
@@ -1140,7 +1238,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "3"
+        ]
+      }
     },
     "168": {
       "effect": "EFFECT_STEAL_ITEM",
@@ -1175,7 +1278,12 @@
       "ordinary": true,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      }
     },
     "173": {
       "effect": "EFFECT_SNORE",
@@ -1357,7 +1465,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "199": {
       "effect": "EFFECT_LOCK_ON",
@@ -1518,14 +1631,24 @@
       "ordinary": true,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      }
     },
     "222": {
       "effect": "EFFECT_MAGNITUDE",
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "damagesUnderground": [
+          "TRUE"
+        ]
+      }
     },
     "223": {
       "effect": "EFFECT_HIT",
@@ -1637,7 +1760,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "damagesAirborneDoubleDamage": [
+          "TRUE"
+        ]
+      }
     },
     "240": {
       "effect": "EFFECT_WEATHER",
@@ -1714,7 +1842,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "damagesUnderwater": [
+          "TRUE"
+        ]
+      }
     },
     "251": {
       "effect": "EFFECT_BEAT_UP",
@@ -2008,7 +2141,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "293": {
       "effect": "EFFECT_CAMOUFLAGE",
@@ -2071,7 +2209,12 @@
       "ordinary": true,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS < GEN_4"
+        ]
+      }
     },
     "303": {
       "effect": "EFFECT_RESTORE_HP",
@@ -2127,7 +2270,12 @@
       "ordinary": true,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS < GEN_4"
+        ]
+      }
     },
     "311": {
       "effect": "EFFECT_WEATHER_BALL",
@@ -2239,14 +2387,24 @@
       "ordinary": true,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS < GEN_4"
+        ]
+      }
     },
     "327": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": true,
       "punchingMove": true,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "damagesAirborne": [
+          "TRUE"
+        ]
+      }
     },
     "328": {
       "effect": "EFFECT_HIT",
@@ -2274,7 +2432,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "332": {
       "effect": "EFFECT_HIT",
@@ -2288,7 +2451,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "334": {
       "effect": "EFFECT_DEFENSE_UP_2",
@@ -2365,7 +2533,8 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": null
+      "sheerForceAffected": true,
+      "recoilPercentage": 33
     },
     "345": {
       "effect": "EFFECT_HIT",
@@ -2407,7 +2576,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "351": {
       "effect": "EFFECT_HIT",
@@ -2715,7 +2889,13 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      },
+      "recoilPercentage": 33
     },
     "395": {
       "effect": "EFFECT_HIT",
@@ -2806,7 +2986,12 @@
       "ordinary": true,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS >= GEN_6"
+        ]
+      }
     },
     "408": {
       "effect": "EFFECT_HIT",
@@ -2848,7 +3033,8 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "recoilPercentage": 33
     },
     "414": {
       "effect": "EFFECT_HIT",
@@ -3121,7 +3307,8 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "recoilPercentage": 33
     },
     "453": {
       "effect": "EFFECT_HIT",
@@ -3156,14 +3343,20 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "recoilPercentage": 50
     },
     "458": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "2"
+        ]
+      }
     },
     "459": {
       "effect": "EFFECT_HIT",
@@ -3226,7 +3419,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS == GEN_6"
+        ]
+      }
     },
     "468": {
       "effect": "EFFECT_ATTACK_ACCURACY_UP",
@@ -3310,14 +3508,24 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "damagesAirborne": [
+          "TRUE"
+        ]
+      }
     },
     "480": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "alwaysCriticalHit": [
+          "TRUE"
+        ]
+      }
     },
     "481": {
       "effect": "EFFECT_HIT",
@@ -3345,7 +3553,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS >= GEN_7"
+        ]
+      }
     },
     "485": {
       "effect": "EFFECT_SYNCHRONOISE",
@@ -3443,7 +3656,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "ignoresTargetDefenseEvasionStages": [
+          "TRUE"
+        ]
+      }
     },
     "499": {
       "effect": "EFFECT_HIT",
@@ -3478,7 +3696,12 @@
       "ordinary": true,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      }
     },
     "504": {
       "effect": "EFFECT_SHELL_SMASH",
@@ -3562,7 +3785,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "explosion": [
+          "B_UPDATED_MOVE_FLAGS <= GEN_5"
+        ]
+      }
     },
     "516": {
       "effect": "EFFECT_BESTOW",
@@ -3625,7 +3853,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "alwaysCriticalHit": [
+          "TRUE"
+        ]
+      }
     },
     "525": {
       "effect": "EFFECT_HIT_SWITCH_TARGET",
@@ -3653,7 +3886,8 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "recoilPercentage": 25
     },
     "529": {
       "effect": "EFFECT_HIT",
@@ -3667,7 +3901,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "2"
+        ]
+      }
     },
     "531": {
       "effect": "EFFECT_HIT",
@@ -3688,7 +3927,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "ignoresTargetDefenseEvasionStages": [
+          "TRUE"
+        ]
+      }
     },
     "534": {
       "effect": "EFFECT_HIT",
@@ -3702,7 +3946,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS >= GEN_6"
+        ]
+      }
     },
     "536": {
       "effect": "EFFECT_HIT",
@@ -3716,7 +3965,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "TRUE"
+        ]
+      }
     },
     "538": {
       "effect": "EFFECT_DEFENSE_UP_3",
@@ -3744,28 +3998,44 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "542": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "damagesAirborne": [
+          "TRUE"
+        ]
+      }
     },
     "543": {
       "effect": "EFFECT_RECOIL",
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "recoilPercentage": 25
     },
     "544": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "2"
+        ]
+      }
     },
     "545": {
       "effect": "EFFECT_HIT",
@@ -3863,7 +4133,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      }
     },
     "559": {
       "effect": "EFFECT_FUSION_COMBO",
@@ -3877,7 +4152,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "TRUE"
+        ]
+      }
     },
     "561": {
       "effect": "EFFECT_MAT_BLOCK",
@@ -3919,7 +4199,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS < GEN_7"
+        ]
+      }
     },
     "567": {
       "effect": "EFFECT_THIRD_TYPE",
@@ -4101,7 +4386,12 @@
       "ordinary": true,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      }
     },
     "593": {
       "effect": "EFFECT_HIT",
@@ -4115,7 +4405,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "595": {
       "effect": "EFFECT_HIT",
@@ -4255,7 +4550,15 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "damagesAirborne": [
+          "TRUE"
+        ],
+        "ignoreTypeIfFlyingAndUngrounded": [
+          "TRUE"
+        ]
+      }
     },
     "615": {
       "effect": "EFFECT_HIT",
@@ -4276,7 +4579,8 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "recoilPercentage": 50
     },
     "618": {
       "effect": "EFFECT_HIT",
@@ -4339,7 +4643,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "ignoresTargetDefenseEvasionStages": [
+          "TRUE"
+        ]
+      }
     },
     "627": {
       "effect": "EFFECT_HIT",
@@ -4472,7 +4781,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      }
     },
     "646": {
       "effect": "EFFECT_SPEED_SWAP",
@@ -4689,7 +5003,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": null
+      "sheerForceAffected": null,
+      "damageFlags": {
+        "alwaysCriticalHit": [
+          "TRUE"
+        ]
+      }
     },
     "677": {
       "effect": "EFFECT_HIT",
@@ -4731,7 +5050,12 @@
       "ordinary": true,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      }
     },
     "683": {
       "effect": "EFFECT_HIT",
@@ -4780,7 +5104,15 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": true,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "B_UPDATED_MOVE_FLAGS < GEN_8"
+        ],
+        "strikeCount": [
+          "2"
+        ]
+      }
     },
     "690": {
       "effect": "EFFECT_DYNAMAX_DOUBLE_DMG",
@@ -4836,7 +5168,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "2"
+        ]
+      }
     },
     "698": {
       "effect": "EFFECT_TEATIME",
@@ -4913,7 +5250,12 @@
       "ordinary": true,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      }
     },
     "709": {
       "effect": "EFFECT_DYNAMAX_DOUBLE_DMG",
@@ -5046,7 +5388,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "multiHit": [
+          "TRUE"
+        ]
+      }
     },
     "728": {
       "effect": "EFFECT_TWO_TURNS_ATTACK",
@@ -5067,7 +5414,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "explosion": [
+          "TRUE"
+        ]
+      }
     },
     "731": {
       "effect": "EFFECT_GRASSY_GLIDE",
@@ -5144,21 +5496,36 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "3"
+        ]
+      }
     },
     "742": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "2"
+        ]
+      }
     },
     "743": {
       "effect": "EFFECT_HIT",
       "ordinary": true,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      }
     },
     "744": {
       "effect": "EFFECT_JUNGLE_HEALING",
@@ -5172,14 +5539,27 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": true,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "alwaysCriticalHit": [
+          "TRUE"
+        ]
+      }
     },
     "746": {
       "effect": "EFFECT_HIT",
       "ordinary": false,
       "makesContact": true,
       "punchingMove": true,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "alwaysCriticalHit": [
+          "TRUE"
+        ],
+        "strikeCount": [
+          "3"
+        ]
+      }
     },
     "747": {
       "effect": "EFFECT_HIT",
@@ -5291,7 +5671,8 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "recoilPercentage": 33
     },
     "763": {
       "effect": "EFFECT_CHLOROBLAST",
@@ -5473,7 +5854,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "10"
+        ]
+      }
     },
     "789": {
       "effect": "EFFECT_ICE_SPINNER",
@@ -5508,7 +5894,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "3"
+        ]
+      }
     },
     "794": {
       "effect": "EFFECT_RAPID_SPIN",
@@ -5543,7 +5934,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "alwaysCriticalHit": [
+          "TRUE"
+        ]
+      }
     },
     "799": {
       "effect": "EFFECT_HIT",
@@ -5655,7 +6051,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "2"
+        ]
+      }
     },
     "815": {
       "effect": "EFFECT_RAGE_FIST",
@@ -5753,7 +6154,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      }
     },
     "829": {
       "effect": "EFFECT_HIT",
@@ -5767,7 +6173,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "damageFlags": {
+        "thawsUser": [
+          "TRUE"
+        ]
+      }
     },
     "831": {
       "effect": "EFFECT_HIT",
@@ -5830,7 +6241,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "strikeCount": [
+          "2"
+        ]
+      }
     },
     "840": {
       "effect": "EFFECT_POWER_BASED_ON_TARGET_HP",
@@ -5865,7 +6281,12 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "TRUE"
+        ]
+      }
     },
     "845": {
       "effect": "EFFECT_HIT",
@@ -6068,7 +6489,12 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "damageFlags": {
+        "minimizeDoubleDamage": [
+          "TRUE"
+        ]
+      }
     },
     "874": {
       "effect": "EFFECT_HIT",

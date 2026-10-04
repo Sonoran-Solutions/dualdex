@@ -2160,12 +2160,65 @@ def _group_e_charge() -> list[dict]:
     return out
 
 
+# Pinned moves_info.h planning labels; actual power/type/category are engine-observed.
+RECOIL_MOVES = {
+    "Take Down": ("Normal", "physical", 90), "Double-Edge": ("Normal", "physical", 120),
+    "Submission": ("Fighting", "physical", 80), "Volt Tackle": ("Electric", "physical", 120),
+    "Flare Blitz": ("Fire", "physical", 120), "Brave Bird": ("Flying", "physical", 120),
+    "Wood Hammer": ("Grass", "physical", 120), "Head Smash": ("Rock", "physical", 150),
+    "Wild Charge": ("Electric", "physical", 90), "Head Charge": ("Normal", "physical", 120),
+    "Light of Ruin": ("Fairy", "special", 140), "Wave Crash": ("Water", "physical", 120),
+}
+MOVES.update(RECOIL_MOVES)
+
+
+def _fixed_single_hit_recoil():
+    out = []
+    def case(name, move="Take Down", ability="Insomnia", item=None, **kw):
+        a = attacker("Machamp", atk=151, spa=151, maxhp=60000,
+                     ability=(symbol("ABILITY", ability), ability),
+                     item=(symbol("ITEM", item), item) if item else None)
+        out.append(scenario("recoil-"+name, ["move-coverage-slice-1", "fixed-single-hit-recoil"],
+                            a, defender("Snorlax", dfn=109, spd=109), move, **kw))
+    for move in RECOIL_MOVES:
+        for side in ("player", "opponent"):
+            case(slug(move)+"-"+side, move, side=side)
+    for n in (109, 110, 111):
+        a = attacker("Machamp", atk=n, maxhp=60000, ability=("ABILITY_RECKLESS", "Reckless"))
+        out.append(scenario("recoil-reckless-round-"+str(n), ["move-coverage-slice-1"],
+                            a, defender("Snorlax", dfn=107), "Take Down"))
+    for ability in ("Rock Head", "Magic Guard", "Reckless", "Technician", "Tough Claws", "Long Reach"):
+        case(slug(ability), ability=ability, surface="engine-only" if ability == "Long Reach" else "modelled")
+    for move in ("Flare Blitz", "Volt Tackle", "Brave Bird"):
+        case("sheer-force-"+slug(move),move,ability="Sheer Force")
+    case("fluffy-contact", ability="Tough Claws")
+    out[-1]["defender"].update(ability="ABILITY_FLUFFY", abilityLabel="Fluffy")
+    case("reckless-crit",ability="Reckless",crit=True)
+    case("reckless-physical-stage",ability="Reckless")
+    out[-1]["attacker"]["stages"]["attack"]=1
+    out[-1]["defender"]["stages"]["defense"]=-1
+    case("light-of-ruin-type-based", "Light of Ruin", style="typeBased")
+    case("normalize", "Wave Crash", ability="Normalize")
+    case("pixilate", ability="Pixilate")
+    case("reckless-life-orb-rain", "Wave Crash", ability="Reckless", item="Life Orb", weather="rain")
+    case("magic-guard-life-orb",item="Life Orb",ability="Magic Guard")
+    case("rock-head-life-orb",item="Life Orb",ability="Rock Head")
+    case("sheer-force-life-orb", "Flare Blitz",ability="Sheer Force",item="Life Orb")
+    case("reckless-suppressed", ability="Reckless", surface="engine-only", state_setup={"capture":True,"gastroAcidBeforeHit":"attacker","attacker":{"gastroAcid":1}})
+    case("life-orb-suppressed",item="Life Orb",state_setup={"capture":True,"attacker":{"embargo":1}})
+    case("burn", ability="Guts")
+    out[-1]["attacker"]["status"]="burn"
+    case("light-screen", "Light of Ruin", light_screen=True)
+    case("reflect",reflect=True)
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

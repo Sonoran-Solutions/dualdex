@@ -1,0 +1,20 @@
+{
+  "startingSha": "3821066e898652509b826526bb8418e8c42adbe2",
+  "command": "./ci.sh test",
+  "compilationPassed": true,
+  "intendedAdmissionFailures": [
+    {
+      "test": "real Aaron Ivysaur Take Down census request now displays",
+      "failure": "java.lang.IllegalStateException: Expected Ready: Refused(verdict=CalcCapabilityVerdict(support=UNSUPPORTED, capability=CalcCapability(ruleset=HNS_2_0_5, mechanicsGeneration=3, contentSource=hns_2_0_5, ceiling=ESTIMATED, alwaysLimitations=[], label=Pokemon Heart & Soul 2.0.5 (Release-v2.0.5, 1f42b74dff0e9fe942419845d040663dd829a973)), limitations=[HNS_MOVE_MECHANICS_NOT_MODELLED, HNS_ABILITY_CONDITION_UNVERIFIED], request=null, unsupportedReason=, hnsAbilityDecisions=[HnsAbilityRequestDecision(abilityId=65, abilityName=Overgrow, side=ATTACKER, globalCategory=MODELLED_HNS_CONDITIONAL, relevance=UNKNOWN, rule=pinch_ability_effective_type_unverified, source=src/battle_util.c:7023, rationale=The effective move type needed to decide this conditional ability is not authoritative.)], hnsItemDecisions=[], hnsFieldDecisions=[], hnsFieldDiagnostics=CalcHnsFieldDiagnostics(fieldState=HnsFieldState(raw=0, active=[], unknownMask=0), weatherWord=0, defenderSideStatuses=0, attackerElectrified=false), ignoredMechanics=[]))"
+    },
+    {
+      "test": "forged overrides are rebound to observed recoil source and invalid identity refuses",
+      "failure": "java.lang.IllegalStateException: Expected Ready: Refused(verdict=CalcCapabilityVerdict(support=UNSUPPORTED, capability=CalcCapability(ruleset=HNS_2_0_5, mechanicsGeneration=3, contentSource=hns_2_0_5, ceiling=ESTIMATED, alwaysLimitations=[], label=Pokemon Heart & Soul 2.0.5 (Release-v2.0.5, 1f42b74dff0e9fe942419845d040663dd829a973)), limitations=[HNS_MOVE_MECHANICS_NOT_MODELLED], request=null, unsupportedReason=, hnsAbilityDecisions=[], hnsItemDecisions=[], hnsFieldDecisions=[], hnsFieldDiagnostics=CalcHnsFieldDiagnostics(fieldState=HnsFieldState(raw=0, active=[], unknownMask=0), weatherWord=0, defenderSideStatuses=0, attackerElectrified=false), ignoredMechanics=[]))"
+    },
+    {
+      "test": "every admitted recoil move reaches shipped calculator with exact pinned rolls",
+      "failure": "java.lang.IllegalStateException: Expected Ready: Refused(verdict=CalcCapabilityVerdict(support=UNSUPPORTED, capability=CalcCapability(ruleset=HNS_2_0_5, mechanicsGeneration=3, contentSource=hns_2_0_5, ceiling=ESTIMATED, alwaysLimitations=[], label=Pokemon Heart & Soul 2.0.5 (Release-v2.0.5, 1f42b74dff0e9fe942419845d040663dd829a973)), limitations=[HNS_MOVE_MECHANICS_NOT_MODELLED], request=null, unsupportedReason=, hnsAbilityDecisions=[], hnsItemDecisions=[], hnsFieldDecisions=[], hnsFieldDiagnostics=CalcHnsFieldDiagnostics(fieldState=HnsFieldState(raw=0, active=[], unknownMask=0), weatherWord=0, defenderSideStatuses=0, attackerElectrified=false), ignoredMechanics=[]))"
+    }
+  ],
+  "excludedFailures": "The arithmetic-only test cannot find new oracle IDs in the historical corpus; this is NOT counted as reproduction. Earlier compilation errors were fixed and are NOT counted."
+}

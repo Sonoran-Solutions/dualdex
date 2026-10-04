@@ -642,8 +642,8 @@
     "rationale": "The ability writes the current live weather. Request-local proof requires an authoritative weather word and switch-in settlement for entry setters; Sand/Snow formula limits and unsupported moves remain independent blockers. Sand Spit writes weather after the triggering hit."
   },
   "120": {
-    "category": "UNSUPPORTED_DAMAGE_RELEVANT",
-    "rationale": "On the supported ordinary EFFECT_HIT move surface, Reckless is proven irrelevant. Recoil moves remain independently refused by the move-mechanics gate.",
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Fixed single-hit EFFECT_RECOIL uses the pinned UQ4.12 1.2 base-power slot. Ordinary EFFECT_HIT and defender-side Reckless are inactive. Other recoil shapes remain refused independently.",
     "evidence": "src/battle_util.c:6667"
   },
   "121": {

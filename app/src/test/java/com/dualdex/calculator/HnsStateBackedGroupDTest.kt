@@ -30,7 +30,7 @@ class HnsStateBackedGroupDTest {
                         type: PokemonType = PokemonType.NORMAL,
                         category: MoveCategory? = MoveCategory.PHYSICAL,
                         opponent: Int = 15) = HnsAbilityContextPolicy.Context(
-        side = side, ordinaryMove = true, isCrit = false, moveId = 33,
+        side = side, fixedSingleHitMove = true, isCrit = false, moveId = 33,
         attackerAbilityId = if (side == HnsAbilitySide.ATTACKER) id else opponent,
         defenderAbilityId = if (side == HnsAbilitySide.DEFENDER) id else opponent,
         attackerAbilityObserved = true, defenderAbilityObserved = true,

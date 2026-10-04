@@ -178,6 +178,10 @@ def plan_setup(scenario: dict) -> tuple[list[str], list[str], bool]:
             # Embargo targets the other battler; the move runs in a real setup turn so its
             # effect is present before CalculateMoveDamage snapshots hold effects.
             (def_actions if role == "attacker" else atk_actions).append("MOVE_EMBARGO")
+    suppressed_role = state_setup.get("gastroAcidBeforeHit")
+    if suppressed_role:
+        # Apply the actual move before CalculateMoveDamage caches its effective ability.
+        (def_actions if suppressed_role == "attacker" else atk_actions).insert(0, "MOVE_GASTRO_ACID")
     ds = (scenario.get("stateSetup") or {}).get("doubles", {})
     if ds.get("attackerPartnerGastroAcid") and ds.get("attackerPartnerAbility") in ("ABILITY_CLOUD_NINE", "ABILITY_AIR_LOCK"):
         # GetWeather is cached before the critical-hit hook. Establish suppression in a
@@ -216,6 +220,8 @@ def _life_orb_post_hit_recoil(scenario: dict, attacker: dict, runtime: dict) -> 
     item = ITEM_RECORDS.get(runtime["itemIdAtHit"])
     if (item is None or item["hold_effect"] != "HOLD_EFFECT_LIFE_ORB"
             or runtime["holdEffectActive"] != 1 or scenario["attacker"]["ability"] == "ABILITY_MAGIC_GUARD"):
+        return 0
+    if scenario["attacker"]["ability"] == "ABILITY_SHEER_FORCE" and scenario["move"]["label"] in ("Flare Blitz", "Volt Tackle"):
         return 0
     # src/battle_hold_effects.c:557 applies floor(non-Dynamax max HP / 10) after a successful hit.
     return attacker["maxHp"] // 10
@@ -636,6 +642,8 @@ def render_scenario(s: dict) -> str:
                               f"gBattleStruct->gimmick.toActivate = {value} << {pos}; "
                               f"gBattleStruct->gimmick.playerSelect = {value};")
             else:
+                if key == "gastroAcid" and state_setup.get("gastroAcidBeforeHit") == role:
+                    continue  # Already installed by a real setup move; never rewrite cached ability.
                 expression = f"gBattleMons[{pos}].volatiles.{key} = {value};"
             setup.append("    " + expression)
     stage_fields = {
@@ -895,7 +903,14 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             solar_residual = (scenario["attacker"]["stats"]["maxHp"] // 8
                               if _solar_power_weather_affected(scenario) else 0)
             life_orb_recoil = _life_orb_post_hit_recoil(scenario, atk, runtime["attacker"])
-            expected_hp = max(0, hp_at_hit - solar_residual - life_orb_recoil)
+            # Recoil is checked against MEASURED damage, never an expected roll formula.
+            # MoveEndRecoil src/battle_move_resolution.c:2971-2995 follows damage;
+            # Rock Head/Magic Guard suppress it. Metadata percentages are source-generated.
+            move_recoil = 0
+            recoil_pct = MOVE_DAMAGE_METADATA.get(str(_int(m[0], f"{sid} M")), {}).get("recoilPercentage")
+            if recoil_pct is not None and scenario["expect"] != "immune" and atk["abilityId"] not in (69, 98):
+                move_recoil = max(1, damage * recoil_pct // 100)
+            expected_hp = max(0, hp_at_hit - solar_residual - life_orb_recoil - move_recoil)
             if atk["hp"] != expected_hp:
                 raise OracleError(f"{sid}: attacker HP changed without exact post-hit residuals ({atk['hp']}, expected {expected_hp})")
         if hp_at_hit <= 0 or hp_at_hit > scenario["attacker"]["stats"]["hp"]:

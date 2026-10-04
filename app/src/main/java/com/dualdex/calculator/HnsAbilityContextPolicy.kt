@@ -64,6 +64,7 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_POISON_MASK = 0x80
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
+        120, // Fixed single-hit recoil: exact Reckless base-power slot
         277, 280, // Group E: source-proven shared Charge volatile
         18, 55, 62, 79, 112, 148, 198, 255, 281, 282, 284, 285, 286, 287, 293,
         3, 22, 80, 83, 86, 88, 128, 133, 141, 153, 154, 155, 172, 192, 195, 201,
@@ -86,7 +87,7 @@ object HnsAbilityContextPolicy {
 
     private fun stateBackedGroupDProof(abilityId: Int, c: Context): Proof? {
         val live = c.liveBattleState ?: return null
-        if (c.ordinaryMove != true || !ordinaryTopology(c) ||
+        if (c.fixedSingleHitMove != true || !ordinaryTopology(c) ||
             !c.attackerAbilityObserved || !c.defenderAbilityObserved) return null
         val attackerRole = c.side == HnsAbilitySide.ATTACKER
         val moveType = effectiveMoveType(c)
@@ -265,7 +266,7 @@ object HnsAbilityContextPolicy {
 
     data class Context(
         val side: HnsAbilitySide,
-        val ordinaryMove: Boolean?,
+        val fixedSingleHitMove: Boolean?,
         val isCrit: Boolean?,
         val attackerAbilityId: Int?,
         val moveType: PokemonType?,
@@ -364,7 +365,7 @@ object HnsAbilityContextPolicy {
 
         val c = context ?: return unknown(entry.abilityId ?: abilityId, entry.titleCaseName, side, entry.category)
         val doublesExact = c.liveBattleState?.doubles != null && c.observedBattlersCount == 4 &&
-            c.ordinaryMove == true && abilityObserved(c)
+            c.fixedSingleHitMove == true && abilityObserved(c)
         val proof: Proof? = when {
             doublesExact && abilityId in setOf(57, 58) ->
                 relevant("doubles_plus_minus_exact", "src/battle_util.c:7026-7044",
@@ -374,7 +375,7 @@ object HnsAbilityContextPolicy {
                     "The selected hit targets an opposing battler; these holder identities modify an ally's hit or ally-target execution. The observed partner slots are handled separately.")
             else -> when (abilityId) {
             5 -> when {
-                c.ordinaryMove != true || !abilityObserved(c) -> null
+                c.fixedSingleHitMove != true || !abilityObserved(c) -> null
                 c.side == HnsAbilitySide.ATTACKER -> proof("group_e_sturdy_attacker",
                     "src/battle_util.c:8186", "The survival check reads only the defender ability; OHKO moves remain independently refused.")
                 c.defenderHp == null || c.defenderMaxHp == null || c.defenderMaxHp <= 0 ||
@@ -387,7 +388,7 @@ object HnsAbilityContextPolicy {
                     "This estimate ignores Sturdy's potential survival cap, including its challenge option; the underlying ordinary single-hit damage operands remain authoritative.")
             }
             277, 280 -> when {
-                c.ordinaryMove != true || !abilityObserved(c) -> null
+                c.fixedSingleHitMove != true || !abilityObserved(c) -> null
                 c.side == HnsAbilitySide.DEFENDER -> proof("group_e_charge_defender_after_hit",
                     "src/battle_util.c:4309; data/battle_scripts_1.s:4947",
                     "The defender reaction writes Charge after this hit; it cannot change incoming damage.")
@@ -434,7 +435,7 @@ object HnsAbilityContextPolicy {
                 "HasWeatherEffect suppresses the live weather for Cloud Nine/Air Lock, and the production boundary applies that effective weather to the selected-hit field input; unsupported weather retains its independent weather refusal."
             ) else null
             in LIVE_TYPE_REWRITER_IDS -> if (
-                c.switchInEventsSettled == true && c.ordinaryMove == true &&
+                c.switchInEventsSettled == true && c.fixedSingleHitMove == true &&
                 abilityObserved(c) &&
                 c.dynamicMoveTypeKnownNeutral && c.moveType != null && liveTypesForSide(c) != null
             ) {
@@ -455,12 +456,12 @@ object HnsAbilityContextPolicy {
                 )
             } else null
             in LIVE_ABILITY_REWRITER_IDS -> if (
-                c.switchInEventsSettled == true && c.ordinaryMove == true && abilityObserved(c)
+                c.switchInEventsSettled == true && c.fixedSingleHitMove == true && abilityObserved(c)
             ) proof(
                 "live_effective_ability_capture_ability_rewriter", abilityRewriterSource(abilityId),
                 "The active battler's effective runtime ability ID is authoritative; a copied/replaced ability is evaluated under that current ID."
             ) else null
-            105 -> if (c.ordinaryMove == true && c.isCrit != null) proof(
+            105 -> if (c.fixedSingleHitMove == true && c.isCrit != null) proof(
                 "fixed_crit_stage_only", "src/battle_util.c:8049",
                 "Super Luck changes only critical-hit odds; this hit's critical flag is fixed."
             ) else null
@@ -469,7 +470,7 @@ object HnsAbilityContextPolicy {
                     "sniper_defender_side", "src/battle_util.c:7566",
                     "Sniper is read only from the attacking ability slot."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId || c.isCrit == null ->
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId || c.isCrit == null ->
                     unknownProof(
                         "sniper_crit_unknown", "src/battle_util.c:7567",
                         "Sniper requires an authoritative ordinary move, live attacker ability, and fixed critical flag."
@@ -484,16 +485,16 @@ object HnsAbilityContextPolicy {
                 )
             }
             24, 64, 106, 124, 152, 160, 215, 221, 238, 254, 268 ->
-                if (c.ordinaryMove == true) proof(
+                if (c.fixedSingleHitMove == true) proof(
                     "after_hit_ability_outside_single_hit", afterHitSource(abilityId),
                     "The pinned effect executes after damage or on a nonordinary draining move; it cannot change this hit's rolls."
                 ) else null
-            139, 167, 291 -> if (c.ordinaryMove == true) proof(
+            139, 167, 291 -> if (c.fixedSingleHitMove == true) proof(
                 "berry_recovery_outside_single_hit", berrySource(abilityId),
                 "The berry recovery or reuse acts after the current hit, using the already observed item state."
             ) else null
             103 -> when {
-                c.ordinaryMove != true || !abilityObserved(c) -> null
+                c.fixedSingleHitMove != true || !abilityObserved(c) -> null
                 (if (c.side == HnsAbilitySide.ATTACKER) c.attackerItemId else c.defenderItemId) == null ->
                     unknownProof(
                         "klutz_item_identity_unobserved", "src/battle_util.c:5829",
@@ -523,7 +524,7 @@ object HnsAbilityContextPolicy {
                     "unnerve_defender_side", "src/battle_util.c:336-372",
                     "Unnerve and As One block opposing berry consumption; a defender-side copy cannot block the incoming hit's defender-held resist berry."
                 )
-                c.ordinaryMove != true -> null
+                c.fixedSingleHitMove != true -> null
                 c.defenderItemId == null -> unknownProof(
                     "unnerve_berry_authority_unobserved", "src/battle_util.c:336-372, 7686-7695",
                     "The opposing defender's exact current item must be observed before the berry block can be cleared."
@@ -546,7 +547,7 @@ object HnsAbilityContextPolicy {
                 )
             }
             247 -> when {
-                c.ordinaryMove != true -> null
+                c.fixedSingleHitMove != true -> null
                 c.side == HnsAbilitySide.ATTACKER -> proof(
                     "attacker_ripen_no_current_hit_modifier", "src/battle_util.c:7695, src/battle_util.c:10558",
                     "Ripen's current-hit damage branch reads only the defender ability; its attacker-side Micle branch changes accuracy."
@@ -565,7 +566,7 @@ object HnsAbilityContextPolicy {
                 )
             }
             33, 34 -> when {
-                c.ordinaryMove != true -> proof(
+                c.fixedSingleHitMove != true -> proof(
                     "speed_ability_unsupported_move_independent", speedSource(abilityId),
                     "This ability changes only speed in a request whose selected move is independently outside the ordinary damage surface; that move remains refused, so its unresolved turn-order mechanics are not a second ability blocker."
                 )
@@ -584,7 +585,7 @@ object HnsAbilityContextPolicy {
                 )
             }
             84, 95, 146, 202, 259 -> when {
-                c.ordinaryMove != true || c.attackerAbilityId == null -> null
+                c.fixedSingleHitMove != true || c.attackerAbilityId == null -> null
                 c.side == HnsAbilitySide.DEFENDER && c.attackerAbilityId == 148 -> relevant(
                     "speed_ability_attacker_analytic", "src/battle_util.c:6691",
                     "Changing turn order can change the attacker's Analytic damage modifier."
@@ -641,7 +642,7 @@ object HnsAbilityContextPolicy {
                     "technician_defender_side", "src/battle_util.c:6655",
                     "Technician is checked only for abilityAtk and cannot modify the selected incoming hit."
                 )
-                c.ordinaryMove != true || c.moveId == null -> null
+                c.fixedSingleHitMove != true || c.moveId == null -> null
                 c.moveBasePower == null || c.moveBasePower !in 1..255 -> null
                 c.moveBasePower <= 60 -> relevant(
                     "technician_attacker_bp_at_most_60", "src/battle_util.c:6655",
@@ -653,7 +654,7 @@ object HnsAbilityContextPolicy {
                 )
             }
             85 -> when {
-                c.ordinaryMove != true -> null
+                c.fixedSingleHitMove != true -> null
                 c.side == HnsAbilitySide.ATTACKER -> proof(
                     "heatproof_attacker_direct_hit_irrelevant", "src/battle_util.c:6785",
                     "CalcMoveBasePowerAfterModifiers switches on abilityDef, so attacker Heatproof has no selected outgoing direct-hit modifier; burn residual damage is outside this result."
@@ -673,7 +674,7 @@ object HnsAbilityContextPolicy {
                     "solar_power_defender_side", "src/battle_util.c:6998",
                     "Solar Power is checked only in the attacker ability slot for this selected hit."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
                     !c.attackerAbilityObserved || !c.defenderAbilityObserved || !ordinaryTopology(c) ->
                     unknownProof(
                         "solar_power_live_ability_unknown", "src/battle_util.c:6998",
@@ -721,7 +722,7 @@ object HnsAbilityContextPolicy {
                     "attack_stat_type_ability_defender_side", "src/battle_util.c:7060-7079",
                     "Transistor, Dragon's Maw, and Rocky Payload are read only from CalcAttackStat's attacker ability slot."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
                     !c.attackerAbilityObserved || !c.defenderAbilityObserved || !ordinaryTopology(c) ->
                     unknownProof(
                         "attack_stat_type_ability_live_state_unknown", "src/battle_util.c:7058-7080",
@@ -745,7 +746,7 @@ object HnsAbilityContextPolicy {
                     "orichalcum_pulse_defender_side", "src/battle_util.c:7105-7107",
                     "Orichalcum Pulse is read only from CalcAttackStat's attacker ability slot."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
                     !c.attackerAbilityObserved || !c.defenderAbilityObserved || !ordinaryTopology(c) ->
                     unknownProof(
                         "orichalcum_pulse_live_state_unknown", "src/battle_util.c:7105-7107",
@@ -793,7 +794,7 @@ object HnsAbilityContextPolicy {
                     "defeatist_defender_side", "src/battle_util.c:7002",
                     "Defeatist changes only its holder's selected attacking stat, not incoming damage."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId -> null
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId -> null
                 c.attackerHp == null || c.attackerMaxHp == null || c.attackerMaxHp <= 0 ||
                     c.attackerHp !in 0..c.attackerMaxHp -> unknownProof(
                     "defeatist_live_hp_unknown", "src/battle_util.c:7002",
@@ -813,7 +814,7 @@ object HnsAbilityContextPolicy {
                     "fur_coat_attacker_side", "src/battle_util.c:7287",
                     "Fur Coat is read only in CalcDefenseStat for the defender."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
                     !ordinaryTopology(c) || c.moveCategory == null || c.fieldStatuses == null ->
                     unknownProof(
                         "fur_coat_defense_selection_unknown", "src/battle_util.c:7226, src/battle_util.c:7287",
@@ -838,7 +839,7 @@ object HnsAbilityContextPolicy {
                     "grass_pelt_attacker_side", "src/battle_util.c:7296",
                     "Grass Pelt is read only from abilityDef in CalcDefenseStat."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
                     c.moveCategory == null || c.fieldStatuses == null -> unknownProof(
                     "grass_pelt_defense_selection_unknown", "src/battle_util.c:7226, src/battle_util.c:7296",
                     "Grass Pelt requires an authoritative ordinary move, final category, effective defender ability and live field word."
@@ -867,7 +868,7 @@ object HnsAbilityContextPolicy {
                     "hadron_engine_defender_side", "src/battle_util.c:7111",
                     "Hadron Engine is read only from abilityAtk in CalcAttackStat."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
                     c.moveCategory == null || c.fieldStatuses == null -> unknownProof(
                     "hadron_engine_operands_unknown", "src/battle_util.c:7111",
                     "Hadron Engine requires an authoritative ordinary move, effective attacker ability, final category and live field word."
@@ -888,7 +889,7 @@ object HnsAbilityContextPolicy {
             }
             in STATE_BACKED_GROUP_D_ABILITY_IDS -> stateBackedGroupDProof(abilityId, c)
             199 -> when {
-                c.ordinaryMove != true -> null
+                c.fixedSingleHitMove != true -> null
                 effectiveMoveType(c) == null -> null
                 c.side == HnsAbilitySide.DEFENDER && effectiveMoveType(c) == PokemonType.FIRE -> relevant(
                     "water_bubble_defender_fire_move", "src/battle_util.c:6788",
@@ -912,7 +913,7 @@ object HnsAbilityContextPolicy {
                     "steelworker_defender_side", "src/battle_util.c:6710",
                     "Steelworker is checked only for abilityAtk and cannot modify the selected incoming hit."
                 )
-                c.ordinaryMove != true || !c.dynamicMoveTypeKnownNeutral || c.moveType == null -> null
+                c.fixedSingleHitMove != true || !c.dynamicMoveTypeKnownNeutral || c.moveType == null -> null
                 c.moveType == PokemonType.STEEL -> relevant(
                     "steelworker_attacker_steel_move", "src/battle_util.c:6710",
                     "Steelworker's attacker-side 1.5 base-power branch uses the authoritative effective move type."
@@ -927,7 +928,7 @@ object HnsAbilityContextPolicy {
                     "toxic_boost_defender_side", "src/battle_util.c:6663",
                     "Toxic Boost is checked only for the attacker and cannot modify incoming damage."
                 )
-                c.ordinaryMove != true -> null
+                c.fixedSingleHitMove != true -> null
                 c.moveCategory == null -> null
                 c.moveCategory != MoveCategory.PHYSICAL -> proof(
                     "toxic_boost_special_move", "src/battle_util.c:6663",
@@ -949,7 +950,7 @@ object HnsAbilityContextPolicy {
                     "flare_boost_defender_side", "src/battle_util.c:6659",
                     "Flare Boost is checked only for the attacker and cannot modify incoming damage."
                 )
-                c.ordinaryMove != true -> null
+                c.fixedSingleHitMove != true -> null
                 c.moveCategory == null -> null
                 c.moveCategory != MoveCategory.SPECIAL -> proof(
                     "flare_boost_physical_move", "src/battle_util.c:6659",
@@ -1090,7 +1091,7 @@ object HnsAbilityContextPolicy {
                     "defender_adaptability_does_not_boost_incoming_damage", "src/battle_util.c:7427",
                     "Adaptability is read only from the attacking battler's STAB modifier."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != 91 ||
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != 91 ||
                     c.moveType == null || c.attackerTypes == null || c.moveAuthority?.effectiveType == null ||
                     !ordinaryTopology(c) -> unknownProof(
                     "adaptability_stab_operands_unknown", "src/battle_util.c:7424-7430",
@@ -1111,7 +1112,7 @@ object HnsAbilityContextPolicy {
                     if (abilityId == 110) "src/battle_util.c:7570" else "src/battle_util.c:7562",
                     "${entry.titleCaseName} is read only from the attacking ability slot."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId ||
                     c.typeEffectiveness == null -> unknownProof(
                     if (abilityId == 110) "tinted_lens_effectiveness_unknown" else "neuroforce_effectiveness_unknown",
                     if (abilityId == 110) "src/battle_util.c:7571" else "src/battle_util.c:7563",
@@ -1141,7 +1142,7 @@ object HnsAbilityContextPolicy {
                     }, "src/battle_util.c:7595-7597",
                     "${entry.titleCaseName} is read only from the defender ability slot."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
                     c.typeEffectiveness == null -> unknownProof(
                     when (abilityId) {
                         111 -> "filter_effectiveness_unknown"
@@ -1173,7 +1174,7 @@ object HnsAbilityContextPolicy {
                     if (abilityId == 136) "src/battle_util.c:7587" else "src/battle_util.c:7588",
                     "${entry.titleCaseName} is read only from the defender ability slot."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId -> unknownProof(
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId -> unknownProof(
                     if (abilityId == 136) "multiscale_hp_unknown" else "shadow_shield_hp_unknown",
                     if (abilityId == 136) "src/battle_util.c:7589" else "src/battle_util.c:7589",
                     "${entry.titleCaseName} requires an authoritative ordinary move and exact live defender ability."
@@ -1200,7 +1201,7 @@ object HnsAbilityContextPolicy {
                     "ice_scales_attacker_side", "src/battle_util.c:7623",
                     "Ice Scales is read only from the defender ability slot."
                 )
-                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.defenderAbilityId != abilityId ||
                     c.moveCategory == null -> unknownProof(
                     "ice_scales_category_unknown", "src/battle_util.c:7624",
                     "Ice Scales requires an authoritative ordinary move, live defender ability, and HnsMoveAuthority's final category."
@@ -1220,7 +1221,7 @@ object HnsAbilityContextPolicy {
                     "The critical-hit prevention check reads only the defender's ability."
                 )
                 HnsAbilitySide.DEFENDER -> when {
-                    c.ordinaryMove != true || c.isCrit == null -> null
+                    c.fixedSingleHitMove != true || c.isCrit == null -> null
                     !c.isCrit -> proof(
                         "defender_armor_fixed_noncritical_hit", "src/battle_util.c:8056",
                         "Critical-hit prevention cannot change an explicitly noncritical hit's rolls."
@@ -1238,7 +1239,7 @@ object HnsAbilityContextPolicy {
             63 -> when {
                 c.side == HnsAbilitySide.ATTACKER -> proof("marvel_scale_attacker_side", "src/battle_util.c:7280",
                     "Marvel Scale is read only in CalcDefenseStat for the defender.")
-                c.ordinaryMove != true || !abilityObserved(c) || c.defenderAbilityId != 63 || c.moveCategory == null || c.fieldStatuses == null ->
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.defenderAbilityId != 63 || c.moveCategory == null || c.fieldStatuses == null ->
                     unknownProof("marvel_scale_operands_unknown", "src/battle_util.c:7226, src/battle_util.c:7280-7284",
                         "Marvel Scale requires the selected-hit defense-stat choice, raw defender status1, and observed field word.")
                 c.fieldStatuses and com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0 ->
@@ -1255,7 +1256,7 @@ object HnsAbilityContextPolicy {
                     "Physical selects Defense with Wonder Room clear, and raw defender status1 has STATUS1_ANY; the ×1.5 Defense-stage modifier is modelled.")
             }
             122 -> when {
-                !abilityObserved(c) || c.ordinaryMove != true || c.moveCategory == null || c.fieldStatuses == null ->
+                !abilityObserved(c) || c.fixedSingleHitMove != true || c.moveCategory == null || c.fieldStatuses == null ->
                     unknownProof("flower_gift_operands_unknown", "src/battle_util.c:7044-7046, 7303-7305",
                         "Flower Gift requires authoritative ordinary move category, live current form, field word, weather and holder item.")
                 c.fieldStatuses and com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0 && c.side == HnsAbilitySide.DEFENDER ->
@@ -1297,7 +1298,7 @@ object HnsAbilityContextPolicy {
             125 -> when {
                 c.side == HnsAbilitySide.DEFENDER -> proof("sheer_force_defender_side", "src/battle_util.c:6675-6677",
                     "Sheer Force is read only in the attacker base-power ability slot.")
-                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != 125 -> null
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != 125 -> null
                 c.sheerForceAffected == null || c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.unknownSheerForceMoveIds ->
                     unknownProof("sheer_force_predicate_unknown", "src/battle_util.c:6675-6677, 9757-9773",
                         "The exact source-generated MoveIsAffectedBySheerForce result is unresolved.")
@@ -1309,8 +1310,8 @@ object HnsAbilityContextPolicy {
             181 -> when {
                 c.side == HnsAbilitySide.DEFENDER -> proof("tough_claws_defender_side", "src/battle_util.c:6694-6696",
                     "Tough Claws is read only in the attacker base-power ability slot.")
-                c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != 181 -> null
-                else -> when (HnsContactRules.assess(c.moveId, c.ordinaryMove, c.attackerAbilityId,
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != 181 -> null
+                else -> when (HnsContactRules.assess(c.moveId, c.fixedSingleHitMove, c.attackerAbilityId,
                     c.attackerAbilityObserved, c.attackerItemId, c.attackerHoldEffectResolution)) {
                     HnsContactAuthority.CONTACT -> relevant("tough_claws_contact", "src/battle_util.c:6694-6696, 5868-5885",
                         "The shared pinned contact authority returns CONTACT; Tough Claws applies ×1.3 base power.")
@@ -1323,10 +1324,10 @@ object HnsAbilityContextPolicy {
             218 -> when {
                 c.side == HnsAbilitySide.ATTACKER -> proof("fluffy_attacker_side", "src/battle_util.c:7604-7614",
                     "Fluffy is read only from the defender ability slot.")
-                c.ordinaryMove != true || !abilityObserved(c) || !c.attackerAbilityObserved || c.defenderAbilityId != 218 || effectiveMoveType(c) == null ->
+                c.fixedSingleHitMove != true || !abilityObserved(c) || !c.attackerAbilityObserved || c.defenderAbilityId != 218 || effectiveMoveType(c) == null ->
                     unknownProof("fluffy_operands_unknown", "src/battle_util.c:7604-7614",
                         "Fluffy requires the selected ordinary hit's final effective type and shared contact authority.")
-                else -> when (HnsContactRules.assess(c.moveId, c.ordinaryMove, c.attackerAbilityId,
+                else -> when (HnsContactRules.assess(c.moveId, c.fixedSingleHitMove, c.attackerAbilityId,
                     c.attackerAbilityObserved, c.attackerItemId, c.attackerHoldEffectResolution)) {
                     HnsContactAuthority.UNKNOWN -> unknownProof("fluffy_contact_unknown", "src/battle_util.c:5868-5885, 7604-7614",
                         "Pinned contact metadata or current effective Long Reach/Punching Glove operands are unknown.")
@@ -1338,12 +1339,16 @@ object HnsAbilityContextPolicy {
                     else proof("fluffy_nonfire_noncontact_neutral", "src/battle_util.c:7604-7614", "Non-Fire + non-contact is neutral under the pinned Fluffy matrix.")
                 }
             }
-            120 -> if (c.side == HnsAbilitySide.DEFENDER || c.ordinaryMove == true)
-                proof("reckless_ordinary_move_not_recoil", "src/battle_util.c:6667-6670",
-                    "The exact ordinary move surface contains only EFFECT_HIT; recoil effects remain refused by the independent move gate.") else null
+            120 -> when {
+                c.side == HnsAbilitySide.DEFENDER -> proof("reckless_defender_side", "src/battle_util.c:6667-6670", "Reckless is attacker-only.")
+                c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != 120 -> null
+                c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRecoilMoveIds -> relevant(
+                    "reckless_recoil_bp", "src/battle_util.c:6667-6670", "Pinned recoil effect applies the exact UQ4.12 1.2 BP modifier.")
+                else -> proof("reckless_ordinary_move_not_recoil", "src/battle_util.c:6667-6670", "Ordinary EFFECT_HIT has no Reckless modifier.")
+            }
             159 -> when {
                 c.side == HnsAbilitySide.DEFENDER -> proof("sand_force_defender_side", "src/battle_util.c:6679-6682", "Sand Force is read only in the attacker base-power slot.")
-                c.ordinaryMove != true || effectiveMoveType(c) == null -> null
+                c.fixedSingleHitMove != true || effectiveMoveType(c) == null -> null
                 !c.weatherObserved || c.weatherWord == null -> unknownProof("sand_force_weather_unknown", "src/battle_util.c:6679-6682", "The authoritative raw weather word is required.")
                 effectiveMoveType(c) !in setOf(PokemonType.STEEL, PokemonType.ROCK, PokemonType.GROUND) -> proof("sand_force_nonmatching_type", "src/battle_util.c:6679-6682", "The final move type is outside Steel/Rock/Ground, so Sand Force is inactive.")
                 (c.weatherWord and 0x20) == 0 -> proof("sand_force_without_sandstorm", "src/battle_util.c:6679-6682", "The observed raw weather has no B_WEATHER_SANDSTORM bit.")
@@ -1392,10 +1397,10 @@ object HnsAbilityContextPolicy {
     fun contextForRequest(
         request: DamageCalculationRequest,
         side: HnsAbilitySide,
-        ordinaryMove: Boolean?
+        fixedSingleHitMove: Boolean?
     ): Context {
         val live = request.hnsLiveBattleState
-        val authority = HnsMoveAuthority.forRequest(request, ordinaryMove)
+        val authority = HnsMoveAuthority.forRequest(request, fixedSingleHitMove)
         val pinnedMove = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)
         val moveId = pinnedMove?.id
         val rawAttackerTypes = live?.attackerTypes
@@ -1408,7 +1413,7 @@ object HnsAbilityContextPolicy {
         }
         return Context(
             side = side,
-            ordinaryMove = ordinaryMove,
+            fixedSingleHitMove = fixedSingleHitMove,
             isCrit = request.move.isCrit,
             attackerAbilityId = request.attacker.abilityId,
             moveType = authority.effectiveType,
@@ -1493,7 +1498,7 @@ object HnsAbilityContextPolicy {
             "src/battle_main.c:6428",
             "SetTypeBeforeUsingMove passes the selected attacker battler to GetDynamicMoveType; a defender copy does not rewrite the attacker's move."
         )
-        if (c.ordinaryMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId) return null
+        if (c.fixedSingleHitMove != true || !abilityObserved(c) || c.attackerAbilityId != abilityId) return null
         val authority = c.moveAuthority ?: return null
         return when (authority.abilityRewriteOutcome) {
             HnsAbilityTypeRewriteOutcome.APPLIED -> relevant(
@@ -1562,7 +1567,7 @@ object HnsAbilityContextPolicy {
             defenderRule, abilitySource,
             "$abilityName is checked only for the attacker and cannot modify the selected incoming hit."
         )
-        if (c.ordinaryMove != true || c.moveId == null) return null
+        if (c.fixedSingleHitMove != true || c.moveId == null) return null
         if (c.unknownMoveAbilityFlags?.contains(moveFlag) == true) return null
         val flags = c.moveAbilityFlags ?: return null
         return if (moveFlag in flags) relevant(
@@ -1575,7 +1580,7 @@ object HnsAbilityContextPolicy {
     }
 
     private fun punkRockProof(c: Context): Proof? {
-        if (c.ordinaryMove != true) return null
+        if (c.fixedSingleHitMove != true) return null
         val soundMove = if (c.moveAuthority != null) c.moveAuthority.soundMove else c.soundMove
         if (soundMove == null) return null
         val branchSource = if (c.side == HnsAbilitySide.ATTACKER) {
@@ -1607,7 +1612,7 @@ object HnsAbilityContextPolicy {
     private fun steelySpiritProof(c: Context): Proof? {
         // "steely_spirit_attacker_partner_deferred": partner identity/topology is not an operand in
         // this Singles request, so this rule remains documentation and a production-format gate.
-        if (c.ordinaryMove != true) return null
+        if (c.fixedSingleHitMove != true) return null
         if (c.side == HnsAbilitySide.DEFENDER) return proof(
             "steely_spirit_defender_singles_irrelevant", "src/battle_util.c:6738, src/battle_util.c:6775",
             "The holder-only branch modifies its own Steel attacks; the partner branch is deferred with unsupported Doubles topology and cannot affect this defender's incoming Singles hit."
@@ -1661,7 +1666,7 @@ object HnsAbilityContextPolicy {
 
     /** Levitate only changes the three attacker-side direct terrain checks on an ordinary hit. */
     private fun attackerLevitateTerrainProof(c: Context): Proof? {
-        if (c.side != HnsAbilitySide.ATTACKER || c.ordinaryMove != true) return null
+        if (c.side != HnsAbilitySide.ATTACKER || c.fixedSingleHitMove != true) return null
         val field = c.fieldStatuses ?: return null
         if (field and HnsFieldStatusData.KNOWN_MASK.inv() != 0) return null
         val type = effectiveMoveType(c) ?: return null

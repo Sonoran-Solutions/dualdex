@@ -62,8 +62,8 @@ object HnsItemContextPolicy {
 
     data class Context(
         val side: HnsItemSide,
-        /** Single-hit ordinary move with no move/item interaction; null when the move is unknown. */
-        val ordinaryMove: Boolean?,
+        /** Source-proven fixed single-hit move with no move/item interaction; null when the move is unknown. */
+        val fixedSingleHitMove: Boolean?,
         /** Authoritative effective move type ([HnsMoveAuthority.effectiveType]), or null. */
         val moveType: PokemonType?,
         /** Authoritative effective category ([HnsMoveAuthority.category]), or null. */
@@ -161,14 +161,14 @@ object HnsItemContextPolicy {
                 )
             }
             "turn_order" -> turnOrder(c)
-            "weight_only" -> if (c.ordinaryMove == true) proof(
+            "weight_only" -> if (c.fixedSingleHitMove == true) proof(
                 rule = "weight_item_ordinary_move",
                 source = "src/battle_util.c:6079",
                 rationale = "Float Stone is read only by GetBattlerWeight, which no ordinary move uses."
             ) else null
             "grounding" -> grounding(holdEffect, c)
             "weather_shield" -> when {
-                c.ordinaryMove != true || c.weatherWord == null -> null
+                c.fixedSingleHitMove != true || c.weatherWord == null -> null
                 (c.weatherWord and (WEATHER_RAIN_MASK or WEATHER_SUN_MASK)) == 0 -> proof(
                     rule = if (c.weatherWord == 0) "umbrella_clear_weather" else "umbrella_other_weather",
                     source = if (c.weatherWord == 0) "src/battle_util.c:7436" else "src/battle_util.c:9530",
@@ -187,7 +187,7 @@ object HnsItemContextPolicy {
             "form_or_ability_changer" -> when (holdEffect) {
                 "HOLD_EFFECT_ABILITY_SHIELD" -> abilityShield(c)
                 "HOLD_EFFECT_MEGA_STONE", "HOLD_EFFECT_Z_CRYSTAL" -> when {
-                    c.ordinaryMove != true -> null
+                    c.fixedSingleHitMove != true -> null
                     c.attackerSelectedGimmick == 0 && c.attackerActiveGimmick == 0 -> proof(
                         rule = "mega_z_no_selected_or_active_gimmick",
                         source = "src/battle_terastal.c:103",
@@ -297,17 +297,17 @@ object HnsItemContextPolicy {
     fun contextForRequest(
         request: DamageCalculationRequest,
         side: HnsItemSide,
-        ordinaryMove: Boolean?
+        fixedSingleHitMove: Boolean?
     ): Context {
         val live = request.hnsLiveBattleState
-        val authority = HnsMoveAuthority.forRequest(request, ordinaryMove)
+        val authority = HnsMoveAuthority.forRequest(request, fixedSingleHitMove)
         val moveId = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id
         val moveIgnoresTargetAbility = moveId?.let {
             "ignoresTargetAbility" in Hns205MoveEffects.immunityFlagsById[it].orEmpty()
         } == true
         return Context(
             side = side,
-            ordinaryMove = ordinaryMove,
+            fixedSingleHitMove = fixedSingleHitMove,
             moveType = authority.effectiveType,
             moveCategory = authority.category,
             fieldState = live?.fieldStatuses?.let(HnsFieldState::decode),
@@ -506,18 +506,18 @@ object HnsItemContextPolicy {
                     else -> signatureSpeciesQualification(holdEffect, c)
                 }
             }
-            "HOLD_EFFECT_LIFE_ORB" -> if (c.ordinaryMove == true) modelled(
+            "HOLD_EFFECT_LIFE_ORB" -> if (c.fixedSingleHitMove == true) modelled(
                 rule = "attacker_final_damage_item_modelled",
                 source = "src/battle_util.c:7673",
                 rationale = "Life Orb uses the source's exact UQ_4_12_FLOORED(1.3) value 5324 in GetOtherModifiers."
             ) else null
-            "HOLD_EFFECT_EXPERT_BELT" -> if (c.ordinaryMove == true) modelled(
+            "HOLD_EFFECT_EXPERT_BELT" -> if (c.fixedSingleHitMove == true) modelled(
                 rule = "attacker_final_damage_item_modelled",
                 source = "src/battle_util.c:7669",
                 rationale = "Expert Belt uses the H&S engine's exact type-effectiveness result and UQ_4_12(1.2) in GetOtherModifiers."
             ) else null
             "HOLD_EFFECT_METRONOME" -> when {
-                c.ordinaryMove != true -> null
+                c.fixedSingleHitMove != true -> null
                 c.attackerMetronomeItemCounter == null -> unknownRule(
                     rule = "metronome_counter_unobserved",
                     source = "src/battle_util.c:7662",
@@ -530,7 +530,7 @@ object HnsItemContextPolicy {
                 )
             }
             "HOLD_EFFECT_SCOPE_LENS", "HOLD_EFFECT_LUCKY_PUNCH", "HOLD_EFFECT_LEEK" ->
-                if (c.ordinaryMove == true) proof(
+                if (c.fixedSingleHitMove == true) proof(
                     rule = "fixed_crit_stage_item",
                     source = "src/battle_util.c:8047",
                     rationale = "The item changes critical-hit odds only; the selected hit's crit flag is fixed."
@@ -739,7 +739,7 @@ object HnsItemContextPolicy {
     }
 
     private fun abilityShield(c: Context): Proof? {
-        if (c.ordinaryMove != true || c.observedBattlersCount != 2) return null
+        if (c.fixedSingleHitMove != true || c.observedBattlersCount != 2) return null
         val attackerAbility = c.attackerAbilityId ?: return null
         val defenderAbility = c.defenderAbilityId ?: return null
         val attackerGastroAcid = c.attackerGastroAcid ?: return null
@@ -786,7 +786,7 @@ object HnsItemContextPolicy {
     }
 
     private fun turnOrder(c: Context): Proof? = when {
-        c.ordinaryMove != true || c.attackerAbilityId == null -> null
+        c.fixedSingleHitMove != true || c.attackerAbilityId == null -> null
         c.attackerAbilityId == ANALYTIC_ABILITY_ID -> relevant(
             rule = "turn_order_item_attacker_analytic",
             source = "src/battle_util.c:6691",
@@ -815,7 +815,7 @@ object HnsItemContextPolicy {
         // Groundedness reaches an ordinary hit through the Ground-move branches and the terrain
         // checks (IsBattlerTerrainAffected returns FALSE without a terrain bit, src/battle_util.c:5142).
         val noTerrain = c.fieldState?.let { it.fullyDecoded && !it.terrainActive } == true
-        if (c.ordinaryMove != true) return null
+        if (c.fixedSingleHitMove != true) return null
         if (c.fieldState?.let { it.fullyDecoded && it.terrainActive } == true) {
             val applicability = when (c.side) {
                 HnsItemSide.ATTACKER -> c.attackerTerrainApplicability

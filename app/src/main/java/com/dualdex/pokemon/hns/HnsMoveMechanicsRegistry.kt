@@ -16,6 +16,9 @@ enum class HnsMoveMechanicsCategory {
      */
     ORDINARY_PROVEN_EQUIVALENT,
 
+    /** Fixed single-hit recoil, with a separately modelled Reckless BP slot. */
+    FIXED_SINGLE_HIT_RECOIL,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -42,6 +45,9 @@ enum class HnsMoveMechanicsCategory {
     UNCLASSIFIED;
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
+    val isSupportedFixedSingleHit: Boolean
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL
+
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
 }
@@ -65,7 +71,7 @@ data class HnsMoveMechanicsEntry(
      * is excluded because the C3 item audit already refuses it.
      */
     val requiresBlock: Boolean
-        get() = !category.isSupportedForOrdinaryDamage &&
+        get() = !category.isSupportedFixedSingleHit &&
             category != HnsMoveMechanicsCategory.ITEM_DEPENDENT_HANDLED_ELSEWHERE
 }
 
@@ -77,8 +83,8 @@ data class HnsMoveMechanicsEntry(
  * The ordinary set is generated from the pinned source by
  * `tools/hns-move-mechanics/generate_hns_move_effects.py`; it is derived from the exact
  * `src/data/moves_info.h`, never from a hand-maintained list of move names. The registry is
- * deliberately a strict allow-list: any move not in [Hns205MoveEffects.ordinaryMoveIds] is
- * refused, including item-dependent moves already refused by the C3 audit.
+ * deliberately a strict allow-list: ordinary moves and the separate generated fixed-single-hit
+ * recoil family are admitted. Item-dependent and other move shapes remain independently refused.
  */
 object HnsMoveMechanicsRegistry {
 
@@ -164,6 +170,12 @@ object HnsMoveMechanicsRegistry {
                 rationale = "EFFECT_HIT with no multi-hit, explosion, always-crit or " +
                     "unmodelled state-dependent damage flag in the pinned source."
             )
+        }
+
+        if (moveId in Hns205MoveEffects.fixedSingleHitRecoilMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_RECOIL",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_RECOIL,
+                "Pinned fixed single hit; recoil follows damage, Reckless uses its exact BP slot.")
         }
 
         val effect = Hns205MoveEffects.effectById[moveId]

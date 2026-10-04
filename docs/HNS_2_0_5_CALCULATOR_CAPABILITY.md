@@ -1,5 +1,17 @@
 # H&S 2.0.5 calculator capability matrix (issue #9)
 
+## Current move coverage addition — #122
+
+The separately classified fixed single-hit recoil family is admitted in authoritative
+Singles contexts: Take Down, Double-Edge, Submission, Volt Tackle, Flare Blitz, Brave Bird,
+Wood Hammer, Head Smash, Wild Charge, Head Charge, Light of Ruin and Wave Crash.
+Reckless uses the exact pinned attacker base-power ×1.2 slot. The ordinary move set is
+unchanged. Doubles recoil, active resist-berry admission on recoil, pre-hit Flare Blitz
+Freeze/Frostbite clearing and independent unknown/unsupported contexts remain refused.
+The selected-hit output and H&S `ESTIMATED` trust ceiling are unchanged.
+See [the dedicated source, authority and coverage evidence](HNS_MOVE_COVERAGE_SLICE_1.md).
+
+
 ## Group D damage-modifier stages — #91 slice
 
 The H&S path in `tools/calc-bundler/entry.js` now has named pipeline boundaries for the

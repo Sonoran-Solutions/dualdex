@@ -315,5 +315,39 @@ class CommittedArtifactTest(unittest.TestCase):
             self.assertNotIn(move_id, self.effects)
 
 
+class FixedSingleHitRecoilTest(unittest.TestCase):
+    def test_recoil_is_separate_and_fail_closed(self):
+        entry = """[MOVE_TAKE_DOWN] =
+        {
+            .effect = EFFECT_RECOIL,
+            .power = 90,
+            .type = TYPE_NORMAL,
+            .category = DAMAGE_CATEGORY_PHYSICAL,
+            .target = TARGET_SELECTED,
+        },"""
+        self.assertEqual({"MOVE_TAKE_DOWN"}, gen.parse_recoil_symbols(_table(entry)))
+        self.assertNotIn("MOVE_TAKE_DOWN", gen.parse_move_table(_table(entry))[2])
+        for field in (*gen.STATE_DEPENDENT_FLAGS, "multiHit", "explosion", "ignoresTargetAbility", "gravityBanned", "healingMove"):
+            mutated = entry.replace(".power = 90,", f".power = 90,\n            .{field} = TRUE,")
+            self.assertEqual(set(), gen.parse_recoil_symbols(_table(mutated)), field)
+        for mutation in (entry.replace(".power = 90,", ""),
+                         entry.replace(".type = TYPE_NORMAL,", ""),
+                         entry.replace(".power = 90,", ".power = 90,\n            .priority = 1,"),
+                         entry.replace(".power = 90,", ".power = 90,\n            .priority = UNRESOLVED,"),
+                         entry.replace("EFFECT_RECOIL", "EFFECT_RECOIL_IF_MISS"),
+                         entry.replace("EFFECT_RECOIL", "SOME_UNRESOLVED_EFFECT"),
+                         entry.replace("TARGET_SELECTED", "TARGET_BOTH"),
+                         entry.replace(".power = 90,", ".strikeCount = 2,"),
+                         entry.replace(".power = 90,", ".strikeCount = UNKNOWN,")):
+            self.assertEqual(set(), gen.parse_recoil_symbols(_table(mutation)))
+
+    def test_exact_committed_family(self):
+        path = os.path.join(gen.DEFAULT_REPO_ROOT, "app/src/main/java/com/dualdex/pokemon/hns/Hns205MoveEffects.kt")
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+        body = re.search(r"val fixedSingleHitRecoilMoveIds: Set<Int> = setOf\((.*?)\)", text, re.S).group(1)
+        self.assertEqual({36,38,66,344,394,413,452,457,528,543,617,762}, set(map(int,re.findall(r"\d+",body))))
+
+
 if __name__ == "__main__":
     unittest.main()

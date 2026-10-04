@@ -2242,6 +2242,7 @@ internal object Hns205MoveEffects {
         put(341, true)
         put(342, true)
         put(343, false)
+        put(344, true)
         put(345, false)
         put(346, false)
         put(347, false)
@@ -2842,7 +2843,6 @@ internal object Hns205MoveEffects {
         165,
         229,
         242,
-        344,
         448,
         676,
     )
@@ -3281,6 +3281,25 @@ internal object Hns205MoveEffects {
         880,
         882,
     )
+
+    /** Fixed single-hit EFFECT_RECOIL; separate from the ordinary safety boundary. */
+    val fixedSingleHitRecoilMoveIds: Set<Int> = setOf(
+        36,
+        38,
+        66,
+        344,
+        394,
+        413,
+        452,
+        457,
+        528,
+        543,
+        617,
+        762,
+    )
+
+    /** Recoil moves which clear Freeze/Frostbite before the selected hit. */
+    val recoilThawsUserMoveIds: Set<Int> = setOf(394)
 
     /** Exact pinned MoveInfo flags used by Group C immunity and suppression rules. */
     val immunityFlagsById: Map<Int, Set<String>> = buildMap {

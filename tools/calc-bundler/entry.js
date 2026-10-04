@@ -341,7 +341,8 @@ const HNS_BREAKABLE_DEFENDER_ABILITIES = new Set([
 // Shell Side Arm is EFFECT_SHELL_SIDE_ARM and remains outside the ordinary request gate.
 function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
-  if (!Number.isInteger(id) || input.move?.hnsIsOrdinary !== true || input.move?.hnsMoveEffect !== 'EFFECT_HIT' ||
+  if (!Number.isInteger(id) || !(input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
+      input.move?.hnsFixedSingleHit === true && input.move?.hnsMoveEffect === 'EFFECT_RECOIL') ||
       input.move?.hnsUnknownContact === true || typeof input.move?.hnsMakesContact !== 'boolean') return null;
   if (!input.move.hnsMakesContact) return false;
   const flags = new Set(input.move?.hnsMoveAbilityFlags || []);
@@ -832,7 +833,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   }
   if (effectiveMoveType === 'Electric' && chargeTimer > 0) basePowerModifier.addHalfUp(8192);
   // `move.bp` is the authoritative H&S move power supplied by the boundary. The ordinary
-  // allow-list proves `GetMoveEffect(move) == EFFECT_HIT`, so `CalcMoveBasePower` leaves it
+  // fixed single-hit surfaces are EFFECT_HIT and EFFECT_RECOIL; CalcMoveBasePower leaves it
   // unchanged before Technician's `basePower <= 60` check. Matching move flags are generated
   // from the pinned MoveInfo table and rebound by move ID; caller move data cannot set them.
   const abilityMoveFlags = new Set(input.move?.hnsMoveAbilityFlags || []);
@@ -884,6 +885,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       }
       break;
     }
+    case 'Reckless':
+      if (input.move?.hnsMoveEffect === 'EFFECT_RECOIL') basePowerModifier.add(4915);
+      break;
     case 'Technician':
       if (move.bp <= 60) basePowerModifier.add(6144);
       break;

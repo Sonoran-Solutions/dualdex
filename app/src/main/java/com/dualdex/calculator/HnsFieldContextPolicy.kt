@@ -47,8 +47,8 @@ data class HnsFieldRequestDecision(
 object HnsFieldContextPolicy {
 
     data class Context(
-        /** Single-hit ordinary move with no move/item interaction; null when the move is unknown. */
-        val ordinaryMove: Boolean?,
+        /** Source-proven fixed single-hit move with no move/item interaction; null when the move is unknown. */
+        val fixedSingleHitMove: Boolean?,
         /** Pinned move ID, or null when the move is unknown. */
         val moveId: Int?,
         /** Authoritative type before the field/volatile rewrite ([HnsMoveAuthority.preFieldType]). */
@@ -87,12 +87,12 @@ object HnsFieldContextPolicy {
     /** Builds the field context from a request whose live state was rebound by CalcRequestBoundary. */
     fun contextForRequest(
         request: DamageCalculationRequest,
-        ordinaryMove: Boolean?,
+        fixedSingleHitMove: Boolean?,
         moveId: Int?
     ): Context {
-        val authority = HnsMoveAuthority.forRequest(request, ordinaryMove)
+        val authority = HnsMoveAuthority.forRequest(request, fixedSingleHitMove)
         return Context(
-            ordinaryMove = ordinaryMove,
+            fixedSingleHitMove = fixedSingleHitMove,
             moveId = moveId,
             preFieldMoveType = authority.preFieldType,
             effectiveMoveType = authority.effectiveType,
@@ -122,7 +122,7 @@ object HnsFieldContextPolicy {
                 rationale = "Wonder Room swaps the Defense / Sp. Def used by this hit and flips every usesDefStat " +
                     "check; the swap is not modelled."
             )
-            else -> if (c == null || c.ordinaryMove != true) null else ordinary(status, c)
+            else -> if (c == null || c.fixedSingleHitMove != true) null else ordinary(status, c)
         }
         return when (proof) {
             null -> HnsFieldRequestDecision(

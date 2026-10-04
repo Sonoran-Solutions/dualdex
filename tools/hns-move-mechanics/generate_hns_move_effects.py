@@ -290,6 +290,31 @@ def classify_body(body, *, include_immunity_metadata=False):
     return legacy
 
 
+def parse_recoil_symbols(text):
+    """Separate fixed single-hit recoil surface; never add these moves to ordinary.
+
+    Reject unresolved execution/damage flags, target changes and multiple strikes even
+    when their effect is still RECOIL. Power/type/category remain pack-owned operands.
+    """
+    result = set()
+    for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines())):
+        effect, _, target, _, _, priority = classify_body(body, include_immunity_metadata=True)
+        if effect != "EFFECT_RECOIL" or target != "TARGET_SELECTED" or priority != 0:
+            continue
+        joined = "\n".join(body)
+        if any(not re.search(rf"\.{field}\s*=\s*[^,\n]+", joined)
+               for field in ("power", "type", "category")):
+            continue
+        forbidden = (*STATE_DEPENDENT_FLAGS, "multiHit", "explosion", "ignoresTargetAbility", "gravityBanned", "healingMove")
+        if any(re.search(rf"\.{flag}\s*=", joined) for flag in forbidden):
+            continue
+        strikes = re.findall(r"\.strikeCount\s*=\s*([^,\n]+)", joined)
+        if strikes and strikes != ["1"]:
+            continue
+        result.add(symbol)
+    return result
+
+
 def parse_move_table(text):
     """Return source-derived effect/target/ordinary/flag/priority maps by move symbol."""
     lines = text.splitlines()
@@ -384,7 +409,7 @@ def parse_ability_move_flags(text):
     return flags_by_symbol, unknown_by_symbol
 
 
-def parse_contact_and_sheer_force(text):
+def parse_contact_and_sheer_force(text, *, updated_move_data_latest=False):
     """Extract the exact MoveMakesContact and MoveIsAffectedBySheerForce operands.
 
     MoveInfo bitfields default to zero when omitted. Sheer Force iterates every literal
@@ -425,6 +450,12 @@ def parse_contact_and_sheer_force(text):
             len(re.findall(r"^\s*#if\b", text_body[:initializer.start()], re.M)) -
             len(re.findall(r"^\s*#endif\b", text_body[:initializer.start()], re.M))
         )
+        # Volt Tackle's additional effect is guarded only by this exact reviewed config.
+        # Resolve it only after build_maps verifies GEN_LATEST; default parsing stays fail-closed.
+        if updated_move_data_latest and symbol == "MOVE_VOLT_TACKLE" and active_condition == 1:
+            prefix = text_body[:initializer.start()]
+            if re.findall(r"^\s*#if\s+(.+)$", prefix, re.M)[-1] == "B_UPDATED_MOVE_DATA >= GEN_4":
+                active_condition = 0
         match = re.search(r"\.additionalEffects\s*=\s*ADDITIONAL_EFFECTS\s*\((.*?)\)\s*,", text_body, re.S)
         if not match:
             if re.search(r"\.additionalEffects\s*=", text_body):
@@ -491,7 +522,11 @@ def build_maps(upstream_dir):
                     if effect == "EFFECT_FUTURE_SIGHT"}
     if "MOVE_FUTURE_SIGHT" not in future_sight or future_sight & ordinary_symbols:
         raise ValueError("Analytic contract changed: Future Sight entered the ordinary surface")
-    contact_by_symbol, unknown_contact_by_symbol, sheer_by_symbol, unknown_sheer_by_symbol = parse_contact_and_sheer_force(move_table_text)
+    config = open(os.path.join(upstream_dir, "include/config/battle.h"), encoding="utf-8").read()
+    if not re.search(r"#define B_UPDATED_MOVE_DATA\s+GEN_LATEST", config):
+        raise ValueError("Fixed recoil metadata requires reviewed GEN_LATEST move data")
+    contact_by_symbol, unknown_contact_by_symbol, sheer_by_symbol, unknown_sheer_by_symbol = parse_contact_and_sheer_force(
+        move_table_text, updated_move_data_latest=True)
 
     effect_by_id = {}
     target_by_id = {}
@@ -559,7 +594,7 @@ def build_maps(upstream_dir):
 def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_flags_by_id,
                     priority_by_id, unknown_priority_ids, ability_flags_by_id,
                     unknown_ability_flags_by_id, contact_by_id, unknown_contact_by_id,
-                    sheer_by_id, unknown_sheer_by_id):
+                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=()):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
     # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
     # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
@@ -668,6 +703,15 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
         lines.append(f"        {move_id},")
     lines.append("    )")
     lines.append("")
+    lines.append("    /** Fixed single-hit EFFECT_RECOIL; separate from the ordinary safety boundary. */")
+    lines.append("    val fixedSingleHitRecoilMoveIds: Set<Int> = setOf(")
+    for move_id in sorted(recoil_ids):
+        lines.append(f"        {move_id},")
+    lines.append("    )")
+    lines.append("")
+    lines.append("    /** Recoil moves which clear Freeze/Frostbite before the selected hit. */")
+    lines.append("    val recoilThawsUserMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(recoil_thaws))) + ")")
+    lines.append("")
     lines.append("    /** Exact pinned MoveInfo flags used by Group C immunity and suppression rules. */")
     lines.append("    val immunityFlagsById: Map<Int, Set<String>> = buildMap {")
     for move_id, flags in sorted(flags_by_id.items()):
@@ -722,7 +766,7 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
 
 
 def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_ability_flags_by_id,
-                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id):
+                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None):
     """Render a compact source-derived move metadata map for the ROM-free oracle harness."""
     result = {}
     for move_id, effect in sorted(effect_by_id.items()):
@@ -735,6 +779,11 @@ def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_
                 else "punchingMove" in ability_flags_by_id.get(move_id, set()),
             "sheerForceAffected": None if move_id in unknown_sheer_by_id else sheer_by_id.get(move_id),
         }
+    for move_id, shape in (damage_shapes or {}).items():
+        if shape:
+            result[str(move_id)]["damageFlags"] = shape
+    for move_id, percentage in (recoil_percentages or {}).items():
+        result[str(move_id)]["recoilPercentage"] = percentage
     return json.dumps({"pinnedCommit": PINNED_COMMIT, "moves": result}, indent=2) + "\n"
 
 
@@ -752,15 +801,47 @@ def main():
      priority_by_id, unknown_priority_ids, ability_flags_by_id,
      unknown_ability_flags_by_id, contact_by_id, unknown_contact_by_id,
      sheer_by_id, unknown_sheer_by_id) = build_maps(upstream_dir)
+    move_text = open(os.path.join(upstream_dir, "src/data/moves_info.h"), encoding="utf-8").read()
+    ids = parse_move_enum(open(os.path.join(upstream_dir, "include/constants/moves.h"), encoding="utf-8").read())
+    recoil_ids = {ids[symbol] for symbol in parse_recoil_symbols(move_text)}
+    damage_shapes = {}
+    recoil_percentages = {}
+    recoil_thaws = set()
+    for symbol, body in _entry_body(move_text.splitlines(), 0, len(move_text.splitlines())):
+        damage_shapes[ids.get(symbol)] = {
+            flag: re.findall(rf"\.{flag}\s*=\s*([^,\n]+)", "\n".join(body))
+            for flag in (*STATE_DEPENDENT_FLAGS, "multiHit", "strikeCount", "explosion", "thawsUser")
+            if re.search(rf"\.{flag}\s*=", "\n".join(body))
+        }
+        if ids.get(symbol) not in recoil_ids:
+            continue
+        thaw = re.search(r"\.thawsUser\s*=\s*([^,\n]+)", "\n".join(body))
+        if thaw:
+            if thaw.group(1) not in ("TRUE", "FALSE"):
+                raise ValueError("Unresolved recoil thaw flag")
+            if thaw.group(1) == "TRUE":
+                recoil_thaws.add(ids[symbol])
+        value = re.search(r"\.recoilPercentage = ([^}]+)", "\n".join(body)).group(1).strip()
+        if value == "B_UPDATED_MOVE_DATA >= GEN_3 ? 33 : 25":
+            config = open(os.path.join(upstream_dir, "include/config/battle.h"), encoding="utf-8").read()
+            if not re.search(r"#define B_UPDATED_MOVE_DATA\s+GEN_LATEST", config):
+                raise ValueError("Recoil percentage requires reviewed updated move data config")
+            value = "33"
+        if value not in ("25", "33", "50"):
+            raise ValueError("Unresolved recoil percentage: " + value)
+        recoil_percentages[ids[symbol]] = int(value)
+    effects = open(os.path.join(upstream_dir, "src/data/battle_move_effects.h"), encoding="utf-8").read()
+    if not re.search(r"\[EFFECT_RECOIL\]\s*=\s*\{\s*\.battleScript = BattleScript_EffectHit,", effects):
+        raise ValueError("Recoil no longer uses the selected-hit script; review source contract")
     verify_helper_contract(upstream_dir, ordinary)
     generated = generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id,
                                 unknown_flags_by_id, priority_by_id, unknown_priority_ids,
                                 ability_flags_by_id, unknown_ability_flags_by_id,
                                 contact_by_id, unknown_contact_by_id,
-                                sheer_by_id, unknown_sheer_by_id)
+                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws)
     generated_json = generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id,
                                             unknown_ability_flags_by_id, contact_by_id,
-                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id)
+                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes)
 
     if args.verify:
         if not os.path.isfile(args.output):

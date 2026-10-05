@@ -171,3 +171,13 @@ Boundary tests cover both observations, pending/unread/disagreeing phases,
 unobserved true flags, prior authorized caller state, neutral selected abilities
 and both partners' Intimidate/Drizzle/Trace writers. Native tests cover each
 partner switch-in flag and the pre-event-reset replacement callback window.
+
+## Surf/Whirlpool boundary (#130)
+
+The distinct FIXED_SINGLE_HIT_UNDERWATER family does not enter ordinary-only
+Doubles admission. Both Surf and Whirlpool remain hard-refused in Doubles.
+Surf's pinned TARGET_FOES_AND_ALLY is supported only with two observed Singles
+participants: one opposing target and no ally, so GetTargetDamageModifier never
+enters its IsDoubleBattle target-count branch. Whirlpool's selected opposing
+recipient uses the same trusted slot binding. No ally total, spread simulation,
+partner underwater state or redirecting extension is introduced.

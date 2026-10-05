@@ -13,9 +13,9 @@ enum class HnsTerrainApplicability { AFFECTED, NOT_AFFECTED, UNKNOWN }
  *
  * The live field word decides whether a terrain exists. Caller terrain strings and setter abilities
  * never enter this class. Positive grounding volatiles remain unknown because the existing
- * capability policy intentionally blocks them. Semi-invulnerability also fails closed: the
- * ordinary-move allow-list does not prove that the defending battler cannot be in a semi-invulnerable
- * state left by another turn.
+ * capability policy intentionally blocks them. Observed underwater state proves terrain
+ * inapplicability independently of grounding; other positive semi-states retain the existing
+ * conservative result. Move execution authority is a separate policy.
  */
 object HnsTerrainAuthority {
     fun resolve(
@@ -42,6 +42,9 @@ object HnsTerrainAuthority {
             live.volatileMagnetRise || live.volatileGastroAcid || live.volatileRoostActive) {
             return HnsTerrainApplicability.UNKNOWN
         }
+        // IsBattlerTerrainAffected checks semi-state before grounding. This is not execution authority.
+        if (live.volatileSemiInvulnerable == com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_UNDERWATER)
+            return HnsTerrainApplicability.NOT_AFFECTED
         if (live.volatileSemiInvulnerable != 0) return HnsTerrainApplicability.UNKNOWN
         if (live.abilityId == HnsFieldStatusData.ABILITY_LEVITATE &&
             (opposingAbilityId == null || opposingAbilityId == HnsFieldStatusData.ABILITY_NEUTRALIZING_GAS)) {

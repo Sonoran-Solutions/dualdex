@@ -703,7 +703,7 @@ class SetupPlannerTest(unittest.TestCase):
         self.assertEqual(text.count('_BATTLE_TEST("DDXO '), len(SCENARIOS) + len(backend.EXECUTION_NAMES))
         self.assertEqual(text.count("PARAMETRIZE { }"), 16 * len(SCENARIOS))
         self.assertEqual(text.count("WITH_RNG(RNG_DAMAGE_MODIFIER, i)"), len(SCENARIOS))
-        self.assertEqual(text.count("secondaryEffect: FALSE"), len(SCENARIOS))
+        self.assertEqual(sum(source.count("secondaryEffect: FALSE") for name,source in files.items() if not name.endswith("/execution.c")), len(SCENARIOS))
         self.assertNotIn("RNGSeed", text)
 
 
@@ -1019,6 +1019,35 @@ class EarthquakeHitStateTest(unittest.TestCase):
             del bad["defenderSemiInvulnerableState"]
             with self.assertRaises(schema.SchemaError):
                 schema.validate_observed(bad,entry["scenario"],sid)
+
+
+class UnderwaterHitStateTest(unittest.TestCase):
+    def test_real_dive_hit_state_cannot_be_defaulted_or_forged(self):
+        corpus = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
+        entries = {e["scenario"]["id"]:e for e in corpus["entries"]}
+        for sid in ("underwater-surf-player", "underwater-surf-dive-player", "underwater-whirlpool-dive-player"):
+            entry = entries[sid]
+            expected = 2 if (entry["scenario"]["stateSetup"] or {}).get("underwater") else 0
+            self.assertEqual(expected,entry["observed"]["defenderSemiInvulnerableState"])
+            for raw in (None, -1, 7, 1):
+                bad=copy.deepcopy(entry["observed"])
+                bad["defenderSemiInvulnerableState"]=raw
+                with self.assertRaises(schema.SchemaError):
+                    schema.validate_observed(bad,entry["scenario"],sid)
+            source=backend.render_scenario(entry["scenario"])
+            self.assertNotIn(".volatiles.semiInvulnerable =",source)
+            if expected: self.assertIn("MOVE(opponent, MOVE_DIVE)",source)
+            if "whirlpool" in sid:
+                self.assertIn("captureDamage: &results[i].damage",source)
+                self.assertIn("captureDamage: &results[i].residual",source)
+
+    def test_unexpected_wrap_observation_is_rejected(self):
+        scenario=a_scenario()
+        sid=scenario["id"]
+        records=backend.parse_runner_output(runner_output(sid),[sid])
+        records[sid][0]["W"]=["7500","1","3","250"]
+        with self.assertRaisesRegex(backend.OracleError,"unexpected wrap observation"):
+            backend.assemble_entry(scenario,records[sid])
 
 
 if __name__ == "__main__":

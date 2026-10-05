@@ -3307,6 +3307,9 @@ internal object Hns205MoveEffects {
     /** Singles explosion: Damp gate, HP=0 at damage, modern Defense, Parental Bond banned. */
     val fixedSingleHitExplosionMoveIds: Set<Int> = setOf(120, 153)
     val explosionPowerById: Map<Int, Int> = mapOf(120 to 200, 153 to 250)
+    /** Frozen Singles Surf/Whirlpool; neutral or underwater selected hit only. */
+    val fixedSingleHitUnderwaterMoveIds: Set<Int> = setOf(57, 250)
+    val underwaterPowerById: Map<Int, Int> = mapOf(57 to 90, 250 to 35)
     val dampBannedMoveIds: Set<Int> = setOf(120, 153, 673, 730)
     val unknownDampBanMoveIds: Set<Int> = setOf()
     /** Recoil moves which clear Freeze/Frostbite before the selected hit. */
@@ -4470,6 +4473,7 @@ internal object Hns205MoveEffects {
         put(54, SpreadTargetClass.TARGET_USER) // pinned enum value 7
         put(55, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
         put(56, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
+        put(57, SpreadTargetClass.TARGET_FOES_AND_ALLY) // pinned enum value 11
         put(58, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
         put(59, SpreadTargetClass.TARGET_BOTH) // pinned enum value 6
         put(60, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1

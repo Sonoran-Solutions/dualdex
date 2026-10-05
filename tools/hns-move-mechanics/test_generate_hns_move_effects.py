@@ -416,6 +416,36 @@ class ExplosionContractTest(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertEqual({},gen.parse_explosion_metadata(self.BODY.replace(".priority",f".{field} = TRUE,\n.priority"),True,True))
 
+
+UNDERWATER = 'const struct MoveInfo gMovesInfo[MOVES_COUNT_ALL] =\n{\n    [MOVE_SURF] =\n    {\n        .name = COMPOUND_STRING("SURF"),\n        .description = COMPOUND_STRING(\n            "Creates a huge wave, then\\n"\n        #if B_UPDATED_MOVE_DATA >= GEN_4\n            "crashes it down on the field."),\n        #else\n            "crashes it down on the foes."),\n        #endif\n        .effect = EFFECT_HIT,\n        .power = B_UPDATED_MOVE_DATA >= GEN_6 ? 90 : 95,\n        .type = TYPE_WATER,\n        .accuracy = 100,\n        .pp = 15,\n        .target = B_UPDATED_MOVE_DATA >= GEN_4 ? TARGET_FOES_AND_ALLY : TARGET_BOTH,\n        .priority = 0,\n        .category = DAMAGE_CATEGORY_SPECIAL,\n        .damagesUnderwater = TRUE,\n        .skyBattleBanned = TRUE,\n        .contestEffect = C_UPDATED_MOVE_EFFECTS >= GEN_6 ? CONTEST_EFFECT_STARTLE_PREV_MONS : CONTEST_EFFECT_AFFECTED_BY_PREV_APPEAL,\n        .contestCategory = CONTEST_CATEGORY_BEAUTY,\n        .contestComboStarterId = COMBO_STARTER_SURF,\n        .contestComboMoves = {COMBO_STARTER_DIVE, COMBO_STARTER_RAIN_DANCE},\n        .battleAnimScript = gBattleAnimMove_Surf,\n        .validApprenticeMove = TRUE,\n    },\n    [MOVE_WHIRLPOOL] =\n    {\n        .name = COMPOUND_STRING("WHIRLPOOL"),\n        .description = COMPOUND_STRING(\n            "Traps and hurts the foe in\\n"\n            "a whirlpool for "BINDING_TURNS" turns."),\n        .effect = EFFECT_HIT,\n        .power = B_UPDATED_MOVE_DATA >= GEN_5 ? 35 : 15,\n        .type = TYPE_WATER,\n        .accuracy = B_UPDATED_MOVE_DATA >= GEN_5 ? 85 : 70,\n        .pp = 15,\n        .target = TARGET_SELECTED,\n        .priority = 0,\n        .category = DAMAGE_CATEGORY_SPECIAL,\n        .ignoresKingsRock = B_UPDATED_MOVE_FLAGS < GEN_3,\n        .damagesUnderwater = TRUE,\n        .additionalEffects = ADDITIONAL_EFFECTS({\n            .moveEffect = MOVE_EFFECT_WRAP,\n            .multistring.wrapped = B_MSG_WRAPPED_WHIRLPOOL,\n        }),\n        .contestEffect = CONTEST_EFFECT_DONT_EXCITE_AUDIENCE,\n        .contestCategory = CONTEST_CATEGORY_BEAUTY,\n        .contestComboStarterId = 0,\n        .contestComboMoves = {COMBO_STARTER_RAIN_DANCE},\n        .battleAnimScript = gBattleAnimMove_Whirlpool,\n        .validApprenticeMove = TRUE,\n    },\n};\n'
+class UnderwaterContractTest(unittest.TestCase):
+    def test_wrap_helper_mutation(self):
+        import hashlib
+        source = "SetWrapTurns(int battler) { wrapTurns = 7; }"
+        digest = hashlib.sha256(source.encode()).hexdigest()
+        gen.verify_underwater_helper(source, "SetWrapTurns", digest)
+        with self.assertRaises(ValueError):
+            gen.verify_underwater_helper(source.replace("7", "5"), "SetWrapTurns", digest)
+
+    def test_frozen_family_and_mutations(self):
+        expected = {"MOVE_SURF":90, "MOVE_WHIRLPOOL":35}
+        self.assertEqual(expected,gen.parse_underwater_metadata(UNDERWATER,True,True))
+        self.assertEqual({},gen.parse_underwater_metadata(UNDERWATER,False,True))
+        self.assertEqual({},gen.parse_underwater_metadata(UNDERWATER,True,False))
+        for old,new in (("EFFECT_HIT","EFFECT_BRINE"),("TYPE_WATER","TYPE_FIRE"),
+            ("DAMAGE_CATEGORY_SPECIAL","DAMAGE_CATEGORY_PHYSICAL"),("? 90 : 95","? 91 : 95"),
+            ("? 35 : 15","? 36 : 15"),(".priority = 0",".priority = 1"),
+            ("TARGET_SELECTED","TARGET_BOTH"),("TARGET_FOES_AND_ALLY","TARGET_SELECTED"),
+            (".damagesUnderwater = TRUE,",""),(".skyBattleBanned = TRUE,",""),
+            ("MOVE_EFFECT_WRAP","MOVE_EFFECT_BURN"),("B_UPDATED_MOVE_DATA >= GEN_6","UNREVIEWED")):
+            with self.subTest(old=old):
+                self.assertNotEqual(expected,gen.parse_underwater_metadata(UNDERWATER.replace(old,new),True,True))
+        for added in ("multiHit = TRUE", "strikeCount = 2", "damagesUnderground = TRUE", "makesContact = TRUE",
+                      "punchingMove = TRUE", "unknownFlag = TRUE", "preHit = TRUE", "preAttackEffect = TRUE", "chance = 100", "sheerForceOverride = TRUE"):
+            with self.subTest(added=added):
+                self.assertNotEqual(expected,gen.parse_underwater_metadata(UNDERWATER.replace(".effect =", "."+added+",\n        .effect ="),True,True))
+                self.assertNotEqual(expected,gen.parse_underwater_metadata(UNDERWATER.replace(".moveEffect =", "."+added+",\n            .moveEffect ="),True,True))
+
 if __name__ == "__main__":
     unittest.main()
 

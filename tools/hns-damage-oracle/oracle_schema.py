@@ -99,7 +99,7 @@ DOUBLES_KEYS = ("defenderPartner",)
 STATE_SETUP_KEYS = (
     "attackerSpeciesForm", "defenderSpeciesForm", "attackerTransformedMonSpecies",
     "defenderTransformedMonSpecies", "attacker", "defender", "attackerStatStages",
-    "defenderStatStages", "gastroAcidBeforeHit", "doubles", "capture", "underground", "wonderRoom", "magicRoom", "laterAction",
+    "defenderStatStages", "gastroAcidBeforeHit", "doubles", "capture", "underground", "underwater", "wonderRoom", "magicRoom", "laterAction",
 )
 RUNTIME_DOMAINS = {
     "personality": (0, 0xffffffff), "gender": (0, 255), "slowStartTimer": (0, 7),
@@ -293,6 +293,10 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
             if role == "underground":
                 _require_bool(value, loc)
                 if s["move"]["symbol"] != "MOVE_EARTHQUAKE": _fail(loc, "only Earthquake damage is admitted underground")
+            elif role == "underwater":
+                _require_bool(value, loc)
+                if s["move"]["symbol"] not in ("MOVE_SURF", "MOVE_WHIRLPOOL"):
+                    _fail(loc, "only frozen Surf/Whirlpool damage is admitted underwater")
             elif role == "gastroAcidBeforeHit":
                 _require_enum(value, ("attacker", "defender"), loc)
                 if s["stateSetup"].get(value, {}).get("gastroAcid") != 1:
@@ -312,7 +316,7 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
                         7 if key == "helpingHand" else 15 if key.endswith("RuinFlags") else 1)
             elif role.endswith("SpeciesForm") or role.endswith("TransformedMonSpecies"):
                 _require_symbol(value, "species", loc)
-            elif role in ("capture", "underground", "wonderRoom", "magicRoom"):
+            elif role in ("capture", "underground", "underwater", "wonderRoom", "magicRoom"):
                 _require_bool(value, loc)
             elif role == "laterAction":
                 _require_int(value, loc, 0, 14)
@@ -392,7 +396,7 @@ def _validate_observed_battler(b: Any, path: str) -> None:
 
 def validate_observed(observed: Any, scenario: dict, path: str) -> None:
     extended = "doubles" in (scenario.get("stateSetup") or {})
-    _require_keys(observed, OBSERVED_KEYS + (("doubles",) if extended else ()) + (("defenderSemiInvulnerableState",) if "move-coverage-slice-3" in scenario["tags"] else ()) + (("explosionUserHpAtDamage",) if "move-coverage-slice-4" in scenario["tags"] else ()), path)
+    _require_keys(observed, OBSERVED_KEYS + (("doubles",) if extended else ()) + (("defenderSemiInvulnerableState",) if any(t in scenario["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")) else ()) + (("explosionUserHpAtDamage",) if "move-coverage-slice-4" in scenario["tags"] else ()), path)
     if "move-coverage-slice-4" in scenario["tags"]:
         _require_int(observed["explosionUserHpAtDamage"], path + ".explosionUserHpAtDamage", 0, 0)
     if extended:
@@ -409,9 +413,9 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
             _fail(path + ".fieldAbilities", "unknown or noncanonical field ability IDs")
     _validate_observed_battler(observed["attacker"], f"{path}.attacker")
     _validate_observed_battler(observed["defender"], f"{path}.defender")
-    if "move-coverage-slice-3" in scenario["tags"]:
+    if any(t in scenario["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")):
         _require_int(observed["defenderSemiInvulnerableState"], path + ".defenderSemiInvulnerableState", 0, 6)
-        if observed["defenderSemiInvulnerableState"] != int(bool((scenario.get("stateSetup") or {}).get("underground"))):
+        if observed["defenderSemiInvulnerableState"] != (2 if (scenario.get("stateSetup") or {}).get("underwater") else int(bool((scenario.get("stateSetup") or {}).get("underground")))):
             _fail(path, "actual hit-time semi state disagrees with setup")
     move = observed["move"]
     _require_keys(move, OBSERVED_MOVE_KEYS, f"{path}.move")

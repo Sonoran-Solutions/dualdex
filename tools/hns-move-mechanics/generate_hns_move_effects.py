@@ -38,6 +38,7 @@ Pinned upstream revision: 1f42b74dff0e9fe942419845d040663dd829a973
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -139,6 +140,26 @@ def verify_helper_contract(upstream_dir, ordinary):
     shell_side_arm = move_ids.get("MOVE_SHELL_SIDE_ARM")
     if shell_side_arm in ordinary:
         raise ValueError("Shell Side Arm must remain outside the ordinary move surface")
+
+
+UNDERWATER_HELPERS = {
+    ("src/battle_util.c", "GetDiveModifier"): "7eec29c898d9e9bb11aff43dbf8fe1c14bcd432c0416e2e8ceb401aada12a386",
+    ("src/battle_util.c", "SetWrapTurns"): "fd93da3c9445971e436a45072f66e70d9cf5f426090b37416c155fc5f6c2595e",
+    ("src/battle_util.c", "BreaksThroughSemiInvulnerablity"): "c81a2c8f32fd770657f85e1a442af8c126c0ca707600b98114d26bc425d7e1be",
+    ("src/battle_end_turn.c", "HandleEndTurnWrap"): "10ff0d3ba6665405ae9b513ac1a907375a33c2c0902ab223675411a4fddfba54",
+}
+
+def verify_underwater_helper(text, name, expected):
+    """Pin reviewed function bodies as well as MoveInfo: wrap semantics cannot drift silently."""
+    match = re.search(r"\b" + name + r"\([^;{}]*\)\s*\{", text)
+    if not match:
+        raise ValueError("Missing underwater source helper: " + name)
+    end, depth = match.end(), 1
+    while depth and end < len(text):
+        depth += (text[end] == "{") - (text[end] == "}")
+        end += 1
+    if depth or hashlib.sha256(text[match.start():end].encode()).hexdigest() != expected:
+        raise ValueError("Changed underwater source helper: " + name)
 
 
 def parse_move_enum(text):
@@ -434,6 +455,43 @@ def parse_explosion_metadata(text, updated_move_data_latest=False, modern_defens
     return result
 
 
+def parse_underwater_metadata(text, updated_move_data_latest=False, updated_move_flags_latest=False):
+    """Freeze just Surf/Whirlpool, including omitted additional-effect fields (zero)."""
+    if not updated_move_data_latest or not updated_move_flags_latest:
+        return {}
+    result = {}
+    _, _, sheer, unknown = parse_contact_and_sheer_force(text)
+    cosmetic = {"name", "description", "pp", "contestEffect", "contestCategory",
+                "contestComboStarterId", "contestComboMoves", "battleAnimScript", "validApprenticeMove"}
+    for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines())):
+        if symbol not in ("MOVE_SURF", "MOVE_WHIRLPOOL"):
+            continue
+        surf = symbol == "MOVE_SURF"
+        joined = "\n".join(body)
+        # Surf's only preprocessor branch is display text; mechanics must remain unconditional.
+        mechanics = joined[joined.index(".effect"):]
+        expected = {"effect": "EFFECT_HIT", "power": "B_UPDATED_MOVE_DATA >= GEN_6 ? 90 : 95" if surf else "B_UPDATED_MOVE_DATA >= GEN_5 ? 35 : 15",
+            "type": "TYPE_WATER", "category": "DAMAGE_CATEGORY_SPECIAL", "priority": "0",
+            "target": "B_UPDATED_MOVE_DATA >= GEN_4 ? TARGET_FOES_AND_ALLY : TARGET_BOTH" if surf else "TARGET_SELECTED",
+            "accuracy": "100" if surf else "B_UPDATED_MOVE_DATA >= GEN_5 ? 85 : 70", "damagesUnderwater": "TRUE"}
+        if surf:
+            expected["skyBattleBanned"] = "TRUE"
+        else:
+            expected.update(ignoresKingsRock="B_UPDATED_MOVE_FLAGS < GEN_3", moveEffect="MOVE_EFFECT_WRAP")
+        allowed = cosmetic | set(expected) | ({"additionalEffects", "wrapped"} if not surf else set())
+        if ("#" in mechanics or set(re.findall(r"\.([A-Za-z]\w*)\s*=", joined)) - allowed
+                or any(re.findall(rf"\.{field}\s*=\s*([^,\n}}]+)", joined) != [value]
+                       for field, value in expected.items())
+                or symbol in unknown or sheer.get(symbol) is not False):
+            continue
+        if not surf:
+            effects = re.findall(r"\.additionalEffects\s*=\s*ADDITIONAL_EFFECTS\((.*?)\),", joined, re.S)
+            if len(effects) != 1 or re.sub(r"\s+", "", effects[0]) != "{.moveEffect=MOVE_EFFECT_WRAP,.multistring.wrapped=B_MSG_WRAPPED_WHIRLPOOL,}":
+                continue
+        result[symbol] = 90 if surf else 35
+    return result
+
+
 def parse_damp_bans(text):
     banned, unknown = set(), set()
     for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines())):
@@ -726,7 +784,7 @@ def build_maps(upstream_dir):
 def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_flags_by_id,
                     priority_by_id, unknown_priority_ids, ability_flags_by_id,
                     unknown_ability_flags_by_id, contact_by_id, unknown_contact_by_id,
-                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None, earthquake_flags=None, explosion_powers=None, damp_bans=(), unknown_damp_bans=()):
+                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None, earthquake_flags=None, explosion_powers=None, damp_bans=(), unknown_damp_bans=(), underwater_powers=None):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
     # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
     # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
@@ -850,6 +908,9 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    /** Singles explosion: Damp gate, HP=0 at damage, modern Defense, Parental Bond banned. */")
     lines.append("    val fixedSingleHitExplosionMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(explosion_powers or {}))) + ")")
     lines.append("    val explosionPowerById: Map<Int, Int> = mapOf(" + ", ".join(f"{i} to {v}" for i, v in sorted((explosion_powers or {}).items())) + ")")
+    lines.append("    /** Frozen Singles Surf/Whirlpool; neutral or underwater selected hit only. */")
+    lines.append("    val fixedSingleHitUnderwaterMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(underwater_powers or {}))) + ")")
+    lines.append("    val underwaterPowerById: Map<Int, Int> = mapOf(" + ", ".join(f"{i} to {v}" for i, v in sorted((underwater_powers or {}).items())) + ")")
     lines.append("    val dampBannedMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(damp_bans))) + ")")
     lines.append("    val unknownDampBanMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(unknown_damp_bans))) + ")")
     lines.append("    /** Recoil moves which clear Freeze/Frostbite before the selected hit. */")
@@ -909,7 +970,7 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
 
 
 def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_ability_flags_by_id,
-                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None, earthquake_flags=None, explosion_powers=None):
+                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None, earthquake_flags=None, explosion_powers=None, underwater_powers=None):
     """Render a compact source-derived move metadata map for the ROM-free oracle harness."""
     result = {}
     for move_id, effect in sorted(effect_by_id.items()):
@@ -942,6 +1003,14 @@ def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_
             category="DAMAGE_CATEGORY_PHYSICAL", target=target_by_id[move_id], priority=priority_by_id[move_id],
             explosion=True, dampBanned=True, parentalBondBanned=True, strikeCount=1,
             abilityFlags=[], immunityFlags=[], explosionDefense="GEN_LATEST")
+    for move_id, power in (underwater_powers or {}).items():
+        result[str(move_id)].update(fixedSingleHitUnderwater=True, damagesUnderwater=True,
+            power=power, type="TYPE_WATER", category="DAMAGE_CATEGORY_SPECIAL",
+            accuracy=100 if move_id == 57 else 85, target=target_by_id[move_id], priority=0,
+            strikeCount=1, multiHit=False, abilityFlags=[], immunityFlags=[],
+            skyBattleBanned=move_id == 57,
+            additionalEffects=[] if move_id == 57 else [{"moveEffect":"MOVE_EFFECT_WRAP", "chance":0,
+                "sheerForceOverride":False, "preAttackEffect":False, "multistring":"B_MSG_WRAPPED_WHIRLPOOL"}])
     return json.dumps({"pinnedCommit": PINNED_COMMIT, "moves": result}, indent=2) + "\n"
 
 
@@ -976,6 +1045,12 @@ def main():
         bool(re.search(r"#define B_EXPLOSION_DEFENSE\s+GEN_LATEST", config))).items()}
     if set(explosion_powers) != {120, 153}:
         raise ValueError("Frozen Explosion family/config contract changed")
+    if not re.search(r"#define B_FLAG_SKY_BATTLE\s+0\s", config):
+        raise ValueError("Surf requires source-disabled Sky Battles")
+    underwater_powers = {ids[s]: p for s, p in parse_underwater_metadata(move_text, True, True).items()}
+    if underwater_powers != {57: 90, 250: 35}:
+        raise ValueError("Frozen Surf/Whirlpool family/config contract changed")
+    target_by_id[57] = "TARGET_FOES_AND_ALLY"
     for move_id in drain_percentages:
         flags_by_id.setdefault(move_id, set()).add("healingMove")
         unknown_flags_by_id.get(move_id, set()).discard("healingMove")
@@ -1013,15 +1088,29 @@ def main():
     if not re.search(r"\[EFFECT_EARTHQUAKE\]\s*=\s*\{\s*\.battleScript = BattleScript_EffectHit,", effects):
         raise ValueError("Earthquake selected-hit script changed")
     verify_helper_contract(upstream_dir, ordinary)
+    scripts = open(os.path.join(upstream_dir, "data/battle_scripts_1.s"), encoding="utf-8").read()
+    hit_script = scripts[scripts.index("BattleScript_EffectHit::"):scripts.index("BattleScript_MakeMoveMissed::")]
+    if hit_script.index("datahpupdate BS_TARGET, MOVE_DAMAGE_HP_UPDATE") > hit_script.index("setadditionaleffects"):
+        raise ValueError("Whirlpool additional effects no longer follow selected damage")
+    commands = open(os.path.join(upstream_dir, "src/battle_script_commands.c"), encoding="utf-8").read()
+    if "if (!additionalEffect->preAttackEffect)" not in commands:
+        raise ValueError("Pre-attack additional-effect source predicate changed")
+    for (path, name), digest in UNDERWATER_HELPERS.items():
+        verify_underwater_helper(open(os.path.join(upstream_dir, path), encoding="utf-8").read(), name, digest)
+    battle = open(os.path.join(upstream_dir, "src/battle_util.c"), encoding="utf-8").read()
+    order = [battle.index("DAMAGE_MULTIPLY_MODIFIER(" + name + "(") for name in
+             ("GetMinimizeModifier", "GetUndergroundModifier", "GetDiveModifier", "GetAirborneModifier", "GetScreensModifier")]
+    if order != sorted(order):
+        raise ValueError("Underwater final modifier source order changed")
     damp_bans, unknown_damp_bans = parse_damp_bans(move_text)
     generated = generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id,
                                 unknown_flags_by_id, priority_by_id, unknown_priority_ids,
                                 ability_flags_by_id, unknown_ability_flags_by_id,
                                 contact_by_id, unknown_contact_by_id,
-                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages, earthquake_flags, explosion_powers, {ids[s] for s in damp_bans}, {ids[s] for s in unknown_damp_bans})
+                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages, earthquake_flags, explosion_powers, {ids[s] for s in damp_bans}, {ids[s] for s in unknown_damp_bans}, underwater_powers)
     generated_json = generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id,
                                             unknown_ability_flags_by_id, contact_by_id,
-                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id, earthquake_flags, explosion_powers)
+                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id, earthquake_flags, explosion_powers, underwater_powers)
 
     if args.verify:
         if not os.path.isfile(args.output):

@@ -227,7 +227,7 @@
     "HOLD_EFFECT_GRIP_CLAW": {
       "category": "PROVEN_NO_ORDINARY_DAMAGE_EFFECT",
       "group": "non_damage_utility",
-      "rationale": "Every pinned reference is a secondary effect (flinch), switching/escape, a field/screen/wrap duration, entry hazards, secondary-effect or contact-effect protection, two-turn charge skipping, or multi-hit counts. None is read by the single-hit ordinary damage computation (CalcMoveBasePower, CalcMoveBasePowerAfterModifiers, CalcAttackStat, CalcDefenseStat, GetOtherModifiers, type effectiveness, critical stage, GetAdjustedDamage).",
+      "rationale": "Every pinned reference is a secondary effect (flinch), switching/escape, a field/screen/wrap duration, entry hazards, secondary-effect or contact-effect protection, two-turn charge skipping, or multi-hit counts. None is read by the single-hit ordinary damage computation (CalcMoveBasePower, CalcMoveBasePowerAfterModifiers, CalcAttackStat, CalcDefenseStat, GetOtherModifiers, type effectiveness, critical stage, GetAdjustedDamage). For frozen Whirlpool, SetWrapTurns changes duration after the selected hit, without changing its damage.",
       "reviewed_refs": [
         "src/battle_util.c:10869"
       ]
@@ -693,7 +693,7 @@
     "HOLD_EFFECT_BINDING_BAND": {
       "category": "UNSUPPORTED_DAMAGE_RELEVANT",
       "group": "post_hit_or_residual",
-      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused.",
+      "rationale": "This family writes damage-relevant state only after the current hit or outside hit resolution. The generated gHoldEffectsInfo.onSwitchIn flag gates clearance until switch-in events settle; unsupported move mechanics remain independently refused. Frozen Whirlpool has a request-local selected-hit proof; Binding Band remains globally damage-relevant for later wrap residual.",
       "reviewed_refs": [
         "src/battle_end_turn.c:620"
       ]

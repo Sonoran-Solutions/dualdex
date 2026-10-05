@@ -397,3 +397,22 @@ accuracy rigging) and four wrap parameters (normal, Grip Claw, Binding Band,
 Magic Guard). Their runner PASS results are mandatory for regeneration/verification
 and their generated source contributes to corpus provenance.
 See [slice 5](../../docs/HNS_MOVE_COVERAGE_SLICE_5.md) for production and census evidence.
+
+### Slice 10 — Rollout / Ice Ball
+
+72 independent engine scenarios (68 modelled, 4 engine-only) record original
+computed power and raw current chain, Curl, active lock and recharge operands.
+Real execution witnesses cover six-hit chains after Celebrate, Defense Curl and
+Harden, Protect reset, sleep inability, Bulletproof, forced switch and faint
+replacement. Patches 0007/0008 expose only TESTING read-only observations;
+original damage and lifecycle writers run unchanged. Regenerate, then verify
+with `--order reversed` in a fresh exported tree. Generate the evidence with:
+
+```bash
+python3 tools/hns-damage-oracle/report_rollout_evidence.py --canonical-log /tmp/hns10-engine.log --reversed-log /tmp/hns10-reversed-engine.log --reversed-summary /tmp/hns10-reversed-summary.log
+python3 tools/hns-damage-oracle/report_rollout_evidence.py --check
+python3 tools/hns-calc-census/report_rollout_coverage.py --check
+```
+
+See [slice 10](../../docs/HNS_MOVE_COVERAGE_SLICE_10.md) for production authority,
+fixture-only neutral setup, unknown-state refusal and hardware checklist.

@@ -2182,7 +2182,8 @@ object HeartAndSoul205DataPack : GameDataPack {
     }
 
     private fun registerMove(id: Int, name: String, type: PokemonType, category: MoveCategory, power: Int, acc: Int, pp: Int) {
-        movesMap[id] = MoveInfo(id, name, type, category, power, acc, pp)
+        movesMap[id] = MoveInfo(id, name, type, category, power, acc, pp,
+            if (id in Hns205MoveEffects.fixedSingleHitRolloutMoveIds) "Variable (Defense Curl ×2)" else null)
     }
 
     private fun registerSpeciesChunk1() {

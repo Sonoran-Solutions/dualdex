@@ -5886,6 +5886,42 @@ static void test_hns_field_statuses_thor_regression(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_field_statuses_thor_regression" ANSI_RESET "\n");
 }
 
+static bool rollout_missing_lock_read(void* user, uint32_t address, uint8_t* out, size_t length) {
+    if (address == HNS_LIVE_GLOCKEDMOVES_GBA_ADDRESS) return false;
+    return fake_gba_read(user, address, out, length);
+}
+
+static void test_hns_rollout_operands(void) {
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+    BattlerRuntimeState state;
+    for (unsigned timer = 0; timer <= 255; timer++) {
+        hns_battle_set_volatile_field(&fx, 0, HNS_LIVE_BP_VOLATILE_ROLLOUT_TIMER_BIT,
+            HNS_LIVE_BP_VOLATILE_ROLLOUT_TIMER_WIDTH, timer);
+        hns_battle_set_volatile_field(&fx, 0, HNS_LIVE_BP_VOLATILE_RECHARGE_TIMER_BIT,
+            HNS_LIVE_BP_VOLATILE_RECHARGE_TIMER_WIDTH, timer % 4);
+        hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_DEFENSE_CURL_BIT, timer & 1);
+        hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_MULTIPLE_TURNS_BIT, timer != 0);
+        write16_le_t(gba.ewram + HNS_LIVE_GLOCKEDMOVES_GBA_ADDRESS - 0x02000000u, 205);
+        TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &state), "raw chain read");
+        TEST_ASSERT(state.rollout_state_observed && state.volatile_rollout_timer == timer &&
+            state.volatile_defense_curl == (bool)(timer & 1) && state.volatile_multiple_turns == (timer != 0) &&
+            state.locked_move == 205 && state.volatile_recharge_timer == timer % 4, "raw packed domain preserved; reviewed reachability belongs to boundary");
+        TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &state) && state.volatile_rollout_timer == 0 &&
+            !state.volatile_defense_curl, "participant isolation");
+    }
+    TEST_ASSERT(pokemon_read_battler_runtime_state_gba(rollout_missing_lock_read, &gba.table,
+        gba.ewram, sizeof(gba.ewram), cfg, BATTLER_ROLE_PLAYER, &state) && !state.rollout_state_observed,
+        "unread lock never authorizes neutral chain");
+    hns_battle_set_in_battle(&fx, false);
+    read_battler_state(&fx, BATTLER_ROLE_PLAYER, &state);
+    TEST_ASSERT(!state.rollout_state_observed, "teardown clears observed chain state");
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_rollout_operands" ANSI_RESET "\n");
+}
+
 static void test_hns_group_d_operands(void) {
     printf("Running test_hns_group_d_operands...\n");
     const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
@@ -6643,6 +6679,7 @@ int main(void) {
     test_hns_badge_state_reading();
     test_hns_battler_state_stats_stages_badges();
     test_hns_group_d_operands();
+    test_hns_rollout_operands();
     test_hns_analytic_current_action_authority();
     test_hns_battler_state_c4e_live_operands();
     test_hns_battler_switch_in_phase_requires_event_flags_and_stable_callback();

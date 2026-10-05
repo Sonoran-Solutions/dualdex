@@ -13,9 +13,10 @@ data class MoveInfo(
     val category: MoveCategory,
     val power: Int,
     val accuracy: Int,
-    val pp: Int
+    val pp: Int,
+    val variablePowerDescription: String? = null
 ) {
-    val powerDisplay: String get() = movePowerDisplay(id, power)
+    val powerDisplay: String get() = variablePowerDescription ?: movePowerDisplay(id, power)
 }
 
 fun movePowerDisplay(moveId: Int, power: Int?): String =

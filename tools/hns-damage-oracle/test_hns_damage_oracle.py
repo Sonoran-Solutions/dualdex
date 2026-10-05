@@ -87,6 +87,23 @@ def good_corpus() -> dict:
 
 
 class ScenarioSchemaTest(unittest.TestCase):
+    def test_rollout_observed_identity_chain_and_recharge_fail_closed(self):
+        scenario = next(s for s in SCENARIOS if s["id"] == "rollout-rollout-counter-1-curl-0")
+        observed = observed_for(scenario)
+        observed["move"].update(id=205, power=30, effect="EFFECT_ROLLOUT", ordinary=False)
+        observed["rollout"] = dict(attacker=0, moveId=205, effectId=91, timer=1,
+            defenseCurl=0, multipleTurns=1, lockedMove=205, rechargeTimer=0, electrified=0, basePower=60, effectiveType="Rock")
+        schema.validate_observed(observed, scenario, "rollout")
+        for key, value in (("attacker",1),("timer",5),("defenseCurl",2),("multipleTurns",0),
+                ("lockedMove",301),("rechargeTimer",1),("electrified",2),("effectiveType","Electric"),("basePower",30),("moveId",301),("effectId",0)):
+            changed = copy.deepcopy(observed)
+            changed["rollout"][key] = value
+            with self.subTest(key=key), self.assertRaises(schema.SchemaError):
+                schema.validate_observed(changed, scenario, "rollout")
+        del observed["rollout"]["timer"]
+        with self.assertRaises(schema.SchemaError):
+            schema.validate_observed(observed, scenario, "rollout")
+
     def test_explosion_requires_actual_zero_hp_at_damage(self):
         scenario = next(s for s in SCENARIOS if s["id"] == "explosion-defeatist")
         observed = observed_for(scenario)
@@ -725,8 +742,8 @@ class HarnessGuardTest(unittest.TestCase):
         for name in backend.HARNESS_PATCHES:
             text = (backend.PATCH_DIR / name).read_text()
             targets = [line[6:] for line in text.splitlines() if line.startswith("+++ b/")]
-            expected = "src/battle_util.c" if name.startswith(("0004", "0006")) else "test/test_runner.c" if name.startswith("0001") else "test/test_runner_battle.c"
-            if name.startswith(("0004", "0006")):
+            expected = "src/battle_move_resolution.c" if name.startswith("0008") else "src/battle_util.c" if name.startswith(("0004", "0006", "0007")) else "test/test_runner.c" if name.startswith("0001") else "test/test_runner_battle.c"
+            if name.startswith(("0004", "0006", "0007")):
                 added = "\n".join(line[1:] for line in text.splitlines() if line.startswith("+") and not line.startswith("+++"))
                 self.assertIn("#if TESTING", added)
                 self.assertIn("return CalcMoveBasePower(&ctx);", added)

@@ -1,0 +1,23 @@
+Read-only TESTING accessor calls original dynamic-power helper for the current source move.
+
+--- a/src/battle_util.c
++++ b/src/battle_util.c
+@@ -6589,3 +6589,18 @@
++#if TESTING
++u32 DdxoRolloutBasePower(enum BattlerId atk, enum BattlerId def, enum Move move)
++{
++    struct BattleContext ctx = {0};
++    ctx.battlerAtk = atk;
++    ctx.battlerDef = def;
++    ctx.move = move;
++    ctx.abilityAtk = GetBattlerAbility(atk);
++    ctx.abilityDef = GetBattlerAbility(def);
++    ctx.holdEffectAtk = GetBattlerHoldEffect(atk);
++    ctx.holdEffectDef = GetBattlerHoldEffect(def);
++    return CalcMoveBasePower(&ctx);
++}
++#endif
++
+ static inline u32 CalcMoveBasePowerAfterModifiers(struct BattleContext *ctx)
+ {
+     u32 holdEffectParamAtk;

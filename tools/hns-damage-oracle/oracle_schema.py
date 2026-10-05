@@ -99,7 +99,7 @@ DOUBLES_KEYS = ("defenderPartner",)
 STATE_SETUP_KEYS = (
     "attackerSpeciesForm", "defenderSpeciesForm", "attackerTransformedMonSpecies",
     "defenderTransformedMonSpecies", "attacker", "defender", "attackerStatStages",
-    "defenderStatStages", "gastroAcidBeforeHit", "doubles", "capture", "underground", "underwater", "wonderRoom", "magicRoom", "gyroSpeed", "laterAction", "statusDoubleStatus1",
+    "defenderStatStages", "gastroAcidBeforeHit", "doubles", "capture", "underground", "underwater", "wonderRoom", "magicRoom", "gyroSpeed", "laterAction", "statusDoubleStatus1", "rollout",
 )
 RUNTIME_DOMAINS = {
     "personality": (0, 0xffffffff), "gender": (0, 255), "slowStartTimer": (0, 7),
@@ -294,7 +294,13 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
             _fail(f"{path}.stateSetup", f"expected a non-empty subset of {STATE_SETUP_KEYS}")
         for role, value in s["stateSetup"].items():
             loc = f"{path}.stateSetup.{role}"
-            if role == "gyroSpeed":
+            if role == "rollout":
+                if "move-coverage-slice-10" not in s["tags"]: _fail(loc, "unreviewed Rollout setup")
+                _require_keys(value, ("timer", "defenseCurl", "electrify"), loc)
+                _require_int(value["electrify"], loc, 0, 1)
+                _require_int(value["timer"], loc, 0, 4)
+                _require_int(value["defenseCurl"], loc, 0, 1)
+            elif role == "gyroSpeed":
                 if not any(t in s["tags"] for t in ("move-coverage-slice-8", "move-coverage-slice-9")) or not isinstance(value, dict) or not set(value) <= {"attacker", "defender", "trickRoom", "quickClawProc"}:
                     _fail(loc, "requires reviewed Speed-power setup")
                 for key, operands in value.items():
@@ -423,7 +429,7 @@ def _validate_observed_battler(b: Any, path: str) -> None:
 
 def validate_observed(observed: Any, scenario: dict, path: str) -> None:
     extended = "doubles" in (scenario.get("stateSetup") or {})
-    _require_keys(observed, OBSERVED_KEYS + (("effectiveSpeeds",) if any(t in scenario["tags"] for t in ("move-coverage-slice-8", "move-coverage-slice-9")) else ()) + (("doubles",) if extended else ()) + (("defenderSemiInvulnerableState",) if any(t in scenario["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")) else ()) + (("explosionUserHpAtDamage",) if "move-coverage-slice-4" in scenario["tags"] else ()), path)
+    _require_keys(observed, OBSERVED_KEYS + (("rollout",) if "move-coverage-slice-10" in scenario["tags"] else ()) + (("effectiveSpeeds",) if any(t in scenario["tags"] for t in ("move-coverage-slice-8", "move-coverage-slice-9")) else ()) + (("doubles",) if extended else ()) + (("defenderSemiInvulnerableState",) if any(t in scenario["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")) else ()) + (("explosionUserHpAtDamage",) if "move-coverage-slice-4" in scenario["tags"] else ()), path)
     if any(t in scenario["tags"] for t in ("move-coverage-slice-8", "move-coverage-slice-9")):
         speeds = observed["effectiveSpeeds"]
         _require_keys(speeds, ("attacker", "defender", "basePower"), path + ".effectiveSpeeds")
@@ -438,6 +444,21 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
             expected = [40,60,80,120,150][min(a//d,4)]
         else: expected = 1 if a == 0 else min(25*d//a+1,150)
         if speeds["basePower"] != expected: _fail(path, "dynamic Speed power differs")
+    if "move-coverage-slice-10" in scenario["tags"]:
+        c = observed["rollout"]
+        _require_keys(c, ("attacker", "moveId", "effectId", "timer", "defenseCurl", "multipleTurns", "lockedMove", "rechargeTimer", "electrified", "basePower", "effectiveType"), path)
+        for key, low, high in (("attacker",0,1),("electrified",0,1),("rechargeTimer",0,0),("timer",0,4),("defenseCurl",0,1),("multipleTurns",0,1),("lockedMove",0,65535),("moveId",0,65535),("effectId",0,65535),("basePower",30,960)):
+            _require_int(c[key], path, low, high)
+        _require_enum(c["effectiveType"], TYPE_NAMES, path)
+        if c["effectiveType"] != observed["move"]["type"] or c["electrified"] and c["effectiveType"] != "Electric":
+            _fail(path, "Rollout source effective type differs")
+        if c["attacker"] != (0 if scenario["attackerSide"] == "player" else 1):
+            _fail(path, "Rollout attacker identity differs")
+        if c["moveId"] not in (205,301) or c["moveId"] != observed["move"]["id"] or c["effectId"] != 91:
+            _fail(path, "Rollout move identity differs")
+        if c["multipleTurns"] != int(c["timer"] > 0) or c["multipleTurns"] and c["lockedMove"] != c["moveId"]:
+            _fail(path, "Rollout lock inconsistent")
+        if c["basePower"] != 30 * 2 ** c["timer"] * (2 if c["defenseCurl"] else 1): _fail(path, "Rollout dynamic power differs")
     if "move-coverage-slice-4" in scenario["tags"]:
         _require_int(observed["explosionUserHpAtDamage"], path + ".explosionUserHpAtDamage", 0, 0)
     if extended:

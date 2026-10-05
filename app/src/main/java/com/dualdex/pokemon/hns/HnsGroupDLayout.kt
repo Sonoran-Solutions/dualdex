@@ -3,6 +3,10 @@
 package com.dualdex.pokemon.hns
 
 object HnsGroupDLayout {
+    const val RECHARGE_TIMER_MAX = 3
+    const val RECHARGE_TIMER_WIDTH = 2
+    const val ROLLOUT_TIMER_MAX = 255
+    const val ROLLOUT_TIMER_WIDTH = 8
     const val NUM_STATS = 6
     const val GIMMICKS_COUNT = 6
     const val GIMMICK_DYNAMAX = 4

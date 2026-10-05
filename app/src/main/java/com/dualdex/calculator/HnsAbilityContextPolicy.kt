@@ -381,6 +381,12 @@ object HnsAbilityContextPolicy {
         val doublesExact = c.liveBattleState?.doubles != null && c.observedBattlersCount == 4 &&
             c.fixedSingleHitMove == true && abilityObserved(c)
         val proof: Proof? = when {
+            abilityId == 203 && c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds &&
+                c.fixedSingleHitMove == true && c.observedBattlersCount == 2 && abilityObserved(c) ->
+                if (side == HnsAbilitySide.ATTACKER) relevant("rollout_long_reach_contact", "src/battle_util.c:5880-5884",
+                    "The reviewed selected hit uses IsMoveMakingContact: effective attacker Long Reach clears contact before Tough Claws/Fluffy; subsequent contact reactions are outside this result.")
+                else proof("rollout_defender_long_reach", "src/battle_util.c:5880-5884",
+                    "The contact predicate reads attacker ability; defender Long Reach cannot modify this selected hit.")
             c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitSpeedPowerMoveIds &&
                 abilityId in setOf(33, 34, 95, 100, 146, 202, 207, 259) ->
                 if (HnsEffectiveSpeedAuthority.resolve(c).speed != null) proof(if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitElectroBallMoveIds) "electro_ball_speed_ability_exact" else "gyro_ball_speed_ability_exact",
@@ -678,7 +684,7 @@ object HnsAbilityContextPolicy {
                     "Technician is checked only for abilityAtk and cannot modify the selected incoming hit."
                 )
                 c.fixedSingleHitMove != true || c.moveId == null -> null
-                c.moveBasePower == null || c.moveBasePower !in 1..255 -> null
+                c.moveBasePower == null || c.moveBasePower !in 1..(if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds) 960 else 255) -> null
                 c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitStatusDoubleMoveIds && statusDoubleBasePower(c) == null -> null
                 statusDoubleBasePower(c)?.let { it > 60 } == true -> proof(
                     "technician_status_double_over_60", "src/battle_util.c:6398; src/battle_util.c:6655",
@@ -688,11 +694,15 @@ object HnsAbilityContextPolicy {
                     "The validated pre-hit status predicate leaves integer source power at most 60 before Technician.")
                 c.moveBasePower <= 60 -> relevant(
                     "technician_attacker_bp_at_most_60", "src/battle_util.c:6655",
-                    "The pinned ordinary EFFECT_HIT path preserves source move power before Technician's <=60 check; this move receives the modeled 1.5 base-power modifier."
+                    if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds)
+                        "The validated Rollout integer dynamic power is at most 60 before Technician."
+                    else "The pinned ordinary EFFECT_HIT path preserves source move power before Technician's <=60 check; this move receives the modeled 1.5 base-power modifier."
                 )
                 else -> proof(
                     "technician_attacker_bp_over_60", "src/battle_util.c:6655",
-                    "The authoritative ordinary move power entering the ability stage exceeds 60, so Technician does not modify this hit."
+                    if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds)
+                        "The validated Rollout integer dynamic power exceeds 60 before Technician."
+                    else "The authoritative ordinary move power entering the ability stage exceeds 60, so Technician does not modify this hit."
                 )
             }
             85 -> when {
@@ -1476,7 +1486,8 @@ object HnsAbilityContextPolicy {
             attackerStatus1 = live?.attackerStatus1,
             defenderStatus1 = live?.defenderStatus1,
             moveId = moveId,
-            moveBasePower = pinnedMove?.power,
+            moveBasePower = if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds)
+                HnsRolloutAuthority.forRequest(request).basePower else pinnedMove?.power,
             moveAbilityFlags = moveId?.let {
                 com.dualdex.pokemon.hns.Hns205MoveEffects.abilityMoveFlagsById[it].orEmpty()
             },
@@ -1917,6 +1928,7 @@ object HnsAbilityContextPolicy {
             (relevance == HnsAbilityRequestRelevance.RELEVANT &&
                 disposition?.tier == com.dualdex.pokemon.hns.HnsGroupETier.HARD_REFUSAL &&
                 !(id in setOf(57, 58) && rule == "doubles_plus_minus_exact") &&
+                !(id == 203 && rule == "rollout_long_reach_contact") &&
                 !(id == 213 && rule == "status_double_comatose_sleep"))
         return HnsAbilityRequestDecision(id, name, side, category,
             if (refused) HnsAbilityRequestRelevance.UNKNOWN else relevance,

@@ -1,0 +1,16 @@
+TESTING-only read-only move-end observer. Original writers run unchanged before observation.
+
+--- a/src/battle_move_resolution.c
++++ b/src/battle_move_resolution.c
+@@ -18,1 +18,4 @@
+ static void SetSameMoveTurnValues(enum BattleMoveEffects moveEffect);
++#if TESTING
++void (*gDdxoRolloutMoveEnd)(void);
++#endif
+@@ -3745,2 +3748,6 @@
+     SetSameMoveTurnValues(moveEffect);
++#if TESTING
++    if (gDdxoRolloutMoveEnd != NULL)
++        gDdxoRolloutMoveEnd();
++#endif
+     TryClearChargeVolatile(moveType);

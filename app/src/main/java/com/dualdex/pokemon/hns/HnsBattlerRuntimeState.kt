@@ -358,6 +358,12 @@ data class HnsBattlerRuntimeState(
      * battler. Only meaningful when [persistentVolatilesObserved].
      */
     val volatileEndured: Boolean = false,
+    /** Additive v1 Rollout packet; null retains unread/malformed raw operands. */
+    val rolloutTimer: Int? = null,
+    val rechargeTimer: Int? = null,
+    val defenseCurl: Boolean? = null,
+    val multipleTurns: Boolean? = null,
+    val lockedMove: Int? = null,
     /** The extended Group D volatile payload, decoded from the generated 42-byte window. */
     val groupDVolatilesObserved: Boolean = false,
     val volatileSlowStartTimer: Int = 0,
@@ -511,6 +517,7 @@ data class HnsBattlerRuntimeState(
          * [95] neutralizingGas, [96] current move ID bound to the Analytic authority,
          * [97] embargo, [98] metronomeItemCounter, [99] transformedMonSpecies,
          * [100] source NUM_SPECIES, [101] metronome width, [102] transformed species width.
+         * [165..173] Rollout v1: version, observed, raw timer, Defense Curl, multipleTurns, locked move, timer width, recharge timer, recharge width.
          * [103] Doubles packet observed; [104] packet version 1, [105] count, [106] absent,
          * [107..108] Follow Me timers, [109] action flags (bit 0 moldBreakerActive, bit 1 pledgeMove), [110..161] four 13-word
          * indexed records (see HnsDoublesRuntimeState). Short/old packets remain unobserved.
@@ -625,7 +632,17 @@ data class HnsBattlerRuntimeState(
             val supremeCounterObserved = c4eGroupD && raw[89] == 1 && raw[90] in 0..5
             val selectedGimmickObserved = c4eGroupD && raw[91] == 1 && raw[92] in 0 until HnsGroupDLayout.GIMMICKS_COUNT
             val analyticTurnOrderObserved = c4eGroupD && raw[93] == 1 && raw[94] in 1..2 && raw[96] in 1..65535
+            val rolloutObserved = raw.size >= 174 && raw[165] == 1 && raw[166] == 1 &&
+                raw[171] == HnsGroupDLayout.ROLLOUT_TIMER_WIDTH &&
+                raw[173] == HnsGroupDLayout.RECHARGE_TIMER_WIDTH && raw[172] in 0..HnsGroupDLayout.RECHARGE_TIMER_MAX &&
+                raw[167] in 0..HnsGroupDLayout.ROLLOUT_TIMER_MAX && raw[168] in 0..1 &&
+                raw[169] in 0..1 && raw[170] in 0..65535
             val decoded = HnsBattlerRuntimeState(
+                rolloutTimer = raw.getOrNull(167).takeIf { rolloutObserved },
+                rechargeTimer = raw.getOrNull(172).takeIf { rolloutObserved },
+                defenseCurl = raw.getOrNull(168)?.let { it == 1 }.takeIf { rolloutObserved },
+                multipleTurns = raw.getOrNull(169)?.let { it == 1 }.takeIf { rolloutObserved },
+                lockedMove = raw.getOrNull(170).takeIf { rolloutObserved },
                 status = status,
                 battlerIndex = raw[1].takeIf { it >= 0 },
                 partySlot = raw[2].takeIf { raw[3] != 0 && it in 0..5 },

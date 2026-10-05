@@ -789,6 +789,15 @@ object CalcRequestBoundary {
             defenderGender = defenderGender,
             attackerSideStatuses = authoritativeObservedDefenderSideStatuses(request.attacker.partySlot, playerBattlerState, isExactVerified),
             defenderSlowStartTimer = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileSlowStartTimer,
+            attackerRolloutState = attackerRuntime?.let { state ->
+                val timer = state.rolloutTimer
+                val curl = state.defenseCurl
+                val multiple = state.multipleTurns
+                val recharge = state.rechargeTimer
+                val locked = state.lockedMove
+                if (timer == null || curl == null || multiple == null || locked == null || recharge == null) null
+                else HnsRolloutAuthority.Operands(timer, curl, multiple, locked, recharge)
+            },
             attackerSlowStartTimer = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileSlowStartTimer,
             attackerFlashFireBoosted = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileFlashFireBoosted,
             attackerTransformed = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileTransformed,

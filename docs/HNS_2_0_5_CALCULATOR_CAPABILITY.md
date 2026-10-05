@@ -1,5 +1,14 @@
 # H&S 2.0.5 calculator capability matrix (issue #9)
 
+## Slice 10: observed Rollout / Ice Ball selected hit
+
+See [the slice-10 authority and evidence](HNS_MOVE_COVERAGE_SLICE_10.md). Only
+Rollout 205 and Ice Ball 301 are admitted with exact stable source chain/Curl/lock
+operands. Unknown packets, raw timers outside 0–4, nonzero recharge and
+contradictory active locks refuse. Tuple indices 165–173 add compiled raw fields;
+existing slot, type, modifier and switch-in authority remains required. H&S stays
+ESTIMATED; Hardware: NOT_RUN.
+
 ## Singles Electro Ball — slice 9 (#139)
 
 Electro Ball (486), EFFECT_ELECTRO_BALL, has its own generated fixed-single-hit

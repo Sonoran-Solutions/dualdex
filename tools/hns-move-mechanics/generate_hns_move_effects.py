@@ -561,6 +561,38 @@ def parse_gyro_metadata(text, ids):
         makesContact=True, ballisticMove=True, punchingMove=False, sheerForceAffected=False,
         additionalEffects=[], abilityFlags=[], immunityFlags=["ballisticMove"])}
 
+ROLLOUT_MOVE_CONTRACTS = {'MOVE_ROLLOUT': '901416b9d69c812171c02b5cef475864e57914970b27928501ee9189015f0b20', 'MOVE_ICE_BALL': '98177fa478322fc4cd8717f697991d98e3a9c7f8fbacfafb156570a9de1966d1'}
+ROLLOUT_SOURCE_CONTRACTS = {'src/battle_util.c': 'dfe173ebef230849e789be6b417a316c359ec6fa7d0ecae2b1a59b5885903377', 'src/battle_move_resolution.c': 'a009128b0640ae34d564ff392f19f52f040e23fe2c55837352fa6779f4783c5e', 'src/battle_main.c': '36020a55dfdd8838ccdfe50be9ea4d69e9fa479dceed41a6725cbdb81d248c93', 'src/battle_script_commands.c': '93db4b3716e64cfdde3c9b53ca0dfe931df6a5af183596f3098ac03f262676aa', 'data/battle_scripts_1.s': '7892b8db3e1de6e088a51d99865c1db137aac9c5a147900826a3fe56f9518875', 'src/data/battle_move_effects.h': '9b0c8aaef1d86dec3075b2df3ec5fe257262a31aa232e2de702480e362e1f7f5', 'include/constants/battle.h': '112fc5afcc8dd55a6954f6c701b6939f543cdde8dbb809efdc1f379d08a1ab79', 'include/constants/battle_move_effects.h': 'c735d9a568690b5df4f895f7a9d445be26f613a00e2e0f217d96aba61f8dee33'}
+
+
+def verify_rollout_contract(upstream_dir):
+    # Frozen full source files include cancellation, move-end, phase and reset writers.
+    for path, digest in ROLLOUT_SOURCE_CONTRACTS.items():
+        if hashlib.sha256(open(os.path.join(upstream_dir, path), 'rb').read()).hexdigest() != digest:
+            raise ValueError("Changed Rollout source contract: " + path)
+
+
+def parse_rollout_metadata(text, ids):
+    entries = {symbol: "\n".join(body) for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines()))}
+    _, _, sheer, unknown = parse_contact_and_sheer_force(text)
+    result = {}
+    for symbol, move_id in (("MOVE_ROLLOUT", 205), ("MOVE_ICE_BALL", 301)):
+        body = entries.get(symbol, "")
+        if ids.get(symbol) != move_id or hashlib.sha256(re.sub(r"\s+", "", body).encode()).hexdigest() != ROLLOUT_MOVE_CONTRACTS[symbol]:
+            raise ValueError("Changed Rollout family MoveInfo: " + symbol)
+        if symbol in unknown or sheer.get(symbol) is not False:
+            raise ValueError("Unknown Rollout Sheer Force classification")
+        def field(name):
+            return re.search(r"\." + name + r"\s*=\s*([^,\n}]+)", body).group(1).strip()
+        ballistic = bool(re.search(r"\.ballisticMove\s*=\s*TRUE", body))
+        result[move_id] = dict(fixedSingleHitRollout=True, effect=field("effect"), power=int(field("power")),
+            type=field("type"), category=field("category"), accuracy=int(field("accuracy")), pp=int(field("pp")),
+            target=field("target"), priority=int(field("priority")), strikeCount=1, multiHit=False,
+            makesContact=True, ballisticMove=ballistic, punchingMove=False, sheerForceAffected=False,
+            additionalEffects=[], preAttackEffects=[], abilityFlags=[], immunityFlags=["ballisticMove"] if ballistic else [])
+    return result
+
+
 def parse_electro_metadata(text, ids):
     if ids.get("MOVE_ELECTRO_BALL") != 486:
         raise ValueError("Changed Electro Ball ID")
@@ -931,7 +963,7 @@ def build_maps(upstream_dir):
 def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_flags_by_id,
                     priority_by_id, unknown_priority_ids, ability_flags_by_id,
                     unknown_ability_flags_by_id, contact_by_id, unknown_contact_by_id,
-                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None, earthquake_flags=None, explosion_powers=None, damp_bans=(), unknown_damp_bans=(), underwater_powers=None, status_double=None, status_constants=None, brine=None, speed_power=None, speed_power_table=()):
+                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None, earthquake_flags=None, explosion_powers=None, damp_bans=(), unknown_damp_bans=(), underwater_powers=None, status_double=None, status_constants=None, brine=None, dynamic_power=None, speed_power_table=()):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
     # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
     # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
@@ -1055,8 +1087,9 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    /** Singles explosion: Damp gate, HP=0 at damage, modern Defense, Parental Bond banned. */")
     lines.append("    val fixedSingleHitExplosionMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(explosion_powers or {}))) + ")")
     lines.append("    val explosionPowerById: Map<Int, Int> = mapOf(" + ", ".join(f"{i} to {v}" for i, v in sorted((explosion_powers or {}).items())) + ")")
-    lines.append("    val fixedSingleHitGyroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (speed_power or {}).items() if m.get("fixedSingleHitGyroBall")))) + ")")
-    lines.append("    val fixedSingleHitElectroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (speed_power or {}).items() if m.get("fixedSingleHitElectroBall")))) + ")")
+    lines.append("    val fixedSingleHitGyroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitGyroBall")))) + ")")
+    lines.append("    val fixedSingleHitElectroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitElectroBall")))) + ")")
+    lines.append("    val fixedSingleHitRolloutMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitRollout")))) + ")")
     lines.append("    val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds")
     lines.append("    val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds")
     lines.append("    val electroBallPowerTable: List<Int> = listOf(" + ", ".join(map(str, speed_power_table)) + ")")
@@ -1127,7 +1160,7 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
 
 
 def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_ability_flags_by_id,
-                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None, earthquake_flags=None, explosion_powers=None, underwater_powers=None, status_double=None, status_constants=None, brine=None, speed_power=None):
+                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None, earthquake_flags=None, explosion_powers=None, underwater_powers=None, status_double=None, status_constants=None, brine=None, dynamic_power=None):
     """Render a compact source-derived move metadata map for the ROM-free oracle harness."""
     result = {}
     for move_id, effect in sorted(effect_by_id.items()):
@@ -1168,7 +1201,7 @@ def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_
             skyBattleBanned=move_id == 57,
             additionalEffects=[] if move_id == 57 else [{"moveEffect":"MOVE_EFFECT_WRAP", "chance":0,
                 "sheerForceOverride":False, "preAttackEffect":False, "multistring":"B_MSG_WRAPPED_WHIRLPOOL"}])
-    for move_id, metadata in (speed_power or {}).items():
+    for move_id, metadata in (dynamic_power or {}).items():
         result[str(move_id)].update(metadata)
     for move_id, metadata in (brine or {}).items():
         result[str(move_id)].update(metadata)
@@ -1219,8 +1252,14 @@ def main():
     if set(status_double) != {265,358,474,506,767,772}:
         raise ValueError("Changed status-double IDs")
     brine = parse_brine_metadata(move_text, ids)
-    speed_power = parse_gyro_metadata(move_text, ids)
-    speed_power.update(parse_electro_metadata(move_text, ids))
+    dynamic_power = parse_gyro_metadata(move_text, ids)
+    dynamic_power.update(parse_electro_metadata(move_text, ids))
+    dynamic_power.update(parse_rollout_metadata(move_text, ids))
+    verify_rollout_contract(upstream_dir)
+    effects_header = open(os.path.join(upstream_dir, "include/constants/battle_move_effects.h")).read()
+    effect_names = re.findall(r"^\s*(EFFECT_[A-Z0-9_]+)\s*,", effects_header, re.M)
+    if "=" in effects_header: raise ValueError("Review changed move-effect enum assignments")
+    for move_id in (205,301): dynamic_power[move_id]["effectId"] = effect_names.index("EFFECT_ROLLOUT")
     speed_power_table = electro_power_table(open(os.path.join(upstream_dir, "src/battle_util.c")).read())
     target_by_id[57] = "TARGET_FOES_AND_ALLY"
     for move_id in drain_percentages:
@@ -1295,10 +1334,10 @@ def main():
                                 unknown_flags_by_id, priority_by_id, unknown_priority_ids,
                                 ability_flags_by_id, unknown_ability_flags_by_id,
                                 contact_by_id, unknown_contact_by_id,
-                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages, earthquake_flags, explosion_powers, {ids[s] for s in damp_bans}, {ids[s] for s in unknown_damp_bans}, underwater_powers, status_double, status_constants, brine, speed_power, speed_power_table)
+                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages, earthquake_flags, explosion_powers, {ids[s] for s in damp_bans}, {ids[s] for s in unknown_damp_bans}, underwater_powers, status_double, status_constants, brine, dynamic_power, speed_power_table)
     generated_json = generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id,
                                             unknown_ability_flags_by_id, contact_by_id,
-                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id, earthquake_flags, explosion_powers, underwater_powers, status_double, status_constants, brine, speed_power)
+                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id, earthquake_flags, explosion_powers, underwater_powers, status_double, status_constants, brine, dynamic_power)
 
     # Both inventories are independently regenerated/verified from this same pinned commit.
     inventory_root = os.path.join(DEFAULT_REPO_ROOT, "tools")

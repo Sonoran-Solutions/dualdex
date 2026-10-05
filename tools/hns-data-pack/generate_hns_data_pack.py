@@ -1156,7 +1156,8 @@ def generate_kotlin_source(species_dict, moves_dict, abilities_dict, species_abi
     lines.append("    }")
     lines.append("")
     lines.append("    private fun registerMove(id: Int, name: String, type: PokemonType, category: MoveCategory, power: Int, acc: Int, pp: Int) {")
-    lines.append("        movesMap[id] = MoveInfo(id, name, type, category, power, acc, pp)")
+    lines.append("        movesMap[id] = MoveInfo(id, name, type, category, power, acc, pp,")
+    lines.append('            if (id in Hns205MoveEffects.fixedSingleHitRolloutMoveIds) "Variable (Defense Curl ×2)" else null)')
     lines.append("    }")
     lines.append("")
 

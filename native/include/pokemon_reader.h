@@ -894,6 +894,12 @@ typedef struct {
     bool     selected_gimmick_observed;
     uint8_t  selected_gimmick; // enum Gimmick: NONE when playerSelect is false
     uint16_t analytic_current_move;
+    bool     rollout_state_observed;
+    uint8_t  volatile_rollout_timer;
+    uint8_t  volatile_recharge_timer;
+    bool     volatile_defense_curl;
+    bool     volatile_multiple_turns;
+    uint16_t locked_move;
     bool     analytic_turn_order_observed;
     uint8_t  analytic_turn_order; // 0 UNKNOWN, 1 LAST_TO_MOVE, 2 NOT_LAST_TO_MOVE
     bool doubles_observed;

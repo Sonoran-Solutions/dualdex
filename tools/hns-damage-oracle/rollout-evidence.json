@@ -1,0 +1,354 @@
+{
+  "engineOnly": 124,
+  "executionProofs": [
+    "execution-rollout-chain",
+    "execution-rollout-protect",
+    "execution-rollout-inability",
+    "execution-rollout-switch",
+    "execution-rollout-unaffected",
+    "execution-rollout-faint"
+  ],
+  "hardware": "NOT_RUN",
+  "historicalCount": 2394,
+  "historicalEntryLinesSha256": "93b806dafbe77d3ce81176bab90e1e683bd6406caad5ebd64577e1ec7262f2a9",
+  "historicalObjectsAndCanonicalLinesUnchanged": true,
+  "modelled": 2342,
+  "negativeControlVerified": true,
+  "newEngineOnly": 4,
+  "newModelled": 68,
+  "newScenarios": 72,
+  "realLifecycle": [
+    {
+      "basePower": 30,
+      "defenseCurl": 0,
+      "index": 0,
+      "move": 205,
+      "post": 1,
+      "pre": 0,
+      "setup": 606
+    },
+    {
+      "basePower": 60,
+      "defenseCurl": 0,
+      "index": 1,
+      "move": 205,
+      "post": 2,
+      "pre": 1,
+      "setup": 606
+    },
+    {
+      "basePower": 120,
+      "defenseCurl": 0,
+      "index": 2,
+      "move": 205,
+      "post": 3,
+      "pre": 2,
+      "setup": 606
+    },
+    {
+      "basePower": 240,
+      "defenseCurl": 0,
+      "index": 3,
+      "move": 205,
+      "post": 4,
+      "pre": 3,
+      "setup": 606
+    },
+    {
+      "basePower": 480,
+      "defenseCurl": 0,
+      "index": 4,
+      "move": 205,
+      "post": 0,
+      "pre": 4,
+      "setup": 606
+    },
+    {
+      "basePower": 30,
+      "defenseCurl": 0,
+      "index": 5,
+      "move": 205,
+      "post": 1,
+      "pre": 0,
+      "setup": 606
+    },
+    {
+      "basePower": 30,
+      "defenseCurl": 0,
+      "index": 0,
+      "move": 301,
+      "post": 1,
+      "pre": 0,
+      "setup": 606
+    },
+    {
+      "basePower": 60,
+      "defenseCurl": 0,
+      "index": 1,
+      "move": 301,
+      "post": 2,
+      "pre": 1,
+      "setup": 606
+    },
+    {
+      "basePower": 120,
+      "defenseCurl": 0,
+      "index": 2,
+      "move": 301,
+      "post": 3,
+      "pre": 2,
+      "setup": 606
+    },
+    {
+      "basePower": 240,
+      "defenseCurl": 0,
+      "index": 3,
+      "move": 301,
+      "post": 4,
+      "pre": 3,
+      "setup": 606
+    },
+    {
+      "basePower": 480,
+      "defenseCurl": 0,
+      "index": 4,
+      "move": 301,
+      "post": 0,
+      "pre": 4,
+      "setup": 606
+    },
+    {
+      "basePower": 30,
+      "defenseCurl": 0,
+      "index": 5,
+      "move": 301,
+      "post": 1,
+      "pre": 0,
+      "setup": 606
+    },
+    {
+      "basePower": 60,
+      "defenseCurl": 1,
+      "index": 0,
+      "move": 205,
+      "post": 1,
+      "pre": 0,
+      "setup": 111
+    },
+    {
+      "basePower": 120,
+      "defenseCurl": 1,
+      "index": 1,
+      "move": 205,
+      "post": 2,
+      "pre": 1,
+      "setup": 111
+    },
+    {
+      "basePower": 240,
+      "defenseCurl": 1,
+      "index": 2,
+      "move": 205,
+      "post": 3,
+      "pre": 2,
+      "setup": 111
+    },
+    {
+      "basePower": 480,
+      "defenseCurl": 1,
+      "index": 3,
+      "move": 205,
+      "post": 4,
+      "pre": 3,
+      "setup": 111
+    },
+    {
+      "basePower": 960,
+      "defenseCurl": 1,
+      "index": 4,
+      "move": 205,
+      "post": 0,
+      "pre": 4,
+      "setup": 111
+    },
+    {
+      "basePower": 60,
+      "defenseCurl": 1,
+      "index": 5,
+      "move": 205,
+      "post": 1,
+      "pre": 0,
+      "setup": 111
+    },
+    {
+      "basePower": 60,
+      "defenseCurl": 1,
+      "index": 0,
+      "move": 301,
+      "post": 1,
+      "pre": 0,
+      "setup": 111
+    },
+    {
+      "basePower": 120,
+      "defenseCurl": 1,
+      "index": 1,
+      "move": 301,
+      "post": 2,
+      "pre": 1,
+      "setup": 111
+    },
+    {
+      "basePower": 240,
+      "defenseCurl": 1,
+      "index": 2,
+      "move": 301,
+      "post": 3,
+      "pre": 2,
+      "setup": 111
+    },
+    {
+      "basePower": 480,
+      "defenseCurl": 1,
+      "index": 3,
+      "move": 301,
+      "post": 4,
+      "pre": 3,
+      "setup": 111
+    },
+    {
+      "basePower": 960,
+      "defenseCurl": 1,
+      "index": 4,
+      "move": 301,
+      "post": 0,
+      "pre": 4,
+      "setup": 111
+    },
+    {
+      "basePower": 60,
+      "defenseCurl": 1,
+      "index": 5,
+      "move": 301,
+      "post": 1,
+      "pre": 0,
+      "setup": 111
+    },
+    {
+      "basePower": 30,
+      "defenseCurl": 0,
+      "index": 0,
+      "move": 205,
+      "post": 1,
+      "pre": 0,
+      "setup": 106
+    },
+    {
+      "basePower": 60,
+      "defenseCurl": 0,
+      "index": 1,
+      "move": 205,
+      "post": 2,
+      "pre": 1,
+      "setup": 106
+    },
+    {
+      "basePower": 120,
+      "defenseCurl": 0,
+      "index": 2,
+      "move": 205,
+      "post": 3,
+      "pre": 2,
+      "setup": 106
+    },
+    {
+      "basePower": 240,
+      "defenseCurl": 0,
+      "index": 3,
+      "move": 205,
+      "post": 4,
+      "pre": 3,
+      "setup": 106
+    },
+    {
+      "basePower": 480,
+      "defenseCurl": 0,
+      "index": 4,
+      "move": 205,
+      "post": 0,
+      "pre": 4,
+      "setup": 106
+    },
+    {
+      "basePower": 30,
+      "defenseCurl": 0,
+      "index": 5,
+      "move": 205,
+      "post": 1,
+      "pre": 0,
+      "setup": 106
+    },
+    {
+      "basePower": 30,
+      "defenseCurl": 0,
+      "index": 0,
+      "move": 301,
+      "post": 1,
+      "pre": 0,
+      "setup": 106
+    },
+    {
+      "basePower": 60,
+      "defenseCurl": 0,
+      "index": 1,
+      "move": 301,
+      "post": 2,
+      "pre": 1,
+      "setup": 106
+    },
+    {
+      "basePower": 120,
+      "defenseCurl": 0,
+      "index": 2,
+      "move": 301,
+      "post": 3,
+      "pre": 2,
+      "setup": 106
+    },
+    {
+      "basePower": 240,
+      "defenseCurl": 0,
+      "index": 3,
+      "move": 301,
+      "post": 4,
+      "pre": 3,
+      "setup": 106
+    },
+    {
+      "basePower": 480,
+      "defenseCurl": 0,
+      "index": 4,
+      "move": 301,
+      "post": 0,
+      "pre": 4,
+      "setup": 106
+    },
+    {
+      "basePower": 30,
+      "defenseCurl": 0,
+      "index": 5,
+      "move": 301,
+      "post": 1,
+      "pre": 0,
+      "setup": 106
+    }
+  ],
+  "registeredDivergences": 0,
+  "reversedReplay": {
+    "byteIdentical": true,
+    "corpusSha256": "f287a36244f5dbc09c574f66ca52b2915a619ddf95a0e94f94d5f76c96ca1c1f",
+    "entries": 2466
+  },
+  "startingSha": "f6c300e508a33e3d58c8c0d4c423febec1cbe429",
+  "total": 2466
+}

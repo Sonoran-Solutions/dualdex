@@ -230,6 +230,13 @@ object HnsCalcCensusBaseline {
                 volatileTarShot = false,
                 personalityObserved = true,
                 personality = 255,
+                // Explicit neutral first-use witness: execution-rollout-chain after Celebrate.
+                // Production never supplies these values for unread operands.
+                rolloutTimer = 0,
+                rechargeTimer = 0,
+                defenseCurl = false,
+                multipleTurns = false,
+                lockedMove = 0,
                 groupDVolatilesObserved = true,
                 firstTurnObserved = true,
                 isFirstTurn = 0,

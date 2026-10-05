@@ -460,6 +460,8 @@ enum class CalcLimitation {
 
     HNS_EFFECTIVE_SPEED_UNKNOWN,
     HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO,
+    HNS_ROLLOUT_STATE_UNKNOWN,
+    HNS_ROLLOUT_PHASE_OR_LOCK_INCONSISTENT,
 
     /** Required defender status word is unread or outside the pinned status domain. */
     HNS_DEFENDER_STATUS_UNKNOWN,
@@ -641,6 +643,8 @@ enum class CalcLimitation {
             HNS_DEFENDER_HP_UNKNOWN,
             HNS_EFFECTIVE_SPEED_UNKNOWN,
             HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO,
+            HNS_ROLLOUT_STATE_UNKNOWN,
+            HNS_ROLLOUT_PHASE_OR_LOCK_INCONSISTENT,
             HNS_DEFENDER_STATUS_UNKNOWN,
             HNS_ABILITY_CONDITION_UNVERIFIED,
             HNS_LIVE_WEATHER_UNKNOWN,
@@ -996,6 +1000,8 @@ data class CalcCapabilityVerdict(
                 "the battle's gimmick state (Tera/Dynamax/Z) could not be read"
             CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED ->
                 "a battle gimmick (Tera/Dynamax/Z) is active and is not modelled by this calculation"
+            CalcLimitation.HNS_ROLLOUT_STATE_UNKNOWN -> "current Rollout / Ice Ball state is unread or outside the reviewed Singles domain"
+            CalcLimitation.HNS_ROLLOUT_PHASE_OR_LOCK_INCONSISTENT -> "Rollout / Ice Ball phase, counter, recharge or active move lock is unsupported or inconsistent"
             CalcLimitation.HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO -> "the pinned Electro Ball formula has no reviewed zero-divisor branch"
             CalcLimitation.HNS_EFFECTIVE_SPEED_UNKNOWN -> "the source effective-Speed operands are unread or unsupported"
             CalcLimitation.HNS_DEFENDER_HP_UNKNOWN ->
@@ -1914,6 +1920,14 @@ object CalcCapabilityPolicy {
             if (hp == null || maxHp == null || maxHp !in 1..65535 || hp !in 1..maxHp)
                 limitations.add(CalcLimitation.HNS_DEFENDER_HP_UNKNOWN)
             when (live?.defenderSemiInvulnerableState) {
+                0 -> Unit
+                null -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN)
+                else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
+            }
+        }
+        if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ROLLOUT) {
+            HnsRolloutAuthority.forRequest(request).limitation?.let(limitations::add)
+            when (request.hnsLiveBattleState?.defenderSemiInvulnerableState) {
                 0 -> Unit
                 null -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN)
                 else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
